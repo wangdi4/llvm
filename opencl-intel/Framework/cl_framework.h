@@ -31,6 +31,10 @@
 
 #include "cl.h"
 
+/**
+* cl_err_code
+* initial data type which represents the return values inside the framework
+*/
 typedef cl_int	cl_err_code;
 
 /**
@@ -43,20 +47,31 @@ typedef cl_int	cl_err_code;
 * CL_FAILED
 * Checks whether a return code is failure
 */
-#define CL_FAILED(code)			(CL_SUCCESS > (code))
-
-#define CL_ERR_OUT(code)		((code) <= CL_INT_ERR_START) ? CL_INVALID_VALUE : (code)
+#define CL_FAILED(code)				(CL_SUCCESS > (code))
 
 /**
-* custom error codes
+* CL_ERR_OUT
+* filter internal error codes
 */
-#define		CL_INT_ERR_START				-799
-#define		CL_INT_NOT_IMPLEMENTED			-800
-#define		CL_INT_INITILIZATION_FAILED		-801
-#define		CL_INT_PLATFORM_FAILED			-802
-#define		CL_INT_CONTEXT_FAILED			-803
-#define		CL_INT_EXECUTION_FAILED			-804
+#define CL_ERR_OUT(code)			((code) <= CL_INT_ERR_START) ? CL_INVALID_VALUE : (code)
 
+/**
+* internal error codes
+*/
+#define		CL_INT_ERR_START				-800	// marker
+//////////////////////////////////////////////////////////////////////////
+#define		CL_INT_NOT_IMPLEMENTED			-801
+#define		CL_INT_INITILIZATION_FAILED		-802
+#define		CL_INT_PLATFORM_FAILED			-803
+#define		CL_INT_CONTEXT_FAILED			-804
+#define		CL_INT_EXECUTION_FAILED			-805
+//////////////////////////////////////////////////////////////////////////
+#define		CL_INT_ERR_END					-899	// marker
+
+/**
+* ClErrTxt
+* returns a wide-character string of the error code
+*/
 CL_API_ENTRY wchar_t* ClErrTxt(cl_err_code error_code);
 
 #endif /*!defined(OCL_FRAMEWORK_H_)*/
