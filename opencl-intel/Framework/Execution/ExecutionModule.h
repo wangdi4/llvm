@@ -1,0 +1,53 @@
+// Copyright (c) 2006-2007 Intel Corporation
+// All rights reserved.
+// 
+// WARRANTY DISCLAIMER
+// 
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+#pragma once
+///////////////////////////////////////////////////////////
+//  ExecutionModule.h
+//  Implementation of the Class ExecutionModule
+//  Created on:      10-Dec-2008 2:11:51 PM
+//  Original author: arnonp
+///////////////////////////////////////////////////////////
+
+#if !defined(EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_)
+#define EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_
+
+#include "..\cl_framework.h"
+#include "..\Context\ContextModule.h"
+#include "..\Platform\PlatformModule.h"
+//#include "CommandQueue.h"
+
+namespace Intel { namespace OpenCL { namespace Framework {
+
+	/**
+	 * ExecutionModule class
+	 * the platform module responsible of all execution related operations. this might
+	 * include queues events etc.
+	 */
+	class ExecutionModule
+	{
+
+	public:
+		ExecutionModule();
+		virtual ~ExecutionModule();
+	};
+
+}}};
+#endif // !defined(EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_)
