@@ -30,6 +30,7 @@
 #include "Platform\PlatformModule.h"
 #include "Context\ContextModule.h"
 #include "Execution\ExecutionModule.h"
+#include "Logger.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -52,6 +53,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ContextModule *				GetContextModule();
 		ExecutionModule *			GetExecutionModule();
 		PlatformModule *			GetPlatformModule();
+
+
 		
 	private:
 		FrameworkFactory();
@@ -68,6 +71,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		PlatformModule * m_PlatformModule;
 		ContextModule * m_ContextModule;
 		ExecutionModule * m_ExecutionModule;
+
+		FileLogHandler * m_pFileLogHandler;
 
 	};
 

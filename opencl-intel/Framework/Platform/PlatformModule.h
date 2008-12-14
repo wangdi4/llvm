@@ -29,8 +29,9 @@
 #if !defined(OCL_PLATFORM_MODULE_H_)
 #define OCL_PLATFORM_MODULE_H_
 
-#include "..\cl_framework.h"
+#include "cl_framework.h"
 #include "..\OCLObjectInfo.h"
+#include "Logger.h"
 //#include "Device.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -80,6 +81,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										size_t* param_value_size_ret );
 
 	private:
+
+		LoggerClient * m_pPlatformLoggerClient;
 
 		OCLObjectInfo *	m_pObjectInfo;
 		

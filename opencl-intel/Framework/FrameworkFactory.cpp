@@ -7,16 +7,18 @@
 ///////////////////////////////////////////////////////////
 
 #include "FrameworkFactory.h"
+#include "Logger.h"
 
 using namespace Intel::OpenCL::Framework;
 
 FrameworkFactory * FrameworkFactory::m_pInstance = NULL;
 
-FrameworkFactory::FrameworkFactory() : 
-m_PlatformModule(NULL),
-m_ContextModule(NULL),
-m_ExecutionModule(NULL)
+FrameworkFactory::FrameworkFactory()
 {
+	m_PlatformModule = NULL;
+	m_ContextModule = NULL;
+	m_ExecutionModule = NULL;
+	m_pFileLogHandler = NULL;
 	Initialize();
 }
 FrameworkFactory::~FrameworkFactory()
@@ -26,12 +28,19 @@ FrameworkFactory::~FrameworkFactory()
 
 void FrameworkFactory::Initialize()
 {
+	m_pFileLogHandler = new FileLogHandler(L"cl_framework");
+	m_pFileLogHandler->Init(LEVEL_DEBUG, L"C:\\cl.log");
+	Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
+
 	m_PlatformModule = new PlatformModule();
 	m_PlatformModule->Initialize();
 }
 
 void FrameworkFactory::Release()
 {
+	m_pFileLogHandler->Flush();
+	delete m_pFileLogHandler;
+
 	if (NULL != m_pInstance)
 	{
 		delete m_pInstance;

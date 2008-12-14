@@ -29,7 +29,7 @@
 #if !defined(EA_7576EEE7_E9A5_46a8_8374_129A4A695B6C__INCLUDED_)
 #define EA_7576EEE7_E9A5_46a8_8374_129A4A695B6C__INCLUDED_
 
-#include "..\cl_framework.h"
+#include "cl_framework.h"
 #include "..\Platform\PlatformModule.h"
 //#include "Context.h"
 

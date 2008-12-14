@@ -37,7 +37,7 @@ const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatfo
 
 PlatformModule::PlatformModule()
 {
-
+	m_pPlatformLoggerClient = NULL;
 }
 
 
@@ -48,6 +48,9 @@ PlatformModule::~PlatformModule()
 
 cl_err_code	PlatformModule::Initialize()
 {
+	m_pPlatformLoggerClient = new LoggerClient(L"Platform Module",LEVEL_DEBUG);
+	InfoLog(m_pPlatformLoggerClient,L"Platform module logger initialized");
+
 	m_pObjectInfo = new OCLObjectInfo();
 	
 	if (m_pObjectInfo != NULL)
@@ -80,6 +83,10 @@ cl_err_code	PlatformModule::Release()
 			delete pParam;
 		}
 	}
+
+	InfoLog(m_pPlatformLoggerClient,L"Platform module logger release");
+	delete m_pPlatformLoggerClient;
+
 	return CL_SUCCESS;
 }
 

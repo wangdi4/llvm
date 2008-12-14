@@ -44,9 +44,27 @@ cl_err_code OCLObjectInfo::SetParam(cl_int param_name, OCLObjectInfoParam * pPar
 
 OCLObjectInfoParam::OCLObjectInfoParam(cl_int param_name, size_t param_value_size, void * param_value)
 {
+	// assign parameter's name
 	m_iParamName = param_name;
+	// assign parameter's value size
 	m_szParamSize = param_value_size;
-	m_pParamValue = param_value;
+	// allocate new chars array for data
+	m_pParamValue = new char[m_szParamSize];
+	if (NULL == m_pParamValue)
+	{
+		// memory allocation failed
+		m_iParamName = -1;
+		m_szParamSize = 0;
+	}
+	// copy data from user to parameter
+	errno_t err = memcpy_s(m_pParamValue, m_szParamSize, param_value, param_value_size);
+	if (0 != err)
+	{
+		// copy failed
+		m_iParamName = -1;
+		m_szParamSize = 0;
+		m_pParamValue = NULL;
+	}
 }
 
 OCLObjectInfoParam::OCLObjectInfoParam()
@@ -56,6 +74,12 @@ OCLObjectInfoParam::OCLObjectInfoParam()
 
 OCLObjectInfoParam::~OCLObjectInfoParam()
 {
+	if (m_szParamSize > 0)
+	{
+		delete[] m_pParamValue;
+		m_pParamValue = NULL;
+		m_szParamSize = 0;
+	}
 }
 
 

@@ -29,7 +29,7 @@
 #if !defined(EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_)
 #define EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_
 
-#include "..\cl_framework.h"
+#include "cl_framework.h"
 #include "..\Context\ContextModule.h"
 #include "..\Platform\PlatformModule.h"
 //#include "CommandQueue.h"
