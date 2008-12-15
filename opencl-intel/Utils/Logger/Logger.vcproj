@@ -173,7 +173,7 @@
 				AdditionalIncludeDirectories=".;..\..\include;..\..\Framework;..\..\..\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;LOGGER_LIB"
 				RuntimeLibrary="0"
-				UsePrecompiledHeader="2"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>

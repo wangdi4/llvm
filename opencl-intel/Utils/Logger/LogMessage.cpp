@@ -35,7 +35,7 @@ using namespace Intel::OpenCL::Framework;
 /////////////////////////////////////////////////////////////////////////////////////////
 // LogMessage Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-LogMessage::LogMessage(LogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+LogMessage::LogMessage(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
 {
     m_logLevel      = level;
     m_message       = message;
@@ -78,19 +78,19 @@ void LogMessage::CreateFormattedMessage()
 	// write log level
 	switch (m_logLevel)
 	{
-	case LEVEL_DEBUG:
+	case LL_DEBUG:
 		wcscat_s( szLine, MAX_LOG_STRING_LENGTH, L"DEBUG\t" );
 		break;
-	case LEVEL_INFO:
+	case LL_INFO:
 		wcscat_s( szLine, MAX_LOG_STRING_LENGTH, L"INFO\t" );
 		break;
-	case LEVEL_ERROR:
+	case LL_ERROR:
 		wcscat_s( szLine, MAX_LOG_STRING_LENGTH, L"ERROR\t" );
 		break;
-	case LEVEL_CRITICAL:
+	case LL_CRITICAL:
 		wcscat_s( szLine, MAX_LOG_STRING_LENGTH, L"CRITICAL\t" );
 		break;
-	case LEVEL_STATISTIC:
+	case LL_STATISTIC:
 		wcscat_s( szLine, MAX_LOG_STRING_LENGTH, L"STATISTIC\t" );
 		break;
 	}

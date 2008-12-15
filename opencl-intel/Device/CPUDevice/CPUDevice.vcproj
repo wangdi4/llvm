@@ -116,6 +116,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;..\include;.;..\..\..\include;..\..\include;..\..\..\include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORT"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"

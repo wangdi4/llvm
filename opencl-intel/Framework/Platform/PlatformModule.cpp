@@ -48,16 +48,17 @@ PlatformModule::~PlatformModule()
 
 cl_err_code	PlatformModule::Initialize()
 {
-	m_pPlatformLoggerClient = new LoggerClient(L"Platform Module",LEVEL_DEBUG);
+	m_pPlatformLoggerClient = new LoggerClient(L"PlatformModule",LL_DEBUG);
 	InfoLog(m_pPlatformLoggerClient,L"Platform module logger initialized");
 
 	m_pObjectInfo = new OCLObjectInfo();
 	
 	if (m_pObjectInfo != NULL)
 	{
+		//m_pObjectInfo->SetString(CL_PLATFORM_PROFILE, m_uiPlatformInfoStrSize, m_vPlatformInfoStr);
 		OCLObjectInfoParam * pParam = new OCLObjectInfoParam(CL_PLATFORM_PROFILE, m_uiPlatformInfoStrSize, (void*) m_vPlatformInfoStr);
 		m_pObjectInfo->SetParam(CL_PLATFORM_PROFILE, pParam);
-
+		//m_pObjectInfo->SetString(CL_PLATFORM_VERSION, m_uiPlatformVersionStrSize, m_vPlatformVersionStr);
 		pParam = new OCLObjectInfoParam(CL_PLATFORM_VERSION, m_uiPlatformVersionStrSize, (void*) m_vPlatformVersionStr);
 		m_pObjectInfo->SetParam(CL_PLATFORM_VERSION, pParam);
 	}

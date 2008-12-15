@@ -103,10 +103,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* SetParam
 		* The functions set the parameter object in the information object
 		* Return values:
-		* CL_SUCCESS - if the information parameters was set  successfully
-		* information object
+		* CL_SUCCESS - if the information parameters was set successfully in the information object
 		*/
 		cl_err_code SetParam(cl_int param_name, OCLObjectInfoParam * pParam);
+
+		/**
+		* SetString
+		* set an array of chars in the information object
+		* Return values:
+		* CL_SUCCESS - if the information parameters was set successfully in the information object
+		*/
+		cl_err_code SetString(cl_int param_name, const size_t length, const char str[]);
 
 	private:
 		map<cl_int, OCLObjectInfoParam*>	m_mapInfoParams;

@@ -20,8 +20,8 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////
-//  FrameworkFactory.h
-//  Implementation of the Class FrameworkFactory
+//  FrameworkProxy.h
+//  Implementation of the Class FrameworkProxy
 //  Created on:      10-Dec-2008 8:45:02 AM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
@@ -34,13 +34,18 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class FrameworkFactory
+	/**
+	* class FrameworkProxy
+	*
+	* the framework proxy class design to pass the OpenCL api calls to the framework's moduls
+	**/
+	class FrameworkProxy
 	{
 	public:
 		
 		/**
 		* Instance
-		* Description: Get the instance of the framework factory module. 
+		* Description: Get the instance of the framework proxt module. 
 		* Input Parameters: 
 		*	None
 		* Output Parameters: 
@@ -48,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Returns:
 		*	FrameworkFactory* - instance to the framework factory
 		*/
-		static	FrameworkFactory *	Instance();
+		static	FrameworkProxy *	Instance();
 
 		ContextModule *				GetContextModule();
 		ExecutionModule *			GetExecutionModule();
@@ -57,8 +62,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		
 	private:
-		FrameworkFactory();
-		virtual ~FrameworkFactory();
+		FrameworkProxy();
+		virtual ~FrameworkProxy();
 
 		void						Initialize();
 		void						Release();
@@ -66,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/**
 		* static instance of the framework factory class
 		*/
-		static  FrameworkFactory * m_pInstance;
+		static  FrameworkProxy * m_pInstance;
 		
 		PlatformModule * m_PlatformModule;
 		ContextModule * m_ContextModule;

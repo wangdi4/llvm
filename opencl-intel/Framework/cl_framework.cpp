@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 #include "cl_framework.h"
-#include "FrameworkFactory.h"
+#include "FrameworkProxy.h"
 
 using namespace Intel::OpenCL::Framework;
 
@@ -30,14 +30,14 @@ cl_int clGetPlatformInfo(cl_platform_info param_name,
 						 size_t* param_value_size_ret)
 {
 	// get instance of the framework factory class
-	FrameworkFactory* pFrameworkFactory = Intel::OpenCL::Framework::FrameworkFactory::Instance();
-	if (NULL == pFrameworkFactory)
+	FrameworkProxy* pFramework = Intel::OpenCL::Framework::FrameworkProxy::Instance();
+	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
 		CL_INT_INITILIZATION_FAILED;
 	}
 	// get the platform module
-	PlatformModule *pPlatformModule = pFrameworkFactory->GetPlatformModule();
+	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
 	if (NULL == pPlatformModule)
 	{
 		CL_INT_PLATFORM_FAILED;
@@ -56,15 +56,15 @@ cl_int clGetDeviceIDs(cl_device_type device_type,
 			          cl_uint* num_devices)
 {
 	// get instance of the framework factory class
-	FrameworkFactory* pFrameworkFactory = Intel::OpenCL::Framework::FrameworkFactory::Instance();
-	if (NULL == pFrameworkFactory)
+	FrameworkProxy* pFramework = Intel::OpenCL::Framework::FrameworkProxy::Instance();
+	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
 		CL_INT_INITILIZATION_FAILED;
 	}
 	// get the platform module
-	PlatformModule *pPlatformModule = pFrameworkFactory->GetPlatformModule();
-	if (NULL == pFrameworkFactory)
+	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
+	if (NULL == pPlatformModule)
 	{
 		CL_INT_PLATFORM_FAILED;
 	}
@@ -78,15 +78,15 @@ cl_int clGetDeviceInfo(cl_device_id device,
 					   size_t* param_value_size_ret)
 {
 	// get instance of the framework factory class
-	FrameworkFactory* pFrameworkFactory = FrameworkFactory::Instance();
-	if (NULL == pFrameworkFactory)
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
 		CL_INT_INITILIZATION_FAILED;
 	}
 	// get the platform module
-	PlatformModule *pPlatformModule = pFrameworkFactory->GetPlatformModule();
-	if (NULL == pFrameworkFactory)
+	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
+	if (NULL == pPlatformModule)
 	{
 		CL_INT_PLATFORM_FAILED;
 	}

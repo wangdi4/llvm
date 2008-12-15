@@ -6,14 +6,14 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "FrameworkFactory.h"
+#include "FrameworkProxy.h"
 #include "Logger.h"
 
 using namespace Intel::OpenCL::Framework;
 
-FrameworkFactory * FrameworkFactory::m_pInstance = NULL;
+FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 
-FrameworkFactory::FrameworkFactory()
+FrameworkProxy::FrameworkProxy()
 {
 	m_PlatformModule = NULL;
 	m_ContextModule = NULL;
@@ -21,22 +21,22 @@ FrameworkFactory::FrameworkFactory()
 	m_pFileLogHandler = NULL;
 	Initialize();
 }
-FrameworkFactory::~FrameworkFactory()
+FrameworkProxy::~FrameworkProxy()
 {
 	Release();
 }
 
-void FrameworkFactory::Initialize()
+void FrameworkProxy::Initialize()
 {
 	m_pFileLogHandler = new FileLogHandler(L"cl_framework");
-	m_pFileLogHandler->Init(LEVEL_DEBUG, L"C:\\cl.log");
+	m_pFileLogHandler->Init(LL_DEBUG, L"C:\\cl.log");
 	Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
 
 	m_PlatformModule = new PlatformModule();
 	m_PlatformModule->Initialize();
 }
 
-void FrameworkFactory::Release()
+void FrameworkProxy::Release()
 {
 	m_pFileLogHandler->Flush();
 	delete m_pFileLogHandler;
@@ -54,11 +54,11 @@ void FrameworkFactory::Release()
 * CFrameworkFactory* - referense to the instance of the framework factory class
 * 
 */
-FrameworkFactory* FrameworkFactory::Instance()
+FrameworkProxy* FrameworkProxy::Instance()
 {
 	if (NULL == m_pInstance)
 	{
-		m_pInstance = new FrameworkFactory();
+		m_pInstance = new FrameworkProxy();
 	}
 	return m_pInstance;
 }
@@ -67,7 +67,7 @@ FrameworkFactory* FrameworkFactory::Instance()
 * GetContextModule
 * get the context module
 */
-ContextModule* FrameworkFactory::GetContextModule(){
+ContextModule* FrameworkProxy::GetContextModule(){
 
 	return  NULL;
 }
@@ -77,7 +77,7 @@ ContextModule* FrameworkFactory::GetContextModule(){
 * GetExecutionModule
 * get the execution model
 */
-ExecutionModule* FrameworkFactory::GetExecutionModule(){
+ExecutionModule* FrameworkProxy::GetExecutionModule(){
 
 	return  NULL;
 }
@@ -87,7 +87,7 @@ ExecutionModule* FrameworkFactory::GetExecutionModule(){
 * GetPlatformModule
 * get the platform module
 */
-PlatformModule* FrameworkFactory::GetPlatformModule(){
+PlatformModule* FrameworkProxy::GetPlatformModule(){
 
 	return  m_PlatformModule;
 }

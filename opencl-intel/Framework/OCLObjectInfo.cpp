@@ -41,6 +41,19 @@ cl_err_code OCLObjectInfo::SetParam(cl_int param_name, OCLObjectInfoParam * pPar
 	return  CL_SUCCESS;
 }
 
+cl_err_code OCLObjectInfo::SetString(cl_int param_name, const size_t length, const char str[])
+{
+	// check input parameters
+	if (NULL == str || length < (-1) )
+	{
+		return CL_INVALID_VALUE;
+	}
+	// create new object info param
+	OCLObjectInfoParam * pParam = new OCLObjectInfoParam(param_name, length, (void*)str);
+	//set param in the information object
+	return SetParam(param_name, pParam);
+}
+
 
 OCLObjectInfoParam::OCLObjectInfoParam(cl_int param_name, size_t param_value_size, void * param_value)
 {

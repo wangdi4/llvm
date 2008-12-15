@@ -83,7 +83,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void Logger::Log(LogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+void Logger::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
 {        
     LogMessage	logMessage(level, sourceFile, functionName, sourceLine, message, va);    
     for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
@@ -108,7 +108,7 @@ wchar_t*  Logger::GetLogHandlerParams(wchar_t* logHandler)
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-LoggerClient::LoggerClient(wchar_t* clientHandle, LogLevel loglevel)
+LoggerClient::LoggerClient(wchar_t* clientHandle, ELogLevel loglevel)
 {   
   
     m_logLevel = loglevel;	
@@ -126,7 +126,7 @@ inline LoggerClient::~LoggerClient()
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void LoggerClient::Log(LogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, ...)
+void LoggerClient::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, ...)
 {         
     if (m_logLevel > level)
     {

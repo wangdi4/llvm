@@ -68,7 +68,7 @@ FileLogHandler::~FileLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(LogLevel level, wchar_t* fileName)
+cl_err_code FileLogHandler::Init(ELogLevel level, wchar_t* fileName)
 {   
     if (m_handle == NULL)
 	{
@@ -151,7 +151,7 @@ ConsoleLogHandler::ConsoleLogHandler(wchar_t* handle)
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code ConsoleLogHandler::Init(LogLevel level, wchar_t* fileName)
+cl_err_code ConsoleLogHandler::Init(ELogLevel level, wchar_t* fileName)
 {    
     if (m_handle == NULL)
 	{
