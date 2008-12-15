@@ -1,0 +1,157 @@
+// CpuDevice.cpp : Defines the entry point for the DLL application.
+//
+
+#include "stdafx.h"
+#include "DummyDevice.h"
+
+using namespace Intel::OpenCL;
+
+// Static members initialization
+DummyDevice* DummyDevice::m_pDevInstance = NULL;
+
+DummyDevice::DummyDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
+{
+}
+
+
+// ---------------------------------------
+// Public functions / Device entry points
+
+DummyDevice* DummyDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
+{
+	// TODO : ADD log
+	if ( NULL == m_pDevInstance )
+	{
+		m_pDevInstance = new DummyDevice(devId, devCallbacks, logDesc);
+	}
+
+	return m_pDevInstance;
+}
+
+DummyDevice* DummyDevice::GetInstance()
+{
+	return m_pDevInstance;
+}
+
+// Device entry points
+cl_int DummyDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
+				size_t* OUT param_val_size_ret)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
+				cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+						size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem* IN memObj )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
+						 void* OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
+				   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevUnloadCompiler()
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret)
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
+						 size_t* OUT num_kernels_ret )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
+					void* OUT value, size_t* OUT value_size_ret )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
