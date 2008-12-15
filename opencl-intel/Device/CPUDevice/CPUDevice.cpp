@@ -2,7 +2,7 @@
 //
 
 #include "stdafx.h"
-#include "device_api.h"
+#include "cl_device_api.h"
 
 #ifdef _MANAGED
 #pragma managed(push, off)
@@ -13,7 +13,7 @@
 #pragma managed(pop)
 #endif
 
-cl_dev_err_code clDevCreateDevice(	cl_uint	dev_id,
+cl_int clDevCreateDevice(	cl_uint	dev_id,
 									cl_dev_entry_points	*pDevEntry,
 									cl_dev_call_backs	*pDevCallBacks
 									)

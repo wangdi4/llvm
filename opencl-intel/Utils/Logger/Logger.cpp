@@ -25,6 +25,7 @@
  *  Original author: ulevy                     
  ****************************************************/
 #include "Logger.h"
+
 #include <stdio.h>
 #include <stdarg.h>         
 #include <windows.h>            // required by: GetCurrentThreadId()
