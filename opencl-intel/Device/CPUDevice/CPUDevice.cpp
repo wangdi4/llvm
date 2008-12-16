@@ -205,7 +205,7 @@ cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem* IN memObj )
 }
 
 cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-						 void* OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

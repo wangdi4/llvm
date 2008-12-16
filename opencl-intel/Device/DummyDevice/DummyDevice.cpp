@@ -1,4 +1,24 @@
-// CpuDevice.cpp : Defines the entry point for the DLL application.
+// Copyright (c) 2006-2008 Intel Corporation
+// All rights reserved.
+// 
+// WARRANTY DISCLAIMER
+// 
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+// DummyDevice.cpp : Defines the entry point for the DLL application.
 //
 
 #include "stdafx.h"
@@ -86,7 +106,7 @@ cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem* IN memObj )
 }
 
 cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-						 void* OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
