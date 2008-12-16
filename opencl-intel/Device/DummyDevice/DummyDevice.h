@@ -20,7 +20,7 @@
 
 /*
 *
-* File CPUDevice.h
+* File DummyDevice.h
 * declares C++ interface between the device and the Open CL frame work.
 *
 */
