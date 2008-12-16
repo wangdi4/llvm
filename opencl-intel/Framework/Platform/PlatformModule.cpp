@@ -98,7 +98,7 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info param_name,
 {
 	if (NULL == m_pObjectInfo)
 	{
-		return CL_INT_INITILIZATION_FAILED;
+		return CL_ERR_INITILIZATION_FAILED;
 	}
 	if (NULL == param_value || NULL == param_value_size_ret)
 	{
@@ -125,7 +125,7 @@ cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type device_type,
 										 cl_device_id* devices, 
 										 cl_uint* num_devices)
 {
-	return CL_INT_NOT_IMPLEMENTED;
+	return CL_ERR_NOT_IMPLEMENTED;
 }
 
 cl_err_code	PlatformModule::clGetDeviceInfo(cl_device_id device,
@@ -134,5 +134,5 @@ cl_err_code	PlatformModule::clGetDeviceInfo(cl_device_id device,
 											void* param_value,
 											size_t* param_value_size_ret)
 {
-	return CL_INT_NOT_IMPLEMENTED;
+	return CL_ERR_NOT_IMPLEMENTED;
 }

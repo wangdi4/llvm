@@ -11,6 +11,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
+char clFRAMEWORK_CFG_PATH[MAX_PATH];
+
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 
 FrameworkProxy::FrameworkProxy()
@@ -19,6 +21,7 @@ FrameworkProxy::FrameworkProxy()
 	m_ContextModule = NULL;
 	m_ExecutionModule = NULL;
 	m_pFileLogHandler = NULL;
+	m_pConfigFile = NULL;
 	Initialize();
 }
 FrameworkProxy::~FrameworkProxy()
@@ -28,8 +31,20 @@ FrameworkProxy::~FrameworkProxy()
 
 void FrameworkProxy::Initialize()
 {
+	m_pConfigFile = new ConfigFile(clFRAMEWORK_CFG_PATH);
+
+	string str = m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, "C:\\cl.cfg");
+	//null-call to get the size
+	size_t needed = ::mbstowcs(NULL,&str[0],str.length());
+	// allocate
+	std::wstring wstr;
+	wstr.resize(needed);
+	// real call
+	::mbstowcs(&wstr[0],&str[0],str.length());
+	const wchar_t *pout = wstr.c_str();
+
 	m_pFileLogHandler = new FileLogHandler(L"cl_framework");
-	m_pFileLogHandler->Init(LL_DEBUG, L"C:\\cl.log");
+	m_pFileLogHandler->Init(LL_DEBUG, pout);
 	Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
 
 	m_PlatformModule = new PlatformModule();

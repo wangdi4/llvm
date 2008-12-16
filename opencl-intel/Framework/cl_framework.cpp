@@ -11,11 +11,11 @@ wchar_t* ClErrTxt(cl_err_code error_code)
 {
 	switch(error_code)
 	{
-	case (CL_INT_NOT_IMPLEMENTED): return L"CL_INT_NOT_IMPLEMENTED";
-	case (CL_INT_INITILIZATION_FAILED): return L"CL_INT_INITILIZATION_FAILED";
-	case (CL_INT_PLATFORM_FAILED): return L"CL_INT_PLATFORM_FAILED";
-	case (CL_INT_CONTEXT_FAILED): return L"CL_INT_CONTEXT_FAILED";
-	case (CL_INT_EXECUTION_FAILED): return L"CL_INT_EXECUTION_FAILED";
+	case (CL_ERR_NOT_IMPLEMENTED): return L"CL_ERR_NOT_IMPLEMENTED";
+	case (CL_ERR_INITILIZATION_FAILED): return L"CL_ERR_INITILIZATION_FAILED";
+	case (CL_ERR_PLATFORM_FAILED): return L"CL_ERR_PLATFORM_FAILED";
+	case (CL_ERR_CONTEXT_FAILED): return L"CL_ERR_CONTEXT_FAILED";
+	case (CL_ERR_EXECUTION_FAILED): return L"CL_ERR_EXECUTION_FAILED";
 	default: return L"Unknown Error Code";
 	}
 }
@@ -34,13 +34,13 @@ cl_int clGetPlatformInfo(cl_platform_info param_name,
 	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
-		CL_INT_INITILIZATION_FAILED;
+		CL_ERR_INITILIZATION_FAILED;
 	}
 	// get the platform module
 	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
 	if (NULL == pPlatformModule)
 	{
-		CL_INT_PLATFORM_FAILED;
+		CL_ERR_PLATFORM_FAILED;
 	}
 	cl_err_code clRet = pPlatformModule->GetPlatformInfo(param_name, param_value_size, param_value, param_value_size_ret);
 	return (CL_ERR_OUT(clRet));
@@ -60,15 +60,15 @@ cl_int clGetDeviceIDs(cl_device_type device_type,
 	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
-		CL_INT_INITILIZATION_FAILED;
+		CL_ERR_INITILIZATION_FAILED;
 	}
 	// get the platform module
 	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
 	if (NULL == pPlatformModule)
 	{
-		CL_INT_PLATFORM_FAILED;
+		CL_ERR_PLATFORM_FAILED;
 	}
-	return CL_INT_NOT_IMPLEMENTED;
+	return CL_ERR_NOT_IMPLEMENTED;
 }
 
 cl_int clGetDeviceInfo(cl_device_id device,
@@ -82,13 +82,13 @@ cl_int clGetDeviceInfo(cl_device_id device,
 	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
-		CL_INT_INITILIZATION_FAILED;
+		CL_ERR_INITILIZATION_FAILED;
 	}
 	// get the platform module
 	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
 	if (NULL == pPlatformModule)
 	{
-		CL_INT_PLATFORM_FAILED;
+		CL_ERR_PLATFORM_FAILED;
 	}
-	return CL_INT_NOT_IMPLEMENTED;
+	return CL_ERR_NOT_IMPLEMENTED;
 }

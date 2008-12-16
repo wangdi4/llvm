@@ -32,7 +32,7 @@ using namespace Intel::OpenCL::Framework;
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::FileLogHandler(wchar_t* handle)
+FileLogHandler::FileLogHandler(const wchar_t* handle)
 {
     if (handle)
     {
@@ -68,11 +68,11 @@ FileLogHandler::~FileLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(ELogLevel level, wchar_t* fileName)
+cl_err_code FileLogHandler::Init(ELogLevel level, const wchar_t* fileName)
 {   
     if (m_handle == NULL)
 	{
-        return CL_INT_INITILIZATION_FAILED;
+        return CL_ERR_INITILIZATION_FAILED;
 	}
 
     m_logLevel = level;       // retrieve this info from Logger (not implemented yet)
@@ -82,16 +82,16 @@ cl_err_code FileLogHandler::Init(ELogLevel level, wchar_t* fileName)
     {
         errno_t err;
 
-        if(err = _wfopen_s(&m_fileHandler, m_fileName, L"wb" ))
+        if(err = _wfopen_s(&m_fileHandler, m_fileName, L"a+" ))
         {
             wprintf(L"can't open log file for writing\n");
-            return CL_INT_LOGGER_FAILED;
+            return CL_ERR_LOGGER_FAILED;
         }    
         assert (m_fileHandler != NULL);
 		return CL_SUCCESS;  
     }
     
-	return CL_INT_LOGGER_FAILED;              
+	return CL_ERR_LOGGER_FAILED;              
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +135,7 @@ void FileLogHandler::Flush()
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-ConsoleLogHandler::ConsoleLogHandler(wchar_t* handle)
+ConsoleLogHandler::ConsoleLogHandler(const wchar_t* handle)
 {
     if (handle)
     {
@@ -151,11 +151,11 @@ ConsoleLogHandler::ConsoleLogHandler(wchar_t* handle)
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code ConsoleLogHandler::Init(ELogLevel level, wchar_t* fileName)
+cl_err_code ConsoleLogHandler::Init(ELogLevel level, const wchar_t* fileName)
 {    
     if (m_handle == NULL)
 	{
-        return CL_INT_INITILIZATION_FAILED;
+        return CL_ERR_INITILIZATION_FAILED;
 	}
 
     m_logLevel = level;           // retrieve this info from Logger (not implemented yet)

@@ -70,7 +70,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
     {
         if (m_logHandlers[i] == logHandler)
         {
-            return CL_INT_LOGGER_FAILED;
+            return CL_ERR_LOGGER_FAILED;
         }
         if (m_logHandlers[i] == NULL)
         {
@@ -78,7 +78,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 			return CL_SUCCESS;
         }
     }    
-    return CL_INT_LOGGER_FAILED;
+    return CL_ERR_LOGGER_FAILED;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

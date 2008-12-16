@@ -31,6 +31,7 @@
 #include "Context\ContextModule.h"
 #include "Execution\ExecutionModule.h"
 #include "Logger.h"
+#include "cl_config.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -78,6 +79,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ExecutionModule * m_ExecutionModule;
 
 		FileLogHandler * m_pFileLogHandler;
+		ConfigFile * m_pConfigFile;
 
 	};
 

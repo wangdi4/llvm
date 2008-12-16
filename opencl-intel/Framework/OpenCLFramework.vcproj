@@ -25,6 +25,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="copy $(SolutionDir)cl.cfg $(OutDir)"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -62,6 +63,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="2"
+				IgnoreDefaultLibraryNames="MSVCRTD.lib"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="1"
@@ -98,6 +100,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="copy $(SolutionDir)cl.cfg $(OutDir)"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -173,6 +176,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\cl_config.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\cl_framework.cpp"
 				>
 			</File>
@@ -232,6 +239,10 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath="..\include\cl_config.h"
+				>
+			</File>
 			<File
 				RelativePath="..\include\cl_framework.h"
 				>
