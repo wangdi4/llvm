@@ -1,0 +1,4 @@
+LIBRARY	"CPUDevice"
+
+EXPORTS
+	clDevInitDevice
