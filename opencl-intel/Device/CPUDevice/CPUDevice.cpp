@@ -22,11 +22,17 @@
 //  CPUDevice.cpp
 ///////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-#include "string.h"
+
+#include <stdafx.h>
+#include <intrin.h>
+#include <string.h>
+
 #include "CPUDevice.h"
+#include "ProgramService.h"
+
 
 using namespace Intel::OpenCL;
+
 
 wchar_t* ClDevErrTxt(cl_dev_err_code error_code)
 {
@@ -91,13 +97,25 @@ CPUDevice* CPUDevice::GetInstance()
 cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
 				size_t* OUT param_val_size_ret)
 {
+	size_t  internalRetunedValueSize = val_size;
+	size_t  *pinternalRetunedValueSize;
+
+	//if OUT param_val_size_ret is NULL it should be ignopred
+	if(param_val_size_ret)
+	{
+		pinternalRetunedValueSize = param_val_size_ret;
+	}
+	else
+	{
+		pinternalRetunedValueSize = &internalRetunedValueSize;
+	}
 	// TODO : ADD log
 	switch (param)
 	{
 		case( CL_DEVICE_TYPE):
 			{
-				*param_val_size_ret = sizeof(cl_device_type);
-				if(val_size != *param_val_size_ret)
+				*pinternalRetunedValueSize = sizeof(cl_device_type);
+				if(val_size != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
@@ -106,7 +124,37 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size
 
 			}
 		case( CL_DEVICE_VENDOR_ID):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_uint);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				//Get CPUID
+				int viCPUInfo[4] = {-1};
+				// get the CPU info
+				__cpuid(viCPUInfo, 0);
+				
+				*(cl_uint*)param_val = (cl_uint)viCPUInfo[0];
+				return CL_SUCCESS;
+			}
 		case( CL_DEVICE_MAX_COMPUTE_UNITS):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_uint);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				//Get CPUID
+				int viCPUInfo[4] = {-1};
+				// get the CPU info
+				__cpuid(viCPUInfo, 1);
+				cl_uint uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
+
+				*(cl_uint*)param_val = uiCoreCount;
+				return CL_SUCCESS;
+				
+			}
 		case( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
 		case( CL_DEVICE_MAX_WORK_GROUP_SIZE):
 		case( CL_DEVICE_MAX_WORK_ITEM_SIZES):
@@ -143,15 +191,99 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size
 		case( CL_DEVICE_ERROR_CORRECTION_SUPPORT):
 		case( CL_DEVICE_PROFILING_TIMER_RESOLUTION):
 		case( CL_DEVICE_ENDIAN_LITTLE):
+			return CL_INVALID_VALUE;
 		case( CL_DEVICE_AVAILABLE):
-		case( CL_DEVICE_COMPILER_AVAILABLE):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_bool);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				*(cl_bool*)param_val = CL_TRUE;
+				return CL_SUCCESS;
+			}
+			
+
 		case( CL_DEVICE_EXECUTION_CAPABILITIES):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_FN_AS_KERNEL;
+
+				*(cl_device_exec_capabilities*)param_val = execCapabilities;
+				return CL_SUCCESS;
+								
+			}
 		case( CL_DEVICE_QUEUE_PROPERTIES ):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				cl_command_queue_properties queueProperties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
+
+				*(cl_device_exec_capabilities*)param_val = queueProperties;
+				return CL_SUCCESS;
+			}
+		case( CL_DEVICE_COMPILER_AVAILABLE):
+			{
+				*pinternalRetunedValueSize = sizeof(cl_bool);
+				if(val_size != *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				*(cl_bool*)param_val = CL_FALSE;//Currently we dont have compiler yet
+				return CL_SUCCESS; 
+			}
 		case( CL_DEVICE_NAME):
+			{
+				*pinternalRetunedValueSize = strlen("CPU");
+				if(val_size < *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				
+			  	strcpy_s((char*)param_val, val_size, "CPU");
+
+				return CL_SUCCESS; 
+			}
 		case( CL_DEVICE_VENDOR):
-		case( CL_DRIVER_VERSION ):
+			{
+				*pinternalRetunedValueSize = strlen(CPU_STRING);
+				if(val_size < *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				strcpy_s((char*)param_val, val_size, CPU_STRING);
+				return CL_SUCCESS; 
+			}
+
 		case( CL_DEVICE_PROFILE):
+			{
+				*pinternalRetunedValueSize = strlen("FULL_PROFILE");
+				if(val_size < *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				strcpy_s((char*)param_val, val_size, "FULL_PROFILE");
+				return CL_SUCCESS; 
+			}
+		case( CL_DRIVER_VERSION ):
 		case( CL_DEVICE_VERSION):
+			{
+				*pinternalRetunedValueSize = strlen("1.0");
+				if(val_size < *pinternalRetunedValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				strcpy_s((char*)param_val, val_size, "1.0");
+				return CL_SUCCESS; 
+			}
+        
 		case( CL_DEVICE_EXTENSIONS):
 		default:
 			return CL_INVALID_VALUE;
@@ -159,7 +291,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size
 	return CL_INVALID_VALUE;
 
 }
-
+// Execution commands
 cl_int CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
 	// TODO : ADD log

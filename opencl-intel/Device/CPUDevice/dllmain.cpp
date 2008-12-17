@@ -23,6 +23,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include <intrin.h>
 #include "CPUDevice.h"
 
 #include<stdlib.h>
@@ -67,6 +68,30 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	return TRUE;
 }
 
+
+
+bool isIntelCpu()
+{
+	char vcCPUString[0x20] = {0};
+    int viCPUInfo[4] = {-1};
+
+    // get the CPU string and the number of valid of valid IDs
+    __cpuid(viCPUInfo, 0);
+    int iValidIDs = viCPUInfo[0];
+    *((int*)vcCPUString) = viCPUInfo[1];
+    *((int*)(vcCPUString+4)) = viCPUInfo[3];
+    *((int*)(vcCPUString+8)) = viCPUInfo[2];
+
+    if (strcmp(vcCPUString, CPU_STRING) == 0)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+
+}
 cl_int clDevInitDevice(	cl_uint					dev_id,
 						cl_dev_entry_points		*dev_entry,
 						cl_dev_call_backs		*dev_callbacks,
@@ -78,7 +103,13 @@ cl_int clDevInitDevice(	cl_uint					dev_id,
 	{
 		return CL_DEV_INVALID_OPERATION;
 	}
+	// If not Intel CPU return error
+	if(!isIntelCpu())
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
 	
+
 	CPUDevice* dev = CPUDevice::CreateDevice(dev_id, dev_callbacks, log_desc);
 	if (NULL == dev )
 	{

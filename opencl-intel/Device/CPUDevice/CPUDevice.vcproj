@@ -64,6 +64,7 @@
 				LinkIncremental="2"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
+				GenerateMapFile="true"
 				SubSystem="2"
 				TargetMachine="1"
 			/>
@@ -209,6 +210,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ProgramService.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -243,7 +248,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CPUDevice.h"
+				>
+			</File>
+			<File
 				RelativePath=".\MemoryAllocator.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ProgramService.h"
 				>
 			</File>
 			<File
