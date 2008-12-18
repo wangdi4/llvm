@@ -298,6 +298,14 @@
 			Name="Execution"
 			>
 			<File
+				RelativePath=".\Execution\enqueue_commands.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\enqueue_commands.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Execution\ExecutionModule.cpp"
 				>
 			</File>

@@ -40,3 +40,46 @@ ExecutionModule::~ExecutionModule()
 {
 
 }
+
+
+
+cl_command_queue ExecutionModule::CreateCommandQueue(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int* errcode_ret){
+
+	return  NULL;
+}
+
+
+cl_int ExecutionModule::EnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t cb, void* ptr, const cl_uint num_events_in_wait_list, const cl_event event_wait_list, cl_event event){
+
+	return  NULL;
+}
+
+
+CommandQueue ExecutionModule::GetCommandQueue(cl_command_queue command_queue){
+
+	return  NULL;
+}
+
+
+cl_int ExecutionModule::GetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret){
+
+	return  NULL;
+}
+
+
+cl_int ExecutionModule::ReleaseCommandQueue(cl_command_queue command_queue)
+{
+	return  NULL;
+}
+
+
+cl_int ExecutionModule::RetainCommandQueue(cl_command_queue command_queue){
+
+	return  NULL;
+}
+
+
+cl_int ExecutionModule::SetCommandQueueProperty(cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties* old_properties){
+
+	return  NULL;
+}
