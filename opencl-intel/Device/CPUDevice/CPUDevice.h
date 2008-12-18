@@ -28,15 +28,21 @@
 
 #include "cl_device_api.h"
 
+#include "ProgramService.h"
+#include "MemoryAllocator.h"
 
-namespace Intel { namespace OpenCL {
+namespace Intel { namespace OpenCL { namespace CPUDevice {
+
+
 
 static const char* CPU_STRING = "GenuineIntel";
 
 class CPUDevice
 {
 private:
-	cl_dev_call_backs frameWorkCallBacks;
+	static ProgramService *pProgramService;
+	static MemoryAllocator *pMemoryAllocator;
+	cl_dev_call_backs m_frameWorkCallBacks;
 	cl_uint	uiCpuId; 
 protected:
 	CPUDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
@@ -66,7 +72,7 @@ public:
 	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
 							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
 	static cl_int clDevUnloadCompiler();
-	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret );
+	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, const void** OUT binary, size_t* OUT size_ret );
 	static cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
 	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
@@ -76,4 +82,4 @@ public:
 								void* OUT value, size_t* OUT value_size_ret );
 };
 
-}}
+}}}

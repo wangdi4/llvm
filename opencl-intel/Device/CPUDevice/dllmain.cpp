@@ -28,7 +28,7 @@
 
 #include<stdlib.h>
 
-using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::CPUDevice;
 
 static cl_dev_entry_points myEntryPoints = {
 	CPUDevice::clDevGetDeviceInfo,
@@ -118,6 +118,7 @@ cl_int clDevInitDevice(	cl_uint					dev_id,
 
 	// Copy entry points information
 	memcpy(dev_entry, &myEntryPoints, sizeof(cl_dev_entry_points));
+   
 
 	return CL_DEV_SUCCESS;
 }

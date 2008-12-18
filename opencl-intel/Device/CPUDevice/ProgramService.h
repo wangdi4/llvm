@@ -28,16 +28,26 @@
 
 #pragma once
 
+#include <map>
+using namespace std;
+
+
 #include"cl_device_api.h"
 
 
+
 namespace Intel { namespace OpenCL { namespace CPUDevice {
+
+typedef struct ProgramInfo {
+		const void * bin;
+		size_t	binSize;
+}ProgramInfo;
 
 class ProgramService
 {
 
 public:
-	ProgramService(cl_int devId, cl_dev_log_descriptor *logDesc);
+	ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
 	virtual ~ProgramService();
 
 	cl_int checkProgramBinary (size_t IN bin_size, const void* IN bin);
@@ -51,8 +61,7 @@ public:
 
 	cl_int unloadCompiler();
     cl_int getProgramBinary( cl_dev_program IN prog,
-										 size_t IN size,
-										 void* OUT binary,
+										 const void** OUT binary,
 										 size_t* OUT size_ret
 										 );
 
@@ -66,10 +75,21 @@ public:
 										   size_t* OUT size_ret
 										   );
 
+	cl_int getKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
+
+	cl_int getProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
+						 size_t* OUT num_kernels_ret );
+
+	cl_int getKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
+					void* OUT value, size_t* OUT value_size_ret );
+
 
 protected:
 	cl_int					m_devId;
 	cl_dev_log_descriptor*	m_logDesc;
+	unsigned int m_programId;
+	map<unsigned int, ProgramInfo*> m_programs;
+	cl_dev_call_backs m_frameWorkCallBacks;
 };
 
 }}}

@@ -22,16 +22,16 @@
 //  CPUDevice.cpp
 ///////////////////////////////////////////////////////////
 
-
 #include <stdafx.h>
 #include <intrin.h>
-#include <string.h>
 
 #include "CPUDevice.h"
 #include "ProgramService.h"
 
 
-using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::CPUDevice;
+class ProgramService * CPUDevice::pProgramService;
+class MemoryAllocator * CPUDevice::pMemoryAllocator;
 
 
 wchar_t* ClDevErrTxt(cl_dev_err_code error_code)
@@ -70,7 +70,7 @@ CPUDevice* CPUDevice::m_pDevInstance = NULL;
 CPUDevice::CPUDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
 {
 	uiCpuId = devId;
-	memcpy(&frameWorkCallBacks, devCallbacks, sizeof(frameWorkCallBacks));
+	memcpy(&m_frameWorkCallBacks, devCallbacks, sizeof(m_frameWorkCallBacks));
 }
 
 
@@ -85,6 +85,19 @@ CPUDevice* CPUDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCallback
 		m_pDevInstance = new CPUDevice(devId, devCallbacks, logDesc);
 	}
 
+	pProgramService = new ProgramService(devId, devCallbacks, logDesc);
+	if (NULL == pProgramService )
+	{
+		return NULL;
+	}
+
+	pMemoryAllocator = new MemoryAllocator(devId, logDesc);
+	if (NULL == pMemoryAllocator )
+	{
+		return NULL;
+	}
+
+
 	return m_pDevInstance;
 }
 
@@ -94,6 +107,24 @@ CPUDevice* CPUDevice::GetInstance()
 }
 
 // Device entry points
+//Device Inforamtion function prototypes
+//
+/************************************************************************************************************************
+   clDevGetDeviceInfo
+	Description
+		This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
+	Input
+		param					An enumeration that identifies the device information being queried. It can be one of
+								the following values as specified in OCL spec. table 4.3
+		val_size				Specifies the size in bytes of memory pointed to by param_value. This size in
+								bytes must be >= size of return type
+	Output
+		param_val				A pointer to memory location where appropriate values for a given param as specified in OCL spec. table 4.3 will be returned. If param_val is NULL, it is ignored
+		param_val_size_ret		Returns the actual size in bytes of data being queried by param_val. If param_val_size_ret is NULL, it is ignored
+	Returns
+		CL_DEV_SUCCESS			If functions is executed successfully.
+		CL_DEV_INVALID_VALUE	If param_name is not one of the supported values or if size in bytes specified by param_val_size is < size of return type as specified in OCL spec. table 4.3 and param_val is not a NULL value
+**************************************************************************************************************************/
 cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
 				size_t* OUT param_val_size_ret)
 {
@@ -349,60 +380,90 @@ cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
 	return CL_DEV_INVALID_OPERATION;
 }
 
+/****************************************************************************************************************
+ clDevCheckProgramBinary
+	Call Program Serice to check binaries
+********************************************************************************************************************/
 cl_int CPUDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->checkProgramBinary(bin_size, bin );
 }
+/*******************************************************************************************************************
+clDevBuildProgram
+	Call programService to build program
+**********************************************************************************************************************/
 
 cl_int CPUDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
 				   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->buildProgram(bin_size, bin, options, user_data, prop, prog );
 }
 
+/*******************************************************************************************************************
+clDevUnloadCompiler
+	Call programService to unload the backend compiler
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevUnloadCompiler()
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->unloadCompiler();
 }
-
-cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret )
+/*******************************************************************************************************************
+clDevGetProgramBinary
+	Call programService to get the program binary
+**********************************************************************************************************************/
+cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog,  const void** OUT binary, size_t* OUT size_ret )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getProgramBinary(prog, binary, size_ret );
 }
-
+/*******************************************************************************************************************
+clDevGetBuildLog
+	Call programService to get the build log
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret)
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getBuildLog(prog, size, log, size_ret);
 }
-
+/*******************************************************************************************************************
+clDevUnloadCompiler
+	Call programService to get supported binary description
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getSupportedBinaries(count,types,size_ret );
 }
-
+/*******************************************************************************************************************
+clDevUnloadCompiler
+	Call programService to get kernel id from its name
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getKernelId(prog, name, kernel_id );
 }
-
+/*******************************************************************************************************************
+clDevUnloadCompiler
+	Call programService to get kernels from the program
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 size_t* OUT num_kernels_ret )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getProgramKernels(prog, num_kernels, kernels,num_kernels_ret );
 }
-
+/*******************************************************************************************************************
+clDevGetKernelInfo
+	Call programService to get kernel info
+**********************************************************************************************************************/
 cl_int CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 					void* OUT value, size_t* OUT value_size_ret )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pProgramService->getKernelInfo(kernel, param, value_size,value,value_size_ret );
 }
 
