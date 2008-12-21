@@ -49,7 +49,7 @@ class Scheduler
 {
 
 public:
-	Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
+	Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService, cl_dev_log_descriptor *logDesc);
 	virtual ~Scheduler();
 	cl_int createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	cl_int retainCommandList( cl_dev_cmd_list IN list);
