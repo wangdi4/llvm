@@ -48,9 +48,11 @@ PlatformModule::~PlatformModule()
 
 cl_err_code	PlatformModule::Initialize()
 {
+	// initialize logger
 	m_pPlatformLoggerClient = new LoggerClient(L"PlatformModule",LL_DEBUG);
 	InfoLog(m_pPlatformLoggerClient,L"Platform module logger initialized");
 
+	// initialize paltform info
 	m_pObjectInfo = new OCLObjectInfo();
 	
 	if (m_pObjectInfo != NULL)
@@ -62,6 +64,9 @@ cl_err_code	PlatformModule::Initialize()
 		pParam = new OCLObjectInfoParam(CL_PLATFORM_VERSION, m_uiPlatformVersionStrSize, (void*) m_vPlatformVersionStr);
 		m_pObjectInfo->SetParam(CL_PLATFORM_VERSION, pParam);
 	}
+
+	// initialize devices
+	m_pDevices = new OCLObjectsMap();
 
 	return CL_SUCCESS;
 }

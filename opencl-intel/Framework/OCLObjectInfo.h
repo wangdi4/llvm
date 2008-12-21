@@ -19,12 +19,12 @@
 // problem reports or change requests be submitted to it directly
 
 #pragma once
-///////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //  OCLObjectInfo.h
-//  Implementation of the Class OCLObjectInfo
+//  Implementation of the information object (Class OCLObjectInfo and OCLObjectInfoParam)
 //  Created on:      10-Dec-2008 4:45:30 PM
 //  Original author: ulevy
-///////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !defined(OCL_OBJECT_INFO_H_)
 #define OCL_OBJECT_INFO_H_
@@ -35,41 +35,77 @@ using namespace std;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	/**
-	* OCLObjectInfoParam class
-	* represents the information prameter value
-	*/
+	/**********************************************************************************************
+	* Class name:	OCLObjectInfoParam
+	*
+	* Description:	represents the information prameter value within the information object.
+	*				each param includes the parameter's name, the value and the size of the value
+	*				(in bytes)
+	* Author:		Uri Levy
+	* Date:			December 2008
+	**********************************************************************************************/	
 	class OCLObjectInfoParam
 	{
 	public:
+		/******************************************************************************************
+		* Function: 	OCLObjectInfoParam
+		* Description:	The OCLObjectInfoParam class constructor
+		* Arguments:	param_name [in]			parameter's name
+		*				param_value_size [in]	parameter's value size (in bytes)
+		*				param_value [in]		parameter's value
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		OCLObjectInfoParam(cl_int param_name, size_t param_value_size, void * param_value);
+		
+		/******************************************************************************************
+		* Function: 	OCLObjectInfoParam
+		* Description:	The OCLObjectInfoParam class empty constructor
+		* Arguments:	
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		OCLObjectInfoParam();
+		
+		/******************************************************************************************
+		* Function: 	~OCLObjectInfoParam
+		* Description:	The OCLObjectInfoParam class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/		
 		virtual ~OCLObjectInfoParam();
 
-		/**
-		* GetName
-		* Returns the name of the current parameter
-		* Return values:
-		* [cl_int] - parameter's name 
-		* -1 - in case of invalid object
-		*/
+		/******************************************************************************************
+		* Function: 	GetName    
+		* Description:	Returns the name of the current parameter
+		* Arguments:	
+		* Return value:	[cl_int]	parameter's name 
+		*				(-1)		in case of invalid object
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		const cl_int	GetName( void );
 		
-		/**
-		* GetSize
-		* Returns the size (in bytes) of the current parameter
-		* Return values:
-		* [size_t] - parameter's name 
-		* 0 - in case of invalid object
-		*/
+		/******************************************************************************************
+		* Function: 	GetSize    
+		* Description:	Returns the size (in bytes) of the current parameter
+		* Arguments:	
+		* Return value:	[size_t]	parameter's value size 
+		*				0		in case of invalid object
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		const size_t	GetSize( void );
 
-		/**
-		* GetValue
-		* Returns the value of the current parameter
-		* Return values:
-		* [void*] - parameter's value
-		*/
+		/******************************************************************************************
+		* Function: 	GetValue    
+		* Description:	Returns the value of the current parameter
+		* Arguments:	
+		* Return value:	parameter's value 
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		const void *	GetValue( void );
 
 	private:
@@ -78,44 +114,75 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t	m_szParamSize;	// parameter's value size (in bytes)
 	};
 
-	/**
-	* OCLObjectInfo class
-	* represent the data structure that contains all the required information of the
-	* OCLObject
-	*/
+	/**********************************************************************************************
+	* Class name:	OCLObjectInfo
+	*
+	* Description:	represent the data structure that contains all the required information of the
+	*				OCLObject
+	* Author:		Uri Levy
+	* Date:			December 2008
+	**********************************************************************************************/	
 	class OCLObjectInfo
 	{
 	
 	public:
+		/******************************************************************************************
+		* Function: 	OCLObjectInfo
+		* Description:	The OCLObjectInfo class constructor
+		* Arguments:
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		OCLObjectInfo();
+
+		/******************************************************************************************
+		* Function: 	~OCLObjectInfo
+		* Description:	The OCLObjectInfo class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		virtual ~OCLObjectInfo();
 
-		/**
-		* GetParam
-		* The functions returns the parameter object that holds the information data
-		* Return values:
-		* CL_SUCCESS - if the information parameters returned successfully
-		* CL_INVALID_VALUE - if the value doesn't exist in the information object
-		*/
+		/******************************************************************************************
+		* Function: 	GetValue    
+		* Description:	The functions returns the parameter object that holds the information data
+		* Arguments:	param_name [in]		the name of the parameter
+		*				ppParam [out]		pointer to the parameter object
+		* Return value:	CL_SUCCESS			if the information parameters returned successfully
+		*				CL_INVALID_VALUE	if the value doesn't exist in the information object
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
 		cl_err_code GetParam(cl_int param_name, OCLObjectInfoParam ** ppParam);
 		
-		/**
-		* SetParam
-		* The functions set the parameter object in the information object
-		* Return values:
-		* CL_SUCCESS - if the information parameters was set successfully in the information object
-		*/
+		/******************************************************************************************
+		* Function: 	SetParam    
+		* Description:	The functions set the parameter object in the information object
+		* Arguments:	param_name [in]		the name of the parameter
+		*				ppParam [in]		pointer to the parameter object
+		* Return value:	CL_SUCCESS		if the information parameters was set successfully in 
+		*								the information object
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
 		cl_err_code SetParam(cl_int param_name, OCLObjectInfoParam * pParam);
 
-		/**
-		* SetString
-		* set an array of chars in the information object
-		* Return values:
-		* CL_SUCCESS - if the information parameters was set successfully in the information object
-		*/
+		/******************************************************************************************
+		* Function: 	SetString    
+		* Description:	set an array of chars in the information object
+		* Arguments:	param_name [in]		the name of the parameter
+		*				length [in]			length of the string
+		*				str[in]				char's array
+		* Return value:	CL_SUCCESS		if the information parameters was set successfully in the 
+		*								information object
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
 		cl_err_code SetString(cl_int param_name, const size_t length, const char str[]);
 
 	private:
+		// map of the information parameters
 		map<cl_int, OCLObjectInfoParam*>	m_mapInfoParams;
 	};
 

@@ -20,6 +20,25 @@ wchar_t* ClErrTxt(cl_err_code error_code)
 	}
 }
 
+cl_int TEST(cl_int test_number)
+{
+	OCLObjectsMap *pObjMap = new OCLObjectsMap();
+	OCLObject *pObj1 = new OCLObject();
+	OCLObject *pObj2 = new OCLObject();
+	OCLObject *pObj3 = new OCLObject();
+
+	cl_err_code clErrRet = CL_SUCCESS;
+
+	cl_int id = pObjMap->AddObject(pObj1);
+	id = pObjMap->AddObject(pObj2);
+	id = pObjMap->AddObject(pObj3);
+	clErrRet = pObjMap->RemoveObject(pObj1->GetId());
+	clErrRet = pObjMap->RemoveObject(pObj2->GetId());
+	clErrRet = pObjMap->RemoveObject(pObj3->GetId());
+	clErrRet = pObjMap->RemoveObject(pObj1->GetId());
+	return CL_SUCCESS;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Platform APIs
 //////////////////////////////////////////////////////////////////////////

@@ -210,7 +210,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\OCLObject.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\OCLObjectInfo.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\OCLObjectsMap.cpp"
 				>
 			</File>
 			<File
@@ -252,7 +260,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\OCLObject.h"
+				>
+			</File>
+			<File
 				RelativePath=".\OCLObjectInfo.h"
+				>
+			</File>
+			<File
+				RelativePath=".\OCLObjectsMap.h"
 				>
 			</File>
 			<File
@@ -273,6 +289,14 @@
 		<Filter
 			Name="Platform"
 			>
+			<File
+				RelativePath=".\Platform\Device.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Platform\Device.h"
+				>
+			</File>
 			<File
 				RelativePath=".\Platform\PlatformModule.cpp"
 				>
