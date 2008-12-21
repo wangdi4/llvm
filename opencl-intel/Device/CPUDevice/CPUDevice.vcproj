@@ -214,6 +214,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Scheduler.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -257,6 +261,10 @@
 			</File>
 			<File
 				RelativePath=".\ProgramService.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Scheduler.h"
 				>
 			</File>
 			<File
