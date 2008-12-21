@@ -53,17 +53,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/******************************************************************************************
 		* Function: 	Device
 		* Description:	The Device class constructor
-		* Arguments:	deviceId [in]
-		*				devEntryPoints [out]
-		*				devCallBacks [out]
-		*				devLogDesc [out]
+		* Arguments:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Device(	cl_device_id deviceId, 
-				cl_dev_entry_points devEntryPoints, 
-				cl_dev_call_backs devCallBacks, 
-				cl_dev_log_descriptor devLogDesc);
+		Device();
 
 		/******************************************************************************************
 		* Function: 	~Device
@@ -88,9 +82,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
-	private:
-		cl_device_id			m_clDeviceId;			// device id
+		cl_err_code InitDevice(wchar_t * pwcDllPath);
 
+	private:
 		cl_dev_entry_points		m_clDevEntryPoints;		// device's entry points
 		
 		cl_dev_call_backs		m_clDevCallBacks;		// device's call backs

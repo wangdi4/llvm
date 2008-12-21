@@ -85,7 +85,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int AddObject(OCLObject * pObject);
 
 		/******************************************************************************************
-		* Function: 	GetObject    
+		* Function: 	GetOCLObject    
 		* Description:	returns the OpenCL object which assign to the object id
 		* Arguments:	iObjectId [in]	the id of the OpenCL object
 		*				pObject	[out]	pointer to the OpenCL object's opinter. must be a valid 
@@ -95,8 +95,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code GetObject(cl_int iObjectId, OCLObject ** ppObject);
+		cl_err_code GetOCLObject(cl_int iObjectId, OCLObject ** ppObject);
 
+		/******************************************************************************************
+		* Function: 	GetObjectByIndex    
+		* Description:	returns the OpenCL object which assign to the index
+		* Arguments:	uiIndex [in]	object's index
+		*				pObject	[out]	pointer to the OpenCL object's opinter. must be a valid 
+		*								pointer
+		* Return value:	CL_SUCCESS -			the object was found and returned
+		*				CL_ERR_LIST_EMPTY -		there are no objects left in the map
+		*				CL_ERR_KEY_NOT_FOUND -	the index number is too high
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
+		cl_err_code GetObjectByIndex(cl_uint uiIndex, OCLObject ** ppObject);
 
 		/******************************************************************************************
 		* Function: 	RemoveObject    
@@ -108,6 +121,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/	
 		cl_err_code RemoveObject(cl_int iObjectId);
+
+		/******************************************************************************************
+		* Function: 	Count    
+		* Description:	get the number of items
+		* Arguments:	
+		* Return value:	number of items
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
+		const cl_uint	Count();
+
+		/******************************************************************************************
+		* Function: 	Clear    
+		* Description:	clear map list from all objects
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
+		void Clear();
 
 	};
 

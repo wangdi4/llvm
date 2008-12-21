@@ -67,7 +67,15 @@ cl_err_code	PlatformModule::Initialize()
 
 	// initialize devices
 	m_pDevices = new OCLObjectsMap();
-
+	Device * pDevice = new Device();
+	m_pDevices->AddObject(pDevice);
+	cl_err_code clErrRet = pDevice->InitDevice(L"CPUDevice.dll");
+	if (CL_FAILED(clErrRet))
+	{
+		m_pDevices->RemoveObject(pDevice->GetId());
+		delete pDevice;
+		return clErrRet;
+	}
 	return CL_SUCCESS;
 }
 
@@ -75,7 +83,20 @@ cl_err_code	PlatformModule::Release()
 {
 	cl_err_code clRes = CL_SUCCESS;
 	OCLObjectInfoParam * pParam = NULL;
-	
+
+	// release devices
+	cl_uint uiDevcount = m_pDevices->Count();
+	for (cl_uint ui=0; ui<uiDevcount; ++ui)
+	{
+		Device *pDev = NULL;
+		if (CL_SUCCEEDED(m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDev)))
+		{
+			pDev->Release();
+			delete pDev;
+		}
+	}
+	m_pDevices->Clear();
+
 	if (NULL != m_pObjectInfo)
 	{
 		clRes = m_pObjectInfo->GetParam(CL_PLATFORM_PROFILE, &pParam);
@@ -130,14 +151,75 @@ cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type device_type,
 										 cl_device_id* devices, 
 										 cl_uint* num_devices)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	if (NULL == m_pDevices)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	if (NULL == devices)
+	{
+		return CL_INVALID_VALUE;
+	}
+	cl_err_code clErrRet = CL_SUCCESS;
+	cl_uint uiNumDevices = m_pDevices->Count();
+	cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
+	
+	// prepare list for all devices
+	cl_device_id * pDeviceIds = NULL;
+	pDeviceIds = new cl_device_id[uiNumDevices];
+	if (NULL == pDeviceIds)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	Device * pDevice = NULL;
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		// get device
+		clErrRet = m_pDevices->GetObjectByIndex(ui, (OCLObject**)(&pDevice));
+		if (CL_SUCCEEDED(clErrRet) && NULL != pDevice)
+		{
+			// get device type
+			cl_device_type clType;
+			cl_int iErrRet = pDevice->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, NULL);
+			// check that the current device type satisfactory 
+			if (iErrRet == 0 && ((clType & device_type) == clType))
+			{
+				pDeviceIds[uiRetNumDevices++] = (cl_device_id)pDevice->GetId();
+			}
+		}
+	}
+	if (uiRetNumDevices > num_entries)
+	{
+		delete[] pDeviceIds;
+		return CL_INVALID_VALUE;
+	}
+	for (cl_uint ui=0; ui<uiRetNumDevices; ++ui)
+	{
+		devices[ui] = pDeviceIds[ui];
+	}
+	if (NULL != num_devices)
+	{
+		*num_devices = uiRetNumDevices;
+	}
+	
+	delete[] pDeviceIds;
+	return CL_SUCCESS;
 }
 
-cl_err_code	PlatformModule::clGetDeviceInfo(cl_device_id device,
-											cl_device_info param_name, 
-											size_t param_value_size, 
-											void* param_value,
-											size_t* param_value_size_ret)
+cl_err_code	PlatformModule::GetDeviceInfo(cl_device_id device,
+										  cl_device_info param_name, 
+										  size_t param_value_size, 
+										  void* param_value,
+										  size_t* param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	if (NULL == m_pDevices)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	Device * pDevice = NULL;
+	cl_err_code clErrRet = m_pDevices->GetOCLObject((cl_int)device, (OCLObject**)(&pDevice));
+	if (CL_FAILED(clErrRet))
+	{
+		return CL_INVALID_DEVICE;
+	}
+	return pDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
 }

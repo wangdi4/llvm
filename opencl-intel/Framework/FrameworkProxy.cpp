@@ -31,8 +31,8 @@ FrameworkProxy::~FrameworkProxy()
 
 void FrameworkProxy::Initialize()
 {
+	// initialize configuration file
 	m_pConfigFile = new ConfigFile(clFRAMEWORK_CFG_PATH);
-
 	string str = m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, "C:\\cl.cfg");
 	//null-call to get the size
 	size_t needed = ::mbstowcs(NULL,&str[0],str.length());
@@ -43,6 +43,7 @@ void FrameworkProxy::Initialize()
 	::mbstowcs(&wstr[0],&str[0],str.length());
 	const wchar_t *pout = wstr.c_str();
 
+	// initialise logger
 	m_pFileLogHandler = new FileLogHandler(L"cl_framework");
 	m_pFileLogHandler->Init(LL_DEBUG, pout);
 	Logger::GetInstance().AddLogHandler(m_pFileLogHandler);

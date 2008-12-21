@@ -26,14 +26,12 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "Device.h"
+#include "cl_device_api.h"
 using namespace Intel::OpenCL::Framework;
 
-Device::Device(cl_device_id deviceId, cl_dev_entry_points devEntryPoints, cl_dev_call_backs devCallBacks, cl_dev_log_descriptor devLogDesc)
+Device::Device()
 {
-	m_clDeviceId = deviceId;
-	m_clDevEntryPoints = devEntryPoints;
-	m_clDevCallBacks = devCallBacks;
-	m_clDevLogDescriptor = devLogDesc;
+	::OCLObject();
 }
 
 Device::~Device()
@@ -42,5 +40,30 @@ Device::~Device()
 
 cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	int clDevErr = m_clDevEntryPoints.pclDevGetDeviceInfo(param_name, param_value_size, param_value, param_value_size_ret);
+	if (clDevErr != (int)CL_DEV_SUCCESS)
+	{
+		return CL_INVALID_VALUE;
+	}
+	return CL_SUCCESS;
+}
+
+cl_err_code Device::InitDevice(wchar_t * pwcDllPath)
+{
+	HINSTANCE devHndl;
+	devHndl = LoadLibrary(pwcDllPath);
+	if (NULL == devHndl)
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+	fn_clDevInitDevice cpuDevInitDevice;
+	cpuDevInitDevice = (fn_clDevInitDevice)GetProcAddress(devHndl,"clDevInitDevice");
+
+	int clDevErr = cpuDevInitDevice(m_iId, &m_clDevEntryPoints, &m_clDevCallBacks, &m_clDevLogDescriptor);
+	if (clDevErr != (int)CL_DEV_SUCCESS)
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	return CL_SUCCESS;
 }

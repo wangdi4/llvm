@@ -87,7 +87,8 @@ cl_int clGetDeviceIDs(cl_device_type device_type,
 	{
 		CL_ERR_PLATFORM_FAILED;
 	}
-	return CL_ERR_NOT_IMPLEMENTED;
+	cl_err_code clRet = pPlatformModule->GetDeviceIDs(device_type, num_entries, devices, num_devices);
+	return (CL_ERR_OUT(clRet));
 }
 
 cl_int clGetDeviceInfo(cl_device_id device,
@@ -109,5 +110,6 @@ cl_int clGetDeviceInfo(cl_device_id device,
 	{
 		CL_ERR_PLATFORM_FAILED;
 	}
-	return CL_ERR_NOT_IMPLEMENTED;
+	cl_err_code clRet = pPlatformModule->GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret);
+	return (CL_ERR_OUT(clRet));
 }

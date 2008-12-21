@@ -14,6 +14,7 @@ OCLObjectsMap::OCLObjectsMap()
 }
 OCLObjectsMap::~OCLObjectsMap()
 {
+	Clear();
 }
 cl_int OCLObjectsMap::AddObject(OCLObject * pObject)
 {
@@ -27,7 +28,7 @@ cl_int OCLObjectsMap::AddObject(OCLObject * pObject)
 
 	return pObject->GetId();
 }
-cl_err_code OCLObjectsMap::GetObject(cl_int iObjectId, OCLObject ** ppObject)
+cl_err_code OCLObjectsMap::GetOCLObject(cl_int iObjectId, OCLObject ** ppObject)
 {
 	if (NULL == ppObject)
 	{
@@ -41,6 +42,33 @@ cl_err_code OCLObjectsMap::GetObject(cl_int iObjectId, OCLObject ** ppObject)
 	*ppObject = it->second;
 	return CL_SUCCESS;
 }
+cl_err_code OCLObjectsMap::GetObjectByIndex(cl_uint uiIndex, OCLObject ** ppObject)
+{
+	if (NULL == ppObject)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	if (m_mapObjects.size() == 0)
+	{
+		return CL_ERR_LIST_EMPTY;
+	}
+	if (uiIndex >= m_mapObjects.size())
+	{
+		return CL_ERR_KEY_NOT_FOUND;
+	}
+	map<cl_int,OCLObject*>::iterator it = m_mapObjects.begin();
+	while (it != m_mapObjects.end())
+	{
+		if (uiIndex == 0)
+		{
+			*ppObject = it->second;
+			return CL_SUCCESS;
+		}
+		uiIndex--;
+		it++;
+	}
+	return CL_ERR_KEY_NOT_FOUND;
+}
 cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId)
 {
 	map<cl_int,OCLObject*>::iterator it = m_mapObjects.find(iObjectId);
@@ -50,4 +78,12 @@ cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId)
 	}
 	m_mapObjects.erase(it);
 	return CL_SUCCESS;
+}
+const cl_uint OCLObjectsMap::Count()
+{
+	return m_mapObjects.size();
+}
+void OCLObjectsMap::Clear()
+{
+	m_mapObjects.clear();
 }
