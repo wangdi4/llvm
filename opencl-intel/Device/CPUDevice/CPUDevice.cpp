@@ -32,6 +32,7 @@
 using namespace Intel::OpenCL::CPUDevice;
 class ProgramService * CPUDevice::pProgramService;
 class MemoryAllocator * CPUDevice::pMemoryAllocator;
+class Scheduler * CPUDevice::pScheduler;
 
 
 wchar_t* ClDevErrTxt(cl_dev_err_code error_code)
@@ -93,6 +94,13 @@ CPUDevice* CPUDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCallback
 
 	pMemoryAllocator = new MemoryAllocator(devId, logDesc);
 	if (NULL == pMemoryAllocator )
+	{
+		return NULL;
+	}
+
+	pScheduler = new Scheduler(devId, devCallbacks, pProgramService, logDesc);
+	if (NULL == pScheduler
+		)
 	{
 		return NULL;
 	}
@@ -323,30 +331,43 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size
 
 }
 // Execution commands
+/****************************************************************************************************************
+ clDevCreateCommandList
+	Call Scheduler to create command list
+********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pScheduler->createCommandList(props,list);
 }
-
+/****************************************************************************************************************
+ clDevRetainCommandList
+	Call Scheduler to retain command list
+********************************************************************************************************************/
 cl_int CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pScheduler->retainCommandList(list);
 }
-
+/****************************************************************************************************************
+ clDevReleaseCommandList
+	Call Scheduler to release command list
+********************************************************************************************************************/
 cl_int CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pScheduler->releaseCommandList(list);
 }
-
-cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count)
+/****************************************************************************************************************
+ clDevCommandListExecute
+	Call Scheduler to execute command list
+********************************************************************************************************************/
+cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return pScheduler->commandListExecute(list,cmds,count);
 }
-
+//Memory API's
 cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 				cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret)
 {

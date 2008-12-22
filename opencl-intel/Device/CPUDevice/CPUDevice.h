@@ -30,6 +30,7 @@
 
 #include "ProgramService.h"
 #include "MemoryAllocator.h"
+#include "Scheduler.h"
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -42,6 +43,7 @@ class CPUDevice
 private:
 	static ProgramService *pProgramService;
 	static MemoryAllocator *pMemoryAllocator;
+	static Scheduler *pScheduler;
 	cl_dev_call_backs m_frameWorkCallBacks;
 	cl_uint	uiCpuId; 
 protected:
@@ -59,7 +61,7 @@ public:
 	static cl_int clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	static cl_int clDevRetainCommandList( cl_dev_cmd_list IN list);
 	static cl_int clDevReleaseCommandList( cl_dev_cmd_list IN list );
-	static cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count);
+	static cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count);
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,

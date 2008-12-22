@@ -33,6 +33,9 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
+
+
+
 Scheduler::Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService, cl_dev_log_descriptor *logDesc) :
 	m_devId(devId), m_logDesc(logDesc)
 {
@@ -174,7 +177,7 @@ commandListExecute
 		CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
 										values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 ********************************************************************************************************************/
-cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count)
+cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
 {
 	//The first stupid solution just execute the commands one after the other and even dont insert the commands into the qeueu
 	listData_t* data;
@@ -184,20 +187,32 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 		return CL_DEV_INVALID_COMMAND_LIST;
 	}
 	data = m_commandList[listId];
-	unsigned int i;
+	unsigned int i, paramSize;
 	cl_dev_cmd_desc cmd;
+	
 	for (i=0;i<count;i++)
 	{
 		cmd = cmds[i];
-		if(cmd.type != CL_DEV_CMD_EXEC_NATIVE)
+		if(cmd.type == CL_DEV_CMD_EXEC_NATIVE)
 		{
-			return CL_DEV_INVALID_COMMAND_TYPE;
+			cl_dev_cmd_native_param *nativeCmdParam;
+			paramSize = sizeof(cl_dev_cmd_native_param);
+			if(cmd.params == NULL || cmd.param_size !=paramSize)
+			{
+				return CL_DEV_INVALID_OPERATION;
+			}
+			nativeCmdParam = (cl_dev_cmd_native_param*)cmd.params;
+			//currently support only no params
+			if(nativeCmdParam->cb_args != 0)
+			{
+				return CL_DEV_INVALID_OPERATION;
+			}
+			fn_knative_kernel_api *func = (fn_knative_kernel_api*)nativeCmdParam->func_ptr;
+			func(nativeCmdParam->cb_args, nativeCmdParam->args, nativeCmdParam->args_type);
+			//notify framework on status change
+			m_frameWorkCallBacks.pclDevCmdStatusChanged(cmd.id, CL_COMPLETE);
+			return CL_DEV_SUCCESS;
 		}
-		if(cmd.params != NULL || cmd.param_size !=0)
-		{
-			return CL_DEV_INVALID_OPERATION;
-		}
-		//Request program service for command bin
 	}
 	return CL_DEV_INVALID_COMMAND_LIST;
 }

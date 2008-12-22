@@ -54,7 +54,7 @@ public:
 	cl_int createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	cl_int retainCommandList( cl_dev_cmd_list IN list);
 	cl_int releaseCommandList( cl_dev_cmd_list IN list );
-	cl_int commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count);
+	cl_int commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count);
 protected:
 	cl_int					m_devId;
 	cl_dev_log_descriptor*	m_logDesc;

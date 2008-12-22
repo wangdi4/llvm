@@ -79,7 +79,7 @@ cl_int DummyDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count)
+cl_int DummyDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -137,7 +137,9 @@ cl_int DummyDevice::clDevUnloadCompiler()
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret )
+cl_int DummyDevice::clDevGetProgramBinary(  cl_dev_program IN prog,
+										 const void** OUT binary,
+										 size_t* OUT size_ret)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
