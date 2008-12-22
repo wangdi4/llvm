@@ -56,8 +56,10 @@ cl_err_code Device::InitDevice(wchar_t * pwcDllPath)
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
-	fn_clDevInitDevice cpuDevInitDevice;
-	cpuDevInitDevice = (fn_clDevInitDevice)GetProcAddress(devHndl,"clDevInitDevice");
+	fn_clDevInitDevice *cpuDevInitDevice;
+
+	cpuDevInitDevice = (fn_clDevInitDevice*)GetProcAddress(devHndl,"clDevInitDevice");
+	// TODO: Check for NULL pointer
 
 	int clDevErr = cpuDevInitDevice(m_iId, &m_clDevEntryPoints, &m_clDevCallBacks, &m_clDevLogDescriptor);
 	if (clDevErr != (int)CL_DEV_SUCCESS)
