@@ -1,0 +1,4 @@
+LIBRARY	"CudaDevice"
+
+EXPORTS
+	clDevInitDevice
