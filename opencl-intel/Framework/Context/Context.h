@@ -20,81 +20,74 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  ContextModule.h
-//  Implementation of the Class ContextModule
+//  Context.h
+//  Implementation of the Class Context
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_CONTEXT_MODULE_H_)
-#define OCL_CONTEXT_MODULE_H_
+#if !defined(_OCL_CONTEXT_H_)
+#define _OCL_CONTEXT_H_
 
-#include "..\Platform\PlatformModule.h"
+#include "cl_framework.h"
+#include "..\OCLObject.h"
+#include "Logger.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
-	* Class name:	ContextModule
+	* Class name:	Context
 	*
-	* Description:	context module class
+	* Inherit:		OCLObject
+	* Description:	represents a context
 	* Author:		Uri Levy
 	* Date:			December 2008
-	**********************************************************************************************/
-	class ContextModule
+	**********************************************************************************************/		
+	class Context : public OCLObject
 	{
-	
 	public:
 
 		/******************************************************************************************
-		* Function: 	ContextModule
-		* Description:	The Context Module class constructor
-		* Arguments:	pPlatformModule [in] -	pointer to the platform module	
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		ContextModule(PlatformModule *pPlatformModule);
-
-		/******************************************************************************************
-		* Function: 	~ContextModule
-		* Description:	The Context Module class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual ~ContextModule();
-
-		/******************************************************************************************
-		* Function: 	Initialize    
-		* Description:	Initialize the context module object
-		*				and load devices
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
+		* Function: 	Context
+		* Description:	The Context class constructor
+		* Arguments:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code		Initialize();
+		Context();
 
 		/******************************************************************************************
-		* Function: 	Release    
-		* Description:	Release the context module's resources
+		* Function: 	~Device
+		* Description:	The Context class destructor
 		* Arguments:		
-		* Return value:	CL_SUCCESS - The release operation succeded
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~Context();
+
+		/******************************************************************************************
+		* Function: 	GetInfo    
+		* Description:	get object specific information (inharited from OCLObject) the function 
+		*				query the desirable parameter value from the device
+		* Arguments:	param_name [in]				parameter's name
+		*				param_value_size [inout]	parameter's value size (in bytes)
+		*				param_value [out]			parameter's value
+		*				param_value_size_ret [out]	parameter's value return size
+		* Return value:	CL_SUCCESS - operation succeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		Release();
+		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+
 
 	private:
 
-		PlatformModule *	m_pPlatformModule; // handle to the platform module
-
-		LoggerClient *		m_pLoggerClient; // handle to the logger client
-
-		OCLObjectsMap *		m_pContexts; // map list of contexts
-		
-		LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
+		LoggerClient *	m_pLoggerClient;	// context's logger client
 
 	};
 
+
 }}};
-#endif // !defined(OCL_CONTEXT_MODULE_H_)
+
+
+#endif //_OCL_CONTEXT_H_

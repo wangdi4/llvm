@@ -18,12 +18,12 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-/****************************************************
- *  LogHandler.cpp
- *  Created on: 10-Dec-2008 11:42:24 AM                      
- *  Implementation of the log handler class
- *  Original author: ulevy                     
- ****************************************************/
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//  LogHandler.cpp
+//  Created on: 10-Dec-2008 11:42:24 AM                      
+//  Implementation of the log handler class
+//  Original author: ulevy                     
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "LogHandler.h"
 #include <assert.h>
@@ -68,7 +68,7 @@ FileLogHandler::~FileLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(ELogLevel level, const wchar_t* fileName)
+cl_err_code FileLogHandler::Init(ELogLevel level, wchar_t* fileName)
 {   
     if (m_handle == NULL)
 	{
@@ -151,7 +151,7 @@ ConsoleLogHandler::ConsoleLogHandler(const wchar_t* handle)
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code ConsoleLogHandler::Init(ELogLevel level, const wchar_t* fileName)
+cl_err_code ConsoleLogHandler::Init(ELogLevel level, wchar_t* fileName)
 {    
     if (m_handle == NULL)
 	{

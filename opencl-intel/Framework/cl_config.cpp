@@ -50,6 +50,28 @@ bool ConfigFile::KeyExists(const string& key) const
 	return (p != m_mapContents.end());
 }
 
+/* static */
+int ConfigFile::tokenize(const string & sin, std::vector<string> & tokens)
+{
+	string s = sin;
+	s += char(0);    // add a 0 char for getting end-of-string parsing
+	string seps = ",;|";
+	seps += char(0);    
+	int pos1 = 0;
+	int pos2 = 0;
+	while ((pos2 = s.find_first_of(seps, pos1)) != string::npos) 
+	{
+		if (pos2 > pos1)
+		{
+			string sub = s.substr(pos1, pos2-pos1);
+			trim(sub);
+			tokens.push_back(sub);
+		}
+		pos1 = pos2+1;   // don't forget that or you'll get an infinite loop
+	}
+	return tokens.size();
+}
+
 
 /* static */
 void ConfigFile::trim( string& s )

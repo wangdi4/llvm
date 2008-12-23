@@ -310,6 +310,14 @@
 			Name="Context"
 			>
 			<File
+				RelativePath=".\Context\Context.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Context\Context.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Context\ContextModule.cpp"
 				>
 			</File>

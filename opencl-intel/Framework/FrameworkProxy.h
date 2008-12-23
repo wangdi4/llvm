@@ -19,12 +19,12 @@
 // problem reports or change requests be submitted to it directly
 
 #pragma once
-///////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //  FrameworkProxy.h
 //  Implementation of the Class FrameworkProxy
 //  Created on:      10-Dec-2008 8:45:02 AM
 //  Original author: ulevy
-///////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "cl_framework.h"
 #include "Platform\PlatformModule.h"
@@ -35,51 +35,103 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	/**
-	* class FrameworkProxy
+	/**********************************************************************************************
+	* Class name:	FrameworkProxy
 	*
-	* the framework proxy class design to pass the OpenCL api calls to the framework's moduls
-	**/
+	* Description:	the framework proxy class design to pass the OpenCL api calls to the 
+	*				framework's moduls
+	* Author:		Uri Levy
+	* Date:			December 2008
+	**********************************************************************************************/
 	class FrameworkProxy
 	{
 	public:
 		
-		/**
-		* Instance
-		* Description: Get the instance of the framework proxt module. 
-		* Input Parameters: 
-		*	None
-		* Output Parameters: 
-		*	pDevEntry:	A pointer to structure that holds set of pointers to device driver entry points
-		* Returns:
-		*	FrameworkFactory* - instance to the framework factory
-		*/
-		static	FrameworkProxy *	Instance();
+		/******************************************************************************************
+		* Function: 	Instance
+		* Description:	Get the instance of the framework proxy module.
+		* Arguments:		
+		* Return value:	instance to the framework factory
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		static	FrameworkProxy * Instance();
 
-		ContextModule *				GetContextModule();
-		ExecutionModule *			GetExecutionModule();
-		PlatformModule *			GetPlatformModule();
-
-
+		/******************************************************************************************
+		* Function: 	GetContextModule
+		* Description:	Get handle to the context module
+		* Arguments:		
+		* Return value:	pointer to the ContextModule class. NULL if context module wasn't
+		*				initialized successfuly
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		ContextModule *		GetContextModule();
 		
+		/******************************************************************************************
+		* Function: 	GetExecutionModule
+		* Description:	Get handle to the execution module
+		* Arguments:		
+		* Return value:	pointer to the ExecutionModule class. NULL if module wasn't initialized
+		*				successfuly
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		ExecutionModule *	GetExecutionModule();
+		
+		/******************************************************************************************
+		* Function: 	GetPlatformModule
+		* Description:	Get handle to the platform module
+		* Arguments:		
+		* Return value:	pointer to the PlatformModule class. NULL if module wasn't initialized
+		*				successfuly
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		PlatformModule *	GetPlatformModule();
+
 	private:
+		/******************************************************************************************
+		* Function: 	FrameworkProxy
+		* Description:	The FrameworkProxy class constructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
 		FrameworkProxy();
+
+		/******************************************************************************************
+		* Function: 	~FrameworkProxy
+		* Description:	The FrameworkProxy class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
 		virtual ~FrameworkProxy();
 
-		void						Initialize();
-		void						Release();
+		void Initialize();
+		void Release();
 		
-		/**
-		* static instance of the framework factory class
-		*/
+		// static instance of the framework factory class
 		static  FrameworkProxy * m_pInstance;
-		
-		PlatformModule * m_PlatformModule;
-		ContextModule * m_ContextModule;
-		ExecutionModule * m_ExecutionModule;
 
+		// handle to the platform module
+		PlatformModule * m_pPlatformModule;
+		
+		// handle to the context module		
+		ContextModule * m_pContextModule;
+
+		// handle to the execution module
+		ExecutionModule * m_pExecutionModule;
+
+		// handle to the file log handler
 		FileLogHandler * m_pFileLogHandler;
+		
+		// handle to the configuraiton file
 		ConfigFile * m_pConfigFile;
+
+		// handle to the logger client
+		LoggerClient * m_pLoggerClient;
 
 	};
 

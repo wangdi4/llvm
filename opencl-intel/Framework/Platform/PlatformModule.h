@@ -35,6 +35,7 @@
 #include "Logger.h"
 #include "Device.h"
 #include "cl_device_api.h"
+#include "cl_config.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -77,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code		Initialize();
+		cl_err_code		Initialize(ConfigFile * pConfigFile);
 
 		/******************************************************************************************
 		* Function: 	Release    
@@ -182,9 +183,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									  size_t* param_value_size_ret );
 
 
-
 	private:
 
+		/******************************************************************************************
+		* Function: 	InitDevices
+		* Description:	Load OpenCL devices and initialize them. all device dll's must be located
+		*				in the same folder as the framework dll
+		* Arguments:	vector<string> devices -	list of device dll names
+		* Return value:	CL_SUCCESS - The initializtion operation succeded
+		*				CL_ERR_DEVICE_INIT_FAIL - one or more devices falied to initialize
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_err_code InitDevices(vector<string> devices);
+
+		// map list of devices
 		OCLObjectsMap * m_pDevices;
 		
 		// pointer to the platoform module's logger client
