@@ -131,6 +131,12 @@ cl_int DummyDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, c
 	return CL_DEV_INVALID_OPERATION;
 }
 
+cl_int DummyDevice::clDevReleaseProgram( cl_dev_program IN prog )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
 cl_int DummyDevice::clDevUnloadCompiler()
 {
 	// TODO : ADD log
@@ -138,8 +144,9 @@ cl_int DummyDevice::clDevUnloadCompiler()
 }
 
 cl_int DummyDevice::clDevGetProgramBinary(  cl_dev_program IN prog,
-										 const void** OUT binary,
-										 size_t* OUT size_ret)
+											size_t IN size,
+											void* OUT binary,
+											size_t* OUT size_ret)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

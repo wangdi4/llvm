@@ -105,7 +105,7 @@ cl_err_code Device::InitDevice(const wchar_t * pwcDllPath)
 	return CL_SUCCESS;
 }
 
-cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t client_name, cl_int * client_id)
+cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
 	// TODO: moidfy device API change
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, L"");

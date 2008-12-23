@@ -2,3 +2,4 @@ LIBRARY	"CPUDevice"
 
 EXPORTS
 	clDevInitDevice
+	clDevErr2Txt

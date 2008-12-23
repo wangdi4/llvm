@@ -29,6 +29,7 @@
 #include "cl_device_api.h"
 
 namespace Intel { namespace OpenCL {
+
 class DummyDevice
 {
 protected:
@@ -58,9 +59,12 @@ public:
 	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
 	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
 							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
+
 	static cl_int clDevUnloadCompiler();
-	static cl_int clDevGetProgramBinary(  cl_dev_program IN prog,
-										 const void** OUT binary,
+	static cl_int clDevGetProgramBinary( cl_dev_program IN prog,
+										 size_t IN size,
+										 void* OUT binary,
 										 size_t* OUT size_ret);
 	static cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
@@ -70,5 +74,4 @@ public:
 	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 								void* OUT value, size_t* OUT value_size_ret );
 };
-
 }}

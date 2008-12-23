@@ -108,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t client_name, cl_int * client_id);
+		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
 		
 		static cl_int ReleaseDeviceLogClient(cl_int client_id);
 		

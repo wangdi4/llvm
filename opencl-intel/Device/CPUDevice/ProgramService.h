@@ -32,16 +32,11 @@
 using namespace std;
 
 
-#include"cl_device_api.h"
-
+#include "cl_device_api.h"
+#include "HandleAllocator.h"
 
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
-
-typedef struct ProgramInfo {
-		const void * bin;
-		size_t	binSize;
-}ProgramInfo;
 
 class ProgramService
 {
@@ -58,19 +53,20 @@ public:
 									   cl_dev_binary_prop IN prop,
 									   cl_dev_program* OUT prog
 									   );
-
+	cl_int releaseProgram( cl_dev_program IN prog );
 	cl_int unloadCompiler();
     cl_int getProgramBinary( cl_dev_program IN prog,
-										 const void** OUT binary,
-										 size_t* OUT size_ret
-										 );
+										size_t IN size,
+										void* OUT binary,
+										size_t* OUT size_ret
+										);
 
 	cl_int getBuildLog( cl_dev_program IN prog,
 									  size_t IN size,
 									  char* OUT log,
 									  size_t* OUT size_ret
 									  );
-	cl_int getSupportedBinaries( cl_uint IN count,
+	cl_int getSupportedBinaries( size_t IN size,
 										   cl_prog_binary_desc* OUT types,
 										   size_t* OUT size_ret
 										   );
@@ -85,11 +81,18 @@ public:
 
 
 protected:
-	cl_int					m_devId;
-	cl_dev_log_descriptor*	m_logDesc;
-	unsigned int m_programId;
-	map<unsigned int, ProgramInfo*> m_programs;
-	cl_dev_call_backs m_frameWorkCallBacks;
+	typedef struct _ProgramInfo_t {
+		void * bin;
+		size_t	binSize;
+	} ProgramInfo_t;
+
+	typedef map<unsigned int, ProgramInfo_t*>	ProgramMap_t;
+
+	cl_int							m_devId;
+	cl_dev_log_descriptor			m_logDesc;
+	HandleAllocator<unsigned int>	m_progIdAlloc;
+	ProgramMap_t					m_programs;
+	cl_dev_call_backs				m_frameWorkCallBacks;
 };
 
 }}};

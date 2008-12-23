@@ -29,29 +29,50 @@
 
 #include "ProgramService.h"
 
-#include<stdlib.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <assert.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
-ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc) :
-	m_devId(devId), m_logDesc(logDesc)
+// Static members
+static cl_prog_binary_desc gSupportedBinTypes[] = 
 {
-	m_programId = 0;
-	memcpy(&m_frameWorkCallBacks, devCallbacks, sizeof(m_frameWorkCallBacks));
+	{CL_PROG_BIN_X86, 0, 0}
+};
+static	unsigned int	gSupportedBinTypesCount = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
+
+ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc) :
+	m_devId(devId), m_progIdAlloc(1, UINT_MAX)
+{
+	memcpy_s(&m_frameWorkCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
+	if ( NULL == logDesc )
+	{
+		memset(&m_logDesc, 0, sizeof(cl_dev_log_descriptor));
+	}
+	else
+	{
+		memcpy_s(&m_logDesc, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
+	}
 }
-
-
 
 ProgramService::~ProgramService()
 {
-	unsigned int i;
-	for(i = 0; i<m_programId; i++)
+	ProgramMap_t::iterator	it;
+
+	// Go throught the map and remove all allocated programs
+	for(it = m_programs.begin(); it != m_programs.end(); ++it)
 	{
-		ProgramInfo* info= m_programs[i];
+		ProgramInfo_t* info= it->second;
+		// Clean allocated memory
+		assert(info);
+		assert(info->bin);
+		free(info->bin);
 		delete info;
 	}
-	m_programs.erase(m_programs.begin(), m_programs.end());
-	m_programId = 0;
+
+	m_progIdAlloc.Clear();
+	m_programs.clear();
 }
 
 /****************************************************************************************************************
@@ -92,7 +113,6 @@ clDevBuildProgram
 		CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
 		CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program
 ***********************************************************************************************************************/
-
 cl_int ProgramService::buildProgram( size_t IN bin_size,
 								   const void* IN bin,
 								   const cl_char* IN options,
@@ -103,35 +123,97 @@ cl_int ProgramService::buildProgram( size_t IN bin_size,
 {
 	if(0 == bin_size || NULL == bin)
 	{
-		return CL_DEV_INVALID_BUILD_OPTIONS;
+		// TODO: ADD log
+		return CL_DEV_INVALID_VALUE;
 	}
 	//If the origin of binary is one of the Front-End compilers
 	//It is not supported yet
 	//Currently spport only binary that was loaded by user
 	if(prop != CL_DEV_BINARY_USER)
 	{
+		// TODO: ADD log
 		return CL_DEV_INVALID_BUILD_OPTIONS;
 	}
 
+	if ( NULL == prog )
+	{
+		// TODO: ADD log
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	// Allocate new program id
+	unsigned int newProgId;
+	if ( !m_progIdAlloc.AllocateHandle(&newProgId) )
+	{
+		// TODO: ADD log
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
 	//Keep program binary in the list
-	ProgramInfo *info = new ProgramInfo;
+	ProgramInfo_t *info = new ProgramInfo_t;
 	if(NULL == info)
 	{
+		m_progIdAlloc.FreeHandle(newProgId);
 		return CL_DEV_OUT_OF_MEMORY;
-
 	}
-	info->bin = bin;
-	info->binSize = bin_size;
 
-	m_programs[m_programId] = info;
-	*(unsigned int*)prog = m_programId;
-	m_programId++;
+	// Allocate memory to store the binary
+	info->bin = malloc(bin_size);
+	if ( NULL == info->bin )
+	{
+		m_progIdAlloc.FreeHandle(newProgId);
+		delete info;
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	info->binSize = bin_size;
+	memcpy_s(info->bin, info->binSize, bin, bin_size);
+
+	m_programs[newProgId] = info;
+	*prog = (cl_dev_program)newProgId;
+
 	//When finish call the framework callback that compilation is done
 	//TODO: Currently problematic because framework doesnt know ID yet
 	//Need to return someway after that from thread
-	m_frameWorkCallBacks.pclDevBuildFinished((cl_dev_program)m_programId);
+	m_frameWorkCallBacks.pclDevBuildFinished((cl_dev_program)newProgId);
+
 	return CL_DEV_SUCCESS;
 }
+
+/********************************************************************************************************************
+clDevReleaseProgram
+	Description
+		Deletes previously created program object and releases all related resources.
+	Input
+		prog							A handle to program object to be deleted
+	Output
+		NONE
+	Returns
+		CL_DEV_SUCCESS					The function is executed successfully.
+		CL_DEV_INVALID_PROGRAM			Invalid program object was specified.
+********************************************************************************************************************/
+cl_int ProgramService::releaseProgram( cl_dev_program IN prog )
+{
+	unsigned int progId = (unsigned int)prog;
+	ProgramMap_t::iterator	it;
+
+	it = m_programs.find(progId);
+	if( it == m_programs.end())
+	{
+		return CL_DEV_INVALID_PROGRAM;
+	}
+
+	ProgramInfo_t* info= it->second;
+	// Clean allocated memory
+	assert(info);
+	assert(info->bin);
+	free(info->bin);
+	delete info;
+	m_programs.erase(it);
+
+	return CL_DEV_SUCCESS;
+}
+
 /********************************************************************************************************************
 clDevUnloadCompiler
 	Description
@@ -145,17 +227,18 @@ clDevUnloadCompiler
 	Returns
 		CL_DEV_SUCCESS	The function is executed successfully.
 ********************************************************************************************************************/
-
 cl_int ProgramService::unloadCompiler()
 {
 	return CL_DEV_SUCCESS;
 }
+
 /********************************************************************************************************************
 clDevGetProgramBinary
 	Description
 		Returns the compiled program binary. The output buffer contains program container as defined cl_prog_binary_desc.
 	Input
 		prog					A handle to created program object.
+		size					Size in bytes of the buffer passed to the function. 
 	Output
 		binary					A pointer to buffer wherein program binary will be stored.
 		size_ret				The actual size in bytes of the returned buffer. When size is equal to 0 and binary is NULL, returns size in bytes of a program binary. If NULL the parameter is ignored.
@@ -165,19 +248,37 @@ clDevGetProgramBinary
 		CL_DEV_INVALID_VALUE	If size is not enough to store the binary or binary is NULL and size is not 0.
 ********************************************************************************************************************/
 cl_int ProgramService::getProgramBinary( cl_dev_program IN prog,
-									 const void** OUT binary,
-									 size_t* OUT size_ret
-									 )
+										size_t IN size,
+										void* OUT binary,
+										size_t* OUT size_ret
+										)
 {
-	unsigned int programId = (unsigned int)prog;
-	if(programId >= m_programId)
+	unsigned int progId = (unsigned int)prog;
+	ProgramMap_t::iterator	it;
+
+	it = m_programs.find(progId);
+	if( it == m_programs.end())
+	{
+		return CL_DEV_INVALID_PROGRAM;
+	}
+
+	ProgramInfo_t *programInfo = it->second;
+	if ( NULL != size_ret )
+	{
+		*size_ret = programInfo->binSize;
+	}
+
+	if ( (0 == size) && (NULL == binary) )
+	{
+		return CL_DEV_SUCCESS;
+	}
+
+	if ( (NULL == binary) || (size < programInfo->binSize) )
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	ProgramInfo *programInfo = m_programs[programId];
-	*binary = (void*)programInfo->bin;
-	*size_ret = programInfo->binSize;
+	memcpy_s(binary, size, programInfo->bin, programInfo->binSize);
 	
 	return CL_DEV_SUCCESS;
 }
@@ -188,7 +289,7 @@ cl_int ProgramService::getBuildLog( cl_dev_program IN prog,
 								  size_t* OUT size_ret
 								  )
 {
-	return CL_DEV_INVALID_VALUE;
+	return CL_DEV_INVALID_OPERATION;
 }
 /************************************************************************************************************
 	clDevGetSupportedBinaries (optional)
@@ -206,21 +307,29 @@ cl_int ProgramService::getBuildLog( cl_dev_program IN prog,
 		CL_DEV_INVALID_PROGRAM	If program is not valid program object. 
 		CL_DEV_INVALID_VALUE	If count is not enough to store the binary or types is NULL and count is not 0.
 ***************************************************************************************************************/
-cl_int ProgramService::getSupportedBinaries( cl_uint IN count,
+cl_int ProgramService::getSupportedBinaries( size_t IN size,
 									   cl_prog_binary_desc* OUT types,
 									   size_t* OUT size_ret
 									   )
 {
-	if(count < 1)
+	if ( NULL != size_ret )
+	{
+		// TODO: Create supported list
+		*size_ret = sizeof(gSupportedBinTypes);
+	}
+
+	if ( (0 == size) && (NULL == types) )
+	{
+		return CL_DEV_SUCCESS;
+	}
+
+	if( (NULL == types) || (size < sizeof(gSupportedBinTypes)))
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
-	//currently support only user binaries
 
-	types[0].bin_type = CL_PROG_BIN_LLVM;
-	types[0].bin_ver_major = 0;
-	types[0].bin_ver_minor = 0;
-	*size_ret = 1;
+	//currently support only user binaries
+	memcpy_s(types, size, gSupportedBinTypes, sizeof(gSupportedBinTypes));
 
 	return CL_DEV_SUCCESS;
 }
@@ -228,7 +337,7 @@ cl_int ProgramService::getSupportedBinaries( cl_uint IN count,
 
 cl_int ProgramService::getKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id )
 {
-		return CL_DEV_INVALID_VALUE;
+		return CL_DEV_INVALID_OPERATION;
 }
 
 
@@ -236,7 +345,7 @@ cl_int ProgramService::getKernelId( cl_dev_program IN prog, const char* IN name,
 cl_int ProgramService::getProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 size_t* OUT num_kernels_ret )
 {
-		return CL_DEV_INVALID_VALUE;
+		return CL_DEV_INVALID_OPERATION;
 }
 
 
@@ -244,6 +353,6 @@ cl_int ProgramService::getProgramKernels( cl_dev_program IN prog, cl_uint IN num
 cl_int ProgramService::getKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 					void* OUT value, size_t* OUT value_size_ret )
 {
-		return CL_DEV_INVALID_VALUE;
+		return CL_DEV_INVALID_OPERATION;
 }
 

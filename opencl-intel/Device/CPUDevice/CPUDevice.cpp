@@ -35,7 +35,7 @@ class MemoryAllocator * CPUDevice::pMemoryAllocator;
 class Scheduler * CPUDevice::pScheduler;
 
 
-wchar_t* ClDevErrTxt(cl_dev_err_code error_code)
+wchar_t* clDevErr2Txt(cl_dev_err_code error_code)
 {
 	switch(error_code)
 	{
@@ -87,20 +87,19 @@ CPUDevice* CPUDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCallback
 	}
 
 	pProgramService = new ProgramService(devId, devCallbacks, logDesc);
-	if (NULL == pProgramService )
+	if ( NULL == pProgramService )
 	{
 		return NULL;
 	}
 
 	pMemoryAllocator = new MemoryAllocator(devId, logDesc);
-	if (NULL == pMemoryAllocator )
+	if ( NULL == pMemoryAllocator )
 	{
 		return NULL;
 	}
 
-	pScheduler = new Scheduler(devId, devCallbacks, pProgramService, logDesc);
-	if (NULL == pScheduler
-		)
+	pScheduler = new Scheduler(devId, devCallbacks, pProgramService, pMemoryAllocator, logDesc);
+	if ( NULL == pScheduler )
 	{
 		return NULL;
 	}
@@ -410,6 +409,7 @@ cl_int CPUDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN bi
 	// TODO : ADD log
 	return pProgramService->checkProgramBinary(bin_size, bin );
 }
+
 /*******************************************************************************************************************
 clDevBuildProgram
 	Call programService to build program
@@ -420,6 +420,17 @@ cl_int CPUDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, con
 {
 	// TODO : ADD log
 	return pProgramService->buildProgram(bin_size, bin, options, user_data, prop, prog );
+}
+
+/*******************************************************************************************************************
+clDevReleaseProgram
+	Call programService to release program
+**********************************************************************************************************************/
+
+cl_int CPUDevice::clDevReleaseProgram( cl_dev_program IN prog )
+{
+	// TODO : ADD log
+	return pProgramService->releaseProgram( prog );
 }
 
 /*******************************************************************************************************************
@@ -435,10 +446,10 @@ cl_int CPUDevice::clDevUnloadCompiler()
 clDevGetProgramBinary
 	Call programService to get the program binary
 **********************************************************************************************************************/
-cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog,  const void** OUT binary, size_t* OUT size_ret )
+cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret )
 {
 	// TODO : ADD log
-	return pProgramService->getProgramBinary(prog, binary, size_ret );
+	return pProgramService->getProgramBinary(prog, size, binary, size_ret );
 }
 /*******************************************************************************************************************
 clDevGetBuildLog
