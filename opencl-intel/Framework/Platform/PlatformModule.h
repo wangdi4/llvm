@@ -29,11 +29,11 @@
 #if !defined(OCL_PLATFORM_MODULE_H_)
 #define OCL_PLATFORM_MODULE_H_
 
-#include "cl_framework.h"
-#include "..\OCLObjectInfo.h"
-#include "..\OCLObjectsMap.h"
-#include "Logger.h"
-#include "Device.h"
+#include <cl_framework.h>
+#include "..\cl_object_info.h"
+#include "..\cl_objects_map.h"
+#include "logger.h"
+#include "device.h"
 #include "cl_device_api.h"
 #include "cl_config.h"
 

@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 #include "cl_framework.h"
-#include "FrameworkProxy.h"
+#include "framework_proxy.h"
 
 using namespace Intel::OpenCL::Framework;
 

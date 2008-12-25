@@ -107,17 +107,15 @@ cl_err_code Device::InitDevice(const wchar_t * pwcDllPath)
 
 cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
-	// TODO: moidfy device API change
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, L"");
+	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, client_name);
 	if (NULL == client_id)
 	{
 		ErrLog(m_mapDeviceLoggerClinets[0],L"client_id == NULL");
 		return CL_INVALID_VALUE;
 	}
 	
-	// TODO: moidfy device API change
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Create new logger client: (LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG))");	
-	LoggerClient *pLoggerClient = new LoggerClient(/*client_name*/L"",LL_DEBUG);
+	LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG);
 	if (NULL == pLoggerClient)
 	{
 		ErrLog(m_mapDeviceLoggerClinets[0],L"NULL == pLoggerClient");

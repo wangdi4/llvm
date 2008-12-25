@@ -5,7 +5,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "OCLObject.h"
+#include "cl_object.h"
 using namespace Intel::OpenCL::Framework;
 
 OCLObject::OCLObject()

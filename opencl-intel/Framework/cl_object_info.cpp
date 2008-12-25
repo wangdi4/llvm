@@ -5,7 +5,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "OCLObjectInfo.h"
+#include "cl_object_info.h"
 using namespace Intel::OpenCL::Framework;
 
 OCLObjectInfo::OCLObjectInfo()

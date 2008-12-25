@@ -5,7 +5,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "OCLObjectsMap.h"
+#include "cl_objects_map.h"
 using namespace Intel::OpenCL::Framework;
 
 OCLObjectsMap::OCLObjectsMap()

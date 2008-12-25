@@ -29,7 +29,7 @@
 #define __OCL_OCL_EVENT_H__
 
 #include <cl_framework.h>
-#include "..\OCLObject.h"
+#include "..\cl_object.h"
 #include "event_done_observer.h"
 
 ///////////////////////////////////////////////////////////

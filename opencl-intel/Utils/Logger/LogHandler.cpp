@@ -25,7 +25,7 @@
 //  Original author: ulevy                     
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "LogHandler.h"
+#include "log_handler.h"
 #include <assert.h>
 using namespace Intel::OpenCL::Framework;
 

@@ -118,7 +118,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\..\include;..\include"
+				AdditionalIncludeDirectories="..\;..\..\include;..\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;OPENCL_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -184,6 +184,18 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cl_object.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cl_object_info.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cl_objects_map.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\dllmain.cpp"
 				>
 				<FileConfiguration
@@ -206,19 +218,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\FrameworkProxy.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\OCLObject.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\OCLObjectInfo.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\OCLObjectsMap.cpp"
+				RelativePath=".\framework_proxy.cpp"
 				>
 			</File>
 			<File
@@ -256,19 +256,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\FrameworkProxy.h"
+				RelativePath=".\cl_object.h"
 				>
 			</File>
 			<File
-				RelativePath=".\OCLObject.h"
+				RelativePath=".\cl_object_info.h"
 				>
 			</File>
 			<File
-				RelativePath=".\OCLObjectInfo.h"
+				RelativePath=".\cl_objects_map.h"
 				>
 			</File>
 			<File
-				RelativePath=".\OCLObjectsMap.h"
+				RelativePath=".\framework_proxy.h"
 				>
 			</File>
 			<File

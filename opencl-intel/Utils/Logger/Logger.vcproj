@@ -299,15 +299,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\log_handler.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\log_message.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\Logger.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\LogHandler.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\LogMessage.h"
 				>
 			</File>
 			<File

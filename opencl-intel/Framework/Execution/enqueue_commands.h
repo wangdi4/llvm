@@ -29,7 +29,7 @@
 #define __OCL_ENQUEUE_COMMANDS__
     
 #include <cl_framework.h>
-#include "..\OCLObject.h"
+#include "..\cl_object.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

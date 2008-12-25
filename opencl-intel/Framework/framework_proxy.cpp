@@ -6,8 +6,8 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "FrameworkProxy.h"
-#include "Logger.h"
+#include "framework_proxy.h"
+#include "logger.h"
 
 using namespace Intel::OpenCL::Framework;
 

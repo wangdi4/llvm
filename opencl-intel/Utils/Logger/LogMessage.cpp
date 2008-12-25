@@ -25,7 +25,7 @@
  *  Original author: ulevy                     
  ****************************************************/
 
-#include "LogMessage.h"
+#include "log_message.h"
 #include <stdarg.h>
 #include <sstream>              // required by: owstringstream
 #include <assert.h>

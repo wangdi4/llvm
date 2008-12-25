@@ -30,7 +30,7 @@
 #define OCL_OBJECTS_MAP_H_
 
 #include "cl_framework.h"
-#include "OCLObject.h"
+#include "cl_object.h"
 #include <map>
 using namespace std;
 

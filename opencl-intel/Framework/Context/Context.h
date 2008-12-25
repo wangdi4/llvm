@@ -29,9 +29,9 @@
 #if !defined(_OCL_CONTEXT_H_)
 #define _OCL_CONTEXT_H_
 
-#include "cl_framework.h"
-#include "..\OCLObject.h"
-#include "Logger.h"
+#include <cl_framework.h>
+#include "..\cl_object.h"
+#include "logger.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

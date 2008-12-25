@@ -30,8 +30,8 @@
 #define _OCL_DEVICE_H_
 
 #include "cl_framework.h"
-#include "..\OCLObject.h"
-#include "Logger.h"
+#include "..\cl_object.h"
+#include "logger.h"
 #include "cl_device_api.h"
 #include <map>
 using namespace std;
