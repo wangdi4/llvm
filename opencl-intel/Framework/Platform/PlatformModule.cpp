@@ -154,22 +154,33 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info param_name,
 	{
 		return CL_ERR_INITILIZATION_FAILED;
 	}
+	
+	// both param_value and param_value_size_ret are null pointers - in this case there is no meaning to do anything
 	if (NULL == param_value || NULL == param_value_size_ret)
 	{
 		ErrLog(m_pPlatformLoggerClient, L"NULL == param_value || NULL == param_value_size_ret")
 		return CL_INVALID_VALUE;
 	}
-	
+
 	InfoLog(m_pPlatformLoggerClient, L"Get param_name: %d from OCLObjectInfo", param_name)
 	OCLObjectInfoParam *pParam = NULL;
 	cl_err_code clRes = m_pObjectInfo->GetParam(param_name, &pParam);
 	if (CL_SUCCEEDED(clRes))
 	{
+		// return param_value_size_ret only
+		if (NULL == param_value)
+		{
+			InfoLog(m_pPlatformLoggerClient, L"return parameter's size: %d", pParam->GetSize())
+			*param_value_size_ret = pParam->GetSize();
+			return CL_SUCCESS;
+		}
+		// check param_value_size
 		if (param_value_size < pParam->GetSize())
 		{
 			ErrLog(m_pPlatformLoggerClient, L"param_value_size (%d) < param_value_size_ret (%d)", param_value_size, pParam->GetSize())
 			return CL_INVALID_VALUE;
 		}
+		InfoLog(m_pPlatformLoggerClient, L"memcpy_s(param_value, param_value_size, pParam->GetValue(), pParam->GetSize())")
 		memcpy_s(param_value, param_value_size, pParam->GetValue(), pParam->GetSize());
 		*param_value_size_ret = pParam->GetSize();
 		return CL_SUCCESS;

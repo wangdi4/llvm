@@ -162,7 +162,7 @@ cl_int Device::DeviceAddLogLine(cl_int client_id, cl_int log_level,
 		va_list va;
 		va_start(va, message);
 		
-		pLoggerClient->Log((ELogLevel)log_level, (wchar_t*)source_file, (wchar_t*)function_name, line_num, (wchar_t*)message, va);
+		pLoggerClient->LogArgList((ELogLevel)log_level, (wchar_t*)source_file, (wchar_t*)function_name, line_num, (wchar_t*)message, va);
 
 		va_end(va);
 

@@ -140,5 +140,16 @@ void LoggerClient::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionNa
 
     va_end( va );      
 }
+/////////////////////////////////////////////////////////////////////////////////////////
+// LoggerClient::LogArgList
+/////////////////////////////////////////////////////////////////////////////////////////
+void LoggerClient::LogArgList(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+{
+	if (m_logLevel > level)
+    {
+        return;
+    } 
+	Logger::GetInstance().Log(level, sourceFile, functionName,  sourceLine, message, va);
+}
 
 
