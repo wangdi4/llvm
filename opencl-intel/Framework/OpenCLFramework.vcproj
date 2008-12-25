@@ -330,6 +330,14 @@
 			Name="Execution"
 			>
 			<File
+				RelativePath=".\Execution\command_queue.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\command_receiver.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Execution\enqueue_commands.cpp"
 				>
 			</File>
@@ -338,14 +346,70 @@
 				>
 			</File>
 			<File
-				RelativePath=".\Execution\ExecutionModule.cpp"
+				RelativePath=".\Execution\event_done_observer.h"
 				>
 			</File>
 			<File
-				RelativePath=".\Execution\ExecutionModule.h"
+				RelativePath=".\Execution\events_manager.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\events_manager.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\execution_module.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\execution_module.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\in_order_queue.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\in_order_queue.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\ocl_command_queue.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\ocl_command_queue.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\ocl_event.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\ocl_event.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\out_of_order_queue.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\out_of_order_queue.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\queue_event.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\queue_event.h"
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath=".\ClassDiagram1.cd"
+			>
+		</File>
 		<File
 			RelativePath=".\ReadMe.txt"
 			>

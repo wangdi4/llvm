@@ -29,7 +29,7 @@
 #include "cl_framework.h"
 #include "Platform\PlatformModule.h"
 #include "Context\ContextModule.h"
-#include "Execution\ExecutionModule.h"
+#include "Execution\execution_module.h"
 #include "Logger.h"
 #include "cl_config.h"
 

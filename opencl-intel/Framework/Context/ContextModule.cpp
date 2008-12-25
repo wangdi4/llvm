@@ -2,7 +2,7 @@
 //  ContextModule.cpp
 //  Implementation of the Class ContextModule
 //  Created on:      10-Dec-2008 2:03:03 PM
-//  Original author: arnonp
+//  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
 #include "ContextModule.h"
