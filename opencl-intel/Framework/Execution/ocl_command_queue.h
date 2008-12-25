@@ -25,8 +25,8 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(EA_FB595B53_73A0_449e_AEBE_A0575CD3E5FF__INCLUDED_)
-#define EA_FB595B53_73A0_449e_AEBE_A0575CD3E5FF__INCLUDED_
+#if !defined(__OCL_OCL_COMMAND_QUEUE_H__)
+#define __OCL_OCL_COMMAND_QUEUE_H__
 
 #include <cl_framework.h>
 #include "event_done_observer.h"
@@ -76,4 +76,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ICommandQueue*      m_commandQueue;
     };
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_FB595B53_73A0_449e_AEBE_A0575CD3E5FF__INCLUDED_)
+#endif  // !defined(__OCL_OCL_COMMAND_QUEUE_H__)

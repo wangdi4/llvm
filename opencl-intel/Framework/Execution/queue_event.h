@@ -25,8 +25,8 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(EA_85EAC576_ADBF_4cf2_ABE3_D1C351BF024A__INCLUDED_)
-#define EA_85EAC576_ADBF_4cf2_ABE3_D1C351BF024A__INCLUDED_
+#if !defined(__OCL_QUEUE_EVENT__)
+#define __OCL_QUEUE_EVENT__
 
 #include <cl_framework.h>
 #include "event_done_observer.h"
@@ -64,4 +64,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_85EAC576_ADBF_4cf2_ABE3_D1C351BF024A__INCLUDED_)
+#endif  // !defined(__OCL_QUEUE_EVENT__)

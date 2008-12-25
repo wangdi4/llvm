@@ -24,8 +24,8 @@
 //  Created on:      23-Dec-2008 3:23:00 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
-#if !defined(EA_D37603D7_37F6_4233_BFA7_842AC1838126__INCLUDED_)
-#define EA_D37603D7_37F6_4233_BFA7_842AC1838126__INCLUDED_
+#if !defined(__OCL_EXECUTION_MODULE_H__)
+#define __OCL_EXECUTION_MODULE_H__
 
 #include <cl_framework.h>
 
@@ -80,4 +80,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_E75813BD_1FD8_4669_91B5_23D0236EED0C__INCLUDED_)
+#endif  // !defined(__OCL_EXECUTION_MODULE_H__)

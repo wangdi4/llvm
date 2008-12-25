@@ -25,8 +25,8 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(EA_DE259036_2CF4_45c1_81F5_4FFAFF32F29F__INCLUDED_)
-#define EA_DE259036_2CF4_45c1_81F5_4FFAFF32F29F__INCLUDED_
+#if !defined(__OCL_EVENT_DONE_OBSERVER_H__)
+#define __OCL_EVENT_DONE_OBSERVER_H__
 
 #include <cl_framework.h>
 
@@ -44,6 +44,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_DE259036_2CF4_45c1_81F5_4FFAFF32F29F__INCLUDED_)
+#endif  // !defined(__OCL_EVENT_DONE_OBSERVER_H__)
 
 

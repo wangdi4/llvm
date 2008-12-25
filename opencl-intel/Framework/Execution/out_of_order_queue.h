@@ -25,8 +25,8 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(EA_96D50209_92F9_4dd5_B87F_FAECDE4F3CF0__INCLUDED_)
-#define EA_96D50209_92F9_4dd5_B87F_FAECDE4F3CF0__INCLUDED_
+#if !defined(__OUT_OF_ORDER_QUEUE_H__)
+#define __OUT_OF_ORDER_QUEUE_H__
 
 #include <cl_framework.h>
 #include "command_queue.h"
@@ -52,4 +52,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_96D50209_92F9_4dd5_B87F_FAECDE4F3CF0__INCLUDED_)
+#endif  // !defined(__OUT_OF_ORDER_QUEUE_H__)

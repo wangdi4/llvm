@@ -19,13 +19,13 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  EventsManager.h
+//  events_manager.h
 //  Implementation of the Class EventsManager
 //  Created on:      23-Dec-2008 3:22:59 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
-#if !defined(EA_DBF01E74_D078_4c35_8E36_F32950851D2A__INCLUDED_)
-#define EA_DBF01E74_D078_4c35_8E36_F32950851D2A__INCLUDED_
+#if !defined(__OCL_EVENTS_MANAGER_H__)
+#define __OCL_EVENTS_MANAGER_H__
 
 #include <cl_framework.h>
 
@@ -52,4 +52,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(EA_DBF01E74_D078_4c35_8E36_F32950851D2A__INCLUDED_)
+#endif  // !defined(__OCL_EVENTS_MANAGER_H__)
