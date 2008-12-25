@@ -43,6 +43,7 @@ static cl_dev_entry_points myEntryPoints = {
 	CPUDevice::clDevReleaseMappedRegion,
 	CPUDevice::clDevCheckProgramBinary,
 	CPUDevice::clDevBuildProgram,
+	CPUDevice::clDevReleaseProgram,
 	CPUDevice::clDevUnloadCompiler,
 	CPUDevice::clDevGetProgramBinary,
 	CPUDevice::clDevGetBuildLog,

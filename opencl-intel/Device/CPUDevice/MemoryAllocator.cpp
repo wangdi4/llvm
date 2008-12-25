@@ -34,9 +34,16 @@
 using namespace Intel::OpenCL::CPUDevice;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc) :
-	m_devId(devId), m_logDesc(logDesc)
+	m_devId(devId)
 {
-
+	if ( NULL == logDesc )
+	{
+		memset(&m_logDesc, 0, sizeof(cl_dev_log_descriptor));
+	}
+	else
+	{
+		memcpy_s(&m_logDesc, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
+	}
 }
 
 

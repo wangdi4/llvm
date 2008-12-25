@@ -56,7 +56,7 @@ public:
 
 protected:
 	cl_int					m_devId;
-	cl_dev_log_descriptor*	m_logDesc;
+	cl_dev_log_descriptor	m_logDesc;
 };
 
 }}}

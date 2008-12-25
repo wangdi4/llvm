@@ -19,6 +19,7 @@ static cl_dev_entry_points myEntryPoints = {
 	DummyDevice::clDevReleaseMappedRegion,
 	DummyDevice::clDevCheckProgramBinary,
 	DummyDevice::clDevBuildProgram,
+	DummyDevice::clDevReleaseProgram,
 	DummyDevice::clDevUnloadCompiler,
 	DummyDevice::clDevGetProgramBinary,
 	DummyDevice::clDevGetBuildLog,
