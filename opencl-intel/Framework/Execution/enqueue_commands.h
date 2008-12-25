@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class Command : public  OCLObject
+    class Command : public OCLObject
     {
 
     public:

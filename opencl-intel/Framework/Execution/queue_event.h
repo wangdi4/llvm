@@ -59,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 	    QueueEventStateColor m_stateColor;
-	    IEventDoneObserver** m_observerslist;   // List of ovservers; TODO: Make the list a true list object...
+	    IEventDoneObserver** m_observersList;   // List of ovservers; TODO: Make the list a true list object...
 
     };
 

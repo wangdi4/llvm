@@ -73,7 +73,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    Device*             m_device;
 	    QueueWorkingThread* m_queueWorkingThread;
 	    EventsManager*      m_eventsManager;
-	    ICommandQueue*      m_IcommandQueue;
+		ICommandQueue*      m_commandQueue;
     };
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(EA_FB595B53_73A0_449e_AEBE_A0575CD3E5FF__INCLUDED_)
