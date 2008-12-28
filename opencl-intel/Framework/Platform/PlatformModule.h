@@ -30,12 +30,12 @@
 #define OCL_PLATFORM_MODULE_H_
 
 #include <cl_framework.h>
-#include "..\cl_object_info.h"
-#include "..\cl_objects_map.h"
-#include "logger.h"
+#include <cl_device_api.h>
+#include <cl_object_info.h>
+#include <cl_objects_map.h>
+#include <logger.h>
+#include <cl_config.h>
 #include "device.h"
-#include "cl_device_api.h"
-#include "cl_config.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -182,6 +182,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									  void* param_value,
 									  size_t* param_value_size_ret );
 
+		/******************************************************************************************
+		* Function: 	GetDevice    
+		* Description:	Get device object that asigned to the device id
+		* Arguments:	clDeviceId [in] -	device id
+		*				ppDevice [out] -	pointer to the device
+		* Return value:	CL_SUCCESS - The operation succedeed
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_err_code		GetDevice(cl_device_id clDeviceId, Device ** ppDevice);
+
 
 	private:
 
@@ -201,7 +212,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap * m_pDevices;
 		
 		// pointer to the platoform module's logger client
-		LoggerClient * m_pPlatformLoggerClient;
+		LoggerClient * m_pLoggerClient;
 
 		// pointer to the platform module's information object
 		OCLObjectInfo *	m_pObjectInfo;

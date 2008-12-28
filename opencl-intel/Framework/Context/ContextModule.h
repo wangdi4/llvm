@@ -29,7 +29,8 @@
 #if !defined(OCL_CONTEXT_MODULE_H_)
 #define OCL_CONTEXT_MODULE_H_
 
-#include "..\Platform\PlatformModule.h"
+#include <PlatformModule.h>
+#include "Context.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -84,7 +85,65 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code		Release();
 
+		/******************************************************************************************
+		* Function: 	clCreateContext    
+		* Description:	creates an OpenCL context. An OpenCL context is created with one or more 
+		*				devices. Contexts are used by the OpenCL runtime for managing objects such 
+		*				as command-queues, memory, program and kernel objects and for executing 
+		*				kernels on one or more devices specified in the context
+		* Arguments:	properties [in] -	is reserved and must be zero	
+		*				num_devices [in] -	is the number of devices specified in the devices 
+		*									argument
+		*				devices [in] -		is a pointer to a list of unique devices returned by 
+		*									clGetDeviceIDs. If more than one device is specified in 
+		*									devices, an implementation-defined1 selection criteria 
+		*									may be applied to determine if the list of devices 
+		*									specified can be used together to create a context
+		*				pfn_notify [in] -	is a callback function that can be registered by the 
+		*									application. This callback function will be used by the 
+		*									OpenCL implementation to report information on errors 
+		*									that occur in this context. This callback function may 
+		*									be called asynchronously by the OpenCL implementation.
+		*									It is the application’s responsibility to ensure that 
+		*									the callback function is thread-safe. The parameters to 
+		*									this callback function are:
+		*									errinfo					is a pointer to an error string.
+		*									private_info and cb		represent a pointer 
+		*															to binary data that is returned 
+		*															by the OpenCL implementation  
+		*															that can be used to log  
+		*															additional information helpful 
+		*															in debugging the error.
+		*									user_data				is a pointer to user supplied 
+		*															data.
+		*									If pfn_notify is NULL, no callback function is registered
+		*				user_data [in]		will be passed as the user_data argument when pfn_notify 
+		*									is called. user_data can be NULL
+		*				errcode_ret [out]	will return an appropriate error code. If errcode_ret is 
+		*									NULL, no error code is returned
+		* Return value:	CL_INVALID_VALUE 		if properties is not zero or if devices is NULL or if 
+		*										num_devices is equal to zero
+		*				CL_INVALID_DEVICE 		if devices contains an invalid device
+		*				CL_INVALID_DEVICE_LIST	if more than one device is specified in devices and 
+		*										the list of devices specified cannot be used together 
+		*										to create a context
+		*				CL_DEVICE_NOT_AVAILABLE if a device in devices is currently not available even 
+		*										though the device was returned by clGetDeviceIDs
+		*				CL_OUT_OF_HOST_MEMORY	if there is a failure to allocate resources required 
+		*										by the OpenCL implementation on the host
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_context		CreateContext(cl_context_properties properties,
+										cl_uint num_devices,
+										const cl_device_id *devices,
+										logging_fn pfn_notify,
+										void *user_data,
+										cl_err_code *errcode_ret);
+
 	private:
+
+		cl_err_code			CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
 
 		PlatformModule *	m_pPlatformModule; // handle to the platform module
 

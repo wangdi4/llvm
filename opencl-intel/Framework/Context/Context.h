@@ -31,9 +31,13 @@
 
 #include <cl_framework.h>
 #include "..\cl_object.h"
+#include "..\Platform\Device.h"
 #include "logger.h"
+#include <map>
 
 namespace Intel { namespace OpenCL { namespace Framework {
+
+
 
 	/**********************************************************************************************
 	* Class name:	Context
@@ -54,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context();
+		Context(cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData);
 
 		/******************************************************************************************
 		* Function: 	~Device
@@ -83,6 +87,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	private:
 
 		LoggerClient *	m_pLoggerClient;	// context's logger client
+
+		std::map<cl_device_id,Device*> m_mapDevices;	// map list - holds all devices
+
+		logging_fn m_pfnNotify; // notify function's pointer
+
+		void * m_pUserData; // user data
 
 	};
 

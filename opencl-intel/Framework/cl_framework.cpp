@@ -113,3 +113,29 @@ cl_int clGetDeviceInfo(cl_device_id device,
 	cl_err_code clRet = pPlatformModule->GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret);
 	return (CL_ERR_OUT(clRet));
 }
+
+cl_context clCreateContext(cl_context_properties properties,
+					   cl_uint num_devices,
+					   const cl_device_id * devices,
+					   logging_fn pfn_notify,
+					   void * user_data,
+					   cl_int * errcode_ret)
+{
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the platform module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		CL_ERR_PLATFORM_FAILED;
+	}
+	cl_err_code clRet = CL_SUCCESS;
+	cl_context iContextId = pContextModule->CreateContext(properties, num_devices, devices, pfn_notify, user_data, &clRet);
+	*errcode_ret = CL_ERR_OUT(clRet);
+	return iContextId;
+}

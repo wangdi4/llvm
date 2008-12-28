@@ -29,13 +29,11 @@
 #if !defined(_OCL_DEVICE_H_)
 #define _OCL_DEVICE_H_
 
-#include "cl_framework.h"
-#include "..\cl_object.h"
-#include "logger.h"
-#include "cl_device_api.h"
+#include <cl_framework.h>
+#include <cl_object.h>
+#include <logger.h>
+#include <cl_device_api.h>
 #include <map>
-using namespace std;
-
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -118,7 +116,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		static cl_int						m_iNextClientId;
 		
-		static map<cl_int, LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
+		static std::map<cl_int, LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
 		cl_dev_entry_points					m_clDevEntryPoints;		// device's entry points
 		

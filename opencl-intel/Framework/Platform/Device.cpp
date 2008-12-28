@@ -25,8 +25,8 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "Device.h"
-#include "cl_device_api.h"
+#include "device.h"
+using namespace std;
 using namespace Intel::OpenCL::Framework;
 
 cl_int						Device::m_iNextClientId = 0;

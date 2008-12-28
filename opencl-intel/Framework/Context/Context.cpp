@@ -26,12 +26,29 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "Context.h"
+using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-Context::Context()
+Context::Context(cl_uint uiNumDevices, Device **ppDevices, logging_fn pfnNotify, void *pUserData)
 {
+	m_pfnNotify = NULL;
+	m_pUserData = NULL;
+
 	m_pLoggerClient = new LoggerClient(L"Context", LL_DEBUG);
 	InfoLog(m_pLoggerClient, L"Context constructor enter");
+
+	if (NULL == ppDevices || uiNumDevices <= 0)
+	{
+		return;
+	}
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		cl_device_id iDeviceId = (cl_device_id)(*ppDevices)->GetId();
+		m_mapDevices[iDeviceId] = *ppDevices;
+	}
+
+	m_pfnNotify = pfnNotify;
+	m_pUserData = pUserData;
 }
 Context::~Context()
 {
