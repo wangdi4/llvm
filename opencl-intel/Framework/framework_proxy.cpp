@@ -11,7 +11,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-char clFRAMEWORK_CFG_PATH[MAX_PATH];
+char clFRAMEWORK_CFG_PATH[256];
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 

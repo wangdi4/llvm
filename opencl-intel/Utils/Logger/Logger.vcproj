@@ -310,10 +310,6 @@
 				RelativePath="..\..\include\Logger.h"
 				>
 			</File>
-			<File
-				RelativePath="..\..\include\SyncUtils.h"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"

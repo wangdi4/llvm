@@ -30,14 +30,3 @@ cl_err_code OCLObject::Retain()
 	return CL_SUCCESS;
 }
 
-cl_int OCLObject::GetId()
-{
-	return m_iId;
-}
-
-cl_err_code OCLObject::SetId(cl_int obj_id)
-{
-	m_iId = obj_id;
-	return CL_SUCCESS;
-}
-

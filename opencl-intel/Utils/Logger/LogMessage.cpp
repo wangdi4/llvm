@@ -30,6 +30,7 @@
 #include <sstream>              // required by: owstringstream
 #include <assert.h>
 #include <time.h>
+#include <windows.h>
 using namespace Intel::OpenCL::Framework;
 
 /////////////////////////////////////////////////////////////////////////////////////////

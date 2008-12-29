@@ -97,8 +97,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
-		cl_err_code SetId(cl_int obj_id);
-		cl_int GetId();
+		cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }
+		
+		cl_int GetId() const { return m_iId; }
 
 	protected:
 		

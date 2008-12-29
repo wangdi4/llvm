@@ -26,7 +26,9 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "log_handler.h"
+#include "cl_synch_objects.h"
 #include <assert.h>
+#include <malloc.h>
 using namespace Intel::OpenCL::Framework;
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -109,7 +111,7 @@ void FileLogHandler::Log(LogMessage& logMessage)
     wchar_t* formattedMsg = logMessage.GetFormattedMessage();
     {
         // Lock 
-        CAutoThreadSync CS(m_CS);  
+        OclAutoMutex CS(&m_CS);  
         if (!fwprintf(m_fileHandler, formattedMsg) )       
         {
             wprintf(L"fwrite failed\n");
@@ -185,7 +187,7 @@ void ConsoleLogHandler::Log(LogMessage& logMessage)
     wchar_t* formattedMsg = logMessage.GetFormattedMessage();    
     {   
         // Lock
-        CAutoThreadSync CS(m_CS);
+        OclAutoMutex CS(&m_CS);
         fwprintf ( stdout, formattedMsg) ;    
         Flush();         
         // UnLock

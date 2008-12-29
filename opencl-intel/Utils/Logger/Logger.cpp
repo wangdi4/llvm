@@ -64,7 +64,7 @@ Logger& Logger::GetInstance()
 cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 {
 
-    CAutoThreadSync CS(m_CS); // Lock the function
+	OclAutoMutex CS(&m_CS); // Lock the function
     int	i;
     for (i = 0; i < MAX_LOG_HANDLERS; i++)
     {
