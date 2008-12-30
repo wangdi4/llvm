@@ -8,6 +8,9 @@
 #include "ContextModule.h"
 using namespace Intel::OpenCL::Framework;
 
+//////////////////////////////////////////////////////////////////////////
+// ContextModule C'tor
+//////////////////////////////////////////////////////////////////////////
 ContextModule::ContextModule(PlatformModule *pPlatformModule)
 {
 	m_pLoggerClient = new LoggerClient(L"Context Module Logger Client",LL_DEBUG);
@@ -15,8 +18,9 @@ ContextModule::ContextModule(PlatformModule *pPlatformModule)
 
 	m_pPlatformModule = pPlatformModule;
 }
-
-
+//////////////////////////////////////////////////////////////////////////
+// ContextModule D'tor
+//////////////////////////////////////////////////////////////////////////
 ContextModule::~ContextModule()
 {
 	InfoLog(m_pLoggerClient, L"ContextModule destructor enter");
@@ -26,6 +30,9 @@ ContextModule::~ContextModule()
 
 }
 
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::Initializ
+//////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Initialize()
 {
 	InfoLog(m_pLoggerClient, L"ContextModule::Initialize enter");
@@ -36,7 +43,9 @@ cl_err_code ContextModule::Initialize()
 	}
 	return CL_SUCCESS;
 }
-
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::Release
+//////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Release()
 {
 	InfoLog(m_pLoggerClient, L"ContextModule::Release enter");
@@ -57,7 +66,9 @@ cl_err_code ContextModule::Release()
 	}
 	return clErrRet;
 }
-
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateContext
+//////////////////////////////////////////////////////////////////////////
 cl_context	ContextModule::CreateContext(cl_context_properties properties,
 										   cl_uint num_devices,
 										   const cl_device_id *devices,
@@ -121,10 +132,13 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		return 0;
 	}
 
-	Context *pContext = new Context(num_devices, ppDevices, pfn_notify, user_data);
+	Context *pContext = new Context(properties, num_devices, ppDevices, pfn_notify, user_data);
+	pContext->Retain();
 	return (cl_context)m_pContexts->AddObject(pContext);
 }
-
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CheckDevices
+//////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
 {
 	InfoLog(m_pLoggerClient, L"ContextModule::CheckDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d", uiNumDevices, pclDeviceIds, ppDevices);
@@ -155,4 +169,74 @@ cl_err_code ContextModule::CheckDevices(cl_uint uiNumDevices, const cl_device_id
 		ppDevices[ui] = pDevice;
 	}
 	return CL_SUCCESS;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::RetainContext
+//////////////////////////////////////////////////////////////////////////
+cl_err_code ContextModule::RetainContext(cl_context context)
+{
+	InfoLog(m_pLoggerClient, L"ContextModule::RetainContext enter. context=%d", context);
+	cl_err_code clErrRet = CL_SUCCESS;
+	Context * pContext = NULL;
+	if (NULL == m_pContexts)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
+		return CL_INVALID_CONTEXT;
+	}
+	return pContext->Retain();
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::ReleaseContext
+//////////////////////////////////////////////////////////////////////////
+cl_err_code ContextModule::ReleaseContext(cl_context context)
+{
+	InfoLog(m_pLoggerClient, L"ContextModule::ReleaseContext enter. context=%d", context);
+	cl_err_code clErrRet = CL_SUCCESS;
+	Context * pContext = NULL;
+	if (NULL == m_pContexts)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
+		return CL_INVALID_CONTEXT;
+	}
+	return pContext->Release();
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetContextInfo
+//////////////////////////////////////////////////////////////////////////
+cl_err_code ContextModule::GetContextInfo(cl_context      context,
+										  cl_context_info param_name,
+										  size_t          param_value_size,
+										  void *          param_value,
+										  size_t *        param_value_size_ret)
+{
+	InfoLog(m_pLoggerClient, L"ContextModule::GetContextInfo enter. context=%d, param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d", 
+		context, param_name, param_value_size, param_value, param_value_size_ret);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	Context * pContext = NULL;
+	if (NULL == m_pContexts)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get context from the contexts map list
+	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
+		return CL_INVALID_CONTEXT;
+	}
+	return pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
 }

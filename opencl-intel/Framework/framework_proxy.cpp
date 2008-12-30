@@ -8,10 +8,11 @@
 
 #include "framework_proxy.h"
 #include "logger.h"
+#include <windows.h>
 
 using namespace Intel::OpenCL::Framework;
 
-char clFRAMEWORK_CFG_PATH[256];
+char clFRAMEWORK_CFG_PATH[MAX_PATH];
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 

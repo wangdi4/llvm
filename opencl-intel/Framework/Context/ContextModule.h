@@ -141,6 +141,60 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *user_data,
 										cl_err_code *errcode_ret);
 
+		/******************************************************************************************
+		* Function: 	RetainContext    
+		* Description:	increments the context reference count
+		* Arguments:	context [in] -	specifies the OpenCL context being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_CONTEXT		if context is not a valid OpenCL context
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/		
+		cl_err_code		RetainContext(cl_context context);
+
+		/******************************************************************************************
+		* Function: 	ReleaseContext    
+		* Description:	decrements the context reference count. After the context reference count 
+		*				becomes zero and all the objects attached to context (such as memory 
+		*				objects, command-queues) are released, the context is deleted.
+		* Arguments:	context [in] -	specifies the OpenCL context being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_CONTEXT		if context is not a valid OpenCL context
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_err_code		ReleaseContext(cl_context context);
+
+		/******************************************************************************************
+		* Function: 	GetContextInfo    
+		* Description:	can be used to query information about a context
+		* Arguments:	context [in] -				specifies the OpenCL context being queried	
+		*				param_name [in] -			is an enum that specifies the information to 
+		*											query
+		*				param_value [out] -			is a pointer to memory where the appropriate  
+		*											result being queried is returned. If param_value
+		*											is NULL, it is ignored
+		*				param_value_size [in] -		specifies the size in bytes of memory pointed 
+		*											to by param_value. This size must be greater 
+		*											than or equal to the size of return type
+		*				param_value_size_ret [out]-	returns the actual size in bytes of data being 
+		*											queried by param_value. If param_value_size_ret 
+		*											is NULL, it is ignored
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_CONTEXT		if context is not a valid OpenCL context
+		*				CL_INVALID_VALUE		if param_name is not one of the supported values 
+		*										or if size in bytes specified by param_value_size
+		*										is < size of return type and param_value is not a 
+		*										NULL value
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_err_code		GetContextInfo(	cl_context      context,
+										cl_context_info param_name,
+										size_t          param_value_size,
+										void *          param_value,
+										size_t *        param_value_size_ret);
+
 	private:
 
 		cl_err_code			CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);

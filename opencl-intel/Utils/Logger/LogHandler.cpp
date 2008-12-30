@@ -36,14 +36,18 @@ using namespace Intel::OpenCL::Framework;
 /////////////////////////////////////////////////////////////////////////////////////////
 FileLogHandler::FileLogHandler(const wchar_t* handle)
 {
-    if (handle)
+    if (NULL != handle)
     {
         m_handle = _wcsdup(handle);
 
-        if (m_handle)
+        if (NULL != m_handle)
+		{
             wcscpy_s(m_handle, wcslen(handle) + 1, handle);           
+		}
         else
+		{
             m_handle = NULL;
+		}
     }
 
     m_fileName   = NULL;
@@ -90,6 +94,20 @@ cl_err_code FileLogHandler::Init(ELogLevel level, wchar_t* fileName)
             return CL_ERR_LOGGER_FAILED;
         }    
         assert (m_fileHandler != NULL);
+
+		{
+			// Lock 
+			OclAutoMutex CS(&m_CS);  
+			if (!fwprintf(m_fileHandler, L"\n\n########################################################################################################################################################################################################\n") )
+			{
+				wprintf(L"fwrite failed\n");
+				assert(false);
+				return CL_ERR_LOGGER_FAILED;
+			}           
+			Flush();
+			// Unlock
+		} 
+
 		return CL_SUCCESS;  
     }
     

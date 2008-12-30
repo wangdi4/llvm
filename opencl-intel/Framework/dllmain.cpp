@@ -15,10 +15,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		GetModuleFileNameA(hModule,tBuff,MAX_PATH-1);
+		GetModuleFileNameA(hModule, tBuff, MAX_PATH-1);
 		ptCutBuff = strrchr ( tBuff, iCh );
 		iPathLength = (int)(ptCutBuff - tBuff + 1);
-		//iPathLength = MAX_PATH - (int)(ptCutBuff - tBuff);
 		tBuff[iPathLength] = 0;
 		strcpy_s(clFRAMEWORK_CFG_PATH, MAX_PATH-1, tBuff);
 		strcat_s(clFRAMEWORK_CFG_PATH, MAX_PATH-1, "cl.cfg");

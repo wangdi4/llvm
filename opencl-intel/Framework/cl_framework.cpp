@@ -114,6 +114,10 @@ cl_int clGetDeviceInfo(cl_device_id device,
 	return (CL_ERR_OUT(clRet));
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Context APIs
+//////////////////////////////////////////////////////////////////////////
+
 cl_context clCreateContext(cl_context_properties properties,
 					   cl_uint num_devices,
 					   const cl_device_id * devices,
@@ -121,21 +125,141 @@ cl_context clCreateContext(cl_context_properties properties,
 					   void * user_data,
 					   cl_int * errcode_ret)
 {
+	cl_err_code clRet = CL_SUCCESS;
 	// get instance of the framework factory class
 	FrameworkProxy* pFramework = FrameworkProxy::Instance();
 	if (NULL == pFramework)
 	{
 		// can't initialize framework factory
-		CL_ERR_INITILIZATION_FAILED;
+		*errcode_ret = CL_ERR_INITILIZATION_FAILED;
+		return 0;
 	}
-	// get the platform module
+	// get the context module
 	ContextModule *pContextModule = pFramework->GetContextModule();
 	if (NULL == pContextModule)
 	{
-		CL_ERR_PLATFORM_FAILED;
+		*errcode_ret = CL_ERR_CONTEXT_FAILED;
+		return 0;
 	}
-	cl_err_code clRet = CL_SUCCESS;
 	cl_context iContextId = pContextModule->CreateContext(properties, num_devices, devices, pfn_notify, user_data, &clRet);
 	*errcode_ret = CL_ERR_OUT(clRet);
 	return iContextId;
+}
+
+cl_context clCreateContextFromType(cl_context_properties properties,
+								   cl_device_type        device_type,
+								   logging_fn            pfn_notify,
+								   void *                user_data,
+								   cl_int *              errcode_ret)
+{
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(CL_ERR_INITILIZATION_FAILED));
+		return 0;
+	}
+	// get the platform module
+	PlatformModule *pPlatformModule = pFramework->GetPlatformModule();
+	if (NULL == pPlatformModule)
+	{
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(CL_ERR_PLATFORM_FAILED));
+		return 0;
+	}
+	cl_uint uiNumDevices = 0;
+	// get number of devices for device type
+	cl_err_code clRet = pPlatformModule->GetDeviceIDs(device_type, 0, NULL, &uiNumDevices);
+	if (CL_FAILED(clRet))
+	{
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(clRet));
+		return 0;
+	}
+	// allocate array for devices
+	cl_device_id * pDevices = new cl_device_id[uiNumDevices];
+	if (NULL == pDevices)
+	{
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(CL_ERR_INITILIZATION_FAILED));
+		return 0;
+	}
+	// get devices
+	clRet = pPlatformModule->GetDeviceIDs(device_type, uiNumDevices, pDevices, NULL);
+	if (CL_FAILED(clRet))
+	{
+		delete[] pDevices;
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(clRet));
+		return 0;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		CL_ERR_RET(errcode_ret, CL_ERR_OUT(CL_ERR_CONTEXT_FAILED));
+		return 0;
+	}
+	cl_context iContextId = pContextModule->CreateContext(properties, uiNumDevices, pDevices, pfn_notify, user_data, &clRet);
+	CL_ERR_RET(errcode_ret, CL_ERR_OUT(clRet));
+	return iContextId;
+}
+
+cl_int clRetainContext(cl_context context)
+{
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->RetainContext(context);
+	return CL_ERR_OUT(clRet);
+}
+
+cl_int clReleaseContext(cl_context context)
+{
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+		return 0;
+	}
+	cl_err_code clRet = pContextModule->ReleaseContext(context);
+	return CL_ERR_OUT(clRet);
+}
+
+cl_int clGetContextInfo(cl_context      context,
+						cl_context_info param_name,
+						size_t          param_value_size,
+						void *          param_value,
+						size_t *        param_value_size_ret)
+{
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_OUT(clRet);
 }

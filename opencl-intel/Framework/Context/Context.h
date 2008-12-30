@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData);
+		Context(cl_context_properties clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData);
 
 		/******************************************************************************************
 		* Function: 	~Device
@@ -83,17 +83,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
+		cl_err_code Release();
+
 
 	private:
 
-		LoggerClient *	m_pLoggerClient;	// context's logger client
+		cl_context_properties			m_clContextProperties; // context properties
 
-		std::map<cl_device_id,Device*> m_mapDevices;	// map list - holds all devices
+		LoggerClient *					m_pLoggerClient;	// context's logger client
 
-		logging_fn m_pfnNotify; // notify function's pointer
+		logging_fn						m_pfnNotify; // notify function's pointer
 
-		void * m_pUserData; // user data
+		void *							m_pUserData; // user data
 
+		std::map<cl_device_id,Device*>	m_mapDevices;	// map list - holds all devices
+		
+		cl_device_id *					m_pDeviceIds; // array of device ids
 	};
 
 

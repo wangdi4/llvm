@@ -101,6 +101,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		cl_int GetId() const { return m_iId; }
 
+		cl_uint GetReferenceCount() const { return m_uiRefCount; }
+
 	protected:
 		
 		cl_int			m_iId;				// object id

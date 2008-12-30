@@ -9,7 +9,9 @@
 using namespace Intel::OpenCL::Framework;
 
 OCLObject::OCLObject()
-{}
+{
+	m_uiRefCount = 0;
+}
 
 OCLObject::~OCLObject()
 {}
