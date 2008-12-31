@@ -1,5 +1,5 @@
 
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2009 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -34,7 +34,7 @@
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
 #include <list>
-using namespace std;
+
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -54,28 +54,29 @@ public:
 protected:
 
 	// Private type declaration
-	typedef list<cl_dev_cmd_desc>				cmdDescList_t;
-	typedef struct _CmdListItem_t {
+	typedef std::list<cl_dev_cmd_desc>				TCmdDescList;
+	typedef struct _TCmdListItem {
 		cl_dev_cmd_list_props	props;
-		cmdDescList_t			cmdDescList;
+		TCmdDescList			cmdDescList;
 		unsigned int			refrenceCount;
-	} CmdListItem_t;
-	typedef map<unsigned int, CmdListItem_t*>	cmdListMap_t;
+	} TCmdListItem;
+	typedef std::map<unsigned int, TCmdListItem*>	TCmdListMap;
 
-	cl_int							m_devId;
-	cl_dev_log_descriptor			m_logDesc;
+	cl_int							m_iDevId;
+	cl_dev_log_descriptor           m_logDescriptor;
+	cl_int							m_iLogHandle;
 	cl_dev_call_backs				m_frameWorkCallBacks;
 	ProgramService*					m_programService;
 	MemoryAllocator*				m_memoryAllocator;
 	HandleAllocator<unsigned int>	m_listIdAlloc;
 
-	cmdListMap_t			m_commandList;
+	TCmdListMap			m_commandList;
 
 	// Internal implementation of functions
-	typedef cl_int	CheckCmdFunc_t(void*);
-	typedef cl_int	ExecCmdFunc_t(Scheduler*, cl_dev_cmd_desc*);
-	static	CheckCmdFunc_t*	m_checkCmdTable[];
-	static	ExecCmdFunc_t*	m_execCmdTable[];
+	typedef cl_int	TCheckCmdFunc(void*);
+	typedef cl_int	TExecCmdFunc(Scheduler*, cl_dev_cmd_desc*);
+	static	TCheckCmdFunc*	m_checkCmdTable[];
+	static	TExecCmdFunc*	m_execCmdTable[];
 	
 	// Native Kernel execution functions
 	static cl_int	checkNativeKernelParam(void* param);

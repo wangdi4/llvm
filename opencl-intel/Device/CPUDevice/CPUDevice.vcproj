@@ -252,6 +252,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cl_logger.h"
+				>
+			</File>
+			<File
 				RelativePath=".\CPUDevice.h"
 				>
 			</File>

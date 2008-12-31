@@ -41,11 +41,14 @@ static const char* CPU_STRING = "GenuineIntel";
 class CPUDevice
 {
 private:
-	static ProgramService *pProgramService;
-	static MemoryAllocator *pMemoryAllocator;
-	static Scheduler *pScheduler;
+	static ProgramService *m_pProgramService;
+	static MemoryAllocator *m_pMemoryAllocator;
+	static Scheduler *m_pScheduler;
 	cl_dev_call_backs m_frameWorkCallBacks;
-	cl_uint	uiCpuId; 
+	cl_uint	m_uiCpuId; 
+	static cl_dev_log_descriptor m_logDescriptor;
+	static cl_int	m_iLogHandle;
+
 protected:
 	CPUDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
 
@@ -56,33 +59,33 @@ public:
 	void						Release();
 
 	// Device entry points
-	static cl_int clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
+	static cl_int clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal,
 							size_t* OUT param_val_size_ret);
 	static cl_int clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	static cl_int clDevRetainCommandList( cl_dev_cmd_list IN list);
 	static cl_int clDevReleaseCommandList( cl_dev_cmd_list IN list );
 	static cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count);
-	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
-							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
+	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+							cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 									size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj);
 	static cl_int clDevDeleteMemoryObject( cl_dev_mem* IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-									 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch);
+									 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slicePitch);
 	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
-	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
-	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
+	static cl_int clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
+	static cl_int clDevBuildProgram( size_t IN binSize, const void* IN bin, const cl_char* IN options, void* IN userData,
 							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
 	static cl_int clDevUnloadCompiler();
-	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret );
+	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet );
 	static cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
-	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
-	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
-	static cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-									 size_t* OUT num_kernels_ret );
-	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
-								void* OUT value, size_t* OUT value_size_ret );
+	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
+	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
+	static cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
+									 size_t* OUT numKernelsRet );
+	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
+								void* OUT value, size_t* OUT valueSizeRet );
 };
 
 }}}

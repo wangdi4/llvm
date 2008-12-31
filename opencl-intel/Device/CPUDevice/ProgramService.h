@@ -29,7 +29,7 @@
 #pragma once
 
 #include <map>
-using namespace std;
+
 
 
 #include "cl_device_api.h"
@@ -46,10 +46,10 @@ public:
 	virtual ~ProgramService();
 
 	cl_int checkProgramBinary (size_t IN bin_size, const void* IN bin);
-    cl_int buildProgram( size_t IN bin_size,
+    cl_int buildProgram( size_t IN binSize,
 									   const void* IN bin,
 									   const cl_char* IN options,
-									   void* IN user_data,
+									   void* IN userData,
 									   cl_dev_binary_prop IN prop,
 									   cl_dev_program* OUT prog
 									   );
@@ -58,38 +58,39 @@ public:
     cl_int getProgramBinary( cl_dev_program IN prog,
 										size_t IN size,
 										void* OUT binary,
-										size_t* OUT size_ret
+										size_t* OUT sizeRet
 										);
 
 	cl_int getBuildLog( cl_dev_program IN prog,
 									  size_t IN size,
 									  char* OUT log,
-									  size_t* OUT size_ret
+									  size_t* OUT sizeRet
 									  );
 	cl_int getSupportedBinaries( size_t IN size,
 										   cl_prog_binary_desc* OUT types,
-										   size_t* OUT size_ret
+										   size_t* OUT sizeRet
 										   );
 
-	cl_int getKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
+	cl_int getKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 
 	cl_int getProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT num_kernels_ret );
+						 size_t* OUT numKernelsRet );
 
-	cl_int getKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
-					void* OUT value, size_t* OUT value_size_ret );
+	cl_int getKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
+					void* OUT value, size_t* OUT valueSizeRet );
 
 
 protected:
-	typedef struct _ProgramInfo_t {
+	typedef struct _TTProgramInfo_t {
 		void * bin;
 		size_t	binSize;
-	} ProgramInfo_t;
+	} TProgramInfo_t;
 
-	typedef map<unsigned int, ProgramInfo_t*>	ProgramMap_t;
+	typedef std::map<unsigned int, TProgramInfo_t*>	ProgramMap_t;
 
-	cl_int							m_devId;
-	cl_dev_log_descriptor			m_logDesc;
+	cl_int							m_iDevId;
+	cl_dev_log_descriptor			m_logDescriptor;
+	cl_int							m_iLogHandle;
 	HandleAllocator<unsigned int>	m_progIdAlloc;
 	ProgramMap_t					m_programs;
 	cl_dev_call_backs				m_frameWorkCallBacks;

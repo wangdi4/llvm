@@ -28,6 +28,7 @@
 #include "stdafx.h"
 
 #include "Scheduler.h"
+#include "cl_logger.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -48,7 +49,7 @@ static size_t schParamSize[] =
 		sizeof(cl_dev_cmd_param_native)		//Execute native kernel parameters size
 	};
 
-Scheduler::CheckCmdFunc_t*	Scheduler::m_checkCmdTable[] =
+Scheduler::TCheckCmdFunc*	Scheduler::m_checkCmdTable[] =
 	{
 		NULL,		//Read buffer function
 		NULL,		//Write buffer function
@@ -60,7 +61,7 @@ Scheduler::CheckCmdFunc_t*	Scheduler::m_checkCmdTable[] =
 		&Scheduler::checkNativeKernelParam		//Execute native kernel function
 	};
 
-Scheduler::ExecCmdFunc_t*	Scheduler::m_execCmdTable[] =
+Scheduler::TExecCmdFunc*	Scheduler::m_execCmdTable[] =
 	{
 		NULL,		//Read buffer function
 		NULL,		//Write buffer function
@@ -74,17 +75,28 @@ Scheduler::ExecCmdFunc_t*	Scheduler::m_execCmdTable[] =
 
 Scheduler::Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService,
 					 MemoryAllocator *memAlloc, cl_dev_log_descriptor *logDesc) :
-		m_devId(devId), m_programService(programService), m_memoryAllocator(memAlloc),
+		m_iDevId(devId), m_programService(programService), m_memoryAllocator(memAlloc),
 		m_listIdAlloc(1, UINT_MAX)
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL == logDesc )
 	{
-		memset(&m_logDesc, 0, sizeof(cl_dev_log_descriptor));
-	} else
-	{
-		memcpy_s(&m_logDesc, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
+		memset(&m_logDescriptor, 0, sizeof(cl_dev_log_descriptor));
 	}
+	else
+	{
+		memcpy_s(&m_logDescriptor, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
+	}
+	
+
+	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Scheduler", &m_iLogHandle);
+	if(CL_DEV_SUCCESS != ret)
+	{
+		//TBD
+		m_iLogHandle = 0;
+	}
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"Scheduler Created");
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
 	memcpy_s(&m_frameWorkCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
@@ -94,6 +106,11 @@ Scheduler::Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramServi
 
 Scheduler::~Scheduler()
 {
+	cl_int ret = m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
+	if(CL_DEV_SUCCESS != ret)
+	{
+		//TBD
+	}
 }
 /*******************************************************************************************************************
 createCommandList
@@ -111,19 +128,20 @@ createCommandList
 **************************************************************************************************************************/
 cl_int Scheduler::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
+	InfoLog(m_logDescriptor, m_iLogHandle, L"createCommandList enter");
 	if ( NULL == list )
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
 
 	// Allocate new handle
-	unsigned int newId;
-	if ( !m_listIdAlloc.AllocateHandle(&newId) )
+	unsigned int uiNewId;
+	if ( !m_listIdAlloc.AllocateHandle(&uiNewId) )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	CmdListItem_t* data = new CmdListItem_t;
+	TCmdListItem* data = new TCmdListItem;
 	if ( NULL == data )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -134,9 +152,9 @@ cl_int Scheduler::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_
 	data->refrenceCount = 1;
 
 
-	*list = (cl_dev_cmd_list)newId;
+	*list = (cl_dev_cmd_list)uiNewId;
 
-	m_commandList[newId] = data;
+	m_commandList[uiNewId] = data;
 
 	return CL_DEV_SUCCESS;
 }
@@ -154,8 +172,9 @@ retainCommandList
 *******************************************************************************************************************/
 cl_int Scheduler::retainCommandList( cl_dev_cmd_list IN list)
 {
+	InfoLog(m_logDescriptor, m_iLogHandle, L"retainCommandList enter");
 	// TODO: add thread safe operation to this function, Critical section
-	cmdListMap_t::iterator	it;
+	TCmdListMap::iterator	it;
 	unsigned int listId = (unsigned int)list;
 
 	it = m_commandList.find(listId);
@@ -185,9 +204,11 @@ releaseCommandList
 cl_int Scheduler::releaseCommandList( cl_dev_cmd_list IN list )
 {
 	// TODO: add thread safe operation to this function, Critical section
-	cmdListMap_t::iterator	it;
-	CmdListItem_t* data;
+	TCmdListMap::iterator	it;
+	TCmdListItem* data;
 	unsigned int listId = (unsigned int)list;
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"releaseCommandList enter");
 
 	it = m_commandList.find(listId);
 	if( it == m_commandList.end())
@@ -257,9 +278,10 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 {
 	//The first stupid solution just execute the commands one after the other and even dont insert the commands into the list
 	// TODO: add thread safe operation to this function, Critical section
-	cmdListMap_t::iterator	it;
-	CmdListItem_t* data;
+	TCmdListMap::iterator	it;
 	unsigned int listId = (unsigned int)list;
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"commandListExecute enter");
 
 	// If list id is 0, we need to create new list item
 	if ( 0 == listId )
@@ -299,7 +321,7 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 		}
 		// Check if requested operation supported by the device
 		// Only one table could be checked
-		CheckCmdFunc_t* checkFunc = m_checkCmdTable[cmds[i].type];
+		TCheckCmdFunc* checkFunc = m_checkCmdTable[cmds[i].type];
 		if ( NULL ==  checkFunc)
 		{
 			// TODO: ADD Log
@@ -322,7 +344,7 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 	for (unsigned int i=0; i<count; ++i)
 	{
 		// Retrive appopriate execution function
-		ExecCmdFunc_t* execFunc = m_execCmdTable[cmds[i].type];
+		TExecCmdFunc* execFunc = m_execCmdTable[cmds[i].type];
 		assert(execFunc);	// We assume that execution function always found beside the check function
 
 		cl_int rc = execFunc(this, &cmds[i]);
@@ -346,6 +368,7 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 cl_int	Scheduler::checkNativeKernelParam(void* params)
 {
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)params;
+
 	if( NULL == cmdParams->func_ptr )
 	{
 		return CL_DEV_INVALID_COMMAND_PARAM;

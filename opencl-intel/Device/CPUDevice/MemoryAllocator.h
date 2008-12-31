@@ -55,8 +55,10 @@ public:
 	cl_int	ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr );
 
 protected:
-	cl_int					m_devId;
-	cl_dev_log_descriptor	m_logDesc;
+	cl_int					m_iDevId;
+	cl_dev_log_descriptor   m_logDescriptor;
+	cl_int	m_iLogHandle;
+
 };
 
 }}}

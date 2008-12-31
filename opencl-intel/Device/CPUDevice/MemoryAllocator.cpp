@@ -28,35 +28,52 @@
 #include "stdafx.h"
 
 #include "MemoryAllocator.h"
+#include "cl_logger.h"
 
 #include<stdlib.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc) :
-	m_devId(devId)
+	m_iDevId(devId)
 {
 	if ( NULL == logDesc )
 	{
-		memset(&m_logDesc, 0, sizeof(cl_dev_log_descriptor));
+		memset(&m_logDescriptor, 0, sizeof(cl_dev_log_descriptor));
 	}
 	else
 	{
-		memcpy_s(&m_logDesc, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
+		memcpy_s(&m_logDescriptor, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
 	}
+	
+
+	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Memory Allocator", &m_iLogHandle);
+	if(CL_DEV_SUCCESS != ret)
+	{
+		//TBD
+		m_iLogHandle = 0;
+	}
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"MemoryAllocator Created");
+		
 }
 
 
 
 MemoryAllocator::~MemoryAllocator()
 {
+	cl_int ret = m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
+	if(CL_DEV_SUCCESS != ret)
+	{
+		//TBD
+	}
 
 }
 
 cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format, size_t IN width,
 							size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj )
 {
-	// TODO : Add log
+	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateObject enter");
 	if ( NULL == memObj )
 	{
 		return CL_DEV_INVALID_VALUE;
@@ -69,7 +86,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	}
 
 	// Allocate memory
-	memObj->allocId = m_devId;
+	memObj->allocId = m_iDevId;
 	memObj->objHandle = malloc(width);
 
 	return CL_DEV_SUCCESS;
@@ -77,8 +94,8 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 {
-	// TODO : Add log
-	if ( (m_devId != memObj.allocId) || (NULL == memObj.objHandle) )
+	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseObject enter");
+	if ( (m_iDevId != memObj.allocId) || (NULL == memObj.objHandle) )
 	{
 		return CL_INVALID_MEM_OBJECT;
 	}
@@ -90,6 +107,7 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 cl_int MemoryAllocator::LockObject(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
 							void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch)
 {
+	InfoLog(m_logDescriptor, m_iLogHandle, L"LockObject enter");
 	cl_char* lockedPtr = (cl_char*)memObj.objHandle;
 
 	lockedPtr += origin[0];
@@ -108,6 +126,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN memObj, const size_t IN origin[
 
 cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN memObj, void* IN ptr)
 {
+	InfoLog(m_logDescriptor, m_iLogHandle, L"UnLockObject enter");
 	return CL_DEV_SUCCESS;
 }
 
