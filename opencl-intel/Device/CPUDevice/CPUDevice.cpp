@@ -528,3 +528,28 @@ cl_int CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 	return m_pProgramService->getKernelInfo(kernel, param, valueSize,value,valueSizeRet );
 }
 
+/*******************************************************************************************************************
+clDevCloseDevice
+	Close device
+**********************************************************************************************************************/
+void CPUDevice::clDevCloseDevice(void)
+{
+	InfoLog(m_logDescriptor, m_iLogHandle, L"clCloseDevice Function enter");
+	if ( NULL != m_pProgramService )
+	{
+		delete m_pProgramService;
+		m_pProgramService = NULL;
+	}
+
+	if ( NULL != m_pMemoryAllocator )
+	{
+		delete m_pMemoryAllocator;
+		m_pMemoryAllocator = NULL;
+	}
+
+	if ( NULL != m_pScheduler )
+	{
+		delete m_pScheduler;
+		m_pScheduler = NULL;
+	}
+}

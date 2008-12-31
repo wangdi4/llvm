@@ -104,7 +104,7 @@ cl_int CudaDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int CudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_int IN count)
+cl_int CudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -188,13 +188,20 @@ cl_int CudaDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, co
 	return CL_DEV_SUCCESS;
 }
 
+
+cl_int CudaDevice::clDevReleaseProgram( cl_dev_program IN prog )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
 cl_int CudaDevice::clDevUnloadCompiler()
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int CudaDevice::clDevGetProgramBinary( cl_dev_program IN prog, const void** OUT binary, size_t* OUT size_ret )
+cl_int CudaDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret )
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

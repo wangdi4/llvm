@@ -29,7 +29,7 @@
 #include "cl_device_api.h"
 #include "ProgramService.h"
 #include "MemoryAllocator.h"
-#include "HandleAllocator.h"
+#include "handle_allocator.h"
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>

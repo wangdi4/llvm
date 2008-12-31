@@ -33,7 +33,7 @@
 
 
 #include "cl_device_api.h"
-#include "HandleAllocator.h"
+#include "handle_allocator.h"
 
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {

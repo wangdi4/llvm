@@ -50,7 +50,8 @@ static cl_dev_entry_points myEntryPoints = {
 	CPUDevice::clDevGetSupportedBinaries,
 	CPUDevice::clDevGetKernelId,
 	CPUDevice::clDevGetProgramKernels,
-	CPUDevice::clDevGetKernelInfo
+	CPUDevice::clDevGetKernelInfo,
+	CPUDevice::clDevCloseDevice
 };
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -110,7 +111,6 @@ cl_int clDevInitDevice(	cl_uint					dev_id,
 		return CL_DEV_ERROR_FAIL;
 	}
 	
-
 	CPUDevice* dev = CPUDevice::CreateDevice(dev_id, dev_callbacks, log_desc);
 	if (NULL == dev )
 	{

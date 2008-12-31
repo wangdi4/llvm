@@ -56,7 +56,6 @@ protected:
 public:
 	static CPUDevice*			CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
 	static inline CPUDevice*	GetInstance();
-	void						Release();
 
 	// Device entry points
 	static cl_int clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal,
@@ -86,6 +85,7 @@ public:
 									 size_t* OUT numKernelsRet );
 	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 								void* OUT value, size_t* OUT valueSizeRet );
+	static void	  clDevCloseDevice(void);
 };
 
 }}}
