@@ -31,6 +31,7 @@
 /************************************************************************
  * This file is the Windows implementation of the cl_synch_objects interface
 /************************************************************************/
+using namespace Intel::OpenCL::Utils;
 
 /************************************************************************
  * Creates the mutex section object.
