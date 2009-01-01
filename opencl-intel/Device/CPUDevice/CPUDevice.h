@@ -51,7 +51,7 @@ private:
 
 protected:
 	CPUDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
-
+	~CPUDevice();
 	static CPUDevice*	m_pDevInstance;
 public:
 	static CPUDevice*			CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);

@@ -23,7 +23,11 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include <intrin.h>
+
+#pragma warning(push)
+  #pragma warning(disable:4391)
+  #include <intrin.h>
+#pragma warning(pop)
 #include "CPUDevice.h"
 
 #include<stdlib.h>

@@ -92,15 +92,19 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
+cl_int MemoryAllocator::ReleaseObject( cl_dev_mem* IN memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseObject enter");
-	if ( (m_iDevId != memObj.allocId) || (NULL == memObj.objHandle) )
+	if( NULL == memObj)
+	{
+		return CL_DEV_SUCCESS;
+	}
+	if ( (m_iDevId != memObj->allocId) || (NULL == memObj->objHandle) )
 	{
 		return CL_INVALID_MEM_OBJECT;
 	}
 
-	free(memObj.objHandle);
+	free(memObj->objHandle);
 	return CL_DEV_SUCCESS;
 }
 

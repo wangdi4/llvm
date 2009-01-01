@@ -83,6 +83,10 @@ CPUDevice::CPUDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_
 	memcpy(&m_frameWorkCallBacks, devCallbacks, sizeof(m_frameWorkCallBacks));
 }
 
+CPUDevice::~CPUDevice()
+{
+	m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
+}
 
 // ---------------------------------------
 // Public functions / Device entry points
@@ -396,37 +400,58 @@ cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 	return m_pScheduler->commandListExecute(list,cmds,count);
 }
 //Memory API's
-cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
-				cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret)
+/****************************************************************************************************************
+ clDevGetSupportedImageFormats
+	Call Memory Allocator to get supported image formats
+********************************************************************************************************************/
+cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetSupportedImageFormats Function enter");
-	return CL_DEV_INVALID_OPERATION;
+	if(numEntriesRet)
+	{
+		*numEntriesRet = 0;
+	}
+	return CL_SUCCESS;
 }
-
+/****************************************************************************************************************
+ clDevCreateMemoryObject
+	Call Memory Allocator to create memory object
+********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 						size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevCreateMemoryObject Function enter");
-	return CL_DEV_INVALID_OPERATION;
+	return m_pMemoryAllocator->CreateObject(flags, format, width, height, depth, memObj);
 }
-
+/****************************************************************************************************************
+ clDevDeleteMemoryObject
+	Call Memory Allocator to delete memory object
+********************************************************************************************************************/
 cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem* IN memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevDeleteMemoryObject Function enter");
-	return CL_DEV_INVALID_OPERATION;
+	return m_pMemoryAllocator->ReleaseObject(memObj);
 }
-
+/****************************************************************************************************************
+ clDevCreateMappedRegion
+	Call Memory Allocator to craete mapped region
+********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
 						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevCreateMappedRegion Function enter");
-	return CL_DEV_INVALID_OPERATION;
-}
+	return m_pMemoryAllocator->CreateMappedRegion(memObj,origin, region, ptr, row_pitch, slice_pitch);
 
+}
+/****************************************************************************************************************
+ clDevReleaseMappedRegion
+	Call Memory Allocator to release mapped region
+********************************************************************************************************************/
 cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevReleaseMappedRegion Function enter");
-	return CL_DEV_INVALID_OPERATION;
+	return m_pMemoryAllocator->ReleaseMappedRegion(memObj,ptr);
 }
 
 /****************************************************************************************************************
