@@ -26,51 +26,100 @@
 */
 #pragma once
 
+
 #include "cl_device_api.h"
+#include "cl_Logger.h"
 #include <cuda.h>
+#include <map>
+#include <vector>
+#include <string>
+#include <queue>
+using namespace std;
+using namespace Intel::OpenCL::Utils;
+
+
+namespace Intel { namespace OpenCL { namespace CudaDevice {
+
 
 #define N_MAX_STRING_SIZE 100
-#define N_MAX_PROGRAMS 100
-#define N_MAX_KERNELS 100
 #define N_MAX_ARGUMENTS 20
 
-namespace Intel { namespace OpenCL {
 
-typedef struct _CUDA_FUNCTION
+
+#define LOG_DEBUG(DBG_PRINT, ...)			\
+	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_DEBUG, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LOG_INFO(DBG_PRINT, ...)			\
+	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_INFO, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LOG_ERROR(DBG_PRINT, ...)			\
+	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_ERROR, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LOG_CRITICAL(DBG_PRINT, ...)		\
+	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_CRITICAL, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
+
+
+typedef struct _KERNEL_ID
 {
-	CUfunction function;
-	char OriginalName[N_MAX_STRING_SIZE];
-	char Name[N_MAX_STRING_SIZE];
-	cl_kernel_arg_type Arguments[N_MAX_ARGUMENTS];
-	cl_int NumberOfArguments;
-}CUDA_FUNCTION;
+	cl_int ProgramID;
+	string KernelName;
+}KERNEL_ID;
 
 
-typedef struct _CUDA_MODULE
+class cCudaKernel
 {
-	CUmodule module;
-	cl_int NumberOfFunctions;
-	CUDA_FUNCTION functions[N_MAX_KERNELS];
-}CUDA_MODULE;
+public:
+	cCudaKernel();
+	~cCudaKernel();
+	CUfunction m_function;
+	string m_OriginalName;
+	KERNEL_ID m_KernelID;
+	cl_kernel_arg_type m_Arguments[N_MAX_ARGUMENTS];
+	cl_int m_NumberOfArguments;
+};
 
+typedef map<string, cCudaKernel*> KERNELS;
 
-class CudaDevice
+class cCudaProgram
+{
+public:
+	cCudaProgram();
+	~cCudaProgram();
+	CUmodule m_module;
+	KERNELS m_kernels;
+	cl_int m_ProgramID;
+	cl_prog_container m_ProgContainer;
+};
+
+typedef vector< cCudaProgram* > PROGRAMS;
+
+class cCudaCommandList
+{
+public:
+	cCudaCommandList(){};
+	~cCudaCommandList(){};
+};
+
+class cCudaDevice
 {
 protected:
-	CudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
-	~CudaDevice();
 
-	static CudaDevice*	m_pDevInstance;
-	cl_int m_ParseCubin( const char* stCubinName , CUDA_MODULE OUT &Prog);
+	cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
+	~cCudaDevice();
 
-	CUDA_MODULE m_Programs[N_MAX_PROGRAMS];
+	static cCudaDevice*	m_pDevInstance;
+
+	cl_int m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Prog );
+
+	PROGRAMS m_Programs;
 	CUcontext m_context;
 	CUdevice m_device;
 	cl_int m_id;
-	cl_int m_NumberOfPrograms;
+	cl_dev_call_backs m_CallBacks;
+	cl_dev_log_descriptor m_log;
+	cl_int m_LogClientID;
+
+
 public:
-	static CudaDevice*			CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
-	static inline CudaDevice*	GetInstance();
+	static cCudaDevice*			CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
+	static inline cCudaDevice*	GetInstance();
 	void						Release();
 
 	// Device entry points
@@ -92,9 +141,8 @@ public:
 	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
 							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
-
 	static cl_int clDevUnloadCompiler();
-	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT size_ret );
+	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t	IN size, void* OUT binary, size_t* OUT size_ret );
 	static cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
 	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
@@ -104,4 +152,4 @@ public:
 								void* OUT value, size_t* OUT value_size_ret );
 };
 
-}}
+}}}

@@ -4,29 +4,29 @@
 
 #include<stdlib.h>
 
-using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::CudaDevice;
 
 static cl_dev_entry_points myEntryPoints = {
-	CudaDevice::clDevGetDeviceInfo,
-	CudaDevice::clDevCreateCommandList,
-	CudaDevice::clDevRetainCommandList,
-	CudaDevice::clDevReleaseCommandList,
-	CudaDevice::clDevCommandListExecute,
-	CudaDevice::clDevGetSupportedImageFormats,
-	CudaDevice::clDevCreateMemoryObject,
-	CudaDevice::clDevDeleteMemoryObject,
-	CudaDevice::clDevCreateMappedRegion,
-	CudaDevice::clDevReleaseMappedRegion,
-	CudaDevice::clDevCheckProgramBinary,
-	CudaDevice::clDevBuildProgram,
-	CudaDevice::clDevReleaseProgram,
-	CudaDevice::clDevUnloadCompiler,
-	CudaDevice::clDevGetProgramBinary,
-	CudaDevice::clDevGetBuildLog,
-	CudaDevice::clDevGetSupportedBinaries,
-	CudaDevice::clDevGetKernelId,
-	CudaDevice::clDevGetProgramKernels,
-	CudaDevice::clDevGetKernelInfo
+	cCudaDevice::clDevGetDeviceInfo,
+	cCudaDevice::clDevCreateCommandList,
+	cCudaDevice::clDevRetainCommandList,
+	cCudaDevice::clDevReleaseCommandList,
+	cCudaDevice::clDevCommandListExecute,
+	cCudaDevice::clDevGetSupportedImageFormats,
+	cCudaDevice::clDevCreateMemoryObject,
+	cCudaDevice::clDevDeleteMemoryObject,
+	cCudaDevice::clDevCreateMappedRegion,
+	cCudaDevice::clDevReleaseMappedRegion,
+	cCudaDevice::clDevCheckProgramBinary,
+	cCudaDevice::clDevBuildProgram,
+	cCudaDevice::clDevReleaseProgram,
+	cCudaDevice::clDevUnloadCompiler,
+	cCudaDevice::clDevGetProgramBinary,
+	cCudaDevice::clDevGetBuildLog,
+	cCudaDevice::clDevGetSupportedBinaries,
+	cCudaDevice::clDevGetKernelId,
+	cCudaDevice::clDevGetProgramKernels,
+	cCudaDevice::clDevGetKernelInfo
 };
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -51,14 +51,12 @@ cl_int clDevInitDevice(	cl_uint					dev_id,
 						cl_dev_log_descriptor	*log_desc
 						)
 {
-	CudaDevice* dev = CudaDevice::CreateDevice(dev_id, dev_callbacks, log_desc);
+	cCudaDevice* dev = cCudaDevice::CreateDevice(dev_id, dev_callbacks, log_desc);
 	if (NULL == dev )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-
 	// Copy entry points information
 	memcpy(dev_entry, &myEntryPoints, sizeof(cl_dev_entry_points));
-
 	return CL_DEV_SUCCESS;
 }

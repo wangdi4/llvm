@@ -60,9 +60,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				IgnoreImportLibrary="true"
+				IgnoreImportLibrary="false"
 				AdditionalDependencies="cuda.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
+				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\externals\CUDA\lib"
 				ModuleDefinitionFile="CudaDevice.def"
 				GenerateDebugInformation="true"
