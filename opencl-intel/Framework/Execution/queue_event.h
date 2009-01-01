@@ -30,12 +30,24 @@
 
 #include <cl_types.h>
 #include "event_done_observer.h"
+#include <list>
+
+using namespace std;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
     // Forward declrations
     class Command;
 
+	/**********************************************************************************************
+	 * Class name:	QueueEvent
+	 *
+	 * Description:	
+     *      TODO
+     *
+	 * Author:		Arnon Peleg
+	 * Date:		December 2008
+	/**********************************************************************************************/	
     class QueueEvent : public IEventDoneObserver
     {
 
@@ -54,13 +66,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
         QueueEvent();
 	    virtual ~QueueEvent();
     	
-	    void RegisterEventDoneObserver(IEventDoneObserver* observer);
-	    void SetEventColor(QueueEventStateColor color);
+	    void        RegisterEventDoneObserver( IEventDoneObserver* observer );
+	    void        SetEventColor( QueueEventStateColor color );
+        void        IncrementDependencyCount()                              { ++m_uDependencyCount;} //TODO: synch???
+        bool        IsColor( QueueEventStateColor color )                   { return (m_stateColor == color); }
+        
+        // Implementation IEventDoneObserver
+        cl_err_code NotifyEventDone(QueueEvent* event);
 
     private:
-	    QueueEventStateColor m_stateColor;
-	    IEventDoneObserver** m_observersList;   // List of ovservers; TODO: Make the list a true list object...
+	    QueueEventStateColor        m_stateColor;       // Holds the current status of the event.
+        cl_uint                     m_uDependencyCount; // Count the number of events that this event has registered on
+        list<IEventDoneObserver*>   m_observersList;    // List of ovservers; Notified on event done
+        
+        // Private functions
+        void                        EventCompleted();
 
+
+        // Synch objects for reentrant support
+        // TODO: Add reentrant code to this class
     };
 
 }}};    // Intel::OpenCL::Framework

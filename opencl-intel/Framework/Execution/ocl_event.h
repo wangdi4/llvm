@@ -30,31 +30,56 @@
 
 #include <cl_types.h>
 #include <cl_object.h>
+#include <cl_synch_objects.h>
 #include "event_done_observer.h"
 
-///////////////////////////////////////////////////////////
+using namespace Intel::OpenCL::Utils;
+
 namespace Intel { namespace OpenCL { namespace Framework {
-///////////////////////////////////////////////////////////
 
     //Forward declrations
-    class Event;
     class QueueEvent;
 
-
+	/**********************************************************************************************
+	 * Class name:	QueueEvent
+	 *
+	 * Description:	
+     *      TODO
+     *
+	 * Author:		Arnon Peleg
+	 * Date:		December 2008
+	/**********************************************************************************************/	
     class OclEvent : public OCLObject, public IEventDoneObserver
     {
 
     public:
-	    OclEvent();
+	    OclEvent( QueueEvent* queueEvent, cl_command_type commandType, cl_command_queue queueId );
 	    virtual ~OclEvent();
-    	
+        QueueEvent* GetQueueEvent() { return m_queueEvent;}
+        void    Wait();
+
+        // OCLObject implementation
+        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet);
+
+
+        // IEventDoneObserver implementation
         cl_err_code NotifyEventDone(QueueEvent* event);
 
     private:
-	    cl_command_type     m_commandType;
-	    cl_command_queue    m_queueID;
-	    QueueEvent*         m_QueueEvent;
-	    Event*              m_Event;        // A synch object to wait on when app use clWaitOnEvents
+        cl_int      GetEventCurrentStatus();
+
+        // Private members
+	    cl_command_type     m_commandType;      // The type of the command that is related to this event
+	    cl_command_queue    m_queueID;          // The queue ID of the related command
+	    QueueEvent*         m_queueEvent;       // Pointer to the relevant queue event
+        OclCondition        m_eventDoneCond;    // A synch element to wait on until the event is done.
+
+        // concurrent access
+        OclMutex            m_eventLocker;
+
+        // An OclEvent object cannot be copied
+        OclEvent(const OclEvent&);           // copy constructor
+        OclEvent& operator=(const OclEvent&);// assignment operator
     };
 
 }}};    // Intel::OpenCL::Framework

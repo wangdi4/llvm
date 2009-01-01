@@ -25,15 +25,19 @@
 //  Original author: Peleg, Arnon
 //////////////////////////////////////////////////////////
 #include "events_manager.h"
+#include "ocl_event.h"
+#include "queue_event.h"
+#include "..\cl_objects_map.h"
 
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 /******************************************************************
  *
  ******************************************************************/
-EventsManager::EventsManager():
-    m_OclObjectsMap(NULL)
+EventsManager::EventsManager() 
 {
+    m_pEvents = new OCLObjectsMap();
 }
 
 /******************************************************************
@@ -41,42 +45,180 @@ EventsManager::EventsManager():
  ******************************************************************/
 EventsManager::~EventsManager()
 {
+ 	// Need to clean event list. There is a possability that
+    // the manager is delated before all events had been released.
+	cl_uint     uiEventCount = m_pEvents->Count();
+    OclEvent*   pEvent  = NULL;
+    cl_err_code res     = CL_SUCCESS;
+    
+
+	for (cl_uint ui=0; ui<uiEventCount; ++ui)
+	{
+        res = m_pEvents->GetObjectByIndex(ui, (OCLObject**)&pEvent);
+		if (CL_SUCCEEDED(res))
+		{			
+			delete pEvent;
+		}
+	}
+	m_pEvents->Clear();
+    delete m_pEvents;
 }
 
-/**
- * This function gets an handle to event and a list of event handlers that refer
- * to events that are equired to register as done observer on that event
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code EventsManager::RetainEvent (cl_event event)
+{
+    OclEvent*   pEvent  = NULL;
+    cl_err_code res     = CL_SUCCESS;
+
+    res = m_pEvents->GetObjectByIndex((cl_int)event, (OCLObject**)&pEvent);
+	if (CL_SUCCEEDED(res))
+    {
+        pEvent->Retain();
+    }
+    return res;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code EventsManager::ReleaseEvent(cl_event event)
+{
+    OclEvent*   pEvent  = NULL;
+    cl_err_code res     = CL_SUCCESS;
+
+    res = m_pEvents->GetObjectByIndex((cl_int)event, (OCLObject**)&pEvent);
+	if (CL_SUCCEEDED(res))
+    {
+        pEvent->Retain();
+        if ( 0 == pEvent->GetReferenceCount() )
+        {
+            // Remove this event completely
+            m_pEvents->RemoveObject((cl_uint)event);
+            delete pEvent;
+        }
+    }
+    return res;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/              
+cl_err_code	EventsManager::GetEventInfo(cl_event event , cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet)
+{
+    OclEvent*   pEvent  = NULL;
+    cl_err_code res     = m_pEvents->GetObjectByIndex((cl_uint)event, (OCLObject**)&pEvent);
+	if (CL_SUCCEEDED(res))
+    {
+        res = pEvent->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
+    }   
+    return res;
+}
+	    
+/******************************************************************
+ * This function implemnts the API clWaitForEvents function
+ * The host thread waits for commands identified by event objects in event_list to complete. 
+ * The events specified in event_list act as synchronization points.
  * 
- * a list of event handlers 
- */
-cl_int EventsManager::RegisterEvents(QueueEvent* event, HndlsList* event_wait_list){
+ ******************************************************************/
+cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList)
+{
+    if ( (NULL == eventList) && ( 0 != uiNumEvents ))
+         return CL_INVALID_EVENT_WAIT_LIST;
 
-	return  CL_SUCCESS;
+    // First validate that all ids in the event list exists
+    OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
+    if( NULL == vOclEvents)
+        return CL_INVALID_EVENT_WAIT_LIST;
+
+    // Wait on all events. Order doesn't matter since you always bonded to the longest event.
+    // OclEvent wait on event that is done do nothing    
+    for ( cl_uint ui = 0 ; ui < uiNumEvents; ui++)
+    {
+        vOclEvents[ui]->Wait();
+    }
+    
+    delete[] vOclEvents;  
+    return CL_SUCCESS;
 }
 
+/******************************************************************
+ * This function gets an handle to event that represents command
+ * that is dependent on the command that are attached with the list
+ * of events in the event list.
+ * 
+ * 
+ ******************************************************************/
+cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList)
+{
+    // Check input pramaters
+    if ( ( NULL == pEvent) ||
+         ( (NULL == eventList) && ( 0 != uiNumEvents )))
+         return CL_INVALID_EVENT_WAIT_LIST;
 
-/**
+    // TODO: reentrant code of accessing to m_pEvents
+    
+    // First validate that all ids in the event list exists
+    OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
+    if( NULL == vOclEvents)
+        return CL_INVALID_EVENT_WAIT_LIST;
+        
+    // Register input event in the entire eventList
+    for ( cl_uint ui =0; ui < uiNumEvents; ui++)
+    {
+        QueueEvent* pDependOnEvent = vOclEvents[ui]->GetQueueEvent();
+        if ( NULL != pDependOnEvent )
+        {
+            pDependOnEvent->RegisterEventDoneObserver(pEvent);
+        }        
+    }
+    delete[] vOclEvents;
+	return  CL_SUCCESS;    
+}
+
+/******************************************************************
+ * This function returns list of OclEvent objects corresponding
+ * to the input parapters of eventId.
+ * If one or more of the eventId in the eventList is not valid, NULL
+ * is return.
+ * On success a list is returned that need to be free by the caller.
+ * 
+ ******************************************************************/
+OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList )
+{
+    OclEvent** vpOclEvents = new OclEvent*[uiNumEvents];
+
+    for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
+    {
+        cl_err_code res = m_pEvents->GetObjectByIndex((cl_int)(eventList[ui]), (OCLObject**)&vpOclEvents[ui]);
+        if(CL_FAILED(res))
+        {
+            // Not valid, return
+            delete[] vpOclEvents;
+            return NULL;
+        }
+    } 
+    return vpOclEvents;    
+}
+
+/******************************************************************
  * This function creates event object. The Ocl event hadnle that can be used by
  * the user is assigned into the eventHndl.
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
- */
-QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_command_queue eventQueueHndl, cl_event pEventHndl){
-
-	return  NULL;
-}
-
-/******************************************************************
- *
  ******************************************************************/
-void EventsManager::EventStatusChange(cl_event eventId, cl_int commandStatus){
-
-}
-
-/******************************************************************
- *
- ******************************************************************/
-void EventsManager::WaitForEvents(cl_uint num_events, const cl_event event_list)
+QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_command_queue eventQueueHndl, cl_event* pEventHndl)
 {
-
+    QueueEvent* pNewEvent = new QueueEvent();
+    if ( NULL != pEventHndl)
+    {
+        OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType, eventQueueHndl);
+        pNewOclEvent->Retain();
+        // TODO: gaurd ObjMap... better doing so inside the map
+        m_pEvents->AddObject(pNewOclEvent);
+        *pEventHndl = (cl_event)pNewOclEvent->GetId();
+    }
+	return  pNewEvent;
 }

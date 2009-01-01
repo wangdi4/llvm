@@ -413,6 +413,14 @@
 				RelativePath=".\Execution\queue_event.h"
 				>
 			</File>
+			<File
+				RelativePath=".\Execution\queue_worker_thread.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Execution\queue_worker_thread.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\ReadMe.txt"

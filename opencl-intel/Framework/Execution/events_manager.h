@@ -33,21 +33,43 @@ namespace Intel { namespace OpenCL { namespace Framework {
     // Forward declrations 
     class OCLObjectsMap;
     class QueueEvent;
-    struct HndlsList;
+    class OclEvent;
 
+	/**********************************************************************************************
+	 * Class name:	EventsManager
+	 *
+	 * Description:	
+     *      TODO
+     *
+	 * Author:		Arnon Peleg
+	 * Date:		December 2008
+	/**********************************************************************************************/	
     class EventsManager
     {
     public:
 	    EventsManager();
 	    virtual ~EventsManager();
 
-	    cl_int      RegisterEvents(QueueEvent* event,  HndlsList* event_wait_list);
-	    QueueEvent* CreateEvent(cl_command_type eventCommandType, cl_command_queue eventQueueHndl, cl_event pEventHndl);
-	    void        EventStatusChange(cl_event eventId, cl_int commandStatus);
-	    void        WaitForEvents(cl_uint num_events, const cl_event event_list);
+        // OpenCL API Event related functions
+        cl_err_code RetainEvent  (cl_event event);
+        cl_err_code ReleaseEvent (cl_event event);
+        cl_err_code	GetEventInfo (cl_event event , cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
+	    cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
+
+        // Event handling functions
+	    QueueEvent* CreateEvent(cl_command_type eventCommandType, cl_command_queue eventQueueHndl, cl_event* pEventHndl);
+	    cl_err_code RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList);
 
     private:
-   	    OCLObjectsMap* m_OclObjectsMap;
+   	    OCLObjectsMap* m_pEvents;   // Holds the set of clEvents that exist.
+
+        // Private handling functions
+        OclEvent** GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList );
+
+
+        // An EventManger object cannot be copied
+        EventsManager(const EventsManager&);           // copy constructor
+        EventsManager& operator=(const EventsManager&);// assignment operator
 
     };
 

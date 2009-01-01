@@ -31,8 +31,11 @@ using namespace Intel::OpenCL::Framework;
 /******************************************************************
  *
  ******************************************************************/
-QueueEvent::QueueEvent()
+QueueEvent::QueueEvent():
+    m_stateColor(EVENT_STATE_YELLOW),
+    m_uDependencyCount(0)  
 {
+    m_observersList.clear();
 }
 
 /******************************************************************
@@ -40,13 +43,17 @@ QueueEvent::QueueEvent()
  ******************************************************************/
 QueueEvent::~QueueEvent()
 {
+    m_observersList.clear();
 }
 
 /******************************************************************
+ * An object is registered on this event's completion status.
+ * When this event is done, is expected to notify all observers.
  *
  ******************************************************************/
 void QueueEvent::RegisterEventDoneObserver(IEventDoneObserver* observer)
 {
+    m_observersList.push_back(observer);
 }
 
 /******************************************************************
@@ -54,5 +61,60 @@ void QueueEvent::RegisterEventDoneObserver(IEventDoneObserver* observer)
  ******************************************************************/
 void QueueEvent::SetEventColor(QueueEventStateColor color)
 {
+    m_stateColor = color;
+    switch(color)
+    {
+    case EVENT_STATE_YELLOW:
+    case EVENT_STATE_RED:
+    case EVENT_STATE_GREEN:
+    case EVENT_STATE_LIME:
+    case EVENT_STATE_GRAY:
+        // All events are fall through to this break;
+        // Do nothing for now
+        break;
+    case EVENT_STATE_BLACK:
+        EventCompleted();
+        break;
+    default:
+        break;
+    }
 }
 
+/******************************************************************
+ * This function is being called when event is finished.
+ * The function is expected to pop out all its observers and
+ * to 
+ * 
+ ******************************************************************/
+void QueueEvent::EventCompleted()
+{
+    list<IEventDoneObserver*>::iterator iter = m_observersList.begin();
+    list<IEventDoneObserver*>::iterator last = m_observersList.end();
+    
+    // loop while there are more items
+    for ( ; iter != last; iter++ ) 
+    {
+        IEventDoneObserver* observer = *iter;
+        observer->NotifyEventDone(this);
+    }
+
+    // Clean the list, remove all pointers.
+    m_observersList.clear();
+}
+
+/******************************************************************
+ * When other event that this event is depends on is done, this function
+ * is called.
+ * This event decrement is dependcy count and if it's counter set to
+ * 0, than change status to green.
+ * 
+ ******************************************************************/
+cl_err_code QueueEvent::NotifyEventDone(QueueEvent* event)
+{
+    --m_uDependencyCount;
+    if ( 0 == m_uDependencyCount )
+    {
+        m_stateColor = EVENT_STATE_GREEN;
+    }
+    return CL_SUCCESS;
+}

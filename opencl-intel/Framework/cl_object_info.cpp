@@ -54,7 +54,9 @@ cl_err_code OCLObjectInfo::SetString(cl_int param_name, const size_t length, con
 	return SetParam(param_name, pParam);
 }
 
-
+/*****
+ *
+ ****/
 OCLObjectInfoParam::OCLObjectInfoParam(cl_int param_name, size_t param_value_size, void * param_value)
 {
 	// assign parameter's name

@@ -49,8 +49,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    Command();
 	    virtual ~Command();
 
-	    virtual void                Execute() = 0;	
-        virtual  cl_command_type    GetCommandType() const = 0;
+	    virtual cl_err_code        Execute() = 0;	
+        virtual cl_command_type    GetCommandType() const = 0;
 
         void                        SetEvent    (QueueEvent* queueEvent)        { m_queueEvent = queueEvent; }
         void                        SetReceiver (ICommandReceiver* receiver)    { m_receiver = receiver; }

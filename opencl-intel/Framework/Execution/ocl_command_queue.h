@@ -42,6 +42,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class ICommandQueue;
     class Command;
 
+	/**********************************************************************************************
+	 * Class name:	OclCommandQueue
+	 *
+	 * Description:	
+     *      TODO
+     *
+	 * Author:		Arnon Peleg
+	 * Date:		December 2008
+	/**********************************************************************************************/	
     class OclCommandQueue : public IEventDoneObserver, public ICommandReceiver
     {
 

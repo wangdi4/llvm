@@ -48,6 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code AddCommand(Command* command) = 0;
 	    virtual void        PushBack(Command* command) = 0;
 	    virtual void        Signal() = 0;
+        virtual bool        IsEmpty() = 0;
     };
 
 }}};    // Intel::OpenCL::Framework
