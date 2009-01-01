@@ -31,7 +31,7 @@
 #include <windows.h>            // required by: GetCurrentThreadId()
 #include <sstream>              // required by: owstringstream
 #include <assert.h>
-using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger Ctor

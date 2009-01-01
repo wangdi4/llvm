@@ -27,6 +27,7 @@
 
 #include "Context.h"
 using namespace std;
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -28,6 +28,7 @@
 #include "device.h"
 #include "windows.h"
 using namespace std;
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 cl_int						Device::m_iNextClientId = 0;

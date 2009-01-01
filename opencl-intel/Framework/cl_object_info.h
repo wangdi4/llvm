@@ -29,7 +29,7 @@
 #if !defined(OCL_OBJECT_INFO_H_)
 #define OCL_OBJECT_INFO_H_
 
-#include "cl_framework.h"
+#include "cl_types.h"
 #include <map>
 using namespace std;
 

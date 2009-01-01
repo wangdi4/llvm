@@ -27,7 +27,7 @@
 #if !defined(__OCL_EXECUTION_MODULE_H__)
 #define __OCL_EXECUTION_MODULE_H__
 
-#include <cl_framework.h>
+#include <cl_types.h>
 
 
 namespace Intel { namespace OpenCL { namespace Framework {

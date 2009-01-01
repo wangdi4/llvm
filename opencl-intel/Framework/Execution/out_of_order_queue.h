@@ -28,7 +28,7 @@
 #if !defined(__OUT_OF_ORDER_QUEUE_H__)
 #define __OUT_OF_ORDER_QUEUE_H__
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include "command_queue.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {

@@ -201,11 +201,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		PlatformModule *	m_pPlatformModule; // handle to the platform module
 
-		LoggerClient *		m_pLoggerClient; // handle to the logger client
+		Intel::OpenCL::Utils::LoggerClient *		m_pLoggerClient; // handle to the logger client
 
 		OCLObjectsMap *		m_pContexts; // map list of contexts
 		
-		LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
+		Intel::OpenCL::Utils::LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
 
 	};
 

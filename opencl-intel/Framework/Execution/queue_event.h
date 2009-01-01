@@ -28,7 +28,7 @@
 #if !defined(__OCL_QUEUE_EVENT__)
 #define __OCL_QUEUE_EVENT__
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include "event_done_observer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {

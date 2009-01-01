@@ -29,7 +29,7 @@
 #if !defined(OCL_PLATFORM_MODULE_H_)
 #define OCL_PLATFORM_MODULE_H_
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include <cl_device_api.h>
 #include <cl_object_info.h>
 #include <cl_objects_map.h>
@@ -94,15 +94,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	GetPlatformInfo    
 		* Description:	OpenCL API function - gets specific information about the OpenCL 
 		*				platform
-		* Arguments:	param_name [in]				is an enum that identifies the platform  
+		* Arguments:	clParamName [in]			is an enum that identifies the platform  
 		*											information being queried
-		*				param_value [inout]			is a pointer to memory location where appropriate
+		*				pParamValue [inout]			is a pointer to memory location where appropriate
 		*											values for a given param_name will be returned. 
 		*											If param_value is NULL, it is ignored.
-		*				param_value_size [in]		param_value_size specifies the size in bytes 
+		*				szParamValueSize [in]		param_value_size specifies the size in bytes 
 		*											of memory pointed to by param_value. This size
 		*											in bytes must be >= size of return type
-		*				param_value_size_ret [out]	returns the actual size in bytes of 
+		*				pszParamValueSizeRet [out]	returns the actual size in bytes of 
 		*											data being queried by param_value. If 
 		*											param_value_size_ret is NULL, it is ignored.
 		* Return value:	CL_SUCCESS			the function is executed successfully
@@ -112,28 +112,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetPlatformInfo(cl_platform_info param_name, 
-										size_t param_value_size, 
-										void* param_value, 
-										size_t* param_value_size_ret );
+		cl_err_code		GetPlatformInfo(cl_platform_info IN    clParamName, 
+										size_t           IN    szParamValueSize, 
+										void*            INOUT pParamValue, 
+										size_t*          OUT   pszParamValueSizeRet);
 
 		/******************************************************************************************
 		* Function: 	GetPlatformInfo    
 		* Description:	OpenCL API function - obtain the list of available devices
-		* Arguments:	device_type [in]	is a bitfield that identifies the type of OpenCL device. 
+		* Arguments:	clDeviceType [in]	is a bitfield that identifies the type of OpenCL device. 
 		*									The device_type can be used to query specific OpenCL 
 		*									devices or all OpenCL devices available.
-		*				num_entries [in]	is the number of cl_device entries that can be added to
+		*				uiNumEntries [in]	is the number of cl_device entries that can be added to
 		*									devices. If devices is not NULL, the num_entries must 
 		*									be greater than zero
-		*				devices [out]		returns a list of OpenCL devices found. The cl_device_id 
+		*				pclDevices [out]	returns a list of OpenCL devices found. The cl_device_id 
 		*									values returned in devices can be used to identify a 
 		*									specific OpenCL device. If devices argument is NULL, 
 		*									this argument is ignored. The number of OpenCL devices 
 		*									returned is the mininum of value specified by num_entries 
 		*									or the number of OpenCL devices whose type matches 
 		*									device_type
-		*				num_devices [out]	returns the number of OpenCL devices available that match 
+		*				puiNumDevices [out]	returns the number of OpenCL devices available that match 
 		*									device_type. If num_devices is NULL, this argument is ignored.
 		* Return value:	CL_INVALID_DEVICE_TYPE	device_type is not a valid value
 		*				CL_INVALID_VALUE		num_entries is equal to zero and devices is not NULL
@@ -143,10 +143,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDeviceIDs(	cl_device_type device_type, 
-										cl_uint num_entries, 
-										cl_device_id* devices, 
-										cl_uint* num_devices );
+		cl_err_code		GetDeviceIDs(	cl_device_type IN  clDeviceType, 
+										cl_uint        IN  uiNumEntries, 
+										cl_device_id*  OUT pclDevices, 
+										cl_uint*       OUT puiNumDevices );
 
 		/******************************************************************************************
 		* Function: 	GetDeviceInfo    
@@ -154,17 +154,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				The application can query specific capabilities of the OpenCL device(s) 
 		*				returned by clGetDeviceIDs. This can be used by the application to 
 		*				determine which device(s) to use
-		* Arguments:	device [in]					is a device returned by clGetDeviceIDs
-		*				param_name [in]				is an enum that identifies the device 
+		* Arguments:	clDevice [in]				is a device returned by clGetDeviceIDs
+		*				clParamName [in]			is an enum that identifies the device 
 		*											information being queried
-		*				param_value [in]			is a pointer to memory location where 
+		*				pParamValue [out]			is a pointer to memory location where 
 		*											appropriate values for a given param_name will 
 		*											be returned. If param_value is NULL, it is 
 		*											ignored
-		*				param_value_size [in]		specifies the size in bytes of memory pointed 
+		*				szParamValueSize [in]		specifies the size in bytes of memory pointed 
 		*											to by param_value. This size in bytes must 
 		*											be >= size of return type
-		*				param_value_size_ret [in]	returns the actual size in bytes of data being 
+		*				pszParamValueSizeRet [out]	returns the actual size in bytes of data being 
 		*											queried by param_value. If param_value_size_ret 
 		*											is NULL, it is ignored
 		* Return value:	CL_SUCCESS				the function is executed successfully
@@ -176,11 +176,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDeviceInfo(cl_device_id device,
-									  cl_device_info param_name, 
-									  size_t param_value_size, 
-									  void* param_value,
-									  size_t* param_value_size_ret );
+		cl_err_code		GetDeviceInfo(cl_device_id   IN clDevice,
+									  cl_device_info IN clParamName,
+									  size_t         IN szParamValueSize,
+									  void*          OUT pParamValue,
+									  size_t*        OUT pszParamValueSizeRet );
 
 		/******************************************************************************************
 		* Function: 	GetDevice    
@@ -191,7 +191,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDevice(cl_device_id clDeviceId, Device ** ppDevice);
+		cl_err_code		GetDevice(	cl_device_id IN  clDeviceId, 
+									Device **    OUT ppDevice);
 
 
 	private:
@@ -212,7 +213,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap * m_pDevices;
 		
 		// pointer to the platoform module's logger client
-		LoggerClient * m_pLoggerClient;
+		Intel::OpenCL::Utils::LoggerClient * m_pLoggerClient;
 
 		// pointer to the platform module's information object
 		OCLObjectInfo *	m_pObjectInfo;

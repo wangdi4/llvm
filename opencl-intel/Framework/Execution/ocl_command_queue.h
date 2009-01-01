@@ -28,7 +28,7 @@
 #if !defined(__OCL_OCL_COMMAND_QUEUE_H__)
 #define __OCL_OCL_COMMAND_QUEUE_H__
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include "event_done_observer.h"
 #include "command_receiver.h"
 

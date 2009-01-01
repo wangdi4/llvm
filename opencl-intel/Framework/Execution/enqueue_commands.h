@@ -28,8 +28,8 @@
 #if !defined(__OCL_ENQUEUE_COMMANDS__)
 #define __OCL_ENQUEUE_COMMANDS__
     
-#include <cl_framework.h>
-#include "..\cl_object.h"
+#include <cl_types.h>
+#include "cl_object.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

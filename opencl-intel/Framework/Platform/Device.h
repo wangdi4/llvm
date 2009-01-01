@@ -29,7 +29,7 @@
 #if !defined(_OCL_DEVICE_H_)
 #define _OCL_DEVICE_H_
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include <cl_object.h>
 #include <logger.h>
 #include <cl_device_api.h>
@@ -112,11 +112,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		static cl_int DeviceAddLogLine(cl_int client_id, cl_int log_level, const wchar_t* IN source_file, const wchar_t* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
 
-		LoggerClient *						m_pLoggerClient;		// device's class logger client
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;		// device's class logger client
 		
-		static cl_int						m_iNextClientId;
+		static cl_int							m_iNextClientId;
 		
-		static std::map<cl_int, LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
+		static std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
 		cl_dev_entry_points					m_clDevEntryPoints;		// device's entry points
 		

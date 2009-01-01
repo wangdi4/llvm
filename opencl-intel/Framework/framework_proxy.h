@@ -26,7 +26,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "cl_framework.h"
+#include "cl_types.h"
 #include "Platform\PlatformModule.h"
 #include "Context\ContextModule.h"
 #include "Execution\execution_module.h"
@@ -125,13 +125,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ExecutionModule * m_pExecutionModule;
 
 		// handle to the file log handler
-		FileLogHandler * m_pFileLogHandler;
+		Intel::OpenCL::Utils::FileLogHandler * m_pFileLogHandler;
 		
 		// handle to the configuraiton file
 		ConfigFile * m_pConfigFile;
 
 		// handle to the logger client
-		LoggerClient * m_pLoggerClient;
+		Intel::OpenCL::Utils::LoggerClient * m_pLoggerClient;
 
 	};
 

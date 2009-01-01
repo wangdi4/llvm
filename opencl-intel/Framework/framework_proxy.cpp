@@ -10,6 +10,7 @@
 #include "logger.h"
 #include <windows.h>
 
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 char clFRAMEWORK_CFG_PATH[MAX_PATH];

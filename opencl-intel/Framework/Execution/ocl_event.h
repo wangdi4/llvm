@@ -28,8 +28,8 @@
 #if !defined(__OCL_OCL_EVENT_H__)
 #define __OCL_OCL_EVENT_H__
 
-#include <cl_framework.h>
-#include "..\cl_object.h"
+#include <cl_types.h>
+#include <cl_object.h>
 #include "event_done_observer.h"
 
 ///////////////////////////////////////////////////////////

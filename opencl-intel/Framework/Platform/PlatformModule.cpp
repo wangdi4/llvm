@@ -26,6 +26,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "PlatformModule.h"
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
@@ -159,44 +160,45 @@ cl_err_code	PlatformModule::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetPlatformInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info param_name,
-											size_t param_value_size, 
-											void* param_value, 
-											size_t* param_value_size_ret)
+cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info clParamName, 
+											size_t szParamValueSize, 
+											void* pParamValue, 
+											size_t* pszParamValueSizeRet)
 {
 	if (NULL == m_pObjectInfo)
 	{
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	
-	// both param_value and param_value_size_ret are null pointers - in this case there is no meaning to do anything
-	if (NULL == param_value || NULL == param_value_size_ret)
+	// both param_value and param_value_size_ret are null pointers - in this case there is no 
+	// meaning to do anything
+	if (NULL == pParamValue || NULL == pszParamValueSizeRet)
 	{
-		ErrLog(m_pLoggerClient, L"NULL == param_value || NULL == param_value_size_ret")
+		ErrLog(m_pLoggerClient, L"NULL == pParamValue || NULL == pszParamValueSizeRet")
 		return CL_INVALID_VALUE;
 	}
 
-	InfoLog(m_pLoggerClient, L"Get param_name: %d from OCLObjectInfo", param_name)
+	InfoLog(m_pLoggerClient, L"Get param_name: %d from OCLObjectInfo", clParamName)
 	OCLObjectInfoParam *pParam = NULL;
-	cl_err_code clRes = m_pObjectInfo->GetParam(param_name, &pParam);
+	cl_err_code clRes = m_pObjectInfo->GetParam(clParamName, &pParam);
 	if (CL_SUCCEEDED(clRes))
 	{
 		// return param_value_size_ret only
-		if (NULL == param_value)
+		if (NULL == pParamValue)
 		{
 			InfoLog(m_pLoggerClient, L"return parameter's size: %d", pParam->GetSize())
-			*param_value_size_ret = pParam->GetSize();
+			*pszParamValueSizeRet = pParam->GetSize();
 			return CL_SUCCESS;
 		}
 		// check param_value_size
-		if (param_value_size < pParam->GetSize())
+		if (szParamValueSize < pParam->GetSize())
 		{
-			ErrLog(m_pLoggerClient, L"param_value_size (%d) < param_value_size_ret (%d)", param_value_size, pParam->GetSize())
+			ErrLog(m_pLoggerClient, L"szParamValueSize (%d) < pszParamValueSizeRet (%d)", szParamValueSize, pParam->GetSize())
 			return CL_INVALID_VALUE;
 		}
 		InfoLog(m_pLoggerClient, L"memcpy_s(param_value, param_value_size, pParam->GetValue(), pParam->GetSize())")
-		memcpy_s(param_value, param_value_size, pParam->GetValue(), pParam->GetSize());
-		*param_value_size_ret = pParam->GetSize();
+		memcpy_s(pParamValue, szParamValueSize, pParam->GetValue(), pParam->GetSize());
+		*pszParamValueSizeRet = pParam->GetSize();
 		return CL_SUCCESS;
 	}
 	ErrLog(m_pLoggerClient, L"Can't get param_name:%d from OCLObjectInfo")
@@ -205,20 +207,20 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info param_name,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceIDs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type device_type,
-										 cl_uint num_entries, 
-										 cl_device_id* devices, 
-										 cl_uint* num_devices)
+cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
+										 cl_uint uiNumEntries, 
+										 cl_device_id* pclDevices, 
+										 cl_uint* puiNumDevices)
 {
-	InfoLog(m_pLoggerClient, L"Enter GetDeviceIDs (device_type=%d, num_entried=%d)", device_type, num_entries);
+	InfoLog(m_pLoggerClient, L"Enter GetDeviceIDs (device_type=%d, num_entried=%d)", clDeviceType, uiNumEntries);
 	if (NULL == m_pDevices)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pDevices")
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	if (NULL == devices && NULL == num_devices)
+	if (NULL == pclDevices && NULL == puiNumDevices)
 	{
-		InfoLog(m_pLoggerClient, L"NULL == devices && NULL == num_devices")
+		InfoLog(m_pLoggerClient, L"NULL == pclDevices && NULL == puiNumDevices")
 		return CL_INVALID_VALUE;
 	}
 	cl_err_code clErrRet = CL_SUCCESS;
@@ -245,30 +247,30 @@ cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type device_type,
 			cl_device_type clType;
 			cl_int iErrRet = pDevice->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, NULL);
 			// check that the current device type satisfactory 
-			if (iErrRet == 0 && ((clType & device_type) == clType))
+			if (iErrRet == 0 && ((clType & clDeviceType) == clType))
 			{
 				pDeviceIds[uiRetNumDevices++] = (cl_device_id)pDevice->GetId();
 			}
 		}
 	}
-	if (NULL == devices)
+	if (NULL == pclDevices)
 	{
-		*num_devices = uiRetNumDevices;
+		*puiNumDevices = uiRetNumDevices;
 		return CL_SUCCESS;
 	}
 
-	if (uiRetNumDevices > num_entries)
+	if (uiRetNumDevices > uiNumEntries)
 	{
 		delete[] pDeviceIds;
 		return CL_INVALID_VALUE;
 	}
 	for (cl_uint ui=0; ui<uiRetNumDevices; ++ui)
 	{
-		devices[ui] = pDeviceIds[ui];
+		pclDevices[ui] = pDeviceIds[ui];
 	}
-	if (NULL != num_devices)
+	if (NULL != puiNumDevices)
 	{
-		*num_devices = uiRetNumDevices;
+		*puiNumDevices = uiRetNumDevices;
 	}
 	
 	delete[] pDeviceIds;
@@ -277,23 +279,23 @@ cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type device_type,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetDeviceInfo(cl_device_id device,
-										  cl_device_info param_name, 
-										  size_t param_value_size, 
-										  void* param_value,
-										  size_t* param_value_size_ret)
+cl_err_code	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
+										  cl_device_info clParamName, 
+										  size_t szParamValueSize, 
+										  void* pParamValue,
+										  size_t* pszParamValueSizeRet)
 {
 	if (NULL == m_pDevices)
 	{
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	Device * pDevice = NULL;
-	cl_err_code clErrRet = m_pDevices->GetOCLObject((cl_int)device, (OCLObject**)(&pDevice));
+	cl_err_code clErrRet = m_pDevices->GetOCLObject((cl_int)clDevice, (OCLObject**)(&pDevice));
 	if (CL_FAILED(clErrRet))
 	{
 		return CL_INVALID_DEVICE;
 	}
-	return pDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
+	return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDevice

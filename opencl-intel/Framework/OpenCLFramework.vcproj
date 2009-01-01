@@ -252,10 +252,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\include\cl_framework.h"
-				>
-			</File>
-			<File
 				RelativePath=".\cl_object.h"
 				>
 			</File>
@@ -265,6 +261,10 @@
 			</File>
 			<File
 				RelativePath=".\cl_objects_map.h"
+				>
+			</File>
+			<File
+				RelativePath="..\include\cl_types.h"
 				>
 			</File>
 			<File
@@ -309,6 +309,14 @@
 		<Filter
 			Name="Context"
 			>
+			<File
+				RelativePath=".\Context\cl_buffer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Context\cl_memory_object.h"
+				>
+			</File>
 			<File
 				RelativePath=".\Context\Context.cpp"
 				>

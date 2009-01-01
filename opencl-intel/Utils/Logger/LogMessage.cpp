@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <time.h>
 #include <windows.h>
-using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LogMessage Ctor Implementation

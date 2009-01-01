@@ -29,7 +29,7 @@
 #include "cl_synch_objects.h"
 #include <assert.h>
 #include <malloc.h>
-using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Ctor Implementation

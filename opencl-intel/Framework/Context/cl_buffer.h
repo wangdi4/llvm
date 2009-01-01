@@ -20,73 +20,55 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  OCLObject.h
-//  Implementation of the Class OCLObject
-//  Created on:      10-Dec-2008 4:45:30 PM
+//  cl_buffer.h
+//  Implementation of the Class Buffer
+//  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_OBJECT_H_)
-#define OCL_OBJECT_H_
+#if !defined(_OCL_BUFFER_H_)
+#define _OCL_BUFFER_H_
 
-#include "cl_types.h"
+#include <cl_framework.h>
+#include <cl_memory_object.h>
+#include <logger.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
-	* Class name:	OCLObject
+	* Class name:	Buffer
 	*
-	* Description:	represnts an OpneCL object
+	* Inherit:		MemoryObject
+	* Description:	represents a memory object
 	* Author:		Uri Levy
 	* Date:			December 2008
-	**********************************************************************************************/	
-	class OCLObject
+	**********************************************************************************************/		
+	class Buffer : public MemoryObject
 	{
 	public:
 
 		/******************************************************************************************
-		* Function: 	OCLObject
-		* Description:	The OCLObject class constructor
-		* Arguments:		
+		* Function: 	Buffer
+		* Description:	The Buffer class constructor
+		* Arguments:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		OCLObject();
-		
+		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize);
+
 		/******************************************************************************************
-		* Function: 	~OCLObject
-		* Description:	The OCLObject class destructor
+		* Function: 	~Buffer
+		* Description:	The Buffer class destructor
 		* Arguments:		
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		virtual ~OCLObject();
-		
-		/******************************************************************************************
-		* Function: 	Release    
-		* Description:	release the OCLObject - decrease referace count in 1, inharited 
-		*				objects might want to add functionality to this metod
-		* Arguments:	
-		* Return value:	CL_SUCCESS - release operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/	
-		cl_err_code Release();
-		
-		/******************************************************************************************
-		* Function: 	Retain    
-		* Description:	retain the OCLObject - increase referace count in 1, inharited objects 
-		*				might want to add functionality to this metod
-		* Arguments:	
-		* Return value:	CL_SUCCESS - retain operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/		
-		cl_err_code Retain();
-		
+		virtual ~Buffer();
+
 		/******************************************************************************************
 		* Function: 	GetInfo    
-		* Description:	get object specific information
+		* Description:	get object specific information (inharited from OCLObject) the function 
+		*				query the desirable parameter value from the device
 		* Arguments:	param_name [in]				parameter's name
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
@@ -97,18 +79,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
-		cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }
-		
-		cl_int GetId() const { return m_iId; }
+		cl_err_code Release();
 
-		cl_uint GetReferenceCount() const { return m_uiRefCount; }
 
-	protected:
-		
-		cl_int			m_iId;				// object id
-		cl_uint			m_uiRefCount;		// reference count
+	private:
+
+		size_t		m_szBufferSize;
 
 	};
 
-}}}
-#endif // !defined(OCL_OBJECT_H_)
+
+}}};
+
+
+#endif //_OCL_CONTEXT_H_

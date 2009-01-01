@@ -29,15 +29,12 @@
 #if !defined(_OCL_CONTEXT_H_)
 #define _OCL_CONTEXT_H_
 
-#include <cl_framework.h>
-#include "..\cl_object.h"
-#include "..\Platform\Device.h"
-#include "logger.h"
+#include <cl_types.h>
+#include <logger.h>
+#include <device.h>
 #include <map>
 
 namespace Intel { namespace OpenCL { namespace Framework {
-
-
 
 	/**********************************************************************************************
 	* Class name:	Context
@@ -90,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_context_properties			m_clContextProperties; // context properties
 
-		LoggerClient *					m_pLoggerClient;	// context's logger client
+		Intel::OpenCL::Utils::LoggerClient *					m_pLoggerClient;	// context's logger client
 
 		logging_fn						m_pfnNotify; // notify function's pointer
 

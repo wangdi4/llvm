@@ -28,7 +28,7 @@
 #if !defined(__OCL_EVENT_DONE_OBSERVER_H__)
 #define __OCL_EVENT_DONE_OBSERVER_H__
 
-#include <cl_framework.h>
+#include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
