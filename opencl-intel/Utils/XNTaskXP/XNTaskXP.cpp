@@ -78,3 +78,11 @@ XN0SyncObjectRemoveWaiter(
 {
 	return XN_SUCCESS;
 }
+
+XNERROR
+XN0TaskDecRef(
+    const   XNTASK  in_Task,
+            UINT32* out_pCount)
+{
+	return XN_SUCCESS;
+}
