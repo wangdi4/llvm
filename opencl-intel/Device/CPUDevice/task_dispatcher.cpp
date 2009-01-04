@@ -27,7 +27,7 @@
 
 #include "stdafx.h"
 
-#include "Scheduler.h"
+#include "task_dispatcher.h"
 #include "cl_logger.h"
 
 #include <stdlib.h>

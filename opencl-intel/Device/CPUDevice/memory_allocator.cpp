@@ -27,7 +27,7 @@
 
 #include "stdafx.h"
 
-#include "MemoryAllocator.h"
+#include "memory_allocator.h"
 #include "cl_logger.h"
 
 #include<stdlib.h>

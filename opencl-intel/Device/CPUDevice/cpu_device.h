@@ -28,9 +28,9 @@
 
 #include "cl_device_api.h"
 
-#include "ProgramService.h"
-#include "MemoryAllocator.h"
-#include "Scheduler.h"
+#include "program_service.h"
+#include "memory_allocator.h"
+#include "task_dispatcher.h"
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 

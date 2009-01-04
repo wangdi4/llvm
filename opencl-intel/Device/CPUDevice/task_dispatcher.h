@@ -27,8 +27,8 @@
 #pragma once
 
 #include "cl_device_api.h"
-#include "ProgramService.h"
-#include "MemoryAllocator.h"
+#include "program_service.h"
+#include "memory_allocator.h"
 #include "handle_allocator.h"
 
 //should be hash_map but cant compile #include <hash_map>

@@ -250,7 +250,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\CPUDevice.cpp"
+				RelativePath=".\cpu_device.cpp"
 				>
 			</File>
 			<File
@@ -289,15 +289,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\MemoryAllocator.cpp"
+				RelativePath=".\memory_allocator.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\ProgramService.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Scheduler.cpp"
+				RelativePath=".\program_service.cpp"
 				>
 			</File>
 			<File
@@ -328,6 +324,10 @@
 					/>
 				</FileConfiguration>
 			</File>
+			<File
+				RelativePath=".\task_dispatcher.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -347,19 +347,15 @@
 				>
 			</File>
 			<File
-				RelativePath=".\CPUDevice.h"
+				RelativePath=".\cpu_device.h"
 				>
 			</File>
 			<File
-				RelativePath=".\MemoryAllocator.h"
+				RelativePath=".\memory_allocator.h"
 				>
 			</File>
 			<File
-				RelativePath=".\ProgramService.h"
-				>
-			</File>
-			<File
-				RelativePath=".\Scheduler.h"
+				RelativePath=".\program_service.h"
 				>
 			</File>
 			<File
@@ -368,6 +364,10 @@
 			</File>
 			<File
 				RelativePath=".\targetver.h"
+				>
+			</File>
+			<File
+				RelativePath=".\task_dispatcher.h"
 				>
 			</File>
 		</Filter>

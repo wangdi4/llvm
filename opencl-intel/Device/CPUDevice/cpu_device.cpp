@@ -31,8 +31,8 @@
 
 
 
-#include "CPUDevice.h"
-#include "ProgramService.h"
+#include "cpu_device.h"
+#include "program_service.h"
 #include "cl_logger.h"
 
 
@@ -461,7 +461,7 @@ cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
 cl_int CPUDevice::clDevCheckProgramBinary( size_t IN binSize, const void* IN bin )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevCheckProgramBinary Function enter");
-	return m_pProgramService->checkProgramBinary(binSize, bin );
+	return m_pProgramService->CheckProgramBinary(binSize, bin );
 }
 
 /*******************************************************************************************************************
@@ -473,7 +473,7 @@ cl_int CPUDevice::clDevBuildProgram( size_t IN binSize, const void* IN bin, cons
 				   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevBuildProgram Function enter");
-	return m_pProgramService->buildProgram(binSize, bin, options, userData, prop, prog );
+	return m_pProgramService->BuildProgram(binSize, bin, options, userData, prop, prog );
 }
 
 /*******************************************************************************************************************
@@ -484,7 +484,7 @@ clDevReleaseProgram
 cl_int CPUDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevReleaseProgram Function enter");
-	return m_pProgramService->releaseProgram( prog );
+	return m_pProgramService->ReleaseProgram( prog );
 }
 
 /*******************************************************************************************************************
@@ -494,7 +494,7 @@ clDevUnloadCompiler
 cl_int CPUDevice::clDevUnloadCompiler()
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevUnloadCompiler Function enter");
-	return m_pProgramService->unloadCompiler();
+	return m_pProgramService->UnloadCompiler();
 }
 /*******************************************************************************************************************
 clDevGetProgramBinary
@@ -503,7 +503,7 @@ clDevGetProgramBinary
 cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetProgramBinary Function enter");
-	return m_pProgramService->getProgramBinary(prog, size, binary, sizeRet );
+	return m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet );
 }
 /*******************************************************************************************************************
 clDevGetBuildLog
@@ -512,7 +512,7 @@ clDevGetBuildLog
 cl_int CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT sizeRet)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetBuildLog Function enter");
-	return m_pProgramService->getBuildLog(prog, size, log, sizeRet);
+	return m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -521,7 +521,7 @@ clDevUnloadCompiler
 cl_int CPUDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetSupportedBinaries Function enter");
-	return m_pProgramService->getSupportedBinaries(count,types,sizeRet );
+	return m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -530,7 +530,7 @@ clDevUnloadCompiler
 cl_int CPUDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetKernelId Function enter");
-	return m_pProgramService->getKernelId(prog, name, kernelId );
+	return m_pProgramService->GetKernelId(prog, name, kernelId );
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -540,7 +540,7 @@ cl_int CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num
 						 size_t* OUT numKernelsRet )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetProgramKernels Function enter");
-	return m_pProgramService->getProgramKernels(prog, numKernels, kernels,numKernelsRet );
+	return m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
 }
 /*******************************************************************************************************************
 clDevGetKernelInfo
@@ -550,7 +550,7 @@ cl_int CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 					void* OUT value, size_t* OUT valueSizeRet )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetKernelInfo Function enter");
-	return m_pProgramService->getKernelInfo(kernel, param, valueSize,value,valueSizeRet );
+	return m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
 }
 
 /*******************************************************************************************************************
