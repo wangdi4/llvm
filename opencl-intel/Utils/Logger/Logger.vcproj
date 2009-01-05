@@ -403,15 +403,15 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\log_handler.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\log_message.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Logger.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\LogHandler.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\LogMessage.cpp"
 				>
 			</File>
 		</Filter>
