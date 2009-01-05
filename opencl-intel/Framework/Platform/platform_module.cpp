@@ -25,7 +25,12 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-#include "PlatformModule.h"
+#include "platform_module.h"
+#include <cl_object_info.h>
+#include <cl_objects_map.h>
+#include <cl_device_api.h>
+#include "device.h"
+#include <cl_config.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -172,7 +177,7 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info clParamName,
 	
 	// both param_value and param_value_size_ret are null pointers - in this case there is no 
 	// meaning to do anything
-	if (NULL == pParamValue || NULL == pszParamValueSizeRet)
+	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == pParamValue || NULL == pszParamValueSizeRet")
 		return CL_INVALID_VALUE;
@@ -198,7 +203,10 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info clParamName,
 		}
 		InfoLog(m_pLoggerClient, L"memcpy_s(param_value, param_value_size, pParam->GetValue(), pParam->GetSize())")
 		memcpy_s(pParamValue, szParamValueSize, pParam->GetValue(), pParam->GetSize());
-		*pszParamValueSizeRet = pParam->GetSize();
+		if (NULL != pszParamValueSizeRet)
+		{
+			*pszParamValueSizeRet = pParam->GetSize();
+		}
 		return CL_SUCCESS;
 	}
 	ErrLog(m_pLoggerClient, L"Can't get param_name:%d from OCLObjectInfo")

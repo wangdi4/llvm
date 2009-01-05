@@ -26,6 +26,9 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "Context.h"
+#include "program.h"
+#include <device.h>
+#include <cl_objects_map.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -138,5 +141,37 @@ cl_err_code Context::Release()
 		// TODO check resources
 	}
 	return CL_SUCCESS;
-
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CreateProgramWithSource
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, Program ** ppProgram)
+{
+	InfoLog(m_pLoggerClient, L"CreateProgramWithSource enter. uiCount=%d, ppcStrings=%d, szLengths=%d, ppProgram=%d", uiCount, ppcStrings, szLengths, ppProgram);
+	// check input parameters
+	if (NULL == ppProgram)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == ppProgram; return CL_INVALID_VALUE");
+		return CL_INVALID_VALUE;
+	}
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// create new program object
+	Program * pProgram = new Program(this);
+	
+	// set source code in program object
+	cl_err_code clErrRet = pProgram->AddSource(uiCount, ppcStrings, szLengths);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"pProgram->AddSource(%d, %d, %d) = %d",uiCount, ppcStrings, szLengths, clErrRet);
+		*ppProgram = NULL;
+		return clErrRet;
+	}
+	// add program object to programs map list
+	m_pPrograms->AddObject((OCLObject*)pProgram);
+	*ppProgram = pProgram;
+	return CL_SUCCESS;
 }

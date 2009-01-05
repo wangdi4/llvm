@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "cl_types.h"
+#include "cl_objects_map.h"
 #include "framework_proxy.h"
 
 using namespace Intel::OpenCL::Framework;
@@ -11,6 +12,47 @@ wchar_t* ClErrTxt(cl_err_code error_code)
 {
 	switch(error_code)
 	{
+	case (CL_SUCCESS): return L"CL_SUCCESS";
+	case (CL_DEVICE_NOT_FOUND): return L"CL_DEVICE_NOT_FOUND";
+	case (CL_DEVICE_NOT_AVAILABLE): return L"CL_DEVICE_NOT_AVAILABLE";
+	case (CL_DEVICE_COMPILER_NOT_AVAILABLE): return L"CL_DEVICE_COMPILER_NOT_AVAILABLE";
+	case (CL_MEM_OBJECT_ALLOCATION_FAILURE): return L"CL_MEM_OBJECT_ALLOCATION_FAILURE";
+	case (CL_OUT_OF_RESOURCES): return L"CL_OUT_OF_RESOURCES";
+	case (CL_OUT_OF_HOST_MEMORY): return L"CL_OUT_OF_HOST_MEMORY";
+	case (CL_PROFILING_INFO_NOT_AVAILABLE): return L"CL_PROFILING_INFO_NOT_AVAILABLE";
+	case (CL_MEM_COPY_OVERLAP): return L"CL_MEM_COPY_OVERLAP";
+	case (CL_IMAGE_FORMAT_MISMATCH): return L"CL_IMAGE_FORMAT_MISMATCH";
+	case (CL_IMAGE_FORMAT_NOT_SUPPORTED): return L"CL_IMAGE_FORMAT_NOT_SUPPORTED";
+	case (CL_INVALID_VALUE): return L"CL_INVALID_VALUE";
+	case (CL_INVALID_DEVICE_TYPE): return L"CL_INVALID_DEVICE_TYPE";
+	case (CL_INVALID_DEVICE): return L"CL_INVALID_DEVICE";
+	case (CL_INVALID_CONTEXT): return L"CL_INVALID_CONTEXT";
+	case (CL_INVALID_QUEUE_PROPERTIES): return L"CL_INVALID_QUEUE_PROPERTIES";
+	case (CL_INVALID_COMMAND_QUEUE): return L"CL_INVALID_COMMAND_QUEUE";
+	case (CL_INVALID_HOST_PTR): return L"CL_INVALID_HOST_PTR";
+	case (CL_INVALID_MEM_OBJECT): return L"CL_INVALID_MEM_OBJECT";
+	case (CL_INVALID_IMAGE_FORMAT_DESCRIPTOR): return L"CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+	case (CL_INVALID_IMAGE_SIZE): return L"CL_INVALID_IMAGE_SIZE";
+	case (CL_INVALID_SAMPLER): return L"CL_INVALID_SAMPLER";
+	case (CL_INVALID_BINARY): return L"CL_INVALID_BINARY";
+	case (CL_INVALID_BUILD_OPTIONS): return L"CL_INVALID_BUILD_OPTIONS";
+	case (CL_INVALID_PROGRAM): return L"CL_INVALID_PROGRAM";
+	case (CL_INVALID_PROGRAM_EXECUTABLE): return L"CL_INVALID_PROGRAM_EXECUTABLE";
+	case (CL_INVALID_KERNEL_NAME): return L"CL_INVALID_KERNEL_NAME";
+	case (CL_INVALID_KERNEL): return L"CL_INVALID_KERNEL";
+	case (CL_INVALID_ARG_INDEX): return L"CL_INVALID_ARG_INDEX";
+	case (CL_INVALID_ARG_VALUE): return L"CL_INVALID_ARG_VALUE";
+	case (CL_INVALID_ARG_SIZE): return L"CL_INVALID_ARG_SIZE";
+	case (CL_INVALID_KERNEL_ARGS): return L"CL_INVALID_KERNEL_ARGS";
+	case (CL_INVALID_WORK_DIMENSION): return L"CL_INVALID_WORK_DIMENSION";
+	case (CL_INVALID_WORK_GROUP_SIZE): return L"CL_INVALID_WORK_GROUP_SIZE";
+	case (CL_INVALID_WORK_ITEM_SIZE): return L"CL_INVALID_WORK_ITEM_SIZE";
+	case (CL_INVALID_GLOBAL_OFFSET): return L"CL_INVALID_GLOBAL_OFFSET";
+	case (CL_INVALID_EVENT_WAIT_LIST): return L"CL_INVALID_EVENT_WAIT_LIST";
+	case (CL_INVALID_EVENT): return L"CL_INVALID_EVENT";
+	case (CL_INVALID_OPERATION): return L"CL_INVALID_GL_OBJECT";
+	case (CL_INVALID_GL_OBJECT): return L"CL_INVALID_GL_OBJECT";
+	case (CL_INVALID_BUFFER_SIZE): return L"CL_INVALID_BUFFER_SIZE";
 	case (CL_ERR_LOGGER_FAILED): return L"CL_ERR_LOGGER_FAILED";
 	case (CL_ERR_NOT_IMPLEMENTED): return L"CL_ERR_NOT_IMPLEMENTED";
 	case (CL_ERR_NOT_SUPPORTED): return L"CL_ERR_NOT_SUPPORTED";
@@ -273,7 +315,10 @@ cl_int clGetContextInfo(cl_context      context,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Command Queue APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_command_queue clCreateCommandQueue(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int * errcode_ret)
+cl_command_queue clCreateCommandQueue(cl_context                  context, 
+									  cl_device_id                device, 
+									  cl_command_queue_properties properties, 
+									  cl_int *                    errcode_ret)
 {
 	if (NULL != *errcode_ret)
 	{
@@ -289,11 +334,18 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
 }
-cl_int clGetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
+cl_int clGetCommandQueueInfo(cl_command_queue      command_queue, 
+							 cl_command_queue_info param_name, 
+							 size_t                param_value_size, 
+							 void *                param_value, 
+							 size_t *              param_value_size_ret)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
 }
-cl_int clSetCommandQueueProperty(cl_command_queue command_queue, cl_command_queue_properties properties, cl_int enable, cl_command_queue_properties * old_properties)
+cl_int clSetCommandQueueProperty(cl_command_queue              command_queue, 
+								 cl_command_queue_properties   properties, 
+								 cl_int                        enable, 
+								 cl_command_queue_properties * old_properties)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
 }
@@ -383,4 +435,137 @@ cl_int clGetImageInfo(cl_mem           image,
 					  size_t *         param_value_size_ret)
 {
 	return CL_ERR_NOT_SUPPORTED;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Program Object APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_program clCreateProgramWithSource(cl_context     context,
+									 cl_uint        count,
+									 const char **  strings,
+									 const size_t * lengths,
+									 cl_int *       errcode_ret)
+{
+	if (NULL != *errcode_ret)
+	{
+		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
+	}
+	return 0;
+}
+
+cl_program clCreateProgramWithBinary(cl_context           context,
+									 cl_uint              num_devices,
+									 const cl_device_id * device_list,
+									 const size_t *       lengths,
+									 const void **        binaries,
+									 cl_int *             binary_status,
+									 cl_int *             errcode_ret)
+{
+	if (NULL != *errcode_ret)
+	{
+		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
+	}
+	return 0;
+}
+
+cl_int clRetainProgram(cl_program program)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clReleaseProgram(cl_program program)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clBuildProgram(cl_program           program,
+					  cl_uint              num_devices,
+					  const cl_device_id * device_list,
+					  const char *         options, 
+					  void (*pfn_notify)(cl_program program, void * user_data),
+					  void *               user_data)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clUnloadCompiler(void)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clGetProgramInfo(cl_program      program,
+						cl_program_info param_name,
+						size_t          param_value_size,
+						void *          param_value,
+						size_t *        param_value_size_ret)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clGetProgramBuildInfo(cl_program            program,
+							 cl_device_id          device,
+							 cl_program_build_info param_name,
+							 size_t                param_value_size,
+							 void *                param_value,
+							 size_t *              param_value_size_ret)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+                           
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel Object APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_kernel clCreateKernel(cl_program   program,
+						 const char * kernel_name,
+						 cl_int *     errcode_ret)
+{
+	if (NULL != *errcode_ret)
+	{
+		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
+	}
+	return 0;
+}
+
+cl_int clCreateKernelsInProgram(cl_program  program,
+								cl_uint     num_kernels,
+								cl_kernel * kernels,
+								cl_uint *   num_kernels_ret)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clRetainKernel(cl_kernel)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clReleaseKernel(cl_kernel)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clSetKernelArg(cl_kernel    kernel,
+					  cl_uint      arg_indx,
+					  size_t       arg_size,
+					  const void * arg_value)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clGetKernelInfo(cl_kernel      kernel,
+					   cl_kernel_info param_name,
+					   size_t         param_value_size,
+					   void *         param_value,
+					   size_t *       param_value_size_ret)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_int clGetKernelWorkGroupInfo(cl_kernel                 kernel,
+								cl_device_id              device,
+								cl_kernel_work_group_info param_name,
+								size_t                    param_value_size,
+								void *                    param_value,
+								size_t *                  param_value_size_ret)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
 }

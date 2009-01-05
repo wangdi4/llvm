@@ -20,70 +20,29 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  ContextModule.h
-//  Implementation of the Class ContextModule
+//  iplatform.h
+//  Implementation of the IContext interface
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_CONTEXT_MODULE_H_)
-#define OCL_CONTEXT_MODULE_H_
+#if !defined(OCL_ICONTEXT_H_)
+#define OCL_ICONTEXT_H_
 
-#include <PlatformModule.h>
-#include "Context.h"
+#include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
-	* Class name:	ContextModule
+	* Class name:	IContext
 	*
-	* Description:	context module class
+	* Description:	IContext class
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class ContextModule
+	class IContext
 	{
-	
 	public:
-
-		/******************************************************************************************
-		* Function: 	ContextModule
-		* Description:	The Context Module class constructor
-		* Arguments:	pPlatformModule [in] -	pointer to the platform module	
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		ContextModule(PlatformModule *pPlatformModule);
-
-		/******************************************************************************************
-		* Function: 	~ContextModule
-		* Description:	The Context Module class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual ~ContextModule();
-
-		/******************************************************************************************
-		* Function: 	Initialize    
-		* Description:	Initialize the context module object
-		*				and load devices
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/		
-		cl_err_code		Initialize();
-
-		/******************************************************************************************
-		* Function: 	Release    
-		* Description:	Release the context module's resources
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The release operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code		Release();
 
 		/******************************************************************************************
 		* Function: 	clCreateContext    
@@ -134,12 +93,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_context		CreateContext(cl_context_properties properties,
-										cl_uint num_devices,
-										const cl_device_id *devices,
-										logging_fn pfn_notify,
-										void *user_data,
-										cl_err_code *errcode_ret);
+		virtual cl_context	CreateContext(	cl_context_properties properties,
+											cl_uint num_devices,
+											const cl_device_id *devices,
+											logging_fn pfn_notify,
+											void *user_data,
+											cl_err_code *errcode_ret ) = 0;
 
 		/******************************************************************************************
 		* Function: 	RetainContext    
@@ -150,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code		RetainContext(cl_context context);
+		virtual cl_err_code	RetainContext( cl_context context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	ReleaseContext    
@@ -163,7 +122,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		ReleaseContext(cl_context context);
+		virtual cl_err_code ReleaseContext( cl_context context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetContextInfo    
@@ -189,25 +148,51 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetContextInfo(	cl_context      context,
-										cl_context_info param_name,
-										size_t          param_value_size,
-										void *          param_value,
-										size_t *        param_value_size_ret);
+		virtual cl_err_code	GetContextInfo(	cl_context      context,
+											cl_context_info param_name,
+											size_t          param_value_size,
+											void *          param_value,
+											size_t *        param_value_size_ret ) = 0;
 
-	private:
-
-		cl_err_code			CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
-
-		PlatformModule *	m_pPlatformModule; // handle to the platform module
-
-		Intel::OpenCL::Utils::LoggerClient *		m_pLoggerClient; // handle to the logger client
-
-		OCLObjectsMap *		m_pContexts; // map list of contexts
-		
-		Intel::OpenCL::Utils::LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
+		/******************************************************************************************
+		* Function: 	CreateProgramWithSource    
+		* Description:	creates a program object for a context, and loads the source code specified 
+		*				by the text strings in the strings array into the program object. The 
+		*				devices associated with the program object are the devices associated with 
+		*				context
+		* Arguments:	clContext [in] -	must be a valid OpenCL context	
+		*				ppcStrings [in] -	is an array of uiCount pointers to optionally null-
+		*									terminated character strings that make up the source
+		*									code
+		*				szLengths [in] -	is an array with the number of chars in each string 
+		*									(the string length). If an element in lengths is zero, 
+		*									its accompanying string is null-terminated. If lengths 
+		*									is NULL, all strings in the strings argument are 
+		*									considered null-terminated. Any length value passed in 
+		*									that is greater than zero excludes the null terminator 
+		*									in its count
+		*				pErrcodeRet [out] -	will return an appropriate error code. If errcode_ret 
+		*									is NULL, no error code is returned
+		* Return value:	CL_SUCCESS					the program object is created successfully
+		*				CL_INVALID_CONTEXT			if context is not a valid OpenCL context
+		*				CL_INVALID_VALUE			if count is zero or if strings or any entry in
+		*											strings is NULL
+		*				CL_COMPILER_NOT_AVAILABLE	if a compiler is not available i.e. 
+		*											CL_DEVICE_COMPILER_AVAILABLE is set to 
+		*											CL_FALSE
+		*				CL_OUT_OF_HOST_MEMORY		if there is a failure to allocate resources 
+		*											required by the OpenCL implementation on the 
+		*											host
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		virtual cl_program CreateProgramWithSource(	cl_context     clContext,
+													cl_uint        uiCount,
+													const char **  ppcStrings,
+													const size_t * szLengths,
+													cl_int *       pErrcodeRet ) = 0;
 
 	};
 
 }}};
-#endif // !defined(OCL_CONTEXT_MODULE_H_)
+#endif // !defined(OCL_ICONTEXT_H_)

@@ -5,7 +5,12 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#include "ContextModule.h"
+#include "context_module.h"
+#include "context.h"
+#include "program.h"
+#include <platform_module.h>
+#include <device.h>
+#include <cl_objects_map.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -240,4 +245,54 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 		return CL_INVALID_CONTEXT;
 	}
 	return pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateProgramWithSource
+//////////////////////////////////////////////////////////////////////////
+cl_program ContextModule::CreateProgramWithSource(cl_context clContext, 
+														  cl_uint uiCount, 
+														  const char ** ppcStrings, 
+														  const size_t * szLengths, 
+														  cl_int * pErrcodeRet)
+{
+	InfoLog(m_pLoggerClient, L"CreateProgramWithSource enter. clContext=%d, uiCount=%d, ppcStrings=%d, szLengths=%d, pErrcodeRet=%d", 
+		clContext, uiCount, ppcStrings, szLengths, pErrcodeRet);
+
+	cl_err_code clErrRet = CL_SUCCESS;
+	// get the context from the contexts map list
+	Context * pContext = NULL;
+	if (NULL == m_pContexts)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_ERR_INITILIZATION_FAILED;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	Program *pProgram = NULL;
+	clErrRet = pContext->CreateProgramWithSource(uiCount, ppcStrings, szLengths, &pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_SUCCESS;
+	}
+	return (cl_program)pProgram->GetId();
 }

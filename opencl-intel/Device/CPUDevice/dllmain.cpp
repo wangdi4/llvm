@@ -28,7 +28,7 @@
   #pragma warning(disable:4391)
   #include <intrin.h>
 #pragma warning(pop)
-#include "CPUDevice.h"
+#include "cpu_device.h"
 
 #include<stdlib.h>
 

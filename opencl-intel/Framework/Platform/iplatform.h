@@ -20,22 +20,16 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  PlatformModule.h
-//  Implementation of the Class PlatformModule
+//  iplatform.h
+//  Implementation of the IPlatform interface
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_PLATFORM_MODULE_H_)
-#define OCL_PLATFORM_MODULE_H_
+#if !defined(OCL_IPLATFORM_H_)
+#define OCL_IPLATFORM_H_
 
 #include <cl_types.h>
-#include <cl_device_api.h>
-#include <cl_object_info.h>
-#include <cl_objects_map.h>
-#include <logger.h>
-#include <cl_config.h>
-#include "device.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -46,49 +40,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class PlatformModule
+	class IPlatform
 	{
-	
 	public:
-
-		/******************************************************************************************
-		* Function: 	PlatformModule
-		* Description:	The Platform Module class constructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		PlatformModule();
-
-		/******************************************************************************************
-		* Function: 	~PlatformModule
-		* Description:	The Platform Module class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual ~PlatformModule();
-
-		/******************************************************************************************
-		* Function: 	Initialize    
-		* Description:	Initialize the platform module object: set platform's information
-		*				and load devices
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/		
-		cl_err_code		Initialize(ConfigFile * pConfigFile);
-
-		/******************************************************************************************
-		* Function: 	Release    
-		* Description:	Release the platform module's resources
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The release operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code		Release();
 
 		/******************************************************************************************
 		* Function: 	GetPlatformInfo    
@@ -112,10 +66,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetPlatformInfo(cl_platform_info IN    clParamName, 
-										size_t           IN    szParamValueSize, 
-										void*            INOUT pParamValue, 
-										size_t*          OUT   pszParamValueSizeRet);
+		virtual cl_err_code	GetPlatformInfo(cl_platform_info IN    clParamName, 
+											size_t           IN    szParamValueSize, 
+											void*            INOUT pParamValue, 
+											size_t*          OUT   pszParamValueSizeRet) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetPlatformInfo    
@@ -143,10 +97,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDeviceIDs(	cl_device_type IN  clDeviceType, 
-										cl_uint        IN  uiNumEntries, 
-										cl_device_id*  OUT pclDevices, 
-										cl_uint*       OUT puiNumDevices );
+		virtual cl_err_code	GetDeviceIDs(	cl_device_type IN  clDeviceType, 
+											cl_uint        IN  uiNumEntries, 
+											cl_device_id*  OUT pclDevices, 
+											cl_uint*       OUT puiNumDevices ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetDeviceInfo    
@@ -176,59 +130,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDeviceInfo(cl_device_id   IN clDevice,
-									  cl_device_info IN clParamName,
-									  size_t         IN szParamValueSize,
-									  void*          OUT pParamValue,
-									  size_t*        OUT pszParamValueSizeRet );
-
-		/******************************************************************************************
-		* Function: 	GetDevice    
-		* Description:	Get device object that asigned to the device id
-		* Arguments:	clDeviceId [in] -	device id
-		*				ppDevice [out] -	pointer to the device
-		* Return value:	CL_SUCCESS - The operation succedeed
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code		GetDevice(	cl_device_id IN  clDeviceId, 
-									Device **    OUT ppDevice);
-
-
-	private:
-
-		/******************************************************************************************
-		* Function: 	InitDevices
-		* Description:	Load OpenCL devices and initialize them. all device dll's must be located
-		*				in the same folder as the framework dll
-		* Arguments:	vector<string> devices -	list of device dll names
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
-		*				CL_ERR_DEVICE_INIT_FAIL - one or more devices falied to initialize
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code InitDevices(vector<string> devices);
-
-		// map list of devices
-		OCLObjectsMap * m_pDevices;
-		
-		// pointer to the platoform module's logger client
-		Intel::OpenCL::Utils::LoggerClient * m_pLoggerClient;
-
-		// pointer to the platform module's information object
-		OCLObjectInfo *	m_pObjectInfo;
-		
-		// static chars array - holds the platform's information string
-		static const char m_vPlatformInfoStr[];
-		// platform's information string length
-		static const unsigned int m_uiPlatformInfoStrSize;
-
-		// static chars array - holds the platform's version string
-		static const char m_vPlatformVersionStr[];
-		// platform's version string length
-		static const unsigned int m_uiPlatformVersionStrSize;
+		virtual cl_err_code GetDeviceInfo(	cl_device_id   IN clDevice,
+											cl_device_info IN clParamName,
+											size_t         IN szParamValueSize,
+											void*          OUT pParamValue,
+											size_t*        OUT pszParamValueSizeRet ) = 0;
 
 	};
 
 }}};
-#endif // !defined(OCL_PLATFORM_MODULE_H_)
+#endif // !defined(OCL_IPLATFORM_H_)

@@ -20,55 +20,52 @@
 
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  Context.h
-//  Implementation of the Class Context
+//  program.h
+//  Implementation of the Program class
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_CONTEXT_H_)
-#define _OCL_CONTEXT_H_
+#if !defined(_OCL_PROGRAM_H_)
+#define _OCL_PROGRAM_H_
 
 #include <cl_types.h>
-#include <logger.h>
 #include <cl_object.h>
-#include <map>
+#include <logger.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class Device;
-	class Program;
-	class OCLObjectsMap;
+	class Context;
 
 	/**********************************************************************************************
-	* Class name:	Context
+	* Class name:	Buffer
 	*
-	* Inherit:		OCLObject
-	* Description:	represents a context
+	* Inherit:		MemoryObject
+	* Description:	represents a memory object
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Context : public OCLObject
+	class Program : public OCLObject
 	{
 	public:
 
 		/******************************************************************************************
-		* Function: 	Context
-		* Description:	The Context class constructor
+		* Function: 	Program
+		* Description:	The Program class constructor
 		* Arguments:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(cl_context_properties clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData);
+		Program(Context * pContext);
 
 		/******************************************************************************************
-		* Function: 	~Device
-		* Description:	The Context class destructor
+		* Function: 	~Program
+		* Description:	The Program class destructor
 		* Arguments:		
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		virtual ~Context();
+		virtual ~Program();
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
@@ -86,27 +83,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code Release();
 
-		cl_err_code CreateProgramWithSource(cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, Program ** ppProgram);
+		cl_err_code AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths);
 
 	private:
 
-		OCLObjectsMap *							m_pPrograms;
-
-		cl_context_properties					m_clContextProperties; // context properties
-
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// context's logger client
-
-		logging_fn								m_pfnNotify; // notify function's pointer
-
-		void *									m_pUserData; // user data
-
-		std::map<cl_device_id,Device*>			m_mapDevices;	// map list - holds all devices
+		cl_uint			m_uiStcStrCount;
 		
-		cl_device_id *							m_pDeviceIds; // array of device ids
+		char **			m_ppcSrcStrArr;
+		
+		size_t *		m_pszSrcStrLengths;
+
+		Context *		m_pContext;
+
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
+
 	};
 
 
 }}};
 
 
-#endif //_OCL_CONTEXT_H_
+#endif //_OCL_PROGRAM_H_

@@ -27,10 +27,10 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "cl_types.h"
-#include "Platform\PlatformModule.h"
-#include "Context\ContextModule.h"
-#include "Execution\execution_module.h"
-#include "Logger.h"
+#include <platform_module.h>
+#include <context_module.h>
+#include <execution_module.h>
+#include "logger.h"
 #include "cl_config.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
