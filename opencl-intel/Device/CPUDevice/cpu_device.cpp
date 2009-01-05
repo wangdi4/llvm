@@ -170,6 +170,11 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 	size_t  internalRetunedValueSize = valSize;
 	size_t  *pinternalRetunedValueSize;
 
+	//if both paramVal and paramValSize is NULL return error
+	if(NULL == paramVal && NULL == paramValSizeRet)
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
 	//if OUT paramValSize_ret is NULL it should be ignopred
 	if(paramValSizeRet)
 	{
@@ -179,49 +184,62 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 	{
 		pinternalRetunedValueSize = &internalRetunedValueSize;
 	}
+	
 	InfoLog(m_logDescriptor, m_iLogHandle, L"Get Device Info Function enter");
 	switch (param)
 	{
 		case( CL_DEVICE_TYPE):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_device_type);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				*(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					*(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
+				}
 				return CL_SUCCESS;
 
 			}
 		case( CL_DEVICE_VENDOR_ID):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_uint);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				//Get CPUID
-				int viCPUInfo[4] = {-1};
-				// get the CPU info
-				__cpuid(viCPUInfo, 0);
-				
-				*(cl_uint*)paramVal = (cl_uint)viCPUInfo[0];
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					//Get CPUID
+					int viCPUInfo[4] = {-1};
+					// get the CPU info
+					__cpuid(viCPUInfo, 0);
+					
+					*(cl_uint*)paramVal = (cl_uint)viCPUInfo[0];
+				}
 				return CL_SUCCESS;
 			}
 		case( CL_DEVICE_MAX_COMPUTE_UNITS):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_uint);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				//Get CPUID
-				int viCPUInfo[4] = {-1};
-				// get the CPU info
-				__cpuid(viCPUInfo, 1);
-				cl_uint uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					//Get CPUID
+					int viCPUInfo[4] = {-1};
+					// get the CPU info
+					__cpuid(viCPUInfo, 1);
+					cl_uint uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
 
-				*(cl_uint*)paramVal = uiCoreCount;
+					*(cl_uint*)paramVal = uiCoreCount;
+				}
 				return CL_SUCCESS;
 				
 			}
@@ -266,11 +284,15 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_AVAILABLE):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_bool);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				*(cl_bool*)paramVal = CL_TRUE;
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					*(cl_bool*)paramVal = CL_TRUE;
+				}
 				return CL_SUCCESS;
 			}
 			
@@ -278,80 +300,105 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_EXECUTION_CAPABILITIES):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_FN_AS_KERNEL;
-
-				*(cl_device_exec_capabilities*)paramVal = execCapabilities;
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_FN_AS_KERNEL;
+					*(cl_device_exec_capabilities*)paramVal = execCapabilities;
+				}
 				return CL_SUCCESS;
 								
 			}
 		case( CL_DEVICE_QUEUE_PROPERTIES ):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				cl_command_queue_properties queueProperties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
-
-				*(cl_device_exec_capabilities*)paramVal = queueProperties;
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					cl_command_queue_properties queueProperties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
+					*(cl_device_exec_capabilities*)paramVal = queueProperties;
+				}
 				return CL_SUCCESS;
 			}
 		case( CL_DEVICE_COMPILER_AVAILABLE):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_bool);
-				if(valSize != *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				*(cl_bool*)paramVal = CL_FALSE;//Currently we dont have compiler yet
+					//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					*(cl_bool*)paramVal = CL_FALSE;//Currently we dont have compiler yet
+				}
 				return CL_SUCCESS; 
 			}
 		case( CL_DEVICE_NAME):
 			{
 				*pinternalRetunedValueSize = strlen("CPU");
-				if(valSize < *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				
-			  	strcpy_s((char*)paramVal, valSize, "CPU");
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+			  		strcpy_s((char*)paramVal, valSize, "CPU");
+				}
 
 				return CL_SUCCESS; 
 			}
 		case( CL_DEVICE_VENDOR):
 			{
 				*pinternalRetunedValueSize = strlen(CPU_STRING);
-				if(valSize < *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				strcpy_s((char*)paramVal, valSize, CPU_STRING);
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					strcpy_s((char*)paramVal, valSize, CPU_STRING);
+				}
 				return CL_SUCCESS; 
 			}
 
 		case( CL_DEVICE_PROFILE):
 			{
 				*pinternalRetunedValueSize = strlen("FULL_PROFILE");
-				if(valSize < *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				strcpy_s((char*)paramVal, valSize, "FULL_PROFILE");
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					strcpy_s((char*)paramVal, valSize, "FULL_PROFILE");
+				}
 				return CL_SUCCESS; 
 			}
 		case( CL_DRIVER_VERSION ):
 		case( CL_DEVICE_VERSION):
 			{
 				*pinternalRetunedValueSize = strlen("1.0");
-				if(valSize < *pinternalRetunedValueSize)
+				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
 					return CL_INVALID_VALUE;
 				}
-				strcpy_s((char*)paramVal, valSize, "1.0");
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					strcpy_s((char*)paramVal, valSize, "1.0");
+				}
 				return CL_SUCCESS; 
 			}
         
