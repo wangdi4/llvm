@@ -21,7 +21,7 @@
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //  Context.h
-//  Implementation of the Class Context
+//  Implementation of the Context class
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,7 +55,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/******************************************************************************************
 		* Function: 	Context
 		* Description:	The Context class constructor
-		* Arguments:	
+		* Arguments:	clProperties [in] -	context's properties
+		*				uiNumDevices [in] -	number of devices associated to the context
+		*				ppDevice [in] -		list of devices
+		*				pfnNotify [in] -	error notification function's pointer
+		*				pUserData [in] -	user date
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
@@ -84,17 +88,53 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
+		/******************************************************************************************
+		* Function: 	Release    
+		* Description:	relase the context and its resources
+		* Arguments:	
+		* Return value:	CL_SUCCESS - operation succeded
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
 		cl_err_code Release();
 
-		cl_err_code CreateProgramWithSource(cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, Program ** ppProgram);
+		/******************************************************************************************
+		* Function: 	CreateProgramWithSource    
+		* Description:	creates new program object with source code attached
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		cl_err_code CreateProgramWithSource(cl_uint        IN  uiCount, 
+											const char **  IN  ppcStrings, 
+											const size_t * IN  szLengths, 
+											Program **     OUT ppProgram);
+
+		/******************************************************************************************
+		* Function: 	CreateProgramWithBinary    
+		* Description:	creates new program object with binaries
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		cl_err_code CreateProgramWithBinary(cl_uint              IN  uiNumDevices, 
+											const cl_device_id * IN  pclDeviceList, 
+											const size_t *       IN  pszLengths, 
+											const void **        IN  ppBinaries, 
+											cl_int *             OUT piBinaryStatus, 
+											Program **           OUT ppProgram);
 
 	private:
 
-		OCLObjectsMap *							m_pPrograms;
+		// check that all devices belong to this context
+		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
+
+
+		OCLObjectsMap *							m_pPrograms;	// holds the programs that related to this context
 
 		cl_context_properties					m_clContextProperties; // context properties
-
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// context's logger client
 
 		logging_fn								m_pfnNotify; // notify function's pointer
 
@@ -103,6 +143,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		std::map<cl_device_id,Device*>			m_mapDevices;	// map list - holds all devices
 		
 		cl_device_id *							m_pDeviceIds; // array of device ids
+
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// context's logger client
 	};
 
 

@@ -26,12 +26,15 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "program.h"
+#include "program_binary.h"
 #include <string.h>
+#include <device.h>
+using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context C'tor
+// Program C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Program::Program(Context * pContext)
 {
@@ -44,10 +47,11 @@ Program::Program(Context * pContext)
 	m_pszSrcStrLengths = NULL;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context D'tor
+// Program D'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Program::~Program()
 {
+	// release source code resources
 	if (m_uiStcStrCount > 0 && NULL != m_ppcSrcStrArr)
 	{
 		for (cl_uint ui=0; ui<m_uiStcStrCount; ++ui)
@@ -58,7 +62,22 @@ Program::~Program()
 	delete[] m_ppcSrcStrArr;
 	delete[] m_pszSrcStrLengths;
 
+	// release binaries resources
+	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
+	while (it != m_mapBinaries.end())
+	{
+		ProgramBinary * pProgBin = it->second;
+		delete pProgBin;
+	}
+	m_mapBinaries.clear();
 	delete m_pLoggerClient;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Release
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::Release()
+{
+	return OCLObject::Release();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo
@@ -73,15 +92,17 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths)
 {
-	if (m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr || NULL != pszLengths)
+	InfoLog(m_pLoggerClient, L"AddSource enter. uiCount=%d, ppcStrings=%d, pszLengths=%d",uiCount, ppcStrings, pszLengths);
+	if (m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr)
 	{
 		// source has allready added to this program
+		ErrLog(m_pLoggerClient, L"m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// check if count is zero or if strings or any entry in strings is NULL
 	if (0 == uiCount || NULL == ppcStrings || NULL == pszLengths)
 	{
-		ErrLog(m_pLoggerClient, L"0 == uiCount || NULL == ppcStrings || NULL == szLengths");
+		ErrLog(m_pLoggerClient, L"0 == uiCount || NULL == ppcStrings || NULL == szLengths; return CL_INVALID_VALUE");
 		return CL_INVALID_VALUE;
 	}
 	for (cl_uint ui=0; ui<uiCount; ++ui)
@@ -94,9 +115,11 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 	}
 	m_uiStcStrCount = uiCount;
 	// allocate host memory for source code
+	InfoLog(m_pLoggerClient, L"m_pszSrcStrLengths = new size_t[%d]",m_uiStcStrCount);
 	m_pszSrcStrLengths = new size_t[m_uiStcStrCount];
-	if (NULL == m_uiStcStrCount)
+	if (NULL == m_pszSrcStrLengths)
 	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pszSrcStrLengths");
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	for(cl_uint ui=0; ui<m_uiStcStrCount; ++ui)
@@ -104,19 +127,23 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 		m_pszSrcStrLengths[ui] = pszLengths[ui];
 	}
 	// allocate host memory for source code
+	InfoLog(m_pLoggerClient, L"m_ppcSrcStrArr = new char * [%d]",m_uiStcStrCount);
 	m_ppcSrcStrArr = new char * [m_uiStcStrCount];
 	if (NULL == m_ppcSrcStrArr)
 	{
+		ErrLog(m_pLoggerClient, L"NULL == m_ppcSrcStrArr");
 		delete[] m_pszSrcStrLengths;
 		m_pszSrcStrLengths = NULL;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	for (cl_uint ui=0; ui<m_uiStcStrCount; ++ui)
 	{
+		InfoLog(m_pLoggerClient, L"m_ppcSrcStrArr[ui] = new char[%d] + 1]",pszLengths[ui]);
 		m_ppcSrcStrArr[ui] = new char[pszLengths[ui] + 1];
 		if (NULL == m_ppcSrcStrArr)
 		{
 			// free all previouse strings
+			ErrLog(m_pLoggerClient, L"NULL == m_ppcSrcStrArr");
 			for (cl_uint uj=0; uj<ui; ++uj)
 			{
 				delete[] m_ppcSrcStrArr[uj];
@@ -128,6 +155,67 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 			return CL_OUT_OF_HOST_MEMORY;
 		}
 		strcpy_s(m_ppcSrcStrArr[ui], pszLengths[ui] + 1, ppcStrings[ui]);
+	}
+	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// AddBinary
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::AddBinary(Device * pDevice, cl_uint uiBinarySize, const void * pBinaryData)
+{
+	InfoLog(m_pLoggerClient, L"AddBinary enter. pDevice=%d, uiBinarySize=%d, pBinaryData=%d", pDevice, uiBinarySize, pBinaryData);
+	cl_err_code clErrRet = CL_SUCCESS;
+
+	if (NULL == pDevice)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	// check if the current device allready have binary assign for it
+	map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find((cl_device_id)pDevice->GetId());
+	if (it != m_mapBinaries.end())
+	{
+		return CL_ERR_KEY_ALLREADY_EXISTS;
+	}
+	ProgramBinary * pProgBin = new ProgramBinary(uiBinarySize, pBinaryData, pDevice, &clErrRet);
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	m_mapBinaries[(cl_device_id)pDevice->GetId()] = pProgBin;
+	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CheckDevices
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pclDevices)
+{
+	if (0 == uiNumDevices || NULL == pclDevices)
+	{
+		return CL_INVALID_DEVICE;
+	}
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find(pclDevices[ui]);
+		if (it == m_mapBinaries.end())
+		{
+			return CL_INVALID_DEVICE;
+		}
+		ProgramBinary * pProgBin = it->second;
+		if (NULL == pProgBin)
+		{
+			return CL_INVALID_BINARY;
+		}
+		Device * pDevice = pProgBin->GetDevice();
+		if (NULL == pDevice)
+		{
+			return CL_INVALID_DEVICE;
+		}
+		cl_err_code clErrRet = pDevice->CheckProgramBinary(pProgBin->GetSize(), pProgBin->GetData());
+		if (CL_FAILED(clErrRet))
+		{
+			return CL_INVALID_BINARY;
+		}
 	}
 	return CL_SUCCESS;
 }

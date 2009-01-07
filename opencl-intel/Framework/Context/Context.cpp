@@ -175,3 +175,100 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	*ppProgram = pProgram;
 	return CL_SUCCESS;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CheckDevices
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices)
+{
+	InfoLog(m_pLoggerClient, L"CheckDevices enter. uiNumDevices=%d, pclDevices=%d", uiNumDevices, pclDevices);
+	if (0 == uiNumDevices || NULL == pclDevices)
+	{
+		// invalid inputs
+		ErrLog(m_pLoggerClient, L"0 == uiNumDevices || NULL == pclDevices");
+		return false;
+	}
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		map<cl_device_id,Device*>::iterator it = m_mapDevices.find(pclDevices[ui]);
+		if (it == m_mapDevices.end())
+		{
+			// device wasn't found
+			ErrLog(m_pLoggerClient, L"device %d was't found in this context", pclDevices[ui]);
+			return false;
+		}
+	}
+	return true;
+}
+
+cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const void ** ppBinaries, cl_int * piBinaryStatus, Program ** ppProgram)
+{
+	InfoLog(m_pLoggerClient, L"CreateProgramWithBinary enter. uiNumDevices=%d, pclDeviceList=%d, pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d, ppProgram=%d", 
+		uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, ppProgram);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	
+	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
+	{
+		// invalid input args
+		ErrLog(m_pLoggerClient, L"NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries");
+		return CL_INVALID_VALUE;
+	}
+	// check items in pszLengths and in ppBinaries
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		if (0 == pszLengths[ui] || NULL == ppBinaries[ui])
+		{
+			ErrLog(m_pLoggerClient, L"0 == pszLengths[%d] || NULL == ppBinaries[%d]", ui, ui);
+			return CL_INVALID_VALUE;
+		}
+	}
+	
+	// check devices
+	bool bRes = CheckDevices(uiNumDevices, pclDeviceList);
+	if (false == bRes)
+	{
+		ErrLog(m_pLoggerClient, L"CheckDevices(uiNumDevices, pclDeviceList) = false");
+		return CL_INVALID_DEVICE;
+	}
+
+	// create program object
+	Program * pProgram = new Program(this);
+
+	// check binaries and add them to the program object
+	Device * pDevice = NULL;
+	map<cl_device_id,Device*>::iterator it;
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		map<cl_device_id,Device*>::iterator it = m_mapDevices.find(pclDeviceList[ui]);
+		if (it == m_mapDevices.end())
+		{
+			// device not found
+			ErrLog(m_pLoggerClient, L"device %d not found", pclDeviceList[ui]);
+			pProgram->Release();
+			delete pProgram;
+			return CL_INVALID_DEVICE;
+		}
+		// get device and check binary
+		pDevice = it->second;
+		clErrRet = pDevice->CheckProgramBinary(pszLengths[ui], ppBinaries[ui]);
+		if (CL_FAILED(clErrRet))
+		{
+			ErrLog(m_pLoggerClient, L"binary ppBinaries[%d] isn't valid for device %d", ui, pclDeviceList[ui]);
+			pProgram->Release();
+			delete pProgram;
+			return CL_INVALID_BINARY;
+		}
+		// add binary to the program object
+		clErrRet = pProgram->AddBinary(pDevice, pszLengths[ui], ppBinaries[ui]);
+		if (CL_FAILED(clErrRet))
+		{
+			ErrLog(m_pLoggerClient, L"can't add binary to program", ui, pclDeviceList[ui]);
+			pProgram->Release();
+			delete pProgram;
+			return CL_INVALID_BINARY;
+		}
+	}
+
+	*ppProgram = pProgram;
+	return CL_SUCCESS;
+}

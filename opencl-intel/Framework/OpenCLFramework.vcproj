@@ -444,6 +444,14 @@
 				RelativePath=".\Context\program.h"
 				>
 			</File>
+			<File
+				RelativePath=".\Context\program_binary.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Context\program_binary.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Execution"

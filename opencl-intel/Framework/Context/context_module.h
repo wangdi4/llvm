@@ -99,6 +99,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code ReleaseContext(cl_context context);
 		virtual cl_err_code GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 		virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
+		virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const void ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
+		virtual cl_err_code	RetainProgram(cl_program clProgram);
+		virtual cl_err_code ReleaseProgram(cl_program clProgram);
+		virtual cl_int BuildProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, void (*pfn_notify)(cl_program program, void * user_data), void * pUserData);
 
 	private:
 
@@ -107,6 +111,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		PlatformModule *	m_pPlatformModule; // handle to the platform module
 
 		Intel::OpenCL::Utils::LoggerClient *		m_pLoggerClient; // handle to the logger client
+
+		OCLObjectsMap *		m_pPrograms; // map list of programs
 
 		OCLObjectsMap *		m_pContexts; // map list of contexts
 		

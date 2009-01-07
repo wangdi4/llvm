@@ -36,7 +36,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	/**********************************************************************************************
 	* Class name:	IContext
 	*
-	* Description:	IContext class
+	* Description:	IContext iterface
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
@@ -93,12 +93,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_context	CreateContext(	cl_context_properties properties,
-											cl_uint num_devices,
-											const cl_device_id *devices,
-											logging_fn pfn_notify,
-											void *user_data,
-											cl_err_code *errcode_ret ) = 0;
+		virtual cl_context	CreateContext(	cl_context_properties IN  properties,
+											cl_uint               IN  num_devices,
+											const cl_device_id *  IN  devices,
+											logging_fn            IN  pfn_notify,
+											void *                IN  user_data,
+											cl_err_code *         OUT errcode_ret ) = 0;
 
 		/******************************************************************************************
 		* Function: 	RetainContext    
@@ -109,7 +109,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		virtual cl_err_code	RetainContext( cl_context context ) = 0;
+		
+		virtual cl_err_code	RetainContext( cl_context IN context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	ReleaseContext    
@@ -122,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code ReleaseContext( cl_context context ) = 0;
+		virtual cl_err_code ReleaseContext( cl_context IN context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetContextInfo    
@@ -148,11 +149,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code	GetContextInfo(	cl_context      context,
-											cl_context_info param_name,
-											size_t          param_value_size,
-											void *          param_value,
-											size_t *        param_value_size_ret ) = 0;
+		virtual cl_err_code	GetContextInfo(	cl_context      IN  context,
+											cl_context_info IN  param_name,
+											size_t          IN  param_value_size,
+											void *          OUT param_value,
+											size_t *        OUT param_value_size_ret ) = 0;
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithSource    
@@ -186,11 +187,167 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_program CreateProgramWithSource(	cl_context     clContext,
-													cl_uint        uiCount,
-													const char **  ppcStrings,
-													const size_t * szLengths,
-													cl_int *       pErrcodeRet ) = 0;
+		virtual cl_program CreateProgramWithSource(	cl_context     IN  clContext,
+													cl_uint        IN  uiCount,
+													const char **  IN  ppcStrings,
+													const size_t * IN  szLengths,
+													cl_int *       OUT pErrcodeRet ) = 0;
+
+		/******************************************************************************************
+		* Function: 	CreateProgramWithBinary    
+		* Description:	creates a program object for a context, and loads the binary bits specified 
+		*				by binary into the program object
+		* Arguments:	clContext [in] 		must be a valid OpenCL context	
+		*				pclDeviceList [in]	is a pointer to a list of devices that are in context. 
+		*									device_list must be a non-NULL value. The binaries are
+		*									loaded for devices specified in this list.
+		*									The devices associated with the program object will be 
+		*									the list of devices specified by device_list. The list 
+		*									of devices specified by pclDeviceList must be devices 
+		*									associated with context.
+		*				uiNumDevices [in] 	is the number of devices listed in pclDeviceList 
+		*				pszLengths [in] 	is an array of the size in bytes of the program binaries 
+		*									to be loaded for devices specified by pclDeviceList
+		*				ppBinaries [in] 	is an array of pointers to program binaries to be loaded
+		*									for devices specified by pclDeviceList. For each device 
+		*									given by pclDeviceList[i], the pointer to the program 
+		*									binary for that device is given by ppBinaries[i] and the
+		*									length of this corresponding binary is given by 
+		*									pszLengths[i]. pszLengths[i] cannot be zero and 
+		*									ppBinaries[i] cannot be a NULL pointer
+		*									The program binaries specified by binaries contain the 
+		*									bits that describe the program executable that will be 
+		*									run on the device(s) associated with context. The 
+		*									program binary can consist of either or both:
+		*									-	Device-specific executable(s), and/or,
+		*									-	Implementation-specific intermediate representation
+		*										(IR) which will be converted to the device-specific 
+		*										executable.
+		*				piBinaryStatus [in]	returns whether the program binary for each device 
+		*									specified in device_list wasloaded successfully or not
+		*									It is an array of num_devices entries and returns 
+		*									CL_SUCCESS in piBinaryStatus[i] if binary was 
+		*									successfully loaded for device specified by 
+		*									pclDeviceList[i]; otherwise returns CL_INVALID_VALUE if
+		*									pszLengths[i] is zero or if ppBinaries[i] is a NULL 
+		*									value or CL_INVALID_BINARY in piBinaryStatus[i] if 
+		*									program binary is not a valid binary for the specified 
+		*									device. If binary_status is NULL, it is ignored.
+		*				pErrRet [in]		will return an appropriate error code. If pErrRet is 
+		*									NULL, no error code isreturned
+		* Return value:	CL_SUCCESS					the program object is created successfully
+		*				CL_INVALID_CONTEXT			if context is not a valid OpenCL context
+		*				CL_INVALID_VALUE			if pclDeviceList is NULL or uiNumDevicesis
+		*											zero or if pszLengths or ppBinaries are NULL 
+		*											or if any entry in pszLengths[i] is zero or 
+		*											ppBinaries[i] is NULL
+		*				CL_INVALID_DEVICE			if OpenCL devices listed in pclDeviceList are 
+		*											not in the list of devices associated with 
+		*											context
+		*				CL_INVALID_BINARY			if an invalid program binary was encountered
+		*											for any device. piBinaryStatus will return 
+		*											specific status for each device
+		*				CL_OUT_OF_HOST_MEMORY		if there is a failure to allocate resources 
+		*											required by the OpenCL implementation on the 
+		*											host
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		virtual cl_program CreateProgramWithBinary(	cl_context           IN  clContext,
+													cl_uint              IN  uiNumDevices,
+													const cl_device_id * IN  pclDeviceList,
+													const size_t *       IN  pszLengths,
+													const void **        IN  ppBinaries,
+													cl_int *             OUT piBinaryStatus,
+													cl_int *             OUT pErrRet ) = 0;
+
+		/******************************************************************************************
+		* Function: 	RetainProgram    
+		* Description:	increments the context reference count
+		* Arguments:	clProgram [in] -	specifies the OpenCL program being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_PROGRAM		if clProgram is not a valid OpenCL program
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/		
+		virtual cl_err_code	RetainProgram( cl_program IN clProgram ) = 0;
+
+		/******************************************************************************************
+		* Function: 	ReleaseProgram    
+		* Description:	decrements the program reference count. The program object is deleted after
+		*				all kernel objects associated with program have been deleted and the 
+		*				program reference count becomes zero.
+		* Arguments:	clProgram [in] -	specifies the OpenCL program being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_CONTEXT		if clProgram is not a valid OpenCL program
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		virtual cl_err_code ReleaseProgram( cl_program IN clProgram ) = 0;
+
+		/******************************************************************************************
+		* Function: 	BuildProgram    
+		* Description:	builds (compiles & links) a program executable from the program source or 
+		*				binary for all the devices or a specific device(s) in the OpenCL context 
+		*				associated with program. OpenCL allows program executables to be built 
+		*				using the source or the binary
+		* Arguments:	clProgram [in]		is the program object	
+		*				uiNumDevices [in]	is the number of devices listed in pclDeviceList
+		*				pclDeviceList [in]	is a pointer to a list of devices associated with 
+		*									program. If device_list is a NULL value, the program 
+		*									executable is built for all devices associated with 
+		*									program for which a source or binary has been loaded.
+		*									If pclDeviceList is a non-NULL value, the program
+		*									executable is built for devices specified in this list
+		*									for which a source or binary has been loaded
+		*				pcOptions [in]		is a pointer to a string that describes the build 
+		*									options to be used for building the program executable
+		*				pfn_notify [in]		is a function pointer to a notification routine. The 
+		*									notification routine allows an application to register
+		*									a callback function which will be called when the 
+		*									program executable has been built (successfully or 
+		*									unsuccessfully). If pfn_notify is not NULL, 
+		*									BuildProgram does not need to wait for the build to 
+		*									complete and can return immediately. If pfn_notify is
+		*									NULL, BuildProgram does not return until the build has
+		*									completed. This callback function may be called 
+		*									asynchronously by the OpenCL implementation. It is the
+		*									application’s responsibility to ensure that the callback
+		*									function is thread-safe
+		*				pUserData [in]		will be passed as an argument when pfn_notify is called.
+		*									pUserData can be NULL
+		* Return value:	CL_SUCCESS					if the function is executed successfully
+		*				CL_INVALID_PROGRAM			if clProgram is not a valid OpenCL program
+		*				CL_INVALID_VALUE			if pclDeviceList is NULL and num_devices is 
+		*											greater than zero, or if pclDeviceList is not 
+		*											NULL and num_devices is zero
+		*				CL_INVALID_DEVICE			if OpenCL devices listed in pclDeviceList are
+		*											not in the list of devices associated with 
+		*											program
+		*				CL_INVALID_BINARY			if program is created with 
+		*											CreateWithProgramBinary and devices listed in
+		*											pclDeviceList do not have a valid program 
+		*											binary loaded
+		*				CL_INVALID_BUILD_OPTIONS	if the build pcOptions specified by options are
+		*											invalid
+		*				CL_INVALID_OPERATION		if the build of a program executable for any of
+		*											the devices listed in pclDeviceList by a 
+		*											previous call to clBuildProgram for program has
+		*											not completed or if there are kernel objects 
+		*											attached to program
+		*				CL_OUT_OF_HOST_MEMORY		if there is a failure to allocate resources 
+		*											required by the OpenCL implementation on the
+		*											host
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		virtual cl_int BuildProgram(cl_program           IN clProgram,
+									cl_uint              IN uiNumDevices,
+									const cl_device_id * IN pclDeviceList,
+									const char *         IN pcOptions, 
+									void (*pfn_notify)(cl_program program, void * user_data),
+									void *               IN pUserData ) = 0;
+
 
 	};
 

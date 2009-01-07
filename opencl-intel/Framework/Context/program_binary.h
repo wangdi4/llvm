@@ -21,99 +21,79 @@
 #pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //  program.h
-//  Implementation of the Program class
+//  Implementation of the ProgramBinary class
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_PROGRAM_H_)
-#define _OCL_PROGRAM_H_
+#if !defined(_OCL_PROGRAM_BINARY_H_)
+#define _OCL_PROGRAM_BINARY_H_
 
 #include <cl_types.h>
 #include <cl_object.h>
 #include <logger.h>
-#include <map>
+#include <cl_device_api.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class Context;
-	class ProgramBinary;
+	class Program;
 	class Device;
 
 	/**********************************************************************************************
-	* Class name:	Buffer
+	* Class name:	ProgramBinary
 	*
-	* Inherit:		MemoryObject
-	* Description:	represents a memory object
+	* Description:	represents a ProgramBinary object
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Program : public OCLObject
+	class ProgramBinary 
 	{
 	public:
 
 		/******************************************************************************************
-		* Function: 	Program
-		* Description:	The Program class constructor
+		* Function: 	ProgramBinary
+		* Description:	The ProgramBinary class constructor - allocate memory and copy the data
+		*				return result through pErr
 		* Arguments:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Program(Context * pContext);
+		ProgramBinary(cl_uint uiBinSize, const void * pBinData, Device * pDevice, cl_err_code * pErr);
 
 		/******************************************************************************************
-		* Function: 	~Program
-		* Description:	The Program class destructor
+		* Function: 	~ProgramBinary
+		* Description:	The ProgramBinary class destructor
 		* Arguments:		
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		virtual ~Program();
+		virtual ~ProgramBinary();
 
-		/******************************************************************************************
-		* Function: 	GetInfo    
-		* Description:	get object specific information (inharited from OCLObject) the function 
-		*				query the desirable parameter value from the device
-		* Arguments:	param_name [in]				parameter's name
-		*				param_value_size [inout]	parameter's value size (in bytes)
-		*				param_value [out]			parameter's value
-		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		// get the binary size
+		cl_uint		GetSize(){ return m_uiBinSize; }
+		
+		// get the binary data
+		void *		GetData(){ return m_pBinData; }
+		
+		// get the deivce associated to the binary
+		Device *	GetDevice(){ return m_pDevice; }
 
-		// relase the program object and its reosurces
-		cl_err_code Release();
-
-		// add source code to the program object
-		cl_err_code AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths);
-
-		// add binary to the program object
-		cl_err_code AddBinary(Device * pDevice, cl_uint uiBinarySize, const void * pBinaryData);
-
-		// check if the devices associated to the program and if thier binaries are valid binaries
-		cl_err_code CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
 	private:
 
-		cl_uint									m_uiStcStrCount;	// number of strings in the source code
+		cl_uint									m_uiBinSize;	// binary size
 
-		char **									m_ppcSrcStrArr;		// source code - set of strings
+		void *									m_pBinData;		// binary data
 
-		size_t *								m_pszSrcStrLengths;	// for each string - the lengths of the string
+		Device *								m_pDevice;		// associated device
 
-		Context *								m_pContext;			// parent context
-
-		std::map<cl_device_id, ProgramBinary*>	m_mapBinaries;		// program's binaries
+		cl_prog_container						m_clDevProgContainer;
 
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
 
 	};
 
-
 }}};
 
 
-#endif //_OCL_PROGRAM_H_
+#endif //_OCL_PROGRAM_BINARY_H_

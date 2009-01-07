@@ -92,6 +92,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code InitDevice(const wchar_t * pwcDllPath);
 
+		cl_err_code CheckProgramBinary(size_t szBinSize, const void* pBinData);
+
 	private:
 
 		/******************************************************************************************

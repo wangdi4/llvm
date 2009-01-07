@@ -47,6 +47,13 @@ cl_err_code ContextModule::Initialize()
 	{
 		return CL_ERR_INITILIZATION_FAILED;
 	}
+
+	m_pPrograms = new OCLObjectsMap();
+	if (NULL == m_pPrograms)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -57,7 +64,7 @@ cl_err_code ContextModule::Release()
 	InfoLog(m_pLoggerClient, L"ContextModule::Release enter");
 	cl_err_code clErrRet = CL_SUCCESS;
 	Context *pContext = NULL;
-	if (NULL == m_pContexts)
+	if (NULL != m_pContexts)
 	{
 		for(cl_uint ui=0; ui<m_pContexts->Count(); ++ui)
 		{
@@ -70,6 +77,12 @@ cl_err_code ContextModule::Release()
 		}
 		m_pContexts->Clear();
 	}
+
+	if (NULL != m_pPrograms)
+	{
+		m_pPrograms->Clear();
+	}
+
 	return clErrRet;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -96,7 +109,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		{	
 			*errcode_ret = CL_INVALID_VALUE;
 		}
-		return 0;
+		return CL_INVALID_HANDLE;
 	}
 	if (NULL == devices)
 	{
@@ -105,7 +118,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		{	
 			*errcode_ret = CL_INVALID_VALUE;
 		}
-		return 0;
+		return CL_INVALID_HANDLE;
 	}
 	if (0 == num_devices)
 	{
@@ -114,7 +127,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		{	
 			*errcode_ret = CL_INVALID_VALUE;
 		}
-		return 0;
+		return CL_INVALID_HANDLE;
 	}
 
 	InfoLog(m_pLoggerClient, L"Device ** ppDevices = new (Device*)[%d]", num_devices);
@@ -126,7 +139,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		{	
 			*errcode_ret = CL_ERR_INITILIZATION_FAILED;
 		}		
-		return 0;
+		return CL_INVALID_HANDLE;
 	}
 	cl_err_code clErrRet = CheckDevices(num_devices, devices, ppDevices);
 	if (CL_FAILED(clErrRet))
@@ -135,7 +148,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties properties,
 		{	
 			*errcode_ret = CL_INVALID_DEVICE;
 		}
-		return 0;
+		return CL_INVALID_HANDLE;
 	}
 
 	Context *pContext = new Context(properties, num_devices, ppDevices, pfn_notify, user_data);
@@ -249,11 +262,11 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
 //////////////////////////////////////////////////////////////////////////
-cl_program ContextModule::CreateProgramWithSource(cl_context clContext, 
-														  cl_uint uiCount, 
-														  const char ** ppcStrings, 
-														  const size_t * szLengths, 
-														  cl_int * pErrcodeRet)
+cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
+												  cl_uint        uiCount, 
+												  const char **  ppcStrings, 
+												  const size_t * szLengths, 
+												  cl_int *       pErrcodeRet)
 {
 	InfoLog(m_pLoggerClient, L"CreateProgramWithSource enter. clContext=%d, uiCount=%d, ppcStrings=%d, szLengths=%d, pErrcodeRet=%d", 
 		clContext, uiCount, ppcStrings, szLengths, pErrcodeRet);
@@ -261,9 +274,9 @@ cl_program ContextModule::CreateProgramWithSource(cl_context clContext,
 	cl_err_code clErrRet = CL_SUCCESS;
 	// get the context from the contexts map list
 	Context * pContext = NULL;
-	if (NULL == m_pContexts)
+	if (NULL == m_pContexts || NULL == m_pPrograms)
 	{
-		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL || NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_INITILIZATION_FAILED;
@@ -290,9 +303,153 @@ cl_program ContextModule::CreateProgramWithSource(cl_context clContext,
 			return CL_INVALID_HANDLE;
 		}
 	}
+	cl_int iProgramId = m_pPrograms->AddObject((OCLObject*)pProgram);
 	if (NULL != pErrcodeRet)
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_program)pProgram->GetId();
+	return (cl_program)iProgramId;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateProgramWithBinary
+//////////////////////////////////////////////////////////////////////////
+cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext,
+												  cl_uint              uiNumDevices,
+												  const cl_device_id * pclDeviceList,
+												  const size_t *       pszLengths,
+												  const void **        ppBinaries,
+												  cl_int *             piBinaryStatus,
+												  cl_int *             pErrRet)
+{
+	InfoLog(m_pLoggerClient, L"CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d, pclDeviceList=%d, pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d", 
+		clContext, uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus);
+	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
+	{
+		// invalid value
+		ErrLog(m_pLoggerClient, L"NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries");
+		if (NULL != pErrRet)
+		{
+			*pErrRet = CL_INVALID_VALUE;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	// get the context from the contexts map list
+	Context * pContext = NULL;
+	if (NULL == m_pContexts || NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL || NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
+		if (NULL != pErrRet)
+		{
+			*pErrRet = CL_ERR_INITILIZATION_FAILED;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	cl_err_code clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
+		if (NULL != pErrRet)
+		{
+			*pErrRet = CL_INVALID_CONTEXT;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	Program *pProgram = NULL;
+	clErrRet = pContext->CreateProgramWithBinary(uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, &pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrRet)
+		{
+			*pErrRet = clErrRet;
+			return CL_INVALID_HANDLE;
+		}
+	}
+	cl_int iProgramId = m_pPrograms->AddObject((OCLObject*)pProgram);
+	if (NULL != pErrRet)
+	{
+		*pErrRet = CL_SUCCESS;
+	}
+	return (cl_program)iProgramId;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::RetainProgram
+//////////////////////////////////////////////////////////////////////////
+cl_err_code	ContextModule::RetainProgram(cl_program clProgram)
+{
+	InfoLog(m_pLoggerClient, L"RetainProgram enter. clProgram=%d", clProgram);
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	Program *pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"program %d is invalid program", clProgram);
+		return CL_INVALID_PROGRAM;
+	}
+	return pProgram->Retain();
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::ReleaseProgram
+//////////////////////////////////////////////////////////////////////////
+cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
+{
+	InfoLog(m_pLoggerClient, L"ReleaseProgram enter. clProgram=%d", clProgram);
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	Program *pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"program %d is invalid program", clProgram);
+		return CL_INVALID_PROGRAM;
+	}
+	return pProgram->Release();
+}
+cl_int ContextModule::BuildProgram(cl_program clProgram, 
+								   cl_uint uiNumDevices, 
+								   const cl_device_id * pclDeviceList, 
+								   const char * pcOptions, 
+								   void (*pfn_notify)(cl_program program, void * user_data), 
+								   void * pUserData)
+{
+	InfoLog(m_pLoggerClient, L"BuildProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, pUserData=%d", 
+		clProgram, uiNumDevices, pclDeviceList, pcOptions, pUserData);
+	if (uiNumDevices > 0 && NULL == pclDeviceList	||
+		uiNumDevices == 0 && NULL != pclDeviceList )
+	{
+		ErrLog(m_pLoggerClient, L"uiNumDevices > 0 && NULL == pclDeviceList || uiNumDevices == 0 && NULL != pclDeviceList");
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
+		return CL_ERR_NOT_IMPLEMENTED;
+	}
+
+	Program * pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+			ErrLog(m_pLoggerClient, L"program %d isn't valid program", clProgram);
+			return CL_INVALID_PROGRAM;
+	}
+	clErrRet = pProgram->CheckBinaries(uiNumDevices, pclDeviceList);
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+
+	// TODO: check build options
+	// TODO: check invlaid operation
+	// TODO: call device build function
+
+
+	return CL_ERR_NOT_IMPLEMENTED;
 }
