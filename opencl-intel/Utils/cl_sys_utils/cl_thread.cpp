@@ -27,6 +27,7 @@
 #include "cl_thread.h"
 #include <Windows.h>
 #include <stdio.h>
+#include <process.h>
 
 using namespace Intel::OpenCL::Utils;
 
@@ -63,7 +64,7 @@ OclThread::~OclThread()
 /************************************************************************/
 void OclThread::Clean()
 {
-    m_running = false;
+    // m_running = false;	-- thread still can run when cleaning
     if (NULL != m_threadHandle)
     {
         // Close handle
@@ -84,10 +85,10 @@ void OclThread::Clean()
 unsigned int OclThread::ThreadEntryPoint(void* threadObject)
 {
     OclThread* thisWorker = (OclThread*)threadObject;
-    thisWorker->Run();
+    int rc = thisWorker->Run();
     // The worker finished his job
     thisWorker->m_running = false;
-    return 0;
+    return rc;
 }
 
 /************************************************************************
@@ -111,11 +112,12 @@ int OclThread::Start()
     }
 
     // Create the thread and run it immediately
-    m_threadHandle = CreateThread(0,0,(LPTHREAD_START_ROUTINE)ThreadEntryPoint,this,0,(LPDWORD)&m_threadId);
+    m_threadHandle = (void*)_beginthreadex(NULL, 0, ThreadEntryPoint, this, 0, &m_threadId);
     if(!m_threadHandle)
     {
        Clean();
     }
+
     return THREAD_RESULT_SUCCESS;
 }
 
@@ -154,8 +156,6 @@ int OclThread::WaitForCompletion()
     }
 }
 
-
-
 /************************************************************************
  * Terminate the thread immediately.
  * Be careful when using this function, since the thread exists before 
@@ -163,9 +163,17 @@ int OclThread::WaitForCompletion()
  * Note that only user space thread is terminate. Kernel space threads such
  * as the Graphics driver thread may continue to work.
 /************************************************************************/
-void OclThread::Terminate()
+void OclThread::Terminate(unsigned int exitCode)
 {
-    ExitThread(0); 
+	if ( NULL != m_threadHandle )
+	{
+		TerminateThread(m_threadHandle, exitCode);
+	}
+}
+
+void OclThread::Exit(unsigned int exitCode)
+{
+    _endthreadex(exitCode); 
 }
 
 /************************************************************************
