@@ -29,6 +29,8 @@
 
 #include "program_service.h"
 #include "cl_logger.h"
+#include "cl_dynamic_lib.h"
+#include "dll_program.h"
 
 #include <stdlib.h>
 #include <limits.h>
@@ -39,15 +41,13 @@ using namespace Intel::OpenCL::CPUDevice;
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] = 
 {
-	{CL_PROG_BIN_X86, 0, 0}
+	{CL_PROG_DLL_X86, 0, 0}
 };
 static	unsigned int	gSupportedBinTypesCount = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
 
 ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc) :
-	m_iDevId(devId), m_progIdAlloc(1, UINT_MAX)
+	m_iDevId(devId), m_progIdAlloc(1, UINT_MAX), m_kernelIdAlloc(1, UINT_MAX)
 {
-	
-	
 	memcpy_s(&m_sCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
 	if ( NULL == logDesc )
 	{
@@ -59,14 +59,13 @@ ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl
 	}
 	
 
-	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Memory Allocator", &m_iLogHandle);
+	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Program Service", &m_iLogHandle);
 	if(CL_DEV_SUCCESS != ret)
 	{
-		//TBD
 		m_iLogHandle = 0;
 	}
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"ProgramService Created");
+	InfoLog(m_logDescriptor, m_iLogHandle, L"CPUDevice: Program Service - Created");
 }
 
 ProgramService::~ProgramService()
@@ -76,16 +75,15 @@ ProgramService::~ProgramService()
 	// Go throught the map and remove all allocated programs
 	for(it = m_mapPrograms.begin(); it != m_mapPrograms.end(); ++it)
 	{
-		TProgramInfo* info= it->second;
-		// Clean allocated memory
-		assert(info);
-		assert(info->bin);
-		free(info->bin);
-		delete info;
+		DeleteProgramEntry(it->second);
 	}
 
 	m_progIdAlloc.Clear();
+	m_kernelIdAlloc.Clear();
 	m_mapPrograms.clear();
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"CPUDevice: Program Service - Distructed");
+
 	cl_int ret = m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
 	if(CL_DEV_SUCCESS != ret)
 	{
@@ -110,9 +108,53 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 cl_int ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
+	const cl_prog_container*	pProgCont = (cl_prog_container*)bin;
+
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CheckProgramBinary enter");
-	return CL_DEV_INVALID_VALUE;
+
+	// Check container size
+	if ( sizeof(cl_prog_container) > binSize )
+	{
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid Binary Size was provided");
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	// Check container mask
+	if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
+	{
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid Container Mask was provided");
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	// Check suppoerted container type
+	switch ( pProgCont->container_type )
+	{
+	// Supported containers
+	case CL_PROG_CNT_PRIVATE:
+		break;
+
+	default:
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid Container Type was provided");
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	// Check supported binary types
+	switch ( pProgCont->description.bin_type )
+	{
+	// Supported program binaries
+	case CL_PROG_DLL_X86:			// The container should contain a full path name to DLL file to load
+		break;
+
+	case CL_PROG_OBJ_X86:			// The container should contain binary biffer of object file
+	default:
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid Container Type was provided<%0X>", pProgCont->description.bin_type);
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	return CL_DEV_SUCCESS;
 }
+
+
 /*******************************************************************************************************************
 clDevBuildProgram
 	Description
@@ -141,62 +183,80 @@ cl_int ProgramService::BuildProgram( size_t IN binSize,
 								   )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"BuildProgram enter");
+
+	// Input parameters validation
 	if(0 == binSize || NULL == bin)
 	{
-		// TODO: ADD log
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid binSize or bin parameters");
 		return CL_DEV_INVALID_VALUE;
-	}
-
-	//If the origin of binary is one of the Front-End compilers
-	//It is not supported yet
-	//Currently spport only binary that was loaded by user
-	if(prop == CL_DEV_BINARY_USER)
-	{
-		CheckProgramBinary(binSize, bin);
-		return CL_DEV_INVALID_BUILD_OPTIONS;
 	}
 
 	if ( NULL == prog )
 	{
-		// TODO: ADD log
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid prog parameter");
 		return CL_DEV_INVALID_VALUE;
+	}
+
+	// If the origin of binary is user loaded
+	// check for rightness
+	if(prop == CL_DEV_BINARY_USER)
+	{
+		cl_int rc = CheckProgramBinary(binSize, bin);
+		if ( CL_DEV_FAILED(rc) )
+		{
+			InfoLog(m_logDescriptor, m_iLogHandle, L"Check program binary failed");
+			return rc;
+		}
+	}
+
+	// Create new program
+	const cl_prog_container*	pProgCont = (cl_prog_container*)bin;
+	TProgramEntry*	pEntry		= new TProgramEntry;
+	if ( NULL == pEntry )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Cann't allocate program entry");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	pEntry->pProgram = NULL;
+
+	switch(pProgCont->description.bin_type)
+	{
+	case CL_PROG_DLL_X86:
+		pEntry->pProgram = new DLLProgram;
+		break;
+	}
+
+	if ( NULL == pEntry->pProgram )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to find approproiate program for type<%d>", pProgCont->description.bin_type);
+		delete pEntry;
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	cl_int ret = pEntry->pProgram->CreateProgram(pProgCont);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to create program from given container<%0X>", ret);
+		delete pEntry;
+		return CL_DEV_INVALID_BINARY;
 	}
 
 	// Allocate new program id
 	unsigned int newProgId;
 	if ( !m_progIdAlloc.AllocateHandle(&newProgId) )
 	{
-		// TODO: ADD log
+		delete pEntry;
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to allocate new handle");
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	//Keep program binary in the list
-	TProgramInfo *info = new TProgramInfo;
-	if(NULL == info)
-	{
-		m_progIdAlloc.FreeHandle(newProgId);
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+	m_muProgMap.Lock();
+	m_mapPrograms[(cl_dev_program)newProgId] = pEntry;
+	m_muProgMap.Unlock();
 
-	// Allocate memory to store the binary
-	info->bin = malloc(binSize);
-	if ( NULL == info->bin )
-	{
-		m_progIdAlloc.FreeHandle(newProgId);
-		delete info;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	info->binSize = binSize;
-	memcpy_s(info->bin, info->binSize, bin, binSize);
-
-	m_mapPrograms[newProgId] = info;
 	*prog = (cl_dev_program)newProgId;
 
-	//When finish call the framework callback that compilation is done
-	//TODO: Currently problematic because framework doesnt know ID yet
-	//Need to return someway after that from thread
-	m_sCallBacks.pclDevBuildFinished((cl_dev_program)newProgId);
+	pEntry->pProgram->BuildProgram(m_sCallBacks.pclDevBuildStatusUpdate, (cl_dev_program)newProgId, userData);
 
 	return CL_DEV_SUCCESS;
 }
@@ -215,23 +275,27 @@ clDevReleaseProgram
 ********************************************************************************************************************/
 cl_int ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
-	unsigned int progId = (unsigned int)prog;
+	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseProgram enter");
+
+	m_muProgMap.Lock();
+
 	TProgramMap::iterator	it;
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseProgram enter");
-	it = m_mapPrograms.find(progId);
-	if( it == m_mapPrograms.end())
+	it = m_mapPrograms.find(prog);
+	if( m_mapPrograms.end() == it )
 	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
 		return CL_DEV_INVALID_PROGRAM;
 	}
 
-	TProgramInfo* info= it->second;
-	// Clean allocated memory
-	assert(info);
-	assert(info->bin);
-	free(info->bin);
-	delete info;
+	TProgramEntry* pEntry = it->second;
 	m_mapPrograms.erase(it);
+	m_muProgMap.Unlock();
+
+	DeleteProgramEntry(pEntry);
+
+	m_progIdAlloc.FreeHandle((unsigned int)prog);
 
 	return CL_DEV_SUCCESS;
 }
@@ -276,20 +340,25 @@ cl_int ProgramService::GetProgramBinary( cl_dev_program IN prog,
 										size_t* OUT sizeRet
 										)
 {
-	unsigned int progId = (unsigned int)prog;
-	TProgramMap::iterator	it;
 	InfoLog(m_logDescriptor, m_iLogHandle, L"GetProgramBinary enter");
 
-	it = m_mapPrograms.find(progId);
+	TProgramMap::iterator	it;
+
+	// Access program map
+	m_muProgMap.Lock();
+	it = m_mapPrograms.find(prog);
 	if( it == m_mapPrograms.end())
 	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
 		return CL_DEV_INVALID_PROGRAM;
 	}
+	ICLDevProgram *pProg = it->second->pProgram;
+	m_muProgMap.Unlock();
 
-	TProgramInfo *programInfo = it->second;
 	if ( NULL != sizeRet )
 	{
-		*sizeRet = programInfo->binSize;
+		*sizeRet = pProg->GetContainerSize();
 	}
 
 	if ( (0 == size) && (NULL == binary) )
@@ -297,14 +366,12 @@ cl_int ProgramService::GetProgramBinary( cl_dev_program IN prog,
 		return CL_DEV_SUCCESS;
 	}
 
-	if ( (NULL == binary) || (size < programInfo->binSize) )
+	if ( (NULL == binary) || (size < pProg->GetContainerSize()) )
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	memcpy_s(binary, size, programInfo->bin, programInfo->binSize);
-	
-	return CL_DEV_SUCCESS;
+	return pProg->CopyContainer(binary, size);
 }
 
 cl_int ProgramService::GetBuildLog( cl_dev_program IN prog,
@@ -314,7 +381,44 @@ cl_int ProgramService::GetBuildLog( cl_dev_program IN prog,
 								  )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"GetBuildLog enter");
-	return CL_DEV_INVALID_OPERATION;
+
+	TProgramMap::iterator	it;
+
+	// Access program map
+	m_muProgMap.Lock();
+	it = m_mapPrograms.find(prog);
+	if( it == m_mapPrograms.end())
+	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
+		return CL_DEV_INVALID_PROGRAM;
+	}
+	ICLDevProgram *pProg = it->second->pProgram;
+	m_muProgMap.Unlock();
+
+	size_t	stLogSize = strlen(pProg->GetBuildLog())+1;
+	if ( (0 == size) && (NULL == log) )
+	{
+		if ( NULL == sizeRet )
+		{
+			return CL_DEV_INVALID_VALUE;
+		}
+		*sizeRet = stLogSize;
+		return CL_DEV_SUCCESS;
+	}
+
+	if ( (NULL == log) || (size < stLogSize) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	memcpy(log, pProg->GetBuildLog(), stLogSize);
+	if ( NULL != sizeRet )
+	{
+		*sizeRet = stLogSize;
+	}
+	
+	return CL_DEV_SUCCESS;
 }
 /************************************************************************************************************
 	clDevGetSupportedBinaries (optional)
@@ -355,7 +459,7 @@ cl_int ProgramService::GetSupportedBinaries( size_t IN size,
 	}
 
 	//currently support only user binaries
-	memcpy_s(types, size, gSupportedBinTypes, sizeof(gSupportedBinTypes));
+	memcpy(types, gSupportedBinTypes, sizeof(gSupportedBinTypes));
 
 	return CL_DEV_SUCCESS;
 }
@@ -363,17 +467,190 @@ cl_int ProgramService::GetSupportedBinaries( size_t IN size,
 
 cl_int ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"GetKernelId enter");	
-	return CL_DEV_INVALID_OPERATION;
+	InfoLog(m_logDescriptor, m_iLogHandle, L"GetKernelId enter");
+
+	if ( (NULL == name) || (NULL == kernelId) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	TProgramMap::const_iterator	it;
+
+	// Access program map
+	m_muProgMap.Lock();
+	it = m_mapPrograms.find(prog);
+	if( it == m_mapPrograms.end())
+	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
+		return CL_DEV_INVALID_PROGRAM;
+	}
+
+	TProgramEntry *pEntry = it->second;
+	m_muProgMap.Unlock();
+
+	// Find if ID is already allocated
+	TName2IdMap::const_iterator	nameIt;
+	pEntry->muMap.Lock();
+	nameIt = pEntry->mapKernels.find(name);
+	if ( pEntry->mapKernels.end() != nameIt )
+	{
+		*kernelId = nameIt->second;
+		pEntry->muMap.Unlock();
+		return CL_DEV_SUCCESS;
+	}
+
+	// Retrive kernel from program
+	cl_int iRet;
+	const ICLDevKernel*	pKernel;
+
+	iRet = pEntry->pProgram->GetKernel(name, &pKernel);
+	if ( CL_DEV_FAILED(iRet) )
+	{
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested kernel not found");
+		return iRet;
+	}
+
+	// Allocate new global ID
+	unsigned int	uiNewId = 0;
+	m_kernelIdAlloc.AllocateHandle(&uiNewId);
+	if ( 0 == uiNewId )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Cann't allocate kernel id");
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	// Add to program entry map
+	pEntry->muMap.Lock();
+	pEntry->mapKernels[name] = (cl_dev_kernel)uiNewId;
+	pEntry->muMap.Unlock();
+
+	// Add to global ID to Kernel map
+	m_muKernelMap.Lock();
+	m_mapKernels[(cl_dev_kernel)uiNewId] = pKernel;
+	m_muKernelMap.Unlock();
+
+	*kernelId = (cl_dev_kernel)uiNewId;
+
+	return CL_DEV_SUCCESS;
 }
 
 
 
 cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT numKernelsRet )
+						 cl_uint* OUT numKernelsRet )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"GetProgramKernels enter");	
-	return CL_DEV_INVALID_OPERATION;
+	InfoLog(m_logDescriptor, m_iLogHandle, L"GetProgramKernels enter");
+
+	TProgramMap::const_iterator	it;
+	// Access program map
+	m_muProgMap.Lock();
+	it = m_mapPrograms.find(prog);
+	if( it == m_mapPrograms.end())
+	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
+		return CL_DEV_INVALID_PROGRAM;
+	}
+
+	TProgramEntry *pEntry = it->second;
+	m_muProgMap.Unlock();
+
+	unsigned int	uiNumProgKernels;
+	cl_int			iRet;
+
+	iRet = pEntry->pProgram->GetAllKernels(NULL, 0, &uiNumProgKernels);
+	if ( CL_DEV_FAILED(iRet) )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to retrive number of kernels");
+		return iRet;
+	}
+
+	// Check input parameters
+	if ( (0==num_kernels) && (NULL==kernels) )
+	{
+		if ( NULL == numKernelsRet )
+		{
+			return CL_DEV_INVALID_VALUE;
+		}
+
+		*numKernelsRet = uiNumProgKernels;
+		return CL_DEV_SUCCESS;
+	}
+
+	if ( (NULL==kernels) || (num_kernels < uiNumProgKernels) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	// Allocate buffer to store all kernels from program
+	const ICLDevKernel*	*pKernels;
+	pKernels = (const ICLDevKernel*	*)malloc(sizeof(ICLDevKernel*)*uiNumProgKernels);
+	if ( NULL == pKernels )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate memory for kernels");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	// Retrieve kernels from program and store internally
+	iRet = pEntry->pProgram->GetAllKernels(pKernels, uiNumProgKernels, &uiNumProgKernels);
+	if ( CL_DEV_FAILED(iRet) )
+	{
+		free(pKernels);
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to retrive kernels");
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	for(unsigned int i=0; i<uiNumProgKernels; ++i)
+	{
+		unsigned int uiKernelId = 0;
+
+		// Check if kernel is already retrieved
+		const char*	szKernelName = pKernels[i]->GetKernelName();
+		TName2IdMap::const_iterator nameIt;
+		pEntry->muMap.Lock();
+		nameIt = pEntry->mapKernels.find(szKernelName);
+		pEntry->muMap.Unlock();
+
+		// Kernel already has ID ?
+		if ( pEntry->mapKernels.end() != nameIt )
+		{
+			kernels[i] = nameIt->second;
+			continue;
+		}
+		
+		// Allocate new ID
+		m_kernelIdAlloc.AllocateHandle(&uiKernelId);
+		if ( 0 == uiKernelId )
+		{
+			free(pKernels);
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Failed allocate ID for kernel");
+			if ( NULL != numKernelsRet )
+			{
+				*numKernelsRet = i;
+			}
+			return CL_DEV_ERROR_FAIL;
+		}
+
+		// Add new ID to program's Name2ID map
+		pEntry->muMap.Lock();
+		pEntry->mapKernels[szKernelName] = (cl_dev_kernel)uiKernelId;
+		pEntry->muMap.Unlock();
+
+		// Add to global ID2Kernel map
+		m_muKernelMap.Lock();
+		m_mapKernels[(cl_dev_kernel)uiKernelId] = pKernels[i];
+		m_muKernelMap.Unlock();
+
+		kernels[i] = (cl_dev_kernel)uiKernelId;
+	}
+
+	if ( NULL != numKernelsRet )
+	{
+		*numKernelsRet = uiNumProgKernels;
+	}
+
+	return CL_DEV_SUCCESS;
 }
 
 
@@ -381,7 +658,81 @@ cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num
 cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 					void* OUT value, size_t* OUT valueSizeRet )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"GetKernelInfo enter");	
-	return CL_DEV_INVALID_OPERATION;
+	InfoLog(m_logDescriptor, m_iLogHandle, L"GetKernelInfo enter");
+
+	// Find appropriate kernel
+	TKernelMap::const_iterator	it;
+	it = m_mapKernels.find(kernel);
+	if ( m_mapKernels.end() == it )
+	{
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested kernel not found (%0X)", (unsigned int)kernel);
+		return CL_DEV_INVALID_KERNEL;
+	}
+
+	// Set value parameters
+	size_t	stValSize;
+	const void*	pValue;
+
+	switch (param)
+	{
+	case CL_DEV_KERNEL_NAME:
+		pValue = it->second->GetKernelName();
+		stValSize = strlen((const char*)pValue)+1;
+		break;
+
+	case CL_DEV_KERNEL_PROTOTYPE:
+		pValue = it->second->GetKernelArgs();
+		stValSize = it->second->GetNumArgs()*sizeof(cl_kernel_arg_type);
+		break;
+
+	case CL_DEV_KERNEL_COMPILE_WG_SIZE:
+		pValue = NULL;
+		stValSize = 0;
+		break;
+
+	default:
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	if ( NULL != valueSizeRet )
+	{
+		*valueSizeRet = stValSize;
+	}
+
+	if ( (0 == value_size) && (NULL == value) )
+	{
+		if ( NULL == valueSizeRet )
+		{
+			return CL_DEV_INVALID_VALUE;
+		}
+		return CL_DEV_SUCCESS;
+	}
+
+	if ( (NULL == value) || (value_size < stValSize) )
+	{
+			return CL_DEV_INVALID_VALUE;
+	}
+
+	memcpy(value, pValue, stValSize);
+
+	return CL_DEV_SUCCESS;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+//	Private methods
+void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
+{
+	// Finnaly release the object
+	delete pEntry->pProgram;
+
+	// Free allocated kernel ids
+	TName2IdMap::const_iterator lstIt;
+	for (lstIt=pEntry->mapKernels.begin();lstIt!=pEntry->mapKernels.end();++lstIt)
+	{
+		m_kernelIdAlloc.FreeHandle((unsigned int)(lstIt->second));
+	}
+	pEntry->mapKernels.clear();
+
+	delete pEntry;
 }
 

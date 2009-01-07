@@ -257,7 +257,7 @@ cl_int cCudaDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, c
 	m_pDevInstance->m_Programs.push_back(tProg);
 
 	*((cl_uint*)prog) = tProg->m_ProgramID;
-	m_pDevInstance->m_CallBacks.pclDevBuildFinished( prog );
+	m_pDevInstance->m_CallBacks.pclDevBuildStatusUpdate( prog , user_data, CL_BUILD_SUCCESS);
 	return CL_DEV_SUCCESS;
 }
 
@@ -304,7 +304,7 @@ cl_int cCudaDevice::clDevGetProgramBinary(cl_dev_program prog, size_t size, void
 	tContainer->container_size = tProg->m_ProgContainer.container_size;
 	tContainer->container_type = tProg->m_ProgContainer.container_type;
 	tContainer->description = tProg->m_ProgContainer.description;
-	memcpy(tContainer->container, tProg->m_ProgContainer.container, strlen((char*)tProg->m_ProgContainer.container) + 1);
+	memcpy((void*)tContainer->container, tProg->m_ProgContainer.container, strlen((char*)tProg->m_ProgContainer.container) + 1);
 	*(size_ret) = sizeof(cl_prog_container) + strlen(stCubinName) +1;
 	return CL_DEV_SUCCESS;
 }
@@ -348,7 +348,7 @@ cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN nam
 }
 
 cl_int cCudaDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT num_kernels_ret )
+						 cl_uint* OUT num_kernels_ret )
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

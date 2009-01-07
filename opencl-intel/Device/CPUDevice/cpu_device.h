@@ -82,7 +82,7 @@ public:
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
 	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 	static cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-									 size_t* OUT numKernelsRet );
+									 cl_uint* OUT numKernelsRet );
 	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 								void* OUT value, size_t* OUT valueSizeRet );
 	static void	  clDevCloseDevice(void);

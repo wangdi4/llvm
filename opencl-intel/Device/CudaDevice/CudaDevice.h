@@ -147,7 +147,7 @@ public:
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
 	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
 	static cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-									 size_t* OUT num_kernels_ret );
+									 cl_uint* OUT num_kernels_ret );
 	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 								void* OUT value, size_t* OUT value_size_ret );
 };

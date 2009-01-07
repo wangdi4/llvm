@@ -29,11 +29,12 @@
 #pragma once
 
 #include <map>
-
-
+#include <string>
 
 #include "cl_device_api.h"
 #include "handle_allocator.h"
+#include "program_api.h"
+#include "cl_synch_objects.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -75,25 +76,34 @@ public:
 	cl_int GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 
 	cl_int GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT numKernelsRet );
+						 cl_uint* OUT numKernelsRet );
 
 	cl_int GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 					void* OUT value, size_t* OUT valueSizeRet );
 
 
 protected:
-	struct TProgramInfo {
-		void * bin;
-		size_t	binSize;
+	typedef std::map<cl_dev_kernel, const ICLDevKernel*>	TKernelMap;
+	typedef std::map<std::string, cl_dev_kernel>			TName2IdMap;
+	struct	TProgramEntry
+	{
+		ICLDevProgram*	pProgram;
+		TName2IdMap		mapKernels;
+		OclMutex		muMap;
 	};
+	typedef std::map<cl_dev_program, TProgramEntry*>	TProgramMap;
 
-	typedef std::map<unsigned int, TProgramInfo*>	TProgramMap;
+	void	DeleteProgramEntry(TProgramEntry* pEntry);
 
 	cl_int							m_iDevId;
 	cl_dev_log_descriptor			m_logDescriptor;
 	cl_int							m_iLogHandle;
 	HandleAllocator<unsigned int>	m_progIdAlloc;
 	TProgramMap						m_mapPrograms;
+	OclMutex						m_muProgMap;
+	HandleAllocator<unsigned int>	m_kernelIdAlloc;
+	TKernelMap						m_mapKernels;
+	OclMutex						m_muKernelMap;
 	cl_dev_call_backs				m_sCallBacks;
 };
 

@@ -1,0 +1,77 @@
+#pragma once
+
+#include <intrin.h>
+#include <xmmintrin.h>
+
+/*****************************************************************************************************************************
+*		Global declarations
+*****************************************************************************************************************************/
+
+#define __USING_FIBERS__
+
+#define __kernel	__declspec(dllexport)
+
+#pragma warning(disable:4042) // disable warning caused by static appearance in function parameters
+#define __global	static
+#define __local		__declspec(thread)
+
+#define MAX_ARG_COUNT		13
+#define MAX_DIMENSION	3
+#ifndef __USING_FIBERS__
+#define	STACK_SEPARATOR	0x0BAADF00D
+#endif
+
+// Defines information about working dimentions
+struct SWorkDim
+{
+	unsigned int	iWorkDim;						// Working Dimension
+	int				viGlobalSize[MAX_DIMENSION];	// Global size of kernel
+	int				viLocalSize[MAX_DIMENSION];		// Local size of WG
+};
+
+// Defines Work-Group related information
+struct SWGinfo
+{
+	SWorkDim*	pWorkingDim;
+	int			viNumGroups[MAX_DIMENSION];		// Total number of groups
+	int			viGroupId[MAX_DIMENSION];		// Current group ID's
+};
+
+// Defines Work-Item related information
+struct SWIinfo
+{
+	int		viLocalId[MAX_DIMENSION];	// Local idenitfier of the Work-Item
+	int		viGlobalId[MAX_DIMENSION];	// Global idenitfier of the Work-Item
+};
+
+// Defines information for Work-Group execution information
+struct SKernelInfo
+{
+	const void*		pfnKernelFunc;			// Pointer to kernel function
+	size_t			szParamSize;			// Size of parameter buffer to be passed to the kernel
+	void*			pParams;				// Pointer to vector that holds kernel execution parameters
+};
+
+// Defines paramters that should be passed to _KernelExecute function
+struct	SWIExecutionParam
+{
+	const SKernelInfo*	psWGExecParam;			// Pointer to a kernel execution information
+	const SWGinfo*		psWGInfo;				// Pointer to a WG information
+	const SWIinfo*		psWIInfo;				// Pointer to specific WI information
+};
+
+/*****************************************************************************************************************************
+*		Work-Item functions
+*****************************************************************************************************************************/
+
+#include "wi_functions.h"
+
+/*****************************************************************************************************************************
+*		OpenCL specific types decalaration
+*****************************************************************************************************************************/
+
+#include "float4.h"
+
+/*****************************************************************************************************************************
+*		OpenCL specific types decalaration
+*****************************************************************************************************************************/

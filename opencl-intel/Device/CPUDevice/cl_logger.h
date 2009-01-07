@@ -39,10 +39,10 @@ enum ELogLevel
 
 
 #define InfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT.pfnclLogAddLine) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_INFO),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT.pfnclLogAddLine && CLIENT_ID) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_INFO),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define DbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT.pfnclLogAddLine) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_DEBUG),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT.pfnclLogAddLine && CLIENT_ID) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_DEBUG),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define ErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT.pfnclLogAddLine) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_ERROR),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT.pfnclLogAddLine && CLIENT_ID) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_ERROR),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define CriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT.pfnclLogAddLine) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_CRITICAL),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT.pfnclLogAddLine && CLIENT_ID) CLIENT.pfnclLogAddLine(CLIENT_ID, cl_int(LL_CRITICAL),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);

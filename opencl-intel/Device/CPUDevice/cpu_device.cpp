@@ -584,7 +584,7 @@ clDevUnloadCompiler
 	Call programService to get kernels from the program
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT numKernelsRet )
+						 cl_uint* OUT numKernelsRet )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"clDevGetProgramKernels Function enter");
 	return m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
