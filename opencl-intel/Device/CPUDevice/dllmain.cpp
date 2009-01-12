@@ -46,6 +46,7 @@ static cl_dev_entry_points myEntryPoints = {
 	CPUDevice::clDevCreateMappedRegion,
 	CPUDevice::clDevReleaseMappedRegion,
 	CPUDevice::clDevCheckProgramBinary,
+	CPUDevice::clDevCreateProgram,
 	CPUDevice::clDevBuildProgram,
 	CPUDevice::clDevReleaseProgram,
 	CPUDevice::clDevUnloadCompiler,
@@ -73,8 +74,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	}
 	return TRUE;
 }
-
-
 
 bool isIntelCpu()
 {

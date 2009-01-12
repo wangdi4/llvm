@@ -42,7 +42,10 @@ public:
 	// Create/Release functions
 	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format, size_t IN width,
 								size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj );
-	cl_int	ReleaseObject( cl_dev_mem* IN memObj );
+	cl_int	ReleaseObject( cl_dev_mem IN memObj );
+
+	// Checks that given object is valid object and belongs to memory allocator
+	cl_int	ValidateObject( cl_dev_mem IN memObj );
 
 	// Lock/Unlock functions
 	cl_int	LockObject(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],

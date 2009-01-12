@@ -48,12 +48,14 @@ public:
 	virtual ~ProgramService();
 
 	cl_int CheckProgramBinary (size_t IN bin_size, const void* IN bin);
-    cl_int BuildProgram( size_t IN binSize,
-									   const void* IN bin,
-									   const cl_char* IN options,
-									   void* IN userData,
-									   cl_dev_binary_prop IN prop,
-									   cl_dev_program* OUT prog
+    cl_int CreateProgram( size_t IN binSize,
+										const void* IN bin,
+										cl_dev_binary_prop IN prop,
+										cl_dev_program* OUT prog
+									   );
+    cl_int BuildProgram( cl_dev_program IN prog,
+										const cl_char* IN options,
+										void* IN userData
 									   );
 	cl_int ReleaseProgram( cl_dev_program IN prog );
 	cl_int UnloadCompiler();

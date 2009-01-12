@@ -1,4 +1,3 @@
-
 // Copyright (c) 2009 Intel Corporation
 // All rights reserved.
 // 
@@ -20,8 +19,8 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  Scheduler.h
-//  Implementation of the Class Scheduler
+//  TaskDispatcher.h
+//  Implementation of the Class TaskDispatcher
 ////////////////////////////////////////////////////////////
 
 #pragma once
@@ -30,6 +29,7 @@
 #include "program_service.h"
 #include "memory_allocator.h"
 #include "handle_allocator.h"
+#include "task_executor.h"
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
@@ -38,14 +38,15 @@
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-class Scheduler
+class TaskDispatcher
 {
+	friend class DispatcherCommand;
 
 public:
-	Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks,
-		ProgramService	*programService, MemoryAllocator *memAlloc,
+	TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks,
+		ProgramService	*programService, MemoryAllocator *memAlloc, TaskExecutor *pTaskExecutor,
 		cl_dev_log_descriptor *logDesc);
-	virtual ~Scheduler();
+	virtual ~TaskDispatcher();
 	cl_int createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	cl_int retainCommandList( cl_dev_cmd_list IN list);
 	cl_int releaseCommandList( cl_dev_cmd_list IN list );
@@ -66,21 +67,15 @@ protected:
 	cl_dev_log_descriptor           m_logDescriptor;
 	cl_int							m_iLogHandle;
 	cl_dev_call_backs				m_frameWorkCallBacks;
-	ProgramService*					m_programService;
-	MemoryAllocator*				m_memoryAllocator;
+	ProgramService*					m_pProgramService;
+	MemoryAllocator*				m_pMemoryAllocator;
+	TaskExecutor*					m_pTaskExecutor;
 	HandleAllocator<unsigned int>	m_listIdAlloc;
 
-	TCmdListMap			m_commandList;
+	TCmdListMap						m_commandList;
 
 	// Internal implementation of functions
-	typedef cl_int	TCheckCmdFunc(void*);
-	typedef cl_int	TExecCmdFunc(Scheduler*, cl_dev_cmd_desc*);
-	static	TCheckCmdFunc*	m_checkCmdTable[];
-	static	TExecCmdFunc*	m_execCmdTable[];
-	
-	// Native Kernel execution functions
-	static cl_int	checkNativeKernelParam(void* param);
-	static cl_int	execNativeKernel(Scheduler* _this,cl_dev_cmd_desc* cmd);
+	DispatcherCommand*				m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 };
 
 }}}

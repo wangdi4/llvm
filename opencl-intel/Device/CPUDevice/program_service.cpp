@@ -154,35 +154,28 @@ cl_int ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin
 	return CL_DEV_SUCCESS;
 }
 
-
 /*******************************************************************************************************************
-clDevBuildProgram
+clDevCreateProgram
 	Description
-		Builds (compiles & links) a program executable from the program intermediate or binary.
+		Creates a device specific program entity (no build is performed).
 	Input
 		bin_size						Size of the binary buffer
 		bin								A pointer to binary buffer that holds program container defined by cl_prog_container. 
-		options							A pointer to a string that describes the build options to be used for building the program executable.
-										The list of supported options is described in section 5.4.3 in OCL spec. document.
-		user_data						This value will be passed as an argument when clDevBuildFinished is called. Can be NULL.
 		prop							Specifies the origin of the input binary. The values is defined by cl_dev_binary_prop.
 	Output
 		prog							A handle to created program object.
 	Returns
 		CL_DEV_SUCCESS					The function is executed successfully.
-		CL_DEV_INVALID_BUILD_OPTIONS	If build options for back-end compiler specified by options are invalid.
 		CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
 		CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program
 ***********************************************************************************************************************/
-cl_int ProgramService::BuildProgram( size_t IN binSize,
+cl_int ProgramService::CreateProgram( size_t IN binSize,
 								   const void* IN bin,
-								   const cl_char* IN options,
-								   void* IN userData,
 								   cl_dev_binary_prop IN prop,
 								   cl_dev_program* OUT prog
 								   )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"BuildProgram enter");
+	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateProgram enter");
 
 	// Input parameters validation
 	if(0 == binSize || NULL == bin)
@@ -256,7 +249,58 @@ cl_int ProgramService::BuildProgram( size_t IN binSize,
 
 	*prog = (cl_dev_program)newProgId;
 
-	pEntry->pProgram->BuildProgram(m_sCallBacks.pclDevBuildStatusUpdate, (cl_dev_program)newProgId, userData);
+	return CL_DEV_SUCCESS;
+}
+
+
+/*******************************************************************************************************************
+clDevBuildProgram
+	Description
+		Builds (compiles & links) a program executable from the program intermediate or binary.
+	Input
+		bin_size						Size of the binary buffer
+		bin								A pointer to binary buffer that holds program container defined by cl_prog_container. 
+		options							A pointer to a string that describes the build options to be used for building the program executable.
+										The list of supported options is described in section 5.4.3 in OCL spec. document.
+		user_data						This value will be passed as an argument when clDevBuildFinished is called. Can be NULL.
+		prop							Specifies the origin of the input binary. The values is defined by cl_dev_binary_prop.
+	Output
+		prog							A handle to created program object.
+	Returns
+		CL_DEV_SUCCESS					The function is executed successfully.
+		CL_DEV_INVALID_BUILD_OPTIONS	If build options for back-end compiler specified by options are invalid.
+		CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
+		CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program
+***********************************************************************************************************************/
+cl_int ProgramService::BuildProgram( cl_dev_program OUT prog,
+									const cl_char* IN options,
+								    void* IN userData
+								   )
+{
+	InfoLog(m_logDescriptor, m_iLogHandle, L"BuildProgram enter");
+
+	TProgramMap::iterator	it;
+
+	m_muProgMap.Lock();
+	it = m_mapPrograms.find(prog);
+	if( m_mapPrograms.end() == it )
+	{
+		m_muProgMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested program not found (%0X)", (unsigned int)prog);
+		return CL_DEV_INVALID_PROGRAM;
+	}
+
+	TProgramEntry* pEntry = it->second;
+	m_muProgMap.Unlock();
+
+	cl_int iRet;
+
+	iRet = pEntry->pProgram->BuildProgram(m_sCallBacks.pclDevBuildStatusUpdate, prog, userData);
+	if ( CL_DEV_FAILED(iRet) )
+	{
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Program(%d) build failed, Ret:%0X", (unsigned int)prog, iRet);
+		return iRet;
+	}
 
 	return CL_DEV_SUCCESS;
 }
@@ -277,10 +321,9 @@ cl_int ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseProgram enter");
 
-	m_muProgMap.Lock();
-
 	TProgramMap::iterator	it;
 
+	m_muProgMap.Lock();
 	it = m_mapPrograms.find(prog);
 	if( m_mapPrograms.end() == it )
 	{

@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  Scheduler.cpp
+//  task_dispatcher.cpp
 //  Implementation of the Class ProgramService
 //  Class Object is responsible on programs and kernels binaries
 //  Intercats with the compiler backend
@@ -29,6 +29,7 @@
 
 #include "task_dispatcher.h"
 #include "cl_logger.h"
+#include "dispatcher_commands.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -36,47 +37,11 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-// Declare static members
-static size_t schParamSize[] =
-	{
-		sizeof(cl_dev_cmd_param_rw),		//Read buffer parameters size
-		sizeof(cl_dev_cmd_param_rw),		//Write buffer parameters size
-		sizeof(cl_dev_cmd_param_copy),		//Copy buffer parameters size
-		sizeof(cl_dev_cmd_param_map),		//Map parameters size
-		sizeof(cl_dev_cmd_param_unmap),		//UnMap parameters size
-		sizeof(cl_dev_cmd_param_kernel),	//Execute Kernel parameters size
-		sizeof(cl_dev_cmd_param_kernel),	//Execute task parameters size
-		sizeof(cl_dev_cmd_param_native)		//Execute native kernel parameters size
-	};
-
-Scheduler::TCheckCmdFunc*	Scheduler::m_checkCmdTable[] =
-	{
-		NULL,		//Read buffer function
-		NULL,		//Write buffer function
-		NULL,		//Copy buffer function
-		NULL,		//Map function
-		NULL,		//UnMap function
-		NULL,		//Execute Kernel function
-		NULL,		//Execute task function
-		&Scheduler::checkNativeKernelParam		//Execute native kernel function
-	};
-
-Scheduler::TExecCmdFunc*	Scheduler::m_execCmdTable[] =
-	{
-		NULL,		//Read buffer function
-		NULL,		//Write buffer function
-		NULL,		//Copy buffer function
-		NULL,		//Map function
-		NULL,		//UnMap function
-		NULL,		//Execute Kernel function
-		NULL,		//Execute task function
-		&Scheduler::execNativeKernel		//Execute native kernel function
-	};
-
-Scheduler::Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService,
-					 MemoryAllocator *memAlloc, cl_dev_log_descriptor *logDesc) :
-		m_iDevId(devId), m_programService(programService), m_memoryAllocator(memAlloc),
-		m_listIdAlloc(1, UINT_MAX)
+// Constructor/Dispatcher
+TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService,
+					 MemoryAllocator *memAlloc, TaskExecutor *pTaskExecutor, cl_dev_log_descriptor *logDesc) :
+		m_iDevId(devId), m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
+		m_pTaskExecutor(pTaskExecutor), m_listIdAlloc(1, UINT_MAX)
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL == logDesc )
@@ -89,28 +54,38 @@ Scheduler::Scheduler(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramServi
 	}
 	
 
-	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Scheduler", &m_iLogHandle);
+	cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: TaskDispatcher", &m_iLogHandle);
 	if(CL_DEV_SUCCESS != ret)
 	{
 		//TBD
 		m_iLogHandle = 0;
 	}
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Scheduler Created");
+	InfoLog(m_logDescriptor, m_iLogHandle, L"TaskDispatcher Created");
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
 	memcpy_s(&m_frameWorkCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
+
+	// Init Command dispatcher array
+	memset(m_vCommands, 0, sizeof(m_vCommands));
+	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = new NativeFunction(this, &m_logDescriptor, m_iLogHandle);
 }
 
 
 
-Scheduler::~Scheduler()
+TaskDispatcher::~TaskDispatcher()
 {
-	cl_int ret = m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
-	if(CL_DEV_SUCCESS != ret)
+	// Release dispatcher command objects
+	for(int i=0; i<CL_DEV_CMD_MAX_COMMAND_TYPE; ++i)
 	{
-		//TBD
+		if ( NULL != m_vCommands[i] )
+		{
+			delete m_vCommands[i];
+		}
 	}
+
+	InfoLog(m_logDescriptor, m_iLogHandle, L"TaskDispatcher Released");
+	m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
 }
 /*******************************************************************************************************************
 createCommandList
@@ -126,7 +101,7 @@ createCommandList
 		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
-cl_int Scheduler::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
+cl_int TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"createCommandList enter");
 	if ( NULL == list )
@@ -170,7 +145,7 @@ retainCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 *******************************************************************************************************************/
-cl_int Scheduler::retainCommandList( cl_dev_cmd_list IN list)
+cl_int TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"retainCommandList enter");
 	// TODO: add thread safe operation to this function, Critical section
@@ -201,9 +176,9 @@ releaseCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 ********************************************************************************************************************/
-cl_int Scheduler::releaseCommandList( cl_dev_cmd_list IN list )
+cl_int TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 {
-	// TODO: add thread safe operation to this function, Critical section
+	// TODO: add thread safe operation to this function, Critical section/Mutex
 	TCmdListMap::iterator	it;
 	TCmdListItem* data;
 	unsigned int listId = (unsigned int)list;
@@ -274,7 +249,7 @@ commandListExecute
 		CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
 										values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 ********************************************************************************************************************/
-cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
+cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count)
 {
 	//The first stupid solution just execute the commands one after the other and even dont insert the commands into the list
 	// TODO: add thread safe operation to this function, Critical section
@@ -314,22 +289,17 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 			// TODO: ADD Log
 			return CL_DEV_INVALID_COMMAND_TYPE;
 		}
-		if ( schParamSize[cmds[i].type] != cmds[i].param_size )
-		{
-			// TODO: ADD Log
-			return CL_DEV_INVALID_COMMAND_PARAM;
-		}
 		// Check if requested operation supported by the device
 		// Only one table could be checked
-		TCheckCmdFunc* checkFunc = m_checkCmdTable[cmds[i].type];
-		if ( NULL ==  checkFunc)
+		DispatcherCommand* pCommand = m_vCommands[cmds[i].type];
+		if ( NULL ==  pCommand)
 		{
-			// TODO: ADD Log
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid Command Type <%d>", cmds[i].type);
 			return CL_DEV_INVALID_OPERATION;
 		}
 
 		// Check execution parameters
-		cl_int	rc = checkFunc(cmds[i].params);
+		cl_int	rc = pCommand->CheckCommandParams(&cmds[i]);
 		if ( CL_DEV_FAILED(rc) )
 		{
 			// TODO: Add log
@@ -343,56 +313,14 @@ cl_int Scheduler::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* 
 	// Parameters check done -> Execute
 	for (unsigned int i=0; i<count; ++i)
 	{
-		// Retrive appopriate execution function
-		TExecCmdFunc* execFunc = m_execCmdTable[cmds[i].type];
-		assert(execFunc);	// We assume that execution function always found beside the check function
-
-		cl_int rc = execFunc(this, &cmds[i]);
+		DispatcherCommand* pCommand = m_vCommands[cmds[i].type];
+		cl_int rc = pCommand->ExecuteCommand(&cmds[i]);
 		if ( CL_DEV_FAILED(rc) )
 		{
 			// TODO: Add log
 			return rc;
 		}
 	}
-
-	return CL_DEV_SUCCESS;
-}
-
-/************************************************************************************************************
-*	Internal implementation of commands
-*************************************************************************************************************/
-
-//
-// Native Kernel execution functions
-//
-cl_int	Scheduler::checkNativeKernelParam(void* params)
-{
-	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)params;
-
-	if( NULL == cmdParams->func_ptr )
-	{
-		return CL_DEV_INVALID_COMMAND_PARAM;
-	}
-
-	// Check memory object handles
-	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
-	{
-		cl_dev_mem *memObj = (cl_dev_mem*)cmdParams->mem_loc[i];
-		//if ( m_memoryAllocator->
-	}
-
-	return CL_DEV_SUCCESS;
-}
-
-cl_int	Scheduler::execNativeKernel(Scheduler* _this, cl_dev_cmd_desc* cmd)
-{
-	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)cmd->params;
-
-	fn_clNativeKernel *func = (fn_clNativeKernel*)cmdParams->func_ptr;
-
-	func(cmdParams->argv);
-	//notify framework on status change
-	_this->m_frameWorkCallBacks.pclDevCmdStatusChanged(cmd->id, CL_COMPLETE);
 
 	return CL_DEV_SUCCESS;
 }

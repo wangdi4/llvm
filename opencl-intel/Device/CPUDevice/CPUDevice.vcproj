@@ -14,6 +14,9 @@
 		/>
 	</Platforms>
 	<ToolFiles>
+		<DefaultToolFile
+			FileName="masm.rules"
+		/>
 	</ToolFiles>
 	<Configurations>
 		<Configuration
@@ -30,6 +33,9 @@
 				Name="VCCustomBuildTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCXMLDataGeneratorTool"
 			/>
 			<Tool
@@ -41,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -105,6 +111,9 @@
 				Name="VCCustomBuildTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCXMLDataGeneratorTool"
 			/>
 			<Tool
@@ -117,7 +126,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -180,6 +189,9 @@
 				Name="VCCustomBuildTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCXMLDataGeneratorTool"
 			/>
 			<Tool
@@ -191,7 +203,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -262,6 +274,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\dispatcher_commands.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\dll_program.cpp"
 				>
 			</File>
@@ -295,6 +311,10 @@
 						CompileAsManaged="0"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\KernelExecute.asm"
+				>
 			</File>
 			<File
 				RelativePath=".\memory_allocator.cpp"
@@ -336,6 +356,14 @@
 				RelativePath=".\task_dispatcher.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\task_executor.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\wg_executor.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -360,6 +388,10 @@
 			</File>
 			<File
 				RelativePath=".\cpu_kernel.h"
+				>
+			</File>
+			<File
+				RelativePath=".\dispatcher_commands.h"
 				>
 			</File>
 			<File
@@ -392,6 +424,14 @@
 			</File>
 			<File
 				RelativePath=".\task_dispatcher.h"
+				>
+			</File>
+			<File
+				RelativePath=".\task_executor.h"
+				>
+			</File>
+			<File
+				RelativePath=".\vector_counter.h"
 				>
 			</File>
 		</Filter>

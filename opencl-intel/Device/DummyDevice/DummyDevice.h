@@ -52,13 +52,13 @@ public:
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 									size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj);
-	static cl_int clDevDeleteMemoryObject( cl_dev_mem* IN memObj );
+	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
 									 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch);
 	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
 	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
-	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
-							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	static cl_int clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	static cl_int clDevBuildProgram( cl_dev_program IN prog , const cl_char* IN options, void* IN user_data);
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
 
 	static cl_int clDevUnloadCompiler();

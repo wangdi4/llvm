@@ -99,7 +99,7 @@ cl_int DummyDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem* IN memObj )
+cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -124,8 +124,13 @@ cl_int DummyDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN 
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
-				   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
+cl_int DummyDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
+{
+	// TODO : ADD log
+	return CL_DEV_INVALID_OPERATION;
+}
+
+cl_int DummyDevice::clDevBuildProgram( cl_dev_program IN prog , const cl_char* IN options, void* IN user_data)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

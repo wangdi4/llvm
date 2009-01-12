@@ -58,8 +58,6 @@ MemoryAllocator::MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc) :
 		
 }
 
-
-
 MemoryAllocator::~MemoryAllocator()
 {
 	cl_int ret = m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
@@ -68,6 +66,19 @@ MemoryAllocator::~MemoryAllocator()
 		//TBD
 	}
 
+}
+
+// Checks that given object is valid object and belongs to memory allocator
+cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
+{
+	InfoLog(m_logDescriptor, m_iLogHandle, L"ValidateObject enter");
+
+	if ( memObj->allocId != m_iDevId )
+	{
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
+
+	return CL_DEV_SUCCESS;
 }
 
 cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format, size_t IN width,
@@ -86,19 +97,16 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	}
 
 	// Allocate memory
-	memObj->allocId = m_iDevId;
-	memObj->objHandle = malloc(width);
+	(*memObj)->allocId = m_iDevId;
+	(*memObj)->objHandle = malloc(width);
 
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::ReleaseObject( cl_dev_mem* IN memObj )
+cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseObject enter");
-	if( NULL == memObj)
-	{
-		return CL_DEV_SUCCESS;
-	}
+
 	if ( (m_iDevId != memObj->allocId) || (NULL == memObj->objHandle) )
 	{
 		return CL_INVALID_MEM_OBJECT;
@@ -108,13 +116,14 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem* IN memObj )
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::LockObject(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
+cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, const size_t IN origin[3], const size_t IN region[3],
 							void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"LockObject enter");
-	cl_char* lockedPtr = (cl_char*)memObj.objHandle;
+	cl_char* lockedPtr = (cl_char*)pMemObj->objHandle;
 
 	lockedPtr += origin[0];
+
 	if ( NULL != rowPitch )
 	{
 		*rowPitch = 0;
@@ -128,7 +137,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN memObj, const size_t IN origin[
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN memObj, void* IN ptr)
+cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"UnLockObject enter");
 	return CL_DEV_SUCCESS;
@@ -137,7 +146,7 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN memObj, void* IN ptr)
 cl_int MemoryAllocator::CreateMappedRegion(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
 							void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch )
 {
-	cl_char* mappedPtr = (cl_char*)memObj.objHandle;
+	cl_char* mappedPtr = (cl_char*)memObj->objHandle;
 
 	mappedPtr += origin[0];
 	if ( NULL != rowPitch )
