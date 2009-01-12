@@ -31,6 +31,7 @@
 #include "cl_Logger.h"
 #include "cl_thread.h"
 #include "cl_synch_objects.h"
+#include "cl.h"
 #include <cuda.h>
 #include <map>
 #include <vector>
@@ -82,7 +83,29 @@ public:
 
 typedef vector< cCudaProgram* > PROGRAMS;
 
-typedef queue< cl_dev_cmd_desc* > COMMANDS;
+
+typedef enum CudaCommandType
+{
+	CUDA_BUILD_PROGRAM,
+	CUDA_RUN_KERNEL,
+	CUDA_OTHER,								
+};
+
+typedef struct _CUDA_BUILD_PROGRAM_CONTAINER
+{
+	cl_uint prog;
+	cl_char *options;
+	void *user_data;
+}CUDA_BUILD_PROGRAM_CONTAINER;
+
+
+typedef struct _COMMAND_CONTAINER
+{
+	CudaCommandType CommandType;
+	void* Command;
+}COMMAND_CONTAINER;
+
+typedef queue< COMMAND_CONTAINER* > COMMANDS;
 
 class cCudaCommandList;
 
@@ -92,6 +115,8 @@ public:
 	cCudaCommandList *CommandList;
 protected:
 	int Run();
+	cl_int BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData );
+	cl_int RunCommand( cl_dev_cmd_desc cmd );
 };
 
 class cCudaDevice;
@@ -105,12 +130,11 @@ public:
 	COMMANDS m_commands;
 	cCudaCommandExecuteThread commands_execute;
 	OclMutex m_QueueLock;
-	OclMutex m_CondLock;
 	OclCondition m_CommandEnqueued;
 	cCudaDevice* m_device;
-	void RunCommand(cl_dev_cmd_desc* cmd);
-	CUdevice cuDevice;
-	CUcontext cuContext;
+	//void RunCommand(cl_dev_cmd_desc* cmd);
+	CUdevice m_cuDevice;
+	CUcontext m_cuContext;
 };
 
 typedef vector< cCudaCommandList* > COMMAND_LISTS;
@@ -129,8 +153,8 @@ protected:
 	cl_int m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Prog );
 
 	PROGRAMS m_Programs;
-	CUcontext m_context;
-	CUdevice m_device;
+	//CUcontext m_context;
+	//CUdevice m_device;
 	cl_uint m_id;
 	cl_dev_call_backs m_CallBacks;
 	COMMAND_LISTS m_CommandLists;

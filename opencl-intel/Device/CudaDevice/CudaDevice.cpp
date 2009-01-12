@@ -105,33 +105,49 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 	{
 		m_pDevInstance = new cCudaDevice(devId, devCallbacks, logDesc);
 
-		CuRes = cuInit(0);
-		if ( CuRes != CUDA_SUCCESS )
+		cCudaCommandList *CommandList = new cCudaCommandList;
+		if( NULL == CommandList )
 		{
 			delete m_pDevInstance;
 			return NULL;
 		}
 
-		CuRes = cuDeviceGet( &( m_pDevInstance->m_device ) , 0);
-		if ( CuRes != CUDA_SUCCESS )
-		{
-			delete m_pDevInstance;
-			return NULL;
-		}
+		m_pDevInstance->m_CommandLists.push_back(CommandList);
+		CommandList->m_ID = m_pDevInstance->m_CommandLists.size() - 1;
+		CommandList->m_device = m_pDevInstance;
 
-		CuRes = cuCtxCreate( &( m_pDevInstance->m_context ), 0, m_pDevInstance->m_device);
-		if ( CuRes != CUDA_SUCCESS )
-		{
-			delete m_pDevInstance;
-			return NULL;
-		}
+		//CuRes = cuInit(0);
+		//if ( CuRes != CUDA_SUCCESS )
+		//{
+		//	delete m_pDevInstance;
+		//	return NULL;
+		//}
 
-		//CUcontext ttttt;
+		//CuRes = cuDeviceGet( &( m_pDevInstance->m_device ) , 0);
+		//if ( CuRes != CUDA_SUCCESS )
+		//{
+		//	delete m_pDevInstance;
+		//	return NULL;
+		//}
+
 		//CuRes = cuCtxCreate( &( m_pDevInstance->m_context ), 0, m_pDevInstance->m_device);
-		//CuRes = cuCtxPopCurrent( &ttttt );
+		//if ( CuRes != CUDA_SUCCESS )
+		//{
+		//	delete m_pDevInstance;
+		//	return NULL;
+		//}
 
-		int i=5;
+		
 
+		//CUcontext context;
+		//CUresult cuRes = cuCtxAttach( &(CommandList->cuContext), 0); 
+//		cuRes = cuCtxAttach( &(m_pDevInstance->m_context), 0); 
+		//cuRes = cuCtxPopCurrent( &(CommandList->cuContext) );
+		//cuRes = cuCtxPushCurrent( CommandList->cuContext );
+		//CUresult cuRes = cuCtxPopCurrent( &(m_pDevInstance->m_context) );
+
+
+		CommandList->commands_execute.Start();
 	}
 	
 	LOG_DEBUG(L"Device initiated");
@@ -158,25 +174,7 @@ cl_int cCudaDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_d
 	{
 		return CL_DEV_INVALID_PROPERTIES;
 	}
-	if( true == m_pDevInstance->m_CommandLists.empty() )
-	{
-		cCudaCommandList *CommandList = new cCudaCommandList;
-		if( NULL == CommandList )
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
-		m_pDevInstance->m_CommandLists.push_back(CommandList);
-		CommandList->m_ID = m_pDevInstance->m_CommandLists.size() - 1;
-		CommandList->m_device = m_pDevInstance;
 
-		//CUcontext context;
-		//CUresult cuRes = cuCtxAttach( &(CommandList->cuContext), 0); 
-//		cuRes = cuCtxAttach( &(m_pDevInstance->m_context), 0); 
-		//cuRes = cuCtxPopCurrent( &(CommandList->cuContext) );
-		//cuRes = cuCtxPushCurrent( CommandList->cuContext );
-		//CUresult cuRes = cuCtxPopCurrent( &(m_pDevInstance->m_context) );
-		CommandList->commands_execute.Start();
-	}
 	(*list) = (cl_dev_cmd_list)(&(m_pDevInstance->m_CommandLists[ m_pDevInstance->m_CommandLists.size() - 1 ]->m_ID));
 	return CL_DEV_SUCCESS;
 }
@@ -203,12 +201,14 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 	cCudaCommandList *tList = m_pDevInstance->m_CommandLists[*(unsigned int*)list];
 	for( unsigned int i = 0; i < count; i++ )
 	{
-		cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
+		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, CL_SUBMITTED);
 
+		cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
+		
 		command->param_size = cmds[i].param_size;
 		command->type = cmds[i].type;
 		command->id = cmds[i].id;
-
+		
 		cl_dev_cmd_param_kernel* KernelParams = new cl_dev_cmd_param_kernel;
 
 		KernelParams->kernel = ((cl_dev_cmd_param_kernel*)(cmds->params))->kernel;
@@ -228,10 +228,16 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 
 		command->params = KernelParams;
 
+
+		COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+		Container->CommandType = CUDA_RUN_KERNEL;
+		Container->Command = command;
+
+
 		tList->m_QueueLock.Lock();
-		tList->m_commands.push(command);
+		tList->m_commands.push(Container);
+		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED);
 		LOG_DEBUG(L"pushing command: kernel name: \"%s\" program number: %d", ((KERNEL_ID*)(command->id))->KernelName.c_str(), ((KERNEL_ID*)(command->id))->ProgramID);
-		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( command->id, 0 );
 		tList->m_QueueLock.Unlock();
 		tList->m_CommandEnqueued.Signal();
 		LOG_DEBUG(L"sent signal");
@@ -328,29 +334,33 @@ cl_int cCudaDevice::clDevBuildProgram(cl_dev_program prog, const cl_char *option
 	CUresult CuRes = CUDA_SUCCESS;
 	cl_int ClRes = CL_DEV_SUCCESS;
 	KERNELS::iterator it;
-	cCudaProgram *tProg = m_pDevInstance->m_Programs[ *(cl_uint*)prog ];
 
-	CuRes = cuModuleLoad( &( tProg->m_module ), tProg->m_ProgramName.c_str() );
-	if (CuRes != CUDA_SUCCESS)
+	CUDA_BUILD_PROGRAM_CONTAINER *BuildProgData = new CUDA_BUILD_PROGRAM_CONTAINER;
+	BuildProgData->prog = *(cl_uint*)prog;
+
+	if( NULL == options )
 	{
-		return CL_DEV_INVALID_BINARY;
+		BuildProgData->options = NULL;
 	}
-
-	ClRes = m_pDevInstance->m_ParseCubin(tProg->m_ProgramName.c_str(), tProg);
-	if (ClRes != CL_DEV_SUCCESS)
+	else
 	{
-		cuModuleUnload(tProg->m_module);
-		return CL_DEV_INVALID_BINARY;
+		BuildProgData->options = new cl_char[strlen(options) + 1];
+		strcpy_s(BuildProgData->options, strlen(options) + 1, options);
 	}
+	BuildProgData->user_data = user_data;
 
-	for ( it = tProg->m_kernels.begin(); it != tProg->m_kernels.end(); it++)
-	{
-		CuRes = cuModuleGetFunction( &(it->second->m_function), tProg->m_module, it->second->m_OriginalName.c_str());
-	}
+	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+	Container->CommandType = CUDA_BUILD_PROGRAM;
+	Container->Command = BuildProgData;
 
-	m_pDevInstance->m_CallBacks.pclDevBuildStatusUpdate( prog , user_data, CL_BUILD_SUCCESS);
+	m_pDevInstance->m_CommandLists[0]->m_QueueLock.Lock();
+	m_pDevInstance->m_CommandLists[0]->m_commands.push(Container);
+	m_pDevInstance->m_CommandLists[0]->m_QueueLock.Unlock();
+	m_pDevInstance->m_CommandLists[0]->m_CommandEnqueued.Signal();
+
 	return CL_DEV_SUCCESS;
 }
+
 cl_int cCudaDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
 	// TODO : ADD log
@@ -566,13 +576,11 @@ cCudaCommandList::~cCudaCommandList()
 int cCudaCommandExecuteThread::Run()
 {
 	LOG_DEBUG(L"cCudaCommandExecuteThread started");
-	cl_dev_cmd_desc *cmd;
+	COMMAND_CONTAINER *Container;
 	CUresult cuRes; 
 	cuRes = cuInit(0);
-	CUcontext tttt;
-	cuRes = cuDeviceGet( &(CommandList->cuDevice) , 0);
-	cuRes = cuCtxCreate( &tttt, 0, CommandList->cuDevice);
-	cuRes = cuCtxPushCurrent( CommandList->m_device->m_context );
+	cuRes = cuDeviceGet( &(CommandList->m_cuDevice) , 0);
+	cuRes = cuCtxCreate( &(CommandList->m_cuContext), 0, CommandList->m_cuDevice);
 	while(1)
 	{
 		CommandList->m_QueueLock.Lock();
@@ -586,28 +594,31 @@ int cCudaCommandExecuteThread::Run()
 		{
 			LOG_DEBUG(L"queue is not empty");
 		}
-		cmd = CommandList->m_commands.front();
+		Container = CommandList->m_commands.front();
 		CommandList->m_commands.pop();
 		CommandList->m_QueueLock.Unlock();
-		KERNEL_ID *ID = (KERNEL_ID*)(((cl_dev_cmd_param_kernel*)(cmd->params))->kernel);
-		LOG_DEBUG(L"running command: kernel name:%s program number %d", ID->KernelName.c_str(), ID->ProgramID);
-		printf("running command: kernel name:%s program number %d\n", ID->KernelName.c_str(), ID->ProgramID);
-		//CUresult cuRes = cuCtxPopCurrent( &(CommandList->m_device->m_context) );
-		CommandList->RunCommand(cmd);
-		//cuRes = cuCtxPushCurrent(CommandList->m_device->m_context);
-		LOG_DEBUG(L"command finished: kernel name:\"%s\" program number %d", ID->KernelName.c_str(), ID->ProgramID);
-		printf("command finished: kernel name:\"%s\" program number %d\n", ID->KernelName.c_str(), ID->ProgramID);
-		delete[] cmd->params;
-		delete cmd;
+		
+		if( CUDA_BUILD_PROGRAM == Container->CommandType )
+		{
+			BuildProgram( *(CUDA_BUILD_PROGRAM_CONTAINER*)(Container->Command) );
+		}
+
+		if( CUDA_RUN_KERNEL == Container->CommandType )
+		{
+			RunCommand( *(cl_dev_cmd_desc*)(Container->Command) );
+		}
+
+		delete Container->Command;
+		delete Container;
 	}
 	return 1;
 }
-void cCudaCommandList::RunCommand(cl_dev_cmd_desc* cmd)
+cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 {
-	cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)cmd->params;
+	cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)cmd.params;
 	KERNEL_ID *ID = (KERNEL_ID*)pKernelParam->kernel;
-	cCudaKernel* pKernel = m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
-	cCudaProgram* pProgram = m_device->m_Programs[ID->ProgramID];
+	cCudaKernel* pKernel = CommandList->m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
+	cCudaProgram* pProgram = CommandList->m_device->m_Programs[ID->ProgramID];
 	cl_uint work_dim = pKernelParam->work_dim;
 	size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
 	size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
@@ -617,8 +628,6 @@ void cCudaCommandList::RunCommand(cl_dev_cmd_desc* cmd)
 	void** arg_values = pKernelParam->arg_values;
 	int	offset = 0;
 	CUresult cuRes = CUDA_SUCCESS;
-	//CUcontext context;
-	//cuRes = cuCtxPushCurrent(m_device->m_context);
 	CUevent start;
 	cuRes = cuEventCreate(&start,0);
 	CUevent finish;
@@ -631,13 +640,45 @@ void cCudaCommandList::RunCommand(cl_dev_cmd_desc* cmd)
 		offset += arg_types[i];
 	}
 	cuRes = cuParamSetSize(pKernel->m_function, offset);
-	cuRes = cuFuncSetBlockShape(pKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 0);
+	cuRes = cuFuncSetBlockShape(pKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
 	cuRes = cuEventRecord(start,0);
 	cuRes = cuLaunchGrid(pKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
+	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING );
 	cuRes = cuEventRecord(finish,0);
 	cuRes = cuEventSynchronize(finish);
+	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE );
 	cuRes = cuEventElapsedTime(&time, start, finish );
 	cuRes = cuEventDestroy(start);
 	cuRes = cuEventDestroy(finish);
-	//cuRes = cuCtxPopCurrent( &(m_device->m_context) );
+
+	return CL_DEV_SUCCESS;
+}
+
+cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData )
+{
+	KERNELS::iterator it;
+
+	cCudaProgram *tProg = CommandList->m_device->m_Programs[ BuildData.prog ];
+
+	CUresult CuRes = cuModuleLoad( &( tProg->m_module ), tProg->m_ProgramName.c_str() );
+	if (CuRes != CUDA_SUCCESS)
+	{
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	cl_int ClRes = CommandList->m_device->m_ParseCubin(tProg->m_ProgramName.c_str(), tProg);
+	if (ClRes != CL_DEV_SUCCESS)
+	{
+		cuModuleUnload(tProg->m_module);
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	for ( it = tProg->m_kernels.begin(); it != tProg->m_kernels.end(); it++)
+	{
+		CuRes = cuModuleGetFunction( &(it->second->m_function), tProg->m_module, it->second->m_OriginalName.c_str());
+	}
+
+	CommandList->m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)BuildData.prog , BuildData.user_data, CL_BUILD_SUCCESS);
+
+	return CL_DEV_SUCCESS;
 }
