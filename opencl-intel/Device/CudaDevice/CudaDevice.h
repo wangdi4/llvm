@@ -29,6 +29,8 @@
 
 #include "cl_device_api.h"
 #include "cl_Logger.h"
+#include "cl_thread.h"
+#include "cl_synch_objects.h"
 #include <cuda.h>
 #include <map>
 #include <vector>
@@ -43,17 +45,6 @@ namespace Intel { namespace OpenCL { namespace CudaDevice {
 
 #define N_MAX_STRING_SIZE 100
 #define N_MAX_ARGUMENTS 20
-
-
-
-#define LOG_DEBUG(DBG_PRINT, ...)			\
-	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_DEBUG, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LOG_INFO(DBG_PRINT, ...)			\
-	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_INFO, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LOG_ERROR(DBG_PRINT, ...)			\
-	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_ERROR, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LOG_CRITICAL(DBG_PRINT, ...)		\
-	if ((m_pDevInstance->m_log).pfnclLogAddLine) (m_pDevInstance->m_log).pfnclLogAddLine(m_pDevInstance->m_LogClientID, LL_CRITICAL, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
 
 
 typedef struct _KERNEL_ID
@@ -84,23 +75,52 @@ public:
 	~cCudaProgram();
 	CUmodule m_module;
 	KERNELS m_kernels;
-	cl_int m_ProgramID;
+	cl_uint m_ProgramID;
 	cl_prog_container m_ProgContainer;
+	string m_ProgramName;
 };
 
 typedef vector< cCudaProgram* > PROGRAMS;
 
+typedef queue< cl_dev_cmd_desc* > COMMANDS;
+
+class cCudaCommandList;
+
+class cCudaCommandExecuteThread : public OclThread
+{
+public:
+	cCudaCommandList *CommandList;
+protected:
+	int Run();
+};
+
+class cCudaDevice;
+
 class cCudaCommandList
 {
 public:
-	cCudaCommandList(){};
-	~cCudaCommandList(){};
+	cCudaCommandList();
+	~cCudaCommandList();
+	cl_int m_ID;
+	COMMANDS m_commands;
+	cCudaCommandExecuteThread commands_execute;
+	OclMutex m_QueueLock;
+	OclMutex m_CondLock;
+	OclCondition m_CommandEnqueued;
+	cCudaDevice* m_device;
+	void RunCommand(cl_dev_cmd_desc* cmd);
+	CUdevice cuDevice;
+	CUcontext cuContext;
 };
+
+typedef vector< cCudaCommandList* > COMMAND_LISTS;
 
 class cCudaDevice
 {
 protected:
 
+	friend cCudaCommandList;
+	friend cCudaCommandExecuteThread;
 	cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
 	~cCudaDevice();
 
@@ -111,10 +131,9 @@ protected:
 	PROGRAMS m_Programs;
 	CUcontext m_context;
 	CUdevice m_device;
-	cl_int m_id;
+	cl_uint m_id;
 	cl_dev_call_backs m_CallBacks;
-	cl_dev_log_descriptor m_log;
-	cl_int m_LogClientID;
+	COMMAND_LISTS m_CommandLists;
 
 
 public:
@@ -133,13 +152,15 @@ public:
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 									size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj);
-	static cl_int clDevDeleteMemoryObject( cl_dev_mem* IN memObj );
+	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
 									 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch);
 	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
 	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
-	static cl_int clDevBuildProgram( size_t IN bin_size, const void* IN bin, const cl_char* IN options, void* IN user_data,
-							   cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+
+	static cl_int clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	static cl_int clDevBuildProgram( cl_dev_program IN prog, const cl_char* IN options, void* IN user_data );
+
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
 	static cl_int clDevUnloadCompiler();
 	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t	IN size, void* OUT binary, size_t* OUT size_ret );

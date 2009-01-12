@@ -18,6 +18,7 @@ static cl_dev_entry_points myEntryPoints = {
 	cCudaDevice::clDevCreateMappedRegion,
 	cCudaDevice::clDevReleaseMappedRegion,
 	cCudaDevice::clDevCheckProgramBinary,
+	cCudaDevice::clDevCreateProgram,
 	cCudaDevice::clDevBuildProgram,
 	cCudaDevice::clDevReleaseProgram,
 	cCudaDevice::clDevUnloadCompiler,
