@@ -40,16 +40,17 @@ class DispatcherCommand
 public:
 	DispatcherCommand(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
 	virtual cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd) = 0;
-	virtual cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd) = 0;
+	virtual cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle) = 0;
 
 protected:
 	TaskDispatcher*				m_pTaskDispatcher;
 	MemoryAllocator*			m_pMemAlloc;
 	TaskExecutor*				m_pTaskExec;
-	fn_clDevCmdStatusChanged*	m_pfnclDevCmdStatusChanged;
 	cl_dev_log_descriptor		m_logDescriptor;
 	cl_int						m_iLogHandle;
 	cl_dev_cmd_desc*			m_pCmd;
+
+	void	NotifyDispatcher();
 };
 
 // OCL Read/Write buffer execution
@@ -58,8 +59,20 @@ class ReadWriteBuffer : public DispatcherCommand
 public:
 	ReadWriteBuffer(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
-	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
 protected:
+	struct SMemCpyParams
+	{
+		void*	pSrc;
+		size_t	stSrcRowPitch;
+		size_t	stSrcSlicePitch;
+		void*	pDst;
+		size_t	stDstRowPitch;
+		size_t	stDstSlicePitch;
+		size_t	pRegion[3];
+	};
+
+	static	void	CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
 };
 
@@ -69,7 +82,8 @@ class NativeFunction : public DispatcherCommand
 public:
 	NativeFunction(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
-	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
+
 protected:
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
 };

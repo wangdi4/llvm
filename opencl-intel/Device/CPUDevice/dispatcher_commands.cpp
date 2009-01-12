@@ -47,7 +47,11 @@ m_pTaskDispatcher(pTD), m_iLogHandle(iLogHandle)
 
 	m_pMemAlloc = pTD->m_pMemoryAllocator;
 	m_pTaskExec = pTD->m_pTaskExecutor;
-	m_pfnclDevCmdStatusChanged = m_pTaskDispatcher->m_frameWorkCallBacks.pclDevCmdStatusChanged;
+}
+
+void DispatcherCommand::NotifyDispatcher()
+{
+	m_pTaskDispatcher->NotifyCommandCompletion(m_pCmd->id);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -59,6 +63,11 @@ ReadWriteBuffer::ReadWriteBuffer(TaskDispatcher* pTD, cl_dev_log_descriptor* pLo
 
 cl_int ReadWriteBuffer::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
+	if ( (CL_DEV_CMD_READ != cmd->type) && (CL_DEV_CMD_WRITE != cmd->type) )
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
 	if ( sizeof(cl_dev_cmd_param_rw) != cmd->param_size )
 	{
 		return CL_DEV_INVALID_COMMAND_PARAM;
@@ -75,15 +84,111 @@ cl_int ReadWriteBuffer::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-cl_int	ReadWriteBuffer::ExecuteCommand(cl_dev_cmd_desc* cmd)
+cl_int ReadWriteBuffer::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
 {
+	cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw*)(cmd->params);
+	
+	SMemCpyParams*	pCpyParam = new SMemCpyParams;
+	if ( NULL == pCpyParam )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate memory for parameters");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	void*	pObjPtr;
+	size_t	stRowPitch, stSlicePitch;
+
+	// Lock memory object
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->origin, &pObjPtr, &stRowPitch, &stSlicePitch);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	// Set Source/Destination
+	memcpy(pCpyParam->pRegion, cmdParams->region, sizeof(pCpyParam->pRegion));
+	if ( CL_DEV_CMD_READ == cmd->type )
+	{
+		pCpyParam->pSrc = pObjPtr;
+		pCpyParam->stSrcRowPitch = stRowPitch;
+		pCpyParam->stSrcSlicePitch = stSlicePitch;
+		pCpyParam->pDst = cmdParams->ptr;
+		pCpyParam->stDstRowPitch = cmdParams->row_pitch;
+		pCpyParam->stDstSlicePitch = cmdParams->slice_pitch;
+	} else
+	{
+		pCpyParam->pSrc = cmdParams->ptr;
+		pCpyParam->stSrcRowPitch = cmdParams->row_pitch;
+		pCpyParam->stSrcSlicePitch = cmdParams->slice_pitch;
+		pCpyParam->pDst = pObjPtr;
+		pCpyParam->stDstRowPitch = stRowPitch;
+		pCpyParam->stDstSlicePitch = stSlicePitch;
+	}
+
+	m_pCmd = cmd;
+
+	// Currently handle Read/Write as single task
+	// TODO: Check run Read/Write as kernel on multiple cores
+	ETERetCode teRet;
+	teRet = m_pTaskExec->ExecuteFunction(CopyMemoryBuffer, pCpyParam, sizeof(SMemCpyParams), &NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	if ( TE_SUCCESS != teRet )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", teRet);
+		return CL_DEV_ERROR_FAIL;
+	}
+	
 	return CL_DEV_SUCCESS;
 }
 
-void ReadWriteBufferNotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
+void ReadWriteBuffer::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
 {
+	ReadWriteBuffer*		pThis = (ReadWriteBuffer*)pData;
+	cl_dev_cmd_desc*		pCmd = pThis->m_pCmd;
+	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)pCmd->params;
+	SMemCpyParams*			pCpyParam = (SMemCpyParams*)pParams;
+	void*					pObjPtr;
+
+	if ( CL_DEV_CMD_READ == pCmd->type )
+	{
+		pObjPtr = pCpyParam->pSrc;
+	} else
+	{
+		pObjPtr = pCpyParam->pDst;
+	}
+
+	cl_int ret = pThis->m_pMemAlloc->UnLockObject(cmdParams->memObj, pObjPtr);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		ErrLog(pThis->m_logDescriptor, pThis->m_iLogHandle, L"Can't unlock memory object");
+	}
+
+	delete pCpyParam;
+
+	pThis->NotifyDispatcher();
 }
 
+void ReadWriteBuffer::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
+{
+	unsigned char *pSrcPlane = (unsigned char *)pCopyCmd->pSrc;
+	unsigned char *pDstPlane = (unsigned char *)pCopyCmd->pDst;
+
+	for(unsigned int iDepth=0; iDepth<pCopyCmd->pRegion[2]; ++iDepth)
+	{
+		unsigned char *pSrcLine = pSrcPlane;
+		unsigned char *pDstLine = pDstPlane;
+
+		for(unsigned int iHeight=0; iHeight<pCopyCmd->pRegion[1]; ++iHeight)
+		{
+			// TODO: use intrinsics
+			memcpy(pDstLine, pSrcLine, pCopyCmd->pRegion[0]);
+			pSrcLine += pCopyCmd->stSrcRowPitch;
+			pDstLine += pCopyCmd->stDstRowPitch;
+		}
+
+		pSrcPlane += pCopyCmd->stSrcSlicePitch;
+		pDstPlane += pCopyCmd->stSrcSlicePitch;
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Native function execution
@@ -94,6 +199,11 @@ NativeFunction::NativeFunction(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogD
 
 cl_int	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
+	if ( CL_DEV_CMD_EXEC_NATIVE != cmd->type )
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
 	if ( sizeof(cl_dev_cmd_param_native) != cmd->param_size )
 	{
 		return CL_DEV_INVALID_COMMAND_PARAM;
@@ -121,7 +231,7 @@ cl_int	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd)
+cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
 {
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)cmd->params;
 
@@ -144,7 +254,7 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd)
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmd->params;
 		void*	*pMemPtr = (void**)((cl_char*)pArgV+Offset);
 
-		cl_int ret = m_pMemAlloc->LockObject(memObj, NULL, NULL, pMemPtr, NULL, NULL);
+		cl_int ret = m_pMemAlloc->LockObject(memObj, NULL, pMemPtr, NULL, NULL);
 		if ( CL_DEV_FAILED(ret) )
 		{
 			return ret;
@@ -152,9 +262,14 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd)
 	}
 
 	m_pCmd = cmd;
-	TTaskHandle tmp;
 
-	m_pTaskExec->ExecuteFunction(func, pArgV, cmdParams->args, &NotifyCommandCompletion, this, NULL, 0, &tmp);
+	ETERetCode ret;
+	ret = m_pTaskExec->ExecuteFunction(func, pArgV, cmdParams->args, &NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	if ( TE_SUCCESS != ret )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", ret);
+		return CL_DEV_ERROR_FAIL;
+	}
 
 	return CL_DEV_SUCCESS;
 }
@@ -180,8 +295,8 @@ void NativeFunction::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, s
 		}
 	}
 
-	pThis->m_pTaskExec->FreeTaskHandle(hTask);
+	// Free memory allocated to execution parameters
+	free( pParams );
 
-	//notify framework on status change
-	pThis->m_pfnclDevCmdStatusChanged(pThis->m_pCmd->id, CL_COMPLETE);
+	pThis->NotifyDispatcher();
 }

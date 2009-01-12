@@ -68,6 +68,8 @@ TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, Pr
 
 	// Init Command dispatcher array
 	memset(m_vCommands, 0, sizeof(m_vCommands));
+	m_vCommands[CL_DEV_CMD_READ] = new ReadWriteBuffer(this, &m_logDescriptor, m_iLogHandle);
+	m_vCommands[CL_DEV_CMD_WRITE] = new ReadWriteBuffer(this, &m_logDescriptor, m_iLogHandle);
 	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = new NativeFunction(this, &m_logDescriptor, m_iLogHandle);
 }
 
@@ -314,7 +316,8 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 	for (unsigned int i=0; i<count; ++i)
 	{
 		DispatcherCommand* pCommand = m_vCommands[cmds[i].type];
-		cl_int rc = pCommand->ExecuteCommand(&cmds[i]);
+		TTaskHandle hNewTask;
+		cl_int rc = pCommand->ExecuteCommand(&cmds[i], NULL, 0, &hNewTask);
 		if ( CL_DEV_FAILED(rc) )
 		{
 			// TODO: Add log
@@ -323,4 +326,12 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 	}
 
 	return CL_DEV_SUCCESS;
+}
+
+void TaskDispatcher::NotifyCommandCompletion(cl_dev_cmd_id cmdId)
+{
+	//m_pTaskExec->FreeTaskHandle(hTask);
+
+	//notify framework on status change
+	m_frameWorkCallBacks.pclDevCmdStatusChanged(cmdId, CL_COMPLETE);
 }

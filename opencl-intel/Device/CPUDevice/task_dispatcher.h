@@ -55,7 +55,7 @@ public:
 protected:
 
 	// Private type declaration
-	typedef std::list<cl_dev_cmd_desc>				TCmdDescList;
+	typedef std::list<cl_dev_cmd_desc*>				TCmdDescList;
 	typedef struct _TCmdListItem {
 		cl_dev_cmd_list_props	props;
 		TCmdDescList			cmdDescList;
@@ -76,6 +76,8 @@ protected:
 
 	// Internal implementation of functions
 	DispatcherCommand*				m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+
+	void	NotifyCommandCompletion(cl_dev_cmd_id cmdId);
 };
 
 }}}

@@ -48,7 +48,7 @@ public:
 	cl_int	ValidateObject( cl_dev_mem IN memObj );
 
 	// Lock/Unlock functions
-	cl_int	LockObject(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
+	cl_int	LockObject(cl_dev_mem IN memObj, const size_t IN origin[3],
 								void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch);
 	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
 

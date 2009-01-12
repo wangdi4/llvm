@@ -97,8 +97,26 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	}
 
 	// Allocate memory
-	(*memObj)->allocId = m_iDevId;
-	(*memObj)->objHandle = malloc(width);
+	_cl_dev_mem*	pMemObj;
+
+	pMemObj = new _cl_dev_mem;
+	if ( NULL == pMemObj )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object Allocation failed");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	pMemObj->allocId = m_iDevId;
+	pMemObj->objHandle = malloc(width);
+	if ( NULL == pMemObj->objHandle )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object Buffer Allocation failed");
+		delete pMemObj;
+
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	*memObj = pMemObj;
 
 	return CL_DEV_SUCCESS;
 }
@@ -107,16 +125,18 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseObject enter");
 
-	if ( (m_iDevId != memObj->allocId) || (NULL == memObj->objHandle) )
+	if ( (NULL == memObj) || (m_iDevId != memObj->allocId) || (NULL == memObj->objHandle) )
 	{
 		return CL_INVALID_MEM_OBJECT;
 	}
 
 	free(memObj->objHandle);
+	delete memObj;
+
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, const size_t IN origin[3], const size_t IN region[3],
+cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, const size_t IN origin[3],
 							void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"LockObject enter");
