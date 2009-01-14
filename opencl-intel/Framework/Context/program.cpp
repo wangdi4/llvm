@@ -45,6 +45,10 @@ Program::Program(Context * pContext)
 	m_uiStcStrCount = 0;
 	m_ppcSrcStrArr = NULL;
 	m_pszSrcStrLengths = NULL;
+	m_eProgramSourceType = PST_NONE;
+
+	m_pfnNotify = NULL;
+	m_pUserData = NULL;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program D'tor
@@ -70,6 +74,8 @@ Program::~Program()
 		delete pProgBin;
 	}
 	m_mapBinaries.clear();
+	m_mapBinaryStatus.clear();
+
 	delete m_pLoggerClient;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,6 +99,15 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths)
 {
 	InfoLog(m_pLoggerClient, L"AddSource enter. uiCount=%d, ppcStrings=%d, pszLengths=%d",uiCount, ppcStrings, pszLengths);
+	// check if the program wasn't initialized yet
+	if (m_eProgramSourceType != PST_NONE)
+	{
+		ErrLog(m_pLoggerClient, L"m_eProgramSourceType != PST_NONE");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	m_eProgramSourceType = PST_SOURCE_CODE;
+
+	// check inputarguments
 	if (m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr)
 	{
 		// source has allready added to this program
@@ -165,7 +180,16 @@ cl_err_code Program::AddBinary(Device * pDevice, cl_uint uiBinarySize, const voi
 {
 	InfoLog(m_pLoggerClient, L"AddBinary enter. pDevice=%d, uiBinarySize=%d, pBinaryData=%d", pDevice, uiBinarySize, pBinaryData);
 	cl_err_code clErrRet = CL_SUCCESS;
+	
+	// check if the program wasn't initialized yet
+	if (m_eProgramSourceType != PST_NONE)
+	{
+		ErrLog(m_pLoggerClient, L"m_eProgramSourceType != PST_NONE");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	m_eProgramSourceType = PST_BINARY;
 
+	// check input parameters
 	if (NULL == pDevice)
 	{
 		return CL_INVALID_VALUE;
@@ -177,45 +201,155 @@ cl_err_code Program::AddBinary(Device * pDevice, cl_uint uiBinarySize, const voi
 	{
 		return CL_ERR_KEY_ALLREADY_EXISTS;
 	}
-	ProgramBinary * pProgBin = new ProgramBinary(uiBinarySize, pBinaryData, pDevice, &clErrRet);
+	ProgramBinary * pProgBin = new ProgramBinary(uiBinarySize, pBinaryData, CL_DEV_BINARY_USER, pDevice, &clErrRet);
 	if (CL_FAILED(clErrRet))
 	{
 		return clErrRet;
 	}
+	// save the program binary in the binaries map list
 	m_mapBinaries[(cl_device_id)pDevice->GetId()] = pProgBin;
+	m_mapBinaryStatus[(cl_device_id)pDevice->GetId()] = false;
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// CheckDevices
+// CheckBinaries
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pclDevices)
 {
+	InfoLog(m_pLoggerClient, L"CheckBinaries enter. uiNumDevices=%d, pclDevices=%d", uiNumDevices, pclDevices);
+	// check input parameters
 	if (0 == uiNumDevices || NULL == pclDevices)
 	{
+		ErrLog(m_pLoggerClient, L"0 == uiNumDevices || NULL == pclDevices");
 		return CL_INVALID_DEVICE;
 	}
+	// for each device in uiNumDevices: check that the binaries exists and ready (not being built by the backend)
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
 		map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find(pclDevices[ui]);
 		if (it == m_mapBinaries.end())
 		{
+			ErrLog(m_pLoggerClient, L"device id %d not found in m_mapBinaries", pclDevices[ui]);
 			return CL_INVALID_DEVICE;
 		}
 		ProgramBinary * pProgBin = it->second;
 		if (NULL == pProgBin)
 		{
+			ErrLog(m_pLoggerClient, L"NULL == pProgBin");
 			return CL_INVALID_BINARY;
 		}
-		Device * pDevice = pProgBin->GetDevice();
+		Device * pDevice = (Device*)pProgBin->GetDevice();
 		if (NULL == pDevice)
 		{
+			ErrLog(m_pLoggerClient, L"device id %d not attached to program binary", pclDevices[ui]);
 			return CL_INVALID_DEVICE;
+		}
+		// check binary status
+		cl_build_status clBuildStatus = pProgBin->GetStatus();
+		if (CL_BUILD_IN_PROGRESS == clBuildStatus)
+		{
+			ErrLog(m_pLoggerClient, L"program binarie's status is CL_BUILD_IN_PROGRESS");
+			return CL_INVALID_OPERATION;
 		}
 		cl_err_code clErrRet = pDevice->CheckProgramBinary(pProgBin->GetSize(), pProgBin->GetData());
 		if (CL_FAILED(clErrRet))
 		{
+			ErrLog(m_pLoggerClient, L"binary of device %d isn't valid binary", pclDevices[ui]);
 			return CL_INVALID_BINARY;
 		}
 	}
 	return CL_SUCCESS;
+}
+cl_err_code Program::BuildBinarys(cl_uint uiNumDevices, const cl_device_id * pclDevices, const char * pcOptions)
+{
+	InfoLog(m_pLoggerClient, L"BuildBinarys enter. uiNumDevices=%d, pclDevices=%d", uiNumDevices, pclDevices);
+	// check input parameters
+	if (0 == uiNumDevices || NULL == pclDevices)
+	{
+		ErrLog(m_pLoggerClient, L"0 == uiNumDevices || NULL == pclDevices");
+		return CL_INVALID_DEVICE;
+	}
+	// for each device in uiNumDevices: build binary
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find(pclDevices[ui]);
+		if (it == m_mapBinaries.end())
+		{
+			ErrLog(m_pLoggerClient, L"device id %d not found in m_mapBinaries", pclDevices[ui]);
+			return CL_INVALID_DEVICE;
+		}
+		ProgramBinary * pProgBin = it->second;
+		if (NULL == pProgBin)
+		{
+			ErrLog(m_pLoggerClient, L"NULL == pProgBin");
+			return CL_INVALID_BINARY;
+		}
+		IBuildDoneObserver * pBuildDoneObserver = dynamic_cast<IBuildDoneObserver*>(this);
+		pProgBin->Build(pcOptions, pBuildDoneObserver);
+	}
+	return CL_SUCCESS;
+}
+cl_err_code Program::Build(cl_uint uiNumDevices,
+						   const cl_device_id *	pclDeviceList,
+						   const char *	pcOptions,
+						   void (*pfnNotify)(cl_program clProgram, void * pUserData),
+						   void * pUserData)
+{
+	InfoLog(m_pLoggerClient, L"Build enter. uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, pUserData=%d", 
+		uiNumDevices, pclDeviceList, pcOptions, pUserData);
+
+	if (m_eProgramSourceType == PST_SOURCE_CODE)
+	{
+		ErrLog(m_pLoggerClient, L"m_eProgramSourceType == PST_SOURCE_CODE; currently not supported");
+		return CL_ERR_NOT_SUPPORTED;
+		// TODO: support fe compilation - build IR and assign for each device
+	}
+
+	// check invalid input
+	if (uiNumDevices > 0 && NULL == pclDeviceList	||
+		uiNumDevices == 0 && NULL != pclDeviceList )
+	{
+		ErrLog(m_pLoggerClient, L"uiNumDevices > 0 && NULL == pclDeviceList || uiNumDevices == 0 && NULL != pclDeviceList");
+		return CL_INVALID_VALUE;
+	}
+
+	// chack devices and binaries
+	cl_err_code clErrRet = CheckBinaries(uiNumDevices, pclDeviceList);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"CheckBinaries(%d, %d)=%d", uiNumDevices, pclDeviceList, clErrRet);
+		return clErrRet;
+	}
+
+	// TODO: check if kernels attached to the program
+
+	m_pUserData = pUserData;
+	m_pfnNotify = pfnNotify;
+
+	clErrRet = BuildBinarys(uiNumDevices, pclDeviceList, pcOptions);
+
+	return clErrRet;
+}
+
+cl_err_code Program::NotifyBuildDone(cl_device_id device, cl_build_status build_status)
+{
+		bool bFinished = true;
+		OclAutoMutex CS(&m_UserNotifyCS);
+		{ // Lock
+			map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
+			while (it != m_mapBinaries.end())
+			{
+				cl_build_status status = (it->second)->GetStatus();
+				if (status == CL_BUILD_NONE || status == CL_BUILD_IN_PROGRESS)
+				{
+					bFinished = false;
+				}
+				it++;
+			}
+		} // Unlock
+		if (true == bFinished && NULL != m_pfnNotify)
+		{
+			m_pfnNotify((cl_program)m_iId, m_pUserData);
+		}
+		return CL_SUCCESS;
 }

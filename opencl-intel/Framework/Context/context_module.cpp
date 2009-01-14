@@ -344,6 +344,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 			return CL_INVALID_HANDLE;
 		}
 	}
+	// get the context object
 	cl_err_code clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
@@ -420,36 +421,21 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 {
 	InfoLog(m_pLoggerClient, L"BuildProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, pUserData=%d", 
 		clProgram, uiNumDevices, pclDeviceList, pcOptions, pUserData);
-	if (uiNumDevices > 0 && NULL == pclDeviceList	||
-		uiNumDevices == 0 && NULL != pclDeviceList )
-	{
-		ErrLog(m_pLoggerClient, L"uiNumDevices > 0 && NULL == pclDeviceList || uiNumDevices == 0 && NULL != pclDeviceList");
-		return CL_INVALID_VALUE;
-	}
 
 	if (NULL == m_pPrograms)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
 		return CL_ERR_NOT_IMPLEMENTED;
 	}
-
+	// get program from programs map list
 	Program * pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
-	if (CL_FAILED(clErrRet))
+	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
 			ErrLog(m_pLoggerClient, L"program %d isn't valid program", clProgram);
 			return CL_INVALID_PROGRAM;
 	}
-	clErrRet = pProgram->CheckBinaries(uiNumDevices, pclDeviceList);
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
 
-	// TODO: check build options
-	// TODO: check invlaid operation
-	// TODO: call device build function
-
-
-	return CL_ERR_NOT_IMPLEMENTED;
+	clErrRet = pProgram->Build(uiNumDevices, pclDeviceList, pcOptions, pfn_notify, pUserData);
+	return clErrRet;
 }

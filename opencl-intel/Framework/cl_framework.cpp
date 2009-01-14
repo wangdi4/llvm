@@ -580,7 +580,22 @@ cl_int clBuildProgram(cl_program           program,
 					  void (*pfn_notify)(cl_program program, void * user_data),
 					  void *               user_data)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+		return 0;
+	}
+	cl_err_code clRet = pContextModule->BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data);
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clUnloadCompiler(void)

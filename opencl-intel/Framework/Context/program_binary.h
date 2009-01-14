@@ -30,14 +30,33 @@
 #define _OCL_PROGRAM_BINARY_H_
 
 #include <cl_types.h>
-#include <cl_object.h>
 #include <logger.h>
+#include <cl_synch_objects.h>
 #include <cl_device_api.h>
+#include <build_done_observer.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+	class OclMutex;
 	class Program;
 	class Device;
+
+	/**********************************************************************************************
+	* Enumaration:	EProgramBinaryBuildStatus
+	*
+	* Description:	define the resource from wich the program was created
+	* Values:		PST_NONE		- Empty program
+	*				PST_SOURCE_CODE	- Create program with source
+	*				PST_BINARY		- Create program with binaries
+	**********************************************************************************************/	
+	enum EProgramBinaryBuildStatus
+	{
+		BBS_NEW = 0,				// new object
+		BBS_EXTERNAL_BIN = 1,		// load with binary
+		BBS_INTERNAL_BIN = 2,		// load with source - compliled with FE compiler
+		BBS_BUILDING = 3,			// building with BE compiler
+		BBS_READY = 5,				// binary ready
+	};
 
 	/**********************************************************************************************
 	* Class name:	ProgramBinary
@@ -46,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class ProgramBinary 
+	class ProgramBinary : public IBuildDoneObserver
 	{
 	public:
 
@@ -58,7 +77,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		ProgramBinary(cl_uint uiBinSize, const void * pBinData, Device * pDevice, cl_err_code * pErr);
+		ProgramBinary(	cl_uint						uiBinSize,
+						const void *				pBinData,
+						cl_dev_binary_prop			clDevBinaryProp,
+						Device *					pDevice,
+						cl_err_code *				pErr );
 
 		/******************************************************************************************
 		* Function: 	~ProgramBinary
@@ -69,25 +92,45 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~ProgramBinary();
 
+		cl_err_code Build(	const cl_char *	pcOptions,
+							IBuildDoneObserver * pBuildDoneObserver );
+
 		// get the binary size
-		cl_uint		GetSize(){ return m_uiBinSize; }
+		const cl_uint	GetSize(){ return m_uiBinSize; }
 		
 		// get the binary data
-		void *		GetData(){ return m_pBinData; }
+		const void *	GetData(){ return m_pBinData; }
 		
 		// get the deivce associated to the binary
-		Device *	GetDevice(){ return m_pDevice; }
+		const Device *	GetDevice(){ return m_pDevice; }
 
+		// get the build status of the current binary
+		const cl_build_status GetStatus();
+
+		// IBuildDoneObserver
+		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
 
 	private:
+
+		cl_dev_program							m_clDevProgram;
+		
+		cl_dev_binary_prop						m_clDevBinaryProp;
+
+		cl_build_status							m_clBuildStatus;
+
+		IBuildDoneObserver *					m_pBuildDoneObserver;
+		
+		Device *								m_pDevice;		// associated device
 
 		cl_uint									m_uiBinSize;	// binary size
 
 		void *									m_pBinData;		// binary data
 
-		Device *								m_pDevice;		// associated device
+		//char *								m_pcBuildOptions; // build options
 
-		cl_prog_container						m_clDevProgContainer;
+		//cl_prog_container	*					m_pclDevProgContainer;
+
+		Intel::OpenCL::Utils::OclMutex			m_CS;				// Critical Section object for quering the build status
 
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
 

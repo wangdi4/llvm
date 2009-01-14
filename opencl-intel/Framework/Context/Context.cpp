@@ -206,6 +206,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 		uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, ppProgram);
 	
 	cl_err_code clErrRet = CL_SUCCESS;
+	cl_err_code clFinalErrRet = CL_SUCCESS;
 	
 	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
 	{
@@ -219,6 +220,10 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 		if (0 == pszLengths[ui] || NULL == ppBinaries[ui])
 		{
 			ErrLog(m_pLoggerClient, L"0 == pszLengths[%d] || NULL == ppBinaries[%d]", ui, ui);
+			if (NULL != piBinaryStatus)
+			{
+				piBinaryStatus[ui] = CL_INVALID_VALUE;
+			}
 			return CL_INVALID_VALUE;
 		}
 	}
@@ -251,24 +256,31 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 		// get device and check binary
 		pDevice = it->second;
 		clErrRet = pDevice->CheckProgramBinary(pszLengths[ui], ppBinaries[ui]);
-		if (CL_FAILED(clErrRet))
+		if (NULL != piBinaryStatus)
+		{
+			piBinaryStatus[ui] = CL_SUCCEEDED(clErrRet) ? CL_SUCCESS : CL_INVALID_BINARY;
+		}
+		if (CL_SUCCEEDED(clErrRet))
+		{
+			// add binary to the program object
+			clErrRet = pProgram->AddBinary(pDevice, pszLengths[ui], ppBinaries[ui]);
+			if (CL_FAILED(clErrRet))
+			{
+				ErrLog(m_pLoggerClient, L"can't add binary to program", ui, pclDeviceList[ui]);
+				clFinalErrRet = CL_INVALID_BINARY;
+				if (NULL != piBinaryStatus)
+				{
+					piBinaryStatus[ui] = CL_SUCCEEDED(clErrRet) ? CL_SUCCESS : CL_INVALID_BINARY;
+				}
+			}
+		}
+		else
 		{
 			ErrLog(m_pLoggerClient, L"binary ppBinaries[%d] isn't valid for device %d", ui, pclDeviceList[ui]);
-			pProgram->Release();
-			delete pProgram;
-			return CL_INVALID_BINARY;
-		}
-		// add binary to the program object
-		clErrRet = pProgram->AddBinary(pDevice, pszLengths[ui], ppBinaries[ui]);
-		if (CL_FAILED(clErrRet))
-		{
-			ErrLog(m_pLoggerClient, L"can't add binary to program", ui, pclDeviceList[ui]);
-			pProgram->Release();
-			delete pProgram;
-			return CL_INVALID_BINARY;
+			clFinalErrRet = CL_INVALID_BINARY;
 		}
 	}
 
 	*ppProgram = pProgram;
-	return CL_SUCCESS;
+	return clFinalErrRet;
 }

@@ -37,6 +37,9 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+	// Froward declarations
+	class IBuildDoneObserver;
+
 	/**********************************************************************************************
 	* Class name:	Device
 	*
@@ -80,51 +83,74 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		cl_err_code	GetInfo(cl_int		param_name, 
+							size_t		param_value_size, 
+							void *		param_value, 
+							size_t *	param_value_size_ret);
 
 		/******************************************************************************************
 		* Function: 	InitDevice    
 		* Description:	Initialize OpenCL device
-		* Arguments:	pwcDllPath [in]				full path of device driver's dll
+		* Arguments:	pwcDllPath [in]		full path of device driver's dll
 		* Return value:	CL_SUCCESS - operation succeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
 		cl_err_code InitDevice(const wchar_t * pwcDllPath);
 
+		/******************************************************************************************
+		* Function: 	CheckProgramBinary    
+		* Description:	Check if the binary is a valid binary
+		* Arguments:	szBinSize [in] 	- binary size (in bytes)
+		*				pBinData [in]	- pointer to the binary's data
+		* Return value:	CL_SUCCESS - operation succeded, the binary is valid
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
 		cl_err_code CheckProgramBinary(size_t szBinSize, const void* pBinData);
+
+		cl_err_code CreateProgram(	size_t				szBinSize,
+									const void*			pBinData,
+									cl_dev_binary_prop	clBinProp,
+									cl_dev_program *	clProg);
+
+		cl_err_code BuildProgram(	cl_dev_program			clProg,
+									const cl_char *			pcOptions,
+									IBuildDoneObserver *	pBuildDoneObserver );
 
 	private:
 
-		/******************************************************************************************
-		* Function: 	CreateDeviceLogClient    
-		* Description:	Create new logger client for the device
-		* Arguments:	device_id [in]				device id
-		*				client_name [in]			logger client's name
-		*				client_id [out]				client id
-		* Return value:	CL_SUCCESS - operation succeded
-		*				CL_INVALID_VALUE - client id pointer is not valid
-		*				CL_ERR_LOGGER_FAILED - can't create new logger client
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// callback functions
+		//////////////////////////////////////////////////////////////////////////////////////////
+		
+		// cl_dev_call_backs
+		static void BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
+		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status);
+
+		// cl_dev_log_descriptor
 		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
-		
 		static cl_int ReleaseDeviceLogClient(cl_int client_id);
-		
 		static cl_int DeviceAddLogLine(cl_int client_id, cl_int log_level, const wchar_t* IN source_file, const wchar_t* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
 
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;		// device's class logger client
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// class private members
+		///////////////////////////////////////////////////////////////////////////////////////////
+
+		std::map<cl_dev_program, IBuildDoneObserver *>	m_mapBuildDoneObservers;	// holds pointer to notification functions
+																					// for each device program object
 		
-		static cl_int							m_iNextClientId;
-		
+		static cl_int							m_iNextClientId;		// hold the next client logger id
+
 		static std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
-		cl_dev_entry_points					m_clDevEntryPoints;		// device's entry points
-		
-		cl_dev_call_backs					m_clDevCallBacks;		// device's call backs
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;		// device's class logger client
 
-		cl_dev_log_descriptor				m_clDevLogDescriptor;	// device's log descriptor
+		cl_dev_entry_points						m_clDevEntryPoints;		// device's entry points
+		
+		cl_dev_call_backs						m_clDevCallBacks;		// device's call backs
+
+		cl_dev_log_descriptor					m_clDevLogDescriptor;	// device's log descriptor
 	};
 
 

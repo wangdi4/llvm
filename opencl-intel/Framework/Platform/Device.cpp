@@ -27,11 +27,12 @@
 
 #include "device.h"
 #include "windows.h"
+#include "build_done_observer.h"
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-cl_int						Device::m_iNextClientId = 0;
+cl_int						Device::m_iNextClientId = 1;
 map<cl_int, LoggerClient*>	Device::m_mapDeviceLoggerClinets;
 
 Device::Device()
@@ -91,6 +92,12 @@ cl_err_code Device::InitDevice(const wchar_t * pwcDllPath)
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
+	// initialize cl_dev_call_backs
+	InfoLog(m_pLoggerClient, L"Initialize cl_dev_call_backs");
+	m_clDevCallBacks.pclDevBuildStatusUpdate = Device::BuildStatusUpdate;
+	m_clDevCallBacks.pclDevCmdStatusChanged = Device::CmdStatusChanged;
+
+	// initialize cl_dev_log_descriptor
 	InfoLog(m_pLoggerClient, L"Initialize cl_dev_log_descriptor");
 	m_clDevLogDescriptor.pfnclLogCreateClient = Device::CreateDeviceLogClient;
 	m_clDevLogDescriptor.pfnclLogReleaseClient = Device::ReleaseDeviceLogClient;
@@ -113,6 +120,32 @@ cl_err_code Device::CheckProgramBinary(size_t szBinSize, const void* pBinData)
 	cl_int iRes = m_clDevEntryPoints.pclDevCheckProgramBinary(szBinSize, pBinData);
 	return (cl_err_code)iRes;
 }
+cl_err_code Device::CreateProgram(size_t szBinSize, const void* pBinData, cl_dev_binary_prop clBinProp, cl_dev_program * pclProg)
+{
+	InfoLog(m_pLoggerClient, L"CreateProgram enter. szBinSize=%d, pBinData=%d, clBinProp=%d, pclProg=%d", szBinSize, pBinData, clBinProp, pclProg);
+	cl_int iRes = m_clDevEntryPoints.pclDevCreateProgram(szBinSize, pBinData, clBinProp, pclProg);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}
+
+cl_err_code Device::BuildProgram(cl_dev_program clProg, const cl_char * pcOptions, IBuildDoneObserver *	pBuildDoneObserver)
+{
+	InfoLog(m_pLoggerClient, L"BuildProgram enter. clProg=%d, pcOptions=%d, pBuildDoneObserver=%d", clProg, pcOptions, pBuildDoneObserver);
+
+	// check if the program exits
+	map<cl_dev_program, IBuildDoneObserver*>::iterator it = m_mapBuildDoneObservers.find(clProg);
+	if (it == m_mapBuildDoneObservers.end())
+	{
+		// register program notification function
+		m_mapBuildDoneObservers[clProg] = pBuildDoneObserver;
+	}
+
+	cl_int iRes = m_clDevEntryPoints.pclDevBuildProgram(clProg, pcOptions, this);
+	return (cl_err_code)(iRes);
+}
 cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, client_name);
@@ -121,7 +154,6 @@ cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_
 		ErrLog(m_mapDeviceLoggerClinets[0],L"client_id == NULL");
 		return CL_INVALID_VALUE;
 	}
-	
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Create new logger client: (LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG))");	
 	LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG);
 	if (NULL == pLoggerClient)
@@ -129,8 +161,8 @@ cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_
 		ErrLog(m_mapDeviceLoggerClinets[0],L"NULL == pLoggerClient");
 		return CL_ERR_LOGGER_FAILED;
 	}
-	m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
 	*client_id = m_iNextClientId++;
+	m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient exit. (CL_SUCCESS)");	
 	return CL_SUCCESS;
 }
@@ -176,4 +208,24 @@ cl_int Device::DeviceAddLogLine(cl_int client_id, cl_int log_level,
 
 	}
 	return CL_SUCCESS;
+}
+
+void Device::BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus)
+{
+	Device * pDevice = (Device*)pData;
+
+	map<cl_dev_program, IBuildDoneObserver*>::iterator it = pDevice->m_mapBuildDoneObservers.find(clDevProg);
+	if (it != pDevice->m_mapBuildDoneObservers.end())
+	{
+		IBuildDoneObserver * pBuildDoneObserver = (IBuildDoneObserver*)it->second;
+		if (NULL != pBuildDoneObserver)
+		{
+			pBuildDoneObserver->NotifyBuildDone((cl_device_id)pDevice->m_iId, clBuildStatus);
+		}
+	}
+	return;
+}
+void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status)
+{
+	return;
 }

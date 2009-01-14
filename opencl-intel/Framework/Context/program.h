@@ -31,7 +31,9 @@
 
 #include <cl_types.h>
 #include <cl_object.h>
+#include <build_done_observer.h>
 #include <logger.h>
+#include <cl_synch_objects.h>
 #include <map>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -41,21 +43,36 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Device;
 
 	/**********************************************************************************************
-	* Class name:	Buffer
+	* Enumaration:	EProgramSourceType
 	*
-	* Inherit:		MemoryObject
-	* Description:	represents a memory object
+	* Description:	define the resource from wich the program was created
+	* Values:		PST_NONE		- Empty program
+	*				PST_SOURCE_CODE	- Create program with source
+	*				PST_BINARY		- Create program with binaries
+	**********************************************************************************************/	
+	enum EProgramSourceType
+	{
+		PST_NONE = 0,
+		PST_SOURCE_CODE = 1,
+		PST_BINARY = 2,
+	};
+
+	/**********************************************************************************************
+	* Class name:	Program
+	*
+	* Inherit:		OCLObject
+	* Description:	represents a program class
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Program : public OCLObject
+	class Program : public OCLObject, IBuildDoneObserver
 	{
 	public:
 
 		/******************************************************************************************
 		* Function: 	Program
 		* Description:	The Program class constructor
-		* Arguments:	
+		* Arguments:	pContext [in]	holds the parent conetxt
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
@@ -90,24 +107,56 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// add source code to the program object
 		cl_err_code AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths);
 
-		// add binary to the program object
+		// add binary to the program object, each binary is assign to specific device
 		cl_err_code AddBinary(Device * pDevice, cl_uint uiBinarySize, const void * pBinaryData);
+
+		cl_err_code Build(	cl_uint					uiNumDevices,
+							const cl_device_id *	pclDeviceList,
+							const char *			pcOptions,
+							void (*pfnNotify)(cl_program clProgram, void * pUserData),
+							void *					pUserData );
+
+		// IBuildDoneObserver
+		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
+
+	private:
 
 		// check if the devices associated to the program and if thier binaries are valid binaries
 		cl_err_code CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
-	private:
-
-		cl_uint									m_uiStcStrCount;	// number of strings in the source code
-
-		char **									m_ppcSrcStrArr;		// source code - set of strings
-
-		size_t *								m_pszSrcStrLengths;	// for each string - the lengths of the string
+		// build binaries
+		cl_err_code BuildBinarys(	cl_uint					uiNumDevices,
+									const cl_device_id *	pclDevices, 
+									const char *			pcOptions);
+								
+		//user notification callback for build completion
+		void									(*m_pfnNotify)(cl_program clProgram, void * pUserData);
+		
+		void *									m_pUserData;
+		
+		EProgramSourceType						m_eProgramSourceType;	// program source type
 
 		Context *								m_pContext;			// parent context
 
-		std::map<cl_device_id, ProgramBinary*>	m_mapBinaries;		// program's binaries
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// Source code varaibles
+		///////////////////////////////////////////////////////////////////////////////////////////
+		
+		cl_uint									m_uiStcStrCount;	// number of strings in the source code
+		
+		char **									m_ppcSrcStrArr;		// source code - set of strings
+		
+		size_t *								m_pszSrcStrLengths;	// for each string - the lengths of the string
 
+		///////////////////////////////////////////////////////////////////////////////////////////
+
+		std::map<cl_device_id, ProgramBinary*>	m_mapBinaries;		// program's binaries
+		
+		std::map<cl_device_id, bool>			m_mapBinaryStatus;	// holds, for each binary its building status
+																	// True - the binary was built by the device
+																	// False - otherwise
+		Intel::OpenCL::Utils::OclMutex			m_UserNotifyCS;		// protect m_mapBinaryStatus
+		
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
 
 	};
