@@ -46,10 +46,15 @@ wchar_t* ClDevErr2Txt(cl_dev_err_code error_code)
 
 // Static members initialization
 cCudaDevice* cCudaDevice::m_pDevInstance = NULL;
-void RunCommand(cl_dev_cmd_desc* cmd);
+
+//global functions declaration
+const wstring str2wstr(string str);
+
+//global variables declaration
 cl_dev_log_descriptor log;
 cl_int LogClientID;
 
+//LOGER defines
 #define LOG_DEBUG(DBG_PRINT, ...)			\
 	if (log.pfnclLogAddLine) log.pfnclLogAddLine(LogClientID, LL_DEBUG, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT, __VA_ARGS__);
 #define LOG_INFO(DBG_PRINT, ...)			\
@@ -77,7 +82,7 @@ cCudaDevice::cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_
 		log.pfnclLogCreateClient = NULL;
 		log.pfnclLogReleaseClient = NULL;
 	}
-	// handle error
+	
 
 }
 
@@ -107,7 +112,7 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 	{
 		m_pDevInstance = new cCudaDevice(devId, devCallbacks, logDesc);
 
-		cCudaCommandList *CommandList = new cCudaCommandList;
+		cCudaCommandList *CommandList = new cCudaCommandList(m_pDevInstance->m_CommandLists.size(), m_pDevInstance);
 		if( NULL == CommandList )
 		{
 			delete m_pDevInstance;
@@ -115,8 +120,8 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 		}
 
 		m_pDevInstance->m_CommandLists.push_back(CommandList);
-		CommandList->m_ID = m_pDevInstance->m_CommandLists.size() - 1;
-		CommandList->m_device = m_pDevInstance;
+		//CommandList->m_ID = m_pDevInstance->m_CommandLists.size() - 1;
+		//CommandList->m_device = m_pDevInstance;
 
 		//CuRes = cuInit(0);
 		//if ( CuRes != CUDA_SUCCESS )
@@ -149,7 +154,7 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 		//CUresult cuRes = cuCtxPopCurrent( &(m_pDevInstance->m_context) );
 
 
-		CommandList->commands_execute.Start();
+		CommandList->StartThread();
 	}
 	
 	LOG_DEBUG(L"Device initiated");
@@ -176,8 +181,8 @@ cl_int cCudaDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_d
 	{
 		return CL_DEV_INVALID_PROPERTIES;
 	}
-
-	(*list) = (cl_dev_cmd_list)(&(m_pDevInstance->m_CommandLists[ m_pDevInstance->m_CommandLists.size() - 1 ]->m_ID));
+	
+	(*list) = ( m_pDevInstance->m_CommandLists[ m_pDevInstance->m_CommandLists.size() - 1 ] ) -> GetID();
 	return CL_DEV_SUCCESS;
 }
 
@@ -200,50 +205,46 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 	{
 		return CL_DEV_INVALID_COMMAND_LIST;
 	}
+
 	cCudaCommandList *tList = m_pDevInstance->m_CommandLists[*(unsigned int*)list];
+
 	for( unsigned int i = 0; i < count; i++ )
 	{
 		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, CL_SUBMITTED, 0);
 
-		cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
-		
-		command->param_size = cmds[i].param_size;
-		command->type = cmds[i].type;
-		command->id = cmds[i].id;
-		
-		cl_dev_cmd_param_kernel* KernelParams = new cl_dev_cmd_param_kernel;
-
-		KernelParams->kernel = ((cl_dev_cmd_param_kernel*)(cmds->params))->kernel;
-		KernelParams->work_dim = ((cl_dev_cmd_param_kernel*)(cmds->params))->work_dim;
-		KernelParams->glb_wrk_offs, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_offs;
-		KernelParams->glb_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_size;
-		KernelParams->lcl_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->lcl_wrk_size;
-		KernelParams->arg_count = ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_count;
-		KernelParams->arg_size = ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_size;
-		// Evgeny: Sagi you should delete this objects somewhere
-		KernelParams->arg_types = new cl_kernel_arg_type[KernelParams->arg_count];
-		KernelParams->arg_values = new char[KernelParams->arg_size];
-		memcpy(KernelParams->arg_types, ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_types, KernelParams->arg_count);
-		memcpy(KernelParams->arg_values, ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_values, KernelParams->arg_size);
-
-		command->params = KernelParams;
-
-
-		COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
-		Container->CommandType = CUDA_RUN_KERNEL;
-		Container->Command = command;
-
-
-		tList->m_QueueLock.Lock();
-		tList->m_commands.push(Container);
-		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
-		LOG_DEBUG(L"pushing command: kernel name: \"%s\" program number: %d", ((KERNEL_ID*)(command->id))->KernelName.c_str(), ((KERNEL_ID*)(command->id))->ProgramID);
-		tList->m_QueueLock.Unlock();
-		tList->m_CommandEnqueued.Signal();
-		LOG_DEBUG(L"sent signal");
-
+		if( CL_DEV_CMD_READ == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_READ\"");
+		}
+		else if( CL_DEV_CMD_WRITE == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_WRITE\"");
+		}
+		else if( CL_DEV_CMD_COPY == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_COPY\"");
+		}
+		else if( CL_DEV_CMD_MAP == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_MAP\"");
+		}
+		else if( CL_DEV_CMD_UNMAP == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_UNMAP\"");
+		}
+		else if( CL_DEV_CMD_EXEC_KERNEL == cmds[i].type )
+		{
+			tList->PushKernel(cmds + i);
+		}
+		else if( CL_DEV_CMD_EXEC_TASK == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_EXEC_TASK\"");
+		}
+		else if( CL_DEV_CMD_EXEC_NATIVE == cmds[i].type )
+		{
+			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_EXEC_NATIVE\"");
+		}
 	}
-	
 	return CL_DEV_SUCCESS;
 }
 
@@ -331,32 +332,7 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 
 cl_int cCudaDevice::clDevBuildProgram(cl_dev_program prog, const cl_char *options, void *user_data)
 {
-	CUresult CuRes = CUDA_SUCCESS;
-	cl_int ClRes = CL_DEV_SUCCESS;
-	KERNELS::iterator it;
-
-	CUDA_BUILD_PROGRAM_CONTAINER *BuildProgData = new CUDA_BUILD_PROGRAM_CONTAINER;
-	BuildProgData->prog = *(cl_uint*)prog;
-
-	if( NULL == options )
-	{
-		BuildProgData->options = NULL;
-	}
-	else
-	{
-		BuildProgData->options = new cl_char[strlen(options) + 1];
-		strcpy_s(BuildProgData->options, strlen(options) + 1, options);
-	}
-	BuildProgData->user_data = user_data;
-
-	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
-	Container->CommandType = CUDA_BUILD_PROGRAM;
-	Container->Command = BuildProgData;
-
-	m_pDevInstance->m_CommandLists[0]->m_QueueLock.Lock();
-	m_pDevInstance->m_CommandLists[0]->m_commands.push(Container);
-	m_pDevInstance->m_CommandLists[0]->m_QueueLock.Unlock();
-	m_pDevInstance->m_CommandLists[0]->m_CommandEnqueued.Signal();
+	m_pDevInstance->m_CommandLists[0]->PushBuildProgram(*(cl_uint*)prog, options, user_data);
 
 	return CL_DEV_SUCCESS;
 }
@@ -541,6 +517,9 @@ cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Pr
 	return CL_DEV_SUCCESS;
 }
 
+//
+//cCudaProgram
+//
 cCudaProgram::cCudaProgram()
 {
 	m_module = NULL;
@@ -559,6 +538,9 @@ cCudaProgram::~cCudaProgram()
 }
 
 
+//
+//cCudaKernel
+//
 cCudaKernel::cCudaKernel():m_NumberOfArguments(0), m_function(NULL)
 {
 }
@@ -566,11 +548,136 @@ cCudaKernel::~cCudaKernel()
 {
 }
 
-cCudaCommandList::cCudaCommandList()
+//
+//cCudaCommandList
+//
+cCudaCommandList::cCudaCommandList(cl_int ID, cCudaDevice *pDevice):m_commands_execute(pDevice, this)
 {
-	commands_execute.CommandList = this;
+	m_device = pDevice;
+	m_ID = ID;
 }
 cCudaCommandList::~cCudaCommandList()
+{
+}
+void cCudaCommandList::StartThread()
+{
+	m_commands_execute.Start();
+}
+cl_dev_cmd_list cCudaCommandList::GetID()
+{
+	return (cl_dev_cmd_list)(&m_ID);
+}
+cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
+{
+
+	cl_dev_cmd_param_kernel* tKernelParams = (cl_dev_cmd_param_kernel*)(cmds->params);
+	cl_dev_cmd_param_kernel* KernelParams = new cl_dev_cmd_param_kernel;
+
+	KernelParams->kernel = tKernelParams->kernel;
+	KernelParams->work_dim = tKernelParams->work_dim;
+	KernelParams->glb_wrk_offs = new size_t[KernelParams->work_dim];
+	memcpy(KernelParams->glb_wrk_offs, tKernelParams->glb_wrk_offs, KernelParams->work_dim * sizeof(size_t));
+	KernelParams->glb_wrk_size = new size_t[KernelParams->work_dim];	
+	memcpy(KernelParams->glb_wrk_size, tKernelParams->glb_wrk_size, KernelParams->work_dim * sizeof(size_t));
+	KernelParams->lcl_wrk_size = new size_t[KernelParams->work_dim];	
+	memcpy(KernelParams->lcl_wrk_size, tKernelParams->lcl_wrk_size, KernelParams->work_dim * sizeof(size_t));
+	KernelParams->arg_count = tKernelParams->arg_count;
+	KernelParams->arg_size = tKernelParams->arg_size;
+	KernelParams->arg_types = new cl_kernel_arg_type[KernelParams->arg_count];
+	KernelParams->arg_values = new char[KernelParams->arg_size];
+	memcpy(KernelParams->arg_types, tKernelParams->arg_types, KernelParams->arg_count);
+	memcpy(KernelParams->arg_values, tKernelParams->arg_values, KernelParams->arg_size);
+	// Evgeny: Sagi you should delete this objects somewhere
+
+
+	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
+		
+	command->param_size = cmds->param_size;
+	command->type = cmds->type;
+	command->id = cmds->id;
+	command->params = KernelParams;
+
+
+	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+	Container->CommandType = CUDA_RUN_KERNEL;
+	Container->Command = command;
+
+
+	m_QueueLock.Lock();
+	m_commands.push(Container);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
+	wstring KernelName = str2wstr( ( (KERNEL_ID*)KernelParams->kernel )->KernelName );
+	int KernelID = ( (KERNEL_ID*)KernelParams->kernel )->ProgramID;
+	LOG_DEBUG(L"pushing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), KernelID);
+	m_QueueLock.Unlock();
+	m_CommandEnqueued.Signal();
+	LOG_DEBUG(L"sent signal");
+
+	return CL_SUCCESS;
+}
+cl_int cCudaCommandList::PushBuildProgram(cl_uint prog, const cl_char *options, void *user_data)
+{
+	CUDA_BUILD_PROGRAM_CONTAINER *BuildProgData = new CUDA_BUILD_PROGRAM_CONTAINER;
+
+	BuildProgData->prog = prog;
+	BuildProgData->user_data = user_data;
+
+	if( NULL == options )
+	{
+		BuildProgData->options = NULL;
+	}
+	else
+	{
+		BuildProgData->options = new cl_char[strlen(options) + 1];
+		strcpy_s(BuildProgData->options, strlen(options) + 1, options);
+	}
+
+	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+	Container->CommandType = CUDA_BUILD_PROGRAM;
+	Container->Command = BuildProgData;
+
+	m_QueueLock.Lock();
+	m_commands.push(Container);
+	LOG_DEBUG(L"pushing command of type: build program, program number: %d", prog);
+	m_QueueLock.Unlock();
+	m_CommandEnqueued.Signal();
+	LOG_DEBUG(L"sent signal");
+	return CL_SUCCESS;
+}
+bool cCudaCommandList::IsEmpty()
+{
+	return m_commands.empty();
+}
+COMMAND_CONTAINER* cCudaCommandList::Pop()
+{
+	COMMAND_CONTAINER *Container;
+	m_QueueLock.Lock();
+	if ( true == m_commands.empty() )
+	{
+		LOG_DEBUG(L"queue is empty, waiting for signal");
+		m_CommandEnqueued.Wait( & m_QueueLock );
+		LOG_DEBUG(L"got signal");
+	}
+	else
+	{
+		LOG_DEBUG(L"queue is not empty");
+	}
+	Container = m_commands.front();
+	m_commands.pop();
+	m_QueueLock.Unlock();
+
+	return Container;
+}
+
+//
+//cCudaCommandExecuteThread
+//
+cCudaCommandExecuteThread::cCudaCommandExecuteThread(cCudaDevice *pDevice, cCudaCommandList *pCommandList)
+{
+	m_device = pDevice;
+	m_CommandList = pCommandList;
+}
+cCudaCommandExecuteThread::~cCudaCommandExecuteThread()
 {
 }
 int cCudaCommandExecuteThread::Run()
@@ -579,24 +686,11 @@ int cCudaCommandExecuteThread::Run()
 	COMMAND_CONTAINER *Container;
 	CUresult cuRes; 
 	cuRes = cuInit(0);
-	cuRes = cuDeviceGet( &(CommandList->m_cuDevice) , 0);
-	cuRes = cuCtxCreate( &(CommandList->m_cuContext), 0, CommandList->m_cuDevice);
+	cuRes = cuDeviceGet( & m_cuDevice , 0);
+	cuRes = cuCtxCreate( & m_cuContext, 0,m_cuDevice);
 	while(1)
 	{
-		CommandList->m_QueueLock.Lock();
-		if ( true == CommandList->m_commands.empty() )
-		{
-			LOG_DEBUG(L"queue is empty, waiting for signal");
-			CommandList->m_CommandEnqueued.Wait( &(CommandList->m_QueueLock) );
-			LOG_DEBUG(L"got signal");
-		}
-		else
-		{
-			LOG_DEBUG(L"queue is not empty");
-		}
-		Container = CommandList->m_commands.front();
-		CommandList->m_commands.pop();
-		CommandList->m_QueueLock.Unlock();
+		Container = m_CommandList->Pop();
 		
 		if( CUDA_BUILD_PROGRAM == Container->CommandType )
 		{
@@ -608,7 +702,6 @@ int cCudaCommandExecuteThread::Run()
 			RunCommand( *(cl_dev_cmd_desc*)(Container->Command) );
 		}
 
-		delete Container->Command;
 		delete Container;
 	}
 	return 1;
@@ -617,8 +710,11 @@ cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 {
 	cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)cmd.params;
 	KERNEL_ID *ID = (KERNEL_ID*)pKernelParam->kernel;
-	cCudaKernel* pKernel = CommandList->m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
-	cCudaProgram* pProgram = CommandList->m_device->m_Programs[ID->ProgramID];
+	wstring KernelName = str2wstr( ID->KernelName );
+	int KernelID = ID->ProgramID;
+	LOG_DEBUG(L"executing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), KernelID);
+	cCudaKernel* pKernel = m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
+	cCudaProgram* pProgram = m_device->m_Programs[ID->ProgramID];
 	cl_uint work_dim = pKernelParam->work_dim;
 	const size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
 	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
@@ -648,10 +744,10 @@ cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 	cuRes = cuFuncSetBlockShape(pKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
 	cuRes = cuEventRecord(start,0);
 	cuRes = cuLaunchGrid(pKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
-	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING, 0);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING, 0);
 	cuRes = cuEventRecord(finish,0);
 	cuRes = cuEventSynchronize(finish);
-	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
 	cuRes = cuEventElapsedTime(&time, start, finish );
 	cuRes = cuEventDestroy(start);
 	cuRes = cuEventDestroy(finish);
@@ -661,9 +757,10 @@ cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 
 cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData )
 {
+	LOG_DEBUG(L"executing command of type: build program, program number: %d", BuildData.prog);
 	KERNELS::iterator it;
 
-	cCudaProgram *tProg = CommandList->m_device->m_Programs[ BuildData.prog ];
+	cCudaProgram *tProg = m_device->m_Programs[ BuildData.prog ];
 
 	CUresult CuRes = cuModuleLoad( &( tProg->m_module ), tProg->m_ProgramName.c_str() );
 	if (CuRes != CUDA_SUCCESS)
@@ -671,7 +768,7 @@ cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER Bui
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	cl_int ClRes = CommandList->m_device->m_ParseCubin(tProg->m_ProgramName.c_str(), tProg);
+	cl_int ClRes = m_device->m_ParseCubin(tProg->m_ProgramName.c_str(), tProg);
 	if (ClRes != CL_DEV_SUCCESS)
 	{
 		cuModuleUnload(tProg->m_module);
@@ -683,7 +780,41 @@ cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER Bui
 		CuRes = cuModuleGetFunction( &(it->second->m_function), tProg->m_module, it->second->m_OriginalName.c_str());
 	}
 
-	CommandList->m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)BuildData.prog , BuildData.user_data, CL_BUILD_SUCCESS);
+	m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)BuildData.prog , BuildData.user_data, CL_BUILD_SUCCESS);
 
 	return CL_DEV_SUCCESS;
+}
+//
+//COMMAND_CONTAINER functions
+//
+_COMMAND_CONTAINER::~_COMMAND_CONTAINER()
+{
+	if( CUDA_BUILD_PROGRAM == CommandType )
+	{
+		CUDA_BUILD_PROGRAM_CONTAINER *BuildProgData = (CUDA_BUILD_PROGRAM_CONTAINER*)Command;
+		delete[] BuildProgData->options;
+		delete BuildProgData;
+	}
+	else if( CUDA_RUN_KERNEL == CommandType )
+	{
+		cl_dev_cmd_param_kernel* KernelParams = (cl_dev_cmd_param_kernel*)((cl_dev_cmd_desc*)Command)->params;
+		delete[] KernelParams->glb_wrk_offs;
+		delete[] KernelParams->glb_wrk_size;
+		delete[] KernelParams->lcl_wrk_size;
+		delete[] KernelParams->arg_types;
+		delete[] KernelParams->arg_values;
+		delete KernelParams;
+	}
+}
+//
+//Global functions
+//
+const wstring str2wstr(string str)
+{
+	size_t needed;
+	::mbstowcs_s(&needed, NULL, 0, &str[0], str.length());
+	std::wstring wstr;
+	wstr.resize(needed);
+	::mbstowcs_s(&needed, &wstr[0], wstr.length(), &str[0], str.length());
+	return wstr;
 }

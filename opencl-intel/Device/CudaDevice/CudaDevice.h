@@ -69,6 +69,7 @@ public:
 
 typedef map<string, cCudaKernel*> KERNELS;
 
+
 class cCudaProgram
 {
 public:
@@ -91,6 +92,7 @@ typedef enum CudaCommandType
 	CUDA_OTHER,								
 };
 
+
 typedef struct _CUDA_BUILD_PROGRAM_CONTAINER
 {
 	cl_uint prog;
@@ -101,44 +103,66 @@ typedef struct _CUDA_BUILD_PROGRAM_CONTAINER
 
 typedef struct _COMMAND_CONTAINER
 {
+	~_COMMAND_CONTAINER();
 	CudaCommandType CommandType;
 	void* Command;
 }COMMAND_CONTAINER;
 
 typedef queue< COMMAND_CONTAINER* > COMMANDS;
 
+
 class cCudaCommandList;
+class cCudaDevice;
 
 class cCudaCommandExecuteThread : public OclThread
 {
 public:
-	cCudaCommandList *CommandList;
+	cCudaCommandExecuteThread(cCudaDevice* pDevice, cCudaCommandList* pCommandList);
+	~cCudaCommandExecuteThread();
+
 protected:
+	//members
+
+	CUdevice m_cuDevice;
+	CUcontext m_cuContext;
+	cCudaDevice* m_device;
+	cCudaCommandList* m_CommandList;
+
+	//functions
 	int Run();
 	cl_int BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData );
 	cl_int RunCommand( cl_dev_cmd_desc cmd );
 };
 
-class cCudaDevice;
+
 
 class cCudaCommandList
 {
 public:
-	cCudaCommandList();
+	cCudaCommandList(cl_int ID, cCudaDevice* pDevice);
 	~cCudaCommandList();
+
+	void StartThread();
+	cl_dev_cmd_list GetID();
+	cl_int PushKernel(cl_dev_cmd_desc* cmds);
+	cl_int PushBuildProgram(cl_uint prog, const cl_char *options, void *user_data);
+	bool IsEmpty();
+	COMMAND_CONTAINER* Pop();
+
+private:
+	//members
 	cl_int m_ID;
+	cCudaDevice* m_device;
 	COMMANDS m_commands;
-	cCudaCommandExecuteThread commands_execute;
 	OclMutex m_QueueLock;
 	OclCondition m_CommandEnqueued;
-	cCudaDevice* m_device;
-	//void RunCommand(cl_dev_cmd_desc* cmd);
-	CUdevice m_cuDevice;
-	CUcontext m_cuContext;
+	cCudaCommandExecuteThread m_commands_execute;
 };
 
-typedef vector< cCudaCommandList* > COMMAND_LISTS;
 
+
+
+typedef vector< cCudaCommandList* > COMMAND_LISTS;
 class cCudaDevice
 {
 protected:
@@ -152,11 +176,10 @@ protected:
 
 	cl_int m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Prog );
 
-	PROGRAMS m_Programs;
-	//CUcontext m_context;
-	//CUdevice m_device;
 	cl_uint m_id;
 	cl_dev_call_backs m_CallBacks;
+
+	PROGRAMS m_Programs;
 	COMMAND_LISTS m_CommandLists;
 
 
