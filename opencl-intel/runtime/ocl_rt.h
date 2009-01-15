@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cl.h"
+
 #include <intrin.h>
 #include <xmmintrin.h>
 
@@ -25,8 +27,9 @@
 struct SWorkDim
 {
 	unsigned int	iWorkDim;						// Working Dimension
-	int				viGlobalSize[MAX_DIMENSION];	// Global size of kernel
-	int				viLocalSize[MAX_DIMENSION];		// Local size of WG
+	unsigned int	viOffset[MAX_DIMENSION];		// Global offset
+	unsigned int	viGlobalSize[MAX_DIMENSION];	// Global size of kernel
+	unsigned int	viLocalSize[MAX_DIMENSION];		// Local size of WG
 };
 
 // Defines Work-Group related information
@@ -50,6 +53,9 @@ struct SKernelInfo
 	const void*		pfnKernelFunc;			// Pointer to kernel function
 	size_t			szParamSize;			// Size of parameter buffer to be passed to the kernel
 	void*			pParams;				// Pointer to vector that holds kernel execution parameters
+	cl_uint			uiNumLocal;				// Number of local memory buffers
+	void*			*pLocalPtr;				// Location of local memory sizes to be substituded by
+											// local (Work-Group) pointers
 };
 
 // Defines paramters that should be passed to _KernelExecute function
@@ -58,6 +64,7 @@ struct	SWIExecutionParam
 	const SKernelInfo*	psWGExecParam;			// Pointer to a kernel execution information
 	const SWGinfo*		psWGInfo;				// Pointer to a WG information
 	const SWIinfo*		psWIInfo;				// Pointer to specific WI information
+	void*				*pWGFiber;				// Pointer to where Fiber handle will be stored
 };
 
 /*****************************************************************************************************************************

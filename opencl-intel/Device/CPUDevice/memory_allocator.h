@@ -28,9 +28,25 @@
 
 #pragma once
 
-#include"cl_device_api.h"
+#include "cl_device_api.h"
+#include "ocl_rt.h"
+#include "handle_allocator.h"
+
+#include<map>
+
+using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
+
+struct SMemObjectDescriptor
+{
+	cl_dev_mem_flags		memFlags;
+	cl_image_format			imgFormat;
+	cl_uint					uiDimCount;
+	size_t					pDim[MAX_DIMENSION];
+	void*					pObject;
+	cl_dev_mem				myHandle;
+};
 
 class MemoryAllocator
 {
@@ -40,27 +56,35 @@ public:
 	virtual ~MemoryAllocator();
 
 	// Create/Release functions
-	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format, size_t IN width,
-								size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj );
+	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+							cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj );
 	cl_int	ReleaseObject( cl_dev_mem IN memObj );
 
 	// Checks that given object is valid object and belongs to memory allocator
 	cl_int	ValidateObject( cl_dev_mem IN memObj );
 
 	// Lock/Unlock functions
-	cl_int	LockObject(cl_dev_mem IN memObj, const size_t IN origin[3],
-								void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch);
+	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
+							void** OUT ptr, size_t* OUT pitch);
 	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
 
 	// Mapped region functions
-	cl_int	CreateMappedRegion(cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-								void** OUT ptr, size_t* OUT rowPitch, size_t* OUT slicePitch );
+	cl_int	CreateMappedRegion(cl_dev_mem IN memObj, cl_uint IN dim_count,
+								const size_t* IN origin, const size_t* IN region,
+								void** OUT ptr, size_t* OUT pitch);
 	cl_int	ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr );
 
 protected:
 	cl_int					m_iDevId;
 	cl_dev_log_descriptor   m_logDescriptor;
 	cl_int					m_iLogHandle;
+
+	// Object Management
+	typedef	std::map<unsigned int, SMemObjectDescriptor*>	TMemObjectsMap;
+
+	TMemObjectsMap					m_mapObjects;
+	OclMutex						m_muObjectMap;
+	HandleAllocator<unsigned int>	m_objHandles;
 
 };
 

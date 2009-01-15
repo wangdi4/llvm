@@ -28,6 +28,7 @@
 #include "dispatcher_commands.h"
 #include "task_dispatcher.h"
 #include "cl_logger.h"
+#include "cpu_dev_limits.h"
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -47,6 +48,7 @@ m_pTaskDispatcher(pTD), m_iLogHandle(iLogHandle)
 
 	m_pMemAlloc = pTD->m_pMemoryAllocator;
 	m_pTaskExec = pTD->m_pTaskExecutor;
+	m_pProgService = pTD->m_pProgramService;
 }
 
 void DispatcherCommand::NotifyDispatcher()
@@ -56,12 +58,12 @@ void DispatcherCommand::NotifyDispatcher()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
-ReadWriteBuffer::ReadWriteBuffer(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
+ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
 	DispatcherCommand(pTD, pLogDesc, iLogHandle)
 {
 }
 
-cl_int ReadWriteBuffer::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_int ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if ( (CL_DEV_CMD_READ != cmd->type) && (CL_DEV_CMD_WRITE != cmd->type) )
 	{
@@ -81,10 +83,11 @@ cl_int ReadWriteBuffer::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return ret;
 	}
 
+	// Check Region
 	return CL_DEV_SUCCESS;
 }
 
-cl_int ReadWriteBuffer::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
+cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
 {
 	cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw*)(cmd->params);
 	
@@ -96,33 +99,30 @@ cl_int ReadWriteBuffer::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLi
 	}
 
 	void*	pObjPtr;
-	size_t	stRowPitch, stSlicePitch;
+	size_t	pPitch[MAX_DIMENSION];
 
 	// Lock memory object
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->origin, &pObjPtr, &stRowPitch, &stSlicePitch);
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, pPitch);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
 	}
 
 	// Set Source/Destination
-	memcpy(pCpyParam->pRegion, cmdParams->region, sizeof(pCpyParam->pRegion));
+	pCpyParam->pRegion = cmdParams->region;
+	pCpyParam->uiDimCount = cmdParams->dim_count;
 	if ( CL_DEV_CMD_READ == cmd->type )
 	{
-		pCpyParam->pSrc = pObjPtr;
-		pCpyParam->stSrcRowPitch = stRowPitch;
-		pCpyParam->stSrcSlicePitch = stSlicePitch;
-		pCpyParam->pDst = cmdParams->ptr;
-		pCpyParam->stDstRowPitch = cmdParams->row_pitch;
-		pCpyParam->stDstSlicePitch = cmdParams->slice_pitch;
+		pCpyParam->pSrc = (cl_char*)pObjPtr;
+		pCpyParam->pSrcPitch = pPitch;
+		pCpyParam->pDst = (cl_char*)cmdParams->ptr;
+		pCpyParam->pDstPitch = cmdParams->pitch;
 	} else
 	{
-		pCpyParam->pSrc = cmdParams->ptr;
-		pCpyParam->stSrcRowPitch = cmdParams->row_pitch;
-		pCpyParam->stSrcSlicePitch = cmdParams->slice_pitch;
-		pCpyParam->pDst = pObjPtr;
-		pCpyParam->stDstRowPitch = stRowPitch;
-		pCpyParam->stDstSlicePitch = stSlicePitch;
+		pCpyParam->pSrc = (cl_char*)cmdParams->ptr;
+		pCpyParam->pSrcPitch = cmdParams->pitch;
+		pCpyParam->pDst = (cl_char*)pObjPtr;
+		pCpyParam->pDstPitch = pPitch;
 	}
 
 	m_pCmd = cmd;
@@ -140,9 +140,9 @@ cl_int ReadWriteBuffer::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLi
 	return CL_DEV_SUCCESS;
 }
 
-void ReadWriteBuffer::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
+void ReadWriteMemObject::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
 {
-	ReadWriteBuffer*		pThis = (ReadWriteBuffer*)pData;
+	ReadWriteMemObject*		pThis = (ReadWriteMemObject*)pData;
 	cl_dev_cmd_desc*		pCmd = pThis->m_pCmd;
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)pCmd->params;
 	SMemCpyParams*			pCpyParam = (SMemCpyParams*)pParams;
@@ -167,27 +167,318 @@ void ReadWriteBuffer::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, 
 	pThis->NotifyDispatcher();
 }
 
-void ReadWriteBuffer::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
+void ReadWriteMemObject::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 {
-	unsigned char *pSrcPlane = (unsigned char *)pCopyCmd->pSrc;
-	unsigned char *pDstPlane = (unsigned char *)pCopyCmd->pDst;
-
-	for(unsigned int iDepth=0; iDepth<pCopyCmd->pRegion[2]; ++iDepth)
+	// Copy 1D array only
+	if ( 1 == pCopyCmd->uiDimCount )
 	{
-		unsigned char *pSrcLine = pSrcPlane;
-		unsigned char *pDstLine = pDstPlane;
+		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->pRegion[0]);
+		return;
+	}
 
-		for(unsigned int iHeight=0; iHeight<pCopyCmd->pRegion[1]; ++iHeight)
+	SMemCpyParams sRecParam;
+
+	// Copy current parameters
+	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
+	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
+	// Make recoursion
+	for(unsigned int i=0; i<pCopyCmd->pRegion[sRecParam.uiDimCount]; ++i)
+	{
+		CopyMemoryBuffer(&sRecParam);
+
+		sRecParam.pSrc += pCopyCmd->pSrcPitch[sRecParam.uiDimCount];
+		sRecParam.pDst += pCopyCmd->pDstPitch[sRecParam.uiDimCount];
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////
+// OCL Kernel execution
+KernelCommand::KernelCommand(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
+	DispatcherCommand(pTD, pLogDesc, iLogHandle)
+{
+}
+
+cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	if ( (CL_DEV_CMD_EXEC_KERNEL != cmd->type) && (CL_DEV_CMD_EXEC_TASK != cmd->type) )
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
+	if ( sizeof(cl_dev_cmd_param_kernel) != cmd->param_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)(cmd->params);
+
+
+	const ICLDevKernel*	pKernel;
+
+	// Check if requested kernel exists
+	cl_int clRet = m_pProgService->GetKernelObject(cmdParams->kernel, &pKernel);
+	if ( CL_DEV_FAILED(clRet) )
+	{
+		return CL_DEV_INVALID_KERNEL;
+	}
+
+	size_t	stLocMemSize = 0;
+
+	// Check kernel paramters
+	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	const cl_kernel_arg_type*	pArgTypes = pKernel->GetKernelArgs();
+
+	if ( cmdParams->arg_count != uiNumArgs )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_char*	pCurrParamPtr = (cl_char*)cmdParams->arg_values;
+	size_t		stOffset = 0;
+	// Check kernel parameters and memory buffers
+	for(unsigned int i=0; i<uiNumArgs; ++i)
+	{
+		// Check same parameter type
+		if ( cmdParams->arg_types[i] != pArgTypes[i] )
 		{
-			// TODO: use intrinsics
-			memcpy(pDstLine, pSrcLine, pCopyCmd->pRegion[0]);
-			pSrcLine += pCopyCmd->stSrcRowPitch;
-			pDstLine += pCopyCmd->stDstRowPitch;
+			return CL_DEV_INVALID_COMMAND_PARAM;
+		}
+		// Argument is buffer object or local memory size
+		if ( CL_KRNL_ARG_PTR == pArgTypes[i] )
+		{
+			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
+			if ( -1 != memObj->allocId )	// Required local memory size
+			{
+				// Is valid memory object
+				clRet = m_pMemAlloc->ValidateObject(memObj);
+				if ( CL_DEV_FAILED(clRet) )
+				{
+					return clRet;
+				}
+			} else
+			{
+				size_t locSize = (size_t)memObj->objHandle; 
+				// strict local buffer size to cache line
+				locSize += (CPU_DCU_LINE_SIZE-1);
+				locSize &= ~(CPU_DCU_LINE_SIZE);
+
+				stLocMemSize += locSize;
+			}
+			stOffset += sizeof(void*);
+		}
+		else
+		{
+			stOffset += cmdParams->arg_types[i];
+		}
+	}
+	// Check paramters array size 
+	if ( stOffset != cmdParams->arg_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	// Check if local memory size is enought for kernel
+	if ( CPU_DEV_LCL_MEM_SIZE < stLocMemSize )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	// Check Work-Group / Work-Item information
+	if ( CL_DEV_CMD_EXEC_KERNEL == cmd->type )
+	{
+		// Check WG dimensions
+		size_t	stWGSize = 1;
+
+		if ( MAX_DIMENSION < cmdParams->work_dim )
+		{
+			return CL_DEV_INVALID_WRK_DIM;
 		}
 
-		pSrcPlane += pCopyCmd->stSrcSlicePitch;
-		pDstPlane += pCopyCmd->stSrcSlicePitch;
+		for(unsigned int i=0; i<cmdParams->work_dim; ++i)
+		{
+			if ( CPU_DEV_MAX_WI_SIZE < cmdParams->lcl_wrk_size[i] )
+			{
+				return CL_DEV_INVALID_WRK_ITEM_SIZE;
+			}
+
+			stWGSize *= cmdParams->lcl_wrk_size[i];
+		}
+
+		if ( CPU_DEV_MAX_WG_SIZE < stWGSize )
+		{
+			return CL_DEV_INVALID_WG_SIZE;
+		}
+	} else
+	{
+		// For Task one dimension is required
+		if ( 1 != cmdParams->work_dim )
+		{
+			return CL_DEV_INVALID_WRK_DIM;
+		}
+		// Work Group size should be 1
+		if ( 1 != cmdParams->lcl_wrk_size[0] )
+		{
+				return CL_DEV_INVALID_WRK_ITEM_SIZE;
+		}
+		// Work-Group size should be 1
+		if ( 1 != cmdParams->glb_wrk_size[0] )
+		{
+			return CL_DEV_INVALID_WRK_DIM;
+		}
 	}
+
+
+	return CL_DEV_SUCCESS;
+}
+
+cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
+{
+	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)(cmd->params);
+
+	const ICLDevKernel* pKernel;
+
+	// Check if requested kernel exists
+	cl_int clRet = m_pProgService->GetKernelObject(cmdParams->kernel, &pKernel);
+	if ( CL_DEV_FAILED(clRet) )
+	{
+		return CL_DEV_INVALID_KERNEL;
+	}
+
+	// Check kernel paramters
+	cl_uint						uiNumArgs = cmdParams->arg_count;
+	const cl_kernel_arg_type*	pArgTypes = cmdParams->arg_types;
+	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
+	size_t						stOffset = 0;
+	cl_char*					pNewParamPtr = (cl_char*)malloc(cmdParams->arg_size);
+
+	if ( NULL == pNewParamPtr )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	void*						*pLocalPtr = (void**)malloc(sizeof(void*)*cmdParams->arg_count);
+	cl_uint						uiLocalCount = 0;
+	if ( NULL == pLocalPtr )
+	{
+		free(pNewParamPtr);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	memcpy(pNewParamPtr, pCurrParamPtr, cmdParams->arg_size);
+
+	// Lock memory buffers and local memory
+	for(unsigned int i=0; i<uiNumArgs; ++i)
+	{
+		// Argument is buffer object or local memory size
+		if ( CL_KRNL_ARG_PTR == pArgTypes[i] )
+		{
+			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
+			if ( -1 != memObj->allocId )	// Required local memory size
+			{
+				// Lock memory object / Get pointer
+				clRet = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(pNewParamPtr+stOffset), NULL);
+				if ( CL_DEV_FAILED(clRet) )
+				{
+					free(pLocalPtr);
+					free(pNewParamPtr);
+					return clRet;
+				}
+			} else
+			{
+				size_t locSize = (size_t)memObj->objHandle; 
+				// strict local buffer size to cache line
+				locSize += (CPU_DCU_LINE_SIZE-1);
+				locSize &= ~(CPU_DCU_LINE_SIZE);
+				pLocalPtr[uiLocalCount] = (void*)locSize;
+				++uiLocalCount;
+			}
+			stOffset += sizeof(void*);
+		}
+		else
+		{
+			stOffset += cmdParams->arg_types[i];
+		}
+	}
+
+	m_pCmd = cmd;
+	// Allocate new Task instance
+	STaskDescriptor*	pTask = new STaskDescriptor;
+	if ( NULL == pTask )
+	{
+		free(pNewParamPtr);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	// Set kernel information
+	pTask->sKernelParam.pfnKernelFunc = pKernel->GetHandle();
+	pTask->sKernelParam.pParams = pNewParamPtr;
+	pTask->sKernelParam.szParamSize = cmdParams->arg_size;
+	pTask->sKernelParam.uiNumLocal = uiLocalCount;
+	pTask->sKernelParam.pLocalPtr = pLocalPtr;
+
+	// Set WG information
+	pTask->sWorkingDim.iWorkDim = cmdParams->work_dim;
+	memcpy(pTask->sWorkingDim.viOffset, cmdParams->glb_wrk_size, sizeof(int)*cmdParams->work_dim);
+	memcpy(pTask->sWorkingDim.viGlobalSize, cmdParams->glb_wrk_size, sizeof(int)*cmdParams->work_dim);
+	memcpy(pTask->sWorkingDim.viLocalSize, cmdParams->lcl_wrk_size, sizeof(int)*cmdParams->work_dim);
+
+	ETERetCode ret;
+	ret = m_pTaskExec->ExecuteTask(pTask, NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	if ( TE_SUCCESS != ret )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", ret);
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* psTaskDescriptor, void* pData)
+{
+	KernelCommand*		pThis = (KernelCommand*)pData;
+	cl_dev_cmd_desc*	pCmd = pThis->m_pCmd;
+	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCmd->params;
+
+	// Check kernel paramters
+	cl_uint						uiNumArgs = cmdParams->arg_count;
+	const cl_kernel_arg_type*	pArgTypes = cmdParams->arg_types;
+	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
+	size_t						stOffset = 0;
+	cl_char*					pParamPtr = (cl_char*)psTaskDescriptor->sKernelParam.pParams;
+
+	// Unlock memory buffers
+	for(unsigned int i=0; i<uiNumArgs; ++i)
+	{
+		// Argument is buffer object or local memory size
+		if ( CL_KRNL_ARG_PTR == pArgTypes[i] )
+		{
+			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
+
+			if ( -1 != memObj->allocId )	// Required local memory size
+			{
+				// UnLock memory object / Get pointer
+				cl_int clRet = pThis->m_pMemAlloc->UnLockObject(memObj,(void*)(pParamPtr+stOffset));
+				if ( CL_DEV_FAILED(clRet) )
+				{
+					ErrLog(pThis->m_logDescriptor, pThis->m_iLogHandle, L"Can't unlock memory object");
+				}
+			}
+			stOffset += sizeof(void*);
+		}
+		else
+		{
+			stOffset += cmdParams->arg_types[i];
+		}
+	}
+
+	// Free memory allocated to execution parameters
+	free(psTaskDescriptor->sKernelParam.pParams);
+	free(psTaskDescriptor->sKernelParam.pLocalPtr);
+
+	delete psTaskDescriptor;
+
+	pThis->NotifyDispatcher();
+
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -254,7 +545,7 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmd->params;
 		void*	*pMemPtr = (void**)((cl_char*)pArgV+Offset);
 
-		cl_int ret = m_pMemAlloc->LockObject(memObj, NULL, pMemPtr, NULL, NULL);
+		cl_int ret = m_pMemAlloc->LockObject(memObj, -1, NULL, pMemPtr, NULL);
 		if ( CL_DEV_FAILED(ret) )
 		{
 			return ret;

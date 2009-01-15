@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL {
 		// Returns a pointer to kernek name
 		virtual const char*					GetKernelName() const = 0;
 		// Returns a number of kernel arguments
-		virtual cl_int						GetNumArgs() const = 0;
+		virtual cl_uint						GetNumArgs() const = 0;
 		// Returns an array of kernel arguments
 		virtual const cl_kernel_arg_type*	GetKernelArgs() const = 0;
 	};

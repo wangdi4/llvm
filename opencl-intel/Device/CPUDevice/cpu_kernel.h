@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		// Returns a pointer to kernek name
 		const char*					GetKernelName() const {return m_szName;}
 		// Returns a number of kernel arguments
-		cl_int						GetNumArgs() const {return m_uiArgCount;}
+		cl_uint						GetNumArgs() const {return m_uiArgCount;}
 		// Returns an array of kernel arguments
 		const cl_kernel_arg_type*	GetKernelArgs() const {return m_pArguments;}
 

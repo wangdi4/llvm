@@ -68,8 +68,9 @@ TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, Pr
 
 	// Init Command dispatcher array
 	memset(m_vCommands, 0, sizeof(m_vCommands));
-	m_vCommands[CL_DEV_CMD_READ] = new ReadWriteBuffer(this, &m_logDescriptor, m_iLogHandle);
-	m_vCommands[CL_DEV_CMD_WRITE] = new ReadWriteBuffer(this, &m_logDescriptor, m_iLogHandle);
+	m_vCommands[CL_DEV_CMD_READ] = new ReadWriteMemObject(this, &m_logDescriptor, m_iLogHandle);
+	m_vCommands[CL_DEV_CMD_WRITE] = new ReadWriteMemObject(this, &m_logDescriptor, m_iLogHandle);
+	m_vCommands[CL_DEV_CMD_EXEC_KERNEL] = new KernelCommand(this, &m_logDescriptor, m_iLogHandle);
 	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = new NativeFunction(this, &m_logDescriptor, m_iLogHandle);
 }
 
@@ -278,17 +279,19 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 		return CL_DEV_INVALID_COMMAND_LIST;
 	}
 
-	// Test command parameters before execution
+	// Test command parameters before execution, only in Debug version
+	// All invalid cases should be covered by framework
+#ifdef _DEBUG
 	for (unsigned int i=0; i<count; ++i)
 	{
 		if ( NULL == cmds[i].params )
 		{
-			// TODO: ADD Log
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid Command parameter (NULL)");
 			return CL_DEV_INVALID_COMMAND_PARAM;
 		}
 		if ( CL_DEV_CMD_MAX_COMMAND_TYPE <= cmds[i].type )
 		{
-			// TODO: ADD Log
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid Command Type <%d>", cmds[i].type);
 			return CL_DEV_INVALID_COMMAND_TYPE;
 		}
 		// Check if requested operation supported by the device
@@ -304,10 +307,11 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 		cl_int	rc = pCommand->CheckCommandParams(&cmds[i]);
 		if ( CL_DEV_FAILED(rc) )
 		{
-			// TODO: Add log
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Check Command param failed at %d, <%d>", i, rc);
 			return rc;
 		}
 	}
+#endif
 
 	// TODO: Add commands into list
 	// TODO: Call Release list that was just created
@@ -333,5 +337,5 @@ void TaskDispatcher::NotifyCommandCompletion(cl_dev_cmd_id cmdId)
 	//m_pTaskExec->FreeTaskHandle(hTask);
 
 	//notify framework on status change
-	m_frameWorkCallBacks.pclDevCmdStatusChanged(cmdId, CL_COMPLETE);
+	m_frameWorkCallBacks.pclDevCmdStatusChanged(cmdId, CL_COMPLETE, CL_DEV_SUCCESS);
 }

@@ -28,6 +28,7 @@
 #include "cl_device_api.h"
 #include "memory_allocator.h"
 #include "task_executor.h"
+#include "program_service.h"
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -45,6 +46,7 @@ public:
 protected:
 	TaskDispatcher*				m_pTaskDispatcher;
 	MemoryAllocator*			m_pMemAlloc;
+	ProgramService*				m_pProgService;
 	TaskExecutor*				m_pTaskExec;
 	cl_dev_log_descriptor		m_logDescriptor;
 	cl_int						m_iLogHandle;
@@ -54,26 +56,37 @@ protected:
 };
 
 // OCL Read/Write buffer execution
-class ReadWriteBuffer : public DispatcherCommand
+class ReadWriteMemObject : public DispatcherCommand
 {
 public:
-	ReadWriteBuffer(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
+	ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
 	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
 protected:
 	struct SMemCpyParams
 	{
-		void*	pSrc;
-		size_t	stSrcRowPitch;
-		size_t	stSrcSlicePitch;
-		void*	pDst;
-		size_t	stDstRowPitch;
-		size_t	stDstSlicePitch;
-		size_t	pRegion[3];
+		cl_uint			uiDimCount;
+		cl_char*		pSrc;
+		const size_t*	pSrcPitch;
+		cl_char*		pDst;
+		const size_t*	pDstPitch;
+		const size_t*	pRegion;
 	};
 
 	static	void	CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
+};
+
+// OCL Kernel execution
+class KernelCommand : public DispatcherCommand
+{
+public:
+	KernelCommand(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
+	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
+
+protected:
+	static	void	NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* psTaskDescriptor, void* pData);
 };
 
 // OCL Native function execution

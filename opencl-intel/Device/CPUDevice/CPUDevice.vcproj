@@ -67,7 +67,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="xn_host32d.lib"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
+				IgnoreDefaultLibraryNames="xntaskxp.lib"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
@@ -145,7 +148,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="xn_host32r.lib"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -223,7 +228,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="XNTaskXP.lib"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="$(OutDir)"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
@@ -383,6 +390,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cpu_dev_limits.h"
+				>
+			</File>
+			<File
 				RelativePath=".\cpu_device.h"
 				>
 			</File>
@@ -404,6 +415,10 @@
 			</File>
 			<File
 				RelativePath=".\memory_allocator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\ocl_rt.h"
 				>
 			</File>
 			<File

@@ -20,7 +20,7 @@
 
 /*
 *
-* File CPUDevice.h
+* File cpu_device.h
 * declares C++ interface between the device and the Open CL frame work.
 *
 */
@@ -66,10 +66,10 @@ public:
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 							cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj);
+									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj);
 	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
-	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-									 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slicePitch);
+	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
+									 void** OUT ptr, size_t* OUT pitch);
 	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
 	static cl_int clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
 	static cl_int clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );

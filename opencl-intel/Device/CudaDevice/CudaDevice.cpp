@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include "CudaDevice.h"
 #include "cl_logger.h"
+
+#include <assert.h>
 #include <fstream>
 
 
@@ -201,7 +203,7 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 	cCudaCommandList *tList = m_pDevInstance->m_CommandLists[*(unsigned int*)list];
 	for( unsigned int i = 0; i < count; i++ )
 	{
-		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, CL_SUBMITTED);
+		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, CL_SUBMITTED, 0);
 
 		cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
 		
@@ -213,18 +215,16 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 
 		KernelParams->kernel = ((cl_dev_cmd_param_kernel*)(cmds->params))->kernel;
 		KernelParams->work_dim = ((cl_dev_cmd_param_kernel*)(cmds->params))->work_dim;
-		memcpy(KernelParams->glb_wrk_offs, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_offs, 3 * sizeof(size_t));
-		memcpy(KernelParams->glb_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_size, 3 * sizeof(size_t));
-		memcpy(KernelParams->lcl_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->lcl_wrk_size, 3 * sizeof(size_t));
+		KernelParams->glb_wrk_offs, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_offs;
+		KernelParams->glb_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->glb_wrk_size;
+		KernelParams->lcl_wrk_size, ((cl_dev_cmd_param_kernel*)(cmds->params))->lcl_wrk_size;
 		KernelParams->arg_count = ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_count;
+		KernelParams->arg_size = ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_size;
+		// Evgeny: Sagi you should delete this objects somewhere
 		KernelParams->arg_types = new cl_kernel_arg_type[KernelParams->arg_count];
-		KernelParams->arg_values = new void*[KernelParams->arg_count];
-		for (unsigned int i = 0; i < KernelParams->arg_count; i++)
-		{
-			KernelParams->arg_types[i] = ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_types[i];
-			KernelParams->arg_values[i] = new char[KernelParams->arg_types[i]];
-			memcpy(KernelParams->arg_values[i], ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_values[i], KernelParams->arg_types[i]);
-		}
+		KernelParams->arg_values = new char[KernelParams->arg_size];
+		memcpy(KernelParams->arg_types, ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_types, KernelParams->arg_count);
+		memcpy(KernelParams->arg_values, ((cl_dev_cmd_param_kernel*)(cmds->params))->arg_values, KernelParams->arg_size);
 
 		command->params = KernelParams;
 
@@ -236,7 +236,7 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 
 		tList->m_QueueLock.Lock();
 		tList->m_commands.push(Container);
-		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED);
+		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
 		LOG_DEBUG(L"pushing command: kernel name: \"%s\" program number: %d", ((KERNEL_ID*)(command->id))->KernelName.c_str(), ((KERNEL_ID*)(command->id))->ProgramID);
 		tList->m_QueueLock.Unlock();
 		tList->m_CommandEnqueued.Signal();
@@ -255,7 +255,7 @@ cl_int cCudaDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl
 }
 
 cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-						size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj)
+						cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -267,8 +267,8 @@ cl_int cCudaDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
+						 void** OUT ptr, size_t* OUT pitch)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -620,13 +620,13 @@ cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 	cCudaKernel* pKernel = CommandList->m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
 	cCudaProgram* pProgram = CommandList->m_device->m_Programs[ID->ProgramID];
 	cl_uint work_dim = pKernelParam->work_dim;
-	size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
-	size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
-	size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
+	const size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
+	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
+	const size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
 	cl_uint arg_count = pKernelParam->arg_count;
 	cl_kernel_arg_type*	arg_types = pKernelParam->arg_types;
-	void** arg_values = pKernelParam->arg_values;
-	int	offset = 0;
+	void* arg_values = pKernelParam->arg_values;
+	size_t	offset = 0;
 	CUresult cuRes = CUDA_SUCCESS;
 	CUevent start;
 	cuRes = cuEventCreate(&start,0);
@@ -634,19 +634,24 @@ cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
 	cuRes = cuEventCreate(&finish,0);
 	float time = 0;
 
+	// Evgeny: Sagi what happens when arg_type == PTR, its size is 0
+	// You also need to convert from cl_dev_mem to CUDA buffer ptr
+	// Do it here or in clDevCommandListExecute(), i prefere there
 	for (cl_uint i = 0; i < arg_count; i++)
 	{
-		cuRes = cuParamSetv(pKernel->m_function, offset, arg_values[i], arg_types[i]);
+		assert(arg_types[i]);		// Remove it when you fix memory buffers
+		cuRes = cuParamSetv(pKernel->m_function, offset, (char*)arg_values + offset, arg_types[i]);
 		offset += arg_types[i];
+
 	}
 	cuRes = cuParamSetSize(pKernel->m_function, offset);
 	cuRes = cuFuncSetBlockShape(pKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
 	cuRes = cuEventRecord(start,0);
 	cuRes = cuLaunchGrid(pKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
-	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING );
+	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING, 0);
 	cuRes = cuEventRecord(finish,0);
 	cuRes = cuEventSynchronize(finish);
-	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE );
+	CommandList->m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
 	cuRes = cuEventElapsedTime(&time, start, finish );
 	cuRes = cuEventDestroy(start);
 	cuRes = cuEventDestroy(finish);

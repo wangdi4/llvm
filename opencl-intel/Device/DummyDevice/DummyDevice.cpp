@@ -93,7 +93,7 @@ cl_int DummyDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl
 }
 
 cl_int DummyDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-						size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj)
+									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
@@ -105,8 +105,8 @@ cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
+									 void** OUT ptr, size_t* OUT pitch)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

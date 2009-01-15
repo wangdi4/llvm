@@ -83,6 +83,7 @@ public:
 	cl_int GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 					void* OUT value, size_t* OUT valueSizeRet );
 
+	cl_int	GetKernelObject( cl_dev_kernel IN kernel, const ICLDevKernel* OUT *pKernel);
 
 protected:
 	typedef std::map<cl_dev_kernel, const ICLDevKernel*>	TKernelMap;

@@ -37,6 +37,7 @@
 #include <assert.h>
 
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL;
 
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] = 
@@ -578,8 +579,6 @@ cl_int ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name,
 	return CL_DEV_SUCCESS;
 }
 
-
-
 cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 cl_uint* OUT numKernelsRet )
 {
@@ -705,12 +704,16 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 
 	// Find appropriate kernel
 	TKernelMap::const_iterator	it;
+	m_muKernelMap.Lock();
 	it = m_mapKernels.find(kernel);
 	if ( m_mapKernels.end() == it )
 	{
+		m_muKernelMap.Unlock();
 		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested kernel not found (%0X)", (unsigned int)kernel);
 		return CL_DEV_INVALID_KERNEL;
 	}
+	const ICLDevKernel* pKernel = it->second;
+	m_muKernelMap.Unlock();
 
 	// Set value parameters
 	size_t	stValSize;
@@ -719,12 +722,12 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 	switch (param)
 	{
 	case CL_DEV_KERNEL_NAME:
-		pValue = it->second->GetKernelName();
+		pValue = pKernel->GetKernelName();
 		stValSize = strlen((const char*)pValue)+1;
 		break;
 
 	case CL_DEV_KERNEL_PROTOTYPE:
-		pValue = it->second->GetKernelArgs();
+		pValue = pKernel->GetKernelArgs();
 		stValSize = it->second->GetNumArgs()*sizeof(cl_kernel_arg_type);
 		break;
 
@@ -760,6 +763,31 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 
 	return CL_DEV_SUCCESS;
 }
+
+cl_int ProgramService::GetKernelObject( cl_dev_kernel IN kernel, const ICLDevKernel* OUT *pKernel )
+{
+	InfoLog(m_logDescriptor, m_iLogHandle, L"GetKernelInfo enter");
+
+	// Find appropriate kernel
+	TKernelMap::const_iterator	it;
+	m_muKernelMap.Lock();
+	it = m_mapKernels.find(kernel);
+	if ( m_mapKernels.end() == it )
+	{
+		m_muKernelMap.Unlock();
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Requested kernel not found (%0X)", (unsigned int)kernel);
+		return CL_DEV_INVALID_KERNEL;
+	}
+	if ( NULL != pKernel )
+	{
+		*pKernel = it->second;
+	}
+
+	m_muKernelMap.Unlock();
+
+	return CL_DEV_SUCCESS;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 //	Private methods

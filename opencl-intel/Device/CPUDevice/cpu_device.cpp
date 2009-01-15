@@ -266,26 +266,29 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_GLOBAL_MEM_SIZE):
 		case( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
 		case( CL_DEVICE_MAX_CONSTANT_ARGS ):
+			// FALL THROUGH
+			return CL_DEV_INVALID_VALUE;
+
 		case( CL_DEVICE_LOCAL_MEM_TYPE):
-		case( CL_DEVICE_LOCAL_MEM_SIZE):
+		case( CL_DEVICE_LOCAL_MEM_SIZE):				// Consider local memory size is 24Kbyte LCL_MEM_SIZE constant
 		case( CL_DEVICE_ERROR_CORRECTION_SUPPORT):
 		case( CL_DEVICE_PROFILING_TIMER_RESOLUTION):
 		case( CL_DEVICE_ENDIAN_LITTLE):
 			// FALL THROUGH
-			return CL_INVALID_VALUE;
+			return CL_DEV_INVALID_VALUE;
 		case( CL_DEVICE_AVAILABLE):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_bool);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
 					*(cl_bool*)paramVal = CL_TRUE;
 				}
-				return CL_SUCCESS;
+				return CL_DEV_SUCCESS;
 			}
 			
 
@@ -302,7 +305,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 					cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_FN_AS_KERNEL;
 					*(cl_device_exec_capabilities*)paramVal = execCapabilities;
 				}
-				return CL_SUCCESS;
+				return CL_DEV_SUCCESS;
 								
 			}
 		case( CL_DEVICE_QUEUE_PROPERTIES ):
@@ -318,7 +321,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 					cl_command_queue_properties queueProperties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
 					*(cl_device_exec_capabilities*)paramVal = queueProperties;
 				}
-				return CL_SUCCESS;
+				return CL_DEV_SUCCESS;
 			}
 		case( CL_DEVICE_COMPILER_AVAILABLE):
 			{
@@ -332,7 +335,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				{
 					*(cl_bool*)paramVal = CL_FALSE;//Currently we dont have compiler yet
 				}
-				return CL_SUCCESS; 
+				return CL_DEV_SUCCESS; 
 			}
 		case( CL_DEVICE_NAME):
 			{
@@ -347,7 +350,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			  		strcpy_s((char*)paramVal, valSize, "CPU");
 				}
 
-				return CL_SUCCESS; 
+				return CL_DEV_SUCCESS; 
 			}
 		case( CL_DEVICE_VENDOR):
 			{
@@ -361,7 +364,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				{
 					strcpy_s((char*)paramVal, valSize, CPU_STRING);
 				}
-				return CL_SUCCESS; 
+				return CL_DEV_SUCCESS; 
 			}
 
 		case( CL_DEVICE_PROFILE):
@@ -376,7 +379,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				{
 					strcpy_s((char*)paramVal, valSize, "FULL_PROFILE");
 				}
-				return CL_SUCCESS; 
+				return CL_DEV_SUCCESS; 
 			}
 		case( CL_DRIVER_VERSION ):
 		case( CL_DEVICE_VERSION):
@@ -391,14 +394,14 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				{
 					strcpy_s((char*)paramVal, valSize, "1.0");
 				}
-				return CL_SUCCESS; 
+				return CL_DEV_SUCCESS; 
 			}
         
 		case( CL_DEVICE_EXTENSIONS):
 		default:
-			return CL_INVALID_VALUE;
+			return CL_DEV_INVALID_VALUE;
 	};
-	return CL_INVALID_VALUE;
+	return CL_DEV_SUCCESS;
 
 }
 // Execution commands
@@ -458,10 +461,10 @@ cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_d
 	Call Memory Allocator to create memory object
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-						size_t IN width, size_t IN height, size_t IN depth, cl_dev_mem* OUT memObj)
+									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMemoryObject Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateObject(flags, format, width, height, depth, memObj);
+	return m_pDevInstance->m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim, memObj);
 }
 /****************************************************************************************************************
  clDevDeleteMemoryObject
@@ -476,11 +479,11 @@ cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
  clDevCreateMappedRegion
 	Call Memory Allocator to craete mapped region
 ********************************************************************************************************************/
-cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, const size_t IN origin[3], const size_t IN region[3],
-						 void** OUT ptr, size_t* OUT row_pitch, size_t* OUT slice_pitch)
+cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
+									 void** OUT ptr, size_t* OUT pitch)
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMappedRegion Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateMappedRegion(memObj,origin, region, ptr, row_pitch, slice_pitch);
+	return m_pDevInstance->m_pMemoryAllocator->CreateMappedRegion(memObj, dim_count, origin, region, ptr, pitch);
 
 }
 /****************************************************************************************************************

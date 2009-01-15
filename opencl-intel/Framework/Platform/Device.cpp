@@ -225,7 +225,7 @@ void Device::BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_
 	}
 	return;
 }
-void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status)
+void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status, cl_int status_result)
 {
 	return;
 }

@@ -268,6 +268,7 @@ cl_int DLLProgram::LoadProgram()
 		// Parse rest of the full name
 		while ( 'Z' != szName[0] )	// End of string
 		{
+			param_size = (cl_kernel_arg_type)-1;
 			switch (szName[0])
 			{
 			// A Pointer
@@ -302,30 +303,32 @@ cl_int DLLProgram::LoadProgram()
 
 			// A float
 			case 'M' :
-				param_size = CL_KRNL_ARG_DWORD;
-				break;
-
 			// integer types
 			case 'H' : 
 			case 'I' :
 				param_size = CL_KRNL_ARG_DWORD;
+				++szName;
 				break;
 
 			// Same as previous type
 			case '0' :
 				param_size = vArgs[uiArgCount-1];
+				++szName;
 				break;
 
 			case 'X': case '@':
+				++szName;
 				break;
 
 			default :
 				assert(0);
 			}
 
-			vArgs[uiArgCount] = param_size;
-			++uiArgCount;
-			++szName;
+			if ( -1 != param_size )
+			{
+				vArgs[uiArgCount] = param_size;
+				++uiArgCount;
+			}
 		}
 
 		pKernel->SetArgumentList(vArgs, uiArgCount);

@@ -126,7 +126,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		// cl_dev_call_backs
 		static void BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
-		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status);
+		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status, cl_int status_result);
 
 		// cl_dev_log_descriptor
 		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
