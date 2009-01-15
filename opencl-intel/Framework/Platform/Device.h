@@ -118,6 +118,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									const cl_char *			pcOptions,
 									IBuildDoneObserver *	pBuildDoneObserver );
 
+		cl_err_code GetProgramBinary(	cl_dev_program	clDevProg, 
+										size_t			szBinSize, 
+										void *			pBin,
+										size_t *		pszBinSizeRet );
+
 	private:
 
 		///////////////////////////////////////////////////////////////////////////////////////////

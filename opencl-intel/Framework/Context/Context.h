@@ -126,6 +126,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											cl_int *             OUT piBinaryStatus, 
 											Program **           OUT ppProgram);
 
+		/******************************************************************************************
+		* Function: 	GetDevices    
+		* Description:	get the devices that associated to the context
+		* Arguments:	uiNumDevices [in]
+		*				ppDevices [in]
+		*				puiNumDevicesRet [out]
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		cl_err_code GetDevices(cl_uint uiNumDevices, Device ** ppDevices, cl_uint * puiNumDevicesRet);
+
 	private:
 
 		// check that all devices belong to this context

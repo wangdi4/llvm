@@ -146,6 +146,20 @@ cl_err_code Device::BuildProgram(cl_dev_program clProg, const cl_char * pcOption
 	cl_int iRes = m_clDevEntryPoints.pclDevBuildProgram(clProg, pcOptions, this);
 	return (cl_err_code)(iRes);
 }
+cl_err_code Device::GetProgramBinary(cl_dev_program clDevProg, 
+									 size_t szBinSize, 
+									 void * pBin,
+									 size_t * pszBinSizeRet )
+{
+	InfoLog(m_pLoggerClient, L"GetProgramBinary enter. clDevProg=%d, szBinSize=%d, pBin=%d, pszBinSizeRet=%d", clDevProg, szBinSize, pBin, pszBinSizeRet);
+	cl_int iRes = m_clDevEntryPoints.pclDevGetProgramBinary(clDevProg, szBinSize, pBin, pszBinSizeRet);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}
+
 cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
 	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, client_name);

@@ -95,11 +95,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code Build(	const cl_char *	pcOptions,
 							IBuildDoneObserver * pBuildDoneObserver );
 
-		// get the binary size
-		const cl_uint	GetSize(){ return m_uiBinSize; }
-		
-		// get the binary data
-		const void *	GetData(){ return m_pBinData; }
+		// get the binary size and data
+		cl_err_code		GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * puiBinSizeRet);
 		
 		// get the deivce associated to the binary
 		const Device *	GetDevice(){ return m_pDevice; }

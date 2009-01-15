@@ -69,25 +69,6 @@ wchar_t* ClErrTxt(cl_err_code error_code)
 	}
 }
 
-cl_int TEST(cl_int test_number)
-{
-	OCLObjectsMap *pObjMap = new OCLObjectsMap();
-	OCLObject *pObj1 = new OCLObject();
-	OCLObject *pObj2 = new OCLObject();
-	OCLObject *pObj3 = new OCLObject();
-
-	cl_err_code clErrRet = CL_SUCCESS;
-
-	cl_int id = pObjMap->AddObject(pObj1);
-	id = pObjMap->AddObject(pObj2);
-	id = pObjMap->AddObject(pObj3);
-	clErrRet = pObjMap->RemoveObject(pObj1->GetId());
-	clErrRet = pObjMap->RemoveObject(pObj2->GetId());
-	clErrRet = pObjMap->RemoveObject(pObj3->GetId());
-	clErrRet = pObjMap->RemoveObject(pObj1->GetId());
-	return CL_SUCCESS;
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Platform APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -600,7 +581,22 @@ cl_int clBuildProgram(cl_program           program,
 
 cl_int clUnloadCompiler(void)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+		return 0;
+	}
+	cl_err_code clRet = pContextModule->UnloadCompiler();
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clGetProgramInfo(cl_program      program,
@@ -609,7 +605,22 @@ cl_int clGetProgramInfo(cl_program      program,
 						void *          param_value,
 						size_t *        param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+		return 0;
+	}
+	cl_err_code clRet = pContextModule->GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clGetProgramBuildInfo(cl_program            program,
@@ -619,7 +630,21 @@ cl_int clGetProgramBuildInfo(cl_program            program,
 							 void *                param_value,
 							 size_t *              param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_OUT(clRet);
 }
                            
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -629,11 +654,35 @@ cl_kernel clCreateKernel(cl_program   program,
 						 const char * kernel_name,
 						 cl_int *     errcode_ret)
 {
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		if (NULL != *errcode_ret)
+		{
+			*errcode_ret = CL_ERR_INITILIZATION_FAILED;
+		}
+		return CL_INVALID_HANDLE;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		if (NULL != *errcode_ret)
+		{
+			*errcode_ret = CL_ERR_CONTEXT_FAILED;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	cl_err_code clRet = CL_SUCCESS;
+	cl_kernel clKernel = pContextModule->CreateKernel(program, kernel_name, &clRet);
 	if (NULL != *errcode_ret)
 	{
-		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
+		*errcode_ret = CL_ERR_OUT(clRet);
 	}
-	return 0;
+	return clKernel;
 }
 
 cl_int clCreateKernelsInProgram(cl_program  program,

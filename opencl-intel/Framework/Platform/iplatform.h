@@ -123,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*											is NULL, it is ignored
 		* Return value:	CL_SUCCESS				the function is executed successfully
 		*				CL_INVALID_DEVICE		device is not valid
-		*				CL_INVALID_VALUE		param_name is not one of the supported values or if 
+		*				CL_INVALID_VALUE		param_name is not one of the supported values or if
 		*										size in bytes specified by param_value_size is < 
 		*										size of return type and param_value is not a NULL 
 		*										value

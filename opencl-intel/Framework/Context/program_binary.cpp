@@ -102,6 +102,9 @@ const cl_build_status ProgramBinary::GetStatus()
 	}
 	return clBuildStatus;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Build
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code ProgramBinary::Build(const cl_char * pcOptions, IBuildDoneObserver * pBuildDoneObserver)
 {
 	m_pBuildDoneObserver = pBuildDoneObserver;
@@ -119,8 +122,12 @@ cl_err_code ProgramBinary::Build(const cl_char * pcOptions, IBuildDoneObserver *
 	
 	return (cl_err_code)iRet;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// NotifyBuildDone
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code ProgramBinary::NotifyBuildDone(cl_device_id device, cl_build_status build_status)
 {
+	InfoLog(m_pLoggerClient, L"NotifyBuildDone enter. device=%d, build_status=%d", device, build_status);
 	OclAutoMutex CS(&m_CS);
 	{ // Lock
 	
@@ -134,4 +141,28 @@ cl_err_code ProgramBinary::NotifyBuildDone(cl_device_id device, cl_build_status 
 	
 	} // Unlock
 	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// GetBinary
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code ProgramBinary::GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * puiBinSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"GetBinary enter. uiBinSize=%d, pBin=%d, puiBinSizeRet=%d", uiBinSize, pBin, puiBinSizeRet);
+	if (NULL == pBin && NULL == puiBinSizeRet)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == pBin && NULL == puiBinSizeRet");
+		return CL_INVALID_VALUE;
+	}
+	if (uiBinSize > 0 && NULL == pBin)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == pBin && NULL == puiBinSizeRet");
+		return CL_INVALID_VALUE;
+	}
+	if (NULL == m_pDevice)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pDevice");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	return m_pDevice->GetProgramBinary(m_clDevProgram, uiBinSize, pBin, puiBinSizeRet);
+
 }

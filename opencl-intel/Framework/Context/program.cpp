@@ -27,6 +27,7 @@
 
 #include "program.h"
 #include "program_binary.h"
+#include "context.h"
 #include <string.h>
 #include <device.h>
 using namespace std;
@@ -49,6 +50,10 @@ Program::Program(Context * pContext)
 
 	m_pfnNotify = NULL;
 	m_pUserData = NULL;
+
+	m_mapBinaries.clear();
+	m_mapDevices.clear();
+	m_mapBinaryStatus.clear();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program D'tor
@@ -75,6 +80,7 @@ Program::~Program()
 	}
 	m_mapBinaries.clear();
 	m_mapBinaryStatus.clear();
+	m_mapDevices.clear();
 
 	delete m_pLoggerClient;
 }
@@ -90,6 +96,152 @@ cl_err_code Program::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
 {
+	InfoLog(m_pLoggerClient, L"Program::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d", param_name, param_value_size, param_value, param_value_size_ret);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	if (NULL == param_value && NULL == param_value_size_ret)
+	{
+		return CL_INVALID_VALUE;
+	}
+	size_t szParamValueSize = 0;
+	void * pValue = NULL;
+
+	cl_context clContextParam = 0;
+	cl_uint uiParam = 0;
+	map<cl_device_id, Device*>::iterator it;
+	map<cl_device_id, ProgramBinary*>::iterator it_bin;
+	cl_device_id * pDevices = NULL;
+	char * pSourceCode = NULL;
+	
+	switch ( (cl_program_info)param_name )
+	{
+	case CL_PROGRAM_REFERENCE_COUNT:
+		szParamValueSize = sizeof(cl_uint);
+		pValue = &m_uiRefCount;
+		break;
+
+	case CL_PROGRAM_CONTEXT:
+		szParamValueSize = sizeof(cl_context);
+		clContextParam = (cl_context)m_pContext->GetId();
+		pValue = &clContextParam;
+		break;
+
+	case CL_PROGRAM_NUM_DEVICES:
+		szParamValueSize = sizeof(cl_uint);
+		uiParam = m_mapDevices.size();
+		pValue = &uiParam;
+		break;
+
+	case CL_PROGRAM_DEVICES:
+		szParamValueSize = sizeof(cl_uint) * m_mapDevices.size();
+		if (NULL != param_value)
+		{
+			pDevices = new cl_device_id[m_mapDevices.size()];
+			if (NULL == pDevices)
+			{
+				return CL_ERR_INITILIZATION_FAILED;
+			}
+			// scan devices and fill array
+			it = m_mapDevices.begin();
+			for ( cl_uint ui=0; ui<m_mapDevices.size() && it != m_mapDevices.end(); ui++)
+			{
+				pDevices[ui] = it->first;
+				it++;
+			}
+		}
+		pValue = pDevices;
+		break;
+	
+	case CL_PROGRAM_SOURCE:
+		szParamValueSize = 0;
+		for (cl_uint ui=0; ui<m_uiStcStrCount; ++ui)
+		{
+			szParamValueSize += m_pszSrcStrLengths[ui];
+		}
+		if (NULL != param_value)
+		{
+			pSourceCode = new char[szParamValueSize];
+			if (NULL == pSourceCode)
+			{
+				return CL_ERR_INITILIZATION_FAILED;
+			}
+			memcpy_s(pSourceCode, m_pszSrcStrLengths[0], m_ppcSrcStrArr[0], m_pszSrcStrLengths[0]);
+			for (cl_uint ui=1; ui<m_uiStcStrCount; ++ui)
+			{
+				memcpy_s(pSourceCode + m_pszSrcStrLengths[ui-1], m_pszSrcStrLengths[ui], m_ppcSrcStrArr[ui], m_pszSrcStrLengths[ui]);
+			}
+			pValue = pSourceCode;
+		}
+		break;
+	
+	case CL_PROGRAM_BINARY_SIZES:
+		
+		szParamValueSize = sizeof(size_t) * m_mapBinaries.size();
+		if (param_value_size < szParamValueSize)
+		{
+			return CL_INVALID_VALUE;
+		}
+		if (NULL != param_value_size_ret)
+		{
+			*param_value_size_ret = szParamValueSize;
+		}
+		if (NULL != param_value)
+		{
+			it_bin = m_mapBinaries.begin();
+			for (cl_uint ui=0; ui<m_mapBinaries.size() && it_bin != m_mapBinaries.end(); ++ui)
+			{
+				(it_bin->second)->GetBinary(0, NULL, &((size_t*)param_value)[ui]);
+				it_bin++;
+			}
+		}
+		return CL_SUCCESS;
+
+	case CL_PROGRAM_BINARIES:
+
+		szParamValueSize = sizeof(char *) * m_mapBinaries.size();
+		if (param_value_size < szParamValueSize)
+		{
+			return CL_INVALID_VALUE;
+		}
+		// get  size
+		if (NULL != param_value_size_ret)
+		{
+			*param_value_size_ret = szParamValueSize;
+		}
+		// get  data
+		if (NULL != param_value)
+		{
+			it_bin = m_mapBinaries.begin();
+			for ( cl_uint ui=0; ui<m_mapDevices.size() && it_bin != m_mapBinaries.end(); ui++)
+			{
+				(it_bin->second)->GetBinary(0, NULL, &uiParam);
+				(it_bin->second)->GetBinary(uiParam, ((char**)param_value)[ui], &uiParam);
+				it_bin++;
+			}
+		}
+		return CL_SUCCESS;
+	default:
+		ErrLog(m_pLoggerClient, L"param_name (=%d) isn't valid", param_name);
+		return CL_INVALID_VALUE;
+	}
+	// if param_value == NULL return only param value size
+	if (NULL == param_value)
+	{
+		*param_value_size_ret = szParamValueSize;
+		return CL_SUCCESS;
+	}
+	// if param_value_size < actual value size return CL_INVALID_VALUE
+	if (param_value_size < szParamValueSize)
+	{
+		ErrLog(m_pLoggerClient, L"param_value_size (=%d) < szParamValueSize (=%d)", param_value_size, szParamValueSize);
+		delete[] pDevices;
+		delete[] pSourceCode;
+		return CL_INVALID_VALUE;
+	}
+	memcpy_s(param_value, szParamValueSize, pValue, param_value_size);
+	delete[] pDevices;
+	delete[] pSourceCode;
+
 	return CL_SUCCESS;
 }
 
@@ -114,6 +266,36 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 		ErrLog(m_pLoggerClient, L"m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
+
+	// add context's devices to the devices list and the binaries list;
+	cl_uint uiNumDevices = 0;
+	Device ** ppDevices = NULL;
+	// get devices count
+	cl_err_code clErrRet = m_pContext->GetDevices(0, NULL, &uiNumDevices);
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	// allocate memory for devices
+	ppDevices = new Device * [uiNumDevices];
+	if (NULL == ppDevices)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	clErrRet = m_pContext->GetDevices(uiNumDevices, ppDevices, NULL);
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+	{
+		Device * pDevice = ppDevices[ui];
+		m_mapDevices[(cl_device_id)pDevice->GetId()] = pDevice;
+		//m_mapBinaries[(cl_device_id)pDevice->GetId()] = NULL;
+		//m_mapBinaryStatus[(cl_device_id)pDevice->GetId()] = false;
+	}
+	delete[] ppDevices;
+
 	// check if count is zero or if strings or any entry in strings is NULL
 	if (0 == uiCount || NULL == ppcStrings || NULL == pszLengths)
 	{
@@ -128,6 +310,7 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 			return CL_INVALID_VALUE;
 		}
 	}
+
 	m_uiStcStrCount = uiCount;
 	// allocate host memory for source code
 	InfoLog(m_pLoggerClient, L"m_pszSrcStrLengths = new size_t[%d]",m_uiStcStrCount);
@@ -176,10 +359,16 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // AddBinary
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::AddBinary(Device * pDevice, cl_uint uiBinarySize, const void * pBinaryData)
+cl_err_code Program::AddBinaries(cl_uint uiNumDevices, 
+								 Device ** ppDevices, 
+								 const size_t * pszBinariesSize, 
+								 const void ** ppBinaries,
+								 cl_int * piBinaryStatus)
 {
-	InfoLog(m_pLoggerClient, L"AddBinary enter. pDevice=%d, uiBinarySize=%d, pBinaryData=%d", pDevice, uiBinarySize, pBinaryData);
+	InfoLog(m_pLoggerClient, L"AddBinary enter. uiNumDevices=%d, ppDevices=%d, pszBinariesSize=%d, ppBinaries=%d, piBinaryStatus=%d", 
+		uiNumDevices, ppDevices, pszBinariesSize, ppBinaries, piBinaryStatus);
 	cl_err_code clErrRet = CL_SUCCESS;
+	cl_err_code clFinalErrRet = CL_SUCCESS;
 	
 	// check if the program wasn't initialized yet
 	if (m_eProgramSourceType != PST_NONE)
@@ -190,27 +379,64 @@ cl_err_code Program::AddBinary(Device * pDevice, cl_uint uiBinarySize, const voi
 	m_eProgramSourceType = PST_BINARY;
 
 	// check input parameters
-	if (NULL == pDevice)
+	if (0 == uiNumDevices || NULL == ppDevices || NULL == pszBinariesSize || NULL == ppBinaries)
 	{
+		ErrLog(m_pLoggerClient, L"0 == uiNumDevices || NULL == ppDevices || NULL == pszBinariesSize || NULL == ppBinariesData");
 		return CL_INVALID_VALUE;
 	}
 
-	// check if the current device allready have binary assign for it
-	map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find((cl_device_id)pDevice->GetId());
-	if (it != m_mapBinaries.end())
+	// check binaries and add them to the program object
+	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		return CL_ERR_KEY_ALLREADY_EXISTS;
+		// get device and the device is valid device
+		Device * pDevice = ppDevices[ui];
+		if (NULL == pDevice)
+		{
+			ErrLog(m_pLoggerClient, L"device number %d is not valid", ui);
+			return CL_INVALID_DEVICE;
+		}
+
+		// set the device in the program's devices list
+		m_mapDevices[(cl_device_id)pDevice->GetId()] = pDevice;
+
+		// check if the current device allready have binary assign for it
+		map<cl_device_id,ProgramBinary*>::iterator it = m_mapBinaries.find((cl_device_id)pDevice->GetId());
+		if (it != m_mapBinaries.end())
+		{
+			return CL_ERR_KEY_ALLREADY_EXISTS;
+		}
+
+		// check binary
+		clErrRet = pDevice->CheckProgramBinary(pszBinariesSize[ui], ppBinaries[ui]);
+
+		// update binary status
+		if (NULL != piBinaryStatus)
+		{
+			piBinaryStatus[ui] = CL_SUCCEEDED(clErrRet) ? CL_SUCCESS : CL_INVALID_BINARY;
+		}
+
+		// if binary is valid binary create program binary object and add it to the program object
+		if (CL_SUCCEEDED(clErrRet))
+		{
+			ProgramBinary * pProgBin = new ProgramBinary(pszBinariesSize[ui], ppBinaries[ui], CL_DEV_BINARY_USER, pDevice, &clErrRet);
+			if (CL_FAILED(clErrRet))
+			{
+				return clErrRet;
+			}
+			m_mapBinaries[(cl_device_id)pDevice->GetId()] = pProgBin;
+			m_mapBinaryStatus[(cl_device_id)pDevice->GetId()] = true;
+		}
+		else
+		{
+			ErrLog(m_pLoggerClient, L"binary ppBinaries[%d] isn't valid for device %d", ui, pDevice->GetId());
+			m_mapBinaries[(cl_device_id)pDevice->GetId()] = NULL;
+			m_mapBinaryStatus[(cl_device_id)pDevice->GetId()] = false;
+			clFinalErrRet = CL_INVALID_BINARY;
+		}
 	}
-	ProgramBinary * pProgBin = new ProgramBinary(uiBinarySize, pBinaryData, CL_DEV_BINARY_USER, pDevice, &clErrRet);
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-	// save the program binary in the binaries map list
-	m_mapBinaries[(cl_device_id)pDevice->GetId()] = pProgBin;
-	m_mapBinaryStatus[(cl_device_id)pDevice->GetId()] = false;
-	return CL_SUCCESS;
+	return clFinalErrRet;
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CheckBinaries
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -251,7 +477,20 @@ cl_err_code Program::CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pc
 			ErrLog(m_pLoggerClient, L"program binarie's status is CL_BUILD_IN_PROGRESS");
 			return CL_INVALID_OPERATION;
 		}
-		cl_err_code clErrRet = pDevice->CheckProgramBinary(pProgBin->GetSize(), pProgBin->GetData());
+		cl_uint uiBinsize = 0;
+		char * pBinData = NULL;
+		cl_err_code clErrRet = pProgBin->GetBinary(0, NULL, &uiBinsize);
+		if (CL_SUCCEEDED(clErrRet))
+		{
+			pBinData = new char[uiBinsize];
+			if (NULL == pBinData)
+			{
+				return CL_OUT_OF_HOST_MEMORY;
+			}
+			pProgBin->GetBinary(uiBinsize, pBinData, NULL);
+		}
+		clErrRet = pDevice->CheckProgramBinary(uiBinsize, pBinData);
+		delete[] pBinData;
 		if (CL_FAILED(clErrRet))
 		{
 			ErrLog(m_pLoggerClient, L"binary of device %d isn't valid binary", pclDevices[ui]);

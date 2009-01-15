@@ -108,7 +108,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths);
 
 		// add binary to the program object, each binary is assign to specific device
-		cl_err_code AddBinary(Device * pDevice, cl_uint uiBinarySize, const void * pBinaryData);
+		cl_err_code AddBinaries(cl_uint			uiNumDevices, 
+								Device **		ppDevices, 
+								const size_t *	pszBinariesSize, 
+								const void **	ppBinariesData,
+								cl_int *		piBinaryStatus);
 
 		cl_err_code Build(	cl_uint					uiNumDevices,
 							const cl_device_id *	pclDeviceList,
@@ -150,6 +154,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 
+		std::map<cl_device_id, Device*>			m_mapDevices;		// assoicated devices
+		
 		std::map<cl_device_id, ProgramBinary*>	m_mapBinaries;		// program's binaries
 		
 		std::map<cl_device_id, bool>			m_mapBinaryStatus;	// holds, for each binary its building status

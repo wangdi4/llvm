@@ -132,8 +132,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				param_name [in] -			is an enum that specifies the information to 
 		*											query
 		*				param_value [out] -			is a pointer to memory where the appropriate  
-		*											result being queried is returned. If param_value
-		*											is NULL, it is ignored
+		*											result being queried is returned. If 
+		*											param_value is NULL, it is ignored
 		*				param_value_size [in] -		specifies the size in bytes of memory pointed 
 		*											to by param_value. This size must be greater 
 		*											than or equal to the size of return type
@@ -185,7 +185,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*											required by the OpenCL implementation on the 
 		*											host
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2009
 		******************************************************************************************/
 		virtual cl_program CreateProgramWithSource(	cl_context     IN  clContext,
 													cl_uint        IN  uiCount,
@@ -206,7 +206,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*									of devices specified by pclDeviceList must be devices 
 		*									associated with context.
 		*				uiNumDevices [in] 	is the number of devices listed in pclDeviceList 
-		*				pszLengths [in] 	is an array of the size in bytes of the program binaries 
+		*				pszLengths [in] 	is an array of the size in bytes of the program binaries
 		*									to be loaded for devices specified by pclDeviceList
 		*				ppBinaries [in] 	is an array of pointers to program binaries to be loaded
 		*									for devices specified by pclDeviceList. For each device 
@@ -251,7 +251,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*											required by the OpenCL implementation on the 
 		*											host
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2009
 		******************************************************************************************/
 		virtual cl_program CreateProgramWithBinary(	cl_context           IN  clContext,
 													cl_uint              IN  uiNumDevices,
@@ -268,7 +268,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Return value:	CL_SUCCESS				if the function is executed successfully
 		*				CL_INVALID_PROGRAM		if clProgram is not a valid OpenCL program
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2009
 		******************************************************************************************/		
 		virtual cl_err_code	RetainProgram( cl_program IN clProgram ) = 0;
 
@@ -281,7 +281,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Return value:	CL_SUCCESS				if the function is executed successfully
 		*				CL_INVALID_CONTEXT		if clProgram is not a valid OpenCL program
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2009
 		******************************************************************************************/
 		virtual cl_err_code ReleaseProgram( cl_program IN clProgram ) = 0;
 
@@ -339,7 +339,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*											required by the OpenCL implementation on the
 		*											host
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2009
 		******************************************************************************************/
 		virtual cl_int BuildProgram(cl_program           IN clProgram,
 									cl_uint              IN uiNumDevices,
@@ -347,6 +347,307 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									const char *         IN pcOptions, 
 									void (*pfn_notify)(cl_program program, void * user_data),
 									void *               IN pUserData ) = 0;
+
+		/******************************************************************************************
+		* Function: 	UnloadCompiler    
+		* Description:	allows the implementation to release the resources allocated by the OpenCL 
+		*				compiler. This is a hint from the application and does not guarantee that 
+		*				the compiler will not be used in the future or that the compiler will 
+		*				actually be unloaded by the implementation. Calls to clBuildProgram after
+		*				clUnloadCompiler will reload the compiler, if necessary, to build the 
+		*				appropriate program executable. 
+		* Arguments:	
+		* Return value:	This call currently always returns CL_SUCCESS
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int UnloadCompiler( void ) = 0;
+
+		/******************************************************************************************
+		* Function: 	GetProgramInfo    
+		* Description:	returns information about the program object
+		* Arguments:	clProgram [in]				specifies the program object being queried	
+		*				clParamName [in]			specifies the information to query
+		*				szParamValueSize [in]		is used to specify the size in bytes of memory
+		*											pointed to by param_value. This size must be 
+		*											>= size of return type
+		*				pParamValue [in]			is a pointer to memory where the appropriate 
+		*											result being queried is returned. If 
+		*											pParamValue is NULL, it is ignored
+		*				pszParamValueSizeRet [in]	returns the actual size in bytes of data copied
+		*											to param_value. If pszParamValueSizeRet is 
+		*											NULL, it is ignored
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_VALUE		if clParamName is not valid, or if size in bytes 
+		*										specified by szParamValueSize is < size of return 
+		*										type and pParamValue is not NULL
+		*				CL_INVALID_PROGRAM		if clProgram is a not a valid program object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int GetProgramInfo(	cl_program		IN  clProgram,
+										cl_program_info	IN  clParamName,
+										size_t			IN  szParamValueSize,
+										void *			OUT pParamValue, 
+										size_t *        OUT pszParamValueSizeRet ) = 0;
+
+		/******************************************************************************************
+		* Function: 	GetProgramBuildInfo    
+		* Description:	returns build information for each device in the program object
+		* Arguments:	clProgram [in]				specifies the program object being queried	
+		*				clDevice [in]				specifies the device for which build 
+		*											information is being queried. clDevice must be
+		*											a valid device associated with clProgram
+		*				clParamName [in]			specifies the information to query
+		*				szParamValueSize [in]		is used to specify the size in bytes of memory
+		*											pointed to by param_value. This size must be 
+		*											>= size of return type
+		*				pParamValue [in]			is a pointer to memory where the appropriate 
+		*											result being queried is returned. If 
+		*											pParamValue is NULL, it is ignored
+		*				pszParamValueSizeRet [in]	returns the actual size in bytes of data copied
+		*											to param_value. If pszParamValueSizeRet is 
+		*											NULL, it is ignored
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_DEVICE		if clDevice is not in the list of devices 
+		*										associated with clProgram
+		*				CL_INVALID_VALUE		if clParamName is not valid, or if size in bytes 
+		*										specified by szParamValueSize is < size of return 
+		*										type and pParamValue is not NULL
+		*				CL_INVALID_PROGRAM		if clProgram is a not a valid program object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int GetProgramBuildInfo(	cl_program				IN  clProgram,
+											cl_device_id			IN  clDevice,
+											cl_program_build_info	IN  clParamName,
+											size_t					IN  szParamValueSize,
+											void *					OUT pParamValue, 
+											size_t *				OUT pszParamValueSizeRet ) = 0;
+
+
+		/******************************************************************************************
+		* Function: 	CreateKernel    
+		* Description:	create a kernel object
+		* Arguments:	clProgram [in]		is a program object with a successfully built
+		*									executable
+		*				pscKernelName [in]	is a function name in the program declared with the 
+		*									__kernel qualifer
+		*				piErr [out]			will return an appropriate error code. If errcode_ret 
+		*									is NULL, no error code is returned
+		* Return value:	valid non-zero kernel object. piErr is set to:
+		*				CL_SUCCESS				if the kernel object is created successfully
+		*
+		*				NULL value with one of the following error values returned in piErr:
+		*				CL_INVALID_PROGRAM				clProgram is not a valid program object 
+		*				CL_INVALID_PROGRAM_EXECUTABLE	if there is no successfully built 
+		*												executable for clProgram
+		*				CL_INVALID_KERNEL_NAME			if pscKernelName is not found in clProgram
+		*				CL_INVALID_KERNEL_DEFINITION	if the function definition for __kernel
+		*												function given by kernel_name such as the 
+		*												number of arguments, the argument types are
+		*												not the same for all devices for which the
+		*												program executable has been built
+		*				CL_INVALID_VALUE				if pscKernelName is NULL
+		*				CL_OUT_OF_HOST_MEMORY			if there is a failure to allocate resources
+		*												required by the OpenCL implementation on 
+		*												the host
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_kernel CreateKernel(	cl_program		IN  clProgram,
+										const char *	IN  pscKernelName,
+										cl_int *		OUT piErr ) = 0;
+
+		/******************************************************************************************
+		* Function: 	CreateKernelsInProgram    
+		* Description:	creates kernel objects for all kernel functions in program. Kernel objects 
+		*				are not created for any __kernel functions in program that do not have the 
+		*				same function definition across all devices for which a program executable 
+		*				has been successfully built
+		* Arguments:	clProgram [in]			is a program object with a successfully built
+		*										executable
+		*				uiNumKernels [in]		is the size of memory pointed to by kernels 
+		*										specified as the number of cl_kernel entries
+		*				pclKernels [out]		is the buffer where the kernel objects for kernels
+		*										in program will be returned. If kernels is NULL, it 
+		*										is ignored. If kernels is not NULL, num_kernels
+		*										must be greater than or equal to the number of   
+		*										kernels in program
+		*				puiNumKernelsRet [out]	is the number of kernels in program. If 
+		*										puiNumKernelsRet is NULL, it is ignored 
+		* Return value:	CL_SUCCESS				if the kernel objects were successfully allocated
+		*				CL_INVALID_PROGRAM				clProgram is not a valid program object 
+		*				CL_INVALID_PROGRAM_EXECUTABLE	if there is no successfully built 
+		*												executable for clProgram
+		*				CL_INVALID_KERNEL_NAME			if pscKernelName is not found in clProgram
+		*				CL_INVALID_VALUE				if pclKernels is not NULL and uiNumKernels
+		*												is less than the number of kernels in
+		*												clProgram 
+		*				CL_OUT_OF_HOST_MEMORY			if there is a failure to allocate resources
+		*												required by the OpenCL implementation on 
+		*												the host
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int CreateKernelsInProgram(	cl_program	IN  clProgram,
+												cl_uint		IN  uiNumKernels,
+												cl_kernel *	OUT pclKernels,
+												cl_uint *	OUT puiNumKernelsRet ) = 0;
+
+		/******************************************************************************************
+		* Function: 	RetainKernel    
+		* Description:	increments the kernel reference count
+		* Arguments:	clKernel [in] -	specifies the OpenCL kernel being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_KERNEL		if clKernel is not a valid kernel object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/	
+		virtual cl_int RetainKernel( cl_kernel IN clKernel ) = 0;
+
+		/******************************************************************************************
+		* Function: 	ReleaseKernel    
+		* Description:	decrements the kernel reference count. 
+		* Arguments:	clKernel [in] -	specifies the OpenCL kernel being queried	
+		* Return value:	CL_SUCCESS				if the function is executed successfully
+		*				CL_INVALID_KERNEL		if clKernel is not a valid kernel object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int ReleaseKernel( cl_kernel IN clKernel ) = 0;
+
+		/******************************************************************************************
+		* Function: 	SetKernelArg    
+		* Description:	used to set the argument value for a specific argument of a kernel
+		* Arguments:	clKernel [in]		is a valid kernel object
+		*				uiArgIndex [in]		is the argument index. Arguments to the kernel are 
+		*									referred by indices that go from 0 for the leftmost 
+		*									argument to n - 1, where n is the total number of 
+		*									arguments declared by a kernel
+		*									For example, consider the following kernel:
+		*
+		*									__kernel void
+		*									image_filter (int n, int m,
+		*											__constant float *filter_weights,
+		*											__read_only image2d_t src_image,
+		*											__write_only image2d_t dst_image)
+		*									{
+		*										...
+		*									}
+		*
+		*									Argument index values for image_filter will be 0 for 
+		*									n, 1 for m, 2 for filter_weights, 3 for src_image and 
+		*									4 for dst_image
+		*				szArgSize [in]		specifies the size of the argument value. If the 
+		*									argument is a memory object, the size is the size of 
+		*									the buffer or image object type. For arguments declared
+		*									with the __local qualifier, the size specified will be 
+		*									the size in bytes of the buffer that must be allocated 
+		*									for the __local argument. If the argument is of type 
+		*									sampler_t, the arg_size value must be equal to 
+		*									sizeof(cl_sampler). For all other arguments, the size 
+		*									will be the size of argument type
+		*				pszArgValue [out]	is a pointer to data that should be used as the argument
+		*									value for argument specified by uiArgIndex. The argument
+		*									data pointed to by pszArgValue is copied and the 
+		*									pszArgValue pointer can therefore be reused by the 
+		*									application after clSetKernelArg returns. The argument
+		*									value specified is the value used by all API calls that
+		*									enqueue kernel (clEnqueueNDRangeKernel and clEnqueueTask)
+		*									until the argument value is changed by a call to 
+		*									clSetKernelArg for kernel
+		* Return value:	CL_SUCCESS				if the clKernel object is created successfully
+		*				CL_INVALID_KERNEL		if clKernel is not a valid kernel object
+		*				CL_INVALID_ARG_INDEX	if uiArgIndex is not a valid argument index.
+		*				CL_INVALID_ARG_VALUE	if pszArgValue specified is NULL for an argument that
+		*										is not declared with the __local qualifier or vice-ver
+		*				CL_INVALID_MEM_OBJECT	for an argument declared to be a memory object when 
+		*										the specified arg_value is not a valid memory object
+		*				CL_INVALID_SAMPLER		for an argument declared to be of type sampler_t when
+		*										the specified arg_value is not a valid sampler object
+		*				CL_INVALID_ARG_SIZE		if szArgSize does not match the size of the data type 
+		*										for an argument that is not a memory object or if the 
+		*										argument is a memory object and szArgSize != 
+		*										sizeof(cl_mem) or if szArgSize is zero and the 
+		*										argument is declared with the __local qualifier or if
+		*										the argument is a sampler and szArgSize != 
+		*										sizeof(cl_sampler).
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int SetKernelArg(cl_kernel		IN  clKernel,
+									cl_uint			IN  uiArgIndex,
+									size_t			IN  szArgSize,
+									const void *	OUT pszArgValue ) = 0;
+
+
+		/******************************************************************************************
+		* Function: 	ReleaseKernel    
+		* Description:	returns information about the kernel object 
+		* Arguments:	clKernel [in]				specifies the kernel object being queried
+		*				clParamName [in]			specifies the information to query
+		*				pParamValue [out]			is a pointer to memory where the appropriate 
+		*											result being queried is returned. If
+		*											pParamValue is NULL, it is ignored
+		*				szParamValueSize [in]		is used to specify the size in bytes of memory 
+		*											pointed to by pParamValue. This size must be 
+		*											>= size of return type
+		*				pszParamValueSizeRet [out]	returns the actual size in bytes of data 
+		*											copied to param_value. If pszParamValueSizeRet
+		*											is NULL, it is ignored.
+		* Return value:	CL_SUCCESS			if the function is executed successfully
+		*				CL_INVALID_VALUE	if clParamName is not valid, or if size in bytes 
+		*									specified by szParamValueSize is < size of return type 
+		*									and pParamValue is not NULL
+		*				CL_INVALID_KERNEL	if clKernel is not a valid kernel object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int GetKernelInfo(	cl_kernel		IN  clKernel,
+										cl_kernel_info	IN  clParamName,
+										size_t			IN  szParamValueSize,
+										void *			OUT pParamValue,
+										size_t *		OUT pszParamValueSizeRet ) = 0;
+
+		/******************************************************************************************
+		* Function: 	GetKernelWorkGroupInfo    
+		* Description:	returns information about the kernel object that may be specific to a 
+		*				device 
+		* Arguments:	clKernel [in]				specifies the kernel object being queried
+		*				clDevice [in]				identifies a specific device in the list of 
+		*											devices associated with clKernel. The list of 
+		*											devices is the list of devices in the OpenCL 
+		*											context that is associated with clKernel. If 
+		*											the list of devices associated with kernel is 
+		*											a single device, device can be a NULL value
+		*				clParamName [in]			specifies the information to query
+		*				pParamValue [out]			is a pointer to memory where the appropriate 
+		*											result being queried is returned. If
+		*											pParamValue is NULL, it is ignored
+		*				szParamValueSize [in]		is used to specify the size in bytes of memory 
+		*											pointed to by pParamValue. This size must be 
+		*											>= size of return type
+		*				pszParamValueSizeRet [out]	returns the actual size in bytes of data 
+		*											copied to param_value. If pszParamValueSizeRet
+		*											is NULL, it is ignored.
+		* Return value:	CL_SUCCESS			if the function is executed successfully
+		*				CL_INVALID_DEVICE	if clDevice is not in the list of devices associated 
+		*									with clKernel or if clDevice is NULL but there is more
+		*									than one device associated with clKernel
+		*				CL_INVALID_VALUE	if clParamName is not valid, or if size in bytes 
+		*									specified by szParamValueSize is < size of return type 
+		*									and pParamValue is not NULL
+		*				CL_INVALID_KERNEL	if clKernel is not a valid kernel object
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		virtual cl_int GetKernelWorkGroupInfo(	cl_kernel					IN  clKernel,
+												cl_device_id				IN  clDevice,
+												cl_kernel_work_group_info	IN  clParamName,
+												size_t						IN  szParamValueSize,
+												void *						OUT pParamValue,
+												size_t *					OUT pszParamValueSizeRet ) = 0;
 
 
 	};

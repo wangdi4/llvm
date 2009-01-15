@@ -94,15 +94,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
 		///////////////////////////////////////////////////////////////////////////////////////////
+		// IContext
 		virtual cl_context CreateContext(cl_context_properties properties, cl_uint num_devices, const cl_device_id *devices, logging_fn pfn_notify, void *user_data, cl_err_code *errcode_ret);
 		virtual cl_err_code RetainContext(cl_context context);
 		virtual cl_err_code ReleaseContext(cl_context context);
 		virtual cl_err_code GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		// IProgram
 		virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
 		virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const void ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
 		virtual cl_err_code	RetainProgram(cl_program clProgram);
 		virtual cl_err_code ReleaseProgram(cl_program clProgram);
 		virtual cl_int BuildProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, void (*pfn_notify)(cl_program program, void * user_data), void * pUserData);
+		virtual cl_int UnloadCompiler(void);
+		virtual cl_int GetProgramInfo(cl_program clProgram, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_int GetProgramBuildInfo(cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_kernel CreateKernel(cl_program clProgram, const char * pscKernelName, cl_int * piErr);
+		virtual cl_int CreateKernelsInProgram(cl_program clProgram, cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
+		virtual cl_int RetainKernel(cl_kernel clKernel);
+		virtual cl_int ReleaseKernel(cl_kernel clKernel);
+		virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint	uiArgIndex, size_t szArgSize, const void * pszArgValue);
+		virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id clDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
 
 	private:
 

@@ -206,7 +206,6 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 		uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, ppProgram);
 	
 	cl_err_code clErrRet = CL_SUCCESS;
-	cl_err_code clFinalErrRet = CL_SUCCESS;
 	
 	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
 	{
@@ -239,48 +238,61 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	// create program object
 	Program * pProgram = new Program(this);
 
-	// check binaries and add them to the program object
-	Device * pDevice = NULL;
+	// get devices and assign binaries to program object
+	Device ** ppDevices = new Device * [uiNumDevices];
+	if (NULL == ppDevices)
+	{
+		// can't allocate momery for devices
+		ErrLog(m_pLoggerClient, L"Can't allocated memory for devices");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	
 	map<cl_device_id,Device*>::iterator it;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
 		map<cl_device_id,Device*>::iterator it = m_mapDevices.find(pclDeviceList[ui]);
-		if (it == m_mapDevices.end())
+		if (it != m_mapDevices.end())
 		{
-			// device not found
-			ErrLog(m_pLoggerClient, L"device %d not found", pclDeviceList[ui]);
-			pProgram->Release();
-			delete pProgram;
-			return CL_INVALID_DEVICE;
-		}
-		// get device and check binary
-		pDevice = it->second;
-		clErrRet = pDevice->CheckProgramBinary(pszLengths[ui], ppBinaries[ui]);
-		if (NULL != piBinaryStatus)
-		{
-			piBinaryStatus[ui] = CL_SUCCEEDED(clErrRet) ? CL_SUCCESS : CL_INVALID_BINARY;
-		}
-		if (CL_SUCCEEDED(clErrRet))
-		{
-			// add binary to the program object
-			clErrRet = pProgram->AddBinary(pDevice, pszLengths[ui], ppBinaries[ui]);
-			if (CL_FAILED(clErrRet))
-			{
-				ErrLog(m_pLoggerClient, L"can't add binary to program", ui, pclDeviceList[ui]);
-				clFinalErrRet = CL_INVALID_BINARY;
-				if (NULL != piBinaryStatus)
-				{
-					piBinaryStatus[ui] = CL_SUCCEEDED(clErrRet) ? CL_SUCCESS : CL_INVALID_BINARY;
-				}
-			}
-		}
-		else
-		{
-			ErrLog(m_pLoggerClient, L"binary ppBinaries[%d] isn't valid for device %d", ui, pclDeviceList[ui]);
-			clFinalErrRet = CL_INVALID_BINARY;
+			ppDevices[ui] = (Device*)it->second;
 		}
 	}
 
+	clErrRet = pProgram->AddBinaries(uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus);
+
+	delete[] ppDevices;
 	*ppProgram = pProgram;
-	return clFinalErrRet;
+	return clErrRet;
+}
+cl_err_code Context::GetDevices(cl_uint uiNumDevices, Device ** ppDevices, cl_uint * puiNumDevicesRet)
+{
+	if ((NULL == ppDevices && NULL == puiNumDevicesRet) ||
+		(0 != uiNumDevices && NULL == ppDevices))
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != ppDevices && uiNumDevices < m_mapDevices.size())
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (0 == uiNumDevices && NULL == ppDevices && NULL != puiNumDevicesRet)
+	{
+		// return size only
+		*puiNumDevicesRet = m_mapDevices.size();
+		return CL_SUCCESS;
+	}
+
+	cl_uint ui = 0;
+	map<cl_device_id, Device*>::iterator it = m_mapDevices.begin();
+	while (it != m_mapDevices.end())
+	{
+		ppDevices[ui++] = it->second;
+		it++;
+	}
+	if (NULL != puiNumDevicesRet)
+	{
+		*puiNumDevicesRet = m_mapDevices.size();
+	}
+	return CL_SUCCESS;
 }

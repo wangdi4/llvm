@@ -412,6 +412,9 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 	}
 	return pProgram->Release();
 }
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::BuildProgram
+//////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::BuildProgram(cl_program clProgram, 
 								   cl_uint uiNumDevices, 
 								   const cl_device_id * pclDeviceList, 
@@ -438,4 +441,117 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 
 	clErrRet = pProgram->Build(uiNumDevices, pclDeviceList, pcOptions, pfn_notify, pUserData);
 	return clErrRet;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::UnloadCompiler
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::UnloadCompiler(void)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetProgramInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetProgramInfo(cl_program clProgram, 
+									 cl_program_info clParamName, 
+									 size_t szParamValueSize, 
+									 void * pParamValue, 
+									 size_t * pszParamValueSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"GetProgramInfo enter. clProgram=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d", 
+		clProgram, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	Program * pProgram = NULL;
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"m_pPrograms == NULL; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get program from the programs map list
+	clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pPrograms->GetOCLObject(%d, %d) = %d", clProgram, &pProgram, clErrRet);
+		return CL_INVALID_CONTEXT;
+	}
+	return pProgram->GetInfo((cl_int)clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetProgramBuildInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetProgramBuildInfo(cl_program clProgram, 
+										  cl_device_id clDevice, 
+										  cl_program_info clParamName, 
+										  size_t szParamValueSize, 
+										  void * pParamValue, 
+										  size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateKernel
+//////////////////////////////////////////////////////////////////////////
+cl_kernel ContextModule::CreateKernel(cl_program clProgram, 
+									  const char * pscKernelName, 
+									  cl_int * piErr)
+{
+	return CL_INVALID_HANDLE;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateKernelsInProgram
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram, 
+											 cl_uint uiNumKernels, 
+											 cl_kernel * pclKernels, 
+											 cl_uint * puiNumKernelsRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::RetainKernel
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::RetainKernel(cl_kernel clKernel)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::ReleaseKernel
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::SetKernelArg
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::SetKernelArg(cl_kernel clKernel, 
+								   cl_uint	uiArgIndex, 
+								   size_t szArgSize, 
+								   const void * pszArgValue)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelInfo(cl_kernel clKernel, 
+									cl_kernel_info clParamName, 
+									size_t szParamValueSize, 
+									void * pParamValue, 
+									size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelWorkGroupInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel, 
+											 cl_device_id clDevice, 
+											 cl_kernel_work_group_info clParamName, 
+											 size_t szParamValueSize, 
+											 void *	pParamValue, 
+											 size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
 }
