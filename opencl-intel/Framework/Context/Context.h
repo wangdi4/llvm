@@ -138,6 +138,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code GetDevices(cl_uint uiNumDevices, Device ** ppDevices, cl_uint * puiNumDevicesRet);
 
+		// remove the program from the context
+		cl_err_code RemoveProgram(cl_program clProgramId);
+
 	private:
 
 		// check that all devices belong to this context
@@ -146,15 +149,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		OCLObjectsMap *							m_pPrograms;	// holds the programs that related to this context
 
+		OCLObjectsMap *							m_pDevices;		// holds the devices that associated to the program
+
 		cl_context_properties					m_clContextProperties; // context properties
 
 		logging_fn								m_pfnNotify; // notify function's pointer
 
 		void *									m_pUserData; // user data
-
-		std::map<cl_device_id,Device*>			m_mapDevices;	// map list - holds all devices
-		
-		cl_device_id *							m_pDeviceIds; // array of device ids
 
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// context's logger client
 	};

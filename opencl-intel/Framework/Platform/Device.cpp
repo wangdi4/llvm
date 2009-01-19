@@ -243,3 +243,45 @@ void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status, cl_int st
 {
 	return;
 }
+cl_err_code Device::GetKernelId(cl_dev_program	clDevProg,
+								const char *	psKernelName,
+								cl_dev_kernel *	pclKernel)
+{
+	InfoLog(m_pLoggerClient, L"GetKernelId enter. clDevProg=%d, psKernelName=%s, pclKernel=%d", clDevProg, psKernelName, pclKernel);
+	cl_int iRes = m_clDevEntryPoints.pclDevGetKernelId(clDevProg, psKernelName, pclKernel);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}
+
+cl_err_code Device::GetProgramKernels(cl_dev_program clDevProg,
+									  cl_uint uiNumKernels,
+									  cl_dev_kernel * pclKernels,
+									  cl_uint * puiNumKernelsRet)
+{
+	InfoLog(m_pLoggerClient, L"GetProgramKernels enter. clDevProg=%d, uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d", 
+		clDevProg, uiNumKernels, pclKernels, puiNumKernelsRet);
+	cl_int iRes = m_clDevEntryPoints.pclDevGetProgramKernels(clDevProg, uiNumKernels, pclKernels, puiNumKernelsRet);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}
+cl_err_code Device::GetKernelInfo(cl_dev_kernel clKernel,
+								  cl_dev_kernel_info clParam,
+								  size_t szValueSize,
+								  void * pValue,
+								  size_t * pValueSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"GetKernelInfo enter. clKernel=%d, clParam=%d, szValueSize=%d, pValue=%d, pValueSizeRet=%d", 
+		clKernel, clParam, szValueSize, pValue, pValueSizeRet);
+	cl_int iRes = m_clDevEntryPoints.pclDevGetKernelInfo(clKernel, clParam, szValueSize, pValue, pValueSizeRet);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}

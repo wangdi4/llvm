@@ -96,7 +96,7 @@ cl_err_code EventsManager::ReleaseEvent(cl_event event)
         if ( 0 == pEvent->GetReferenceCount() )
         {
             // Remove this event completely
-            m_pEvents->RemoveObject((cl_uint)event);
+            m_pEvents->RemoveObject((cl_uint)event, NULL);
             delete pEvent;
         }
     }

@@ -8,6 +8,7 @@
 #include "context_module.h"
 #include "context.h"
 #include "program.h"
+#include "kernel.h"
 #include <platform_module.h>
 #include <device.h>
 #include <cl_objects_map.h>
@@ -54,6 +55,12 @@ cl_err_code ContextModule::Initialize()
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 
+	m_pKernels = new OCLObjectsMap();
+	if (NULL == m_pKernels)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -71,7 +78,11 @@ cl_err_code ContextModule::Release()
 			clErrRet = m_pContexts->GetObjectByIndex(ui, (OCLObject**)&pContext);
 			if (CL_SUCCEEDED(clErrRet))
 			{
-				pContext->Release();
+				clErrRet = pContext->Release();
+				if (CL_FAILED(clErrRet))
+				{
+					return clErrRet;
+				}
 				delete pContext;
 			}
 		}
@@ -81,6 +92,11 @@ cl_err_code ContextModule::Release()
 	if (NULL != m_pPrograms)
 	{
 		m_pPrograms->Clear();
+	}
+
+	if (NULL != m_pKernels)
+	{
+		m_pKernels->Clear();
 	}
 
 	return clErrRet;
@@ -229,7 +245,17 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
 		return CL_INVALID_CONTEXT;
 	}
-	return pContext->Release();
+	clErrRet = pContext->Release();
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	if (pContext->GetReferenceCount() == 0)
+	{
+		m_pContexts->RemoveObject((cl_int)context, (OCLObject**)&pContext);
+		delete pContext;
+	}
+	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetContextInfo
@@ -303,12 +329,20 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 			return CL_INVALID_HANDLE;
 		}
 	}
-	cl_int iProgramId = m_pPrograms->AddObject((OCLObject*)pProgram);
+	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+			return CL_INVALID_HANDLE;
+		}
+	}
 	if (NULL != pErrcodeRet)
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_program)iProgramId;
+	return (cl_program)pProgram->GetId();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithBinary
@@ -365,12 +399,20 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 			return CL_INVALID_HANDLE;
 		}
 	}
-	cl_int iProgramId = m_pPrograms->AddObject((OCLObject*)pProgram);
+	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrRet)
+		{
+			*pErrRet = clErrRet;
+			return CL_INVALID_HANDLE;
+		}
+	}
 	if (NULL != pErrRet)
 	{
 		*pErrRet = CL_SUCCESS;
 	}
-	return (cl_program)iProgramId;
+	return (cl_program)pProgram->GetId();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainProgram
@@ -410,7 +452,25 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 		ErrLog(m_pLoggerClient, L"program %d is invalid program", clProgram);
 		return CL_INVALID_PROGRAM;
 	}
-	return pProgram->Release();
+	clErrRet = pProgram->Release();
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	if (pProgram->GetReferenceCount() == 0)
+	{
+		Context * pContext = (Context*)pProgram->GetContext();
+		if (NULL == pContext)
+		{
+			return CL_INVALID_CONTEXT;
+		}
+		clErrRet = pContext->RemoveProgram((cl_program)pProgram->GetId());
+		if (CL_FAILED(clErrRet))
+		{
+			return clErrRet;
+		}
+	}
+	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::BuildProgram
@@ -428,7 +488,7 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 	if (NULL == m_pPrograms)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
-		return CL_ERR_NOT_IMPLEMENTED;
+		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// get program from programs map list
 	Program * pProgram = NULL;
@@ -496,6 +556,38 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 									  const char * pscKernelName, 
 									  cl_int * piErr)
 {
+	InfoLog(m_pLoggerClient, L"CreateKernel enter. clProgram=%d, pscKernelName=%d, piErr=%d", clProgram, pscKernelName, piErr);
+
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
+		if (NULL != piErr)
+		{
+			*piErr = CL_ERR_INITILIZATION_FAILED;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	Program *pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet) || NULL == pProgram)
+	{
+		ErrLog(m_pLoggerClient, L"clProgram is invalid program");
+		if (NULL != piErr)
+		{
+			*piErr = CL_INVALID_PROGRAM;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	Kernel * pKernel = NULL;
+	clErrRet = pProgram->CreateKernel(pscKernelName, &pKernel);
+	if (NULL != piErr)
+	{
+		*piErr = CL_ERR_OUT(clErrRet);
+	}
+	if (NULL != pKernel)
+	{
+		return (cl_kernel)pKernel->GetId();
+	}
 	return CL_INVALID_HANDLE;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -506,7 +598,22 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 											 cl_kernel * pclKernels, 
 											 cl_uint * puiNumKernelsRet)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"CreateKernelsInProgram enter. clProgram=%d, uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d", 
+		clProgram, uiNumKernels, pclKernels, puiNumKernelsRet);
+
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	Program *pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet) || NULL == pProgram)
+	{
+		ErrLog(m_pLoggerClient, L"clProgram is invalid program");
+		return CL_INVALID_PROGRAM;
+	}
+	return pProgram->CreateAllKernels(uiNumKernels, pclKernels, puiNumKernelsRet);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainKernel

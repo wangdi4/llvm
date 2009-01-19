@@ -107,13 +107,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// IBuildDoneObserver
 		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
 
+		const cl_dev_program GetId(){ return m_clDevProgram; }
+
 	private:
 
 		cl_dev_program							m_clDevProgram;
 		
 		cl_dev_binary_prop						m_clDevBinaryProp;
 
-		cl_build_status							m_clBuildStatus;
+		cl_build_status							m_clBuildStatus;	// build status
 
 		IBuildDoneObserver *					m_pBuildDoneObserver;
 		

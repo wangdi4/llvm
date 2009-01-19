@@ -124,9 +124,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Intel::OpenCL::Utils::LoggerClient *		m_pLoggerClient; // handle to the logger client
 
+		OCLObjectsMap *		m_pContexts; // map list of contexts
+
 		OCLObjectsMap *		m_pPrograms; // map list of programs
 
-		OCLObjectsMap *		m_pContexts; // map list of contexts
+		OCLObjectsMap *		m_pKernels;	// map list of kernels
 		
 		Intel::OpenCL::Utils::LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
 

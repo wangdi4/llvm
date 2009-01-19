@@ -28,6 +28,7 @@
 #include "program.h"
 #include "program_binary.h"
 #include "context.h"
+#include "kernel.h"
 #include <string.h>
 #include <device.h>
 using namespace std;
@@ -50,6 +51,8 @@ Program::Program(Context * pContext)
 
 	m_pfnNotify = NULL;
 	m_pUserData = NULL;
+
+	m_pKernels = new OCLObjectsMap();
 
 	m_mapBinaries.clear();
 	m_mapDevices.clear();
@@ -90,13 +93,34 @@ Program::~Program()
 cl_err_code Program::Release()
 {
 	return OCLObject::Release();
+
+	Kernel * pKernel = NULL;
+	cl_err_code clErrRet = CL_SUCCESS;
+	
+	if (m_uiRefCount == 0)
+	{
+		for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
+		{
+			clErrRet = m_pKernels->GetObjectByIndex(ui, (OCLObject**)&pKernel);
+			if (CL_FAILED(clErrRet) || NULL == pKernel)
+			{
+				return clErrRet;
+			}
+			clErrRet = pKernel->Release();
+			if (CL_FAILED(clErrRet))
+			{
+				return clErrRet;
+			}
+		}
+	}
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
 {
-	InfoLog(m_pLoggerClient, L"Program::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d", param_name, param_value_size, param_value, param_value_size_ret);
+	InfoLog(m_pLoggerClient, L"Program::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d", 
+		param_name, param_value_size, param_value, param_value_size_ret);
 	
 	cl_err_code clErrRet = CL_SUCCESS;
 	if (NULL == param_value && NULL == param_value_size_ret)
@@ -591,4 +615,58 @@ cl_err_code Program::NotifyBuildDone(cl_device_id device, cl_build_status build_
 			m_pfnNotify((cl_program)m_iId, m_pUserData);
 		}
 		return CL_SUCCESS;
+}
+cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
+{
+	InfoLog(m_pLoggerClient, L"CreateKernel enter. pscKernelName=%s, ppKernel=%d", psKernelName, ppKernel);
+	if (NULL == psKernelName || NULL == ppKernel)
+	{
+		return CL_INVALID_VALUE;
+	}
+	// check executables
+	ProgramBinary ** ppBinaries = new ProgramBinary * [m_mapBinaries.size()];
+	if (NULL == ppBinaries)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
+	for (cl_uint ui=0; ui<m_mapBinaries.size() && it != m_mapBinaries.end(); ++ui)
+	{
+		ProgramBinary * pProgBin = it->second;
+		cl_build_status clBuildStatus = pProgBin->GetStatus();
+		if (clBuildStatus != CL_BUILD_SUCCESS)
+		{
+			// missing executable in one of the devices
+			ErrLog(m_pLoggerClient, L"device %s doesn't have valid executable", it->first);
+			delete[] ppBinaries;
+			return CL_INVALID_PROGRAM_EXECUTABLE;
+		}
+		ppBinaries[ui] = pProgBin;
+		it++;
+	}
+	
+	// create new kernel object;
+	Kernel * pKernel = new Kernel(this, psKernelName);
+
+	// for each device, create deivce kernel 
+	cl_err_code clErrRet = CL_SUCCESS;
+	DeviceKernel * pDeviceKernel = NULL;
+
+	clErrRet = pKernel->CreateDeviceKernels(m_mapBinaries.size(), ppBinaries);
+	if (CL_FAILED(clErrRet))
+	{
+		pKernel->Release();
+		delete pKernel;
+		delete[] ppBinaries;
+		return clErrRet;
+	}
+
+	m_pKernels->AddObject((OCLObject*)pKernel);
+	*ppKernel = pKernel;
+	delete[] ppBinaries;
+	return CL_SUCCESS;
+}
+cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
 }

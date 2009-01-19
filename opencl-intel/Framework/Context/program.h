@@ -41,6 +41,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
 	class ProgramBinary;
 	class Device;
+	class Kernel;
+	class OCLObjectsMap;
 
 	/**********************************************************************************************
 	* Enumaration:	EProgramSourceType
@@ -87,6 +89,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Program();
 
+		// return the context to which the program belongs
+		const Context * GetContext(){ return m_pContext; }
+
 		/******************************************************************************************
 		* Function: 	GetInfo    
 		* Description:	get object specific information (inharited from OCLObject) the function 
@@ -119,6 +124,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							const char *			pcOptions,
 							void (*pfnNotify)(cl_program clProgram, void * pUserData),
 							void *					pUserData );
+
+		// create new kernel object
+		cl_err_code CreateKernel(const char * pscKernelName, Kernel ** ppKernel);
+
+		// create all kernels from the program object
+		cl_err_code CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
 
 		// IBuildDoneObserver
 		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
@@ -154,7 +165,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		std::map<cl_device_id, Device*>			m_mapDevices;		// assoicated devices
+		OCLObjectsMap *							m_pKernels;			// associated kernels
+
+		std::map<cl_device_id, Device*>			m_mapDevices;		// associated devices
 		
 		std::map<cl_device_id, ProgramBinary*>	m_mapBinaries;		// program's binaries
 		

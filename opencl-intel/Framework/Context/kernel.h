@@ -29,19 +29,92 @@
 #if !defined(_OCL_KERNEL_H_)
 #define _OCL_KERNEL_H_
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include <cl_object.h>
 #include <logger.h>
+#include <cl_device_api.h>
+#include <cl_objects_map.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
+
+	class Program;
+	class ProgramBinary;
+	class Kernel;
+	class Device;
+
+	/**********************************************************************************************
+	* Class name:	SKernelPrototype
+	*
+	* Description:	contains information on kernel prototype
+	* Members:		m_psKernelName	- the name of the kernel
+	*				m_uiArgsCount	- number of arguments in the kernel
+	*				m_pArgs			- list of all kernel's arguments
+	* Author:		Uri Levy
+	* Date:			January 2008
+	**********************************************************************************************/	
+	struct SKernelPrototype
+	{
+		char *					m_psKernelName;
+		cl_uint					m_uiArgsCount;
+		cl_kernel_arg_type *	m_pArgs;
+	};
+
+	/**********************************************************************************************
+	* Class name:	DeviceKernel
+	*
+	* Description:	represents a device kernel object
+	* Author:		Uri Levy
+	* Date:			January 2008
+	**********************************************************************************************/	
+	class DeviceKernel
+	{
+	public:
+		
+		// Constructor
+		DeviceKernel(	Kernel *		pKernel,
+						ProgramBinary *	pProgBin, 
+						const char *	psKernelName,
+						cl_err_code *	pErr );
+
+		// Destructor
+		~DeviceKernel();
+
+		// get kernel id
+		const cl_dev_kernel GetId(){ return m_clDevKernel; }
+
+		// get kernel prototype
+		const SKernelPrototype GetPrototype(){ return m_sKernelPrototype; }
+
+		// compare between kernel's prototypes
+		bool CheckKernelDefinition(DeviceKernel * pKernel);
+
+
+	private:
+
+		// device kernel id
+		cl_dev_kernel							m_clDevKernel;
+
+		// kernel prototype
+		SKernelPrototype						m_sKernelPrototype;
+
+		// parent kernel
+		Kernel *								m_pKernel;
+		
+		// device to which the device kernel associated
+		Device *								m_pDevice;
+
+		// logger client
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
+
+	};
 
 	/**********************************************************************************************
 	* Class name:	Kernel
 	*
 	* Inherit:		OCLObject
-	* Description:	represents a memory object
+	* Description:	represents a kernel object
 	* Author:		Uri Levy
-	* Date:			December 2008
+	* Date:			January 2008
 	**********************************************************************************************/		
 	class Kernel : public OCLObject
 	{
@@ -54,7 +127,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Kernel( );
+		Kernel(Program * pProgram, const char * psKernelName);
 
 		/******************************************************************************************
 		* Function: 	~Kernel
@@ -79,10 +152,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
+		// relese kernel object
 		cl_err_code Release();
+
+		// create device kernels
+		cl_err_code CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary ** ppBinaries);
 
 
 	private:
+
+		// kernel name
+		char *									m_psKernelName;
+
+		// associated program
+		Program *								m_pProgram;
+
+		// list of all device kernels
+		OCLObjectsMap *							m_pDeviceKernels;
+
+		// logger client
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
 
 	};
 

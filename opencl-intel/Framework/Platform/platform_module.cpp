@@ -80,7 +80,7 @@ cl_err_code PlatformModule::InitDevices(vector<string> devices)
 		cl_err_code clErrRet = pDevice->InitDevice(pout);
 		if (CL_FAILED(clErrRet))
 		{
-			m_pDevices->RemoveObject(pDevice->GetId());
+			m_pDevices->RemoveObject(pDevice->GetId(), NULL);
 			delete pDevice;
 			return clErrRet;
 		}

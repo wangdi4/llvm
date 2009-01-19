@@ -123,6 +123,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *			pBin,
 										size_t *		pszBinSizeRet );
 
+		cl_err_code GetKernelId(	cl_dev_program	clDevProg,
+									const char *	psKernelName,
+									cl_dev_kernel *	pclKernel );
+
+		cl_err_code GetProgramKernels(	cl_dev_program	clDevProg,
+										cl_uint			uiNumKernels,
+										cl_dev_kernel *	pclKernels,
+										cl_uint *		puiNumKernelsRet );
+
+		cl_err_code GetKernelInfo(	cl_dev_kernel		clKernel,
+									cl_dev_kernel_info	clParam,
+									size_t				szValueSize,
+									void *				pValue,
+									size_t *			pValueSizeRet );
+
+
 	private:
 
 		///////////////////////////////////////////////////////////////////////////////////////////

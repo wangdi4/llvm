@@ -258,7 +258,8 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_MAX_PARAMETER_SIZE):
 		case( CL_DEVICE_MAX_SAMPLERS):
 		case( CL_DEVICE_MEM_BASE_ADDR_ALIGN):
-		case( CL_DEVICE_MAX_DATA_TYPE_ALIGN_SIZE):
+		case( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE):
+			// changes from CL_DEVICE_MAX_DATA_TYPE_ALIGN_SIZE in previous spec version
 		case( CL_DEVICE_SINGLE_FP_CONFIG):
 		case( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
 		case( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
@@ -302,7 +303,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_FN_AS_KERNEL;
+					cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL; // changed from CL_EXEC_NATIVE_FN_AS_KERNEL
 					*(cl_device_exec_capabilities*)paramVal = execCapabilities;
 				}
 				return CL_DEV_SUCCESS;

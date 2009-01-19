@@ -690,17 +690,62 @@ cl_int clCreateKernelsInProgram(cl_program  program,
 								cl_kernel * kernels,
 								cl_uint *   num_kernels_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->CreateKernelsInProgram(program, num_kernels, kernels, num_kernels_ret);
+	return CL_ERR_OUT(clRet);
 }
 
-cl_int clRetainKernel(cl_kernel)
+cl_int clRetainKernel(cl_kernel kernel)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->RetainKernel(kernel);
+	return CL_ERR_OUT(clRet);
 }
 
-cl_int clReleaseKernel(cl_kernel)
+cl_int clReleaseKernel(cl_kernel kernel)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->ReleaseKernel(kernel);
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clSetKernelArg(cl_kernel    kernel,
@@ -708,7 +753,22 @@ cl_int clSetKernelArg(cl_kernel    kernel,
 					  size_t       arg_size,
 					  const void * arg_value)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->SetKernelArg(kernel, arg_indx, arg_size, arg_value);
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clGetKernelInfo(cl_kernel      kernel,
@@ -717,7 +777,22 @@ cl_int clGetKernelInfo(cl_kernel      kernel,
 					   void *         param_value,
 					   size_t *       param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_OUT(clRet);
 }
 
 cl_int clGetKernelWorkGroupInfo(cl_kernel                 kernel,
@@ -727,5 +802,20 @@ cl_int clGetKernelWorkGroupInfo(cl_kernel                 kernel,
 								void *                    param_value,
 								size_t *                  param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	// get instance of the framework factory class
+	FrameworkProxy* pFramework = FrameworkProxy::Instance();
+	if (NULL == pFramework)
+	{
+		// can't initialize framework factory
+		return CL_ERR_INITILIZATION_FAILED;
+
+	}
+	// get the context module
+	ContextModule *pContextModule = pFramework->GetContextModule();
+	if (NULL == pContextModule)
+	{
+		return CL_ERR_CONTEXT_FAILED;
+	}
+	cl_err_code clRet = pContextModule->GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_OUT(clRet);
 }

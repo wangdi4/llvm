@@ -437,6 +437,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Context\kernel.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Context\kernel.h"
 				>
 			</File>

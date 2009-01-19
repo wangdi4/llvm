@@ -45,22 +45,16 @@ Context::Context(cl_context_properties clProperties, cl_uint uiNumDevices, Devic
 	m_pLoggerClient = new LoggerClient(L"Context", LL_DEBUG);
 	InfoLog(m_pLoggerClient, L"Context constructor enter");
 
+	m_pPrograms = new OCLObjectsMap();
+	m_pDevices = new OCLObjectsMap();
 	if (NULL == ppDevices || uiNumDevices <= 0)
-	{
-		return;
-	}
-	m_pDeviceIds = new cl_device_id[uiNumDevices];
-	if (NULL == m_pDeviceIds)
 	{
 		return;
 	}
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		cl_device_id iDeviceId = (cl_device_id)(*ppDevices)->GetId();
-		m_pDeviceIds[ui] = iDeviceId;
-		m_mapDevices[iDeviceId] = *ppDevices;
+		m_pDevices->AddObject(ppDevices[ui], ppDevices[ui]->GetId(), false);
 	}
-
 	m_clContextProperties = clProperties;
 	m_pfnNotify = pfnNotify;
 	m_pUserData = pUserData;
@@ -71,8 +65,6 @@ Context::Context(cl_context_properties clProperties, cl_uint uiNumDevices, Devic
 Context::~Context()
 {
 	InfoLog(m_pLoggerClient, L"Context destructor enter");
-	delete[] m_pDeviceIds;
-	m_mapDevices.clear();
 
 	delete m_pLoggerClient;
 	m_pLoggerClient = NULL;
@@ -91,6 +83,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	size_t szParamValueSize = 0;
 	void * pValue = NULL;
 	
+	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_context_info)param_name )
 	{
 
@@ -99,8 +92,16 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		pValue = &m_uiRefCount;
 		break;
 	case CL_CONTEXT_DEVICES:
-		szParamValueSize = sizeof(cl_device_id) * m_mapDevices.size();
-		pValue = m_pDeviceIds;
+		szParamValueSize = sizeof(cl_device_id) * m_pDevices->Count();
+		pValue = new cl_device_id[m_pDevices->Count()];
+		if (NULL != pValue)
+		{
+			clErrRet = m_pDevices->GetIDs(m_pDevices->Count(), (cl_int*)pValue, NULL);
+		}
+		else
+		{
+			clErrRet = CL_ERR_INITILIZATION_FAILED;
+		}
 		break;
 	case CL_CONTEXT_PROPERTIES:
 		szParamValueSize = sizeof(cl_context_properties);
@@ -109,6 +110,10 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	default:
 		ErrLog(m_pLoggerClient, L"param_name (=%d) isn't valid", param_name);
 		return CL_INVALID_VALUE;
+	}
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
 	}
 	// if param_value == NULL return only param value size
 	if (NULL == param_value)
@@ -138,6 +143,7 @@ cl_err_code Context::Release()
 	}
 	if (0 == m_uiRefCount)
 	{
+		m_pDevices->Clear();
 		// TODO check resources
 	}
 	return CL_SUCCESS;
@@ -187,12 +193,13 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
 		ErrLog(m_pLoggerClient, L"0 == uiNumDevices || NULL == pclDevices");
 		return false;
 	}
+	Device * pDevice = NULL;
+	cl_err_code clErrRet = CL_SUCCESS;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		map<cl_device_id,Device*>::iterator it = m_mapDevices.find(pclDevices[ui]);
-		if (it == m_mapDevices.end())
+		clErrRet = m_pDevices->GetOCLObject((cl_int)pclDevices[ui], (OCLObject**)&pDevice);
+		if ( CL_FAILED(clErrRet) || NULL == pDevice)
 		{
-			// device wasn't found
 			ErrLog(m_pLoggerClient, L"device %d was't found in this context", pclDevices[ui]);
 			return false;
 		}
@@ -248,18 +255,20 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 	
 	map<cl_device_id,Device*>::iterator it;
+	Device * pDevice = NULL;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		map<cl_device_id,Device*>::iterator it = m_mapDevices.find(pclDeviceList[ui]);
-		if (it != m_mapDevices.end())
+		clErrRet = m_pDevices->GetOCLObject((cl_int)pclDeviceList[ui], (OCLObject**)&pDevice);
+		if (CL_SUCCEEDED(clErrRet))
 		{
-			ppDevices[ui] = (Device*)it->second;
+			ppDevices[ui] = pDevice;
 		}
 	}
 
 	clErrRet = pProgram->AddBinaries(uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus);
 
 	delete[] ppDevices;
+	m_pPrograms->AddObject((OCLObject*)pProgram);
 	*ppProgram = pProgram;
 	return clErrRet;
 }
@@ -271,28 +280,24 @@ cl_err_code Context::GetDevices(cl_uint uiNumDevices, Device ** ppDevices, cl_ui
 		return CL_INVALID_VALUE;
 	}
 
-	if (NULL != ppDevices && uiNumDevices < m_mapDevices.size())
+	if (NULL == m_pDevices)
 	{
-		return CL_INVALID_VALUE;
+		return CL_ERR_INITILIZATION_FAILED;
 	}
 
-	if (0 == uiNumDevices && NULL == ppDevices && NULL != puiNumDevicesRet)
+	return m_pDevices->GetObjects(uiNumDevices, (OCLObject**)ppDevices, puiNumDevicesRet);
+}
+cl_err_code Context::RemoveProgram(cl_program clProgramId)
+{
+	if (NULL == m_pPrograms)
 	{
-		// return size only
-		*puiNumDevicesRet = m_mapDevices.size();
-		return CL_SUCCESS;
+		return CL_ERR_INITILIZATION_FAILED;
 	}
-
-	cl_uint ui = 0;
-	map<cl_device_id, Device*>::iterator it = m_mapDevices.begin();
-	while (it != m_mapDevices.end())
+	Program * pProgram = NULL;
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgramId, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
 	{
-		ppDevices[ui++] = it->second;
-		it++;
+		return clErrRet;
 	}
-	if (NULL != puiNumDevicesRet)
-	{
-		*puiNumDevicesRet = m_mapDevices.size();
-	}
-	return CL_SUCCESS;
+	return m_pPrograms->RemoveObject((cl_int)clProgramId, NULL);
 }

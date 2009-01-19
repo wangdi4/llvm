@@ -85,6 +85,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int AddObject(OCLObject * pObject);
 
 		/******************************************************************************************
+		* Function: 	AddObject    
+		* Description:	This function adds an object to a map with assigned handle id. It is 
+		*				important to save this handle to query and remove the object.
+		*				it's on the caller responsibility to allocates and destroy the object's 
+		*				resource. 
+		* Arguments:	pObject		- pointer to the OpenCL object. must be a valid OpenCL object.
+		*				iObjectId	- object id
+		*				bAssignId	- if True the function assign the id to the object
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			January 2008
+		******************************************************************************************/	
+		cl_err_code AddObject(OCLObject * pObject, int iObjectId, bool bAssignId);
+
+		/******************************************************************************************
 		* Function: 	GetOCLObject    
 		* Description:	returns the OpenCL object which assign to the object id
 		* Arguments:	iObjectId [in]	the id of the OpenCL object
@@ -112,15 +127,42 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetObjectByIndex(cl_uint uiIndex, OCLObject ** ppObject);
 
 		/******************************************************************************************
+		* Function: 	GetObjects    
+		* Description:	returns an array with all objects
+		* Arguments:	uiObjectCount [in]	
+		*				ppObjects [out]				
+		*				puiObjectCountRet [out]	
+		* Return value:	CL_SUCCESS -
+		* Author:		Uri Levy
+		* Date:			January 2008
+		******************************************************************************************/	
+		cl_err_code GetObjects(cl_uint uiObjectCount, OCLObject ** ppObjects, cl_uint * puiObjectCountRet);
+
+		/******************************************************************************************
+		* Function: 	GetIDs    
+		* Description:	returns an array with all ids
+		* Arguments:	uiIdsCount [in]	
+		*				ppIds [out]				
+		*				puiIdsCountRet [out]	
+		* Return value:	CL_SUCCESS -
+		* Author:		Uri Levy
+		* Date:			January 2008
+		******************************************************************************************/	
+		cl_err_code GetIDs(cl_uint uiIdsCount, cl_int * pIds, cl_uint * puiIdsCountRet);
+
+		/******************************************************************************************
 		* Function: 	RemoveObject    
-		* Description:	remove the OpenCL object which assign to the object id from the map
-		* Arguments:	iObjectId [in]	the id of the OpenCL object
+		* Description:	remove the OpenCL object which assign to the object id from the map and
+		*				returns the object if neccessary
+		* Arguments:	iObjectId [in]		the id of the OpenCL object
+		*				ppObjectRet [out]	return the object being removed. if ppObjectRet is
+		*									NULL it is ignored
 		* Return value:	CL_SUCCESS -			the object was removed from the map
 		*				CL_ERR_KEY_NOT_FOUND -	the current object id wasn't found in the map
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code RemoveObject(cl_int iObjectId);
+		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet);
 
 		/******************************************************************************************
 		* Function: 	Count    
@@ -141,6 +183,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/	
 		void Clear();
+
+		// check if current object id exists in map list
+		bool IsExists(cl_int iObjectId);
 
 	};
 
