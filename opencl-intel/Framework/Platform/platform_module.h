@@ -107,9 +107,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IPlatform methods
 		///////////////////////////////////////////////////////////////////////////////////////////
-		virtual cl_err_code GetPlatformInfo(cl_platform_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
-		virtual cl_err_code	GetDeviceIDs(cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
-		virtual cl_err_code	GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
+		virtual cl_int GetPlatformInfo(cl_platform_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
+		virtual cl_int	GetDeviceIDs(cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
+		virtual cl_int	GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
 
 	private:
 

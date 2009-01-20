@@ -66,10 +66,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code	GetPlatformInfo(cl_platform_info IN    clParamName, 
-											size_t           IN    szParamValueSize, 
-											void*            INOUT pParamValue, 
-											size_t*          OUT   pszParamValueSizeRet) = 0;
+		virtual cl_int	GetPlatformInfo(cl_platform_info IN    clParamName, 
+										size_t           IN    szParamValueSize, 
+										void*            INOUT pParamValue, 
+										size_t*          OUT   pszParamValueSizeRet) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetPlatformInfo    
@@ -97,10 +97,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code	GetDeviceIDs(	cl_device_type IN  clDeviceType, 
-											cl_uint        IN  uiNumEntries, 
-											cl_device_id*  OUT pclDevices, 
-											cl_uint*       OUT puiNumDevices ) = 0;
+		virtual cl_int	GetDeviceIDs(	cl_device_type IN  clDeviceType, 
+										cl_uint        IN  uiNumEntries, 
+										cl_device_id*  OUT pclDevices, 
+										cl_uint*       OUT puiNumDevices ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetDeviceInfo    
@@ -130,11 +130,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code GetDeviceInfo(	cl_device_id   IN clDevice,
-											cl_device_info IN clParamName,
-											size_t         IN szParamValueSize,
-											void*          OUT pParamValue,
-											size_t*        OUT pszParamValueSizeRet ) = 0;
+		virtual cl_int GetDeviceInfo(	cl_device_id   IN  clDevice,
+										cl_device_info IN  clParamName,
+										size_t         IN  szParamValueSize,
+										void*          OUT pParamValue,
+										size_t*        OUT pszParamValueSizeRet ) = 0;
 
 	};
 

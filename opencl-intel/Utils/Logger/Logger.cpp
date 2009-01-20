@@ -84,14 +84,26 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void Logger::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
-{        
-    LogMessage	logMessage(level, sourceFile, functionName, sourceLine, message, va);    
+void Logger::Log(ELogLevel level, ELogConfigField config, char* psClientName, char* sourceFile, char* functionName, __int32 sourceLine, char* message, va_list va)
+{
+    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);    
     for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
     {
         if (m_logHandlers[i] != NULL)
         {
             m_logHandlers[i]->Log(logMessage);            
+        }
+    }
+}
+
+void Logger::LogW(ELogLevel level, ELogConfigField config, wchar_t* psClientName, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+{        
+    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);    
+    for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
+    {
+        if (m_logHandlers[i] != NULL)
+        {
+            m_logHandlers[i]->LogW(logMessage);            
         }
     }    
 }
@@ -113,6 +125,8 @@ LoggerClient::LoggerClient(wchar_t* clientHandle, ELogLevel loglevel)
 {   
   
     m_logLevel = loglevel;	
+	m_eLogConfig = LCF_LINE_ALL; 
+	m_handle = NULL;
 }
 
 
@@ -127,7 +141,7 @@ inline LoggerClient::~LoggerClient()
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void LoggerClient::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, ...)
+void LoggerClient::Log(ELogLevel level, char* sourceFile, char* functionName, __int32 sourceLine, char* message, ...)
 {         
     if (m_logLevel > level)
     {
@@ -136,20 +150,41 @@ void LoggerClient::Log(ELogLevel level, wchar_t* sourceFile, wchar_t* functionNa
     va_list va;
     va_start(va, message);
 
-    Logger::GetInstance().Log(level, sourceFile, functionName,  sourceLine, message, va);
+    Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
+
+    va_end( va );      
+}
+void LoggerClient::LogW(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, ...)
+{         
+    if (m_logLevel > level)
+    {
+        return;
+    }    
+    va_list va;
+    va_start(va, message);
+
+    Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
 
     va_end( va );      
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::LogArgList
 /////////////////////////////////////////////////////////////////////////////////////////
-void LoggerClient::LogArgList(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+void LoggerClient::LogArgList(ELogLevel level, char* sourceFile, char* functionName, __int32 sourceLine, char* message, va_list va)
 {
 	if (m_logLevel > level)
     {
         return;
     } 
-	Logger::GetInstance().Log(level, sourceFile, functionName,  sourceLine, message, va);
+	Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
+}
+void LoggerClient::LogArgListW(ELogLevel level, wchar_t* sourceFile, wchar_t* functionName, __int32 sourceLine, wchar_t* message, va_list va)
+{
+	if (m_logLevel > level)
+    {
+        return;
+    } 
+	Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
 }
 
 

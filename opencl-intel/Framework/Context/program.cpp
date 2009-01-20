@@ -627,6 +627,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	ProgramBinary ** ppBinaries = new ProgramBinary * [m_mapBinaries.size()];
 	if (NULL == ppBinaries)
 	{
+		ErrLog(m_pLoggerClient, L"new ProgramBinary * [%d] == NULL", m_mapBinaries.size());
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
@@ -655,6 +656,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	clErrRet = pKernel->CreateDeviceKernels(m_mapBinaries.size(), ppBinaries);
 	if (CL_FAILED(clErrRet))
 	{
+		ErrLog(m_pLoggerClient, L"pKernel->CreateDeviceKernels(%d, ppBinaries) = %ws", m_mapBinaries.size(), ClErrTxt(clErrRet));
 		pKernel->Release();
 		delete pKernel;
 		delete[] ppBinaries;

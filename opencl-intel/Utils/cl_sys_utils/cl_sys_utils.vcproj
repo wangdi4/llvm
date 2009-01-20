@@ -414,6 +414,10 @@
 				RelativePath=".\cl_thread.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\cl_utils.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -430,6 +434,10 @@
 			</File>
 			<File
 				RelativePath="..\..\include\cl_thread.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\cl_utils.h"
 				>
 			</File>
 		</Filter>

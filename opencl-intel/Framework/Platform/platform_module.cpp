@@ -95,7 +95,7 @@ cl_err_code	PlatformModule::Initialize(ConfigFile * pConfigFile)
 {
 	// initialize logger
 	m_pLoggerClient = new LoggerClient(L"PlatformModule",LL_DEBUG);
-	InfoLog(m_pLoggerClient,L"Platform module logger initialized");
+	InfoLog(m_pLoggerClient, L"Platform module logger initialized");
 
 	// initialize paltform info
 	m_pObjectInfo = new OCLObjectInfo();
@@ -127,14 +127,16 @@ cl_err_code	PlatformModule::Initialize(ConfigFile * pConfigFile)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code	PlatformModule::Release()
 {
+	InfoLog(m_pLoggerClient, L"Enter Release");
+
 	cl_err_code clRes = CL_SUCCESS;
 	OCLObjectInfoParam * pParam = NULL;
+	Device *pDev = NULL;
 
 	// release devices
 	cl_uint uiDevcount = m_pDevices->Count();
 	for (cl_uint ui=0; ui<uiDevcount; ++ui)
 	{
-		Device *pDev = NULL;
 		if (CL_SUCCEEDED(m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDev)))
 		{
 			pDev->Release();
@@ -157,7 +159,7 @@ cl_err_code	PlatformModule::Release()
 		}
 	}
 
-	InfoLog(m_pLoggerClient,L"Platform module logger release");
+	InfoLog(m_pLoggerClient, L"Platform module logger release");
 	delete m_pLoggerClient;
 
 	return CL_SUCCESS;
@@ -165,14 +167,18 @@ cl_err_code	PlatformModule::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetPlatformInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info clParamName, 
-											size_t szParamValueSize, 
-											void* pParamValue, 
-											size_t* pszParamValueSizeRet)
+cl_int	PlatformModule::GetPlatformInfo(cl_platform_info clParamName, 
+										size_t szParamValueSize, 
+										void* pParamValue, 
+										size_t* pszParamValueSizeRet)
 {
+	InfoLog(m_pLoggerClient, L"Enter GetPlatformInfo (clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)", 
+		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
 	if (NULL == m_pObjectInfo)
 	{
-		return CL_ERR_INITILIZATION_FAILED;
+		ErrLog(m_pLoggerClient, L"NULL == m_pObjectInfo")
+		return CL_INVALID_VALUE;
 	}
 	
 	// both param_value and param_value_size_ret are null pointers - in this case there is no 
@@ -215,16 +221,18 @@ cl_err_code	PlatformModule::GetPlatformInfo(cl_platform_info clParamName,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceIDs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
-										 cl_uint uiNumEntries, 
-										 cl_device_id* pclDevices, 
-										 cl_uint* puiNumDevices)
+cl_int	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
+									 cl_uint uiNumEntries, 
+									 cl_device_id* pclDevices, 
+									 cl_uint* puiNumDevices)
 {
-	InfoLog(m_pLoggerClient, L"Enter GetDeviceIDs (device_type=%d, num_entried=%d)", clDeviceType, uiNumEntries);
+	InfoLog(m_pLoggerClient, L"Enter GetDeviceIDs (device_type=%d, num_entried=%d, pclDevices=%d, puiNumDevices=%d)", 
+		clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
+
 	if (NULL == m_pDevices)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pDevices")
-		return CL_ERR_INITILIZATION_FAILED;
+		return CL_INVALID_VALUE;
 	}
 	if (NULL == pclDevices && NULL == puiNumDevices)
 	{
@@ -287,11 +295,11 @@ cl_err_code	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
-										  cl_device_info clParamName, 
-										  size_t szParamValueSize, 
-										  void* pParamValue,
-										  size_t* pszParamValueSizeRet)
+cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
+									  cl_device_info clParamName, 
+									  size_t szParamValueSize, 
+									  void* pParamValue,
+									  size_t* pszParamValueSizeRet)
 {
 	if (NULL == m_pDevices)
 	{

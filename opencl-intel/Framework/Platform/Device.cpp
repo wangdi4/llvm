@@ -162,36 +162,36 @@ cl_err_code Device::GetProgramBinary(cl_dev_program clDevProg,
 
 cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, client_name);
+	InfoLog(m_mapDeviceLoggerClinets[0], L"Device::CreateDeviceLogClient enter. device_id=%d, client_name=%ws", device_id, client_name);
 	if (NULL == client_id)
 	{
-		ErrLog(m_mapDeviceLoggerClinets[0],L"client_id == NULL");
+		ErrLog(m_mapDeviceLoggerClinets[0], L"client_id == NULL");
 		return CL_INVALID_VALUE;
 	}
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Create new logger client: (LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG))");	
+	InfoLog(m_mapDeviceLoggerClinets[0], L"Create new logger client: (LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG))");	
 	LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG);
 	if (NULL == pLoggerClient)
 	{
-		ErrLog(m_mapDeviceLoggerClinets[0],L"NULL == pLoggerClient");
+		ErrLog(m_mapDeviceLoggerClinets[0], L"NULL == pLoggerClient");
 		return CL_ERR_LOGGER_FAILED;
 	}
 	*client_id = m_iNextClientId++;
 	m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::CreateDeviceLogClient exit. (CL_SUCCESS)");	
+	InfoLog(m_mapDeviceLoggerClinets[0], L"Device::CreateDeviceLogClient exit. (CL_SUCCESS)");	
 	return CL_SUCCESS;
 }
 
 cl_int Device::ReleaseDeviceLogClient(cl_int client_id)
 {
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Device::ReleaseDeviceLogClient enter. client_id=%d", client_id);
+	InfoLog(m_mapDeviceLoggerClinets[0], L"Device::ReleaseDeviceLogClient enter. client_id=%d", client_id);
 	map<cl_int,LoggerClient*>::iterator it =  m_mapDeviceLoggerClinets.find(client_id);
 	if (it == m_mapDeviceLoggerClinets.end())
 	{
-		ErrLog(m_mapDeviceLoggerClinets[0],L"CL_ERR_KEY_NOT_FOUND: client id (%d) doesn't exists in device's logger clients pool", client_id);
+		ErrLog(m_mapDeviceLoggerClinets[0], L"CL_ERR_KEY_NOT_FOUND: client id (%d) doesn't exists in device's logger clients pool", client_id);
 		return CL_ERR_KEY_NOT_FOUND;
 	}
 	LoggerClient *pLoggerClient = it->second;
-	InfoLog(m_mapDeviceLoggerClinets[0],L"Delete logger client (delete pLoggerClient; m_mapDeviceLoggerClinets.erase(it);)");
+	InfoLog(m_mapDeviceLoggerClinets[0], L"Delete logger client (delete pLoggerClient; m_mapDeviceLoggerClinets.erase(it);)");
 	delete pLoggerClient;
 	m_mapDeviceLoggerClinets.erase(it);
 
@@ -216,7 +216,7 @@ cl_int Device::DeviceAddLogLine(cl_int client_id, cl_int log_level,
 		va_list va;
 		va_start(va, message);
 		
-		pLoggerClient->LogArgList((ELogLevel)log_level, (wchar_t*)source_file, (wchar_t*)function_name, line_num, (wchar_t*)message, va);
+		pLoggerClient->LogArgListW((ELogLevel)log_level, (wchar_t*)source_file, (wchar_t*)function_name, line_num, (wchar_t*)message, va);
 
 		va_end(va);
 

@@ -50,15 +50,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				devices. Contexts are used by the OpenCL runtime for managing objects such 
 		*				as command-queues, memory, program and kernel objects and for executing 
 		*				kernels on one or more devices specified in the context
-		* Arguments:	properties [in] -	is reserved and must be zero	
-		*				num_devices [in] -	is the number of devices specified in the devices 
+		* Arguments:	clProperties [in] -	is reserved and must be zero	
+		*				uiNumDevices [in] -	is the number of devices specified in the pDevices 
 		*									argument
-		*				devices [in] -		is a pointer to a list of unique devices returned by 
-		*									clGetDeviceIDs. If more than one device is specified in 
-		*									devices, an implementation-defined1 selection criteria 
+		*				pDevices [in] -		is a pointer to a list of unique devices returned by 
+		*									GetDeviceIDs. If more than one device is specified in 
+		*									pDevices, an implementation-defined selection criteria 
 		*									may be applied to determine if the list of devices 
 		*									specified can be used together to create a context
-		*				pfn_notify [in] -	is a callback function that can be registered by the 
+		*				pfnNotify [in] -	is a callback function that can be registered by the 
 		*									application. This callback function will be used by the 
 		*									OpenCL implementation to report information on errors 
 		*									that occur in this context. This callback function may 
@@ -75,10 +75,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*															in debugging the error.
 		*									user_data				is a pointer to user supplied 
 		*															data.
-		*									If pfn_notify is NULL, no callback function is registered
-		*				user_data [in]		will be passed as the user_data argument when pfn_notify 
-		*									is called. user_data can be NULL
-		*				errcode_ret [out]	will return an appropriate error code. If errcode_ret is 
+		*									If pfnNotify is NULL, no callback function is registered
+		*				pUserData [in]		will be passed as the user_data argument when pfnNotify 
+		*									is called. pUserData can be NULL
+		*				pRrrcodeRet [out]	will return an appropriate error code. If pRrrcodeRet is 
 		*									NULL, no error code is returned
 		* Return value:	CL_INVALID_VALUE 		if properties is not zero or if devices is NULL or if 
 		*										num_devices is equal to zero
@@ -93,12 +93,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_context	CreateContext(	cl_context_properties IN  properties,
-											cl_uint               IN  num_devices,
-											const cl_device_id *  IN  devices,
-											logging_fn            IN  pfn_notify,
-											void *                IN  user_data,
-											cl_err_code *         OUT errcode_ret ) = 0;
+		virtual cl_context	CreateContext(	cl_context_properties IN  clProperties,
+											cl_uint               IN  uiNumDevices,
+											const cl_device_id *  IN  pDevices,
+											logging_fn            IN  pfnNotify,
+											void *                IN  pUserData,
+											cl_int *              OUT pRrrcodeRet ) = 0;
+
+		virtual cl_context CreateContextFromType(	cl_context_properties clProperties,
+													cl_device_type        clDeviceType,
+													logging_fn            pfnNotify,
+													void *                pUserData,
+													cl_int *              pErrcodeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	RetainContext    
@@ -110,7 +116,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/		
 		
-		virtual cl_err_code	RetainContext( cl_context IN context ) = 0;
+		virtual cl_int	RetainContext( cl_context IN context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	ReleaseContext    
@@ -123,7 +129,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code ReleaseContext( cl_context IN context ) = 0;
+		virtual cl_int ReleaseContext( cl_context IN context ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetContextInfo    
@@ -149,11 +155,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code	GetContextInfo(	cl_context      IN  context,
-											cl_context_info IN  param_name,
-											size_t          IN  param_value_size,
-											void *          OUT param_value,
-											size_t *        OUT param_value_size_ret ) = 0;
+		virtual cl_int GetContextInfo(	cl_context      IN  context,
+										cl_context_info IN  param_name,
+										size_t          IN  param_value_size,
+										void *          OUT param_value,
+										size_t *        OUT param_value_size_ret ) = 0;
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithSource    

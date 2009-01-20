@@ -91,15 +91,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code		Release();
 
+
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
 		///////////////////////////////////////////////////////////////////////////////////////////
-		// IContext
-		virtual cl_context CreateContext(cl_context_properties properties, cl_uint num_devices, const cl_device_id *devices, logging_fn pfn_notify, void *user_data, cl_err_code *errcode_ret);
-		virtual cl_err_code RetainContext(cl_context context);
-		virtual cl_err_code ReleaseContext(cl_context context);
-		virtual cl_err_code GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
-		// IProgram
+		virtual cl_context CreateContext(cl_context_properties clProperties, cl_uint uiNumDevices, const cl_device_id *pDevices, logging_fn pfnNotify, void *pUserData, cl_int *pRrrcodeRet);
+		virtual cl_context CreateContextFromType(cl_context_properties clProperties, cl_device_type clDeviceType, logging_fn pfnNotify, void * pUserData, cl_int * pErrcodeRet);
+		virtual cl_int RetainContext(cl_context context);
+		virtual cl_int ReleaseContext(cl_context context);
+		virtual cl_int GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 		virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
 		virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const void ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
 		virtual cl_err_code	RetainProgram(cl_program clProgram);

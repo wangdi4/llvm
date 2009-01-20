@@ -126,7 +126,33 @@ void FileLogHandler::Log(LogMessage& logMessage)
         return;
     }          
                
-    wchar_t* formattedMsg = logMessage.GetFormattedMessage();
+    char* formattedMsg = logMessage.GetFormattedMessage();
+    {
+        // Lock 
+        OclAutoMutex CS(&m_CS);  
+        if (!fprintf(m_fileHandler, formattedMsg) )       
+        {
+            printf("fwrite failed\n");
+            assert(false);
+            return;
+        }           
+        Flush();
+
+        // Unlock
+    }    
+    return;
+}
+
+void FileLogHandler::LogW(LogMessage& logMessage)
+{
+    // get lock
+    if (m_logLevel > logMessage.GetLogLevel())
+    {
+        // ignore messages with lower log level
+        return;
+    }          
+               
+    wchar_t* formattedMsg = logMessage.GetFormattedMessageW();
     {
         // Lock 
         OclAutoMutex CS(&m_CS);  
@@ -202,7 +228,24 @@ void ConsoleLogHandler::Log(LogMessage& logMessage)
         return;
     }          
 
-    wchar_t* formattedMsg = logMessage.GetFormattedMessage();    
+    char* formattedMsg = logMessage.GetFormattedMessage();    
+    {   
+        // Lock
+        OclAutoMutex CS(&m_CS);
+        fprintf ( stdout, formattedMsg) ;    
+        Flush();         
+        // UnLock
+    }        
+}
+void ConsoleLogHandler::LogW(LogMessage& logMessage)
+{                    
+    if (m_logLevel > logMessage.GetLogLevel())
+    {
+        // ignore messages with lower log level
+        return;
+    }          
+
+    wchar_t* formattedMsg = logMessage.GetFormattedMessageW();    
     {   
         // Lock
         OclAutoMutex CS(&m_CS);
