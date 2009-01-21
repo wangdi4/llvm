@@ -2,7 +2,7 @@
 //  ContextModule.cpp
 //  Implementation of the Class ContextModule
 //  Created on:      10-Dec-2008 2:03:03 PM
-//  Original author: Peleg, Arnon
+//  Original author: Uri Levy
 ///////////////////////////////////////////////////////////
 
 #include "context_module.h"
@@ -12,6 +12,7 @@
 #include <platform_module.h>
 #include <device.h>
 #include <cl_objects_map.h>
+#include <cl_utils.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -655,7 +656,7 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 	if (NULL == m_pPrograms)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
-		return CL_ERR_INITILIZATION_FAILED;
+		return CL_INVALID_VALUE;
 	}
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);

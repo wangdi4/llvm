@@ -27,7 +27,7 @@
 
 #include "cl_utils.h"
 
-using namespace Intel::OpenCL::Utils;
+//using namespace Intel::OpenCL::Utils;
 
 wchar_t* ClErrTxt(cl_err_code error_code)
 {

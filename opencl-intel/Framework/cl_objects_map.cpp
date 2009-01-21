@@ -127,7 +127,7 @@ cl_err_code OCLObjectsMap::GetObjects(cl_uint uiObjectCount, OCLObject ** ppObje
 }
 cl_err_code OCLObjectsMap::GetIDs(cl_uint uiIdsCount, cl_int * pIds, cl_uint * puiIdsCountRet)
 {
-	if (NULL == pIds || NULL == puiIdsCountRet)
+	if (NULL == pIds && NULL == puiIdsCountRet)
 	{
 		return CL_INVALID_VALUE;
 	}

@@ -123,9 +123,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/******************************************************************************************
 		* Function: 	Kernel
 		* Description:	The Kernel class constructor
-		* Arguments:	
+		* Arguments:	pProgram [in]		- associated program object
+		*				psKernelName [in]	- kernel's name
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2008
 		******************************************************************************************/		
 		Kernel(Program * pProgram, const char * psKernelName);
 
@@ -157,6 +158,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// create device kernels
 		cl_err_code CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary ** ppBinaries);
+
+		/******************************************************************************************
+		* Function: 	AddDeviceKernel
+		* Description:	Add device kernel to the current kernel object. the device kerenl id was
+		*				taken from the device so we assume that it's already exists.
+		*				the funciton check that the device wasn't added before to the kernel and
+		*				that its definition fit to the other device kernels in the kerenl object
+		* Arguments:	clDeviceKernel [in]	- device kernel id
+		*				pProgBin [in]		- program binary
+		* Author:		Uri Levy
+		* Date:			January 2008
+		******************************************************************************************/
+		cl_err_code AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary *pProgBin);
+
+		const char * GetName(){ return m_psKernelName; }
 
 
 	private:

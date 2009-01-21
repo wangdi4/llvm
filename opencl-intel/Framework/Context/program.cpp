@@ -31,6 +31,7 @@
 #include "kernel.h"
 #include <string.h>
 #include <device.h>
+#include <cl_utils.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -616,14 +617,27 @@ cl_err_code Program::NotifyBuildDone(cl_device_id device, cl_build_status build_
 		}
 		return CL_SUCCESS;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CreateKernel
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 {
 	InfoLog(m_pLoggerClient, L"CreateKernel enter. pscKernelName=%s, ppKernel=%d", psKernelName, ppKernel);
+	// check invalid input
 	if (NULL == psKernelName || NULL == ppKernel)
 	{
 		return CL_INVALID_VALUE;
 	}
-	// check executables
+
+	// check if the current kernel allready available in the program
+	bool bResult = IsKernelExists(psKernelName, NULL);
+	if (true == bResult)
+	{
+		return CL_SUCCESS;
+	}
+	
+	// get program binaries from the program - this will be used to create the device kernels
+	// in the kernel object
 	ProgramBinary ** ppBinaries = new ProgramBinary * [m_mapBinaries.size()];
 	if (NULL == ppBinaries)
 	{
@@ -633,27 +647,16 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
 	for (cl_uint ui=0; ui<m_mapBinaries.size() && it != m_mapBinaries.end(); ++ui)
 	{
-		ProgramBinary * pProgBin = it->second;
-		cl_build_status clBuildStatus = pProgBin->GetStatus();
-		if (clBuildStatus != CL_BUILD_SUCCESS)
-		{
-			// missing executable in one of the devices
-			ErrLog(m_pLoggerClient, L"device %s doesn't have valid executable", it->first);
-			delete[] ppBinaries;
-			return CL_INVALID_PROGRAM_EXECUTABLE;
-		}
-		ppBinaries[ui] = pProgBin;
+		ppBinaries[ui] = it->second;
 		it++;
 	}
 	
-	// create new kernel object;
+	// create new kernel object - this is an empty kernel as long as there are no associated device
+	// kernel to it.
 	Kernel * pKernel = new Kernel(this, psKernelName);
 
-	// for each device, create deivce kernel 
-	cl_err_code clErrRet = CL_SUCCESS;
-	DeviceKernel * pDeviceKernel = NULL;
-
-	clErrRet = pKernel->CreateDeviceKernels(m_mapBinaries.size(), ppBinaries);
+	// next step - for each device that has the kernel, create device kernel 
+	cl_err_code clErrRet = pKernel->CreateDeviceKernels(m_mapBinaries.size(), ppBinaries);
 	if (CL_FAILED(clErrRet))
 	{
 		ErrLog(m_pLoggerClient, L"pKernel->CreateDeviceKernels(%d, ppBinaries) = %ws", m_mapBinaries.size(), ClErrTxt(clErrRet));
@@ -663,12 +666,177 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 		return clErrRet;
 	}
 
+	// add the kernel object and assing new key for it
 	m_pKernels->AddObject((OCLObject*)pKernel);
 	*ppKernel = pKernel;
 	delete[] ppBinaries;
 	return CL_SUCCESS;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CreateAllKernels
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter CreateAllKernels (uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d", 
+		uiNumKernels, pclKernels, puiNumKernelsRet);
+
+	// check input arguments
+	if (NULL == pclKernels && NULL == puiNumKernelsRet)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == pclKernels && NULL == puiNumKernelsRet")
+		return CL_INVALID_VALUE;
+	}
+
+	cl_err_code clErrRet = CL_SUCCESS;
+
+	// scan program binaries and for each binary get the kernels
+	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
+	//for (cl_uint ui=0; ui<m_mapBinaries.size() && it != m_mapBinaries.end(); ++ui)
+	while (it != m_mapBinaries.end())
+	{
+		ProgramBinary * pProgBin = it->second;
+		if (NULL == pProgBin)
+		{
+			// not valid binary, skip and move to the next one
+			DbgLog(m_pLoggerClient, L"program binary number %d is NULL object", it->first);
+			continue;
+		}
+		Device * pDevice = (Device*)pProgBin->GetDevice();
+		if (NULL == pDevice)
+		{
+			// the current binary hasn't valid device, skip and move to the next one
+			DbgLog(m_pLoggerClient, L"device of program binary number %d is NULL object", it->first);
+			continue;
+		}
+
+		// for each binary, get the attached kernels from the device
+		cl_uint uiNumKernels = 0;
+		clErrRet = pDevice->GetProgramKernels(pProgBin->GetId(), 0, NULL, &uiNumKernels);
+		if (CL_FAILED(clErrRet))
+		{
+			ErrLog(m_pLoggerClient, L"GetProgramKernels(%d, 0, NULL, %d) = %ws", pProgBin->GetId(), &uiNumKernels, ClErrTxt(clErrRet));
+			return clErrRet;
+		}
+		cl_dev_kernel * pKernels = new cl_dev_kernel[uiNumKernels];
+		if (NULL == pKernels)
+		{
+			ErrLog(m_pLoggerClient, L"new cl_dev_kernel[%d] = NULL", uiNumKernels);
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+		clErrRet = pDevice->GetProgramKernels(pProgBin->GetId(), uiNumKernels, pKernels, NULL);
+		if (CL_FAILED(clErrRet))
+		{
+			ErrLog(m_pLoggerClient, L"GetProgramKernels(%d, %d, %d, NULL) = %ws", pProgBin->GetId(), uiNumKernels, pKernels, ClErrTxt(clErrRet));
+			delete[] pKernels;
+			return clErrRet;
+		}
+
+		// for each kernel, get its name and create the kernel object
+		Kernel * pKernel = NULL;
+		for (cl_uint ui=0; ui<uiNumKernels; ++ui)
+		{
+			// get kernel's name
+			size_t szKernelNameSize = 0;
+			clErrRet = pDevice->GetKernelInfo(pKernels[ui], CL_DEV_KERNEL_NAME, 0 , NULL, &szKernelNameSize);
+			if (CL_FAILED(clErrRet))
+			{
+				DbgLog(m_pLoggerClient, L"GetKernelInfo of kerenl %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
+				continue;
+			}
+			char * psKernelName = new char[szKernelNameSize];
+			if (NULL == psKernelName)
+			{
+				return CL_OUT_OF_HOST_MEMORY;
+			}
+			clErrRet = pDevice->GetKernelInfo(pKernels[ui], CL_DEV_KERNEL_NAME, szKernelNameSize , psKernelName, NULL);
+			if (CL_FAILED(clErrRet))
+			{
+				DbgLog(m_pLoggerClient, L"GetKernelInfo of kerenl %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
+				delete[] psKernelName;
+				continue;
+			}
+			
+			// once we got the name of the kernel - we need to check if the kernel already exists in the program
+			bool bKernelExists = IsKernelExists(psKernelName, &pKernel);
+			if (false == bKernelExists)
+			{
+				pKernel = new Kernel(this, psKernelName);
+			}
+			clErrRet = pKernel->AddDeviceKernel(pKernels[ui], pProgBin);
+			if (CL_FAILED(clErrRet))
+			{
+				// if it is a new kernel - delete it
+				if (false == bKernelExists)
+				{
+					delete pKernel;
+				}
+				delete[] psKernelName;
+				continue;
+			}
+			delete[] psKernelName;
+			if (false == bKernelExists)
+			{
+				m_pKernels->AddObject(pKernel);
+			}
+		}
+		it++;
+	}
+
+	if (NULL == pclKernels && puiNumKernelsRet == NULL)
+	{
+		return CL_SUCCESS;
+	}
+
+
+	// get the kernels Ids
+	clErrRet = m_pKernels->GetIDs(m_pKernels->Count(), (cl_int*)pclKernels, puiNumKernelsRet);
+	if (CL_FAILED(clErrRet))
+	{
+		// remove all kernels from the kernels list
+		Kernel * pKernel = NULL;
+		for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
+		{
+			clErrRet = m_pKernels->GetObjectByIndex(ui, (OCLObject**)&pKernel);
+			if (CL_SUCCEEDED(clErrRet) && NULL != pKernel)
+			{
+				m_pKernels->RemoveObject((cl_int)pKernel->GetId(), NULL);
+				pKernel->Release();
+				delete pKernel;
+			}
+		}
+		m_pKernels->Clear();
+		return clErrRet;
+	}
+	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// IsKernelExists
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool Program::IsKernelExists(const char * psKernelName, Kernel ** ppKernelRet)
+{
+	if (NULL == psKernelName)
+	{
+		return false;
+	}
+	
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+	
+	// move through the list of kernels and check if there is a kernel match to the name
+	for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
+	{
+		clErr = m_pKernels->GetObjectByIndex(ui, (OCLObject**)&pKernel);
+		if (CL_SUCCEEDED(clErr))
+		{
+			if (0 == strcmp(psKernelName, pKernel->GetName()))
+			{
+				if (NULL != ppKernelRet)
+				{
+					*ppKernelRet = pKernel;
+				}
+				return true;
+			}
+		}
+	}
+	return false;
 }

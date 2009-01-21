@@ -485,8 +485,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Return value:	CL_SUCCESS				if the kernel objects were successfully allocated
 		*				CL_INVALID_PROGRAM				clProgram is not a valid program object 
 		*				CL_INVALID_PROGRAM_EXECUTABLE	if there is no successfully built 
-		*												executable for clProgram
-		*				CL_INVALID_KERNEL_NAME			if pscKernelName is not found in clProgram
+		*												executable for any device in program
 		*				CL_INVALID_VALUE				if pclKernels is not NULL and uiNumKernels
 		*												is less than the number of kernels in
 		*												clProgram 

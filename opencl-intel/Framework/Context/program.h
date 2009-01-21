@@ -143,6 +143,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code BuildBinarys(	cl_uint					uiNumDevices,
 									const cl_device_id *	pclDevices, 
 									const char *			pcOptions);
+
+		// check if the kernel with name psKernelName already attached to the program
+		// if ppKernel != null return the kernel
+		bool IsKernelExists(const char * psKernelName, Kernel ** ppKernelRet);
 								
 		//user notification callback for build completion
 		void									(*m_pfnNotify)(cl_program clProgram, void * pUserData);

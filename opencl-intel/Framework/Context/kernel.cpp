@@ -30,6 +30,8 @@
 #include "program.h"
 #include <cl_objects_map.h>
 #include <device.h>
+#include <assert.h>
+#include <cl_utils.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -192,7 +194,8 @@ cl_err_code Kernel::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary ** ppBinaries)
 {
-	InfoLog(m_pLoggerClient, L"AddDeviceKernel enter. uiBinariesCount=%d, ppBinaries=%d", uiBinariesCount, ppBinaries);
+	InfoLog(m_pLoggerClient, L"Enter AddDeviceKernel (uiBinariesCount=%d, ppBinaries=%d)", 
+		uiBinariesCount, ppBinaries);
 	if (NULL == ppBinaries)
 	{
 		return CL_INVALID_VALUE;
@@ -205,44 +208,59 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 	
 	for(cl_uint ui=0; ui<uiBinariesCount; ++ui)
 	{
+		// check that this is valid binary
 		if (NULL == ppBinaries[ui] || NULL == ppBinaries[ui]->GetDevice())
 		{
-			ErrLog(m_pLoggerClient, L"NULL == ppBinaries[%d] || NULL == ppBinaries[%d]->GetDevice()", ui, ui);
-			clErrRet = CL_INVALID_VALUE;
+			DbgLog(m_pLoggerClient, L"NULL == ppBinaries[%d] || NULL == ppBinaries[%d]->GetDevice()", ui, ui);
+			break;
+		}
+		// get build status and check that there is a valid binary;
+		cl_build_status clBuildStatus = (cl_build_status)ppBinaries[ui]->GetStatus();
+		if (clBuildStatus != CL_BUILD_SUCCESS)
+		{
 			break;
 		}
 		pDevice = (Device*)ppBinaries[ui]->GetDevice();
 		if (m_pDeviceKernels->IsExists(pDevice->GetId()))
 		{
-			ErrLog(m_pLoggerClient, L"m_pDeviceKernels->IsExists(%d) = true", pDevice->GetId());
-			clErrRet = CL_ERR_KEY_ALLREADY_EXISTS;
+			DbgLog(m_pLoggerClient, L"m_pDeviceKernels->IsExists(%d) = true", pDevice->GetId());
 			break;
 		}
+		
+		// create the device kernel object
 		pDeviceKernel = new DeviceKernel(this, ppBinaries[ui], m_psKernelName, &clErrRet);
 		if (CL_FAILED(clErrRet))
 		{
-			delete pDeviceKernel;
+			ErrLog(m_pLoggerClient, L"new DeviceKernel(...) faild (returned %ws)", ClErrTxt(clErrRet));
 			break;
 		}
+		
 		// check kernel definition - compare previous kernel to the next one
 		if (NULL != pPrevDeviceKernel)
 		{
 			bResult = pDeviceKernel->CheckKernelDefinition(pPrevDeviceKernel);
 			if (false == bResult)
 			{
+				ErrLog(m_pLoggerClient, L"CheckKernelDefinition failed (returned false)");
 				delete pDeviceKernel;
 				clErrRet = CL_INVALID_KERNEL_DEFINITION;
 				break;
 			}
 		}
+
+		// update previous device kernel pointer
 		pPrevDeviceKernel = pDeviceKernel;
+		
+		// add new device kernel to the objects map list
 		clErrRet = m_pDeviceKernels->AddObject((OCLObject*)pDeviceKernel, pDevice->GetId(), false);
 		if (CL_FAILED(clErrRet))
 		{
+			clErrRet = CL_INVALID_VALUE;
 			delete pDeviceKernel;
 			break;
 		}
 	}
+	
 	if (CL_FAILED(clErrRet))
 	{
 		// empty device kernels list
@@ -255,6 +273,65 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 			}
 		}
 		m_pDeviceKernels->Clear();
+		return clErrRet;
 	}
+
+	if (m_pDeviceKernels->Count() == 0)
+	{
+		return CL_INVALID_PROGRAM_EXECUTABLE;
+	}
+
 	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::AddDeviceKernel
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary *pProgBin)
+{
+	InfoLog(m_pLoggerClient, L"Enter AddDeviceKernel (clDeviceKernel=%d, pProgBin=%d)", clDeviceKernel, pProgBin);
+
+#ifdef _DEBUG
+	assert(NULL != pProgBin);
+	assert(NULL != pProgBin->GetDevice());
+#endif
+
+	cl_err_code clErr = CL_SUCCESS;
+
+	// check if the current device kernel already exists
+	bool bResult = m_pDeviceKernels->IsExists((cl_int)clDeviceKernel);
+	if (true == bResult)
+	{
+		return CL_SUCCESS;
+	}
+
+	// create new device kernel
+	DeviceKernel * pDeviceKernel = new DeviceKernel(this, pProgBin, m_psKernelName, &clErr);
+	if (CL_FAILED(clErr))
+	{
+		ErrLog(m_pLoggerClient, L"new DeviceKernel failed - returned %ws", ClErrTxt(clErr));
+		return clErr;
+	}
+
+	// move through all attached device kernel and check definition
+	for (cl_uint ui=0; ui<m_pDeviceKernels->Count(); ++ui)
+	{
+		DeviceKernel *pDevKer = NULL;
+		clErr = m_pDeviceKernels->GetObjectByIndex(ui, (OCLObject**)&pDevKer);
+		if (CL_SUCCEEDED(clErr))
+		{
+			bResult = pDeviceKernel->CheckKernelDefinition(pDevKer);
+			if (false == bResult)
+			{
+				ErrLog(m_pLoggerClient, L"CheckKernelDefinition with device kernel %d = false", pDevKer->GetId());
+				delete pDeviceKernel;
+				return CL_INVALID_KERNEL_DEFINITION;
+			}
+		}
+	}
+	cl_int iDevKernelId = m_pDeviceKernels->AddObject((OCLObject*)pDeviceKernel, (cl_int)clDeviceKernel, false);
+	if (0 == iDevKernelId)
+	{
+		delete pDeviceKernel;
+	}
+	return clErr;
 }
