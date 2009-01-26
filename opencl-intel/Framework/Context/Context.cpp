@@ -27,8 +27,11 @@
 
 #include "Context.h"
 #include "program.h"
+#include "cl_buffer.h"
+#include <cl_utils.h>
 #include <device.h>
 #include <cl_objects_map.h>
+#include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -47,6 +50,7 @@ Context::Context(cl_context_properties clProperties, cl_uint uiNumDevices, Devic
 
 	m_pPrograms = new OCLObjectsMap();
 	m_pDevices = new OCLObjectsMap();
+	m_pMemObjects = new OCLObjectsMap();
 	if (NULL == ppDevices || uiNumDevices <= 0)
 	{
 		return;
@@ -289,6 +293,7 @@ cl_err_code Context::GetDevices(cl_uint uiNumDevices, Device ** ppDevices, cl_ui
 }
 cl_err_code Context::RemoveProgram(cl_program clProgramId)
 {
+	InfoLog(m_pLoggerClient, L"Enter RemoveProgram (clProgramId=%d)", clProgramId);
 	if (NULL == m_pPrograms)
 	{
 		return CL_ERR_INITILIZATION_FAILED;
@@ -300,4 +305,81 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId)
 		return clErrRet;
 	}
 	return m_pPrograms->RemoveObject((cl_int)clProgramId, NULL);
+}
+cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer)
+{
+	InfoLog(m_pLoggerClient, L"Enter CreateBuffer (cl_mem_flags=%d, szSize=%d, pHostPtr=%d, ppBuffer=%d)", 
+		clFlags, szSize, pHostPtr, ppBuffer);
+
+#ifdef _DEBUG
+	assert ( NULL != ppBuffer );
+	assert ( NULL != m_pMemObjects );
+#endif
+
+	cl_ulong ulMaxMemAllocSize = GetMaxMemAllocSize();
+
+#ifdef _DEBUG
+	InfoLog(m_pLoggerClient, L"GetMaxMemAllocSize() = %d", ulMaxMemAllocSize);
+#endif
+	
+	if (szSize == 0 || szSize > ulMaxMemAllocSize)
+	{
+		ErrLog (m_pLoggerClient, L"szSize == %d, ulMaxMemAllocSize =%d", szSize, ulMaxMemAllocSize);
+		return CL_INVALID_BUFFER_SIZE;
+	}
+
+	if (((NULL == pHostPtr) && ((clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) != 0))	||
+		((NULL != pHostPtr) && ((clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) == 0)))
+	{
+		ErrLog (m_pLoggerClient, L"invalid usage of host ptr");
+		return CL_INVALID_HOST_PTR;
+	}
+
+	cl_err_code clErr = CL_SUCCESS;
+	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, &clErr);
+	if (CL_FAILED(clErr))
+	{
+		ErrLog (m_pLoggerClient, L"Error creating new buffer, returned: %ws", ClErrTxt(clErr));
+		return clErr;
+	}
+
+	clErr = m_pMemObjects->AddObject((OCLObject*)pBuffer);
+	if (CL_FAILED(clErr))
+	{
+		ErrLog (m_pLoggerClient, L"m_pMemObjects->AddObject(%d) = %ws", pBuffer, ClErrTxt(clErr));
+		return clErr;
+	}
+
+	*ppBuffer = pBuffer;
+	return CL_SUCCESS;
+}
+
+cl_ulong  Context::GetMaxMemAllocSize()
+{
+#ifdef _DEBUG
+	assert ( m_pDevices != NULL );
+#endif
+
+	InfoLog(m_pLoggerClient, L"Enter GetDeviceMaxMemAllocSize");
+
+	cl_ulong ulMemAllocSize = 0, ulMaxMemAllocSize = 0;
+	cl_err_code clErr = CL_SUCCESS;
+	Device * pDevice = NULL;
+	
+	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+	{
+		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDevice);
+		if (CL_FAILED(clErr) || NULL == pDevice)
+		{
+			continue;
+		}
+		clErr = pDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, NULL);
+		if (CL_FAILED(clErr))
+		{
+			continue;
+		}
+		// get minimum of all maximum
+		ulMaxMemAllocSize = (ulMemAllocSize < ulMaxMemAllocSize) ? ulMemAllocSize : ulMaxMemAllocSize;
+	}
+	return ulMaxMemAllocSize;
 }

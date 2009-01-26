@@ -29,10 +29,10 @@
 #if !defined(_OCL_MEMORY_OBJECT_H_)
 #define _OCL_MEMORY_OBJECT_H_
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include <logger.h>
 #include <cl_object.h>
-#include "cl_context.h"
+#include "context.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -84,13 +84,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	protected:
 
-		cl_mem_flags	m_clFlags; // memory object's flags
+		cl_mem_flags							m_clFlags; // memory object's flags
 
-		void *			m_pHostPtr; // memory object's host ptr
+		void *									m_pHostPtr; // memory object's host ptr
 
-		Context *		m_pContext;	// context to which the momory object belongs
+		Context *								m_pContext;	// context to which the momory object belongs
 		
-		LoggerClient *	m_pLoggerClient;	// memory object's logger client
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// memory object's logger client
 
 
 	};

@@ -36,6 +36,7 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+	class Buffer;
 	class Device;
 	class Program;
 	class OCLObjectsMap;
@@ -141,15 +142,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// remove the program from the context
 		cl_err_code RemoveProgram(cl_program clProgramId);
 
+		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer);
+
 	private:
 
 		// check that all devices belong to this context
 		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
+		cl_ulong GetMaxMemAllocSize();
+
 
 		OCLObjectsMap *							m_pPrograms;	// holds the programs that related to this context
 
 		OCLObjectsMap *							m_pDevices;		// holds the devices that associated to the program
+
+		OCLObjectsMap *							m_pMemObjects;	// holds the memory object that belongs to the context
 
 		cl_context_properties					m_clContextProperties; // context properties
 

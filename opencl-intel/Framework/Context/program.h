@@ -131,6 +131,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// create all kernels from the program object
 		cl_err_code CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
 
+		// get the kernels associated to the program
+		cl_err_code GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_uint * puiNumKernelsRet);
+
+		// remove kernel from program
+		cl_err_code RemoveKernel(cl_kernel clKernel);
+
 		// IBuildDoneObserver
 		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
 

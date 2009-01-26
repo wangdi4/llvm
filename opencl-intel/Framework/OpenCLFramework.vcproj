@@ -409,7 +409,15 @@
 			Name="Context"
 			>
 			<File
+				RelativePath=".\Context\cl_buffer.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Context\cl_buffer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Context\cl_memory_object.cpp"
 				>
 			</File>
 			<File

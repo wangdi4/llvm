@@ -100,6 +100,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int RetainContext(cl_context context);
 		virtual cl_int ReleaseContext(cl_context context);
 		virtual cl_int GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		// program methods
 		virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
 		virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const void ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
 		virtual cl_err_code	RetainProgram(cl_program clProgram);
@@ -108,6 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int UnloadCompiler(void);
 		virtual cl_int GetProgramInfo(cl_program clProgram, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		virtual cl_int GetProgramBuildInfo(cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		// kerenl methods
 		virtual cl_kernel CreateKernel(cl_program clProgram, const char * pscKernelName, cl_int * piErr);
 		virtual cl_int CreateKernelsInProgram(cl_program clProgram, cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
 		virtual cl_int RetainKernel(cl_kernel clKernel);
@@ -115,22 +117,40 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint	uiArgIndex, size_t szArgSize, const void * pszArgValue);
 		virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id clDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
+		// memory object methods
+		virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
+		virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
+		virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
+		virtual cl_int RetainMemObject(cl_mem clMemObj);
+		virtual cl_int ReleaseMemObject(cl_mem clMemObj);
+		virtual cl_int GetSupportedImageFormats(cl_context clContext, cl_mem_flags clFlags, cl_mem_object_type clImageType, cl_uint uiNumEntries, cl_image_format * pclImageFormats, cl_uint * puiNumImageFormats);
+		virtual cl_int GetMemObjectInfo(cl_mem clMemObj, cl_mem_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_int GetImageInfo(cl_mem clImage, cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		// sampler methods
+		virtual cl_sampler CreateSampler(cl_context clContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, cl_int * pErrcodeRet);
+		virtual cl_int RetainSampler(cl_sampler clSampler);
+		virtual cl_int ReleaseSampler(cl_sampler clSampler);
+		virtual cl_int GetSamplerInfo(cl_sampler clSampler, cl_sampler_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 	private:
 
-		cl_err_code			CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
+		// check for valid devices
+		cl_err_code CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
 
-		PlatformModule *	m_pPlatformModule; // handle to the platform module
-
-		Intel::OpenCL::Utils::LoggerClient *		m_pLoggerClient; // handle to the logger client
-
-		OCLObjectsMap *		m_pContexts; // map list of contexts
-
-		OCLObjectsMap *		m_pPrograms; // map list of programs
-
-		OCLObjectsMap *		m_pKernels;	// map list of kernels
 		
-		Intel::OpenCL::Utils::LoggerClient *		m_pContextLoggerClient; // pointer to the context module's logger client
+		PlatformModule *						m_pPlatformModule; // handle to the platform module
+
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient; // handle to the logger client
+
+		OCLObjectsMap *							m_pContexts; // map list of contexts
+
+		OCLObjectsMap *							m_pPrograms; // map list of programs
+
+		OCLObjectsMap *							m_pKernels;	// map list of kernels
+
+		OCLObjectsMap *							m_pMemObjects; // map list of all memory objects
+		
+		Intel::OpenCL::Utils::LoggerClient *	m_pContextLoggerClient; // pointer to the context module's logger client
 
 	};
 

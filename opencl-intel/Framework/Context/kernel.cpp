@@ -26,6 +26,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "kernel.h"
+#include "context.h"
 #include "program_binary.h"
 #include "program.h"
 #include <cl_objects_map.h>
@@ -164,6 +165,10 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName)
 		strcpy_s(m_psKernelName, strlen(psKernelName) + 1, psKernelName);
 	}
 	m_pDeviceKernels = new OCLObjectsMap();
+
+	m_sKernelPrototype.m_psKernelName = NULL;
+	m_sKernelPrototype.m_pArgs = NULL;
+	m_sKernelPrototype.m_uiArgsCount = 0;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor
@@ -174,20 +179,91 @@ Kernel::~Kernel()
 	delete m_psKernelName;
 	delete m_pDeviceKernels;
 	delete m_pLoggerClient;
+
+	// release kernel prototype
+	delete[] m_sKernelPrototype.m_psKernelName;
+	delete[] m_sKernelPrototype.m_pArgs;
+
+	DeviceKernel * pDeviceKerenl = NULL;
+	for (cl_uint ui=0; ui<m_pDeviceKernels->Count(); ++ui)
+	{
+		cl_err_code clErr = m_pDeviceKernels->GetObjectByIndex(ui, (OCLObject**)&pDeviceKerenl);
+		if (CL_SUCCEEDED(clErr) && NULL != pDeviceKerenl)
+		{
+			delete pDeviceKerenl;
+		}
+	}
+	m_pDeviceKernels->Clear();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Kernel::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
+cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Kernel::Release
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Kernel::Release()
-{
-	return OCLObject::Release();
+	InfoLog(m_pLoggerClient, L"Enter Kernel::GetInfo (param_nameiParamNamed, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)",
+		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+	{
+		return CL_INVALID_VALUE;
+	}
+	size_t szParamSize = 0;
+	void * pValue = NULL;
+	cl_int iParam = 0;
+	switch (iParamName)
+	{
+	case CL_KERNEL_FUNCTION_NAME:
+		if (NULL != m_sKernelPrototype.m_psKernelName)
+		{
+			szParamSize = strlen(m_sKernelPrototype.m_psKernelName) + 1;
+			pValue = m_sKernelPrototype.m_psKernelName;
+		}
+		break;
+	case CL_KERNEL_NUM_ARGS:
+		szParamSize = sizeof(cl_uint);
+		pValue = &(m_sKernelPrototype.m_uiArgsCount);
+		break;
+	case CL_KERNEL_REFERENCE_COUNT:
+		szParamSize = sizeof(cl_uint);
+		pValue = &m_uiRefCount;
+		break;
+	case CL_KERNEL_CONTEXT:
+		if (NULL != m_pProgram && NULL != m_pProgram->GetContext())
+		{
+			szParamSize = sizeof(cl_context);
+			iParam = m_pProgram->GetContext()->GetId();
+			pValue = &iParam;
+		}
+		break;
+	case CL_KERNEL_PROGRAM:
+		if (NULL != m_pProgram)
+		{
+			szParamSize = sizeof(cl_program);
+			iParam = m_pProgram->GetId();
+			pValue = &iParam;
+		}
+		break;
+	default:
+		return CL_INVALID_VALUE;
+		break;
+	}
+
+	if (NULL != pParamValue && szParamValueSize < szParamSize)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != pszParamValueSizeRet)
+	{
+		*pszParamValueSizeRet = szParamSize;
+	}
+
+	if (NULL != pParamValue && szParamSize > 0)
+	{
+		memcpy_s(pParamValue, szParamValueSize, pValue, szParamSize);
+	}
+	
+	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
@@ -276,6 +352,13 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 		return clErrRet;
 	}
 
+	// set the kernel prototype for the current kernel
+	if (NULL != pDeviceKernel)
+	{
+		SKernelPrototype sKernelPrototype = (SKernelPrototype)pDeviceKernel->GetPrototype();
+		SetKernelPrototype(sKernelPrototype);
+	}
+
 	if (m_pDeviceKernels->Count() == 0)
 	{
 		return CL_INVALID_PROGRAM_EXECUTABLE;
@@ -296,6 +379,7 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 #endif
 
 	cl_err_code clErr = CL_SUCCESS;
+	SKernelPrototype sKernelPrototype;
 
 	// check if the current device kernel already exists
 	bool bResult = m_pDeviceKernels->IsExists((cl_int)clDeviceKernel);
@@ -326,12 +410,67 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 				delete pDeviceKernel;
 				return CL_INVALID_KERNEL_DEFINITION;
 			}
+			// set kernel prototype in the kernel object (only if definition identical)
 		}
 	}
+
+	sKernelPrototype = (SKernelPrototype)pDeviceKernel->GetPrototype();
+	clErr = SetKernelPrototype(sKernelPrototype);
+	if (CL_FAILED(clErr))
+	{
+		return clErr;
+	}
+
 	cl_int iDevKernelId = m_pDeviceKernels->AddObject((OCLObject*)pDeviceKernel, (cl_int)clDeviceKernel, false);
 	if (0 == iDevKernelId)
 	{
 		delete pDeviceKernel;
 	}
 	return clErr;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::Release
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::Release()
+{
+	cl_err_code clErr = OCLObject::Release();
+	if (CL_FAILED(clErr))
+	{
+		return clErr;
+	}
+	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::SetKernelPrototype
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
+{
+	cl_err_code clErr = CL_SUCCESS;
+	size_t szNameLength = 0;
+	if (NULL == m_sKernelPrototype.m_psKernelName)
+	{
+		if (NULL != sKernelPrototype.m_psKernelName)
+		{
+			szNameLength = strlen(sKernelPrototype.m_psKernelName) + 1;
+			m_sKernelPrototype.m_psKernelName = new char[szNameLength];
+			if (NULL == m_sKernelPrototype.m_psKernelName)
+			{
+				return CL_OUT_OF_HOST_MEMORY;
+			}
+			strcpy_s(m_sKernelPrototype.m_psKernelName, szNameLength, sKernelPrototype.m_psKernelName);
+		}
+		m_sKernelPrototype.m_uiArgsCount = sKernelPrototype.m_uiArgsCount;
+	}
+
+	if (NULL == m_sKernelPrototype.m_pArgs)
+	{
+		m_sKernelPrototype.m_pArgs = new cl_kernel_arg_type[m_sKernelPrototype.m_uiArgsCount];
+		if (NULL == m_sKernelPrototype.m_pArgs)
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+		memcpy_s(m_sKernelPrototype.m_pArgs, m_sKernelPrototype.m_uiArgsCount, sKernelPrototype.m_pArgs, sKernelPrototype.m_uiArgsCount);
+	}
+	return CL_SUCCESS;
 }

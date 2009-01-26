@@ -32,6 +32,7 @@
 #include <string.h>
 #include <device.h>
 #include <cl_utils.h>
+#include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -86,6 +87,8 @@ Program::~Program()
 	m_mapBinaryStatus.clear();
 	m_mapDevices.clear();
 
+	m_pKernels->Clear();
+
 	delete m_pLoggerClient;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,27 +96,12 @@ Program::~Program()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::Release()
 {
-	return OCLObject::Release();
-
-	Kernel * pKernel = NULL;
-	cl_err_code clErrRet = CL_SUCCESS;
-	
-	if (m_uiRefCount == 0)
+	cl_err_code clErrRet = OCLObject::Release();
+	if (CL_FAILED(clErrRet))
 	{
-		for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
-		{
-			clErrRet = m_pKernels->GetObjectByIndex(ui, (OCLObject**)&pKernel);
-			if (CL_FAILED(clErrRet) || NULL == pKernel)
-			{
-				return clErrRet;
-			}
-			clErrRet = pKernel->Release();
-			if (CL_FAILED(clErrRet))
-			{
-				return clErrRet;
-			}
-		}
+		return clErrRet;
 	}
+	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo
@@ -630,7 +618,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	}
 
 	// check if the current kernel allready available in the program
-	bool bResult = IsKernelExists(psKernelName, NULL);
+	bool bResult = IsKernelExists(psKernelName, ppKernel);
 	if (true == bResult)
 	{
 		return CL_SUCCESS;
@@ -839,4 +827,72 @@ bool Program::IsKernelExists(const char * psKernelName, Kernel ** ppKernelRet)
 		}
 	}
 	return false;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// IsKernelExists
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_uint * puiNumKernelsRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter GetKernels (uiNumKernels=%d, ppKernels=%d, puiNumKernelsRet=%d", 
+		uiNumKernels, ppKernels, puiNumKernelsRet);
+
+#ifdef _DEBUG
+	assert ( m_pKernels != NULL );
+#endif
+	
+	// check invalid input
+	if (NULL == ppKernels && NULL == puiNumKernelsRet)
+	{
+		return CL_INVALID_VALUE;
+	}
+	if (NULL != ppKernels && uiNumKernels < m_pKernels->Count())
+	{
+		return CL_INVALID_VALUE;
+	}
+	// return number of kernels
+	if (NULL != puiNumKernelsRet)
+	{
+		*puiNumKernelsRet = m_pKernels->Count();
+	}
+
+	if (NULL != ppKernels)
+	{
+		cl_err_code clErr = CL_SUCCESS;
+		Kernel * pKernel = NULL;
+		for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
+		{
+			clErr = m_pKernels->GetObjectByIndex(ui, (OCLObject**)&pKernel);
+			if (CL_FAILED(clErr))
+			{
+				return clErr;
+			}
+			ppKernels[ui] = pKernel;
+		}
+	}
+
+	return CL_SUCCESS;
+
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// RemoveKernel
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::RemoveKernel(cl_kernel clKernel)
+{
+	InfoLog(m_pLoggerClient, L"Enter RemoveKernel (clKernel=%d", clKernel);
+
+#ifdef _DEBUG
+	assert ( NULL != m_pKernels );
+#endif
+
+	bool bResult = m_pKernels->IsExists((cl_int)clKernel);
+	if (false == bResult)
+	{
+		return CL_INVALID_KERNEL;
+	}
+	cl_err_code clErr = m_pKernels->RemoveObject((cl_int)clKernel, NULL);
+	if (CL_FAILED(clErr))
+	{
+		return clErr;
+	}
+	return CL_SUCCESS;
 }

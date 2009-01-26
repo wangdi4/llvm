@@ -174,8 +174,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		const char * GetName(){ return m_psKernelName; }
 
+		const Program * GetProgram(){ return m_pProgram; }
 
 	private:
+
+		cl_err_code SetKernelPrototype(SKernelPrototype sKernelPrototype);
+
+		// kernel's prototype
+		SKernelPrototype						m_sKernelPrototype;
 
 		// kernel name
 		char *									m_psKernelName;

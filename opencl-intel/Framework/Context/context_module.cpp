@@ -9,10 +9,12 @@
 #include "context.h"
 #include "program.h"
 #include "kernel.h"
+#include "cl_buffer.h"
 #include <platform_module.h>
 #include <device.h>
 #include <cl_objects_map.h>
 #include <cl_utils.h>
+#include <assert.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -58,6 +60,12 @@ cl_err_code ContextModule::Initialize()
 
 	m_pKernels = new OCLObjectsMap();
 	if (NULL == m_pKernels)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	
+	m_pMemObjects = new OCLObjectsMap();
+	if (NULL == m_pMemObjects)
 	{
 		return CL_ERR_INITILIZATION_FAILED;
 	}
@@ -495,7 +503,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 	if (NULL == m_pPrograms)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
-		return CL_ERR_INITILIZATION_FAILED;
+		return CL_INVALID_PROGRAM;
 	}
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
@@ -507,20 +515,28 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 	clErrRet = pProgram->Release();
 	if (CL_FAILED(clErrRet))
 	{
-		return clErrRet;
+		return CL_ERR_OUT(clErrRet);
 	}
 	if (pProgram->GetReferenceCount() == 0)
 	{
 		Context * pContext = (Context*)pProgram->GetContext();
 		if (NULL == pContext)
 		{
-			return CL_INVALID_CONTEXT;
+			return CL_INVALID_PROGRAM;
 		}
 		clErrRet = pContext->RemoveProgram((cl_program)pProgram->GetId());
 		if (CL_FAILED(clErrRet))
 		{
-			return clErrRet;
+			return CL_ERR_OUT(clErrRet);
 		}
+
+		clErrRet = m_pPrograms->RemoveObject((cl_int)pProgram->GetId(), NULL);
+		if (CL_FAILED(clErrRet))
+		{
+			return CL_ERR_OUT(clErrRet);
+		}
+
+		delete pProgram;
 	}
 	return CL_SUCCESS;
 }
@@ -610,15 +626,16 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 {
 	InfoLog(m_pLoggerClient, L"CreateKernel enter. clProgram=%d, pscKernelName=%d, piErr=%d", clProgram, pscKernelName, piErr);
 
-	if (NULL == m_pPrograms)
+	if (NULL == m_pPrograms || NULL == m_pKernels)
 	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms || NULL == m_pKernels");
 		if (NULL != piErr)
 		{
-			*piErr = CL_ERR_INITILIZATION_FAILED;
+			*piErr = CL_ERR_OUT(CL_ERR_INITILIZATION_FAILED);
 		}
 		return CL_INVALID_HANDLE;
 	}
+
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
@@ -630,6 +647,8 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 		}
 		return CL_INVALID_HANDLE;
 	}
+
+	// create new kernel
 	Kernel * pKernel = NULL;
 	clErrRet = pProgram->CreateKernel(pscKernelName, &pKernel);
 	if (NULL != piErr)
@@ -638,6 +657,9 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 	}
 	if (NULL != pKernel)
 	{
+		// add new kernel to the context module's kernels list
+		m_pKernels->AddObject((OCLObject*)pKernel, pKernel->GetId(), false);
+		// return handle
 		return (cl_kernel)pKernel->GetId();
 	}
 	return CL_INVALID_HANDLE;
@@ -653,11 +675,14 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 	InfoLog(m_pLoggerClient, L"CreateKernelsInProgram enter. clProgram=%d, uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d", 
 		clProgram, uiNumKernels, pclKernels, puiNumKernelsRet);
 
-	if (NULL == m_pPrograms)
+	// check invalid input
+	if (NULL == m_pPrograms || NULL == m_pKernels)
 	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms");
-		return CL_INVALID_VALUE;
+		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms || NULL == m_pKernels");
+		return CL_ERR_FAILURE;
 	}
+	
+	// get the program object
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
@@ -665,21 +690,111 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 		ErrLog(m_pLoggerClient, L"clProgram is invalid program");
 		return CL_INVALID_PROGRAM;
 	}
-	return pProgram->CreateAllKernels(uiNumKernels, pclKernels, puiNumKernelsRet);
+
+	// create all kernels for the program
+	clErrRet = pProgram->CreateAllKernels(uiNumKernels, pclKernels, puiNumKernelsRet);
+	if (CL_FAILED(clErrRet))
+	{
+		return CL_ERR_OUT(clErrRet);
+	}
+
+	// get kernels and add them to the context module's map list
+	cl_uint uiKerenls = 0;
+	clErrRet = pProgram->GetKernels(0, NULL, &uiKerenls);
+	if (CL_FAILED(clErrRet))
+	{
+		return CL_ERR_OUT(clErrRet);
+	}
+	Kernel ** ppKernels = new Kernel * [uiKerenls];
+	if (NULL == ppKernels)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	clErrRet = pProgram->GetKernels(uiKerenls, ppKernels, NULL);
+	if (CL_FAILED(clErrRet))
+	{
+		delete[] ppKernels;
+		return CL_ERR_OUT(clErrRet);
+	}
+	for (cl_uint ui=0; ui<uiKerenls; ++ui)
+	{
+		m_pKernels->AddObject((OCLObject*)ppKernels[ui],ppKernels[ui]->GetId(),false);
+	}
+	
+	delete[] ppKernels;
+	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainKernel
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::RetainKernel(cl_kernel clKernel)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter RetainKernel (clKernel=%d)", clKernel);
+
+	if (NULL == m_pKernels)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pKernels")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+
+	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	if (CL_FAILED(clErr) || NULL == pKernel)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
+		return CL_INVALID_KERNEL;
+	}
+	
+	clErr = pKernel->Retain();
+
+	return CL_ERR_OUT(clErr);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::ReleaseKernel
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter ReleaseKernel (clKernel=%d)", clKernel);
+
+	if (NULL == m_pKernels)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pKernels")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+
+	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	if (CL_FAILED(clErr) || NULL == pKernel)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
+		return CL_INVALID_KERNEL;
+	}
+
+	clErr = pKernel->Release();
+	if (CL_FAILED(clErr))
+	{
+		ErrLog(m_pLoggerClient, L"pKernel->Release() returned %ws", ClErrTxt(clErr));
+		return CL_ERR_OUT(clErr);
+	}
+
+	if (pKernel->GetReferenceCount() == 0)
+	{
+		Program * pProgram = (Program*)pKernel->GetProgram();
+		if (NULL == pProgram)
+		{
+			return CL_INVALID_KERNEL;
+		}
+		clErr = pProgram->RemoveKernel((cl_kernel)pKernel->GetId());
+		if (CL_FAILED(clErr))
+		{
+			return CL_ERR_OUT(clErr);
+		}
+		delete pKernel;
+	}
+	
+	return CL_ERR_OUT(clErr);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::SetKernelArg
@@ -700,6 +815,26 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
 									void * pParamValue, 
 									size_t * pszParamValueSizeRet)
 {
+	InfoLog(m_pLoggerClient, L"Enter GetKernelInfo (clKernel=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)", 
+		clKernel, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	if (NULL == m_pKernels)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pKernels")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+
+	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	if (CL_FAILED(clErr) || NULL == pKernel)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
+		return CL_INVALID_KERNEL;
+	}
+
+	return pKernel->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
 	return CL_ERR_NOT_IMPLEMENTED;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -713,4 +848,180 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 											 size_t * pszParamValueSizeRet)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateBuffer
+//////////////////////////////////////////////////////////////////////////
+cl_mem ContextModule::CreateBuffer(cl_context clContext, 
+								   cl_mem_flags clFlags, 
+								   size_t szSize, 
+								   void * pHostPtr, 
+								   cl_int * pErrcodeRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter CreateBuffer (clContext=%d, clFlags=%d, szSize=%d, pHostPtr=%d, pErrcodeRet=%d)", 
+		clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+
+#ifdef _DEBUG
+	assert (NULL != m_pMemObjects && NULL != m_pContexts);
+#endif
+
+	Context * pContext = NULL;
+	Buffer * pBuffer = NULL;
+	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	if (CL_FAILED(clErr) || NULL == pContext)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext)
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
+	if (CL_FAILED(clErr))
+	{
+		ErrLog(m_pLoggerClient, L"pContext->CreateBuffer(%d, %d, %d, %d) = %ws", clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_ERR_OUT(clErr);
+		}
+		return CL_INVALID_HANDLE;
+	}
+	clErr = m_pMemObjects->AddObject(pBuffer, pBuffer->GetId(), false);
+	if (CL_FAILED(clErr))
+	{
+		ErrLog(m_pLoggerClient, L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pBuffer, pBuffer->GetId(), ClErrTxt(clErr))
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_ERR_OUT(clErr);
+		}
+		return CL_INVALID_HANDLE;
+	}
+	return (cl_mem)pBuffer->GetId();
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateImage2D
+//////////////////////////////////////////////////////////////////////////
+cl_mem ContextModule::CreateImage2D(cl_context clContext, 
+									cl_mem_flags clFlags, 
+									const cl_image_format * clImageFormat, 
+									size_t szImageWidth, 
+									size_t szImageHeight, 
+									size_t szImageRowPitch, 
+									void * pHostPtr, 
+									cl_int * pErrcodeRet)
+{
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_ERR_NOT_SUPPORTED;
+	}
+	return CL_INVALID_HANDLE;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateImage3D
+//////////////////////////////////////////////////////////////////////////
+cl_mem ContextModule::CreateImage3D(cl_context clContext, 
+									cl_mem_flags clFlags, 
+									const cl_image_format * clImageFormat, 
+									size_t szImageWidth, 
+									size_t szImageHeight, 
+									size_t szImageDepth, 
+									size_t szImageRowPitch, 
+									size_t szImageSlicePitch, 
+									void * pHostPtr, 
+									cl_int * pErrcodeRet)
+{
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_ERR_NOT_SUPPORTED;
+	}
+	return CL_INVALID_HANDLE;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::RetainMemObject
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::ReleaseMemObject
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetSupportedImageFormats
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetSupportedImageFormats(cl_context clContext, 
+											   cl_mem_flags clFlags, 
+											   cl_mem_object_type clImageType, 
+											   cl_uint uiNumEntries, 
+											   cl_image_format * pclImageFormats, 
+											   cl_uint * puiNumImageFormats)
+{
+	return CL_ERR_NOT_SUPPORTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetMemObjectInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj, 
+									   cl_mem_info clParamName, 
+									   size_t szParamValueSize, 
+									   void * pParamValue, 
+									   size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetImageInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetImageInfo(cl_mem clImage, 
+								   cl_image_info clParamName, 
+								   size_t szParamValueSize, 
+								   void * pParamValue, 
+								   size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_SUPPORTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateSampler
+//////////////////////////////////////////////////////////////////////////
+cl_sampler ContextModule::CreateSampler(cl_context clContext, 
+										cl_bool bNormalizedCoords, 
+										cl_addressing_mode clAddressingMode, 
+										cl_filter_mode clFilterMode, 
+										cl_int * pErrcodeRet)
+{
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_ERR_NOT_SUPPORTED;
+	}
+	return CL_INVALID_HANDLE;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::RetainSampler
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::RetainSampler(cl_sampler clSampler)
+{
+	return CL_ERR_NOT_SUPPORTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::ReleaseSampler
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
+{
+	return CL_ERR_NOT_SUPPORTED;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetSamplerInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler, 
+									 cl_sampler_info clParamName, 
+									 size_t szParamValueSize, 
+									 void * pParamValue, 
+									 size_t * pszParamValueSizeRet)
+{
+	return CL_ERR_NOT_SUPPORTED;
 }

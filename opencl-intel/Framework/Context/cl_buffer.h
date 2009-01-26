@@ -29,11 +29,14 @@
 #if !defined(_OCL_BUFFER_H_)
 #define _OCL_BUFFER_H_
 
-#include <cl_framework.h>
+#include <cl_types.h>
 #include <cl_memory_object.h>
 #include <logger.h>
+#include <map>
 
 namespace Intel { namespace OpenCL { namespace Framework {
+
+	class Device;
 
 	/**********************************************************************************************
 	* Class name:	Buffer
@@ -52,16 +55,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	The Buffer class constructor
 		* Arguments:	
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2008
 		******************************************************************************************/		
-		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize);
+		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, cl_err_code * pErrCode);
 
 		/******************************************************************************************
 		* Function: 	~Buffer
 		* Description:	The Buffer class destructor
 		* Arguments:		
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2008
 		******************************************************************************************/			
 		virtual ~Buffer();
 
@@ -75,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				param_value_size_ret [out]	parameter's value return size
 		* Return value:	CL_SUCCESS - operation succeded
 		* Author:		Uri Levy
-		* Date:			December 2008
+		* Date:			January 2008
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
@@ -84,7 +87,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:
 
-		size_t		m_szBufferSize;
+		size_t									m_szBufferSize;
+
+		void *									m_pTempBuffer;
+
+		std::map<cl_device_id, Device*>			m_mapDevices;
+
+		cl_device_id							m_clBufferLocation;
+		
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
 
 	};
 

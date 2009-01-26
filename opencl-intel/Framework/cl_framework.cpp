@@ -138,11 +138,7 @@ cl_mem clCreateBuffer(cl_context   context,
 					  void *       host_ptr, 
 					  cl_int *     errcode_ret)
 {
-	if (NULL != *errcode_ret)
-	{
-		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
-	}
-	return 0;
+	return CONTEXT_MODULE->CreateBuffer(context, flags, size, host_ptr, errcode_ret);
 }
 
 cl_mem clCreateImage2D(cl_context              context,
@@ -154,11 +150,7 @@ cl_mem clCreateImage2D(cl_context              context,
 					   void *                  host_ptr,
 					   cl_int *                errcode_ret)
 {
-	if (NULL != *errcode_ret)
-	{
-		*errcode_ret = CL_ERR_NOT_SUPPORTED;
-	}
-	return 0;
+	return CONTEXT_MODULE->CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret);
 }
                         
 cl_mem clCreateImage3D(cl_context              context,
@@ -172,21 +164,17 @@ cl_mem clCreateImage3D(cl_context              context,
 					   void *                  host_ptr,
 					   cl_int *                errcode_ret)
 {
-	if (NULL != *errcode_ret)
-	{
-		*errcode_ret = CL_ERR_NOT_SUPPORTED;
-	}
-	return 0;
+	return CONTEXT_MODULE->CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret);
 }
                         
 cl_int clRetainMemObject(cl_mem memobj)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return CONTEXT_MODULE->RetainMemObject(memobj);
 }
 
 cl_int clReleaseMemObject(cl_mem memobj)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return CONTEXT_MODULE->ReleaseMemObject(memobj);
 }
 
 cl_int clGetSupportedImageFormats(cl_context           context,
@@ -196,7 +184,7 @@ cl_int clGetSupportedImageFormats(cl_context           context,
 								  cl_image_format *    image_formats,
 								  cl_uint *            num_image_formats)
 {
-	return CL_ERR_NOT_SUPPORTED;
+	return CONTEXT_MODULE->GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats);
 }
                                     
 cl_int clGetMemObjectInfo(cl_mem           memobj,
@@ -205,7 +193,7 @@ cl_int clGetMemObjectInfo(cl_mem           memobj,
 						  void *           param_value,
 						  size_t *         param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return CONTEXT_MODULE->GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret);
 }
 
 cl_int clGetImageInfo(cl_mem           image,
@@ -214,8 +202,38 @@ cl_int clGetImageInfo(cl_mem           image,
 					  void *           param_value,
 					  size_t *         param_value_size_ret)
 {
-	return CL_ERR_NOT_SUPPORTED;
+	return CONTEXT_MODULE->GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret);
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Sampler APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_sampler clCreateSampler(cl_context			context,
+						   cl_bool				normalized_coords,
+						   cl_addressing_mode	addressing_mode,
+						   cl_filter_mode		filter_mode,
+						   cl_int *				errcode_ret)
+{
+		return CONTEXT_MODULE->CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret);
+}
+cl_int clRetainSampler(cl_sampler sampler)
+{
+	return CONTEXT_MODULE->RetainSampler(sampler);
+}
+
+cl_int clReleaseSampler(cl_sampler sampler)
+{
+	return CONTEXT_MODULE->ReleaseSampler(sampler);
+}
+
+cl_int clGetSamplerInfo(cl_sampler		sampler,
+						cl_sampler_info	param_name,
+						size_t			param_value_size,
+						void *			param_value,
+						size_t *		param_value_size_ret)
+{
+	return CONTEXT_MODULE->GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret);
+}
+                            
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
