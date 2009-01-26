@@ -206,6 +206,7 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 		return CL_DEV_INVALID_COMMAND_LIST;
 	}
 
+	//from this point forward we assume valid input 
 	cCudaCommandList *tList = m_pDevInstance->m_CommandLists[*(unsigned int*)list];
 
 	for( unsigned int i = 0; i < count; i++ )
@@ -214,11 +215,11 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 
 		if( CL_DEV_CMD_READ == cmds[i].type )
 		{
-			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_READ\"");
+			tList->PushRead(cmds + i);
 		}
 		else if( CL_DEV_CMD_WRITE == cmds[i].type )
 		{
-			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_WRITE\"");
+			tList->PushWrite(cmds + i);
 		}
 		else if( CL_DEV_CMD_COPY == cmds[i].type )
 		{
@@ -258,14 +259,40 @@ cl_int cCudaDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl
 cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 						cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
 {
+	//only supports buffers (dim_count = 1 and format = NULL) 
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	if( 1 != dim_count )
+	{
+		return CL_DEV_INVALID_IMG_SIZE;
+	}
+	if( NULL != format )
+	{
+		return CL_DEV_INVALID_IMG_FORMAT;
+	}
+
+	cCudaMemObject* pMem = new cCudaMemObject(flags, format, dim_count, dim);
+	if( NULL == pMem )
+	{
+		return CL_DEV_OBJECT_ALLOC_FAIL;
+	}
+
+	cl_dev_mem tpMemObj = new (_cl_dev_mem);
+
+
+	tpMemObj->allocId = 0;
+	tpMemObj->objHandle = pMem;
+
+	*memObj = tpMemObj;
+
+	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	cCudaMemObject* pMem = (cCudaMemObject*)memObj->objHandle;
+	delete pMem;
+	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
@@ -291,7 +318,6 @@ cl_int cCudaDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN 
 cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
 	cl_prog_container *ProgContainer = (cl_prog_container*)bin;
-	//memcpy(&ProgContainer, bin, bin_size);
 
 	if (prop != CL_DEV_BINARY_USER)
 	{
@@ -313,17 +339,7 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	cCudaProgram *tProg = new cCudaProgram();
-
-	tProg->m_ProgramID = m_pDevInstance->m_Programs.size();
-	tProg->m_ProgContainer.container_size = ProgContainer->container_size;
-	tProg->m_ProgContainer.container_type = ProgContainer->container_type;
-	tProg->m_ProgContainer.description = ProgContainer->description;
-	strcpy_s( (char*)tProg->m_ProgContainer.container, N_MAX_STRING_SIZE, (char*)ProgContainer->container );
-	tProg->m_ProgramName.clear();
-	tProg->m_ProgramName.append((char*)ProgContainer->container);
-
-
+	cCudaProgram *tProg = new cCudaProgram( m_pDevInstance, ProgContainer, m_pDevInstance->m_Programs.size() );
 	m_pDevInstance->m_Programs.push_back(tProg);
 	*prog = (cl_dev_program*)(&(tProg->m_ProgramID));
 
@@ -359,31 +375,8 @@ cl_int cCudaDevice::clDevGetProgramBinary(cl_dev_program prog, size_t size, void
 	}
 
 	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
-	char* stCubinName = (char*)(m_pDevInstance->m_Programs[uiProg]->m_ProgContainer.container);
 
-	if( (NULL == binary) && (0 == size) )
-	{
-		*size_ret = sizeof(cl_prog_container) + strlen(stCubinName) +1;
-		return CL_DEV_SUCCESS;
-	}
-
-	if( size < (sizeof(cl_prog_container) + strlen(stCubinName) +1) )
-	{
-		return CL_DEV_INVALID_VALUE;
-	}
-
-	if( (NULL == binary) && (0 != size) )
-	{
-		return CL_DEV_INVALID_VALUE;
-	}
-
-	cl_prog_container *tContainer = (cl_prog_container*)binary;
-	tContainer->container_size = tProg->m_ProgContainer.container_size;
-	tContainer->container_type = tProg->m_ProgContainer.container_type;
-	tContainer->description = tProg->m_ProgContainer.description;
-	memcpy((void*)tContainer->container, tProg->m_ProgContainer.container, strlen((char*)tProg->m_ProgContainer.container) + 1);
-	*(size_ret) = sizeof(cl_prog_container) + strlen(stCubinName) +1;
-	return CL_DEV_SUCCESS;
+	return tProg->GetBinary(size, binary, size_ret);
 }
 
 cl_int cCudaDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret)
@@ -415,14 +408,9 @@ cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN nam
 	{
 		return CL_DEV_INVALID_PROGRAM;
 	}
-	cCudaProgram *tprog = m_pDevInstance->m_Programs[uiProg];
-	if ( tprog->m_kernels.find(name) == tprog->m_kernels.end() )
-	{
-		return CL_INVALID_KERNEL_NAME;
-	}
-	cCudaKernel *tKernel = tprog->m_kernels[name];
-	*kernel_id = (cl_dev_kernel)(& (tprog->m_kernels[name]->m_KernelID) );
-	return CL_SUCCESS;
+	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
+
+	return tProg->GetKernelID(name, kernel_id);
 }
 
 cl_int cCudaDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
@@ -439,9 +427,174 @@ cl_int cCudaDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_i
 	return CL_DEV_INVALID_OPERATION;
 }
 
+//
+//cCudaMemObject
+//
+cCudaMemObject::cCudaMemObject(cl_dev_mem_flags flags, 
+							   const cl_image_format *format, 
+							   cl_uint dim_count, 
+							   const size_t *dim)
+{
+	//only supports buffers (dim_count = 1 and format = NULL) 
+	CUresult CuRes = CUDA_SUCCESS;
+	m_RW = flags & 0x03 ;
+	m_OnHost = flags & 0x04 ;
+	m_DimCount = dim_count;
+	m_dim = new size_t( dim_count );
+	memcpy( m_dim, dim, dim_count * sizeof(size_t) );
+	m_DevPtr = NULL;
+}
+cCudaMemObject::~cCudaMemObject()
+{
+	delete[] m_dim;
+	if( NULL != m_DevPtr )
+	{
+		cuMemFree( m_DevPtr );
+	}
+}
+CUdeviceptr cCudaMemObject::GetPtr()
+{
+	CUresult CuRes = CUDA_SUCCESS;
+	if( NULL == m_DevPtr )
+	{
+		CuRes = cuMemAlloc( &m_DevPtr, m_dim[0]);
+		if( CUDA_SUCCESS != CuRes )
+		{
+			return CL_DEV_OBJECT_ALLOC_FAIL;
+		}
+	}
+	return m_DevPtr;
+}
+int cCudaMemObject::GetRW()
+{
+	return m_RW;
+}
+int cCudaMemObject::Read(cl_uint dim_count, size_t *origin, size_t *region, void *ptr, size_t *pitch)
+{
+	CUresult CuRes = CUDA_SUCCESS;
+	if( m_DimCount != dim_count )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	if( 0 == ( m_RW & 0x01 ) )
+	{
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
+	if( NULL == m_DevPtr )
+	{
+		CuRes = cuMemAlloc( &m_DevPtr, m_dim[0]);
+		if( CUDA_SUCCESS != CuRes )
+		{
+			return CL_DEV_OBJECT_ALLOC_FAIL;
+		}
+	}
+	CuRes = cuMemcpyDtoH(ptr, m_DevPtr/* + origin[0]*/, region[0]);
+	if( CUDA_SUCCESS != CuRes )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	return CL_DEV_SUCCESS;
+}
+int cCudaMemObject::Write(cl_uint dim_count, size_t *origin, size_t *region, void *ptr, size_t *pitch)
+{
+	CUresult CuRes = CUDA_SUCCESS;
+	if( m_DimCount != dim_count )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	if( 0 == ( m_RW & 0x02 ) )
+	{
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
+	if( NULL == m_DevPtr )
+	{
+		CuRes = cuMemAlloc( &m_DevPtr, m_dim[0]);
+		if( CUDA_SUCCESS != CuRes )
+		{
+			return CL_DEV_OBJECT_ALLOC_FAIL;
+		}
+	}
+	CuRes = cuMemcpyHtoD(m_DevPtr/* + origin[0]*/, ptr, region[0]);
+	if( CUDA_SUCCESS != CuRes )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	return CL_DEV_SUCCESS;
+}
+//
+//cCudaProgram
+//
+cCudaProgram::cCudaProgram( cCudaDevice* device )
+{
+	m_module = NULL;
+	m_ProgramID = -1;
+	m_ProgContainer.container = new char[N_MAX_STRING_SIZE];
+	m_ProgContainer.container_size = 0;
+	m_device = device;
+}
+cCudaProgram::cCudaProgram( cCudaDevice* device, cl_prog_container *ProgContainer, cl_uint ID )
+{
+	m_module = NULL;
+	m_ProgramID = ID;
+	int NameLength = strlen( (char*)ProgContainer->container );
+	m_ProgContainer.container = new char[NameLength + 1];
+	m_ProgContainer.container_size = ProgContainer->container_size;
+	m_ProgContainer.container_type = ProgContainer->container_type;
+	m_ProgContainer.description = ProgContainer->description;
+	strcpy_s( (char*)m_ProgContainer.container, NameLength + 1, (char*)ProgContainer->container );
+	m_ProgramName = (char*)ProgContainer->container;
+	m_device = device;
+}
+cCudaProgram::~cCudaProgram()
+{
+	delete[] (m_ProgContainer.container);
+	if( NULL != m_module )
+	{
+		cuModuleUnload(m_module);
+	}
+	m_kernels.clear();
+}
 
 
-cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Prog)
+cl_int cCudaProgram::GetBinary(size_t size, void *binary, size_t *size_ret)
+{
+	char* stCubinName = (char*)m_ProgContainer.container;
+
+	if( (NULL == binary) && (0 == size) )
+	{
+		*size_ret = sizeof(cl_prog_container) + strlen(stCubinName) +1;
+		return CL_DEV_SUCCESS;
+	}
+
+	if( size < (sizeof(cl_prog_container) + strlen(stCubinName) +1) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	if( (NULL == binary) && (0 != size) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+
+	cl_prog_container *tContainer = (cl_prog_container*)binary;
+	tContainer->container_size = m_ProgContainer.container_size;
+	tContainer->container_type = m_ProgContainer.container_type;
+	tContainer->description = m_ProgContainer.description;
+	memcpy((void*)tContainer->container, m_ProgContainer.container, strlen((char*)m_ProgContainer.container) + 1);
+	*(size_ret) = sizeof(cl_prog_container) + strlen(stCubinName) +1;
+	return CL_DEV_SUCCESS;
+}
+cl_int cCudaProgram::GetKernelID(const char *name, cl_dev_kernel *kernel_id)
+{
+	if ( m_kernels.find(name) == m_kernels.end() )
+	{
+		return CL_INVALID_KERNEL_NAME;
+	}
+	cCudaKernel *tKernel = m_kernels[name];
+	*kernel_id = (cl_dev_kernel)(& (tKernel->m_KernelID) );
+	return CL_SUCCESS;
+}
+cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 {
 	ifstream fCubin;
 	char st[N_MAX_STRING_SIZE];
@@ -458,8 +611,7 @@ cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Pr
 		{
 			cCudaKernel *temp_kernel = new cCudaKernel;
 			temp_kernel->m_OriginalName = st;
-			temp_kernel->m_KernelID.ProgramID = Prog->m_ProgramID;
-			//strcpy_s(temp_kernel->m_OriginalName, N_MAX_STRING_SIZE, st);
+			temp_kernel->m_KernelID.ProgramID = m_ProgramID;
 			int index = 13;
 			int iTemp = atoi(&st[index]);
 			while( isdigit(st[index]) != 0)
@@ -467,11 +619,11 @@ cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Pr
 				index++;
 			}
 			temp_kernel->m_KernelID.KernelName.assign(&st[index], iTemp);
-			//strncpy_s(temp_kernel->m_Name, N_MAX_STRING_SIZE, &st[index], iTemp);
 			index += iTemp;
 			while (st[index] != NULL)
 			{
 				cl_kernel_arg_type temp_parameter;
+				cl_uint temp_MemFlag = CL_DEV_MEM_READ_WRITE;
 				switch (st[index])
 				{
 				case 'i' : temp_parameter = (cl_kernel_arg_type)sizeof(int);
@@ -489,6 +641,21 @@ cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Pr
 				case 'P' : index++;
 					switch (st[index])
 					{
+					case 'K' : index++;
+						switch (st[index])
+						{
+							case 'i' : 
+							case 'f' :
+							case 'd' :
+							case 'c' :
+							case 'j' :
+							case 'h' : temp_parameter = CL_KRNL_ARG_PTR;
+								temp_MemFlag = CL_DEV_MEM_READ;
+								break;
+							default: fCubin.close();
+								delete temp_kernel;
+								return CL_DEV_ERROR_FAIL;
+						}
 					case 'i' : 
 					case 'f' :
 					case 'd' :
@@ -506,38 +673,125 @@ cl_int cCudaDevice::m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Pr
 					return CL_DEV_ERROR_FAIL;
 				}
 				temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments ] = temp_parameter;
+				temp_kernel->m_MemFlags[ temp_kernel->m_NumberOfArguments ] = temp_MemFlag;
 				temp_kernel->m_NumberOfArguments++;
 				index++;
 			}
-			Prog->m_kernels[temp_kernel->m_KernelID.KernelName] = temp_kernel;
+			m_kernels[temp_kernel->m_KernelID.KernelName] = temp_kernel;
 		}
 		fCubin >> st;
 	}
 	fCubin.close();
 	return CL_DEV_SUCCESS;
 }
+cl_int cCudaProgram::Build(const cl_char *options, void *user_data)
+{
+	KERNELS::iterator it;
+	CUresult CuRes = CUDA_SUCCESS;
+	cl_int ClRes = CL_DEV_SUCCESS;
+	
+	CuRes = cuModuleLoad( &m_module, m_ProgramName.c_str() );
 
-//
-//cCudaProgram
-//
-cCudaProgram::cCudaProgram()
-{
-	m_module = NULL;
-	m_ProgramID = -1;
-	m_ProgContainer.container = new char[N_MAX_STRING_SIZE];
-	m_ProgContainer.container_size = 0;
-}
-cCudaProgram::~cCudaProgram()
-{
-	delete[] (m_ProgContainer.container);
-	if( NULL != m_module )
+	if (CuRes != CUDA_SUCCESS)
+	{
+		return CL_DEV_INVALID_BINARY;
+	}
+
+	ClRes = ParseCubin( m_ProgramName.c_str() );
+
+	if (ClRes != CL_DEV_SUCCESS)
 	{
 		cuModuleUnload(m_module);
+		return CL_DEV_INVALID_BINARY;
 	}
-	m_kernels.clear();
+
+	for ( it = m_kernels.begin(); it != m_kernels.end(); it++)
+	{
+		CuRes = cuModuleGetFunction( &(it->second->m_function), m_module, it->second->m_OriginalName.c_str());
+	}
+
+	m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)m_ProgramID , user_data, CL_BUILD_SUCCESS);
+
+	return CL_DEV_SUCCESS;
 }
+cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cmd_id id )
+{
+	CUresult cuRes = CUDA_SUCCESS;
+	float time = 0;
+
+	KERNEL_ID *ID = (KERNEL_ID*)pKernelParam->kernel;
+	wstring KernelName = str2wstr( ID->KernelName );
+	int ProgramID = ID->ProgramID;
+	LOG_DEBUG(L"executing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), ProgramID);
+	cCudaKernel* tKernel = m_kernels[ID->KernelName];
+
+	cl_uint work_dim = pKernelParam->work_dim;
+	const size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
+	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
+	const size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
+	cl_uint arg_count = pKernelParam->arg_count;
+	cl_kernel_arg_type*	arg_types = pKernelParam->arg_types;
+	void* arg_values = pKernelParam->arg_values;
+	size_t	offset = 0;
+	char* ppp = NULL;
+
+	CUevent start;
+	cuRes = cuEventCreate(&start,0);
+	CUevent finish;
+	cuRes = cuEventCreate(&finish,0);
+
+	cCudaMemObject* pMem;
 
 
+	// Evgeny: Sagi what happens when arg_type == PTR, its size is 0
+	// You also need to convert from cl_dev_mem to CUDA buffer ptr
+	// Do it here or in clDevCommandListExecute(), i prefere there
+	for (cl_uint i = 0; i < arg_count; i++)
+	{
+		if( CL_KRNL_ARG_PTR == arg_types[i] )
+		{
+			if( CL_KRNL_ARG_PTR != tKernel->m_Arguments[i] )
+			{
+				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+				return CL_DEV_ERROR_FAIL;
+			}
+			cl_dev_mem pDevMem = *((cl_dev_mem*)((char*)arg_values + offset));
+			pMem = (cCudaMemObject*)pDevMem->objHandle;
+			if( pMem->GetRW() != tKernel->m_MemFlags[i] )
+			{
+				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+				return CL_DEV_ERROR_FAIL;
+			}
+			cuRes = cuParamSeti(tKernel->m_function, offset, pMem->GetPtr());
+			offset += sizeof(int);
+		}
+		else
+		{
+			if( arg_types[i] != tKernel->m_Arguments[i] )
+			{
+				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+				return CL_DEV_ERROR_FAIL;
+			}
+			cuRes = cuParamSetv(tKernel->m_function, offset, (char*)arg_values + offset, arg_types[i]);
+			offset += arg_types[i];
+		}
+
+	}
+	
+	cuRes = cuParamSetSize(tKernel->m_function, offset);
+	cuRes = cuFuncSetBlockShape(tKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
+	//cuRes = cuFuncSetBlockShape(tKernel->m_function, 1, 1, 1);
+	cuRes = cuEventRecord(start,0);
+	cuRes = cuLaunchGrid(tKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_RUNNING, 0);
+	cuRes = cuEventRecord(finish,0);
+	cuRes = cuEventSynchronize(finish);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_SUCCESS );
+	cuRes = cuEventElapsedTime(&time, start, finish );
+	cuRes = cuEventDestroy(start);
+	cuRes = cuEventDestroy(finish);
+	return CL_DEV_SUCCESS;
+}
 //
 //cCudaKernel
 //
@@ -569,25 +823,56 @@ cl_dev_cmd_list cCudaCommandList::GetID()
 }
 cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 {
-
+	//need to check work dim
 	cl_dev_cmd_param_kernel* tKernelParams = (cl_dev_cmd_param_kernel*)(cmds->params);
+
+	if( ( 2 < tKernelParams->work_dim ) || ( 1 > tKernelParams->work_dim ) )
+	{
+		LOG_ERROR(L"recived unsuported work dim: %d", tKernelParams->work_dim);
+		return CL_DEV_SUCCESS;
+	}
+	if( NULL == tKernelParams->glb_wrk_offs )
+	{
+		LOG_ERROR(L"recived unsuported NULL pointer instead of glb_wrk_offs");
+		return CL_DEV_SUCCESS;
+	}
+	if( NULL == tKernelParams->glb_wrk_size )
+	{
+		LOG_ERROR(L"recived unsuported NULL pointer instead of glb_wrk_size");
+		return CL_DEV_SUCCESS;
+	}
+	if( NULL == tKernelParams->lcl_wrk_size )
+	{
+		LOG_ERROR(L"recived unsuported NULL pointer instead of lcl_wrk_size");
+		return CL_DEV_SUCCESS;
+	}
+
 	cl_dev_cmd_param_kernel* KernelParams = new cl_dev_cmd_param_kernel;
 
 	KernelParams->kernel = tKernelParams->kernel;
 	KernelParams->work_dim = tKernelParams->work_dim;
+
 	KernelParams->glb_wrk_offs = new size_t[KernelParams->work_dim];
 	memcpy(KernelParams->glb_wrk_offs, tKernelParams->glb_wrk_offs, KernelParams->work_dim * sizeof(size_t));
+
 	KernelParams->glb_wrk_size = new size_t[KernelParams->work_dim];	
 	memcpy(KernelParams->glb_wrk_size, tKernelParams->glb_wrk_size, KernelParams->work_dim * sizeof(size_t));
+
 	KernelParams->lcl_wrk_size = new size_t[KernelParams->work_dim];	
 	memcpy(KernelParams->lcl_wrk_size, tKernelParams->lcl_wrk_size, KernelParams->work_dim * sizeof(size_t));
+
+	if( 1 == KernelParams->work_dim )
+	{
+		KernelParams->glb_wrk_size[1] = 1;
+		KernelParams->lcl_wrk_size[1] = 1;
+	}
+
 	KernelParams->arg_count = tKernelParams->arg_count;
 	KernelParams->arg_size = tKernelParams->arg_size;
 	KernelParams->arg_types = new cl_kernel_arg_type[KernelParams->arg_count];
 	KernelParams->arg_values = new char[KernelParams->arg_size];
-	memcpy(KernelParams->arg_types, tKernelParams->arg_types, KernelParams->arg_count);
+	memcpy(KernelParams->arg_types, tKernelParams->arg_types, KernelParams->arg_count * sizeof(cl_kernel_arg_type));
 	memcpy(KernelParams->arg_values, tKernelParams->arg_values, KernelParams->arg_size);
-	// Evgeny: Sagi you should delete this objects somewhere
 
 
 	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
@@ -613,7 +898,115 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 	m_CommandEnqueued.Signal();
 	LOG_DEBUG(L"sent signal");
 
-	return CL_SUCCESS;
+	return CL_DEV_SUCCESS;
+}
+cl_int cCudaCommandList::PushRead(cl_dev_cmd_desc* cmds)
+{
+	//only support buffers
+	cl_dev_cmd_param_rw* tReadParams = (cl_dev_cmd_param_rw*)(cmds->params);
+
+
+	if( 1 != tReadParams->dim_count )
+	{
+		LOG_ERROR(L"recived unsuported dim_count: %d", tReadParams->dim_count);
+		return CL_DEV_SUCCESS;
+	}
+	if( NULL == tReadParams->memObj->objHandle )
+	{
+		LOG_ERROR(L"recived NULL pointer instead of objHandle");
+		return CL_DEV_SUCCESS;
+	}
+	
+
+	cl_dev_cmd_param_rw* ReadParams = new cl_dev_cmd_param_rw;
+
+	ReadParams->memObj = tReadParams->memObj;
+	ReadParams->dim_count = tReadParams->dim_count;
+
+	ReadParams->origin = new size_t[ tReadParams->dim_count ];
+	memcpy(ReadParams->origin, tReadParams->origin, tReadParams->dim_count * sizeof(size_t));
+
+	ReadParams->region = new size_t[ tReadParams->dim_count ];
+	memcpy(ReadParams->region, tReadParams->region, tReadParams->dim_count * sizeof(size_t));
+
+	ReadParams->ptr = tReadParams->ptr;
+	ReadParams->pitch = tReadParams->pitch;
+
+	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
+		
+	command->param_size = cmds->param_size;
+	command->type = cmds->type;
+	command->id = cmds->id;
+	command->params = ReadParams;
+
+	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+	Container->CommandType = CUDA_MEM_READ;
+	Container->Command = command;
+
+
+	m_QueueLock.Lock();
+	m_commands.push(Container);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
+	LOG_DEBUG(L"pushing command of type: mem_read");
+	m_QueueLock.Unlock();
+	m_CommandEnqueued.Signal();
+	LOG_DEBUG(L"sent signal");
+
+	return CL_DEV_SUCCESS;
+}
+cl_int cCudaCommandList::PushWrite(cl_dev_cmd_desc* cmds)
+{
+	//only support buffers
+	cl_dev_cmd_param_rw* tWriteParams = (cl_dev_cmd_param_rw*)(cmds->params);
+
+
+	if( 1 != tWriteParams->dim_count )
+	{
+		LOG_ERROR(L"recived unsuported dim_count: %d", tWriteParams->dim_count);
+		return CL_DEV_SUCCESS;
+	}
+	if( NULL == tWriteParams->memObj->objHandle )
+	{
+		LOG_ERROR(L"recived NULL pointer instead of objHandle");
+		return CL_DEV_SUCCESS;
+	}
+	
+
+	cl_dev_cmd_param_rw* WriteParams = new cl_dev_cmd_param_rw;
+
+	WriteParams->memObj = tWriteParams->memObj;
+	WriteParams->dim_count = tWriteParams->dim_count;
+
+	WriteParams->origin = new size_t[ tWriteParams->dim_count ];
+	memcpy(WriteParams->origin, tWriteParams->origin, tWriteParams->dim_count * sizeof(size_t));
+
+	WriteParams->region = new size_t[ tWriteParams->dim_count ];
+	memcpy(WriteParams->region, tWriteParams->region, tWriteParams->dim_count * sizeof(size_t));
+
+	WriteParams->ptr = tWriteParams->ptr;
+	WriteParams->pitch = tWriteParams->pitch;
+
+	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
+		
+	command->param_size = cmds->param_size;
+	command->type = cmds->type;
+	command->id = cmds->id;
+	command->params = WriteParams;
+
+	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
+	Container->CommandType = CUDA_MEM_WRITE;
+	Container->Command = command;
+
+
+	m_QueueLock.Lock();
+	m_commands.push(Container);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
+	LOG_DEBUG(L"pushing command of type: mem_write");
+	m_QueueLock.Unlock();
+	m_CommandEnqueued.Signal();
+	LOG_DEBUG(L"sent signal");
+
+	return CL_DEV_SUCCESS;
 }
 cl_int cCudaCommandList::PushBuildProgram(cl_uint prog, const cl_char *options, void *user_data)
 {
@@ -642,7 +1035,7 @@ cl_int cCudaCommandList::PushBuildProgram(cl_uint prog, const cl_char *options, 
 	m_QueueLock.Unlock();
 	m_CommandEnqueued.Signal();
 	LOG_DEBUG(L"sent signal");
-	return CL_SUCCESS;
+	return CL_DEV_SUCCESS;
 }
 bool cCudaCommandList::IsEmpty()
 {
@@ -699,90 +1092,62 @@ int cCudaCommandExecuteThread::Run()
 
 		if( CUDA_RUN_KERNEL == Container->CommandType )
 		{
-			RunCommand( *(cl_dev_cmd_desc*)(Container->Command) );
+			RunKernel( *(cl_dev_cmd_desc*)(Container->Command) );
+		}
+
+		if( CUDA_MEM_WRITE == Container->CommandType )
+		{
+			RunWrite( *(cl_dev_cmd_desc*)(Container->Command) );
+		}
+
+		if( CUDA_MEM_READ == Container->CommandType )
+		{
+			RunRead( *(cl_dev_cmd_desc*)(Container->Command) );
 		}
 
 		delete Container;
 	}
 	return 1;
 }
-cl_int cCudaCommandExecuteThread::RunCommand(cl_dev_cmd_desc cmd)
+cl_int cCudaCommandExecuteThread::RunKernel(cl_dev_cmd_desc cmd)
 {
 	cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)cmd.params;
-	KERNEL_ID *ID = (KERNEL_ID*)pKernelParam->kernel;
-	wstring KernelName = str2wstr( ID->KernelName );
-	int KernelID = ID->ProgramID;
-	LOG_DEBUG(L"executing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), KernelID);
-	cCudaKernel* pKernel = m_device->m_Programs[ID->ProgramID]->m_kernels[ID->KernelName];
-	cCudaProgram* pProgram = m_device->m_Programs[ID->ProgramID];
-	cl_uint work_dim = pKernelParam->work_dim;
-	const size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
-	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
-	const size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
-	cl_uint arg_count = pKernelParam->arg_count;
-	cl_kernel_arg_type*	arg_types = pKernelParam->arg_types;
-	void* arg_values = pKernelParam->arg_values;
-	size_t	offset = 0;
-	CUresult cuRes = CUDA_SUCCESS;
-	CUevent start;
-	cuRes = cuEventCreate(&start,0);
-	CUevent finish;
-	cuRes = cuEventCreate(&finish,0);
-	float time = 0;
-
-	// Evgeny: Sagi what happens when arg_type == PTR, its size is 0
-	// You also need to convert from cl_dev_mem to CUDA buffer ptr
-	// Do it here or in clDevCommandListExecute(), i prefere there
-	for (cl_uint i = 0; i < arg_count; i++)
-	{
-		assert(arg_types[i]);		// Remove it when you fix memory buffers
-		cuRes = cuParamSetv(pKernel->m_function, offset, (char*)arg_values + offset, arg_types[i]);
-		offset += arg_types[i];
-
-	}
-	cuRes = cuParamSetSize(pKernel->m_function, offset);
-	cuRes = cuFuncSetBlockShape(pKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
-	cuRes = cuEventRecord(start,0);
-	cuRes = cuLaunchGrid(pKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_RUNNING, 0);
-	cuRes = cuEventRecord(finish,0);
-	cuRes = cuEventSynchronize(finish);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
-	cuRes = cuEventElapsedTime(&time, start, finish );
-	cuRes = cuEventDestroy(start);
-	cuRes = cuEventDestroy(finish);
-
-	return CL_DEV_SUCCESS;
+	cl_uint uiProg = ( (KERNEL_ID*)pKernelParam->kernel )->ProgramID;
+	cCudaProgram* tProg = m_device->m_Programs[uiProg];
+	return tProg->RunKernel( pKernelParam, cmd.id );
 }
 
+cl_int cCudaCommandExecuteThread::RunRead(cl_dev_cmd_desc cmd)
+{
+	cl_dev_cmd_param_rw* pReadParam = (cl_dev_cmd_param_rw*)cmd.params;
+	cCudaMemObject* pMemObj = (cCudaMemObject*)pReadParam->memObj->objHandle;
+	int res =  pMemObj->Read(pReadParam->dim_count,
+						  pReadParam->origin,
+						  pReadParam->region,
+						  pReadParam->ptr,
+						  pReadParam->pitch);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
+	return res;
+}
+cl_int cCudaCommandExecuteThread::RunWrite(cl_dev_cmd_desc cmd)
+{
+	cl_dev_cmd_param_rw* pWriteParam = (cl_dev_cmd_param_rw*)cmd.params;
+	cCudaMemObject* pMemObj = (cCudaMemObject*)pWriteParam->memObj->objHandle;
+	int res = pMemObj->Write(pWriteParam->dim_count,
+						  pWriteParam->origin,
+						  pWriteParam->region,
+						  pWriteParam->ptr,
+						  pWriteParam->pitch);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
+	return res;
+}
 cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData )
 {
 	LOG_DEBUG(L"executing command of type: build program, program number: %d", BuildData.prog);
-	KERNELS::iterator it;
 
 	cCudaProgram *tProg = m_device->m_Programs[ BuildData.prog ];
 
-	CUresult CuRes = cuModuleLoad( &( tProg->m_module ), tProg->m_ProgramName.c_str() );
-	if (CuRes != CUDA_SUCCESS)
-	{
-		return CL_DEV_INVALID_BINARY;
-	}
-
-	cl_int ClRes = m_device->m_ParseCubin(tProg->m_ProgramName.c_str(), tProg);
-	if (ClRes != CL_DEV_SUCCESS)
-	{
-		cuModuleUnload(tProg->m_module);
-		return CL_DEV_INVALID_BINARY;
-	}
-
-	for ( it = tProg->m_kernels.begin(); it != tProg->m_kernels.end(); it++)
-	{
-		CuRes = cuModuleGetFunction( &(it->second->m_function), tProg->m_module, it->second->m_OriginalName.c_str());
-	}
-
-	m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)BuildData.prog , BuildData.user_data, CL_BUILD_SUCCESS);
-
-	return CL_DEV_SUCCESS;
+	return tProg->Build( BuildData.options, BuildData.user_data );
 }
 //
 //COMMAND_CONTAINER functions

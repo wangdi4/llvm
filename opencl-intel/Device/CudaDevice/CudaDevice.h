@@ -43,18 +43,73 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace CudaDevice {
 
-
 #define N_MAX_STRING_SIZE 100
 #define N_MAX_ARGUMENTS 20
 
+//classes declarations
+class cCudaKernel;
+class cCudaProgram;
+class cCudaCommandExecuteThread;
+class cCudaCommandList;
+class cCudaDevice;
+class cCudaMemObject;
 
+//enums
+typedef enum CudaCommandType
+{
+	CUDA_BUILD_PROGRAM,
+	CUDA_RUN_KERNEL,
+	CUDA_MEM_READ,
+	CUDA_MEM_WRITE,
+	CUDA_OTHER,								
+};
+
+//structs
+typedef struct _CUDA_BUILD_PROGRAM_CONTAINER
+{
+	cl_uint prog;
+	cl_char *options;
+	void *user_data;
+}CUDA_BUILD_PROGRAM_CONTAINER;
+typedef struct _COMMAND_CONTAINER
+{
+	~_COMMAND_CONTAINER();
+	CudaCommandType CommandType;
+	void* Command;
+}COMMAND_CONTAINER;
 typedef struct _KERNEL_ID
 {
 	cl_int ProgramID;
 	string KernelName;
 }KERNEL_ID;
 
+//typedefs
+typedef map<string, cCudaKernel*> KERNELS;
+typedef vector< cCudaProgram* > PROGRAMS;
+typedef queue< COMMAND_CONTAINER* > COMMANDS;
+typedef vector< cCudaCommandList* > COMMAND_LISTS;
 
+//classes implementation
+class cCudaMemObject
+{
+public:
+	cCudaMemObject( cl_dev_mem_flags flags, 
+					const cl_image_format* format, 
+					cl_uint dim_count, 
+					const size_t* dim );
+	~cCudaMemObject();
+	CUdeviceptr GetPtr();
+	int GetRW();
+	int Write(cl_uint dim_count, size_t* origin, size_t* region, void* ptr, size_t* pitch);
+	int Read(cl_uint dim_count, size_t* origin, size_t* region, void* ptr, size_t* pitch);
+private:
+	cl_uint m_RW;
+	cl_uint m_OnHost;
+	cl_uint m_DimCount;
+	size_t* m_dim;
+	CUdeviceptr m_DevPtr;
+	//void * m_HostPtr;
+};
 class cCudaKernel
 {
 public:
@@ -64,55 +119,48 @@ public:
 	string m_OriginalName;
 	KERNEL_ID m_KernelID;
 	cl_kernel_arg_type m_Arguments[N_MAX_ARGUMENTS];
+	cl_uint m_MemFlags[N_MAX_ARGUMENTS];
 	cl_int m_NumberOfArguments;
 };
 
-typedef map<string, cCudaKernel*> KERNELS;
 
 
 class cCudaProgram
 {
 public:
-	cCudaProgram();
+	//functions
+	cCudaProgram( cCudaDevice* device );
+	cCudaProgram( cCudaDevice* device, cl_prog_container *ProgContainer, cl_uint ID );
 	~cCudaProgram();
+	cl_int GetBinary(size_t size, void *binary, size_t *size_ret);
+	cl_int GetKernelID(const char* IN name, cl_dev_kernel* OUT kernel_id );
+	cl_int Build(const cl_char *options, void *user_data);
+	cl_int RunKernel( cl_dev_cmd_param_kernel* pKernelParam, cl_dev_cmd_id	id );
+
+	//members
+	cl_uint m_ProgramID;
+
+private:
+	//functions
+	cl_int ParseCubin( const char* stCubinName );
+
+	//members
 	CUmodule m_module;
 	KERNELS m_kernels;
-	cl_uint m_ProgramID;
 	cl_prog_container m_ProgContainer;
 	string m_ProgramName;
-};
-
-typedef vector< cCudaProgram* > PROGRAMS;
-
-
-typedef enum CudaCommandType
-{
-	CUDA_BUILD_PROGRAM,
-	CUDA_RUN_KERNEL,
-	CUDA_OTHER,								
+	cCudaDevice* m_device;
 };
 
 
-typedef struct _CUDA_BUILD_PROGRAM_CONTAINER
-{
-	cl_uint prog;
-	cl_char *options;
-	void *user_data;
-}CUDA_BUILD_PROGRAM_CONTAINER;
 
 
-typedef struct _COMMAND_CONTAINER
-{
-	~_COMMAND_CONTAINER();
-	CudaCommandType CommandType;
-	void* Command;
-}COMMAND_CONTAINER;
-
-typedef queue< COMMAND_CONTAINER* > COMMANDS;
 
 
-class cCudaCommandList;
-class cCudaDevice;
+
+
+
+
 
 class cCudaCommandExecuteThread : public OclThread
 {
@@ -131,7 +179,9 @@ protected:
 	//functions
 	int Run();
 	cl_int BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData );
-	cl_int RunCommand( cl_dev_cmd_desc cmd );
+	cl_int RunKernel( cl_dev_cmd_desc cmd );
+	cl_int RunRead( cl_dev_cmd_desc cmd );
+	cl_int RunWrite( cl_dev_cmd_desc cmd );
 };
 
 
@@ -144,6 +194,8 @@ public:
 
 	void StartThread();
 	cl_dev_cmd_list GetID();
+	cl_int PushRead(cl_dev_cmd_desc* cmds);
+	cl_int PushWrite(cl_dev_cmd_desc* cmds);
 	cl_int PushKernel(cl_dev_cmd_desc* cmds);
 	cl_int PushBuildProgram(cl_uint prog, const cl_char *options, void *user_data);
 	bool IsEmpty();
@@ -162,19 +214,17 @@ private:
 
 
 
-typedef vector< cCudaCommandList* > COMMAND_LISTS;
 class cCudaDevice
 {
 protected:
 
 	friend cCudaCommandList;
 	friend cCudaCommandExecuteThread;
+	friend cCudaProgram;
 	cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
 	~cCudaDevice();
 
 	static cCudaDevice*	m_pDevInstance;
-
-	cl_int m_ParseCubin( const char* stCubinName , cCudaProgram OUT *Prog );
 
 	cl_uint m_id;
 	cl_dev_call_backs m_CallBacks;
