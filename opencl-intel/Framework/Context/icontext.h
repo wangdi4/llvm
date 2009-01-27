@@ -36,7 +36,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	/**********************************************************************************************
 	* Class name:	IContext
 	*
-	* Description:	IContext iterface
+	* Description:	IContext iterface - outlines the context OpneCL related functions
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 
 		/******************************************************************************************
-		* Function: 	clCreateContext    
+		* Function: 	CreateContext    
 		* Description:	creates an OpenCL context. An OpenCL context is created with one or more 
 		*				devices. Contexts are used by the OpenCL runtime for managing objects such 
 		*				as command-queues, memory, program and kernel objects and for executing 
@@ -100,11 +100,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											void *                IN  pUserData,
 											cl_int *              OUT pRrrcodeRet ) = 0;
 
-		virtual cl_context CreateContextFromType(	cl_context_properties clProperties,
-													cl_device_type        clDeviceType,
-													logging_fn            pfnNotify,
-													void *                pUserData,
-													cl_int *              pErrcodeRet ) = 0;
+		/******************************************************************************************
+		* Function: 	CreateContextFromType    
+		* Description:	creates an OpenCL context from a device type that identifies the specific 
+		*				device(s) to use
+		* Arguments:	clProperties [in] -	is reserved and must be zero	
+		*				clDeviceType [in] -	is a bit-field that identifies the type of device
+		*				pfnNotify [in] -	described in CreateContext...
+		*				pUserData [in] -	described in CreateContext...
+		*				pErrrcodeRet [out]	will return an appropriate error code. If pErrrcodeRet is 
+		*									NULL, no error code is returned
+		* Return value:	CL_INVALID_VALUE 		if clProperties is not zero
+		*				CL_INVALID_DEVICE_TYPE	if clDeviceType is not a valid value
+		*				CL_DEVICE_NOT_AVAILABLE if no devices that match clDeviceType are currently 
+		*										available
+		*				CL_DEVICE_NOT_FOUND		if no devices that match clDeviceType were found
+		*				CL_OUT_OF_HOST_MEMORY	if there is a failure to allocate resources required 
+		*										by the OpenCL implementation on the host
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		virtual cl_context CreateContextFromType(	cl_context_properties IN  clProperties,
+													cl_device_type        IN  clDeviceType,
+													logging_fn            IN  pfnNotify,
+													void *                IN  pUserData,
+													cl_int *              OUT pErrcodeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	RetainContext    
@@ -199,11 +219,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_mem CreateBuffer(	cl_context   clContext, 
-										cl_mem_flags clFlags, 
-										size_t       szSize, 
-										void *       pHostPtr, 
-										cl_int *     pErrcodeRet ) = 0;
+		virtual cl_mem CreateBuffer(	cl_context   IN  clContext, 
+										cl_mem_flags IN  clFlags, 
+										size_t       IN  szSize, 
+										void *       IN  pHostPtr, 
+										cl_int *     OUT pErrcodeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	CreateImage2D    
@@ -273,14 +293,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_mem CreateImage2D(	cl_context              clContext,
-										cl_mem_flags            clFlags,
-										const cl_image_format * clImageFormat,
-										size_t                  szImageWidth,
-										size_t                  szImageHeight,
-										size_t                  szImageRowPitch,
-										void *                  pHostPtr,
-										cl_int *                pErrcodeRet ) = 0;
+		virtual cl_mem CreateImage2D(	cl_context              IN  clContext,
+										cl_mem_flags            IN  clFlags,
+										const cl_image_format * IN  clImageFormat,
+										size_t                  IN  szImageWidth,
+										size_t                  IN  szImageHeight,
+										size_t                  IN  szImageRowPitch,
+										void *                  IN  pHostPtr,
+										cl_int *                OUT pErrcodeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	CreateImage3D    
@@ -362,16 +382,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_mem CreateImage3D(	cl_context              clContext,
-										cl_mem_flags            clFlags,
-										const cl_image_format * clImageFormat,
-										size_t                  szImageWidth,
-										size_t                  szImageHeight,
-										size_t                  szImageDepth,
-										size_t                  szImageRowPitch,
-										size_t                  szImageSlicePitch,
-										void *                  pHostPtr,
-										cl_int *                pErrcodeRet ) = 0;
+		virtual cl_mem CreateImage3D(	cl_context              IN  clContext,
+										cl_mem_flags            IN  clFlags,
+										const cl_image_format * IN  clImageFormat,
+										size_t                  IN  szImageWidth,
+										size_t                  IN  szImageHeight,
+										size_t                  IN  szImageDepth,
+										size_t                  IN  szImageRowPitch,
+										size_t                  IN  szImageSlicePitch,
+										void *                  IN  pHostPtr,
+										cl_int *                OUT pErrcodeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	RetainMemObject    
@@ -383,7 +403,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/                        
-		virtual cl_int RetainMemObject( cl_mem clMemObj) = 0;
+		virtual cl_int RetainMemObject( cl_mem IN clMemObj ) = 0;
 
 		/******************************************************************************************
 		* Function: 	ReleaseMemObject    
@@ -396,7 +416,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/		
-		virtual cl_int ReleaseMemObject( cl_mem clMemObj) = 0;
+		virtual cl_int ReleaseMemObject( cl_mem IN clMemObj ) = 0;
 
 
 		/******************************************************************************************
@@ -433,12 +453,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_int GetSupportedImageFormats(cl_context           clContext,
-												cl_mem_flags         clFlags,
-												cl_mem_object_type   clImageType,
-												cl_uint              uiNumEntries,
-												cl_image_format *    pclImageFormats,
-												cl_uint *            puiNumImageFormats ) = 0;
+		virtual cl_int GetSupportedImageFormats(cl_context           IN  clContext,
+												cl_mem_flags         IN  clFlags,
+												cl_mem_object_type   IN  clImageType,
+												cl_uint              IN  uiNumEntries,
+												cl_image_format *    OUT pclImageFormats,
+												cl_uint *            OUT puiNumImageFormats ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetMemObjectInfo    
@@ -463,11 +483,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/                                    
-		virtual cl_int GetMemObjectInfo(cl_mem           clMemObj,
-										cl_mem_info      clParamName, 
-										size_t           szParamValueSize,
-										void *           pParamValue,
-										size_t *         pszParamValueSizeRet ) = 0;
+		virtual cl_int GetMemObjectInfo(cl_mem          IN  clMemObj,
+										cl_mem_info		IN  clParamName, 
+										size_t          IN  szParamValueSize,
+										void *          OUT pParamValue,
+										size_t *        OUT pszParamValueSizeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetImageInfo    
@@ -491,11 +511,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_int GetImageInfo(cl_mem          clImage,
-									cl_image_info	clParamName, 
-									size_t			szParamValueSize,
-									void *          pParamValue,
-									size_t *        pszParamValueSizeRet ) = 0;
+		virtual cl_int GetImageInfo(cl_mem          IN  clImage,
+									cl_image_info	IN  clParamName, 
+									size_t			IN  szParamValueSize,
+									void *          OUT pParamValue,
+									size_t *        OUT pszParamValueSizeRet ) = 0;
 
 		/******************************************************************************************
 		* Function: 	CreateSampler    
@@ -528,11 +548,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/   		
-		virtual cl_sampler CreateSampler(	cl_context			clContext,
-											cl_bool				bNormalizedCoords,
-											cl_addressing_mode	clAddressingMode,
-											cl_filter_mode		clFilterMode,
-											cl_int *			pErrcodeRet ) = 0;
+		virtual cl_sampler CreateSampler(	cl_context			IN  clContext,
+											cl_bool				IN  bNormalizedCoords,
+											cl_addressing_mode	IN  clAddressingMode,
+											cl_filter_mode		IN  clFilterMode,
+											cl_int *			OUT pErrcodeRet ) = 0;
 		
 		/******************************************************************************************
 		* Function: 	RetainSampler    
@@ -544,7 +564,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/ 
-		virtual cl_int RetainSampler( cl_sampler clSampler ) = 0;
+		virtual cl_int RetainSampler( cl_sampler IN clSampler ) = 0;
 
 		/******************************************************************************************
 		* Function: 	ReleaseSampler    
@@ -557,7 +577,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/ 
-		virtual cl_int ReleaseSampler( cl_sampler clSampler ) = 0;
+		virtual cl_int ReleaseSampler( cl_sampler IN clSampler ) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetSamplerInfo    
@@ -581,11 +601,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/
-		virtual cl_int GetSamplerInfo(	cl_sampler		clSampler,
-										cl_sampler_info	clParamName,
-										size_t			szParamValueSize,
-										void *			pParamValue,
-										size_t *		pszParamValueSizeRet ) = 0;
+		virtual cl_int GetSamplerInfo(	cl_sampler		IN  clSampler,
+										cl_sampler_info	IN  clParamName,
+										size_t			IN  szParamValueSize,
+										void *			OUT pParamValue,
+										size_t *		OUT pszParamValueSizeRet ) = 0;
 
 
 		/******************************************************************************************

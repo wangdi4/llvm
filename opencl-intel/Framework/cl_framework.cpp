@@ -100,19 +100,15 @@ cl_command_queue clCreateCommandQueue(cl_context                  context,
 									  cl_command_queue_properties properties, 
 									  cl_int *                    errcode_ret)
 {
-	if (NULL != *errcode_ret)
-	{
-		*errcode_ret = CL_ERR_NOT_IMPLEMENTED;
-	}
-	return 0;
+	return EXECUTION_MODULE->CreateCommandQueue(context, device, properties, errcode_ret);
 }
 cl_int clRetainCommandQueue(cl_command_queue command_queue)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->RetainCommandQueue(command_queue);
 }
 cl_int clReleaseCommandQueue(cl_command_queue command_queue)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->ReleaseCommandQueue(command_queue);
 }
 cl_int clGetCommandQueueInfo(cl_command_queue      command_queue, 
 							 cl_command_queue_info param_name, 
@@ -120,14 +116,14 @@ cl_int clGetCommandQueueInfo(cl_command_queue      command_queue,
 							 void *                param_value, 
 							 size_t *              param_value_size_ret)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret);
 }
 cl_int clSetCommandQueueProperty(cl_command_queue              command_queue, 
 								 cl_command_queue_properties   properties, 
 								 cl_int                        enable, 
 								 cl_command_queue_properties * old_properties)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->SetCommandQueueProperty(command_queue, properties, enable, old_properties);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory Object APIs
@@ -354,4 +350,256 @@ cl_int clGetKernelWorkGroupInfo(cl_kernel                 kernel,
 								size_t *                  param_value_size_ret)
 {
 	return CONTEXT_MODULE->GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret);
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Event Object APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
+{
+	//EXECUTION_MODULE->WaitForEvents(num_events, event_list);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+cl_int clGetEventInfo(cl_event		event,
+					  cl_event_info	param_name,
+					  size_t		param_value_size,
+					  void *		param_value,
+					  size_t *		param_value_size_ret)
+{
+	//EXECUTION_MODULE->GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+cl_int clRetainEvent(cl_event event)
+{
+	//EXECUTION_MODULE->RetainEvent(event);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+cl_int clReleaseEvent(cl_event event)
+{
+	//EXECUTION_MODULE->ReleaseEvent(event);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Profiling APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int clGetEventProfilingInfo(cl_event				event,
+							   cl_profiling_info	param_name,
+							   size_t				param_value_size,
+							   void *				param_value,
+							   size_t *				param_value_size_ret)
+{
+	//EXECUTION_MODULE->GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Flush and Finish APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////                              
+cl_int clFlush(cl_command_queue command_queue)
+{
+	//EXECUTION_MODULE->Flush(command_queue);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+cl_int clFinish(cl_command_queue command_queue)
+{
+	//EXECUTION_MODULE->Finish(command_queue);
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Enqueued Commands APIs
+///////////////////////////////////////////////////////////////////////////////////////////////////                              
+cl_int clEnqueueReadBuffer(cl_command_queue	command_queue,
+						   cl_mem			buffer,
+						   cl_bool			blocking_read,
+						   size_t			offset,
+						   size_t			cb,
+						   void *			ptr,
+						   cl_uint			num_events_in_wait_list,
+						   const cl_event * event_wait_list,
+						   cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event);
+}
+cl_int clEnqueueWriteBuffer(cl_command_queue	command_queue,
+							cl_mem				buffer,
+							cl_bool				blocking_write,
+							size_t				offset,
+							size_t				cb,
+							const void *		ptr,
+							cl_uint				num_events_in_wait_list,
+							const cl_event *	event_wait_list,
+							cl_event *			event)
+{
+	return EXECUTION_MODULE->EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event);
+}
+cl_int clEnqueueCopyBuffer(cl_command_queue	command_queue,
+						   cl_mem			src_buffer,
+						   cl_mem			dst_buffer,
+						   size_t			src_offset,
+						   size_t			dst_offset,
+						   size_t			cb,
+						   cl_uint			num_events_in_wait_list,
+						   const cl_event * event_wait_list,
+						   cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event);
+}
+                            
+cl_int clEnqueueReadImage(cl_command_queue command_queue,
+						  cl_mem			image,
+						  cl_bool			blocking_read, 
+						  const size_t *	origin[3],
+						  const size_t *	region[3],
+						  size_t			row_pitch,
+						  size_t			slice_pitch, 
+						  void *			ptr,
+						  cl_uint			num_events_in_wait_list,
+						  const cl_event *	event_wait_list,
+						  cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueWriteImage(cl_command_queue command_queue,
+						   cl_mem			image,
+						   cl_bool			blocking_write, 
+						   const size_t *	origin[3],
+						   const size_t *	region[3],
+						   size_t			input_row_pitch,
+						   size_t			input_slice_pitch, 
+						   const void *		ptr,
+						   cl_uint			num_events_in_wait_list,
+						   const cl_event *	event_wait_list,
+						   cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueCopyImage(cl_command_queue	command_queue,
+						  cl_mem			src_image,
+						  cl_mem			dst_image, 
+						  const size_t *	src_origin[3],
+						  const size_t *	dst_origin[3],
+						  const size_t *	region[3], 
+						  cl_uint			num_events_in_wait_list,
+						  const cl_event *	event_wait_list,
+						  cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueCopyImageToBuffer(cl_command_queue	command_queue,
+								  cl_mem			src_image,
+								  cl_mem			dst_buffer,
+								  const size_t *	src_origin[3],
+								  const size_t *	region[3],
+								  size_t			dst_offset,
+								  cl_uint			num_events_in_wait_list,
+								  const cl_event *	event_wait_list,
+								  cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueCopyBufferToImage(cl_command_queue	command_queue,
+								  cl_mem			src_buffer,
+								  cl_mem			dst_image,
+								  size_t			src_offset,
+								  const size_t *	dst_origin[3],
+								  const size_t *	region[3], 
+								  cl_uint			num_events_in_wait_list,
+								  const cl_event *	event_wait_list,
+								  cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event);
+}
+void * clEnqueueMapBuffer(cl_command_queue	command_queue,
+						  cl_mem			buffer,
+						  cl_bool			blocking_map,
+						  cl_map_flags		map_flags,
+						  size_t			offset,
+						  size_t			cb,
+						  cl_uint			num_events_in_wait_list,
+						  const cl_event *	event_wait_list,
+						  cl_event *		event,
+						  cl_int *			errcode_ret)
+{
+	return EXECUTION_MODULE->EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret);
+}
+
+void * clEnqueueMapImage(cl_command_queue	command_queue,
+						 cl_mem				image,
+						 cl_bool			blocking_map,
+						 cl_map_flags		map_flags,
+						 const size_t *		origin[3],
+						 const size_t *		region[3],
+						 size_t *			image_row_pitch,
+						 size_t *			image_slice_pitch,
+						 cl_uint			num_events_in_wait_list,
+						 const cl_event *	event_wait_list,
+						 cl_event *			event,
+						 cl_int *			errcode_ret)
+{
+	return EXECUTION_MODULE->EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret);
+}
+
+cl_int clEnqueueUnmapMemObject(cl_command_queue	command_queue,
+							   cl_mem			memobj,
+							   void *			mapped_ptr,
+							   cl_uint			num_events_in_wait_list,
+							   const cl_event * event_wait_list,
+							   cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueNDRangeKernel(cl_command_queue	command_queue,
+							  cl_kernel			kernel,
+							  cl_uint			work_dim,
+							  const size_t *	global_work_offset,
+							  const size_t *	global_work_size,
+							  const size_t *	local_work_size,
+							  cl_uint			num_events_in_wait_list,
+							  const cl_event *	event_wait_list,
+							  cl_event *		event)
+{
+	return EXECUTION_MODULE->EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueTask(cl_command_queue	command_queue,
+					 cl_kernel			kernel,
+					 cl_uint			num_events_in_wait_list,
+					 const cl_event *	event_wait_list,
+					 cl_event *			event)
+{
+	return EXECUTION_MODULE->EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueNativeKernel(cl_command_queue	command_queue,
+							 void (*user_func)(void *), 
+							 void *				args,
+							 size_t				cb_args, 
+							 cl_uint			num_mem_objects,
+							 const cl_mem *		mem_list,
+							 const void **		args_mem_loc,
+							 cl_uint			num_events_in_wait_list,
+							 const cl_event *	event_wait_list,
+							 cl_event *			event)
+{
+	return EXECUTION_MODULE->EnqueueNativeFnAsKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event);
+}
+
+cl_int clEnqueueMarker(cl_command_queue command_queue, cl_event * event)
+{
+	return EXECUTION_MODULE->EnqueueMarker(command_queue, event);
+}
+
+cl_int clEnqueueWaitForEvents(cl_command_queue	command_queue,
+							  cl_uint			num_events,
+							  const cl_event *	event_list)
+{
+	return EXECUTION_MODULE->EnqueueWaitForEvents(command_queue, num_events, event_list);
+}
+
+cl_int clEnqueueBarrier(cl_command_queue command_queue)
+{
+	return EXECUTION_MODULE->EnqueueBarrier(command_queue);
 }

@@ -34,9 +34,9 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
-	* Class name:	PlatformModule
+	* Class name:	IPlatform
 	*
-	* Description:	platform module class
+	* Description:	IPlatform interface - outlines the OpenCL platform related functions
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/

@@ -254,10 +254,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\cl_framework.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\cl_object.cpp"
 				>
 			</File>
@@ -299,10 +295,6 @@
 						CompileAsManaged="0"
 					/>
 				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\framework_proxy.cpp"
-				>
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp"
@@ -356,10 +348,6 @@
 			</File>
 			<File
 				RelativePath="..\include\cl_types.h"
-				>
-			</File>
-			<File
-				RelativePath=".\framework_proxy.h"
 				>
 			</File>
 			<File
@@ -554,6 +542,26 @@
 			</File>
 			<File
 				RelativePath=".\Execution\queue_worker_thread.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="API"
+			>
+			<File
+				RelativePath="..\..\include\cl.h"
+				>
+			</File>
+			<File
+				RelativePath=".\cl_framework.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\framework_proxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\framework_proxy.h"
 				>
 			</File>
 		</Filter>
