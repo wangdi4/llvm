@@ -529,7 +529,7 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 	fn_clNativeKernel *func = (fn_clNativeKernel*)cmdParams->func_ptr;
 
 	// Create temporal buffer for execution
-	void*	pArgV = malloc(cmd->param_size);
+	void*	pArgV = malloc(cmdParams->args);
 	if ( NULL == pArgV )
 	{
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate memory for parameters");
@@ -537,12 +537,13 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 	}
 
 	// Prepare native Task for execution
+	memcpy(pArgV, cmdParams->argv, cmdParams->args);
 
 	// Lock Memory objects handles
 	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
 	{
 		cl_dev_mem memObj = (cl_dev_mem)cmdParams->mem_loc[i];
-		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmd->params;
+		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
 		void*	*pMemPtr = (void**)((cl_char*)pArgV+Offset);
 
 		cl_int ret = m_pMemAlloc->LockObject(memObj, -1, NULL, pMemPtr, NULL);

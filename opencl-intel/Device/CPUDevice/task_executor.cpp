@@ -353,8 +353,8 @@ void TaskExecutor::TaskCompleted(TTaskHandle hTask, void* _Task)
 
 	XNERROR xnER;
 	
-	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pTask->pScratch);
-	assert(XN_SUCCESS == xnER);
+//	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pTask->pScratch);
+//	assert(XN_SUCCESS == xnER);
 
 	// Free task ID
 	pTask->pTE->m_haHandles.FreeHandle(pTask->uiTaskId);
@@ -372,8 +372,8 @@ void TaskExecutor::FunctionCompleted(TTaskHandle hTask, void* _Function)
 
 	XNERROR xnER;
 	
-	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pFunc->pScratch);
-	assert(XN_SUCCESS == xnER);
+//	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pFunc->pScratch);
+//	assert(XN_SUCCESS == xnER);
 
 	// Free task ID
 	pFunc->pTE->m_haHandles.FreeHandle(pFunc->uiTaskId);
