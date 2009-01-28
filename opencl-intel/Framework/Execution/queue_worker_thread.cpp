@@ -54,7 +54,7 @@ QueueWorkerThread::~QueueWorkerThread()
  * if the current queue is empty.
  * 
 /************************************************************************/
-cl_err_code QueueWorkerThread::SetQueue(ICommandQueue* pCommandsQueue)
+cl_err_code QueueWorkerThread::Init(ICommandQueue* pCommandsQueue)
 {    
     // TODO: lock the queue from anyone else to add to it.
     // First test that current queue is empty
@@ -113,7 +113,7 @@ int QueueWorkerThread::Run()
             break;
         }
         // if got here we have a job in the hands and can proceed it
-        // THe command knows hoe to handle it self
+        // The command knows hoe to handle it self
         status = p_nextCommand->Execute();        
 
         if (CL_FAILED(status))

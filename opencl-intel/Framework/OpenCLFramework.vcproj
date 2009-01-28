@@ -497,6 +497,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Execution\iexecution.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Execution\in_order_queue.cpp"
 				>
 			</File>

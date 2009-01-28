@@ -345,6 +345,32 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 	}
 	return pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetContext
+// Returns pointer to a context object
+//////////////////////////////////////////////////////////////////////////
+Context* ContextModule::GetContext( cl_context clContext ) const
+{
+	InfoLog(m_pLoggerClient, L"ContextModule::GetContext enter. context=%d", clContext);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	Context * pContext = NULL;
+	if (NULL == m_pContexts)
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return NULL");
+		return NULL;
+	}
+	// get context from the contexts map list
+	clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
+		return NULL;
+	}
+    return pContext;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
 //////////////////////////////////////////////////////////////////////////

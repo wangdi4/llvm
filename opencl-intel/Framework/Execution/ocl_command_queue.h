@@ -29,15 +29,17 @@
 #define __OCL_OCL_COMMAND_QUEUE_H__
 
 #include <cl_types.h>
+#include <logger.h>
 #include "event_done_observer.h"
 #include "command_receiver.h"
+#include "cl_object.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
     // Forward declrations
     class Context;
     class Device;
-    class QueueWorkingThread;
+    class QueueWorkerThread;
     class EventsManager;
     class ICommandQueue;
     class Command;
@@ -46,43 +48,58 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	 * Class name:	OclCommandQueue
 	 *
 	 * Description:	
-     *      TODO
+     *
+            The command-queue can be used to queue a set of operations (referred to as commands) in order. Having multiple
+            command-queues allows applications to queue multiple independent commands without
+            requiring synchronization. Note that this should work as long as these objects are not being
+            shared. Sharing of objects across multiple command-queues will require the application to
+            perform appropriate synchronization
+
      *
 	 * Author:		Arnon Peleg
 	 * Date:		December 2008
 	/**********************************************************************************************/	
-    class OclCommandQueue : public IEventDoneObserver, public ICommandReceiver
+    class OclCommandQueue : public IEventDoneObserver, public ICommandReceiver, public OCLObject
     {
 
     public:
 	    OclCommandQueue(
-            Context*                    context, 
-            Device*                     device, 
-            cl_command_queue_properties properties
+            Context*                    pContext, 
+            cl_device_id                clDefaultDeviceID, 
+            cl_command_queue_properties clProperties
             );
-	    virtual ~OclCommandQueue();
+	    virtual         ~OclCommandQueue();
+        cl_err_code     Clean();        // The Clean signals the queue to clean himself peacefully and to release itself.
+        cl_err_code     Initialize();   // Starts the queue. assign a working thread.
+        cl_err_code     GetInfo( cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );	    
+        cl_err_code     SetProperties(cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* clOldProperties);
 
-	    cl_err_code     GetInfo(cl_command_queue_info param_name, size_t param_value_size, void * param_value, size_t* param_value_size_ret);
-	    cl_err_code     SetProperties(cl_command_queue_properties properties, cl_command_queue_properties* old_properties);
+        /////////////////////////////////////////////
 	    cl_err_code     EnqueueCommand(Command* command, cl_bool blocking, const cl_event event_wait_list, cl_uint num_events_in_wait_list, cl_event pEvent);
 	    cl_err_code     SetMarker(cl_event pEvent);
 	    cl_err_code     SetBarrier();
+
         // Implement ICommandReceiver functions.
 	    void            EnqueueDevCommands();
 	    void            PushFrontCommand();
         // Implement IEventDoneObserver functions.
-        cl_err_code     NotifyEventDone(QueueEvent* event) = 0;
+        cl_err_code     NotifyEventDone(QueueEvent* event);
+
+        cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;  }
+        cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled; }
 
     private:
-        cl_err_code         ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent);
+        cl_err_code     ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent);
 
         // Private memebers
-	    cl_command_queue    m_clCommandQueue;
-        Context*            m_context;
-	    Device*             m_device;
-	    QueueWorkingThread* m_queueWorkingThread;
-	    EventsManager*      m_eventsManager;
-		ICommandQueue*      m_commandQueue;
+        Context*            m_pContext;
+	    Device*             m_pDefaultDevice;
+        cl_device_id        m_clDefaultDeviceId;
+        cl_bool             m_bProfilingEnabled;
+        cl_bool             m_bOutOfOrderEnabled;
+	    QueueWorkerThread*  m_pQueueWorkerThread;
+		ICommandQueue*      m_pCommandQueue;
+        Intel::OpenCL::Utils::LoggerClient* m_pLoggerClient; // Logger client for logging operations.
     };
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_OCL_COMMAND_QUEUE_H__)

@@ -30,7 +30,6 @@
 #include <cl_types.h>
 #include <cl_thread.h>
 
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -48,15 +47,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
      * The real worker, a SliceEncoder, is expected to implemented the ProcessJob
      * method.
     /************************************************************************/ 
-    class QueueWorkerThread: public OclThread
+    class QueueWorkerThread: public Intel::OpenCL::Utils::OclThread
     {
 
     public:
 	    QueueWorkerThread();
 	    virtual ~QueueWorkerThread();
-        cl_err_code         SetQueue(ICommandQueue* pCommandsQueue);
+	    cl_err_code         Init(ICommandQueue* pCommandsQueue);                
         cl_err_code         CancelProcessing();
-	    cl_err_code         Init();        
 
     private:
         int                 Run();                  // The actual thread running loop.

@@ -49,8 +49,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    virtual void        PushBack(Command* command) = 0;
 	    virtual void        Signal() = 0;
         virtual bool        IsEmpty() = 0;
+        virtual void        Clear() = 0;
     };
-
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_COMMAND_QUEUE_H__)
 

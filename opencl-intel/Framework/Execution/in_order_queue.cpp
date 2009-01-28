@@ -66,3 +66,25 @@ cl_err_code InOrderQueue::AddCommand(Command* command)
     return CL_SUCCESS;
 }
 
+/******************************************************************
+ * Signals the queue to signal is waiting event
+ ******************************************************************/
+void InOrderQueue::Signal()
+{
+}
+
+/******************************************************************
+ * Return true if the queue is empty
+ ******************************************************************/
+bool InOrderQueue::IsEmpty()
+{
+    return true;
+}
+
+/******************************************************************
+ * Release all resources immediately.
+ * If command is exist, it is lost forever...
+ ******************************************************************/
+void InOrderQueue::Clear()
+{
+}

@@ -28,55 +28,107 @@
 #define __OCL_EXECUTION_MODULE_H__
 
 #include <cl_types.h>
+#include <logger.h>
+#include "iexecution.h"
 
+// forward declrations
 
 namespace Intel { namespace OpenCL { namespace Framework {
     // forward declrations
+    class PlatformModule;
+    class ContextModule;
     class OCLObjectsMap;
     class EventsManager;
     class OclCommandQueue;
+    class Context;
 
     /**
      * ExecutionModule class the platform module responsible of all execution related
      * operations. this might include queues events etc.
      */
-    class ExecutionModule
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    // Class name:	ExecutionModule
+    //
+    // Description:	ExecutionModule class  responsible of all execution related
+    //              operations. this include queues, events, enqueue calls etc.
+    //              TODO: verify synchronization on access to all functions!!!
+    //
+    // Author:		Arnon Peleg
+    // Date:		January 2009
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    class ExecutionModule : IExecution
     {
 
     public:
 
-	    ExecutionModule();
-	    virtual ~ExecutionModule();
-    	
-        cl_command_queue    CreateCommandQueue(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int* errcode_ret);
-	    OclCommandQueue*    GetCommandQueue(cl_command_queue command_queue);
-	    cl_int              GetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret);
-	    cl_int              ReleaseCommandQueue(cl_command_queue command_queue);
-	    cl_int              RetainCommandQueue(cl_command_queue command_queue);
-	    cl_int              SetCommandQueueProperty(cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties* old_properties);
+        ExecutionModule( PlatformModule *pPlatformModule, ContextModule* pContextModule );
+        virtual ~ExecutionModule();
+        // Initialization is done right after the construction in order to capture errors on initilazations.
+        cl_err_code Initialize();
+
+        
+        // Command Queues functions
+        cl_command_queue    CreateCommandQueue( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, cl_int* pErrRet );
+        cl_err_code         RetainCommandQueue      ( cl_command_queue clCommandQueue);
+        cl_err_code         ReleaseCommandQueue     ( cl_command_queue clCommandQueue);
+        cl_err_code         GetCommandQueueInfo     ( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
+        cl_err_code         SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties);
+        // Not implemented yet queue commands:
+        // -----------------
+        // cl_int Flush (cl_command_queue command_queue);
+        // cl_int Finish (cl_command_queue command_queue);
+
+        // Event objects functions
+        cl_err_code WaitForEvents( cl_uint uiNumEvents, const cl_event* cpEventList );
+        cl_err_code GetEventInfo ( cl_event clEvent, cl_event_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
+        cl_err_code RetainEvent  (cl_event clEevent);
+        cl_err_code ReleaseEvent (cl_event clEvent);
 
         // Enqueue commands
-	    cl_int EnqueueReadBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_read, size_t offset, size_t cb, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t cb, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_read, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueCopyBuffer(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_buffer, size_t src_offset, size_t dst_offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueCopyImage(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_image, const size_t* src_origin[3], const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueCopyImageToBuffer(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_buffer, const size_t* src_origin[3], const size_t* region[3], size_t dst_offset, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueCopyBufferToImage(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_image, size_t src_offset, const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    void*  EnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret);
-	    void*  EnqueueMapImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_map, cl_map_flags map_flags, const size_t* origin[3], const size_t* region[3], size_t* image_row_pitch, size_t* image_slice_pitch, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret);
-	    cl_int EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
-	    cl_int EnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t* global_work_offset, const size_t* global_work_size, const size_t* local_work_size, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
-	    cl_int EnqueueMarker(cl_command_queue command_queue, cl_event* pEvent);
-	    cl_int EnqueueWaitForEvents(cl_command_queue command_queue, cl_uint num_events, const cl_event* event_list);
-	    cl_int EnqueueBarrier(cl_command_queue command_queue);
+        cl_err_code EnqueueReadBuffer    (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        cl_err_code EnqueueWriteBuffer   (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        cl_err_code EnqueueNDRangeKernel (cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+
+        // Enqueue commands that are not implemented yet
+        //   ---------------------
+        cl_err_code EnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_read, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueCopyBuffer(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_buffer, size_t src_offset, size_t dst_offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueCopyImage(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_image, const size_t* src_origin[3], const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueCopyImageToBuffer(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_buffer, const size_t* src_origin[3], const size_t* region[3], size_t dst_offset, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueCopyBufferToImage(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_image, size_t src_offset, const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        void*  EnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret);
+        void*  EnqueueMapImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_map, cl_map_flags map_flags, const size_t* origin[3], const size_t* region[3], size_t* image_row_pitch, size_t* image_slice_pitch, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret);
+        cl_err_code EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+        cl_err_code EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        cl_err_code EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
+        //
+
+        // Out Of Order Execution support - Not implemented yet...
+        // ---------------------
+        cl_err_code EnqueueMarker (cl_command_queue command_queue, cl_event *event);
+        cl_err_code EnqueueWaitForEvents (cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
+        cl_err_code EnqueueBarrier (cl_command_queue command_queue);
 
     private:
-	    OCLObjectsMap*      m_oclCommandQueueMap;       // Holds the set of active queues
-	    EventsManager*      m_EventsManager;
+
+        // Private functions
+        cl_err_code         Release();  // Release resources ???
+        OclCommandQueue*    GetCommandQueue(cl_command_queue clCommandQueue);
+
+        // Input parameters validation commands
+        cl_err_code         CheckCreateCommandParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
+
+
+
+        // Members
+        PlatformModule*     m_pPlatfromModule;          // Pointer to the platfrom operation. This is the internal interface of the module.
+        ContextModule*      m_pContextModule;           // Pointer to the context operation. This is the internal interface of the module.
+        OCLObjectsMap*      m_pOclCommandQueueMap;      // Holds the set of active queues.
+        EventsManager*      m_pEventsManager;           // Placeholder for all active events.
+        Intel::OpenCL::Utils::LoggerClient* m_pLoggerClient; // Logger client for logging operations.
     };
 
 }}};    // Intel::OpenCL::Framework

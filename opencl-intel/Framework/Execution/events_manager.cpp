@@ -92,10 +92,13 @@ cl_err_code EventsManager::ReleaseEvent(cl_event event)
     res = m_pEvents->GetObjectByIndex((cl_int)event, (OCLObject**)&pEvent);
 	if (CL_SUCCEEDED(res))
     {
-        pEvent->Retain();
+        pEvent->Release();
         if ( 0 == pEvent->GetReferenceCount() )
         {
-            // Remove this event completely
+            // Remove this event completely,
+            // The full meaning of remove act is that the event can not be accessed by
+            // the user anymore, but it related command may still running.
+            // TODO: Arnon API Q: should we delete only when the command is done?
             m_pEvents->RemoveObject((cl_uint)event, NULL);
             delete pEvent;
         }
@@ -114,18 +117,22 @@ cl_err_code	EventsManager::GetEventInfo(cl_event event , cl_int iParamName, size
     {
         res = pEvent->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
     }   
+    else
+    {
+        res = CL_INVALID_EVENT;
+    }
     return res;
 }
-	    
+
 /******************************************************************
  * This function implemnts the API clWaitForEvents function
  * The host thread waits for commands identified by event objects in event_list to complete. 
  * The events specified in event_list act as synchronization points.
- * 
+ *
  ******************************************************************/
 cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList)
 {
-    if ( (NULL == eventList) && ( 0 != uiNumEvents ))
+    if ( 0 == uiNumEvents || NULL == eventList )
          return CL_INVALID_EVENT_WAIT_LIST;
 
     // First validate that all ids in the event list exists
@@ -216,7 +223,7 @@ QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_comm
     {
         OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType, eventQueueHndl);
         pNewOclEvent->Retain();
-        // TODO: gaurd ObjMap... better doing so inside the map
+        // TODO: guard ObjMap... better doing so inside the map
         m_pEvents->AddObject(pNewOclEvent);
         *pEventHndl = (cl_event)pNewOclEvent->GetId();
     }

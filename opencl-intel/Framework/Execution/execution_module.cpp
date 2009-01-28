@@ -25,151 +25,376 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 #include "execution_module.h"
+#include "platform_module.h"
+#include "context_module.h"
+#include "events_manager.h"
+#include "ocl_command_queue.h"
+#include "context.h"
+#include <cl_objects_map.h>
+#include <logger.h>
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
-ExecutionModule::ExecutionModule(){
 
+/******************************************************************
+ * Constructor. Only assign pointers, for objects initilaztion use
+ * Initialize function immediately. otherwise, the class behaviour
+ * is undefined and function calls may crash the system.
+ ******************************************************************/
+ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule* pContextModule ):
+    m_pPlatfromModule(pPlatformModule),
+    m_pContextModule(pContextModule),
+    m_pOclCommandQueueMap(NULL),
+    m_pEventsManager(NULL)
+{
+	m_pLoggerClient = new LoggerClient(L"Context Module Logger Client",LL_DEBUG);
+	InfoLog(m_pLoggerClient, L"ExecutionModule created");
 }
 
-ExecutionModule::~ExecutionModule(){
+/******************************************************************
+ * 
+ ******************************************************************/
+ExecutionModule::~ExecutionModule()
+{
+    delete m_pLoggerClient;
+    // TODO: clear all resources!
+}
 
+/******************************************************************
+ * This function initialize the execution modeule.
+ * If this function fails, the object must be released. 
+ * If the caller will not release it, other function will terminate
+ * the application.
+ ******************************************************************/
+cl_err_code ExecutionModule::Initialize()
+{
+    m_pOclCommandQueueMap = new OCLObjectsMap();
+    m_pEventsManager = new EventsManager();
+	
+    if ( (NULL == m_pOclCommandQueueMap) || ( NULL == m_pEventsManager))
+	{
+		return CL_ERR_FAILURE;
+	}
+	return CL_SUCCESS;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_command_queue ExecutionModule::CreateCommandQueue(    
+    cl_context                  clContext,
+    cl_device_id                clDevice,
+    cl_command_queue_properties clQueueProperties,
+    cl_int*                     pErrRet             
+    )
+{
+    cl_int iQueueID     = CL_INVALID_HANDLE;
+    Context* pContext   = NULL;
+    cl_int   errVal     = CheckCreateCommandParams(clContext, clDevice, clQueueProperties, &pContext);
+
+    // If we are here, all parameters are valid, create the queue
+    if( CL_SUCCEEDED(errVal))
+    {
+        OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties);
+        pCommandQueue->Retain();
+        // TODO: gaurd ObjMap... better doing so inside the map        
+        m_pOclCommandQueueMap->AddObject((OCLObject*)pCommandQueue);
+        errVal = pCommandQueue->Initialize();
+        if(CL_SUCCEEDED(errVal))
+        {
+            iQueueID = pCommandQueue->GetId();
+        }
+    }
+    if (pErrRet) *pErrRet = errVal;
+    return (cl_command_queue)iQueueID;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::CheckCreateCommandParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext)
+{
+    cl_int errVal = CL_SUCCESS;
+
+    // The nested if sentece below validate input parameters;
+    *ppContext = m_pContextModule->GetContext(clContext);
+    if (NULL == *ppContext)
+    {
+        errVal = CL_INVALID_CONTEXT;
+    }
+    // Check if the device is valid
+    else if( ! ((*ppContext)->CheckDevices(1, &clDevice)))
+    {
+        errVal = CL_INVALID_DEVICE;        
+    }
+    else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE & 
+                                                   CL_QUEUE_PROFILING_ENABLE ) ) 
+    {
+        errVal = CL_INVALID_VALUE;
+    }
+    return errVal;
 }
 
 
-cl_command_queue ExecutionModule::CreateCommandQueue(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int* errcode_ret){
 
-	return  NULL;
+/******************************************************************
+ * This function returns a pointer to a command queue.
+ * If the command queue is not available a NULL value is returned.
+ ******************************************************************/
+OclCommandQueue* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
+{
+    OclCommandQueue* pCommandQueue = NULL;
+    cl_err_code      errCode;
+    		
+    errCode = m_pOclCommandQueueMap->GetObjectByIndex((cl_uint)clCommandQueue, (OCLObject**)&pCommandQueue);
+    if (CL_FAILED(errCode))
+	{
+        return NULL;
+    }
+	return pCommandQueue;
 }
 
 
-OclCommandQueue* ExecutionModule::GetCommandQueue(cl_command_queue command_queue){
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
+{
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    pCommandQueue->Retain();
+	return  CL_SUCCESS;
+}
 
-	return NULL;
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue)
+{
+    cl_err_code errVal = CL_SUCCESS;
+    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pOclCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    errVal = pOclCommandQueue->Release();
+    if (CL_SUCCEEDED(errVal))
+    {
+        // Check is the command has fully released, and if true, destroy it and remove it        
+        m_pOclCommandQueueMap->RemoveObject((cl_uint)clCommandQueue, NULL); //TODO: guard this sccess        
+        pOclCommandQueue->Clean(); // The Clean signals the queue to clean himself peacefully and to release itself.        
+    }
+	return  errVal;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "GetCommandQueueInfo");
+	return  CL_INVALID_OPERATION;
 }
 
 
-cl_err_code ExecutionModule::GetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret){
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "SetCommandQueueProperty");
+	return  CL_INVALID_OPERATION;	
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event* cpEventList )
+{
+    if ( 0 == uiNumEvents)
+        return CL_INVALID_VALUE;
+    // This call is blocking.
+    cl_err_code errVal = m_pEventsManager->WaitForEvents(uiNumEvents, cpEventList);
+    if ( CL_INVALID_EVENT_WAIT_LIST == errVal )
+    {
+        return CL_INVALID_EVENT;
+    }
+
+    // TODO: Arnon API Q: Resolve the CL_INVALID_CONTEXT return value.
+    // No other API calls that include event_wait_list refer to the problem that events are from different contexts.
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::GetEventInfo( cl_event clEvent, cl_event_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
+{
+    cl_err_code res = m_pEventsManager->GetEventInfo(clEvent, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    return res;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::RetainEvent(cl_event clEevent)
+{
+    cl_err_code res = m_pEventsManager->RetainEvent(clEevent);
+    if CL_FAILED(res)
+    {
+        res = CL_INVALID_EVENT;
+    }
+    return res;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
+{
+    cl_err_code res = m_pEventsManager->ReleaseEvent(clEvent);
+    if CL_FAILED(res)
+    {
+        res = CL_INVALID_EVENT;
+    }
+    return res;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+{
 
 	return  CL_SUCCESS;
 }
 
 
-cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue command_queue){
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+{
 
 	return  CL_SUCCESS;
 }
 
-
-cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue command_queue){
-
-	return  CL_SUCCESS;
-}
-
-
-cl_err_code ExecutionModule::SetCommandQueueProperty(cl_command_queue command_queue, cl_command_queue_properties properties, cl_bool enable, cl_command_queue_properties* old_properties){
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueNDRangeKernel(cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+{
 
 	return  CL_SUCCESS;
 }
 
+/******************************************************************
+ * THE FOLLOWING FUNCTIONS ARE NOT IMPLMENTED YET
+ ******************************************************************/
 
-cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_read, size_t offset, size_t cb, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
 
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_read, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueReadImage");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t cb, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueWriteImage");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_read, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueCopyBuffer(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_buffer, size_t src_offset, size_t dst_offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyBuffer");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueCopyImage(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_image, const size_t* src_origin[3], const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyImage");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueCopyBuffer(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_buffer, size_t src_offset, size_t dst_offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_buffer, const size_t* src_origin[3], const size_t* region[3], size_t dst_offset, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyImageToBuffer");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueCopyImage(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_image, const size_t* src_origin[3], const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueCopyBufferToImage(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_image, size_t src_offset, const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyBufferToImage");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(cl_command_queue command_queue, cl_mem src_image, cl_mem dst_buffer, const size_t* src_origin[3], const size_t* region[3], size_t dst_offset, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+void * ExecutionModule::EnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueMapBuffer");
+    *errcode_ret = CL_INVALID_OPERATION;
+	return  NULL;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueCopyBufferToImage(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_image, size_t src_offset, const size_t* dst_origin[3], const size_t* region[3], cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+void * ExecutionModule::EnqueueMapImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_map, cl_map_flags map_flags, const size_t* origin[3], const size_t* region[3], size_t* image_row_pitch, size_t* image_slice_pitch, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueMapImage");
+    *errcode_ret = CL_INVALID_OPERATION;
+	return  NULL;	
 }
 
 
-void * ExecutionModule::EnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueUnmapMemObject");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-void * ExecutionModule::EnqueueMapImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_map, cl_map_flags map_flags, const size_t* origin[3], const size_t* region[3], size_t* image_row_pitch, size_t* image_slice_pitch, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueTask");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueNativeFnAsKernel");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t* global_work_offset, const size_t* global_work_size, const size_t* local_work_size, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue command_queue, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueMarker");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue command_queue, cl_uint num_events, const cl_event* event_list)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueWaitForEvents");
+	return  CL_INVALID_OPERATION;	
 }
 
 
-cl_err_code ExecutionModule::EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent){
-
-	return  CL_SUCCESS;
+cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue command_queue)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueBarrier");
+	return  CL_INVALID_OPERATION;	
 }
-
-
-cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue command_queue, cl_event* pEvent){
-
-	return  CL_SUCCESS;
-}
-
-
-cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue command_queue, cl_uint num_events, const cl_event* event_list){
-
-	return  CL_SUCCESS;
-}
-
-
-cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue command_queue){
-
-	return  CL_SUCCESS;
-}
+/*******************************************************************
+ * END OF UN IMPLEMENTED FUNCTUIONS
+ *******************************************************************/

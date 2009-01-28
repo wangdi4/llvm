@@ -91,6 +91,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code		Release();
 
+		/******************************************************************************************
+		* Function: 	GetContext    
+		* Description:	Gets a pointer to a context accourding to its cl_context value
+		* Arguments:	clContext [in] - a valid context handle               	
+		* Return value:	Returns the context object if valid, else returns NULL.
+		******************************************************************************************/
+        Context* GetContext( cl_context clContext ) const;
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods

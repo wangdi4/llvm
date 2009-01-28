@@ -43,9 +43,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    InOrderQueue();
 	    virtual ~InOrderQueue();
 
-	    void        PushBack(Command* command);
 	    Command*    GetNextCommand();
         cl_err_code AddCommand(Command* command);
+	    void        PushBack(Command* command);
+	    void        Signal();
+        bool        IsEmpty(); 
+        void        Clear();
 
     private:
         Command** m_commands;     // The actual list of command. TODO: Make a list object...
