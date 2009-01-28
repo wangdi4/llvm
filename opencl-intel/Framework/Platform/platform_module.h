@@ -131,9 +131,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// pointer to the platoform module's logger client
 		Intel::OpenCL::Utils::LoggerClient * m_pLoggerClient;
 
-		// pointer to the platform module's information object
-		OCLObjectInfo *	m_pObjectInfo;
-		
 		// static chars array - holds the platform's information string
 		static const char m_vPlatformInfoStr[];
 		// platform's information string length

@@ -151,6 +151,16 @@ bool DeviceKernel::CheckKernelDefinition(DeviceKernel * pKernel)
 	// kernel prototypes are identical
 	return true;
 }
+KernelArg::KernelArg(cl_uint uiIndex, size_t szSize, void * pValue)
+{
+	m_uiIndex = uiIndex;
+	m_szSize = szSize;
+	m_pValue = pValue;
+}
+KernelArg::~KernelArg()
+{
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,6 +204,18 @@ Kernel::~Kernel()
 		}
 	}
 	m_pDeviceKernels->Clear();
+
+	// delete kerenl arguments
+	map<cl_uint,KernelArg*>::iterator it = m_mapKernelArgs.begin();
+	while (it != m_mapKernelArgs.end())
+	{
+		KernelArg * pKernelArg = it->second;
+		if (NULL != pKernelArg)
+		{
+			delete pKernelArg;
+		}
+	}
+	m_mapKernelArgs.clear();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
@@ -410,10 +432,10 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 				delete pDeviceKernel;
 				return CL_INVALID_KERNEL_DEFINITION;
 			}
-			// set kernel prototype in the kernel object (only if definition identical)
 		}
 	}
 
+	// set kernel prototype
 	sKernelPrototype = (SKernelPrototype)pDeviceKernel->GetPrototype();
 	clErr = SetKernelPrototype(sKernelPrototype);
 	if (CL_FAILED(clErr))
@@ -472,5 +494,79 @@ cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
 		}
 		memcpy_s(m_sKernelPrototype.m_pArgs, m_sKernelPrototype.m_uiArgsCount, sKernelPrototype.m_pArgs, sKernelPrototype.m_uiArgsCount);
 	}
+	return CL_SUCCESS;
+}
+cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue)
+{
+	InfoLog(m_pLoggerClient, L"Enter SetKernelArg (uiIndex=%d, szSize=%d, pValue=%d", uiIndex, szSize, pValue);
+
+#ifdef _DEBUG
+	assert ( m_pProgram != NULL );
+	assert ( m_pProgram->GetContext() != NULL );
+#endif
+
+	// check argument's index
+	if (uiIndex > m_sKernelPrototype.m_uiArgsCount - 1)
+	{
+		return CL_INVALID_ARG_INDEX;
+	}
+
+	// TODO: check for NULL and __local / __global / ... qualifier missmatches
+
+	// check for invalid arg sizes
+	cl_kernel_arg_type clArgType = m_sKernelPrototype.m_pArgs[uiIndex];
+	if (sizeof(cl_mem) == szSize)
+	{
+		if ((clArgType & CL_KRNL_ARG_PTR) != 1)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+	}
+	else if (sizeof(cl_sampler) == szSize)
+	{
+		// TODO: Check for sampler size
+	}
+	else
+	{
+		clArgType = (cl_kernel_arg_type)((int)clArgType & (CL_KRNL_ARG_BYTE | CL_KRNL_ARG_WORD | CL_KRNL_ARG_DWORD | CL_KRNL_ARG_QWORD));
+		if (szSize != clArgType)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+	}
+
+	// set arguments
+	cl_err_code clErr = CL_SUCCESS;
+	Context * pContext = (Context*)m_pProgram->GetContext();
+	MemoryObject * pMemObj = NULL;
+	KernelArg * pKernelArg = NULL;
+	
+	if (szSize == sizeof(cl_mem))
+	{
+		if (NULL != pValue)
+		{
+			// value is not NULL - get memory object from context
+			cl_mem clMemId = *((cl_mem*)(pValue));
+			clErr = pContext->GetMemObject(clMemId, &pMemObj);
+			if (CL_FAILED(clErr))
+			{
+				return CL_INVALID_MEM_OBJECT;
+			}
+			pKernelArg = new KernelArg(uiIndex, szSize, pMemObj);
+		}
+		else
+		{
+			pKernelArg = new KernelArg(uiIndex, szSize, NULL);
+		}
+		m_mapKernelArgs[uiIndex] = pKernelArg;
+		return CL_SUCCESS;
+	}
+	if (szSize == sizeof(cl_sampler))
+	{
+		// TODO: handle sampler arguments
+	}
+
+	pKernelArg = new KernelArg(uiIndex, szSize, (void*)pValue);
+	m_mapKernelArgs[uiIndex] = pKernelArg;
 	return CL_SUCCESS;
 }

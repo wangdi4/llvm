@@ -345,32 +345,6 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 	}
 	return pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
 }
-
-//////////////////////////////////////////////////////////////////////////
-// ContextModule::GetContext
-// Returns pointer to a context object
-//////////////////////////////////////////////////////////////////////////
-Context* ContextModule::GetContext( cl_context clContext ) const
-{
-	InfoLog(m_pLoggerClient, L"ContextModule::GetContext enter. context=%d", clContext);
-	
-	cl_err_code clErrRet = CL_SUCCESS;
-	Context * pContext = NULL;
-	if (NULL == m_pContexts)
-	{
-		ErrLog(m_pLoggerClient, L"m_pContexts == NULL; return NULL");
-		return NULL;
-	}
-	// get context from the contexts map list
-	clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
-	if (CL_FAILED(clErrRet))
-	{
-		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
-		return NULL;
-	}
-    return pContext;
-}
-
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
 //////////////////////////////////////////////////////////////////////////
@@ -828,9 +802,27 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 cl_int ContextModule::SetKernelArg(cl_kernel clKernel, 
 								   cl_uint	uiArgIndex, 
 								   size_t szArgSize, 
-								   const void * pszArgValue)
+								   const void * pArgValue)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter SetKernelArg (clKernel=%d, uiArgIndex=%d, szArgSize=%d, pszArgValue=%d)", 
+		clKernel, uiArgIndex, szArgSize, pArgValue);
+
+	if (NULL == m_pKernels)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pKernels")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+
+	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	if (CL_FAILED(clErr) || NULL == pKernel)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
+		return CL_INVALID_KERNEL;
+	}
+	clErr = pKernel->SetKernelArg(uiArgIndex, szArgSize, pArgValue);
+	return CL_ERR_OUT(clErr);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetKernelInfo
@@ -1050,4 +1042,17 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
 									 size_t * pszParamValueSizeRet)
 {
 	return CL_ERR_NOT_SUPPORTED;
+}
+Context* ContextModule::GetContext(cl_context clContext) const
+{
+#ifdef _DEBUG
+	assert ( NULL != m_pContexts );
+#endif
+	Context * pContext = NULL;
+	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	if (CL_SUCCEEDED(clErr))
+	{
+		return pContext;
+	}
+	return NULL;
 }

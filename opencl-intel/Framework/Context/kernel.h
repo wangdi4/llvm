@@ -109,6 +109,41 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 	/**********************************************************************************************
+	* Class name:	KernelArg
+	*
+	* Inherit:		
+	* Description:	represents a kernel argument object
+	* Author:		Uri Levy
+	* Date:			January 2008
+	**********************************************************************************************/	
+	class KernelArg
+	{
+	public:
+
+		KernelArg(cl_uint uiIndex, size_t szSize, void * pValue);
+
+		~KernelArg();
+
+		const cl_uint GetIndex(){ return m_uiIndex; }
+
+		const size_t GetSize(){ return m_szSize; }
+
+		const void * GetValue(){ return m_pValue; }
+
+		const bool IsMemObject(){ return sizeof(cl_mem) == m_szSize; }
+		
+		const bool IsSampler(){ return sizeof(cl_sampler) == m_szSize; }
+
+	private:
+
+		cl_uint		m_uiIndex;
+
+		size_t		m_szSize;
+
+		void *		m_pValue;
+	};
+
+	/**********************************************************************************************
 	* Class name:	Kernel
 	*
 	* Inherit:		OCLObject
@@ -161,7 +196,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	AddDeviceKernel
-		* Description:	Add device kernel to the current kernel object. the device kerenl id was
+		* Description:	Add new device kernels to the current kernel object. after clCreateKernel
+		*				is called the device kerenl id was
 		*				taken from the device so we assume that it's already exists.
 		*				the funciton check that the device wasn't added before to the kernel and
 		*				that its definition fit to the other device kernels in the kerenl object
@@ -172,8 +208,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary *pProgBin);
 
+		// set kernel argument
+		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue);
+
+		// get kernel's name
 		const char * GetName(){ return m_psKernelName; }
 
+		// get kernel's associated program
 		const Program * GetProgram(){ return m_pProgram; }
 
 	private:
@@ -191,6 +232,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// list of all device kernels
 		OCLObjectsMap *							m_pDeviceKernels;
+
+		// list of kernel arguments
+		std::map<cl_uint, KernelArg*>			m_mapKernelArgs;
 
 		// logger client
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client

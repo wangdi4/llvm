@@ -402,3 +402,10 @@ cl_ulong  Context::GetMaxMemAllocSize()
 	}
 	return ulMaxMemAllocSize;
 }
+cl_err_code Context::GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj)
+{
+#ifdef _DEBUG
+	assert ( NULL != m_pMemObjects );
+#endif
+	return m_pMemObjects->GetOCLObject((cl_int)clMemId, (OCLObject**)ppMemObj);
+}

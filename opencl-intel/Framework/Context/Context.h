@@ -39,6 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Buffer;
 	class Device;
 	class Program;
+	class MemoryObject;
 	class OCLObjectsMap;
 
 	/**********************************************************************************************
@@ -157,6 +158,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code RemoveProgram(cl_program clProgramId);
 
 		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer);
+
+		cl_err_code GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj);
 
 		// check that all devices belong to this context
 		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
