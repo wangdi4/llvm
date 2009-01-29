@@ -112,10 +112,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code EnqueueWaitForEvents (cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
         cl_err_code EnqueueBarrier (cl_command_queue command_queue);
 
+        cl_err_code         Release() { return CL_SUCCESS; }  // Release resources ???
+
     private:
 
         // Private functions
-        cl_err_code         Release();  // Release resources ???
         OclCommandQueue*    GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands

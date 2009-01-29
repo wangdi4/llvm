@@ -82,6 +82,11 @@ void FrameworkProxy::Initialize()
 	InfoLog(m_pLoggerClient, L"Initialize context module: m_pContextModule = new ContextModule(%d)",m_pPlatformModule);
 	m_pContextModule = new ContextModule(m_pPlatformModule);
 	m_pContextModule->Initialize();
+
+	InfoLog(m_pLoggerClient, L"Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)", m_pPlatformModule, m_pContextModule);
+	m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
+	m_pExecutionModule->Initialize();
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +96,10 @@ void FrameworkProxy::Release()
 {
 	InfoLog(m_pLoggerClient, L"FrameworkProxy::Release enter");
 	
-	m_pContextModule->Release();
+	m_pExecutionModule->Release();
+    delete m_pExecutionModule;
+
+    m_pContextModule->Release();
 	delete m_pContextModule;
 	
 	m_pPlatformModule->Release();

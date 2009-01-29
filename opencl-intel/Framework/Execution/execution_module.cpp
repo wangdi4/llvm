@@ -144,14 +144,14 @@ cl_err_code ExecutionModule::CheckCreateCommandParams( cl_context clContext, cl_
  ******************************************************************/
 OclCommandQueue* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
 {
-    OclCommandQueue* pCommandQueue = NULL;
-    cl_err_code      errCode;
-    		
-    errCode = m_pOclCommandQueueMap->GetObjectByIndex((cl_uint)clCommandQueue, (OCLObject**)&pCommandQueue);
+    cl_err_code errCode;    		
+    OCLObject*  pOclObject = NULL;
+    errCode = m_pOclCommandQueueMap->GetOCLObject((cl_uint)clCommandQueue, &pOclObject);
     if (CL_FAILED(errCode))
 	{
         return NULL;
     }
+    OclCommandQueue* pCommandQueue = dynamic_cast<OclCommandQueue*>(pOclObject);
 	return pCommandQueue;
 }
 

@@ -51,8 +51,8 @@ OclCommandQueue::OclCommandQueue(
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
     m_bProfilingEnabled  = ((clProperties & CL_QUEUE_PROFILING_ENABLE) ? true : false );
     // Set logger
-	//m_pLoggerClient = new LoggerClient(L"OclCommandQueue Logger Client",LL_DEBUG);
-	//InfoLog(m_pLoggerClient, L"OclCommandQueue created");
+	m_pLoggerClient = new LoggerClient(L"OclCommandQueue Logger Client",LL_DEBUG);
+	InfoLog(m_pLoggerClient, L"OclCommandQueue created");
 }
 
 /******************************************************************

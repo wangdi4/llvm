@@ -48,15 +48,15 @@ EventsManager::~EventsManager()
  	// Need to clean event list. There is a possability that
     // the manager is delated before all events had been released.
 	cl_uint     uiEventCount = m_pEvents->Count();
-    OclEvent*   pEvent  = NULL;
-    cl_err_code res     = CL_SUCCESS;
-    
-
 	for (cl_uint ui=0; ui<uiEventCount; ++ui)
 	{
-        res = m_pEvents->GetObjectByIndex(ui, (OCLObject**)&pEvent);
+        OCLObject*  pOclObject = NULL;
+        OclEvent*   pEvent  = NULL;
+        cl_err_code res     = CL_SUCCESS;
+        res = m_pEvents->GetObjectByIndex(ui, &pOclObject);
 		if (CL_SUCCEEDED(res))
-		{			
+		{	
+            pEvent = dynamic_cast<OclEvent*>(pOclObject);
 			delete pEvent;
 		}
 	}
@@ -68,14 +68,15 @@ EventsManager::~EventsManager()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code EventsManager::RetainEvent (cl_event event)
-{
-    OclEvent*   pEvent  = NULL;
+cl_err_code EventsManager::RetainEvent (cl_event clEvent)
+{   
     cl_err_code res     = CL_SUCCESS;
 
-    res = m_pEvents->GetObjectByIndex((cl_int)event, (OCLObject**)&pEvent);
+    OCLObject*  pOclObject = NULL;
+    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
 	if (CL_SUCCEEDED(res))
     {
+        OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
         pEvent->Retain();
     }
     return res;
@@ -84,14 +85,15 @@ cl_err_code EventsManager::RetainEvent (cl_event event)
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code EventsManager::ReleaseEvent(cl_event event)
+cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 {
-    OclEvent*   pEvent  = NULL;
     cl_err_code res     = CL_SUCCESS;
+    OCLObject*  pOclObject = NULL;
 
-    res = m_pEvents->GetObjectByIndex((cl_int)event, (OCLObject**)&pEvent);
+    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
 	if (CL_SUCCEEDED(res))
     {
+        OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
         pEvent->Release();
         if ( 0 == pEvent->GetReferenceCount() )
         {
@@ -99,7 +101,7 @@ cl_err_code EventsManager::ReleaseEvent(cl_event event)
             // The full meaning of remove act is that the event can not be accessed by
             // the user anymore, but it related command may still running.
             // TODO: Arnon API Q: should we delete only when the command is done?
-            m_pEvents->RemoveObject((cl_uint)event, NULL);
+            m_pEvents->RemoveObject((cl_uint)clEvent, NULL);
             delete pEvent;
         }
     }
@@ -109,12 +111,15 @@ cl_err_code EventsManager::ReleaseEvent(cl_event event)
 /******************************************************************
  *
  ******************************************************************/              
-cl_err_code	EventsManager::GetEventInfo(cl_event event , cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet)
+cl_err_code	EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet)
 {
-    OclEvent*   pEvent  = NULL;
-    cl_err_code res     = m_pEvents->GetObjectByIndex((cl_uint)event, (OCLObject**)&pEvent);
+    cl_err_code res         = CL_SUCCESS;
+    OCLObject*  pOclObject  = NULL;
+
+    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
 	if (CL_SUCCEEDED(res))
     {
+        OclEvent*   pEvent  = dynamic_cast<OclEvent*>(pOclObject);
         res = pEvent->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
     }   
     else
@@ -195,11 +200,14 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
  ******************************************************************/
 OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList )
 {
-    OclEvent** vpOclEvents = new OclEvent*[uiNumEvents];
+    cl_err_code res         = CL_SUCCESS;
+    OCLObject*  pOclObject  = NULL;
+    OclEvent**  vpOclEvents = new OclEvent*[uiNumEvents];
 
     for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
     {
-        cl_err_code res = m_pEvents->GetObjectByIndex((cl_int)(eventList[ui]), (OCLObject**)&vpOclEvents[ui]);
+        res = m_pEvents->GetOCLObject((cl_int)(eventList[ui]), &pOclObject);
+        vpOclEvents[ui] = dynamic_cast<OclEvent*>(pOclObject);
         if(CL_FAILED(res))
         {
             // Not valid, return
