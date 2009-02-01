@@ -90,7 +90,9 @@ cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
 }
 
 cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									 cl_uint dim_count, const size_t* dim, cl_dev_mem* OUT memObj )
+									 cl_uint dim_count, const size_t* dim,
+									 void*	buffer_ptr, const size_t* pitch,
+									 cl_dev_mem* OUT memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateObject enter");
 	if ( (NULL == memObj) || (NULL == dim) )
@@ -98,7 +100,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	if ( (NULL != format) || ( 1 != dim_count ) )
+	if ( (NULL != format) || ( 1 != dim_count ) || (NULL != pitch) )
 	{
 		InfoLog(m_logDescriptor, m_iLogHandle, L"Only 1D buffers are supported");
 		// Only 1D buffers are supported for now
@@ -138,16 +140,24 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 
-	// Allocate memory for the object
-	pMemObjDesc->pObject = _aligned_malloc(dim[0], CPU_DCU_LINE_SIZE);
-	if ( NULL == pMemObjDesc->pObject )
+	if ( NULL == buffer_ptr ) 		// Allocate memory for the new object
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object memory buffer Allocation failed");
-		m_objHandles.FreeHandle(uiNewObject);
-		delete pMemObjDesc;
-		delete pMemObj;
+		pMemObjDesc->pObject = _aligned_malloc(dim[0], CPU_DCU_LINE_SIZE);
+		if ( NULL == pMemObjDesc->pObject )
+		{
+			ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object memory buffer Allocation failed");
+			m_objHandles.FreeHandle(uiNewObject);
+			delete pMemObjDesc;
+			delete pMemObj;
 
-		return CL_DEV_OBJECT_ALLOC_FAIL;
+			return CL_DEV_OBJECT_ALLOC_FAIL;
+		}
+
+		pMemObjDesc->bFreeRequired = true;	// Just created object must be release on destrcution
+	} else
+	{
+		pMemObjDesc->pObject = buffer_ptr;
+		pMemObjDesc->bFreeRequired = false;	// The memory buffer should not be released
 	}
 
 	pMemObjDesc->uiDimCount = dim_count;
@@ -160,7 +170,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		memset(&pMemObjDesc->imgFormat, 0, sizeof(cl_image_format));
 	}
 
-	memcpy(pMemObjDesc->pDim, dim, dim_count);
+	memcpy(pMemObjDesc->stDim, dim, dim_count);
 
 	pMemObjDesc->myHandle = pMemObj;
 
@@ -200,7 +210,11 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 	SMemObjectDescriptor* pObjDesc = it->second;
 	m_muObjectMap.Unlock();
 
-	_aligned_free(pObjDesc->pObject);
+	if ( pObjDesc->bFreeRequired )
+	{
+		_aligned_free(pObjDesc->pObject);
+	}
+
 	delete pObjDesc;
 	delete memObj;
 

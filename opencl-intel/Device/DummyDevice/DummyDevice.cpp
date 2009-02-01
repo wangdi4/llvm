@@ -93,7 +93,7 @@ cl_int DummyDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl
 }
 
 cl_int DummyDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
+									cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch, cl_dev_mem* OUT memObj)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

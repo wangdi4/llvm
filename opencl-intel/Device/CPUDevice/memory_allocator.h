@@ -43,8 +43,10 @@ struct SMemObjectDescriptor
 	cl_dev_mem_flags		memFlags;
 	cl_image_format			imgFormat;
 	cl_uint					uiDimCount;
-	size_t					pDim[MAX_DIMENSION];
+	size_t					stDim[MAX_DIMENSION];
 	void*					pObject;
+	bool					bFreeRequired;
+	size_t					stPitch[MAX_DIMENSION-1];
 	cl_dev_mem				myHandle;
 };
 
@@ -57,7 +59,8 @@ public:
 
 	// Create/Release functions
 	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-							cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj );
+							cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
+							cl_dev_mem* OUT memObj );
 	cl_int	ReleaseObject( cl_dev_mem IN memObj );
 
 	// Checks that given object is valid object and belongs to memory allocator

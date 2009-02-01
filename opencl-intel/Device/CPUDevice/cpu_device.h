@@ -66,7 +66,8 @@ public:
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 							cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj);
+									cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
+									cl_dev_mem* OUT memObj);
 	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
 									 void** OUT ptr, size_t* OUT pitch);

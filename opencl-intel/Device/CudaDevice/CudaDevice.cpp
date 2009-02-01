@@ -257,7 +257,8 @@ cl_int cCudaDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl
 }
 
 cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-						cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
+						cl_uint	IN dim_count, const size_t* dim, void* buffer_ptr, const size_t* pitch,
+						cl_dev_mem* OUT memObj)
 {
 	//only supports buffers (dim_count = 1 and format = NULL) 
 	// TODO : ADD log
@@ -270,7 +271,7 @@ cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 		return CL_DEV_INVALID_IMG_FORMAT;
 	}
 
-	cCudaMemObject* pMem = new cCudaMemObject(flags, format, dim_count, dim);
+	cCudaMemObject* pMem = new cCudaMemObject(flags, format, dim_count, dim, buffer_ptr, pitch);
 	if( NULL == pMem )
 	{
 		return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -279,7 +280,7 @@ cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 	cl_dev_mem tpMemObj = new (_cl_dev_mem);
 
 
-	tpMemObj->allocId = 0;
+	tpMemObj->allocId = m_pDevInstance->m_id;
 	tpMemObj->objHandle = pMem;
 
 	*memObj = tpMemObj;
@@ -433,7 +434,9 @@ cl_int cCudaDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_i
 cCudaMemObject::cCudaMemObject(cl_dev_mem_flags flags, 
 							   const cl_image_format *format, 
 							   cl_uint dim_count, 
-							   const size_t *dim)
+							   const size_t *dim,
+							   void* buffer_ptr,
+							   const size_t* pitch)
 {
 	//only supports buffers (dim_count = 1 and format = NULL) 
 	CUresult CuRes = CUDA_SUCCESS;
@@ -443,6 +446,11 @@ cCudaMemObject::cCudaMemObject(cl_dev_mem_flags flags,
 	m_dim = new size_t( dim_count );
 	memcpy( m_dim, dim, dim_count * sizeof(size_t) );
 	m_DevPtr = NULL;
+	m_HostPtr = buffer_ptr;
+	if ( NULL != buffer_ptr )
+	{
+		assert(0); // add code to store pitch
+	}
 }
 cCudaMemObject::~cCudaMemObject()
 {

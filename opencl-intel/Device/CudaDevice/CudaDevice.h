@@ -96,20 +96,25 @@ public:
 	cCudaMemObject( cl_dev_mem_flags flags, 
 					const cl_image_format* format, 
 					cl_uint dim_count, 
-					const size_t* dim );
+					const size_t* dim,
+					void* buffer_ptr,
+					const size_t* pitch);
 	~cCudaMemObject();
 	CUdeviceptr GetPtr();
 	int GetRW();
 	int Write(cl_uint dim_count, size_t* origin, size_t* region, void* ptr, size_t* pitch);
 	int Read(cl_uint dim_count, size_t* origin, size_t* region, void* ptr, size_t* pitch);
+
 private:
 	cl_uint m_RW;
 	cl_uint m_OnHost;
 	cl_uint m_DimCount;
 	size_t* m_dim;
 	CUdeviceptr m_DevPtr;
-	//void * m_HostPtr;
+	void * m_HostPtr;
+	size_t* m_pitch;
 };
+
 class cCudaKernel
 {
 public:
@@ -248,7 +253,8 @@ public:
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
 	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj);
+									cl_uint	IN dim_count, const size_t* dim, void* buffer_ptr, const size_t* pitch,
+									cl_dev_mem* OUT memObj);
 	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
 									 void** OUT ptr, size_t* OUT pitch);

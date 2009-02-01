@@ -462,10 +462,11 @@ cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_d
 	Call Memory Allocator to create memory object
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* dim, cl_dev_mem* OUT memObj)
+									cl_uint	IN dim_count, const size_t* dim, void*	ptr, const size_t* pitch,
+									cl_dev_mem* OUT memObj)
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMemoryObject Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim, memObj);
+	return m_pDevInstance->m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim, ptr, pitch, memObj);
 }
 /****************************************************************************************************************
  clDevDeleteMemoryObject
