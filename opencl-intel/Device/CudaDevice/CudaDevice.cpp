@@ -67,19 +67,22 @@ cl_int LogClientID;
 cCudaDevice::cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
 {
 	m_id = devId;
-	CUresult cuRes; 
-	cuRes = cuInit(0);
+	CUresult cuRes = CUDA_SUCCESS;
+
 	cuRes = cuDeviceGet( & m_CuDev , 0);
 	cuRes = cuDeviceGetProperties(&m_Prop, m_CuDev); 
-	if (devCallbacks != NULL)
+
+	if(  NULL != devCallbacks )
 	{
 		memcpy(&m_CallBacks, devCallbacks, sizeof(m_CallBacks));
 	}
-	if (logDesc != NULL)
+
+	if (NULL != logDesc)
 	{
 		memcpy(&log, logDesc, sizeof(log));
 		log.pfnclLogCreateClient( m_id, L"CUDA Device", &LogClientID);
 	}
+
 	else
 	{
 		log.pfnclLogAddLine = NULL;
@@ -111,6 +114,12 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 {
 	// TODO : ADD log
 	CUresult CuRes = CUDA_SUCCESS;
+
+	CuRes = cuInit(0);
+	if( CUDA_SUCCESS != CuRes )
+	{
+		LOG_DEBUG(L"CUDA not supported, exit CreateDevice"); 
+	}
 
 	if ( NULL == m_pDevInstance )
 	{
@@ -211,17 +220,26 @@ cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_si
 		val = new char[size_ret];
 		*(cl_bool*)val = CL_FALSE;
 		break;
+	case CL_DEVICE_VENDOR_ID : size_ret = sizeof(cl_uint);
+		val = new char[size_ret];
+		*(cl_uint*)val = 0xCADA;
+		break;
 	default : return CL_DEV_INVALID_VALUE;
 		break;
 	}
 
-	if ( ( NULL != param_val ) && ( *param_val_size_ret < size_ret ) )
+	if( ( NULL == param_val ) && ( NULL == param_val_size_ret ) )
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
-	if ( ( NULL != param_val ) )
+	if( ( NULL != param_val ) && ( NULL != param_val_size_ret ) && ( *param_val_size_ret < size_ret ) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	if( NULL != param_val )
 	{
 		memcpy(param_val, val, size_ret);
+		delete[] val;
 	}
 	if( NULL != param_val_size_ret )
 	{
@@ -368,7 +386,7 @@ cl_int cCudaDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr
 cl_int cCudaDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin )
 {
 	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	return CL_DEV_SUCCESS;
 }
 
 
@@ -391,7 +409,7 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	if (ProgContainer->container_size != ( strlen( (char*)(ProgContainer->container) ) + 1 + sizeof(cl_prog_container)) )
+	if (ProgContainer->container_size != ( strlen( (char*)ProgContainer->container ) + 1 ) )
 	{
 		return CL_DEV_INVALID_BINARY;
 	}
