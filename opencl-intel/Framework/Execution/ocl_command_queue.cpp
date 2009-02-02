@@ -71,7 +71,7 @@ OclCommandQueue::~OclCommandQueue()
 
     if (m_pCommandQueue)
     {
-        m_pCommandQueue->Clear();
+        m_pCommandQueue->Release();
         delete m_pCommandQueue;
         m_pCommandQueue = NULL;
     }

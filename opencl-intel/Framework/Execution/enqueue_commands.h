@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#pragma once
 ///////////////////////////////////////////////////////////
 //  enqueue_commands.h
 //  Implementation of the Class ReadBufferCommand
@@ -49,11 +50,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    Command();
 	    virtual ~Command();
 
-	    virtual cl_err_code        Execute() = 0;	
-        virtual cl_command_type    GetCommandType() const = 0;
+	    virtual cl_err_code     Execute() = 0;	
+        virtual cl_command_type GetCommandType() const = 0;
 
-        void                        SetEvent    (QueueEvent* queueEvent)        { m_queueEvent = queueEvent; }
-        void                        SetReceiver (ICommandReceiver* receiver)    { m_receiver = receiver; }
+        virtual void            SetEvent    (QueueEvent* queueEvent)        { m_queueEvent = queueEvent; }
+        virtual QueueEvent*     GetEvent    ()                              { return m_queueEvent; }   
+        void                    SetReceiver (ICommandReceiver* receiver)    { m_receiver = receiver; }
 
     protected:
 	    QueueEvent*         m_queueEvent;

@@ -43,8 +43,23 @@ QueueEvent::QueueEvent():
  ******************************************************************/
 QueueEvent::~QueueEvent()
 {
-    m_observersList.clear();
+    EventCompleted();
 }
+
+/******************************************************************
+ * Use this function to register this event as dependent on the 
+ * input event: pDependsOnEvent;
+ * If the user uses only RegisterEventDoneObserver for this operation,
+ * the event will not be able when all the events that it is depend on are done.
+ *
+ ******************************************************************/
+void QueueEvent::SetDependentOn( QueueEvent* pDependsOnEvent )
+{
+    m_stateColor = EVENT_STATE_RED;
+    IncrementDependencyCount();
+    pDependsOnEvent->RegisterEventDoneObserver(this);
+}
+
 
 /******************************************************************
  * An object is registered on this event's completion status.

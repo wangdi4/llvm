@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#pragma once
 ///////////////////////////////////////////////////////////
 //  out_of_order_queue.h
 //  Implementation of the Class OutOfOrderQueue

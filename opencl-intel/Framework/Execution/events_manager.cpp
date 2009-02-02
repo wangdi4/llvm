@@ -183,7 +183,7 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
         QueueEvent* pDependOnEvent = vOclEvents[ui]->GetQueueEvent();
         if ( NULL != pDependOnEvent )
         {
-            pDependOnEvent->RegisterEventDoneObserver(pEvent);
+            pEvent->SetDependentOn(pDependOnEvent);
         }        
     }
     delete[] vOclEvents;

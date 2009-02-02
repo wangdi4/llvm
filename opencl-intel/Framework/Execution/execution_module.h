@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#pragma once
 ///////////////////////////////////////////////////////////
 //  execution_module.h
 //  Implementation of the Class ExecutionModule

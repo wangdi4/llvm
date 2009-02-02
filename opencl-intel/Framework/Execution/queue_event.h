@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#pragma once
 ///////////////////////////////////////////////////////////
 //  queue_event.h
 //  Implementation of the Class QueueEvent
@@ -55,7 +56,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	    enum QueueEventStateColor
 	    {
-		    EVENT_STATE_YELLOW,
+		    EVENT_STATE_YELLOW = 0,
 		    EVENT_STATE_RED,
 		    EVENT_STATE_GREEN,
 		    EVENT_STATE_LIME,
@@ -67,9 +68,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    virtual ~QueueEvent();
     	
 	    void        RegisterEventDoneObserver( IEventDoneObserver* observer );
+        void        SetDependentOn( QueueEvent* pDependsOnEvent );
 	    void        SetEventColor( QueueEventStateColor color );
         void        IncrementDependencyCount()                              { ++m_uDependencyCount;} //TODO: synch???
         bool        IsColor( QueueEventStateColor color )                   { return (m_stateColor == color); }
+        bool        IsGreaterThanColor( QueueEventStateColor color )        { return (m_stateColor > color); }
+        void        EventCompleted();
         
         // Implementation IEventDoneObserver
         cl_err_code NotifyEventDone(QueueEvent* event);
@@ -79,10 +83,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint                     m_uDependencyCount; // Count the number of events that this event has registered on
         list<IEventDoneObserver*>   m_observersList;    // List of ovservers; Notified on event done
         
-        // Private functions
-        void                        EventCompleted();
-
-
         // Synch objects for reentrant support
         // TODO: Add reentrant code to this class
     };

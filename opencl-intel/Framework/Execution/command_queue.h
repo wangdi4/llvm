@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#pragma once
 ///////////////////////////////////////////////////////////
 //  command_queue.h
 //  Implementation of the Class ICommandQueue
@@ -44,12 +45,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-	    virtual Command*    GetNextCommand() = 0;
-        virtual cl_err_code AddCommand(Command* command) = 0;
-	    virtual void        PushBack(Command* command) = 0;
-	    virtual void        Signal() = 0;
-        virtual bool        IsEmpty() = 0;
-        virtual void        Clear() = 0;
+        virtual cl_err_code Init() =0;
+        virtual Command*    GetNextCommand() =0;
+        virtual cl_err_code AddCommand(Command* command) =0;
+	    virtual cl_err_code PushFront(Command* command) =0;
+	    virtual void        Signal() =0;
+        virtual bool        IsEmpty() const =0;
+        virtual cl_uint     Size() const =0;
+        virtual cl_err_code Release() =0;
+
     };
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_COMMAND_QUEUE_H__)
