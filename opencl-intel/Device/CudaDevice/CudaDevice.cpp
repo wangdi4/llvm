@@ -67,6 +67,10 @@ cl_int LogClientID;
 cCudaDevice::cCudaDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
 {
 	m_id = devId;
+	CUresult cuRes; 
+	cuRes = cuInit(0);
+	cuRes = cuDeviceGet( & m_CuDev , 0);
+	cuRes = cuDeviceGetProperties(&m_Prop, m_CuDev); 
 	if (devCallbacks != NULL)
 	{
 		memcpy(&m_CallBacks, devCallbacks, sizeof(m_CallBacks));
@@ -153,7 +157,6 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 		//cuRes = cuCtxPushCurrent( CommandList->cuContext );
 		//CUresult cuRes = cuCtxPopCurrent( &(m_pDevInstance->m_context) );
 
-
 		CommandList->StartThread();
 	}
 	
@@ -170,8 +173,61 @@ cCudaDevice* cCudaDevice::GetInstance()
 cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
 				size_t* OUT param_val_size_ret)
 {
-	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	size_t size_ret;
+	void* val;
+	switch (param)
+	{
+	case CL_DEVICE_TYPE : size_ret = sizeof(cl_device_type);
+		val = new char[size_ret];
+		*(cl_device_type*)val = CL_DEVICE_TYPE_GPU;
+		break;
+	case CL_DEVICE_MAX_COMPUTE_UNITS : size_ret = sizeof(cl_uint);
+		val = new char[size_ret];
+		cuDeviceGetAttribute((int*)val, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, m_pDevInstance->m_CuDev);
+		break;
+	case CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS : size_ret = sizeof(cl_uint);
+		val = new char[size_ret];
+		*(cl_uint*)val = 3;
+		break;
+	case CL_DEVICE_MAX_WORK_ITEM_SIZES : size_ret = 3 * sizeof(size_t);
+		val = new char[size_ret];
+		((size_t*)val)[0] = min(m_pDevInstance->m_Prop.maxThreadsDim[0], m_pDevInstance->m_Prop.maxGridSize[0]);
+		((size_t*)val)[1] = min(m_pDevInstance->m_Prop.maxThreadsDim[1], m_pDevInstance->m_Prop.maxGridSize[1]);
+		((size_t*)val)[2] = min(m_pDevInstance->m_Prop.maxThreadsDim[2], m_pDevInstance->m_Prop.maxGridSize[2]);
+		break;
+	case CL_DEVICE_MAX_WORK_GROUP_SIZE : size_ret = sizeof(size_t);
+		val = new char[size_ret];
+		*(size_t*)val = m_pDevInstance->m_Prop.maxThreadsPerBlock;
+		break;
+	case CL_DEVICE_MAX_CLOCK_FREQUENCY : size_ret = sizeof(cl_uint);
+		val = new char[size_ret];
+		*(cl_uint*)val = m_pDevInstance->m_Prop.clockRate / 1000;
+		break;
+	case CL_DEVICE_MAX_MEM_ALLOC_SIZE : size_ret = sizeof(cl_ulong);
+		val = new char[size_ret];
+		*(cl_ulong*)val = m_pDevInstance->m_Prop.sharedMemPerBlock;
+		break;
+	case CL_DEVICE_IMAGE_SUPPORT : size_ret = sizeof(cl_bool);
+		val = new char[size_ret];
+		*(cl_bool*)val = CL_FALSE;
+		break;
+	default : return CL_DEV_INVALID_VALUE;
+		break;
+	}
+
+	if ( ( NULL != param_val ) && ( *param_val_size_ret < size_ret ) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	if ( ( NULL != param_val ) )
+	{
+		memcpy(param_val, val, size_ret);
+	}
+	if( NULL != param_val_size_ret )
+	{
+		*param_val_size_ret = size_ret;
+	}
+	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
@@ -417,15 +473,59 @@ cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN nam
 cl_int cCudaDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 cl_uint* OUT num_kernels_ret )
 {
-	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	unsigned int uiProg = *(unsigned int*)prog;
+	if ( uiProg >= m_pDevInstance->m_Programs.size() )
+	{
+		return CL_DEV_INVALID_PROGRAM;
+	}
+	if ( NULL == m_pDevInstance->m_Programs[uiProg] )
+	{
+		return CL_DEV_INVALID_PROGRAM;
+	}
+	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
+	
+	
+	return tProg->GetKernels(num_kernels, (KERNEL_ID**)kernels, num_kernels_ret);
 }
 
 cl_int cCudaDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
 					void* OUT value, size_t* OUT value_size_ret )
 {
-	// TODO : ADD log
-	return CL_DEV_INVALID_OPERATION;
+	KERNEL_ID* tKernel = (KERNEL_ID*)kernel;
+	
+	if( CL_DEV_KERNEL_NAME == param )
+	{
+		if( ( NULL != value ) && ( value_size < tKernel->KernelName.length() + 1 ) )
+		{
+			return CL_DEV_INVALID_VALUE;
+		}
+		if( NULL != value )
+		{
+			strcpy((char*)value, tKernel->KernelName.c_str());
+		}
+		if( NULL != value_size_ret )
+		{
+			*value_size_ret = tKernel->KernelName.length() + 1;
+		}
+		return CL_DEV_SUCCESS;
+	}
+
+	if( CL_DEV_KERNEL_PROTOTYPE == param )
+	{
+		unsigned int uiProg = tKernel->ProgramID;
+		if ( uiProg >= m_pDevInstance->m_Programs.size() )
+		{
+			return CL_DEV_INVALID_PROGRAM;
+		}
+		if ( NULL == m_pDevInstance->m_Programs[uiProg] )
+		{
+			return CL_DEV_INVALID_PROGRAM;
+		}
+		cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
+		return tProg->GetKernelArgTypes(tKernel->KernelName, value_size, (cl_kernel_arg_type*)value, value_size_ret);
+	}
+
+	return CL_DEV_INVALID_VALUE;
 }
 
 //
@@ -449,7 +549,10 @@ cCudaMemObject::cCudaMemObject(cl_dev_mem_flags flags,
 	m_HostPtr = buffer_ptr;
 	if ( NULL != buffer_ptr )
 	{
-		assert(0); // add code to store pitch
+		if( NULL != pitch )
+		{
+			LOG_ERROR(L"rceived pitch != NULL for 1D buffer");
+		}
 	}
 }
 cCudaMemObject::~cCudaMemObject()
@@ -496,7 +599,7 @@ int cCudaMemObject::Read(cl_uint dim_count, size_t *origin, size_t *region, void
 			return CL_DEV_OBJECT_ALLOC_FAIL;
 		}
 	}
-	CuRes = cuMemcpyDtoH(ptr, m_DevPtr/* + origin[0]*/, region[0]);
+	CuRes = cuMemcpyDtoH(ptr, m_DevPtr + origin[0], region[0]);
 	if( CUDA_SUCCESS != CuRes )
 	{
 		return CL_DEV_ERROR_FAIL;
@@ -522,7 +625,7 @@ int cCudaMemObject::Write(cl_uint dim_count, size_t *origin, size_t *region, voi
 			return CL_DEV_OBJECT_ALLOC_FAIL;
 		}
 	}
-	CuRes = cuMemcpyHtoD(m_DevPtr/* + origin[0]*/, ptr, region[0]);
+	CuRes = cuMemcpyHtoD(m_DevPtr + origin[0], ptr, region[0]);
 	if( CUDA_SUCCESS != CuRes )
 	{
 		return CL_DEV_ERROR_FAIL;
@@ -602,6 +705,51 @@ cl_int cCudaProgram::GetKernelID(const char *name, cl_dev_kernel *kernel_id)
 	*kernel_id = (cl_dev_kernel)(& (tKernel->m_KernelID) );
 	return CL_SUCCESS;
 }
+cl_int cCudaProgram::GetKernels(cl_uint num_kernels, KERNEL_ID **kernels, cl_uint *num_kernels_ret)
+{
+	if( ( NULL != kernels ) && ( num_kernels < m_kernels.size() ) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	if( ( NULL == kernels ) && ( 0 != num_kernels ) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	if( NULL != num_kernels_ret )
+	{
+		*num_kernels_ret = m_kernels.size();
+	}
+	if( NULL != kernels )
+	{
+		KERNELS::iterator it;
+		int i;
+		for ( it = m_kernels.begin(), i = 0; it != m_kernels.end(); it++, i++)
+		{
+			kernels[i] = &(it->second->m_KernelID);
+		}
+	}
+	return CL_DEV_SUCCESS;
+}
+cl_int cCudaProgram::GetKernelArgTypes(string KernelName, 
+									   size_t value_size, 
+									   cl_kernel_arg_type* value, 
+									   size_t* value_size_ret)
+{
+	size_t num_args = m_kernels[KernelName]->m_NumberOfArguments;
+	if( ( NULL != value ) && ( value_size < num_args ) )
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	if( NULL != value_size_ret )
+	{
+		*value_size_ret = num_args;
+	}
+	if( NULL != value )
+	{
+		memcpy(value, m_kernels[KernelName]->m_Arguments, num_args * sizeof(cl_kernel_arg_type));
+	}
+	return CL_DEV_SUCCESS;
+}
 cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 {
 	ifstream fCubin;
@@ -649,6 +797,13 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 				case 'P' : index++;
 					switch (st[index])
 					{
+					case 'i' : 
+					case 'f' :
+					case 'd' :
+					case 'c' :
+					case 'j' :
+					case 'h' : temp_parameter = CL_KRNL_ARG_PTR;
+						break;
 					case 'K' : index++;
 						switch (st[index])
 						{
@@ -657,28 +812,15 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 							case 'd' :
 							case 'c' :
 							case 'j' :
-							case 'h' : temp_parameter = CL_KRNL_ARG_PTR;
+							case 'h' : temp_parameter = CL_KRNL_ARG_PTR_CONST;
 								temp_MemFlag = CL_DEV_MEM_READ;
 								break;
-							default: fCubin.close();
-								delete temp_kernel;
-								return CL_DEV_ERROR_FAIL;
 						}
-					case 'i' : 
-					case 'f' :
-					case 'd' :
-					case 'c' :
-					case 'j' :
-					case 'h' : temp_parameter = CL_KRNL_ARG_PTR;
-						break;
-					default: fCubin.close();
-						delete temp_kernel;
-						return CL_DEV_ERROR_FAIL;
 					}
 					break;
-				default : fCubin.close();
-					delete temp_kernel;
-					return CL_DEV_ERROR_FAIL;
+				case 'S' : temp_parameter = temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments - 1 ];
+					temp_MemFlag = temp_kernel->m_MemFlags[ temp_kernel->m_NumberOfArguments -1 ];
+					while( '_' != st[++index] );
 				}
 				temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments ] = temp_parameter;
 				temp_kernel->m_MemFlags[ temp_kernel->m_NumberOfArguments ] = temp_MemFlag;
@@ -702,6 +844,7 @@ cl_int cCudaProgram::Build(const cl_char *options, void *user_data)
 
 	if (CuRes != CUDA_SUCCESS)
 	{
+		m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)m_ProgramID , user_data, CL_BUILD_ERROR);
 		return CL_DEV_INVALID_BINARY;
 	}
 
@@ -710,6 +853,7 @@ cl_int cCudaProgram::Build(const cl_char *options, void *user_data)
 	if (ClRes != CL_DEV_SUCCESS)
 	{
 		cuModuleUnload(m_module);
+		m_device->m_CallBacks.pclDevBuildStatusUpdate( (cl_dev_program)m_ProgramID , user_data, CL_BUILD_ERROR);
 		return CL_DEV_INVALID_BINARY;
 	}
 
@@ -756,13 +900,15 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	// Do it here or in clDevCommandListExecute(), i prefere there
 	for (cl_uint i = 0; i < arg_count; i++)
 	{
-		if( CL_KRNL_ARG_PTR == arg_types[i] )
+		if( arg_types[i] != tKernel->m_Arguments[i] )
 		{
-			if( CL_KRNL_ARG_PTR != tKernel->m_Arguments[i] )
-			{
-				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
-				return CL_DEV_ERROR_FAIL;
-			}
+			m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+			return CL_DEV_ERROR_FAIL;
+		}
+
+		int temp = arg_types[i] & 0xF;
+		if( CL_KRNL_ARG_PTR == ( arg_types[i] & 0xF ) )
+		{
 			cl_dev_mem pDevMem = *((cl_dev_mem*)((char*)arg_values + offset));
 			pMem = (cCudaMemObject*)pDevMem->objHandle;
 			if( pMem->GetRW() != tKernel->m_MemFlags[i] )
@@ -775,11 +921,6 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 		}
 		else
 		{
-			if( arg_types[i] != tKernel->m_Arguments[i] )
-			{
-				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
-				return CL_DEV_ERROR_FAIL;
-			}
 			cuRes = cuParamSetv(tKernel->m_function, offset, (char*)arg_values + offset, arg_types[i]);
 			offset += arg_types[i];
 		}
@@ -788,7 +929,6 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	
 	cuRes = cuParamSetSize(tKernel->m_function, offset);
 	cuRes = cuFuncSetBlockShape(tKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
-	//cuRes = cuFuncSetBlockShape(tKernel->m_function, 1, 1, 1);
 	cuRes = cuEventRecord(start,0);
 	cuRes = cuLaunchGrid(tKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
 	m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_RUNNING, 0);

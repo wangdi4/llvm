@@ -139,6 +139,11 @@ public:
 	~cCudaProgram();
 	cl_int GetBinary(size_t size, void *binary, size_t *size_ret);
 	cl_int GetKernelID(const char* IN name, cl_dev_kernel* OUT kernel_id );
+	cl_int GetKernels(cl_uint IN num_kernels, KERNEL_ID** OUT kernels, cl_uint* OUT num_kernels_ret );
+	cl_int GetKernelArgTypes( string KernelName, 
+							  size_t IN value_size, 
+							  cl_kernel_arg_type* OUT value, 
+							  size_t* OUT value_size_ret );
 	cl_int Build(const cl_char *options, void *user_data);
 	cl_int RunKernel( cl_dev_cmd_param_kernel* pKernelParam, cl_dev_cmd_id	id );
 
@@ -236,6 +241,8 @@ protected:
 
 	PROGRAMS m_Programs;
 	COMMAND_LISTS m_CommandLists;
+	CUdevice m_CuDev;
+	CUdevprop m_Prop;
 
 
 public:
@@ -244,36 +251,39 @@ public:
 	void						Release();
 
 	// Device entry points
-	static cl_int clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
-							size_t* OUT param_val_size_ret);
-	static cl_int clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+	///////////////////////////////////////not implemented/////////////////////////////////////////////////////////
 	static cl_int clDevRetainCommandList( cl_dev_cmd_list IN list);
 	static cl_int clDevReleaseCommandList( cl_dev_cmd_list IN list );
-	static cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count);
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
-	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* dim, void* buffer_ptr, const size_t* pitch,
-									cl_dev_mem* OUT memObj);
-	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
 	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
 									 void** OUT ptr, size_t* OUT pitch);
 	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
 	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
-
-	static cl_int clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
-	static cl_int clDevBuildProgram( cl_dev_program IN prog, const cl_char* IN options, void* IN user_data );
-
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
 	static cl_int clDevUnloadCompiler();
-	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t	IN size, void* OUT binary, size_t* OUT size_ret );
 	static cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
 	static cl_int clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret );
+	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
+								void* OUT value, size_t* OUT value_size_ret );
+
+
+
+	/////////////////////////////////////////implemented///////////////////////////////////////////////////////////
+	static cl_int clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
+							size_t* OUT param_val_size_ret);
+	static cl_int clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+	static cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count);
+	static cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+									cl_uint	IN dim_count, const size_t* dim, void* buffer_ptr, const size_t* pitch,
+									cl_dev_mem* OUT memObj);
+	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
+	static cl_int clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	static cl_int clDevBuildProgram( cl_dev_program IN prog, const cl_char* IN options, void* IN user_data );
+	static cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t	IN size, void* OUT binary, size_t* OUT size_ret );
 	static cl_int clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id );
 	static cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 									 cl_uint* OUT num_kernels_ret );
-	static cl_int clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
-								void* OUT value, size_t* OUT value_size_ret );
 };
 
 }}}
