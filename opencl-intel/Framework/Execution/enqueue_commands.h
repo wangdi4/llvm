@@ -53,13 +53,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    virtual cl_err_code     Execute() = 0;	
         virtual cl_command_type GetCommandType() const = 0;
 
-        virtual void            SetEvent    (QueueEvent* queueEvent)        { m_queueEvent = queueEvent; }
-        virtual QueueEvent*     GetEvent    ()                              { return m_queueEvent; }   
-        void                    SetReceiver (ICommandReceiver* receiver)    { m_receiver = receiver; }
+        virtual void            SetEvent    (QueueEvent* queueEvent)        { m_pQueueEvent = queueEvent; }
+        virtual QueueEvent*     GetEvent    ()                              { return m_pQueueEvent; }   
+        void                    SetReceiver (ICommandReceiver* receiver)    { m_pReceiver = receiver; }
 
     protected:
-	    QueueEvent*         m_queueEvent;
-	    ICommandReceiver*   m_receiver;
+	    QueueEvent*         m_pQueueEvent;
+	    ICommandReceiver*   m_pReceiver;
     };
 
     /******************************************************************
@@ -406,6 +406,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    virtual ~BarrierCommand();
 
     };
+
+
+
+    /******************************************************************
+     * DummyCommand - used for debugging
+     * On execution the command prints its status, than change its status
+     * to done... ??? will it work???
+
+     ******************************************************************/
+    class DummyCommand : public Command
+    {
+
+    public:
+        DummyCommand()  {};
+        virtual ~DummyCommand() {};
+
+	    cl_err_code     Execute();	
+        cl_command_type GetCommandType() const { return 0; };
+    };
+
+
+
 
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_ENQUEUE_COMMANDS__)

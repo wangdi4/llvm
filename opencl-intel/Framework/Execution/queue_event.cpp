@@ -28,6 +28,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
+cl_uint QueueEvent::m_uiInstanceCounter = 0; //Debugging
+
 /******************************************************************
  *
  ******************************************************************/
@@ -36,6 +38,10 @@ QueueEvent::QueueEvent():
     m_uDependencyCount(0)  
 {
     m_observersList.clear();
+    m_colorChangeObserversList.clear();
+
+    m_iId = m_uiInstanceCounter;
+    m_uiInstanceCounter++;
 }
 
 /******************************************************************
@@ -44,6 +50,7 @@ QueueEvent::QueueEvent():
 QueueEvent::~QueueEvent()
 {
     EventCompleted();
+    m_colorChangeObserversList.clear();
 }
 
 /******************************************************************
@@ -72,56 +79,109 @@ void QueueEvent::RegisterEventDoneObserver(IEventDoneObserver* observer)
 }
 
 /******************************************************************
+ * Remove the input observer from the list, if exists.
+ *
+ ******************************************************************/
+void QueueEvent::UnRegisterEventDoneObserver( IEventDoneObserver* observer )
+{
+    list<IEventDoneObserver*>::iterator iter = m_observersList.begin();
+    
+    // loop until find
+    for ( ; iter != m_observersList.end(); iter++ ) 
+    {
+        IEventDoneObserver* listObserver = *iter;
+        if( listObserver == observer )
+        {
+            // They both point to the same object, found, erase, break
+            m_observersList.erase(iter);
+            break;
+        }
+    }
+}
+
+
+/******************************************************************
+ * An object is registered on this event's color change.
+ * When this event change color, is expected to notify all observers.
+ *
+ ******************************************************************/
+void QueueEvent::RegisterEventColorChangeObserver( IEventColorChangeObserver* observer )
+{    
+    m_colorChangeObserversList.push_back(observer);
+}
+
+/******************************************************************
  *
  ******************************************************************/
 void QueueEvent::SetEventColor(QueueEventStateColor color)
 {
+    // Use Retain/Release to prevent potential deletion by one of the observers.
+    // TODO: Set Event reentrant.
+    Retain();
     m_stateColor = color;
     switch(color)
     {
+    case EVENT_STATE_BLACK:
+        EventCompleted();
+        // Fall through to color change
     case EVENT_STATE_YELLOW:
     case EVENT_STATE_RED:
     case EVENT_STATE_GREEN:
     case EVENT_STATE_LIME:
     case EVENT_STATE_GRAY:
         // All events are fall through to this break;
-        // Do nothing for now
-        break;
-    case EVENT_STATE_BLACK:
-        EventCompleted();
+        EventColorChange();
         break;
     default:
         break;
     }
+    Release();
 }
 
 /******************************************************************
  * This function is being called when event is finished.
- * The function is expected to pop out all its observers and
+ * The function is expected to pop out all its observers.
  * to 
  * 
  ******************************************************************/
 void QueueEvent::EventCompleted()
 {
     list<IEventDoneObserver*>::iterator iter = m_observersList.begin();
-    list<IEventDoneObserver*>::iterator last = m_observersList.end();
     
     // loop while there are more items
-    for ( ; iter != last; iter++ ) 
+    for ( ; iter != m_observersList.end(); iter++ ) 
     {
         IEventDoneObserver* observer = *iter;
+        // Note, may update the observers list
         observer->NotifyEventDone(this);
     }
-
-    // Clean the list, remove all pointers.
     m_observersList.clear();
+}
+
+
+/******************************************************************
+ * This function is being called when event change its color.
+ * The function is expected to pop out all its observers and
+ * 
+ ******************************************************************/
+void QueueEvent::EventColorChange()
+{
+    list<IEventColorChangeObserver*>::iterator iter = m_colorChangeObserversList.begin();
+    list<IEventColorChangeObserver*>::iterator last = m_colorChangeObserversList.end();
+    
+    // loop while there are more items
+    for ( ; iter != last; iter++ )
+    {
+        IEventColorChangeObserver* observer = *iter;
+        observer->NotifyEventColorChange(this);
+    }
 }
 
 /******************************************************************
  * When other event that this event is depends on is done, this function
  * is called.
  * This event decrement is dependcy count and if it's counter set to
- * 0, than change status to green.
+ * 0, than change status to green. The event shall notify the 
  * 
  ******************************************************************/
 cl_err_code QueueEvent::NotifyEventDone(QueueEvent* event)
@@ -129,7 +189,7 @@ cl_err_code QueueEvent::NotifyEventDone(QueueEvent* event)
     --m_uDependencyCount;
     if ( 0 == m_uDependencyCount )
     {
-        m_stateColor = EVENT_STATE_GREEN;
+        SetEventColor(EVENT_STATE_GREEN);        
     }
     return CL_SUCCESS;
 }

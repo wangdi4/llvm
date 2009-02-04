@@ -36,7 +36,8 @@ using namespace Intel::OpenCL::Framework;
  * Creates the private objects
  ******************************************************************/
 InOrderQueue::InOrderQueue():
-    m_bCleanUp(false)
+    m_bCleanUp(false),
+    m_bBroadcasted(false)
 {
     // Create synch objects
     m_pCond             = new OclCondition();
@@ -79,6 +80,7 @@ cl_err_code InOrderQueue::PushFront(Command* pCommand)
     {
         return CL_ERR_FAILURE;
     }
+    QueueEvent::QueueEventStateColor color;
     // Start Critical Section - lock access to all lists.
     { OclAutoMutex CS(m_pListLockerMutex);
 
@@ -103,15 +105,15 @@ cl_err_code InOrderQueue::PushFront(Command* pCommand)
     if ( NULL == pPrevCommand )
     {
         // The command is ready for execute, no dependencies.
-        pCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_GREEN);
         m_readyCmdsList.push_back(pCommand);
+        color = QueueEvent::EVENT_STATE_GREEN;
     }
     else
     {
         // Get into the depenecy list
-        pCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_RED);
-        pCommand->GetEvent()->SetDependentOn(pPrevCommand->GetEvent());
         m_waitingCmdsList.push_front(pCommand);
+        pCommand->GetEvent()->SetDependentOn(pPrevCommand->GetEvent());
+        color = QueueEvent::EVENT_STATE_RED;
     }
 
     // If there is a command that waits on the queue, set it to be dependent in the new one
@@ -120,9 +122,9 @@ cl_err_code InOrderQueue::PushFront(Command* pCommand)
         pNextCommand->GetEvent()->SetDependentOn(pCommand->GetEvent());
     }        
     }// End of critical section
-
-    // New command may be already green, signal the worker to process it    
-    m_pCond->Signal(); // TODO: Check races here, may create problems.
+    
+    // SetEvent signals to process
+    pCommand->GetEvent()->SetEventColor(color);
 
     return CL_SUCCESS;
 }
@@ -146,19 +148,21 @@ Command* InOrderQueue::GetNextCommand()
     m_pListLockerMutex->Lock();
     // This method loop on the ready list.
     // Each call to StableList, may enter object into the ready list.
-    while (m_readyCmdsList.empty() && res != COND_RESULT_COND_BROADCASTED)
+    while (m_readyCmdsList.empty() && res != COND_RESULT_COND_BROADCASTED && !m_bBroadcasted)
     {
         res = m_pCond->Wait(m_pListLockerMutex);
+        StableLists();
     }
-    if(res!=COND_RESULT_COND_BROADCASTED)
+    if(res!=COND_RESULT_COND_BROADCASTED && !m_bBroadcasted)
     {
         // Found a command, pop is out and move it to the device
         pNextCommand = m_readyCmdsList.front();
         m_readyCmdsList.pop_front();
-        pNextCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_LIME);
         m_deviceCmdsList.push_back(pNextCommand);
+        pNextCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_LIME);
     }
     m_pListLockerMutex->Unlock();
+    if(m_bBroadcasted) m_bBroadcasted = false;
     return pNextCommand;
 }
 
@@ -171,6 +175,7 @@ cl_err_code InOrderQueue::AddCommand(Command* pCommand)
     {
         return CL_ERR_FAILURE;
     }
+    bool bIsGreen = false;
 
     Command* pDependsOnCommand = NULL;
     QueueEvent* pEvent = pCommand->GetEvent();
@@ -201,22 +206,23 @@ cl_err_code InOrderQueue::AddCommand(Command* pCommand)
         m_waitingCmdsList.push_back(pCommand);
     }
     else // Redey for imidate processing
-    {
-        pEvent->SetEventColor(QueueEvent::EVENT_STATE_GREEN);
+    {        
         m_readyCmdsList.push_back(pCommand);
+        bIsGreen = true;
     }        
     }// End of Critical Section
 
-    // New command may be already green, signal the worker to process it    
-    m_pCond->Signal(); // TODO: Check races here, may create problems.
-
+    if(bIsGreen)
+    {
+        // New commandis green, signal event to change color and worker to process it
+        pEvent->SetEventColor(QueueEvent::EVENT_STATE_GREEN);
+    }
     return CL_SUCCESS;
 }
 
 /******************************************************************
  * Signals the queue to signal is waiting event
- * The queue uses this function to clean all its lists and to return them to
- * a blance state.
+ *
  ******************************************************************/
 void InOrderQueue::Signal()
 {
@@ -224,9 +230,19 @@ void InOrderQueue::Signal()
     {
         return;
     }
+    m_pCond->Signal();
+}
 
-    {OclAutoMutex CS(m_pListLockerMutex);
-    StableLists();
+/******************************************************************
+ * Broadcast the queue
+ *
+ ******************************************************************/
+void InOrderQueue::Broadcast()
+{
+    m_bBroadcasted = true;
+    if ( true == m_bCleanUp )
+    {
+        return;
     }
     m_pCond->Signal();
 }
@@ -244,32 +260,88 @@ void InOrderQueue::StableLists()
     }
 
     // Go from bottom to top;
+    bool bContinueLoop = true;
+    list<Command*>::iterator iter;
 
-    // Clean black events (done events)
-    list<Command*>::iterator iter  = m_deviceCmdsList.end();
-    list<Command*>::iterator first = m_deviceCmdsList.begin();    
-    // loop and clean;
-    for ( ; iter != first; iter-- ) 
+    if(!m_deviceCmdsList.empty())
     {
-        if((*iter)->GetEvent()->IsColor(QueueEvent::EVENT_STATE_BLACK))
+        // Get iterator to front
+        iter = m_deviceCmdsList.end();
+        iter--;
+
+        while (bContinueLoop)
         {
-            delete (*iter);
-            iter = m_deviceCmdsList.erase(iter);
+            if(iter == m_deviceCmdsList.begin())
+            {
+                //Got to the last command, no need to go farther;
+                bContinueLoop = false;
+            }
+            Command* pCommand = *iter;
+            QueueEvent* pEvent = pCommand->GetEvent();
+            if( pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
+            {
+                iter = m_deviceCmdsList.erase(iter);
+                // New list, maybe new first item
+                if(0 == pEvent->GetReferenceCount())
+                {
+                    delete (pCommand);
+                }
+                else
+                {
+                    //Still in use by other thread, don't delete, move to the black list
+                    m_blackCmdsList.push_back(pCommand);
+                }
+            }
+            else if(bContinueLoop)
+            {
+                iter--;
+            }
         }
+        bContinueLoop = true;
     }
 
     // Move green commands to ready list
-    iter  = m_waitingCmdsList.end();
-    first = m_waitingCmdsList.begin();    
-    // loop and clean;
-    for ( ; iter != first; iter-- ) 
+    if(!m_waitingCmdsList.empty())
     {
-        Command* pCommand = *iter;
-        if(pCommand->GetEvent()->IsColor(QueueEvent::EVENT_STATE_GREEN))
-        {             
-            iter = m_deviceCmdsList.erase(iter);
-            m_readyCmdsList.push_back(pCommand);
+        iter  = m_waitingCmdsList.end();
+        iter--;
+
+        // loop and clean;
+        while ( bContinueLoop ) 
+        {
+            if(iter == m_waitingCmdsList.begin())
+            {
+                //Got to the last command, no need to go farther;
+                bContinueLoop = false;
+            }
+
+            Command* pCommand = *iter;
+            if(pCommand->GetEvent()->IsColor(QueueEvent::EVENT_STATE_GREEN))
+            {             
+                iter = m_waitingCmdsList.erase(iter);
+                m_readyCmdsList.push_back(pCommand);
+            }
+            else if(bContinueLoop)
+            {
+                iter--;
+            }
         }
+        bContinueLoop = true;
+    }
+
+    // Clean black list
+    iter = m_blackCmdsList.begin();
+    while(iter != m_blackCmdsList.end())
+    {
+        if ( 0 == (*iter)->GetEvent()->GetReferenceCount())
+        {
+            iter = m_blackCmdsList.erase(iter);
+        }
+        else
+        {
+            iter++;
+        }
+
     }
 }
 
@@ -287,19 +359,19 @@ cl_err_code InOrderQueue::Release()
     // waiting and to return NULL Command
     Command* pCommand = NULL;    
     m_bCleanUp = true; // Setting this to true prevents deadlock on EventCompleted methods.
-    { OclAutoMutex CS(m_pListLockerMutex);
+
     // Top-Down, start to free the waiting list
     while(!m_waitingCmdsList.empty())
     {
         pCommand = m_waitingCmdsList.front();
-        pCommand->GetEvent()->EventCompleted();
+        pCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
         m_waitingCmdsList.pop_front();
         delete pCommand;
     }
     while(!m_readyCmdsList.empty())
     {
         pCommand = m_readyCmdsList.front();
-        pCommand->GetEvent()->EventCompleted();
+        pCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
         m_readyCmdsList.pop_front();
         delete pCommand;
     }
@@ -309,13 +381,11 @@ cl_err_code InOrderQueue::Release()
         QueueEvent* pEvent = pCommand->GetEvent();
         if ( !(pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK)))
         {
-            pEvent->EventCompleted();
+            pEvent->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
         }
         m_readyCmdsList.pop_front();
         delete pCommand;
     }
-
-    } // End of Critical Section
 
     m_pCond->Broadcast();
     return CL_SUCCESS;
@@ -328,9 +398,11 @@ cl_err_code InOrderQueue::Release()
  * the queue may not be empty.
  * 
  ******************************************************************/
-bool InOrderQueue::IsEmpty() const
+bool InOrderQueue::IsEmpty()
 {
     OclAutoMutex CS(m_pListLockerMutex);
+    // Must to stable list in advance to return stable state.
+    StableLists();
     bool  bEmpty = (m_waitingCmdsList.empty() && m_readyCmdsList.empty() && m_deviceCmdsList.empty());
     return bEmpty;
 }
@@ -342,9 +414,11 @@ bool InOrderQueue::IsEmpty() const
  * the queue size may changes.
  * 
  ******************************************************************/
-cl_uint InOrderQueue::Size() const
+cl_uint InOrderQueue::Size()
 {
     OclAutoMutex CS(m_pListLockerMutex);
+    // Must to stable list in advance to return stable state.
+    StableLists();
     cl_uint uiSize =  m_waitingCmdsList.size() + m_readyCmdsList.size() + m_deviceCmdsList.size();
     return uiSize;
 }

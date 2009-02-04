@@ -60,23 +60,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	 * Author:		Arnon Peleg
 	 * Date:		December 2008
 	/**********************************************************************************************/	
-    class OclCommandQueue : public IEventDoneObserver, public ICommandReceiver, public OCLObject
+    class OclCommandQueue : public IEventColorChangeObserver, public ICommandReceiver, public OCLObject
     {
 
     public:
 	    OclCommandQueue(
-            Context*                    pContext, 
+            Context*                    pContext,
             cl_device_id                clDefaultDeviceID, 
-            cl_command_queue_properties clProperties
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager
             );
 	    virtual         ~OclCommandQueue();
-        cl_err_code     Clean();        // The Clean signals the queue to clean himself peacefully and to release itself.
+        void            ReleaseWorkerThread();
+        cl_err_code     CleanFinish();
         cl_err_code     Initialize();   // Starts the queue. assign a working thread.
         cl_err_code     GetInfo( cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );	    
         cl_err_code     SetProperties(cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* clOldProperties);
 
         /////////////////////////////////////////////
-	    cl_err_code     EnqueueCommand(Command* command, cl_bool blocking, const cl_event event_wait_list, cl_uint num_events_in_wait_list, cl_event pEvent);
+	    cl_err_code     EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 	    cl_err_code     SetMarker(cl_event pEvent);
 	    cl_err_code     SetBarrier();
 
@@ -84,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    void            EnqueueDevCommands();
 	    void            PushFrontCommand();
         // Implement IEventDoneObserver functions.
-        cl_err_code     NotifyEventDone(QueueEvent* event);
+        cl_err_code     NotifyEventColorChange(QueueEvent* pEvent);
 
         cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;  }
         cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled; }
@@ -95,9 +97,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Private memebers
         Context*            m_pContext;
 	    Device*             m_pDefaultDevice;
+        EventsManager*      m_pEventsManager;
         cl_device_id        m_clDefaultDeviceId;
         cl_bool             m_bProfilingEnabled;
         cl_bool             m_bOutOfOrderEnabled;
+        cl_bool             m_bCleanFinish;                 // If true, in case that on NotifyEventDone the queue is empty, the object release itself
 	    QueueWorkerThread*  m_pQueueWorkerThread;
 		ICommandQueue*      m_pCommandQueue;
         Intel::OpenCL::Utils::LoggerClient* m_pLoggerClient; // Logger client for logging operations.

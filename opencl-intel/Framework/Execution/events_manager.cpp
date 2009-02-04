@@ -169,24 +169,27 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
     if ( ( NULL == pEvent) ||
          ( (NULL == eventList) && ( 0 != uiNumEvents )))
          return CL_INVALID_EVENT_WAIT_LIST;
-
     // TODO: reentrant code of accessing to m_pEvents
-    
-    // First validate that all ids in the event list exists
-    OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
-    if( NULL == vOclEvents)
-        return CL_INVALID_EVENT_WAIT_LIST;
-        
-    // Register input event in the entire eventList
-    for ( cl_uint ui =0; ui < uiNumEvents; ui++)
+
+    // If 0, no event list
+    if (0 != uiNumEvents)
     {
-        QueueEvent* pDependOnEvent = vOclEvents[ui]->GetQueueEvent();
-        if ( NULL != pDependOnEvent )
+        // First validate that all ids in the event list exists
+        OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
+        if( NULL == vOclEvents)
+            return CL_INVALID_EVENT_WAIT_LIST;
+            
+        // Register input event in the entire eventList
+        for ( cl_uint ui =0; ui < uiNumEvents; ui++)
         {
-            pEvent->SetDependentOn(pDependOnEvent);
-        }        
+            QueueEvent* pDependOnEvent = vOclEvents[ui]->GetQueueEvent();
+            if ( NULL != pDependOnEvent )
+            {
+                pEvent->SetDependentOn(pDependOnEvent);
+            }        
+        }
+        delete[] vOclEvents;
     }
-    delete[] vOclEvents;
 	return  CL_SUCCESS;    
 }
 
@@ -234,6 +237,8 @@ QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_comm
         // TODO: guard ObjMap... better doing so inside the map
         m_pEvents->AddObject(pNewOclEvent);
         *pEventHndl = (cl_event)pNewOclEvent->GetId();
+        // Register the OclEvent on the QueueEvent
+        pNewEvent->RegisterEventDoneObserver(pNewOclEvent);        
     }
 	return  pNewEvent;
 }

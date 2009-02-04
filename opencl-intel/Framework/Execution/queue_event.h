@@ -30,6 +30,7 @@
 #define __OCL_QUEUE_EVENT__
 
 #include <cl_types.h>
+#include <cl_object.h>
 #include "event_done_observer.h"
 #include <list>
 
@@ -49,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	 * Author:		Arnon Peleg
 	 * Date:		December 2008
 	/**********************************************************************************************/	
-    class QueueEvent : public IEventDoneObserver
+    class QueueEvent : public IEventDoneObserver, public OCLObject
     {
 
     public:
@@ -68,21 +69,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    virtual ~QueueEvent();
     	
 	    void        RegisterEventDoneObserver( IEventDoneObserver* observer );
+        void        UnRegisterEventDoneObserver( IEventDoneObserver* observer );
+	    void        RegisterEventColorChangeObserver( IEventColorChangeObserver* observer );
         void        SetDependentOn( QueueEvent* pDependsOnEvent );
 	    void        SetEventColor( QueueEventStateColor color );
         void        IncrementDependencyCount()                              { ++m_uDependencyCount;} //TODO: synch???
         bool        IsColor( QueueEventStateColor color )                   { return (m_stateColor == color); }
         bool        IsGreaterThanColor( QueueEventStateColor color )        { return (m_stateColor > color); }
-        void        EventCompleted();
         
         // Implementation IEventDoneObserver
-        cl_err_code NotifyEventDone(QueueEvent* event);
+        cl_err_code NotifyEventDone(QueueEvent* pEvent);
 
     private:
-	    QueueEventStateColor        m_stateColor;       // Holds the current status of the event.
-        cl_uint                     m_uDependencyCount; // Count the number of events that this event has registered on
-        list<IEventDoneObserver*>   m_observersList;    // List of ovservers; Notified on event done
-        
+	    QueueEventStateColor            m_stateColor;       // Holds the current status of the event.
+        cl_uint                         m_uDependencyCount; // Count the number of events that this event has registered on
+        list<IEventDoneObserver*>       m_observersList;    // List of ovservers; Notified on event done
+        list<IEventColorChangeObserver*>m_colorChangeObserversList;    // List of ovservers; Notified on color change
+
+        // Private functinos
+        void        EventCompleted();
+        void        EventColorChange();
+       
+        // For debugging
+        static cl_uint      m_uiInstanceCounter;
+    
+
         // Synch objects for reentrant support
         // TODO: Add reentrant code to this class
     };

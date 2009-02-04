@@ -72,16 +72,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code AddCommand(Command* command);
 	    cl_err_code PushFront(Command* command);
 	    void        Signal();
-        bool        IsEmpty() const;
-        cl_uint     Size() const;
+	    void        Broadcast();
+        bool        IsEmpty();
+        cl_uint     Size();
         cl_err_code Release();
 
     private:
         list<Command*>  m_waitingCmdsList;      // Commands that are not yet ready to be processed.
         list<Command*>  m_readyCmdsList;        // "Green" commands, commands that can be flushed to the device. currently no more than 1
         list<Command*>  m_deviceCmdsList;       // All commands that are already flushed to the device.
+        list<Command*>  m_blackCmdsList;        // Commands that are colored black and ready to be deleted.
 
         bool            m_bCleanUp;             // If true, A cleanup process is executed and all functions that changes the list should return
+        bool            m_bBroadcasted;         // If true, broadcast function has been called.
         OclCondition*   m_pCond;                // Condition variable that is used to block calls to GetNextCommand.
         OclMutex*       m_pListLockerMutex;     // Mutex for acces to the commandsList
 

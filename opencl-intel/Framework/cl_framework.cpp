@@ -356,8 +356,7 @@ cl_int clGetKernelWorkGroupInfo(cl_kernel                 kernel,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
 {
-	//EXECUTION_MODULE->WaitForEvents(num_events, event_list);
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->WaitForEvents(num_events, event_list);
 }
 cl_int clGetEventInfo(cl_event		event,
 					  cl_event_info	param_name,
@@ -365,18 +364,17 @@ cl_int clGetEventInfo(cl_event		event,
 					  void *		param_value,
 					  size_t *		param_value_size_ret)
 {
-	//EXECUTION_MODULE->GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret);
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret);
 }
+
 cl_int clRetainEvent(cl_event event)
 {
-	//EXECUTION_MODULE->RetainEvent(event);
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->RetainEvent(event);
 }
+
 cl_int clReleaseEvent(cl_event event)
 {
-	//EXECUTION_MODULE->ReleaseEvent(event);
-	return CL_ERR_NOT_IMPLEMENTED;
+	return EXECUTION_MODULE->ReleaseEvent(event);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Profiling APIs

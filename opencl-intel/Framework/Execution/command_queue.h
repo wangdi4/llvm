@@ -50,8 +50,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code AddCommand(Command* command) =0;
 	    virtual cl_err_code PushFront(Command* command) =0;
 	    virtual void        Signal() =0;
-        virtual bool        IsEmpty() const =0;
-        virtual cl_uint     Size() const =0;
+        virtual void        Broadcast() =0;
+        virtual bool        IsEmpty() =0;
+        virtual cl_uint     Size() =0;
         virtual cl_err_code Release() =0;
 
     };

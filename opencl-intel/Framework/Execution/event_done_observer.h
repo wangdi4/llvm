@@ -36,13 +36,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
     // Froward declarations
     class QueueEvent;
 
-    // Pure interface class 
+    /************************************************************************
+     * Pure interface class 
+     * 
+    /************************************************************************/     
     class IEventDoneObserver
     {
 
     public:
-        virtual cl_err_code NotifyEventDone(QueueEvent* event) = 0;
+        virtual cl_err_code NotifyEventDone(QueueEvent* pEvent) = 0;
     };
+
+    /************************************************************************
+     * Pure interface class 
+     * 
+    /************************************************************************/     
+    class IEventColorChangeObserver
+    {
+    public:
+        virtual cl_err_code NotifyEventColorChange(QueueEvent* pEvent) = 0;
+    };
+
 
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_EVENT_DONE_OBSERVER_H__)

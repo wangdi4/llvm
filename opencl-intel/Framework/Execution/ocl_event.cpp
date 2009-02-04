@@ -48,10 +48,13 @@ OclEvent::~OclEvent()
 {
     // Note OCL event is deleted only when is refCount is set to 0.
     // That means that none of the threads is still waiting on the condition
-    assert ( 0 == m_uiRefCount );
-    
+    assert ( 0 == m_uiRefCount ); 
+    if( NULL != m_queueEvent)
+    {
+        m_queueEvent->UnRegisterEventDoneObserver(this);
+        m_queueEvent = NULL;
+    }
     // Anyhow, release all waiting... 
-    m_queueEvent = NULL;
     m_eventDoneCond.Broadcast();    
 }
 

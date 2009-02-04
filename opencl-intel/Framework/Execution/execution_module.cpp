@@ -30,6 +30,7 @@
 #include "events_manager.h"
 #include "ocl_command_queue.h"
 #include "context.h"
+#include "enqueue_commands.h"
 #include <cl_objects_map.h>
 #include <logger.h>
 
@@ -96,7 +97,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
-        OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties);
+        OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
         pCommandQueue->Retain();
         // TODO: gaurd ObjMap... better doing so inside the map        
         m_pOclCommandQueueMap->AddObject((OCLObject*)pCommandQueue);
@@ -186,7 +187,7 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
     {
         // Check is the command has fully released, and if true, destroy it and remove it        
         m_pOclCommandQueueMap->RemoveObject((cl_uint)clCommandQueue, NULL); //TODO: guard this sccess        
-        pOclCommandQueue->Clean(); // The Clean signals the queue to clean himself peacefully and to release itself.        
+        pOclCommandQueue->CleanFinish(); // The CleanFinish signals the queue to finish the commands and to release itself.
     }
 	return  errVal;
 }
@@ -269,8 +270,18 @@ cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
+    cl_err_code errVal = CL_SUCCESS;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
 
-	return  CL_SUCCESS;
+    // Dummy implementation;
+    Command* pEnqueueReadBufferCmd = new DummyCommand();
+    errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    
+	return  errVal;
 }
 
 
@@ -279,8 +290,18 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
+    cl_err_code errVal = CL_SUCCESS;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
 
-	return  CL_SUCCESS;
+    // Dummy implementation;
+    Command* pWriteBufferCmd = new DummyCommand();
+    errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    
+	return  errVal;
 }
 
 /******************************************************************
@@ -288,8 +309,19 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueNDRangeKernel(cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
+    cl_err_code errVal = CL_SUCCESS;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
 
-	return  CL_SUCCESS;
+    // Dummy implementation;
+    Command* pNDRangeKernelCmd = new DummyCommand();
+    errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    
+	return  errVal;
+
 }
 
 /******************************************************************

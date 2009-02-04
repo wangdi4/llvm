@@ -26,6 +26,9 @@
 ///////////////////////////////////////////////////////////
 #include "ocl_command_queue.h"
 #include "context.h"
+#include "events_manager.h"
+#include "enqueue_commands.h"
+#include "queue_event.h"
 #include "queue_worker_thread.h"
 #include "in_order_queue.h"
 #include "out_of_order_queue.h"
@@ -39,10 +42,13 @@ using namespace Intel::OpenCL::Utils;
 OclCommandQueue::OclCommandQueue(
     Context*                    pContext, 
     cl_device_id                clDefaultDeviceID,
-    cl_command_queue_properties clProperties
+    cl_command_queue_properties clProperties,
+    EventsManager*              pEventsManager
     ):
     m_pContext(pContext),
+    m_pEventsManager(pEventsManager),
     m_clDefaultDeviceId(clDefaultDeviceID),
+    m_bCleanFinish(false),
     m_pQueueWorkerThread(NULL),
     m_pCommandQueue(NULL)
 {
@@ -78,7 +84,8 @@ OclCommandQueue::~OclCommandQueue()
     m_pContext = NULL;
     m_pDefaultDevice = NULL;
 }
-    
+
+void ReleaseWorkerThread();
 
 /******************************************************************
  * This function initilaizes the command,
@@ -112,13 +119,17 @@ cl_err_code OclCommandQueue::Initialize()
 }
 
 /******************************************************************
- * The Clean signals the queue to clean himself peacefully and to release itself.
- * TODO: Implement queue clean function.
+ * CleanFinish signals the command queue to finish processing all its 
+ * commands, and when the queue is empty to release all its resources.
+ * The function is return immediately, but after it returns any instance of
+ * ir reference to this object is considered invalid and is no longer
+ * accessable.
+ * 
  ******************************************************************/
-cl_err_code OclCommandQueue::Clean()
+cl_err_code OclCommandQueue::CleanFinish()
 {
-//    ErrLog(m_pLoggerClient, L"OclCommandQueue::Clean function is not supported");
-	return CL_ERR_FAILURE;	
+    m_bCleanFinish = true;
+	return CL_SUCCESS;	
 }
 
 /******************************************************************
@@ -140,14 +151,40 @@ cl_err_code OclCommandQueue::SetProperties(cl_command_queue_properties clPropert
 }
 
 /******************************************************************
- * This function is called when event in the queue is done.
+ * This function is called when event in the queue change its color.
  * the queue should use this notification to signal the worker thread
  * to continue processing
  ******************************************************************/
-cl_err_code OclCommandQueue::NotifyEventDone(QueueEvent* event)
+cl_err_code OclCommandQueue::NotifyEventColorChange(QueueEvent* pEvent)
 {
-    ErrLog(m_pLoggerClient, L"OclCommandQueue::NotifyEventDone function is not implemented yet");
-    return CL_ERR_FAILURE;
+    // Debug
+    if (pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
+    {
+        printf("==== DummyCommand(%3d) is executed on Queue (%3d) ==== \n", pEvent->GetId(), GetId());
+    }
+
+    // In case it the queue marked for finish and an event is done, check if device is empty
+    // If it is broadcast thread to clean; be careful to delete your self.
+    if(m_bCleanFinish && pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
+    {
+        if(m_pCommandQueue->IsEmpty())
+        {
+            // The queue was requested to finish and it is empty, safe to release it.
+            m_pQueueWorkerThread->CancelProcessing();
+            m_pCommandQueue->Broadcast();
+            //m_pCommandQueue->Release();
+            // Delete your self and exit.
+            //delete this;
+            return CL_SUCCESS;
+        }
+    }
+
+    // Signal only when there is a command ready.
+    if(pEvent->IsColor(QueueEvent::EVENT_STATE_GREEN))
+    {
+        m_pCommandQueue->Signal();
+    }
+    return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -155,7 +192,8 @@ cl_err_code OclCommandQueue::NotifyEventDone(QueueEvent* event)
  ******************************************************************/
 void OclCommandQueue::EnqueueDevCommands()
 {
-	return ;
+    ErrLog(m_pLoggerClient, L"OclCommandQueue::EnqueueDevCommands function is not implemented yet");
+    return;
 }
 
 /******************************************************************
@@ -163,16 +201,60 @@ void OclCommandQueue::EnqueueDevCommands()
  ******************************************************************/
 void OclCommandQueue::PushFrontCommand()
 {
+    ErrLog(m_pLoggerClient, L"OclCommandQueue::PushFrontCommand function is not implemented yet");
+    return;
 }
 
 
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code OclCommandQueue::EnqueueCommand(Command* command, cl_bool blocking, const cl_event event_wait_list, cl_uint num_events_in_wait_list, cl_event pEvent)
+cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
-    return CL_SUCCESS;
+    cl_err_code errVal = CL_SUCCESS;
+    // If blocking and no event, than it is needed to create dummy cl_event for wait
+    cl_event waitEvent;
+    cl_event* pEvent;
+    if( bBlocking && NULL == pUserEvent)
+    {
+        pEvent = &waitEvent;
+    }
+    else
+    {
+        pEvent = pUserEvent;
+    }
+    // creates the command's event
+    QueueEvent* pQueueEvent = m_pEventsManager->CreateEvent(pCommand->GetCommandType(), (cl_command_queue)m_iId, pEvent);
+    errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
+    if( CL_FAILED(errVal))
+    {
+        delete pQueueEvent;
+        return errVal;
+    }
+    // Set event and receiver of the command.
+    pCommand->SetEvent(pQueueEvent);
+    pCommand->SetReceiver(this);
+    // Register this queue as a change color observer of the event, to signal the actual queue
+    pQueueEvent->RegisterEventColorChangeObserver(this);
+    
+    errVal = m_pCommandQueue->AddCommand(pCommand);
+    if (CL_FAILED(errVal))
+    {
+        // TODO: clean up events etc...????
+        return CL_ERR_FAILURE;
+    }
 
+    // If blocking, wait for object
+    if(bBlocking)
+    {
+        m_pEventsManager->WaitForEvents(1,pEvent);
+        if(pUserEvent == NULL)
+        {
+            // The case where er use temp event for blocking
+            m_pEventsManager->ReleaseEvent(waitEvent);
+        }
+    }
+    return CL_SUCCESS;
 }
 
 /**

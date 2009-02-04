@@ -25,15 +25,19 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 #include "enqueue_commands.h"
-
+#include "queue_event.h"
+//For debug
+#include <stdio.h>
+#include <windows.h>
+#include <process.h>
 using namespace Intel::OpenCL::Framework;
 
 /******************************************************************
  *
  ******************************************************************/
 Command::Command():
-    m_queueEvent(NULL),
-    m_receiver(NULL)
+    m_pQueueEvent(NULL),
+    m_pReceiver(NULL)
 {
 }
 
@@ -42,8 +46,10 @@ Command::Command():
  ******************************************************************/
 Command::~Command()
 {
-    m_queueEvent =  NULL;
-    m_receiver =    NULL;
+    // The command delets its event
+    if ( NULL != m_pQueueEvent) delete m_pQueueEvent;
+    m_pQueueEvent =  NULL;
+    m_pReceiver =    NULL;
 }
 
 /******************************************************************
@@ -293,3 +299,22 @@ WriteImageCommand::~WriteImageCommand(){
 
 }
 
+
+/******************************************************************
+ *
+ ******************************************************************/
+unsigned int __stdcall DummyCommandThreadEntryPoint(void* threadObject)
+{
+    Sleep(300);
+    Command* pCommand = (Command*)threadObject;
+    pCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
+    return 1;
+}
+
+
+cl_err_code DummyCommand::Execute()
+{
+    // Start execution thread;
+    _beginthreadex(NULL, 0, DummyCommandThreadEntryPoint, this, 0, NULL);
+    return CL_SUCCESS;
+}
