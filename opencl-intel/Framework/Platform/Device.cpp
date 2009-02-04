@@ -285,3 +285,41 @@ cl_err_code Device::GetKernelInfo(cl_dev_kernel clKernel,
 	}
 	return CL_SUCCESS;
 }
+
+cl_err_code Device::CreateMemoryObject(	cl_dev_mem_flags		clFlags,
+										const cl_image_format*	pclFormat,
+										cl_uint					uiDimCount,
+										const size_t *			pszDim,
+										void *					pBufferPtr,
+										const size_t *			pszPitch,
+										cl_dev_mem *			pMemObj)
+{
+	InfoLog(m_pLoggerClient, L"Enter CreateMemoryObject (clFlags=%d, pclFormat=%d, uiDimCount=%d, pszDim=%d, pBufferPtr=%d, pszPitch=%d, pMemObj=%d)", 
+		clFlags, pclFormat, uiDimCount, pszDim, pMemObj);
+	cl_int iRes = m_clDevEntryPoints.pclDevCreateMemoryObject(clFlags, pclFormat, uiDimCount, pszDim, pBufferPtr, pszPitch, pMemObj);
+	if (0 != iRes)
+	{
+		return (cl_err_code)iRes;
+	}
+	return CL_SUCCESS;
+}
+cl_err_code Device::DeleteMemoryObject(cl_dev_mem clMemObj)
+{
+	InfoLog(m_pLoggerClient, L"Enter DeleteMemoryObject (clMemObj=%d)", clMemObj);
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevDeleteMemoryObject(clMemObj);
+	
+	return (cl_err_code)iRes;
+}
+cl_err_code Device::GetBuildLog(cl_dev_program	clDevProg,
+								size_t			szSize,
+								char*			psLog,
+								size_t*			pszSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter GetBuildLog (clDevProg=%d, szSize-%d, psLog=%d, pszSizeRet=%d)", 
+		clDevProg, szSize, psLog, pszSizeRet);
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevGetBuildLog(clDevProg, szSize, psLog, pszSizeRet);
+	
+	return (cl_err_code)iRes;
+}

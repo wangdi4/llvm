@@ -53,6 +53,7 @@ Program::Program(Context * pContext)
 
 	m_pfnNotify = NULL;
 	m_pUserData = NULL;
+	m_pBuildOptions = NULL;
 
 	m_pKernels = new OCLObjectsMap();
 
@@ -75,6 +76,7 @@ Program::~Program()
 	}
 	delete[] m_ppcSrcStrArr;
 	delete[] m_pszSrcStrLengths;
+	delete[] m_pBuildOptions;
 
 	// release binaries resources
 	map<cl_device_id, ProgramBinary*>::iterator it = m_mapBinaries.begin();
@@ -104,7 +106,7 @@ cl_err_code Program::Release()
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// GetInfo
+// Program::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
 {
@@ -251,13 +253,107 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		delete[] pSourceCode;
 		return CL_INVALID_VALUE;
 	}
-	memcpy_s(param_value, szParamValueSize, pValue, param_value_size);
+	if (NULL != param_value)
+	{
+		memcpy_s(param_value, szParamValueSize, pValue, param_value_size);
+	}
 	delete[] pDevices;
 	delete[] pSourceCode;
 
 	return CL_SUCCESS;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Program::GetBuildInfo
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::GetBuildInfo(	cl_device_id clDevice, 
+									cl_program_build_info clParamName, 
+									size_t szParamValueSize, 
+									void * pParamValue, 
+									size_t * pzsParamValueSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter GetBuildInfo (clDevice=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%d, pzsParamValueSizeRet=%d)", 
+		clDevice, clParamName, szParamValueSize, pParamValue, pzsParamValueSizeRet);
+
+	cl_err_code clErr = CL_SUCCESS;
+	if ((NULL == pParamValue && NULL == pzsParamValueSizeRet)	||
+		(NULL == pParamValue && szParamValueSize > 0))
+	{
+		return CL_INVALID_VALUE;
+	}
+	size_t szParamSize = 0;
+	void * pValue = NULL;
+	ProgramBinary * pProgBin = NULL;
+	Device * pDevice = NULL;
+	cl_build_status clBuildStatus;
+
+	map<cl_device_id, Device*>::iterator it_device = m_mapDevices.find(clDevice);
+	if (it_device == m_mapDevices.end())
+	{
+		return CL_INVALID_DEVICE;
+	}
+	pDevice = it_device->second;
+
+	map<cl_device_id, ProgramBinary*>::iterator it_bin = m_mapBinaries.find(clDevice);
+	pProgBin = it_bin->second;
+
+	switch (clParamName)
+	{
+	case CL_PROGRAM_BUILD_STATUS:
+		szParamSize = sizeof(cl_build_status);
+		if (NULL == pProgBin)
+		{
+			clBuildStatus = CL_BUILD_NONE;
+		}
+		else
+		{
+			clBuildStatus = (cl_build_status)pProgBin->GetStatus();
+		}
+		pValue = &clBuildStatus;
+		break;
+	
+	case CL_PROGRAM_BUILD_OPTIONS:
+		szParamSize = strlen(m_pBuildOptions) + 1;
+		pValue = m_pBuildOptions;
+		break;
+
+	case CL_PROGRAM_BUILD_LOG:
+		if (NULL == pProgBin)
+		{
+			szParamValueSize = 0;
+			pValue = NULL;
+		}
+		else
+		{
+			clErr = pDevice->GetBuildLog(pProgBin->GetId(), szParamValueSize, (char*)pParamValue, pzsParamValueSizeRet);
+			return clErr;
+		}
+		break;
+	
+	default:
+		ErrLog(m_pLoggerClient, L"clParamName (=%d) isn't valid", clParamName);
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != pParamValue && szParamSize > szParamValueSize)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	// if pParamValue == NULL return only param value size
+	if (NULL != pzsParamValueSizeRet)
+	{
+		*pzsParamValueSizeRet = szParamValueSize;
+		return CL_SUCCESS;
+	}
+
+	if (NULL != pParamValue)
+	{
+		memcpy_s(pParamValue, szParamSize, pValue, szParamValueSize);
+	}
+
+	return CL_SUCCESS;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // AddSource
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -577,6 +673,17 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 
 	m_pUserData = pUserData;
 	m_pfnNotify = pfnNotify;
+
+	if (NULL != m_pBuildOptions)
+	{
+		delete[] m_pBuildOptions;
+	}
+	m_pBuildOptions = new char[strlen(pcOptions) + 1];
+	if (NULL == m_pBuildOptions)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	strcpy_s(m_pBuildOptions, strlen(pcOptions) + 1, pcOptions);
 
 	clErrRet = BuildBinarys(uiNumDevices, pclDeviceList, pcOptions);
 

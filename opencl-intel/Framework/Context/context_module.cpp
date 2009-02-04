@@ -615,7 +615,24 @@ cl_int ContextModule::GetProgramBuildInfo(cl_program clProgram,
 										  void * pParamValue, 
 										  size_t * pszParamValueSizeRet)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"GetProgramBuildInfo enter. clProgram=%d, clDevice=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d", 
+		clProgram, clDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	Program * pProgram = NULL;
+	if (NULL == m_pPrograms)
+	{
+		ErrLog(m_pLoggerClient, L"m_pPrograms == NULL; return CL_ERR_INITILIZATION_FAILED");
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	// get program from the programs map list
+	clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		ErrLog(m_pLoggerClient, L"m_pPrograms->GetOCLObject(%d, %d) = %d", clProgram, &pProgram, clErrRet);
+		return CL_INVALID_CONTEXT;
+	}
+	return pProgram->GetBuildInfo(clDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateKernel

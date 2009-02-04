@@ -27,6 +27,7 @@
 
 #include "cl_buffer.h"
 #include <assert.h>
+using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -34,7 +35,7 @@ using namespace Intel::OpenCL::Framework;
 // Buffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, cl_err_code * pErrCode):
-		MemoryObject(pContext, clMemFlags, pHostPtr)
+		MemoryObject(pContext, clMemFlags, pHostPtr, pErrCode)
 {
 #ifdef _DEBUG
 	assert ( NULL != pErrCode );
@@ -57,14 +58,36 @@ Buffer::~Buffer()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo D'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	MemoryObject::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
+cl_err_code	Buffer::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Release D'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code MemoryObject::Release()
+cl_err_code Buffer::Release()
 {
 	return OCLObject::Release();
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Buffer::CreateDeviceResource
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Buffer::CreateDeviceResource(cl_device_id clDeviceId)
+{
+	InfoLog(m_pLoggerClient, L"Enter CreateDeviceResource (clDeviceId=%d)", clDeviceId);
+
+	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
+	if (it == m_mapDeviceMemObjects.end())
+	{
+		ErrLog(m_pLoggerClient, L"Can't find device %d", clDeviceId);
+		return CL_INVALID_DEVICE;
+	}
+
+	DeviceMemoryObject * pDevMemObj = it->second;
+
+#ifdef _DEBUG
+	assert ( pDevMemObj != NULL );
+#endif
+
+	return pDevMemObj->AllocateBuffer(m_clFlags, m_szBufferSize, m_pHostPtr);
 }

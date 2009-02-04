@@ -98,6 +98,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code InitDevice(const wchar_t * pwcDllPath);
 
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// Device API functions
+		//////////////////////////////////////////////////////////////////////////////////////////
+
 		/******************************************************************************************
 		* Function: 	CheckProgramBinary    
 		* Description:	Check if the binary is a valid binary
@@ -137,6 +141,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t				szValueSize,
 									void *				pValue,
 									size_t *			pValueSizeRet );
+
+		cl_err_code CreateMemoryObject(	cl_dev_mem_flags		clFlags,
+										const cl_image_format*	pclFormat,
+										cl_uint					uiDimCount,
+										const size_t *			pszDim,
+										void *					pBufferPtr,
+										const size_t *			pszPitch,
+										cl_dev_mem *			pMemObj );
+
+		cl_err_code DeleteMemoryObject(cl_dev_mem clMemObj);
+
+		cl_err_code GetBuildLog(cl_dev_program	clDevProg,
+								size_t			szSize,
+								char*			psLog,
+								size_t*			pszSizeRet);
+
 
 
 	private:

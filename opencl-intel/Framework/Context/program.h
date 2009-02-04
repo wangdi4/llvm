@@ -106,6 +106,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
 
+		cl_err_code GetBuildInfo(	cl_device_id clDevice, 
+									cl_program_build_info clParamName, 
+									size_t szParamValueSize, 
+									void * pParamValue, 
+									size_t * pzsParamValueSizeRet);
+
 		// relase the program object and its reosurces
 		cl_err_code Release();
 
@@ -162,6 +168,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		EProgramSourceType						m_eProgramSourceType;	// program source type
 
 		Context *								m_pContext;			// parent context
+
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// Build varaibles
+		///////////////////////////////////////////////////////////////////////////////////////////
+	
+		char *									m_pBuildOptions;
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// Source code varaibles

@@ -84,17 +84,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code Release();
 
+	protected:
+
+		// MemoryObject methods
+		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
 
 	private:
 
 		size_t									m_szBufferSize;
 
-		void *									m_pTempBuffer;
-
-		std::map<cl_device_id, Device*>			m_mapDevices;
-
-		cl_device_id							m_clBufferLocation;
-		
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
 
 	};
