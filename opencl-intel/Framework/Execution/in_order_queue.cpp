@@ -203,6 +203,11 @@ cl_err_code InOrderQueue::AddCommand(Command* pCommand)
         // register and enter to waiting list
         QueueEvent* pDependsOnEvent = pDependsOnCommand->GetEvent();
         pEvent->SetDependentOn(pDependsOnEvent);
+    }
+    
+    if (pEvent->IsColor(QueueEvent::EVENT_STATE_RED))
+    {
+        // Maybe red from the previous pDependsOnCommand or already red by defintion due to command that wait on other events
         m_waitingCmdsList.push_back(pCommand);
     }
     else // Redey for imidate processing
