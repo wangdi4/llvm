@@ -27,7 +27,7 @@
 
 #include "device.h"
 #include "windows.h"
-#include "build_done_observer.h"
+#include "observer.h"
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -42,6 +42,8 @@ Device::Device()
 	m_mapDeviceLoggerClinets[0] = m_pLoggerClient;
 	
 	InfoLog(m_pLoggerClient, L"Device contsructor enter");
+	m_mapBuildDoneObservers.clear();
+	m_mapCmdStatuschangedObservers.clear();
 	::OCLObject();
 }
 
@@ -239,8 +241,19 @@ void Device::BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_
 	}
 	return;
 }
-void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status, cl_int status_result)
+void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result)
 {
+	Device * pDevice = (Device*)pData;
+
+	map<cl_dev_cmd_id, ICmdStatusChangedObserver *>::iterator it = pDevice->m_mapCmdStatuschangedObservers.find(cmd_id);
+	if (it != pDevice->m_mapCmdStatuschangedObservers.end())
+	{
+		ICmdStatusChangedObserver * pCmdstatusChangedObserver = (ICmdStatusChangedObserver*)it->second;
+		if (NULL != pCmdstatusChangedObserver)
+		{
+			pCmdstatusChangedObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, status_result);
+		}
+	}
 	return;
 }
 cl_err_code Device::GetKernelId(cl_dev_program	clDevProg,
@@ -320,6 +333,51 @@ cl_err_code Device::GetBuildLog(cl_dev_program	clDevProg,
 		clDevProg, szSize, psLog, pszSizeRet);
 	
 	cl_int iRes = m_clDevEntryPoints.pclDevGetBuildLog(clDevProg, szSize, psLog, pszSizeRet);
+	
+	return (cl_err_code)iRes;
+}
+cl_err_code Device::CreateCommandList(cl_dev_cmd_list_props clDevCmdListProps, cl_dev_cmd_list * pclDevCmdList)
+{
+	InfoLog(m_pLoggerClient, L"CreateCommandList GetBuildLog (cl_dev_cmd_list_props=%d, pclDevCmdList-%d)", 
+		clDevCmdListProps, pclDevCmdList);
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevCreateCommandList(clDevCmdListProps, pclDevCmdList);
+	
+	return (cl_err_code)iRes;
+}
+cl_err_code Device::RetainCommandList(cl_dev_cmd_list clDevCmdList)
+{
+	InfoLog(m_pLoggerClient, L"RetainCommandList GetBuildLog (clDevCmdList=%d)", clDevCmdList);
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevRetainCommandList(clDevCmdList);
+	
+	return (cl_err_code)iRes;
+}
+cl_err_code Device::ReleaseCommandList(cl_dev_cmd_list clDevCmdList)
+{
+	InfoLog(m_pLoggerClient, L"ReleaseCommandList GetBuildLog (clDevCmdList=%d)", clDevCmdList);
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevReleaseCommandList(clDevCmdList);
+	
+	return (cl_err_code)iRes;
+}
+cl_err_code Device::CommandListExecute(cl_dev_cmd_list clDevCmdList,
+									   cl_dev_cmd_desc * clDevCmdDesc,
+									   cl_uint uiCount,
+									   ICmdStatusChangedObserver * pCmdStatusChangedObserver)
+{
+	InfoLog(m_pLoggerClient, L"CommandListExecute GetBuildLog (clDevCmdList=%d, clDevCmdDesc-%d, uiCount=%d, pCmdStatusChangedObserver=%d)", 
+		clDevCmdList, clDevCmdDesc, uiCount, pCmdStatusChangedObserver);
+
+	// set observers for each command id
+	for (cl_uint ui=0; ui<uiCount; ++ui)
+	{
+		cl_dev_cmd_id clDevCmdId = clDevCmdDesc[ui].id;
+		clDevCmdDesc[ui].data = this;
+		m_mapCmdStatuschangedObservers[clDevCmdId] = pCmdStatusChangedObserver;
+	}
+	
+	cl_int iRes = m_clDevEntryPoints.pclDevCommandListExecute(clDevCmdList, clDevCmdDesc, uiCount);
 	
 	return (cl_err_code)iRes;
 }

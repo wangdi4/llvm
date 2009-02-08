@@ -39,6 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Froward declarations
 	class IBuildDoneObserver;
+	class ICmdStatusChangedObserver;
 
 	/**********************************************************************************************
 	* Class name:	Device
@@ -127,6 +128,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *			pBin,
 										size_t *		pszBinSizeRet );
 
+		cl_err_code GetBuildLog(cl_dev_program	clDevProg,
+								size_t			szSize,
+								char*			psLog,
+								size_t*			pszSizeRet);
+
 		cl_err_code GetKernelId(	cl_dev_program	clDevProg,
 									const char *	psKernelName,
 									cl_dev_kernel *	pclKernel );
@@ -152,22 +158,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code DeleteMemoryObject(cl_dev_mem clMemObj);
 
-		cl_err_code GetBuildLog(cl_dev_program	clDevProg,
-								size_t			szSize,
-								char*			psLog,
-								size_t*			pszSizeRet);
 
-
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// Command list methods
+		///////////////////////////////////////////////////////////////////////////////////////////
+		cl_err_code CreateCommandList(cl_dev_cmd_list_props clDevCmdListProps, cl_dev_cmd_list * pclDevCmdList);
+		cl_err_code RetainCommandList(cl_dev_cmd_list clDevCmdList);
+		cl_err_code ReleaseCommandList(cl_dev_cmd_list clDevCmdList);
+		cl_err_code CommandListExecute(	cl_dev_cmd_list clDevCmdList, 
+										cl_dev_cmd_desc * clDevCmdDesc, 
+										cl_uint uiCount,
+										ICmdStatusChangedObserver * pCmdStatusChangedObserver);
 
 	private:
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// callback functions
-		//////////////////////////////////////////////////////////////////////////////////////////
+		///////////////////////////////////////////////////////////////////////////////////////////
 		
 		// cl_dev_call_backs
 		static void BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
-		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, cl_int cmd_status, cl_int status_result);
+		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result);
 
 		// cl_dev_log_descriptor
 		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
@@ -178,9 +189,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// class private members
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		std::map<cl_dev_program, IBuildDoneObserver *>	m_mapBuildDoneObservers;	// holds pointer to notification functions
-																					// for each device program object
+		// holds pointer to notification functions for each device program object
+		std::map<cl_dev_program, IBuildDoneObserver *>	m_mapBuildDoneObservers;
 		
+		// list of command status changed observers. hold observer for each device command id
+		std::map<cl_dev_cmd_id, ICmdStatusChangedObserver *> m_mapCmdStatuschangedObservers;
+
 		static cl_int							m_iNextClientId;		// hold the next client logger id
 
 		static std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients

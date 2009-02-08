@@ -33,7 +33,7 @@
 #include <logger.h>
 #include <cl_synch_objects.h>
 #include <cl_device_api.h>
-#include <build_done_observer.h>
+#include <observer.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

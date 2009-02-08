@@ -369,10 +369,6 @@
 			Name="Platform"
 			>
 			<File
-				RelativePath=".\Platform\build_done_observer.h"
-				>
-			</File>
-			<File
 				RelativePath=".\Platform\Device.cpp"
 				>
 			</File>
@@ -382,6 +378,10 @@
 			</File>
 			<File
 				RelativePath=".\Platform\iplatform.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Platform\observer.h"
 				>
 			</File>
 			<File

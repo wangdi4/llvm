@@ -18,29 +18,41 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-///////////////////////////////////////////////////////////
-//  build_done_observer.h
-//  Implementation of the Class IBuildDoneObserver
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//  observer.h
+//  Implementation of different observer interfaces to be used by the framework
 //  Created on:      23-Dec-2008 3:23:02 PM
 //  Original author: Levy, Uri
-///////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(__OCL_BUILD_DONE_OBSERVER_H__)
-#define __OCL_BUILD_DONE_OBSERVER_H__
+#if !defined(__OCL_OBSERVER_H__)
+#define __OCL_OBSERVER_H__
 
+#include <cl_device_api.h>
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
     // Pure interface class 
+	// implement this interface if you want to be notified when program build process was finished
+	// in order to register the obsrever, call BuildProgram method in Device object
     class IBuildDoneObserver
     {
-
     public:
         virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status) = 0;
     };
 
+
+	// Pure interface class 
+	// implement this interface if you want to be notified when specific command's status was changed
+	// in order to register the observer, call 
+	class ICmdStatusChangedObserver
+	{
+	public:
+		virtual cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult) = 0;
+	};
+
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_BUILD_DONE_OBSERVER_H__)
+#endif  // !defined(__OCL_OBSERVER_H__)
 
 

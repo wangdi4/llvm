@@ -31,7 +31,7 @@
 
 #include <cl_types.h>
 #include <cl_object.h>
-#include <build_done_observer.h>
+#include <observer.h>
 #include <logger.h>
 #include <cl_synch_objects.h>
 #include <map>
