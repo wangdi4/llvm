@@ -272,7 +272,7 @@ cl_int DLLProgram::LoadProgram()
 			switch (szName[0])
 			{
 			// A Pointer
-			case 'P' :
+			case 'P' : case 'Q':
 				param_size = CL_KRNL_ARG_PTR;
 				// Skip pointer classifier
 				szName+=2;

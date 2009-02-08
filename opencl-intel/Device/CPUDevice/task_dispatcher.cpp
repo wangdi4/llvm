@@ -332,10 +332,10 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 	return CL_DEV_SUCCESS;
 }
 
-void TaskDispatcher::NotifyCommandCompletion(cl_dev_cmd_id cmdId)
+void TaskDispatcher::NotifyCommandCompletion(const cl_dev_cmd_desc* pCmd)
 {
 	//m_pTaskExec->FreeTaskHandle(hTask);
 
 	//notify framework on status change
-	m_frameWorkCallBacks.pclDevCmdStatusChanged(cmdId, CL_COMPLETE, CL_DEV_SUCCESS);
+	m_frameWorkCallBacks.pclDevCmdStatusChanged(pCmd->id, pCmd->data, CL_COMPLETE, CL_DEV_SUCCESS);
 }

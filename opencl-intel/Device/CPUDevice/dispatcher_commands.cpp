@@ -53,7 +53,7 @@ m_pTaskDispatcher(pTD), m_iLogHandle(iLogHandle)
 
 void DispatcherCommand::NotifyDispatcher()
 {
-	m_pTaskDispatcher->NotifyCommandCompletion(m_pCmd->id);
+	m_pTaskDispatcher->NotifyCommandCompletion(m_pCmd);
 }
 
 ///////////////////////////////////////////////////////////////////////////
