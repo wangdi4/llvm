@@ -148,6 +148,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// calling to this methos should be done once the data is allready available in the device
 		cl_err_code SetDataLocation(cl_device_id clDevice);
 
+		void AddPendency() { m_uiPendency++; }
+
+		void RemovePendency() { m_uiPendency--; }
+
 	protected:
 
 		// create resource of memory object for specific device.
@@ -161,9 +165,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context *								m_pContext;	// context to which the momory object belongs
 
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
+
+		// recla the number of dependant commands - will be used in order to ensure that current memory
+		// object is ready for release
+		cl_uint									m_uiPendency;
 		
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// memory object's logger client
-
 
 	};
 
