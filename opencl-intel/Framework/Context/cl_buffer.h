@@ -84,14 +84,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code Release();
 
-	protected:
-
 		// MemoryObject methods
-		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
+		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
+		cl_err_code ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet);
 
 	private:
 
 		size_t									m_szBufferSize;
+		void *									m_pBufferData;
 
 		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
 

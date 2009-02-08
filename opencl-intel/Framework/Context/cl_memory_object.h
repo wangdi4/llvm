@@ -152,11 +152,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void RemovePendency() { m_uiPendency--; }
 
-	protected:
+		// read the data from the memory object.
+		// it is on the caller responsibility to ensure that the data which available localy on the
+		// device object is the most updated data.
+		virtual cl_err_code ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet) = 0;
 
 		// create resource of memory object for specific device.
 		// this pure virtual function needs to be implemented in the buffer or image class
 		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId) = 0;
+
+	protected:
 
 		cl_mem_flags							m_clFlags; // memory object's flags
 

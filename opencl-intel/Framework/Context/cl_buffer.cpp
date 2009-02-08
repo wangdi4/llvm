@@ -43,6 +43,12 @@ Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, siz
 	m_pLoggerClient = new LoggerClient(L"buffer", LL_DEBUG);
 	
 	m_szBufferSize = szBufferSize;
+	m_pBufferData = new char[m_szBufferSize];
+	if (NULL == m_pBufferData)
+	{
+		*pErrCode = CL_OUT_OF_HOST_MEMORY;
+		return;
+	}
 
 	*pErrCode = CL_SUCCESS;
 }
@@ -90,4 +96,34 @@ cl_err_code Buffer::CreateDeviceResource(cl_device_id clDeviceId)
 #endif
 
 	return pDevMemObj->AllocateBuffer(m_clFlags, m_szBufferSize, m_pHostPtr);
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Buffer::ReadData
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Buffer::ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter ReadData (szDataSize=%d, pData=%d, pszDataSizeRet=%d)", szDataSize, pData, pszDataSizeRet);
+
+	if ((NULL == pData && NULL == pszDataSizeRet) ||
+		(NULL == pData && szDataSize > 0))
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != m_szBufferSize)
+	{
+		if (m_szBufferSize > szDataSize)
+		{
+			return CL_INVALID_VALUE;
+		}
+		memcpy_s(pData, m_szBufferSize, m_pBufferData, szDataSize);
+	}
+	if (NULL != pszDataSizeRet)
+	{
+		*pszDataSizeRet = m_szBufferSize;
+	}
+	return CL_SUCCESS;
+
+
+
 }

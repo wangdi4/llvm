@@ -226,3 +226,4 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 	}
 	return CL_SUCCESS;
 }
+
