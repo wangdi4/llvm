@@ -8,9 +8,10 @@
 #include "cl_objects_map.h"
 using namespace Intel::OpenCL::Framework;
 
+cl_int OCLObjectsMap::m_iNextGenKey = 1;
+
 OCLObjectsMap::OCLObjectsMap()
 {
-	m_iMaxKey = 1;
 }
 OCLObjectsMap::~OCLObjectsMap()
 {
@@ -22,9 +23,9 @@ cl_int OCLObjectsMap::AddObject(OCLObject * pObject)
 	{
 		return CL_INVALID_VALUE;
 	}
-	pObject->SetId(m_iMaxKey);
-	m_mapObjects[m_iMaxKey] = pObject;
-	++m_iMaxKey;
+	pObject->SetId(m_iNextGenKey);
+	m_mapObjects[m_iNextGenKey] = pObject;
+	++m_iNextGenKey;
 
 	return pObject->GetId();
 }

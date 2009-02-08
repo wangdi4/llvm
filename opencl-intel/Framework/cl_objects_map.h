@@ -48,7 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	protected:
 		// object's map
 		map<cl_int, OCLObject*>		m_mapObjects;
-		cl_int						m_iMaxKey;
+		static cl_int				m_iNextGenKey;
 
 	public:
 

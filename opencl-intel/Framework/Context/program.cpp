@@ -678,14 +678,17 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 	{
 		delete[] m_pBuildOptions;
 	}
-	m_pBuildOptions = new char[strlen(pcOptions) + 1];
-	if (NULL == m_pBuildOptions)
+	if (NULL != pcOptions)
 	{
-		return CL_OUT_OF_HOST_MEMORY;
+		m_pBuildOptions = new char[strlen(pcOptions) + 1];
+		if (NULL == m_pBuildOptions)
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+		strcpy_s(m_pBuildOptions, strlen(pcOptions) + 1, pcOptions);
 	}
-	strcpy_s(m_pBuildOptions, strlen(pcOptions) + 1, pcOptions);
 
-	clErrRet = BuildBinarys(uiNumDevices, pclDeviceList, pcOptions);
+	clErrRet = BuildBinarys(uiNumDevices, pclDeviceList, m_pBuildOptions);
 
 	return clErrRet;
 }
