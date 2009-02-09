@@ -125,7 +125,12 @@ cl_err_code Buffer::ReadData(size_t szDataSize, void * pData, size_t * pszDataSi
 		*pszDataSizeRet = m_szBufferSize;
 	}
 	return CL_SUCCESS;
-
-
-
+}
+size_t Buffer::GetSize() const
+{
+	return m_szBufferSize;
+}
+void * Buffer::GetData() const
+{
+	return m_pBufferData;
 }

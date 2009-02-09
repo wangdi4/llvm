@@ -87,6 +87,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
 		cl_err_code ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet);
+		size_t GetSize() const;
+		void * GetData() const;
+
 
 	private:
 

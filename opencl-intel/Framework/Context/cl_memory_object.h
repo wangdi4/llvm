@@ -183,17 +183,36 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void RemovePendency() { m_uiPendency--; }
 
+		// get the type of the memory object
+		const EMemObjectType GetType() const { return m_eMemObjType; }
+
+		// infrom whether all device resource are not in use and the memory object is ready
+		// for deletion
+		const bool ReadyForDeletion() const { return 0 == m_uiPendency; }
+
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// Pure virtual functions
+		///////////////////////////////////////////////////////////////////////////////////////////
+
 		// read the data from the memory object.
 		// it is on the caller responsibility to ensure that the data which available localy on the
 		// device object is the most updated data.
+		// if szDataSize=0 and pData=NULL, the value in pszDataSizeRet will be the total size of
+		// the memory buffer. if pData is not NULL and pszDataSizeRet is not NULL too, the value
+		// in pszDataSizeRet will be the number of bytes copied
 		virtual cl_err_code ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet) = 0;
 
-		// create resource of memory object for specific device.
-		// this pure virtual function needs to be implemented in the buffer or image class
-		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId) = 0;
+		// get the total size (in bytes) of the memory object
+		virtual size_t GetSize() const = 0;
 
-		// get the type of the memory object
-		const EMemObjectType GetType() const { return m_eMemObjType; }
+		// get pointer to the data of the memory object.
+		// it is on the caller responsiblity to save the data.
+		// if no data availalble locally on the memory object the function returns NULL.
+		virtual void * GetData() const = 0;
+
+		// create resource of memory object for specific device.
+		// this pure virtual function need to be implemented in the buffer or image class
+		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId) = 0;
 
 	protected:
 
