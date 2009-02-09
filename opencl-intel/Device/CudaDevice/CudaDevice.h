@@ -145,7 +145,7 @@ public:
 							  cl_kernel_arg_type* OUT value, 
 							  size_t* OUT value_size_ret );
 	cl_int Build(const cl_char *options, void *user_data);
-	cl_int RunKernel( cl_dev_cmd_param_kernel* pKernelParam, cl_dev_cmd_id	id );
+	cl_int RunKernel( cl_dev_cmd_param_kernel* pKernelParam, cl_dev_cmd_id	id, void* data );
 
 	//members
 	cl_uint m_ProgramID;

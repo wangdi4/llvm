@@ -112,7 +112,7 @@ cCudaDevice::~cCudaDevice()
 
 cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
 {
-	LOG_DEBUG(L"Enter CreateDevice, device ID : %d", devId);
+	LOG_INFO(L"Enter CreateDevice, device ID : ");
 	CUresult CuRes = CUDA_SUCCESS;
 
 	CuRes = cuInit(0);
@@ -137,7 +137,7 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 		CommandList->StartThread();
 	}
 	
-	LOG_DEBUG(L"Exit CreateDevice");
+	LOG_INFO(L"Exit CreateDevice");
 	return m_pDevInstance;
 }
 
@@ -150,7 +150,7 @@ cCudaDevice* cCudaDevice::GetInstance()
 cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT param_val,
 				size_t* OUT param_val_size_ret)
 {
-	LOG_DEBUG(L"Enter clDevGetDeviceInfo, device ID : %d", m_pDevInstance->m_id);
+	LOG_INFO(L"Enter clDevGetDeviceInfo, device ID : %d", m_pDevInstance->m_id);
 	size_t size_ret;
 	void* val;
 	switch (param)
@@ -194,7 +194,7 @@ cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_si
 		*(cl_uint*)val = 0xCADA;
 		break;
 	default : LOG_ERROR(L"Invalid param : %d", param);
-		LOG_DEBUG(L"Exit clDevGetDeviceInfo");
+		LOG_INFO(L"Exit clDevGetDeviceInfo");
 		return CL_DEV_INVALID_VALUE;
 		break;
 	}
@@ -202,13 +202,13 @@ cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_si
 	if( ( NULL == param_val ) && ( NULL == param_val_size_ret ) )
 	{
 		LOG_ERROR(L"Both param_val and param_val_size_ret are NULL");
-		LOG_DEBUG(L"Exit clDevGetDeviceInfo");
+		LOG_INFO(L"Exit clDevGetDeviceInfo");
 		return CL_DEV_INVALID_VALUE;
 	}
 	if( ( NULL != param_val ) && ( NULL != param_val_size_ret ) && ( *param_val_size_ret < size_ret ) )
 	{
 		LOG_ERROR(L"param_val is not NULL and param_val_size_ret is insufficient");
-		LOG_DEBUG(L"Exit clDevGetDeviceInfo");
+		LOG_INFO(L"Exit clDevGetDeviceInfo");
 		return CL_DEV_INVALID_VALUE;
 	}
 	if( NULL != param_val )
@@ -220,34 +220,34 @@ cl_int cCudaDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_si
 	{
 		*param_val_size_ret = size_ret;
 	}
-	LOG_DEBUG(L"Exit clDevGetDeviceInfo");
+	LOG_INFO(L"Exit clDevGetDeviceInfo");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
-	LOG_DEBUG(L"Enter clDevCreateCommandList, device ID : %d", m_pDevInstance->m_id);
+	LOG_INFO(L"Enter clDevCreateCommandList, device ID : %d", m_pDevInstance->m_id);
 	if( CL_DEV_LIST_NONE != props)
 	{
 		LOG_ERROR(L"Not supporting OOO");
-		LOG_DEBUG(L"Exit clDevCreateCommandList");
+		LOG_INFO(L"Exit clDevCreateCommandList");
 		return CL_DEV_INVALID_PROPERTIES;
 	}
 	
 	(*list) = ( m_pDevInstance->m_CommandLists[ m_pDevInstance->m_CommandLists.size() - 1 ] ) -> GetID();
-	LOG_DEBUG(L"Exit clDevCreateCommandList");
+	LOG_INFO(L"Exit clDevCreateCommandList");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 {
-	LOG_DEBUG(L"clDevRetainCommandList not implemented");
+	LOG_INFO(L"clDevRetainCommandList not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
-	LOG_DEBUG(L"clDevReleaseCommandList not implemented");
+	LOG_INFO(L"clDevReleaseCommandList not implemented");
 	return CL_DEV_SUCCESS;
 }
 
@@ -256,12 +256,12 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 	
 
 
-	LOG_DEBUG(L"Enter clDevCommandListExecute, device ID : %d, list : %d, count : %d", 
+	LOG_INFO(L"Enter clDevCommandListExecute, device ID : %d, list : %d, count : %d", 
 			  m_pDevInstance->m_id, *(unsigned int*)list, count);
 	if( 0 != *(unsigned int*)list )
 	{
 		LOG_ERROR(L"Invalid command list");
-		LOG_DEBUG(L"Exit clDevCommandListExecute");
+		LOG_INFO(L"Exit clDevCommandListExecute");
 		return CL_DEV_INVALID_COMMAND_LIST;
 	}
 
@@ -270,7 +270,7 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 
 	for( unsigned int i = 0; i < count; i++ )
 	{
-		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, CL_SUBMITTED, 0);
+		m_pDevInstance->m_CallBacks.pclDevCmdStatusChanged( cmds[i].id, cmds[i].data, CL_SUBMITTED, 0);
 
 		if( CL_DEV_CMD_READ == cmds[i].type )
 		{
@@ -305,14 +305,14 @@ cl_int cCudaDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd
 			LOG_ERROR(L"recived unsuported command type \"CL_DEV_CMD_EXEC_NATIVE\"");
 		}
 	}
-	LOG_DEBUG(L"Exit clDevCommandListExecute");
+	LOG_INFO(L"Exit clDevCommandListExecute");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 				cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret)
 {
-	LOG_DEBUG(L"clDevGetSupportedImageFormats not implemented");
+	LOG_INFO(L"clDevGetSupportedImageFormats not implemented");
 	return CL_DEV_SUCCESS;
 }
 
@@ -321,17 +321,17 @@ cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 						cl_dev_mem* OUT memObj)
 {
 	//only supports buffers (dim_count = 1 and format = NULL) 
-	LOG_DEBUG(L"Enter clDevCreateMemoryObject, device ID : %d", m_pDevInstance->m_id);
+	LOG_INFO(L"Enter clDevCreateMemoryObject, device ID : %d", m_pDevInstance->m_id);
 	if( 1 != dim_count )
 	{
 		LOG_ERROR(L"Received dim_count other then 1");
-		LOG_DEBUG(L"Exit clDevCreateMemoryObject");
+		LOG_INFO(L"Exit clDevCreateMemoryObject");
 		return CL_DEV_INVALID_IMG_SIZE;
 	}
 	if( NULL != format )
 	{
 		LOG_ERROR(L"Received format other then NULL");
-		LOG_DEBUG(L"Exit clDevCreateMemoryObject");
+		LOG_INFO(L"Exit clDevCreateMemoryObject");
 		return CL_DEV_INVALID_IMG_FORMAT;
 	}
 
@@ -339,7 +339,7 @@ cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 	if( NULL == pMem )
 	{
 		LOG_ERROR(L"Object allocation failed");
-		LOG_DEBUG(L"Exit clDevCreateMemoryObject");
+		LOG_INFO(L"Exit clDevCreateMemoryObject");
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 
@@ -351,69 +351,69 @@ cl_int cCudaDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl
 
 	*memObj = tpMemObj;
 
-	LOG_DEBUG(L"Exit clDevCreateMemoryObject");
+	LOG_INFO(L"Exit clDevCreateMemoryObject");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 {
-	LOG_DEBUG(L"Enter clDevDeleteMemoryObject, device ID : %d", m_pDevInstance->m_id);
+	LOG_INFO(L"Enter clDevDeleteMemoryObject, device ID : %d", m_pDevInstance->m_id);
 	cCudaMemObject* pMem = (cCudaMemObject*)memObj->objHandle;
 	delete pMem;
-	LOG_DEBUG(L"Exit clDevDeleteMemoryObject");
+	LOG_INFO(L"Exit clDevDeleteMemoryObject");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
 						 void** OUT ptr, size_t* OUT pitch)
 {
-	LOG_DEBUG(L"clDevCreateMappedRegion not implemented");
+	LOG_INFO(L"clDevCreateMappedRegion not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
 {
-	LOG_DEBUG(L"clDevReleaseMappedRegion not implemented");
+	LOG_INFO(L"clDevReleaseMappedRegion not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin )
 {
-	LOG_DEBUG(L"clDevCheckProgramBinary not implemented");
+	LOG_INFO(L"clDevCheckProgramBinary not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 
 cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
-	LOG_DEBUG(L"Enter clDevCreateProgram, device ID : %d", m_pDevInstance->m_id);
+	LOG_INFO(L"Enter clDevCreateProgram, device ID : %d", m_pDevInstance->m_id);
 	cl_prog_container *ProgContainer = (cl_prog_container*)bin;
 
 	if (prop != CL_DEV_BINARY_USER)
 	{
 		LOG_ERROR(L"Invalid binary properties");
-		LOG_DEBUG(L"Exit clDevCreateProgram");
+		LOG_INFO(L"Exit clDevCreateProgram");
 		return CL_DEV_INVALID_BINARY;
 	}
 
 	if (ProgContainer->container_type != CL_PROG_CNT_PRIVATE)
 	{
 		LOG_ERROR(L"Invalid container type");
-		LOG_DEBUG(L"Exit clDevCreateProgram");
+		LOG_INFO(L"Exit clDevCreateProgram");
 		return CL_DEV_INVALID_BINARY;
 	}
 
 	if (ProgContainer->description.bin_type != CL_PROG_BIN_CUBIN)
 	{
 		LOG_ERROR(L"Invalid binary type");
-		LOG_DEBUG(L"Exit clDevCreateProgram");
+		LOG_INFO(L"Exit clDevCreateProgram");
 		return CL_DEV_INVALID_BINARY;
 	}
 
 	if (ProgContainer->container_size != ( strlen( (char*)ProgContainer->container ) + 1 ) )
 	{
 		LOG_ERROR(L"Inconsistent container size");
-		LOG_DEBUG(L"Exit clDevCreateProgram");
+		LOG_INFO(L"Exit clDevCreateProgram");
 		return CL_DEV_INVALID_BINARY;
 	}
 
@@ -421,34 +421,34 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 	m_pDevInstance->m_Programs.push_back(tProg);
 	*prog = (cl_dev_program*)(&(tProg->m_ProgramID));
 
-	LOG_DEBUG(L"Exit clDevCreateProgram");
+	LOG_INFO(L"Exit clDevCreateProgram");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevBuildProgram(cl_dev_program prog, const cl_char *options, void *user_data)
 {
-	LOG_DEBUG(L"Enter clDevBuildProgram, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevBuildProgram, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
 	m_pDevInstance->m_CommandLists[0]->PushBuildProgram(*(cl_uint*)prog, options, user_data);
 
-	LOG_DEBUG(L"Exit clDevBuildProgram");
+	LOG_INFO(L"Exit clDevBuildProgram");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
-	LOG_DEBUG(L"clDevReleaseProgram not implemented");
+	LOG_INFO(L"clDevReleaseProgram not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevUnloadCompiler()
 {
-	LOG_DEBUG(L"clDevUnloadCompiler not implemented");
+	LOG_INFO(L"clDevUnloadCompiler not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevGetProgramBinary(cl_dev_program prog, size_t size, void *binary, size_t *size_ret)
 {
-	LOG_DEBUG(L"Enter clDevGetProgramBinary, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevGetProgramBinary, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
 	unsigned int uiProg = *(unsigned int*)prog;
 	if( (uiProg < 0) || ( uiProg >= m_pDevInstance->m_Programs.size()) )
 	{
@@ -457,72 +457,72 @@ cl_int cCudaDevice::clDevGetProgramBinary(cl_dev_program prog, size_t size, void
 
 	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
 
-	LOG_DEBUG(L"Exit clDevGetProgramBinary");
+	LOG_INFO(L"Exit clDevGetProgramBinary");
 	return tProg->GetBinary(size, binary, size_ret);
 }
 
-cl_int cCudaDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret)
+cl_int cCudaDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT cLog, size_t* OUT size_ret)
 {
-	//LOG_DEBUG(L"clDevGetBuildLog not implemented");
+	LOG_INFO(L"clDevGetBuildLog not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT size_ret )
 {
-	LOG_DEBUG(L"clDevGetSupportedBinaries not implemented");
+	LOG_INFO(L"clDevGetSupportedBinaries not implemented");
 	return CL_DEV_SUCCESS;
 }
 
 cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id )
 {
-	LOG_DEBUG(L"Enter clDevGetKernelId, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevGetKernelId, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
 
 	unsigned int uiProg = *(unsigned int*)prog;
 	if ( name == NULL )
 	{
 		LOG_ERROR(L"name is NULL");
-		LOG_DEBUG(L"Exit clDevGetKernelId");
+		LOG_INFO(L"Exit clDevGetKernelId");
 		return CL_DEV_INVALID_VALUE;
 	}
 	if ( uiProg >= m_pDevInstance->m_Programs.size() )
 	{
 		LOG_ERROR(L"Invalid program");
-		LOG_DEBUG(L"Exit clDevGetKernelId");
+		LOG_INFO(L"Exit clDevGetKernelId");
 		return CL_DEV_INVALID_PROGRAM;
 	}
 	if ( NULL == m_pDevInstance->m_Programs[uiProg] )
 	{
 		LOG_ERROR(L"Invalid program");
-		LOG_DEBUG(L"Exit clDevGetKernelId");
+		LOG_INFO(L"Exit clDevGetKernelId");
 		return CL_DEV_INVALID_PROGRAM;
 	}
 	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
 
-	LOG_DEBUG(L"Exit clDevGetKernelId");
+	LOG_INFO(L"Exit clDevGetKernelId");
 	return tProg->GetKernelID(name, kernel_id);
 }
 
 cl_int cCudaDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 cl_uint* OUT num_kernels_ret )
 {
-	LOG_DEBUG(L"Enter clDevGetProgramKernels, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevGetProgramKernels, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
 
 	unsigned int uiProg = *(unsigned int*)prog;
 	if ( uiProg >= m_pDevInstance->m_Programs.size() )
 	{
 		LOG_ERROR(L"Invalid program");
-		LOG_DEBUG(L"Exit clDevGetProgramKernels");
+		LOG_INFO(L"Exit clDevGetProgramKernels");
 		return CL_DEV_INVALID_PROGRAM;
 	}
 	if ( NULL == m_pDevInstance->m_Programs[uiProg] )
 	{
 		LOG_ERROR(L"Invalid program");
-		LOG_DEBUG(L"Exit clDevGetProgramKernels");
+		LOG_INFO(L"Exit clDevGetProgramKernels");
 		return CL_DEV_INVALID_PROGRAM;
 	}
 	cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
 	
-	LOG_DEBUG(L"Exit clDevGetProgramKernels");
+	LOG_INFO(L"Exit clDevGetProgramKernels");
 	return tProg->GetKernels(num_kernels, (KERNEL_ID**)kernels, num_kernels_ret);
 }
 
@@ -533,14 +533,14 @@ cl_int cCudaDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_i
 
 	wstring KernelName = str2wstr( tKernel->KernelName );
 	int ProgramID = tKernel->ProgramID;
-	LOG_DEBUG(L"Enter clDevGetKernelInfo, device ID : %d, program ID : %d kernel name : \"%ws\"", m_pDevInstance->m_id, ProgramID, KernelName);
+	LOG_INFO(L"Enter clDevGetKernelInfo, device ID : %d, program ID : %d kernel name : \"%ws\"", m_pDevInstance->m_id, ProgramID, KernelName);
 	
 	if( CL_DEV_KERNEL_NAME == param )
 	{
 		if( ( NULL != value ) && ( value_size < tKernel->KernelName.length() + 1 ) )
 		{
 			LOG_ERROR(L"value is not NULL and value_size is insufficient");
-			LOG_DEBUG(L"Exit clDevGetKernelInfo");
+			LOG_INFO(L"Exit clDevGetKernelInfo");
 			return CL_DEV_INVALID_VALUE;
 		}
 		if( NULL != value )
@@ -914,7 +914,7 @@ cl_int cCudaProgram::Build(const cl_char *options, void *user_data)
 
 	return CL_DEV_SUCCESS;
 }
-cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cmd_id id )
+cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cmd_id id, void* data )
 {
 	CUresult cuRes = CUDA_SUCCESS;
 	float time = 0;
@@ -922,7 +922,7 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	KERNEL_ID *ID = (KERNEL_ID*)pKernelParam->kernel;
 	wstring KernelName = str2wstr( ID->KernelName );
 	int ProgramID = ID->ProgramID;
-	LOG_DEBUG(L"executing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), ProgramID);
+	LOG_INFO(L"executing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), ProgramID);
 	cCudaKernel* tKernel = m_kernels[ID->KernelName];
 
 	cl_uint work_dim = pKernelParam->work_dim;
@@ -950,7 +950,7 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	{
 		if( arg_types[i] != tKernel->m_Arguments[i] )
 		{
-			m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+			m_device->m_CallBacks.pclDevCmdStatusChanged( id, data, CL_COMPLETE, CL_DEV_ERROR_FAIL );
 			return CL_DEV_ERROR_FAIL;
 		}
 
@@ -961,7 +961,7 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 			pMem = (cCudaMemObject*)pDevMem->objHandle;
 			if( pMem->GetRW() != tKernel->m_MemFlags[i] )
 			{
-				m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_ERROR_FAIL );
+				m_device->m_CallBacks.pclDevCmdStatusChanged( id, data, CL_COMPLETE, CL_DEV_ERROR_FAIL );
 				return CL_DEV_ERROR_FAIL;
 			}
 			cuRes = cuParamSeti(tKernel->m_function, offset, pMem->GetPtr());
@@ -979,10 +979,10 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	cuRes = cuFuncSetBlockShape(tKernel->m_function, lcl_wrk_size[0], lcl_wrk_size[1], 1);
 	cuRes = cuEventRecord(start,0);
 	cuRes = cuLaunchGrid(tKernel->m_function, glb_wrk_size[0], glb_wrk_size[1]);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_RUNNING, 0);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( id, data, CL_RUNNING, 0);
 	cuRes = cuEventRecord(finish,0);
 	cuRes = cuEventSynchronize(finish);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( id, CL_COMPLETE, CL_DEV_SUCCESS );
+	m_device->m_CallBacks.pclDevCmdStatusChanged( id, data, CL_COMPLETE, CL_DEV_SUCCESS );
 	cuRes = cuEventElapsedTime(&time, start, finish );
 	cuRes = cuEventDestroy(start);
 	cuRes = cuEventDestroy(finish);
@@ -1076,6 +1076,7 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 	command->param_size = cmds->param_size;
 	command->type = cmds->type;
 	command->id = cmds->id;
+	command->data = cmds->data;
 	command->params = KernelParams;
 
 
@@ -1086,13 +1087,13 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 
 	m_QueueLock.Lock();
 	m_commands.push(Container);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, command->data, CL_QUEUED, 0);
 	wstring KernelName = str2wstr( ( (KERNEL_ID*)KernelParams->kernel )->KernelName );
 	int KernelID = ( (KERNEL_ID*)KernelParams->kernel )->ProgramID;
-	LOG_DEBUG(L"pushing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), KernelID);
+	LOG_INFO(L"pushing command of type: kernel, kernel name: \"%ws\" program number: %d", KernelName.c_str(), KernelID);
 	m_QueueLock.Unlock();
 	m_CommandEnqueued.Signal();
-	LOG_DEBUG(L"sent signal");
+	LOG_INFO(L"sent signal");
 
 	return CL_DEV_SUCCESS;
 }
@@ -1133,6 +1134,7 @@ cl_int cCudaCommandList::PushRead(cl_dev_cmd_desc* cmds)
 	command->param_size = cmds->param_size;
 	command->type = cmds->type;
 	command->id = cmds->id;
+	command->data = cmds->data;
 	command->params = ReadParams;
 
 	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
@@ -1142,11 +1144,11 @@ cl_int cCudaCommandList::PushRead(cl_dev_cmd_desc* cmds)
 
 	m_QueueLock.Lock();
 	m_commands.push(Container);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
-	LOG_DEBUG(L"pushing command of type: mem_read");
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, command->data, CL_QUEUED, 0);
+	LOG_INFO(L"pushing command of type: mem_read");
 	m_QueueLock.Unlock();
 	m_CommandEnqueued.Signal();
-	LOG_DEBUG(L"sent signal");
+	LOG_INFO(L"sent signal");
 
 	return CL_DEV_SUCCESS;
 }
@@ -1187,6 +1189,7 @@ cl_int cCudaCommandList::PushWrite(cl_dev_cmd_desc* cmds)
 	command->param_size = cmds->param_size;
 	command->type = cmds->type;
 	command->id = cmds->id;
+	command->data = cmds->data;
 	command->params = WriteParams;
 
 	COMMAND_CONTAINER *Container = new COMMAND_CONTAINER;
@@ -1196,11 +1199,11 @@ cl_int cCudaCommandList::PushWrite(cl_dev_cmd_desc* cmds)
 
 	m_QueueLock.Lock();
 	m_commands.push(Container);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, CL_QUEUED, 0);
-	LOG_DEBUG(L"pushing command of type: mem_write");
+	m_device->m_CallBacks.pclDevCmdStatusChanged( command->id, command->data, CL_QUEUED, 0);
+	LOG_INFO(L"pushing command of type: mem_write");
 	m_QueueLock.Unlock();
 	m_CommandEnqueued.Signal();
-	LOG_DEBUG(L"sent signal");
+	LOG_INFO(L"sent signal");
 
 	return CL_DEV_SUCCESS;
 }
@@ -1227,10 +1230,10 @@ cl_int cCudaCommandList::PushBuildProgram(cl_uint prog, const cl_char *options, 
 
 	m_QueueLock.Lock();
 	m_commands.push(Container);
-	LOG_DEBUG(L"pushing command of type: build program, program number: %d", prog);
+	LOG_INFO(L"pushing command of type: build program, program number: %d", prog);
 	m_QueueLock.Unlock();
 	m_CommandEnqueued.Signal();
-	LOG_DEBUG(L"sent signal");
+	LOG_INFO(L"sent signal");
 	return CL_DEV_SUCCESS;
 }
 bool cCudaCommandList::IsEmpty()
@@ -1243,13 +1246,13 @@ COMMAND_CONTAINER* cCudaCommandList::Pop()
 	m_QueueLock.Lock();
 	if ( true == m_commands.empty() )
 	{
-		LOG_DEBUG(L"queue is empty, waiting for signal");
+		LOG_INFO(L"queue is empty, waiting for signal");
 		m_CommandEnqueued.Wait( & m_QueueLock );
-		LOG_DEBUG(L"got signal");
+		LOG_INFO(L"got signal");
 	}
 	else
 	{
-		LOG_DEBUG(L"queue is not empty");
+		LOG_INFO(L"queue is not empty");
 	}
 	Container = m_commands.front();
 	m_commands.pop();
@@ -1271,7 +1274,7 @@ cCudaCommandExecuteThread::~cCudaCommandExecuteThread()
 }
 int cCudaCommandExecuteThread::Run()
 {
-	LOG_DEBUG(L"cCudaCommandExecuteThread started");
+	LOG_INFO(L"cCudaCommandExecuteThread started");
 	COMMAND_CONTAINER *Container;
 	CUresult cuRes; 
 	cuRes = cuInit(0);
@@ -1310,7 +1313,7 @@ cl_int cCudaCommandExecuteThread::RunKernel(cl_dev_cmd_desc cmd)
 	cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)cmd.params;
 	cl_uint uiProg = ( (KERNEL_ID*)pKernelParam->kernel )->ProgramID;
 	cCudaProgram* tProg = m_device->m_Programs[uiProg];
-	return tProg->RunKernel( pKernelParam, cmd.id );
+	return tProg->RunKernel( pKernelParam, cmd.id, cmd.data );
 }
 
 cl_int cCudaCommandExecuteThread::RunRead(cl_dev_cmd_desc cmd)
@@ -1322,7 +1325,7 @@ cl_int cCudaCommandExecuteThread::RunRead(cl_dev_cmd_desc cmd)
 						  pReadParam->region,
 						  pReadParam->ptr,
 						  pReadParam->pitch);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, cmd.data, CL_COMPLETE, CL_DEV_SUCCESS );
 	return res;
 }
 cl_int cCudaCommandExecuteThread::RunWrite(cl_dev_cmd_desc cmd)
@@ -1334,12 +1337,12 @@ cl_int cCudaCommandExecuteThread::RunWrite(cl_dev_cmd_desc cmd)
 						  pWriteParam->region,
 						  pWriteParam->ptr,
 						  pWriteParam->pitch);
-	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, CL_COMPLETE, CL_DEV_SUCCESS );
+	m_device->m_CallBacks.pclDevCmdStatusChanged( cmd.id, cmd.data, CL_COMPLETE, CL_DEV_SUCCESS );
 	return res;
 }
 cl_int cCudaCommandExecuteThread::BuildProgram( CUDA_BUILD_PROGRAM_CONTAINER BuildData )
 {
-	LOG_DEBUG(L"executing command of type: build program, program number: %d", BuildData.prog);
+	LOG_INFO(L"executing command of type: build program, program number: %d", BuildData.prog);
 
 	cCudaProgram *tProg = m_device->m_Programs[ BuildData.prog ];
 
