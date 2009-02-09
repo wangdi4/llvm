@@ -364,17 +364,17 @@ cl_err_code Device::ReleaseCommandList(cl_dev_cmd_list clDevCmdList)
 cl_err_code Device::CommandListExecute(cl_dev_cmd_list clDevCmdList,
 									   cl_dev_cmd_desc * clDevCmdDesc,
 									   cl_uint uiCount,
-									   ICmdStatusChangedObserver * pCmdStatusChangedObserver)
+									   ICmdStatusChangedObserver ** ppCmdStatusChangedObserver)
 {
-	InfoLog(m_pLoggerClient, L"CommandListExecute GetBuildLog (clDevCmdList=%d, clDevCmdDesc-%d, uiCount=%d, pCmdStatusChangedObserver=%d)", 
-		clDevCmdList, clDevCmdDesc, uiCount, pCmdStatusChangedObserver);
+	InfoLog(m_pLoggerClient, L"CommandListExecute GetBuildLog (clDevCmdList=%d, clDevCmdDesc-%d, uiCount=%d, ppCmdStatusChangedObserver=%d)", 
+		clDevCmdList, clDevCmdDesc, uiCount, ppCmdStatusChangedObserver);
 
 	// set observers for each command id
 	for (cl_uint ui=0; ui<uiCount; ++ui)
 	{
 		cl_dev_cmd_id clDevCmdId = clDevCmdDesc[ui].id;
 		clDevCmdDesc[ui].data = this;
-		m_mapCmdStatuschangedObservers[clDevCmdId] = pCmdStatusChangedObserver;
+		m_mapCmdStatuschangedObservers[clDevCmdId] = ppCmdStatusChangedObserver[ui];
 	}
 	
 	cl_int iRes = m_clDevEntryPoints.pclDevCommandListExecute(clDevCmdList, clDevCmdDesc, uiCount);

@@ -118,6 +118,7 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_pContext = pContext;
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
+	m_eMemObjType = MOT_UNKNOWN;
 
 	cl_uint uiNumDevices = 0;
 	Device ** ppDevices = NULL;

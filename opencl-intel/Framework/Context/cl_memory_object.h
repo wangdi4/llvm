@@ -39,30 +39,57 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
+	* Enumartion:	EMemObjectType
+	* Description:	Represents the memory object type
+	* Members:		MOT_UNKNOWN		-	represents unknown object
+	*				MOT_BUFFER		-	represents Buffer object
+	*				MOT_IMAGE_2D	-	represents 2 dimentional Image object
+	*				MOT_IMAGE_3D	-	represents 3 dimentional Image object
+	*				MOT_SAMPLER		-	represents Sampler object
+	* Author:		Uri Levy
+	* Date:			January 2008
+	**********************************************************************************************/
+	enum EMemObjectType
+	{
+		MOT_UNKNOWN,
+		MOT_BUFFER,
+		MOT_IMAGE_2D,
+		MOT_IMAGE_3D,
+		MOT_SAMPLER,
+	};
+
+	/**********************************************************************************************
 	* Class name:	DeviceMemoryObject
-	*
 	* Inherit:		
 	* Description:	represents a device memory object.
-	*				The device memory object provides information and commands whihc related to
-	*				
+	*				The device memory object provides information and commands which related to
+	*				memory resources within the device. Since the memory object assign to a context
+	*				it'll have to know its status for each device, therefore it should hold such
+	*				object for each device to whihc the context assigned
 	* Author:		Uri Levy
 	* Date:			January 2008
 	**********************************************************************************************/		
 	class DeviceMemoryObject
 	{
 	public:
+		
+		// Contstructor
 		DeviceMemoryObject(Device * pDevice);
 
+		// Destructor
 		~DeviceMemoryObject();
 
-		// allocated device memory resource
+		// Allocate device memory resource. each memory object (buffer, image, etc.) has its own
+		// allocation function
 		cl_err_code AllocateBuffer(cl_mem_flags clMemFlags, size_t szBuffersize, void * pHostPtr);
 
-		// relese device memory resource
+		// Relese device memory resource
 		virtual cl_err_code Release();
 
+		// get the data valid status of the device memory object
 		bool IsDataValid() const { return m_bDataValid; }
 
+		// set the data valid status of the device memory object
 		void SetDataValid(bool bDataValid) { m_bDataValid = bDataValid; }
 
 		// is memory object was allocated within the device
@@ -73,15 +100,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:
 
-		bool			m_bAllocated;
+		bool			m_bAllocated;	// Allocation flag - inform whether the device memory 
+										//resources was allocated or not.
 
-		bool			m_bDataValid;
+		bool			m_bDataValid;	// valid daya flag - inform whether the momory data
+										// within the device is valid or not. it is on the
+										// memory object's responsiblity to modify this flag
+										// on any status changes
 
-		Device *		m_pDevice;
+		Device *		m_pDevice;		// pointer to the parent device
 	
-		cl_dev_mem		m_clDevMemId;
+		cl_dev_mem		m_clDevMemId;	// device memory handler
 
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;	// logger client
 
 	};
 
@@ -161,7 +192,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// this pure virtual function needs to be implemented in the buffer or image class
 		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId) = 0;
 
+		// get the type of the memory object
+		const EMemObjectType GetType() const { return m_eMemObjType; }
+
 	protected:
+
+		EMemObjectType							m_eMemObjType;	// holds the type of the memory object
 
 		cl_mem_flags							m_clFlags; // memory object's flags
 

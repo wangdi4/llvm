@@ -141,13 +141,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:
 
-		// check for valid devices
-		cl_err_code CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
+		// get pointers to device objects according to the device ids
+		cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
 
-		
+
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
-
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient; // handle to the logger client
 
 		OCLObjectsMap *							m_pContexts; // map list of contexts
 
@@ -156,9 +154,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap *							m_pKernels;	// map list of kernels
 
 		OCLObjectsMap *							m_pMemObjects; // map list of all memory objects
-		
-		Intel::OpenCL::Utils::LoggerClient *	m_pContextLoggerClient; // pointer to the context module's logger client
 
+		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient; // handle to the logger client
 	};
 
 }}};

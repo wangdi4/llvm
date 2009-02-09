@@ -42,6 +42,8 @@ Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, siz
 #endif
 	m_pLoggerClient = new LoggerClient(L"buffer", LL_DEBUG);
 	
+	m_eMemObjType = MOT_BUFFER;
+
 	m_szBufferSize = szBufferSize;
 	m_pBufferData = new char[m_szBufferSize];
 	if (NULL == m_pBufferData)

@@ -120,7 +120,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 										 void *pUserData,
 										 cl_err_code *pRrrcodeRet)
 {
-	InfoLog(m_pLoggerClient, L"ContextModule::clCreateContext enter. clProperties=%d, uiNumDevices=%d, pDevices=%d", 
+	InfoLog(m_pLoggerClient, L"Enter ContextModule::CreateContext (clProperties=%d, uiNumDevices=%d, pDevices=%d)", 
 		clProperties, uiNumDevices, pDevices);
 	if (NULL != pRrrcodeRet)
 	{
@@ -138,7 +138,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 	}
 	if (NULL == pDevices)
 	{
-		ErrLog(m_pLoggerClient, L"devices==NULL; return CL_INVALID_VALUE", clProperties);
+		ErrLog(m_pLoggerClient, L"pDevices==NULL; return CL_INVALID_VALUE");
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_VALUE;
@@ -147,7 +147,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 	}
 	if (0 == uiNumDevices)
 	{
-		ErrLog(m_pLoggerClient, L"num_devices==0; return CL_INVALID_VALUE", clProperties);
+		ErrLog(m_pLoggerClient, L"uiNumDevices==0; return CL_INVALID_VALUE");
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_VALUE;
@@ -155,7 +155,7 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 		return CL_INVALID_HANDLE;
 	}
 
-	InfoLog(m_pLoggerClient, L"Device ** ppDevices = new (Device*)[%d]", uiNumDevices);
+	DbgLog(m_pLoggerClient, L"Device ** ppDevices = new (Device*)[%d]", uiNumDevices);
 	Device ** ppDevices = new Device*[uiNumDevices];
 	if (NULL == ppDevices)
 	{
@@ -166,9 +166,10 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 		}		
 		return CL_INVALID_HANDLE;
 	}
-	cl_err_code clErrRet = CheckDevices(uiNumDevices, pDevices, ppDevices);
+	cl_err_code clErrRet = GetDevices(uiNumDevices, pDevices, ppDevices);
 	if (CL_FAILED(clErrRet))
 	{
+		ErrLog(m_pLoggerClient, L"CheckDevices(uiNumDevices, pDevices, ppDevices) = %ws", uiNumDevices, pDevices, ppDevices, ClErrTxt(clErrRet));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_DEVICE;
@@ -177,8 +178,10 @@ cl_context	ContextModule::CreateContext(cl_context_properties clProperties,
 	}
 
 	Context *pContext = new Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData);
-	pContext->Retain();
-	return (cl_context)m_pContexts->AddObject(pContext);
+	
+	cl_context clContextId = (cl_context)m_pContexts->AddObject(pContext);
+	DbgLog(m_pLoggerClient, L"New context created. (id = %d)", clContextId);
+	return clContextId;
 }
 cl_context ContextModule::CreateContextFromType(cl_context_properties clProperties, 
 												cl_device_type clDeviceType, 
@@ -186,13 +189,17 @@ cl_context ContextModule::CreateContextFromType(cl_context_properties clProperti
 												void * pUserData, 
 												cl_int * pErrcodeRet)
 {
-	InfoLog(m_pLoggerClient, L"Enter CreateContextFromType (clProperties=%d, clDeviceType=%d, pfnNotify=%d, pUserData=%d, pErrcodeRet=%d)",
+	InfoLog(m_pLoggerClient, L"Enter ContextModule::CreateContextFromType (clProperties=%d, clDeviceType=%d, pfnNotify=%d, pUserData=%d, pErrcodeRet=%d)",
 		clProperties, clDeviceType, pfnNotify, pUserData, pErrcodeRet);
 	
 	if (NULL == m_pPlatformModule)
 	{
 		ErrLog(m_pLoggerClient, L"NULL == m_pPlatformModule");
-		return (cl_context)CL_INVALID_VALUE;
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_VALUE;
+		}
+		return CL_INVALID_HANDLE;
 	}
 	cl_uint uiNumDevices = 0;
 	
@@ -204,7 +211,7 @@ cl_context ContextModule::CreateContextFromType(cl_context_properties clProperti
 		{
 			*pErrcodeRet = clErrRet;
 		}
-		return (cl_context)CL_INVALID_HANDLE;
+		return CL_INVALID_HANDLE;
 	}
 
 	cl_device_id * pDevices = new cl_device_id[uiNumDevices];
@@ -215,7 +222,7 @@ cl_context ContextModule::CreateContextFromType(cl_context_properties clProperti
 		{
 			*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
 		}
-		return (cl_context)CL_INVALID_HANDLE;
+		return CL_INVALID_HANDLE;
 	}
 
 	clErrRet = m_pPlatformModule->GetDeviceIDs(clDeviceType, uiNumDevices, pDevices, NULL);
@@ -226,7 +233,7 @@ cl_context ContextModule::CreateContextFromType(cl_context_properties clProperti
 		{
 			*pErrcodeRet = clErrRet;
 		}
-		return (cl_context)CL_INVALID_HANDLE;
+		return CL_INVALID_HANDLE;
 	}
 	return CreateContext(clProperties, uiNumDevices, pDevices, pfnNotify, pUserData, pErrcodeRet);
 
@@ -234,21 +241,20 @@ cl_context ContextModule::CreateContextFromType(cl_context_properties clProperti
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CheckDevices
 //////////////////////////////////////////////////////////////////////////
-cl_err_code ContextModule::CheckDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
+cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
 {
 	InfoLog(m_pLoggerClient, L"ContextModule::CheckDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d", uiNumDevices, pclDeviceIds, ppDevices);
 	cl_err_code clErrRet = CL_SUCCESS;
+
+#ifdef _DEBUG
+	assert ( NULL != m_pPlatformModule );
+#endif
 
 	// check input parameters
 	if (NULL == ppDevices)
 	{
 		ErrLog(m_pLoggerClient, L"ppDevices==NULL; return CL_INVALID_VALUE");
 		return CL_INVALID_VALUE;
-	}
-	if (NULL == m_pPlatformModule)
-	{
-		ErrLog(m_pLoggerClient, L"m_pPlatformModule==NULL; return CL_ERR_INITILIZATION_FAILED");
-		return CL_ERR_INITILIZATION_FAILED;
 	}
 	
 	// go through device ids and get the device from the platform module
@@ -313,7 +319,8 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 	if (pContext->GetReferenceCount() == 0)
 	{
 		m_pContexts->RemoveObject((cl_int)context, (OCLObject**)&pContext);
-		delete pContext;
+		// TODO: decide how to delete context
+		//delete pContext;
 	}
 	return CL_SUCCESS;
 }

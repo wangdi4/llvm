@@ -168,7 +168,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CommandListExecute(	cl_dev_cmd_list clDevCmdList, 
 										cl_dev_cmd_desc * clDevCmdDesc, 
 										cl_uint uiCount,
-										ICmdStatusChangedObserver * pCmdStatusChangedObserver);
+										ICmdStatusChangedObserver ** ppCmdStatusChangedObserver);
 
 	private:
 
