@@ -162,16 +162,6 @@ private:
 	cCudaDevice* m_device;
 };
 
-
-
-
-
-
-
-
-
-
-
 class cCudaCommandExecuteThread : public OclThread
 {
 public:

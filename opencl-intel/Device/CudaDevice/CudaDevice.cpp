@@ -132,9 +132,17 @@ cCudaDevice* cCudaDevice::CreateDevice(cl_uint devId, cl_dev_call_backs *devCall
 			delete m_pDevInstance;
 			return NULL;
 		}
-
 		m_pDevInstance->m_CommandLists.push_back(CommandList);
 		CommandList->StartThread();
+
+
+		cCudaProgram *DummyProgramt = new cCudaProgram( m_pDevInstance );
+		if( NULL == DummyProgramt )
+		{
+			delete m_pDevInstance;
+			return NULL;
+		}
+		m_pDevInstance->m_Programs.push_back( DummyProgramt );
 	}
 	
 	LOG_INFO(L"Exit CreateDevice");
@@ -410,6 +418,13 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 		return CL_DEV_INVALID_BINARY;
 	}
 
+	if ( NULL == ProgContainer->container )
+	{
+		LOG_ERROR(L"NULL == ProgContainer->container");
+		LOG_INFO(L"Exit clDevCreateProgram");
+		return CL_DEV_INVALID_BINARY;
+	}
+
 	if (ProgContainer->container_size != ( strlen( (char*)ProgContainer->container ) + 1 ) )
 	{
 		LOG_ERROR(L"Inconsistent container size");
@@ -419,7 +434,7 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 
 	cCudaProgram *tProg = new cCudaProgram( m_pDevInstance, ProgContainer, m_pDevInstance->m_Programs.size() );
 	m_pDevInstance->m_Programs.push_back(tProg);
-	*prog = (cl_dev_program*)(&(tProg->m_ProgramID));
+	*prog = (cl_dev_program)tProg->m_ProgramID;
 
 	LOG_INFO(L"Exit clDevCreateProgram");
 	return CL_DEV_SUCCESS;
@@ -427,8 +442,8 @@ cl_int cCudaDevice::clDevCreateProgram( size_t IN bin_size, const void* IN bin, 
 
 cl_int cCudaDevice::clDevBuildProgram(cl_dev_program prog, const cl_char *options, void *user_data)
 {
-	LOG_INFO(L"Enter clDevBuildProgram, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
-	m_pDevInstance->m_CommandLists[0]->PushBuildProgram(*(cl_uint*)prog, options, user_data);
+	LOG_INFO(L"Enter clDevBuildProgram, device ID : %d, program ID : %d", m_pDevInstance->m_id, (cl_uint)prog);
+	m_pDevInstance->m_CommandLists[0]->PushBuildProgram((cl_uint)prog, options, user_data);
 
 	LOG_INFO(L"Exit clDevBuildProgram");
 	return CL_DEV_SUCCESS;
@@ -448,8 +463,8 @@ cl_int cCudaDevice::clDevUnloadCompiler()
 
 cl_int cCudaDevice::clDevGetProgramBinary(cl_dev_program prog, size_t size, void *binary, size_t *size_ret)
 {
-	LOG_INFO(L"Enter clDevGetProgramBinary, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
-	unsigned int uiProg = *(unsigned int*)prog;
+	LOG_INFO(L"Enter clDevGetProgramBinary, device ID : %d, program ID : %d", m_pDevInstance->m_id, (cl_uint)prog);
+	unsigned int uiProg = (unsigned int)prog;
 	if( (uiProg < 0) || ( uiProg >= m_pDevInstance->m_Programs.size()) )
 	{
 		return CL_DEV_INVALID_VALUE;
@@ -475,9 +490,9 @@ cl_int cCudaDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_
 
 cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernel_id )
 {
-	LOG_INFO(L"Enter clDevGetKernelId, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevGetKernelId, device ID : %d, program ID : %d", m_pDevInstance->m_id, (cl_uint)prog);
 
-	unsigned int uiProg = *(unsigned int*)prog;
+	unsigned int uiProg = (unsigned int)prog;
 	if ( name == NULL )
 	{
 		LOG_ERROR(L"name is NULL");
@@ -505,9 +520,9 @@ cl_int cCudaDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN nam
 cl_int cCudaDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 cl_uint* OUT num_kernels_ret )
 {
-	LOG_INFO(L"Enter clDevGetProgramKernels, device ID : %d, program ID : %d", m_pDevInstance->m_id, *(cl_uint*)prog);
+	LOG_INFO(L"Enter clDevGetProgramKernels, device ID : %d, program ID : %d", m_pDevInstance->m_id, (cl_uint)prog);
 
-	unsigned int uiProg = *(unsigned int*)prog;
+	unsigned int uiProg = (unsigned int)prog;
 	if ( uiProg >= m_pDevInstance->m_Programs.size() )
 	{
 		LOG_ERROR(L"Invalid program");
@@ -691,13 +706,16 @@ cCudaProgram::cCudaProgram( cCudaDevice* device, cl_prog_container *ProgContaine
 {
 	m_module = NULL;
 	m_ProgramID = ID;
-	int NameLength = strlen( (char*)ProgContainer->container );
-	m_ProgContainer.container = new char[NameLength + 1];
-	m_ProgContainer.container_size = ProgContainer->container_size;
-	m_ProgContainer.container_type = ProgContainer->container_type;
-	m_ProgContainer.description = ProgContainer->description;
-	strcpy_s( (char*)m_ProgContainer.container, NameLength + 1, (char*)ProgContainer->container );
-	m_ProgramName = (char*)ProgContainer->container;
+	if( NULL != ProgContainer )
+	{
+		int NameLength = strlen( (char*)ProgContainer->container );
+		m_ProgContainer.container = new char[NameLength + 1];
+		m_ProgContainer.container_size = ProgContainer->container_size;
+		m_ProgContainer.container_type = ProgContainer->container_type;
+		m_ProgContainer.description = ProgContainer->description;
+		strcpy_s( (char*)m_ProgContainer.container, NameLength + 1, (char*)ProgContainer->container );
+		m_ProgramName = (char*)ProgContainer->container;
+	}
 	m_device = device;
 }
 cCudaProgram::~cCudaProgram()
@@ -790,7 +808,7 @@ cl_int cCudaProgram::GetKernelArgTypes(string KernelName,
 	}
 	if( NULL != value_size_ret )
 	{
-		*value_size_ret = num_args;
+		*value_size_ret = num_args * sizeof(cl_kernel_arg_type);
 	}
 	if( NULL != value )
 	{
