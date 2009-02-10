@@ -818,6 +818,7 @@ cl_int cCudaProgram::GetKernelArgTypes(string KernelName,
 }
 cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 {
+	cl_kernel_arg_type prev_parameter;
 	ifstream fCubin;
 	char st[N_MAX_STRING_SIZE];
 	fCubin.open( stCubinName, ios_base::in );
@@ -846,49 +847,78 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 			{
 				cl_kernel_arg_type temp_parameter;
 				cl_uint temp_MemFlag = CL_DEV_MEM_READ_WRITE;
-				switch (st[index])
+				
+
+				if( ( 'c' == st[index] ) || ( 'h' == st[index] ) )
 				{
-				case 'i' : temp_parameter = (cl_kernel_arg_type)sizeof(int);
-					break;
-				case 'f' : temp_parameter = (cl_kernel_arg_type)sizeof(float);
-					break;
-				case 'd' : temp_parameter = (cl_kernel_arg_type)sizeof(double);
-					break;
-				case 'c' : temp_parameter = (cl_kernel_arg_type)sizeof(char);
-					break;
-				case 'j' : temp_parameter = (cl_kernel_arg_type)sizeof(unsigned int);
-					break;
-				case 'h' : temp_parameter = (cl_kernel_arg_type)sizeof(unsigned char);
-					break;
-				case 'P' : index++;
-					switch (st[index])
+					temp_parameter = CL_KRNL_ARG_BYTE;
+					prev_parameter = temp_parameter;
+				}
+				else if( ( 's' == st[index] ) || ( 't' == st[index] ) )
+				{
+					temp_parameter = CL_KRNL_ARG_WORD;
+					prev_parameter = temp_parameter;
+				}
+				else if( ( 'i' == st[index] ) || ( 'j' == st[index] ) || ( 'f' == st[index] ) )
+				{
+					temp_parameter = CL_KRNL_ARG_DWORD;
+					prev_parameter = temp_parameter;
+				}
+				else if( ( 'd' == st[index] ) || ( 'l' == st[index] ) || ( 'm' == st[index] ) )
+				{
+					temp_parameter = CL_KRNL_ARG_QWORD;
+					prev_parameter = temp_parameter;
+				}
+				else if( 'P' == st[index] )
+				{
+					index++;
+					temp_parameter = CL_KRNL_ARG_PTR;
+					prev_parameter = temp_parameter;
+					
+					while( 'P' == st[index] )
 					{
-					case 'i' : 
-					case 'f' :
-					case 'd' :
-					case 'c' :
-					case 'j' :
-					case 'h' : temp_parameter = CL_KRNL_ARG_PTR;
-						break;
-					case 'K' : index++;
-						switch (st[index])
+						index++;
+					}
+					if( 'K' == st[index] )
+					{
+						temp_parameter = CL_KRNL_ARG_PTR_CONST;
+						prev_parameter = temp_parameter;
+						index++;
+					}
+					if( 'S' == st[index] )
+					{
+						while( '_' != st[index] )
 						{
-							case 'i' : 
-							case 'f' :
-							case 'd' :
-							case 'c' :
-							case 'j' :
-							case 'h' : temp_parameter = CL_KRNL_ARG_PTR_CONST;
-								temp_MemFlag = CL_DEV_MEM_READ;
-								break;
+							index++;
 						}
 					}
-					break;
-				case 'S' : temp_parameter = temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments - 1 ];
-					temp_MemFlag = temp_kernel->m_MemFlags[ temp_kernel->m_NumberOfArguments -1 ];
-					while( '_' != st[++index] );
+					if( 0 != isdigit( st[index] ) )
+					{
+						int num;
+						num = atoi(st + index);
+						while( 0 != isdigit( st[index] ) )
+						{
+							index++;
+						}
+						index += (num - 1);
+					}
 				}
+				else if( ( 'S' == st[index] ) )
+				{
+					index++;
+					while( '_' != st[index] )
+					{
+						index++;
+					}
+					temp_parameter = prev_parameter;
+					prev_parameter = temp_parameter;
+				}
+
 				temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments ] = temp_parameter;
+				if( CL_KRNL_ARG_PTR_CONST == temp_parameter )
+				{
+					temp_MemFlag = CL_DEV_MEM_READ;
+				}
 				temp_kernel->m_MemFlags[ temp_kernel->m_NumberOfArguments ] = temp_MemFlag;
 				temp_kernel->m_NumberOfArguments++;
 				index++;
