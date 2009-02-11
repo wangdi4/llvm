@@ -33,7 +33,7 @@ using namespace Intel::OpenCL::Utils;
 #include<windows.h>
 #endif
 
-unsigned long long TotalVirtualSize()
+unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
 #ifdef WIN32
 	MEMORYSTATUSEX	memStatus;

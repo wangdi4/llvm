@@ -157,6 +157,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // remove the program from the context
 		cl_err_code RemoveProgram(cl_program clProgramId);
 
+		 // remove the memory object from the context
+		cl_err_code RemoveMemObject(cl_mem clMem);
+
+
 		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer);
 
 		cl_err_code GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj);

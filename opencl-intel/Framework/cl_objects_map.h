@@ -176,7 +176,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	Clear    
-		* Description:	clear map list from all objects
+		* Description:	clear map list from all objects - this function remove the items from the
+		*				objects map list only! it's not deleting the OpenCL objects
 		* Arguments:	
 		* Return value:	
 		* Author:		Uri Levy

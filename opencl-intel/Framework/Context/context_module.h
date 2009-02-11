@@ -39,6 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Device;
 	class Context;
 	class OCLObjectsMap;
+	class MemoryObject;
 
 	/**********************************************************************************************
 	* Class name:	ContextModule
@@ -98,6 +99,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Return value:	Returns the context object if valid, else returns NULL.
 		******************************************************************************************/
         Context* GetContext( cl_context clContext ) const;
+
+		/******************************************************************************************
+		* Function: 	GetMemoryObject    
+		* Description:	Gets a pointer to a memory object accourding to its cl_mem value
+		* Arguments:	clMemObjId [in] - a valid memory object handle               	
+		* Return value:	Returns the memory object if valid, else returns NULL.
+		******************************************************************************************/
+		MemoryObject * GetMemoryObject(const cl_mem clMemObjId);
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods

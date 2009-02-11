@@ -876,8 +876,6 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
 	}
 
 	return pKernel->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
-
-	return CL_ERR_NOT_IMPLEMENTED;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetKernelWorkGroupInfo
@@ -984,14 +982,59 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter RetainMemObject (clMemObj=%d)", clMemObj);
+
+	if (NULL == m_pMemObjects)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pMemObjects")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	MemoryObject * pMemObj = NULL;
+
+	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	if (CL_FAILED(clErr) || NULL == pMemObj)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
+		return CL_INVALID_MEM_OBJECT;
+	}
+	return pMemObj->Retain();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::ReleaseMemObject
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter RetainMemObject (clMemObj=%d)", clMemObj);
+
+	if (NULL == m_pMemObjects)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pMemObjects")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	MemoryObject * pMemObj = NULL;
+
+	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	if (CL_FAILED(clErr) || NULL == pMemObj)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
+		return CL_INVALID_MEM_OBJECT;
+	}
+	clErr =  pMemObj->Release();
+	if (CL_FAILED(clErr))
+	{
+		CL_ERR_OUT(clErr);
+	}
+	cl_uint uiRefCount = pMemObj->GetReferenceCount();
+	if (0 == uiRefCount)
+	{
+		// TODO: handle release memomry object
+		Context *pContext = (Context*)pMemObj->GetContext();
+		pContext->RemoveMemObject(clMemObj);
+	}
+	return CL_SUCCESS;
+
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetSupportedImageFormats
@@ -1014,7 +1057,25 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj,
 									   void * pParamValue, 
 									   size_t * pszParamValueSizeRet)
 {
-	return CL_ERR_NOT_IMPLEMENTED;
+	InfoLog(m_pLoggerClient, L"Enter GetMemObjectInfo (clMemObj=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)", 
+		clMemObj, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	if (NULL == m_pMemObjects)
+	{
+		ErrLog(m_pLoggerClient, L"NULL == m_pMemObjects")
+		return CL_ERR_FAILURE;
+	}
+	cl_err_code clErr = CL_SUCCESS;
+	MemoryObject * pMemObj = NULL;
+
+	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	if (CL_FAILED(clErr) || NULL == pMemObj)
+	{
+		ErrLog(m_pLoggerClient, L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
+		return CL_INVALID_MEM_OBJECT;
+	}
+
+	return pMemObj->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetImageInfo
@@ -1077,6 +1138,16 @@ Context* ContextModule::GetContext(cl_context clContext) const
 	if (CL_SUCCEEDED(clErr))
 	{
 		return pContext;
+	}
+	return NULL;
+}
+MemoryObject * ContextModule::GetMemoryObject(const cl_mem clMemObjId)
+{
+	MemoryObject * pMemoryObject = NULL;
+	cl_err_code clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObjId, (OCLObject**)&pMemoryObject);
+	if (CL_SUCCEEDED(clErr))
+	{
+		return pMemoryObject;
 	}
 	return NULL;
 }

@@ -42,7 +42,7 @@ Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, siz
 #endif
 	m_pLoggerClient = new LoggerClient(L"buffer", LL_DEBUG);
 	
-	m_eMemObjType = MOT_BUFFER;
+	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
 
 	m_szBufferSize = szBufferSize;
 	m_pBufferData = new char[m_szBufferSize];
@@ -64,18 +64,11 @@ Buffer::~Buffer()
 	MemoryObject::~MemoryObject();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// GetInfo D'tor
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Buffer::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
-{
-	return CL_ERR_NOT_IMPLEMENTED;
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Release D'tor
+// Buffer::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Buffer::Release()
 {
-	return OCLObject::Release();
+	return MemoryObject::Release();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Buffer::CreateDeviceResource

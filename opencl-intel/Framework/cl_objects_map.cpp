@@ -104,11 +104,11 @@ cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId, OCLObject ** ppObjectR
 }
 cl_err_code OCLObjectsMap::GetObjects(cl_uint uiObjectCount, OCLObject ** ppObjects, cl_uint * puiObjectCountRet)
 {
-	if (NULL == ppObjects || NULL == puiObjectCountRet)
+	if (NULL == ppObjects && NULL == puiObjectCountRet)
 	{
 		return CL_INVALID_VALUE;
 	}
-	if (uiObjectCount < m_mapObjects.size())
+	if (NULL != ppObjects && uiObjectCount < m_mapObjects.size())
 	{
 		return CL_INVALID_VALUE;
 	}

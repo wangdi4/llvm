@@ -33,3 +33,8 @@ cl_err_code OCLObject::Retain()
 	return CL_SUCCESS;
 }
 
+bool OCLObject::ReadyForDeletion()
+{
+	return true;
+}
+

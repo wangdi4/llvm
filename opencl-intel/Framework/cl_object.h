@@ -97,6 +97,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
+		/******************************************************************************************
+		* Function: 	ReadyForDeletion    
+		* Description:	inform whether the OpenCL object is ready for deletion
+		*				one who's implementing this function might want to know if there are
+		*				resources that attached to this object that need to be deleted
+		* Arguments:	
+		* Return value:	True	- the object is ready for deletion
+		*				False	- the object is not ready for deletion
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		bool ReadyForDeletion();
+
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
 		cl_uint     GetReferenceCount() const { return m_uiRefCount; }

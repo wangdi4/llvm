@@ -158,7 +158,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 		// release the memory object
 		cl_err_code Release();
@@ -184,11 +184,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void RemovePendency() { m_uiPendency--; }
 
 		// get the type of the memory object
-		const EMemObjectType GetType() const { return m_eMemObjType; }
+		const cl_mem_object_type GetType() const { return m_clMemObjectType; }
 
 		// infrom whether all device resource are not in use and the memory object is ready
 		// for deletion
 		const bool ReadyForDeletion() const { return 0 == m_uiPendency; }
+
+		const Context * GetContext() const { return m_pContext; }
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// Pure virtual functions
@@ -216,7 +218,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	protected:
 
-		EMemObjectType							m_eMemObjType;	// holds the type of the memory object
+		cl_mem_object_type						m_clMemObjectType;
 
 		cl_mem_flags							m_clFlags; // memory object's flags
 

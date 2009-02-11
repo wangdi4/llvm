@@ -118,7 +118,7 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_pContext = pContext;
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
-	m_eMemObjType = MOT_UNKNOWN;
+	m_clMemObjectType = 0;
 
 	cl_uint uiNumDevices = 0;
 	Device ** ppDevices = NULL;
@@ -228,3 +228,84 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 	return CL_SUCCESS;
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MemoryObject::GetInfo
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+{
+	InfoLog(m_pLoggerClient, L"Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)", 
+		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	if ((NULL == pParamValue && NULL == pszParamValueSizeRet) || 
+		(NULL == pParamValue && iParamName != 0))
+	{
+		return CL_INVALID_VALUE;
+	}
+	size_t szSize = 0;
+	size_t szParam = 0;
+	cl_context clContext = 0;
+	void * pValue = NULL;
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	switch ( (cl_mem_info)iParamName )
+	{
+
+	case CL_MEM_TYPE:
+		szSize = sizeof(cl_mem_object_type);
+		pValue = &m_clMemObjectType;
+		break;
+	case CL_MEM_FLAGS:
+		szSize = sizeof(cl_mem_flags);
+		pValue = &m_clFlags;
+		break;
+	case CL_MEM_SIZE:
+		szSize = sizeof(size_t);
+		szParam = (size_t)GetSize();
+		pValue = &szParam;
+		break;
+	case CL_MEM_HOST_PTR:
+		szSize = sizeof(void*);
+		pValue = &m_pHostPtr;
+		break;
+	case CL_MEM_MAP_COUNT:
+		// TODO: implement
+		return CL_ERR_NOT_IMPLEMENTED;
+	case CL_MEM_REFERENCE_COUNT:
+		szSize = sizeof(cl_uint);
+		pValue = &m_uiRefCount;
+		break;
+	case CL_MEM_CONTEXT:
+		szSize = sizeof(cl_context);
+		clContext = (cl_context)m_pContext->GetId();
+		pValue = &clContext;
+	default:
+		ErrLog(m_pLoggerClient, L"param_name (=%d) isn't valid", iParamName);
+		return CL_INVALID_VALUE;
+	}
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	// if param_value == NULL return only param value size
+	if (NULL == pParamValue)
+	{
+		*pszParamValueSizeRet = szSize;
+		return CL_SUCCESS;
+	}
+	// if param_value_size < actual value size return CL_INVALID_VALUE
+	if (NULL != pParamValue && szParamValueSize < szSize)
+	{
+		ErrLog(m_pLoggerClient, L"szParamValueSize (=%d) < szSize (=%d)", szParamValueSize, szSize);
+		return CL_INVALID_VALUE;
+	}
+	memcpy_s(pParamValue, szSize, pValue, szParamValueSize);
+	return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MemoryObject::Release
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code MemoryObject::Release()
+{
+	return OCLObject::Release();
+}

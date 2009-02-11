@@ -68,20 +68,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Buffer();
 
-		/******************************************************************************************
-		* Function: 	GetInfo    
-		* Description:	get object specific information (inharited from OCLObject) the function 
-		*				query the desirable parameter value from the device
-		* Arguments:	param_name [in]				parameter's name
-		*				param_value_size [inout]	parameter's value size (in bytes)
-		*				param_value [out]			parameter's value
-		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
-		* Author:		Uri Levy
-		* Date:			January 2008
-		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
-
 		cl_err_code Release();
 
 		// MemoryObject methods

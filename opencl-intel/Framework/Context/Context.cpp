@@ -325,6 +325,21 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId)
 	}
 	return m_pPrograms->RemoveObject((cl_int)clProgramId, NULL);
 }
+cl_err_code Context::RemoveMemObject(cl_mem clMem)
+{
+	InfoLog(m_pLoggerClient, L"Enter RemoveMemObject (clMem=%d)", clMem);
+	if (NULL == m_pMemObjects)
+	{
+		return CL_ERR_INITILIZATION_FAILED;
+	}
+	MemoryObject * pMemObj = NULL;
+	cl_err_code clErrRet = m_pMemObjects->GetOCLObject((cl_int)clMem, (OCLObject**)&pMemObj);
+	if (CL_FAILED(clErrRet))
+	{
+		return clErrRet;
+	}
+	return m_pMemObjects->RemoveObject((cl_int)clMem, NULL);
+}
 cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer)
 {
 	InfoLog(m_pLoggerClient, L"Enter CreateBuffer (cl_mem_flags=%d, szSize=%d, pHostPtr=%d, ppBuffer=%d)", 
@@ -340,7 +355,6 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 #ifdef _DEBUG
 	InfoLog(m_pLoggerClient, L"GetMaxMemAllocSize() = %d", ulMaxMemAllocSize);
 #endif
-	
 	if (szSize == 0 || szSize > ulMaxMemAllocSize)
 	{
 		ErrLog (m_pLoggerClient, L"szSize == %d, ulMaxMemAllocSize =%d", szSize, ulMaxMemAllocSize);
@@ -398,7 +412,14 @@ cl_ulong  Context::GetMaxMemAllocSize()
 			continue;
 		}
 		// get minimum of all maximum
-		ulMaxMemAllocSize = (ulMemAllocSize < ulMaxMemAllocSize) ? ulMemAllocSize : ulMaxMemAllocSize;
+		if (0 == ui) // first iteration
+		{
+			ulMaxMemAllocSize = ulMemAllocSize;
+		}
+		else
+		{
+			ulMaxMemAllocSize = (ulMemAllocSize < ulMaxMemAllocSize) ? ulMemAllocSize : ulMaxMemAllocSize;
+		}
 	}
 	return ulMaxMemAllocSize;
 }
