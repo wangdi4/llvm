@@ -28,6 +28,7 @@
 #include "cpu_device.h"
 #include "program_service.h"
 #include "cl_logger.h"
+#include "cl_memory.h"
 
 #include <intrin.h>
 
@@ -192,15 +193,15 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				{
 					*(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
 				}
-				return CL_SUCCESS;
-
+				return CL_DEV_SUCCESS;
 			}
+
 		case( CL_DEVICE_VENDOR_ID):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_uint);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -212,14 +213,15 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 					
 					*(cl_uint*)paramVal = (cl_uint)viCPUInfo[0];
 				}
-				return CL_SUCCESS;
+				return CL_DEV_SUCCESS;
 			}
+
 		case( CL_DEVICE_MAX_COMPUTE_UNITS):
 			{
 				*pinternalRetunedValueSize = sizeof(cl_uint);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -232,9 +234,9 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 
 					*(cl_uint*)paramVal = uiCoreCount;
 				}
-				return CL_SUCCESS;
-				
+				return CL_DEV_SUCCESS;
 			}
+
 		case( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
 		case( CL_DEVICE_MAX_WORK_GROUP_SIZE):
 		case( CL_DEVICE_MAX_WORK_ITEM_SIZES):
@@ -248,7 +250,6 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_ADDRESS_BITS):
 		case( CL_DEVICE_MAX_READ_IMAGE_ARGS):
 		case( CL_DEVICE_MAX_WRITE_IMAGE_ARGS):
-		case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
 		case( CL_DEVICE_IMAGE2D_MAX_WIDTH):
 		case( CL_DEVICE_IMAGE2D_MAX_HEIGHT):
 		case( CL_DEVICE_IMAGE3D_MAX_WIDTH):
@@ -264,11 +265,36 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		case( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
 		case( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
 		case( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE):
-		case( CL_DEVICE_GLOBAL_MEM_SIZE):
 		case( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
 		case( CL_DEVICE_MAX_CONSTANT_ARGS ):
 			// FALL THROUGH
 			return CL_DEV_INVALID_VALUE;
+
+		case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
+			*pinternalRetunedValueSize = sizeof(cl_ulong);
+			if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			//if OUT paramVal is NULL it should be ignored
+			if(NULL != paramVal)
+			{
+				*(cl_ulong*)paramVal = max(128*1024*1024, TotalVirtualSize()/4);
+			}
+			return CL_DEV_SUCCESS;
+
+		case( CL_DEVICE_GLOBAL_MEM_SIZE):
+			*pinternalRetunedValueSize = sizeof(cl_ulong);
+			if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			//if OUT paramVal is NULL it should be ignored
+			if(NULL != paramVal)
+			{
+				*(cl_ulong*)paramVal = TotalVirtualSize();
+			}
+			return CL_DEV_SUCCESS;
 
 		case( CL_DEVICE_LOCAL_MEM_TYPE):
 		case( CL_DEVICE_LOCAL_MEM_SIZE):				// Consider local memory size is 24Kbyte LCL_MEM_SIZE constant
@@ -298,7 +324,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -314,7 +340,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -329,7 +355,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = sizeof(cl_bool);
 				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 					//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -343,7 +369,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = strlen("CPU");
 				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -358,7 +384,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = strlen(CPU_STRING);
 				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -373,7 +399,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = strlen("FULL_PROFILE");
 				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
@@ -388,7 +414,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				*pinternalRetunedValueSize = strlen("1.0");
 				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
-					return CL_INVALID_VALUE;
+					return CL_DEV_INVALID_VALUE;
 				}
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)

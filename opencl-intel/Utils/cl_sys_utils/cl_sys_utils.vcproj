@@ -407,6 +407,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cl_memory.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\cl_synch_objects.cpp"
 				>
 			</File>
@@ -426,6 +430,10 @@
 			>
 			<File
 				RelativePath="..\..\include\cl_dynamic_lib.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\cl_memory.h"
 				>
 			</File>
 			<File
