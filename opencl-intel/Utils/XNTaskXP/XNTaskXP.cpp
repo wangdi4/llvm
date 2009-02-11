@@ -8,9 +8,27 @@
 
 // Sceleton of XNTask library to be run on Windows* XP
 
-#include "XNTaskXP.h"
+#include <XN0Task_common.h>
+#include <XN0Sys_common.h>
+#include <stdlib.h>
+#include <windows.h>
+#include <process.h>
 
-using namespace Intel::OpenCL::Utils;
+struct XNTaskXPNotify
+{
+	XNSYNCOBJECT			SyncObject;
+	XN_SYNC_OBJECT_CALLBACK Callback;
+	void*					Arg;
+};
+
+unsigned int __stdcall NotifyEntryPoint(void *data)
+{
+	XNTaskXPNotify*	pNotify = (XNTaskXPNotify*)(data);
+
+	pNotify->Callback(pNotify->SyncObject, pNotify->Arg);
+
+	return 0;
+}
 
 unsigned int XN0SysGetHardwareThreadCount()
 {
@@ -67,10 +85,16 @@ void XN0SyncObjectAddWaiter(
             XN_SYNC_OBJECT_CALLBACK in_Callback, 
             void*                   in_Arg)
 {
-	XNTaskXPNotifyThread notifier(in_SyncObject, in_Callback, in_Arg);
+	XNTaskXPNotify	*pNotify = new XNTaskXPNotify;
 
-	notifier.Start();
-	notifier.Clean();
+	pNotify->Callback = in_Callback;
+	pNotify->SyncObject = in_SyncObject;
+	pNotify->Arg = in_Arg;
+
+	free(in_ScratchMemory);
+
+    void* threadHandle = (void*)_beginthreadex(NULL, 0, NotifyEntryPoint, pNotify, 0, NULL);
+	CloseHandle(threadHandle);
 }
 
 XNERROR
@@ -78,6 +102,8 @@ XN0SyncObjectRemoveWaiter(
             XNSYNCOBJECT    in_SyncObject, 
             void*           in_ScratchMemory)
 {
+	free(in_ScratchMemory);
+
 	return XN_SUCCESS;
 }
 
