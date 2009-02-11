@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~Program();
 
 		// return the context to which the program belongs
-		const Context * GetContext(){ return m_pContext; }
+		const Context * GetContext() const { return m_pContext; }
 
 		/******************************************************************************************
 		* Function: 	GetInfo    

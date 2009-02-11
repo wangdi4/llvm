@@ -570,3 +570,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	m_mapKernelArgs[uiIndex] = pKernelArg;
 	return CL_SUCCESS;
 }
+const Context * Kernel::GetContext() const
+{
+	return m_pProgram->GetContext(); 
+}

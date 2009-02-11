@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ProgramBinary;
 	class Kernel;
 	class Device;
+	class Context;
 
 	/**********************************************************************************************
 	* Class name:	SKernelPrototype
@@ -212,10 +213,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue);
 
 		// get kernel's name
-		const char * GetName(){ return m_psKernelName; }
+		const char * GetName() const { return m_psKernelName; }
 
 		// get kernel's associated program
-		const Program * GetProgram(){ return m_pProgram; }
+		const Program * GetProgram() const { return m_pProgram; }
+
+		const Context * GetContext() const;
 
 	private:
 
