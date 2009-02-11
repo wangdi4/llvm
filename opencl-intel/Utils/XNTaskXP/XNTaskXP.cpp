@@ -8,10 +8,9 @@
 
 // Sceleton of XNTask library to be run on Windows* XP
 
-// LRB SDK XNTask library
-#include <XN0Task_common.h>
-#include <XN0Sys_common.h>
+#include "XNTaskXP.h"
 
+using namespace Intel::OpenCL::Utils;
 
 unsigned int XN0SysGetHardwareThreadCount()
 {
@@ -68,7 +67,10 @@ void XN0SyncObjectAddWaiter(
             XN_SYNC_OBJECT_CALLBACK in_Callback, 
             void*                   in_Arg)
 {
-	in_Callback(in_SyncObject, in_Arg);
+	XNTaskXPNotifyThread notifier(in_SyncObject, in_Callback, in_Arg);
+
+	notifier.Start();
+	notifier.Clean();
 }
 
 XNERROR
