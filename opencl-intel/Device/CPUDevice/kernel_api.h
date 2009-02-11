@@ -44,6 +44,6 @@ namespace Intel { namespace OpenCL {
 		// Returns a number of kernel arguments
 		virtual cl_uint						GetNumArgs() const = 0;
 		// Returns an array of kernel arguments
-		virtual const cl_kernel_arg_type*	GetKernelArgs() const = 0;
+		virtual const cl_kernel_argument*	GetKernelArgs() const = 0;
 	};
 }}

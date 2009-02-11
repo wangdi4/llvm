@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cl.h"
+#include "cl_device_api.h"
 
 #include <intrin.h>
 #include <xmmintrin.h>
@@ -18,7 +19,6 @@
 #define __local		__declspec(thread)
 
 #define MAX_ARG_COUNT		13
-#define MAX_DIMENSION	3
 #ifndef __USING_FIBERS__
 #define	STACK_SEPARATOR	0x0BAADF00D
 #endif
@@ -27,24 +27,24 @@
 struct SWorkDim
 {
 	unsigned int	iWorkDim;						// Working Dimension
-	unsigned int	viOffset[MAX_DIMENSION];		// Global offset
-	unsigned int	viGlobalSize[MAX_DIMENSION];	// Global size of kernel
-	unsigned int	viLocalSize[MAX_DIMENSION];		// Local size of WG
+	unsigned int	viOffset[MAX_WORK_DIM];		// Global offset
+	unsigned int	viGlobalSize[MAX_WORK_DIM];	// Global size of kernel
+	unsigned int	viLocalSize[MAX_WORK_DIM];		// Local size of WG
 };
 
 // Defines Work-Group related information
 struct SWGinfo
 {
 	SWorkDim*	pWorkingDim;
-	int			viNumGroups[MAX_DIMENSION];		// Total number of groups
-	int			viGroupId[MAX_DIMENSION];		// Current group ID's
+	int			viNumGroups[MAX_WORK_DIM];		// Total number of groups
+	int			viGroupId[MAX_WORK_DIM];		// Current group ID's
 };
 
 // Defines Work-Item related information
 struct SWIinfo
 {
-	int		viLocalId[MAX_DIMENSION];	// Local idenitfier of the Work-Item
-	int		viGlobalId[MAX_DIMENSION];	// Global idenitfier of the Work-Item
+	int		viLocalId[MAX_WORK_DIM];	// Local idenitfier of the Work-Item
+	int		viGlobalId[MAX_WORK_DIM];	// Global idenitfier of the Work-Item
 };
 
 // Defines information for Work-Group execution information
@@ -82,3 +82,7 @@ struct	SWIExecutionParam
 /*****************************************************************************************************************************
 *		OpenCL specific types decalaration
 *****************************************************************************************************************************/
+
+typedef struct _image2d_t
+{
+} *image2d_t;

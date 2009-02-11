@@ -107,7 +107,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	if ( MAX_DIMENSION < dim_count )
+	if ( MAX_WORK_DIM < dim_count )
 	{
 		return CL_DEV_INVALID_IMG_SIZE;
 	}

@@ -60,9 +60,9 @@ int WGExecutor::Initialize(unsigned int uiTaskId, const SKernelInfo* pKernelInfo
 {
 	SWorkDim*		psWorkDim = pWGInfo->pWorkingDim;
 	int				iDim = psWorkDim->iWorkDim;
-	unsigned int	viGlbInitVal[MAX_DIMENSION] = {0};
-	unsigned int	viGlbMaxVal[MAX_DIMENSION] = {0};
-	unsigned int	viLclInitVal[MAX_DIMENSION] = {0};
+	unsigned int	viGlbInitVal[MAX_WORK_DIM] = {0};
+	unsigned int	viGlbMaxVal[MAX_WORK_DIM] = {0};
+	unsigned int	viLclInitVal[MAX_WORK_DIM] = {0};
 
 	if ( NULL == m_pLocalMem)
 	{
@@ -149,8 +149,8 @@ int WGExecutor::Initialize(unsigned int uiTaskId, const SKernelInfo* pKernelInfo
 int	WGExecutor::UpdateGroupId(const int pGroupId[])
 {
 	int	iDim = m_psWGInfo->pWorkingDim->iWorkDim;		
-	int	viGlbInitVal[MAX_DIMENSION] = {0};
-	int	viGlbMaxVal[MAX_DIMENSION] = {0};
+	int	viGlbInitVal[MAX_WORK_DIM] = {0};
+	int	viGlbMaxVal[MAX_WORK_DIM] = {0};
 
 	// Calculate initial and maximum global WI offset
 	for(int i=0; i<iDim; ++i)

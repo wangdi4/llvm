@@ -230,7 +230,7 @@ cl_int DLLProgram::GetAllKernels(const ICLDevKernel* *pKernels, unsigned int uiC
 //	Parses libary information and retrieves/builds function descripotrs
 cl_int DLLProgram::LoadProgram()
 {
-	cl_kernel_arg_type	vArgs[MAX_ARG_COUNT];
+	cl_kernel_argument	vArgs[MAX_ARG_COUNT];
 	unsigned int	uiArgCount;
 	unsigned int	uiCount = m_dllProgram.GetNumberOfFunctions();
 
@@ -244,7 +244,7 @@ cl_int DLLProgram::LoadProgram()
 		{
 			m_clBuildStatus = CL_BUILD_ERROR;
 			FreeMap();
-			return false;
+			return CL_DEV_OUT_OF_MEMORY;
 		}
 
 		const char* szName = m_dllProgram.GetFunctionName(i);
@@ -263,17 +263,19 @@ cl_int DLLProgram::LoadProgram()
 		szName+=index;
 		// Skip "@@YAX"
 		szName+=5;
-		cl_kernel_arg_type param_size;
+		cl_kernel_argument tmpArg;
 
 		// Parse rest of the full name
 		while ( 'Z' != szName[0] )	// End of string
 		{
-			param_size = (cl_kernel_arg_type)-1;
+			tmpArg.type = (cl_kernel_arg_type)-1;
 			switch (szName[0])
 			{
 			// A Pointer
 			case 'P' : case 'Q':
-				param_size = CL_KRNL_ARG_PTR;
+				tmpArg.type = ('P' == szName[0]) ? CL_KRNL_ARG_PTR_GLOBAL : CL_KRNL_ARG_PTR_CONST;
+				tmpArg.size_in_bytes = sizeof(void*);
+
 				// Skip pointer classifier
 				szName+=2;
 				// Is pointer to long type, skip to end of defention '@'
@@ -303,16 +305,27 @@ cl_int DLLProgram::LoadProgram()
 
 			// A float
 			case 'M' :
+				tmpArg.type = CL_KRNL_ARG_FLOAT;
+				tmpArg.size_in_bytes = sizeof(float);
+				++szName;
+				break;
+
 			// integer types
 			case 'H' : 
+				tmpArg.type = CL_KRNL_ARG_UINT;
+				tmpArg.size_in_bytes = sizeof(unsigned int);
+				++szName;
+				break;
+
 			case 'I' :
-				param_size = CL_KRNL_ARG_DWORD;
+				tmpArg.type = CL_KRNL_ARG_INT;
+				tmpArg.size_in_bytes = sizeof(int);
 				++szName;
 				break;
 
 			// Same as previous type
 			case '0' :
-				param_size = vArgs[uiArgCount-1];
+				tmpArg = vArgs[uiArgCount-1];
 				++szName;
 				break;
 
@@ -324,9 +337,9 @@ cl_int DLLProgram::LoadProgram()
 				assert(0);
 			}
 
-			if ( -1 != param_size )
+			if ( -1 != tmpArg.type )
 			{
-				vArgs[uiArgCount] = param_size;
+				vArgs[uiArgCount] = tmpArg;
 				++uiArgCount;
 			}
 		}

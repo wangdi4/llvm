@@ -43,10 +43,10 @@ struct SMemObjectDescriptor
 	cl_dev_mem_flags		memFlags;
 	cl_image_format			imgFormat;
 	cl_uint					uiDimCount;
-	size_t					stDim[MAX_DIMENSION];
+	size_t					stDim[MAX_WORK_DIM];
 	void*					pObject;
 	bool					bFreeRequired;
-	size_t					stPitch[MAX_DIMENSION-1];
+	size_t					stPitch[MAX_WORK_DIM-1];
 	cl_dev_mem				myHandle;
 };
 

@@ -123,7 +123,7 @@ public:
 	CUfunction m_function;
 	string m_OriginalName;
 	KERNEL_ID m_KernelID;
-	cl_kernel_arg_type m_Arguments[N_MAX_ARGUMENTS];
+	cl_kernel_argument m_Arguments[N_MAX_ARGUMENTS];
 	cl_uint m_MemFlags[N_MAX_ARGUMENTS];
 	cl_int m_NumberOfArguments;
 };

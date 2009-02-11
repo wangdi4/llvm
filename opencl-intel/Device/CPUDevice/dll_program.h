@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-	// Defines a class that implements CPU device program that is loaded from DLL
+	// Defines a class that implements CPU device program that is loaded from a precompiled DLL file
 	class DLLProgram : public ICLDevProgram
 	{
 		friend class DLLProgramThread;

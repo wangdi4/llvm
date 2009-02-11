@@ -29,7 +29,7 @@ __forceinline unsigned int get_work_dim()
 
 __forceinline size_t get_global_id(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}
@@ -56,7 +56,7 @@ __forceinline size_t get_global_id(unsigned int dim)
 
 __forceinline size_t get_local_id(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}
@@ -84,7 +84,7 @@ __forceinline size_t get_local_id(unsigned int dim)
 
 __forceinline size_t get_local_size(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}
@@ -109,7 +109,7 @@ __forceinline size_t get_local_size(unsigned int dim)
 
 __forceinline size_t get_global_size(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}
@@ -134,7 +134,7 @@ __forceinline size_t get_global_size(unsigned int dim)
 
 __forceinline size_t get_num_groups(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}
@@ -159,7 +159,7 @@ __forceinline size_t get_num_groups(unsigned int dim)
 
 __forceinline size_t get_group_id(unsigned int dim)
 {
-	if ( MAX_DIMENSION <= dim )
+	if ( MAX_WORK_DIM <= dim )
 	{
 		return 0;
 	}

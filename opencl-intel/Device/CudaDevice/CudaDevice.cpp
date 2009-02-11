@@ -818,7 +818,7 @@ cl_int cCudaProgram::GetKernelArgTypes(string KernelName,
 }
 cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 {
-	cl_kernel_arg_type prev_parameter;
+	cl_kernel_argument prev_parameter;
 	ifstream fCubin;
 	char st[N_MAX_STRING_SIZE];
 	fCubin.open( stCubinName, ios_base::in );
@@ -845,34 +845,45 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 			index += iTemp;
 			while (st[index] != NULL)
 			{
-				cl_kernel_arg_type temp_parameter;
+				cl_kernel_argument temp_parameter;
 				cl_uint temp_MemFlag = CL_DEV_MEM_READ_WRITE;
 				
 
 				if( ( 'c' == st[index] ) || ( 'h' == st[index] ) )
 				{
-					temp_parameter = CL_KRNL_ARG_BYTE;
+					temp_parameter.type = ('c' == st[index]) ? CL_KRNL_ARG_INT : CL_KRNL_ARG_UINT;
+					temp_parameter.size_in_bytes = sizeof(char);
 					prev_parameter = temp_parameter;
 				}
 				else if( ( 's' == st[index] ) || ( 't' == st[index] ) )
 				{
-					temp_parameter = CL_KRNL_ARG_WORD;
+					temp_parameter.type = ('s' == st[index]) ? CL_KRNL_ARG_INT : CL_KRNL_ARG_UINT;
+					temp_parameter.size_in_bytes = sizeof(short);
 					prev_parameter = temp_parameter;
 				}
-				else if( ( 'i' == st[index] ) || ( 'j' == st[index] ) || ( 'f' == st[index] ) )
+				else if( ( 'i' == st[index] ) || ( 'j' == st[index] )  )
 				{
-					temp_parameter = CL_KRNL_ARG_DWORD;
+					temp_parameter.type = ('i' == st[index]) ? CL_KRNL_ARG_INT : CL_KRNL_ARG_UINT;
+					temp_parameter.size_in_bytes = sizeof(int);
+					prev_parameter = temp_parameter;
+				}
+				else if ( 'f' == st[index] )
+				{
+					temp_parameter.type = CL_KRNL_ARG_FLOAT;
+					temp_parameter.size_in_bytes = sizeof(float);
 					prev_parameter = temp_parameter;
 				}
 				else if( ( 'd' == st[index] ) || ( 'l' == st[index] ) || ( 'm' == st[index] ) )
 				{
-					temp_parameter = CL_KRNL_ARG_QWORD;
-					prev_parameter = temp_parameter;
+					assert(0);
+//					temp_parameter = CL_KRNL_ARG_QWORD;
+//					prev_parameter = temp_parameter;
 				}
 				else if( 'P' == st[index] )
 				{
 					index++;
-					temp_parameter = CL_KRNL_ARG_PTR;
+					temp_parameter.type = CL_KRNL_ARG_PTR_GLOBAL;
+					temp_parameter.size_in_bytes = sizeof(void*);
 					prev_parameter = temp_parameter;
 					
 					while( 'P' == st[index] )
@@ -881,7 +892,8 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 					}
 					if( 'K' == st[index] )
 					{
-						temp_parameter = CL_KRNL_ARG_PTR_CONST;
+						temp_parameter.type = CL_KRNL_ARG_PTR_CONST;
+						temp_parameter.size_in_bytes = sizeof(void*);
 						prev_parameter = temp_parameter;
 						index++;
 					}
@@ -915,7 +927,7 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 				}
 
 				temp_kernel->m_Arguments[ temp_kernel->m_NumberOfArguments ] = temp_parameter;
-				if( CL_KRNL_ARG_PTR_CONST == temp_parameter )
+				if( CL_KRNL_ARG_PTR_CONST == temp_parameter.type )
 				{
 					temp_MemFlag = CL_DEV_MEM_READ;
 				}
@@ -978,8 +990,8 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
 	const size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
 	cl_uint arg_count = pKernelParam->arg_count;
-	cl_kernel_arg_type*	arg_types = pKernelParam->arg_types;
-	void* arg_values = pKernelParam->arg_values;
+	const cl_kernel_argument*	args = pKernelParam->args;
+	const void* arg_values = pKernelParam->arg_values;
 	size_t	offset = 0;
 	char* ppp = NULL;
 
@@ -996,14 +1008,14 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	// Do it here or in clDevCommandListExecute(), i prefere there
 	for (cl_uint i = 0; i < arg_count; i++)
 	{
-		if( arg_types[i] != tKernel->m_Arguments[i] )
+		if( args[i].type != tKernel->m_Arguments[i].type || args[i].size_in_bytes != tKernel->m_Arguments[i].size_in_bytes)
 		{
 			m_device->m_CallBacks.pclDevCmdStatusChanged( id, data, CL_COMPLETE, CL_DEV_ERROR_FAIL );
 			return CL_DEV_ERROR_FAIL;
 		}
 
-		int temp = arg_types[i] & 0xF;
-		if( CL_KRNL_ARG_PTR == ( arg_types[i] & 0xF ) )
+		//int temp = arg_types[i] & 0xF;
+		if( CL_KRNL_ARG_PTR_GLOBAL == args[i].type || CL_KRNL_ARG_PTR_CONST == args[i].type)
 		{
 			cl_dev_mem pDevMem = *((cl_dev_mem*)((char*)arg_values + offset));
 			pMem = (cCudaMemObject*)pDevMem->objHandle;
@@ -1017,8 +1029,8 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 		}
 		else
 		{
-			cuRes = cuParamSetv(tKernel->m_function, offset, (char*)arg_values + offset, arg_types[i]);
-			offset += arg_types[i];
+			cuRes = cuParamSetv(tKernel->m_function, offset, (char*)arg_values + offset, args[i].size_in_bytes);
+			offset += args[i].size_in_bytes;
 		}
 
 	}
@@ -1096,13 +1108,8 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 	KernelParams->kernel = tKernelParams->kernel;
 	KernelParams->work_dim = tKernelParams->work_dim;
 
-	KernelParams->glb_wrk_offs = new size_t[KernelParams->work_dim];
 	memcpy(KernelParams->glb_wrk_offs, tKernelParams->glb_wrk_offs, KernelParams->work_dim * sizeof(size_t));
-
-	KernelParams->glb_wrk_size = new size_t[KernelParams->work_dim];	
 	memcpy(KernelParams->glb_wrk_size, tKernelParams->glb_wrk_size, KernelParams->work_dim * sizeof(size_t));
-
-	KernelParams->lcl_wrk_size = new size_t[KernelParams->work_dim];	
 	memcpy(KernelParams->lcl_wrk_size, tKernelParams->lcl_wrk_size, KernelParams->work_dim * sizeof(size_t));
 
 	if( 1 == KernelParams->work_dim )
@@ -1113,10 +1120,10 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 
 	KernelParams->arg_count = tKernelParams->arg_count;
 	KernelParams->arg_size = tKernelParams->arg_size;
-	KernelParams->arg_types = new cl_kernel_arg_type[KernelParams->arg_count];
+	KernelParams->args = new cl_kernel_argument[KernelParams->arg_count];
 	KernelParams->arg_values = new char[KernelParams->arg_size];
-	memcpy(KernelParams->arg_types, tKernelParams->arg_types, KernelParams->arg_count * sizeof(cl_kernel_arg_type));
-	memcpy(KernelParams->arg_values, tKernelParams->arg_values, KernelParams->arg_size);
+	memcpy((void*)KernelParams->args, tKernelParams->args, KernelParams->arg_count * sizeof(cl_kernel_argument));
+	memcpy((void*)KernelParams->arg_values, tKernelParams->arg_values, KernelParams->arg_size);
 
 
 	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
@@ -1168,14 +1175,14 @@ cl_int cCudaCommandList::PushRead(cl_dev_cmd_desc* cmds)
 	ReadParams->memObj = tReadParams->memObj;
 	ReadParams->dim_count = tReadParams->dim_count;
 
-	ReadParams->origin = new size_t[ tReadParams->dim_count ];
 	memcpy(ReadParams->origin, tReadParams->origin, tReadParams->dim_count * sizeof(size_t));
-
-	ReadParams->region = new size_t[ tReadParams->dim_count ];
 	memcpy(ReadParams->region, tReadParams->region, tReadParams->dim_count * sizeof(size_t));
+	if ( tReadParams->dim_count > 1 )
+	{
+		memcpy(ReadParams->pitch, tReadParams->pitch, (tReadParams->dim_count-1) * sizeof(size_t));
+	}
 
 	ReadParams->ptr = tReadParams->ptr;
-	ReadParams->pitch = tReadParams->pitch;
 
 	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
 		
@@ -1223,14 +1230,14 @@ cl_int cCudaCommandList::PushWrite(cl_dev_cmd_desc* cmds)
 	WriteParams->memObj = tWriteParams->memObj;
 	WriteParams->dim_count = tWriteParams->dim_count;
 
-	WriteParams->origin = new size_t[ tWriteParams->dim_count ];
 	memcpy(WriteParams->origin, tWriteParams->origin, tWriteParams->dim_count * sizeof(size_t));
-
-	WriteParams->region = new size_t[ tWriteParams->dim_count ];
 	memcpy(WriteParams->region, tWriteParams->region, tWriteParams->dim_count * sizeof(size_t));
+	if ( tWriteParams->dim_count > 1 )
+	{
+		memcpy(WriteParams->pitch, tWriteParams->pitch, (tWriteParams->dim_count-1) * sizeof(size_t));
+	}
 
 	WriteParams->ptr = tWriteParams->ptr;
-	WriteParams->pitch = tWriteParams->pitch;
 
 	cl_dev_cmd_desc *command = new cl_dev_cmd_desc;
 		
@@ -1410,10 +1417,7 @@ _COMMAND_CONTAINER::~_COMMAND_CONTAINER()
 	else if( CUDA_RUN_KERNEL == CommandType )
 	{
 		cl_dev_cmd_param_kernel* KernelParams = (cl_dev_cmd_param_kernel*)((cl_dev_cmd_desc*)Command)->params;
-		delete[] KernelParams->glb_wrk_offs;
-		delete[] KernelParams->glb_wrk_size;
-		delete[] KernelParams->lcl_wrk_size;
-		delete[] KernelParams->arg_types;
+		delete[] KernelParams->args;
 		delete[] KernelParams->arg_values;
 		delete KernelParams;
 	}

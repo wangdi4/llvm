@@ -111,7 +111,7 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 					TTaskHandle* pDepList, unsigned int uiDepListCount,
 					TTaskHandle* pTask)
 {
-	int		viNumGroups[MAX_DIMENSION];
+	int		viNumGroups[MAX_WORK_DIM];
 	unsigned int uiGroupCount = 1;
 
 	// Calculate total number of tasks to execute
@@ -176,7 +176,7 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 	pNewTask->pTE = this;
 
 	// Setup WG information parameters
-	int viInitVal[MAX_DIMENSION] = {0};
+	int viInitVal[MAX_WORK_DIM] = {0};
 
 	VectorCounter<int> vcGroupId(pTaskDesc->sWorkingDim.iWorkDim, viInitVal, viNumGroups);
 	for(unsigned int i=0; i<uiGroupCount; ++i)

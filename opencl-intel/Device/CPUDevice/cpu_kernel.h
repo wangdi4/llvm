@@ -47,16 +47,16 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		// Returns a number of kernel arguments
 		cl_uint						GetNumArgs() const {return m_uiArgCount;}
 		// Returns an array of kernel arguments
-		const cl_kernel_arg_type*	GetKernelArgs() const {return m_pArguments;}
+		const cl_kernel_argument*	GetKernelArgs() const {return m_pArguments;}
 
 		// Set functions
 		void	SetFuncPtr(const void* pfnFunction) { m_pFuncPtr = pfnFunction;}
 		void	SetName(const char* szName, size_t stLen);
-		void	SetArgumentList(const cl_kernel_arg_type* pArgs, unsigned int uiArgCount);
+		void	SetArgumentList(const cl_kernel_argument* pArgs, unsigned int uiArgCount);
 	protected:
 		const void*			m_pFuncPtr;
 		char*				m_szName;
 		unsigned int		m_uiArgCount;
-		cl_kernel_arg_type*	m_pArguments;
+		cl_kernel_argument*	m_pArguments;
 	};
 }}}

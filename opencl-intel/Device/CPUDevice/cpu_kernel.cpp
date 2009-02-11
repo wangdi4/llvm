@@ -67,7 +67,7 @@ void CPUKernel::SetName(const char* szName, size_t stLen)
 	}
 }
 
-void CPUKernel::SetArgumentList(const cl_kernel_arg_type* pArgs, unsigned int uiArgCount)
+void CPUKernel::SetArgumentList(const cl_kernel_argument* pArgs, unsigned int uiArgCount)
 {
 	if ( NULL != m_pArguments )
 	{
@@ -75,8 +75,8 @@ void CPUKernel::SetArgumentList(const cl_kernel_arg_type* pArgs, unsigned int ui
 		m_uiArgCount = 0;
 	}
 
-	size_t stBuffLen = uiArgCount*sizeof(cl_kernel_arg_type);
-	m_pArguments = (cl_kernel_arg_type*)malloc(stBuffLen);
+	size_t stBuffLen = uiArgCount*sizeof(cl_kernel_argument);
+	m_pArguments = (cl_kernel_argument*)malloc(stBuffLen);
 	if ( NULL != m_pArguments )
 	{
 		m_uiArgCount = uiArgCount;
