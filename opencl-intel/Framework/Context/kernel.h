@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 		char *					m_psKernelName;
 		cl_uint					m_uiArgsCount;
-		cl_kernel_arg_type *	m_pArgs;
+		cl_kernel_argument *	m_pArgs;
 	};
 
 	/**********************************************************************************************
@@ -121,27 +121,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-		KernelArg(cl_uint uiIndex, size_t szSize, void * pValue);
+		KernelArg(cl_uint uiIndex, size_t szSize, void * pValue, cl_kernel_argument clKernelArgType);
 
 		~KernelArg();
 
-		const cl_uint GetIndex(){ return m_uiIndex; }
+		cl_uint GetIndex() const { return m_uiIndex; }
 
-		const size_t GetSize(){ return m_szSize; }
+        // return the size (in bytes) of the kernel arg's value
+		size_t GetSize() const { return m_szSize; }
 
-		const void * GetValue(){ return m_pValue; }
+        // returns the value of the kernel argument
+        // if Buffer / Image / ... returns sizeof(MemoryObject*)
+		const void * GetValue() const { return m_pValue; }
 
-		const bool IsMemObject(){ return sizeof(cl_mem) == m_szSize; }
-		
-		const bool IsSampler(){ return sizeof(cl_sampler) == m_szSize; }
+		bool IsBuffer() const;
+
+        bool IsImage() const;
+
+        bool IsSampler() const;
 
 	private:
 
+		// index of kernel argument
 		cl_uint		m_uiIndex;
 
+		// size (in bytes) of kernel argument
 		size_t		m_szSize;
 
+		// value of kernel argument
 		void *		m_pValue;
+
+		// type of kernel argument
+		cl_kernel_argument	m_clKernelArgType;
 	};
 
 	/**********************************************************************************************
@@ -211,6 +222,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// set kernel argument
 		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue);
+
+		// returns the number of arguments in the kernel
+		size_t GetKernelArgsCount() const;
+
+		// get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
+		const KernelArg * GetKernelArg(cl_uint uiIndex);
+
+        // Returns non zero handle.
+        cl_dev_kernel GetDeviceKernelId(cl_device_id clDeviceId) const;
 
 		// get kernel's name
 		const char * GetName() const { return m_psKernelName; }

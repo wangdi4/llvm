@@ -92,8 +92,8 @@ DeviceKernel::DeviceKernel(Kernel * pKernel, ProgramBinary * pProgBin, const cha
 		}
 		return;
 	}
-	m_sKernelPrototype.m_uiArgsCount = szArgsCount / sizeof(cl_kernel_arg_type);
-	m_sKernelPrototype.m_pArgs = new cl_kernel_arg_type[m_sKernelPrototype.m_uiArgsCount];
+	m_sKernelPrototype.m_uiArgsCount = szArgsCount / sizeof(cl_kernel_argument);
+	m_sKernelPrototype.m_pArgs = new cl_kernel_argument[m_sKernelPrototype.m_uiArgsCount];
 	if (NULL == m_sKernelPrototype.m_pArgs)
 	{
 		if (NULL != pErr)
@@ -143,7 +143,8 @@ bool DeviceKernel::CheckKernelDefinition(DeviceKernel * pKernel)
 	}
 	for (cl_uint ui=0; ui<m_sKernelPrototype.m_uiArgsCount; ++ui)
 	{
-		if (sKernelPrototype.m_pArgs[ui] != m_sKernelPrototype.m_pArgs[ui])
+		if ((sKernelPrototype.m_pArgs[ui].type != m_sKernelPrototype.m_pArgs[ui].type) ||
+			(sKernelPrototype.m_pArgs[ui].size_in_bytes != m_sKernelPrototype.m_pArgs[ui].size_in_bytes))
 		{
 			return false;
 		}
@@ -151,16 +152,31 @@ bool DeviceKernel::CheckKernelDefinition(DeviceKernel * pKernel)
 	// kernel prototypes are identical
 	return true;
 }
-KernelArg::KernelArg(cl_uint uiIndex, size_t szSize, void * pValue)
+KernelArg::KernelArg(cl_uint uiIndex, size_t szSize, void * pValue, cl_kernel_argument clKernelArgType)
 {
 	m_uiIndex = uiIndex;
 	m_szSize = szSize;
 	m_pValue = pValue;
+	m_clKernelArgType = clKernelArgType;
 }
 KernelArg::~KernelArg()
 {
 }
-
+bool KernelArg::IsBuffer() const
+{
+	return ((m_clKernelArgType.type == CL_KRNL_ARG_PTR_GLOBAL)	|| 
+			(m_clKernelArgType.type == CL_KRNL_ARG_PTR_CONST)	||
+			(m_clKernelArgType.type == CL_KRNL_ARG_PTR_LOCAL));
+}
+bool KernelArg::IsImage() const
+{
+	return ((m_clKernelArgType.type == CL_KRNL_ARG_PTR_IMG_RO)	|| 
+			(m_clKernelArgType.type == CL_KRNL_ARG_PTR_IMG_WO));
+}
+bool KernelArg::IsSampler() const
+{
+	return (m_clKernelArgType.type == CL_KRNL_ARG_PTR_SAMPL);
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -443,8 +459,8 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 		return clErr;
 	}
 
-	cl_int iDevKernelId = m_pDeviceKernels->AddObject((OCLObject*)pDeviceKernel, (cl_int)clDeviceKernel, false);
-	if (0 == iDevKernelId)
+	clErr = m_pDeviceKernels->AddObject((OCLObject*)pDeviceKernel, (cl_int)clDeviceKernel, false);
+	if (CL_FAILED(clErr))
 	{
 		delete pDeviceKernel;
 	}
@@ -487,7 +503,7 @@ cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
 
 	if (NULL == m_sKernelPrototype.m_pArgs)
 	{
-		m_sKernelPrototype.m_pArgs = new cl_kernel_arg_type[m_sKernelPrototype.m_uiArgsCount];
+		m_sKernelPrototype.m_pArgs = new cl_kernel_argument[m_sKernelPrototype.m_uiArgsCount];
 		if (NULL == m_sKernelPrototype.m_pArgs)
 		{
 			return CL_OUT_OF_HOST_MEMORY;
@@ -514,10 +530,18 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	// TODO: check for NULL and __local / __global / ... qualifier missmatches
 
 	// check for invalid arg sizes
-	cl_kernel_arg_type clArgType = m_sKernelPrototype.m_pArgs[uiIndex];
+	cl_kernel_argument clArg = m_sKernelPrototype.m_pArgs[uiIndex];
+	cl_kernel_arg_type clArgType = clArg.type;
+	size_t szArgSize = clArg.size_in_bytes;
+	
 	if (sizeof(cl_mem) == szSize)
-	{
-		if ((clArgType & CL_KRNL_ARG_PTR) != 1)
+	{	
+		// ivalid size of memory object
+		if ((clArgType != CL_KRNL_ARG_PTR_GLOBAL)	&&
+			(clArgType != CL_KRNL_ARG_PTR_LOCAL)	&&
+			(clArgType != CL_KRNL_ARG_PTR_CONST)	&&
+			(clArgType != CL_KRNL_ARG_PTR_IMG_RO)	&&
+			(clArgType != CL_KRNL_ARG_PTR_IMG_WO))
 		{
 			return CL_INVALID_ARG_SIZE;
 		}
@@ -525,11 +549,14 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	else if (sizeof(cl_sampler) == szSize)
 	{
 		// TODO: Check for sampler size
+		if (clArgType != CL_KRNL_ARG_PTR_SAMPL)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
 	}
 	else
-	{
-		clArgType = (cl_kernel_arg_type)((int)clArgType & (CL_KRNL_ARG_BYTE | CL_KRNL_ARG_WORD | CL_KRNL_ARG_DWORD | CL_KRNL_ARG_QWORD));
-		if (szSize != clArgType)
+	{	// other type = check size
+		if (szSize != szArgSize)
 		{
 			return CL_INVALID_ARG_SIZE;
 		}
@@ -552,11 +579,12 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 			{
 				return CL_INVALID_MEM_OBJECT;
 			}
-			pKernelArg = new KernelArg(uiIndex, szSize, pMemObj);
+			// TODO: check Memory properties
+			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj, clArg);
 		}
 		else
 		{
-			pKernelArg = new KernelArg(uiIndex, szSize, NULL);
+			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
 		}
 		m_mapKernelArgs[uiIndex] = pKernelArg;
 		return CL_SUCCESS;
@@ -566,11 +594,38 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		// TODO: handle sampler arguments
 	}
 
-	pKernelArg = new KernelArg(uiIndex, szSize, (void*)pValue);
+	pKernelArg = new KernelArg(uiIndex, szSize, (void*)pValue, clArg);
 	m_mapKernelArgs[uiIndex] = pKernelArg;
 	return CL_SUCCESS;
 }
 const Context * Kernel::GetContext() const
 {
 	return m_pProgram->GetContext(); 
+}
+size_t Kernel::GetKernelArgsCount() const
+{
+	return m_mapKernelArgs.size();
+}
+const KernelArg * Kernel::GetKernelArg(cl_uint uiIndex)
+{
+	if (uiIndex >= m_mapKernelArgs.size())
+	{
+		return NULL;
+	}
+	map<cl_uint, KernelArg*>::iterator it = m_mapKernelArgs.find(uiIndex);
+	if (it != m_mapKernelArgs.end())
+	{
+		return it->second;
+	}
+	return NULL;
+}
+cl_dev_kernel Kernel::GetDeviceKernelId(cl_device_id clDeviceId) const
+{
+	DeviceKernel * pDeviceKernel = NULL;
+	cl_err_code clErr = m_pDeviceKernels->GetOCLObject((cl_int)clDeviceId, (OCLObject**)&pDeviceKernel);
+	if (CL_FAILED(clErr) || NULL == pDeviceKernel)
+	{
+		return CL_INVALID_HANDLE;
+	}
+	return pDeviceKernel->GetId();
 }
