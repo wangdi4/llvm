@@ -226,27 +226,17 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	// Check kernel paramters
 	cl_uint						uiNumArgs = pKernel->GetNumArgs();
-	const cl_kernel_argument*	pArgTypes = pKernel->GetKernelArgs();
-
-	if ( cmdParams->arg_count != uiNumArgs )
-	{
-		return CL_DEV_INVALID_COMMAND_PARAM;
-	}
+	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 
 	cl_char*	pCurrParamPtr = (cl_char*)cmdParams->arg_values;
 	size_t		stOffset = 0;
 	// Check kernel parameters and memory buffers
 	for(unsigned int i=0; i<uiNumArgs; ++i)
 	{
-		// Check same parameter type
-		if ( (cmdParams->args[i].type != pArgTypes[i].type) || (cmdParams->args[i].size_in_bytes != pArgTypes[i].size_in_bytes) )
-		{
-			return CL_DEV_INVALID_COMMAND_PARAM;
-		}
 		// Argument is buffer object or local memory size
-		if ( (CL_KRNL_ARG_PTR_LOCAL == pArgTypes[i].type) ||
-			(CL_KRNL_ARG_PTR_GLOBAL == pArgTypes[i].type) ||
-			(CL_KRNL_ARG_PTR_CONST == pArgTypes[i].type)
+		if ( (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type) ||
+			(CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type) ||
+			(CL_KRNL_ARG_PTR_CONST == pArgs[i].type)
 			)
 		{
 			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
@@ -271,7 +261,7 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		}
 		else
 		{
-			stOffset += cmdParams->args[i].size_in_bytes;
+			stOffset += pArgs[i].size_in_bytes;
 		}
 	}
 	// Check paramters array size 
@@ -348,8 +338,8 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	}
 
 	// Check kernel paramters
-	cl_uint						uiNumArgs = cmdParams->arg_count;
-	const cl_kernel_argument*	pArgs = cmdParams->args;
+	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
 	cl_char*					pNewParamPtr = (cl_char*)malloc(cmdParams->arg_size);
@@ -359,7 +349,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	void*						*pLocalPtr = (void**)malloc(sizeof(void*)*cmdParams->arg_count);
+	void*						*pLocalPtr = (void**)malloc(sizeof(void*)*uiNumArgs);
 	cl_uint						uiLocalCount = 0;
 	if ( NULL == pLocalPtr )
 	{
@@ -403,7 +393,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 		}
 		else
 		{
-			stOffset += cmdParams->args[i].size_in_bytes;
+			stOffset += pArgs[i].size_in_bytes;
 		}
 	}
 
@@ -446,9 +436,13 @@ void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* 
 	cl_dev_cmd_desc*	pCmd = pThis->m_pCmd;
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCmd->params;
 
+	const ICLDevKernel* pKernel;
+	cl_int clRet = pThis->m_pProgService->GetKernelObject(cmdParams->kernel, &pKernel);
+	assert(CL_DEV_SUCCEEDED(clRet));
+
 	// Check kernel paramters
-	cl_uint						uiNumArgs = cmdParams->arg_count;
-	const cl_kernel_argument*	pArgs = cmdParams->args;
+	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
 	cl_char*					pParamPtr = (cl_char*)psTaskDescriptor->sKernelParam.pParams;
@@ -477,7 +471,7 @@ void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* 
 		}
 		else
 		{
-			stOffset += cmdParams->args[i].size_in_bytes;
+			stOffset += pArgs[i].size_in_bytes;
 		}
 	}
 

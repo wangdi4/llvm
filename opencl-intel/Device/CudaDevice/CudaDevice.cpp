@@ -883,7 +883,7 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 				{
 					index++;
 					temp_parameter.type = CL_KRNL_ARG_PTR_GLOBAL;
-					temp_parameter.size_in_bytes = sizeof(void*);
+					temp_parameter.size_in_bytes = 0;
 					prev_parameter = temp_parameter;
 					
 					while( 'P' == st[index] )
@@ -893,7 +893,7 @@ cl_int cCudaProgram::ParseCubin(const char *stCubinName)
 					if( 'K' == st[index] )
 					{
 						temp_parameter.type = CL_KRNL_ARG_PTR_CONST;
-						temp_parameter.size_in_bytes = sizeof(void*);
+						temp_parameter.size_in_bytes = 0;
 						prev_parameter = temp_parameter;
 						index++;
 					}

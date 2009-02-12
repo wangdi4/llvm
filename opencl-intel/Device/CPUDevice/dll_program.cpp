@@ -274,7 +274,7 @@ cl_int DLLProgram::LoadProgram()
 			// A Pointer
 			case 'P' : case 'Q':
 				tmpArg.type = ('P' == szName[0]) ? CL_KRNL_ARG_PTR_GLOBAL : CL_KRNL_ARG_PTR_CONST;
-				tmpArg.size_in_bytes = sizeof(void*);
+				tmpArg.size_in_bytes = 0;
 
 				// Skip pointer classifier
 				szName+=2;
