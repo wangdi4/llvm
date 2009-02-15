@@ -1130,7 +1130,7 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
 }
 Context* ContextModule::GetContext(cl_context clContext) const
 {
-#ifdef _DEBUG
+#ifdef _DEBUG   // arnonp remark: No need for that, if _DEBUG is part of the assert iplementation
 	assert ( NULL != m_pContexts );
 #endif
 	Context * pContext = NULL;
@@ -1141,6 +1141,20 @@ Context* ContextModule::GetContext(cl_context clContext) const
 	}
 	return NULL;
 }
+
+Kernel* ContextModule::GetKernel(cl_kernel clKernel) const
+{
+	assert ( NULL != m_pKernels );
+
+	Kernel* pKernel = NULL;
+	cl_err_code clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	if (CL_SUCCEEDED(clErr))
+	{
+		return pKernel;
+	}
+	return NULL;
+}
+
 MemoryObject * ContextModule::GetMemoryObject(const cl_mem clMemObjId)
 {
 	MemoryObject * pMemoryObject = NULL;

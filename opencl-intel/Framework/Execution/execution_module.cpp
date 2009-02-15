@@ -31,6 +31,8 @@
 #include "ocl_command_queue.h"
 #include "context.h"
 #include "enqueue_commands.h"
+#include "cl_memory_object.h"
+#include "kernel.h"
 #include <cl_objects_map.h>
 #include <logger.h>
 
@@ -90,9 +92,9 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     cl_int*                     pErrRet             
     )
 {
-    cl_int iQueueID     = CL_INVALID_HANDLE;
-    Context* pContext   = NULL;
-    cl_int   errVal     = CheckCreateCommandParams(clContext, clDevice, clQueueProperties, &pContext);
+    cl_int      iQueueID   = CL_INVALID_HANDLE;
+    Context*    pContext   = NULL;
+    cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
@@ -114,7 +116,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::CheckCreateCommandParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext)
+cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext)
 {
     cl_int errVal = CL_SUCCESS;
 
@@ -156,7 +158,6 @@ OclCommandQueue* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueu
 	return pCommandQueue;
 }
 
-
 /******************************************************************
  * 
  ******************************************************************/
@@ -197,8 +198,17 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
  ******************************************************************/
 cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
 {
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "GetCommandQueueInfo");
-	return  CL_INVALID_OPERATION;
+    cl_err_code res = CL_SUCCESS;
+    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pOclCommandQueue)
+    {
+        res = CL_INVALID_COMMAND_QUEUE;
+    }
+    else
+    {
+        res = pOclCommandQueue->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    }
+    return res;
 }
 
 
@@ -271,16 +281,40 @@ cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
 cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
+    if (NULL == pOutData)
+    {
+        return CL_INVALID_VALUE;
+    }
+
     OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-
-    // Dummy implementation;
-    Command* pEnqueueReadBufferCmd = new DummyCommand();
-    errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     
+    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    if (NULL == pBuffer)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    if (pBuffer->GetSize() < (szOffset+szCb))
+    {
+        // Out of bounds check.
+        return CL_INVALID_VALUE;
+    }
+
+    Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pBuffer, szOffset, szCb, pOutData);
+    errVal = pEnqueueReadBufferCmd->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }    
 	return  errVal;
 }
 
@@ -291,33 +325,98 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
+    if (NULL == cpSrcData)
+    {
+        return CL_INVALID_VALUE;
+    }
+
     OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-
-    // Dummy implementation;
-    Command* pWriteBufferCmd = new DummyCommand();
-    errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     
+    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    if (NULL == pBuffer)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    if (pBuffer->GetSize() < (szOffset+szCb))
+    {
+        // Out of bounds check.
+        return CL_INVALID_VALUE;
+    }
+
+    Command* pWriteBufferCmd = new WriteBufferCommand(pBuffer, szOffset, szCb, cpSrcData);
+    errVal = pWriteBufferCmd->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }    
 	return  errVal;
 }
 
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueNDRangeKernel(cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueNDRangeKernel(
+    cl_command_queue clCommandQueue, 
+    cl_kernel       clKernel,
+    cl_uint         uiWorkDim,
+    const size_t*   cpszGlobalWorkOffset, 
+    const size_t*   cpszGlobalWorkSize, 
+    const size_t*   cpszLocalWorkSize, 
+    cl_uint         uNumEventsInWaitList, 
+    const cl_event* cpEeventWaitList, 
+    cl_event*       pEvent
+    )
 {
     cl_err_code errVal = CL_SUCCESS;
+
+    if( uiWorkDim < 1 || uiWorkDim > 3)
+    {
+        return CL_INVALID_WORK_DIMENSION;
+    }
+
+    if ( NULL != CL_INVALID_GLOBAL_OFFSET)
+    {
+     return CL_INVALID_GLOBAL_OFFSET;
+    }
+
     OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
+    Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
+    if (NULL == pKernel)
+    {
+        return CL_INVALID_KERNEL;
+    }
 
-    // Dummy implementation;
-    Command* pNDRangeKernelCmd = new DummyCommand();
+    if ((cl_context)(pKernel->GetContext()->GetId()) != pCommandQueue->GetContextId())
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    // TODO: Handle those error values, probably through the kernel object...
+    // CL_INVALID_KERNEL_ARGS
+    // CL_INVALID_PROGRAM_EXECUTABLE
+    // CL_INVALID_WORK_GROUP_SIZE
+    // CL_INVALID_WORK_ITEM_SIZE
+   
+    // TODO: create buffer resources in advance, if they are not exists,
+    //      On error return: CL_OUT_OF_RESOURCES
+
+
+    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
+    pNDRangeKernelCmd->Init();
     errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     
 	return  errVal;

@@ -32,6 +32,7 @@
 #include "queue_worker_thread.h"
 #include "in_order_queue.h"
 #include "out_of_order_queue.h"
+#include "device.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -52,6 +53,7 @@ OclCommandQueue::OclCommandQueue(
     m_pQueueWorkerThread(NULL),
     m_pCommandQueue(NULL)
 {
+    m_clContextId = (cl_context)m_pContext->GetId();
     m_pContext->GetDeviceByIndex((cl_uint)clDefaultDeviceID, &m_pDefaultDevice);    
     // Set queue options
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
@@ -137,8 +139,53 @@ cl_err_code OclCommandQueue::CleanFinish()
  ******************************************************************/
 cl_err_code OclCommandQueue::GetInfo( cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
 {
-    ErrLog(m_pLoggerClient, L"OclCommandQueue::GetInfo function is not supported");
-	return CL_ERR_FAILURE;
+    if ((NULL == pParamValue) ||  (NULL == pszParamValueSizeRet ))
+        return CL_INVALID_VALUE;
+
+    cl_err_code res = CL_SUCCESS;
+    void* localParamValue = NULL;
+    size_t outputValueSize = 0;
+    cl_command_queue_properties propreties;
+    
+    switch (clParamName)
+    {
+        case CL_QUEUE_CONTEXT:
+            localParamValue = &m_clContextId;
+            outputValueSize = sizeof(cl_command_queue);
+            break;
+        case CL_QUEUE_DEVICE:
+            localParamValue = &m_clDefaultDeviceId;
+            outputValueSize = sizeof(cl_device_id);
+            break;
+        case CL_QUEUE_REFERENCE_COUNT:
+            localParamValue = &m_uiRefCount;
+            outputValueSize = sizeof(cl_uint);
+            break;
+        case CL_QUEUE_PROPERTIES:
+            {
+            int iOutOfOrder  = (m_bOutOfOrderEnabled) ? 1 : 0;
+            int iProfilingEn = (m_bProfilingEnabled)  ? 1 : 0;
+            propreties = ((iOutOfOrder) | ( iProfilingEn<<1 ));
+            localParamValue = &propreties;
+            outputValueSize = sizeof(cl_command_queue_properties); 
+            break;
+            }
+        default:
+            res = CL_INVALID_VALUE;
+            break;
+    }
+
+	// check param_value_size
+	if (szParamValueSize < outputValueSize)
+	{
+		res = CL_INVALID_VALUE;
+	}
+    else
+    {
+	    *pszParamValueSizeRet = outputValueSize;
+	    memcpy(pParamValue, localParamValue, *pszParamValueSizeRet);
+    }
+	return res;
 }
 
 /******************************************************************
@@ -160,7 +207,7 @@ cl_err_code OclCommandQueue::NotifyEventColorChange(QueueEvent* pEvent)
     // Debug
     if (pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
     {
-        printf("==== DummyCommand(%3d) is executed on Queue (%3d) ==== \n", pEvent->GetId(), GetId());
+        printf("==== Command (%3d) is executed on Queue (%3d) ==== \n", pEvent->GetId(), GetId());
     }
 
     // In case it the queue marked for finish and an event is done, check if device is empty
@@ -190,9 +237,22 @@ cl_err_code OclCommandQueue::NotifyEventColorChange(QueueEvent* pEvent)
 /******************************************************************
  *
  ******************************************************************/
-void OclCommandQueue::EnqueueDevCommands()
+void OclCommandQueue::EnqueueDevCommands(
+    cl_device_id                clDeviceId, 
+    cl_dev_cmd_desc*            clDevCmdDesc, 
+    ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 
+    cl_uint                     uiCount 
+    )
 {
-    ErrLog(m_pLoggerClient, L"OclCommandQueue::EnqueueDevCommands function is not implemented yet");
+    cl_err_code res;
+    // Get device
+    Device* pDevice = NULL; 
+    res = m_pContext->GetDeviceByIndex((cl_uint)clDeviceId, &pDevice);
+    if ( CL_SUCCEEDED(res) && (NULL != pDevice) )
+    {
+        // Currently, always use the independent command list.
+        pDevice->CommandListExecute(0, clDevCmdDesc, uiCount, ppCmdStatusChangedObserver);
+    }
     return;
 }
 
@@ -234,6 +294,8 @@ cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking
     // Set event and receiver of the command.
     pCommand->SetEvent(pQueueEvent);
     pCommand->SetReceiver(this);
+    pCommand->SetCommandDeviceId(m_clDefaultDeviceId);
+
     // Register this queue as a change color observer of the event, to signal the actual queue
     pQueueEvent->RegisterEventColorChangeObserver(this);
     

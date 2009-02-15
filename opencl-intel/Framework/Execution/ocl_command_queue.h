@@ -83,13 +83,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    cl_err_code     SetBarrier();
 
         // Implement ICommandReceiver functions.
-	    void            EnqueueDevCommands();
+	    void            EnqueueDevCommands(
+                                cl_device_id                clDeviceId, 
+                                cl_dev_cmd_desc*            clDevCmdDesc, 
+                                ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 
+                                cl_uint                     uiCount 
+                                );
+
 	    void            PushFrontCommand();
         // Implement IEventDoneObserver functions.
         cl_err_code     NotifyEventColorChange(QueueEvent* pEvent);
 
         cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;  }
         cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled; }
+
+        cl_context      GetContextId () const { return m_clContextId; };
 
     private:
         cl_err_code     ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent);
@@ -98,6 +106,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Context*            m_pContext;
 	    Device*             m_pDefaultDevice;
         EventsManager*      m_pEventsManager;
+        cl_context          m_clContextId;
         cl_device_id        m_clDefaultDeviceId;
         cl_bool             m_bProfilingEnabled;
         cl_bool             m_bOutOfOrderEnabled;

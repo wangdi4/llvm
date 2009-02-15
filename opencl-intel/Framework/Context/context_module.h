@@ -40,6 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
 	class OCLObjectsMap;
 	class MemoryObject;
+    class Kernel;
 
 	/**********************************************************************************************
 	* Class name:	ContextModule
@@ -98,7 +99,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clContext [in] - a valid context handle               	
 		* Return value:	Returns the context object if valid, else returns NULL.
 		******************************************************************************************/
-        Context* GetContext( cl_context clContext ) const;
+        Context*        GetContext( cl_context clContext ) const;
+
+		/******************************************************************************************
+		* Function: 	GetKernel
+		* Description:	Gets a pointer to a kernel object accourding to its cl_kernel value
+		* Arguments:	clKernel [in] - a valid memory kernel handle
+		* Return value:	Returns the kernel object if valid, else returns NULL.
+		******************************************************************************************/
+        Kernel*         GetKernel( cl_kernel clKernel ) const;
 
 		/******************************************************************************************
 		* Function: 	GetMemoryObject    

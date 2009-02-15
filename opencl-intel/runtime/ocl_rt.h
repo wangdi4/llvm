@@ -1,7 +1,7 @@
 #pragma once
 
 #include "cl.h"
-#include "cl_device_api.h"
+#include <cl_device_api.h>
 
 #include <intrin.h>
 #include <xmmintrin.h>

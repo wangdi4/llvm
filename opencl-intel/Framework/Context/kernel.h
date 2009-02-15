@@ -132,7 +132,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // returns the value of the kernel argument
         // if Buffer / Image / ... returns sizeof(MemoryObject*)
-		const void * GetValue() const { return m_pValue; }
+		void * GetValue() const { return m_pValue; }
 
 		bool IsBuffer() const;
 

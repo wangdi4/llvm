@@ -31,6 +31,9 @@
 #include <cl_utils.h>
 #include <device.h>
 #include <cl_objects_map.h>
+
+// for debug...???
+#include <limits.h>
 #include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -421,8 +424,14 @@ cl_ulong  Context::GetMaxMemAllocSize()
 			ulMaxMemAllocSize = (ulMemAllocSize < ulMaxMemAllocSize) ? ulMemAllocSize : ulMaxMemAllocSize;
 		}
 	}
+    if ( 0 == ulMaxMemAllocSize)
+    {
+        // No one declared size, probably ignore this value, set default.
+        ulMaxMemAllocSize = SHRT_MAX;
+    }
 	return ulMaxMemAllocSize;
 }
+
 cl_err_code Context::GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj)
 {
 #ifdef _DEBUG

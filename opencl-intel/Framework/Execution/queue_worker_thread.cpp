@@ -27,6 +27,7 @@
 #include "queue_worker_thread.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
+#include "queue_event.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -113,13 +114,14 @@ int QueueWorkerThread::Run()
             break;
         }
         // if got here we have a job in the hands and can proceed it
-        // The command knows hoe to handle it self
+        // The command knows how to handle it self
         status = p_nextCommand->Execute();        
 
         if (CL_FAILED(status))
         {
-            // some problem happened - exit with the error status
-            break;
+            // Command was not executed properly, mark it for deletion and continue.
+            p_nextCommand->GetEvent()->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
+            continue;
         }        
         if(m_join)
         {

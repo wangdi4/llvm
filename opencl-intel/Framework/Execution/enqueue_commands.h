@@ -30,7 +30,10 @@
 #define __OCL_ENQUEUE_COMMANDS__
     
 #include <cl_types.h>
+#include <cl_device_api.h>
 #include "cl_object.h"
+#include "observer.h"
+#include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -43,23 +46,50 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class Command : public OCLObject
+    class Command : public OCLObject, public ICmdStatusChangedObserver
     {
 
     public:
 	    Command();
 	    virtual ~Command();
 
+        //
+        // Use this function to initiate the command local data set by a command constructor
+        //
+        virtual cl_err_code     Init() = 0;
+
+        //
+        // This function is called when CL_COMPLETED is notified. 
+        // The command use this function to update its data respectively such as the buffers.
+        //
+        virtual cl_err_code     CommandDone() = 0;
+
+        //
+        // The function that is called when the command is poped out from the queue and ready for the device
+        // Each command implements its local logic within this function.
+        //
 	    virtual cl_err_code     Execute() = 0;	
+
+        //
+        // Returns the command type for GetInfo requests.
+        //
         virtual cl_command_type GetCommandType() const = 0;
 
+        // ICmdStatusChangedObserver function
+        cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult);
+
+        // Command general functions
         virtual void            SetEvent    (QueueEvent* queueEvent)        { m_pQueueEvent = queueEvent; }
         virtual QueueEvent*     GetEvent    ()                              { return m_pQueueEvent; }   
-        void                    SetReceiver (ICommandReceiver* receiver)    { m_pReceiver = receiver; }
+        virtual void            SetReceiver (ICommandReceiver* receiver)    { m_pReceiver = receiver; }
+        virtual void            SetCommandDeviceId (cl_device_id clDeviceId){ m_clDeviceId = clDeviceId; }
 
     protected:
-	    QueueEvent*         m_pQueueEvent;
-	    ICommandReceiver*   m_pReceiver;
+	    QueueEvent*                 m_pQueueEvent;
+	    ICommandReceiver*           m_pReceiver;
+        cl_dev_cmd_desc*            m_pDevCmd;
+        cl_device_id                m_clDeviceId;
+        ICmdStatusChangedObserver*  m_pStatusChangeObserver;
     };
 
     /******************************************************************
@@ -69,18 +99,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 	    ReadBufferCommand(
-		    MemoryObject* 	buffer, 
-		    size_t 			offset, 
-		    size_t			cb, 
-		    void* 			dst
+		    MemoryObject* 	pBuffer, 
+		    size_t 			szOffset, 
+		    size_t			szCb, 
+		    void* 			pDst
 		    );
         virtual ~ReadBufferCommand();
 
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const { return CL_COMMAND_READ_BUFFER; };
+
     private:
-        MemoryObject*   m_buffer;
-	    size_t          m_offset;
-	    size_t          m_cb;
-        void*           m_dst;
+        MemoryObject*   m_pBuffer;
+	    size_t          m_szOffset;
+	    size_t          m_szCb;
+        void*           m_pDst;
     };
 
 
@@ -93,19 +128,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
 	    WriteBufferCommand(
-            MemoryObject*   buffer, 
-            size_t          offset, 
-            size_t          cb,
-            const void*     src
+            MemoryObject*   pBuffer, 
+            size_t          szOffset, 
+            size_t          szCb,
+            const void*     cpSrc
             );
 
 	    virtual ~WriteBufferCommand();
 
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const { return CL_COMMAND_WRITE_BUFFER; };
+
     private:
-        MemoryObject*   m_buffer;
-	    size_t          m_offset;
-	    size_t          m_cb;
-        void*           m_src;
+        MemoryObject*   m_pBuffer;
+	    size_t          m_szOffset;
+	    size_t          m_szCb;
+        const void*     m_cpSrc;
     };
 
     /******************************************************************
@@ -328,13 +368,39 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    NDRangeKernelCommand(Kernel* kernel, cl_uint work_dim, const size_t* global_work_offset, const size_t* global_work_size, const size_t* local_work_size);
 	    virtual ~NDRangeKernelCommand();
 
-    private: 
-	    Kernel* 		m_kernel;
-	    cl_uint         m_workDim;
-	    const size_t*	m_globalWorkOffset;
-	    const size_t*	m_globalWorkSize;
-	    const size_t*	m_localWorkSize;
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const { return CL_COMMAND_NDRANGE_KERNEL; };
 
+    private: 
+        // This enum includes the type of CL objects that can be pass
+        // as arguments to the device
+        enum EObjectArgType
+        {
+            KL_ARG_TYPE_BUFFER,
+            KL_ARG_TYPE_IMAGE_2D,
+            KL_ARG_TYPE_IMAGE_3D,
+            KL_ARG_TYPE_SAMPLER
+        };
+        
+        // Kerel object args stracture
+        struct TObjectArg
+        {
+            EObjectArgType  type;       // The type of the object
+            size_t          szOffset;   // The offset of the argument in the device argument bytestream
+            size_t          szSize;     // The argument size in the device argument bytestream
+            void*           pObject;    // void pointer to the actual object
+        };
+
+        // Private memebers
+	    Kernel* 		m_pKernel;
+	    cl_uint         m_uiWorkDim;
+	    const size_t*	m_cpszGlobalWorkOffset;
+	    const size_t*	m_cpszGlobalWorkSize;
+	    const size_t*	m_cpszLocalWorkSize;        
+        // Intermidate data
+        std::list<TObjectArg>  m_ObjectArgList;
     };
 
     /******************************************************************

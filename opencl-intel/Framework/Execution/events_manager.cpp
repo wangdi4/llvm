@@ -233,7 +233,6 @@ QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_comm
     if ( NULL != pEventHndl)
     {
         OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType, eventQueueHndl);
-        pNewOclEvent->Retain();
         // TODO: guard ObjMap... better doing so inside the map
         m_pEvents->AddObject(pNewOclEvent);
         *pEventHndl = (cl_event)pNewOclEvent->GetId();

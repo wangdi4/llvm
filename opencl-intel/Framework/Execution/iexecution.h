@@ -296,6 +296,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
          *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
          *                                              or if event objects in cpEeventWaitList are not valid events.
          *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *                  CL_INVALID_VALUE        -   If the region being read or written specified by (offset, cb) is out of
+         *                                              bounds or if ptr is a NULL value.
          *
 		 * Author:		Arnon Peleg
 		 * Date:		January 2009

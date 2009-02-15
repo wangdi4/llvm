@@ -29,7 +29,12 @@
 #if !defined(__OCL_COMMAND_RECEIVER_H__)
 #define __OCL_COMMAND_RECEIVER_H__
 
+#include <cl_device_api.h>
+
 namespace Intel { namespace OpenCL { namespace Framework {
+    // Forward declrations
+    class ICmdStatusChangedObserver;
+
     /**
      * The command receiver gets a list of commands to be execute on a device. Each
      * concrete command knows how to translate the command into a device command, the
@@ -39,7 +44,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-	    virtual void EnqueueDevCommands() =0;
+	    virtual void EnqueueDevCommands(    
+            cl_device_id                clDeviceId, 
+            cl_dev_cmd_desc*            clDevCmdDesc, 
+            ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 
+            cl_uint                     uiCount ) =0;
+
 	    virtual void PushFrontCommand(/*CommandDescList commandDescList*/)=0;
 
     };

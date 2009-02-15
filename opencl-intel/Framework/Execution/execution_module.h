@@ -112,7 +112,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code EnqueueMarker (cl_command_queue command_queue, cl_event *event);
         cl_err_code EnqueueWaitForEvents (cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
         cl_err_code EnqueueBarrier (cl_command_queue command_queue);
-
         cl_err_code         Release() { return CL_SUCCESS; }  // Release resources ???
 
     private:
@@ -121,9 +120,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OclCommandQueue*    GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
-        cl_err_code         CheckCreateCommandParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
-
-
+        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
 
         // Members
         PlatformModule*     m_pPlatfromModule;          // Pointer to the platfrom operation. This is the internal interface of the module.

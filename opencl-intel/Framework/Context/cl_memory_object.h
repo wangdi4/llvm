@@ -98,6 +98,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// calling to Release set the flag to False
 		bool IsAllocated() const { return m_bAllocated; }
 
+        // Returns the device memory handler
+        cl_dev_mem GetDeviceMemoryId() const { return m_clDevMemId; }
+
 	private:
 
 		bool			m_bAllocated;	// Allocation flag - inform whether the device memory 
@@ -173,11 +176,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// allocated for any of the devices.
 		// calling to this method doesn't promis that once it finished the data is available on the
 		// same device
-		cl_device_id GetDataLocation();
+        // If pDevMemId is not NULL, the functino also returns the Id of the related buffer in the current location.
+		cl_device_id GetDataLocation( cl_dev_mem* pDevMemId = NULL );
 
 		// set the device id where the data is know availabe.
 		// calling to this methos should be done once the data is allready available in the device
 		cl_err_code SetDataLocation(cl_device_id clDevice);
+
+        // Return the cl_context handle of the context that this memory object is belong to.
+        cl_context GetContextId () const { return (cl_context)(m_pContext->GetId()); };
 
 		void AddPendency() { m_uiPendency++; }
 

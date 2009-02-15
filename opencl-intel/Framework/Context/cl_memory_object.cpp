@@ -181,7 +181,7 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::GetDataLocation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_device_id MemoryObject::GetDataLocation()
+cl_device_id MemoryObject::GetDataLocation( cl_dev_mem* pDevMemId )
 {
 	InfoLog(m_pLoggerClient, L"Enter GetDataLocation");
 
@@ -190,6 +190,11 @@ cl_device_id MemoryObject::GetDataLocation()
 		DeviceMemoryObject * pDevMemObj = it->second;
 		if (pDevMemObj->IsDataValid())
 		{
+            if ( NULL != pDevMemId )
+            {
+                *pDevMemId = pDevMemObj->GetDeviceMemoryId();
+            }
+
 			return it->first;
 		}
 	}
