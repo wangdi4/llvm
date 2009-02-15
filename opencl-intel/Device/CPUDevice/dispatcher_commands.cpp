@@ -415,7 +415,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 
 	// Set WG information
 	pTask->sWorkingDim.iWorkDim = cmdParams->work_dim;
-	memcpy(pTask->sWorkingDim.viOffset, cmdParams->glb_wrk_size, sizeof(int)*cmdParams->work_dim);
+	memcpy(pTask->sWorkingDim.viOffset, cmdParams->glb_wrk_offs, sizeof(int)*cmdParams->work_dim);
 	memcpy(pTask->sWorkingDim.viGlobalSize, cmdParams->glb_wrk_size, sizeof(int)*cmdParams->work_dim);
 	memcpy(pTask->sWorkingDim.viLocalSize, cmdParams->lcl_wrk_size, sizeof(int)*cmdParams->work_dim);
 

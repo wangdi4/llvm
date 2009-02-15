@@ -7,6 +7,7 @@
 #include <XN0Task_common.h>
 #include <XN0Sys_common.h>
 #include <limits.h>
+#include <time.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -36,7 +37,7 @@ ETERetCode ConvertXNError(XNERROR err)
 
 // Class Construtor/Destructor/Intstance
 TaskExecutor::TaskExecutor() : 
-	m_uiNumWorkingThreads(0), m_uiHWThreads(0), m_haHandles(1, UINT_MAX)
+	m_uiNumWorkingThreads(0), m_uiHWThreads(0)
 {
 }
 
@@ -127,19 +128,9 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 	}
 
 	// Setup new task record
-	unsigned int	uiNewTaskId;
-	bool			rc;
-	
-	rc = m_haHandles.AllocateHandle(&uiNewTaskId);
-	if ( false == rc )
-	{
-		return TE_RESOURCE_EXHAUSTED;
-	}
-
 	SRunningTask*	pNewTask = new SRunningTask;
 	if ( NULL == pNewTask )
 	{
-		m_haHandles.FreeHandle(uiNewTaskId);
 		return TE_OUT_OF_MEMORY;
 	}
 
@@ -151,7 +142,6 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 	if ( NULL == pNewTask->psWGInfo )
 	{
 		delete pNewTask;
-		m_haHandles.FreeHandle(uiNewTaskId);
 		return TE_OUT_OF_MEMORY;
 	}
 
@@ -163,7 +153,6 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 		{
 			delete []pNewTask->psWGInfo;
 			delete pNewTask;
-			m_haHandles.FreeHandle(uiNewTaskId);
 			return TE_OUT_OF_MEMORY;
 		}
 	}
@@ -172,7 +161,7 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 		pNewTask->pScratch = NULL;
 	}
 
-	pNewTask->uiTaskId = uiNewTaskId;
+	pNewTask->uiTaskId = (unsigned int)time(NULL);
 	pNewTask->pTE = this;
 
 	// Setup WG information parameters
@@ -199,7 +188,6 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 		}
 		delete []pNewTask->psWGInfo;
 		delete pNewTask;
-		m_haHandles.FreeHandle(uiNewTaskId);
 		return ConvertXNError(xnRC);
 	}
 
@@ -222,17 +210,9 @@ ETERetCode	TaskExecutor::ExecuteFunction(const void* pfnFunction, void* pParams,
 					TTaskHandle* pDepList, unsigned int uiDepListCount,
 					TTaskHandle* pTask)
 {
-	unsigned int	uiNewTaskId;
-	bool bRC = m_haHandles.AllocateHandle(&uiNewTaskId);
-	if ( false == bRC )
-	{
-		return TE_RESOURCE_EXHAUSTED;
-	}
-
 	SRunningFunction*	pNewFunc = new SRunningFunction;
 	if ( NULL == pNewFunc )
 	{
-		m_haHandles.FreeHandle(uiNewTaskId);
 		return TE_OUT_OF_MEMORY;
 	}
 
@@ -243,7 +223,6 @@ ETERetCode	TaskExecutor::ExecuteFunction(const void* pfnFunction, void* pParams,
 		if ( NULL == pNewFunc->pScratch)
 		{
 			delete pNewFunc;
-			m_haHandles.FreeHandle(uiNewTaskId);
 			return TE_OUT_OF_MEMORY;
 		}
 	}
@@ -253,7 +232,7 @@ ETERetCode	TaskExecutor::ExecuteFunction(const void* pfnFunction, void* pParams,
 	}
 
 	// Fill function informatio
-	pNewFunc->uiTaskId = uiNewTaskId;
+	pNewFunc->uiTaskId = (unsigned int)time(NULL);
 	pNewFunc->pTE = this;
 	pNewFunc->pParams = pParams;
 	pNewFunc->stSize = stSize;
@@ -269,7 +248,6 @@ ETERetCode	TaskExecutor::ExecuteFunction(const void* pfnFunction, void* pParams,
 			free(pNewFunc->pScratch);
 		}
 		delete pNewFunc;
-		m_haHandles.FreeHandle(uiNewTaskId);
 		return ConvertXNError(xnRC);
 	}
 
@@ -356,9 +334,6 @@ void TaskExecutor::TaskCompleted(TTaskHandle hTask, void* _Task)
 //	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pTask->pScratch);
 //	assert(XN_SUCCESS == xnER);
 
-	// Free task ID
-	pTask->pTE->m_haHandles.FreeHandle(pTask->uiTaskId);
-
 	// Call user callback
 	pTask->pfnNotify(hTask, pTask->psTaskDesc, pTask->pData);
 
@@ -374,9 +349,6 @@ void TaskExecutor::FunctionCompleted(TTaskHandle hTask, void* _Function)
 	
 //	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pFunc->pScratch);
 //	assert(XN_SUCCESS == xnER);
-
-	// Free task ID
-	pFunc->pTE->m_haHandles.FreeHandle(pFunc->uiTaskId);
 
 	// Call user callback
 	pFunc->pfnNotify(hTask, pFunc->pParams, pFunc->stSize, pFunc->pData);

@@ -31,6 +31,7 @@
 #include "cl_logger.h"
 #include "cl_dynamic_lib.h"
 #include "dll_program.h"
+#include "llvm_program.h"
 
 #include <stdlib.h>
 #include <limits.h>
@@ -144,6 +145,7 @@ cl_int ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin
 	{
 	// Supported program binaries
 	case CL_PROG_DLL_X86:			// The container should contain a full path name to DLL file to load
+	case CL_PROG_BIN_LLVM:			// The container should contain valid LLVM-IR
 		break;
 
 	case CL_PROG_OBJ_X86:			// The container should contain binary biffer of object file
@@ -218,6 +220,8 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 	case CL_PROG_DLL_X86:
 		pEntry->pProgram = new DLLProgram;
 		break;
+	case CL_PROG_BIN_LLVM:
+		pEntry->pProgram = new LLVMProgram;
 	}
 
 	if ( NULL == pEntry->pProgram )

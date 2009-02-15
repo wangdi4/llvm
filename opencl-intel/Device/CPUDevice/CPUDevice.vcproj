@@ -47,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -67,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="xn_host32d.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				IgnoreDefaultLibraryNames=""
@@ -129,7 +129,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -148,7 +148,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="xn_host32r.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				ModuleDefinitionFile="CPUDevice.def"
@@ -208,7 +208,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS;DEBUGONXP"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -228,7 +228,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="XNTaskXP.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\Win32\Debug\X86TargetMachine.obj $(OutDir)\XNTaskXP.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="$(OutDir)"
 				ModuleDefinitionFile="CPUDevice.def"
@@ -324,6 +324,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\llvm_program.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\memory_allocator.cpp"
 				>
 			</File>
@@ -411,6 +415,10 @@
 			</File>
 			<File
 				RelativePath=".\kernel_api.h"
+				>
+			</File>
+			<File
+				RelativePath=".\llvm_program.h"
 				>
 			</File>
 			<File

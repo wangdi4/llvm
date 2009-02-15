@@ -2,7 +2,6 @@
 
 #include "OCL_RT.h"
 
-#include "handle_allocator.h"
 #include "cl_synch_objects.h"
 
 #include <list>
@@ -98,7 +97,6 @@ protected:
 	unsigned int					m_uiHWThreads;
 	unsigned int					m_uiNumWorkingThreads;
 
-	HandleAllocator<unsigned int>	m_haHandles;		// Handle allocator to handles kernel ids that are currently executed.
 	OclMutex						m_muWGExecList;		// Mutex that guards 
 	TWGExecutorList					m_lWGExecutors;		// A list of free WG executors
 

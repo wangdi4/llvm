@@ -69,19 +69,14 @@ int WGExecutor::Initialize(unsigned int uiTaskId, const SKernelInfo* pKernelInfo
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
+	// Destroy previoulsy allocated data
+	Destroy();
+
 	// Copy WG & Kernel information
 	m_psKernelInfo = pKernelInfo;
 	m_psWGInfo = pWGInfo;
 
 	m_iWIcount = 1;
-
-	m_lReady.clear();
-	// Remove previously allocated memory
-	if ( NULL != m_psWIinfo )
-	{
-		delete []m_psWIinfo;
-		m_psWIinfo = NULL;
-	}
 
 	// Tototal items cound is a mutliply of all working dimensions
 	for(int i=0; i<iDim; ++i)
@@ -212,6 +207,7 @@ void WGExecutor::Destroy()
 	if ( NULL != m_psWIinfo )
 	{
 		delete []m_psWIinfo;
+		m_psWGInfo = NULL;
 	}
 
 }
