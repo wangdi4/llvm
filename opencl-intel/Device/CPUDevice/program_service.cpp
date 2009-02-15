@@ -732,7 +732,7 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 
 	case CL_DEV_KERNEL_PROTOTYPE:
 		pValue = pKernel->GetKernelArgs();
-		stValSize = it->second->GetNumArgs()*sizeof(cl_kernel_arg_type);
+		stValSize = it->second->GetNumArgs()*sizeof(cl_kernel_argument);
 		break;
 
 	case CL_DEV_KERNEL_COMPILE_WG_SIZE:

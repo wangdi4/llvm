@@ -581,7 +581,7 @@ cl_int cCudaDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_i
 			return CL_DEV_INVALID_PROGRAM;
 		}
 		cCudaProgram *tProg = m_pDevInstance->m_Programs[uiProg];
-		return tProg->GetKernelArgTypes(tKernel->KernelName, value_size, (cl_kernel_arg_type*)value, value_size_ret);
+		return tProg->GetKernelArguments(tKernel->KernelName, value_size, (cl_kernel_argument*)value, value_size_ret);
 	}
 
 	return CL_DEV_INVALID_VALUE;
@@ -796,9 +796,9 @@ cl_int cCudaProgram::GetKernels(cl_uint num_kernels, KERNEL_ID **kernels, cl_uin
 	}
 	return CL_DEV_SUCCESS;
 }
-cl_int cCudaProgram::GetKernelArgTypes(string KernelName, 
+cl_int cCudaProgram::GetKernelArguments(string KernelName, 
 									   size_t value_size, 
-									   cl_kernel_arg_type* value, 
+									   cl_kernel_argument* value, 
 									   size_t* value_size_ret)
 {
 	size_t num_args = m_kernels[KernelName]->m_NumberOfArguments;
@@ -808,11 +808,11 @@ cl_int cCudaProgram::GetKernelArgTypes(string KernelName,
 	}
 	if( NULL != value_size_ret )
 	{
-		*value_size_ret = num_args * sizeof(cl_kernel_arg_type);
+		*value_size_ret = num_args * sizeof(cl_kernel_argument);
 	}
 	if( NULL != value )
 	{
-		memcpy(value, m_kernels[KernelName]->m_Arguments, num_args * sizeof(cl_kernel_arg_type));
+		memcpy(value, m_kernels[KernelName]->m_Arguments, num_args * sizeof(cl_kernel_argument));
 	}
 	return CL_DEV_SUCCESS;
 }
@@ -989,8 +989,8 @@ cl_int cCudaProgram::RunKernel( cl_dev_cmd_param_kernel* pKernelParam ,cl_dev_cm
 	const size_t *glb_wrk_offs = pKernelParam->glb_wrk_offs;
 	const size_t *glb_wrk_size = pKernelParam->glb_wrk_size;
 	const size_t *lcl_wrk_size = pKernelParam->lcl_wrk_size;
-	cl_uint arg_count = pKernelParam->arg_count;
-	const cl_kernel_argument*	args = pKernelParam->args;
+	cl_uint arg_count = tKernel->m_NumberOfArguments;
+	const cl_kernel_argument*	args = tKernel->m_Arguments;
 	const void* arg_values = pKernelParam->arg_values;
 	size_t	offset = 0;
 	char* ppp = NULL;
@@ -1087,21 +1087,6 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 		LOG_ERROR(L"recived unsuported work dim: %d", tKernelParams->work_dim);
 		return CL_DEV_SUCCESS;
 	}
-	if( NULL == tKernelParams->glb_wrk_offs )
-	{
-		LOG_ERROR(L"recived unsuported NULL pointer instead of glb_wrk_offs");
-		return CL_DEV_SUCCESS;
-	}
-	if( NULL == tKernelParams->glb_wrk_size )
-	{
-		LOG_ERROR(L"recived unsuported NULL pointer instead of glb_wrk_size");
-		return CL_DEV_SUCCESS;
-	}
-	if( NULL == tKernelParams->lcl_wrk_size )
-	{
-		LOG_ERROR(L"recived unsuported NULL pointer instead of lcl_wrk_size");
-		return CL_DEV_SUCCESS;
-	}
 
 	cl_dev_cmd_param_kernel* KernelParams = new cl_dev_cmd_param_kernel;
 
@@ -1118,11 +1103,8 @@ cl_int cCudaCommandList::PushKernel(cl_dev_cmd_desc* cmds)
 		KernelParams->lcl_wrk_size[1] = 1;
 	}
 
-	KernelParams->arg_count = tKernelParams->arg_count;
 	KernelParams->arg_size = tKernelParams->arg_size;
-	KernelParams->args = new cl_kernel_argument[KernelParams->arg_count];
 	KernelParams->arg_values = new char[KernelParams->arg_size];
-	memcpy((void*)KernelParams->args, tKernelParams->args, KernelParams->arg_count * sizeof(cl_kernel_argument));
 	memcpy((void*)KernelParams->arg_values, tKernelParams->arg_values, KernelParams->arg_size);
 
 
@@ -1417,7 +1399,6 @@ _COMMAND_CONTAINER::~_COMMAND_CONTAINER()
 	else if( CUDA_RUN_KERNEL == CommandType )
 	{
 		cl_dev_cmd_param_kernel* KernelParams = (cl_dev_cmd_param_kernel*)((cl_dev_cmd_desc*)Command)->params;
-		delete[] KernelParams->args;
 		delete[] KernelParams->arg_values;
 		delete KernelParams;
 	}

@@ -140,9 +140,9 @@ public:
 	cl_int GetBinary(size_t size, void *binary, size_t *size_ret);
 	cl_int GetKernelID(const char* IN name, cl_dev_kernel* OUT kernel_id );
 	cl_int GetKernels(cl_uint IN num_kernels, KERNEL_ID** OUT kernels, cl_uint* OUT num_kernels_ret );
-	cl_int GetKernelArgTypes( string KernelName, 
+	cl_int GetKernelArguments( string KernelName, 
 							  size_t IN value_size, 
-							  cl_kernel_arg_type* OUT value, 
+							  cl_kernel_argument* OUT value, 
 							  size_t* OUT value_size_ret );
 	cl_int Build(const cl_char *options, void *user_data);
 	cl_int RunKernel( cl_dev_cmd_param_kernel* pKernelParam, cl_dev_cmd_id	id, void* data );
