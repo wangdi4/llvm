@@ -251,15 +251,9 @@ NDRangeKernelCommand::~NDRangeKernelCommand()
  ******************************************************************/
 cl_err_code NDRangeKernelCommand::Init()
 {
+    cl_err_code res;
     // We have to use init to create a snapshot of the buffer kernels on enqueue
     // Thus, we also create and set the device command approperly as much as we can.
-
-    // Setup Kernel parameters
-    m_pDevCmd = new cl_dev_cmd_desc;
-    cl_dev_cmd_param_kernel* pKernelParam = new cl_dev_cmd_param_kernel;
-    	
-    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
-    memset(pKernelParam, 0, sizeof(cl_dev_cmd_param_kernel));
 
     // Create args snapshot
     size_t szArgCount = m_pKernel->GetKernelArgsCount();
@@ -277,9 +271,20 @@ cl_err_code NDRangeKernelCommand::Init()
             tObjectArg.szOffset = szCurrentLocation;
             tObjectArg.szSize   = sizeof(cl_dev_mem);
             tObjectArg.pObject   = pArg->GetValue();
-            // TODO: Create buffer resources here is not available.
+            // Create buffer resources here if not available.
+            MemoryObject* pBuffer = (MemoryObject*)tObjectArg.pObject;
+            if (!(pBuffer->IsAllocated(m_clDeviceId)))
+            {
+                // Allocate
+                res = pBuffer->CreateDeviceResource(m_clDeviceId);
+                if( CL_FAILED(res))
+                {
+                    return res;
+                }
+            }
+
             szCurrentLocation += tObjectArg.szSize;
-            m_ObjectArgList.push_front(tObjectArg);
+            m_ObjectArgList.push_back(tObjectArg);
 
         }
         // Currently suuport only buffer
@@ -290,10 +295,21 @@ cl_err_code NDRangeKernelCommand::Init()
             szCurrentLocation += pArg->GetSize();
         }
     }
-    pKernelParam->arg_size = szCurrentLocation;
+    
+    // Setup Kernel parameters
+    m_pDevCmd = new cl_dev_cmd_desc;
+    cl_dev_cmd_param_kernel* pKernelParam = new cl_dev_cmd_param_kernel;
+    	
+    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+    memset(pKernelParam, 0, sizeof(cl_dev_cmd_param_kernel));
 
+  
     cl_char* pArgValues = new cl_char[szCurrentLocation];
     memset(pArgValues, 0, sizeof(cl_char)*szCurrentLocation);
+
+    pKernelParam->arg_size = szCurrentLocation;
+    pKernelParam->arg_values = (void*)pArgValues;
+
     size_t szArgSize = 0;
     cl_char* pArgValuesCurrentLocation = pArgValues;
 
@@ -304,17 +320,19 @@ cl_err_code NDRangeKernelCommand::Init()
         if(pArg->IsBuffer())
         {
             szArgSize = sizeof(cl_dev_mem);
-            // Don't copy data, only at the end.
+            // Get device buffer handle only on execute, since the current location is not necessarily the final one.
         }
         // TODO: check other objects such as image, sampler
         else
         {
-            szArgCount = pArg->GetSize();
+            szArgSize = pArg->GetSize();
             // Copy data
-            memcpy(pArgValuesCurrentLocation, pArg->GetValue(), szArgCount);            
+            memcpy(pArgValuesCurrentLocation, pArg->GetValue(), szArgSize);            
         }
-        pArgValuesCurrentLocation += szArgCount; 
+        // increment pointer
+        pArgValuesCurrentLocation += szArgSize; 
     }
+    
 
     // Fill specific command values    
 	pKernelParam->work_dim = m_uiWorkDim;
@@ -324,8 +342,7 @@ cl_err_code NDRangeKernelCommand::Init()
         pKernelParam->glb_wrk_size[i] = m_cpszGlobalWorkSize[i];
 	    pKernelParam->lcl_wrk_size[i] = m_cpszLocalWorkSize[i];
     }
-	// Fill command descriptor
-	m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+
 	m_pDevCmd->params = pKernelParam;
 	m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_kernel);
 	m_pDevCmd->type = CL_DEV_CMD_EXEC_KERNEL;
@@ -350,12 +367,20 @@ cl_err_code NDRangeKernelCommand::Execute()
     {
         TObjectArg& objectArg = *it;
         if (KL_ARG_TYPE_BUFFER == objectArg.type)
-        {
-            cl_dev_mem clDevMem;
-            MemoryObject* buffer = (MemoryObject*)(objectArg.pObject);
-            buffer->GetDataLocation(&clDevMem); 
-            memcpy(pKernelParam + (objectArg.szOffset), &clDevMem , objectArg.szSize);
-            buffer->AddPendency();
+        {   
+            MemoryObject* pBuffer = (MemoryObject*)(objectArg.pObject);
+
+
+            // Assume buffer is available in the current location, done in init
+            // TODO: Support buffers in different devices, need to prefatch.
+
+            // TODO: Uri Q: when to update the buffer on the location of the device.
+            pBuffer->SetDataLocation(m_clDeviceId);
+            cl_dev_mem clDevMem = pBuffer->GetDeviceMemoryHndl(m_clDeviceId);
+
+            assert( 0 != clDevMem );
+            memcpy(  ((cl_char*)(pKernelParam->arg_values)) + (objectArg.szOffset), &clDevMem , objectArg.szSize);
+            pBuffer->AddPendency();
         }
         else
         {
@@ -363,7 +388,11 @@ cl_err_code NDRangeKernelCommand::Execute()
             assert(0);
         }
         it++;
-    }        
+    }
+
+    // Fill command descriptor
+	m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+
     pKernelParam->kernel = m_pKernel->GetDeviceKernelId(m_clDeviceId);
     
     // Sending the queue command
@@ -399,6 +428,7 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 
     // Delete local command
     cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
+    delete pKernelParam->arg_values;
     delete pKernelParam;
     delete m_pDevCmd;
     m_pDevCmd = NULL;
@@ -441,10 +471,11 @@ cl_err_code ReadBufferCommand::Init()
 cl_err_code ReadBufferCommand::Execute()
 {
     cl_err_code res = CL_SUCCESS;
-    cl_dev_mem clDevMem;
-    cl_device_id clDeviceDataLocation = m_pBuffer->GetDataLocation(&clDevMem);
+    cl_device_id clDeviceDataLocation = m_pBuffer->GetDataLocation();
     if(0 != clDeviceDataLocation)
     {
+        cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(clDeviceDataLocation);
+
         // Create Read command
         m_pDevCmd     = new cl_dev_cmd_desc;
 	    cl_dev_cmd_param_rw* pRWParams   = new cl_dev_cmd_param_rw;
@@ -586,8 +617,7 @@ cl_err_code WriteBufferCommand::Init()
 cl_err_code WriteBufferCommand::Execute()
 {
     cl_err_code res = CL_SUCCESS;
-    cl_dev_mem clDevMem;
-
+   
     // First validate that buffer is allocated.
     if (!m_pBuffer->IsAllocated(m_clDeviceId))
     {
@@ -610,8 +640,8 @@ cl_err_code WriteBufferCommand::Execute()
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
 	memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
 	    
-    m_pBuffer->GetDataLocation(&clDevMem);
-
+     cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId);
+    
     pRWParams->memObj   = clDevMem;
 	pRWParams->ptr      = (void*)m_cpSrc;
     pRWParams->dim_count = 1;

@@ -384,7 +384,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_WORK_DIMENSION;
     }
 
-    if ( NULL != CL_INVALID_GLOBAL_OFFSET)
+    if ( NULL != cpszGlobalWorkOffset)
     {
      return CL_INVALID_GLOBAL_OFFSET;
     }
@@ -416,6 +416,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
 
     Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
+    // Must set device Id befor init for buffer resource allocation.
+    pNDRangeKernelCmd->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
     pNDRangeKernelCmd->Init();
     errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     

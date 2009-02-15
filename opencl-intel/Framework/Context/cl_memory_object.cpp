@@ -29,7 +29,6 @@
 #include <device.h>
 #include <assert.h>
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,34 +64,37 @@ cl_err_code DeviceMemoryObject::AllocateBuffer(cl_mem_flags clMemFlags, size_t s
 	int iMemFlags = 0;
 	cl_dev_mem_flags clDevMemFlags;
 
-	if ((clMemFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR)) == 1)
+	if (clMemFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR))
 	{
 		iMemFlags |= CL_DEV_MEM_HOST_MEM;
 	}
-	if ((clMemFlags & CL_MEM_READ_ONLY) == 1)
+	if (clMemFlags & CL_MEM_READ_ONLY)
 	{
 		iMemFlags |= CL_DEV_MEM_READ;
 	}
-	else if ((clMemFlags & CL_MEM_WRITE_ONLY) == 1)
+	else if (clMemFlags & CL_MEM_WRITE_ONLY)
 	{
 		iMemFlags |= CL_DEV_MEM_WRITE;
 	}
-	else if ((clMemFlags & CL_MEM_READ_WRITE) == 1)
+	else if (clMemFlags & CL_MEM_READ_WRITE)
 	{
 		iMemFlags |= CL_DEV_MEM_READ_WRITE;
 	}
 	clDevMemFlags = (cl_dev_mem_flags)iMemFlags;
 
+    OclAutoMutex CS(&m_oclLocker); // release on return
 	cl_err_code clErr = m_pDevice->CreateMemoryObject(clDevMemFlags, NULL, 1, &szBuffersize, pHostPtr, NULL, &m_clDevMemId);
 	if (CL_SUCCEEDED(clErr))
 	{
 		m_bAllocated = true;
 	}
 	return clErr;
+    // End Critical section
 }
 
 cl_err_code DeviceMemoryObject::Release()
 {
+    OclAutoMutex CS(&m_oclLocker);
 	if (false == m_bAllocated)
 	{
 		return CL_SUCCESS;
@@ -119,6 +121,7 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
 	m_clMemObjectType = 0;
+    m_uiPendency = 0;
 
 	cl_uint uiNumDevices = 0;
 	Device ** ppDevices = NULL;
@@ -178,10 +181,31 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 	DeviceMemoryObject * pDevMemObj = it->second;
 	return pDevMemObj->IsAllocated();
 }
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MemoryObject::GetDeviceMemoryHndl
+// If there is no resource in this device, or resource is not valid, 0 hndl is returned.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
+{
+	InfoLog(m_pLoggerClient, L"Enter GetDeviceMemoryHndl");
+
+	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
+	if (it == m_mapDeviceMemObjects.end())
+	{
+		// device not found
+		return 0;
+	}
+	// get the device memory objectand check if it was allocated
+	DeviceMemoryObject * pDevMemObj = it->second;
+	return pDevMemObj->GetDeviceMemoryId();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::GetDataLocation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_device_id MemoryObject::GetDataLocation( cl_dev_mem* pDevMemId )
+cl_device_id MemoryObject::GetDataLocation()
 {
 	InfoLog(m_pLoggerClient, L"Enter GetDataLocation");
 
@@ -190,16 +214,12 @@ cl_device_id MemoryObject::GetDataLocation( cl_dev_mem* pDevMemId )
 		DeviceMemoryObject * pDevMemObj = it->second;
 		if (pDevMemObj->IsDataValid())
 		{
-            if ( NULL != pDevMemId )
-            {
-                *pDevMemId = pDevMemObj->GetDeviceMemoryId();
-            }
-
 			return it->first;
 		}
 	}
 	return 0;
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::SetDataLocation
 ///////////////////////////////////////////////////////////////////////////////////////////////////

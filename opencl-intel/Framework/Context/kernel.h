@@ -128,10 +128,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint GetIndex() const { return m_uiIndex; }
 
         // return the size (in bytes) of the kernel arg's value
+        // if Buffer / Image / ... returns sizeof(MemoryObject*)
 		size_t GetSize() const { return m_szSize; }
 
         // returns the value of the kernel argument
-        // if Buffer / Image / ... returns sizeof(MemoryObject*)
 		void * GetValue() const { return m_pValue; }
 
 		bool IsBuffer() const;

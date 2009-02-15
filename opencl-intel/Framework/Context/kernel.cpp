@@ -508,7 +508,7 @@ cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
 		{
 			return CL_OUT_OF_HOST_MEMORY;
 		}
-		memcpy_s(m_sKernelPrototype.m_pArgs, m_sKernelPrototype.m_uiArgsCount, sKernelPrototype.m_pArgs, sKernelPrototype.m_uiArgsCount);
+		memcpy_s(m_sKernelPrototype.m_pArgs, m_sKernelPrototype.m_uiArgsCount*sizeof(cl_kernel_argument), sKernelPrototype.m_pArgs, sKernelPrototype.m_uiArgsCount*sizeof(cl_kernel_argument));
 	}
 	return CL_SUCCESS;
 }

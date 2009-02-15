@@ -96,8 +96,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;  }
         cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled; }
-
-        cl_context      GetContextId () const { return m_clContextId; };
+        cl_context      GetContextId () const                   { return m_clContextId; }
+        cl_device_id    GetQueueDeviceId() const                { return m_clDefaultDeviceId; }
 
     private:
         cl_err_code     ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent);
