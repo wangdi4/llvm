@@ -67,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32d.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				IgnoreDefaultLibraryNames=""
@@ -148,7 +148,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32r.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				ModuleDefinitionFile="CPUDevice.def"
