@@ -95,17 +95,17 @@ cl_err_code ContextModule::Release()
 				delete pContext;
 			}
 		}
-		m_pContexts->Clear();
+		m_pContexts->Clear(false);
 	}
 
 	if (NULL != m_pPrograms)
 	{
-		m_pPrograms->Clear();
+		m_pPrograms->Clear(false);
 	}
 
 	if (NULL != m_pKernels)
 	{
-		m_pKernels->Clear();
+		m_pKernels->Clear(false);
 	}
 
 	return clErrRet;

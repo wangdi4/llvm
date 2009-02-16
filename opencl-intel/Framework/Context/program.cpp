@@ -84,12 +84,13 @@ Program::~Program()
 	{
 		ProgramBinary * pProgBin = it->second;
 		delete pProgBin;
+		it++;
 	}
 	m_mapBinaries.clear();
 	m_mapBinaryStatus.clear();
 	m_mapDevices.clear();
 
-	m_pKernels->Clear();
+	m_pKernels->Clear(false);
 
 	delete m_pLoggerClient;
 }
@@ -902,7 +903,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 				delete pKernel;
 			}
 		}
-		m_pKernels->Clear();
+		m_pKernels->Clear(false);
 		return clErrRet;
 	}
 	return CL_SUCCESS;

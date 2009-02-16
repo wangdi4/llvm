@@ -203,8 +203,6 @@ Kernel::~Kernel()
 {
 	InfoLog(m_pLoggerClient, L"Kernel D'tor enter");
 	delete m_psKernelName;
-	delete m_pDeviceKernels;
-	delete m_pLoggerClient;
 
 	// release kernel prototype
 	delete[] m_sKernelPrototype.m_psKernelName;
@@ -219,7 +217,8 @@ Kernel::~Kernel()
 			delete pDeviceKerenl;
 		}
 	}
-	m_pDeviceKernels->Clear();
+	m_pDeviceKernels->Clear(false);
+	delete m_pDeviceKernels;
 
 	// delete kerenl arguments
 	map<cl_uint,KernelArg*>::iterator it = m_mapKernelArgs.begin();
@@ -230,8 +229,11 @@ Kernel::~Kernel()
 		{
 			delete pKernelArg;
 		}
+		it++;
 	}
 	m_mapKernelArgs.clear();
+	
+	delete m_pLoggerClient;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
@@ -386,7 +388,7 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 				delete pDeviceKernel;
 			}
 		}
-		m_pDeviceKernels->Clear();
+		m_pDeviceKernels->Clear(false);
 		return clErrRet;
 	}
 

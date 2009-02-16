@@ -15,7 +15,7 @@ OCLObjectsMap::OCLObjectsMap()
 }
 OCLObjectsMap::~OCLObjectsMap()
 {
-	Clear();
+	Clear(false);
 }
 cl_int OCLObjectsMap::AddObject(OCLObject * pObject)
 {
@@ -88,7 +88,7 @@ cl_err_code OCLObjectsMap::GetObjectByIndex(cl_uint uiIndex, OCLObject ** ppObje
 	}
 	return CL_ERR_KEY_NOT_FOUND;
 }
-cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet)
+cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet, bool bSetDirty)
 {
 	map<cl_int,OCLObject*>::iterator it = m_mapObjects.find(iObjectId);
 	if (it == m_mapObjects.end())
@@ -98,6 +98,11 @@ cl_err_code OCLObjectsMap::RemoveObject(cl_int iObjectId, OCLObject ** ppObjectR
 	if (NULL != ppObjectRet)
 	{
 		*ppObjectRet = it->second;
+	}
+	// if SetDirty flag set to true - remove from objects map and insert to dirty objects map
+	if (true == bSetDirty)
+	{
+		m_mapDirtyObjects[it->first] = it->second;
 	}
 	m_mapObjects.erase(it);
 	return CL_SUCCESS;
@@ -154,12 +159,42 @@ const cl_uint OCLObjectsMap::Count()
 {
 	return m_mapObjects.size();
 }
-void OCLObjectsMap::Clear()
+void OCLObjectsMap::Clear(const bool bSetDirty)
 {
+	if (true == bSetDirty)
+	{
+		map<cl_int,OCLObject*>::iterator it = m_mapObjects.begin();
+		while (it != m_mapObjects.end())
+		{
+			m_mapDirtyObjects[it->first] = it->second;
+			it++;
+		}
+	}
 	m_mapObjects.clear();
 }
 bool OCLObjectsMap::IsExists(cl_int iObjectId)
 {
 	//map<cl_int, OCLObject*>::iterator it = m_mapObjects.find(iObjectId);
 	return (m_mapObjects.find(iObjectId) != m_mapObjects.end());
+}
+cl_err_code OCLObjectsMap::GarbageCollector()
+{
+	map<cl_int,OCLObject*>::iterator it = m_mapDirtyObjects.begin();
+	while (it != m_mapDirtyObjects.end())
+	{
+		OCLObject * pObject = it->second;
+		if (NULL == pObject)
+		{
+			m_mapDirtyObjects.erase(it);
+			return CL_SUCCESS;
+		}
+		if (true == pObject->ReadyForDeletion())
+		{
+			delete pObject;
+			m_mapDirtyObjects.erase(it);
+			return CL_SUCCESS;
+		}
+		it++;
+	}
+	return CL_SUCCESS;
 }

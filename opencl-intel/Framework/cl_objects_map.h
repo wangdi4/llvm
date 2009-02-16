@@ -48,6 +48,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	protected:
 		// object's map
 		map<cl_int, OCLObject*>		m_mapObjects;
+		// dirty object's map
+		map<cl_int, OCLObject*>		m_mapDirtyObjects;
 		static cl_int				m_iNextGenKey;
 
 	public:
@@ -154,6 +156,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	RemoveObject    
 		* Description:	remove the OpenCL object which assign to the object id from the map and
 		*				returns the object if neccessary
+		*				if bSetDirty flag is true, the object is not entirely removed from the
+		*				objects map but set to dirty object. Once the grabage collector is
+		*				activated, the object will be removed if it ready for deletion
 		* Arguments:	iObjectId [in]		the id of the OpenCL object
 		*				ppObjectRet [out]	return the object being removed. if ppObjectRet is
 		*									NULL it is ignored
@@ -162,7 +167,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet);
+		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet, bool bSetDirty);
+		
+		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet)
+		{ return RemoveObject(iObjectId, ppObjectRet, false); }
 
 		/******************************************************************************************
 		* Function: 	Count    
@@ -183,10 +191,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		void Clear();
+		void Clear(const bool bSetDirty);
 
 		// check if current object id exists in map list
 		bool IsExists(cl_int iObjectId);
+
+		/******************************************************************************************
+		* Function: 	GarbageCollector    
+		* Description:	scan the OpenCL dirty objects and delete the objects that ready for
+		*				deletion
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/	
+		cl_err_code GarbageCollector();
 
 	};
 

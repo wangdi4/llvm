@@ -60,7 +60,7 @@ EventsManager::~EventsManager()
 			delete pEvent;
 		}
 	}
-	m_pEvents->Clear();
+	m_pEvents->Clear(false);
     delete m_pEvents;
 }
 
