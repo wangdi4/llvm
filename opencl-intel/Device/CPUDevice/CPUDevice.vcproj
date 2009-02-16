@@ -47,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj;..\..\..\externals\XNTask\include\common"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -129,7 +129,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj;..\..\..\externals\XNTask\include\common"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -208,7 +208,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj"
+				AdditionalIncludeDirectories="..\..\include;..\..\..\include;..\..\runtime;..\..\..\externals\XNTask\include;..\..\..\externals\llvm\include;..\..\..\externals\llvm\prj;..\..\..\externals\XNTask\include\common"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS;DEBUGONXP"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"

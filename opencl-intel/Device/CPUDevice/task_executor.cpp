@@ -7,7 +7,6 @@
 #include <XN0Task_common.h>
 #include <XN0Sys_common.h>
 #include <limits.h>
-#include <time.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -37,7 +36,7 @@ ETERetCode ConvertXNError(XNERROR err)
 
 // Class Construtor/Destructor/Intstance
 TaskExecutor::TaskExecutor() : 
-	m_uiNumWorkingThreads(0), m_uiHWThreads(0)
+	m_uiNumWorkingThreads(0), m_uiHWThreads(0), m_lLastTaskId(0)
 {
 }
 
@@ -161,7 +160,8 @@ ETERetCode	TaskExecutor::ExecuteTask(STaskDescriptor* pTaskDesc,
 		pNewTask->pScratch = NULL;
 	}
 
-	pNewTask->uiTaskId = (unsigned int)time(NULL);
+	
+	pNewTask->uiTaskId = InterlockedIncrement(&m_lLastTaskId);
 	pNewTask->pTE = this;
 
 	// Setup WG information parameters
@@ -232,7 +232,7 @@ ETERetCode	TaskExecutor::ExecuteFunction(const void* pfnFunction, void* pParams,
 	}
 
 	// Fill function informatio
-	pNewFunc->uiTaskId = (unsigned int)time(NULL);
+	pNewFunc->uiTaskId = InterlockedIncrement(&m_lLastTaskId);
 	pNewFunc->pTE = this;
 	pNewFunc->pParams = pParams;
 	pNewFunc->stSize = stSize;
@@ -329,11 +329,6 @@ void TaskExecutor::TaskCompleted(TTaskHandle hTask, void* _Task)
 {
 	SRunningTask* pTask = (SRunningTask*)_Task;
 
-	XNERROR xnER;
-	
-//	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pTask->pScratch);
-//	assert(XN_SUCCESS == xnER);
-
 	// Call user callback
 	pTask->pfnNotify(hTask, pTask->psTaskDesc, pTask->pData);
 
@@ -344,11 +339,6 @@ void TaskExecutor::TaskCompleted(TTaskHandle hTask, void* _Task)
 void TaskExecutor::FunctionCompleted(TTaskHandle hTask, void* _Function)
 {
 	SRunningFunction*	pFunc = (SRunningFunction*)_Function;
-
-	XNERROR xnER;
-	
-//	xnER = XN0SyncObjectRemoveWaiter((XNTASK)hTask, pFunc->pScratch);
-//	assert(XN_SUCCESS == xnER);
 
 	// Call user callback
 	pFunc->pfnNotify(hTask, pFunc->pParams, pFunc->stSize, pFunc->pData);

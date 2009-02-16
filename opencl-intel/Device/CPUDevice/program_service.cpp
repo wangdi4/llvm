@@ -43,7 +43,8 @@ using namespace Intel::OpenCL;
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] = 
 {
-	{CL_PROG_DLL_X86, 0, 0}
+	{CL_PROG_DLL_X86, 0, 0},
+	{CL_PROG_BIN_LLVM, 0, 0},
 };
 static	unsigned int	gSupportedBinTypesCount = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
 

@@ -36,10 +36,10 @@ using namespace Intel::OpenCL::Utils;
 /************************************************************************
  * Creates the mutex section object.
 /************************************************************************/
-OclMutex::OclMutex()
+OclMutex::OclMutex(unsigned int uiSpinCount)
 {
     m_mutexHndl = new CRITICAL_SECTION();
-    InitializeCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount);
 }
 
 /************************************************************************

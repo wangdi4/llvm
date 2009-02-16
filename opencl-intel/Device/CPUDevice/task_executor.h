@@ -99,6 +99,7 @@ protected:
 
 	OclMutex						m_muWGExecList;		// Mutex that guards 
 	TWGExecutorList					m_lWGExecutors;		// A list of free WG executors
+	volatile long					m_lLastTaskId;
 
 	// Static functions
 	static void TaskExecutionRoutine(void* _Task, unsigned int uiIndex, unsigned int uiSize);
