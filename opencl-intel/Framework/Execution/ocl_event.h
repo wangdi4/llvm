@@ -81,6 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // An OclEvent object cannot be copied
         OclEvent(const OclEvent&);           // copy constructor
         OclEvent& operator=(const OclEvent&);// assignment operator
+
     };
 
 }}};    // Intel::OpenCL::Framework

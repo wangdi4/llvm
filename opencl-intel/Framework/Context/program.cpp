@@ -90,7 +90,7 @@ Program::~Program()
 	m_mapBinaryStatus.clear();
 	m_mapDevices.clear();
 
-	m_pKernels->Clear(false);
+	m_pKernels->Clear();
 
 	delete m_pLoggerClient;
 }
@@ -903,7 +903,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 				delete pKernel;
 			}
 		}
-		m_pKernels->Clear(false);
+		m_pKernels->Clear();
 		return clErrRet;
 	}
 	return CL_SUCCESS;

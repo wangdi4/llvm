@@ -130,7 +130,7 @@ cl_err_code	PlatformModule::Release()
 			delete pDev;
 		}
 	}
-	m_pDevices->Clear(false);
+	m_pDevices->Clear();
 
 	InfoLog(m_pLoggerClient, L"Platform module logger release");
 	delete m_pLoggerClient;

@@ -150,7 +150,7 @@ cl_err_code Context::Release()
 	}
 	if (0 == m_uiRefCount)
 	{
-		m_pDevices->Clear(false);
+		m_pDevices->Clear();
 		// TODO: check resources
 	}
 	return CL_SUCCESS;

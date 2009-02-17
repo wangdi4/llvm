@@ -121,7 +121,6 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
 	m_clMemObjectType = 0;
-    m_uiPendency = 0;
 
 	cl_uint uiNumDevices = 0;
 	Device ** ppDevices = NULL;
@@ -162,6 +161,19 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 MemoryObject::~MemoryObject()
 {
 	InfoLog(m_pLoggerClient, L"Enter MemoryObject D'tor");
+
+	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin();
+	while (it != m_mapDeviceMemObjects.end())
+	{
+		DeviceMemoryObject * pDeviceMemObj = it->second;
+		if (NULL != pDeviceMemObj)
+		{
+			pDeviceMemObj->Release();
+			delete pDeviceMemObj;
+		}
+		it++;
+	}
+	m_mapDeviceMemObjects.clear();
 	delete m_pLoggerClient;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

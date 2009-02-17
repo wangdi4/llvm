@@ -82,8 +82,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t									m_szBufferSize;
 		void *									m_pBufferData;
 
-		Intel::OpenCL::Utils::LoggerClient *	m_pLoggerClient;
-
 	};
 
 

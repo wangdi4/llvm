@@ -217,7 +217,7 @@ Kernel::~Kernel()
 			delete pDeviceKerenl;
 		}
 	}
-	m_pDeviceKernels->Clear(false);
+	m_pDeviceKernels->Clear();
 	delete m_pDeviceKernels;
 
 	// delete kerenl arguments
@@ -388,7 +388,7 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 				delete pDeviceKernel;
 			}
 		}
-		m_pDeviceKernels->Clear(false);
+		m_pDeviceKernels->Clear();
 		return clErrRet;
 	}
 

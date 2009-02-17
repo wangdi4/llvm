@@ -162,6 +162,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get pointers to device objects according to the device ids
 		cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
 
+		// garbage collector - remove unuesed objects
+		void GarbageCollector();
+
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
 

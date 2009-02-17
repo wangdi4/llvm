@@ -197,16 +197,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Return the cl_context handle of the context that this memory object is belong to.
         cl_context GetContextId () const { return (cl_context)(m_pContext->GetId()); };
 
-		void AddPendency() { m_uiPendency++; }
-
-		void RemovePendency() { m_uiPendency--; }
-
 		// get the type of the memory object
 		const cl_mem_object_type GetType() const { return m_clMemObjectType; }
-
-		// infrom whether all device resource are not in use and the memory object is ready
-		// for deletion
-		const bool ReadyForDeletion() const { return 0 == m_uiPendency; }
 
 		const Context * GetContext() const { return m_pContext; }
 
@@ -246,10 +238,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
 
-		// recla the number of dependant commands - will be used in order to ensure that current memory
-		// object is ready for release
-		cl_uint									m_uiPendency;
-		
 		LoggerClient *	                        m_pLoggerClient;	// memory object's logger client
 
 	};

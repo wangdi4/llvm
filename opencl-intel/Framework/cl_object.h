@@ -98,9 +98,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 		/******************************************************************************************
+		* Function: 	AddPendency    
+		* Description:	increase the pendency counter by 1
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			February 2008
+		******************************************************************************************/
+		void AddPendency() { m_uiPendency++; }
+
+		/******************************************************************************************
+		* Function: 	RemovePendency    
+		* Description:	decrease the pendency counter by 1
+		* Arguments:	
+		* Return value:	
+		* Author:		Uri Levy
+		* Date:			February 2008
+		******************************************************************************************/
+		void RemovePendency() { m_uiPendency--; }
+
+		/******************************************************************************************
 		* Function: 	ReadyForDeletion    
 		* Description:	inform whether the OpenCL object is ready for deletion
-		*				one who's implementing this function might want to know if there are
+		*				one who's overide this function might want to know if there are
 		*				resources that attached to this object that need to be deleted
 		* Arguments:	
 		* Return value:	True	- the object is ready for deletion
@@ -108,7 +128,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		bool ReadyForDeletion();
+		virtual bool ReadyForDeletion(){ return 0 == m_uiPendency; }
 
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
@@ -118,6 +138,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		cl_int			m_iId;				// object id
 		cl_uint			m_uiRefCount;		// reference count
+		
+		cl_uint			m_uiPendency;		// recall the number of dependant resources - will be 
+											// used in order to ensure that current object is ready 
+											// for deletion
 
 	};
 

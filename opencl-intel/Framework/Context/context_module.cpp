@@ -35,6 +35,11 @@ ContextModule::~ContextModule()
 {
 	InfoLog(m_pLoggerClient, L"ContextModule destructor enter");
 
+	delete m_pKernels;
+	delete m_pPrograms;
+	delete m_pMemObjects;
+	delete m_pContexts;
+
 	delete m_pLoggerClient;
 	m_pLoggerClient = NULL;
 
@@ -46,29 +51,11 @@ ContextModule::~ContextModule()
 cl_err_code ContextModule::Initialize()
 {
 	InfoLog(m_pLoggerClient, L"ContextModule::Initialize enter");
+
 	m_pContexts = new OCLObjectsMap();
-	if (NULL == m_pContexts)
-	{
-		return CL_ERR_INITILIZATION_FAILED;
-	}
-
 	m_pPrograms = new OCLObjectsMap();
-	if (NULL == m_pPrograms)
-	{
-		return CL_ERR_INITILIZATION_FAILED;
-	}
-
 	m_pKernels = new OCLObjectsMap();
-	if (NULL == m_pKernels)
-	{
-		return CL_ERR_INITILIZATION_FAILED;
-	}
-	
 	m_pMemObjects = new OCLObjectsMap();
-	if (NULL == m_pMemObjects)
-	{
-		return CL_ERR_INITILIZATION_FAILED;
-	}
 
 	return CL_SUCCESS;
 }
@@ -95,17 +82,17 @@ cl_err_code ContextModule::Release()
 				delete pContext;
 			}
 		}
-		m_pContexts->Clear(false);
+		m_pContexts->Clear();
 	}
 
 	if (NULL != m_pPrograms)
 	{
-		m_pPrograms->Clear(false);
+		m_pPrograms->Clear();
 	}
 
 	if (NULL != m_pKernels)
 	{
-		m_pKernels->Clear(false);
+		m_pKernels->Clear();
 	}
 
 	return clErrRet;
@@ -537,14 +524,14 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 			return CL_ERR_OUT(clErrRet);
 		}
 
-		clErrRet = m_pPrograms->RemoveObject((cl_int)pProgram->GetId(), NULL);
+		// remove program from programs list and add it to the dirty programs list
+		clErrRet = m_pPrograms->RemoveObject((cl_int)pProgram->GetId(), NULL, true);
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_ERR_OUT(clErrRet);
 		}
-
-		delete pProgram;
 	}
+	GarbageCollector();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -815,10 +802,15 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 		{
 			return CL_ERR_OUT(clErr);
 		}
-		delete pKernel;
+		// remove kernel form kernels list and add it to the dirty kernels list		
+		clErr = m_pKernels->RemoveObject(pKernel->GetId(), NULL, true);
+		if (CL_FAILED(clErr))
+		{
+			return CL_ERR_OUT(clErr);
+		}
 	}
-	
-	return CL_ERR_OUT(clErr);
+	GarbageCollector();
+	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::SetKernelArg
@@ -1031,10 +1023,20 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	{
 		// TODO: handle release memomry object
 		Context *pContext = (Context*)pMemObj->GetContext();
-		pContext->RemoveMemObject(clMemObj);
+		clErr = pContext->RemoveMemObject(clMemObj);
+		if (CL_FAILED(clErr))
+		{
+			CL_ERR_OUT(clErr);
+		}
+		//TODO: set dirty object
+		clErr = m_pMemObjects->RemoveObject((cl_int)clMemObj, NULL, true);
+		if (CL_FAILED(clErr))
+		{
+			CL_ERR_OUT(clErr);
+		}
 	}
+	GarbageCollector();
 	return CL_SUCCESS;
-
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetSupportedImageFormats
@@ -1164,4 +1166,12 @@ MemoryObject * ContextModule::GetMemoryObject(const cl_mem clMemObjId)
 		return pMemoryObject;
 	}
 	return NULL;
+}
+
+void ContextModule::GarbageCollector()
+{
+	m_pKernels->GarbageCollector();
+	m_pPrograms->GarbageCollector();
+	m_pMemObjects->GarbageCollector();
+	m_pContexts->GarbageCollector();
 }

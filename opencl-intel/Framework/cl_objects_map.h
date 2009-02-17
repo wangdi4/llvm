@@ -167,11 +167,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet, bool bSetDirty);
+		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet, bool bSetDirty = false);
 		
-		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet)
-		{ return RemoveObject(iObjectId, ppObjectRet, false); }
-
 		/******************************************************************************************
 		* Function: 	Count    
 		* Description:	get the number of items
@@ -186,26 +183,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	Clear    
 		* Description:	clear map list from all objects - this function remove the items from the
 		*				objects map list only! it's not deleting the OpenCL objects
+		*				the function call to the Garbage Collector as well.
 		* Arguments:	
 		* Return value:	
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		void Clear(const bool bSetDirty);
+		void Clear(bool bSetDirty = false);
 
 		// check if current object id exists in map list
 		bool IsExists(cl_int iObjectId);
 
-		/******************************************************************************************
-		* Function: 	GarbageCollector    
-		* Description:	scan the OpenCL dirty objects and delete the objects that ready for
-		*				deletion
-		* Arguments:	
-		* Return value:	
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/	
-		cl_err_code GarbageCollector();
+		void GarbageCollector();
 
 	};
 

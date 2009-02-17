@@ -11,6 +11,7 @@ using namespace Intel::OpenCL::Framework;
 OCLObject::OCLObject()
 {
 	m_uiRefCount = 0;
+	m_uiPendency = 0;
 	Retain();
 }
 
@@ -31,10 +32,5 @@ cl_err_code OCLObject::Retain()
 {
 	++m_uiRefCount;
 	return CL_SUCCESS;
-}
-
-bool OCLObject::ReadyForDeletion()
-{
-	return true;
 }
 
