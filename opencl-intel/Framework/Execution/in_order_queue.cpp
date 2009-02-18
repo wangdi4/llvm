@@ -158,7 +158,7 @@ Command* InOrderQueue::GetNextCommand()
     }
     if(res!=COND_RESULT_COND_BROADCASTED && !m_bBroadcasted)
     {        
-        // Found a command, pop is out and move it to the device
+        // Found a command, pop it out and move it to the device
         pNextCommand = m_readyCmdsList.front();
         m_readyCmdsList.pop_front();
         m_deviceCmdsList.push_back(pNextCommand);
@@ -170,7 +170,9 @@ Command* InOrderQueue::GetNextCommand()
 }
 
 /******************************************************************
- *
+ * The queue is implemented with stl::list.
+ * Since we always iterats a queue from the first-in, we prefer to push
+ * each new command in the back and extract it out from the front.
  ******************************************************************/
 cl_err_code InOrderQueue::AddCommand(Command* pCommand)
 {       
@@ -268,73 +270,48 @@ bool InOrderQueue::StableLists()
     }
 
     // Go from bottom to top;
-    bool bContinueLoop = true;
     list<Command*>::iterator iter;
 
-    if(!m_deviceCmdsList.empty())
+    // Get iterator to front device
+    iter = m_deviceCmdsList.begin();
+    while (iter != m_deviceCmdsList.end())
     {
-        // Get iterator to front
-        iter = m_deviceCmdsList.end();
-        iter--;
-
-        while (bContinueLoop)
+        Command* pCommand = *iter;
+        QueueEvent* pEvent = pCommand->GetEvent();
+        if( pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
         {
-            if(iter == m_deviceCmdsList.begin())
+            iter = m_deviceCmdsList.erase(iter);
+            // New list, maybe new first item
+            if(0 == pEvent->GetReferenceCount())
             {
-                //Got to the last command, no need to go farther;
-                bContinueLoop = false;
+                delete (pCommand);
             }
-            Command* pCommand = *iter;
-            QueueEvent* pEvent = pCommand->GetEvent();
-            if( pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
+            else
             {
-                iter = m_deviceCmdsList.erase(iter);
-                // New list, maybe new first item
-                if(0 == pEvent->GetReferenceCount())
-                {
-                    delete (pCommand);
-                }
-                else
-                {
-                    //Still in use by other thread, don't delete, move to the black list
-                    m_blackCmdsList.push_back(pCommand);
-                }
-            }
-            else if(bContinueLoop)
-            {
-                iter--;
+                //Still in use by other thread, don't delete, move to the black list
+                m_blackCmdsList.push_back(pCommand);
             }
         }
-        bContinueLoop = true;
+        else
+        {
+            iter++;
+        }
     }
 
-    // Move green commands to ready list
-    if(!m_waitingCmdsList.empty())
+    // Move green commands to ready list    
+    iter  = m_waitingCmdsList.begin();
+    while ( iter != m_waitingCmdsList.end()  ) 
     {
-        iter  = m_waitingCmdsList.end();
-        iter--;
-
-        // loop and clean;
-        while ( bContinueLoop ) 
-        {
-            if(iter == m_waitingCmdsList.begin())
-            {
-                //Got to the last command, no need to go farther;
-                bContinueLoop = false;
-            }
-
-            Command* pCommand = *iter;
-            if(pCommand->GetEvent()->IsColor(QueueEvent::EVENT_STATE_GREEN))
-            {             
-                iter = m_waitingCmdsList.erase(iter);
-                m_readyCmdsList.push_back(pCommand);
-            }
-            else if(bContinueLoop)
-            {
-                iter--;
-            }
+        Command* pCommand = *iter;
+        if(pCommand->GetEvent()->IsColor(QueueEvent::EVENT_STATE_GREEN))
+        {             
+            iter = m_waitingCmdsList.erase(iter);
+            m_readyCmdsList.push_back(pCommand);
         }
-        bContinueLoop = true;
+        else
+        {
+            iter++;
+        }
     }
 
     // Clean black list
