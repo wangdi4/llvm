@@ -30,26 +30,41 @@
 #define __OUT_OF_ORDER_QUEUE_H__
 
 #include <cl_types.h>
-#include "command_queue.h"
+#include "in_order_queue.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
+    class QueueEvent;
 
-    //Forward declrations
-    class Command;
-
-    class OutOfOrderQueue : public ICommandQueue
+    /************************************************************************
+     * OutOfOrderQueue is a ICommandQueue that implementes the OutOfOrder queue policy
+     * as it defined in the openCL spec.
+     * If the application creates queue in Out-Of-Order mode, the queue is attaced
+     * with this object.
+     * 
+     * In the current implementation the InOrderQueue acts as OutOfOrder Queue that
+     * attaches each new command as dependent on the previous one, and by doing so the
+     * InOrder policy is compelled. For this reason, the out of order queue uses the
+     * InOrder implementation and only change the action on AddCommand and StableList
+     * and that in order to monitor Barrier and WaitOnEvents commands.
+     * 
+    /************************************************************************/ 
+    class OutOfOrderQueue : public InOrderQueue
     {
 
     public:
 	    OutOfOrderQueue();
 	    virtual ~OutOfOrderQueue();
 
-	    void        PushBack(Command* command);
-	    Command*    GetNextCommand();
         cl_err_code AddCommand(Command* command);
 
+
     private:
-        Command** m_commands;     // The actual list of command. TODO: Make a list object...
+        Command*    m_pLastBarrierCmd;      // The last Barrier/WaitOnEvents command. 
+                                            // Since each one is registered on the previous we can always replace them and keep the last one
+                                            // If command is not NULL, all commands are register on this one.
+        bool        StableLists();          //Override stable list to clean m_pLastBarrierCmd too
+        bool        RegisterAsBarrier(QueueEvent* pEvent);
+
     };
 
 }}};    // Intel::OpenCL::Framework

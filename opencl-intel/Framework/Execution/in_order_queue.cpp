@@ -148,13 +148,16 @@ Command* InOrderQueue::GetNextCommand()
     m_pListLockerMutex->Lock();
     // This method loop on the ready list.
     // Each call to StableList, may enter object into the ready list.
-    while (m_readyCmdsList.empty() && res != COND_RESULT_COND_BROADCASTED && !m_bBroadcasted)
+    while ( 
+        StableLists()                           &&  //Always stable the list before checking if ready is empty
+        m_readyCmdsList.empty()                 && 
+        res != COND_RESULT_COND_BROADCASTED     && 
+        !m_bBroadcasted)
     {
         res = m_pCond->Wait(m_pListLockerMutex);
-        StableLists();
     }
     if(res!=COND_RESULT_COND_BROADCASTED && !m_bBroadcasted)
-    {
+    {        
         // Found a command, pop is out and move it to the device
         pNextCommand = m_readyCmdsList.front();
         m_readyCmdsList.pop_front();
@@ -249,7 +252,7 @@ void InOrderQueue::Broadcast()
     {
         return;
     }
-    m_pCond->Signal();
+    m_pCond->Broadcast();
 }
 
 /******************************************************************
@@ -257,11 +260,11 @@ void InOrderQueue::Broadcast()
  * Means, that each command is assigned to the right list.
  * 
  ******************************************************************/
-void InOrderQueue::StableLists()
+bool InOrderQueue::StableLists()
 {
     if ( true == m_bCleanUp )
     {
-        return;
+        return true;
     }
 
     // Go from bottom to top;
@@ -348,6 +351,7 @@ void InOrderQueue::StableLists()
         }
 
     }
+    return true;
 }
 
 /******************************************************************

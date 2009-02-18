@@ -100,8 +100,7 @@ cl_err_code OclCommandQueue::Initialize()
     // Create worker thread and run it.
     if ( m_bOutOfOrderEnabled )
     {
-        // Out of order is not supported yet.
-        return CL_INVALID_OPERATION;
+        m_pCommandQueue = new OutOfOrderQueue();
     }
     else
     {        
@@ -290,7 +289,8 @@ cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking
     {
         delete pQueueEvent;
         return errVal;
-    }
+    }   
+
     // Set event and receiver of the command.
     pCommand->SetEvent(pQueueEvent);
     pCommand->SetReceiver(this);
@@ -319,29 +319,3 @@ cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking
     return CL_SUCCESS;
 }
 
-/**
- * Set a marker object on the current state of the queue
- */
-cl_err_code OclCommandQueue::SetMarker(cl_event pEvent)
-{
-    return CL_SUCCESS;
-}
-
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code OclCommandQueue::SetBarrier()
-{
-    return CL_SUCCESS;
-}
-
-
-/**
- * This functions resolve synch events issues such as a barriar in the queue or In-
- * order queue.
- */
-cl_err_code OclCommandQueue::ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent){
-
-	return  CL_SUCCESS;
-}

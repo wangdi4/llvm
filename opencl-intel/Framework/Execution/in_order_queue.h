@@ -67,17 +67,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    InOrderQueue();
 	    virtual ~InOrderQueue();
 
-        cl_err_code Init()                  { return CL_SUCCESS; };  // Nothing to do in InOrderQueue, list is initialized on creation 
-        Command*    GetNextCommand();
-        cl_err_code AddCommand(Command* command);
-	    cl_err_code PushFront(Command* command);
-	    void        Signal();
-	    void        Broadcast();
-        bool        IsEmpty();
-        cl_uint     Size();
-        cl_err_code Release();
+        virtual cl_err_code Init()                  { return CL_SUCCESS; }  // Nothing to do in InOrderQueue, list is initialized on creation 
+        virtual Command*    GetNextCommand();
+        virtual cl_err_code AddCommand(Command* command);
+	    virtual cl_err_code PushFront(Command* command);
+	    virtual void        Signal();
+	    virtual void        Broadcast();
+        virtual bool        IsEmpty();
+        virtual cl_uint     Size();
+        virtual cl_err_code Release();
 
-    private:
+    protected:
         list<Command*>  m_waitingCmdsList;      // Commands that are not yet ready to be processed.
         list<Command*>  m_readyCmdsList;        // "Green" commands, commands that can be flushed to the device. currently no more than 1
         list<Command*>  m_deviceCmdsList;       // All commands that are already flushed to the device.
@@ -92,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Intel::OpenCL::Utils::LoggerClient* m_pLoggerClient; 
 
         // Private functions
-        void StableLists();
+        virtual bool StableLists();
 
         // A queue cannot be copied
         InOrderQueue(const InOrderQueue&);           // copy constructor

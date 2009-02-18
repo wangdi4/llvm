@@ -79,8 +79,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         /////////////////////////////////////////////
 	    cl_err_code     EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-	    cl_err_code     SetMarker(cl_event pEvent);
-	    cl_err_code     SetBarrier();
 
         // Implement ICommandReceiver functions.
 	    void            EnqueueDevCommands(
@@ -100,8 +98,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_device_id    GetQueueDeviceId() const                { return m_clDefaultDeviceId; }
 
     private:
-        cl_err_code     ResolvedSynchEvents(cl_command_type commandType, QueueEvent* newEvent);
-
         // Private memebers
         Context*            m_pContext;
 	    Device*             m_pDefaultDevice;

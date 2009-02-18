@@ -424,16 +424,73 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     cl_event*           OUT pEvent      ) = 0;
 
 
-        // Out Of Order Execution support - Not implemented yet...
-        // ---------------------
-        // cl_int EnqueueMarker (cl_command_queue command_queue, cl_event *event);
-        // cl_int EnqueueWaitForEvents (cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
-        // cl_int EnqueueBarrier (cl_command_queue command_queue);
+        /******************************************************************************************
+		 * Function: 	EnqueueMarker    
+		 * Description:	Enqueues a marker command to clCommandQueue. The marker command returns an event which
+         *              can be used by to queue a wait on this marker event i.e. wait for all commands queued
+         *              before the marker command to complete. Has no effect in In-Order-Execution.
+         *              
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which marker command will be queued.
+         *                                      Marker can only queued in Out-Of-Order queue.
+		 *				pEvent          [out]-  Returns an event object that identifies this particular command. There is
+         *                                      no meaning for this command without the use of this event
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_VALUE        -   If event is a NULL value
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual cl_err_code EnqueueMarker ( cl_command_queue    IN  clCommandQueue, 
+                                            cl_event*           OUT pEvent      ) = 0;
+
+        /******************************************************************************************
+		 * Function: 	EnqueueWaitForEvents    
+		 * Description:	Enqueues a wait for a specific event or a list of events to complete before any future commands
+         *              queued in the command-queue are executed. 
+         
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which EnqueueWaitForEvents command will be queued.
+         *                                      WaitForEvents can only queued in Out-Of-Order queue.
+         *              uiNumEvents     [in] -  Specifies the number of events given by event_list.
+		 *				cpEeventList    [in] -  Specifies events that need to complete before this command is marked completed.
+         *                                      The events specified in event_list act as synchronization points.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_VALUE        -   If event objects specified in event_list are not valid events
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual cl_err_code EnqueueWaitForEvents (  cl_command_queue    IN  clCommandQueue, 
+                                                    cl_uint             IN  uiNumEvents, 
+                                                    const cl_event*     OUT cpEventList     ) =0;
+
+        /******************************************************************************************
+		 * Function: 	EnqueueBarrier    
+		 * Description:	Enqueues a barrier operation. The EnqueueBarrier command ensures that all queued
+         *              commands in command_queue have finished execution before the next batch of commands can
+         *              begin execution. EnqueueBarrier is a synchronization point.
+         
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which EnqueueBarrier command will be queued.
+         *                                      EnqueueBarrier can only queued in Out-Of-Order queue.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual cl_err_code EnqueueBarrier (cl_command_queue IN clCommandQueue) =0;
 
         // Not implemented yet queue commands:
         // -----------------
-        // cl_int Flush (cl_command_queue command_queue);
-        // cl_int Finish (cl_command_queue command_queue);
+        // cl_err_code Flush (cl_command_queue command_queue);
+        // cl_err_code Finish (cl_command_queue command_queue);
 
         };
 

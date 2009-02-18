@@ -447,6 +447,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    MarkerCommand();
 	    virtual ~MarkerCommand();
 
+        cl_err_code     Init()                  { return CL_SUCCESS; }
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone()           { return CL_SUCCESS; } //Nothing to do, command is done on execution
+        cl_command_type GetCommandType() const  { return CL_COMMAND_MARKER; }
     };
 
     /******************************************************************
@@ -459,6 +463,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    WaitForEventsCommand();
 	    virtual ~WaitForEventsCommand();
 
+        cl_err_code     Init()                  { return CL_SUCCESS; }
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone()           { return CL_SUCCESS; } //Nothing to do, command is done on execution
+        cl_command_type GetCommandType() const  { return CL_COMMAND_WAIT_FOR_EVENTS; }
     };
 
     /******************************************************************
@@ -471,6 +479,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    BarrierCommand();
 	    virtual ~BarrierCommand();
 
+        cl_err_code     Init()                  { return CL_SUCCESS; }
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone()           { return CL_SUCCESS; } //Nothing to do, command is done on execution
+        cl_command_type GetCommandType() const  { return CL_COMMAND_BARRIER; }
     };
 
 

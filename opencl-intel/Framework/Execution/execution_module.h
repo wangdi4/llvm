@@ -76,6 +76,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code         ReleaseCommandQueue     ( cl_command_queue clCommandQueue);
         cl_err_code         GetCommandQueueInfo     ( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
         cl_err_code         SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties);
+
+        // Out Of Order Execution synch commands
+        // ---------------------
+        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
+        cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList);
+        cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue);
+
+
         // Not implemented yet queue commands:
         // -----------------
         // cl_int Flush (cl_command_queue command_queue);
@@ -107,11 +115,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent);
         //
 
-        // Out Of Order Execution support - Not implemented yet...
-        // ---------------------
-        cl_err_code EnqueueMarker (cl_command_queue command_queue, cl_event *event);
-        cl_err_code EnqueueWaitForEvents (cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
-        cl_err_code EnqueueBarrier (cl_command_queue command_queue);
         cl_err_code         Release() { return CL_SUCCESS; }  // Release resources ???
 
     private:

@@ -131,7 +131,7 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
     {
         errVal = CL_INVALID_DEVICE;        
     }
-    else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE & 
+    else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | 
                                                    CL_QUEUE_PROFILING_ENABLE ) ) 
     {
         errVal = CL_INVALID_VALUE;
@@ -220,6 +220,79 @@ cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clComman
     ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "SetCommandQueueProperty");
 	return  CL_INVALID_OPERATION;	
 }
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
+{
+    cl_err_code errVal;
+
+    if (NULL == pEvent)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue || !(pCommandQueue->IsOutOfOrderExecModeEnabled()))
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    // Create Command
+    Command* pMarkerCommand = new MarkerCommand();
+    errVal = pMarkerCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pMarkerCommand, false, 0, NULL, pEvent);
+    }    
+	return  errVal;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList)
+{
+    cl_err_code errVal;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue || !(pCommandQueue->IsOutOfOrderExecModeEnabled()))
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    // Create Command
+    Command* pWaitForEventsCommand = new WaitForEventsCommand();
+    errVal = pWaitForEventsCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pWaitForEventsCommand, CL_FALSE, uiNumEvents, cpEventList, NULL);
+    }    
+	return  errVal;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
+{
+    cl_err_code errVal;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue || !(pCommandQueue->IsOutOfOrderExecModeEnabled()))
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    // Create Command
+    Command* pBarrierCommand = new BarrierCommand();
+    errVal = pBarrierCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pBarrierCommand, CL_FALSE, 0, NULL, NULL);
+    }    
+	return  errVal;
+}
+
 
 /******************************************************************
  * 
@@ -508,26 +581,6 @@ cl_err_code ExecutionModule::EnqueueNativeFnAsKernel(cl_command_queue command_qu
 	return  CL_INVALID_OPERATION;	
 }
 
-
-cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue command_queue, cl_event* pEvent)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueMarker");
-	return  CL_INVALID_OPERATION;	
-}
-
-
-cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue command_queue, cl_uint num_events, const cl_event* event_list)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueWaitForEvents");
-	return  CL_INVALID_OPERATION;	
-}
-
-
-cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue command_queue)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueBarrier");
-	return  CL_INVALID_OPERATION;	
-}
 /*******************************************************************
  * END OF UN IMPLEMENTED FUNCTUIONS
  *******************************************************************/

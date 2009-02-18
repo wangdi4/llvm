@@ -175,37 +175,62 @@ MapImageCommand::MapImageCommand(MemoryObject* image, cl_map_flags map_flags, co
 /******************************************************************
  *
  ******************************************************************/
-MapImageCommand::~MapImageCommand(){
-
+MapImageCommand::~MapImageCommand()
+{
 }
 
 /******************************************************************
  *
  ******************************************************************/
-MarkerCommand::MarkerCommand(){
-
+MarkerCommand::MarkerCommand()
+{
+    //Nothing to do
 }
 
 /******************************************************************
  *
  ******************************************************************/
-MarkerCommand::~MarkerCommand(){
+MarkerCommand::~MarkerCommand()
+{
+    //Nothing to do
+}
 
+/******************************************************************
+ * Nothing to do except change color, the marker is used only by Runtime to synch points.
+ ******************************************************************/
+cl_err_code MarkerCommand::Execute()
+{    
+    // TODO: This may be deadlock due to Completed event. MUST resolve it.
+    m_pQueueEvent->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
+    return CL_SUCCESS;
 }
 
 /******************************************************************
  *
  ******************************************************************/
-BarrierCommand::BarrierCommand(){
-
+BarrierCommand::BarrierCommand()
+{
+    //Nothing to do
 }
 
 /******************************************************************
  *
  ******************************************************************/
-BarrierCommand::~BarrierCommand(){
-
+BarrierCommand::~BarrierCommand()
+{
+    //Nothing to do
 }
+
+/******************************************************************
+ * Nothing to do except change color, the marker is used only by Runtime to synch points.
+ ******************************************************************/
+cl_err_code BarrierCommand::Execute()
+{    
+    // TODO: This may be deadlock due to Completed event. MUST resolve it.
+    m_pQueueEvent->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
+    return CL_SUCCESS;
+}
+
 
 /******************************************************************
  *
@@ -569,16 +594,28 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand(){
 /******************************************************************
  *
  ******************************************************************/
-WaitForEventsCommand::WaitForEventsCommand(){
-
+WaitForEventsCommand::WaitForEventsCommand()
+{
+    // Nothing to do
 }
 
 
 /******************************************************************
  *
  ******************************************************************/
-WaitForEventsCommand::~WaitForEventsCommand(){
+WaitForEventsCommand::~WaitForEventsCommand()
+{
+    // Nothing to do
+}
 
+/******************************************************************
+ * Nothing to do except change color, the Barrier is used only by Runtime to synch points.
+ ******************************************************************/
+cl_err_code WaitForEventsCommand::Execute()
+{    
+    // TODO: This may be deadlock due to Completed event. MUST resolve it.
+    m_pQueueEvent->SetEventColor(QueueEvent::EVENT_STATE_BLACK);
+    return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -640,7 +677,7 @@ cl_err_code WriteBufferCommand::Execute()
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
 	memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
 	    
-     cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId);
+    cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId);
     
     pRWParams->memObj   = clDevMem;
 	pRWParams->ptr      = (void*)m_cpSrc;

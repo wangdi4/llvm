@@ -25,13 +25,16 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 #include "out_of_order_queue.h"
+#include "queue_event.h"
+#include "enqueue_commands.h"
 
 using namespace Intel::OpenCL::Framework;
 
 /******************************************************************
  *
  ******************************************************************/
-OutOfOrderQueue::OutOfOrderQueue()
+OutOfOrderQueue::OutOfOrderQueue():
+    m_pLastBarrierCmd(NULL)
 {
 }
 
@@ -43,24 +46,164 @@ OutOfOrderQueue::~OutOfOrderQueue()
 }
 
 /******************************************************************
- *
+ * Clean the last barrier if black and use InOrder::StableLists to stable
  ******************************************************************/
-void OutOfOrderQueue::PushBack(Command* command)
+bool OutOfOrderQueue::StableLists()
 {
+    if( (NULL != m_pLastBarrierCmd) &&
+        m_pLastBarrierCmd->GetEvent()->IsColor(QueueEvent::EVENT_STATE_BLACK))
+    {
+        m_pLastBarrierCmd = NULL;
+    }
+    // The black commands are deleted.
+    return InOrderQueue::StableLists();
 }
 
 /******************************************************************
- *
+ * TODO: Synchronize change of event and the status of the lists.
  ******************************************************************/
-Command* OutOfOrderQueue::GetNextCommand()
+cl_err_code OutOfOrderQueue::AddCommand(Command* pCommand)
 {
-    return NULL;
-}
+    if ( true == m_bCleanUp )
+    {
+        return CL_ERR_FAILURE;
+    }
+    QueueEvent* pEvent = pCommand->GetEvent();
+    // Init to true in case that the event is not already dependent.
+    bool bIsGreen = (!(pEvent->IsColor(QueueEvent::EVENT_STATE_RED)));
 
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code OutOfOrderQueue::AddCommand(Command* command)
-{
+    // Start critical section - must stable all list during processing
+    { OclAutoMutex CS(m_pListLockerMutex);
+        // To add command in a stable status the list must be stabled too.
+    StableLists();
+
+    cl_command_type clCommandType = pCommand->GetCommandType();
+    // All need to register on last Barrier
+    // Todo block event from changing color during registration... need to be done inside event.
+    if( NULL != m_pLastBarrierCmd )
+    {
+        pEvent->SetDependentOn(m_pLastBarrierCmd->GetEvent());
+        bIsGreen = false;
+    }
+
+    switch(clCommandType)
+    {
+    case CL_COMMAND_MARKER:
+        if(RegisterAsBarrier(pEvent))
+        {
+            // There was command before in the queue
+            bIsGreen = false;
+        }
+        break;
+    case CL_COMMAND_BARRIER:
+        if(RegisterAsBarrier(pEvent))
+        {
+            // There was command before in the queue
+            bIsGreen = false;
+        }
+        // Fall through to Wait For Events
+    case CL_COMMAND_WAIT_FOR_EVENTS:
+        // Wait for events was already set events in the EnqueueCommand function. Need only to register as next Barrier.
+        m_pLastBarrierCmd = pCommand;
+        // Fall through, all commands are inserted into queue 
+    default:
+        break;
+    }
+    // All - enter into Queue
+    if (bIsGreen)
+    {
+        m_readyCmdsList.push_back(pCommand);
+    }
+    else
+    {
+        m_waitingCmdsList.push_back(pCommand);
+    }
+
+    }// End of Critical Section 
+
+    if(bIsGreen)
+    {
+        // New command is green, signal event to change color and worker to process it
+        pEvent->SetEventColor(QueueEvent::EVENT_STATE_GREEN);
+    }
     return CL_SUCCESS;
+}
+
+
+/******************************************************************
+ * Return true if the event was register on other events at least once.
+ ******************************************************************/
+bool OutOfOrderQueue::RegisterAsBarrier(QueueEvent* pEvent)
+{
+    bool isRegistered = false;
+    
+    // This event represents Barrier command, set dependecy on all queued commands.
+
+    // Waiting list
+    list<Command*>::iterator iter = m_waitingCmdsList.begin();    
+    while( iter != m_waitingCmdsList.end() )
+    {
+        Command* pPrevCommand = *iter;
+        QueueEvent* pPrevEvent = pPrevCommand->GetEvent();
+
+        if ( pPrevCommand != m_pLastBarrierCmd )
+        {
+            // Don't register on an event that you have already did
+            pEvent->SetDependentOn(pPrevEvent);
+            isRegistered = true;
+        }
+
+        if( CL_COMMAND_BARRIER == pPrevCommand->GetCommandType())
+        {
+            // A previous barrier, can stop here
+            return isRegistered;
+        }
+        iter++;
+    }
+        
+    // Ready list
+    iter = m_readyCmdsList.begin();
+    while( iter != m_readyCmdsList.end() )
+    {
+        Command* pPrevCommand = *iter;
+        QueueEvent* pPrevEvent = pPrevCommand->GetEvent();
+
+        if ( pPrevCommand != m_pLastBarrierCmd )
+        {
+            // Don't register on an event that you have already did
+            pEvent->SetDependentOn(pPrevEvent);
+            isRegistered = true;
+        }
+
+        if( CL_COMMAND_BARRIER == pPrevCommand->GetCommandType())
+        {
+            // A previous barrier, can stop here
+            return isRegistered;
+        }
+        iter++;
+    }
+
+    // Device list
+    iter = m_deviceCmdsList.begin();
+    while( iter != m_deviceCmdsList.end() )
+    {
+        Command* pPrevCommand = *iter;
+        QueueEvent* pPrevEvent = pPrevCommand->GetEvent();
+
+        if ( pPrevCommand != m_pLastBarrierCmd )
+        {
+            // Don't register on an event that you have already did
+            pEvent->SetDependentOn(pPrevEvent);
+            isRegistered = true;
+        }
+
+        if( CL_COMMAND_BARRIER == pPrevCommand->GetCommandType())
+        {
+            // A previous barrier, can stop here
+            return isRegistered;
+        }
+        iter++;
+    }
+
+    return isRegistered;
 }
