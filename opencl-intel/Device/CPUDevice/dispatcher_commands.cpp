@@ -31,6 +31,8 @@
 #include "cpu_dev_limits.h"
 
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL;
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
@@ -51,10 +53,11 @@ m_pTaskDispatcher(pTD), m_iLogHandle(iLogHandle)
 	m_pProgService = pTD->m_pProgramService;
 }
 
-void DispatcherCommand::NotifyDispatcher()
+void DispatcherCommand::NotifyDispatcher(cl_dev_cmd_desc *pCmd)
 {
-	m_pTaskDispatcher->NotifyCommandCompletion(m_pCmd);
+	m_pTaskDispatcher->NotifyCommandCompletion(pCmd);
 }
+
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
@@ -105,8 +108,11 @@ cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDe
 	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, pPitch);
 	if ( CL_DEV_FAILED(ret) )
 	{
+		delete pCpyParam;
 		return ret;
 	}
+
+	pCpyParam->pCmd = cmd;
 
 	// Set Source/Destination
 	pCpyParam->pRegion = cmdParams->region;
@@ -125,14 +131,13 @@ cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDe
 		pCpyParam->pDstPitch = pPitch;
 	}
 
-	m_pCmd = cmd;
-
 	// Currently handle Read/Write as single task
 	// TODO: Check run Read/Write as kernel on multiple cores
 	ETERetCode teRet;
 	teRet = m_pTaskExec->ExecuteFunction(CopyMemoryBuffer, pCpyParam, sizeof(SMemCpyParams), &NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
 	if ( TE_SUCCESS != teRet )
 	{
+		m_pMemAlloc->UnLockObject(cmdParams->memObj, pObjPtr);
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", teRet);
 		return CL_DEV_ERROR_FAIL;
 	}
@@ -143,9 +148,9 @@ cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDe
 void ReadWriteMemObject::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
 {
 	ReadWriteMemObject*		pThis = (ReadWriteMemObject*)pData;
-	cl_dev_cmd_desc*		pCmd = pThis->m_pCmd;
-	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)pCmd->params;
 	SMemCpyParams*			pCpyParam = (SMemCpyParams*)pParams;
+	cl_dev_cmd_desc*		pCmd = pCpyParam->pCmd;
+	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)pCmd->params;
 	void*					pObjPtr;
 
 	if ( CL_DEV_CMD_READ == pCmd->type )
@@ -164,7 +169,7 @@ void ReadWriteMemObject::NotifyCommandCompletion(TTaskHandle hTask, void* pParam
 
 	delete pCpyParam;
 
-	pThis->NotifyDispatcher();
+	pThis->NotifyDispatcher(pCmd);
 }
 
 void ReadWriteMemObject::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
@@ -340,24 +345,25 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	// Check kernel paramters
 	cl_uint						uiNumArgs = pKernel->GetNumArgs();
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
-	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
+	char*						pKernelParams = (char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
-	cl_char*					pNewParamPtr = (cl_char*)malloc(cmdParams->arg_size);
+	char*						pLocalParams = (char*)malloc(cmdParams->arg_size);
 
-	if ( NULL == pNewParamPtr )
+	if ( NULL == pLocalParams )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	void*						*pLocalPtr = (void**)malloc(sizeof(void*)*uiNumArgs);
+	void*						*pLocalBuffers = (void**)malloc(sizeof(void*)*uiNumArgs);
 	cl_uint						uiLocalCount = 0;
-	if ( NULL == pLocalPtr )
+	if ( NULL == pLocalBuffers )
 	{
-		free(pNewParamPtr);
+		free(pLocalParams);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	memcpy(pNewParamPtr, pCurrParamPtr, cmdParams->arg_size);
+	// Initiate with zeros
+	memset(pLocalParams, 0, cmdParams->arg_size);
 
 	// Lock memory buffers and local memory
 	for(unsigned int i=0; i<uiNumArgs; ++i)
@@ -369,15 +375,16 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 			)
 
 		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
+			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
 			if ( -1 != memObj->allocId )	// Required local memory size
 			{
 				// Lock memory object / Get pointer
-				clRet = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(pNewParamPtr+stOffset), NULL);
+				clRet = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(pLocalParams+stOffset), NULL);
 				if ( CL_DEV_FAILED(clRet) )
 				{
-					free(pLocalPtr);
-					free(pNewParamPtr);
+					UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+					free(pLocalBuffers);
+					free(pLocalParams);
 					return clRet;
 				}
 			} else
@@ -386,32 +393,49 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 				// strict local buffer size to cache line
 				locSize += (CPU_DCU_LINE_SIZE-1);
 				locSize &= ~(CPU_DCU_LINE_SIZE);
-				pLocalPtr[uiLocalCount] = (void*)locSize;
+				pLocalBuffers[uiLocalCount] = (void*)locSize;
 				++uiLocalCount;
 			}
 			stOffset += sizeof(void*);
 		}
 		else
 		{
+			memcpy(pLocalParams+stOffset, pKernelParams+stOffset, pArgs[i].size_in_bytes);
 			stOffset += pArgs[i].size_in_bytes;
 		}
 	}
 
-	m_pCmd = cmd;
 	// Allocate new Task instance
 	STaskDescriptor*	pTask = new STaskDescriptor;
 	if ( NULL == pTask )
 	{
-		free(pNewParamPtr);
+		// Undo operations
+		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+		free(pLocalBuffers);
+		free(pLocalParams);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
+	SKernelExecData*	pExecData = new SKernelExecData;
+	if ( NULL == pExecData )
+	{
+		// Undo operations
+		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+		delete pTask;
+		free(pLocalBuffers);
+		free(pLocalParams);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	pExecData->pCmd = cmd;
+	pExecData->pCmdExecutor = this;
+
 	// Set kernel information
 	pTask->sKernelParam.pfnKernelFunc = pKernel->GetHandle();
-	pTask->sKernelParam.pParams = pNewParamPtr;
+	pTask->sKernelParam.pParams = pLocalParams;
 	pTask->sKernelParam.szParamSize = cmdParams->arg_size;
 	pTask->sKernelParam.uiNumLocal = uiLocalCount;
-	pTask->sKernelParam.pLocalPtr = pLocalPtr;
+	pTask->sKernelParam.pLocalPtr = pLocalBuffers;
 
 	// Set WG information
 	pTask->sWorkingDim.iWorkDim = cmdParams->work_dim;
@@ -420,32 +444,29 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	memcpy(pTask->sWorkingDim.viLocalSize, cmdParams->lcl_wrk_size, sizeof(int)*cmdParams->work_dim);
 
 	ETERetCode ret;
-	ret = m_pTaskExec->ExecuteTask(pTask, NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	ret = m_pTaskExec->ExecuteTask(pTask, NotifyCommandCompletion, pExecData, pDepList, uiCount, pNewHandle);
 	if ( TE_SUCCESS != ret )
 	{
+
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", ret);
+		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+		delete pTask;
+		free(pLocalBuffers);
+		free(pLocalParams);
+		delete pExecData;
+
 		return CL_DEV_ERROR_FAIL;
 	}
 
 	return CL_DEV_SUCCESS;
 }
 
-void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* psTaskDescriptor, void* pData)
+void KernelCommand::UnlockMemoryBuffers(const ICLDevKernel* pKernel, const char* pKernelParams, const char* pLocalParams)
 {
-	KernelCommand*		pThis = (KernelCommand*)pData;
-	cl_dev_cmd_desc*	pCmd = pThis->m_pCmd;
-	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCmd->params;
-
-	const ICLDevKernel* pKernel;
-	cl_int clRet = pThis->m_pProgService->GetKernelObject(cmdParams->kernel, &pKernel);
-	assert(CL_DEV_SUCCEEDED(clRet));
-
 	// Check kernel paramters
 	cl_uint						uiNumArgs = pKernel->GetNumArgs();
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
-	cl_char*					pCurrParamPtr = (cl_char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
-	cl_char*					pParamPtr = (cl_char*)psTaskDescriptor->sKernelParam.pParams;
 
 	// Unlock memory buffers
 	for(unsigned int i=0; i<uiNumArgs; ++i)
@@ -456,15 +477,15 @@ void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* 
 			 ( CL_KRNL_ARG_PTR_CONST == pArgs[i].type )
 			)
 		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
+			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
 
-			if ( -1 != memObj->allocId )	// Required local memory size
+			if ( (-1 != memObj->allocId) && (NULL != (pLocalParams+stOffset)) )
 			{
 				// UnLock memory object / Get pointer
-				cl_int clRet = pThis->m_pMemAlloc->UnLockObject(memObj,(void*)(pParamPtr+stOffset));
+				cl_int clRet = m_pMemAlloc->UnLockObject(memObj,(void*)(pLocalParams+stOffset));
 				if ( CL_DEV_FAILED(clRet) )
 				{
-					ErrLog(pThis->m_logDescriptor, pThis->m_iLogHandle, L"Can't unlock memory object");
+					ErrLog(m_logDescriptor, m_iLogHandle, L"Can't unlock memory object");
 				}
 			}
 			stOffset += sizeof(void*);
@@ -474,14 +495,30 @@ void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* 
 			stOffset += pArgs[i].size_in_bytes;
 		}
 	}
+}
+
+void KernelCommand::NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* psTaskDescriptor, void* pData)
+{
+	SKernelExecData*	pInstance = (SKernelExecData*)pData;
+	KernelCommand*		pThis = pInstance->pCmdExecutor;
+	cl_dev_cmd_desc*	pCmd = pInstance->pCmd;
+	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCmd->params;
+
+	const ICLDevKernel* pKernel;
+	cl_int clRet = pThis->m_pProgService->GetKernelObject(cmdParams->kernel, &pKernel);
+	assert(CL_DEV_SUCCEEDED(clRet));
+
+
+	pThis->UnlockMemoryBuffers(pKernel, (const char*)cmdParams->arg_values, (const char*)psTaskDescriptor->sKernelParam.pParams);
 
 	// Free memory allocated to execution parameters
 	free(psTaskDescriptor->sKernelParam.pParams);
 	free(psTaskDescriptor->sKernelParam.pLocalPtr);
 
 	delete psTaskDescriptor;
+	delete pInstance;
 
-	pThis->NotifyDispatcher();
+	pThis->NotifyDispatcher(pCmd);
 
 }
 
@@ -540,8 +577,19 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
+	SNativeExecData*	pNativeData = new SNativeExecData;
+	if ( NULL == pNativeData )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate memory to store execution data");
+		free(pArgV);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
 	// Prepare native Task for execution
 	memcpy(pArgV, cmdParams->argv, cmdParams->args);
+
+	pNativeData->pCmd = cmd;
+	pNativeData->pCmdExecutor = this;
 
 	// Lock Memory objects handles
 	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
@@ -557,10 +605,8 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 		}
 	}
 
-	m_pCmd = cmd;
-
 	ETERetCode ret;
-	ret = m_pTaskExec->ExecuteFunction(func, pArgV, cmdParams->args, &NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	ret = m_pTaskExec->ExecuteFunction(func, pArgV, cmdParams->args, &NotifyCommandCompletion, pNativeData, pDepList, uiCount, pNewHandle);
 	if ( TE_SUCCESS != ret )
 	{
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", ret);
@@ -572,8 +618,9 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 
 void NativeFunction::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
 {
-	NativeFunction*		pThis = (NativeFunction*)pData;
-	cl_dev_cmd_desc*	pCmd = pThis->m_pCmd;
+	SNativeExecData*	pInstance = (SNativeExecData*)pData;
+	NativeFunction*		pThis = pInstance->pCmdExecutor;
+	cl_dev_cmd_desc*	pCmd = pInstance->pCmd;
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)pCmd->params;
 
 	// Unlock memory buffers
@@ -593,6 +640,7 @@ void NativeFunction::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, s
 
 	// Free memory allocated to execution parameters
 	free( pParams );
+	delete pInstance;
 
-	pThis->NotifyDispatcher();
+	pThis->NotifyDispatcher(pCmd);
 }

@@ -50,9 +50,8 @@ protected:
 	TaskExecutor*				m_pTaskExec;
 	cl_dev_log_descriptor		m_logDescriptor;
 	cl_int						m_iLogHandle;
-	cl_dev_cmd_desc*			m_pCmd;
 
-	void	NotifyDispatcher();
+	void	NotifyDispatcher(cl_dev_cmd_desc* cmd);
 };
 
 // OCL Read/Write buffer execution
@@ -65,12 +64,13 @@ public:
 protected:
 	struct SMemCpyParams
 	{
-		cl_uint			uiDimCount;
-		cl_char*		pSrc;
-		const size_t*	pSrcPitch;
-		cl_char*		pDst;
-		const size_t*	pDstPitch;
-		const size_t*	pRegion;
+		cl_uint				uiDimCount;
+		cl_char*			pSrc;
+		const size_t*		pSrcPitch;
+		cl_char*			pDst;
+		const size_t*		pDstPitch;
+		const size_t*		pRegion;
+		cl_dev_cmd_desc*	pCmd;
 	};
 
 	static	void	CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
@@ -86,6 +86,13 @@ public:
 	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
 
 protected:
+	struct SKernelExecData
+	{
+		KernelCommand*		pCmdExecutor;
+		cl_dev_cmd_desc*	pCmd;
+	};
+
+			void	UnlockMemoryBuffers(const ICLDevKernel* pKernel, const char* pKernelParams, const char* pLocalParams);
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, STaskDescriptor* psTaskDescriptor, void* pData);
 };
 
@@ -98,6 +105,12 @@ public:
 	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
 
 protected:
+	struct SNativeExecData
+	{
+		NativeFunction*		pCmdExecutor;
+		cl_dev_cmd_desc*	pCmd;
+	};
+
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
 };
 
