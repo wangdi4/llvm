@@ -40,6 +40,11 @@ Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, siz
 #ifdef _DEBUG
 	assert ( NULL != pErrCode );
 #endif
+	m_pBufferData = NULL;
+	if (CL_FAILED(*pErrCode))
+	{
+		return;
+	}
 	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
 
 	m_szBufferSize = szBufferSize;

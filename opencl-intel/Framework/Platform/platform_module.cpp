@@ -31,6 +31,7 @@
 #include <cl_device_api.h>
 #include "device.h"
 #include <cl_config.h>
+#include <assert.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -57,7 +58,7 @@ PlatformModule::~PlatformModule()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitDevices
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::InitDevices(vector<string> devices)
+cl_err_code PlatformModule::InitDevices(vector<string> devices, string defaultDevice)
 {
 	int numDevices = devices.size();
 	for(int i=0; i<numDevices; ++i)
@@ -68,12 +69,10 @@ cl_err_code PlatformModule::InitDevices(vector<string> devices)
 		m_pDevices->AddObject(pDevice);
 		string strDevice = devices[i];
 		// get wchar_t from string
-		// size_t needed = ::mbstowcs(NULL,&strDevice[0],strDevice.length());
 		size_t needed;
 		::mbstowcs_s(&needed, NULL, 0, &strDevice[0], strDevice.length());
 		std::wstring wstr;
 		wstr.resize(needed);
-		//::mbstowcs(&wstr[0],&strDevice[0],strDevice.length());
 		::mbstowcs_s(&needed, &wstr[0], wstr.length(), &strDevice[0], strDevice.length());
 		const wchar_t *pout = wstr.c_str();
 		// initialize device
@@ -84,9 +83,12 @@ cl_err_code PlatformModule::InitDevices(vector<string> devices)
 			delete pDevice;
 			return clErrRet;
 		}
+		if (defaultDevice != "" && defaultDevice == strDevice)
+		{
+			m_pDefaultDevice = pDevice;
+		}
 	}
 	return CL_SUCCESS;
-
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::Initialize
@@ -99,6 +101,7 @@ cl_err_code	PlatformModule::Initialize(ConfigFile * pConfigFile)
 
 	// initialize devices
 	m_pDevices = new OCLObjectsMap();
+	m_pDefaultDevice = NULL;
 	string strDevices = pConfigFile->Read<string>(CL_CONFIG_DEVICES, "");
 	vector<string> vectDevices;
 	int numDevices = ConfigFile::tokenize(strDevices, vectDevices);
@@ -106,7 +109,8 @@ cl_err_code	PlatformModule::Initialize(ConfigFile * pConfigFile)
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
-	return InitDevices(vectDevices);
+	string strDefaultDevice = pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "");
+	return InitDevices(vectDevices, strDefaultDevice);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,61 +205,99 @@ cl_int	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
 	InfoLog(m_pLoggerClient, L"Enter GetDeviceIDs (device_type=%d, num_entried=%d, pclDevices=%d, puiNumDevices=%d)", 
 		clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
 
-	if (NULL == m_pDevices)
-	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pDevices")
-		return CL_INVALID_VALUE;
-	}
-	if (NULL == pclDevices && NULL == puiNumDevices)
+	assert (NULL != m_pDevices);
+
+	if ((NULL == pclDevices && NULL == puiNumDevices) ||
+		(NULL == pclDevices && uiNumEntries > 0))
 	{
 		InfoLog(m_pLoggerClient, L"NULL == pclDevices && NULL == puiNumDevices")
 		return CL_INVALID_VALUE;
 	}
+
 	cl_err_code clErrRet = CL_SUCCESS;
 	cl_uint uiNumDevices = m_pDevices->Count();
 	cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
+	Device ** ppDevices = NULL;
+	cl_device_id * pDeviceIds = NULL;
+
+	if (uiNumDevices == 0)
+	{
+		return CL_DEVICE_NOT_FOUND;
+	}
+	if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == NULL)
+	{
+		return CL_DEVICE_NOT_FOUND;
+	}
 	
 	// prepare list for all devices
-	cl_device_id * pDeviceIds = NULL;
+	ppDevices = new Device * [uiNumDevices];
+	if (NULL == ppDevices)
+	{
+		ErrLog(m_pLoggerClient, L"can't allocate memory for devices (NULL == ppDevices)")
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	clErrRet = m_pDevices->GetObjects(uiNumDevices, (OCLObject**)ppDevices, NULL);
+	if (CL_FAILED(clErrRet))
+	{
+		return CL_ERR_OUT(clErrRet);
+		delete[] ppDevices;
+	}
 	pDeviceIds = new cl_device_id[uiNumDevices];
 	if (NULL == pDeviceIds)
 	{
-		ErrLog(m_pLoggerClient, L"can't allocate memory for device id's (NULL == pDeviceIds)")
-		return CL_ERR_INITILIZATION_FAILED;
+		ErrLog(m_pLoggerClient, L"can't allocate memory for device ids (NULL == pDeviceIds)")
+		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device * pDevice = NULL;
+
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		// get device
-		InfoLog(m_pLoggerClient, L"Get device number %d", ui);
-		clErrRet = m_pDevices->GetObjectByIndex(ui, (OCLObject**)(&pDevice));
-		if (CL_SUCCEEDED(clErrRet) && NULL != pDevice)
+		if (NULL != ppDevices[ui])
 		{
-			// get device type
-			cl_device_type clType;
-			cl_int iErrRet = pDevice->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, NULL);
-			// check that the current device type satisfactory 
-			if (iErrRet == 0 && ((clType & clDeviceType) == clType))
+			if ((clDeviceType & CL_DEVICE_TYPE_DEFAULT) && 
+				ppDevices[ui]->GetId() == m_pDefaultDevice->GetId())
 			{
-				pDeviceIds[uiRetNumDevices++] = (cl_device_id)pDevice->GetId();
+				//found the default device
+				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+				continue;
+			}
+			if (clDeviceType &= CL_DEVICE_TYPE_ALL)
+			{
+				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+			}
+			else
+			{
+				// get device type
+				cl_device_type clType;
+				cl_int iErrRet = ppDevices[ui]->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, NULL);
+				// check that the current device type satisfactory 
+				if (iErrRet == 0 && ((clType & clDeviceType) == clType))
+				{
+					pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+				}
 			}
 		}
 	}
-	if (NULL == pclDevices)
-	{
-		*puiNumDevices = uiRetNumDevices;
-		return CL_SUCCESS;
-	}
+	delete[] ppDevices;
 
-	if (uiRetNumDevices > uiNumEntries)
+	if (uiRetNumDevices == 0)
 	{
 		delete[] pDeviceIds;
-		return CL_INVALID_VALUE;
+		return CL_DEVICE_NOT_FOUND;
 	}
-	for (cl_uint ui=0; ui<uiRetNumDevices; ++ui)
+
+	if (NULL != pclDevices)
 	{
-		pclDevices[ui] = pDeviceIds[ui];
+		if (uiRetNumDevices > uiNumEntries)
+		{
+			delete[] pDeviceIds;
+			return CL_INVALID_VALUE;
+		}
+		for (cl_uint ui=0; ui<uiRetNumDevices; ++ui)
+		{
+			pclDevices[ui] = pDeviceIds[ui];
+		}
 	}
+	
 	if (NULL != puiNumDevices)
 	{
 		*puiNumDevices = uiRetNumDevices;

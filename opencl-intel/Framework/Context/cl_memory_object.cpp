@@ -114,13 +114,30 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 {
 #ifdef _DEBUG
 	assert ( NULL != pErr );
+	assert ( NULL != pContext );
 #endif
+
+	*pErr = CL_SUCCESS;
 
 	m_pLoggerClient = new LoggerClient(L"memory_object", LL_DEBUG);
 	m_pContext = pContext;
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
 	m_clMemObjectType = 0;
+
+	// check flags
+	if (0 == clMemFlags)
+	{
+		ErrLog (m_pLoggerClient, L"0 == clMemFlags");
+		*pErr = CL_INVALID_VALUE;
+		return;
+	}
+	if (((NULL == m_pHostPtr) && ((m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) != 0))	||
+		((NULL != m_pHostPtr) && ((m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) == 0)))
+	{
+		ErrLog (m_pLoggerClient, L"invalid usage of host ptr");
+		*pErr = CL_INVALID_HOST_PTR;
+	}
 
 	cl_uint uiNumDevices = 0;
 	Device ** ppDevices = NULL;

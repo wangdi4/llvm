@@ -364,13 +364,6 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 		return CL_INVALID_BUFFER_SIZE;
 	}
 
-	if (((NULL == pHostPtr) && ((clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) != 0))	||
-		((NULL != pHostPtr) && ((clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) == 0)))
-	{
-		ErrLog (m_pLoggerClient, L"invalid usage of host ptr");
-		return CL_INVALID_HOST_PTR;
-	}
-
 	cl_err_code clErr = CL_SUCCESS;
 	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, &clErr);
 	if (CL_FAILED(clErr))

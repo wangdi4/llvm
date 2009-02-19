@@ -123,10 +123,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code InitDevices(std::vector<std::string> devices);
+		cl_err_code InitDevices(std::vector<std::string> devices, std::string defaultDevice);
 
 		// map list of devices
 		OCLObjectsMap * m_pDevices;
+
+		// default device
+		Device * m_pDefaultDevice;
 		
 		// pointer to the platoform module's logger client
 		Intel::OpenCL::Utils::LoggerClient * m_pLoggerClient;
