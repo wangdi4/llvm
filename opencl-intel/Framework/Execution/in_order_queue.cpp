@@ -231,7 +231,7 @@ cl_err_code InOrderQueue::AddCommand(Command* pCommand)
 }
 
 /******************************************************************
- * Signals the queue to signal is waiting event
+ * Signals the queue to signal his waiting events
  *
  ******************************************************************/
 void InOrderQueue::Signal()
@@ -240,6 +240,11 @@ void InOrderQueue::Signal()
     {
         return;
     }
+    // Stable List before signal
+    { OclAutoMutex CS(m_pListLockerMutex);
+    StableLists();
+    }
+
     m_pCond->Signal();
 }
 
@@ -253,6 +258,10 @@ void InOrderQueue::Broadcast()
     if ( true == m_bCleanUp )
     {
         return;
+    }
+    // Stable List before broadcast
+    { OclAutoMutex CS(m_pListLockerMutex);
+    StableLists();
     }
     m_pCond->Broadcast();
 }
@@ -317,9 +326,10 @@ bool InOrderQueue::StableLists()
     // Clean black list
     iter = m_blackCmdsList.begin();
     while(iter != m_blackCmdsList.end())
-    {
-        if ( 0 == (*iter)->GetEvent()->GetReferenceCount())
+    {        
+        if ( (*iter)->GetEvent()->ReadyForDeletion())
         {
+            cl_uint id = (*iter)->GetEvent()->GetId();
             iter = m_blackCmdsList.erase(iter);
         }
         else

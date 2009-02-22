@@ -62,9 +62,13 @@ QueueEvent::~QueueEvent()
  ******************************************************************/
 void QueueEvent::SetDependentOn( QueueEvent* pDependsOnEvent )
 {
-    m_stateColor = EVENT_STATE_RED;
-    IncrementDependencyCount();
-    pDependsOnEvent->RegisterEventDoneObserver(this);
+    if ( pDependsOnEvent->RegisterEventDoneObserver(this) )
+    {
+        OclAutoMutex CS(&m_Locker);
+        m_stateColor = EVENT_STATE_RED;
+        // Increment dependency count;
+        ++m_uDependencyCount;
+    }
 }
 
 
@@ -73,9 +77,16 @@ void QueueEvent::SetDependentOn( QueueEvent* pDependsOnEvent )
  * When this event is done, is expected to notify all observers.
  *
  ******************************************************************/
-void QueueEvent::RegisterEventDoneObserver(IEventDoneObserver* observer)
+bool QueueEvent::RegisterEventDoneObserver(IEventDoneObserver* observer)
 {
+    OclAutoMutex CS(&m_Locker);
+    if (m_stateColor == EVENT_STATE_BLACK)
+    {
+        // Don't register on event that is done already
+        return false;
+    }
     m_observersList.push_back(observer);
+    return true;
 }
 
 /******************************************************************
@@ -115,10 +126,12 @@ void QueueEvent::RegisterEventColorChangeObserver( IEventColorChangeObserver* ob
  ******************************************************************/
 void QueueEvent::SetEventColor(QueueEventStateColor color)
 {
-    // Use Retain/Release to prevent potential deletion by one of the observers.
+    // Use AddPendency/Remove to prevent potential deletion by one of the observers.
     // TODO: Set Event reentrant.
-    Retain();
+    { OclAutoMutex CS(&m_Locker);
+    AddPendency();
     m_stateColor = color;
+    } // End
     switch(color)
     {
     case EVENT_STATE_BLACK:
@@ -135,7 +148,9 @@ void QueueEvent::SetEventColor(QueueEventStateColor color)
     default:
         break;
     }
-    Release();
+    { OclAutoMutex CS(&m_Locker);
+    RemovePendency();
+    } // End CS
 }
 
 /******************************************************************
@@ -186,6 +201,7 @@ void QueueEvent::EventColorChange()
  ******************************************************************/
 cl_err_code QueueEvent::NotifyEventDone(QueueEvent* event)
 {
+    OclAutoMutex CS(&m_Locker);
     --m_uDependencyCount;
     if ( 0 == m_uDependencyCount )
     {

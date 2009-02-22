@@ -28,6 +28,9 @@
 #include "queue_event.h"
 #include "enqueue_commands.h"
 
+//For debug, TODO: remove
+#include <stdio.h>
+
 using namespace Intel::OpenCL::Framework;
 
 /******************************************************************
@@ -55,6 +58,8 @@ bool OutOfOrderQueue::StableLists()
     {
         m_pLastBarrierCmd = NULL;
     }
+    // For debug: 
+    // printf("Call to StableLists\n");
     // The black commands are deleted.
     return InOrderQueue::StableLists();
 }
@@ -138,10 +143,10 @@ bool OutOfOrderQueue::RegisterAsBarrier(QueueEvent* pEvent)
     bool isRegistered = false;
     
     // This event represents Barrier command, set dependecy on all queued commands.
-
-    // Waiting list
-    list<Command*>::iterator iter = m_waitingCmdsList.begin();    
-    while( iter != m_waitingCmdsList.end() )
+       
+    // Device list
+    list<Command*>::iterator iter = m_deviceCmdsList.begin();
+    while( iter != m_deviceCmdsList.end() )
     {
         Command* pPrevCommand = *iter;
         QueueEvent* pPrevEvent = pPrevCommand->GetEvent();
@@ -160,7 +165,7 @@ bool OutOfOrderQueue::RegisterAsBarrier(QueueEvent* pEvent)
         }
         iter++;
     }
-        
+
     // Ready list
     iter = m_readyCmdsList.begin();
     while( iter != m_readyCmdsList.end() )
@@ -183,9 +188,9 @@ bool OutOfOrderQueue::RegisterAsBarrier(QueueEvent* pEvent)
         iter++;
     }
 
-    // Device list
-    iter = m_deviceCmdsList.begin();
-    while( iter != m_deviceCmdsList.end() )
+    // Waiting list
+    iter = m_waitingCmdsList.begin();    
+    while( iter != m_waitingCmdsList.end() )
     {
         Command* pPrevCommand = *iter;
         QueueEvent* pPrevEvent = pPrevCommand->GetEvent();
@@ -204,6 +209,7 @@ bool OutOfOrderQueue::RegisterAsBarrier(QueueEvent* pEvent)
         }
         iter++;
     }
+
 
     return isRegistered;
 }
