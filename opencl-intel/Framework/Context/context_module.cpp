@@ -337,7 +337,12 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 		ErrLog(m_pLoggerClient, L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
 		return CL_INVALID_CONTEXT;
 	}
-	return pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
+	clErrRet = pContext->GetInfo((cl_int)param_name, param_value_size, param_value, param_value_size_ret);
+	if (CL_FAILED(clErrRet))
+	{
+		pContext->NotifyError("clGetContextInfo failed", &clErrRet, sizeof(cl_int));
+	}
+	return clErrRet;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
@@ -380,6 +385,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
+			pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
 			return CL_INVALID_HANDLE;
 		}
 	}
@@ -389,6 +395,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
+			pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
 			return CL_INVALID_HANDLE;
 		}
 	}
@@ -450,6 +457,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = clErrRet;
+			pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
 			return CL_INVALID_HANDLE;
 		}
 	}
@@ -459,6 +467,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = clErrRet;
+			pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
 			return CL_INVALID_HANDLE;
 		}
 	}
@@ -473,12 +482,12 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 //////////////////////////////////////////////////////////////////////////
 cl_err_code	ContextModule::RetainProgram(cl_program clProgram)
 {
-	InfoLog(m_pLoggerClient, L"RetainProgram enter. clProgram=%d", clProgram);
-	if (NULL == m_pPrograms)
-	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
-		return CL_ERR_INITILIZATION_FAILED;
-	}
+	InfoLog(m_pLoggerClient, L"Enter RetainProgram (clProgram=%d)", clProgram);
+
+#ifdef _DEBUG
+	assert("Programs map list isn't initialized" && (NULL != m_pPrograms));
+#endif
+	
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
 	if (CL_FAILED(clErrRet))
@@ -493,12 +502,12 @@ cl_err_code	ContextModule::RetainProgram(cl_program clProgram)
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 {
-	InfoLog(m_pLoggerClient, L"ReleaseProgram enter. clProgram=%d", clProgram);
-	if (NULL == m_pPrograms)
-	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED");
-		return CL_INVALID_PROGRAM;
-	}
+	InfoLog(m_pLoggerClient, L"Enter ReleaseProgram (clProgram=%d)", clProgram);
+
+#ifdef _DEBUG
+	assert("Programs map list isn't initialized" && (NULL != m_pPrograms));
+#endif
+
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
 	if (CL_FAILED(clErrRet))

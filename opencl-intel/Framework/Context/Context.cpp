@@ -432,3 +432,10 @@ cl_err_code Context::GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj)
 #endif
 	return m_pMemObjects->GetOCLObject((cl_int)clMemId, (OCLObject**)ppMemObj);
 }
+void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
+{
+	if (NULL != m_pfnNotify)
+	{
+		m_pfnNotify(pcErrInfo, pPrivateInfo, szCb, m_pUserData);
+	}
+}

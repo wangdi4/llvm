@@ -160,13 +160,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 // remove the memory object from the context
 		cl_err_code RemoveMemObject(cl_mem clMem);
 
-
+		// create new buffer object
 		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer);
 
+		// get memory object according the mem id
 		cl_err_code GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj);
 
 		// check that all devices belong to this context
 		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
+
+        /******************************************************************************************
+		* Function: 	NotifyError
+		* Description:	Report information on errors that occur in this context using the callback
+		*				function registered by the application
+		* Arguments:	pcErrInfo [in]		- pointer to an error string
+		*				pPrivateInfo [in]	- represent a pointer to binary data that is returned
+		*									that can be used to log additional information helpful 
+		*									in debugging the error
+		*				szCb [in]			- length of binary data
+		* Return value:	February
+		* Author:		Uri Levy
+		* Date:			January 2009
+		******************************************************************************************/
+		void NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb);
 
     private:
 
