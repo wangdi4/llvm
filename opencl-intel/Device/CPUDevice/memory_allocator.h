@@ -48,6 +48,7 @@ struct SMemObjectDescriptor
 	bool					bFreeRequired;
 	size_t					stPitch[MAX_WORK_DIM-1];
 	cl_dev_mem				myHandle;
+	size_t					uiElementSize;
 };
 
 class MemoryAllocator
@@ -57,6 +58,9 @@ public:
 	MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc);
 	virtual ~MemoryAllocator();
 
+	//Image Info Function
+	cl_int GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
 	// Create/Release functions
 	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 							cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
@@ -68,7 +72,7 @@ public:
 
 	// Lock/Unlock functions
 	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
-							void** OUT ptr, size_t* OUT pitch);
+							void** OUT ptr, size_t* OUT pitch, size_t* OUT minimiumPitch, size_t* OUT uiElementSize);
 	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
 
 	// Mapped region functions
@@ -76,8 +80,10 @@ public:
 								const size_t* IN origin, const size_t* IN region,
 								void** OUT ptr, size_t* OUT pitch);
 	cl_int	ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr );
-
+		
 protected:
+	void*	AllocateMem(cl_uint	dim_count, const size_t* dim, size_t expectedPitchRowSize, size_t expectedPitchSliceSize);
+	size_t  ElementSize(const cl_image_format* format);
 	cl_int					m_iDevId;
 	cl_dev_log_descriptor   m_logDescriptor;
 	cl_int					m_iLogHandle;

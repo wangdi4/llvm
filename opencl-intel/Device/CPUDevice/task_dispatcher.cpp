@@ -72,6 +72,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, Pr
 	m_vCommands[CL_DEV_CMD_WRITE] = new ReadWriteMemObject(this, &m_logDescriptor, m_iLogHandle);
 	m_vCommands[CL_DEV_CMD_EXEC_KERNEL] = new KernelCommand(this, &m_logDescriptor, m_iLogHandle);
 	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = new NativeFunction(this, &m_logDescriptor, m_iLogHandle);
+	m_vCommands[CL_DEV_CMD_COPY] = new CopyMemObject(this, &m_logDescriptor, m_iLogHandle);
 }
 
 

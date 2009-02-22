@@ -477,11 +477,8 @@ cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_d
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetSupportedImageFormats Function enter");
-	if(numEntriesRet)
-	{
-		*numEntriesRet = 0;
-	}
-	return CL_SUCCESS;
+	return m_pDevInstance->m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
+	
 }
 /****************************************************************************************************************
  clDevCreateMemoryObject

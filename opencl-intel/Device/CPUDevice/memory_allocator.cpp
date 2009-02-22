@@ -34,6 +34,21 @@
 #include<stdlib.h>
 
 
+const cl_image_format suportedImageFormats[] = {
+	{CL_RGBA, CL_UNORM_INT8},
+	{CL_RGBA, CL_UNORM_INT16},
+	{CL_RGBA, CL_SIGNED_INT8},
+	{CL_RGBA, CL_SIGNED_INT16},
+	{CL_RGBA, CL_SIGNED_INT32},
+	{CL_RGBA, CL_UNSIGNED_INT8},
+	{CL_RGBA, CL_UNSIGNED_INT16},
+	{CL_RGBA, CL_UNSIGNED_INT32},
+	{CL_RGBA, CL_FLOAT},
+	{CL_RGBA, CL_HALF_FLOAT},
+	{CL_BGRA, CL_UNORM_INT8}
+};
+
+const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS = sizeof(suportedImageFormats)/sizeof(cl_image_format);
 using namespace Intel::OpenCL::CPUDevice;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc) :
@@ -88,6 +103,118 @@ cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
 
 	return CL_DEV_SUCCESS;
 }
+/****************************************************************************************************************
+ GetSupportedImageFormats
+	Description
+		This function returns the list of image formats supported by an OCL implementation when the information about
+		an image memory object is specified and device supports image objects.
+	Input
+		flags					A bit-field that is used to specify allocation and usage information such as the memory arena
+								that should be used to allocate the image object and how it will be used.
+		imageType				Describes the image type as described in (cl_dev_mem_object_type).Only image formats are supported.
+		numEntries				Specifies the number of entries that can be returned in the memory location given by formats.
+								If value is 0 and formats is NULL, the num_entries_ret returns actual number of supported formats.
+	Output
+		formats					A pointer to array of structures that describes format properties of the image to be allocated.
+								Refer to OCL spec section 5.2.4.1 for a detailed description of the image format descriptor.
+		numEntriesRet			The actual number of supported image formats for a specific context and values specified by flags.
+								If the value is NULL, it is ignored.
+		Description
+								Return the minimum number of image formats that should be supported according to Spec
+	 Returns
+		CL_DEV_SUCCESS			The function is executed successfully.
+		CL_DEV_INVALID_VALUE	If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
+********************************************************************************************************************/
+cl_int MemoryAllocator::GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
+{
+	//image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
+	//CL_MEM_OBJECT_IMAGE3D
+	if(CL_DEV_MEM_OBJECT_BUFFER == imageType)
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	
+	if(0 == numEntries && NULL != formats)
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
+	
+	unsigned int uiNumEntries = min(numEntries, NUM_OF_SUPPORTED_IMAGE_FORMATS);
+
+	if(NULL != formats)
+	{
+		memcpy(formats, suportedImageFormats, uiNumEntries * sizeof(suportedImageFormats[0]));
+	}
+	if(NULL != numEntriesRet)
+	{
+		*numEntriesRet = uiNumEntries;
+	}
+	
+	return CL_DEV_SUCCESS;
+}
+/****************************************************************************************************************
+ AllocateImage
+	Description
+		Allocate Image\buffer Memory
+	Input
+		dim[0] specifies width of the image in pixel, 
+		dim[1] specifies height of the image in pixel,
+		dim[2] specifies depth of the image in pixel,
+	Output
+		return value is a pointer to memory buffer
+********************************************************************************************************************/
+void*	MemoryAllocator::AllocateMem(cl_uint	dim_count, const size_t* dim, size_t expectedPitchRowSize, size_t expectedPitchSliceSize)
+{
+	size_t allocatedMemSize;
+	size_t pitch[MAX_WORK_DIM-1];
+	pitch[0] = expectedPitchRowSize;
+	pitch[1] = expectedPitchSliceSize;
+
+
+	allocatedMemSize = dim[0];
+	//Allocate memory according to pitch size and dim size
+	for(unsigned int i=1; i<dim_count; i++)
+	{
+		allocatedMemSize += dim[i] * pitch[i-1];
+	}
+	return _aligned_malloc(allocatedMemSize, CPU_DCU_LINE_SIZE);
+}
+/****************************************************************************************************************
+ ElementSize
+	Description
+		This function calculated the expected elemnt size
+	Input
+		format 				    Image format
+********************************************************************************************************************/
+size_t MemoryAllocator::ElementSize(const cl_image_format* format)
+{
+	if (CL_RGBA == format->image_channel_order || CL_RGBA == format->image_channel_order)
+	{
+		switch (format->image_channel_data_type)
+		{
+			case (CL_UNORM_INT8):
+			case (CL_SIGNED_INT8):
+					return 4;
+			case (CL_UNORM_INT16):
+			case (CL_UNSIGNED_INT16):
+			case (CL_HALF_FLOAT):
+					return 8;
+			case (CL_SIGNED_INT32):
+			case (CL_UNSIGNED_INT32):
+					return  16;
+			case (CL_FLOAT):
+					return 4 * sizeof (float);
+			default: 
+					assert(0);
+					return 0;
+		}
+		
+	}
+	assert(0);
+	return 0;
+}
+
 
 cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 									 cl_uint dim_count, const size_t* dim,
@@ -95,18 +222,67 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 									 cl_dev_mem* OUT memObj )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateObject enter");
+	size_t expectedPitchRowSize = 0;
+	size_t expectedPitchSliceSize = 0;
+	size_t uiElementSize = 1; 
+
 	if ( (NULL == memObj) || (NULL == dim) )
 	{
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	if ( (NULL != format) || ( 1 != dim_count ) || (NULL != pitch) )
+	if ( 1 != dim_count && NULL == buffer_ptr && NULL != pitch ) 
 	{
-		InfoLog(m_logDescriptor, m_iLogHandle, L"Only 1D buffers are supported");
-		// Only 1D buffers are supported for now
+		InfoLog(m_logDescriptor, m_iLogHandle, L"Pich must be 0 when host ptr is NULL");
 		return CL_DEV_INVALID_VALUE;
 	}
 
+
+	if ( 1 != dim_count)
+	{
+		/*dim[0] is image width */
+		uiElementSize = ElementSize(format);
+
+		expectedPitchRowSize = uiElementSize * dim[0];
+
+		if (NULL != pitch)
+		{
+			if(pitch[0] < expectedPitchRowSize && 0 != pitch[0])
+			{
+					if( NULL == buffer_ptr )
+					{
+						InfoLog(m_logDescriptor, m_iLogHandle, L"Wrong Pitch Value Enterd");
+						return CL_DEV_INVALID_VALUE;
+					}
+			}
+			else if (0 != pitch[0])
+			{
+					expectedPitchRowSize = pitch[0];
+			}
+		}
+		if ( 3 == dim_count)
+		{
+			//expectedPitchSliceSize >= image_row_pitch * image_height
+			expectedPitchSliceSize = expectedPitchRowSize * dim[1];
+			if (NULL != pitch) 
+			{
+				if(pitch[1] < expectedPitchSliceSize && 0 != pitch[1])
+				{
+						if( NULL == buffer_ptr )
+						{
+							InfoLog(m_logDescriptor, m_iLogHandle, L"Wrong Pitch Value Enterd");
+							return CL_DEV_INVALID_VALUE;
+						}
+				}
+				else if (0 != pitch[1])
+				{
+						expectedPitchSliceSize = pitch[1];
+				}
+			}
+		}
+
+	}
+	
 	if ( MAX_WORK_DIM < dim_count )
 	{
 		return CL_DEV_INVALID_IMG_SIZE;
@@ -142,7 +318,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 	if ( NULL == buffer_ptr ) 		// Allocate memory for the new object
 	{
-		pMemObjDesc->pObject = _aligned_malloc(dim[0], CPU_DCU_LINE_SIZE);
+		pMemObjDesc->pObject = AllocateMem(dim_count, dim, expectedPitchRowSize, expectedPitchSliceSize);
 		if ( NULL == pMemObjDesc->pObject )
 		{
 			ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object memory buffer Allocation failed");
@@ -161,7 +337,10 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	}
 
 	pMemObjDesc->uiDimCount = dim_count;
+	pMemObjDesc->stPitch[0] = expectedPitchRowSize;
+	pMemObjDesc->stPitch[1] = expectedPitchSliceSize;
 	pMemObjDesc->memFlags = flags;
+	pMemObjDesc->uiElementSize = uiElementSize;
 	if ( NULL != format )
 	{
 		memcpy(&pMemObjDesc->imgFormat, format, sizeof(cl_image_format));
@@ -170,7 +349,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		memset(&pMemObjDesc->imgFormat, 0, sizeof(cl_image_format));
 	}
 
-	memcpy(pMemObjDesc->stDim, dim, dim_count);
+	memcpy(pMemObjDesc->stDim, dim, dim_count * sizeof(size_t));
 
 	pMemObjDesc->myHandle = pMemObj;
 
@@ -222,7 +401,7 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 }
 
 cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, const size_t* IN origin,
-							void** OUT ptr, size_t* OUT pitch)
+							void** OUT ptr, size_t* OUT pitch, size_t* OUT minimiumPitch, size_t* OUT uiElementSize)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"LockObject enter");
 
@@ -256,10 +435,35 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 		return CL_DEV_INVALID_IMG_SIZE;
 	}
 
+	if(NULL != pitch)
+	{
+		pitch[0] = pObjDesc->stPitch[0];
+		pitch[1] = pObjDesc->stPitch[1];
+	}
+
+	if(NULL != minimiumPitch && dim_count > 1)
+	{
+		minimiumPitch[0] = pObjDesc->uiElementSize * pObjDesc->stDim[0];
+		minimiumPitch[1] = minimiumPitch[0] * pObjDesc->stDim[1];
+	}
+
+	if (NULL != uiElementSize)
+	{
+		*uiElementSize = pObjDesc->uiElementSize;
+	}
 	cl_char* lockedPtr = (cl_char*)pObjDesc->pObject;
 	if ( NULL != origin )
 	{
-		lockedPtr += origin[0];
+		if(dim_count > 2)
+		{
+			lockedPtr += origin[2] * pObjDesc->stPitch[1]; //Z*slice size - slice size is >= image_row_pitch * image_height
+		}
+		if(dim_count > 1)
+		{
+			lockedPtr += origin[1] * pObjDesc->stPitch[0]; //y * image width pitch 
+		}
+
+		lockedPtr += origin[0] * pObjDesc->uiElementSize; //Origin is in Pixels
 	}
 
 	*ptr = lockedPtr;
@@ -278,7 +482,7 @@ cl_int MemoryAllocator::CreateMappedRegion(cl_dev_mem IN memObj, cl_uint IN dim_
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateMappedRegion enter");
 
-	return 	LockObject(memObj, dim_count, origin, ptr, pitch);
+	return 	LockObject(memObj, dim_count, origin, ptr, pitch, NULL, NULL);
 }
 
 cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr )

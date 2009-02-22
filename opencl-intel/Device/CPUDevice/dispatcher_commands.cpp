@@ -103,9 +103,11 @@ cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDe
 
 	void*	pObjPtr;
 	size_t	pPitch[MAX_WORK_DIM];
-
+	size_t	pObjPitch[MAX_WORK_DIM];
+	size_t  uiElementSize;
+	bool    bValidCmdPitch = true;
 	// Lock memory object
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, pPitch);
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, pPitch, pObjPitch, &uiElementSize);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		delete pCpyParam;
@@ -113,20 +115,47 @@ cl_int ReadWriteMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDe
 	}
 
 	pCpyParam->pCmd = cmd;
+	//If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
+	//based on the size of each element in bytes multiplied by width.
 
 	// Set Source/Destination
-	pCpyParam->pRegion = cmdParams->region;
 	pCpyParam->uiDimCount = cmdParams->dim_count;
+	memcpy(pCpyParam->vRegion, cmdParams->region, sizeof(cmdParams->region));
+	pCpyParam->vRegion[0] = cmdParams->region[0] * uiElementSize;
+	
+	for (unsigned int i=0; i< pCpyParam->uiDimCount-1; i++)
+	{
+		if(0 == cmdParams->pitch[i])
+		{
+			bValidCmdPitch = false;
+		}
+	}
 	if ( CL_DEV_CMD_READ == cmd->type )
 	{
 		pCpyParam->pSrc = (cl_char*)pObjPtr;
 		pCpyParam->pSrcPitch = pPitch;
 		pCpyParam->pDst = (cl_char*)cmdParams->ptr;
-		pCpyParam->pDstPitch = cmdParams->pitch;
+		if(bValidCmdPitch)
+		{
+			pCpyParam->pDstPitch = cmdParams->pitch;
+		}
+		else
+		{
+			pCpyParam->pDstPitch = pObjPitch;
+		}
+
 	} else
 	{
 		pCpyParam->pSrc = (cl_char*)cmdParams->ptr;
-		pCpyParam->pSrcPitch = cmdParams->pitch;
+		if(bValidCmdPitch)
+		{
+			pCpyParam->pSrcPitch = cmdParams->pitch;
+		}
+		else
+		{
+			pCpyParam->pSrcPitch = pObjPitch;
+		}
+		
 		pCpyParam->pDst = (cl_char*)pObjPtr;
 		pCpyParam->pDstPitch = pPitch;
 	}
@@ -172,12 +201,12 @@ void ReadWriteMemObject::NotifyCommandCompletion(TTaskHandle hTask, void* pParam
 	pThis->NotifyDispatcher(pCmd);
 }
 
-void ReadWriteMemObject::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
+void Intel::OpenCL::CPUDevice::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 {
 	// Copy 1D array only
 	if ( 1 == pCopyCmd->uiDimCount )
 	{
-		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->pRegion[0]);
+		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
 		return;
 	}
 
@@ -187,13 +216,166 @@ void ReadWriteMemObject::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
 	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
 	// Make recoursion
-	for(unsigned int i=0; i<pCopyCmd->pRegion[sRecParam.uiDimCount]; ++i)
+	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
 	{
 		CopyMemoryBuffer(&sRecParam);
-
-		sRecParam.pSrc += pCopyCmd->pSrcPitch[sRecParam.uiDimCount];
-		sRecParam.pDst += pCopyCmd->pDstPitch[sRecParam.uiDimCount];
+		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->pSrcPitch[sRecParam.uiDimCount-1];
+		sRecParam.pDst = sRecParam.pDst + pCopyCmd->pDstPitch[sRecParam.uiDimCount-1];
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////
+// OCL Copy memory object execution
+CopyMemObject::CopyMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
+	DispatcherCommand(pTD, pLogDesc, iLogHandle)
+{
+}
+
+cl_int CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	if(CL_DEV_CMD_COPY != cmd->type)
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
+	if ( sizeof(cl_dev_cmd_param_copy) != cmd->param_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_dev_cmd_param_copy *cmdParams = (cl_dev_cmd_param_copy*)(cmd->params);
+
+	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->dstMemObj);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	ret = m_pMemAlloc->ValidateObject(cmdParams->srcMemObj);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+cl_int CopyMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
+{
+	cl_dev_cmd_param_copy *cmdParams = (cl_dev_cmd_param_copy*)(cmd->params);
+	
+	SMemCpyParams*	pCpyParam = new SMemCpyParams;
+	if ( NULL == pCpyParam )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate memory for parameters");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	void*	pSrcObjPtr;
+	void*	pDstObjPtr;
+	size_t  uiSrcElementSize, uiDstElementSize;
+    size_t	pSrcPitch[MAX_WORK_DIM], pDstPitch[MAX_WORK_DIM];
+	
+	// Lock src memory object
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->srcMemObj, cmdParams->src_dim_count, cmdParams->src_origin, &pSrcObjPtr, pSrcPitch, NULL, &uiSrcElementSize);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	// Lock dst memory object
+	ret = m_pMemAlloc->LockObject(cmdParams->dstMemObj, cmdParams->dst_dim_count, cmdParams->dst_origin, &pDstObjPtr, pDstPitch, NULL, &uiDstElementSize);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, pSrcObjPtr);
+		return ret;
+	}
+	if(uiDstElementSize != uiSrcElementSize && 1 != uiDstElementSize && 1 != uiSrcElementSize)
+	{
+		m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, pSrcObjPtr);
+		m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, pDstObjPtr);
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+	
+	//Options for different dimenssions are
+    //Copy a 2D image object to a 2D slice of a 3D image object.
+    //Copy a 2D slice of a 3D image object to a 2D image object.
+	//Copy 2D to 2D
+	//Copy 3D to 3D
+	//Copy 2D image to buffer
+	//Copy 3D image to buffer
+	//Buffer to image
+	
+	pCpyParam->uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
+	if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
+	{
+		//Buffer to image
+		if(1 == cmdParams->src_dim_count)
+		{
+			uiSrcElementSize = uiDstElementSize;
+			pCpyParam->uiDimCount = cmdParams->dst_dim_count;
+			pSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
+			pSrcPitch[1] = pSrcPitch[0] * cmdParams->region[1];			
+		}
+		if( 1 == cmdParams->dst_dim_count)
+		{
+			//When destination is buffer the memcpy will be done as if the buffer is an image with height=1 
+			pCpyParam->uiDimCount = cmdParams->src_dim_count;
+			pDstPitch[0] = cmdParams->region[0] * uiSrcElementSize;
+			pDstPitch[1] = pDstPitch[0] * cmdParams->region[1];
+		}
+	}
+	
+	//If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
+	//based on the size of each element in bytes multiplied by width.
+	memcpy(pCpyParam->vRegion, cmdParams->region, sizeof(cmdParams->region));
+	pCpyParam->vRegion[0] *= uiSrcElementSize;
+	
+	pCpyParam->pSrc = (cl_char*)pSrcObjPtr;
+	pCpyParam->pSrcPitch = pSrcPitch;
+	pCpyParam->pDst = (cl_char*)pDstObjPtr;
+	pCpyParam->pDstPitch = pDstPitch;
+
+
+	pCpyParam->pCmd = cmd;
+
+	// Currently handle Read/Write as single task
+	// TODO: Check run Read/Write as kernel on multiple cores
+	ETERetCode teRet;
+	teRet = m_pTaskExec->ExecuteFunction(CopyMemoryBuffer, pCpyParam, sizeof(SMemCpyParams), &NotifyCommandCompletion, this, pDepList, uiCount, pNewHandle);
+	if ( TE_SUCCESS != teRet )
+	{
+		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", teRet);
+		m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, pSrcObjPtr);
+		m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, pDstObjPtr);	
+		return CL_DEV_ERROR_FAIL;
+	}
+	
+	return CL_DEV_SUCCESS;
+}
+
+void CopyMemObject::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData)
+{
+	ReadWriteMemObject*		pThis = (ReadWriteMemObject*)pData;
+	SMemCpyParams*			pCpyParam = (SMemCpyParams*)pParams;
+	cl_dev_cmd_desc*		pCmd = pCpyParam->pCmd;
+	cl_dev_cmd_param_copy*	cmdParams = (cl_dev_cmd_param_copy*)pCmd->params;
+
+	cl_int ret = pThis->m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, pCpyParam->pDst);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		ErrLog(pThis->m_logDescriptor, pThis->m_iLogHandle, L"Can't unlock destination memory object");
+	}
+
+	ret = pThis->m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, pCpyParam->pSrc);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		ErrLog(pThis->m_logDescriptor, pThis->m_iLogHandle, L"Can't unlock source memory object");
+	}
+
+	delete pCpyParam;
+
+	pThis->NotifyDispatcher(pCmd);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -379,7 +561,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 			if ( -1 != memObj->allocId )	// Required local memory size
 			{
 				// Lock memory object / Get pointer
-				clRet = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(pLocalParams+stOffset), NULL);
+				clRet = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(pLocalParams+stOffset), NULL, NULL, NULL);
 				if ( CL_DEV_FAILED(clRet) )
 				{
 					UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
@@ -598,7 +780,7 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
 		void*	*pMemPtr = (void**)((cl_char*)pArgV+Offset);
 
-		cl_int ret = m_pMemAlloc->LockObject(memObj, -1, NULL, pMemPtr, NULL);
+		cl_int ret = m_pMemAlloc->LockObject(memObj, -1, NULL, pMemPtr, NULL, NULL, NULL);
 		if ( CL_DEV_FAILED(ret) )
 		{
 			return ret;

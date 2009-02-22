@@ -43,7 +43,7 @@ public:
 	virtual cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd) = 0;
 	virtual cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle) = 0;
 
-protected:
+public:
 	TaskDispatcher*				m_pTaskDispatcher;
 	MemoryAllocator*			m_pMemAlloc;
 	ProgramService*				m_pProgService;
@@ -53,6 +53,18 @@ protected:
 
 	void	NotifyDispatcher(cl_dev_cmd_desc* cmd);
 };
+struct SMemCpyParams
+	{
+		cl_uint			uiDimCount;
+		cl_char*		pSrc;
+		const size_t*	pSrcPitch;
+		cl_char*		pDst;
+		const size_t*	pDstPitch;
+		size_t			vRegion[MAX_WORK_DIM];
+		cl_dev_cmd_desc *pCmd;
+	};
+
+void	CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
 
 // OCL Read/Write buffer execution
 class ReadWriteMemObject : public DispatcherCommand
@@ -62,19 +74,21 @@ public:
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
 	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
 protected:
-	struct SMemCpyParams
-	{
-		cl_uint				uiDimCount;
-		cl_char*			pSrc;
-		const size_t*		pSrcPitch;
-		cl_char*			pDst;
-		const size_t*		pDstPitch;
-		const size_t*		pRegion;
-		cl_dev_cmd_desc*	pCmd;
-	};
+	
 
-	static	void	CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
+    static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
+};
+
+//OCL Copy Mem Obj Command
+class CopyMemObject : public DispatcherCommand
+{
+public:
+	CopyMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
+	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
+protected:
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
+	
 };
 
 // OCL Kernel execution
