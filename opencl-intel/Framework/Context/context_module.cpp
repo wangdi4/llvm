@@ -365,8 +365,8 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_INITILIZATION_FAILED;
-			return CL_INVALID_HANDLE;
 		}
+		return CL_INVALID_HANDLE;
 	}
 	clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
 	if (CL_FAILED(clErrRet))
@@ -375,8 +375,8 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_INVALID_CONTEXT;
-			return CL_INVALID_HANDLE;
 		}
+		return CL_INVALID_HANDLE;
 	}
 	Program *pProgram = NULL;
 	clErrRet = pContext->CreateProgramWithSource(uiCount, ppcStrings, szLengths, &pProgram);
@@ -385,9 +385,9 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
-			pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
-			return CL_INVALID_HANDLE;
 		}
+		pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
+		return CL_INVALID_HANDLE;
 	}
 	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
 	if (CL_FAILED(clErrRet))
@@ -395,9 +395,9 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
-			pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
-			return CL_INVALID_HANDLE;
 		}
+		pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
+		return CL_INVALID_HANDLE;
 	}
 	if (NULL != pErrcodeRet)
 	{
@@ -425,8 +425,8 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = CL_INVALID_VALUE;
-			return CL_INVALID_HANDLE;
 		}
+		return CL_INVALID_HANDLE;
 	}
 	// get the context from the contexts map list
 	Context * pContext = NULL;
@@ -436,8 +436,8 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = CL_ERR_INITILIZATION_FAILED;
-			return CL_INVALID_HANDLE;
 		}
+		return CL_INVALID_HANDLE;
 	}
 	// get the context object
 	cl_err_code clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
@@ -447,8 +447,8 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = CL_INVALID_CONTEXT;
-			return CL_INVALID_HANDLE;
 		}
+		return CL_INVALID_HANDLE;
 	}
 	Program *pProgram = NULL;
 	clErrRet = pContext->CreateProgramWithBinary(uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, &pProgram);
@@ -457,9 +457,9 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = clErrRet;
-			pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
-			return CL_INVALID_HANDLE;
 		}
+		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
+		return CL_INVALID_HANDLE;
 	}
 	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
 	if (CL_FAILED(clErrRet))
@@ -467,9 +467,9 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context           clContext
 		if (NULL != pErrRet)
 		{
 			*pErrRet = clErrRet;
-			pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
-			return CL_INVALID_HANDLE;
 		}
+		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
+		return CL_INVALID_HANDLE;
 	}
 	if (NULL != pErrRet)
 	{
@@ -646,16 +646,11 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 {
 	InfoLog(m_pLoggerClient, L"CreateKernel enter. clProgram=%d, pscKernelName=%d, piErr=%d", clProgram, pscKernelName, piErr);
 
-	if (NULL == m_pPrograms || NULL == m_pKernels)
-	{
-		ErrLog(m_pLoggerClient, L"NULL == m_pPrograms || NULL == m_pKernels");
-		if (NULL != piErr)
-		{
-			*piErr = CL_ERR_OUT(CL_ERR_INITILIZATION_FAILED);
-		}
-		return CL_INVALID_HANDLE;
-	}
+#ifdef _DEBUG
+	assert ( (NULL != m_pPrograms) && (NULL != m_pKernels) );
+#endif
 
+	// get program object
 	Program *pProgram = NULL;
 	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
@@ -679,8 +674,16 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 	{
 		// add new kernel to the context module's kernels list
 		m_pKernels->AddObject((OCLObject*)pKernel, pKernel->GetId(), false);
+		if (NULL != piErr)
+		{
+			*piErr = CL_SUCCESS;
+		}
 		// return handle
 		return (cl_kernel)pKernel->GetId();
+	}
+	if (NULL != piErr)
+	{
+		*piErr = CL_OUT_OF_HOST_MEMORY;
 	}
 	return CL_INVALID_HANDLE;
 }
@@ -937,6 +940,10 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 			*pErrcodeRet = CL_ERR_OUT(clErr);
 		}
 		return CL_INVALID_HANDLE;
+	}
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_SUCCESS;
 	}
 	return (cl_mem)pBuffer->GetId();
 }
