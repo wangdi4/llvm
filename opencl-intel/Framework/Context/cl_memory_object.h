@@ -198,9 +198,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_context GetContextId () const { return (cl_context)(m_pContext->GetId()); };
 
 		// get the type of the memory object
-		const cl_mem_object_type GetType() const { return m_clMemObjectType; }
+		cl_mem_object_type GetType() const { return m_clMemObjectType; }
 
+		// get parent context
 		const Context * GetContext() const { return m_pContext; }
+
+		// get memory object's flags
+		cl_mem_flags GetFlags() const { return m_clFlags; }
+
+		// got host ptr
+		const void * GetHostPtr() const { return m_pHostPtr; }
+
+		// increase map calls counter by one, returns the map calls counter value;
+		cl_uint IncreaseMapCount(){ m_uiMapCount--; return m_uiMapCount; }
+
+		// decrease map calls counter by one, returns the map calls counter value;
+		cl_uint DecreaseMapCount(){ if (m_uiMapCount > 0) m_uiMapCount--; return m_uiMapCount; }
+
+		// return the map calls counter value
+		cl_uint GetMapCount() const { return m_uiMapCount; }
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// Pure virtual functions
@@ -237,6 +253,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context *								m_pContext;	// context to which the momory object belongs
 
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
+
+		cl_uint									m_uiMapCount;
 
 		LoggerClient *	                        m_pLoggerClient;	// memory object's logger client
 

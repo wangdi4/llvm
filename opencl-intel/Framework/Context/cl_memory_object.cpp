@@ -123,7 +123,9 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_pContext = pContext;
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
+
 	m_clMemObjectType = 0;
+	m_uiMapCount = 0;
 
 	// check input flags
 	if ((0 == clMemFlags) ||

@@ -373,12 +373,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 		return clErr;
 	}
 
-	clErr = m_pMemObjects->AddObject((OCLObject*)pBuffer);
-	if (CL_FAILED(clErr))
-	{
-		ErrLog (m_pLoggerClient, L"m_pMemObjects->AddObject(%d) = %ws", pBuffer, ClErrTxt(clErr));
-		return clErr;
-	}
+	m_pMemObjects->AddObject((OCLObject*)pBuffer);
 
 	*ppBuffer = pBuffer;
 	return CL_SUCCESS;
