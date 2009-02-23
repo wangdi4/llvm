@@ -207,6 +207,15 @@ cl_int	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
 
 	assert (NULL != m_pDevices);
 
+	if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT)		&&
+		!(clDeviceType & CL_DEVICE_TYPE_CPU)			&&
+		!(clDeviceType & CL_DEVICE_TYPE_GPU)			&&
+		!(clDeviceType & CL_DEVICE_TYPE_ACCELERATOR)	&&
+		!(clDeviceType & CL_DEVICE_TYPE_ALL))
+	{
+		return CL_INVALID_DEVICE_TYPE;
+	}
+
 	if ((NULL == pclDevices && NULL == puiNumDevices) ||
 		(NULL == pclDevices && uiNumEntries > 0))
 	{
@@ -260,7 +269,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_device_type clDeviceType,
 				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
 				continue;
 			}
-			if (clDeviceType &= CL_DEVICE_TYPE_ALL)
+			if (clDeviceType == CL_DEVICE_TYPE_ALL)
 			{
 				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
 			}

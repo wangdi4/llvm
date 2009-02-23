@@ -358,6 +358,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 #ifdef _DEBUG
 	InfoLog(m_pLoggerClient, L"GetMaxMemAllocSize() = %d", ulMaxMemAllocSize);
 #endif
+	
 	if (szSize == 0 || szSize > ulMaxMemAllocSize)
 	{
 		ErrLog (m_pLoggerClient, L"szSize == %d, ulMaxMemAllocSize =%d", szSize, ulMaxMemAllocSize);

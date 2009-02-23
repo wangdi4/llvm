@@ -125,15 +125,18 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_pHostPtr = pHostPtr;
 	m_clMemObjectType = 0;
 
-	// check flags
-	if (0 == clMemFlags)
+	// check input flags
+	if ((0 == clMemFlags) ||
+		(m_clFlags & (CL_MEM_WRITE_ONLY & CL_MEM_READ_ONLY)) )
 	{
 		ErrLog (m_pLoggerClient, L"0 == clMemFlags");
 		*pErr = CL_INVALID_VALUE;
 		return;
 	}
-	if (((NULL == m_pHostPtr) && ((m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) != 0))	||
-		((NULL != m_pHostPtr) && ((m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) == 0)))
+
+	// check invalid usage of host ptr
+	if (((NULL == m_pHostPtr) && (m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))	||
+		((NULL != m_pHostPtr) && !(m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR))))
 	{
 		ErrLog (m_pLoggerClient, L"invalid usage of host ptr");
 		*pErr = CL_INVALID_HOST_PTR;
