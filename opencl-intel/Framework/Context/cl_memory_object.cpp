@@ -328,7 +328,9 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		pValue = &m_pHostPtr;
 		break;
 	case CL_MEM_MAP_COUNT:
-		// TODO: implement
+		szSize = sizeof(cl_uint);
+		pValue = &m_uiMapCount;
+		break;
 		return CL_ERR_NOT_IMPLEMENTED;
 	case CL_MEM_REFERENCE_COUNT:
 		szSize = sizeof(cl_uint);

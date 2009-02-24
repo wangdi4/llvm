@@ -180,7 +180,7 @@ cl_err_code ConfigFile::ReadFile(string fileName, ConfigFile& cf)
 
 cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 {
-	std::fstream os(fileName.c_str());
+	std::fstream os(fileName.c_str(), std::ios::out);
 	for (ConfigFile::mapci p = cf.m_mapContents.begin(); p != cf.m_mapContents.end(); ++p)
 	{
 		os << p->first << " " << cf.m_sDelimiter << " ";

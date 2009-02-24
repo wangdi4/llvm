@@ -57,6 +57,7 @@ Device::~Device()
 	{
 		LoggerClient * pLoggerClient = it->second;
 		delete pLoggerClient;
+		it++;
 	}
 	m_mapDeviceLoggerClinets.clear();
 }
