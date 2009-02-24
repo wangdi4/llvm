@@ -826,3 +826,103 @@ void NativeFunction::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, s
 
 	pThis->NotifyDispatcher(pCmd);
 }
+
+///////////////////////////////////////////////////////////////////////////
+// OCL Map buffer execution
+//////////////////////////////////////////////////////////////////////////
+MapMemObject::MapMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
+	DispatcherCommand(pTD, pLogDesc, iLogHandle)
+{
+}
+
+cl_int MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	if (CL_DEV_CMD_MAP != cmd->type)
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
+	if ( sizeof(cl_dev_cmd_param_map) != cmd->param_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
+
+	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+cl_int MapMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
+{
+	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
+	
+	
+	// Lock memory object
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &cmdParams->ptr, NULL, NULL, NULL);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+	
+	//Notiofy command completion
+	NotifyDispatcher(cmd);
+
+	return CL_DEV_SUCCESS;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+// OCL Unmap buffer execution
+//////////////////////////////////////////////////////////////////////////
+UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle) :
+	DispatcherCommand(pTD, pLogDesc, iLogHandle)
+{
+}
+
+cl_int UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	if (CL_DEV_CMD_UNMAP != cmd->type)
+	{
+		return CL_DEV_INVALID_COMMAND_TYPE;
+	}
+
+	if ( sizeof(cl_dev_cmd_param_unmap) != cmd->param_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_dev_cmd_param_unmap *cmdParams = (cl_dev_cmd_param_unmap*)(cmd->params);
+
+	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+	//Notiofy command completion
+	NotifyDispatcher(cmd);
+	return CL_DEV_SUCCESS;
+}
+
+cl_int UnmapMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
+{
+	cl_dev_cmd_param_unmap *cmdParams = (cl_dev_cmd_param_unmap*)(cmd->params);
+	
+	// Unlock memory object
+	cl_int ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, cmdParams->ptr);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+
+
+	return CL_DEV_SUCCESS;
+}
+
+

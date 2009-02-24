@@ -128,4 +128,23 @@ protected:
 	static	void	NotifyCommandCompletion(TTaskHandle hTask, void* pParams, size_t size, void* pData);
 };
 
+// OCL Map function execution
+class MapMemObject : public DispatcherCommand
+{
+public:
+	MapMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
+	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
+
+};
+
+// OCL UnMap function execution
+class UnmapMemObject : public DispatcherCommand
+{
+public:
+	UnmapMemObject(TaskDispatcher* pTD, cl_dev_log_descriptor* pLogDesc, cl_int iLogHandle);
+	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_int	ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle);
+
+};
 }}}
