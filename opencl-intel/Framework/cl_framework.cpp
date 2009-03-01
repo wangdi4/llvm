@@ -582,7 +582,7 @@ cl_int clEnqueueNativeKernel(cl_command_queue	command_queue,
 							 const cl_event *	event_wait_list,
 							 cl_event *			event)
 {
-	return EXECUTION_MODULE->EnqueueNativeFnAsKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event);
+	return EXECUTION_MODULE->EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event);
 }
 
 cl_int clEnqueueMarker(cl_command_queue command_queue, cl_event * event)

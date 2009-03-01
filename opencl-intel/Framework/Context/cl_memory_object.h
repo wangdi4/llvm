@@ -175,6 +175,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// check if the device memory object was allocated for the specific device
 		// it is'nt assure that the data is available on the device. in order to know that you should
 		// call to GetDataLocation
+        // Only if IsAllocated returns true for clDeviceId == 0 (host memory), than a zero value return
+        // of GetDataLocation means that data is available in the host memory.
+        // TODO: Uri: Make it happens
 		bool IsAllocated(cl_device_id clDeviceId);
 
 		// returns the device is where the memory is currently available
@@ -191,7 +194,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_mem GetDeviceMemoryHndl( cl_device_id clDeviceId );
 
 		// set the device id where the data is know availabe.
-		// calling to this methos should be done once the data is allready available in the device
+		// calling to this methos should be done just before the write command is sent to the device agent.
 		cl_err_code SetDataLocation(cl_device_id clDevice);
 
         // Return the cl_context handle of the context that this memory object is belong to.
@@ -206,7 +209,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get memory object's flags
 		cl_mem_flags GetFlags() const { return m_clFlags; }
 
-		// got host ptr
+		// got host ptr; TODO: Uri, check if neccassery.
 		const void * GetHostPtr() const { return m_pHostPtr; }
 
 		// increase map calls counter by one, returns the map calls counter value;
@@ -228,7 +231,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// if szDataSize=0 and pData=NULL, the value in pszDataSizeRet will be the total size of
 		// the memory buffer. if pData is not NULL and pszDataSizeRet is not NULL too, the value
 		// in pszDataSizeRet will be the number of bytes copied
-		virtual cl_err_code ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet) = 0;
+		virtual cl_err_code ReadData(void * pData, size_t szOffset, size_t szDataSize) = 0;
 
 		// get the total size (in bytes) of the memory object
 		virtual size_t GetSize() const = 0;

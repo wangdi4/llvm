@@ -435,6 +435,82 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	return  errVal;
 }
 
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueCopyBuffer(
+    cl_command_queue    clCommandQueue, 
+    cl_mem              clSrcBuffer, 
+    cl_mem              clDstBuffer, 
+    size_t              szSrcOffset, 
+    size_t              szDstOffset, 
+    size_t              szCb, 
+    cl_uint             uNumEventsInWaitList, 
+    const cl_event*     cpEeventWaitList, 
+    cl_event*           pEvent
+    )
+{
+    cl_err_code errVal = CL_SUCCESS;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    
+    MemoryObject* pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
+    MemoryObject* pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
+    if (NULL == pSrcBuffer || NULL == pDstBuffer)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    if (pSrcBuffer->GetContextId() != pCommandQueue->GetContextId()  ||
+        pSrcBuffer->GetContextId() != pDstBuffer->GetContextId() 
+        )
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    // Check boundaries.
+    if (pSrcBuffer->GetSize() < (szSrcOffset+szCb) || pDstBuffer->GetSize() < (szDstOffset+szCb))
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    if( clSrcBuffer == clDstBuffer)
+    {
+        // check overlapping
+        if ( szDstOffset < (szSrcOffset+szCb) && (szDstOffset+szCb) > szSrcOffset)
+        {
+            return CL_MEM_COPY_OVERLAP;
+        }
+    }
+
+    Command* pCopyBufferCommand = new CopyBufferCommand(pSrcBuffer, pDstBuffer, szSrcOffset, szDstOffset, szCb);
+    errVal = pCopyBufferCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        // Enqueue copy command, never blocking
+        errVal = pCommandQueue->EnqueueCommand(pCopyBufferCommand, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }    
+	return  errVal;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueUnmapMemObject");
+	return  CL_INVALID_OPERATION;	
+}
+
+
+/******************************************************************
+ * 
+ ******************************************************************/
+
 /******************************************************************
  * 
  ******************************************************************/
@@ -498,6 +574,27 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
 }
 
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueTask");
+	return  CL_INVALID_OPERATION;	
+}
+
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+{
+    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueNativeFnAsKernel");
+	return  CL_INVALID_OPERATION;	
+}
+
+
 /******************************************************************
  * THE FOLLOWING FUNCTIONS ARE NOT IMPLMENTED YET
  ******************************************************************/
@@ -513,13 +610,6 @@ cl_err_code ExecutionModule::EnqueueReadImage(cl_command_queue command_queue, cl
 cl_err_code ExecutionModule::EnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write, const size_t* origin[3], const size_t* region[3], size_t row_pitch, size_t slice_pitch, const void* ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
 {
     ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueWriteImage");
-	return  CL_INVALID_OPERATION;	
-}
-
-
-cl_err_code ExecutionModule::EnqueueCopyBuffer(cl_command_queue command_queue, cl_mem src_buffer, cl_mem dst_buffer, size_t src_offset, size_t dst_offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyBuffer");
 	return  CL_INVALID_OPERATION;	
 }
 
@@ -560,26 +650,6 @@ void * ExecutionModule::EnqueueMapImage(cl_command_queue command_queue, cl_mem i
 	return  NULL;	
 }
 
-
-cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueUnmapMemObject");
-	return  CL_INVALID_OPERATION;	
-}
-
-
-cl_err_code ExecutionModule::EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueTask");
-	return  CL_INVALID_OPERATION;	
-}
-
-
-cl_err_code ExecutionModule::EnqueueNativeFnAsKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueNativeFnAsKernel");
-	return  CL_INVALID_OPERATION;	
-}
 
 /*******************************************************************
  * END OF UN IMPLEMENTED FUNCTUIONS

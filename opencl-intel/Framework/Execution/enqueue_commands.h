@@ -208,20 +208,32 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
 		    CopyBufferCommand(
-		    MemoryObject* 	srcBuffer, 
-		    MemoryObject* 	dstBuffer, 
-		    size_t 			srcOffset, 
-		    size_t 			dstOffset,
-		    size_t 			cb
+		    MemoryObject* 	pSrcBuffer, 
+		    MemoryObject* 	pDstBuffer, 
+		    size_t 			szSrcOffset, 
+		    size_t 			szDstOffset,
+		    size_t 			szCb
 		    );		
 	    virtual ~CopyBufferCommand();
 
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const { return CL_COMMAND_COPY_BUFFER; }
+
     private:
-        MemoryObject* 	m_srcBuffer;
-        MemoryObject* 	m_dstBuffer;
-	    size_t 			m_Offset;
-	    size_t 			m_srcOffset;
-	    size_t 			m_cb;
+        MemoryObject* 	m_pSrcBuffer;
+        MemoryObject* 	m_pDstBuffer;
+	    size_t 			m_szSrcOffset;
+	    size_t 			m_szDstOffset;
+	    size_t 			m_szCb;
+
+        // Private functions
+        cl_err_code CopyHost        ();
+        cl_err_code CopyOnDevice    (cl_device_id clDeviceId);
+        cl_err_code CopyFromHost    (cl_device_id clDstDeviceId);
+        cl_err_code CopyToHost      (cl_device_id clSrcDeviceId);
+        cl_err_code CopyFromDevice  (cl_device_id clSrcDeviceId, cl_device_id clDstDeviceId);
     };
 
     /******************************************************************

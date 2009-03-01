@@ -359,6 +359,153 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 const cl_event*     IN  cpEeventWaitList, 
                                                 cl_event*           OUT pEvent      )  = 0;
 
+        
+
+        /******************************************************************************************
+		 * Function: 	EnqueueCopyBuffer    
+		 * Description:	Enqueues a command to copy a buffer object identified by clSrcBuffer to another 
+         *              buffer object identified by clDstBuffer.
+         *              
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which the copy command will be queued. 
+         *                                      The OpenCL context associated with clCommandQueue, clSrcBuffer, and clDstBuffer
+         *                                      must be the same.
+         *              clSrcBuffer     [in] -  Refers to a valid buffer object, the buffer to read from.
+         *              clDstBuffer     [in] -  Refers to a valid buffer object, the buffer to write into.
+         *              szSrcOffset     [in] -  Refers to the offset where to begin copying data from clSrcBuffer.
+         *              szDstOffset     [in] -  Refers to the offset where to begin copying data into clDstBuffer.
+         *              szCb            [in] -  Refers to the size in bytes to copy.
+		 *              uNumEventsInWaitList [in]   - Number of the events in the event wait list.
+		 *				cpEeventWaitList[in] -  Specify events that need to complete before this particular command can
+         *                                      be executed. The events specified in the list act as synchronization points
+		 *				pEvent          [out]-  Returns an event object that identifies this particular command and can
+         *                                      be used to query or queue a wait for this particular command to complete.
+         *                                      Event can be NULL.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_CONTEXT      -   If the context associated with clCommandQueue, clSrcBuffer, and clDstBuffer
+         *                                              is not the same.
+         *                  CL_INVALID_MEM_OBJECT   -   If clSrcBuffer or clDstBuffer are not a valid buffer objects
+         *                  CL_INVALID_VALUE        -   If szSrcOffset, szDstOffset, szCb, szSrcOffset + szCb or szDstOffset + szCb
+         *                                              require accessing elements outside the buffer memory objects.
+         *                  CL_INVALID_EVENT_WAIT_LIST - if cpEeventWaitList is NULL and uNumEventsInWaitList > 0, 
+         *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
+         *                                              or if event objects in cpEeventWaitList are not valid events.
+         *                  CL_MEM_COPY_OVERLAP     -   If clSrcBuffer and clDstBuffer are the same buffer object and the source and
+         *                                              destination regions overlap.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual cl_err_code EnqueueCopyBuffer(  cl_command_queue    IN  clCommandQueue,
+                                                cl_mem              IN  clSrcBuffer,
+                                                cl_mem              IN  clDstBuffer,
+                                                size_t              IN  szSrcOffset,
+                                                size_t              IN  szDstOffset,
+                                                size_t              IN  szCb,
+                                                cl_uint             IN  uNumEventsInWaitList, 
+                                                const cl_event*     IN  cpEeventWaitList, 
+                                                cl_event*           OUT pEvent      )  = 0;
+
+        /******************************************************************************************
+		 * Function: 	EnqueueMapBuffer    
+		 * Description:	Enqueues a command to map a region of the buffer object given by buffer into
+         *              the host address space and returns a pointer to this mapped region.
+         *              
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which the mao command will be queued. 
+         *              clBuffer        [in] -  A valid buffer object. The OpenCL context associated with clCommandQueue
+         *                                      and clBuffer must be the same.
+         *              bBlockingMap    [in] -  Indicates if the map operation is blocking or non-blocking.
+         *                                      If blocking_map is CL_TRUE, tunction does not return until the specified region
+         *                                      in buffer can be mapped.
+         *                                      If blocking_map is CL_FALSE i.e. map operation is non-blocking, the pointer to the mapped
+         *                                      region returned and cannot be used until the map command has completed. 
+         *              clMapFlags      [in] -  Is a bit-field and can be set to CL_MAP_READ to indicate that the region specified by
+         *                                      (offset, cb) in the buffer object is being mapped for reading, and/or CL_MAP_WRITE
+         *                                      to indicate that the region is being mapped for writing.
+         *              szSrcOffset     [in] -  Offset in bytes of the region in the buffer object that is being mapped.         
+         *              szCb            [in] -  Size in bytes of the region in the buffer object that is being mapped.
+		 *              uNumEventsInWaitList [in]   - Number of the events in the event wait list.
+		 *				cpEeventWaitList[in] -  Specify events that need to complete before this particular command can
+         *                                      be executed. The events specified in the list act as synchronization points
+		 *				pEvent          [out]-  Returns an event object that identifies this particular command and can
+         *                                      be used to query or queue a wait for this particular command to complete.
+         *                                      Event can be NULL.
+         *              pErrcodeRet     [out]-  Returns an appropriate error code. If errcode_ret is NULL, no error code is returned.
+         *
+         * Error codes:     CL_SUCCESS              -   The function is executed successfully.
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_CONTEXT      -   If the context associated with clCommandQueue and clBuffer
+         *                                              is not the same.
+         *                  CL_INVALID_MEM_OBJECT   -   If clBuffer is not a valid buffer object.
+         *                  CL_INVALID_VALUE        -   If region being mapped given by (offset, cb) is out of bounds or if
+         *                                              values specified in map_flags are not valid.
+         *                  CL_INVALID_EVENT_WAIT_LIST - if cpEeventWaitList is NULL and uNumEventsInWaitList > 0, 
+         *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
+         *                                              or if event objects in cpEeventWaitList are not valid events.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+         * Return Value:    The pointer returned maps a region starting at offset and is at least cb bytes in size. The result of
+         *                  a memory access outside this region is undefined.
+         *                  A valid pointer to a mapped region is returned if buffer is created with a host_ptr and CL_MEM_USE_HOST_PTR
+         *                  is set in flags arguments to clCreateBuffer or if buffer is created with CL_MEM_ALLOC_HOST_PTR set in flags
+         *                  argument to clCreateBuffer and the region specified by (offset, cb) is a valid region in the buffer object. 
+         *                  In case of error, a NULL pointer is retured.
+         * 
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual void* EnqueueMapBuffer(     cl_command_queue    IN  clCommandQueue,
+                                            cl_mem              IN  clBuffer,
+                                            cl_bool             IN  bBlockingMap,
+                                            cl_map_flags        IN  clMapFlags,
+                                            size_t              IN  szOffset,
+                                            size_t              IN  szCb,
+                                            cl_uint             IN  uNumEventsInWaitList, 
+                                            const cl_event*     IN  cpEeventWaitList, 
+                                            cl_event*           OUT pEvent,      
+                                            cl_int*             OUT pErrcodeRet     )  = 0;
+
+
+        /******************************************************************************************
+		 * Function: 	EnqueueUnmapMemObject    
+		 * Description:	Enqueues a command to unmap a previously mapped region of a memory object. Reads or writes from 
+         *              the host using the pointer returned by EnqueueMapBuffer or EnqueueMapImage are considered to be complete.
+         *              
+		 * Arguments:	clCommandQueue  [in] -  Refers to the command-queue in which the unmap command will be queued.
+         *              clMemObj        [in] -  Is a valid memory object. The OpenCL context associated with clCommandQueue and
+         *                                      clMemObj must be the same.
+         *              mappedPtr       [in] -  Is the host address returned by a previous call to EnqueueMapBuffer or
+         *                                      EnqueueMapImage for clMemObj.
+		 *              uNumEventsInWaitList [in]   - Number of the events in the event wait list.
+		 *				cpEeventWaitList[in] -  Specify events that need to complete before this particular command can
+         *                                      be executed. The events specified in the list act as synchronization points
+		 *				pEvent          [out]-  Returns an event object that identifies this particular command and can
+         *                                      be used to query or queue a wait for this particular command to complete.
+         *                                      Event can be NULL.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_CONTEXT      -   If the context associated with clCommandQueue and clMemObj is not the same.
+         *                  CL_INVALID_MEM_OBJECT   -   If clMemObj is not a valid memory object
+         *                  CL_INVALID_VALUE        -   If mappedPtr is not a valid pointer returned by EnqueueMapBuffer or 
+         *                                              EnqueueMapImage for memobj.
+         *                  CL_INVALID_EVENT_WAIT_LIST - if cpEeventWaitList is NULL and uNumEventsInWaitList > 0, 
+         *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
+         *                                              or if event objects in cpEeventWaitList are not valid events.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/        
+        virtual cl_err_code EnqueueUnmapMemObject(  cl_command_queue    IN  clCommandQueue,
+                                                    cl_mem              IN  clMemObj,
+                                                    void*               IN  mappedPtr,
+                                                    cl_uint             IN  uNumEventsInWaitList, 
+                                                    const cl_event*     IN  cpEeventWaitList, 
+                                                    cl_event*           OUT pEvent  )  = 0;     
+
         /******************************************************************************************
 		 * Function: 	EnqueueNDRangeKernel    
 		 * Description:	Enqueues a command to execute a kernel on a device.
@@ -419,6 +566,112 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     const size_t*       IN  cpszGlobalWorkOffset,
                                                     const size_t*       IN  cpszGlobalWorkSize, 
                                                     const size_t*       IN  cpszLocalWorkSize, 
+                                                    cl_uint             IN  uNumEventsInWaitList, 
+                                                    const cl_event*     IN  cpEeventWaitList,
+                                                    cl_event*           OUT pEvent      ) = 0;
+
+
+        /******************************************************************************************
+		 * Function: 	EnqueueTask    
+		 * Description:	Enqueues a command to execute a kernel on a device. The kernel is executed using a single
+         *              work-item.
+         *              EnqueueTask is equivalent to calling EnqueueNDRangeKernel with work_dim = 1,
+         *              global_work_offset = NULL, global_work_size[0] set to 1 and local_work_size[0] set to 1.
+         *              
+		 * Arguments:	clCommandQueue      [in] - A valid command-queue. The kernel will be queued for execution on the
+         *                                         device associated with clCommandQueue.
+         *              clKernel            [in] - A valid kernel object. The  context associated with kernel and clCommandQueue
+         *                                         must be the same.
+		 *              uNumEventsInWaitList[in] - Number of the events in the event wait list.
+		 *				cpEeventWaitList    [in] - Specify events that need to complete before this particular command can
+         *                                         be executed. The events specified in the list act as synchronization points.
+		 *				pEvent              [out]- Returns an event object that identifies this particular command and can
+         *                                         be used to query or queue a wait for this particular command to complete.
+         *                                         Event can be NULL.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_PROGRAM_EXECUTABLE - If there is no successfully built program executable available 
+         *                                              for device associated with clCommandQueue
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_KERNEL       -   If kernel is not a valid kernel object.
+         *                  CL_INVALID_KERNEL_ARGS  -   If the kernel argument values have not been specified.
+         *                  CL_INVALID_WORK_GROUP_SIZE- If a work-group size is specified for kernel using the
+         *                                              __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program
+         *                                              source and is not (1, 1, 1).
+         *                  CL_OUT_OF_RESOURCES     -   If there is a failure to queue the execution instance of kernel on the 
+         *                                              clCommandQueue because of insufficient resources needed to execute the kernel.                  
+         *                  CL_MEM_OBJECT_ALLOCATION_FAILURE - If there is a failure to allocate memory for image or buffer 
+         *                                              objects specified as arguments to kernel
+         *                  CL_INVALID_EVENT_WAIT_LIST- If cpEeventWaitList is NULL and uNumEventsInWaitList > 0, 
+         *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
+         *                                              or if event objects in cpEeventWaitList are not valid events.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/            
+        virtual cl_err_code EnqueueTask (   cl_command_queue    IN  clCommandQueue,
+                                            cl_kernel           IN  clKernel,
+                                            cl_uint             IN  uNumEventsInWaitList, 
+                                            const cl_event*     IN  cpEeventWaitList,
+                                            cl_event*           OUT pEvent      ) = 0;
+
+        /******************************************************************************************
+		 * Function: 	EnqueueNativeKernel
+		 * Description:	Enqueues a command to execute a native C/C++ function not compiled using the OpenCL compiler.
+         *              
+		 * Arguments:	clCommandQueue      [in] -  A valid command-queue. A native user function can only be executed on a
+         *                                          command-queue created on a device that has CL_EXEC_NATIVE_KERNEL capability 
+         *                                          set in CL_DEVICE_EXECUTION_CAPABILITIES.
+         *              pUserFnc            [in] -  A pointer to a host-callable user function.
+         *              pArgs               [in] -  A pointer to the args list that user_func should be called with.
+         *              szCbArgs            [in] -  The size in bytes of the args list that args points to.
+         *                                          The data pointed to by args will be copied and a pointer to this copied region will be
+         *                                          passed to pUserFnc. When EnqueueNativeKernel returns, the memory region pointed
+         *                                          to by args can be reused by the application.
+         *              uNumMemObjects      [in] -  The number of buffer objects that are passed in args.
+         *              clMemList           [in] -  A list of valid buffer objects, if num_mem_objects > 0.
+         *              ppArgsMemLoc        [in] -  A pointer to appropriate locations that args points to where memory object
+         *                                          handles (cl_mem values) are stored. Before the user function is executed, the 
+         *                                          memory object handles are replaced by pointers to global memory.
+		 *              uNumEventsInWaitList[in] - Number of the events in the event wait list.
+		 *				cpEeventWaitList    [in] - Specify events that need to complete before this particular command can
+         *                                         be executed. The events specified in the list act as synchronization points.
+		 *				pEvent              [out]- Returns an event object that identifies this particular command and can
+         *                                         be used to query or queue a wait for this particular command to complete.
+         *                                         Event can be NULL.
+         *
+         * Return value:    CL_SUCCESS              -   The function is executed successfully
+         *                  CL_INVALID_COMMAND_QUEUE-   If clCommandQueue is not a valid command-queue.
+         *                  CL_INVALID_VALUE        -   
+         *                              1. If pUserFnc is NULL.
+         *                              2. If pArgs is a NULL value and szCbArgs > 0
+         *                              3. If pArgs is a NULL value and uNumMemObjects > 0.
+         *                              4. if pArgs is not NULL and szCbArgs is 0.
+         *                              5. If uNumMemObjects > 0 and clMemList or ppArgsMemLoc are NULL.
+         *                              6. if uNumMemObjects = 0 and clMemList or ppArgsMemLoc are not NULL.
+         *                  CL_INVALID_OPERATION    -   If device cannot execute the native kernel.
+         *                  CL_INVALID_MEM_OBJECT   -   if one or more memory objects specified in clMemList are not valid 
+         *                                              or are not buffer objects.
+         *                  CL_OUT_OF_RESOURCES     -   If there is a failure to queue the execution instance of kernel on the 
+         *                                              clCommandQueue because of insufficient resources needed to execute the kernel.                  
+         *                  CL_MEM_OBJECT_ALLOCATION_FAILURE - If there is a failure to allocate memory for image or buffer 
+         *                                              objects specified as arguments to kernel
+         *                  CL_INVALID_EVENT_WAIT_LIST- If cpEeventWaitList is NULL and uNumEventsInWaitList > 0, 
+         *                                              or cpEeventWaitList is not NULL and uNumEventsInWaitList is 0, 
+         *                                              or if event objects in cpEeventWaitList are not valid events.
+         *                  CL_OUT_OF_HOST_MEMORY   -   If there is a failure to allocate resources on the host
+         *
+		 * Author:		Arnon Peleg
+		 * Date:		February 2009
+		 ******************************************************************************************/            
+        virtual cl_err_code EnqueueNativeKernel (   cl_command_queue    IN  clCommandQueue,
+                                                    void                IN  (*pUserFnc)(void *),
+                                                    void*               IN  pArgs,
+                                                    size_t              IN  szCbArgs,
+                                                    cl_uint             IN  uNumMemObjects,
+                                                    const cl_mem*       IN  clMemList,
+                                                    const void **       IN  ppArgsMemLoc,
                                                     cl_uint             IN  uNumEventsInWaitList, 
                                                     const cl_event*     IN  cpEeventWaitList,
                                                     cl_event*           OUT pEvent      ) = 0;

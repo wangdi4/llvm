@@ -38,6 +38,44 @@
 
 using namespace Intel::OpenCL::Framework;
 
+
+
+/******************************************************************
+ * Static function to be used by all commands that need to write/read data
+ ******************************************************************/
+static cl_dev_cmd_desc* create_dev_cmd_rw(    
+    cl_dev_mem      clDevMemHndl,
+    void*           pData,
+    size_t          szCb,
+    size_t          szOffset,
+    cl_dev_cmd_type clCmdType,
+    cl_dev_cmd_id   clCmdId         
+    )
+{
+        // Create Read command
+        cl_dev_cmd_desc*     pDevCmd     = new cl_dev_cmd_desc;
+	    cl_dev_cmd_param_rw* pRWParams   = new cl_dev_cmd_param_rw;
+    	
+        memset(pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+	    memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
+	    
+        pRWParams->memObj = clDevMemHndl;
+	    pRWParams->ptr = pData;
+	    pRWParams->dim_count = 1;
+	    pRWParams->region[0] = szCb;
+	    pRWParams->origin[0] = szOffset;
+	    
+        pDevCmd->type = clCmdType;
+	    pDevCmd->id = clCmdId;
+	    pDevCmd->params = pRWParams;
+	    pDevCmd->param_size = sizeof(cl_dev_cmd_param_rw);
+
+        return pDevCmd;
+}
+
+
+
+
 /******************************************************************
  *
  ******************************************************************/
@@ -111,16 +149,213 @@ CopyBufferToImageCommand::~CopyBufferToImageCommand()
 /******************************************************************
  *
  ******************************************************************/
-CopyBufferCommand::CopyBufferCommand(MemoryObject* srcBuffer, MemoryObject* dstBuffer, size_t srcOffset, size_t dstOffset, size_t cb)
-{
+CopyBufferCommand::CopyBufferCommand( MemoryObject* pSrcBuffer, MemoryObject* pDstBuffer, size_t szSrcOffset, size_t szDstOffset, size_t szCb):
+    m_pSrcBuffer(pSrcBuffer),
+    m_pDstBuffer(pDstBuffer),
+    m_szSrcOffset(szSrcOffset),
+    m_szDstOffset(szDstOffset),
+    m_szCb(szCb)
+{   
 }
-
 
 /******************************************************************
  *
  ******************************************************************/
-CopyBufferCommand::~CopyBufferCommand(){
+CopyBufferCommand::~CopyBufferCommand()
+{
+}
 
+/******************************************************************
+ * Just mark the buffers as use. The actual copy is determined on execution.
+ ******************************************************************/
+cl_err_code CopyBufferCommand::Init()
+{
+    m_pSrcBuffer->AddPendency();
+    m_pDstBuffer->AddPendency();
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * Copy buffer asks device to perform copy only if both buffers are on
+ * the same device. Else, it read from 1 device and write to other. 
+ * Either ways, the location of the destation data remain the same, unless 
+ * it was never allocated before.
+ *
+ ******************************************************************/
+cl_err_code CopyBufferCommand::Execute()
+{
+    cl_err_code res = CL_SUCCESS;
+    // First check who is responsible for copy...
+    cl_device_id clSrcBufferLocation = m_pSrcBuffer->GetDataLocation();
+    cl_device_id clDstBufferLocation = m_pDstBuffer->GetDataLocation();
+
+    // Does src buffer is allocated? If not, user problem, do nothing...
+    if ( 0 == clSrcBufferLocation && !(m_pSrcBuffer->IsAllocated(0)))
+    {
+        // Src is not allocate, return device is not executing error, 
+        // The working thread will call set command color to black.
+        return CL_ERR_FAILURE;
+    }
+
+    // If destination is not allocated, allocate it where the src is.
+    if ( 0 == clDstBufferLocation && !(m_pDstBuffer->IsAllocated(0)))
+    {
+        // Allocate
+        res = m_pDstBuffer->CreateDeviceResource(clSrcBufferLocation);        
+        if( CL_FAILED(res))
+        {
+            return res;
+        }
+        clDstBufferLocation = clSrcBufferLocation;
+    }
+
+    if ( clDstBufferLocation == clSrcBufferLocation &&  0 == clSrcBufferLocation )
+    {   // Src = 0; Dst = 0
+        res = CopyHost(); 
+    }
+    else if ( clDstBufferLocation == clSrcBufferLocation )
+    {   // Src = Dst != 0
+        res = CopyOnDevice(clSrcBufferLocation);
+    }
+    else if ( 0 == clSrcBufferLocation)
+    {   // Src = 0; Dst != 0
+        res = CopyFromHost(clDstBufferLocation);
+    }
+    else if ( 0 == clDstBufferLocation )
+    {   // Src != 0; Dst = 0
+        res = CopyToHost(clSrcBufferLocation);
+    }
+    else
+    {   // Src != Dst !=0
+        res = CopyFromDevice(clSrcBufferLocation, clDstBufferLocation);
+    }
+    return res;
+}
+
+/******************************************************************
+ * Copy buffers on the host, no access to a device,
+ * read data from one buffer and update the second buffer data.
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CopyHost()
+{
+    void* pData = m_pDstBuffer->GetData();
+    pData = (void*)((cl_uchar*)pData+m_szDstOffset);
+
+    // copies m_szCb bytes to pData which is a memory of the dst buffer
+    m_pSrcBuffer->ReadData(pData, m_szSrcOffset, m_szCb);
+
+    // Return failure only to signal the process that the command is done, no need to wait for device reaction.
+    return CL_ERR_FAILURE;
+
+}
+
+/******************************************************************
+ * Use device copy command to copy betweem the buffers.
+ * Pre condition for this function is that the 2 buffers are allocated
+ * in the device.
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CopyOnDevice(cl_device_id clDeviceId)
+{
+    m_pDevCmd = new cl_dev_cmd_desc;
+    cl_dev_cmd_param_copy* pCopyParams   = new cl_dev_cmd_param_copy;
+	
+    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+    memset(pCopyParams, 0, sizeof(cl_dev_cmd_param_copy));
+    
+    pCopyParams->srcMemObj      = m_pSrcBuffer->GetDeviceMemoryHndl(clDeviceId);
+    pCopyParams->dstMemObj      = m_pDstBuffer->GetDeviceMemoryHndl(clDeviceId);
+    pCopyParams->src_dim_count  = 1;
+    pCopyParams->dst_dim_count  = 1;
+    pCopyParams->src_origin[0]  = m_szSrcOffset;
+    pCopyParams->dst_origin[0]  = m_szDstOffset;
+    pCopyParams->region[0]      = m_szCb;
+    
+    m_pDevCmd->type       = CL_DEV_CMD_COPY;
+    m_pDevCmd->id         = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->params     = pCopyParams;
+    m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_copy);
+
+    // Sending 1 command to the device where the bufer is located now
+    m_pReceiver->EnqueueDevCommands(clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * This function takes the source data from the source buffer host location
+ * and write it to the dst buffer in device clDstDeviceId;
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CopyFromHost(cl_device_id clDstDeviceId)
+{
+    void* pData = m_pSrcBuffer->GetData();
+    pData = (void*)(((cl_uchar*)pData)+m_szSrcOffset);
+
+    // Initiate read from device
+    m_pDevCmd = create_dev_cmd_rw(
+            m_pDstBuffer->GetDeviceMemoryHndl(clDstDeviceId), 
+            pData, m_szCb, m_szDstOffset, CL_DEV_CMD_WRITE,
+            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+
+    // Set new locatio on the host
+    m_pDstBuffer->SetDataLocation(clDstDeviceId);
+
+    // Sending 1 command to the src device
+    m_pReceiver->EnqueueDevCommands(clDstDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * This function copies the data from the clSrcDeviceId device
+ * to the dst buffer local memory.
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CopyToHost(cl_device_id clSrcDeviceId)
+{
+    void* pData = m_pDstBuffer->GetData();
+    pData = (void*)(((cl_uchar*)pData)+m_szDstOffset);
+
+    // Initiate read from device
+    m_pDevCmd = create_dev_cmd_rw(
+            m_pSrcBuffer->GetDeviceMemoryHndl(clSrcDeviceId), 
+            pData, m_szCb, m_szSrcOffset, CL_DEV_CMD_READ,
+            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+
+    // Set new locatio on the host
+    m_pDstBuffer->SetDataLocation(0);
+
+    // Sending 1 command to the src device
+    m_pReceiver->EnqueueDevCommands(clSrcDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * Reads data from srcBuffer in device clSrcBufferLocation and
+ * write data to dstBuffer in device clDstBufferLocation
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CopyFromDevice(cl_device_id clSrcDeviceId, cl_device_id clDstDeviceId)
+{
+    assert("More than 1 device command per queue command is not implemented yet! can't copy between devices" && 0);
+    return CL_ERR_FAILURE;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code CopyBufferCommand::CommandDone()
+{
+    m_pSrcBuffer->RemovePendency();
+    m_pDstBuffer->RemovePendency();
+
+    // Delete allocated resources
+    if ( NULL != m_pDevCmd )
+    {
+        if ( NULL != m_pDevCmd->params )
+        {
+            delete m_pDevCmd->params;
+        }
+        delete m_pDevCmd;
+    }
+    return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -499,25 +734,10 @@ cl_err_code ReadBufferCommand::Execute()
     cl_device_id clDeviceDataLocation = m_pBuffer->GetDataLocation();
     if(0 != clDeviceDataLocation)
     {
-        cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(clDeviceDataLocation);
-
-        // Create Read command
-        m_pDevCmd     = new cl_dev_cmd_desc;
-	    cl_dev_cmd_param_rw* pRWParams   = new cl_dev_cmd_param_rw;
-    	
-        memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
-	    memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
-	    
-        pRWParams->memObj = clDevMem;
-	    pRWParams->ptr = m_pDst;
-	    pRWParams->dim_count = 1;
-	    pRWParams->region[0] = m_szCb;
-	    pRWParams->origin[0] = m_szOffset;
-	    
-        m_pDevCmd->type = CL_DEV_CMD_READ;
-	    m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
-	    m_pDevCmd->params = pRWParams;
-	    m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_rw);
+        m_pDevCmd = create_dev_cmd_rw(
+            m_pBuffer->GetDeviceMemoryHndl(clDeviceDataLocation), 
+            m_pDst, m_szCb, m_szOffset, CL_DEV_CMD_READ,
+            (cl_dev_cmd_id)m_pQueueEvent->GetId());
 
         // Sending 1 command to the device where the bufer is located now
         m_pReceiver->EnqueueDevCommands(clDeviceDataLocation, m_pDevCmd, &m_pStatusChangeObserver, 1);
@@ -668,27 +888,12 @@ cl_err_code WriteBufferCommand::Execute()
 
     // TODO: Uri Q: when to update the buffer on the location of the device.
     // Do we want to save copy in the buffer itself?
+    m_pDevCmd = create_dev_cmd_rw(
+            m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId), 
+            (void*)m_cpSrc, m_szCb, m_szOffset, CL_DEV_CMD_WRITE,
+            (cl_dev_cmd_id)m_pQueueEvent->GetId()) ;
+
     m_pBuffer->SetDataLocation(m_clDeviceId);
-        
-    // Create Write command
-    cl_dev_cmd_desc*        m_pDevCmd   = new cl_dev_cmd_desc;
-    cl_dev_cmd_param_rw*    pRWParams   = new cl_dev_cmd_param_rw;
-    	
-    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
-	memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
-	    
-    cl_dev_mem clDevMem = m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId);
-    
-    pRWParams->memObj   = clDevMem;
-	pRWParams->ptr      = (void*)m_cpSrc;
-    pRWParams->dim_count = 1;
-	pRWParams->region[0] = m_szCb;
-	pRWParams->origin[0] = m_szOffset;
-	    
-    m_pDevCmd->type = CL_DEV_CMD_WRITE;
-    m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
-    m_pDevCmd->params = pRWParams;
-	m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_rw);
 
     // Sending 1 command to the device where the bufer is located now
     m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);

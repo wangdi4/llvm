@@ -100,30 +100,20 @@ cl_err_code Buffer::CreateDeviceResource(cl_device_id clDeviceId)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Buffer::ReadData
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Buffer::ReadData(size_t szDataSize, void * pData, size_t * pszDataSizeRet)
+cl_err_code Buffer::ReadData(void * pData, size_t szOffset, size_t szDataSize)
 {
-	InfoLog(m_pLoggerClient, L"Enter ReadData (szDataSize=%d, pData=%d, pszDataSizeRet=%d)", szDataSize, pData, pszDataSizeRet);
+	InfoLog(m_pLoggerClient, L"Enter ReadData (szDataSize=%d, pData=%d, szOffset=%d)", szDataSize, pData, szOffset);
 
-	if ((NULL == pData && NULL == pszDataSizeRet) ||
-		(NULL == pData && szDataSize > 0))
+    if (NULL == pData || 0 == szDataSize || szOffset+szDataSize > m_szBufferSize ||  NULL == m_pBufferData)
 	{
 		return CL_INVALID_VALUE;
 	}
 
-	if (NULL != m_szBufferSize)
-	{
-		if (m_szBufferSize > szDataSize)
-		{
-			return CL_INVALID_VALUE;
-		}
-		memcpy_s(pData, m_szBufferSize, m_pBufferData, szDataSize);
-	}
-	if (NULL != pszDataSizeRet)
-	{
-		*pszDataSizeRet = m_szBufferSize;
-	}
+    memcpy_s(pData, szDataSize, (void*)((cl_uchar*)m_pBufferData+szOffset), szDataSize);
+
 	return CL_SUCCESS;
 }
+
 size_t Buffer::GetSize() const
 {
 	return m_szBufferSize;
