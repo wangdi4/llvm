@@ -45,7 +45,7 @@ public:
 
 	unsigned int GetCurrentTaskid()	{ return m_uiTaskId;}
 
-	int	UpdateGroupId(const int pGroupId[]);
+	int	UpdateGroup(const SWGinfo* pWGInfo);
 	int Execute();
 
 protected:

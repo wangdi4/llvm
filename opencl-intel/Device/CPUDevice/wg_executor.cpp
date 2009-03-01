@@ -141,16 +141,18 @@ int WGExecutor::Initialize(unsigned int uiTaskId, const SKernelInfo* pKernelInfo
 	return CL_DEV_SUCCESS;
 }
 
-int	WGExecutor::UpdateGroupId(const int pGroupId[])
+int	WGExecutor::UpdateGroup(const SWGinfo* pWGInfo)
 {
 	int	iDim = m_psWGInfo->pWorkingDim->iWorkDim;		
 	int	viGlbInitVal[MAX_WORK_DIM] = {0};
 	int	viGlbMaxVal[MAX_WORK_DIM] = {0};
 
+	m_psWGInfo = pWGInfo;
+
 	// Calculate initial and maximum global WI offset
 	for(int i=0; i<iDim; ++i)
 	{
-		viGlbInitVal[i] = m_psWGInfo->pWorkingDim->viLocalSize[i]*pGroupId[i];
+		viGlbInitVal[i] = m_psWGInfo->pWorkingDim->viLocalSize[i]*m_psWGInfo->viGroupId[i];
 		viGlbMaxVal[i] = viGlbInitVal[i] + m_psWGInfo->pWorkingDim->viLocalSize[i];
 	}
 
@@ -159,6 +161,7 @@ int	WGExecutor::UpdateGroupId(const int pGroupId[])
 	// Upadate WI objects
 	for(unsigned int i=0; i<m_iWIcount; ++i)
 	{
+		m_psWIinfo[i].sWIExecParam.psWGInfo = pWGInfo;
 		memcpy(m_psWIinfo[i].sWIinfo.viGlobalId, vcGlobalId.GetValue(), iDim * sizeof(int));
 		vcGlobalId.Inc();
 	}
@@ -197,19 +200,18 @@ int WGExecutor::Execute()
 
 void WGExecutor::Destroy()
 {
-	for(unsigned int i=0; i<m_iWIcount; ++i)
-	{
-		DeleteFiber(m_psWIinfo[i].pFiber);
-		m_psWIinfo[i].pFiber = NULL;
-	}
-
 	m_lReady.clear();
+
 	if ( NULL != m_psWIinfo )
 	{
+		for(unsigned int i=0; i<m_iWIcount; ++i)
+		{
+			DeleteFiber(m_psWIinfo[i].pFiber);
+			m_psWIinfo[i].pFiber = NULL;
+		}
 		delete []m_psWIinfo;
 		m_psWGInfo = NULL;
 	}
-
 }
 
 void WGExecutor::ExecuteWI(void* param)

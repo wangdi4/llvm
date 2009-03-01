@@ -529,6 +529,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 	char*						pKernelParams = (char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
+	// TODO:	consider use memory buffer passed in cmdParams, don't allocate additional memory
 	char*						pLocalParams = (char*)malloc(cmdParams->arg_size);
 
 	if ( NULL == pLocalParams )

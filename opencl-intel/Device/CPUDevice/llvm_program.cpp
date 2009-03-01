@@ -50,6 +50,20 @@ static const char szNone[] = "None";
 static const char szBuilding[] = "Building";
 static const char szError[] = "Error";
 
+// List of the intrinsics to be substitued by internal function
+static char*	szWIIntrinNames[] =
+{
+	"gid",
+	"ndims",
+	"gdim",
+	"ldim",
+	"lid",
+	"tgdim",
+	"tgid"
+};
+static unsigned int	uiWIIntrinCount = sizeof(szWIIntrinNames)/sizeof(char*);
+
+
 // Contructor/Destructor
 LLVMProgram::LLVMProgram() :
 	m_clBuildStatus(CL_BUILD_NONE),	m_pBuildingThread(NULL), m_pMemBuffer(NULL), m_pExecEngine(NULL)
@@ -237,6 +251,24 @@ cl_int LLVMProgram::GetAllKernels(const ICLDevKernel* *pKernels, unsigned int ui
 	return CL_DEV_SUCCESS;
 }
 
+const char*	SubstituteIntrinName(const char* szName)
+{
+	if ( strncmp(szName, "llvm.x86.", 9) )
+	{
+		return NULL;
+	}
+
+	for(unsigned int i=0; i<uiWIIntrinCount; ++i)
+	{
+		if ( !strcmp(&szName[9], szWIIntrinNames[i] ) )
+		{
+			return szWIIntrinNames[i];
+		}
+	}
+
+	return NULL;
+}
+
 // ------------------------------------------------------------------------------
 //	Parses libary information and retrieves/builds function descripotrs
 cl_int LLVMProgram::LoadProgram()
@@ -314,16 +346,19 @@ cl_int LLVMProgram::LoadProgram()
 				{
 				// Detect pointer qualifier
 				const PointerType *PTy = cast<PointerType>(arg_it->getType());
+				pArgs[uiArgCount].size_in_bytes = 0;
 				switch (PTy->getAddressSpace())
 				{
-				case 1:	// Global Address space
+				case 0: case 1:	// Global Address space
 					pArgs[uiArgCount].type = CL_KRNL_ARG_PTR_GLOBAL;
-					pArgs[uiArgCount].size_in_bytes = 0;
 					break;
-				case 3: // Global Address space
+				case 2:
+					pArgs[uiArgCount].type = CL_KRNL_ARG_PTR_CONST;
+					break;
+				case 3: // Local Address space
 					pArgs[uiArgCount].type = CL_KRNL_ARG_PTR_LOCAL;
-					pArgs[uiArgCount].size_in_bytes = 0;
 					break;
+
 				default:
 					assert(0);
 				}}
@@ -356,9 +391,10 @@ cl_int LLVMProgram::LoadProgram()
 			{
 				if ( inst_it->getOpcode() == 0x2B )
 				{
-					if ( !strcmp(inst_it->getOperand(0)->getNameStart(), "llvm.x86.gid") )
+					const char* szNewName = SubstituteIntrinName(inst_it->getOperand(0)->getNameStart());
+					if ( NULL != szNewName )
 					{
-						inst_it->getOperand(0)->setName("gid");
+						inst_it->getOperand(0)->setName(szNewName);
 					} else if ( !strcmp(inst_it->getOperand(0)->getNameStart(), "__dotf4") )
 					{
 						inst_it->getOperand(0)->setName("@dotf4@32");
@@ -424,6 +460,37 @@ extern "C" __declspec(dllexport) int gid(int i)
 {
 	return (int)get_global_id(i);
 }
+
+extern "C" __declspec(dllexport) int lid(int i)
+{
+	return (int)get_local_id(i);
+}
+
+extern "C" __declspec(dllexport) int ndims()
+{
+	return (int)get_work_dim();
+}
+
+extern "C" __declspec(dllexport) int gdim(int i)
+{
+	return (int)get_global_size(i);
+}
+
+extern "C" __declspec(dllexport) int ldim(int i)
+{
+	return (int)get_local_size(i);
+}
+
+extern "C" __declspec(dllexport) int tgdim(int i)
+{
+	return (int)get_num_groups(i);
+}
+
+extern "C" __declspec(dllexport) int tgid(int i)
+{
+	return (int)get_group_id(i);
+}
+
 
 extern "C" __declspec(dllexport) float __fastcall dotf4(__m128 a, __m128 b)
 {

@@ -312,7 +312,7 @@ void TaskExecutor::TaskExecutionRoutine(void* _Task, unsigned int uiIndex, unsig
 	else
 	{
 		// Running this task -> update global invormation
-		pWGExec->UpdateGroupId(pWGInfo->viGroupId);
+		pWGExec->UpdateGroup(pWGInfo);
 	}
 
 	// Execute WG
