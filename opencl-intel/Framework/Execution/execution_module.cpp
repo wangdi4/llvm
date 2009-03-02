@@ -567,8 +567,11 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
     // Must set device Id befor init for buffer resource allocation.
     pNDRangeKernelCmd->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
-    pNDRangeKernelCmd->Init();
-    errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pNDRangeKernelCmd->Init();
+    if( CL_SUCCEEDED (errVal) )
+    {
+        errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }
     
 	return  errVal;
 
@@ -578,20 +581,95 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueTask(cl_command_queue command_queue, cl_kernel kernel, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueTask");
-	return  CL_INVALID_OPERATION;	
-}
+    cl_err_code errVal = CL_SUCCESS;
 
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
+    if (NULL == pKernel)
+    {
+        return CL_INVALID_KERNEL;
+    }
+
+    if ((cl_context)(pKernel->GetContext()->GetId()) != pCommandQueue->GetContextId())
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    // TODO: Handle those error values, probably through the kernel object...
+    // CL_INVALID_PROGRAM_EXECUTABLE
+    // CL_INVALID_WORK_GROUP_SIZE
+
+    Command* pTaskCommand = new TaskCommand(pKernel); 
+    // Must set device Id befor init for buffer resource allocation.
+    pTaskCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());    
+    errVal = pTaskCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pTaskCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }
+    
+	return  errVal;
+
+}
 
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue command_queue, void (*user_func)(void *), void* args, size_t cb_args, cl_uint num_mem_objects, const cl_mem* mem_list, const void** args_mem_loc, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue, void (*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueNativeFnAsKernel");
-	return  CL_INVALID_OPERATION;	
+    cl_err_code errVal = CL_SUCCESS;
+
+    // First check NULL values:
+    if (    ( NULL == pUserFnc)                                                     ||
+            ( NULL == pArgs && ((szCbArgs > 0) || uNumMemObjects > 0 ))             ||
+            ( NULL != pArgs && 0 == szCbArgs)                                       ||
+            ( (uNumMemObjects >  0) && ( NULL == clMemList || NULL == ppArgsMemLoc))||
+            ( (0 == uNumMemObjects) && ( NULL != clMemList || NULL != ppArgsMemLoc)) )
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    // Create MemoryObjects references
+    MemoryObject** pMemObjectsList = (MemoryObject**)malloc(sizeof(MemoryObject*) * uNumMemObjects);
+    
+    cl_uint i;
+    for( i=0; i < uNumMemObjects; i++ )
+    {
+        // Check that buffer is available
+        pMemObjectsList[i] = m_pContextModule->GetMemoryObject(clMemList[i]);
+        if ( NULL == pMemObjectsList[i] )
+        {
+            free(pMemObjectsList);
+            return CL_INVALID_MEM_OBJECT;
+        }
+    }
+
+    // TODO: Handle those error values, probably through the DEVICE object...
+    // CL_INVALID_OPERATION
+   
+    Command* pNativeKernelCommand = new NativeKernelCommand( pUserFnc, pArgs, szCbArgs, uNumMemObjects, pMemObjectsList, ppArgsMemLoc );
+    // Must set device Id befor init for buffer resource allocation.
+    pNativeKernelCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+    errVal = pNativeKernelCommand->Init();
+    if( CL_SUCCEEDED (errVal) )
+    {
+        errVal = pCommandQueue->EnqueueCommand(pNativeKernelCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }
+    
+	return  errVal;
+
 }
 
 

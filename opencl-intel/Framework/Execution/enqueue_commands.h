@@ -377,15 +377,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class NDRangeKernelCommand : public Command
     {
     public:
-	    NDRangeKernelCommand(Kernel* kernel, cl_uint work_dim, const size_t* global_work_offset, const size_t* global_work_size, const size_t* local_work_size);
+	    NDRangeKernelCommand(Kernel* pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
 	    virtual ~NDRangeKernelCommand();
 
-        cl_err_code     Init();
-	    cl_err_code     Execute();	
-        cl_err_code     CommandDone();
-        cl_command_type GetCommandType() const { return CL_COMMAND_NDRANGE_KERNEL; };
+        virtual cl_err_code     Init();
+	    virtual cl_err_code     Execute();	
+        virtual cl_err_code     CommandDone();
+        virtual cl_command_type GetCommandType() const { return CL_COMMAND_NDRANGE_KERNEL; };
 
-    private: 
+    protected: 
         // This enum includes the type of CL objects that can be pass
         // as arguments to the device
         enum EObjectArgType
@@ -418,16 +418,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class TaskCommand : public Command
+    class TaskCommand : public NDRangeKernelCommand
     {
 
     public:
-	    TaskCommand(
-		    Kernel* kernel
-		    );
+	    TaskCommand( Kernel* pKernel );
 	    virtual ~TaskCommand();
+
+        // Override Init only to set a different device type
+        cl_err_code Init();
+        cl_command_type GetCommandType() const { return CL_COMMAND_TASK; };
+
+	    
     private:
-	    Kernel* m_kernel;
+	    size_t m_szStaticWorkSize; // Set to 1 to support NDRangeKernel execution with work_size=1
     };
 
     /******************************************************************
@@ -437,16 +441,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-	    NativeKernelCommand(void* usrfunc, void* args, size_t cbArgs, cl_uint numMemObjects, const MemoryObject* memObjList, const void** args_mem_loc);
-	    virtual ~NativeKernelCommand();
+	    NativeKernelCommand(
+            void              (*pUserFnc)(void *), 
+            void*               pArgs, 
+            size_t              szCbArgs,
+            cl_uint             uNumMemObjects,
+            MemoryObject**      ppMemObjList,
+            const void**        ppArgsMemLoc
+            );
+        virtual ~NativeKernelCommand();
+
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const { return CL_COMMAND_NATIVE_KERNEL; };
 
     private:
-	    void* 				m_usrfunc;
-	    void*				m_args;
-	    size_t 				m_cbArgs;
-	    cl_uint m_numMemObjects;
-	    const MemoryObject*	m_memObjList;
-	    const void**		m_argsMemLoc;
+
+	    void* 				m_pUserFnc;
+	    void*				m_pArgs;
+	    size_t 				m_szCbArgs;
+	    cl_uint             m_uNumMemObjects;
+	    MemoryObject**	    m_ppMemObjList;
+	    const void**		m_ppArgsMemLoc;
     };
 
     /******************************************************************

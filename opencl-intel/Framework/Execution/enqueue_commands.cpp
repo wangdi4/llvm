@@ -470,15 +470,153 @@ cl_err_code BarrierCommand::Execute()
 /******************************************************************
  *
  ******************************************************************/
-NativeKernelCommand::NativeKernelCommand(void* usrfunc, void* args, size_t cbArgs, cl_uint numMemObjects, const MemoryObject* memObjList, const void** args_mem_loc){
-
+NativeKernelCommand::NativeKernelCommand(
+           void              (*pUserFnc)(void *), 
+           void*               pArgs, 
+           size_t              szCbArgs,
+           cl_uint             uNumMemObjects,
+           MemoryObject**      ppMemObjList,
+           const void**        ppArgsMemLoc):
+    m_pUserFnc(pUserFnc),
+    m_pArgs(pArgs),
+    m_szCbArgs(szCbArgs),
+    m_uNumMemObjects(uNumMemObjects),
+    m_ppMemObjList(ppMemObjList),
+    m_ppArgsMemLoc(ppArgsMemLoc)    
+{
 }
 
 /******************************************************************
  *
  ******************************************************************/
-NativeKernelCommand::~NativeKernelCommand(){
+NativeKernelCommand::~NativeKernelCommand()
+{    
+}
 
+/******************************************************************
+ * On init the command validates the input buffers and creates new args list
+ * the contains the device handlers of the buffers.
+ ******************************************************************/
+cl_err_code NativeKernelCommand::Init()
+{
+    cl_err_code res = CL_SUCCESS;
+    // Create new arg list
+    size_t clMemSize = sizeof(cl_mem);
+    size_t clDevMemSize = sizeof(cl_dev_mem);
+    size_t szCbNewArgsSize = m_szCbArgs + m_uNumMemObjects * ( clDevMemSize - clMemSize);
+    void*   pNewArgs = malloc(szCbNewArgsSize);
+    void**  ppNewArgsMemLoc = (void**)malloc(sizeof(void*) * m_uNumMemObjects);
+    
+    // Set the parameters for the device
+    cl_uint i;
+    void* pCurrentArgsLocation = pNewArgs;
+    size_t szCbToCopy = 0;
+
+    for( i=0; i < m_uNumMemObjects; i++ )
+    {
+        // Check that mem object is allocated on device, if not allocate resource
+        MemoryObject* pMemObj = m_ppMemObjList[i];
+        if (!(pMemObj->IsAllocated(m_clDeviceId)))
+        {
+            // Allocate
+            res = pMemObj->CreateDeviceResource(m_clDeviceId);
+            if( CL_FAILED(res))
+            {
+                free(pNewArgs);
+                free(ppNewArgsMemLoc);
+                return CL_MEM_OBJECT_ALLOCATION_FAILURE;
+            }
+        }
+        // Set the new args list
+        cl_dev_mem clDevMemHndl = pMemObj->GetDeviceMemoryHndl(m_clDeviceId);
+        if( 0 == i )
+        {
+            szCbToCopy = (cl_uchar*)m_ppArgsMemLoc[i] - (cl_uchar*)m_pArgs;
+            memcpy(pCurrentArgsLocation, m_pArgs, szCbToCopy);
+        }
+        else
+        {
+            szCbToCopy = (cl_uchar*)(m_ppArgsMemLoc[i]) - (cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize;
+            memcpy(pCurrentArgsLocation, (void*)((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize), szCbToCopy);
+        }
+        ppNewArgsMemLoc[i] = (void*)((cl_uchar*)pCurrentArgsLocation + szCbToCopy);
+        memcpy(ppNewArgsMemLoc[i], &clDevMemHndl, clDevMemSize);
+        pCurrentArgsLocation = (cl_uchar*)ppNewArgsMemLoc[i] + clDevMemSize;
+
+        // Set buffers pendencies
+        pMemObj->AddPendency();    
+    }
+
+    // Copy the end of the original args
+    size_t szLastBytesToCopy = (cl_uchar*)m_pArgs + m_szCbArgs - (cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize;
+    memcpy(pCurrentArgsLocation, (void*)((cl_uchar*)(m_ppArgsMemLoc[i]) + clMemSize),  szLastBytesToCopy);
+    pCurrentArgsLocation = (cl_uchar*)pCurrentArgsLocation + szLastBytesToCopy;
+
+    //
+    // Prepare the device command
+    //
+    m_pDevCmd = new cl_dev_cmd_desc;
+    cl_dev_cmd_param_native* pNativeKernelParam = new cl_dev_cmd_param_native;
+    	
+    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+    memset(pNativeKernelParam, 0, sizeof(cl_dev_cmd_param_native));
+
+    pNativeKernelParam->args     = szCbNewArgsSize;
+    pNativeKernelParam->argv     = pNewArgs;
+    pNativeKernelParam->func_ptr = m_pUserFnc;
+    pNativeKernelParam->mem_num  = m_uNumMemObjects;
+    pNativeKernelParam->mem_loc  = ppNewArgsMemLoc;
+
+    m_pDevCmd->params = pNativeKernelParam;
+    m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_native);
+    m_pDevCmd->type = CL_DEV_CMD_EXEC_NATIVE;
+
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code NativeKernelCommand::Execute()
+{
+    // Fill command descriptor
+	m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    
+    // Sending the queue command
+    // TODO: Handle the case were buffers are located in different device. Prefatching
+    m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code NativeKernelCommand::CommandDone()
+{
+    // Clean resources
+    if( NULL != m_pDevCmd )
+    {
+        if( NULL != m_pDevCmd->params )
+        {
+            cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
+            free(pNativeKernelParam->argv);
+            free(pNativeKernelParam->mem_loc);
+            delete pNativeKernelParam;
+        }
+        delete m_pDevCmd;
+    }
+
+    // Remove buffers pendencies
+    for( cl_uint i=0; i < m_uNumMemObjects; i++ )
+    {
+        // Check that mem object is allocated on device, if not allocate resource
+        MemoryObject* pMemObj = m_ppMemObjList[i];    
+        pMemObj->RemovePendency();
+    }
+    free(m_ppMemObjList);
+
+    return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -507,7 +645,7 @@ NDRangeKernelCommand::~NDRangeKernelCommand()
 }
 
 /******************************************************************
- *
+ * TODO: set buffers handles on Init, no need to TObjectArg, handles are of the current device
  ******************************************************************/
 cl_err_code NDRangeKernelCommand::Init()
 {
@@ -533,6 +671,9 @@ cl_err_code NDRangeKernelCommand::Init()
             tObjectArg.pObject   = pArg->GetValue();
             // Create buffer resources here if not available.
             MemoryObject* pBuffer = (MemoryObject*)tObjectArg.pObject;
+            // Mark as used
+            pBuffer->AddPendency();
+
             if (!(pBuffer->IsAllocated(m_clDeviceId)))
             {
                 // Allocate
@@ -542,6 +683,7 @@ cl_err_code NDRangeKernelCommand::Init()
                     return res;
                 }
             }
+
 
             szCurrentLocation += tObjectArg.szSize;
             m_ObjectArgList.push_back(tObjectArg);
@@ -640,7 +782,6 @@ cl_err_code NDRangeKernelCommand::Execute()
 
             assert( 0 != clDevMem );
             memcpy(  ((cl_char*)(pKernelParam->arg_values)) + (objectArg.szOffset), &clDevMem , objectArg.szSize);
-            pBuffer->AddPendency();
         }
         else
         {
@@ -786,15 +927,38 @@ ReadImageCommand::~ReadImageCommand(){
 /******************************************************************
  *
  ******************************************************************/
-TaskCommand::TaskCommand(Kernel* kernel){
+TaskCommand::TaskCommand(Kernel* pKernel):
+    NDRangeKernelCommand(pKernel, 1, NULL, &m_szStaticWorkSize, &m_szStaticWorkSize),
+    m_szStaticWorkSize(1)
+{
 
 }
 
 /******************************************************************
  *
  ******************************************************************/
-TaskCommand::~TaskCommand(){
+TaskCommand::~TaskCommand()
+{
+}
 
+/******************************************************************
+ * inititate NDRangeKernel and change the device command type
+ ******************************************************************/
+cl_err_code TaskCommand::Init()
+{
+    cl_err_code res = NDRangeKernelCommand::Init();
+    if ( CL_SUCCEEDED (res) )
+    {
+        if ( NULL != m_pDevCmd)
+        {
+            m_pDevCmd->type = CL_DEV_CMD_EXEC_KERNEL;
+        }
+        else
+        {
+            res = CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+    return res;
 }
 
 /******************************************************************
