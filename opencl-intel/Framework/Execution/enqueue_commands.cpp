@@ -244,6 +244,9 @@ cl_err_code CopyBufferCommand::CopyHost()
     // copies m_szCb bytes to pData which is a memory of the dst buffer
     m_pSrcBuffer->ReadData(pData, m_szSrcOffset, m_szCb);
 
+    // Set dst location to the host
+    m_pDstBuffer->SetDataLocation(0);
+
     // Return failure only to signal the process that the command is done, no need to wait for device reaction.
     return CL_ERR_FAILURE;
 
@@ -275,6 +278,7 @@ cl_err_code CopyBufferCommand::CopyOnDevice(cl_device_id clDeviceId)
     m_pDevCmd->params     = pCopyParams;
     m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_copy);
 
+    m_pDstBuffer->SetDataLocation(clDeviceId);
     // Sending 1 command to the device where the bufer is located now
     m_pReceiver->EnqueueDevCommands(clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
     
@@ -296,7 +300,7 @@ cl_err_code CopyBufferCommand::CopyFromHost(cl_device_id clDstDeviceId)
             pData, m_szCb, m_szDstOffset, CL_DEV_CMD_WRITE,
             (cl_dev_cmd_id)m_pQueueEvent->GetId());
 
-    // Set new locatio on the host
+    // Set new location
     m_pDstBuffer->SetDataLocation(clDstDeviceId);
 
     // Sending 1 command to the src device
@@ -319,7 +323,7 @@ cl_err_code CopyBufferCommand::CopyToHost(cl_device_id clSrcDeviceId)
             pData, m_szCb, m_szSrcOffset, CL_DEV_CMD_READ,
             (cl_dev_cmd_id)m_pQueueEvent->GetId());
 
-    // Set new locatio on the host
+    // Set new location on the host
     m_pDstBuffer->SetDataLocation(0);
 
     // Sending 1 command to the src device
@@ -581,7 +585,7 @@ cl_err_code NativeKernelCommand::Execute()
 {
     // Fill command descriptor
 	m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
-    
+
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device. Prefatching
     m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
@@ -753,7 +757,7 @@ cl_err_code NDRangeKernelCommand::Init()
 }
 
 /******************************************************************
- *
+ * TODO: Move buffer handles to init
  ******************************************************************/
 cl_err_code NDRangeKernelCommand::Execute()
 {
@@ -1050,8 +1054,7 @@ cl_err_code WriteBufferCommand::Execute()
         }
     }
 
-    // TODO: Uri Q: when to update the buffer on the location of the device.
-    // Do we want to save copy in the buffer itself?
+    // TODO: Do we want to save copy in the buffer itself?
     m_pDevCmd = create_dev_cmd_rw(
             m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId), 
             (void*)m_cpSrc, m_szCb, m_szOffset, CL_DEV_CMD_WRITE,
