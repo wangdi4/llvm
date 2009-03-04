@@ -18,7 +18,7 @@
 #define __global	static
 #define __local		__declspec(thread)
 
-#define MAX_ARG_COUNT		13
+#define MAX_ARG_COUNT		256
 #ifndef __USING_FIBERS__
 #define	STACK_SEPARATOR	0x0BAADF00D
 #endif
@@ -51,11 +51,13 @@ struct SWIinfo
 struct SKernelInfo
 {
 	const void*		pfnKernelFunc;			// Pointer to kernel function
-	size_t			szParamSize;			// Size of parameter buffer to be passed to the kernel
+	size_t			stParamSize;			// Size of parameter buffer to be passed to the kernel
 	void*			pParams;				// Pointer to vector that holds kernel execution parameters
-	cl_uint			uiNumLocal;				// Number of local memory buffers
+	unsigned int	uiExpLocalCount;		// Number of explicit local memory buffers
 	void*			*pLocalPtr;				// Location of local memory sizes to be substituded by
 											// local (Work-Group) pointers
+	unsigned int	uiImpLocalCount;		// Number of implicit local memory buffers
+	bool			bWIInfoSupported;		// WI info structure should be passed to the kernel by parameter
 };
 
 // Defines paramters that should be passed to _KernelExecute function

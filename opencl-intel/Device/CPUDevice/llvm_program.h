@@ -31,6 +31,7 @@
 #include "program_api.h"
 #include "cl_dynamic_lib.h"
 #include "cl_thread.h"
+#include "cl_synch_objects.h"
 
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/Module.h"
@@ -84,11 +85,15 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		TKernelMap			m_mapKernels;	// A map used for translation between Short name and function descriptor
 		cl_prog_container	m_ContainerInfo;// Current container information
 		MemoryBuffer*		m_pMemBuffer;	// A memory buffer used to store LLVM IR
-		ExecutionEngine*	m_pExecEngine;
 
 		LLVMProgramThread*	m_pBuildingThread;
 		cl_build_status		m_clBuildStatus;
 		std::string			m_strLastError;
+
+		// Static Members
+		static ExecutionEngine*	m_spExecEngine;
+		static OclMutex			m_muEEMutex;
+
 	};
 
 	class LLVMProgramThread : public OclThread

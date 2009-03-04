@@ -35,11 +35,17 @@
 #include "llvm/Constants.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/DerivedTypes.h"
+#include "llvm/Instructions.h"
+#include "llvm/CallingConv.h"
 
 #include "llvm_program.h"
 #include "cpu_kernel.h"
 
+#include <string>
+#include <map>
 
+
+using namespace std;
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::Utils;
@@ -50,23 +56,42 @@ static const char szNone[] = "None";
 static const char szBuilding[] = "Building";
 static const char szError[] = "Error";
 
+#ifdef __USE_INTRIN_FASTCALL__
+#define OCL_INTRIN_CALL					__fastcall
+#else
+#define OCL_INTRIN_CALL
+#endif
+
 // List of the intrinsics to be substitued by internal function
 static char*	szWIIntrinNames[] =
 {
-	"gid",
-	"ndims",
-	"gdim",
-	"ldim",
-	"lid",
-	"tgdim",
-	"tgid"
+#ifdef __USE_INTRIN_FASTCALL
+	"gid",		"@gid@4",
+	"ndims",	"@ndims@0",
+	"gdim",		"@gdim@4",
+	"ldim",		"@ldim@4",
+	"lid",		"@lid@4",
+	"tgdim",	"@tgdim@4",
+	"tgid",		"@tgid@4",
+#else
+	"gid",		"gid",
+	"ndims",	"ndims",
+	"gdim",		"gdim",
+	"ldim",		"ldim",
+	"lid",		"lid",
+	"tgdim",	"tgdim",
+	"tgid",		"tgid",
+#endif
+	"__dotf4",	"@dotf4@32"
 };
 static unsigned int	uiWIIntrinCount = sizeof(szWIIntrinNames)/sizeof(char*);
 
+ExecutionEngine* LLVMProgram::m_spExecEngine = NULL;
+OclMutex LLVMProgram::m_muEEMutex;
 
 // Contructor/Destructor
 LLVMProgram::LLVMProgram() :
-	m_clBuildStatus(CL_BUILD_NONE),	m_pBuildingThread(NULL), m_pMemBuffer(NULL), m_pExecEngine(NULL)
+	m_clBuildStatus(CL_BUILD_NONE),	m_pBuildingThread(NULL), m_pMemBuffer(NULL)
 {
 	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container));
 	m_strLastError = szNone;
@@ -251,31 +276,42 @@ cl_int LLVMProgram::GetAllKernels(const ICLDevKernel* *pKernels, unsigned int ui
 	return CL_DEV_SUCCESS;
 }
 
-const char*	SubstituteIntrinName(const char* szName)
+// Change name of the given function
+// Required for treatment of OCL/llvm calling conventions
+bool SubstituteCallingFuncName(llvm::Value* pFuncName)
 {
-	if ( strncmp(szName, "llvm.x86.", 9) )
+	const char*	szCurrName = pFuncName->getNameStart();
+	const char* szNewName = NULL;
+
+	bool	bIsIntrin = false;
+	// Test for intrinsics
+	if ( !strncmp(szCurrName, "llvm.x86.", 9) )
 	{
-		return NULL;
+		bIsIntrin = true;
+		szCurrName = &szCurrName[9];
 	}
 
-	for(unsigned int i=0; i<uiWIIntrinCount; ++i)
+	for(unsigned int i=0; i<uiWIIntrinCount; i+=2)
 	{
-		if ( !strcmp(&szName[9], szWIIntrinNames[i] ) )
+		if ( !strcmp(szCurrName, szWIIntrinNames[i] ) )
 		{
-			return szWIIntrinNames[i];
+			szNewName = szWIIntrinNames[i+1];
+			break;
 		}
 	}
 
-	return NULL;
+	if ( NULL != szNewName )
+	{
+		pFuncName->setName(szNewName);
+	}
+
+	return bIsIntrin;
 }
 
 // ------------------------------------------------------------------------------
 //	Parses libary information and retrieves/builds function descripotrs
 cl_int LLVMProgram::LoadProgram()
 {
-	cl_kernel_argument	pArgs[MAX_ARG_COUNT];
-	unsigned int		uiArgCount;
-
 	assert(NULL != m_pMemBuffer);
 
 	// Create module to put IR in it
@@ -287,7 +323,6 @@ cl_int LLVMProgram::LoadProgram()
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	// Now,  create JIT
 	ExistingModuleProvider *pMP = new ExistingModuleProvider(pModule);
 	if ( NULL == pMP )
 	{
@@ -297,13 +332,25 @@ cl_int LLVMProgram::LoadProgram()
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	ExecutionEngine *m_pExecEngine = ExecutionEngine::create(pMP, false, &m_strLastError);
-	if ( NULL == m_pExecEngine )
+	// Now,  create JIT
+	m_muEEMutex.Lock();
+	if ( NULL == m_spExecEngine )
 	{
-		m_clBuildStatus = CL_BUILD_ERROR;
-		delete pMP;
-		return CL_DEV_INVALID_BINARY;
+		m_spExecEngine = ExecutionEngine::create(pMP, false, &m_strLastError);
+		if ( NULL == m_spExecEngine )
+		{
+			m_muEEMutex.Unlock();
+			m_clBuildStatus = CL_BUILD_ERROR;
+			delete pMP;
+			return CL_DEV_INVALID_BINARY;
+		}
 	}
+	else
+	{
+		m_spExecEngine->addModuleProvider(pMP);
+	}
+	m_muEEMutex.Unlock();
+
 	
 	// Now after JIT is up and setup with IR, we scan module for kernels
 	Module::FunctionListType::iterator func_it = pModule->getFunctionList().begin();
@@ -327,9 +374,20 @@ cl_int LLVMProgram::LoadProgram()
 			return CL_DEV_OUT_OF_MEMORY;
 		}
 
+		// Local Memories Lookup table
+		map<string, Argument *>	mapLocalMemBuffers;
+		// Prepare buffer to store local memory blocks
+		char				pMetaData[sizeof(CPUKernelMDHeader)+MAX_ARG_COUNT*sizeof(unsigned int)];
+		CPUKernelMDHeader*	pMDHeader = (CPUKernelMDHeader*)pMetaData;
+		unsigned int*		pLclMemSizes = (unsigned int*)(pMetaData+sizeof(CPUKernelMDHeader));
+		unsigned int		uiLclMemCount = 0;
+
+		// List of kernel arguments
+		cl_kernel_argument	pArgs[MAX_ARG_COUNT];
+		unsigned int		uiArgCount = 0;
+
 		// Set function name
 		pKernel->SetName(func_it->getNameStart(), func_it->getNameLen() );
-		uiArgCount = 0;
 
 		Function::arg_iterator arg_it = func_it->arg_begin();
 		while (arg_it != func_it->arg_end() )
@@ -376,38 +434,103 @@ cl_int LLVMProgram::LoadProgram()
 			++uiArgCount;
 			++arg_it;
 		}
+
 		// Set Kernel arguments
 		pKernel->SetArgumentList(pArgs, uiArgCount);
 
 		// Apple LLVM-IR workaround
-		// Apple implemened some internal OCL function as intrisics (llvm.*)
-		// We don't want to implement those commands in LLVM backend,
-		// thus we need to substitute intrinsic calls to regular function calls
+		// 1.	Pass WI information structure as next parameter after given function parameters
+		// 2.	Apple implemened some internal OCL function as intrisics (llvm.*)
+		//		We don't want to implement those commands in LLVM backend,
+		//		thus we need to substitute intrinsic calls to regular function calls
+		// 3.	Local memory is not supported in current LLVM-IR, no TLS no multi-istancing of memory.
+		//		Our solution to move all local memory blocks that was allocated internally to be allocated
+		//		by the execution engine and passed within additional parameters to the kernel,
+		//		those parameters are not exposed to the user
+
+		// Go through funciton blocks
 		Function::BasicBlockListType::iterator bb_it = func_it->getBasicBlockList().begin();
 		while ( bb_it != func_it->getBasicBlockList().end() )
 		{
 			BasicBlock::InstListType::iterator inst_it = bb_it->getInstList().begin();
 			while ( inst_it != bb_it->getInstList().end() )
 			{
-				if ( inst_it->getOpcode() == 0x2B )
+				bool bAddWIInfo = false;
+
+				switch (inst_it->getOpcode())
 				{
-					const char* szNewName = SubstituteIntrinName(inst_it->getOperand(0)->getNameStart());
-					if ( NULL != szNewName )
+				// Call instruction
+				case 0x2B:
+					bAddWIInfo = SubstituteCallingFuncName(inst_it->getOperand(0));
+					if ( bAddWIInfo )	// Need add WIinfo parameter
 					{
-						inst_it->getOperand(0)->setName(szNewName);
-					} else if ( !strcmp(inst_it->getOperand(0)->getNameStart(), "__dotf4") )
-					{
-						inst_it->getOperand(0)->setName("@dotf4@32");
+						CallInst* pCall = dyn_cast<CallInst>(inst_it);
+#ifdef __USE_INTRIN_FASTCALL__
+						// Make all intrinsics to be fast_call
+						pCall->setCallingConv(CallingConv::Fast);
+#endif
+						// TODO: Add WI information
+						//unsigned int uiOperCount = pCall->getNumOperands();
+						//pCall->setOperand(uiOperCount, pWIInfo);
+						//pCall->dump();
 					}
-					// TODO: Add another functions below
+					break;
+
+				// getelementptr instruction
+				case 0x1B:
+					GlobalValue *pGV = dyn_cast<GlobalValue>(inst_it->getOperand(0));
+					if ( NULL == pGV )
+					{
+						break;		// Interested only in global pointers
+					}
+					const PointerType *PTy = cast<PointerType>(pGV->getType());
+					assert(( NULL != PTy ) && "Expected pointer type");
+
+					if ( (PTy == NULL) || (3 != PTy->getAddressSpace()) )
+					{
+						break;
+					}
+					string &strBuffName = pGV->getName();
+					if ( mapLocalMemBuffers.find(strBuffName) ==  mapLocalMemBuffers.end() )	// and there is new buffer name
+					{
+						// Create new argument with the same type as global buffer and it to function argument
+						Argument *pNewArg = new Argument(PTy, pGV->getName(), func_it);
+						// replace global pointer with private one
+						inst_it->setOperand(0, pNewArg);
+						// Add to map
+						const ArrayType *pArray = dyn_cast<ArrayType>(PTy->getElementType());
+						if ( pArray == NULL )
+						{
+							break;
+						}
+						pLclMemSizes[uiLclMemCount] = pArray->getNumElements()*pArray->getContainedType(0)->getPrimitiveSizeInBits()/8;
+						mapLocalMemBuffers[strBuffName] = pNewArg;
+						++uiLclMemCount;
+					} else
+					{
+						inst_it->setOperand(0, mapLocalMemBuffers[strBuffName]);
+					}
+					break;
 				}
 				++inst_it;
 			}
 			++bb_it;
 		}
 
+		// Fill metadata information
+		pMDHeader->isWIInfoSupported = false;
+		if ( pMDHeader->isWIInfoSupported )
+		{
+			// Add WI info structure pointer
+			PointerType*	pWIType = PointerType::get(IntegerType::get(8), 0);
+			Argument *pWIInfo = new Argument(pWIType, "pWIInfo", func_it);
+		}
+		pMDHeader->stMDsize = uiLclMemCount*sizeof(unsigned int)+sizeof(CPUKernelMDHeader);
+		pMDHeader->uiImplLocalMemCount = uiLclMemCount;
+		pKernel->SetMetaData(pMDHeader);
+
 		// Acquire pointer to function
-		void *test = m_pExecEngine->getPointerToFunction(func_it);
+		void *test = m_spExecEngine->getPointerToFunction(func_it);
 
 		pKernel->SetFuncPtr(test);
 
@@ -456,37 +579,37 @@ int LLVMProgramThread::Run()
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 // OCL LLVM inline functions
-extern "C" __declspec(dllexport) int gid(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL gid(int i)
 {
 	return (int)get_global_id(i);
 }
 
-extern "C" __declspec(dllexport) int lid(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL lid(int i)
 {
 	return (int)get_local_id(i);
 }
 
-extern "C" __declspec(dllexport) int ndims()
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL ndims()
 {
 	return (int)get_work_dim();
 }
 
-extern "C" __declspec(dllexport) int gdim(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL gdim(int i)
 {
 	return (int)get_global_size(i);
 }
 
-extern "C" __declspec(dllexport) int ldim(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL ldim(int i)
 {
 	return (int)get_local_size(i);
 }
 
-extern "C" __declspec(dllexport) int tgdim(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL tgdim(int i)
 {
 	return (int)get_num_groups(i);
 }
 
-extern "C" __declspec(dllexport) int tgid(int i)
+extern "C" __declspec(dllexport) int OCL_INTRIN_CALL tgid(int i)
 {
 	return (int)get_group_id(i);
 }

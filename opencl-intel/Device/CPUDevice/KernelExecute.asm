@@ -29,6 +29,10 @@ WG_CALL_PARAMS STRUCT
 	KRNL_PTR		DWORD PTR	?
 	PARAM_SIZE		DWORD		?
 	PARAMS			DWORD PTR	?
+	EXP_LCL_COUNT	DWORD		?
+	LCL_MEM_PTR		DWORD PTR	?
+	IMP_LCL_COUNT	DWORD		?
+	WI_INFO_STRUCT	BYTE		?
 WG_CALL_PARAMS ENDS
 
 WI_CALL_PARAMS STRUCT
@@ -39,45 +43,6 @@ WI_CALL_PARAMS ENDS
 
 .code
 
-;_KernelExecute PROC kernelAddress:DWORD, paramAddress:DWORD, paramLength:DWORD
-_KernelObsoleteExecute PROC STDCALL CALL_PARAM: PTR
-	push	ecx
-	push	esi
-	push	ebx
-	mov		esi,	CALL_PARAM
-	; Push Work-Item inforamtion
-	mov		eax,	(WI_CALL_PARAMS PTR [esi]).WI_INFO
-	push	eax
-	; Push Work-Item inforamtion
-	mov		eax,	(WI_CALL_PARAMS PTR [esi]).WG_INFO
-	push	eax
-	; Push Work-Group execution parameters
-	mov		esi,	(WI_CALL_PARAMS PTR [esi]).WG_PARAM
-	mov		ecx,	(WG_CALL_PARAMS PTR [esi]).PARAM_SIZE
-	mov		ebx,	ecx
-	test	ecx,	ecx
-	jz		call_kernel
-	
-	shr		ecx,	2			; Parameter alway comes in DWORD
-	mov		esi,	(WG_CALL_PARAMS PTR [CALL_PARAM]).PARAMS
-@@:
-;	mov		eax,	(WG_CALL_PARAMS PTR [esi]).PARAMS[4*ecx-4]
-	mov		eax,	DWORD PTR[esi+4*ecx-4]
-	push	eax
-	loop	@B
-	
-call_kernel:
-	call	(WG_CALL_PARAMS PTR [esi]).KRNL_PTR
-	inc		ebx							
-	inc		ebx
-	add		esp,	ebx
-	pop		ebx
-	pop		esi
-	pop		ecx
-; return value already in eax
-	ret
-_KernelObsoleteExecute ENDP
-
 _KernelExecute PROC STDCALL CALL_PARAM: PTR
 	push	ecx
 	push	esi
@@ -87,7 +52,11 @@ _KernelExecute PROC STDCALL CALL_PARAM: PTR
 	; Push Work-Group execution parameters
 	mov		esi,	(WI_CALL_PARAMS PTR [esi]).WG_PARAM
 	mov		edi,	esi
-	mov		ecx,	(WG_CALL_PARAMS PTR [esi]).PARAM_SIZE
+	xor		ecx,	ecx
+	mov		cl,		(WG_CALL_PARAMS PTR [esi]).WI_INFO_STRUCT
+	add		ecx,	(WG_CALL_PARAMS PTR [esi]).IMP_LCL_COUNT
+	shl		ecx,	2											; Adjust param_count to param_size
+	add		ecx,	(WG_CALL_PARAMS PTR [esi]).PARAM_SIZE
 	mov		ebx,	ecx
 	test	ecx,	ecx
 	jz		call_kernel

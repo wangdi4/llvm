@@ -42,8 +42,14 @@ namespace Intel { namespace OpenCL {
 		// Returns a pointer to kernek name
 		virtual const char*					GetKernelName() const = 0;
 		// Returns a number of kernel arguments
-		virtual cl_uint						GetNumArgs() const = 0;
+		virtual cl_uint						GetArgCount() const = 0;
 		// Returns an array of kernel arguments
 		virtual const cl_kernel_argument*	GetKernelArgs() const = 0;
+		// Returns a pointer to metadata object used by kernel executor
+		virtual void*						GetMetaData() const = 0;
+		// Returns a size of metadata object
+		virtual size_t						GetMetaDataSize() const = 0;
+		// Returns a size of implicitly defined local memory buffers
+		virtual size_t						GetImplicitLocalSize() const = 0;
 	};
 }}

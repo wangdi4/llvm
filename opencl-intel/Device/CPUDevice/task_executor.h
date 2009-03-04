@@ -48,7 +48,7 @@ public:
 	void Close();
 
 	// Execute a Task comprosed of kernels
-	ETERetCode	ExecuteTask(STaskDescriptor* pTaskDesc,
+	ETERetCode	ExecuteKernel(STaskDescriptor* pTaskDesc,
 						TTaskNotifier* pfnNotify, void* pData,
 						TTaskHandle* pDepList, unsigned int uiDepListCount,
 						TTaskHandle* pTask);

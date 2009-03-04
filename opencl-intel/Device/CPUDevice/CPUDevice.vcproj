@@ -21,7 +21,7 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)\"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="1"
@@ -67,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32d.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32d.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				IgnoreDefaultLibraryNames=""
@@ -101,7 +101,7 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)\"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="1"
@@ -148,7 +148,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32r.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32r.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
 				ModuleDefinitionFile="CPUDevice.def"
@@ -182,7 +182,7 @@
 		</Configuration>
 		<Configuration
 			Name="DebugOnXP|Win32"
-			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)\"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="1"
@@ -228,9 +228,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\Win32\Debug\X86TargetMachine.obj $(OutDir)\XNTaskXP.lib"
+				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\Win32\Debug\X86TargetMachine.obj XNTaskXP.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="$(OutDir)"
+				AdditionalLibraryDirectories="$(OutDir);..\..\..\externals\llvm\bin\$(PlatformName)\Debug\"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"

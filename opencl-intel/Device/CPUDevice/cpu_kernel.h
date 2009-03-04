@@ -31,6 +31,13 @@
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
+	struct CPUKernelMDHeader
+	{
+		size_t			stMDsize;					// Size of the MetaData object
+		bool			isWIInfoSupported;			// If WI information structure is passed via paramters, otherwise fiber local data
+		unsigned int	uiImplLocalMemCount;		// A number of implicit local buffers inside function;
+	};
+
 	// Defines a class that implements CPU device program that is loaded from DLL
 	class CPUKernel : public ICLDevKernel
 	{
@@ -45,18 +52,28 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		// Returns a pointer to kernek name
 		const char*					GetKernelName() const {return m_szName;}
 		// Returns a number of kernel arguments
-		cl_uint						GetNumArgs() const {return m_uiArgCount;}
+		cl_uint						GetArgCount() const {return m_uiArgCount;}
 		// Returns an array of kernel arguments
 		const cl_kernel_argument*	GetKernelArgs() const {return m_pArguments;}
+		// Returns a pointer to metadata object used by kernel executor
+		void*						GetMetaData() const {return m_pMetaData;};
+		// Returns a size to metadata object
+		size_t						GetMetaDataSize() const {return m_stMDSize;};
+		// Returns a size of implicitly defined local memory buffers
+		size_t						GetImplicitLocalSize() const;
 
 		// Set functions
 		void	SetFuncPtr(const void* pfnFunction) { m_pFuncPtr = pfnFunction;}
 		void	SetName(const char* szName, size_t stLen);
 		void	SetArgumentList(const cl_kernel_argument* pArgs, unsigned int uiArgCount);
+		void	SetMetaData(CPUKernelMDHeader* pMDHeader);
+
 	protected:
 		const void*			m_pFuncPtr;
 		char*				m_szName;
 		unsigned int		m_uiArgCount;
 		cl_kernel_argument*	m_pArguments;
+		size_t				m_stMDSize;
+		CPUKernelMDHeader*	m_pMetaData;
 	};
 }}}

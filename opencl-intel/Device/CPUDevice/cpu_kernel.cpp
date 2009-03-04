@@ -36,7 +36,8 @@ using namespace Intel::OpenCL::CPUDevice;
 
 // Constructor/Destructor
 CPUKernel::CPUKernel() :
-	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL)
+	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL),
+		m_stMDSize(0), m_pMetaData(NULL)
 {
 }
 
@@ -51,6 +52,29 @@ CPUKernel::~CPUKernel()
 	{
 		free(m_pArguments);
 	}
+
+	if ( NULL != m_pMetaData )
+	{
+		free(m_pMetaData);
+	}
+}
+
+// Returns a size of implicitly defined local memory buffers
+size_t CPUKernel::GetImplicitLocalSize() const
+{
+	if ( NULL == m_pMetaData )
+	{
+		return 0;
+	}
+
+	size_t stLocSize = 0;
+	unsigned int* pLocSizes = (unsigned int*)((char*)m_pMetaData+sizeof(CPUKernelMDHeader));
+	for(unsigned int i=0; i<m_pMetaData->uiImplLocalMemCount; ++i)
+	{
+		stLocSize+=pLocSizes[i];
+	}
+
+	return stLocSize;
 }
 
 void CPUKernel::SetName(const char* szName, size_t stLen)
@@ -81,5 +105,21 @@ void CPUKernel::SetArgumentList(const cl_kernel_argument* pArgs, unsigned int ui
 	{
 		m_uiArgCount = uiArgCount;
 		memcpy(m_pArguments, pArgs, stBuffLen);
+	}
+}
+
+void CPUKernel::SetMetaData(CPUKernelMDHeader* pMDHeader)
+{
+	if ( NULL != m_pMetaData )
+	{
+		free(m_pMetaData);
+		m_stMDSize = 0;
+	}
+
+	m_pMetaData = (CPUKernelMDHeader*)malloc(pMDHeader->stMDsize);
+	if ( NULL != m_pMetaData )
+	{
+		m_stMDSize = pMDHeader->stMDsize;
+		memcpy(m_pMetaData, pMDHeader, m_stMDSize);
 	}
 }

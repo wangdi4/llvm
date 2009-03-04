@@ -101,11 +101,20 @@ int WGExecutor::Initialize(unsigned int uiTaskId, const SKernelInfo* pKernelInfo
 
 	// Initilize local memory buffers
 	cl_char*	pCurrLocalPtr = (cl_char*)m_pLocalMem;
-	for(unsigned int i=0; i<pKernelInfo->uiNumLocal; ++i)
+	for(unsigned int i=0; i<pKernelInfo->uiExpLocalCount; ++i)
 	{
 		size_t locSize = (size_t)pKernelInfo->pLocalPtr[i];	// Retrieve buffer size
 		pKernelInfo->pLocalPtr[i] = pCurrLocalPtr;			// Set current local pinter
 		pCurrLocalPtr += locSize;							// Advance current local pointer
+	}
+
+	// Initialize extended parameters (WI info structure , implicit local memories)
+	void**	pExtParams = (void**)((char*)pKernelInfo->pParams+pKernelInfo->stParamSize);
+	for (unsigned int i=0; i<pKernelInfo->uiImpLocalCount; ++i)
+	{
+		size_t locSize = (size_t)pExtParams[i];
+		pExtParams[i] = pCurrLocalPtr;
+		pCurrLocalPtr += locSize;
 	}
 
 	VectorCounter<unsigned int> vcLocalId(iDim, viLclInitVal, m_psWGInfo->pWorkingDim->viLocalSize);

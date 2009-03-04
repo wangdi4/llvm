@@ -11,19 +11,7 @@
 __forceinline unsigned int get_work_dim()
 {
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
 	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-	if ( MAX_DIMINSION <= dim )
-	{
-		return 0;
-	}
-	pWGinfo = (SWGinfo*)(*(pInfoSeparator+1));
-#endif
 	return pWGinfo->pWorkingDim->iWorkDim;
 }
 
@@ -36,17 +24,10 @@ __forceinline size_t get_global_id(unsigned int dim)
 
 	const SWIinfo*	pWIinfo;
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
-	pWIinfo = ((SWIExecutionParam*)GetFiberData())->psWIInfo;
-	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
+	SWIExecutionParam* pWIExecParam = (SWIExecutionParam*)GetFiberData();
+	pWIinfo = pWIExecParam->psWIInfo;
+	pWGinfo = pWIExecParam->psWGInfo;
 
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+2));
-	pWGinfo = (SWGinfo*)(*(pInfoSeparator+1));
-#endif
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
@@ -63,18 +44,9 @@ __forceinline size_t get_local_id(unsigned int dim)
 
 	const SWIinfo*	pWIinfo;
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
-	pWIinfo = ((SWIExecutionParam*)GetFiberData())->psWIInfo;
-	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-
-	pWGinfo = (SWGinfo*)(*(pInfoSeparator+1));
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+2));
-#endif
+	SWIExecutionParam* pWIExecParam = (SWIExecutionParam*)GetFiberData();
+	pWIinfo = pWIExecParam->psWIInfo;
+	pWGinfo = pWIExecParam->psWGInfo;
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
@@ -90,16 +62,8 @@ __forceinline size_t get_local_size(unsigned int dim)
 	}
 
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
 	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
 	
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+1));
-#endif
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
@@ -115,16 +79,8 @@ __forceinline size_t get_global_size(unsigned int dim)
 	}
 
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
 	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
 	
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+1));
-#endif
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
@@ -140,16 +96,8 @@ __forceinline size_t get_num_groups(unsigned int dim)
 	}
 
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
 	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
 	
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+1));
-#endif
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
@@ -165,19 +113,12 @@ __forceinline size_t get_group_id(unsigned int dim)
 	}
 
 	const SWGinfo*	pWGinfo;
-#ifdef __USING_FIBERS__
 	pWGinfo = ((SWIExecutionParam*)GetFiberData())->psWGInfo;
 	
-#else
-	int*	pInfoSeparator = (int*)_AddressOfReturnAddress();
-	while (*pInfoSeparator != STACK_SEPARATOR)
-		++pInfoSeparator;
-
-	pWIinfo = (SWIinfo*)(*(pInfoSeparator+1));
-#endif
 	if ( pWGinfo->pWorkingDim->iWorkDim <= dim )
 	{
 		return 0;
 	}
+
 	return pWGinfo->viGroupId[dim];
 }

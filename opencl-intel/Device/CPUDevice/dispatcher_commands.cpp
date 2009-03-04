@@ -29,10 +29,12 @@
 #include "task_dispatcher.h"
 #include "cl_logger.h"
 #include "cpu_dev_limits.h"
+#include "cpu_kernel.h"
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL;
 
+#define ADJUST_SIZE_TO_DCU_LINE(X) ( ((X)+CPU_DCU_LINE_SIZE-1) & (~(CPU_DCU_LINE_SIZE-1)))
 
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
@@ -412,7 +414,7 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	size_t	stLocMemSize = 0;
 
 	// Check kernel paramters
-	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	cl_uint						uiNumArgs = pKernel->GetArgCount();
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 
 	cl_char*	pCurrParamPtr = (cl_char*)cmdParams->arg_values;
@@ -437,11 +439,7 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 				}
 			} else
 			{
-				size_t locSize = (size_t)memObj->objHandle; 
-				// strict local buffer size to cache line
-				locSize += (CPU_DCU_LINE_SIZE-1);
-				locSize &= ~(CPU_DCU_LINE_SIZE);
-
+				size_t locSize = ADJUST_SIZE_TO_DCU_LINE((size_t)memObj->objHandle); 
 				stLocMemSize += locSize;
 			}
 			stOffset += sizeof(void*);
@@ -455,6 +453,18 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	if ( stOffset != cmdParams->arg_size )
 	{
 		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	// Check implicit memory sizes
+	CPUKernelMDHeader* pMDHeader = (CPUKernelMDHeader*)pKernel->GetMetaData();
+	if ( (NULL != pMDHeader) && (pMDHeader->uiImplLocalMemCount > 0) )
+	{
+		unsigned int* puiImplMemSizes = (unsigned int*)(pMDHeader+1);
+		for (unsigned int i=0; i<pMDHeader->uiImplLocalMemCount; ++i)
+		{
+			size_t locSize = ADJUST_SIZE_TO_DCU_LINE(puiImplMemSizes[i]); 
+			stLocMemSize += locSize;
+		}
 	}
 
 	// Check if local memory size is enought for kernel
@@ -507,7 +517,6 @@ cl_int KernelCommand::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		}
 	}
 
-
 	return CL_DEV_SUCCESS;
 }
 
@@ -525,28 +534,60 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	}
 
 	// Check kernel paramters
-	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	cl_uint						uiNumArgs = pKernel->GetArgCount();
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 	char*						pKernelParams = (char*)cmdParams->arg_values;
 	size_t						stOffset = 0;
-	// TODO:	consider use memory buffer passed in cmdParams, don't allocate additional memory
-	char*						pLocalParams = (char*)malloc(cmdParams->arg_size);
 
+	// Calculate memory required for Kernel Extended information
+	// Total buffer size is original parameter buffer size + WI info ptr + number of implicit local memory buffers
+
+	//	unsigned int uiExtParamCount = pKernel->GetImplicitLclMemCount()+1;
+	size_t	stLocalParamSize = cmdParams->arg_size;
+	CPUKernelMDHeader*	pMDHeader = (CPUKernelMDHeader*)pKernel->GetMetaData();
+	if ( NULL != pMDHeader )
+	{
+		stLocalParamSize += pMDHeader->uiImplLocalMemCount*sizeof(void*);
+		stLocalParamSize += pMDHeader->isWIInfoSupported * sizeof(void*);
+	}
+
+	char*	pLocalParams = (char*)malloc(stLocalParamSize);
 	if ( NULL == pLocalParams )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	void*						*pLocalBuffers = (void**)malloc(sizeof(void*)*uiNumArgs);
-	cl_uint						uiLocalCount = 0;
+	void*	*pLocalBuffers = (void**)malloc(sizeof(void*)*uiNumArgs);
+	cl_uint	uiLocalCount = 0;
 	if ( NULL == pLocalBuffers )
 	{
 		free(pLocalParams);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
+	// Allocate new Task instance
+	STaskDescriptor*	pTask = new STaskDescriptor;
+	if ( NULL == pTask )
+	{
+		// Undo operations
+		free(pLocalBuffers);
+		free(pLocalParams);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	SKernelExecData*	pExecData = new SKernelExecData;
+	if ( NULL == pExecData )
+	{
+		// Undo operations
+		delete pTask;
+		free(pLocalBuffers);
+		free(pLocalParams);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
 	// Initiate with zeros
 	memset(pLocalParams, 0, cmdParams->arg_size);
+	size_t	stTotalLocalSize = 0;
 
 	// Lock memory buffers and local memory
 	for(unsigned int i=0; i<uiNumArgs; ++i)
@@ -572,10 +613,8 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 				}
 			} else
 			{
-				size_t locSize = (size_t)memObj->objHandle; 
-				// strict local buffer size to cache line
-				locSize += (CPU_DCU_LINE_SIZE-1);
-				locSize &= ~(CPU_DCU_LINE_SIZE);
+				size_t locSize = ADJUST_SIZE_TO_DCU_LINE((size_t)memObj->objHandle); 
+				stTotalLocalSize += locSize;
 				pLocalBuffers[uiLocalCount] = (void*)locSize;
 				++uiLocalCount;
 			}
@@ -588,27 +627,35 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 		}
 	}
 
-	// Allocate new Task instance
-	STaskDescriptor*	pTask = new STaskDescriptor;
-	if ( NULL == pTask )
+	// Leave allocated space for WI information structure
+	if ( pMDHeader->isWIInfoSupported )
 	{
-		// Undo operations
-		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
-		free(pLocalBuffers);
-		free(pLocalParams);
-		return CL_DEV_OUT_OF_MEMORY;
+		stOffset += sizeof(void*);
 	}
 
-	SKernelExecData*	pExecData = new SKernelExecData;
-	if ( NULL == pExecData )
+	// Fill size of implicit local memory buffers
+	unsigned int* puiImplMemSizes = (unsigned int*)(pMDHeader+1);
+	for (unsigned int i=0; i<pMDHeader->uiImplLocalMemCount; ++i)
 	{
-		// Undo operations
+		size_t stLocSize = ADJUST_SIZE_TO_DCU_LINE(puiImplMemSizes[i]); 
+		// strict local buffer size to cache line
+		*(void**)(pLocalParams+stOffset) = (void*)stLocSize;
+		stOffset += sizeof(void*);
+		stTotalLocalSize += stLocSize;
+	}
+
+	// Check local size
+	if ( CPU_DEV_LCL_MEM_SIZE <  stTotalLocalSize)
+	{
 		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+		delete pExecData;
 		delete pTask;
 		free(pLocalBuffers);
 		free(pLocalParams);
-		return CL_DEV_OUT_OF_MEMORY;
+
+		return CL_DEV_ERROR_FAIL;
 	}
+
 
 	pExecData->pCmd = cmd;
 	pExecData->pCmdExecutor = this;
@@ -616,9 +663,12 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	// Set kernel information
 	pTask->sKernelParam.pfnKernelFunc = pKernel->GetHandle();
 	pTask->sKernelParam.pParams = pLocalParams;
-	pTask->sKernelParam.szParamSize = cmdParams->arg_size;
-	pTask->sKernelParam.uiNumLocal = uiLocalCount;
+	pTask->sKernelParam.stParamSize = cmdParams->arg_size;
+	pTask->sKernelParam.uiExpLocalCount = uiLocalCount;
 	pTask->sKernelParam.pLocalPtr = pLocalBuffers;
+	// Set kernel extended paremeters information
+	pTask->sKernelParam.uiImpLocalCount = pMDHeader->uiImplLocalMemCount;
+	pTask->sKernelParam.bWIInfoSupported = pMDHeader->isWIInfoSupported; 
 
 	// Set WG information
 	pTask->sWorkingDim.iWorkDim = cmdParams->work_dim;
@@ -627,16 +677,16 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 	memcpy(pTask->sWorkingDim.viLocalSize, cmdParams->lcl_wrk_size, sizeof(int)*cmdParams->work_dim);
 
 	ETERetCode ret;
-	ret = m_pTaskExec->ExecuteTask(pTask, NotifyCommandCompletion, pExecData, pDepList, uiCount, pNewHandle);
+	ret = m_pTaskExec->ExecuteKernel(pTask, NotifyCommandCompletion, pExecData, pDepList, uiCount, pNewHandle);
 	if ( TE_SUCCESS != ret )
 	{
 
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to execute function %X", ret);
 		UnlockMemoryBuffers(pKernel, pKernelParams, pLocalParams);
+		delete pExecData;
 		delete pTask;
 		free(pLocalBuffers);
 		free(pLocalParams);
-		delete pExecData;
 
 		return CL_DEV_ERROR_FAIL;
 	}
@@ -647,7 +697,7 @@ cl_int KernelCommand::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList
 void KernelCommand::UnlockMemoryBuffers(const ICLDevKernel* pKernel, const char* pKernelParams, const char* pLocalParams)
 {
 	// Check kernel paramters
-	cl_uint						uiNumArgs = pKernel->GetNumArgs();
+	cl_uint						uiNumArgs = pKernel->GetArgCount();
 	const cl_kernel_argument*	pArgs = pKernel->GetKernelArgs();
 	size_t						stOffset = 0;
 
