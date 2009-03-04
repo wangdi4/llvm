@@ -81,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	    cl_err_code     EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 
         // Implement ICommandReceiver functions.
-	    void            EnqueueDevCommands(
+	    cl_err_code     EnqueueDevCommands(
                                 cl_device_id                clDeviceId, 
                                 cl_dev_cmd_desc*            clDevCmdDesc, 
                                 ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 

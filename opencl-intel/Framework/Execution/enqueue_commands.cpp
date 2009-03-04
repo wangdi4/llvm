@@ -280,9 +280,7 @@ cl_err_code CopyBufferCommand::CopyOnDevice(cl_device_id clDeviceId)
 
     m_pDstBuffer->SetDataLocation(clDeviceId);
     // Sending 1 command to the device where the bufer is located now
-    m_pReceiver->EnqueueDevCommands(clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
-    
-    return CL_SUCCESS;
+    return m_pReceiver->EnqueueDevCommands(clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
 }
 
 /******************************************************************
@@ -304,8 +302,7 @@ cl_err_code CopyBufferCommand::CopyFromHost(cl_device_id clDstDeviceId)
     m_pDstBuffer->SetDataLocation(clDstDeviceId);
 
     // Sending 1 command to the src device
-    m_pReceiver->EnqueueDevCommands(clDstDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
-    return CL_SUCCESS;
+    return m_pReceiver->EnqueueDevCommands(clDstDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
 }
 
 /******************************************************************
@@ -327,9 +324,7 @@ cl_err_code CopyBufferCommand::CopyToHost(cl_device_id clSrcDeviceId)
     m_pDstBuffer->SetDataLocation(0);
 
     // Sending 1 command to the src device
-    m_pReceiver->EnqueueDevCommands(clSrcDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
-
-    return CL_SUCCESS;
+    return m_pReceiver->EnqueueDevCommands(clSrcDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
 }
 
 /******************************************************************
@@ -515,6 +510,7 @@ cl_err_code NativeKernelCommand::Init()
     cl_uint i;
     void* pCurrentArgsLocation = pNewArgs;
     size_t szCbToCopy = 0;
+    size_t szCbMaxToCopy = szCbNewArgsSize;
 
     for( i=0; i < m_uNumMemObjects; i++ )
     {
@@ -536,25 +532,32 @@ cl_err_code NativeKernelCommand::Init()
         if( 0 == i )
         {
             szCbToCopy = (cl_uchar*)m_ppArgsMemLoc[i] - (cl_uchar*)m_pArgs;
-            memcpy(pCurrentArgsLocation, m_pArgs, szCbToCopy);
+            memcpy_s(pCurrentArgsLocation, szCbMaxToCopy, m_pArgs, szCbToCopy);
+            szCbMaxToCopy -= szCbToCopy;
         }
         else
         {
-            szCbToCopy = (cl_uchar*)(m_ppArgsMemLoc[i]) - (cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize;
-            memcpy(pCurrentArgsLocation, (void*)((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize), szCbToCopy);
+            szCbToCopy = (cl_uchar*)(m_ppArgsMemLoc[i]) - ((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize);
+            memcpy_s(pCurrentArgsLocation, szCbMaxToCopy, (void*)((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize), szCbToCopy);
+            szCbMaxToCopy -= szCbToCopy;
         }
         ppNewArgsMemLoc[i] = (void*)((cl_uchar*)pCurrentArgsLocation + szCbToCopy);
-        memcpy(ppNewArgsMemLoc[i], &clDevMemHndl, clDevMemSize);
+        memcpy_s(ppNewArgsMemLoc[i], szCbMaxToCopy, &clDevMemHndl, clDevMemSize);
+        szCbMaxToCopy -= clDevMemSize;
         pCurrentArgsLocation = (cl_uchar*)ppNewArgsMemLoc[i] + clDevMemSize;
 
         // Set buffers pendencies
-        pMemObj->AddPendency();    
+        pMemObj->AddPendency();  
+        // Set new location of the buffers, the device, we have n
+        // TODO: need prefeatching in Native Kernel in case buffers are in different device.
+        pMemObj->SetDataLocation(m_clDeviceId);
     }
 
     // Copy the end of the original args
-    size_t szLastBytesToCopy = (cl_uchar*)m_pArgs + m_szCbArgs - (cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize;
-    memcpy(pCurrentArgsLocation, (void*)((cl_uchar*)(m_ppArgsMemLoc[i]) + clMemSize),  szLastBytesToCopy);
-    pCurrentArgsLocation = (cl_uchar*)pCurrentArgsLocation + szLastBytesToCopy;
+    size_t szLastBytesToCopy = (cl_uchar*)m_pArgs + m_szCbArgs - ((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize);
+    memcpy_s(pCurrentArgsLocation, szCbMaxToCopy, (void*)((cl_uchar*)(m_ppArgsMemLoc[i-1]) + clMemSize),  szLastBytesToCopy);
+    szCbMaxToCopy -= szLastBytesToCopy;
+    assert( 0 == szCbMaxToCopy);
 
     //
     // Prepare the device command
@@ -588,9 +591,8 @@ cl_err_code NativeKernelCommand::Execute()
 
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device. Prefatching
-    m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
-
-    return CL_SUCCESS;
+    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    //return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -802,9 +804,7 @@ cl_err_code NDRangeKernelCommand::Execute()
     
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device.
-    m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
-
-    return CL_SUCCESS;
+    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
 }
 
 /******************************************************************
@@ -885,7 +885,7 @@ cl_err_code ReadBufferCommand::Execute()
             (cl_dev_cmd_id)m_pQueueEvent->GetId());
 
         // Sending 1 command to the device where the bufer is located now
-        m_pReceiver->EnqueueDevCommands(clDeviceDataLocation, m_pDevCmd, &m_pStatusChangeObserver, 1);
+        res = m_pReceiver->EnqueueDevCommands(clDeviceDataLocation, m_pDevCmd, &m_pStatusChangeObserver, 1);
     }
     else
     {
@@ -1063,7 +1063,7 @@ cl_err_code WriteBufferCommand::Execute()
     m_pBuffer->SetDataLocation(m_clDeviceId);
 
     // Sending 1 command to the device where the bufer is located now
-    m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    res = m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
 
     return res;
 }

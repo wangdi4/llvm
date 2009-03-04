@@ -734,8 +734,8 @@ cl_int	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	// Check memory object handles
 	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
 	{
-		cl_dev_mem memObj = (cl_dev_mem)cmdParams->mem_loc[i];
-
+		cl_dev_mem memObj = *((cl_dev_mem*)(cmdParams->mem_loc[i]));
+        
 		cl_int ret = m_pMemAlloc->ValidateObject(memObj);
 		if ( CL_DEV_FAILED(ret) )
 		{
@@ -777,7 +777,7 @@ cl_int	NativeFunction::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepLis
 	// Lock Memory objects handles
 	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
 	{
-		cl_dev_mem memObj = (cl_dev_mem)cmdParams->mem_loc[i];
+		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
 		void*	*pMemPtr = (void**)((cl_char*)pArgV+Offset);
 
@@ -809,7 +809,7 @@ void NativeFunction::NotifyCommandCompletion(TTaskHandle hTask, void* pParams, s
 	// Unlock memory buffers
 	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
 	{
-		cl_dev_mem memObj = (cl_dev_mem)cmdParams->mem_loc[i];
+		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
 
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)pCmd->params;
 		void*	*pMemPtr = (void**)(cl_char*)pParams+Offset;

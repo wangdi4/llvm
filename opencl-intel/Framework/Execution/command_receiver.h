@@ -44,13 +44,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-	    virtual void EnqueueDevCommands(    
+	    virtual cl_err_code EnqueueDevCommands(    
             cl_device_id                clDeviceId, 
             cl_dev_cmd_desc*            clDevCmdDesc, 
             ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 
             cl_uint                     uiCount ) =0;
-
-	    virtual void PushFrontCommand(/*CommandDescList commandDescList*/)=0;
 
     };
 

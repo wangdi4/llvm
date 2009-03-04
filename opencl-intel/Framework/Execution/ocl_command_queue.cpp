@@ -236,7 +236,7 @@ cl_err_code OclCommandQueue::NotifyEventColorChange(QueueEvent* pEvent)
 /******************************************************************
  *
  ******************************************************************/
-void OclCommandQueue::EnqueueDevCommands(
+cl_err_code OclCommandQueue::EnqueueDevCommands(
     cl_device_id                clDeviceId, 
     cl_dev_cmd_desc*            clDevCmdDesc, 
     ICmdStatusChangedObserver** ppCmdStatusChangedObserver, 
@@ -250,9 +250,9 @@ void OclCommandQueue::EnqueueDevCommands(
     if ( CL_SUCCEEDED(res) && (NULL != pDevice) )
     {
         // Currently, always use the independent command list.
-        pDevice->CommandListExecute(0, clDevCmdDesc, uiCount, ppCmdStatusChangedObserver);
+        res = pDevice->CommandListExecute(0, clDevCmdDesc, uiCount, ppCmdStatusChangedObserver);
     }
-    return;
+    return res;
 }
 
 /******************************************************************
