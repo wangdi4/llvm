@@ -55,6 +55,17 @@ Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, siz
 		return;
 	}
 
+	if (clMemFlags & CL_MEM_COPY_HOST_PTR)
+	{
+		errno_t err = memcpy_s(m_pBufferData, m_szBufferSize, pHostPtr, szBufferSize);
+		if (err)
+		{
+			*pErrCode = CL_OUT_OF_HOST_MEMORY;
+			return;
+		}
+		m_bDataOnHost = true;
+	}
+
 	*pErrCode = CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

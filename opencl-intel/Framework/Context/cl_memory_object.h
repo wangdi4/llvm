@@ -177,7 +177,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// call to GetDataLocation
         // Only if IsAllocated returns true for clDeviceId == 0 (host memory), than a zero value return
         // of GetDataLocation means that data is available in the host memory.
-        // TODO: Uri: Make it happens
 		bool IsAllocated(cl_device_id clDeviceId);
 
 		// returns the device is where the memory is currently available
@@ -258,6 +257,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
 
 		cl_uint									m_uiMapCount;
+
+		bool									m_bDataOnHost;	// flag that specify if the data is available on host;
 
 		LoggerClient *	                        m_pLoggerClient;	// memory object's logger client
 

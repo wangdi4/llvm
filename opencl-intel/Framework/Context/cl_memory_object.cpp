@@ -205,6 +205,11 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 {
 	InfoLog(m_pLoggerClient, L"Enter IsReady (clDeviceId=%d)", clDeviceId);
 
+	if (true == m_bDataOnHost && 0 == clDeviceId)
+	{
+		return true;
+	}
+
 	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
 	if (it == m_mapDeviceMemObjects.end())
 	{
@@ -242,6 +247,11 @@ cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
 cl_device_id MemoryObject::GetDataLocation()
 {
 	InfoLog(m_pLoggerClient, L"Enter GetDataLocation");
+
+	if (true == m_bDataOnHost)
+	{
+		return 0;
+	}
 
 	for (map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin(); it != m_mapDeviceMemObjects.end(); it++)
 	{
@@ -284,6 +294,7 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 			pDevMemObj->SetDataValid(true);
 		}
 	}
+	m_bDataOnHost = false;
 	return CL_SUCCESS;
 }
 
