@@ -31,6 +31,7 @@ using namespace Intel::OpenCL::Utils;
 
 #ifdef WIN32
 #include<windows.h>
+#include <powrprof.h>
 #endif
 
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
@@ -49,3 +50,51 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 	return 0;
 #endif
 }
+
+unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
+{
+#ifdef WIN32
+// missing Windows processor power information struct
+    typedef struct _PROCESSOR_POWER_INFORMATION {
+      ULONG  Number;
+      ULONG  MaxMhz;
+      ULONG  CurrentMhz;
+      ULONG  MhzLimit;
+      ULONG  MaxIdleState;
+      ULONG  CurrentIdleState;
+    } PROCESSOR_POWER_INFORMATION , *PPROCESSOR_POWER_INFORMATION;
+
+
+	PROCESSOR_POWER_INFORMATION	*powerInfo;
+	SYSTEM_INFO sysInfo;
+    ULONG nOutputBufferSize; 
+	ULONG maxClockFrequency = 0;
+  
+
+	 // find out how many processors we have in the system
+    GetSystemInfo(&sysInfo);
+	nOutputBufferSize = sysInfo.dwNumberOfProcessors * sizeof(PROCESSOR_POWER_INFORMATION);
+    powerInfo = (PROCESSOR_POWER_INFORMATION*)malloc(nOutputBufferSize);
+
+	if(NULL == powerInfo)
+	{
+		return 0;
+	}
+
+
+
+	if ( ERROR_SUCCESS != CallNtPowerInformation(ProcessorInformation,NULL, 0, powerInfo, nOutputBufferSize) )
+	{
+		free(powerInfo);
+		return 0;
+	}
+
+	maxClockFrequency = powerInfo[0].MaxMhz;
+	free(powerInfo);
+	return maxClockFrequency;
+#else
+	return 0;
+#endif
+
+}
+
