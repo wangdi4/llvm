@@ -203,12 +203,6 @@ cl_err_code OclCommandQueue::SetProperties(cl_command_queue_properties clPropert
  ******************************************************************/
 cl_err_code OclCommandQueue::NotifyEventColorChange(QueueEvent* pEvent)
 {
-    // Debug
-    if (pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
-    {
-        printf("==== Command (%3d) is executed on Queue (%3d) ==== \n", pEvent->GetId(), GetId());
-    }
-
     // In case it the queue marked for finish and an event is done, check if device is empty
     // If it is broadcast thread to clean; be careful to delete your self.
     if(m_bCleanFinish && pEvent->IsColor(QueueEvent::EVENT_STATE_BLACK))
