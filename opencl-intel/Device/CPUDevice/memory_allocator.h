@@ -76,10 +76,8 @@ public:
 	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
 
 	// Mapped region functions
-	cl_int	CreateMappedRegion(cl_dev_mem IN memObj, cl_uint IN dim_count,
-								const size_t* IN origin, const size_t* IN region,
-								void** OUT ptr, size_t* OUT pitch);
-	cl_int	ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr );
+	cl_int	CreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams );
+	cl_int	ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
 		
 protected:
 	void*	AllocateMem(cl_uint	dim_count, const size_t* dim, size_t expectedPitchRowSize, size_t expectedPitchSliceSize);

@@ -114,3 +114,11 @@ XN0TaskDecRef(
 {
 	return XN_SUCCESS;
 }
+
+XNERROR
+XN0SyncObjectWait(
+    const   XNSYNCOBJECT*   in_pSyncObjectArray, 
+            uint32_t        in_NumberOfSyncObjectsInArray )
+{
+	return XN_SUCCESS;
+}

@@ -105,14 +105,13 @@ cl_int DummyDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
-									 void** OUT ptr, size_t* OUT pitch)
+cl_int DummyDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams)
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;
 }
 
-cl_int DummyDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
+cl_int DummyDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	// TODO : ADD log
 	return CL_DEV_INVALID_OPERATION;

@@ -69,9 +69,8 @@ public:
 									cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
 									cl_dev_mem* OUT memObj);
 	static cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
-	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
-									 void** OUT ptr, size_t* OUT pitch);
-	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
+	static cl_int clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams);
+	static cl_int clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
 	static cl_int clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
 	static cl_int clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
 	static cl_int clDevBuildProgram( cl_dev_program IN prog, const cl_char* IN options, void* IN userData);

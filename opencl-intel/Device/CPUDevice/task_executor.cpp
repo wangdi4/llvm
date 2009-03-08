@@ -8,6 +8,16 @@
 #include <XN0Sys_common.h>
 #include <limits.h>
 
+#ifdef DEBUGONXP
+#pragma comment (lib, "XNTaskXP.lib")
+#else
+#ifdef _DEBUG
+#pragma comment (lib, "xn_host32d.lib")
+#else
+#pragma comment (lib, "xn_host32r.lib")
+#endif
+#endif
+
 using namespace Intel::OpenCL::CPUDevice;
 
 // Local functions

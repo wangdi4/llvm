@@ -372,14 +372,13 @@ cl_int cCudaDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 	return CL_DEV_SUCCESS;
 }
 
-cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
-						 void** OUT ptr, size_t* OUT pitch)
+cl_int cCudaDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams )
 {
 	LOG_INFO(L"clDevCreateMappedRegion not implemented");
 	return CL_DEV_SUCCESS;
 }
 
-cl_int cCudaDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
+cl_int cCudaDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	LOG_INFO(L"clDevReleaseMappedRegion not implemented");
 	return CL_DEV_SUCCESS;

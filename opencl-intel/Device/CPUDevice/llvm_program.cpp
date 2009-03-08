@@ -44,6 +44,16 @@
 #include <string>
 #include <map>
 
+#pragma comment(lib, "x86.lib")
+#pragma comment(lib, "transforms.lib")
+#pragma comment(lib, "vmcore.lib")
+#pragma comment(lib, "target.lib")
+#pragma comment(lib, "system.lib")
+#pragma comment(lib, "executionengine.lib")
+#pragma comment(lib, "codegen.lib")
+#pragma comment(lib, "bitcode.lib")
+#pragma comment(lib, "support.lib")
+#pragma comment(lib, "analysis.lib")
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -56,35 +66,9 @@ static const char szNone[] = "None";
 static const char szBuilding[] = "Building";
 static const char szError[] = "Error";
 
-#ifdef __USE_INTRIN_FASTCALL__
-#define OCL_INTRIN_CALL					__fastcall
-#else
-#define OCL_INTRIN_CALL
-#endif
-
-// List of the intrinsics to be substitued by internal function
-static char*	szWIIntrinNames[] =
-{
-#ifdef __USE_INTRIN_FASTCALL
-	"gid",		"@gid@4",
-	"ndims",	"@ndims@0",
-	"gdim",		"@gdim@4",
-	"ldim",		"@ldim@4",
-	"lid",		"@lid@4",
-	"tgdim",	"@tgdim@4",
-	"tgid",		"@tgid@4",
-#else
-	"gid",		"gid",
-	"ndims",	"ndims",
-	"gdim",		"gdim",
-	"ldim",		"ldim",
-	"lid",		"lid",
-	"tgdim",	"tgdim",
-	"tgid",		"tgid",
-#endif
-	"__dotf4",	"@dotf4@32"
-};
-static unsigned int	uiWIIntrinCount = sizeof(szWIIntrinNames)/sizeof(char*);
+// External declaration of the intrinsics to be substitued by internal function
+extern char*	szWIIntrinNames[];
+extern unsigned int	uiWIIntrinCount;
 
 ExecutionEngine* LLVMProgram::m_spExecEngine = NULL;
 OclMutex LLVMProgram::m_muEEMutex;
@@ -575,50 +559,4 @@ int LLVMProgramThread::Run()
 	Clean();
 
 	return ret;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////
-// OCL LLVM inline functions
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL gid(int i)
-{
-	return (int)get_global_id(i);
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL lid(int i)
-{
-	return (int)get_local_id(i);
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL ndims()
-{
-	return (int)get_work_dim();
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL gdim(int i)
-{
-	return (int)get_global_size(i);
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL ldim(int i)
-{
-	return (int)get_local_size(i);
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL tgdim(int i)
-{
-	return (int)get_num_groups(i);
-}
-
-extern "C" __declspec(dllexport) int OCL_INTRIN_CALL tgid(int i)
-{
-	return (int)get_group_id(i);
-}
-
-
-extern "C" __declspec(dllexport) float __fastcall dotf4(__m128 a, __m128 b)
-{
-	a = _mm_mul_ps(a, b);
-	a = _mm_hadd_ps(a, a);
-	a = _mm_hadd_ps(a, a);
-	return  _mm_cvtss_f32(a);
 }

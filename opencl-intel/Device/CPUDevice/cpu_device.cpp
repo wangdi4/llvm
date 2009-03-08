@@ -945,21 +945,20 @@ cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
  clDevCreateMappedRegion
 	Call Memory Allocator to craete mapped region
 ********************************************************************************************************************/
-cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
-									 void** OUT ptr, size_t* OUT pitch)
+cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams)
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMappedRegion Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateMappedRegion(memObj, dim_count, origin, region, ptr, pitch);
+	return m_pDevInstance->m_pMemoryAllocator->CreateMappedRegion(pMapParams);
 
 }
 /****************************************************************************************************************
  clDevReleaseMappedRegion
 	Call Memory Allocator to release mapped region
 ********************************************************************************************************************/
-cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr)
+cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevReleaseMappedRegion Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->ReleaseMappedRegion(memObj,ptr);
+	return m_pDevInstance->m_pMemoryAllocator->ReleaseMappedRegion( pMapParams );
 }
 
 /****************************************************************************************************************

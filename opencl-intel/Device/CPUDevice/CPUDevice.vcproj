@@ -67,9 +67,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32d.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
+				AdditionalDependencies="X86TargetMachine.obj"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
+				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib;&quot;$(OutDir)&quot;;&quot;..\..\..\externals\llvm\bin\$(PlatformName)\$(ConfigurationName)\&quot;;..\..\..\externals\SVML"
 				IgnoreDefaultLibraryNames=""
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
@@ -148,9 +148,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\$(IntDir)\X86TargetMachine.obj xn_host32r.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
+				AdditionalDependencies="X86TargetMachine.obj"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib"
+				AdditionalLibraryDirectories="..\..\..\externals\XNTask\lib;&quot;$(OutDir)&quot;;&quot;..\..\..\externals\llvm\bin\$(PlatformName)\$(ConfigurationName)\&quot;;..\..\..\externals\SVML"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -228,9 +228,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(SolutionDir)externals\LLVM\prj\X86\Win32\Debug\X86TargetMachine.obj XNTaskXP.lib x86.lib transforms.lib vmcore.lib target.lib system.lib executionengine.lib codegen.lib bitcode.lib support.lib analysis.lib"
+				AdditionalDependencies="X86TargetMachine.obj"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="$(OutDir);..\..\..\externals\llvm\bin\$(PlatformName)\Debug\"
+				AdditionalLibraryDirectories="&quot;$(OutDir)&quot;;&quot;..\..\..\externals\llvm\bin\$(PlatformName)\Debug\&quot;;..\..\..\externals\SVML"
 				ModuleDefinitionFile="CPUDevice.def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
@@ -329,6 +329,10 @@
 			</File>
 			<File
 				RelativePath=".\memory_allocator.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ocl_bi_functions.cpp"
 				>
 			</File>
 			<File

@@ -477,17 +477,16 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::CreateMappedRegion(cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin,
-										   const size_t* IN region,	void** OUT ptr, size_t* OUT pitch)
+cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParams)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateMappedRegion enter");
 
-	return 	LockObject(memObj, dim_count, origin, ptr, pitch, NULL, NULL);
+	return 	LockObject(pMapParams->memObj, pMapParams->dim_count, pMapParams->origin, &(pMapParams->ptr), pMapParams->pitch, NULL, NULL);
 }
 
-cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr )
+cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseMappedRegion enter");
-	return CL_DEV_SUCCESS;
+	return UnLockObject(pMapParams->memObj, pMapParams->ptr);
 }
 

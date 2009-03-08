@@ -246,9 +246,8 @@ public:
 	static cl_int clDevReleaseCommandList( cl_dev_cmd_list IN list );
 	static cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN image_type,
 							cl_uint IN num_entries, cl_image_format* OUT formats, cl_uint* OUT num_entries_ret);
-	static cl_int clDevCreateMappedRegion( cl_dev_mem IN memObj, cl_uint IN dim_count, const size_t* IN origin, const size_t* IN region,
-									 void** OUT ptr, size_t* OUT pitch);
-	static cl_int clDevReleaseMappedRegion( cl_dev_mem IN memObj, void* IN ptr);
+	static cl_int clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams );
+	static cl_int clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
 	static cl_int clDevCheckProgramBinary( size_t IN bin_size, const void* IN bin );
 	static cl_int clDevReleaseProgram( cl_dev_program IN prog );
 	static cl_int clDevUnloadCompiler();
