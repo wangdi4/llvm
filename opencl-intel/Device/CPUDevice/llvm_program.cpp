@@ -413,6 +413,11 @@ cl_int LLVMProgram::LoadProgram()
 				pArgs[uiArgCount].size_in_bytes = ITy->getBitWidth();
 				}
 				break;
+
+			case Type::DoubleTyID:
+				pArgs[uiArgCount].type = CL_KRNL_ARG_DOUBLE;
+				pArgs[uiArgCount].size_in_bytes = sizeof(double);
+				break;
 			}
 
 			++uiArgCount;
