@@ -325,14 +325,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-	    MapBufferCommand(MemoryObject* buffer, cl_map_flags map_flags, size_t offset, size_t cb);
+	    MapBufferCommand(
+            MemoryObject*   pBuffer, 
+            cl_map_flags    clMapFlags, 
+            size_t          szOffset, 
+            size_t          szCb
+            );
 	    virtual ~MapBufferCommand();
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const  { return CL_COMMAND_MAP_BUFFER; }
+
+        // Object only function
+        void*           GetMappedRegion()       { return m_pMappedRegion; }
 
     private: 
-        MemoryObject*   m_buffer;
-	    cl_map_flags m_mapFlags;
-        size_t          m_offset; 
-        size_t		   	m_cb;
+        MemoryObject*   m_pBuffer;
+	    cl_map_flags    m_clMapFlags;
+        size_t          m_szOffset; 
+        size_t		   	m_szCb;
+        void*           m_pMappedRegion;
     };
 
     /******************************************************************
@@ -361,14 +374,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
 	    UnmapMemObjectCommand(
-		    MemoryObject*   memObject,
-    	    void* 			mapped_ptr
+		    MemoryObject*   pMemObject,
+    	    void* 			pMappedRegion
 		    );
 	    virtual ~UnmapMemObjectCommand();
 
+        cl_err_code     Init();
+	    cl_err_code     Execute();	
+        cl_err_code     CommandDone();
+        cl_command_type GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
+
     private: 
-	    MemoryObject*   m_memObject;
-        void*			m_mappedPtr;
+	    MemoryObject*   m_pMemObject;
+        void*			m_pMappedRegion;
     };
 
     /******************************************************************

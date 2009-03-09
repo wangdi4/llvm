@@ -388,16 +388,151 @@ CopyImageToBufferCommand::~CopyImageToBufferCommand(){
 /******************************************************************
  *
  ******************************************************************/
-MapBufferCommand::MapBufferCommand(MemoryObject* buffer, cl_map_flags map_flags, size_t offset, size_t cb){
-
+MapBufferCommand::MapBufferCommand(MemoryObject* pBuffer, cl_map_flags clMapFlags, size_t szOffset, size_t szCb):
+    m_pBuffer(pBuffer),
+    m_clMapFlags(clMapFlags),
+    m_szOffset(szOffset),
+    m_szCb(szCb),
+    m_pMappedRegion(NULL)
+{
 }
 
 /******************************************************************
  *
  ******************************************************************/
-MapBufferCommand::~MapBufferCommand(){
-
+MapBufferCommand::~MapBufferCommand()
+{
 }
+
+/******************************************************************
+ * On command initilazation a pointer to the mapped region is returned
+ * 
+ ******************************************************************/
+cl_err_code MapBufferCommand::Init()
+{
+    cl_err_code res;
+    m_pBuffer->AddPendency();
+    
+    // First validate that bufer is allocated.
+    if (!m_pBuffer->IsAllocated(m_clDeviceId))
+    {
+        // Allocate
+        res = m_pBuffer->CreateDeviceResource(m_clDeviceId);
+        if( CL_FAILED(res))
+        {
+            return res;
+        }
+    }
+
+    // Get pointer to the device
+    m_pMappedRegion = m_pBuffer->CreateMappedRegion(m_clDeviceId, m_clMapFlags, &m_szOffset, &m_szCb, NULL, NULL);
+    if ( NULL == m_pMappedRegion )
+    {
+        // Case of error
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+cl_err_code MapBufferCommand::Execute()
+{
+    // TODO: Add support for multipule device.
+    // What happens when data is not on the same device???
+
+    // Prepare command. 
+    // Anyhow we send the map command to the device though  we expect that on write
+    // there is nothing to do, and on read the device may need to copy from device memory to host memory
+    m_pDevCmd = new cl_dev_cmd_desc;
+    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+
+    m_pDevCmd->id          = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->type        = CL_DEV_CMD_MAP;
+    m_pDevCmd->params      = m_pBuffer->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
+    // TODO: Update map command size when API changes
+    m_pDevCmd->param_size  = sizeof(cl_dev_cmd_param_map);
+    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MapBufferCommand::CommandDone()
+{
+    // Don't remove buffer pendency, the buffer should be alive at least until unmap is done.
+    // Clear allocated data
+    if( NULL != m_pDevCmd )
+    {
+        delete m_pDevCmd;
+    }
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+UnmapMemObjectCommand::UnmapMemObjectCommand(MemoryObject* pMemObject, void* pMappedRegion):
+    m_pMemObject(pMemObject),
+    m_pMappedRegion(pMappedRegion)
+{
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+UnmapMemObjectCommand::~UnmapMemObjectCommand()
+{
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code UnmapMemObjectCommand::Init()
+{
+    // First check the the region has been mapped
+    void* pMappedRegionInfo = m_pMemObject->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
+    if ( NULL == pMappedRegionInfo )
+    {
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code UnmapMemObjectCommand::Execute()
+{
+    // Create and send unmap command
+    m_pDevCmd = new cl_dev_cmd_desc;
+    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+
+    m_pDevCmd->id          = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->type        = CL_DEV_CMD_UNMAP;
+    m_pDevCmd->params      = m_pMemObject->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
+    // TODO: Update map command size when API changes
+    m_pDevCmd->param_size  = sizeof(cl_dev_cmd_param_map);
+    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+ cl_err_code UnmapMemObjectCommand::CommandDone()
+ {
+    cl_err_code errVal;
+    // Here we do the actual operation off releasing the mapped region.
+    if( NULL != m_pDevCmd )
+    {
+        delete m_pDevCmd;
+    }
+
+    errVal = m_pMemObject->ReleaseMappedRegion(m_clDeviceId, m_pMappedRegion);
+    m_pMemObject->RemovePendency();
+    return errVal;
+ }
 
 /******************************************************************
  *
@@ -963,20 +1098,6 @@ cl_err_code TaskCommand::Init()
         }
     }
     return res;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-UnmapMemObjectCommand::UnmapMemObjectCommand(MemoryObject* memObject, void* mapped_ptr){
-
-}
-
-/******************************************************************
- *
- ******************************************************************/
-UnmapMemObjectCommand::~UnmapMemObjectCommand(){
-
 }
 
 /******************************************************************

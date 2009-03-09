@@ -500,16 +500,89 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* mapped_ptr, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueUnmapMemObject");
-	return  CL_INVALID_OPERATION;	
-}
+void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet)
+{   
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
+        return NULL;
+    }
 
+    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);    
+    if (NULL == pBuffer)
+    {
+        *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
+        return NULL;
+    }
+
+    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    {
+        *pErrcodeRet = CL_INVALID_CONTEXT;
+        return NULL;
+    }
+    
+    if (pBuffer->GetSize() < (szOffset+szCb))
+    {
+        // Out of bounds check.
+         *pErrcodeRet =  CL_INVALID_VALUE;
+         return NULL;
+    }
+   
+    cl_mem_flags flags = pBuffer->GetFlags();
+    if ( 0 == (flags & (cl_mem_flags)(CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR)))
+    {
+        // Only buffers created with a host_ptr and CL_MEM_USE_HOST_PTR  or created with CL_MEM_ALLOC_HOST_PTR
+        // are valid objects
+         *pErrcodeRet =  CL_INVALID_VALUE;
+         return NULL;
+    }
+    
+    MapBufferCommand* pMapBufferCommand = new MapBufferCommand( pBuffer, clMapFlags, szOffset, szCb);
+    *pErrcodeRet = pMapBufferCommand->Init();
+    if(CL_SUCCEEDED(*pErrcodeRet))
+    {
+        *pErrcodeRet = pCommandQueue->EnqueueCommand(pMapBufferCommand, bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+        return (pMapBufferCommand->GetMappedRegion());
+    }  
+    else
+    {
+	    return  NULL;
+    }
+}
 
 /******************************************************************
  * 
  ******************************************************************/
+cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+{
+    cl_err_code errVal;
+    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    
+    MemoryObject* pMemObject = m_pContextModule->GetMemoryObject(clMemObj);    
+    if (NULL == pMemObject)
+    {
+        return  CL_INVALID_MEM_OBJECT;
+    }
+
+    if (pMemObject->GetContextId() != pCommandQueue->GetContextId())
+    {
+        return CL_INVALID_CONTEXT;
+    }
+    
+    Command* pUnmapMemObjectCommand = new UnmapMemObjectCommand( pMemObject, mappedPtr);
+    errVal = pUnmapMemObjectCommand->Init();
+    if(CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pUnmapMemObjectCommand, CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    }  
+    
+	return  errVal;
+}
 
 /******************************************************************
  * 
@@ -711,15 +784,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(cl_command_queue command_q
     ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueCopyBufferToImage");
 	return  CL_INVALID_OPERATION;	
 }
-
-
-void * ExecutionModule::EnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, cl_map_flags map_flags, size_t offset, size_t cb, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret)
-{
-    ErrLog(m_pLoggerClient, L"Function: (%s), is not implemented", "EnqueueMapBuffer");
-    *errcode_ret = CL_INVALID_OPERATION;
-	return  NULL;	
-}
-
 
 void * ExecutionModule::EnqueueMapImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_map, cl_map_flags map_flags, const size_t* origin[3], const size_t* region[3], size_t* image_row_pitch, size_t* image_slice_pitch, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* pEvent, cl_int* errcode_ret)
 {

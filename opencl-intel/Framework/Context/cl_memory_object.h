@@ -244,7 +244,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// this pure virtual function need to be implemented in the buffer or image class
 		virtual cl_err_code CreateDeviceResource(cl_device_id clDeviceId) = 0;
 
-	protected:
+        // Maps a memory object region to the host space and returns a pointer to
+        // this space.
+        // The function returns a pointer to the mapped region. 
+        // If the object is 2D/3D image and pszImageRowPitch and/or pszImageSlicePitch are not NULL, those
+        // argument will include the relevant values from the device.
+        virtual void* CreateMappedRegion(
+            cl_device_id    IN clDeviceId, 
+            cl_map_flags    IN clMapFlags, 
+            const size_t*   IN szOrigins, 
+            const size_t*   IN szRegions, 
+            size_t*         OUT pszImageRowPitch,
+            size_t*         OUT pszImageSlicePitch
+            ) { return NULL; }
+
+        // Released the region pointed by mappedPtr from clDeviceId.
+        virtual cl_err_code ReleaseMappedRegion( cl_device_id clDeviceId, void* mappedPtr) {return CL_SUCCESS;}
+
+        // Returns a pointer to the mapped region structure (as defined in cl_device_api.h).
+        // The user may use this pointer to enqueue map commands to the device.
+        // If ptr is not a region that is mapped on clDeviceid, than a NULL pointer is returned.
+        virtual void* GetMappedRegionInfo( cl_device_id clDeviceId, void* mappedPtr) {return NULL;}
+    
+    protected:
 
 		cl_mem_object_type						m_clMemObjectType;
 
