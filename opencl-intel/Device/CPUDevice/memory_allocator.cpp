@@ -480,13 +480,18 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParams)
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateMappedRegion enter");
+	cl_int ret = LockObject(pMapParams->memObj, pMapParams->dim_count, pMapParams->origin, &(pMapParams->ptr), pMapParams->pitch, NULL, NULL);
+	if(CL_DEV_SUCCESS == ret)
+	{
+		return UnLockObject(pMapParams->memObj, pMapParams->ptr);
+	}
 
-	return 	LockObject(pMapParams->memObj, pMapParams->dim_count, pMapParams->origin, &(pMapParams->ptr), pMapParams->pitch, NULL, NULL);
+	return ret;
 }
 
 cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseMappedRegion enter");
-	return UnLockObject(pMapParams->memObj, pMapParams->ptr);
+	return CL_DEV_SUCCESS;
 }
 

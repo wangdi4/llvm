@@ -912,15 +912,26 @@ cl_int MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 cl_int MapMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
 {
 	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
-	
+	void *objPtr;
 	
 	// Lock memory object
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &cmdParams->ptr, NULL, NULL, NULL);
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &objPtr, NULL, NULL, NULL);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
 	}
 	
+	if(objPtr != cmdParams->ptr)
+	{
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
+	// Unlock memory object
+	// Framework handles overlapping regions
+	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, cmdParams->ptr);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
 	//Notiofy command completion
 	NotifyDispatcher(cmd);
 
@@ -943,12 +954,12 @@ cl_int UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return CL_DEV_INVALID_COMMAND_TYPE;
 	}
 
-	if ( sizeof(cl_dev_cmd_param_unmap) != cmd->param_size )
+	if ( sizeof(cl_dev_cmd_param_map) != cmd->param_size )
 	{
 		return CL_DEV_INVALID_COMMAND_PARAM;
 	}
 
-	cl_dev_cmd_param_unmap *cmdParams = (cl_dev_cmd_param_unmap*)(cmd->params);
+	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
 
 	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
 	if ( CL_DEV_FAILED(ret) )
@@ -963,10 +974,22 @@ cl_int UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 cl_int UnmapMemObject::ExecuteCommand(cl_dev_cmd_desc* cmd, TTaskHandle* pDepList, unsigned int uiCount, TTaskHandle* pNewHandle)
 {
-	cl_dev_cmd_param_unmap *cmdParams = (cl_dev_cmd_param_unmap*)(cmd->params);
+	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
+	void *objPtr;
 	
+	// Lock memory object
+	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &objPtr, NULL, NULL, NULL);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		return ret;
+	}
+	
+	if(objPtr != cmdParams->ptr)
+	{
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
 	// Unlock memory object
-	cl_int ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, cmdParams->ptr);
+	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, cmdParams->ptr);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
