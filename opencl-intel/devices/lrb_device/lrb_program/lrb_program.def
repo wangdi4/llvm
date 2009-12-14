@@ -1,0 +1,7 @@
+LIBRARY	"lrb_program"
+
+EXPORTS
+	lrb_program_prototypes_count
+	lrb_program_prototypes
+	dot_product
+	hallo_world

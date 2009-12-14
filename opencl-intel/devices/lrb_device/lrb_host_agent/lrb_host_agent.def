@@ -1,0 +1,6 @@
+LIBRARY	"lrb_host_agent"
+
+EXPORTS
+	clDevCreateDeviceInstance
+	clDevGetDeviceInfo
+	clDevErr2Txt

@@ -1,0 +1,181 @@
+<ProductSDF Name="cl">
+    <Owner>Uri Levy</Owner>
+    <MailingList>uri.levy@intel.com</MailingList>
+    <Component Name="cl_prod">
+        <RelativeCheckoutPath>cl_prod</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cl_api">
+        <RelativeCheckoutPath>cl_api</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cl_builtin_functions">
+        <RelativeCheckoutPath>utils\cl_builtin_functions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cl_sys_utils">
+        <RelativeCheckoutPath>utils\cl_sys_utils</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cl_logger">
+        <RelativeCheckoutPath>utils\cl_logger</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cl_framework">
+        <RelativeCheckoutPath>framework</RelativeCheckoutPath>
+    </Component>
+    <Component Name="clang_compiler">
+        <RelativeCheckoutPath>fe_compilers\clang_compiler</RelativeCheckoutPath>
+    </Component>
+    <Component Name="llvm">
+        <RelativeCheckoutPath>externals\llvm</RelativeCheckoutPath>
+    </Component>
+    <Component Name="llvm_backend">
+        <RelativeCheckoutPath>be_compilers\llvm_backend</RelativeCheckoutPath>
+    </Component>
+    <Component Name="clang">
+        <RelativeCheckoutPath>externals\clang</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cppunit">
+        <RelativeCheckoutPath>externals\cppunit</RelativeCheckoutPath>
+    </Component>    
+    <Component Name="xntask">
+        <RelativeCheckoutPath>externals\xntask</RelativeCheckoutPath>
+    </Component>
+    <Component Name="xntask_xp">
+        <RelativeCheckoutPath>utils\xntask_xp</RelativeCheckoutPath>
+    </Component>             
+    <Component Name="tal">
+        <RelativeCheckoutPath>externals\tal</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cpu_device">
+        <RelativeCheckoutPath>devices\cpu_device</RelativeCheckoutPath>
+    </Component>
+    <Component Name="lrb_device">
+        <RelativeCheckoutPath>devices\lrb_device</RelativeCheckoutPath>
+    </Component>
+    <Component Name="build_test_type">
+        <RelativeCheckoutPath>validation\types\build_test_type</RelativeCheckoutPath>
+    </Component>
+    <Component Name="build_product_debug">
+        <RelativeCheckoutPath>validation\tests\build_product_debug</RelativeCheckoutPath>
+    </Component>
+    <Component Name="build_product_release">
+        <RelativeCheckoutPath>validation\tests\build_product_release</RelativeCheckoutPath>
+    </Component>
+    <Component Name="framework_test_type">
+        <RelativeCheckoutPath>validation\types\framework_test_type</RelativeCheckoutPath>
+    </Component>
+    <Component Name="framework_test">
+        <RelativeCheckoutPath>validation\tests\framework_test</RelativeCheckoutPath>
+    </Component>
+    <Component Name="lrb_device_test_type">
+        <RelativeCheckoutPath>validation\types\lrb_device_test_type</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cpu_device_test_type">
+        <RelativeCheckoutPath>validation\types\cpu_device_test_type</RelativeCheckoutPath>
+    </Component>
+    <Component Name="cpu_device_test">
+        <RelativeCheckoutPath>validation\tests\cpu_device_test</RelativeCheckoutPath>
+    </Component>
+    <Component Name="workloads_test_type">
+        <RelativeCheckoutPath>validation\types\workloads_test_type</RelativeCheckoutPath>
+    </Component>    
+    <Component Name="workload_dot_product">
+        <RelativeCheckoutPath>validation\tests\workload_dot_product</RelativeCheckoutPath>
+    </Component>    
+    <Component Name="conformance_test_type">
+        <RelativeCheckoutPath>validation\types\conformance_test_type</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_test_nightly">
+        <RelativeCheckoutPath>validation\tests\conformance_test_nightly</RelativeCheckoutPath>
+    </Component>  
+    <Component Name="conformance_api">
+        <RelativeCheckoutPath>validation\tests\conformance_api</RelativeCheckoutPath>
+    </Component>  
+    <Component Name="conformance_basic">
+        <RelativeCheckoutPath>validation\tests\conformance_basic</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_computeinfo">
+        <RelativeCheckoutPath>validation\tests\conformance_computeinfo</RelativeCheckoutPath>
+    </Component>  
+    <Component Name="conformance_buffers">
+        <RelativeCheckoutPath>validation\tests\conformance_buffers</RelativeCheckoutPath>
+    </Component>  
+    <Component Name="conformance_events">
+        <RelativeCheckoutPath>validation\tests\conformance_events</RelativeCheckoutPath>
+    </Component>  
+    <Component Name="conformance_compiler">
+        <RelativeCheckoutPath>validation\tests\conformance_compiler</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_common_functions">
+        <RelativeCheckoutPath>validation\tests\conformance_common_functions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_geometric_functions">
+        <RelativeCheckoutPath>validation\tests\conformance_geometric_functions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_relationals">
+        <RelativeCheckoutPath>validation\tests\conformance_relationals</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_thread_dimensions">
+        <RelativeCheckoutPath>validation\tests\conformance_thread_dimensions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_multiple_device_context">
+        <RelativeCheckoutPath>validation\tests\conformance_multiple_device_context</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_atomics">
+        <RelativeCheckoutPath>validation\tests\conformance_atomics</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_profiling">
+        <RelativeCheckoutPath>validation\tests\conformance_profiling</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_allocations_single_maximum">
+        <RelativeCheckoutPath>validation\tests\conformance_allocations_single_maximum</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_allocations_total_maximum">
+        <RelativeCheckoutPath>validation\tests\conformance_allocations_total_maximum</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_select">
+        <RelativeCheckoutPath>validation\tests\conformance_select</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_conversions">
+        <RelativeCheckoutPath>validation\tests\conformance_conversions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_contractions">
+        <RelativeCheckoutPath>validation\tests\conformance_contractions</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_integer_ops">
+        <RelativeCheckoutPath>validation\tests\conformance_integer_ops</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_half">
+        <RelativeCheckoutPath>validation\tests\conformance_half</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_images_api_info">
+        <RelativeCheckoutPath>validation\tests\conformance_images_api_info</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_images_copy_images">
+        <RelativeCheckoutPath>validation\tests\conformance_images_copy_images</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_images_kernel_methods">
+        <RelativeCheckoutPath>validation\tests\conformance_images_kernel_methods</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_images_kernel_read_write">
+        <RelativeCheckoutPath>validation\tests\conformance_images_kernel_read_write</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_images_read_write">
+        <RelativeCheckoutPath>validation\tests\conformance_images_read_write</RelativeCheckoutPath>
+    </Component>
+    <Component Name="conformance_math_brute_force">
+        <RelativeCheckoutPath>validation\tests\conformance_math_brute_force</RelativeCheckoutPath>
+    </Component>
+    <Component Name="api_test_type">
+        <RelativeCheckoutPath>validation\types\api_test_type</RelativeCheckoutPath>
+    </Component>       
+    <Component Name="api_test_nightly">
+        <RelativeCheckoutPath>validation\tests\api_test_nightly</RelativeCheckoutPath>
+    </Component> 
+    <Component Name="task_executor">
+        <RelativeCheckoutPath>utils\task_executor</RelativeCheckoutPath>
+    </Component>
+    <Component Name="pre-commit">
+        <RelativeCheckoutPath>validation\workplans\pre-commit</RelativeCheckoutPath>
+    </Component>
+    <Component Name="post-commit">
+        <RelativeCheckoutPath>validation\workplans\post-commit</RelativeCheckoutPath>
+    </Component>
+</ProductSDF>

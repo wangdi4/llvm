@@ -1,0 +1,12 @@
+<Promotion>
+    <BuildConfiguration>
+        <OSType>Windows</OSType>
+        <Architecture>IA32</Architecture>
+        <Configuration>Debug Win32</Configuration>
+    </BuildConfiguration>
+    <BuildConfiguration>
+        <OSType>Windows</OSType>
+        <Architecture>IA32</Architecture>
+        <Configuration>Release Win32</Configuration>
+    </BuildConfiguration>
+</Promotion>
