@@ -130,7 +130,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\tal\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\tal\include&quot;"
-				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS;USE_TASKALYZER"
+				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
