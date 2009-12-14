@@ -16,7 +16,7 @@ using namespace Intel::OpenCL::Framework;
 
 void * clGetExtensionFunctionAddress(const char *funcname)
 {
-	if (strcmp(funcname, "clIcdGetPlatformIDsKHR"))
+	if (!strcmp(funcname, "clIcdGetPlatformIDsKHR"))
 	{
 		return clGetPlatformIDs;
 	}

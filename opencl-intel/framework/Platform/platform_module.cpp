@@ -317,6 +317,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 	cl_char pcPlatformExtension[8192] = {0};
 	cl_char pcDeviceExtension[8192] = {0};
 	cl_char pcOtherDeviceExtension[8192] = {0};
+	cl_char pcPlatformICDSuffixKhr[8] = "Intel";
 
 	switch (clParamName)
 	{
@@ -370,6 +371,10 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		}
 		pValue = pcPlatformExtension;
 		szParamSize = strlen((char*)pcPlatformExtension) + 1;
+		break;
+	case CL_PLATFORM_EXTENSION_SUFFIX_KHR:
+		pValue = (void*)pcPlatformICDSuffixKhr;
+		szParamSize = strlen((char*)pcPlatformICDSuffixKhr) + 1;
 		break;
 	default:
 		return CL_INVALID_VALUE;
