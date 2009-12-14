@@ -49,6 +49,12 @@
     <Component Name="lrb_device">
         <RelativeCheckoutPath>devices\lrb_device</RelativeCheckoutPath>
     </Component>
+    <Component Name="task_executor">
+        <RelativeCheckoutPath>utils\task_executor</RelativeCheckoutPath>
+    </Component>
+    <Component Name="opencl_sdk_installer">
+        <RelativeCheckoutPath>setup</RelativeCheckoutPath>
+    </Component>
     <Component Name="build_test_type">
         <RelativeCheckoutPath>validation\types\build_test_type</RelativeCheckoutPath>
     </Component>
@@ -169,9 +175,6 @@
     <Component Name="api_test_nightly">
         <RelativeCheckoutPath>validation\tests\api_test_nightly</RelativeCheckoutPath>
     </Component> 
-    <Component Name="task_executor">
-        <RelativeCheckoutPath>utils\task_executor</RelativeCheckoutPath>
-    </Component>
     <Component Name="pre-commit">
         <RelativeCheckoutPath>validation\workplans\pre-commit</RelativeCheckoutPath>
     </Component>
