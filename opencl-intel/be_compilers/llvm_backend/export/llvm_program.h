@@ -89,12 +89,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		std::string				m_strLastError;
 
-		void	AddWIInfoDeclarations(llvm::Module* pModule);
-		void	AddBarrierDeclaration(llvm::Module* pModule);
-		void	AddAsyncCopyDeclaration(llvm::Module* pModule);
+		void	AddWIInfoDeclarations();
+		void	AddBarrierDeclaration();
+		void	AddAsyncCopyDeclaration();
+		void	AddPrefetchDeclaration();
 
 		bool	m_bBarrierDecl;
 		bool	m_bAsyncCopy;
+		bool	m_bPrefetchDecl;
 	};
 
 }}}

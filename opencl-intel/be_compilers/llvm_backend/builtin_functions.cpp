@@ -30,6 +30,7 @@
 #include "llvm_binary.h"
 #include "llvm_executable.h"
 #include "cl_types.h"
+#include "cpu_dev_limits.h"
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -177,4 +178,15 @@ extern "C" __declspec(dllexport) __declspec(noinline) event_t lasync_wg_copy_g2l
 	// else use memcpy
 	memcpy(pDst, pSrc, uiBytesToCopy);
 	return event;
+}
+
+extern "C" __declspec(dllexport) void lprefetch(const char* ptr, size_t numElements, size_t elmSize)
+{
+	size_t totalLines = ((numElements * elmSize) + CPU_DCU_LINE_SIZE - 1) / CPU_DCU_LINE_SIZE;
+
+	for (size_t i=0; i<totalLines; ++i)
+	{
+		_mm_prefetch(ptr, _MM_HINT_T0);
+		ptr += CPU_DCU_LINE_SIZE;
+	}
 }

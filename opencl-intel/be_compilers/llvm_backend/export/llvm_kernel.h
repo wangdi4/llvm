@@ -134,6 +134,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		void			UpdateBarrier(llvm::CallInst* pCall, llvm::Argument* pLocalId);
 		llvm::Value*	UpdateAsyncCopy(llvm::CallInst* pCall, llvm::Argument* pLocalId);
 		void			UpdateWaitGroup(llvm::CallInst* pCall, llvm::Argument* pLocalId);
+		void			UpdatePrefetch(llvm::CallInst* pCall);
 		llvm::Value*	m_pCtxPtr;
 		// Stack size required by the kernel
 		unsigned int	m_uiStackSize;

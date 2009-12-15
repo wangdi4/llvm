@@ -78,7 +78,8 @@ extern DECLARE_LOGGER_CLIENT;
 
 // Constructor/Destructor
 LLVMProgram::LLVMProgram() :
-m_pMemBuffer(NULL), m_pModuleProvider(NULL), m_bBarrierDecl(false), m_bAsyncCopy(false)
+m_pMemBuffer(NULL), m_pModuleProvider(NULL),
+m_bBarrierDecl(false), m_bAsyncCopy(false), m_bPrefetchDecl(false)
 {
 	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container));
 	m_strLastError = szNone;
@@ -167,7 +168,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 
 	LOG_DEBUG("Before AddWIInfoDeclarations");
 	// Add declarations of modified WI info functions
-	AddWIInfoDeclarations(pModule);
+	AddWIInfoDeclarations();
 
 	LOG_DEBUG("Before addModuleProvider()");
 	g_pExecEngine->addModuleProvider(m_pModuleProvider);
@@ -326,8 +327,10 @@ cl_int LLVMProgram::GetAllKernels(const ICLDevBackendKernel* *pKernels, cl_uint 
 }
 
 // ------------------------------------------------------------------------------
-void LLVMProgram::AddWIInfoDeclarations(Module* pModule)
+void LLVMProgram::AddWIInfoDeclarations()
 {
+	Module* pModule = m_pModuleProvider->getModule();
+
 	// Detect size_t size
 	unsigned int uiSizeT = pModule->getPointerSize()*32;
 /*
@@ -375,10 +378,12 @@ void LLVMProgram::FreeMap()
 }
 
 
-void LLVMProgram::AddBarrierDeclaration(llvm::Module* pModule)
+void LLVMProgram::AddBarrierDeclaration()
 {
 	if ( m_bBarrierDecl )
 		return;
+	llvm::Module* pModule = m_pModuleProvider->getModule();
+
 	std::vector<const Type*> params;
 	params.push_back(IntegerType::get(32));
 	params.push_back(PointerType::get(IntegerType::get(32), 0));
@@ -389,10 +394,12 @@ void LLVMProgram::AddBarrierDeclaration(llvm::Module* pModule)
 
 //event_t lasync_work_group_copy(void* pDst, void* pSrc, size_t numElem, event_t event,
 //							   size_t elemSize, LLVMExecMultipleWIWithBarrier* *ppExec);
-void LLVMProgram::AddAsyncCopyDeclaration(llvm::Module* pModule)
+void LLVMProgram::AddAsyncCopyDeclaration()
 {
 	if ( m_bAsyncCopy )
 		return;
+
+	llvm::Module* pModule = m_pModuleProvider->getModule();
 
 	unsigned int uiSizeT = pModule->getPointerSize()*32;
 
@@ -416,4 +423,24 @@ void LLVMProgram::AddAsyncCopyDeclaration(llvm::Module* pModule)
 	Function::Create(pWaitType, (GlobalValue::LinkageTypes)0, "lwait_group_events", pModule);
 
 	m_bAsyncCopy = true;
+}
+
+void LLVMProgram::AddPrefetchDeclaration()
+{
+	if ( m_bPrefetchDecl )
+		return;
+	llvm::Module* pModule = m_pModuleProvider->getModule();
+
+	unsigned int uiSizeT = pModule->getPointerSize()*32;
+
+	std::vector<const Type*> params;
+	// Source Pointer
+	params.push_back(PointerType::get(IntegerType::get(8), 0));
+	// Number of elements
+	params.push_back(IntegerType::get(uiSizeT));
+	// Element size
+	params.push_back(IntegerType::get(uiSizeT));
+	FunctionType* pNewType = FunctionType::get(Type::VoidTy, params, false);
+	Function* pNewFunc = Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lprefetch", pModule);
+	m_bPrefetchDecl = true;
 }

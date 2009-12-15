@@ -422,6 +422,32 @@ void LLVMKernel::UpdateWaitGroup(llvm::CallInst* pCall, llvm::Argument* pLocalId
 	CallInst::Create(pNewWait, params.begin(), params.end(), "", pCall);
 }
 
+void LLVMKernel::UpdatePrefetch(llvm::CallInst* pCall)
+{
+	// Create new call instruction with extended parameters
+	SmallVector<Value*, 4> params;
+	// push original parameters
+	// Need bitcast to a general pointer
+	CastInst* pBCPtr = CastInst::Create(Instruction::BitCast, pCall->getOperand(1),
+		PointerType::get(IntegerType::get(8), 0), "", pCall);
+	params.push_back(pBCPtr);
+	// Put number of elements
+	params.push_back(pCall->getOperand(2));
+	// Distinguish element size
+	const PointerType* pPTy = dyn_cast<PointerType>(pCall->getOperand(1)->getType());
+	assert(pPTy && "Must be a pointer");
+	const Type* pPT = pPTy->getElementType();
+	unsigned int uiSize = pPT->getPrimitiveSizeInBits()/8;	
+	if ( 0 == uiSize )
+	{
+		const VectorType* pVT = dyn_cast<VectorType>(pPT);
+		uiSize = pVT->getBitWidth()/8;
+	}
+	params.push_back(ConstantInt::get(IntegerType::get(32), uiSize));
+	Function* pPrefetch = m_pModule->getFunction("lprefetch");
+	CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
+}
+
 cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 {
 	bool	bDbgPrint = false;
@@ -501,7 +527,7 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 					// Check barrier()
 					if ( !strcmp("barrier", inst_it->getOperand(0)->getNameStart()) )
 					{
-						m_pProgram->AddBarrierDeclaration(m_pModule);
+						m_pProgram->AddBarrierDeclaration();
 						m_bBarrier = true;
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						UpdateBarrier(pCall, pLocalId);
@@ -520,7 +546,7 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 					if ( !strncmp("__async_work_group_copy", inst_it->getOperand(0)->getNameStart(), 23) )
 					{
 						bAsynCopy = true;
-						m_pProgram->AddAsyncCopyDeclaration(m_pModule);
+						m_pProgram->AddAsyncCopyDeclaration();
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						// Substitute extern operand with function parameter
 						Value *pNewRes = UpdateAsyncCopy(pCall, pLocalId);
@@ -536,10 +562,22 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 
 					if ( !strncmp("wait_group", inst_it->getOperand(0)->getNameStart(), 10) )
 					{
-						m_pProgram->AddAsyncCopyDeclaration(m_pModule);
+						m_pProgram->AddAsyncCopyDeclaration();
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						// Substitute extern operand with function parameter
 						UpdateWaitGroup(pCall, pLocalId);
+						--inst_it;
+						pCall->removeFromParent();
+						delete pCall;
+						break;
+					}
+
+					if ( !strncmp("__prefetch", inst_it->getOperand(0)->getNameStart(), 10) )
+					{
+						m_pProgram->AddPrefetchDeclaration();
+						CallInst* pCall = dyn_cast<CallInst>(inst_it);
+						// Substitute extern operand with function parameter
+						UpdatePrefetch(pCall);
 						--inst_it;
 						pCall->removeFromParent();
 						delete pCall;
