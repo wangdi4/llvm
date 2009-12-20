@@ -34,7 +34,11 @@
 
 #include<stdlib.h>
 
-#define _ENABLE_LOCK_OBJECTS_
+// The flag below enables a check that allows only a single use of cl_mem objects
+// The "lock" on the memory object is obtained during the call to NDRange->Init() and is released when the kernel is done executing
+// This is useful only for debugging - it is not conformant to the spec
+// So, keep the flag undefined unless you are debugging potential race conditions in kernel executions
+//#define _ENABLE_LOCK_OBJECTS_
 
 using namespace Intel::OpenCL::CPUDevice;
 
