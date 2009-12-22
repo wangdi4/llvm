@@ -101,96 +101,97 @@ void ConfigFile::trim( string& s )
 }
 
 
-cl_err_code ConfigFile::ReadFile(string fileName, ConfigFile& cf)
+cl_err_code ConfigFile::ReadFile(string fileName, ConfigFile& cfg)
 {
-	// Load a ConfigFile from is
-	// Read in keys and values, keeping internal whitespace
-
-	std::fstream is(fileName.c_str());
-	if (!is)
+	std::fstream fsInputStream(fileName.c_str());
+	if (!fsInputStream)
 	{
 		return CL_ERR_FILE_NOT_EXISTS;
 	}
+	
+	string strNextLine = "";
+	string line;
 
-	typedef string::size_type pos;
-	const string& delim  = cf.m_sDelimiter;  // separator
-	const string& comm   = cf.m_sComment;    // comment
-	const string& sentry = cf.m_sSentry;     // end of file sentry
-	const pos skip = delim.length();        // length of separator
+	const string& strDelimeter  = cfg.m_sDelimiter;
+	
+	// get the length of the eparator
+	const string::size_type szSepLength = strDelimeter.length();
 
-	string nextline = "";  // might need to read ahead to see where value ends
+	const string& strComment = cfg.m_sComment;
+	const string& strEOF = cfg.m_sSentry;
 
-	while (is || nextline.length() > 0)
+	while ( (NULL != fsInputStream) || (strNextLine.length() > 0) )
 	{
-		// Read an entire line at a time
-		string line;
-		if (nextline.length() > 0)
+		// if the next line is not empty, get its content and mark as empty line
+		if (strNextLine.length() <= 0)
 		{
-			line = nextline;  // we read ahead; use it now
-			nextline = "";
+			std::getline(fsInputStream, line);
 		}
 		else
 		{
-			std::getline(is, line);
+			line = strNextLine;
+			strNextLine = "";
 		}
 
-		// Ignore comments
-		line = line.substr(0, line.find(comm));
+		// find the first location of the commnet and get the string before it
+		string::size_type szCommentPos = line.find(strComment);
+		line = line.substr(0, szCommentPos);
 
-		// Check for end of file sentry
-		if (sentry != "" && line.find(sentry) != string::npos)
+		if ( (line.find(strEOF) != string::npos) && (strEOF != "") )
 		{
 			return CL_SUCCESS;
 		}
 
-		// Parse the line if it contains a delimiter
-		pos delimPos = line.find( delim );
-		if (delimPos < string::npos)
+		bool bFinish = false;
+		// getting the first position of the delimeter
+		string::size_type szDelimeterPos = line.find(strDelimeter);
+		
+		// continue only if the position is not the end of line
+		if (string::npos > szDelimeterPos)
 		{
-			// Extract the key
-			string key = line.substr(0, delimPos);
-			line.replace(0, delimPos+skip, "");
+			string strKey = line.substr(0, szDelimeterPos);
+			ConfigFile::trim(strKey);
 
-			// See if value continues on the next line
-			// Stop at blank line, next line with a key, end of stream,
-			// or end of file sentry
-			bool terminate = false;
-			while (!terminate && is)
+			string::size_type szPos = szDelimeterPos + szSepLength;
+			line.replace(0, szPos, "");
+
+			while ( (false == bFinish) && fsInputStream )
 			{
-				std::getline(is, nextline);
-				terminate = true;
+				// get new line
+				std::getline(fsInputStream, strNextLine);
 
-				string nlcopy = nextline;
-				ConfigFile::trim(nlcopy);
-				if(nlcopy == "")
+				// save the next line
+				string strCopy = strNextLine;
+				ConfigFile::trim(strCopy);
+				
+				if(strCopy == "")
 				{
 					continue;
 				}
 
-				nextline = nextline.substr(0, nextline.find(comm));
-				if (nextline.find(delim) != string::npos)
-				{
-					continue;
-				}
-				if (sentry != "" && nextline.find(sentry) != string::npos)
+				bFinish = true;
+
+				strNextLine = strNextLine.substr(0, strNextLine.find(strComment));
+				if ( (string::npos != strNextLine.find(strDelimeter)) ||
+					 (strEOF != "") && (string::npos != strNextLine.find(strEOF)))
 				{
 					continue;
 				}
 
-				nlcopy = nextline;
-				ConfigFile::trim(nlcopy);
-				if (nlcopy != "")
+				strCopy = strNextLine;
+				ConfigFile::trim(strCopy);
+				
+				if (strCopy != "")
 				{
 					line += "\n";
 				}
-				line += nextline;
-				terminate = false;
+				line += strNextLine;
+				bFinish = false;
 			}
 
-			// Store key and value
-			ConfigFile::trim(key);
 			ConfigFile::trim(line);
-			cf.m_mapContents[key] = line;  // overwrites if key is repeated
+			// add the new config param to the container
+			cfg.m_mapContents[strKey] = line;
 		}
 	}
 	return CL_SUCCESS;

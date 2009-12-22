@@ -26,29 +26,6 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma once
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//  cl_config.h
-//  Implementation of the configuration file class
-//  Created on:      10-Dec-2008 4:45:30 PM
-//  Original author: ulevy
-//
-//  Typical usage
-//  -------------
-//  Given a configuration file "settings.inf":
-//     atoms  = 25
-//     length = 8.0  # nanometers
-//     name = Reece Surcher
-// 
-//  Named values are read in various ways, with or without default values:
-//     ConfigFile config( "settings.inp" );
-//     int atoms = config.read<int>( "atoms" );
-//     double length = config.read( "length", 10.0 );
-//     string author, title;
-//     config.readInto( author, "name" );
-//     config.readInto( title, "title", string("Untitled") );
-// 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 #include "cl_types.h"
 #include <string>
 #include <map>
