@@ -638,8 +638,6 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 						if ( NULL != pArgVal )
 						{
 							inst_it->setOperand(uiOpId, pArgVal);
-							// Change all other reference
-							pGV->uncheckedReplaceAllUsesWith(pArgVal);
 						}
 						break;
 					}
