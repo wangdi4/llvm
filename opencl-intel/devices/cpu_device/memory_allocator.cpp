@@ -71,10 +71,17 @@ MemoryAllocator::~MemoryAllocator()
 	{
 		SMemObjectDescriptor* pObjDesc = it->second;
 
-		_aligned_free(pObjDesc->objDecr.pData);
+		// Did we allocate the buffer
+		if ( pObjDesc->pHostPtr != pObjDesc->objDecr.pData )
+		{
+			//VirtualFree(pObjDesc->objDecr.pData, 0, MEM_RELEASE);
+			_aligned_free(pObjDesc->objDecr.pData);
+		}
+
 		delete pObjDesc->myHandle;
 		delete pObjDesc;
 	}
+	m_mapObjects.clear();
 
 	if (0 != m_iLogHandle)
 	{
