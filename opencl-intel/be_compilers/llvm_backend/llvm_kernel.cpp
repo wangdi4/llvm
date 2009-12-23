@@ -220,7 +220,7 @@ llvm::Value* LLVMKernel::SubstituteImplLocalPtr(llvm::Instruction* pInst, llvm::
 	// Now add bitcast to required/original pointer type
 	CastInst* pBC = CastInst::Create(Instruction::BitCast, pLocalAddr, PTy, "", pInst);
 	// Advance total implicit size
-	m_uiTotalImplSize = ADJUST_SIZE_TO_DCU_LINE(uiArraySize);
+	m_uiTotalImplSize += ADJUST_SIZE_TO_DCU_LINE(uiArraySize);
 	// Add to map
 	m_mapImplLocalPtr[strBuffName] = pBC;
 
@@ -588,13 +588,17 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 
 				// getelementptr instruction
 				case llvm::Instruction::GetElementPtr:
+					{
 					// Retrieve array operand
 					pArgVal = inst_it->getOperand(0);
 					// Substitute "local" variables with parameter one
-					pArgVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
-					if ( NULL != pArgVal )
+					llvm::Value* pNewVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
+					if ( NULL != pNewVal )
 					{
-						inst_it->setOperand(0, pArgVal);
+						inst_it->setOperand(0, pNewVal);
+						// Change all other reference
+						pArgVal->uncheckedReplaceAllUsesWith(pNewVal);
+					}
 					}
 					break;
 
@@ -619,10 +623,13 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 								pArgVal, operands.begin(), operands.end(), "", inst_it);
 							// Use the result in the original instruction
 							inst_it->setOperand(uiOpId, pNewInst);
+
+							// Change all other reference
+							pCE->uncheckedReplaceAllUsesWith(pArgVal);
 						}
 						break;
 					}
-					const GlobalValue *pGV = dyn_cast<GlobalVariable>(pArgVal);
+					GlobalValue *pGV = dyn_cast<GlobalVariable>(pArgVal);
 					if ( (NULL != pGV) && (pGV->getType()->getAddressSpace() == 3) )
 					{
 						// Retrieve array operand
@@ -631,6 +638,8 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 						if ( NULL != pArgVal )
 						{
 							inst_it->setOperand(uiOpId, pArgVal);
+							// Change all other reference
+							pGV->uncheckedReplaceAllUsesWith(pArgVal);
 						}
 						break;
 					}
