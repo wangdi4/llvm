@@ -690,6 +690,15 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	{
 	}
 
+	else if (clArgType == CL_KRNL_ARG_VECTOR)
+	{
+		szArgSize = (szArgSize & 0xFFFF) * ((szArgSize >> 16) & 0xFFFF);
+		if (szSize != szArgSize)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+	}
+
 	else
 	{	// other type = check size
 		if (szSize != szArgSize)
