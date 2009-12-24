@@ -27,9 +27,9 @@
 
 #include "stdafx.h"
 #include "cl_device_api.h"
+#include "llvm_kernel.h"
 #include "llvm_binary.h"
 #include "llvm_executable.h"
-#include "llvm_kernel.h"
 #include <assert.h>
 
 #ifdef __SSE4_1__
@@ -68,7 +68,8 @@ cl_uint	LLVMExecutable::Init(void* *pMemoryBuffers, unsigned int uiWICount)
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	unsigned int uiStackSize = m_pBinary->GetKernel()->GetWIStackSize();
+	unsigned int uiStackSize = m_pBinary->GetKernel()->GetPrivateMemorySize()+
+								m_pBinary->GetFormalParametersSize();
 	// Allocate buffer for context
 	m_pBase = new char[uiWICount*uiStackSize];
 	if ( NULL == m_pBase)
@@ -81,22 +82,22 @@ cl_uint	LLVMExecutable::Init(void* *pMemoryBuffers, unsigned int uiWICount)
 
 	m_uiWICount = uiWICount;
 
-	unsigned int uiParamSize = m_pBinary->m_ArgBuffSize+4*sizeof(void*)+MAX_WORK_DIM*sizeof(size_t);
-	// we need additional space for context pointer, wich is allocated after local ids
+	unsigned int uiParamSize = m_pBinary->GetFormalParametersSize()+4*sizeof(void*)+MAX_WORK_DIM*sizeof(size_t);
+	// we need additional space for context pointer, which is allocated after local ids
 	uiParamSize += sizeof(void*);
 
-	// Start from the end
-	m_pContext = m_pBase+uiStackSize-uiParamSize;
+	// Start from the end, make 16 byte aligned
+	m_pContext = (char*)((size_t)(m_pBase+uiStackSize-uiParamSize) & ~0xF);
 
 	// Copy parameters to context
-	memcpy(m_pContext, m_pBinary->m_pArgsBuffer, m_pBinary->m_ArgBuffSize);
+	memcpy(m_pContext, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 	// Update pointers of the local buffers
 	for (unsigned int i=0; i<m_pBinary->m_uiLocalCount; ++i)
 	{
 		*((void**)(m_pContext+m_pBinary->m_pLocalBufferOffsets[i])) = pMemoryBuffers[i];
 	}
 
-	char* pWIParams = m_pContext + m_pBinary->m_ArgBuffSize;
+	char* pWIParams = m_pContext + m_pBinary->GetFormalParametersSize();
 	// Set implicit local buffer pointer
 	if ( m_pBinary->m_pKernel->GetImplicitLocalMemoryBufferSize() )
 	{
@@ -130,7 +131,7 @@ cl_uint LLVMExecSingleWI::Execute(const size_t* IN pGroupId,
 								  const size_t* IN pItemsToProcess)
 {
 	// Set Work Group index pointer
-	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->m_ArgBuffSize+2*sizeof(void*));
+	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
 	*pWGid = pGroupId;
 
 	const void*			pEntryPoint = m_pBinary->m_pEntryPoint;
@@ -165,7 +166,7 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 											 const size_t* IN pLocalOffset, 
 											 const size_t* IN pItemsToProcess)
 {
-	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->m_ArgBuffSize+2*sizeof(void*));
+	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
 	*pWGid = pGroupId;
 
 	// Retrieve local id area
@@ -188,6 +189,7 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 		m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
 		for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 		{
+			_mm_empty();
 			__asm
 			{
 				push	edi
@@ -213,6 +215,7 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 		for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
 			for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 			{
+				_mm_empty();
 				__asm
 				{
 					push	edi
@@ -240,6 +243,7 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 			for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
 				for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 				{
+					_mm_empty();
 					__asm
 					{
 						push	edi
@@ -284,10 +288,10 @@ cl_uint	LLVMExecMultipleWIWithBarrier::Init(void* *pMemoryBuffers, unsigned int 
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	m_uiWIStackSize = m_pBinary->GetKernel()->GetWIStackSize();
+	m_uiWIStackSize = m_pBinary->GetKernel()->GetPrivateMemorySize();
 
 	// Setup local WG index pointer
-	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->m_ArgBuffSize+2*sizeof(void*));
+	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
 	*pWGid = m_pLclGroupId;
 	
 	// Now setup rest of the WorkItems
@@ -375,6 +379,7 @@ cl_uint LLVMExecMultipleWIWithBarrier::Execute(const size_t* IN pGroupId,
 			} else if ( -1 != pCurrJB->Esp)
 			{
 				pContext = m_pContext + m_iCurrWI*m_uiWIStackSize;
+				_mm_empty();
 				__asm
 				{
 					push	edi

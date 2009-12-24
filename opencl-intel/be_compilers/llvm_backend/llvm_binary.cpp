@@ -47,14 +47,13 @@ size_t GCD(size_t a, size_t b)
 	}
 }
 
-LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, void* IN pArgsBuffer,
-			   size_t IN ArgBuffSize, cl_uint IN WorkDimension, const size_t* IN pGlobalOffset,
+LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, const size_t* IN pGlobalOffset,
 			   const size_t* IN pGlobalWorkSize, const size_t* IN pLocalWorkSize) :
-					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr),
-					m_pArgsBuffer(pArgsBuffer),
-					m_ArgBuffSize(ArgBuffSize)
+					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr), m_ArgBuffSize(0),
+					m_pLocalBufferOffsets(NULL), m_uiLocalCount(0), m_pLocalParams(NULL), m_pLocalParamsBase(NULL)
 {
 	memset(&m_WorkInfo, 0, sizeof(sWorkInfo));
+
 	m_WorkInfo.uiWorkDim = WorkDimension;
 	if ( NULL != pGlobalOffset )
 	{
@@ -99,15 +98,112 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, void* IN pArgsBuffer,
 	{
 		m_WorkInfo.WGNumber[i] = m_WorkInfo.GlobalSize[i]/m_WorkInfo.LocalSize[i];
 	}
+
 }
 
 LLVMBinary::~LLVMBinary()
 {
-	if ( NULL != m_pLocalParams )
+	if ( NULL != m_pLocalBufferOffsets )
 	{
-		delete m_pLocalParams;
+		delete []m_pLocalBufferOffsets;
+	}
+
+	if( NULL != m_pLocalParamsBase)
+	{
+		delete []m_pLocalParamsBase;
 	}
 }
+
+cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
+{
+	m_pLocalParamsBase = new char[CPU_MAX_PARAMETER_SIZE*4+15];
+	if ( NULL == m_pLocalParamsBase )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	m_pLocalParams = (char*)(((size_t)m_pLocalParamsBase+15) & ~0xF);	// Make aligned to 16 byte
+	memset(m_pLocalParams, 0, CPU_MAX_PARAMETER_SIZE);
+
+	// Allocate buffer to store pointer to explicit local buffers inside the parameters buffer
+	// These positions will be replaced with real pointers just before the execution
+	if ( m_pKernel->m_uiExplLocalMemCount > 0)
+	{
+		m_pLocalBufferOffsets = new size_t[m_pKernel->m_uiExplLocalMemCount];
+		if ( NULL == m_pLocalBufferOffsets )
+		{
+			return CL_DEV_OUT_OF_MEMORY;
+		}
+	}
+
+	size_t	stTotalLocalSize = 0;
+	size_t	stLocalOffset = 0;
+	size_t	stArgsOffset = 0;
+
+	// Calculate actual local buffer size
+	// Store in local buffer in reverse order
+	for(unsigned int i=0; i<m_pKernel->m_uiArgCount; ++i)
+	{
+		// Argument is buffer object or local memory size
+		if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernel->m_pArguments[i].type )
+
+		{
+			*(void**)(m_pLocalParams+stLocalOffset) = *(void**)(pArgsBuffer+stArgsOffset);
+			stLocalOffset += sizeof(void*);
+			stArgsOffset += sizeof(void*);
+		}
+		else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernel->m_pArguments[i].type)
+		{
+			// Retrieve sizes of explicit local objects
+			size_t origSize = *(((size_t*)(pArgsBuffer+stArgsOffset)));
+			size_t locSize = ADJUST_SIZE_TO_DCU_LINE(origSize); 
+			stTotalLocalSize += locSize;
+			m_pLocalBufferOffsets[m_uiLocalCount] = stLocalOffset;	// the offset is from the end
+			++m_uiLocalCount;
+			*(((size_t*)(m_pLocalParams+stLocalOffset))) = locSize;
+			stLocalOffset += sizeof(void*);
+			stArgsOffset += sizeof(void*);
+		}
+		else if (CL_KRNL_ARG_VECTOR == m_pKernel->m_pArguments[i].type)
+		{
+			unsigned int elemSize = m_pKernel->m_pArguments[i].size_in_bytes >> 16;
+			unsigned int numElements = (m_pKernel->m_pArguments[i].size_in_bytes) & 0xFFFF;
+			unsigned int uiSize = elemSize * numElements;
+			if( (elemSize < CPU_MIN_ACTUAL_PARAM_SIZE) && (uiSize < CPU_MIN_VECTOR_SIZE))
+			{
+				// Copy argument values one by one
+				for(unsigned int j=0; j<numElements; ++j)
+				{
+					memcpy(m_pLocalParams+stLocalOffset, pArgsBuffer+stArgsOffset, elemSize);
+					stArgsOffset += elemSize;
+					stLocalOffset += CPU_MIN_ACTUAL_PARAM_SIZE;
+				}
+			}
+			else
+			{
+				// Check if offset should be aligned
+				if ( uiSize >= 16 )
+				{
+					stLocalOffset = ((stLocalOffset + 16-1) & ~(16-1));
+				}
+
+				// Copy arguments in one cycle
+				memcpy(m_pLocalParams+stLocalOffset, pArgsBuffer+stArgsOffset, uiSize);
+				stArgsOffset += uiSize;
+				stLocalOffset += uiSize;
+			}
+		}
+		else
+		{
+			memcpy(m_pLocalParams+stLocalOffset, pArgsBuffer+stArgsOffset, m_pKernel->m_pArguments[i].size_in_bytes);
+			stArgsOffset += m_pKernel->m_pArguments[i].size_in_bytes;
+			stLocalOffset += max(m_pKernel->m_pArguments[i].size_in_bytes, CPU_MIN_ACTUAL_PARAM_SIZE);
+		}
+	}
+	m_ArgBuffSize = stLocalOffset;
+
+	return CL_DEV_SUCCESS;
+}
+
 
 cl_uint LLVMBinary::Execute( void* IN pMemoryBuffers, 
 				const size_t* IN pBufferCount, 
@@ -115,7 +211,7 @@ cl_uint LLVMBinary::Execute( void* IN pMemoryBuffers,
 				const size_t* IN pLocalId, 
 				const size_t* IN pItemsToProcess ) const
 {
-	return CL_DEV_SUCCESS;
+	return CL_DEV_ERROR_FAIL;
 }
 
 cl_uint LLVMBinary::GetMemoryBuffersDescriptions(size_t* IN pBuffersSizes, 

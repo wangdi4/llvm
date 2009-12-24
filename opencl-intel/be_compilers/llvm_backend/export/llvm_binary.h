@@ -29,6 +29,7 @@
 
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "cpu_dev_limits.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	struct sWorkInfo
@@ -46,8 +47,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	{
 	public:
 		LLVMBinary(const LLVMKernel* pKernel,
-						void* IN pArgsBuffer,
-						size_t IN ArgBuffSize,
 						cl_uint IN WorkDimension,
 						const size_t* IN pGlobalOffset,
 						const size_t* IN pGlobalWorkSize,
@@ -78,6 +77,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Releases executable instance
 		void	Release() {delete this;}
 
+		// Local methods
+		cl_uint GetFormalParametersSize() const
+				{return m_ArgBuffSize;}
+
+		void* LLVMBinary::GetFormalParameters() const
+		{
+			return m_pLocalParams;
+		}
+		
+		// Init binary, return ERROR if occurs
+		cl_uint			Init(char* IN pArgsBuffer, size_t IN ArgBuffSize);
+
 	protected:
 		friend class LLVMKernel;
 		friend class LLVMExecutable;
@@ -88,10 +99,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		const LLVMKernel*		m_pKernel;
 		const void*				m_pEntryPoint;
-		void*					m_pArgsBuffer;
 		size_t					m_ArgBuffSize;
 		sWorkInfo				m_WorkInfo;
 		char*					m_pLocalParams;
+		char*					m_pLocalParamsBase;
 		unsigned int			m_uiLocalCount;
 		size_t*					m_pLocalBufferOffsets;
 	};

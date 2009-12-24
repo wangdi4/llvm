@@ -91,6 +91,7 @@ cl_dev_err_code LLVMKernel::ParseArguments(Function *pFunc)
 	Function::arg_iterator arg_it = pFunc->arg_begin(), e = pFunc->arg_end();
 	while (arg_it != e)
 	{
+		Argument* pArg = arg_it;
 		// Set argument sizes
 		switch (arg_it->getType()->getTypeID())
 		{
@@ -101,9 +102,23 @@ cl_dev_err_code LLVMKernel::ParseArguments(Function *pFunc)
 
 		case Type::PointerTyID:
 			{
+				const PointerType *PTy = cast<PointerType>(arg_it->getType());
+				if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == Type::VectorTyID )
+				{
+					// Check by pointer vector passing, used in long16 and double16
+					const VectorType *pVector = dyn_cast<VectorType>(PTy->getElementType());
+					unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
+					unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
+					if ( (uiElemSize*uiNumElem) > 4*16 )
+					{
+						m_pArguments[m_uiArgCount].type = CL_KRNL_ARG_VECTOR;
+						m_pArguments[m_uiArgCount].size_in_bytes = uiNumElem & 0xFFFF;
+						m_pArguments[m_uiArgCount].size_in_bytes |= (uiElemSize << 16);
+						break;
+					}
+				}
 				m_pArguments[m_uiArgCount].size_in_bytes = 0;
 				// Detect pointer qualifier
-				const PointerType *PTy = cast<PointerType>(arg_it->getType());
 				// Test for image
 				std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
 				unsigned int inx = imgArg.find("struct._image");
@@ -149,19 +164,9 @@ cl_dev_err_code LLVMKernel::ParseArguments(Function *pFunc)
 		case Type::VectorTyID:
 			{
 			const VectorType *pVector = dyn_cast<VectorType>(arg_it->getType());
-			unsigned int uiVectorSize = 1;
-			while ( NULL != pVector )
-			{
-				uiVectorSize *= (unsigned int)pVector->getNumElements();
-				if ( pVector->getContainedType(0)->getTypeID() != Type::VectorTyID )
-				{
-					uiVectorSize *= pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
-				}
-				pVector = dyn_cast<VectorType>(pVector->getContainedType(0));
-			}
-
 			m_pArguments[m_uiArgCount].type = CL_KRNL_ARG_VECTOR;
-			m_pArguments[m_uiArgCount].size_in_bytes = uiVectorSize;
+			m_pArguments[m_uiArgCount].size_in_bytes = (unsigned int)pVector->getNumElements();
+			m_pArguments[m_uiArgCount].size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
 			}
 			break;
 
@@ -710,8 +715,7 @@ cl_int LLVMKernel::CreateBinary(void* IN pArgsBuffer,
 {
 	assert(pBinary);
 
-	LLVMBinary*	pBin = new LLVMBinary(this, pArgsBuffer, BufferSize,
-												WorkDimension, pGlobalOffeset,
+	LLVMBinary*	pBin = new LLVMBinary(this, WorkDimension, pGlobalOffeset,
 												pGlobalWorkSize, pLocalWorkSize);
 
 	if ( NULL == pBin )
@@ -719,74 +723,13 @@ cl_int LLVMKernel::CreateBinary(void* IN pArgsBuffer,
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	// Allocate memory for local parameters
-	char*	pLocalParams = new char[BufferSize];
-	if ( NULL == pLocalParams )
+	cl_uint rc = pBin->Init((char*)pArgsBuffer, BufferSize);
+	if ( CL_DEV_FAILED(rc) )
 	{
-		delete pBin;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-	// Allocate buffer to store pointer to explicit local buffers inside the parameters buffer
-	// These positions will be replaced with real pointers just before the execution
-	cl_uint	uiLocalCount = 0;
-	size_t*	pLocalBufferOffsets = NULL;
-	if ( m_uiExplLocalMemCount > 0)
-	{
-		pLocalBufferOffsets = new size_t[m_uiExplLocalMemCount];
-		if ( NULL == pLocalBufferOffsets )
-		{
-			delete []pLocalParams;
-			delete pBin;
-			return CL_DEV_OUT_OF_MEMORY;
-		}
+		return rc;
 	}
 
-	size_t	stTotalLocalSize = 0;
-	size_t	stOffset = 0;
-
-	memcpy_s(pLocalParams, BufferSize, pArgsBuffer, BufferSize);
-	// Calculate actual local buffer size
-	// Store in local buffer in reverse order
-	for(unsigned int i=0; i<m_uiArgCount; ++i)
-	{
-		// Argument is buffer object or local memory size
-		if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pArguments[i].type )
-
-		{
-			stOffset += sizeof(void*);
-		}
-		else if (CL_KRNL_ARG_PTR_LOCAL == m_pArguments[i].type)
-		{
-			// Retrieve sizes of explicit local objects
-			size_t origSize = *(((size_t*)(pLocalParams+stOffset)));
-			size_t locSize = ADJUST_SIZE_TO_DCU_LINE(origSize); 
-			stTotalLocalSize += locSize;
-			pLocalBufferOffsets[uiLocalCount] = stOffset;	// the offset is from the end
-			++uiLocalCount;
-			*(((size_t*)(pLocalParams+stOffset))) = locSize;
-			stOffset += sizeof(void*);
-		}
-		else
-		{
-			stOffset += m_pArguments[i].size_in_bytes;
-		}
-	}
-
-	stTotalLocalSize += m_uiTotalImplSize;
-	// Check local size
-	if ( CPU_DEV_LCL_MEM_SIZE <  stTotalLocalSize)
-	{
-		delete []pLocalBufferOffsets;
-		delete []pLocalParams;
-		delete pBin;
-		return CL_DEV_ERROR_FAIL;
-	}
-
-	assert(pBinary);
 	*pBinary = pBin;
-	pBin->m_pLocalParams = pLocalParams;
-	pBin->m_uiLocalCount = uiLocalCount;
-	pBin->m_pLocalBufferOffsets = pLocalBufferOffsets;
 
 	return CL_DEV_SUCCESS;
 }

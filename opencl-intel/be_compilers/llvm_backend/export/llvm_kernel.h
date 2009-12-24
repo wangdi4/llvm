@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		const size_t* GetRequiredWorkgroupSize() const { return m_pReqdWGSize;}
 		// Returns the required stack size for single Work Item execution
 		// 0 when is not available
-		unsigned int  GetWIStackSize() const { return m_uiStackSize;}
+		unsigned int  GetPrivateMemorySize() const { return m_uiStackSize;}
 		// Releases kernel instance
 		void	Release() {delete this;}
 
@@ -136,6 +136,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		void			UpdateWaitGroup(llvm::CallInst* pCall, llvm::Argument* pLocalId);
 		void			UpdatePrefetch(llvm::CallInst* pCall);
 		llvm::Value*	m_pCtxPtr;
+
 		// Stack size required by the kernel
 		unsigned int	m_uiStackSize;
 	};
