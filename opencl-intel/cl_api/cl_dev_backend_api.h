@@ -69,11 +69,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pOptions    - A pointer to a string that describes the build options to be used for building the program executable.
 		//					  
 		// Returns
-		//		CL_DEV_BE_BUILD_ERROR	 - the last call to clBuildProgram generated errors
-		//		CL_DEV_BE_BUILD_WARNING	 - the last call to clBuildProgram generated warnings
-		//		CL_DEV_BE_SUCCESS	     - the last call to clBuildProgram was successful
-		//		CL_DEV_BE_INVALID_BUILD_OPTIONS - if the build options specified by options are invalid
-		//		CL_DEV_BE_OUT_OF_MEMORY   - if the there is a failure to allocate memory 
+		//		CL_DEV_BUILD_ERROR	 - the last call to clBuildProgram generated errors
+		//		CL_DEV_BUILD_WARNING	 - the last call to clBuildProgram generated warnings
+		//		CL_DEV_SUCCESS	     - the last call to clBuildProgram was successful
+		//		CL_DEV_INVALID_BUILD_OPTIONS - if the build options specified by options are invalid
+		//		CL_DEV_OUT_OF_MEMORY   - if the there is a failure to allocate memory 
 		//
 		// Assumptions
 		//      
@@ -92,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pSize - A pointer to the size of the log buffer. if pLog is NULL, pSize will contain the size of the buffer
 		//		pLog  - A pointer to the a null terminated string containing the build log
 		// Returns
-		//      CL_DEV_BE_SUCCESS				- upon success
+		//      CL_DEV_SUCCESS				- upon success
 		virtual cl_int GetBuildLog(size_t INOUT *pSize, char* OUT pLog) const = 0;
 
 		// get a container of the program 
@@ -108,8 +108,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Output
 		//		pKernel		- A pointer to returned kernel object
 		// Returns
-		//		CL_DEV_BE_SUCCESS		- if kernel descriptor was successfully retrieved
-		//		CL_DEV_BE_ERROR_FAIL	- if kernel name was not found
+		//		CL_DEV_SUCCESS		- if kernel descriptor was successfully retrieved
+		//		CL_DEV_ERROR_FAIL	- if kernel name was not found
 		virtual cl_int	GetKernel(const char* IN pKernelName, const ICLDevBackendKernel** OUT pKernel) const = 0;
 
 		// Retrieves a vector of pointers to a function descriptors
@@ -118,8 +118,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pKernels	- A pointer to buffer that will hold pointers to kernel objects
 		//		puiRetCount	- A pointer to the number of kernels which are pointer by pKernels
 		// Returns
-		//		CL_DEV_BE_SUCCESS		- if vector successfully was retrieved
-		//		CL_DEV_BE_ERROR_FAIL	- if provided buffer is not enough or one of the parameters is invalid
+		//		CL_DEV_SUCCESS		- if vector successfully was retrieved
+		//		CL_DEV_ERROR_FAIL	- if provided buffer is not enough or one of the parameters is invalid
 		virtual cl_int	GetAllKernels(const ICLDevBackendKernel** IN pKernels, cl_uint* INOUT puiRetCount) const = 0;
 
 		// Releases program instance
@@ -149,9 +149,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pBinary     - the pointer to the executable object.
 		//
 		// Returns
-		//      CL_DEV_BE_SUCCESS if the arguments were set successfully and a valid non zero executable object
+		//      CL_DEV_SUCCESS if the arguments were set successfully and a valid non zero executable object
 		//	    Otherwise it returns a NULL executable object with one of the following error values:
-		//			CL_DEV_BE_OUT_OF_MEMORY  - there is not enough memory to perform the operation
+		//			CL_DEV_OUT_OF_MEMORY  - there is not enough memory to perform the operation
 		//			... more need to fill that (TBD)
 		// Notes:
 		//	    In Dasher this will cause final specialization of the code based on the state.
@@ -181,7 +181,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Returns the required stack size for single Work Item execution
 		// 0 when is not available
-		virtual unsigned int  GetWIStackSize() const = 0;
+		virtual size_t  GetPrivateMemorySize() const = 0;
 
 		// Releases kernel instance
 		virtual void	Release() = 0;
@@ -202,8 +202,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//  pLocalId - a 3 dimension array which containing the local id to work on in each dimension
 		//  pItemsToProcess - a 3 dimension array which contains the number of work items to process in each dimension 
 		// Returns
-		//		CL_DEV_BE_SUCCESS - the execution completed successfully
-		//		CL_DEV_BE_ERROR_FAIL - the execution failed
+		//		CL_DEV_SUCCESS - the execution completed successfully
+		//		CL_DEV_ERROR_FAIL - the execution failed
 		//
 		virtual cl_uint Execute( void* IN pMemoryBuffers, 
 			const size_t* IN pBufferCount, 
@@ -228,7 +228,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Create execution context which will be used across different execution threads
 		virtual cl_uint CreateExecutable(void* IN *pMemoryBuffers, 
-			size_t IN pBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
+			unsigned int IN uiBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
 
 		// Returns the kernel object which generated this executable
 		virtual const ICLDevBackendKernel* GetKernel() const = 0;
@@ -246,12 +246,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Executes the context on specific core
 		// Input
-		//  pGroupId - a 3 dimension array which containing the group id to work on in each dimension
-		//  pLocalOffset - a 3 dimension array which containing the local offset to work on in each dimension
+		//  pGroupId - a 3 dimension array which containing the group id to be executed
+		//  pLocalOffset - a 3 dimension array which containing the local offset in each dimension where to start execution
 		//  pItemsToProcess - a 3 dimension array which contains the number of work items to process in each dimension 
 		// Returns
-		//		CL_DEV_BE_SUCCESS - the execution completed successfully
-		//		CL_DEV_BE_ERROR_FAIL - the execution failed
+		//		CL_DEV_SUCCESS - the execution completed successfully
+		//		CL_DEV_ERROR_FAIL - the execution failed
 		//
 		virtual cl_uint Execute(const size_t* IN pGroupId,
 			const size_t* IN pLocalOffset, 
@@ -260,7 +260,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Releases the context object
 		virtual void	Release() = 0;
 
-		// Returns the executable object which generated this context
+		// Returns the binary object which generated this executable context
 		virtual const ICLDevBackendBinary* GetBinary() const = 0;
 	};
 

@@ -35,3 +35,18 @@
 
 // Maximum number of arguments to be passed to the kernel
 #define CPU_KERNEL_MAX_ARG_COUNT	256
+
+#define CPU_MAX_SAMPLERS				16
+#define CPU_MAX_PARAMETER_SIZE			1024
+#define CPU_IMAGE3D_MAX_DIM_SIZE		2048
+#define CPU_IMAGE2D_MAX_DIM_SIZE		8192
+#define CPU_MAX_READ_IMAGE_ARGS			128
+#define CPU_MAX_WRITE_IMAGE_ARGS		16
+#define CPU_MAX_CONSTANT_BUFFER_SIZE	128000
+#define CPU_MAX_CONSTANT_ARGS			128
+#define CPU_MEM_BASE_ADDR_ALIGN			0
+#define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
+#define CPU_MAX_WORK_GROUP_SIZE			256 // Must be power of 2, No API to get max number of fibers
+#define CPU_PROFILING_TIMER_RESOLUTION  1
+#define CPU_MIN_ACTUAL_PARAM_SIZE		(sizeof(void*))
+#define CPU_MIN_VECTOR_SIZE				8

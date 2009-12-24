@@ -88,7 +88,10 @@ typedef enum cl_kernel_arg_type
 typedef struct _cl_kernel_argument
 {
 	cl_kernel_arg_type			type;			// Type of the argument.
-	unsigned int				size_in_bytes;	// Size of the argument in bytes, for pointer types the size is 0.
+	unsigned int				size_in_bytes;	// Size of the argument in bytes,
+												// for pointer types the size is 0,
+												// for vectors the high part indicates size of basic element in bytes
+												//				the lower part indicates number of elements
 } cl_kernel_argument;
 
 // This structure defines a container description of binary
