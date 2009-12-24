@@ -588,17 +588,13 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 
 				// getelementptr instruction
 				case llvm::Instruction::GetElementPtr:
-					{
 					// Retrieve array operand
 					pArgVal = inst_it->getOperand(0);
 					// Substitute "local" variables with parameter one
-					llvm::Value* pNewVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
-					if ( NULL != pNewVal )
+					pArgVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
+					if ( NULL != pArgVal )
 					{
-						inst_it->setOperand(0, pNewVal);
-						// Change all other reference
-						pArgVal->uncheckedReplaceAllUsesWith(pNewVal);
-					}
+						inst_it->setOperand(0, pArgVal);
 					}
 					break;
 
