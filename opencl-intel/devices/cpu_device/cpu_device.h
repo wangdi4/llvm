@@ -34,20 +34,6 @@
 #include "cpu_dev_limits.h"
 #include "cpu_config.h"
 
-#define CPU_MAX_SAMPLERS				16
-#define CPU_MAX_PARAMETER_SIZE			(CPU_KERNEL_MAX_ARG_COUNT*sizeof(void*))
-#define CPU_IMAGE3D_MAX_DIM_SIZE		2048
-#define CPU_IMAGE2D_MAX_DIM_SIZE		8192
-#define CPU_MAX_READ_IMAGE_ARGS			128
-#define CPU_MAX_WRITE_IMAGE_ARGS		16
-#define CPU_MAX_CONSTANT_BUFFER_SIZE	128000
-#define CPU_MAX_CONSTANT_ARGS			128
-#define CPU_MEM_BASE_ADDR_ALIGN			0
-#define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-#define CPU_MAX_WORK_GROUP_SIZE			256 // Must be power of 2, No API to get max number of fibers
-#define CPU_LOCAL_MEM_SIZE				16384 //Minimum size is 1K
-#define CPU_PROFILING_TIMER_RESOLUTION  1
-
 // OCL RT library initialization routing, imported from cl_builtin_functions.dll
 extern "C" int __declspec(dllimport) clRTLibInitLibrary();
 

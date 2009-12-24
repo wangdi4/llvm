@@ -793,7 +793,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					*(cl_ulong*)paramVal = CPU_LOCAL_MEM_SIZE;
+					*(cl_ulong*)paramVal = CPU_DEV_LCL_MEM_SIZE;
 				}
 				return CL_DEV_SUCCESS;
 		}

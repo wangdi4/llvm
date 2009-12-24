@@ -725,33 +725,25 @@ cl_int NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *p
 #endif
 
 	pCommand->m_pCmd = pCmd;
-	cl_dev_cmd_param_kernel*	cmdParams = (cl_dev_cmd_param_kernel*)(pCmd->params);
-	char* pLockedParams = new char[cmdParams->arg_size];
-	if (NULL == pLockedParams)
-	{
-		delete pCommand;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-	memcpy(pLockedParams, cmdParams->arg_values, cmdParams->arg_size);
-	pCommand->m_pLockedParams = pLockedParams;
-
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 	return CL_DEV_SUCCESS;
 }
 
 NDRange::NDRange(TaskDispatcher* pTD) :
-DispatcherCommand(pTD), m_pLockedParams(NULL), m_pBinary(NULL), m_lastError(CL_DEV_SUCCESS),
+DispatcherCommand(pTD), m_pBinary(NULL), m_lastError(CL_DEV_SUCCESS),
 m_pMemBuffSizes(NULL)
 {
+#ifdef _DEBUG
+	memset(m_pLockedParams, 0x88, sizeof(m_pLockedParams));
+	m_lFinish = 0;
+	m_lAttaching = 0;
+	m_lExecuting = 0;
+#endif
 }
 
 void NDRange::Release()
 {
-	if ( NULL != m_pLockedParams )
-	{
-		delete []m_pLockedParams;
-	}
 	if ( NULL != m_pBinary )
 	{
 		m_pBinary->Release();
@@ -811,6 +803,12 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 			size_t locSize = ADJUST_SIZE_TO_DCU_LINE(origSize); 
 			stLocMemSize += locSize;
 			stOffset += sizeof(void*);
+		}
+		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
+		{
+			unsigned int uiSize = pArgs[i].size_in_bytes;
+			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
+			stOffset += uiSize;
 		}
 		else
 		{
@@ -908,6 +906,9 @@ int NDRange::Init(size_t region[])
 	// Initialize to zero
 	memset(m_pWGContexts, 0, sizeof(WGContext*)*uiNumOfThread);
 
+	// Copy initial values
+	memcpy(m_pLockedParams, cmdParams->arg_values, cmdParams->arg_size);
+
 	// Lock required memory objects
 	for(unsigned int i=0; (i<uiNumArgs) && CL_DEV_SUCCEEDED(m_lastError); ++i)
 	{
@@ -944,6 +945,12 @@ int NDRange::Init(size_t region[])
 		{
 			stOffset += sizeof(void*);
 		}
+		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
+		{
+			unsigned int uiSize = pArgs[i].size_in_bytes;
+			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
+			stOffset += uiSize;
+		}
 		else
 		{
 			stOffset += pArgs[i].size_in_bytes;
@@ -954,7 +961,7 @@ int NDRange::Init(size_t region[])
 		return -1;
 	}
 
-	// Create an "Executable" for these parameters
+	// Create an "Binary" for these parameters
 	cl_int clRet = pKernel->CreateBinary(m_pLockedParams, cmdParams->arg_size,
 								cmdParams->work_dim, cmdParams->glb_wrk_offs,
 								cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size,
@@ -997,6 +1004,12 @@ int NDRange::Init(size_t region[])
 
 void NDRange::Finish(FINISH_REASON reason)
 {
+#ifdef _DEBUG
+	long lVal = (InterlockedCompareExchange(&m_lExecuting, 0, 0) | InterlockedCompareExchange(&m_lAttaching, 0, 0));
+	assert(lVal == 0);
+	InterlockedExchange(&m_lFinish, 1);
+#endif
+
 	UnlockMemoryBuffers();
 	// Free execution contexts
 	unsigned int uiNumOfThread = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
@@ -1008,14 +1021,22 @@ void NDRange::Finish(FINISH_REASON reason)
 		}
 	}
 	delete []m_pWGContexts;
+	m_pWGContexts = NULL;
 
 #ifdef _DEBUG_PRINT
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
 #endif
+#ifdef _DEBUG
+	lVal = (InterlockedCompareExchange(&m_lExecuting, 0, 0) | InterlockedCompareExchange(&m_lAttaching, 0, 0));
+	assert(lVal == 0);
+#endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
 #ifdef _DEBUG_PRINT
 	printf("--> Finish(done):%s\n", pKernel->GetKernelName());
+#endif
+#ifdef _DEBUG
+	InterlockedExchange(&m_lFinish, 0);
 #endif
 }
 
@@ -1054,6 +1075,12 @@ void NDRange::UnlockMemoryBuffers()
 		{
 			stOffset += sizeof(void*);
 		}
+		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
+		{
+			unsigned int uiSize = pArgs[i].size_in_bytes;
+			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
+			stOffset += uiSize;
+		}
 		else
 		{
 			stOffset += pArgs[i].size_in_bytes;
@@ -1066,6 +1093,16 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, id(%d)\n", GetCurrentThreadId(), m_pCmd->id);
 #endif
+
+#ifdef _DEBUG
+	long lVal = InterlockedCompareExchange(&m_lFinish, 0, 0);
+	if ( lVal == 1 )
+	{
+		assert(0);
+	}
+	InterlockedIncrement(&m_lAttaching);
+#endif
+
 	// Choose appropriate context to execute on
 	if ( NULL == m_pWGContexts[uiWorkerId] )
 	{
@@ -1073,16 +1110,29 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 	}
 	else if (m_pCmd->id == m_pWGContexts[uiWorkerId]->GetCmdId() )
 	{
+#ifdef _DEBUG
+	InterlockedDecrement(&m_lAttaching);
+#endif
 		return CL_DEV_SUCCESS;
 	}
 
 	int ret = m_pWGContexts[uiWorkerId]->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 	assert(ret==0);
+
+#ifdef _DEBUG
+	InterlockedDecrement(&m_lAttaching);
+#endif
 	return ret;
 }
 
 void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsigned int uiWorkerId)
 {
+#ifdef _DEBUG
+	long lVal = InterlockedCompareExchange(&m_lFinish, 0, 0);
+	assert(lVal == 0);
+	InterlockedIncrement(&m_lExecuting);
+#endif
+
 	assert(m_pWGContexts[uiWorkerId]);
 	ICLDevBackendExecutable* pExec = m_pWGContexts[uiWorkerId]->GetContext();
 	// We always start from (0,0,0) and process whole WG
@@ -1111,6 +1161,11 @@ void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsig
 	}
 #endif
 
+#ifdef _DEBUG
+	lVal = InterlockedCompareExchange(&m_lFinish, 0, 0);
+	assert(lVal == 0);
+#endif
+
 	// Execute WG
 	pExec->Execute(&x, NULL, NULL);
 
@@ -1120,4 +1175,9 @@ void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsig
 		TAL_EndTask(trace);
 	}
 #endif
+
+#ifdef _DEBUG
+	InterlockedDecrement(&m_lExecuting);
+#endif
+
 }

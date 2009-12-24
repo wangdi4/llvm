@@ -26,6 +26,7 @@
 #pragma once
 
 #include "cl_device_api.h"
+#include "cpu_dev_limits.h"
 #include "memory_allocator.h"
 #include "program_service.h"
 #include "task_executor.h"
@@ -162,7 +163,7 @@ protected:
 	NDRange(TaskDispatcher* pTD);
 
 	cl_int						m_lastError;
-	char*						m_pLockedParams;
+	char						m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
 	ICLDevBackendBinary*		m_pBinary;
 
 	// Executable information
@@ -172,6 +173,13 @@ protected:
 	WGContext*					*m_pWGContexts;
 
 	void	UnlockMemoryBuffers();
+
+#ifdef _DEBUG
+	// For debug
+	volatile long m_lExecuting;
+	volatile long m_lFinish;
+	volatile long m_lAttaching;
+#endif
 };
 
 }}}
