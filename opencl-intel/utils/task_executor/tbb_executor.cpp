@@ -276,15 +276,17 @@ struct queue_executor_proxy {
 // implementation of in-order command list dispatcher
 class ordered_command_list : public ITaskList {
 	tbb::spin_mutex mutex;
-	int ref_count;
+	tbb::atomic<int> ref_count;
 //		typedef std::vector<ITaskBase*, tbb::scalable_allocator<ITaskBase*> > queue_t;
 	typedef std::vector<ITaskBase* > queue_t;
-    bool is_executed; //< shows whether the service task of the dispatcher runs
+    tbb::atomic<bool> is_executed; //< shows whether the service task of the dispatcher runs
 	queue_t input, queue, work; //< input queues of commands
 public:
 	void *operator new(std::size_t bytes) { return scalable_malloc(bytes); }
 	void operator delete(void *p) { scalable_free(p); }
-    ordered_command_list() : ref_count(1), is_executed(false) {
+    ordered_command_list() {
+		ref_count = 1;
+		is_executed = false;
 		LOG_INFO("Created at 0x%X", this);
         input.reserve(VECTOR_RESERVE); work.reserve(VECTOR_RESERVE); queue.reserve(VECTOR_RESERVE);
     }
@@ -321,10 +323,8 @@ public:
 	}
 	/*override*/ void Release() {
         assert( input.empty() ); // Flush() must be called before Release()
-		tbb::spin_mutex::scoped_lock lock( mutex );
-        assert( queue.empty() || is_executed );
 		if( ! --ref_count ) {
-			lock.release();
+			assert(!is_executed && queue.empty());
 			LOG_INFO("Deleted at 0x%X", this);
 			delete this;
 		}
