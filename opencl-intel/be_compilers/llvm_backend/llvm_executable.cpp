@@ -30,12 +30,13 @@
 #include "llvm_kernel.h"
 #include "llvm_binary.h"
 #include "llvm_executable.h"
-#include <assert.h>
 
-#ifdef __SSE4_1__
+#include <assert.h>
 #include <tmmintrin.h>
-#endif
+
 using namespace Intel::OpenCL::DeviceBackend;
+
+#define DEBUG_CHECK_MASK_SIZE	16
 
 LLVMExecutable::LLVMExecutable(const LLVMBinary* pBin):
 	m_pBinary(pBin), m_pBase(NULL), m_pContext(NULL)
@@ -56,7 +57,17 @@ LLVMExecutable::~LLVMExecutable()
 }
 void LLVMExecutable::Release()
 {
-	delete []m_pBase;
+	if ( m_pBase != NULL )
+	{
+#ifdef _DEBUG
+		// check for the mask
+		for (int i=0; i<DEBUG_CHECK_MASK_SIZE; ++i)
+		{
+			assert(m_pBase[i] == 0x77);
+		}
+#endif
+		delete []m_pBase;
+	}
 	delete this;
 }
 
@@ -71,13 +82,18 @@ cl_uint	LLVMExecutable::Init(void* *pMemoryBuffers, unsigned int uiWICount)
 	unsigned int uiStackSize = m_pBinary->GetKernel()->GetPrivateMemorySize()+
 								m_pBinary->GetFormalParametersSize();
 	// Allocate buffer for context
-	m_pBase = new char[uiWICount*uiStackSize];
+#ifndef _DEBUG
+	m_pBase = new char[uiWICount*uiStackSize+15];
+#else
+	m_pBase = new char[uiWICount*uiStackSize+15+DEBUG_CHECK_MASK_SIZE];	// add additional 16 byte for test mask
+#endif
 	if ( NULL == m_pBase)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
+
 #ifdef _DEBUG
-	memset(m_pBase, 0x77, uiWICount*uiStackSize);
+	memset(m_pBase, 0x77, uiWICount*uiStackSize+15+DEBUG_CHECK_MASK_SIZE);
 #endif
 
 	m_uiWICount = uiWICount;
@@ -87,8 +103,12 @@ cl_uint	LLVMExecutable::Init(void* *pMemoryBuffers, unsigned int uiWICount)
 	uiParamSize += sizeof(void*);
 
 	// Start from the end, make 16 byte aligned
+#ifndef _DEBUG
 	m_pContext = (char*)((size_t)(m_pBase+uiStackSize-uiParamSize) & ~0xF);
-
+#else
+	// Leave space 
+	m_pContext = (char*)((size_t)(m_pBase+DEBUG_CHECK_MASK_SIZE+uiStackSize-uiParamSize) & ~0xF);
+#endif
 	// Copy parameters to context
 	memcpy(m_pContext, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 	// Update pointers of the local buffers
