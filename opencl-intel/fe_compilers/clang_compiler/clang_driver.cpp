@@ -608,6 +608,7 @@ void CompileTask::Execute()
 
 	Diags->setIgnoreAllWarnings(OptNoWarnings);
 	Diags->setWarningsAsErrors(OptWarnAsErrors);
+	Diags->setDiagnosticGroupMapping("opencl", diag::MAP_IGNORE);
 
     gSourceMgr->clearIDTables();
 
