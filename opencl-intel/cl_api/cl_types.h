@@ -104,509 +104,513 @@ typedef void (*logging_fn)(const char *, const void *, size_t, void *);
 //
 
 // Platform APIs
-typedef cl_int CL_API_CALL(*pfn_clGetPlatformIDs)(
-	cl_uint          num_entries,
-	cl_platform_id * platforms,
-	cl_uint *        num_platforms) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetPlatformIDs)(
+                 cl_uint          num_entries,
+                 cl_platform_id * platforms,
+                 cl_uint *        num_platforms) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetPlatformInfo)(
-	cl_platform_id   platform, 
-	cl_platform_info param_name,
-	size_t           param_value_size, 
-	void *           param_value,
-	size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetPlatformInfo)(
+    cl_platform_id   platform, 
+    cl_platform_info param_name,
+    size_t           param_value_size, 
+    void *           param_value,
+    size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 // Device APIs
-typedef cl_int CL_API_CALL(*pfn_clGetDeviceIDs)(
-	cl_platform_id   platform,
-	cl_device_type   device_type, 
-	cl_uint          num_entries, 
-	cl_device_id *   devices, 
-	cl_uint *        num_devices) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetDeviceIDs)(
+    cl_platform_id   platform,
+    cl_device_type   device_type, 
+    cl_uint          num_entries, 
+    cl_device_id *   devices, 
+    cl_uint *        num_devices) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetDeviceInfo)(
-	cl_device_id    device,
-	cl_device_info  param_name, 
-	size_t          param_value_size, 
-	void *          param_value,
-	size_t *        param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetDeviceInfo)(
+    cl_device_id    device,
+    cl_device_info  param_name, 
+    size_t          param_value_size, 
+    void *          param_value,
+    size_t *        param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 // Context APIs  
-typedef cl_context CL_API_CALL(*pfn_clCreateContext)(
-	const cl_context_properties * properties,
-	cl_uint                 num_devices,
-	const cl_device_id *    devices,
-	void (*pfn_notify)(const char *, const void *, size_t, void *),
-	void *                  user_data,
-	cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_context (CL_API_CALL *pfn_clCreateContext)(
+    const cl_context_properties * properties,
+    cl_uint                 num_devices,
+    const cl_device_id *    devices,
+    void (*pfn_notify)(const char *, const void *, size_t, void *),
+    void *                  user_data,
+    cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_context CL_API_CALL(*pfn_clCreateContextFromType)(
-	const cl_context_properties * properties,
-	cl_device_type          device_type,
-	void (*pfn_notify)(const char *, const void *, size_t, void *),
-	void *                  user_data,
-	cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_context (CL_API_CALL *pfn_clCreateContextFromType)(
+    const cl_context_properties * properties,
+    cl_device_type          device_type,
+    void (*pfn_notify)(const char *, const void *, size_t, void *),
+    void *                  user_data,
+    cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainContext)(
-	cl_context context) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clRetainContext)(
+    cl_context context) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseContext)(
-	cl_context context) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseContext)(
+    cl_context context) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetContextInfo)(
-	cl_context         context, 
-	cl_context_info    param_name, 
-	size_t             param_value_size, 
-	void *             param_value, 
-	size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetContextInfo)(
+    cl_context         context, 
+    cl_context_info    param_name, 
+    size_t             param_value_size, 
+    void *             param_value, 
+    size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 // Command Queue APIs
-typedef cl_command_queue CL_API_CALL(*pfn_clCreateCommandQueue)(
-	cl_context                     context, 
-	cl_device_id                   device, 
-	cl_command_queue_properties    properties,
-	cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_command_queue (CL_API_CALL *pfn_clCreateCommandQueue)(
+    cl_context                     context, 
+    cl_device_id                   device, 
+    cl_command_queue_properties    properties,
+    cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainCommandQueue)(
-	cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clRetainCommandQueue)(
+    cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseCommandQueue)(
-	cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseCommandQueue)(
+    cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetCommandQueueInfo)(
-	cl_command_queue      command_queue,
-	cl_command_queue_info param_name,
-	size_t                param_value_size,
-	void *                param_value,
-	size_t *              param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetCommandQueueInfo)(
+    cl_command_queue      command_queue,
+    cl_command_queue_info param_name,
+    size_t                param_value_size,
+    void *                param_value,
+    size_t *              param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clSetCommandQueueProperty)(
-	cl_command_queue              command_queue,
-	cl_command_queue_properties   properties, 
-	cl_bool                        enable,
-	cl_command_queue_properties * old_properties) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clSetCommandQueueProperty)(
+    cl_command_queue              command_queue,
+    cl_command_queue_properties   properties, 
+    cl_bool                        enable,
+    cl_command_queue_properties * old_properties) CL_API_SUFFIX__VERSION_1_0;
 
 // Memory Object APIs
-typedef cl_mem CL_API_CALL(*pfn_clCreateBuffer)(
-	cl_context   context,
-	cl_mem_flags flags,
-	size_t       size,
-	void *       host_ptr,
-	cl_int *     errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_mem (CL_API_CALL *pfn_clCreateBuffer)(
+    cl_context   context,
+    cl_mem_flags flags,
+    size_t       size,
+    void *       host_ptr,
+    cl_int *     errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_mem CL_API_CALL(*pfn_clCreateImage2D)(
-	cl_context              context,
-	cl_mem_flags            flags,
-	const cl_image_format * image_format,
-	size_t                  image_width,
-	size_t                  image_height,
-	size_t                  image_row_pitch, 
-	void *                  host_ptr,
-	cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_mem (CL_API_CALL *pfn_clCreateImage2D)(
+    cl_context              context,
+    cl_mem_flags            flags,
+    const cl_image_format * image_format,
+    size_t                  image_width,
+    size_t                  image_height,
+    size_t                  image_row_pitch, 
+    void *                  host_ptr,
+    cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+                        
+typedef cl_mem (CL_API_CALL *pfn_clCreateImage3D)(
+    cl_context              context,
+    cl_mem_flags            flags,
+    const cl_image_format * image_format,
+    size_t                  image_width, 
+    size_t                  image_height,
+    size_t                  image_depth, 
+    size_t                  image_row_pitch, 
+    size_t                  image_slice_pitch, 
+    void *                  host_ptr,
+    cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+                        
+typedef cl_int (CL_API_CALL *pfn_clRetainMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_mem CL_API_CALL(*pfn_clCreateImage3D)(
-	cl_context              context,
-	cl_mem_flags            flags,
-	const cl_image_format * image_format,
-	size_t                  image_width, 
-	size_t                  image_height,
-	size_t                  image_depth, 
-	size_t                  image_row_pitch, 
-	size_t                  image_slice_pitch, 
-	void *                  host_ptr,
-	cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetSupportedImageFormats)(
+    cl_context           context,
+    cl_mem_flags         flags,
+    cl_mem_object_type   image_type,
+    cl_uint              num_entries,
+    cl_image_format *    image_formats,
+    cl_uint *            num_image_formats) CL_API_SUFFIX__VERSION_1_0;
+                                    
+typedef cl_int (CL_API_CALL *pfn_clGetMemObjectInfo)(
+    cl_mem           memobj,
+    cl_mem_info      param_name, 
+    size_t           param_value_size,
+    void *           param_value,
+    size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clGetSupportedImageFormats)(
-	cl_context           context,
-	cl_mem_flags         flags,
-	cl_mem_object_type   image_type,
-	cl_uint              num_entries,
-	cl_image_format *    image_formats,
-	cl_uint *            num_image_formats) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clGetMemObjectInfo)(
-	cl_mem           memobj,
-	cl_mem_info      param_name, 
-	size_t           param_value_size,
-	void *           param_value,
-	size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clGetImageInfo)(
-	cl_mem           image,
-	cl_image_info    param_name, 
-	size_t           param_value_size,
-	void *           param_value,
-	size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetImageInfo)(
+    cl_mem           image,
+    cl_image_info    param_name, 
+    size_t           param_value_size,
+    void *           param_value,
+    size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 // Sampler APIs
-typedef cl_sampler CL_API_CALL(*pfn_clCreateSampler)(
-	cl_context          context,
-	cl_bool             normalized_coords, 
-	cl_addressing_mode  addressing_mode, 
-	cl_filter_mode      filter_mode,
-	cl_int *            errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_sampler (CL_API_CALL *pfn_clCreateSampler)(
+    cl_context          context,
+    cl_bool             normalized_coords, 
+    cl_addressing_mode  addressing_mode, 
+    cl_filter_mode      filter_mode,
+    cl_int *            errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clRetainSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetSamplerInfo)(
-	cl_sampler         sampler,
-	cl_sampler_info    param_name,
-	size_t             param_value_size,
-	void *             param_value,
-	size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
-
+typedef cl_int (CL_API_CALL *pfn_clGetSamplerInfo)(
+    cl_sampler         sampler,
+    cl_sampler_info    param_name,
+    size_t             param_value_size,
+    void *             param_value,
+    size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+                            
 // Program Object APIs
-typedef cl_program CL_API_CALL(*pfn_clCreateProgramWithSource)(
-	cl_context        context,
-	cl_uint           count,
-	const char **     strings,
-	const size_t *    lengths,
-	cl_int *          errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_program (CL_API_CALL *pfn_clCreateProgramWithSource)(
+    cl_context        context,
+    cl_uint           count,
+    const char **     strings,
+    const size_t *    lengths,
+    cl_int *          errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_program CL_API_CALL(*pfn_clCreateProgramWithBinary)(
-	cl_context                     context,
-	cl_uint                        num_devices,
-	const cl_device_id *           device_list,
-	const size_t *                 lengths,
-	const unsigned char **         binaries,
-	cl_int *                       binary_status,
-	cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_program (CL_API_CALL *pfn_clCreateProgramWithBinary)(
+    cl_context                     context,
+    cl_uint                        num_devices,
+    const cl_device_id *           device_list,
+    const size_t *                 lengths,
+    const unsigned char **         binaries,
+    cl_int *                       binary_status,
+    cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainProgram)(cl_program program) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clRetainProgram)(cl_program program) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseProgram)(cl_program program) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseProgram)(cl_program program) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clBuildProgram)(
-	cl_program           program,
-	cl_uint              num_devices,
-	const cl_device_id * device_list,
-	const char *         options, 
-	void (*pfn_notify)(cl_program program, void * user_data),
-	void *               user_data) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clBuildProgram)(
+    cl_program           program,
+    cl_uint              num_devices,
+    const cl_device_id * device_list,
+    const char *         options, 
+    void (*pfn_notify)(cl_program program, void * user_data),
+    void *               user_data) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clUnloadCompiler)(void) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clUnloadCompiler)(void) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetProgramInfo)(
-	cl_program         program,
-	cl_program_info    param_name,
-	size_t             param_value_size,
-	void *             param_value,
-	size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetProgramInfo)(
+    cl_program         program,
+    cl_program_info    param_name,
+    size_t             param_value_size,
+    void *             param_value,
+    size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetProgramBuildInfo)(
-	cl_program            program,
-	cl_device_id          device,
-	cl_program_build_info param_name,
-	size_t                param_value_size,
-	void *                param_value,
-	size_t *              param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
-
+typedef cl_int (CL_API_CALL *pfn_clGetProgramBuildInfo)(
+    cl_program            program,
+    cl_device_id          device,
+    cl_program_build_info param_name,
+    size_t                param_value_size,
+    void *                param_value,
+    size_t *              param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+                            
 // Kernel Object APIs
-typedef cl_kernel CL_API_CALL(*pfn_clCreateKernel)(
-	cl_program      program,
-	const char *    kernel_name,
-	cl_int *        errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_kernel (CL_API_CALL *pfn_clCreateKernel)(
+    cl_program      program,
+    const char *    kernel_name,
+    cl_int *        errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clCreateKernelsInProgram)(
-	cl_program     program,
-	cl_uint        num_kernels,
-	cl_kernel *    kernels,
-	cl_uint *      num_kernels_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clCreateKernelsInProgram)(
+    cl_program     program,
+    cl_uint        num_kernels,
+    cl_kernel *    kernels,
+    cl_uint *      num_kernels_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainKernel)(cl_kernel    kernel) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clRetainKernel)(cl_kernel    kernel) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clReleaseKernel)(cl_kernel   kernel) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseKernel)(cl_kernel   kernel) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clSetKernelArg)(
-	cl_kernel    kernel,
-	cl_uint      arg_index,
-	size_t       arg_size,
-	const void * arg_value) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clSetKernelArg)(
+    cl_kernel    kernel,
+    cl_uint      arg_index,
+    size_t       arg_size,
+    const void * arg_value) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetKernelInfo)(
-	cl_kernel       kernel,
-	cl_kernel_info  param_name,
-	size_t          param_value_size,
-	void *          param_value,
-	size_t *        param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetKernelInfo)(
+    cl_kernel       kernel,
+    cl_kernel_info  param_name,
+    size_t          param_value_size,
+    void *          param_value,
+    size_t *        param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetKernelWorkGroupInfo)(
-	cl_kernel                  kernel,
-	cl_device_id               device,
-	cl_kernel_work_group_info  param_name,
-	size_t                     param_value_size,
-	void *                     param_value,
-	size_t *                   param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetKernelWorkGroupInfo)(
+    cl_kernel                  kernel,
+    cl_device_id               device,
+    cl_kernel_work_group_info  param_name,
+    size_t                     param_value_size,
+    void *                     param_value,
+    size_t *                   param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 // Event Object APIs
-typedef cl_int CL_API_CALL(*pfn_clWaitForEvents)(
-	cl_uint             num_events,
-	const cl_event *    event_list) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clWaitForEvents)(
+    cl_uint             num_events,
+    const cl_event *    event_list) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clGetEventInfo)(
-	cl_event         event,
-	cl_event_info    param_name,
-	size_t           param_value_size,
-	void *           param_value,
-	size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clGetEventInfo)(
+    cl_event         event,
+    cl_event_info    param_name,
+    size_t           param_value_size,
+    void *           param_value,
+    size_t *         param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+                            
+typedef cl_int (CL_API_CALL *pfn_clRetainEvent)(cl_event event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clRetainEvent)(cl_event event) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clReleaseEvent)(cl_event event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clReleaseEvent)(cl_event event) CL_API_SUFFIX__VERSION_1_0;
 
 // Profiling APIs
-typedef cl_int CL_API_CALL(*pfn_clGetEventProfilingInfo)(
-	cl_event            event,
-	cl_profiling_info   param_name,
-	size_t              param_value_size,
-	void *              param_value,
-	size_t *            param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
-
+typedef cl_int (CL_API_CALL *pfn_clGetEventProfilingInfo)(
+    cl_event            event,
+    cl_profiling_info   param_name,
+    size_t              param_value_size,
+    void *              param_value,
+    size_t *            param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+                                
 // Flush and Finish APIs
-typedef cl_int CL_API_CALL(*pfn_clFlush)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clFlush)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clFinish)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clFinish)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
 // Enqueued Commands APIs
-typedef cl_int CL_API_CALL(*pfn_clEnqueueReadBuffer)(
-	cl_command_queue    command_queue,
-	cl_mem              buffer,
-	cl_bool             blocking_read,
-	size_t              offset,
-	size_t              cb, 
-	void *              ptr,
-	cl_uint             num_events_in_wait_list,
-	const cl_event *    event_wait_list,
-	cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueReadBuffer)(
+    cl_command_queue    command_queue,
+    cl_mem              buffer,
+    cl_bool             blocking_read,
+    size_t              offset,
+    size_t              cb, 
+    void *              ptr,
+    cl_uint             num_events_in_wait_list,
+    const cl_event *    event_wait_list,
+    cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
+                            
+typedef cl_int (CL_API_CALL *pfn_clEnqueueWriteBuffer)(
+    cl_command_queue   command_queue, 
+    cl_mem             buffer, 
+    cl_bool            blocking_write, 
+    size_t             offset, 
+    size_t             cb, 
+    const void *       ptr, 
+    cl_uint            num_events_in_wait_list, 
+    const cl_event *   event_wait_list, 
+    cl_event *         event) CL_API_SUFFIX__VERSION_1_0;
+                            
+typedef cl_int (CL_API_CALL *pfn_clEnqueueCopyBuffer)(
+    cl_command_queue    command_queue, 
+    cl_mem              src_buffer,
+    cl_mem              dst_buffer, 
+    size_t              src_offset,
+    size_t              dst_offset,
+    size_t              cb, 
+    cl_uint             num_events_in_wait_list,
+    const cl_event *    event_wait_list,
+    cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
+                            
+typedef cl_int (CL_API_CALL *pfn_clEnqueueReadImage)(
+    cl_command_queue     command_queue,
+    cl_mem               image,
+    cl_bool              blocking_read, 
+    const size_t *       origin,
+    const size_t *       region,
+    size_t               row_pitch,
+    size_t               slice_pitch, 
+    void *               ptr,
+    cl_uint              num_events_in_wait_list,
+    const cl_event *     event_wait_list,
+    cl_event *           event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueWriteBuffer)(
-	cl_command_queue   command_queue, 
-	cl_mem             buffer, 
-	cl_bool            blocking_write, 
-	size_t             offset, 
-	size_t             cb, 
-	const void *       ptr, 
-	cl_uint            num_events_in_wait_list, 
-	const cl_event *   event_wait_list, 
-	cl_event *         event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueWriteImage)(
+    cl_command_queue    command_queue,
+    cl_mem              image,
+    cl_bool             blocking_write, 
+    const size_t *      origin,
+    const size_t *      region,
+    size_t              input_row_pitch,
+    size_t              input_slice_pitch, 
+    const void *        ptr,
+    cl_uint             num_events_in_wait_list,
+    const cl_event *    event_wait_list,
+    cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueCopyBuffer)(
-	cl_command_queue    command_queue, 
-	cl_mem              src_buffer,
-	cl_mem              dst_buffer, 
-	size_t              src_offset,
-	size_t              dst_offset,
-	size_t              cb, 
-	cl_uint             num_events_in_wait_list,
-	const cl_event *    event_wait_list,
-	cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueCopyImage)(
+    cl_command_queue     command_queue,
+    cl_mem               src_image,
+    cl_mem               dst_image, 
+    const size_t *       src_origin,
+    const size_t *       dst_origin,
+    const size_t *       region, 
+    cl_uint              num_events_in_wait_list,
+    const cl_event *     event_wait_list,
+    cl_event *           event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueReadImage)(
-	cl_command_queue     command_queue,
-	cl_mem               image,
-	cl_bool              blocking_read, 
-	const size_t *       origin,
-	const size_t *       region,
-	size_t               row_pitch,
-	size_t               slice_pitch, 
-	void *               ptr,
-	cl_uint              num_events_in_wait_list,
-	const cl_event *     event_wait_list,
-	cl_event *           event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueCopyImageToBuffer)(
+    cl_command_queue command_queue,
+    cl_mem           src_image,
+    cl_mem           dst_buffer, 
+    const size_t *   src_origin,
+    const size_t *   region, 
+    size_t           dst_offset,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueWriteImage)(
-	cl_command_queue    command_queue,
-	cl_mem              image,
-	cl_bool             blocking_write, 
-	const size_t *      origin,
-	const size_t *      region,
-	size_t              input_row_pitch,
-	size_t              input_slice_pitch, 
-	const void *        ptr,
-	cl_uint             num_events_in_wait_list,
-	const cl_event *    event_wait_list,
-	cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueCopyBufferToImage)(
+    cl_command_queue command_queue,
+    cl_mem           src_buffer,
+    cl_mem           dst_image, 
+    size_t           src_offset,
+    const size_t *   dst_origin,
+    const size_t *   region, 
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueCopyImage)(
-	cl_command_queue     command_queue,
-	cl_mem               src_image,
-	cl_mem               dst_image, 
-	const size_t *       src_origin,
-	const size_t *       dst_origin,
-	const size_t *       region, 
-	cl_uint              num_events_in_wait_list,
-	const cl_event *     event_wait_list,
-	cl_event *           event) CL_API_SUFFIX__VERSION_1_0;
+typedef void * (CL_API_CALL *pfn_clEnqueueMapBuffer)(
+    cl_command_queue command_queue,
+    cl_mem           buffer,
+    cl_bool          blocking_map, 
+    cl_map_flags     map_flags,
+    size_t           offset,
+    size_t           cb,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event,
+    cl_int *         errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueCopyImageToBuffer)(
-	cl_command_queue command_queue,
-	cl_mem           src_image,
-	cl_mem           dst_buffer, 
-	const size_t *   src_origin,
-	const size_t *   region, 
-	size_t           dst_offset,
-	cl_uint          num_events_in_wait_list,
-	const cl_event * event_wait_list,
-	cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
+typedef void * (CL_API_CALL *pfn_clEnqueueMapImage)(
+    cl_command_queue  command_queue,
+    cl_mem            image, 
+    cl_bool           blocking_map, 
+    cl_map_flags      map_flags, 
+    const size_t *    origin,
+    const size_t *    region,
+    size_t *          image_row_pitch,
+    size_t *          image_slice_pitch,
+    cl_uint           num_events_in_wait_list,
+    const cl_event *  event_wait_list,
+    cl_event *        event,
+    cl_int *          errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueCopyBufferToImage)(
-	cl_command_queue command_queue,
-	cl_mem           src_buffer,
-	cl_mem           dst_image, 
-	size_t           src_offset,
-	const size_t *   dst_origin,
-	const size_t *   region, 
-	cl_uint          num_events_in_wait_list,
-	const cl_event * event_wait_list,
-	cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueUnmapMemObject)(
+    cl_command_queue command_queue,
+    cl_mem           memobj,
+    void *           mapped_ptr,
+    cl_uint          num_events_in_wait_list,
+    const cl_event *  event_wait_list,
+    cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef void * CL_API_CALL(*pfn_clEnqueueMapBuffer)(
-	cl_command_queue command_queue,
-	cl_mem           buffer,
-	cl_bool          blocking_map, 
-	cl_map_flags     map_flags,
-	size_t           offset,
-	size_t           cb,
-	cl_uint          num_events_in_wait_list,
-	const cl_event * event_wait_list,
-	cl_event *       event,
-	cl_int *         errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueNDRangeKernel)(
+    cl_command_queue command_queue,
+    cl_kernel        kernel,
+    cl_uint          work_dim,
+    const size_t *   global_work_offset,
+    const size_t *   global_work_size,
+    const size_t *   local_work_size,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef void * CL_API_CALL(*pfn_clEnqueueMapImage)(
-	cl_command_queue  command_queue,
-	cl_mem            image, 
-	cl_bool           blocking_map, 
-	cl_map_flags      map_flags, 
-	const size_t *    origin,
-	const size_t *    region,
-	size_t *          image_row_pitch,
-	size_t *          image_slice_pitch,
-	cl_uint           num_events_in_wait_list,
-	const cl_event *  event_wait_list,
-	cl_event *        event,
-	cl_int *          errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueTask)(
+    cl_command_queue  command_queue,
+    cl_kernel         kernel,
+    cl_uint           num_events_in_wait_list,
+    const cl_event *  event_wait_list,
+    cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueUnmapMemObject)(
-	cl_command_queue command_queue,
-	cl_mem           memobj,
-	void *           mapped_ptr,
-	cl_uint          num_events_in_wait_list,
-	const cl_event *  event_wait_list,
-	cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueNativeKernel)(
+    cl_command_queue  command_queue,
+    void (*user_func)(void *), 
+    void *            args,
+    size_t            cb_args, 
+    cl_uint           num_mem_objects,
+    const cl_mem *    mem_list,
+    const void **     args_mem_loc,
+    cl_uint           num_events_in_wait_list,
+    const cl_event *  event_wait_list,
+    cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueNDRangeKernel)(
-	cl_command_queue command_queue,
-	cl_kernel        kernel,
-	cl_uint          work_dim,
-	const size_t *   global_work_offset,
-	const size_t *   global_work_size,
-	const size_t *   local_work_size,
-	cl_uint          num_events_in_wait_list,
-	const cl_event * event_wait_list,
-	cl_event *       event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueMarker)(
+    cl_command_queue    command_queue,
+    cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueTask)(
-	cl_command_queue  command_queue,
-	cl_kernel         kernel,
-	cl_uint           num_events_in_wait_list,
-	const cl_event *  event_wait_list,
-	cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueWaitForEvents)(
+    cl_command_queue command_queue,
+    cl_uint          num_events,
+    const cl_event * event_list) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueNativeKernel)(
-	cl_command_queue  command_queue,
-	void (*user_func)(void *), 
-	void *            args,
-	size_t            cb_args, 
-	cl_uint           num_mem_objects,
-	const cl_mem *    mem_list,
-	const void **     args_mem_loc,
-	cl_uint           num_events_in_wait_list,
-	const cl_event *  event_wait_list,
-	cl_event *        event) CL_API_SUFFIX__VERSION_1_0;
+typedef cl_int (CL_API_CALL *pfn_clEnqueueBarrier)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
-typedef cl_int CL_API_CALL(*pfn_clEnqueueMarker)(
-	cl_command_queue    command_queue,
-	cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clEnqueueWaitForEvents)(
-	cl_command_queue command_queue,
-	cl_uint          num_events,
-	const cl_event * event_list) CL_API_SUFFIX__VERSION_1_0;
-
-typedef cl_int CL_API_CALL(*pfn_clEnqueueBarrier)(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
+typedef void * (CL_API_CALL *pfn_clGetExtensionFunctionAddress)(const char *function_name) CL_API_SUFFIX__VERSION_1_0;
 
 struct ocl_entry_points
 {
-	pfn_clGetPlatformInfo              clGetPlatformInfo;
-	pfn_clGetDeviceIDs                 clGetDeviceIDs;
-	pfn_clGetDeviceInfo                clGetDeviceInfo;
-	pfn_clCreateContext                clCreateContext;
-	pfn_clCreateContextFromType        clCreateContextFromType;
-	pfn_clRetainContext                clRetainContext;
-	pfn_clReleaseContext               clReleaseContext;
-	pfn_clGetContextInfo               clGetContextInfo;
-	pfn_clCreateCommandQueue           clCreateCommandQueue;
-	pfn_clRetainCommandQueue           clRetainCommandQueue;
-	pfn_clReleaseCommandQueue          clReleaseCommandQueue;
-	pfn_clGetCommandQueueInfo          clGetCommandQueueInfo;
-	pfn_clSetCommandQueueProperty      clSetCommandQueueProperty;
-	pfn_clCreateBuffer                 clCreateBuffer;
-	pfn_clCreateImage2D                clCreateImage2D;
-	pfn_clCreateImage3D                clCreateImage3D;
-	pfn_clRetainMemObject              clRetainMemObject;
-	pfn_clReleaseMemObject             clReleaseMemObject;
-	pfn_clGetSupportedImageFormats     clGetSupportedImageFormats;
-	pfn_clGetMemObjectInfo             clGetMemObjectInfo;
-	pfn_clGetImageInfo                 clGetImageInfo;
-	pfn_clCreateSampler                clCreateSampler;
-	pfn_clRetainSampler                clRetainSampler;
-	pfn_clReleaseSampler               clReleaseSampler;
-	pfn_clGetSamplerInfo               clGetSamplerInfo;
-	pfn_clCreateProgramWithSource      clCreateProgramWithSource;
-	pfn_clCreateProgramWithBinary      clCreateProgramWithBinary;
-	pfn_clRetainProgram                clRetainProgram;
-	pfn_clReleaseProgram               clReleaseProgram;
-	pfn_clBuildProgram                 clBuildProgram;
-	pfn_clUnloadCompiler               clUnloadCompiler;
-	pfn_clGetProgramInfo               clGetProgramInfo;
-	pfn_clGetProgramBuildInfo          clGetProgramBuildInfo;
-	pfn_clCreateKernel                 clCreateKernel;
-	pfn_clCreateKernelsInProgram       clCreateKernelsInProgram;
-	pfn_clRetainKernel                 clRetainKernel;
-	pfn_clReleaseKernel                clReleaseKernel;
-	pfn_clSetKernelArg                 clSetKernelArg;
-	pfn_clGetKernelInfo                clGetKernelInfo;
-	pfn_clGetKernelWorkGroupInfo       clGetKernelWorkGroupInfo;
-	pfn_clWaitForEvents                clWaitForEvents;
-	pfn_clGetEventInfo                 clGetEventInfo;
-	pfn_clRetainEvent                  clRetainEvent;
-	pfn_clReleaseEvent                 clReleaseEvent;
-	pfn_clGetEventProfilingInfo        clGetEventProfilingInfo;
-	pfn_clFlush                        clFlush;
-	pfn_clFinish                       clFinish;
-	pfn_clEnqueueReadBuffer            clEnqueueReadBuffer;
-	pfn_clEnqueueWriteBuffer           clEnqueueWriteBuffer;
-	pfn_clEnqueueCopyBuffer            clEnqueueCopyBuffer;
-	pfn_clEnqueueReadImage             clEnqueueReadImage;
-	pfn_clEnqueueWriteImage            clEnqueueWriteImage;
-	pfn_clEnqueueCopyImage             clEnqueueCopyImage;
-	pfn_clEnqueueCopyImageToBuffer     clEnqueueCopyImageToBuffer;
-	pfn_clEnqueueCopyBufferToImage     clEnqueueCopyBufferToImage;
-	pfn_clEnqueueMapBuffer             clEnqueueMapBuffer;
-	pfn_clEnqueueMapImage              clEnqueueMapImage;
-	pfn_clEnqueueUnmapMemObject        clEnqueueUnmapMemObject;
-	pfn_clEnqueueNDRangeKernel         clEnqueueNDRangeKernel;
-	pfn_clEnqueueTask                  clEnqueueTask;
-	pfn_clEnqueueNativeKernel          clEnqueueNativeKernel;
-	pfn_clEnqueueMarker                clEnqueueMarker;
-	pfn_clEnqueueWaitForEvents         clEnqueueWaitForEvents;
-	pfn_clEnqueueBarrier               clEnqueueBarrier;
+    pfn_clGetPlatformIDs               clGetPlatformIDs;
+    pfn_clGetPlatformInfo              clGetPlatformInfo;
+    pfn_clGetDeviceIDs                 clGetDeviceIDs;
+    pfn_clGetDeviceInfo                clGetDeviceInfo;
+    pfn_clCreateContext                clCreateContext;
+    pfn_clCreateContextFromType        clCreateContextFromType;
+    pfn_clRetainContext                clRetainContext;
+    pfn_clReleaseContext               clReleaseContext;
+    pfn_clGetContextInfo               clGetContextInfo;
+    pfn_clCreateCommandQueue           clCreateCommandQueue;
+    pfn_clRetainCommandQueue           clRetainCommandQueue;
+    pfn_clReleaseCommandQueue          clReleaseCommandQueue;
+    pfn_clGetCommandQueueInfo          clGetCommandQueueInfo;
+    pfn_clSetCommandQueueProperty      clSetCommandQueueProperty;
+    pfn_clCreateBuffer                 clCreateBuffer;
+    pfn_clCreateImage2D                clCreateImage2D;
+    pfn_clCreateImage3D                clCreateImage3D;
+    pfn_clRetainMemObject              clRetainMemObject;
+    pfn_clReleaseMemObject             clReleaseMemObject;
+    pfn_clGetSupportedImageFormats     clGetSupportedImageFormats;
+    pfn_clGetMemObjectInfo             clGetMemObjectInfo;
+    pfn_clGetImageInfo                 clGetImageInfo;
+    pfn_clCreateSampler                clCreateSampler;
+    pfn_clRetainSampler                clRetainSampler;
+    pfn_clReleaseSampler               clReleaseSampler;
+    pfn_clGetSamplerInfo               clGetSamplerInfo;
+    pfn_clCreateProgramWithSource      clCreateProgramWithSource;
+    pfn_clCreateProgramWithBinary      clCreateProgramWithBinary;
+    pfn_clRetainProgram                clRetainProgram;
+    pfn_clReleaseProgram               clReleaseProgram;
+    pfn_clBuildProgram                 clBuildProgram;
+    pfn_clUnloadCompiler               clUnloadCompiler;
+    pfn_clGetProgramInfo               clGetProgramInfo;
+    pfn_clGetProgramBuildInfo          clGetProgramBuildInfo;
+    pfn_clCreateKernel                 clCreateKernel;
+    pfn_clCreateKernelsInProgram       clCreateKernelsInProgram;
+    pfn_clRetainKernel                 clRetainKernel;
+    pfn_clReleaseKernel                clReleaseKernel;
+    pfn_clSetKernelArg                 clSetKernelArg;
+    pfn_clGetKernelInfo                clGetKernelInfo;
+    pfn_clGetKernelWorkGroupInfo       clGetKernelWorkGroupInfo;
+    pfn_clWaitForEvents                clWaitForEvents;
+    pfn_clGetEventInfo                 clGetEventInfo;
+    pfn_clRetainEvent                  clRetainEvent;
+    pfn_clReleaseEvent                 clReleaseEvent;
+    pfn_clGetEventProfilingInfo        clGetEventProfilingInfo;
+    pfn_clFlush                        clFlush;
+    pfn_clFinish                       clFinish;
+    pfn_clEnqueueReadBuffer            clEnqueueReadBuffer;
+    pfn_clEnqueueWriteBuffer           clEnqueueWriteBuffer;
+    pfn_clEnqueueCopyBuffer            clEnqueueCopyBuffer;
+    pfn_clEnqueueReadImage             clEnqueueReadImage;
+    pfn_clEnqueueWriteImage            clEnqueueWriteImage;
+    pfn_clEnqueueCopyImage             clEnqueueCopyImage;
+    pfn_clEnqueueCopyImageToBuffer     clEnqueueCopyImageToBuffer;
+    pfn_clEnqueueCopyBufferToImage     clEnqueueCopyBufferToImage;
+    pfn_clEnqueueMapBuffer             clEnqueueMapBuffer;
+    pfn_clEnqueueMapImage              clEnqueueMapImage;
+    pfn_clEnqueueUnmapMemObject        clEnqueueUnmapMemObject;
+    pfn_clEnqueueNDRangeKernel         clEnqueueNDRangeKernel;
+    pfn_clEnqueueTask                  clEnqueueTask;
+    pfn_clEnqueueNativeKernel          clEnqueueNativeKernel;
+    pfn_clEnqueueMarker                clEnqueueMarker;
+    pfn_clEnqueueWaitForEvents         clEnqueueWaitForEvents;
+    pfn_clEnqueueBarrier               clEnqueueBarrier;
+    pfn_clGetExtensionFunctionAddress  clGetExtensionFunctionAddress;
 };
 
 
