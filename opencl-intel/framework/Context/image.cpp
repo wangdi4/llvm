@@ -216,8 +216,16 @@ cl_err_code Image2D::CreateDeviceResource(cl_device_id clDeviceId)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Image2D::ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch)
 {
-	LOG_DEBUG(L"Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", 
-		szRowPitch, pData, szSlicePitch);
+	LOG_DEBUG(L"Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
+
+	return CL_ERR_NOT_IMPLEMENTED;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Image2D::WriteData
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Image2D::WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch)
+{
+	LOG_DEBUG(L"Enter WriteData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
 
 	return CL_ERR_NOT_IMPLEMENTED;
 }

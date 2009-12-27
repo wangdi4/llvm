@@ -729,6 +729,10 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		{
 			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
 		}
+		if (m_mapKernelArgs.find(uiIndex) != m_mapKernelArgs.end())
+		{
+			delete m_mapKernelArgs[uiIndex];
+		}
 		m_mapKernelArgs[uiIndex] = pKernelArg;
 		//cl_return CL_SUCCESS;
 		return CL_SUCCESS;
@@ -748,13 +752,23 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		clArg.type = CL_KRNL_ARG_SAMPLER;
 		clArg.size_in_bytes = 0;
 		pKernelArg = new KernelArg(uiIndex, sizeof(Sampler*), pSampler, clArg);
+		if (m_mapKernelArgs.find(uiIndex) != m_mapKernelArgs.end())
+		{
+			delete m_mapKernelArgs[uiIndex];
+		}
 		m_mapKernelArgs[uiIndex] = pKernelArg;
 		//cl_return CL_SUCCESS;
 		return CL_SUCCESS;
 	}
-
-	pKernelArg = new KernelArg(uiIndex, szSize, (void*)pValue, clArg);
-	m_mapKernelArgs[uiIndex] = pKernelArg;
+	if (m_mapKernelArgs.find(uiIndex) != m_mapKernelArgs.end() )
+	{
+		m_mapKernelArgs[uiIndex]->ModifyValue(szSize, (void*)pValue);
+	}
+	else
+	{
+		pKernelArg = new KernelArg(uiIndex, szSize, (void*)pValue, clArg);
+		m_mapKernelArgs[uiIndex] = pKernelArg;
+	}
 	//cl_return CL_SUCCESS;
 	return CL_SUCCESS;
 }

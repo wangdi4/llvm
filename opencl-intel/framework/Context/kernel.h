@@ -144,6 +144,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool IsSampler() const;
 
+		void ModifyValue(size_t szSize, void * pValue)
+		{ 
+			if (m_clKernelArgType.type <= CL_KRNL_ARG_VECTOR)
+				memcpy_s(m_pValue, m_szSize, pValue, szSize);
+			else if (m_clKernelArgType.type == CL_KRNL_ARG_PTR_LOCAL)
+				*((void**)m_pValue) = (void*)szSize;
+		}
+
 	private:
 
 		// index of kernel argument

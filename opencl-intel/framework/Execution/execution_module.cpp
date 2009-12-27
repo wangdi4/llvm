@@ -29,6 +29,8 @@
 #include "context_module.h"
 #include "events_manager.h"
 #include "ocl_command_queue.h"
+#include "in_order_command_queue.h"
+#include "out_of_order_command_queue.h"
 #include "context.h"
 #include "enqueue_commands.h"
 #include "cl_memory_object.h"
@@ -551,6 +553,16 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         // Out of bounds check.
         return CL_INVALID_VALUE;
     }
+	
+	// if the command queue is empty, and there are no dependencies both on the buffer and the enqueue command we don't need to concatenate 
+	// the command through the device agent, we con do it on the runtime layer.
+	if ((CL_TRUE == bBlocking) && (pBuffer->GetPendencies() == 0) && (uNumEventsInWaitList == 0) && (NULL == pEvent) && pCommandQueue->GetCommandQueue()->IsEmpty())
+	{
+		if ( !(pBuffer->GetFlags() & CL_MEM_USE_HOST_PTR) )
+		{
+			return pBuffer->ReadData(pOutData, &szOffset, &szCb);
+		}
+	}
 
     Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pBuffer, szOffset, szCb, pOutData);
     errVal = pEnqueueReadBufferCmd->Init();
@@ -602,6 +614,16 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         // Out of bounds check.
         return CL_INVALID_VALUE;
     }
+
+	// if the command queue is empty, and there are no dependencies both on the buffer and the enqueue command we don't need to concatenate 
+	// the command through the device agent, we con do it on the runtime layer.
+	if ((CL_TRUE == bBlocking) && (pBuffer->GetPendencies() == 0) && (uNumEventsInWaitList == 0) && (NULL == pEvent) && pCommandQueue->GetCommandQueue()->IsEmpty())
+	{
+		if ( !(pBuffer->GetFlags() & CL_MEM_USE_HOST_PTR) )
+		{
+			return pBuffer->WriteData(cpSrcData, &szOffset, &szCb);
+		}
+	}
 
     Command* pWriteBufferCmd = new WriteBufferCommand(pBuffer, szOffset, szCb, cpSrcData);
     errVal = pWriteBufferCmd->Init();

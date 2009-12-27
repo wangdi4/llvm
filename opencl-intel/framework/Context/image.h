@@ -83,6 +83,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
 		cl_err_code ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch = 0);
+		cl_err_code WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch = 0);
 		size_t GetSize() const;
         virtual size_t GetRowPitchSize() const { return m_szImageRowPitch; }
 		

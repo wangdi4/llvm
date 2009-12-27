@@ -61,9 +61,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool		   UseLogger() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false); }
 		
 		vector<string> GetDevices(string& default_device);
-		string         GetDefaultDevice() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, ""); }
+		string         GetDefaultDevice() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device.dll"); }
 		vector<string> GetFeCompilers(string& default_compiler);
-		string         GetDefaultFeCompiler() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, ""); }
+		string         GetDefaultFeCompiler() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "clang_compiler.dll"); }
 
 	private:
 

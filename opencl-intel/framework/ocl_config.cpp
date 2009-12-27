@@ -34,18 +34,18 @@ void OCLConfig::Release()
 vector<string> OCLConfig::GetDevices(string & default_device)
 {
 	vector<string> vectDevices;
-	string s = m_pConfigFile->Read<string>(CL_CONFIG_DEVICES, "");
+	string s = m_pConfigFile->Read<string>(CL_CONFIG_DEVICES, "cpu_device.dll");
 	ConfigFile::tokenize(s, vectDevices);
-	default_device = m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "");
+	default_device = m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device.dll");
 	return vectDevices;
 }
 
 vector<string> OCLConfig::GetFeCompilers(string & default_compiler)
 {
 	vector<string> vectFeCompilers;
-	string s = m_pConfigFile->Read<string>(CL_CONFIG_FE_COMPILERS, "");
+	string s = m_pConfigFile->Read<string>(CL_CONFIG_FE_COMPILERS, "clang_compiler.dll");
 	ConfigFile::tokenize(s, vectFeCompilers);
-	default_compiler = m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "");
+	default_compiler = m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "clang_compiler.dll");
 	return vectFeCompilers;
 }
 

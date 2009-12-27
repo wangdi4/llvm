@@ -146,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
 		cl_uint     GetReferenceCount() const { return m_uiRefCount; }
-
+		long		GetPendencies() const { return m_uiPendency; }
 		void *		GetHandle() const { return m_pHandle; }
 
 		/******************************************************************************************

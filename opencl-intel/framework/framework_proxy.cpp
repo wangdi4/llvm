@@ -22,6 +22,7 @@ cl_monitor_init;
 char clFRAMEWORK_CFG_PATH[MAX_PATH];
 
 ocl_entry_points FrameworkProxy::OclEntryPoints = {
+	clGetPlatformIDs,
 	clGetPlatformInfo,
 	clGetDeviceIDs,
 	clGetDeviceInfo,
@@ -85,7 +86,8 @@ ocl_entry_points FrameworkProxy::OclEntryPoints = {
 	clEnqueueNativeKernel,
 	clEnqueueMarker,
 	clEnqueueWaitForEvents,
-	clEnqueueBarrier
+	clEnqueueBarrier,
+	clGetExtensionFunctionAddress,
 };
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;

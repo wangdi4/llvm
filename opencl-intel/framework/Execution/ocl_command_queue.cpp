@@ -32,8 +32,6 @@
 #include "queue_worker_thread.h"
 #include "in_order_command_queue.h"
 #include "out_of_order_command_queue.h"
-#include "in_order_command_queue.h"
-#include "out_of_order_command_queue.h"
 #include "device.h"
 
 // Debug

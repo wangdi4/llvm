@@ -107,6 +107,26 @@ cl_err_code Buffer::ReadData(void * pData, const size_t * pszOrigin, const size_
 	return CL_SUCCESS;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Buffer::WriteData
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Buffer::WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch)
+{
+    size_t szOffset = pszOrigin[0];
+    size_t szDataSize = pszRegion[0];
+
+    LOG_DEBUG(L"Enter WriteData (szDataSize=%d, pData=%d, szOffset=%d)", szDataSize, pData, szOffset);
+
+    if (NULL == pData || 0 == szDataSize || szOffset+szDataSize > m_szMemObjSize ||  NULL == m_pMemObjData)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+    memcpy_s((void*)((cl_uchar*)m_pMemObjData+szOffset), szDataSize, pData, szDataSize);
+
+	return CL_SUCCESS;
+}
+
 size_t Buffer::GetSize() const
 {
 	return m_szMemObjSize;

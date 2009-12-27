@@ -140,6 +140,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		static cl_dev_mem_object_type GetDevMemObjType(cl_mem_object_type clMemObjType);
 
 
+
 	private:
 
 		bool			m_bAllocated;	// Allocation flag - inform whether the device memory 
@@ -304,6 +305,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // It must be 0 if object is a 2D image or a Buffer. 
 		// 
 		virtual cl_err_code ReadData(	void *          pOutData, 
+										const size_t *  pszOrigin, 
+										const size_t *  pszRegion,
+										size_t          szRowPitch   = 0,
+										size_t          szSlicePitch = 0) = 0;
+
+		// writes the data from the pOutData into the memory object 
+		//
+		virtual cl_err_code WriteData(	const void *    pOutData, 
 										const size_t *  pszOrigin, 
 										const size_t *  pszRegion,
 										size_t          szRowPitch   = 0,
