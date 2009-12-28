@@ -60,7 +60,7 @@ extern ExecutionEngine* g_pExecEngine;
 LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL),
 	m_pReqdWGSize(NULL), m_pHintWGSize(NULL), m_uiOptWGSize(1),
-	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL),
+	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
 	m_uiTotalImplSize(0), m_uiStackSize(DEFAULT_STACK_SIZE), m_pProgram(pProgram), m_pCtxPtr(NULL)
 {
 	memset(m_GlbIds, 0, sizeof(m_GlbIds));
@@ -68,6 +68,11 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 
 LLVMKernel::~LLVMKernel()
 {
+	if ( (NULL != m_pFuncPtr) && (m_pFunction != NULL) )
+	{
+		g_pExecEngine->freeMachineCodeForFunction(m_pFunction);
+		m_pFuncPtr = NULL;
+	}
 	if ( NULL != m_pArguments )
 	{
 		delete []m_pArguments;
@@ -458,6 +463,7 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 	bool	bDbgPrint = false;
 	bool	bAsynCopy = false;
 
+	m_pFunction = pFunc;
 	m_pModule = pFunc->getParent();
 
 	// Local Memories Lookup table

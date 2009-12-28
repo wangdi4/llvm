@@ -110,6 +110,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		bool				m_bBarrier;					// Is true if barrier() is present in kernel
 
 		llvm::Module*		m_pModule;					// Pointer to the module this kernel belongs to
+		llvm::Function*		m_pFunction;				// Pointer to LLVM related function
 
 		cl_dev_err_code	ParseArguments(llvm::Function *pFunc);
 		llvm::Value*	SubstituteWIcall(llvm::CallInst *pCall,
