@@ -42,7 +42,7 @@
 #endif
 #endif
 
-#define DEFAULT_STACK_SIZE	(1024*8)
+#define DEFAULT_STACK_SIZE	(1024*64)
 
 // Declare external classes
 namespace llvm {
