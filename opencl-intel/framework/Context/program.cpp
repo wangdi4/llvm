@@ -103,8 +103,16 @@ Program::~Program()
 	while (it != m_mapIntermidiates.end())
 	{
 		ProgramBinary * pProgBin = it->second;
-		delete pProgBin;
-		it++;
+		if (NULL != pProgBin)
+		{
+			Device* pDevice = pProgBin->GetDevice();
+			if (NULL != pDevice) 
+			{
+				pDevice->ReleaseProgram(pProgBin->GetId());
+			}
+			delete pProgBin;
+		}
+		++it;
 	}
 	m_mapIntermidiates.clear();
 	m_mapDevices.clear();

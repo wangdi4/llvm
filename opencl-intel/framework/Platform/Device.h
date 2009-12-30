@@ -208,6 +208,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code UnloadCompiler(void);
 
+		cl_err_code ReleaseProgram(cl_dev_program prog);
+
 		cl_err_code GetSupportedImageFormats(	cl_dev_mem_flags       clDevFlags,
 												cl_dev_mem_object_type clDevImageType,
 												cl_uint                uiNumEntries,

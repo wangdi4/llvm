@@ -103,7 +103,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code		GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * puiBinSizeRet);
 		
 		// get the deivce associated to the binary
-		const Device *	GetDevice(){ return m_pDevice; }
+		Device *	GetDevice(){ return m_pDevice; }
 
 		// get the build status of the current binary
 		const cl_build_status GetStatus();

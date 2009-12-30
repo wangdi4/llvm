@@ -509,6 +509,20 @@ cl_err_code Device::UnloadCompiler(void)
 	
 	return (cl_err_code)iRes;
 }
+cl_err_code Device::ReleaseProgram(cl_dev_program prog)
+{
+	LOG_INFO(L"Enter ReleaseProgram");
+
+	map<cl_dev_program, IBuildDoneObserver*>::iterator it = m_mapBuildDoneObservers.find(prog);
+	if (it != m_mapBuildDoneObservers.end())
+	{
+		m_mapBuildDoneObservers.erase(it);
+	}
+
+	cl_int iRes = m_clDevEntryPoints.pclDevReleaseProgram(prog);
+
+	return (cl_err_code)iRes;
+}
 cl_err_code Device::GetSupportedImageFormats(	cl_dev_mem_flags       clDevFlags,
 												cl_dev_mem_object_type clDevImageType,
 												cl_uint                uiNumEntries,
