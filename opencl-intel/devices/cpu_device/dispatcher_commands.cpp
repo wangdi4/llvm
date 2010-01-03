@@ -33,7 +33,7 @@
 #include "cl_dev_backend_api.h"
 
 #if defined(USE_TASKALYZER)    
-	#include "tal.h"
+	#include "tal\tal.h"
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
@@ -1122,6 +1122,9 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 #ifdef _DEBUG
 	InterlockedDecrement(&m_lAttaching);
 #endif
+
+	// Clear FP stack
+	_mm_empty();
 	return ret;
 }
 

@@ -47,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\tal\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\tal\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;"
 				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;WIN32;_DEBUG;_WINDOWS;_USRDLL;OCLDEVICE_EXPORTS;USE_TASKALYZER"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -129,7 +129,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\tal\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\xntask\common&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\tal\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;"
 				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;WIN32;NDEBUG;_WINDOWS;_USRDLL;CPUDEVICE_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
