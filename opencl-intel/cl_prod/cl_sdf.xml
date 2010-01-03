@@ -43,6 +43,9 @@
     <Component Name="tal">
         <RelativeCheckoutPath>externals\tal</RelativeCheckoutPath>
     </Component>
+    <Component Name="VTune">
+        <RelativeCheckoutPath>externals\VTune</RelativeCheckoutPath>
+    </Component>
     <Component Name="cpu_device">
         <RelativeCheckoutPath>devices\cpu_device</RelativeCheckoutPath>
     </Component>
