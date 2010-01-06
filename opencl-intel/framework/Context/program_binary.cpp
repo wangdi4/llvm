@@ -95,8 +95,8 @@ ProgramBinary::~ProgramBinary()
 const cl_build_status ProgramBinary::GetStatus()
 {
 	cl_build_status clBuildStatus = CL_BUILD_NONE;
-	OclAutoMutex CS(&m_CS);
 	{
+		OclAutoMutex CS(&m_CS);
 		// Lock
 		clBuildStatus = m_clBuildStatus;
 		// Unlock
@@ -111,8 +111,8 @@ cl_err_code ProgramBinary::Build(const char * pcOptions, IBuildDoneObserver * pB
 	m_pBuildDoneObserver = pBuildDoneObserver;
 
 	// set build status
-	OclAutoMutex CS(&m_CS);
 	{
+		OclAutoMutex CS(&m_CS);
 		// Lock
 		m_clBuildStatus = CL_BUILD_IN_PROGRESS;
 		// Unlock
@@ -129,8 +129,8 @@ cl_err_code ProgramBinary::Build(const char * pcOptions, IBuildDoneObserver * pB
 cl_err_code ProgramBinary::NotifyBuildDone(cl_device_id device, cl_build_status build_status)
 {
 	LOG_DEBUG(L"NotifyBuildDone enter. device=%d, build_status=%d", device, build_status);
-	OclAutoMutex CS(&m_CS);
 	{ // Lock
+		OclAutoMutex CS(&m_CS);
 	
 		// set new status
 		m_clBuildStatus = build_status;
