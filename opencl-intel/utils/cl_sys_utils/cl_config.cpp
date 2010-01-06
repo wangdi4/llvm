@@ -44,7 +44,6 @@ ConfigFile::ConfigFile(string filename, string delimiter, string comment, string
 	}
 }
 
-
 ConfigFile::ConfigFile()
 {
 	// Construct a ConfigFile without a file; empty

@@ -73,10 +73,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		ConfigFile( string sfilename,
-			string sDelimiter = "=",
-			string sComment = "#",
-			string sSentry = "EndConfigFile" );
+		ConfigFile(string strFileName, string strDelimiter = "=", string strComment = "#", string strSentry = "EndConfigFile" );
 
 		/******************************************************************************************
 		* Function: 	ConfigFile
@@ -98,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Date:			December 2008
 		******************************************************************************************/		
 		template<class T> 
-		T Read( const string& key, const T& value ) const;
+		T Read( const string& strKey, const T& value ) const;
 
 		/******************************************************************************************
 		* Function: 	ReadInto    
@@ -176,10 +173,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		string GetDelimiter() const
-		{ 
-			return m_sDelimiter;
-		}
+		string GetDelimiter() const { return m_sDelimiter; }
 
 		/******************************************************************************************
 		* Function: 	GetComment    
@@ -190,10 +184,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		string GetComment() const
-		{
-			return m_sComment; 
-		}
+		string GetComment() const { return m_sComment; }
 
 		/******************************************************************************************
 		* Function: 	GetSentry    
@@ -204,10 +195,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		string GetSentry() const 
-		{ 
-			return m_sSentry; 
-		}
+		string GetSentry() const { return m_sSentry; }
 
 		/******************************************************************************************
 		* Function: 	SetDelimiter    
@@ -218,11 +206,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		string SetDelimiter(const string& s)
+		string SetDelimiter(const string& strDelimiter)
 		{ 
-			string old = m_sDelimiter;
-			m_sDelimiter = s;  
-			return old; 
+			string strPrefDelimiter = m_sDelimiter;
+			m_sDelimiter = strPrefDelimiter;  
+			return strPrefDelimiter; 
 		}
 
 		/******************************************************************************************
@@ -234,11 +222,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		string SetComment(const string& s)
+		string SetComment(const string& strComment)
 		{ 
-			string old = m_sComment;
-			m_sComment = s;
-			return old;
+			string strOldComment = m_sComment;
+			m_sComment = strComment;
+			return strOldComment;
 		}
 
 		/******************************************************************************************
@@ -281,22 +269,22 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		/******************************************************************************************
 		* Function: 	T_as_string    
 		* Description:	convert class T to string
-		* Arguments:	const T& t [in] -	class T
+		* Arguments:	const T& t [in] -	class T (Type T must support << operator)
 		* Return value:	string whihc represents the class
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		template<class T> static string T_as_string( const T& t );
+		template<class T> static string ConvertTypeToString( const T& t );
 
 		/******************************************************************************************
 		* Function: 	string_as_T    
-		* Description:	convert string to class T
+		* Description:	convert string to class T (Type T must support << operator)
 		* Arguments:	const string& s [in] -	input string
 		* Return value:	class T
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		template<class T> static T string_as_T( const string& s );
+		template<class T> static T ConvertStringToType( const string& str );
 
 		/******************************************************************************************
 		* Function: 	trim
@@ -306,58 +294,61 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		static void trim( string& s );
+		static void trim( string& str );
 
 	};
 
-	/* static */
+	// Convert Type T to a string
 	template<class T>
-	string ConfigFile::T_as_string( const T& t )
+	string ConfigFile::ConvertTypeToString( const T& t )
 	{
-		// Convert from a T to a string
-		// Type T must support << operator
-		std::ostringstream ost;
-		ost << t;
-		return ost.str();
+		std::ostringstream ostOutput;
+		ostOutput << t;
+		return ostOutput.str();
 	}
 
-	/* static */
+	// Convert string argument into a specific Type
 	template<class T>
-	T ConfigFile::string_as_T( const string& s )
+	T ConfigFile::ConvertStringToType( const string& str )
 	{
-		// Convert from a string to a T
-		// Type T must support >> operator
-		T t;
-		std::istringstream ist(s);
-		ist >> t;
-		return t;
+		T returned_type;
+		std::istringstream istInput(str);
+		istInput >> returned_type;
+		return returned_type;
 	}
 
-	/* static */
+	// Convert string argument to a string type
 	template<>
-	inline string ConfigFile::string_as_T<string>( const string& s )
+	inline string ConfigFile::ConvertStringToType<string>( const string& str )
 	{
-		// Convert from a string to a string
-		// In other words, do nothing
-		return s;
+		return str;
 	}
 
-	/* static */
+	// Convert string argument to a bool type
+	// False cobnsidered as one of the followings: {"0", "false", "F", "no", "n"}
+	// True considered as one of the followings: {"1", "True", "true", "T", "yes", "y", "-1", all others}
 	template<>
-	inline bool ConfigFile::string_as_T<bool>( const string& s )
+	inline bool ConfigFile::ConvertStringToType<bool>( const string& str )
 	{
-		// Convert from a string to a bool
-		// Interpret "false", "F", "no", "n", "0" as false
-		// Interpret "true", "T", "yes", "y", "1", "-1", or anything else as true
-		bool b = true;
-		string sup = s;
-		for( string::iterator p = sup.begin(); p != sup.end(); ++p )
-			*p = toupper(*p);  // make string all caps
-		if( sup==string("FALSE") || sup==string("F") ||
-			sup==string("NO") || sup==string("N") ||
-			sup==string("0") || sup==string("NONE") )
-			b = false;
-		return b;
+		bool bRes = true;
+		string strInput = str;
+		string::iterator it = strInput.begin();
+		while ( it != strInput.end() )
+		{
+			// convert all string chars to upper case
+			*it = toupper(*it);
+			++it;
+		}
+		if( strInput==string("0")     || 
+			strInput==string("FALSE") || 
+			strInput==string("NO")    || 
+			strInput==string("F")     || 
+			strInput==string("N")     ||
+			strInput==string("NONE"))
+		{
+			return false;
+		}
+		return true;
 	}
 
 	template<class T>
@@ -383,67 +374,65 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 
 	template<class T>
-	bool ConfigFile::ReadInto( T& var, const string& key ) const
+	bool ConfigFile::ReadInto( T& returnedVar, const string& strKey ) const
 	{
 		// search first for environment variable
+		bool bFound = true;
 		string strEnv;
-		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
+		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, strKey);
 		if (CL_SUCCEEDED(clErr))
 		{
-			var = string_as_T<T>( strEnv );
-			return found;
+			returnedVar = ConvertStringToType<T>( strEnv );
+			return bFound;
 		}
 
-		// Get the value corresponding to key and store in var
-		// Return true if key is found
-		// Otherwise leave var untouched
-		mapci p = m_mapContents.find(key);
-		found = ( p != m_mapContents.end() );
-		if( found )
+		// if the environment value doesn't exists get the value corresponding to the input key and store it in var
+		std::map<string,string>::const_iterator it = m_mapContents.find(strKey);
+		bFound = ( it != m_mapContents.end() );
+		if( bFound )
 		{
-			var = string_as_T<T>( p->second );
+			returnedVar = ConvertStringToType<T>( it->second );
 		}
-		return found;
+		return bFound;
 	}
 
 
 	template<class T>
-	bool ConfigFile::ReadInto( T& var, const string& key, const T& value ) const
+	bool ConfigFile::ReadInto( T& returnVar, const string& strKey, const T& defultValue ) const
 	{
 		// search first for environment variable
+		bool bFound = true;
 		string strEnv;
-		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
+		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, strKey);
 		if (CL_SUCCEEDED(clErr))
 		{
-			var = string_as_T<T>( strEnv );
-			return found;
+			returnVar = ConvertStringToType<T>( strEnv );
+			return bFound;
 		}
 
-		// Get the value corresponding to key and store in var
-		// Return true if key is found
-		// Otherwise set var to given default
-		mapci p = m_mapContents.find(key);
-		found = ( p != m_mapContents.end() );
-		if( found )
+		// if the environment value doesn't exists get the value corresponding to the input key and store it in var
+		std::map<string,string>::const_iterator it = m_mapContents.find(key);
+		bFound = ( it != m_mapContents.end() );
+		if( bFound )
 		{
-			var = string_as_T<T>( p->second );
+			returnVar = ConvertStringToType<T>( it->second );
 		}
 		else
 		{
-			var = value;
+			returnVar = value;
 		}
-		return found;
+		return bFound;
 	}
 
 
 	template<class T>
-	void ConfigFile::Add( string key, const T& value )
+	void ConfigFile::Add( string strKey, const T& value )
 	{
 		// Add a key with given value
-		string v = T_as_string( value );
-		trim(key);
-		trim(v);
-		m_mapContents[key] = v;
+		string strValue = ConvertTypeToString( value );
+		trim(strKey);
+		trim(strValue);
+		m_mapContents[strKey] = strValue;
 		return;
 	}
 }}}
