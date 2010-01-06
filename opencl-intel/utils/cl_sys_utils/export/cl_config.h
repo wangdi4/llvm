@@ -359,7 +359,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
 		if (CL_SUCCEEDED(clErr))
 		{
-			return string_as_T<T>( strEnv );
+			return ConvertStringToType<T>( strEnv );
 		}
 
 		// Return the value corresponding to key or given default value
@@ -369,7 +369,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		{
 			return value;
 		}
-		return string_as_T<T>( p->second );
+		return ConvertStringToType<T>( p->second );
 	}
 
 
