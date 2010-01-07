@@ -221,6 +221,7 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 			m_bIsFirst = false;
 		}
 		break;
+
 	case 2:
 #ifdef __SSE4_1__
 		xmmGroupId = _mm_loadl_epi64((__m128i*)pGroupId);
@@ -245,7 +246,8 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 				}
 				m_bIsFirst = false;
 			}
-			break;
+		break;
+
 	case 3:
 #ifdef __SSE4_1__
 		xmmGroupId = _mm_lddqu_si128((__m128i*)pGroupId);
@@ -272,6 +274,8 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 					}
 					m_bIsFirst = false;
 				}
+		break;
+
 	default:
 		return CL_DEV_ERROR_FAIL;
 	}
