@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 #include <string>
+
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
@@ -17,11 +18,22 @@ using namespace Intel::OpenCL::Utils;
 #pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
+#ifdef __ENABLE_VTUNE__
+#include "VTune\JITProfiling.h"
+#pragma comment (lib, "JITProfiling.lib")
+#endif
+
 // Global LLVM JIT
 llvm::ExecutionEngine*	g_pExecEngine = NULL;
 llvm::ModuleProvider*	g_ModuleProvider = NULL;
 
 DECLARE_LOGGER_CLIENT;
+
+#ifdef __ENABLE_VTUNE__
+void CallBack(void *UserData, iJIT_ModeFlags Flags)
+{
+}
+#endif
 
 ExecutionEngine* CreateLLVMBackend()
 {
@@ -42,6 +54,10 @@ ExecutionEngine* CreateLLVMBackend()
 		delete g_ModuleProvider;
 		throw strLastError;
 	}
+#ifdef __ENABLE_VTUNE__
+	//Register the call back to notifiy application of profiling mode changes
+	iJIT_RegisterCallbackEx( NULL, &CallBack );
+#endif
 
 	LOG_INFO("Initialize LLVMBackend - finished");
 	return g_pExecEngine;

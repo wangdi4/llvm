@@ -45,6 +45,10 @@
 #include "llvm/TypeSymbolTable.h"
 #include "llvm/ValueSymbolTable.h"
 
+#ifdef __ENABLE_VTUNE__
+#include "VTune\JITProfiling.h"
+#endif
+
 #include <string>
 #include <map>
 #include <vector>
@@ -61,13 +65,26 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL),
 	m_pReqdWGSize(NULL), m_pHintWGSize(NULL), m_uiOptWGSize(1),
 	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
-	m_uiTotalImplSize(0), m_uiStackSize(DEFAULT_STACK_SIZE), m_pProgram(pProgram), m_pCtxPtr(NULL)
+	m_uiTotalImplSize(0), m_uiStackSize(DEFAULT_STACK_SIZE), m_pProgram(pProgram), m_pCtxPtr(NULL),
+	m_uiVTuneId(-1)
 {
 	memset(m_GlbIds, 0, sizeof(m_GlbIds));
 }
 
 LLVMKernel::~LLVMKernel()
 {
+#if defined(__ENABLE_VTUNE__) && 0	// Bug in VTune dll's causes an exception when called during PROCESS_DETACH
+		if ( (-1 != m_uiVTuneId) && (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) )
+		{
+			iJIT_Method_Id MI;
+
+			MI.method_id = m_uiVTuneId;
+
+			iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &MI);
+			m_uiVTuneId = -1;
+		}
+#endif
+
 	if ( (NULL != m_pFuncPtr) && (m_pFunction != NULL) )
 	{
 		g_pExecEngine->freeMachineCodeForFunction(m_pFunction);
@@ -657,6 +674,51 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 
 	m_pFuncPtr = g_pExecEngine->getPointerToFunction(pFunc);
 
+	if ( bDbgPrint )
+	{
+		m_uiStackSize = 1024*32;	// We need large stack here
+	} else
+	{
+		if (bAsynCopy || m_bBarrier)
+		{
+			m_uiStackSize = 1024*16;
+		}
+	}
+
+	// JIT generated get info from function
+	m_uiStackSize = (unsigned int)(m_uiStackSize+g_pExecEngine->getJitFunctionStackSize(pFunc));
+	m_uiStackSize = (m_uiStackSize + 15)& ~15;	// Always aligned to 16 byte
+
+#ifdef __ENABLE_VTUNE__
+	if ( iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )
+	{
+		m_uiVTuneId = iJIT_GetNewMethodID();
+
+		iJIT_Method_Load ML;
+
+		memset(&ML, 0, sizeof(iJIT_Method_Load));
+
+		//Parameters
+		ML.method_id = m_uiVTuneId;              // uniq method ID - can be any uniq value, (such as the mb)
+		ML.method_name = pFunc->getNameStart();          // method name (can be with or without the class and signature, in any case the class name will be added to it)
+		ML.method_load_address = m_pFuncPtr;  // virtual address of that method  - This determines the method range for the iJVM_EVENT_TYPE_ENTER/LEAVE_METHOD_ADDR events
+		ML.method_size = g_pExecEngine->getJitFunctionSize(pFunc);        // Size in memory - Must be exact
+#if 0
+		// Used of DebugInfo
+		// Constants in this example
+		ML.line_number_size = 0;        // Line Table size in number of entries - Zero if none
+		ML.line_number_table = NULL;    // Pointer to the begining of the line numbers info array
+		ML.class_id = 0;                // uniq class ID
+		ML.class_file_name = NULL;      // class file name 
+		ML.source_file_name = NULL;     // source file name
+		ML.user_data = NULL;            // bits supplied by the user for saving in the JIT file...
+		ML.user_data_size = 0;          // the size of the user data buffer
+		ML.env = iJDE_JittingAPI;
+#endif
+		iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &ML);
+	}
+#endif
+
 	// Set optimal WG size
 	if ( m_bBarrier )
 	{
@@ -664,17 +726,6 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 	} else
 	{
 		m_uiOptWGSize = 16; // TODO: to be checked
-	}
-
-	if ( bDbgPrint )
-	{
-		m_uiStackSize = 1024*32;	// We need large stack here
-	} else
-	{
-		if (bAsynCopy && m_bBarrier)
-		{
-			m_uiStackSize = 1024*16;
-		}
 	}
 
 	// Set WG size hint
@@ -698,6 +749,8 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 			m_uiOptWGSize*=m_pReqdWGSize[i];
 		}
 	}
+
+	// Add VTune information
 
 	return CL_DEV_SUCCESS;
 }

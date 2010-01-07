@@ -209,7 +209,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 		m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
 		for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 		{
-			_mm_empty();
 			__asm
 			{
 				push	edi
@@ -235,7 +234,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 		for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
 			for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 			{
-				_mm_empty();
 				__asm
 				{
 					push	edi
@@ -263,7 +261,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 			for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
 				for (pLocalId[0]=0;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
 				{
-					_mm_empty();
 					__asm
 					{
 						push	edi
@@ -399,7 +396,6 @@ cl_uint LLVMExecMultipleWIWithBarrier::Execute(const size_t* IN pGroupId,
 			} else if ( -1 != pCurrJB->Esp)
 			{
 				pContext = m_pContext + m_iCurrWI*m_uiWIStackSize;
-				_mm_empty();
 				__asm
 				{
 					push	edi

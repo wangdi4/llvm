@@ -42,7 +42,7 @@
 #endif
 #endif
 
-#define DEFAULT_STACK_SIZE	(1024*64)
+#define DEFAULT_STACK_SIZE	(1024*2)
 
 // Declare external classes
 namespace llvm {
@@ -140,5 +140,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Stack size required by the kernel
 		unsigned int	m_uiStackSize;
+
+		// VTune integration
+		unsigned int	m_uiVTuneId;
 	};
 }}}
