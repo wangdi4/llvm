@@ -251,33 +251,34 @@ CPUDevice::CPUDevice(cl_uint uiDevId, cl_dev_call_backs *devCallbacks, cl_dev_lo
 
 CPUDevice::~CPUDevice()
 {
-	if( NULL != m_pCPUDeviceConfig)
-	{
-		delete m_pCPUDeviceConfig;
-	}
-	if (0 != m_iLogHandle)
-	{
-		m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
-	}
-	if(NULL != m_pProgramService)
-	{
-		delete m_pProgramService;
-		m_pProgramService = NULL;
-	}
-	if(NULL != m_pMemoryAllocator)
-	{
-		delete m_pMemoryAllocator;
-		m_pMemoryAllocator = NULL;
-	}
-	if(NULL != m_pTaskDispatcher)
-	{
-		delete m_pTaskDispatcher;
-		m_pTaskDispatcher = NULL;
-	}	
 }
 
 void CPUDevice::Destroy()
 {
+	if( NULL != m_pDevInstance->m_pCPUDeviceConfig)
+	{
+		delete m_pDevInstance->m_pCPUDeviceConfig;
+		m_pDevInstance->m_pCPUDeviceConfig = NULL;
+	}
+	if (0 != m_pDevInstance->m_iLogHandle)
+	{
+		m_pDevInstance->m_logDescriptor.pfnclLogReleaseClient(m_pDevInstance->m_iLogHandle);
+	}
+	if(NULL != m_pDevInstance->m_pProgramService)
+	{
+		delete m_pDevInstance->m_pProgramService;
+		m_pDevInstance->m_pProgramService = NULL;
+	}
+	if(NULL != m_pDevInstance->m_pMemoryAllocator)
+	{
+		delete m_pDevInstance->m_pMemoryAllocator;
+		m_pDevInstance->m_pMemoryAllocator = NULL;
+	}
+	if(NULL != m_pDevInstance->m_pTaskDispatcher)
+	{
+		delete m_pDevInstance->m_pTaskDispatcher;
+		m_pDevInstance->m_pTaskDispatcher = NULL;
+	}	
     if( NULL != m_pDevInstance )
     {
         delete m_pDevInstance;

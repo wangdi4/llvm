@@ -89,14 +89,11 @@ TaskDispatcher::~TaskDispatcher()
 {
 	// Free task lists
 	TCmdListMap::iterator	it;
-	m_muCmdList.Lock();
 	for(it=m_mapCmdList.begin(); it!=m_mapCmdList.end(); ++it)
 	{
 		it->first->Release();
 		delete it->second;
 	}
-	m_mapCmdList.clear();
-	m_muCmdList.Unlock();
 	InfoLog(m_logDescriptor, m_iLogHandle, L"TaskDispatcher Released");
 	if (0 != m_iLogHandle)
 	{
