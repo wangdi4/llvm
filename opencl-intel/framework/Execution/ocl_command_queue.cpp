@@ -450,11 +450,7 @@ cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking
 
     // Register this event on list of other events
     // If the queue state is InOrder, remove dependencies between events in the same queue
-    bool bRemoveEvents = false;
-    if( !m_bOutOfOrderEnabled)
-    {
-        bRemoveEvents = true;
-    }
+    bool bRemoveEvents = !m_bOutOfOrderEnabled;
 
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList, bRemoveEvents, (cl_command_queue)m_iId);
     if( CL_FAILED(errVal))
