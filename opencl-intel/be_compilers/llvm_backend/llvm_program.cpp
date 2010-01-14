@@ -174,30 +174,47 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 	g_pExecEngine->addModuleProvider(m_pModuleProvider);
 
 	// Now after JIT is up and setup with IR, we scan module for kernels
-	LOG_DEBUG("Start iterating over functions");
-	Module::FunctionListType::iterator func_it = pModule->getFunctionList().begin();
-	while ( func_it != pModule->getFunctionList().end() )
+	LOG_DEBUG("Start iterating over kernels");
+	GlobalVariable *annotation = pModule->getGlobalVariable("llvm.global.annotations");
+	ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
+	for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) 
 	{
-		if ( func_it->isDeclaration() || 
-			!((GlobalValue::DLLExportLinkage == func_it->getLinkage()) ||
-			(GlobalValue::ExternalLinkage == func_it->getLinkage())) )
+		// Obtain kernel function from annotation
+		ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
+		Function *pFuncVal = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+		if ( NULL == pFuncVal )
 		{
-			++func_it;
-			// Internal function -> not required
-			continue;
+			continue;	// Not function pointer
 		}
-
-		// Check maximum number of argumnets to kernel
-		if ( CPU_KERNEL_MAX_ARG_COUNT < func_it->arg_size() )
+		// Check maximum number of arguments to kernel
+		if ( CPU_KERNEL_MAX_ARG_COUNT < pFuncVal->arg_size() )
 		{
 			m_strLastError = "Too many arguments in function";
 			FreeMap();
-			LOG_ERROR("Build of function <%s> fail, <%s>", func_it->getName().c_str(), m_strLastError.c_str());
+			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
+			return CL_DEV_BUILD_ERROR;
+		}
+		// Obtain parameters definition
+		GlobalVariable* pGlbVar = dyn_cast<GlobalVariable>(elt->getOperand(1)->stripPointerCasts());
+		ConstantArray *pFuncArgs;
+		if ( (NULL == pGlbVar) || (NULL == (pFuncArgs = dyn_cast<ConstantArray>(pGlbVar->getInitializer()))) )
+		{
+			m_strLastError = "Invalid argument's map";
+			FreeMap();
+			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
 			return CL_DEV_BUILD_ERROR;
 		}
 
-		// Acquire pointer to function
-		void *pKernelFunc = NULL;
+		// Obtain local variables array
+		pGlbVar = dyn_cast<GlobalVariable>(elt->getOperand(3)->stripPointerCasts());
+		if ( NULL == pGlbVar )
+		{
+			m_strLastError = "Invalid local variable's map";
+			FreeMap();
+			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
+			return CL_DEV_BUILD_ERROR;
+		}
+		ConstantArray *pFuncLocals = dyn_cast<ConstantArray>(pGlbVar->getInitializer());
 
 		// Create new kernel container
 		LLVMKernel* pKernel = new LLVMKernel(this);
@@ -205,7 +222,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		{
 			m_strLastError = "Out of Memory";
 			FreeMap();
-			LOG_ERROR("Build of function <%s> fail, Cannot allocate LLVMKernel", func_it->getName().c_str());
+			LOG_ERROR("Build of function <%s> fail, Cannot allocate LLVMKernel", pFuncVal->getName().c_str());
 			return CL_DEV_OUT_OF_MEMORY;
 		}
 
@@ -213,7 +230,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		// Try to create kernel, on error
 		try
 		{
-			rc = pKernel->ParseLLVM(func_it);
+			rc = pKernel->ParseLLVM(pFuncVal, pFuncArgs, pFuncLocals);
 		}
 		catch( std::string err )
 		{
@@ -224,13 +241,11 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		{
 			pKernel->Release();
 			FreeMap();
-			LOG_ERROR("Build of function <%s> fail, <%s>", func_it->getName().c_str(), m_strLastError.c_str());
+			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
 			return rc;
 		}
 		// Store kernel to map
 		m_mapKernels[pKernel->GetKernelName()] = pKernel;
-
-		++func_it;
 	}
 	LOG_DEBUG("Iterating completed");
 

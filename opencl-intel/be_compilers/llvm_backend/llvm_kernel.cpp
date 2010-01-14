@@ -202,57 +202,192 @@ cl_dev_err_code LLVMKernel::ParseArguments(Function *pFunc)
 	return CL_DEV_SUCCESS;
 }
 
-// Substitutes a pointer to local buffer, with argument passed within kernel parameters
-llvm::Value* LLVMKernel::SubstituteImplLocalPtr(llvm::Instruction* pInst, llvm::Argument* pLocalMem, llvm::Value* pArgVal)
-{
-	const GlobalValue *pGV = dyn_cast<GlobalVariable>(pArgVal);
-	if ( (NULL == pGV) || (pGV->getType()->getAddressSpace() != 3) )
-	{
-		return NULL;
-	}
+Instruction* CreateInstrFromConstantExpr(ConstantExpr* pCE, Value* From, Value* To)
+{  
+	Instruction *Replacement = 0;
 
-	const PointerType *PTy = cast<PointerType>(pArgVal->getType());
-	assert(( NULL != PTy ) && "Expected pointer type");
-	if ( (PTy == NULL) )
+	if (pCE->getOpcode() == Instruction::GetElementPtr)
 	{
-		// Not a "Local" pointer
-		return NULL;
-	}
-
-	// Check if already have reference to the buffer
-	string &strBuffName = pArgVal->getName();
-	map<string, Value*>::iterator	it = m_mapImplLocalPtr.find(strBuffName);
-	if ( m_mapImplLocalPtr.end() != it)	// reference to an old buffer
-	{
-		return it->second;
-	}
-
-	// Reference to a new local buffer
-	// Create buffer size
-	const ArrayType *pArray = dyn_cast<ArrayType>(PTy->getElementType());
-	unsigned int uiArraySize = 1;
-	while ( NULL != pArray )
-	{
-		uiArraySize *= (unsigned int)pArray->getNumElements();
-		if ( pArray->getContainedType(0)->getTypeID() != Type::ArrayTyID )
-		{
-			uiArraySize *= pArray->getContainedType(0)->getPrimitiveSizeInBits()/8;
+		SmallVector<Value*, 8> Indices;
+		Value *Pointer = pCE->getOperand(0);
+		Indices.reserve(pCE->getNumOperands()-1);
+		if (Pointer == From) Pointer = To;
+	    
+		for (unsigned i = 1, e = pCE->getNumOperands(); i != e; ++i) {
+		  Value *Val = pCE->getOperand(i);
+		  if (Val == From) Val = To;
+		  Indices.push_back(Val);
 		}
-		pArray = dyn_cast<ArrayType>(pArray->getContainedType(0));
+		Replacement = GetElementPtrInst::Create(Pointer, Indices.begin(), Indices.end());
+	}
+	else if (pCE->getOpcode() == Instruction::ExtractValue)
+	{
+		Value *Agg = pCE->getOperand(0);
+		if (Agg == From) Agg = To;
+	    
+		const SmallVector<unsigned, 4> &Indices = pCE->getIndices();
+		Replacement = ExtractValueInst::Create(Agg,	Indices.begin(), Indices.end());
+	}
+	else if (pCE->getOpcode() == Instruction::InsertValue)
+	{
+		Value *Agg = pCE->getOperand(0);
+		Value *Val = pCE->getOperand(1);
+		if (Agg == From) Agg = To;
+		if (Val == From) Val = To;
+	    
+		const SmallVector<unsigned, 4> &Indices = pCE->getIndices();
+		Replacement = InsertValueInst::Create(Agg, Val, Indices.begin(), Indices.end());
+	}
+	else if (pCE->isCast())
+	{
+		assert(pCE->getOperand(0) == From && "Cast only has one use!");
+		Replacement = CastInst::Create((Instruction::CastOps)pCE->getOpcode(), To, pCE->getType());
+	}
+	else if (pCE->getOpcode() == Instruction::Select)
+	{
+		Value *C1 = pCE->getOperand(0);
+		Value *C2 = pCE->getOperand(1);
+		Value *C3 = pCE->getOperand(2);
+		if (C1 == From) C1 = To;
+		if (C2 == From) C2 = To;
+		if (C3 == From) C3 = To;
+		Replacement = SelectInst::Create(C1, C2, C3);
+	}
+	else if (pCE->getOpcode() == Instruction::ExtractElement)
+	{
+		Value *C1 = pCE->getOperand(0);
+		Value *C2 = pCE->getOperand(1);
+		if (C1 == From) C1 = To;
+		if (C2 == From) C2 = To;
+		Replacement = new ExtractElementInst(C1, C2);
+	}
+	else if (pCE->getOpcode() == Instruction::InsertElement)
+	{
+		Value *C1 = pCE->getOperand(0);
+		Value *C2 = pCE->getOperand(1);
+		Value *C3 = pCE->getOperand(1);
+		if (C1 == From) C1 = To;
+		if (C2 == From) C2 = To;
+		if (C3 == From) C3 = To;
+		Replacement = InsertElementInst::Create(C1, C2, C3);
+	}
+	else if (pCE->getOpcode() == Instruction::ShuffleVector)
+	{
+		Value *C1 = pCE->getOperand(0);
+		Value *C2 = pCE->getOperand(1);
+		Value *C3 = pCE->getOperand(2);
+		if (C1 == From) C1 = To;
+		if (C2 == From) C2 = To;
+		if (C3 == From) C3 = To;
+		Replacement = new ShuffleVectorInst(C1, C2, C3);
+	}
+	else if (pCE->isCompare())
+	{
+		Value *C1 = pCE->getOperand(0);
+		Value *C2 = pCE->getOperand(1);
+		if (C1 == From) C1 = To;
+		if (C2 == From) C2 = To;
+		Replacement = CmpInst::Create((Instruction::OtherOps)pCE->getOpcode(), pCE->getPredicate(), C1, C2);
+	}
+	else
+	{
+		assert(0 && "Unknown ConstantExpr type!");
+		return NULL;
+	}
+	  
+	return Replacement;
+}
+
+// Substitutes a pointer to local buffer, with argument passed within kernel parameters
+cl_dev_err_code LLVMKernel::ParseLocalBuffers(ConstantArray* pFuncLocals, Argument* pLocalMem)
+{
+	// Create code for local buffer
+	Instruction* pFirstInst = dyn_cast<Instruction>(pLocalMem->getParent()->getEntryBlock().begin());
+
+	// Iterate through local buffers
+	for (unsigned i = 0, e = pFuncLocals->getType()->getNumElements(); i != e; ++i) 
+	{
+		// Obtain kernel function from annotation
+		Constant *elt = cast<Constant>(pFuncLocals->getOperand(i));
+		GlobalValue *val = dyn_cast<GlobalValue>(elt->stripPointerCasts());
+		// Calculate required buffer size
+		const ArrayType *pArray = dyn_cast<ArrayType>(val->getType()->getElementType());
+		unsigned int uiArraySize = pArray ? 1 : val->getType()->getElementType()->getPrimitiveSizeInBits()/8;
+		assert ( 0 != uiArraySize );
+		while ( NULL != pArray )
+		{
+			uiArraySize *= (unsigned int)pArray->getNumElements();
+			if ( pArray->getContainedType(0)->getTypeID() != Type::ArrayTyID )
+			{
+				uiArraySize *= pArray->getContainedType(0)->getPrimitiveSizeInBits()/8;
+			}
+			pArray = dyn_cast<ArrayType>(pArray->getContainedType(0));
+		}
+
+		// Now retrieve to the offset of the local buffer
+		GetElementPtrInst* pLocalAddr =
+			GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(32), m_uiTotalImplSize), "", pFirstInst);
+		// Now add bitcast to required/original pointer type
+		CastInst* pBC = CastInst::Create(Instruction::BitCast, pLocalAddr, val->getType(), "", pFirstInst);
+		// Advance total implicit size
+		m_uiTotalImplSize += ADJUST_SIZE_TO_DCU_LINE(uiArraySize);
+
+		GlobalValue::use_iterator itVal = val->use_begin();
+		// Now we need to check all uses
+		while ( itVal != val->use_end() )
+		{
+			Use &U = val->use_begin().getUse();
+			if (Constant *C = dyn_cast<Constant>(U.getUser()))
+			{
+				// We need substitute constant expression with real instruction
+				ConstantExpr* pCE = dyn_cast<ConstantExpr>(C);
+				if ( NULL != pCE )
+				{
+					Instruction* pInst = CreateInstrFromConstantExpr(pCE, val, pBC);
+					// Add instruction to the block
+					pInst->insertBefore(pFirstInst);
+					// Change all non-constant references
+					ConstantExpr::use_iterator itCE = pCE->use_begin();
+					while( itCE != pCE->use_end() )
+					{
+						Use &W = itCE.getUse();
+						if ( !isa<Constant>(W.getUser()) )
+						{
+							W.set(pInst);
+							itCE = pCE->use_begin();		// Restart the scan
+						}
+						else
+						{
+							++itCE;
+						}
+					}
+					if ( pCE->use_empty() )
+					{
+						delete pCE;
+						itVal = val->use_begin();
+					}
+					else
+					{
+						++itVal;
+					}
+					continue;
+				}
+			}
+
+			if ( !isa<Instruction>(U.getUser()) )
+			{
+				++itVal;
+				continue;
+			}
+
+			U.set(pBC);
+			itVal = val->use_begin();
+		}
 	}
 
-	// Now retrieve to the offset of the local buffer
-	GetElementPtrInst* pLocalAddr =
-		GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(32), m_uiTotalImplSize), "", pInst);
-	// Now add bitcast to required/original pointer type
-	CastInst* pBC = CastInst::Create(Instruction::BitCast, pLocalAddr, PTy, "", pInst);
-	// Advance total implicit size
-	m_uiTotalImplSize += ADJUST_SIZE_TO_DCU_LINE(uiArraySize);
-	// Add to map
-	m_mapImplLocalPtr[strBuffName] = pBC;
-
-	return pBC;
+	return CL_DEV_SUCCESS;
 }
+
 
 Value* LLVMKernel::SubstituteWIcall(llvm::CallInst *pCall,
 									llvm::Argument* pWorkInfo, llvm::Argument* pWGid,
@@ -475,7 +610,7 @@ void LLVMKernel::UpdatePrefetch(llvm::CallInst* pCall)
 	CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
 }
 
-cl_int LLVMKernel::ParseLLVM(Function *pFunc)
+cl_int LLVMKernel::ParseLLVM(Function *pFunc, ConstantArray* pFuncArgs, ConstantArray* pFuncLocals)
 {
 	bool	bDbgPrint = false;
 	bool	bAsynCopy = false;
@@ -523,6 +658,11 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 		"LocalIds", pFunc);
 	pLocalId->addAttr(llvm::Attribute::ByVal);
 
+	if ( pFuncLocals && CL_DEV_FAILED(rc = ParseLocalBuffers(pFuncLocals, pLocalMem)) )
+	{
+		return rc;
+	}
+
 	// Go through function blocks
 	Function::BasicBlockListType::iterator bb_it = pFunc->getBasicBlockList().begin();
 	while ( bb_it != pFunc->getBasicBlockList().end() )
@@ -536,7 +676,7 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 			switch (inst_it->getOpcode())
 			{
 				// Call instruction
-				case llvm::Instruction::Call:
+				case Instruction::Call:
 					// Recognize WI info functions
 					if ( !strncmp("get_", inst_it->getOperand(0)->getNameStart(), 4))
 					{
@@ -612,59 +752,6 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc)
 						break;
 					}
 
-					break;
-
-				// getelementptr instruction
-				case llvm::Instruction::GetElementPtr:
-					// Retrieve array operand
-					pArgVal = inst_it->getOperand(0);
-					// Substitute "local" variables with parameter one
-					pArgVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
-					if ( NULL != pArgVal )
-					{
-						inst_it->setOperand(0, pArgVal);
-					}
-					break;
-
-				case llvm::Instruction::Load: case llvm::Instruction::Store:
-					// Retrieve operand number according to command
-					unsigned uiOpId = llvm::Instruction::Store == inst_it->getOpcode();
-					pArgVal = inst_it->getOperand( uiOpId );
-					ConstantExpr *pCE = dyn_cast<ConstantExpr>(pArgVal);
-					if ( (NULL != pCE) && (pCE->getNumOperands() >= 1) )
-					{
-						pArgVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pCE->getOperand(0));
-						// For Load/Store operations, we need substitute ConstantExpression with real instruction
-						if ( NULL != pArgVal )
-						{
-							SmallVector<Value*, 4> operands;
-							for(unsigned i=1; i<pCE->getNumOperands(); ++i)
-							{
-								operands.push_back(pCE->getOperand(i));
-							}
-							// Create new instruction and insert it before the original load/store
-							GetElementPtrInst* pNewInst = GetElementPtrInst::Create(
-								pArgVal, operands.begin(), operands.end(), "", inst_it);
-							// Use the result in the original instruction
-							inst_it->setOperand(uiOpId, pNewInst);
-
-							// Change all other reference
-							pCE->uncheckedReplaceAllUsesWith(pArgVal);
-						}
-						break;
-					}
-					GlobalValue *pGV = dyn_cast<GlobalVariable>(pArgVal);
-					if ( (NULL != pGV) && (pGV->getType()->getAddressSpace() == 3) )
-					{
-						// Retrieve array operand
-						// Substitute "local" variables with parameter one
-						pArgVal = SubstituteImplLocalPtr(inst_it, pLocalMem, pArgVal);
-						if ( NULL != pArgVal )
-						{
-							inst_it->setOperand(uiOpId, pArgVal);
-						}
-						break;
-					}
 					break;
 			}
 			++inst_it;

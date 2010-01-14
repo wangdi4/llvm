@@ -53,6 +53,7 @@ namespace llvm {
 	class LoadInst;
 	class Instruction;
 	class Module;
+	class ConstantArray;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -91,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		void	Release() {delete this;}
 
 		// Local interface
-		cl_int ParseLLVM(llvm::Function *pFunc);
+		cl_int ParseLLVM(llvm::Function *pFunc, llvm::ConstantArray* pFuncArgs, llvm::ConstantArray* pFuncLocals);
 
 	protected:
 		friend class LLVMBinary;
@@ -113,6 +114,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		llvm::Function*		m_pFunction;				// Pointer to LLVM related function
 
 		cl_dev_err_code	ParseArguments(llvm::Function *pFunc);
+		cl_dev_err_code	ParseLocalBuffers(llvm::ConstantArray* pFuncLocals, llvm::Argument* pLocalMem);
 		llvm::Value*	SubstituteWIcall(llvm::CallInst *pCall,
 			llvm::Argument* pWorkInfo, llvm::Argument* pWGid,
 			llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId);
@@ -124,12 +126,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		llvm::Value*	m_GlbIds[MAX_WORK_DIM];
 
 		// Handling of implicit "local" buffers
-		std::map<std::string, llvm::Value*>	m_mapImplLocalPtr;			// A map of implicit local buffers that are used by the kernel
 		unsigned int				m_uiTotalImplSize;			// Total size of implicit local buffers
 		
-		// Substitute a pointer to local buffer with a relative pointer into a buffer passed in parameters
-		llvm::Value* SubstituteImplLocalPtr(llvm::Instruction* pInst, llvm::Argument* pLocalMem, llvm::Value* pArgVal);
-
 		// Barrier/AsyncCopy/Wait
 		void			AddCtxAddress(llvm::CallInst* pCall, llvm::Argument* pLocalId);
 		void			UpdateBarrier(llvm::CallInst* pCall, llvm::Argument* pLocalId);
