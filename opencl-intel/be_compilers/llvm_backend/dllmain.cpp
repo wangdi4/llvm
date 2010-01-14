@@ -25,7 +25,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-		ReleaseLLVMBackend();
+		if (NULL == lpReserved) //Detach due to FreeLibrary
+		{
+			ReleaseLLVMBackend();
+		}
+		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
 		break;
 	}
 	return TRUE;
