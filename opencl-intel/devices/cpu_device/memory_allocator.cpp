@@ -382,10 +382,10 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		sCpyPrm.pSrc = (cl_char*)pMemObjDesc->pHostPtr;
 		
 		sCpyPrm.pDst = (cl_char*)pMemObjDesc->objDecr.pData;
-		for(unsigned int i=0; i< dim_count; i++)
+		for(unsigned int i=0; i< dim_count-1; i++)
 		{
 			sCpyPrm.vDstPitch[i] = pMemObjDesc->objDecr.pitch[i];
-			sCpyPrm.vRegion[i] = pMemObjDesc->objDecr.dim[i];
+			
 			if(NULL != pitch)
 			{
 				sCpyPrm.vSrcPitch[i] = pitch[i];
@@ -396,6 +396,12 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 			}
 
 		}
+		for(unsigned int i=0; i< dim_count; i++)
+		{
+			sCpyPrm.vRegion[i] = pMemObjDesc->objDecr.dim[i];
+			
+		}
+
 		
 		
 		sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * uiElementSize;
