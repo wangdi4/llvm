@@ -26,12 +26,12 @@
 */
 #pragma once
 
-#define CPU_DEV_MAX_WI_SIZE		255			// Maximum values that could be specified for WI in one dimension
-#define CPU_DEV_MAX_WG_SIZE		255			// As maximum number of fibers in the thread
-#define CPU_DEV_LCL_MEM_SIZE	(24*1024)	// Total DCU size is 32k, we will leave 8k for internal data
-#define CPU_DCU_LINE_SIZE		64
+#define CPU_DEV_MAX_WI_SIZE		256					// Maximum values that could be specified for WI in one dimension
+#define CPU_DEV_LCL_MEM_SIZE	(24*1024)			// Total DCU size is 32k, we will leave 8k for internal data
+#define CPU_DEV_DCU_LINE_SIZE	64
+#define CPU_MINIMUM_WI_PRIVATE_SIZE		(1024*2)	// Minimum memory size allocate for single WI instance
 
-#define ADJUST_SIZE_TO_DCU_LINE(X) ( ((X)+CPU_DCU_LINE_SIZE-1) & (~(CPU_DCU_LINE_SIZE-1)))
+#define ADJUST_SIZE_TO_DCU_LINE(X) ( ((X)+CPU_DEV_DCU_LINE_SIZE-1) & (~(CPU_DEV_DCU_LINE_SIZE-1)))
 
 // Maximum number of arguments to be passed to the kernel
 #define CPU_KERNEL_MAX_ARG_COUNT	256
@@ -46,7 +46,6 @@
 #define CPU_MAX_CONSTANT_ARGS			128
 #define CPU_MEM_BASE_ADDR_ALIGN			0
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-#define CPU_MAX_WORK_GROUP_SIZE			256 // Must be power of 2, No API to get max number of fibers
-#define CPU_PROFILING_TIMER_RESOLUTION  1
+#define CPU_MAX_WORK_GROUP_SIZE			256			// Must be power of 2, No API to get max number of fibers
 #define CPU_MIN_ACTUAL_PARAM_SIZE		(sizeof(void*))
 #define CPU_MIN_VECTOR_SIZE				8

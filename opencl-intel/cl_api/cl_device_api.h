@@ -259,6 +259,8 @@ typedef enum cl_dev_kernel_info
 	CL_DEV_KERNEL_WG_SIZE_REQUIRED,				// Specifies the required work-group size as was declared during
 												// kernel compilation.
 	CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,			// Specifies size of implicit local memory buffers defined in kernel.
+	CL_DEV_KERNEL_PRIVATE_SIZE,					// Specifies size of private memory required for
+												// execution of singe instance of a kernel
 };
 
 typedef enum _cl_dev_sampler_prop

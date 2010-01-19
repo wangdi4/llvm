@@ -31,8 +31,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	// Defines possible values for kernel argument types
 	typedef enum cl_exec_mem_type
 	{
-		CL_EXEC_LOCAL_MEMORY_TYPE = 0, // this is a buffer used by the executable for local memory 
-		CL_EXEC_INTERNAL_MEMORY_TYPE, // this is a buffer used by the executable for internal uses (opaque)
+		CL_EXEC_LOCAL_MEMORY_TYPE = 0,	// this is a buffer used by the executable for local memory 
+		CL_EXEC_PRIVATE_MEMORY_TYPE,		// this is a buffer used by the executable for private memory
+		CL_EXEC_INTERNAL_MEMORY_TYPE,	// this is a buffer used by the executable for internal uses (opaque)
 	};
 
 	//*****************************************************************************************
@@ -228,7 +229,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Create execution context which will be used across different execution threads
 		virtual cl_uint CreateExecutable(void* IN *pMemoryBuffers, 
-			unsigned int IN uiBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
+			size_t IN stBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
 
 		// Returns the kernel object which generated this executable
 		virtual const ICLDevBackendKernel* GetKernel() const = 0;
