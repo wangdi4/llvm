@@ -49,8 +49,9 @@ size_t GCD(size_t a, size_t b)
 
 LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, const size_t* IN pGlobalOffset,
 			   const size_t* IN pGlobalWorkSize, const size_t* IN pLocalWorkSize) :
-					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr), m_ArgBuffSize(0),
-					m_pLocalBufferOffsets(NULL), m_uiLocalCount(0), m_pLocalParams(NULL), m_pLocalParamsBase(NULL)
+					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr),
+					m_stFormalParamSize(0), m_stStackSize(0),m_stKernelParamSize(0),
+					m_pLocalBufferOffsets(NULL), m_uiLocalCount(0), m_pLocalParams(NULL)//, m_pLocalParamsBase(NULL)
 {
 	memset(&m_WorkInfo, 0, sizeof(sWorkInfo));
 
@@ -93,12 +94,13 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, cons
 		}
 	}
 
-	// Calculate number of work groups
+	// Calculate number of work groups and WG size
+	m_uiWGSize = 1;
 	for(unsigned int i=0; i<m_WorkInfo.uiWorkDim; ++i)
 	{
 		m_WorkInfo.WGNumber[i] = m_WorkInfo.GlobalSize[i]/m_WorkInfo.LocalSize[i];
+		m_uiWGSize *= m_WorkInfo.LocalSize[i];
 	}
-
 }
 
 LLVMBinary::~LLVMBinary()
@@ -107,23 +109,14 @@ LLVMBinary::~LLVMBinary()
 	{
 		delete []m_pLocalBufferOffsets;
 	}
-
-	if( NULL != m_pLocalParamsBase)
-	{
-		delete []m_pLocalParamsBase;
-	}
 }
 
 cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 {
-	m_pLocalParamsBase = new char[CPU_MAX_PARAMETER_SIZE*4+15];
-	if ( NULL == m_pLocalParamsBase )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
 	m_pLocalParams = (char*)(((size_t)m_pLocalParamsBase+15) & ~0xF);	// Make aligned to 16 byte
-	memset(m_pLocalParams, 0, CPU_MAX_PARAMETER_SIZE);
-
+#ifdef _DEBUG
+	memset(m_pLocalParams, 0x88, CPU_MAX_PARAMETER_SIZE);
+#endif
 	// Allocate buffer to store pointer to explicit local buffers inside the parameters buffer
 	// These positions will be replaced with real pointers just before the execution
 	if ( m_pKernel->m_uiExplLocalMemCount > 0)
@@ -199,7 +192,17 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 			stLocalOffset += max(m_pKernel->m_pArguments[i].size_in_bytes, CPU_MIN_ACTUAL_PARAM_SIZE);
 		}
 	}
-	m_ArgBuffSize = stLocalOffset;
+
+	m_stFormalParamSize = stLocalOffset;
+
+	m_stKernelParamSize =	stLocalOffset +
+							4*sizeof(void*)+MAX_WORK_DIM*sizeof(size_t) +	// OCL specific argument (WG Info, Global ID, ect)
+							sizeof(void*); // Pointer to IDevExecutable
+
+	m_stStackSize = m_pKernel->GetPrivateMemorySize() +				// Kernel stack area
+						sizeof(void*) +								// Return address
+						m_stKernelParamSize;						// Kernel call stack size
+														
 
 	return CL_DEV_SUCCESS;
 }
@@ -214,37 +217,58 @@ cl_uint LLVMBinary::Execute( void* IN pMemoryBuffers,
 	return CL_DEV_ERROR_FAIL;
 }
 
-cl_uint LLVMBinary::GetMemoryBuffersDescriptions(size_t* IN pBuffersSizes, 
+cl_uint LLVMBinary::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
 									 cl_exec_mem_type* IN pBuffersTypes, 
 									 size_t* INOUT pBufferCount ) const
 {
 	assert(pBufferCount);
-	if ( (NULL == pBuffersSizes) )
+	if ( (NULL == pBufferSizes) )
 	{
-		*pBufferCount = m_uiLocalCount+(m_pKernel->GetImplicitLocalMemoryBufferSize() != 0);
+		size_t buffCount = m_uiLocalCount;
+		buffCount += (m_pKernel->GetImplicitLocalMemoryBufferSize() != 0);	// Implicit local buffers
+		++buffCount;														// Stack size
+		*pBufferCount = buffCount;
 		return CL_DEV_SUCCESS;
 	}
-	assert(pBuffersSizes);
-	for (unsigned int i=0;i<m_uiLocalCount;++i)
+	assert(pBufferSizes);
+
+	// Fill sizes of explicit local buffers
+	unsigned int i;
+	for (i=0;i<m_uiLocalCount;++i)
 	{
-		pBuffersSizes[i] = *((size_t*)(m_pLocalParams+m_pLocalBufferOffsets[i]));
+		pBufferSizes[i] = *((size_t*)(m_pLocalParams+m_pLocalBufferOffsets[i]));
 	}
+	// Fill size of the implicit local buffer
+	if ( m_pKernel->GetImplicitLocalMemoryBufferSize() != 0 )
+	{
+		pBufferSizes[i] = m_pKernel->GetImplicitLocalMemoryBufferSize();
+		++i;
+	}
+
+	// Fill size of private area (stack)
+	pBufferSizes[i] = m_stStackSize*m_uiWGSize +
+						15;							// Request additional space for further aligment
+
+	if ( NULL != pBuffersTypes )
+	{
+		pBuffersTypes[i] = CL_EXEC_PRIVATE_MEMORY_TYPE;
+		while( i > 0 )
+		{
+			--i;
+			pBuffersTypes[i] = CL_EXEC_LOCAL_MEMORY_TYPE;
+		}
+	}
+
 	return CL_DEV_SUCCESS;
 }
 
 cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers, 
-									  size_t IN pBufferCount, ICLDevBackendExecutable* OUT *pContext)
+									  size_t IN stBufferCount, ICLDevBackendExecutable* OUT *pExec)
 {
-	// Calculate amount of actual WorkItems in context
-	unsigned int uiWIcount = 1;
-	for (unsigned int i=0; i<m_WorkInfo.uiWorkDim; ++i)
-	{
-		uiWIcount *= m_WorkInfo.LocalSize[i];
-	}
-
-	assert(pContext);
+	unsigned int uiWGSizeLocal = m_uiWGSize;
+	assert(pExec);
 	LLVMExecutable*	pLLVMExecutable = NULL;
-	if (1 == uiWIcount)
+	if (1 == uiWGSizeLocal)
 	{
 		pLLVMExecutable = new LLVMExecSingleWI(this);
 	} else if ( m_pKernel->m_bBarrier )
@@ -254,7 +278,7 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	else
 	{
 		pLLVMExecutable = new LLVMExecMultipleWINoBarrier(this);
-		uiWIcount = 1;		// In this case we need single WI context
+		uiWGSizeLocal = 1;		// In this case we need single WI context
 	}
 	// Initial the context to be start of the stack frame
 	if ( NULL == pLLVMExecutable )
@@ -262,7 +286,8 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	cl_uint res = pLLVMExecutable->Init(pMemoryBuffers, uiWIcount);
-	*pContext = pLLVMExecutable;
+	// The last buffer is the stack region
+	cl_uint res = pLLVMExecutable->Init(pMemoryBuffers, pMemoryBuffers[stBufferCount-1], uiWGSizeLocal);
+	*pExec = pLLVMExecutable;
 	return res;
 }

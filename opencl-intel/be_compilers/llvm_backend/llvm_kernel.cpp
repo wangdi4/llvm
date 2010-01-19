@@ -65,7 +65,8 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL),
 	m_pReqdWGSize(NULL), m_pHintWGSize(NULL), m_uiOptWGSize(1),
 	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
-	m_uiTotalImplSize(0), m_uiStackSize(DEFAULT_STACK_SIZE), m_pProgram(pProgram), m_pCtxPtr(NULL),
+	m_uiTotalImplSize(0), m_uiStackSize(CPU_MINIMUM_WI_PRIVATE_SIZE),
+	m_pProgram(pProgram), m_pCtxPtr(NULL),
 	m_uiVTuneId(-1)
 {
 	memset(m_GlbIds, 0, sizeof(m_GlbIds));
@@ -774,7 +775,6 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc, ConstantArray* pFuncArgs, Constant
 
 	// JIT generated get info from function
 	m_uiStackSize = (unsigned int)(m_uiStackSize+g_pExecEngine->getJitFunctionStackSize(pFunc));
-	m_uiStackSize = (m_uiStackSize + 15)& ~15;	// Always aligned to 16 byte
 
 #ifdef __ENABLE_VTUNE__
 	if ( iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )

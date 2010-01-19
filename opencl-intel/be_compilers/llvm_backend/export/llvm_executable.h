@@ -44,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		virtual ~LLVMExecutable();
 
 		// Initialize context to with specific number of WorkItems 
-		virtual cl_uint		Init(void* *pMemoryBuffers, unsigned int uiWICount);
+		virtual cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
 
 		// Releases the context object
 		void	Release();
@@ -61,7 +61,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 	protected:
 		const LLVMBinary*	m_pBinary;
-		char*				m_pBase;
 		char*				m_pContext;
 		size_t*				m_pBaseGlobalId;
 		unsigned int		m_uiWICount;
@@ -88,7 +87,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		cl_uint Execute(const size_t* IN pGroupId,
 			const size_t* IN pLocalOffset, 
 			const size_t* IN pItemsToProcess);
-		bool	SetAndCheckAsyncCopy(unsigned int uiKey) {return m_bIsFirst;}
+		bool	SetAndCheckAsyncCopy(unsigned int uiKey)
+				{bool bFirst = m_bIsFirst; m_bIsFirst =false; return bFirst;}
 		bool	ResetAsyncCopy(unsigned int uiKey) {return false;}
 	private:
 		bool	m_bIsFirst;
@@ -99,11 +99,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	{
 	public:
 		LLVMExecMultipleWIWithBarrier(const LLVMBinary* pExec) :
-		  LLVMExecutable(pExec), m_pJmpBuf(NULL){}
+		  LLVMExecutable(pExec){}
 		virtual ~LLVMExecMultipleWIWithBarrier();
 
 		// Override init function
-		cl_uint	Init(void* *pMemoryBuffers, unsigned int uiWICount);
+		cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
 		cl_uint Execute(const size_t* IN pGroupId,
 			const size_t* IN pLocalOffset, 
 			const size_t* IN pItemsToProcess);
@@ -117,7 +117,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	protected:
 		unsigned int	m_iCurrWI;
 		size_t			m_pLclGroupId[MAX_WORK_DIM];
-		_JUMP_BUFFER*	m_pJmpBuf;					// Buffer for setjmp info storage
+		_JUMP_BUFFER	m_pJmpBuf[CPU_MAX_WORK_GROUP_SIZE];	// Buffer for setjmp info storage
 		_JUMP_BUFFER	m_mainJmpBuf;
 		unsigned int	m_uiWIStackSize;
 

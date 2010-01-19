@@ -72,14 +72,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Create execution context which will be used across different execution threads
 		cl_uint CreateExecutable(void* IN *pMemoryBuffers, 
-								size_t IN pBufferCount, ICLDevBackendExecutable* OUT *pContext);
+								size_t IN stBufferCount, ICLDevBackendExecutable* OUT *pContext);
 
 		// Releases executable instance
 		void	Release() {delete this;}
 
 		// Local methods
-		cl_uint GetFormalParametersSize() const
-				{return m_ArgBuffSize;}
+		size_t GetFormalParametersSize() const
+				{return m_stFormalParamSize;}
+		size_t GetKernelParametersSize() const
+				{return m_stKernelParamSize;}
+		size_t GetStackSize() const
+				{return m_stStackSize;}
 
 		void* LLVMBinary::GetFormalParameters() const
 		{
@@ -99,11 +103,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		const LLVMKernel*		m_pKernel;
 		const void*				m_pEntryPoint;
-		size_t					m_ArgBuffSize;
+		size_t					m_stFormalParamSize;
+		size_t					m_stKernelParamSize;
+		size_t					m_stStackSize;
 		sWorkInfo				m_WorkInfo;
 		char*					m_pLocalParams;
-		char*					m_pLocalParamsBase;
+		char					m_pLocalParamsBase[CPU_MAX_PARAMETER_SIZE*4+15];
 		unsigned int			m_uiLocalCount;
 		size_t*					m_pLocalBufferOffsets;
+		unsigned int			m_uiWGSize;
 	};
 }}}

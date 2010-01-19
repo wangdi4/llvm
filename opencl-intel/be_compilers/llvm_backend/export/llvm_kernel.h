@@ -42,8 +42,6 @@
 #endif
 #endif
 
-#define DEFAULT_STACK_SIZE	(1024*2)
-
 // Declare external classes
 namespace llvm {
 	class Function;

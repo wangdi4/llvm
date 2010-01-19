@@ -182,11 +182,11 @@ extern "C" __declspec(dllexport) __declspec(noinline) event_t lasync_wg_copy_g2l
 
 extern "C" __declspec(dllexport) void lprefetch(const char* ptr, size_t numElements, size_t elmSize)
 {
-	size_t totalLines = ((numElements * elmSize) + CPU_DCU_LINE_SIZE - 1) / CPU_DCU_LINE_SIZE;
+	size_t totalLines = ((numElements * elmSize) + CPU_DEV_DCU_LINE_SIZE - 1) / CPU_DEV_DCU_LINE_SIZE;
 
 	for (size_t i=0; i<totalLines; ++i)
 	{
 		_mm_prefetch(ptr, _MM_HINT_T0);
-		ptr += CPU_DCU_LINE_SIZE;
+		ptr += CPU_DEV_DCU_LINE_SIZE;
 	}
 }

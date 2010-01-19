@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define DEBUG_CHECK_MASK_SIZE	16
 
 LLVMExecutable::LLVMExecutable(const LLVMBinary* pBin):
-	m_pBinary(pBin), m_pBase(NULL), m_pContext(NULL)
+	m_pBinary(pBin), m_pContext(NULL)
 {
 	m_pBaseGlobalId = (size_t*)_aligned_malloc(4*sizeof(size_t), 16);
 	if ( NULL != m_pBaseGlobalId )
@@ -57,71 +57,37 @@ LLVMExecutable::~LLVMExecutable()
 }
 void LLVMExecutable::Release()
 {
-	if ( m_pBase != NULL )
-	{
-#ifdef _DEBUG
-		// check for the mask
-		for (int i=0; i<DEBUG_CHECK_MASK_SIZE; ++i)
-		{
-			assert(m_pBase[i] == 0x77);
-		}
-#endif
-		delete []m_pBase;
-	}
 	delete this;
 }
 
 // Initialize context to with specific number of WorkItems 
-cl_uint	LLVMExecutable::Init(void* *pMemoryBuffers, unsigned int uiWICount)
+cl_uint	LLVMExecutable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount)
 {
 	if ( NULL == m_pBaseGlobalId)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	unsigned int uiStackSize = m_pBinary->GetKernel()->GetPrivateMemorySize()+
-								m_pBinary->GetFormalParametersSize();
-	// Allocate buffer for context
-#ifndef _DEBUG
-	m_pBase = new char[uiWICount*uiStackSize+15];
-#else
-	m_pBase = new char[uiWICount*uiStackSize+15+DEBUG_CHECK_MASK_SIZE];	// add additional 16 byte for test mask
-#endif
-	if ( NULL == m_pBase)
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-#ifdef _DEBUG
-	memset(m_pBase, 0x77, uiWICount*uiStackSize+15+DEBUG_CHECK_MASK_SIZE);
-#endif
-
 	m_uiWICount = uiWICount;
 
-	unsigned int uiParamSize = m_pBinary->GetFormalParametersSize()+4*sizeof(void*)+MAX_WORK_DIM*sizeof(size_t);
-	// we need additional space for context pointer, which is allocated after local ids
-	uiParamSize += sizeof(void*);
+	size_t stParamSize = m_pBinary->GetKernelParametersSize();
 
-	// Start from the end, make 16 byte aligned
-#ifndef _DEBUG
-	m_pContext = (char*)((size_t)(m_pBase+uiStackSize-uiParamSize) & ~0xF);
-#else
-	// Leave space 
-	m_pContext = (char*)((size_t)(m_pBase+DEBUG_CHECK_MASK_SIZE+uiStackSize-uiParamSize) & ~0xF);
-#endif
+	m_pContext = (char*)(((size_t)((char*)pWGStackFrame + m_pBinary->GetStackSize() - stParamSize + 15)) & ~0xF);
+
 	// Copy parameters to context
 	memcpy(m_pContext, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 	// Update pointers of the local buffers
 	for (unsigned int i=0; i<m_pBinary->m_uiLocalCount; ++i)
 	{
-		*((void**)(m_pContext+m_pBinary->m_pLocalBufferOffsets[i])) = pMemoryBuffers[i];
+		*((void**)(m_pContext+m_pBinary->m_pLocalBufferOffsets[i])) = pLocalMemoryBuffers[i];
 	}
 
 	char* pWIParams = m_pContext + m_pBinary->GetFormalParametersSize();
 	// Set implicit local buffer pointer
 	if ( m_pBinary->m_pKernel->GetImplicitLocalMemoryBufferSize() )
 	{
-		*((void**)pWIParams) = pMemoryBuffers[m_pBinary->m_uiLocalCount]; // The next buffer after locals
+		// Is the next buffer after explicit locals
+		*((void**)pWIParams) = pLocalMemoryBuffers[m_pBinary->m_uiLocalCount];
 	}
 	pWIParams += sizeof(void*);
 
@@ -218,7 +184,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 				mov		esp,	edi
 				pop		edi
 			}
-			m_bIsFirst = false;
 		}
 		break;
 
@@ -244,7 +209,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 					mov		esp,	edi
 					pop		edi
 				}
-				m_bIsFirst = false;
 			}
 		break;
 
@@ -272,7 +236,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 						mov		esp,	edi
 						pop		edi
 					}
-					m_bIsFirst = false;
 				}
 		break;
 
@@ -286,30 +249,17 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 //---------------------------------------------------------------------------------------
 LLVMExecMultipleWIWithBarrier::~LLVMExecMultipleWIWithBarrier()
 {
-	if ( NULL != m_pJmpBuf)
-	{
-		delete []m_pJmpBuf;
-	}
 }
 
-cl_uint	LLVMExecMultipleWIWithBarrier::Init(void* *pMemoryBuffers, unsigned int uiWICount)
+cl_uint	LLVMExecMultipleWIWithBarrier::Init(void* *pMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount)
 {
-	cl_uint ret = LLVMExecutable::Init(pMemoryBuffers, uiWICount);
+	cl_uint ret = LLVMExecutable::Init(pMemoryBuffers, pWGStackFrame, uiWICount);
 	if ( CL_DEV_FAILED(ret))
 	{
 		return ret;
 	}
 
-	// Allocate space for internal Context pointers
-	m_pJmpBuf = new _JUMP_BUFFER[uiWICount];
-	if ( NULL == m_pJmpBuf)
-	{
-		delete []m_pBase;
-		m_pBase = NULL;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	m_uiWIStackSize = m_pBinary->GetKernel()->GetPrivateMemorySize();
+	m_uiWIStackSize = m_pBinary->GetStackSize();
 
 	// Setup local WG index pointer
 	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
@@ -317,9 +267,11 @@ cl_uint	LLVMExecMultipleWIWithBarrier::Init(void* *pMemoryBuffers, unsigned int 
 	
 	// Now setup rest of the WorkItems
 	unsigned int i=0;
-	unsigned int uiParamSize = m_pBinary->m_ArgBuffSize+4*sizeof(void*);
+	unsigned int uiParamCopySize = m_pBinary->GetKernelParametersSize() -
+										MAX_WORK_DIM*sizeof(size_t) - sizeof(void*);
+
 	char* pCurrContext = m_pContext + m_uiWIStackSize;
-	char* pLocald = pCurrContext + uiParamSize;
+	char* pLocald = pCurrContext + uiParamCopySize;
 
 	for (unsigned int z=0; z<m_pBinary->m_WorkInfo.LocalSize[2]; ++z)
 	{
@@ -329,7 +281,7 @@ cl_uint	LLVMExecMultipleWIWithBarrier::Init(void* *pMemoryBuffers, unsigned int 
 			{
 				if ( i != 0 )
 				{
-					memcpy(pCurrContext, m_pContext, uiParamSize);
+					memcpy(pCurrContext, m_pContext, uiParamCopySize);
 					// Update Local id
 					((size_t*)pLocald)[0] = x;
 					((size_t*)pLocald)[1] = y;
