@@ -345,8 +345,8 @@ void CTaskSet::Execute(void** pCurrentSet)
 	// Prepare execution parameters
 	sDim start = {0, 0, 0};
 	sDim range;
-
-	int res = m_pTaskSet->Init((unsigned int *)&range);
+	unsigned int dimCount;
+	int res = m_pTaskSet->Init((unsigned int *)&range, dimCount);
 	if ( res )
 	{
 		m_pTaskSet->Finish(FINISH_INIT_FAILED);

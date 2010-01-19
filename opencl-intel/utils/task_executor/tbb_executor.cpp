@@ -148,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			__int64 n = 1;
 			for(int i =0; i<3; ++i)
 				n *= range[i];
-			my_grain_size = (unsigned int)((n+gTBB_threads*16-1)/(gTBB_threads*16));
+			my_grain_size = (unsigned int)((n+(gTBB_threads-1)*16-1)/((gTBB_threads-1)*16));
 		}
 
 		//! True if range is empty
@@ -180,6 +180,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 					my_pages.my_begin = Range1D::do_split(r.my_pages);
 				}
 			}
+
+			// Recalculate grain size
+			__int64 n = my_pages.size()*my_rows.size()*my_cols.size();
+			my_grain_size = (unsigned int)((n+(gTBB_threads-1)*16-1)/((gTBB_threads-1)*16));
 		}
 
 		//! The pages of the iteration space 
@@ -193,9 +197,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	};
 
-	struct TaskLoopBody {
+	struct TaskLoopBody3D {
 		ITaskSet &task;
-		TaskLoopBody(ITaskSet &t) : task(t) {}
+		TaskLoopBody3D(ITaskSet &t) : task(t) {}
 		void operator()(const Range3D& r) const {
 			unsigned int uiWorkerId;
 #ifdef __WIN_XP__
@@ -218,15 +222,15 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TaskSetBody(ITaskSet &t) : task(t) {}
 		void operator()() { 
 			// TODO: How iterations in task sets can differ in workload? Define gs appropriately.
-			unsigned int dim[3];
-			int res = task.Init(dim);
+			unsigned int dim[3], dimCount;
+			int res = task.Init(dim, dimCount);
 			__TBB_ASSERT(res==0, "Init failed");
 			if (res != 0)
 			{
 				task.Finish(FINISH_INIT_FAILED);
 				return;
 			}
-			tbb::parallel_for(Range3D(dim), TaskLoopBody(task), tbb::auto_partitioner());
+			tbb::parallel_for(Range3D(dim), TaskLoopBody3D(task), tbb::auto_partitioner());
 			task.Finish(FINISH_COMPLETED);
 			task.Release();
 		}
@@ -353,15 +357,15 @@ public:
 				if ( (*cmd)->IsTaskSet() )
 				{
 					ITaskSet* pTask = (ITaskSet*)(*cmd);
-					unsigned int dim[3];
-					int res = pTask->Init(dim);
+					unsigned int dim[3], dimCount;
+					int res = pTask->Init(dim, dimCount);
 					__TBB_ASSERT(res==0, "Init Failed");
 					if (res != 0)
 					{
 						pTask->Finish(FINISH_INIT_FAILED);
 						continue;
 					}
-					tbb::parallel_for(Range3D(dim), TaskLoopBody(*pTask), tbb::auto_partitioner());
+					tbb::parallel_for(Range3D(dim), TaskLoopBody3D(*pTask), tbb::auto_partitioner());
 					pTask->Finish(FINISH_COMPLETED);
 				}
 				else

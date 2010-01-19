@@ -108,8 +108,9 @@ void XNTaskSetImpl::TaskSetExecuteStub(void *pTaskSetImpl)
 	ITaskSet *pTaskSet = (ITaskSet*)_this->m_pTask;
 	XN_TASK_PRIORITY prio = (XN_TASK_PRIORITY)pTaskSet->GetPriority();
 
+	unsigned int uiDimCount = 0;
 	// Execute initialization function
-	int res = pTaskSet->Init(_this->m_region);
+	int res = pTaskSet->Init(_this->m_region, uiDimCount);
 	if ( res )
 	{
 		pTaskSet->Finish(FINISH_INIT_FAILED);
