@@ -184,7 +184,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		Function *pFuncVal = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
 		if ( NULL == pFuncVal )
 		{
-			continue;	// Not function pointer
+			continue;	// Not a function pointer
 		}
 		// Check maximum number of arguments to kernel
 		if ( CPU_KERNEL_MAX_ARG_COUNT < pFuncVal->arg_size() )
@@ -392,6 +392,29 @@ void LLVMProgram::FreeMap()
 	m_mapKernels.clear();
 }
 
+bool LLVMProgram::IsKernel(const char* szFuncName)
+{
+	GlobalVariable *annotation = m_pModuleProvider->getModule()->getGlobalVariable("llvm.global.annotations");
+	ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
+	for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) 
+	{
+		// Obtain kernel function from annotation
+		ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
+		Function *pFuncVal = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+		if ( NULL == pFuncVal )
+		{
+			continue;	// Not a function pointer
+		}
+
+		if ( pFuncVal->isName(szFuncName) )
+		{
+			return true;
+		}
+	}
+
+	// Function not found
+	return false;
+}
 
 void LLVMProgram::AddBarrierDeclaration()
 {

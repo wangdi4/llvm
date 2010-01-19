@@ -110,7 +110,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		char*					m_pLocalParams;
 		char					m_pLocalParamsBase[CPU_MAX_PARAMETER_SIZE*4+15];
 		unsigned int			m_uiLocalCount;
-		size_t*					m_pLocalBufferOffsets;
+		size_t					m_pLocalBufferOffsets[CPU_MAX_LOCAL_ARGS];
 		unsigned int			m_uiWGSize;
 	};
 }}}

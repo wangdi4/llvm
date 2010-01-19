@@ -86,8 +86,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		cl_prog_container		m_ContainerInfo;// Current container information
 		llvm::MemoryBuffer*		m_pMemBuffer;	// A memory buffer used to store LLVM IR
 		llvm::ModuleProvider*	m_pModuleProvider;	// Module provider to store the IR
-
 		std::string				m_strLastError;
+
+		bool	IsKernel(const char* szFuncName);
 
 		void	AddWIInfoDeclarations();
 		void	AddBarrierDeclaration();

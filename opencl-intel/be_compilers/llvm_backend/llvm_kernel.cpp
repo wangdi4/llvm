@@ -65,7 +65,7 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_pFuncPtr(NULL), m_szName(NULL), m_uiArgCount(0), m_pArguments(NULL),
 	m_pReqdWGSize(NULL), m_pHintWGSize(NULL), m_uiOptWGSize(1),
 	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
-	m_uiTotalImplSize(0), m_uiStackSize(CPU_MINIMUM_WI_PRIVATE_SIZE),
+	m_uiTotalImplSize(0), m_uiStackSize(CPU_DEV_MIN_WI_PRIVATE_SIZE),
 	m_pProgram(pProgram), m_pCtxPtr(NULL),
 	m_uiVTuneId(-1)
 {
@@ -200,6 +200,10 @@ cl_dev_err_code LLVMKernel::ParseArguments(Function *pFunc)
 		++arg_it;
 	}
 
+	if ( m_uiExplLocalMemCount > CPU_MAX_LOCAL_ARGS )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
 	return CL_DEV_SUCCESS;
 }
 
@@ -611,6 +615,7 @@ void LLVMKernel::UpdatePrefetch(llvm::CallInst* pCall)
 	CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
 }
 
+
 cl_int LLVMKernel::ParseLLVM(Function *pFunc, ConstantArray* pFuncArgs, ConstantArray* pFuncLocals)
 {
 	bool	bDbgPrint = false;
@@ -753,6 +758,15 @@ cl_int LLVMKernel::ParseLLVM(Function *pFunc, ConstantArray* pFuncArgs, Constant
 						break;
 					}
 
+					// Check call to not inlined functions/ kernels
+					Function* pCallee = dyn_cast<Function>(inst_it->getOperand(0));
+					if ( NULL != pCallee && !pCallee->isDeclaration() )
+					{
+						if ( !m_pProgram->IsKernel(pCallee->getNameStart()) )
+						{
+							g_pExecEngine->getPointerToFunction(pCallee);
+						}
+					}
 					break;
 			}
 			++inst_it;

@@ -51,7 +51,7 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, cons
 			   const size_t* IN pGlobalWorkSize, const size_t* IN pLocalWorkSize) :
 					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr),
 					m_stFormalParamSize(0), m_stStackSize(0),m_stKernelParamSize(0),
-					m_pLocalBufferOffsets(NULL), m_uiLocalCount(0), m_pLocalParams(NULL)//, m_pLocalParamsBase(NULL)
+					m_uiLocalCount(0), m_pLocalParams(NULL)
 {
 	memset(&m_WorkInfo, 0, sizeof(sWorkInfo));
 
@@ -105,10 +105,6 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, cons
 
 LLVMBinary::~LLVMBinary()
 {
-	if ( NULL != m_pLocalBufferOffsets )
-	{
-		delete []m_pLocalBufferOffsets;
-	}
 }
 
 cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
@@ -117,16 +113,6 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 #ifdef _DEBUG
 	memset(m_pLocalParams, 0x88, CPU_MAX_PARAMETER_SIZE);
 #endif
-	// Allocate buffer to store pointer to explicit local buffers inside the parameters buffer
-	// These positions will be replaced with real pointers just before the execution
-	if ( m_pKernel->m_uiExplLocalMemCount > 0)
-	{
-		m_pLocalBufferOffsets = new size_t[m_pKernel->m_uiExplLocalMemCount];
-		if ( NULL == m_pLocalBufferOffsets )
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
-	}
 
 	size_t	stTotalLocalSize = 0;
 	size_t	stLocalOffset = 0;
@@ -166,7 +152,8 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 				// Copy argument values one by one
 				for(unsigned int j=0; j<numElements; ++j)
 				{
-					memcpy(m_pLocalParams+stLocalOffset, pArgsBuffer+stArgsOffset, elemSize);
+					*(CPU_MIN_ACTUAL_PARAM_PTR)(m_pLocalParams+stLocalOffset) = 
+						(*(CPU_MIN_ACTUAL_PARAM_PTR)(pArgsBuffer+stArgsOffset)) & (~(-1 <<(elemSize*8)));
 					stArgsOffset += elemSize;
 					stLocalOffset += CPU_MIN_ACTUAL_PARAM_SIZE;
 				}
