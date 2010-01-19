@@ -46,7 +46,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService,
 					 MemoryAllocator *memAlloc, cl_dev_log_descriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) :
 		m_iDevId(devId), m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-			m_pCPUDeviceConfig(cpuDeviceConfig), m_iLogHandle(0)
+			m_pCPUDeviceConfig(cpuDeviceConfig), m_iLogHandle(0), m_pWGContexts(NULL)
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL == logDesc )
@@ -83,10 +83,20 @@ TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, Pr
 	m_vCommands[CL_DEV_CMD_COPY] = &CopyMemObject::Create;
 	m_vCommands[CL_DEV_CMD_MAP] = &MapMemObject::Create;
 	m_vCommands[CL_DEV_CMD_UNMAP] = &UnmapMemObject::Create;
+
+	// Init WGContexts
+	// Allocate required number of working contexts
+	unsigned int uiNumOfThread = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
+	m_pWGContexts = new WGContext[uiNumOfThread];
 }
 
 TaskDispatcher::~TaskDispatcher()
 {
+	if ( NULL != m_pWGContexts )
+	{
+		delete []m_pWGContexts;
+		m_pWGContexts = NULL;
+	}
 	// Free task lists
 	TCmdListMap::iterator	it;
 	for(it=m_mapCmdList.begin(); it!=m_mapCmdList.end(); ++it)

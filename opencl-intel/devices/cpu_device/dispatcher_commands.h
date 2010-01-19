@@ -49,6 +49,7 @@ public:
 
 protected:
 	void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
+	inline WGContext*	GetWGContext(unsigned int id);
 
 	TaskDispatcher*				m_pTaskDispatcher;
 	MemoryAllocator*			m_pMemAlloc;
@@ -153,7 +154,7 @@ public:
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITaskSet interface
-	int		Init(unsigned int region[]);
+	int		Init(unsigned int region[], unsigned int &regCount);
 	int		AttachToThread(unsigned int uiWorkerId);
 	void	ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsigned int uiWorkerId);
 	void	Finish(FINISH_REASON reason);
@@ -170,9 +171,9 @@ protected:
 	size_t						m_MemBuffCount;
 	size_t*						m_pMemBuffSizes;
 
-	WGContext*					*m_pWGContexts;
-
 	void	UnlockMemoryBuffers();
+
+//	LARGE_INTEGER start, stop, freq;
 
 #ifdef _DEBUG
 	// For debug

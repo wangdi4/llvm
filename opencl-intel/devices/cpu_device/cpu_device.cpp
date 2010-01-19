@@ -838,7 +838,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					*(size_t*)paramVal = CPU_PROFILING_TIMER_RESOLUTION;
+					*(size_t*)paramVal = (size_t)(1e9/ProfilingTimerFrequency());
 				}
 				return CL_DEV_SUCCESS;
 		}		

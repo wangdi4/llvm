@@ -41,12 +41,14 @@ public:
 
 	int						CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
 	cl_dev_cmd_id			GetCmdId() const {return m_cmdId;}
-	inline ICLDevBackendExecutable*	GetContext() const {return m_pContext;}
+	inline ICLDevBackendExecutable*	GetExecutable() const {return m_pContext;}
 
 protected:
 	ICLDevBackendExecutable*	m_pContext;
-	char*					m_pLocalMem;
-	cl_dev_cmd_id			m_cmdId;
+	cl_dev_cmd_id				m_cmdId;
+	char*						m_pLocalMem;
+	void*						m_pPrivateMem;
+	size_t						m_stPrivMemAllocSize;
 };
 
 }}}

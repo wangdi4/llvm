@@ -177,7 +177,7 @@ void*	MemoryAllocator::AllocateMem(cl_uint dim_count, const size_t* dim, size_t*
 	// Use Virtual memory allocator
 	// Enable read/write access
 	//void *pBuffer = VirtualAlloc(NULL, allocMemSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	void *pBuffer = _aligned_malloc(allocMemSize, CPU_DCU_LINE_SIZE);
+	void *pBuffer = _aligned_malloc(allocMemSize, CPU_DEV_DCU_LINE_SIZE);
 #ifdef _DEBUG
 	memset(pBuffer, 0x69, allocMemSize);
 #endif
@@ -331,7 +331,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	pMemObjDesc->pHostPtr = buffer_ptr;
 	pMemObjDesc->clHostPtrFlags = host_flags;
 
-	bool bNotAligned = ( ((int)buffer_ptr & (CPU_DCU_LINE_SIZE-1)) != 0);
+	bool bNotAligned = ( ((int)buffer_ptr & (CPU_DEV_DCU_LINE_SIZE-1)) != 0);
 
 	if ( NULL == buffer_ptr || bNotAligned) 		// Allocate memory for the new object
 	{

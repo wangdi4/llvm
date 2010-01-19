@@ -35,10 +35,12 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId(0)
+WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(CPU_MINIMUM_WI_PRIVATE_SIZE)
 {
 	// Create local memory
-	m_pLocalMem = (char*)_aligned_malloc(CPU_DEV_LCL_MEM_SIZE, 64);
+	m_pLocalMem = (char*)_aligned_malloc(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_DCU_LINE_SIZE);
+	m_pPrivateMem = _aligned_malloc(CPU_MINIMUM_WI_PRIVATE_SIZE, CPU_DEV_DCU_LINE_SIZE);
+
 }
 
 WGContext::~WGContext()
@@ -52,10 +54,21 @@ WGContext::~WGContext()
 	{
 		_aligned_free(m_pLocalMem);
 	}
+
+	if ( NULL != m_pPrivateMem )
+	{
+		_aligned_free(m_pPrivateMem);
+	}
+
 }
 
-int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count)
+int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, size_t* pBuffSizes, size_t count)
 {
+	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
 	if ( NULL != m_pContext )
 	{
 		m_pContext->Release();
@@ -66,16 +79,31 @@ int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, si
 	// TODO: consider use constant array
 	void*	*pBuffPtr = new void*[count];
 	if ( NULL == pBuffPtr )
+	{
 		return CL_DEV_OUT_OF_MEMORY;
+	}
 
+	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;
+	// The last buffer is private memory (stack) size
+	--count;
 	for(size_t i=0;i<count;++i)
 	{
 		pBuffPtr[i] = pCurrPtr;
 		pCurrPtr += pBuffSizes[i];
 	}
 
-	int rc = pExec->CreateExecutable(pBuffPtr, count, &m_pContext);
+	// Check allocated size of the private memory, and allocate new if nessesary.
+	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
+	{
+		_aligned_free(m_pPrivateMem);
+		m_stPrivMemAllocSize = pBuffSizes[count];
+		m_pPrivateMem = _aligned_malloc(m_stPrivMemAllocSize, CPU_DEV_DCU_LINE_SIZE);
+	}
+
+	pBuffPtr[count] = m_pPrivateMem;
+
+	int rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
 
 	delete[] pBuffPtr;
 	if (CL_DEV_FAILED(rc))

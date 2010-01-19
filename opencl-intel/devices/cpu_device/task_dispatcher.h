@@ -32,6 +32,7 @@
 #include "task_executor.h"
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
+#include "wg_context.h"
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
@@ -71,6 +72,11 @@ protected:
 	ITaskExecutor*					m_pTaskExecutor;
 	OclMutex						m_muCmdList;			// Mutex for list of lists
 	TCmdListMap						m_mapCmdList;
+
+	// Contextes required for execution of NDRange
+	WGContext*						m_pWGContexts;
+	WGContext*						GetWGContext(unsigned int id)
+										{ return m_pWGContexts ? &m_pWGContexts[id] : NULL; }
 
 	// Internal implementation of functions
 	fnDispatcherCommandCreate_t*		m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];

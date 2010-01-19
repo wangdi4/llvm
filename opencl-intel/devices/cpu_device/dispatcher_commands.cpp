@@ -52,6 +52,11 @@ m_pTaskDispatcher(pTD), m_logDescriptor(pTD->m_logDescriptor)
 	m_bUseTaskalizer = pTD->m_bUseTaskalizer;
 }
 
+inline WGContext* DispatcherCommand::GetWGContext(unsigned int id)
+{
+	return m_pTaskDispatcher->GetWGContext(id);
+}
+
 void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
 {
 	m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
@@ -740,6 +745,8 @@ m_pMemBuffSizes(NULL)
 	m_lAttaching = 0;
 	m_lExecuting = 0;
 #endif
+//	QueryPerformanceFrequency(&freq);
+
 }
 
 void NDRange::Release()
@@ -854,7 +861,7 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 			stWGSize *= cmdParams->lcl_wrk_size[i];
 		}
 
-		if ( CPU_DEV_MAX_WG_SIZE < stWGSize )
+		if ( CPU_MAX_WORK_GROUP_SIZE < stWGSize )
 		{
 			return CL_DEV_INVALID_WG_SIZE;
 		}
@@ -880,8 +887,9 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-int NDRange::Init(size_t region[])
+int NDRange::Init(size_t region[], unsigned int &regCount)
 {
+
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
 	const char*	pKernelParams = (const char*)cmdParams->arg_values;
@@ -890,21 +898,12 @@ int NDRange::Init(size_t region[])
 	printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), m_pCmd->id);
 #endif
 
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
 	unsigned					uiNumArgs;
 	const cl_kernel_argument*	pArgs;
 	pKernel->GetKernelParams(&pArgs, &uiNumArgs);
 	size_t						stOffset = 0;
-
-	// Allocate required number of working contexts
-	unsigned int uiNumOfThread = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
-	m_pWGContexts = new WGContext*[uiNumOfThread];
-	if ( NULL == m_pWGContexts )
-	{
-		m_lastError = CL_DEV_OUT_OF_MEMORY;
-		return -1;
-	}
-	// Initialize to zero
-	memset(m_pWGContexts, 0, sizeof(WGContext*)*uiNumOfThread);
 
 	// Copy initial values
 	memcpy(m_pLockedParams, cmdParams->arg_values, cmdParams->arg_size);
@@ -994,8 +993,6 @@ int NDRange::Init(size_t region[])
 		region[i] = 1;
 	}
 
-	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
 #endif
@@ -1011,17 +1008,6 @@ void NDRange::Finish(FINISH_REASON reason)
 #endif
 
 	UnlockMemoryBuffers();
-	// Free execution contexts
-	unsigned int uiNumOfThread = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
-	for (unsigned int i=0; i<uiNumOfThread; ++i)
-	{
-		if (NULL != m_pWGContexts[i])
-		{
-			delete m_pWGContexts[i];
-		}
-	}
-	delete []m_pWGContexts;
-	m_pWGContexts = NULL;
 
 #ifdef _DEBUG_PRINT
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
@@ -1031,6 +1017,7 @@ void NDRange::Finish(FINISH_REASON reason)
 	lVal = (InterlockedCompareExchange(&m_lExecuting, 0, 0) | InterlockedCompareExchange(&m_lAttaching, 0, 0));
 	assert(lVal == 0);
 #endif
+
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
 #ifdef _DEBUG_PRINT
 	printf("--> Finish(done):%s\n", pKernel->GetKernelName());
@@ -1102,13 +1089,14 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 	}
 	InterlockedIncrement(&m_lAttaching);
 #endif
-
-	// Choose appropriate context to execute on
-	if ( NULL == m_pWGContexts[uiWorkerId] )
+	
+	WGContext* pCtx = GetWGContext(uiWorkerId);
+	if ( NULL == pCtx )
 	{
-		m_pWGContexts[uiWorkerId] = new WGContext();
+		return CL_DEV_ERROR_FAIL;
 	}
-	else if (m_pCmd->id == m_pWGContexts[uiWorkerId]->GetCmdId() )
+
+	else if (m_pCmd->id == pCtx->GetCmdId() )
 	{
 #ifdef _DEBUG
 	InterlockedDecrement(&m_lAttaching);
@@ -1116,7 +1104,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 		return CL_DEV_SUCCESS;
 	}
 
-	int ret = m_pWGContexts[uiWorkerId]->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+	int ret = GetWGContext(uiWorkerId)->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 	assert(ret==0);
 
 #ifdef _DEBUG
@@ -1136,8 +1124,8 @@ void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsig
 	InterlockedIncrement(&m_lExecuting);
 #endif
 
-	assert(m_pWGContexts[uiWorkerId]);
-	ICLDevBackendExecutable* pExec = m_pWGContexts[uiWorkerId]->GetContext();
+	assert(GetWGContext(uiWorkerId));
+	ICLDevBackendExecutable* pExec = GetWGContext(uiWorkerId)->GetExecutable();
 	// We always start from (0,0,0) and process whole WG
 	// No Need in parameters now
 #ifdef _DEBUG
