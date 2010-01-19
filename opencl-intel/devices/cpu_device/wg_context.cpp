@@ -35,11 +35,11 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(CPU_MINIMUM_WI_PRIVATE_SIZE)
+WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(2*CPU_DEV_MIN_WI_PRIVATE_SIZE)
 {
 	// Create local memory
 	m_pLocalMem = (char*)_aligned_malloc(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_DCU_LINE_SIZE);
-	m_pPrivateMem = _aligned_malloc(CPU_MINIMUM_WI_PRIVATE_SIZE, CPU_DEV_DCU_LINE_SIZE);
+	m_pPrivateMem = _aligned_malloc(m_stPrivMemAllocSize, CPU_DEV_DCU_LINE_SIZE);
 
 }
 
@@ -76,12 +76,7 @@ int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, 
 		m_cmdId = 0;
 	}
 
-	// TODO: consider use constant array
-	void*	*pBuffPtr = new void*[count];
-	if ( NULL == pBuffPtr )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
 
 	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;
@@ -104,8 +99,6 @@ int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, 
 	pBuffPtr[count] = m_pPrivateMem;
 
 	int rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
-
-	delete[] pBuffPtr;
 	if (CL_DEV_FAILED(rc))
 	{
 		return CL_DEV_ERROR_FAIL;
