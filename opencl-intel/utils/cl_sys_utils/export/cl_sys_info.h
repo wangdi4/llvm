@@ -31,6 +31,7 @@
 namespace Intel { namespace OpenCL { namespace Utils {
 	extern unsigned long long	TotalVirtualSize();
 	extern unsigned long long   MaxClockFrequency();
+	extern unsigned long long	ProfilingTimerFrequency();
 	extern unsigned long long   HostTime();
 	extern void					GetProcessName(wchar_t* pProcName, size_t strLen);
 	extern unsigned int			GetProcessId();

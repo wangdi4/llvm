@@ -95,6 +95,19 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 	return maxClockFrequency;
 }
 
+unsigned long long Intel::OpenCL::Utils::ProfilingTimerFrequency()
+{
+#ifdef WIN32
+	LARGE_INTEGER freq;
+
+	QueryPerformanceFrequency(&freq);
+	return freq.QuadPart;
+
+#endif
+
+	return 0;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // HostTime - Return host time in nano second
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -103,12 +116,13 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 #ifdef WIN32
 	//Generates the rdtsc instruction, which returns the processor time stamp. 
 	//The processor time stamp records the number of clock cycles since the last reset.
-	unsigned __int64 ticks;
-	static unsigned long long freq = MaxClockFrequency();
-    ticks = __rdtsc();
+	LARGE_INTEGER tiks;
+	static double freq = 1e9/ProfilingTimerFrequency();
+
+	QueryPerformanceCounter(&tiks);
 
 	//Convert from ticks to nano second
-	return ticks / freq;
+	return (unsigned long long)(tiks.QuadPart * freq);
 #else
 	return 0;
 #endif
