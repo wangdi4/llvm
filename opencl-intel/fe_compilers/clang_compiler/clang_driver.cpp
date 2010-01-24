@@ -151,7 +151,8 @@ int Intel::OpenCL::ClangFE::InitClangDriver()
 	gLangInfo.AltiVec = 1;
 	gLangInfo.OverflowChecking = 0;
 	gLangInfo.HeinousExtensions = 0;
-	gLangInfo.Optimize = 1;
+//	gLangInfo.Optimize = 1;
+	gLangInfo.Optimize = 0; // Optimize in backend
 	gLangInfo.OptimizeSize = 0;
 	gLangInfo.Static = 0;
 	gLangInfo.PICLevel = 0;
@@ -175,9 +176,14 @@ int Intel::OpenCL::ClangFE::InitClangDriver()
 	gSourceMgr.reset(new SourceManager());
 
 	// Compiler options
-	gCompOpt.InlineFunctions = 1;
-	gCompOpt.UnrollLoops = 1;
-	gCompOpt.OptimizationLevel = 3;
+	//gCompOpt.InlineFunctions = 1;
+	//gCompOpt.UnrollLoops = 1;
+	//gCompOpt.OptimizationLevel = 3;
+
+	//Optimize in backend
+	gCompOpt.InlineFunctions = 0;
+	gCompOpt.UnrollLoops = 0;
+	gCompOpt.OptimizationLevel = 0;
 
 	LOG_INFO("Initialize ClangCompiler - Finish");
 	return 0;
