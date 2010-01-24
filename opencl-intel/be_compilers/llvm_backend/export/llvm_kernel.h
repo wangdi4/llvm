@@ -92,6 +92,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Local interface
 		cl_int ParseLLVM(llvm::Function *pFunc, llvm::ConstantArray* pFuncArgs, llvm::ConstantArray* pFuncLocals);
 
+		// Vectorizer interface
+		bool isVectorized();
+		unsigned int getVectorWidth();
+
+		void setVectorizerProperties(bool isVectorized, const char *vectorizedName = "", unsigned int vectorWidth = 0);
+
 	protected:
 		friend class LLVMBinary;
 		virtual ~LLVMKernel();
@@ -139,5 +145,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// VTune integration
 		unsigned int	m_uiVTuneId;
+
+		// Vectorizer data
+		bool            m_bVectorized;
+		char*           m_szVectorizedName;
+		unsigned int    m_uiVectorWidth;
 	};
 }}}

@@ -29,6 +29,8 @@
 
 #include "cl_dev_backend_api.h"
 
+#include <vector>
+
 #ifndef LLVM_BACKEND_API
 #ifdef LLVM_BACKEND_EXPORTS
 #define LLVM_BACKEND_API __declspec(dllexport)
@@ -43,6 +45,8 @@ class MemoryBuffer;
 class ExecutionEngine;
 class ModuleProvider;
 class Module;
+class ConstantArray;
+class Function;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -54,8 +58,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		friend class LLVMKernel;
 
 	public:
+		typedef struct {
+			bool bUseVectorizer;
+		} LLVMProgramConfig;
+
 		// Creates a program object from a provided container. 
-		static cl_int LLVM_BACKEND_API CreateProgram( const cl_prog_container* IN pContainer, ICLDevBackendProgram** OUT pProgram );
+		static cl_int LLVM_BACKEND_API CreateProgram( const cl_prog_container* IN pContainer,
+			ICLDevBackendProgram** OUT pProgram, LLVMProgramConfig *pConfig );
 
 		// ICLDevBackendProgram interface
 		// Builds the program, the generated program byte code is compiler specific and is not necessarily the final target machine code. 
@@ -73,7 +82,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 	protected:
 		// Can't allocate program directly
-		LLVMProgram();
+		LLVMProgram(LLVMProgramConfig *pConfig);
+
+		// Optimize LLVM Module
+		cl_int OptimizeProgram(llvm::Module *pModule);
+
+		// Create a kernel
+		LLVMKernel *CreateKernel(llvm::Function *pFunc, llvm::ConstantArray *pFuncArgs, llvm::ConstantArray *pFuncLocals);
 
 		// Parses library information and retrieves/builds function descriptors
 		cl_dev_err_code		LoadProgram();
@@ -83,12 +98,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		typedef	std::map<std::string, ICLDevBackendKernel*>	TKernelMap;
 
 		TKernelMap				m_mapKernels;	// A map used for translation between Short name and function descriptor
+		TKernelMap				m_mapVectorizedKernels;	// A map used for translation between Short name and vectorized function descriptor
 		cl_prog_container		m_ContainerInfo;// Current container information
 		llvm::MemoryBuffer*		m_pMemBuffer;	// A memory buffer used to store LLVM IR
 		llvm::ModuleProvider*	m_pModuleProvider;	// Module provider to store the IR
+
+		typedef std::pair<llvm::Function *, int> FunctionWidthPair;
+
+		std::vector<FunctionWidthPair> VectorizedFunctions;
+
 		std::string				m_strLastError;
 
 		bool	IsKernel(const char* szFuncName);
+
+		// Retrieves a pointer to a vectorized kernel object by vectorized kernel name
+		friend class LLVMBinary;
+		cl_int	GetVectorizedKernel(const char* IN pKernelName, const ICLDevBackendKernel** OUT pKernel) const;
 
 		void	AddWIInfoDeclarations();
 		void	AddBarrierDeclaration();
@@ -98,6 +123,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		bool	m_bBarrierDecl;
 		bool	m_bAsyncCopy;
 		bool	m_bPrefetchDecl;
+
+		bool	m_bUseVectorizer;
 	};
 
 }}}

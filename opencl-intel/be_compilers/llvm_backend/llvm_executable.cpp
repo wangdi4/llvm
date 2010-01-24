@@ -246,6 +246,158 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 	return CL_DEV_SUCCESS;
 }
 
+cl_uint LLVMExecVectorizedNoBarrier::Execute(const size_t* IN pGroupId,
+											 const size_t* IN pLocalOffset, 
+											 const size_t* IN pItemsToProcess)
+{
+	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
+	*pWGid = pGroupId;
+
+	// Retrieve local id area
+	size_t*	pLocalId = (size_t*)((const char*)pWGid+2*sizeof(void*));
+
+	const void*		pStdEntryPoint = m_pBinary->m_pEntryPoint;
+	const void*		pVecEntryPoint = m_pBinary->m_pVectEntryPoint;
+	unsigned int    uiVectWidth    = m_pBinary->m_uiVectorWidth;
+	void*			pContext = m_pContext;
+
+#ifdef __SSE4_1__
+	__m128i xmmGroupId;
+	__m128i xmmGroupSize;
+#endif
+
+	m_bIsFirst = true;
+
+	switch (m_pBinary->m_WorkInfo.uiWorkDim)
+	{
+	case 1:
+		// Update base global id
+		m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
+		for (pLocalId[0]=0;(pLocalId[0] + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0];pLocalId[0]+=uiVectWidth)
+		{
+			__asm
+			{
+				push	edi
+				mov		edi,	esp
+				mov		esp,	pContext
+				call	pVecEntryPoint
+				mov		esp,	edi
+				pop		edi
+			}
+		}
+		//
+		// Comment out the treatment of the reminders - currently we disable
+		// the vectorization of workgroups whit sizes that are not a multiple
+		// of the vector width (Guy)
+		//
+		//for (;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
+		//{
+		//	__asm
+		//	{
+		//		push	edi
+		//		mov		edi,	esp
+		//		mov		esp,	pContext
+		//		call	pStdEntryPoint
+		//		mov		esp,	edi
+		//		pop		edi
+		//	}
+		//}
+		break;
+	case 2:
+#ifdef __SSE4_1__
+		xmmGroupId = _mm_loadl_epi64((__m128i*)pGroupId);
+		xmmGroupSize = _mm_loadl_epi64((__m128i*)m_pBinary->m_WorkInfo.LocalSize);
+		xmmGroupId = _mm_mullo_epi32(xmmGroupId, xmmGroupSize);
+		_mm_storel_epi64((__m128i*)m_pBaseGlobalId, xmmGroupId);
+#else
+		m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
+		m_pBaseGlobalId[1] = pGroupId[1]*m_pBinary->m_WorkInfo.LocalSize[1];
+#endif
+		for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
+		{
+			for (pLocalId[0]=0;(pLocalId[0] + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0];pLocalId[0]+=uiVectWidth)
+			{
+				__asm
+				{
+					push	edi
+					mov		edi,	esp
+					mov		esp,	pContext
+					call	pVecEntryPoint
+					mov		esp,	edi
+					pop		edi
+				}
+			}
+			//
+			// Comment out the treatment of the reminders - currently we disable
+			// the vectorization of workgroups whit sizes that are not a multiple
+			// of the vector width (Guy)
+			//
+			//for (;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
+			//{
+			//	__asm
+			//	{
+			//		push	edi
+			//		mov		edi,	esp
+			//		mov		esp,	pContext
+			//		call	pStdEntryPoint
+			//		mov		esp,	edi
+			//		pop		edi
+			//	}
+			//}
+		}
+		break;
+	case 3:
+#ifdef __SSE4_1__
+		xmmGroupId = _mm_lddqu_si128((__m128i*)pGroupId);
+		xmmGroupSize = _mm_lddqu_si128((__m128i*)m_pBinary->m_WorkInfo.LocalSize);
+		xmmGroupId = _mm_mullo_epi32(xmmGroupId, xmmGroupSize);
+		_mm_store_si128((__m128i*)m_pBaseGlobalId, xmmGroupId);
+#else
+		m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
+		m_pBaseGlobalId[1] = pGroupId[1]*m_pBinary->m_WorkInfo.LocalSize[1];
+		m_pBaseGlobalId[2] = pGroupId[2]*m_pBinary->m_WorkInfo.LocalSize[2];
+#endif
+		for (pLocalId[2]=0;pLocalId[2]<m_pBinary->m_WorkInfo.LocalSize[2];++pLocalId[2])
+			for (pLocalId[1]=0;pLocalId[1]<m_pBinary->m_WorkInfo.LocalSize[1];++pLocalId[1])
+			{
+				for (pLocalId[0]=0;(pLocalId[0] + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0];pLocalId[0]+=uiVectWidth)
+				{
+					__asm
+					{
+						push	edi
+						mov		edi,	esp
+						mov		esp,	pContext
+						call	pVecEntryPoint
+						mov		esp,	edi
+						pop		edi
+					}
+				}
+				//
+				// Comment out the treatment of the reminders - currently we disable
+				// the vectorization of workgroups whit sizes that are not a multiple
+				// of the vector width (Guy)
+				//
+				//for (;pLocalId[0]<m_pBinary->m_WorkInfo.LocalSize[0];++pLocalId[0])
+				//{
+				//	__asm
+				//	{
+				//		push	edi
+				//		mov		edi,	esp
+				//		mov		esp,	pContext
+				//		call	pStdEntryPoint
+				//		mov		esp,	edi
+				//		pop		edi
+				//	}
+				//}
+			}
+		break;
+	default:
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
 //---------------------------------------------------------------------------------------
 LLVMExecMultipleWIWithBarrier::~LLVMExecMultipleWIWithBarrier()
 {

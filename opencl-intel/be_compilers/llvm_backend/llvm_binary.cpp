@@ -29,6 +29,7 @@
 #include "cl_device_api.h"
 #include "llvm_kernel.h"
 #include "llvm_binary.h"
+#include "llvm_program.h"
 #include "llvm_executable.h"
 #include <assert.h>
 
@@ -51,7 +52,7 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, cons
 			   const size_t* IN pGlobalWorkSize, const size_t* IN pLocalWorkSize) :
 					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr),
 					m_stFormalParamSize(0), m_stStackSize(0),m_stKernelParamSize(0),
-					m_uiLocalCount(0), m_pLocalParams(NULL)
+					m_uiLocalCount(0), m_pLocalParams(NULL), m_pVectEntryPoint(0)
 {
 	memset(&m_WorkInfo, 0, sizeof(sWorkInfo));
 
@@ -254,6 +255,30 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 {
 	unsigned int uiWGSizeLocal = m_uiWGSize;
 	assert(pExec);
+
+	if(m_bVectorized)
+	{
+		//get the vectorized kernel pointer
+		const LLVMKernel *pVectKernel;
+		if(CL_DEV_SUCCESS == m_pKernel->m_pProgram->GetVectorizedKernel(m_szVectorizedName, (const ICLDevBackendKernel **)&pVectKernel))
+		{
+			m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
+		}
+		else
+		{
+			m_bVectorized = false;
+			// we're not supposed to be here...
+			assert(0);
+		}
+	}
+
+	if(m_bVectorized && (m_WorkInfo.LocalSize[0] % m_uiVectorWidth))
+	{
+		// Disable vectorization for workgroup sizes that are not
+		// a multiple of the vector width (Guy)
+		m_bVectorized = false;
+	}
+
 	LLVMExecutable*	pLLVMExecutable = NULL;
 	if (1 == uiWGSizeLocal)
 	{
@@ -261,6 +286,10 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	} else if ( m_pKernel->m_bBarrier )
 	{
 		pLLVMExecutable = new LLVMExecMultipleWIWithBarrier(this);
+	}
+	else if(m_bVectorized)
+	{
+		pLLVMExecutable = new LLVMExecVectorizedNoBarrier(this);
 	}
 	else
 	{
@@ -277,4 +306,22 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	cl_uint res = pLLVMExecutable->Init(pMemoryBuffers, pMemoryBuffers[stBufferCount-1], uiWGSizeLocal);
 	*pExec = pLLVMExecutable;
 	return res;
+}
+
+
+bool LLVMBinary::isVectorized()
+{
+	return m_bVectorized;
+}
+
+unsigned int LLVMBinary::getVectorWidth()
+{
+	return m_uiVectorWidth;
+}
+
+void LLVMBinary::setVectorizerProperties(bool isVectorized, const char *vectorizedName, unsigned int vectorWidth)
+{
+	m_bVectorized      = isVectorized;
+	m_szVectorizedName = vectorizedName;
+	m_uiVectorWidth    = vectorWidth;
 }

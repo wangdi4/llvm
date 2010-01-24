@@ -127,4 +127,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #endif
 	};
 
+	// Specialization of executor which executes vectorized multiple WIs, no barrier()
+	class LLVMExecVectorizedNoBarrier : public LLVMExecutable
+	{
+	public:
+		LLVMExecVectorizedNoBarrier(const LLVMBinary* pExec) : LLVMExecutable(pExec){}
+		cl_uint Execute(const size_t* IN pGroupId,
+			const size_t* IN pLocalOffset, 
+			const size_t* IN pItemsToProcess);
+		bool	SetAndCheckAsyncCopy(unsigned int uiKey)
+				{bool bFirst = m_bIsFirst; m_bIsFirst =false; return bFirst;}
+		bool	ResetAsyncCopy(unsigned int uiKey) {return false;}
+	private:
+		bool	m_bIsFirst;
+	};
+
 }}}

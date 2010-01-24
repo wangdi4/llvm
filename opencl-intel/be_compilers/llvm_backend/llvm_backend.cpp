@@ -27,6 +27,10 @@ using namespace Intel::OpenCL::Utils;
 llvm::ExecutionEngine*	g_pExecEngine = NULL;
 llvm::ModuleProvider*	g_ModuleProvider = NULL;
 
+llvm::Module*	        g_BuiltinsModule = NULL; 
+
+llvm::Module *CreateBuiltinsModule();
+
 DECLARE_LOGGER_CLIENT;
 
 #ifdef __ENABLE_VTUNE__
@@ -59,6 +63,8 @@ ExecutionEngine* CreateLLVMBackend()
 	iJIT_RegisterCallbackEx( NULL, &CallBack );
 #endif
 
+	g_BuiltinsModule = CreateBuiltinsModule();
+
 	LOG_INFO("Initialize LLVMBackend - finished");
 	return g_pExecEngine;
 }
@@ -71,6 +77,12 @@ void ReleaseLLVMBackend()
 		g_pExecEngine->deleteModuleProvider(g_ModuleProvider);
 		delete g_pExecEngine; 
 		g_pExecEngine = NULL;
+	}
+
+	if( NULL != g_BuiltinsModule )
+	{
+		delete g_BuiltinsModule;
+		g_BuiltinsModule = NULL;
 	}
 
 	llvm_shutdown();

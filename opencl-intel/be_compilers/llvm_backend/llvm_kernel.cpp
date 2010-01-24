@@ -66,8 +66,8 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_pReqdWGSize(NULL), m_pHintWGSize(NULL), m_uiOptWGSize(1),
 	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
 	m_uiTotalImplSize(0), m_uiStackSize(CPU_DEV_MIN_WI_PRIVATE_SIZE),
-	m_pProgram(pProgram), m_pCtxPtr(NULL),
-	m_uiVTuneId(-1)
+	m_pProgram(pProgram), m_pCtxPtr(NULL), m_uiVTuneId(-1),
+	m_bVectorized(false), m_uiVectorWidth(0), m_szVectorizedName(NULL)
 {
 	memset(m_GlbIds, 0, sizeof(m_GlbIds));
 }
@@ -94,6 +94,10 @@ LLVMKernel::~LLVMKernel()
 	if ( NULL != m_pArguments )
 	{
 		delete []m_pArguments;
+	}
+	if ( NULL != m_szVectorizedName)
+	{
+		delete m_szVectorizedName;
 	}
 }
 
@@ -889,7 +893,26 @@ cl_int LLVMKernel::CreateBinary(void* IN pArgsBuffer,
 		return rc;
 	}
 
+	pBin->setVectorizerProperties(m_bVectorized, m_szVectorizedName, m_uiVectorWidth);
+
 	*pBinary = pBin;
 
 	return CL_DEV_SUCCESS;
+}
+
+bool LLVMKernel::isVectorized()
+{
+	return m_bVectorized;
+}
+
+unsigned int LLVMKernel::getVectorWidth()
+{
+	return m_uiVectorWidth;
+}
+
+void LLVMKernel::setVectorizerProperties(bool isVectorized, const char *vectorizedName, unsigned int vectorWidth)
+{
+	m_bVectorized      = isVectorized;
+	m_szVectorizedName = strdup(vectorizedName);
+	m_uiVectorWidth    = vectorWidth;
 }

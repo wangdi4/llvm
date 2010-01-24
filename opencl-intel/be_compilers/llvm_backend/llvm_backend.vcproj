@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=".\export;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\prj&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\prj&quot;"
+				AdditionalIncludeDirectories=".\export;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\clang&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\prj&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\prj&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;LLVM_BACKEND_EXPORTS;$(MTV_SSE_VERSION)"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="X86TargetMachine.obj"
+				AdditionalDependencies="X86TargetMachine.obj Vectorizer.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;;&quot;$(MTV_LOCAL_LIB_DIR).dbg\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg\llvm&quot;"
 				GenerateDebugInformation="true"
@@ -118,7 +118,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories=".\export;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\prj&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\prj&quot;"
+				AdditionalIncludeDirectories=".\export;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\clang&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)\llvm\prj&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\include&quot;;&quot;$(MTV_RELEASE_IMPORT_DIR)\llvm\prj&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;LLVM_BACKEND_EXPORTS;$(MTV_SSE_VERSION)"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -137,7 +137,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="X86TargetMachine.obj"
+				AdditionalDependencies="X86TargetMachine.obj Vectorizer.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).opt&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\llvm&quot;"
 				GenerateDebugInformation="true"
@@ -180,6 +180,10 @@
 			>
 			<File
 				RelativePath=".\builtin_functions.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\builtins_module.cpp"
 				>
 			</File>
 			<File
