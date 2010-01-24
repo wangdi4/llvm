@@ -43,6 +43,9 @@
     <Component Name="tal">
         <RelativeCheckoutPath>externals\tal</RelativeCheckoutPath>
     </Component>
+    <Component Name="Vectorizer">
+        <RelativeCheckoutPath>externals\Vectorizer</RelativeCheckoutPath>
+    </Component>
     <Component Name="VTune">
         <RelativeCheckoutPath>externals\VTune</RelativeCheckoutPath>
     </Component>
