@@ -34,6 +34,7 @@ using namespace Intel::OpenCL::Utils;
 **************************************************************************************************/
 
 #define	CL_CONFIG_USE_TASKALYZER		"CL_CONFIG_USE_TASKALYZER"		// bool
+#define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"		// bool
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -52,6 +53,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		void           Release();
 
 		bool		   UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
+		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, false); }
 
 	private:
 

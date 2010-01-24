@@ -35,6 +35,7 @@
 #include "handle_allocator.h"
 #include "cl_dev_backend_api.h"
 #include "cl_synch_objects.h"
+#include "cpu_config.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -45,7 +46,7 @@ class ProgramService
 {
 
 public:
-	ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc);
+	ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc, CPUDeviceConfig *config);
 	virtual ~ProgramService();
 
 	cl_int CheckProgramBinary (size_t IN bin_size, const void* IN bin);
@@ -105,6 +106,8 @@ protected:
 	TProgramMap						m_mapPrograms;
 	OclMutex						m_muProgMap;
 	cl_dev_call_backs				m_sCallBacks;
+
+	CPUDeviceConfig                *m_pCPUConfig;
 };
 
 }}};

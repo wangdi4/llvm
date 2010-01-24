@@ -49,8 +49,8 @@ static cl_prog_binary_desc gSupportedBinTypes[] =
 };
 static	unsigned int	gSupportedBinTypesCount = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
 
-ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc) :
-	m_iDevId(devId), m_progIdAlloc(1, UINT_MAX), m_iLogHandle(0)
+ProgramService::ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc, CPUDeviceConfig *config) :
+	m_iDevId(devId), m_progIdAlloc(1, UINT_MAX), m_iLogHandle(0), m_pCPUConfig(config)
 {
 	memcpy_s(&m_sCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
 	if ( NULL == logDesc )
@@ -224,7 +224,11 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 //		pEntry->pProgram = new DLLProgram;
 //		break;
 	case CL_PROG_BIN_LLVM:
-		ret = LLVMProgram::CreateProgram(pProgCont, &pEntry->pProgram);
+		LLVMProgram::LLVMProgramConfig programConfig;
+		memset(&programConfig, 0, sizeof(LLVMProgram::LLVMProgramConfig));
+		programConfig.bUseVectorizer = m_pCPUConfig->UseVectorizer();
+
+		ret = LLVMProgram::CreateProgram(pProgCont, &pEntry->pProgram, &programConfig);
 		break;
 	default:
 		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to find approproiate program for type<%d>", pProgCont->description.bin_type);

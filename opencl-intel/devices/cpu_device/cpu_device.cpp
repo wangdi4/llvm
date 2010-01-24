@@ -243,7 +243,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, cl_dev_call_backs *devCallbacks, cl_dev_lo
 
 	clRTLibInitLibrary();
 
-	m_pProgramService = new ProgramService(uiDevId, devCallbacks, logDesc);
+	m_pProgramService = new ProgramService(uiDevId, devCallbacks, logDesc, m_pCPUDeviceConfig);
 	m_pMemoryAllocator = new MemoryAllocator(uiDevId, logDesc);
 	m_pTaskDispatcher = new TaskDispatcher(uiDevId, devCallbacks, m_pProgramService, 
 		m_pMemoryAllocator, logDesc, m_pCPUDeviceConfig);
