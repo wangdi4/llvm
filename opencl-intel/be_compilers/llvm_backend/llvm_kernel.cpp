@@ -887,13 +887,11 @@ cl_int LLVMKernel::CreateBinary(void* IN pArgsBuffer,
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	cl_uint rc = pBin->Init((char*)pArgsBuffer, BufferSize);
+	cl_uint rc = pBin->Init((char*)pArgsBuffer, BufferSize, m_bVectorized, m_szVectorizedName, m_uiVectorWidth);
 	if ( CL_DEV_FAILED(rc) )
 	{
 		return rc;
 	}
-
-	pBin->setVectorizerProperties(m_bVectorized, m_szVectorizedName, m_uiVectorWidth);
 
 	*pBinary = pBin;
 

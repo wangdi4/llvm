@@ -108,7 +108,8 @@ LLVMBinary::~LLVMBinary()
 {
 }
 
-cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
+cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize,
+						 bool isVectorized, const char *vectorizedName, unsigned int vectorWidth)
 {
 	m_pLocalParams = (char*)(((size_t)m_pLocalParamsBase+15) & ~0xF);	// Make aligned to 16 byte
 #ifdef _DEBUG
@@ -118,6 +119,10 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 	size_t	stTotalLocalSize = 0;
 	size_t	stLocalOffset = 0;
 	size_t	stArgsOffset = 0;
+
+	m_bVectorized      = isVectorized;
+	m_szVectorizedName = vectorizedName;
+	m_uiVectorWidth    = vectorWidth;
 
 	// Calculate actual local buffer size
 	// Store in local buffer in reverse order
@@ -187,7 +192,27 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 							4*sizeof(void*)+MAX_WORK_DIM*sizeof(size_t) +	// OCL specific argument (WG Info, Global ID, ect)
 							sizeof(void*); // Pointer to IDevExecutable
 
-	m_stStackSize = m_pKernel->GetPrivateMemorySize() +				// Kernel stack area
+	unsigned int privateMemorySize = m_pKernel->GetPrivateMemorySize();
+
+	if(m_bVectorized)
+	{
+		//get the vectorized kernel pointer
+		const LLVMKernel *pVectKernel;
+		if(CL_DEV_SUCCESS == m_pKernel->m_pProgram->GetVectorizedKernel(m_szVectorizedName, (const ICLDevBackendKernel **)&pVectKernel))
+		{
+			m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
+
+			privateMemorySize = max(privateMemorySize, pVectKernel->GetPrivateMemorySize());
+		}
+		else
+		{
+			m_bVectorized = false;
+			// we're not supposed to be here...
+			assert(0);
+		}
+	}
+
+	m_stStackSize = privateMemorySize +								// Kernel stack area
 						sizeof(void*) +								// Return address
 						m_stKernelParamSize;						// Kernel call stack size
 														
@@ -256,22 +281,6 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	unsigned int uiWGSizeLocal = m_uiWGSize;
 	assert(pExec);
 
-	if(m_bVectorized)
-	{
-		//get the vectorized kernel pointer
-		const LLVMKernel *pVectKernel;
-		if(CL_DEV_SUCCESS == m_pKernel->m_pProgram->GetVectorizedKernel(m_szVectorizedName, (const ICLDevBackendKernel **)&pVectKernel))
-		{
-			m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
-		}
-		else
-		{
-			m_bVectorized = false;
-			// we're not supposed to be here...
-			assert(0);
-		}
-	}
-
 	if(m_bVectorized && (m_WorkInfo.LocalSize[0] % m_uiVectorWidth))
 	{
 		// Disable vectorization for workgroup sizes that are not
@@ -317,11 +326,4 @@ bool LLVMBinary::isVectorized()
 unsigned int LLVMBinary::getVectorWidth()
 {
 	return m_uiVectorWidth;
-}
-
-void LLVMBinary::setVectorizerProperties(bool isVectorized, const char *vectorizedName, unsigned int vectorWidth)
-{
-	m_bVectorized      = isVectorized;
-	m_szVectorizedName = vectorizedName;
-	m_uiVectorWidth    = vectorWidth;
 }
