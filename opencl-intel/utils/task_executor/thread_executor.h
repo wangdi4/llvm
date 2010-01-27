@@ -136,10 +136,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		CTaskSetFragment(int iQueueId, unsigned int iStart[3], unsigned int iEnd[3], ITaskSet * pTaskSet) : 
 		  m_iQueueId(iQueueId), m_iStartX(iStart[0]), m_iEndX(iEnd[0]), m_iStartY(iStart[1]),
-			  m_iEndY(iEnd[1]), m_iStartZ(iStart[2]), m_iEndZ(iEnd[2]), m_pTaskSet(pTaskSet){}
+			  m_iEndY(iEnd[1]), m_iStartZ(iStart[2]), m_iEndZ(iEnd[2]), m_pTaskSet(pTaskSet), m_iThreadAttachedTo(-1){}
 
 		inline void		Execute(unsigned int uiWorkerId);
 		inline int		AttachToThread(unsigned int uiWorkerId);
+		inline void     SetAttachedTo(unsigned int uiWorkerId);
+		inline bool     NeedsAttachTo(unsigned int uiWorkerId);
 
 	protected:
 		int				m_iStartX;
@@ -151,6 +153,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		int				m_iQueueId;		// queue id
 		ITaskSet *		m_pTaskSet;		// handle to the actual task set
+		int             m_iThreadAttachedTo;
 	};
 
 	//////////////////////////////////////////////////////////////////////////

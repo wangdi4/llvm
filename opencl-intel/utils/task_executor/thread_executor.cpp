@@ -438,6 +438,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 	CTaskSetFragment * pFragment = GetNext();
 	if (pFragment)
 	{
+		pFragment->SetAttachedTo(m_iQueueId);
 		m_pTaskSet->AttachToThread(m_iQueueId);
 	}
 	while(pFragment) 
@@ -497,6 +498,10 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
+	if (NeedsAttachTo(uiWorkerId))
+	{
+		AttachToThread(uiWorkerId);
+	}
 
 	// execute fragment iteration
 	for(int i=m_iStartZ; i<m_iEndZ; ++i)
@@ -524,8 +529,18 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
-
+	SetAttachedTo(uiWorkerId);
 	return m_pTaskSet->AttachToThread(uiWorkerId);
+}
+
+void CTaskSetFragment::SetAttachedTo(unsigned int uiWorkerId)
+{
+	m_iThreadAttachedTo = uiWorkerId;
+}
+
+bool CTaskSetFragment::NeedsAttachTo(unsigned int uiWorkerId)
+{
+	return uiWorkerId != m_iThreadAttachedTo;
 }
 
 //////////////////////////////////////////////////////////////////////////
