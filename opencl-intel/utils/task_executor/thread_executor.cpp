@@ -232,9 +232,9 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 					pFragment->AttachToThread(pWorkerThread->m_iQueueId);
 					do 
 					{
-						pFragment->Execute(pWorkerThread->m_iQueueId);
+						pFragment = pFragment->ExecuteAndGetNext(pWorkerThread->m_iQueueId);
 					} 
-					while (pFragment = g_obThreadPool[dwNotifyIndex]->GetNextFragment());
+					while (pFragment!= NULL);
 				}
 			}
 
@@ -256,10 +256,10 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 						{
 							pFragment->AttachToThread(pWorkerThread->m_iQueueId);
 							do {
-								pFragment->Execute(pWorkerThread->m_iQueueId);
+								pFragment = pFragment->ExecuteAndGetNext(pWorkerThread->m_iQueueId);
 								// Update notification flags
 								lNotify = ::InterlockedCompareExchange(&g_lNotifyMask, 0, 0);
-							} while( (lNotifyMask & lNotify) && (pFragment = g_obThreadPool[i]->GetNextFragment()) );
+							} while( (lNotifyMask & lNotify) && (pFragment != NULL) );
 						}
 					}
 					lNotifyMask <<= 1;
@@ -438,7 +438,6 @@ void CTaskSet::Execute(void** pCurrentSet)
 	CTaskSetFragment * pFragment = GetNext();
 	if (pFragment)
 	{
-		pFragment->SetAttachedTo(m_iQueueId);
 		m_pTaskSet->AttachToThread(m_iQueueId);
 	}
 	while(pFragment) 
@@ -489,7 +488,7 @@ CTaskSetFragment * CTaskSet::GetNext()
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskSet implementation
-void CTaskSetFragment::Execute(unsigned int uiWorkerId)
+CTaskSetFragment* CTaskSetFragment::ExecuteAndGetNext(unsigned int uiWorkerId)
 {
 #ifdef _DEBUG
 	long lInit = InterlockedCompareExchange(&g_lTaskSetInit[m_iQueueId], 0, 0);
@@ -498,10 +497,6 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
-	if (NeedsAttachTo(uiWorkerId))
-	{
-		AttachToThread(uiWorkerId);
-	}
 
 	// execute fragment iteration
 	for(int i=m_iStartZ; i<m_iEndZ; ++i)
@@ -514,7 +509,34 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 			}
 		}
 	}
+	CTaskSetFragment* ret = g_obThreadPool[m_iQueueId]->GetNextFragment();
 
+	// modify the relevant queue's fragments counter
+	::InterlockedDecrement(&g_plFragmentsNotFinished[m_iQueueId]);
+	delete this;
+	return ret;
+}
+void CTaskSetFragment::Execute(unsigned int uiWorkerId)
+{
+#ifdef _DEBUG
+	long lInit = InterlockedCompareExchange(&g_lTaskSetInit[m_iQueueId], 0, 0);
+	assert(lInit==0);
+
+	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
+	assert(lExecute==1);
+#endif
+
+	// execute fragment iteration
+	for(int i=m_iStartZ; i<m_iEndZ; ++i)
+	{
+		for(int j=m_iStartY; j<m_iEndY; ++j)
+		{
+			for(int k=m_iStartX; k<m_iEndX; ++k)
+			{
+				m_pTaskSet->ExecuteIteration(k, j, i, uiWorkerId);
+			}
+		}
+	}
 	// modify the relevant queue's fragments counter
 	::InterlockedDecrement(&g_plFragmentsNotFinished[m_iQueueId]);
 	delete this;
@@ -529,18 +551,7 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
-	SetAttachedTo(uiWorkerId);
 	return m_pTaskSet->AttachToThread(uiWorkerId);
-}
-
-void CTaskSetFragment::SetAttachedTo(unsigned int uiWorkerId)
-{
-	m_iThreadAttachedTo = uiWorkerId;
-}
-
-bool CTaskSetFragment::NeedsAttachTo(unsigned int uiWorkerId)
-{
-	return uiWorkerId != m_iThreadAttachedTo;
 }
 
 //////////////////////////////////////////////////////////////////////////
