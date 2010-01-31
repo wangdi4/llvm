@@ -20,9 +20,9 @@
 #include <stdafx.h>
 #include "task_executor.h"
 
+#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ ) && ! defined( __XN_EXECUTOR__ )
 #define __THREAD_EXECUTOR__
-//#define __TBB_EXECUTOR__
-//#define __XN_EXECUTOR__
+#endif
 
 #ifdef __TBB_EXECUTOR__
 #include "tbb_executor.h"
