@@ -307,6 +307,68 @@ Instruction* CreateInstrFromConstantExpr(ConstantExpr* pCE, Value* From, Value* 
 	return Replacement;
 }
 
+bool LLVMKernel::ChangeConstantExpression(ConstantArray* pFuncLocals, Value* pTheValue, Value* pUser, Instruction* pBC)
+{
+	// We need substitute constant expression with real instruction
+	ConstantExpr* pCE = dyn_cast<ConstantExpr>(pUser);
+	if ( NULL == pCE )
+	{
+		return false;
+	}
+
+	Instruction* pInst = CreateInstrFromConstantExpr(pCE, pTheValue, pBC);
+	// Change all non-constant references
+	ConstantExpr::use_iterator itCE = pCE->use_begin();
+	while( itCE != pCE->use_end() )
+	{
+		Use &W = itCE.getUse();
+		User* pLclUser = W.getUser();
+
+		if ( pLclUser == pFuncLocals)
+		{
+			// Skip reference to the annotations
+			++itCE;
+			continue;
+		}
+		// Add instruction to the block, only first time
+		if ( pInst->use_empty() )
+		{
+			pInst->insertAfter(pBC);
+		}
+
+		ConstantExpr* pLclCE = dyn_cast<ConstantExpr>(pLclUser);
+		if ( NULL == pLclCE )
+		{
+			W.set(pInst);
+			itCE = pCE->use_begin();		// Restart the scan
+			continue;
+		}
+
+		if ( ChangeConstantExpression(pFuncLocals, pLclUser, pLclUser, pInst) )
+		{
+			itCE = pCE->use_begin();		// Restart the scan
+		}
+		else
+		{
+			++itCE;
+		}
+	}
+	if ( pInst->use_empty() )
+	{
+		// The instrunction was not used
+		delete pInst;
+	}
+	
+	if ( !pCE->use_empty() )
+	{
+		return false;
+	}
+
+	// No more refernces to the constant expresion we can delete it
+	delete pCE;
+	return true;
+}
+
 // Substitutes a pointer to local buffer, with argument passed within kernel parameters
 cl_dev_err_code LLVMKernel::ParseLocalBuffers(ConstantArray* pFuncLocals, Argument* pLocalMem)
 {
@@ -348,39 +410,18 @@ cl_dev_err_code LLVMKernel::ParseLocalBuffers(ConstantArray* pFuncLocals, Argume
 			Use &U = val->use_begin().getUse();
 			if (Constant *C = dyn_cast<Constant>(U.getUser()))
 			{
-				// We need substitute constant expression with real instruction
-				ConstantExpr* pCE = dyn_cast<ConstantExpr>(C);
-				if ( NULL != pCE )
+				if ( ChangeConstantExpression(pFuncLocals, val, C, pBC)  )
 				{
-					Instruction* pInst = CreateInstrFromConstantExpr(pCE, val, pBC);
-					// Add instruction to the block
-					pInst->insertBefore(pFirstInst);
-					// Change all non-constant references
-					ConstantExpr::use_iterator itCE = pCE->use_begin();
-					while( itCE != pCE->use_end() )
-					{
-						Use &W = itCE.getUse();
-						if ( !isa<Constant>(W.getUser()) )
-						{
-							W.set(pInst);
-							itCE = pCE->use_begin();		// Restart the scan
-						}
-						else
-						{
-							++itCE;
-						}
-					}
-					if ( pCE->use_empty() )
-					{
-						delete pCE;
-						itVal = val->use_begin();
-					}
-					else
-					{
-						++itVal;
-					}
-					continue;
+					// The value was completely remove
+					// Scan from the beggining
+					itVal = val->use_begin();
+				} else
+				{
+					// The values is still in the list
+					// Continue to next item
+					++itVal;
 				}
+				continue;
 			}
 
 			if ( !isa<Instruction>(U.getUser()) )

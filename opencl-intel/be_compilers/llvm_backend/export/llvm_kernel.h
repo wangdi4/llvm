@@ -119,6 +119,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		cl_dev_err_code	ParseArguments(llvm::Function *pFunc);
 		cl_dev_err_code	ParseLocalBuffers(llvm::ConstantArray* pFuncLocals, llvm::Argument* pLocalMem);
+		// Called by ParseLocalBuffers to exchange references in contstant expressions
+		bool			ChangeConstantExpression(llvm::ConstantArray* pFuncLocals, llvm::Value* pTheValue,
+													llvm::Value* pUser, llvm::Instruction* pBC);
 		llvm::Value*	SubstituteWIcall(llvm::CallInst *pCall,
 			llvm::Argument* pWorkInfo, llvm::Argument* pWGid,
 			llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId);
