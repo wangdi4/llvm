@@ -257,9 +257,7 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 							pFragment->AttachToThread(pWorkerThread->m_iQueueId);
 							do {
 								pFragment = pFragment->ExecuteAndGetNext(pWorkerThread->m_iQueueId);
-								// Update notification flags
-								lNotify = ::InterlockedCompareExchange(&g_lNotifyMask, 0, 0);
-							} while( (lNotifyMask & lNotify) && (pFragment != NULL) );
+							} while (pFragment != NULL);
 						}
 					}
 					lNotifyMask <<= 1;
