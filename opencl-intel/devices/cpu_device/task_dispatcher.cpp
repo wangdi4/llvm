@@ -402,6 +402,7 @@ void TaskDispatcher::NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsi
 	//notify framework on status change
 	if(pCmd->profiling)
 	{
+		_mm_empty();			// MMX usage bug, TODO: Remove when mo usage of MMX registers
 		timer = HostTime();
 	}
 	m_frameWorkCallBacks.pclDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);

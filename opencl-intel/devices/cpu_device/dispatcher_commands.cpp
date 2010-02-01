@@ -1018,7 +1018,6 @@ void NDRange::Finish(FINISH_REASON reason)
 	assert(lVal == 0);
 #endif
 
-	_mm_empty();			// MMX usage bug, TODO: Remove when mo usage of MMX registers
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
 #ifdef _DEBUG_PRINT
 	printf("--> Finish(done):%s\n", pKernel->GetKernelName());
