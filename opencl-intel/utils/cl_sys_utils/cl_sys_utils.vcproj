@@ -158,6 +158,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cl_cpu_detect.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\cl_dynamic_lib.cpp"
 				>
 			</File>
@@ -197,6 +201,10 @@
 			>
 			<File
 				RelativePath=".\export\cl_config.h"
+				>
+			</File>
+			<File
+				RelativePath=".\export\cl_cpu_detect.h"
 				>
 			</File>
 			<File
