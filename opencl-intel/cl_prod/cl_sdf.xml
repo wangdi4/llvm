@@ -43,6 +43,9 @@
     <Component Name="tal">
         <RelativeCheckoutPath>externals\tal</RelativeCheckoutPath>
     </Component>
+    <Component Name="svml">
+        <RelativeCheckoutPath>externals\svml</RelativeCheckoutPath>
+    </Component>
     <Component Name="Vectorizer">
         <RelativeCheckoutPath>externals\Vectorizer</RelativeCheckoutPath>
     </Component>
