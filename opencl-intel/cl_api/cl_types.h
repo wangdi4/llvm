@@ -95,6 +95,7 @@ typedef void (*logging_fn)(const char *, const void *, size_t, void *);
 #define		CL_ERR_LIST_EMPTY				-811
 #define		CL_ERR_DEVICE_INIT_FAIL			-850
 #define		CL_ERR_FE_COMPILER_INIT_FAIL	-851
+#define		CL_ERR_CPU_NOT_SUPPORTED		-852
 //////////////////////////////////////////////////////////////////////////
 #define		CL_ERR_END						-899	// marker
 
