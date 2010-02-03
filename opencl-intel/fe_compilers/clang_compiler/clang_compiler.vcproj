@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="task_executor.lib"
+				AdditionalDependencies="task_executor.lib __ocl_svml_ia32.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg&quot;;&quot;$(MTV_LOCAL_LIB_DIR).dbg\clang&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg\clang&quot;;&quot;$(MTV_LOCAL_LIB_DIR).dbg\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg\llvm&quot;"
 				GenerateDebugInformation="true"
@@ -137,7 +137,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="task_executor.lib"
+				AdditionalDependencies="task_executor.lib __ocl_svml_ia32.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).opt&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\clang&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\xntask&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\xntask&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\clang&quot;"
 				GenerateDebugInformation="true"
@@ -264,10 +264,6 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
-			<File
-				RelativePath=".\export\clang_include\cl_kernel.h"
-				>
-			</File>
 		</Filter>
 	</Files>
 	<Globals>
