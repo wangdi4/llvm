@@ -11,21 +11,20 @@
 // 1 -Parameter
 #define __CLFN_F1(x,R) __builtin_overload(1, x, __##R##f, __##R##f2, __##R##f4, __##R##f8, __##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F1_SVML_8_16(x,R) __builtin_overload(1, x, __##R##f, __##R##f2, __##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F1_SVML_1_4_8_16(x,R) __builtin_overload(1, x, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F1_SVML_1_4_8_16_D(x,R) __builtin_overload(1, x, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, __##R##d, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F1_SVML_1_4_8_16_S(x,R) __builtin_overload(1, x, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16 )
+#define __CLFN_F1_SVML_4_8_16(x,R) __builtin_overload(1, x, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
+
+#define __CLFN_F1_SVML_4_8_16_D(x,R) __builtin_overload(1, x, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, __##R##d, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
+#define __CLFN_F1_SVML_4_8_16_S(x,R) __builtin_overload(1, x, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16 )
 
 // 2 -Parameter
 #define __CLFN_F2_SVML_4_8_16(x,y,R) __builtin_overload(2, x, y, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F2_SVML_1_4_8_16(x,y,R) __builtin_overload(2, x, y, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F2_SVML_1_8_16_D(x,y,R) __builtin_overload(2, x, y, __ocl_svml_w7_##R##f1, __##R##f2, __##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, __##R##d, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_SVML_8_16_D(x,y,R) __builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, __##R##d, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F2_SVML_1_4_8_16_S(x,y,R) __builtin_overload(2, x, y, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16 )
+#define __CLFN_F2_SVML_4_8_16_S(x,y,R) __builtin_overload(2, x, y, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16 )
 
 
 // 3 -Parameters
 #define __CLFN_F3_SVML_4_8_16_D(x,y,z,R) __builtin_overload(3, x,y,z, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, __##R##d, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F3_SVML_1_4_8_16(x,y,z,R) __builtin_overload(3, x,y,z, __ocl_svml_w7_##R##f1, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
+#define __CLFN_F3_SVML_4_8_16(x,y,z,R) __builtin_overload(3, x,y,z, __##R##f, __##R##f2, __ocl_svml_w7_##R##f4,__ocl_svml_w7_##R##f8, __ocl_svml_w7_##R##f16, R, __##R##d2, __##R##d4, __##R##d8, __##R##d16 )
 
 
 
@@ -1819,188 +1818,198 @@ OCL_SVML_1P_vFvF_F8_F16(acospi)
 OCL_SVML_1P_vFvF_F8_F16(atanpi)
 #define atanpi(X)     __CLFN_F1_SVML_8_16(X,atanpi)
 
+#define OCL_SVML_1P_vFvF_F4_F8_F16(func)				\
+	float __##func##f(float);							\
+	float2 __##func##f2(float2);						\
+	float4 __ocl_svml_w7_##func##f4(float4);			\
+	float8 __ocl_svml_w7_##func##f8(float8);			\
+	float16 __ocl_svml_w7_##func##f16(float16);	
 
-
-#define OCL_SVML_1P_vFvF_F1_F4_F8_F16(func)				\
-	float __ocl_svml_w7_##func##f1(float);				\
+#define OCL_SVML_1P_vFvF_F4_F8_F16(func)				\
 	float2 __##func##f2(float2);						\
 	float4 __ocl_svml_w7_##func##f4(float4);			\
 	float8 __ocl_svml_w7_##func##f8(float8);			\
 	float16 __ocl_svml_w7_##func##f16(float16);	
 
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(cbrt)
-#define cbrt(X)     __CLFN_F1_SVML_1_4_8_16(X,cbrt)	
+OCL_SVML_1P_vFvF_F4_F8_F16(cbrt)
+#define cbrt(X)     __CLFN_F1_SVML_4_8_16(X,cbrt)	
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(fabs)
-#define fabs(X)     __CLFN_F1_SVML_1_4_8_16(X,fabs)						
+OCL_SVML_1P_vFvF_F4_F8_F16(fabs)
+#define fabs(X)     __CLFN_F1_SVML_4_8_16(X,fabs)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(ceil)
-#define ceil(X)     __CLFN_F1_SVML_1_4_8_16(X,ceil)						
+OCL_SVML_1P_vFvF_F4_F8_F16(ceil)
+#define ceil(X)     __CLFN_F1_SVML_4_8_16(X,ceil)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(floor)
-#define floor(X)     __CLFN_F1_SVML_1_4_8_16(X,floor)						
+OCL_SVML_1P_vFvF_F4_F8_F16(floor)
+#define floor(X)     __CLFN_F1_SVML_4_8_16(X,floor)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(erf)
-#define erf(X)     __CLFN_F1_SVML_1_4_8_16(X,erf)						
+OCL_SVML_1P_vFvF_F4_F8_F16(erf)
+#define erf(X)     __CLFN_F1_SVML_4_8_16(X,erf)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(cosh)
-#define cosh(X)     __CLFN_F1_SVML_1_4_8_16(X,cosh)						
+OCL_SVML_1P_vFvF_F4_F8_F16(cosh)
+#define cosh(X)     __CLFN_F1_SVML_4_8_16(X,cosh)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(asinh)
-#define asinh(X)     __CLFN_F1_SVML_1_4_8_16(X,asinh)						
+OCL_SVML_1P_vFvF_F4_F8_F16(asinh)
+#define asinh(X)     __CLFN_F1_SVML_4_8_16(X,asinh)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(acosh)
-#define acosh(X)     __CLFN_F1_SVML_1_4_8_16(X,acosh)						
+OCL_SVML_1P_vFvF_F4_F8_F16(acosh)
+#define acosh(X)     __CLFN_F1_SVML_4_8_16(X,acosh)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(atanh)
-#define atanh(X)     __CLFN_F1_SVML_1_4_8_16(X,atanh)						
+OCL_SVML_1P_vFvF_F4_F8_F16(atanh)
+#define atanh(X)     __CLFN_F1_SVML_4_8_16(X,atanh)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(erfc)
-#define erfc(X)     __CLFN_F1_SVML_1_4_8_16(X,erfc)
+OCL_SVML_1P_vFvF_F4_F8_F16(erfc)
+#define erfc(X)     __CLFN_F1_SVML_4_8_16(X,erfc)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(exp2)
-#define exp2(X)				__CLFN_F1_SVML_1_4_8_16(X,exp2)
-#define native_exp2(X)		__CLFN_F1_SVML_1_4_8_16_S(X,exp2)
-#define half_exp2(X)		__CLFN_F1_SVML_1_4_8_16_S(X,exp2)
-
-
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(inv)
-#define half_recip(X)		__CLFN_F1_SVML_1_4_8_16_S(X,inv)
-#define native_recip(X)		__CLFN_F1_SVML_1_4_8_16_S(X,inv)
+OCL_SVML_1P_vFvF_F4_F8_F16(exp2)
+#define exp2(X)				__CLFN_F1_SVML_4_8_16(X,exp2)
+#define native_exp2(X)		__CLFN_F1_SVML_4_8_16_S(X,exp2)
+#define half_exp2(X)		__CLFN_F1_SVML_4_8_16_S(X,exp2)
 
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(exp10)
-#define exp10(X)			__CLFN_F1_SVML_1_4_8_16(X,exp10)
-#define native_exp10(X)     __CLFN_F1_SVML_1_4_8_16_S(X,exp10)
-#define half_exp10(X)		__CLFN_F1_SVML_1_4_8_16_S(X,exp10)
+OCL_SVML_1P_vFvF_F4_F8_F16(inv)
+#define half_recip(X)		__CLFN_F1_SVML_4_8_16_S(X,inv)
+#define native_recip(X)		__CLFN_F1_SVML_4_8_16_S(X,inv)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(expm1)
-#define expm1(X)     __CLFN_F1_SVML_1_4_8_16(X,expm1)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(tanh)
-#define tanh(X)     __CLFN_F1_SVML_1_4_8_16(X,tanh)						
+OCL_SVML_1P_vFvF_F4_F8_F16(exp10)
+#define exp10(X)			__CLFN_F1_SVML_4_8_16(X,exp10)
+#define native_exp10(X)     __CLFN_F1_SVML_4_8_16_S(X,exp10)
+#define half_exp10(X)		__CLFN_F1_SVML_4_8_16_S(X,exp10)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(asin)
-#define asin(X)     __CLFN_F1_SVML_1_4_8_16(X,asin)
+OCL_SVML_1P_vFvF_F4_F8_F16(expm1)
+#define expm1(X)     __CLFN_F1_SVML_4_8_16(X,expm1)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(atan)
-#define atan(X)     __CLFN_F1_SVML_1_4_8_16(X,atan)
+OCL_SVML_1P_vFvF_F4_F8_F16(tanh)
+#define tanh(X)     __CLFN_F1_SVML_4_8_16(X,tanh)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(acos)
-#define acos(X)     __CLFN_F1_SVML_1_4_8_16(X,acos)
+OCL_SVML_1P_vFvF_F4_F8_F16(asin)
+#define asin(X)     __CLFN_F1_SVML_4_8_16(X,asin)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(round)
-#define round(X)     __CLFN_F1_SVML_1_4_8_16(X,round)						
+OCL_SVML_1P_vFvF_F4_F8_F16(atan)
+#define atan(X)     __CLFN_F1_SVML_4_8_16(X,atan)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(trunc)
-#define trunc(X)     __CLFN_F1_SVML_1_4_8_16(X,trunc)						
+OCL_SVML_1P_vFvF_F4_F8_F16(acos)
+#define acos(X)     __CLFN_F1_SVML_4_8_16(X,acos)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(sinh)
-#define sinh(X)     __CLFN_F1_SVML_1_4_8_16(X,sinh) 					
+OCL_SVML_1P_vFvF_F4_F8_F16(round)
+#define round(X)     __CLFN_F1_SVML_4_8_16(X,round)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(exp)
-#define exp(X)			__CLFN_F1_SVML_1_4_8_16(X,exp) 
-#define native_exp(X)	__CLFN_F1_SVML_1_4_8_16_S(X,exp) 
-#define half_exp(X)		__CLFN_F1_SVML_1_4_8_16_S(X,exp) 
+OCL_SVML_1P_vFvF_F4_F8_F16(trunc)
+#define trunc(X)     __CLFN_F1_SVML_4_8_16(X,trunc)						
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(log)
-#define log(X)				__CLFN_F1_SVML_1_4_8_16(X,log)
-#define native_log(X)		__CLFN_F1_SVML_1_4_8_16_S(X,log)
-#define half_log(X)			__CLFN_F1_SVML_1_4_8_16_S(X,log)
+OCL_SVML_1P_vFvF_F4_F8_F16(sinh)
+#define sinh(X)     __CLFN_F1_SVML_4_8_16(X,sinh) 					
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(log10)
-#define log10(X)			__CLFN_F1_SVML_1_4_8_16(X,log10)
-#define native_log10(X)		__CLFN_F1_SVML_1_4_8_16_S(X,log10)
-#define half_log10(X)		__CLFN_F1_SVML_1_4_8_16_S(X,log10)
+OCL_SVML_1P_vFvF_F4_F8_F16(exp)
+#define exp(X)			__CLFN_F1_SVML_4_8_16(X,exp) 
+#define native_exp(X)	__CLFN_F1_SVML_4_8_16_S(X,exp) 
+#define half_exp(X)		__CLFN_F1_SVML_4_8_16_S(X,exp) 
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(log2)
-#define log2(X)				__CLFN_F1_SVML_1_4_8_16(X,log2)
-#define native_log2(X)		__CLFN_F1_SVML_1_4_8_16_S(X,log2)
-#define half_log2(X)		__CLFN_F1_SVML_1_4_8_16_S(X,log2)
+OCL_SVML_1P_vFvF_F4_F8_F16(log)
+#define log(X)				__CLFN_F1_SVML_4_8_16(X,log)
+#define native_log(X)		__CLFN_F1_SVML_4_8_16_S(X,log)
+#define half_log(X)			__CLFN_F1_SVML_4_8_16_S(X,log)
+
+OCL_SVML_1P_vFvF_F4_F8_F16(log10)
+#define log10(X)			__CLFN_F1_SVML_4_8_16(X,log10)
+#define native_log10(X)		__CLFN_F1_SVML_4_8_16_S(X,log10)
+#define half_log10(X)		__CLFN_F1_SVML_4_8_16_S(X,log10)
+
+OCL_SVML_1P_vFvF_F4_F8_F16(log2)
+#define log2(X)				__CLFN_F1_SVML_4_8_16(X,log2)
+#define native_log2(X)		__CLFN_F1_SVML_4_8_16_S(X,log2)
+#define half_log2(X)		__CLFN_F1_SVML_4_8_16_S(X,log2)
 					
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(sqrt)
-#define sqrt(X)			__CLFN_F1_SVML_1_4_8_16(X,sqrt)
-#define native_sqrt(X)		__CLFN_F1_SVML_1_4_8_16_S(X,sqrt)
-#define half_sqrt(X)		__CLFN_F1_SVML_1_4_8_16_S(X,sqrt)
+OCL_SVML_1P_vFvF_F4_F8_F16(sqrt)
+#define sqrt(X)				__CLFN_F1_SVML_4_8_16(X,sqrt)
+#define native_sqrt(X)		__CLFN_F1_SVML_4_8_16_S(X,sqrt)
+#define half_sqrt(X)		__CLFN_F1_SVML_4_8_16_S(X,sqrt)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(rint)
-#define rint(X)		__CLFN_F1_SVML_1_4_8_16(X,rint)			
+OCL_SVML_1P_vFvF_F4_F8_F16(rint)
+#define rint(X)		__CLFN_F1_SVML_4_8_16(X,rint)			
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(rsqrt)
-#define rsqrt(X)			__CLFN_F1_SVML_1_4_8_16(X,rsqrt)			
-#define native_rsqrt(X)		__CLFN_F1_SVML_1_4_8_16_S(X,rsqrt)
-#define half_rsqrt(X)		__CLFN_F1_SVML_1_4_8_16_S(X,rsqrt)
+OCL_SVML_1P_vFvF_F4_F8_F16(rsqrt)
+#define rsqrt(X)			__CLFN_F1_SVML_4_8_16(X,rsqrt)			
+#define native_rsqrt(X)		__CLFN_F1_SVML_4_8_16_S(X,rsqrt)
+#define half_rsqrt(X)		__CLFN_F1_SVML_4_8_16_S(X,rsqrt)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(logb)
-#define logb(X)		__CLFN_F1_SVML_1_4_8_16(X,logb)			
+OCL_SVML_1P_vFvF_F4_F8_F16(logb)
+#define logb(X)		__CLFN_F1_SVML_4_8_16(X,logb)			
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(log1p)
-#define log1p(X)		__CLFN_F1_SVML_1_4_8_16(X,log1p)			
+OCL_SVML_1P_vFvF_F4_F8_F16(log1p)
+#define log1p(X)		__CLFN_F1_SVML_4_8_16(X,log1p)			
 
 OCL_SVML_1P_vFvF_F8_F16(lgamma)
 #define lgamma(X)     __CLFN_F1_SVML_8_16(X,lgamma)	   
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(tgamma)
-#define tgamma(X)     __CLFN_F1_SVML_1_4_8_16(X,tgamma)	    
+OCL_SVML_1P_vFvF_F4_F8_F16(tgamma)
+#define tgamma(X)     __CLFN_F1_SVML_4_8_16(X,tgamma)	    
 
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(sin)
-#define sin(X)				__CLFN_F1_SVML_1_4_8_16_D(X,sin)
-#define native_sin(X)		__CLFN_F1_SVML_1_4_8_16_S(X,sin)
-#define half_sin(X)			__CLFN_F1_SVML_1_4_8_16_S(X,sin)
+OCL_SVML_1P_vFvF_F4_F8_F16(sin)
+#define sin(X)				__CLFN_F1_SVML_4_8_16_D(X,sin)
+#define native_sin(X)		__CLFN_F1_SVML_4_8_16_S(X,sin)
+#define half_sin(X)			__CLFN_F1_SVML_4_8_16_S(X,sin)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(cos)
-#define cos(X)				__CLFN_F1_SVML_1_4_8_16_D(X,cos)
-#define native_cos(X)		__CLFN_F1_SVML_1_4_8_16_S(X,cos)
-#define half_cos(X)			__CLFN_F1_SVML_1_4_8_16_S(X,cos)
+OCL_SVML_1P_vFvF_F4_F8_F16(cos)
+#define cos(X)				__CLFN_F1_SVML_4_8_16_D(X,cos)
+#define native_cos(X)		__CLFN_F1_SVML_4_8_16_S(X,cos)
+#define half_cos(X)			__CLFN_F1_SVML_4_8_16_S(X,cos)
 
-OCL_SVML_1P_vFvF_F1_F4_F8_F16(tan)
-#define tan(X)				__CLFN_F1_SVML_1_4_8_16_D(X,tan)
-#define native_tan(X)		__CLFN_F1_SVML_1_4_8_16_S(X,tan)
-#define half_tan(X)			__CLFN_F1_SVML_1_4_8_16_S(X,tan)
+OCL_SVML_1P_vFvF_F4_F8_F16(tan)
+#define tan(X)				__CLFN_F1_SVML_4_8_16_D(X,tan)
+#define native_tan(X)		__CLFN_F1_SVML_4_8_16_S(X,tan)
+#define half_tan(X)			__CLFN_F1_SVML_4_8_16_S(X,tan)
 
 // 2 -Parameters  ,  FFF
 
-#define OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(func)					\
-	float __ocl_svml_w7_##func##f1(float,float);				\
+#define OCL_SVML_2P_vFvFvF_F4_F8_F16(func)						\
+	float  __##func##f(float,float);							\
 	float2 __##func##f2(float2,float2);							\
 	float4 __ocl_svml_w7_##func##f4(float4,float4);				\
 	float8 __ocl_svml_w7_##func##f8(float8,float8);				\
 	float16 __ocl_svml_w7_##func##f16(float16,float16);	
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(div)
-#define half_divide(X,Y)	__CLFN_F2_SVML_1_4_8_16_S(X,Y,div)
-#define native_divide(X,Y)	__CLFN_F2_SVML_1_4_8_16_S(X,Y,div)
+#define OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(func)					\
+	float2 __##func##f2(float2,float2);							\
+	float4 __ocl_svml_w7_##func##f4(float4,float4);				\
+	float8 __ocl_svml_w7_##func##f8(float8,float8);				\
+	float16 __ocl_svml_w7_##func##f16(float16,float16);	
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(powr)
-#define powr(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,powr)
-#define native_powr(X,Y)     __CLFN_F2_SVML_1_4_8_16_S(X,Y,powr)
-#define half_powr(X,Y)     __CLFN_F2_SVML_1_4_8_16_S(X,Y,powr)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(div)
+#define half_divide(X,Y)	__CLFN_F2_SVML_4_8_16_S(X,Y,div)
+#define native_divide(X,Y)	__CLFN_F2_SVML_4_8_16_S(X,Y,div)
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(nextafter)
-#define nextafter(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,nextafter)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(powr)
+#define powr(X,Y)			__CLFN_F2_SVML_4_8_16(X,Y,powr)
+#define native_powr(X,Y)    __CLFN_F2_SVML_4_8_16_S(X,Y,powr)
+#define half_powr(X,Y)		__CLFN_F2_SVML_4_8_16_S(X,Y,powr)
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(hypot)
-#define hypot(X,Y)			 __CLFN_F2_SVML_1_4_8_16(X,Y,hypot)			
+OCL_SVML_2P_vFvFvF_F4_F8_F16(nextafter)
+#define nextafter(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,nextafter)
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(remainder)
-#define remainder(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,remainder)			
+OCL_SVML_2P_vFvFvF_F4_F8_F16(hypot)
+#define hypot(X,Y)			 __CLFN_F2_SVML_4_8_16(X,Y,hypot)			
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(atan2)
-#define atan2(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,atan2)			
+OCL_SVML_2P_vFvFvF_F4_F8_F16(remainder)
+#define remainder(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,remainder)			
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(atan2pi)
-#define atan2pi(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,atan2pi)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(atan2)
+#define atan2(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,atan2)			
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(copysign)
-#define copysign(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,copysign)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(atan2pi)
+#define atan2pi(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,atan2pi)
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(pow)
-#define pow(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,pow)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(copysign)
+#define copysign(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,copysign)
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(fdim)
-#define fdim(X,Y)     __CLFN_F2_SVML_1_4_8_16(X,Y,fdim)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(pow)
+#define pow(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,pow)
+
+OCL_SVML_2P_vFvFvF_F4_F8_F16(fdim)
+#define fdim(X,Y)     __CLFN_F2_SVML_4_8_16(X,Y,fdim)
 
 
 #define OCL_SVML_2P_vFvFF(func)				\
@@ -2009,13 +2018,13 @@ OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(fdim)
 	float8 __##func##ff8(float8,float);		\
 	float16 __##func##ff16(float16,float);	
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(fmax)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(fmax)
 OCL_SVML_2P_vFvFF(fmax)
-#define fmax(X,Y)     __builtin_overload(2, X, Y, __ocl_svml_w7_fmaxf1, __fmaxf2, __ocl_svml_w7_fmaxf4, __ocl_svml_w7_fmaxf8, __ocl_svml_w7_fmaxf16, __fmaxff2, __fmaxff3, __fmaxff4, __fmaxff8, __fmaxff16, fmax, __fmaxd2, __fmaxd3, __fmaxd4, __fmaxd8, __fmaxd16, __fmaxdd2, __fmaxdd4, __fmaxdd8, __fmaxdd16 )
+#define fmax(X,Y)     __builtin_overload(2, X, Y, __fmaxf, __fmaxf2, __fmaxf3, __ocl_svml_w7_fmaxf4, __ocl_svml_w7_fmaxf8, __ocl_svml_w7_fmaxf16, __fmaxff2, __fmaxff3, __fmaxff4, __fmaxff8, __fmaxff16, fmax, __fmaxd2, __fmaxd3, __fmaxd4, __fmaxd8, __fmaxd16, __fmaxdd2, __fmaxdd3, __fmaxdd4, __fmaxdd8, __fmaxdd16 )
 
-OCL_SVML_2P_vFvFvF_F1_F4_F8_F16(fmin)
+OCL_SVML_2P_vFvFvF_F4_F8_F16(fmin)
 OCL_SVML_2P_vFvFF(fmin)
-#define fmin(X,Y)     __builtin_overload(2, X, Y, __ocl_svml_w7_fminf1, __fminf2, __ocl_svml_w7_fminf4, __ocl_svml_w7_fminf8, __ocl_svml_w7_fminf16, __fminff2, __fminff3, __fminff4, __fminff8, __fminff16, fmin, __fmind2, __fmind3, __fmind4, __fmind8, __fmind16, __fmindd2, __fmindd4, __fmindd8, __fmindd16 )
+#define fmin(X,Y)     __builtin_overload(2, X, Y, __fminf, __fminf2, __ocl_svml_w7_fminf4, __ocl_svml_w7_fminf8, __ocl_svml_w7_fminf16, __fminff2, __fminff3, __fminff4, __fminff8, __fminff16, fmin, __fmind2, __fmind3, __fmind4, __fmind8, __fmind16, __fmindd2, __fmindd4, __fmindd8, __fmindd16 )
 
 
 #define OCL_SVML_P2_vFvFvI_F4_F8_F16(func)				\
@@ -2035,20 +2044,18 @@ OCL_SVML_P2_vFvFvI_F4_F8_F16(pown)
 #define pown(x,y) __CLFN_F2_SVML_4_8_16(x,y,pown)
 
 
-#define OCL_SVML_P2_vFvFvF_F1_F8_F16(func)					\
-	float __ocl_svml_w7_##func##f1(float,float);			\
+#define OCL_SVML_P2_vFvFvF_F8_F16(func)						\	
 	float2 __##func##f2(float2,float2);						\
 	float4 __##func##f4(float4,float4);						\
 	float8 __ocl_svml_w7_##func##f8(float8,float8);			\
 	float16 __ocl_svml_w7_##func##f16(float16,float16);	
 
-OCL_SVML_P2_vFvFvF_F1_F8_F16(fmod)
+OCL_SVML_P2_vFvFvF_F8_F16(fmod)
 #define fmod(X,Y)     __CLFN_F2_SVML_8_16_D(X,Y,fmod)
 
 // 3 -Parameters
 
-#define OCL_SVML_P3_vFvFvFvF_F1_F4_F8_F16(func)					\
-	float __ocl_svml_w7_##func##f1(float,float,float);			\
+#define OCL_SVML_P3_vFvFvFvF_F4_F8_F16(func)					\	
 	float4 __ocl_svml_w7_##func##f4(float4,float4,float4);		\
 	float8 __ocl_svml_w7_##func##f8(float8,float8,float8);		\
 	float16 __ocl_svml_w7_##func##f16(float16,float16,float16);	
@@ -2059,14 +2066,13 @@ OCL_SVML_P2_vFvFvF_F1_F8_F16(fmod)
 	float8 __ocl_svml_w7_##func##f8(float8,float8,float8);		\
 	float16 __ocl_svml_w7_##func##f16(float16,float16,float16);	
 
-OCL_SVML_P3_vFvFvFvF_F1_F4_F8_F16(mad)
-#define mad(X,Y,Z)     __CLFN_F3_SVML_1_4_8_16(X,Y,Z,mad)
+OCL_SVML_P3_vFvFvFvF_F4_F8_F16(mad)
+#define mad(X,Y,Z)     __CLFN_F3_SVML_4_8_16(X,Y,Z,mad)
 
 OCL_SVML_P3_vFvFvFvF_F4_F8_F16(fma)
 #define fma(X,Y,Z)     __CLFN_F3_SVML_4_8_16_D(X,Y,Z,fma)
 
-#define OCL_SVML_P3_vFvFvFpvI_F1_F4_F8_F16(func)							\
-	float __ocl_svml_w7_##func##f1(float,float,int*);					\
+#define OCL_SVML_P3_vFvFvFpvI_F4_F8_F16(func)								\	
 	float __##func##f(float,float,int*);									\
 	float __##func##gf(float,float,__global int*);							\
 	float __##func##lf(float,float,__local int*);							\
@@ -2086,7 +2092,7 @@ OCL_SVML_P3_vFvFvFvF_F4_F8_F16(fma)
 	float16 __##func##gf16(float16,float16,__global int16*);				\
 	float16 __##func##lf16(float16,float16,__local int16*);			
 
-OCL_SVML_P3_vFvFvFpvI_F1_F4_F8_F16(remquo)
+OCL_SVML_P3_vFvFvFpvI_F4_F8_F16(remquo)
 #define remquo(X,Y,Z)   __builtin_overload( 3, X, Y, Z,__remquof, __remquof2, __remquof3, __remquof4, __remquof8, __remquof16,         \
                                                         remquo, __remquod2, __remquod3, __remquod4, __remquod8,__remquod16,    \
                                                         __remquogf, __remquogf2, __remquogf3, __remquogf4, __remquogf8, __remquogf16,    \
@@ -2096,7 +2102,7 @@ OCL_SVML_P3_vFvFvFpvI_F1_F4_F8_F16(remquo)
 
 
 
-#define OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(func,svmlfunc)				\
+#define OCL_SVML_P3_vFvFpvI_F4_F8_F16(func,svmlfunc)				\
 	float __##func##f1(float,int*);									\
 	float __##func##gf1(float,__global int*);						\
 	float __##func##lf1(float,__local int*);						\
@@ -2113,7 +2119,7 @@ OCL_SVML_P3_vFvFvFpvI_F1_F4_F8_F16(remquo)
 	float16 __##func##gf16(float16,__global int16*);				\
 	float16 __##func##lf16(float16,__local int16*);			
 
-OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(lgamma_r,lgammar)
+OCL_SVML_P3_vFvFpvI_F4_F8_F16(lgamma_r,lgammar)
 #define lgamma_r(X,Z)   __builtin_overload( 2, X, Z, __lgamma_rf1, __lgamma_rf2, __lgamma_rf3, __ocl_svml_w7_lgammarf4, __ocl_svml_w7_lgammarf8, __ocl_svml_w7_lgammarf16, \
                                                         lgamma_r, __lgamma_rd2, __lgamma_rd3, __lgamma_rd4, __lgamma_rd8, __lgamma_rd16,														\
                                                         __lgamma_rgf1, __lgamma_rgf2, __lgamma_rf3, __lgamma_rgf4, __lgamma_rgf8, __lgamma_rgf16,	\
@@ -2124,7 +2130,7 @@ OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(lgamma_r,lgammar)
 
 
 
-OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(frexp,frexp)
+OCL_SVML_P3_vFvFpvI_F4_F8_F16(frexp,frexp)
 #define frexp(X,Y)  __builtin_overload( 2, X, Y, __frexpf1, __frexpf2, __frexpf3, __ocl_svml_w7_frexpf4, __ocl_svml_w7_frexpf8, __ocl_svml_w7_frexpf16, \
                                                         frexp, __frexpd2, __frexpd3, __frexpd4, __frexpd8, __frexpd16,														\
                                                         __frexpgf1, __frexpgf2, __frexpgf3, __frexpgf4, __frexpgf8, __frexpgf16,	\
@@ -2135,7 +2141,7 @@ OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(frexp,frexp)
 
 
 
-#define OCL_SVML_P_vFvFpvF(func)	\
+#define OCL_SVML_P2_vFvFpvF(func)	\
 	float __##func##f1(float,float*);					\
 	float __##func##gf1(float,__global float*);			\
 	float __##func##lf1(float,__local float*);			\
@@ -2152,7 +2158,7 @@ OCL_SVML_P3_vFvFpvI_F1_F4_F8_F16(frexp,frexp)
 	float16 __##func##gf16(float16,__global float16*);	\
 	float16 __##func##lf16(float16,__local float16*);
 
-OCL_SVML_P_vFvFpvF(sincos)
+OCL_SVML_P2_vFvFpvF(sincos)
 #define sincos(X,Z)   __builtin_overload( 2, X, Z, __sincosf1, __sincosf2, __sincosf3, __sincosf4, __sincosf8, __sincosf16, \
                                                         __sincosd, __sincosd2, __sincosd3, __sincosd4, __sincosd8, __sincosd16,\
                                                         __sincosgf1, __sincosgf2, __sincosgf3, __sincosgf4, __sincosgf8, __sincosgf16,\
@@ -2161,7 +2167,7 @@ OCL_SVML_P_vFvFpvF(sincos)
                                                         __sincosld, __sincosld2, __sincosld3, __sincosld4, __sincosld8, __sincosld16)
 
 
-OCL_SVML_P_vFvFpvF(modf)
+OCL_SVML_P2_vFvFpvF(modf)
 #define modf(X,Y)   __builtin_overload( 2, X, Y, __modff1, __modff2, __modff3, __modff4, __modff8, __modff16, \
                                                         modf, __modfd2, __modfd3, __modfd4, __modfd8, __modfd16,\
                                                         __modfgf1, __modfgf2, __modfgf3, __modfgf4, __modfgf8, __modfgf16,\
@@ -2171,7 +2177,7 @@ OCL_SVML_P_vFvFpvF(modf)
 
 
 
-OCL_SVML_P_vFvFpvF(fract)
+OCL_SVML_P2_vFvFpvF(fract)
 #define fract(X,Y)   __builtin_overload( 2, X, Y, __fractf1, __fractf2, __fractf3, __fractf4, __fractf8, __fractf16, \
                                                         fract, __fractd2, __fractd3, __fractd4, __fractd8, __fractd16,\
                                                         __fractgf1, __fractgf2, __fractgf3, __fractgf4, __fractgf8, __fractgf16,\
