@@ -47,7 +47,7 @@
 #define CPU_MAX_LOCAL_ARGS				16
 #define CPU_MEM_BASE_ADDR_ALIGN			0
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-#define CPU_MAX_WORK_GROUP_SIZE			256			// Must be power of 2, No API to get max number of fibers
+#define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
 #define CPU_MIN_VECTOR_SIZE				8
