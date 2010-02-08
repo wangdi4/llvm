@@ -94,6 +94,9 @@
     <Component Name="workload_dot_product">
         <RelativeCheckoutPath>validation\tests\workload_dot_product</RelativeCheckoutPath>
     </Component>    
+    <Component Name="workloads_benchmarks">
+        <RelativeCheckoutPath>validation\tests\workloads_benchmarks</RelativeCheckoutPath>
+    </Component> 
     <Component Name="conformance_test_type">
         <RelativeCheckoutPath>validation\types\conformance_test_type</RelativeCheckoutPath>
     </Component>
