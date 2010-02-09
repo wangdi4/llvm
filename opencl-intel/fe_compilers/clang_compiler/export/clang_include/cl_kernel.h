@@ -2307,13 +2307,13 @@ OCL_SVML_P2_vFvFpvF(fract)
 
 #define islessgreater(X,Y)      __CLFN_F2(X,Y,islessgreater)
 
-#define isfinite(X)     __CLFN_F11(X,isfinite)
-#define isinf(X)        __CLFN_F11(X,isinf)
-#define isnan(X)        __CLFN_F11(X,isnan)
-#define isnormal(X)     __CLFN_F11(X,isnormal)
+#define isfinite(X)     __CLFN_F1(X,isfinite)
+#define isinf(X)        __CLFN_F1(X,isinf)
+#define isnan(X)        __CLFN_F1(X,isnan)
+#define isnormal(X)     __CLFN_F1(X,isnormal)
 #define isordered(X,Y)     __CLFN_F2(X,Y,isordered)
-#define isunordered(X,Y)     __CLFN_F21(X,Y,isunordered)
-#define signbit(X)     __CLFN_F11(X,signbit)
+#define isunordered(X,Y)     __CLFN_F2(X,Y,isunordered)
+#define signbit(X)     __CLFN_F1(X,signbit)
 #define any(X)      __builtin_overload(1, X,    __any_1i8, __any_2i8, __any_4i8, __any_8i8, __any_16i8, \
                                                 __any_1i16, __any_2i16, __any_4i16, __any_8i16, __any_16i16, \
                                                 __any_1i32, __any_2i32, __any_4i32, __any_8i32, __any_16i32, \
