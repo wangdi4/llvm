@@ -30,6 +30,7 @@
 #include "cl_device_api.h"
 #include "cl_thread.h"
 #include "cpu_dev_limits.h"
+#include "llvm_backend.h"
 
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/Module.h"
@@ -56,6 +57,7 @@
 #include "logger.h"
 
 #include <string>
+#include <list>
 #include <map>
 
 #pragma comment(lib, "x86.lib")
@@ -80,15 +82,12 @@ static const char szNone[] = "None";
 static const char szBuilding[] = "Building";
 static const char szError[] = "Error";
 
-// External declarations
-extern ExecutionEngine* g_pExecEngine;
 extern llvm::Module*	g_BuiltinsModule;
 extern DECLARE_LOGGER_CLIENT;
 
 // Constructor/Destructor
 LLVMProgram::LLVMProgram(LLVMProgramConfig *pConfig) :
 m_pMemBuffer(NULL), m_pModuleProvider(NULL),
-m_bBarrierDecl(false), m_bAsyncCopy(false), m_bPrefetchDecl(false),
 m_bUseVectorizer(pConfig->bUseVectorizer)
 {
 	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container));
@@ -140,7 +139,7 @@ void LLVMProgram::Release()
 	FreeMap();
 	if ( NULL != m_pModuleProvider )
 	{
-		g_pExecEngine->deleteModuleProvider(m_pModuleProvider);
+		LLVMBackend::GetInstance()->GetExecEngine()->deleteModuleProvider(m_pModuleProvider);
 	}
 	if (NULL != m_pMemBuffer)
 	{
@@ -168,10 +167,11 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 
 	FPasses->add(createCFGSimplificationPass());
 
-    FPasses->add(createScalarReplAggregatesPass());
+	FPasses->add(createScalarReplAggregatesPass());
 	FPasses->add(createInstructionCombiningPass());
 
 	Passes.add(createVerifierPass());
+
 	if (UnitAtATime)
 		Passes.add(createRaiseAllocationsPass());      // call %malloc -> malloc inst
 	Passes.add(createCFGSimplificationPass());       // Clean up disgusting code
@@ -188,17 +188,21 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 		Passes.add(createPruneEHPass());               // Remove dead EH info
 		Passes.add(createFunctionAttrsPass());         // Deduce function attrs
 	}
+
 	Passes.add(createFunctionInliningPass());      // Inline small functions
 	Passes.add(createArgumentPromotionPass());   // Scalarize uninlined fn args
 	if (!DisableSimplifyLibCalls)
 		Passes.add(createSimplifyLibCallsPass());    // Library Call Optimizations
 	Passes.add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
+
 	Passes.add(createJumpThreadingPass());         // Thread jumps.
 	Passes.add(createCFGSimplificationPass());     // Merge & remove BBs
 	Passes.add(createScalarReplAggregatesPass());  // Break up aggregate allocas
 	Passes.add(createInstructionCombiningPass());  // Combine silly seq's
+
 	Passes.add(createCondPropagationPass());       // Propagate conditionals
 	Passes.add(createTailCallEliminationPass());   // Eliminate tail calls
+
 	Passes.add(createCFGSimplificationPass());     // Merge & remove BBs
 	Passes.add(createReassociatePass());           // Reassociate expressions
 	Passes.add(createLoopRotatePass());            // Rotate Loop
@@ -206,10 +210,12 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	Passes.add(createLoopUnswitchPass());
 	Passes.add(createLoopIndexSplitPass());        // Split loop index
 	Passes.add(createInstructionCombiningPass());  
+
 	Passes.add(createIndVarSimplifyPass());        // Canonicalize indvars
 	Passes.add(createLoopDeletionPass());          // Delete dead loops
 	Passes.add(createLoopUnrollPass());          // Unroll small loops
 	Passes.add(createInstructionCombiningPass());  // Clean up after the unroller
+
 	Passes.add(createGVNPass());                   // Remove redundancies
 	Passes.add(createMemCpyOptPass());             // Remove memcpy / form memset
 	Passes.add(createSCCPPass());                  // Constant prop with SCCP
@@ -217,11 +223,12 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	// Run instcombine after redundancy elimination to exploit opportunities
 	// opened up by them.
 	Passes.add(createInstructionCombiningPass());
+
 	Passes.add(createCondPropagationPass());       // Propagate conditionals
 	Passes.add(createDeadStoreEliminationPass());  // Delete dead stores
 	Passes.add(createAggressiveDCEPass());   // Delete dead instructions
 	Passes.add(createCFGSimplificationPass());     // Merge & remove BBs
-  
+
 	if (UnitAtATime) {
 		Passes.add(createStripDeadPrototypesPass());   // Get rid of dead prototypes
 		Passes.add(createDeadTypeEliminationPass());   // Eliminate dead types
@@ -230,14 +237,27 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	if (UnitAtATime)
 		Passes.add(createConstantMergePass());       // Merge dup global constants 
 
-	Pass *vectorizerPass;
-	if(m_bUseVectorizer)
+	Pass *vectorizerPass = NULL;
+	if( m_bUseVectorizer )
 	{
 		vectorizerPass = createVectorizerPass(g_BuiltinsModule);
 		Passes.add(vectorizerPass);
 	}
-
 	Passes.add(createVerifierPass());
+
+	Passes.add(createBuiltInImportPass(LLVMBackend::GetInstance()->GetRTModule())); // Inline BI function
+	ModulePass* updatePass = createKernelUpdatePass(vectorizerPass);
+	Passes.add(updatePass);
+#ifdef _DEBUG
+	//Passes.add(createVerifierPass());
+#endif
+
+	Passes.add(createFunctionInliningPass());		// Inline small functions
+	Passes.add(createArgumentPromotionPass());		// Scalarize uninlined fn args
+	if (!DisableSimplifyLibCalls)
+		Passes.add(createSimplifyLibCallsPass());   // Library Call Optimizations
+	Passes.add(createInstructionCombiningPass());	// Cleanup for scalarrepl.
+	//Passes.add(createVerifierPass());
 
 	for (Module::iterator I = pModule->begin(), E = pModule->end(); I != E; ++I)
 		FPasses->run(*I);
@@ -245,9 +265,12 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 
 	Passes.run(*pModule);
 
-	VectorizedFunctions.clear();
-	if(m_bUseVectorizer)
+	getKernelInfoMap(updatePass, m_mapKernelInfo);
+
+	if( m_bUseVectorizer )
 	{
+		VectorizedFunctions.clear();
+
 		SmallVector<Function*, 16> vectFunctions;
 		SmallVector<int, 16>       vectWidths;
 
@@ -255,26 +278,19 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 		getVectorizerWidths((Vectorizer *)vectorizerPass, vectWidths);
 		assert(vectFunctions.size() == vectWidths.size());
 
-		for(int i=0; i < vectFunctions.size(); i++)
+		for(unsigned int i=0; i < vectFunctions.size(); i++)
 		{
-			if(vectFunctions[i]!=NULL)
-			{
-				VectorizedFunctions.push_back(FunctionWidthPair(vectFunctions[i], vectWidths[i]));
-			}
-			else
-			{
-				VectorizedFunctions.push_back(FunctionWidthPair(NULL, 0));
-			}
+			VectorizedFunctions.push_back(FunctionWidthPair(vectFunctions[i], vectWidths[i]));
 		}
 	}
 
 	return CL_DEV_SUCCESS;
 }
 
-LLVMKernel *LLVMProgram::CreateKernel(llvm::Function *pFunc, ConstantArray *pFuncArgs, ConstantArray *pFuncLocals)
+LLVMKernel *LLVMProgram::CreateKernel(llvm::Function *pFunc, ConstantArray *pFuncArgs)
 {
 	// Check maximum number of arguments to kernel
-	if ( CPU_KERNEL_MAX_ARG_COUNT < pFunc->arg_size() )
+	if ( (CPU_KERNEL_MAX_ARG_COUNT + KRNL_NUM_CONST_ARGS) < pFunc->arg_size() )
 	{
 		m_strLastError = "Too many arguments in function";
 		LOG_ERROR("Build of function <%s> fail, <%s>", pFunc->getName().c_str(), m_strLastError.c_str());
@@ -291,10 +307,10 @@ LLVMKernel *LLVMProgram::CreateKernel(llvm::Function *pFunc, ConstantArray *pFun
 	}
 
 	cl_int rc;
-	// Try to create kernel, on error
+	// Try to initialize kernel, on error
 	try
 	{
-		rc = pKernel->ParseLLVM(pFunc, pFuncArgs, pFuncLocals);
+		rc = pKernel->Init(pFunc, pFuncArgs);
 	}
 	catch( std::string err )
 	{
@@ -329,11 +345,10 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	// Optimize module
 	rc =  OptimizeProgram(pModule);
-	if ( CL_DEV_SUCCESS != rc )
+	if ( CL_DEV_FAILED(rc) )
 	{
-		LOG_ERROR("FAILED to optimize module");
+		LOG_ERROR("FAILED to optimize module (first)");
 		m_strLastError = "Optimization failed";
 		delete pModule;
 		return rc;
@@ -350,24 +365,23 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 
 	m_strLastError = szBuilding;
 
-	LOG_DEBUG("Before AddWIInfoDeclarations");
-	// Add declarations of modified WI info functions
-	AddWIInfoDeclarations();
-
-	LOG_DEBUG("Before addModuleProvider()");
-	g_pExecEngine->addModuleProvider(m_pModuleProvider);
+	LLVMBackend::GetInstance()->GetExecEngine()->addModuleProvider(m_pModuleProvider);
 
 	// Now after JIT is up and setup with IR, we scan module for kernels
 	LOG_DEBUG("Start iterating over kernels");
 	GlobalVariable *annotation = pModule->getGlobalVariable("llvm.global.annotations");
+	if ( NULL == annotation )
+	{
+		return CL_DEV_SUCCESS;
+	}
 	ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
 	std::vector<FunctionWidthPair>::iterator vecIter = VectorizedFunctions.begin();
 	for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) 
 	{
 		// Obtain kernel function from annotation
 		ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-		Function *pFuncVal = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
-		if ( NULL == pFuncVal )
+		Function *pFunc = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+		if ( NULL == pFunc )
 		{
 			continue;	// Not a function pointer
 		}
@@ -379,47 +393,36 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		{
 			m_strLastError = "Invalid argument's map";
 			FreeMap();
-			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
+			LOG_ERROR("Build of function <%s> fail, <%s>", pFunc->getName().c_str(), m_strLastError.c_str());
 			return CL_DEV_BUILD_ERROR;
 		}
 
-		// Obtain local variables array
-		pGlbVar = dyn_cast<GlobalVariable>(elt->getOperand(3)->stripPointerCasts());
-		if ( NULL == pGlbVar )
-		{
-			m_strLastError = "Invalid local variable's map";
-			FreeMap();
-			LOG_ERROR("Build of function <%s> fail, <%s>", pFuncVal->getName().c_str(), m_strLastError.c_str());
-			return CL_DEV_BUILD_ERROR;
-		}
-		ConstantArray *pFuncLocals = dyn_cast<ConstantArray>(pGlbVar->getInitializer());
-
-		LLVMKernel *pKernel = CreateKernel(pFuncVal, pFuncArgs, pFuncLocals);
+		LLVMKernel *pKernel = CreateKernel(pFunc, pFuncArgs);
 		if ( NULL == pKernel )
 		{
 			FreeMap();
 			return CL_DEV_BUILD_ERROR;
 		}
 
+		// Check if vectorized kernel present
 		// Store kernel to map
 		m_mapKernels[pKernel->GetKernelName()] = pKernel;
 
 		if(m_bUseVectorizer)
 		{
+			assert(vecIter != VectorizedFunctions.end());
 			if(vecIter->first != NULL)
 			{
-				LLVMKernel *pVecKernel = CreateKernel(vecIter->first, pFuncArgs, pFuncLocals);
+				// We don't need to pass argument list here
+				LLVMKernel *pVecKernel = CreateKernel(vecIter->first, NULL);
 				if ( NULL == pKernel )
 				{
 					FreeMap();
 					return CL_DEV_BUILD_ERROR;
 				}
 
-				m_mapVectorizedKernels[pVecKernel->GetKernelName()] = pVecKernel;
-
-				pKernel->setVectorizerProperties(true, pVecKernel->GetKernelName(), vecIter->second);
+				pKernel->setVectorizerProperties(pVecKernel, vecIter->second);
 			}
-
 			vecIter++;
 		}
 	}
@@ -517,45 +520,6 @@ cl_int LLVMProgram::GetAllKernels(const ICLDevBackendKernel* *pKernels, cl_uint 
 	return CL_DEV_SUCCESS;
 }
 
-// ------------------------------------------------------------------------------
-void LLVMProgram::AddWIInfoDeclarations()
-{
-	Module* pModule = m_pModuleProvider->getModule();
-
-	// Detect size_t size
-	unsigned int uiSizeT = pModule->getPointerSize()*32;
-/*
-	struct sLocalId 
-	{
-		size_t	Id[MAX_WORK_DIM];
-	};
-*/
-	// Create Work Group/Work Item info structures
-	std::vector<const Type*> members;
-	members.push_back(ArrayType::get(IntegerType::get(uiSizeT), MAX_WORK_DIM)); // Local Id's
-	StructType* pLocalId = StructType::get(members, true);
-	pModule->addTypeName("struct.LocalId", pLocalId);
-
-	/*
-	struct sWorkInfo
-	{
-		unsigned int	uiWorkDim;
-		size_t			GlobalOffset[MAX_WORK_DIM];
-		size_t			GlobalSize[MAX_WORK_DIM];
-		size_t			LocalSize[MAX_WORK_DIM];
-		size_t			WGNumber[MAX_WORK_DIM];
-	};
-*/
-	members.clear();
-	members.push_back(IntegerType::get(32));
-	members.push_back(ArrayType::get(IntegerType::get(uiSizeT), MAX_WORK_DIM)); // Global offset
-	members.push_back(ArrayType::get(IntegerType::get(uiSizeT), MAX_WORK_DIM)); // Global size
-	members.push_back(ArrayType::get(IntegerType::get(uiSizeT), MAX_WORK_DIM)); // WG size/Local size
-	members.push_back(ArrayType::get(IntegerType::get(uiSizeT), MAX_WORK_DIM)); // Number of groups
-	StructType* pWorkDimType = StructType::get(members, true);
-	pModule->addTypeName("struct.WorkDim", pWorkDimType);
-}
-
 void LLVMProgram::FreeMap()
 {
 	// Free descriptors map
@@ -566,18 +530,13 @@ void LLVMProgram::FreeMap()
 	}
 
 	m_mapKernels.clear();
-
-	for(it = m_mapVectorizedKernels.begin(); it != m_mapVectorizedKernels.end(); ++it)
-	{
-		it->second->Release();
-	}
-
-	m_mapVectorizedKernels.clear();
 }
 
 bool LLVMProgram::IsKernel(const char* szFuncName)
 {
 	GlobalVariable *annotation = m_pModuleProvider->getModule()->getGlobalVariable("llvm.global.annotations");
+	assert ( annotation );
+
 	ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
 	for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) 
 	{
@@ -597,88 +556,4 @@ bool LLVMProgram::IsKernel(const char* szFuncName)
 
 	// Function not found
 	return false;
-}
-
-// ------------------------------------------------------------------------------
-// Retrieves a pointer to a function descriptor by function short name
-cl_int LLVMProgram::GetVectorizedKernel(const char* pName, const ICLDevBackendKernel* *pKernel) const
-{
-	TKernelMap::const_iterator	it;
-
-	it = m_mapVectorizedKernels.find(pName);
-	if ( m_mapVectorizedKernels.end() == it )
-	{
-		return CL_DEV_INVALID_KERNEL_NAME;
-	}
-
-	*pKernel = it->second;
-
-	return CL_DEV_SUCCESS;
-}
-
-void LLVMProgram::AddBarrierDeclaration()
-{
-	if ( m_bBarrierDecl )
-		return;
-	llvm::Module* pModule = m_pModuleProvider->getModule();
-
-	std::vector<const Type*> params;
-	params.push_back(IntegerType::get(32));
-	params.push_back(PointerType::get(IntegerType::get(32), 0));
-	FunctionType* pNewType = FunctionType::get(Type::VoidTy, params, false);
-	Function* pNewFunc = Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lbarrier", pModule);
-	m_bBarrierDecl = true;
-}
-
-//event_t lasync_work_group_copy(void* pDst, void* pSrc, size_t numElem, event_t event,
-//							   size_t elemSize, LLVMExecMultipleWIWithBarrier* *ppExec);
-void LLVMProgram::AddAsyncCopyDeclaration()
-{
-	if ( m_bAsyncCopy )
-		return;
-
-	llvm::Module* pModule = m_pModuleProvider->getModule();
-
-	unsigned int uiSizeT = pModule->getPointerSize()*32;
-
-	std::vector<const Type*> params;
-	params.push_back(PointerType::get(IntegerType::get(8), 0));
-	params.push_back(PointerType::get(IntegerType::get(8), 0));
-	params.push_back(IntegerType::get(uiSizeT));
-	params.push_back(IntegerType::get(uiSizeT));
-	params.push_back(IntegerType::get(uiSizeT));
-	params.push_back(PointerType::get(IntegerType::get(32), 0));
-	FunctionType* pNewType = FunctionType::get(IntegerType::get(uiSizeT), params, false);
-	Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_l2g", pModule);
-	Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_g2l", pModule);
-
-	// Add wait
-	params.clear();
-	params.push_back(IntegerType::get(32));
-	params.push_back(PointerType::get(IntegerType::get(32), 0));
-	params.push_back(PointerType::get(IntegerType::get(32), 0));
-	FunctionType* pWaitType = FunctionType::get(Type::VoidTy, params, false);
-	Function::Create(pWaitType, (GlobalValue::LinkageTypes)0, "lwait_group_events", pModule);
-
-	m_bAsyncCopy = true;
-}
-
-void LLVMProgram::AddPrefetchDeclaration()
-{
-	if ( m_bPrefetchDecl )
-		return;
-	llvm::Module* pModule = m_pModuleProvider->getModule();
-
-	unsigned int uiSizeT = pModule->getPointerSize()*32;
-
-	std::vector<const Type*> params;
-	// Source Pointer
-	params.push_back(PointerType::get(IntegerType::get(8), 0));
-	// Number of elements
-	params.push_back(IntegerType::get(uiSizeT));
-	// Element size
-	params.push_back(IntegerType::get(uiSizeT));
-	FunctionType* pNewType = FunctionType::get(Type::VoidTy, params, false);
-	Function* pNewFunc = Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lprefetch", pModule);
-	m_bPrefetchDecl = true;
 }

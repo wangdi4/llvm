@@ -27,7 +27,9 @@
 
 #pragma once
 
+#include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "llvm_backend.h"
 
 #include <vector>
 
@@ -39,6 +41,10 @@
 #endif
 #endif
 
+#include <list>
+#include <map>
+#include <string>
+
 namespace llvm
 {
 class MemoryBuffer;
@@ -47,6 +53,7 @@ class ModuleProvider;
 class Module;
 class ConstantArray;
 class Function;
+class Value;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -88,17 +95,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		cl_int OptimizeProgram(llvm::Module *pModule);
 
 		// Create a kernel
-		LLVMKernel *CreateKernel(llvm::Function *pFunc, llvm::ConstantArray *pFuncArgs, llvm::ConstantArray *pFuncLocals);
+		LLVMKernel *CreateKernel(llvm::Function *pFunc, llvm::ConstantArray *pFuncArgs);
 
 		// Parses library information and retrieves/builds function descriptors
 		cl_dev_err_code		LoadProgram();
+
+		typedef	std::map<std::string, ICLDevBackendKernel*>						TKernelMap;
+
 		// Release kernel map
 		void				FreeMap();
 
-		typedef	std::map<std::string, ICLDevBackendKernel*>	TKernelMap;
-
 		TKernelMap				m_mapKernels;	// A map used for translation between Short name and function descriptor
-		TKernelMap				m_mapVectorizedKernels;	// A map used for translation between Short name and vectorized function descriptor
 		cl_prog_container		m_ContainerInfo;// Current container information
 		llvm::MemoryBuffer*		m_pMemBuffer;	// A memory buffer used to store LLVM IR
 		llvm::ModuleProvider*	m_pModuleProvider;	// Module provider to store the IR
@@ -107,22 +114,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		std::vector<FunctionWidthPair> VectorizedFunctions;
 
+		std::map<const llvm::Function*, TLLVMKernelInfo>	m_mapKernelInfo;
+
 		std::string				m_strLastError;
 
 		bool	IsKernel(const char* szFuncName);
 
 		// Retrieves a pointer to a vectorized kernel object by vectorized kernel name
 		friend class LLVMBinary;
-		cl_int	GetVectorizedKernel(const char* IN pKernelName, const ICLDevBackendKernel** OUT pKernel) const;
-
-		void	AddWIInfoDeclarations();
-		void	AddBarrierDeclaration();
-		void	AddAsyncCopyDeclaration();
-		void	AddPrefetchDeclaration();
-
-		bool	m_bBarrierDecl;
-		bool	m_bAsyncCopy;
-		bool	m_bPrefetchDecl;
 
 		bool	m_bUseVectorizer;
 	};

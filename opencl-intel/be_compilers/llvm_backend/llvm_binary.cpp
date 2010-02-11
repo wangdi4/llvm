@@ -52,7 +52,8 @@ LLVMBinary::LLVMBinary(const LLVMKernel* pKernel, cl_uint IN WorkDimension, cons
 			   const size_t* IN pGlobalWorkSize, const size_t* IN pLocalWorkSize) :
 					m_pKernel(pKernel), m_pEntryPoint(pKernel->m_pFuncPtr),
 					m_stFormalParamSize(0), m_stStackSize(0),m_stKernelParamSize(0),
-					m_uiLocalCount(0), m_pLocalParams(NULL), m_pVectEntryPoint(0)
+					m_uiLocalCount(0), m_pLocalParams(NULL), m_pVectEntryPoint(0),
+					m_bVectorized(false), m_uiVectorWidth(1)
 {
 	memset(&m_WorkInfo, 0, sizeof(sWorkInfo));
 
@@ -108,8 +109,7 @@ LLVMBinary::~LLVMBinary()
 {
 }
 
-cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize,
-						 bool isVectorized, const char *vectorizedName, unsigned int vectorWidth)
+cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 {
 	m_pLocalParams = (char*)(((size_t)m_pLocalParamsBase+15) & ~0xF);	// Make aligned to 16 byte
 #ifdef _DEBUG
@@ -119,10 +119,6 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize,
 	size_t	stTotalLocalSize = 0;
 	size_t	stLocalOffset = 0;
 	size_t	stArgsOffset = 0;
-
-	m_bVectorized      = isVectorized;
-	m_szVectorizedName = vectorizedName;
-	m_uiVectorWidth    = vectorWidth;
 
 	// Calculate actual local buffer size
 	// Store in local buffer in reverse order
@@ -178,6 +174,12 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize,
 				stLocalOffset += uiSize;
 			}
 		}
+		else if (CL_KRNL_ARG_SAMPLER == m_pKernel->m_pArguments[i].type)
+		{
+			*((cl_int*)(m_pLocalParams+stLocalOffset)) = *((cl_int*)(pArgsBuffer+stArgsOffset));
+			stArgsOffset += sizeof(cl_int);
+			stLocalOffset += max(sizeof(cl_int), CPU_MIN_ACTUAL_PARAM_SIZE);
+		}
 		else
 		{
 			memcpy(m_pLocalParams+stLocalOffset, pArgsBuffer+stArgsOffset, m_pKernel->m_pArguments[i].size_in_bytes);
@@ -194,22 +196,18 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize,
 
 	unsigned int privateMemorySize = m_pKernel->GetPrivateMemorySize();
 
-	if(m_bVectorized)
+	if( m_pKernel->isVectorized() )
 	{
-		//get the vectorized kernel pointer
-		const LLVMKernel *pVectKernel;
-		if(CL_DEV_SUCCESS == m_pKernel->m_pProgram->GetVectorizedKernel(m_szVectorizedName, (const ICLDevBackendKernel **)&pVectKernel))
-		{
-			m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
+		const LLVMKernel *pVectKernel = m_pKernel->m_pVectorizedKernel;
+		assert (pVectKernel);
+		
+		m_bVectorized = true;
+		m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
+		m_uiVectorWidth = pVectKernel->m_uiVectorWidth;
 
-			privateMemorySize = max(privateMemorySize, pVectKernel->GetPrivateMemorySize());
-		}
-		else
-		{
-			m_bVectorized = false;
-			// we're not supposed to be here...
-			assert(0);
-		}
+		assert (m_pVectEntryPoint);
+
+		privateMemorySize = max(privateMemorySize, pVectKernel->GetPrivateMemorySize());
 	}
 
 	m_stStackSize = privateMemorySize +								// Kernel stack area
@@ -315,15 +313,4 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	cl_uint res = pLLVMExecutable->Init(pMemoryBuffers, pMemoryBuffers[stBufferCount-1], uiWGSizeLocal);
 	*pExec = pLLVMExecutable;
 	return res;
-}
-
-
-bool LLVMBinary::isVectorized()
-{
-	return m_bVectorized;
-}
-
-unsigned int LLVMBinary::getVectorWidth()
-{
-	return m_uiVectorWidth;
 }

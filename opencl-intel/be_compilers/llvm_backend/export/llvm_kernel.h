@@ -54,6 +54,8 @@ namespace llvm {
 	class ConstantArray;
 }
 
+#define KRNL_NUM_CONST_ARGS		5
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 	// Defines a class that implements CPU device program that is loaded from DLL
@@ -77,7 +79,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Returns a pointer to the kernel name
 		const char*	GetKernelName() const {return m_szName;}
 		// Returns the size in bytes of the local memory buffer required by this kernel
-		size_t GetImplicitLocalMemoryBufferSize() const { return m_uiTotalImplSize;}
+		size_t GetImplicitLocalMemoryBufferSize() const { return m_stTotalImplSize;}
 		// Returns the number of Work Items handled by each kernel instance
 		size_t GetKernelPackSize() const { return m_uiOptWGSize;}
 		// Returns the required work-group size that was declared during kernel compilation.
@@ -87,16 +89,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// 0 when is not available
 		unsigned int  GetPrivateMemorySize() const { return m_uiStackSize;}
 		// Releases kernel instance
-		void	Release() {delete this;}
+		void	Release();
 
 		// Local interface
-		cl_int ParseLLVM(llvm::Function *pFunc, llvm::ConstantArray* pFuncArgs, llvm::ConstantArray* pFuncLocals);
+		cl_int Init(llvm::Function *pFunc, llvm::ConstantArray* pFuncArgs);
 
 		// Vectorizer interface
-		bool isVectorized();
-		unsigned int getVectorWidth();
+		bool LLVMKernel::isVectorized() const
+					{return (m_pVectorizedKernel != 0);}
 
-		void setVectorizerProperties(bool isVectorized, const char *vectorizedName = "", unsigned int vectorWidth = 0);
+		unsigned int LLVMKernel::getVectorWidth() const
+					{return m_uiVectorWidth;}
+
+		void setVectorizerProperties(LLVMKernel* pVectKernel, unsigned int vectorWidth);
 
 	protected:
 		friend class LLVMBinary;
@@ -108,6 +113,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		unsigned int		m_uiArgCount;
 		cl_kernel_argument*	m_pArguments;
 
+		size_t				m_stTotalImplSize;
 		unsigned int		m_uiExplLocalMemCount;		// A number of explicit local buffers passed with kernel arguments
 		const size_t*		m_pReqdWGSize;				// A pointer required work-group size that was declared during kernel compilation
 		const size_t*		m_pHintWGSize;				// A hint to work-group size that was declared during kernel compilation
@@ -117,31 +123,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		llvm::Module*		m_pModule;					// Pointer to the module this kernel belongs to
 		llvm::Function*		m_pFunction;				// Pointer to LLVM related function
 
-		cl_dev_err_code	ParseArguments(llvm::Function *pFunc);
-		cl_dev_err_code	ParseLocalBuffers(llvm::ConstantArray* pFuncLocals, llvm::Argument* pLocalMem);
-		// Called by ParseLocalBuffers to exchange references in contstant expressions
-		bool			ChangeConstantExpression(llvm::ConstantArray* pFuncLocals, llvm::Value* pTheValue,
-													llvm::Value* pUser, llvm::Instruction* pBC);
-		llvm::Value*	SubstituteWIcall(llvm::CallInst *pCall,
-			llvm::Argument* pWorkInfo, llvm::Argument* pWGid,
-			llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId);
+		cl_dev_err_code	ParseArguments(llvm::Function *pFunc, llvm::ConstantArray* pFuncArgs);
+
 		// Executable creation
 		void CheckAndUpdateWGSize(unsigned int uiDimCount, const size_t* pLocal);
 
-		// Calculate and return Global ID value for given dimension
-		llvm::Value*	CalcGlobalId(llvm::CallInst *pCall, llvm::Argument* pWGinfo, llvm::Argument* pLocalId);
-		llvm::Value*	m_GlbIds[MAX_WORK_DIM];
-
-		// Handling of implicit "local" buffers
-		unsigned int				m_uiTotalImplSize;			// Total size of implicit local buffers
-		
-		// Barrier/AsyncCopy/Wait
-		void			AddCtxAddress(llvm::CallInst* pCall, llvm::Argument* pLocalId);
-		void			UpdateBarrier(llvm::CallInst* pCall, llvm::Argument* pLocalId);
-		llvm::Value*	UpdateAsyncCopy(llvm::CallInst* pCall, llvm::Argument* pLocalId);
-		void			UpdateWaitGroup(llvm::CallInst* pCall, llvm::Argument* pLocalId);
-		void			UpdatePrefetch(llvm::CallInst* pCall);
-		llvm::Value*	m_pCtxPtr;
+		size_t ResolveFunctionCalls(llvm::Function* pFunc);
 
 		// Stack size required by the kernel
 		unsigned int	m_uiStackSize;
@@ -150,8 +137,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		unsigned int	m_uiVTuneId;
 
 		// Vectorizer data
-		bool            m_bVectorized;
-		char*           m_szVectorizedName;
+		LLVMKernel*		m_pVectorizedKernel;
 		unsigned int    m_uiVectorWidth;
 	};
 }}}

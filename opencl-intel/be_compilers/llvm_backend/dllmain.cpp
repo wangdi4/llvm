@@ -1,12 +1,9 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 
-namespace llvm
-{
-	class ExecutionEngine;
-}
-extern llvm::ExecutionEngine*	CreateLLVMBackend();
-extern void						ReleaseLLVMBackend();
+#include "llvm_backend.h"
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -16,7 +13,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		if ( NULL == CreateLLVMBackend() )
+		if ( NULL == LLVMBackend::GetInstance() )
 		{
 			return FALSE;
 		}
@@ -27,7 +24,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 		if (NULL == lpReserved) //Detach due to FreeLibrary
 		{
-			ReleaseLLVMBackend();
+			LLVMBackend::GetInstance()->Release();
 		}
 		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
 		break;

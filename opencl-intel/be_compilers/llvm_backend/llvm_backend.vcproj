@@ -183,6 +183,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\BuiltInFunctionImport.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\builtins_module.cpp"
 				>
 			</File>
@@ -231,6 +235,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\KernelUpdate.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\llvm_backend.cpp"
 				>
 			</File>
@@ -276,6 +284,10 @@
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath=".\export\llvm_backend.h"
+				>
+			</File>
 			<File
 				RelativePath=".\export\llvm_binary.h"
 				>

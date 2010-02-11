@@ -91,12 +91,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		}
 		
 		// Init binary, return ERROR if occurs
-		cl_uint			Init(char* IN pArgsBuffer, size_t IN ArgBuffSize, 
-			bool isVectorized, const char *vectorizedName = "", unsigned int vectorWidth = 0);
-
-		// Vectorizer interface
-		bool isVectorized();
-		unsigned int getVectorWidth();
+		cl_uint			Init(char* IN pArgsBuffer, size_t IN ArgBuffSize);
 
 	protected:
 		friend class LLVMKernel;
@@ -121,9 +116,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Vectorizer data
 		bool                    m_bVectorized;
-		const char*             m_szVectorizedName;
 		unsigned int            m_uiVectorWidth;
-
 		const void*				m_pVectEntryPoint;
 	};
 }}}

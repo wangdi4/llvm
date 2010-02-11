@@ -262,8 +262,6 @@ llvm::Module *CreateBuiltinsModule()
 		retModule->getOrInsertFunction(myBuiltinInfo[i].Name, fType);
 	}
 
-	//retModule->dump();
-
 	return retModule;
 }
 
