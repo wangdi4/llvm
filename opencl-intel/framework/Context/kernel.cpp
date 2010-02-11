@@ -659,18 +659,13 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 
 	// check first if this is a sampler - we have to check the type through the pointer because the device
 	// identify the sampler parameter as CL_KRNL_ARG_INT
-	if ((pValue != NULL) && CL_SUCCEEDED(pContext->GetSampler(*((cl_sampler*)pValue), &pSampler)))
+	if ( clArgType == CL_KRNL_ARG_SAMPLER )
 	{
-		if (CL_SUCCEEDED(clErr))
+		 if (sizeof(cl_sampler) != szSize )
 		{
-			if ( !((clArgType == CL_KRNL_ARG_SAMPLER) ||
-				 (clArgType == CL_KRNL_ARG_INT) )      ||
-				 (sizeof(cl_sampler) != szSize))
-			{
-				return CL_INVALID_ARG_SIZE;
-			}
-			bIsSampler = true;
+			return CL_INVALID_ARG_SIZE;
 		}
+		bIsSampler = true;
 	}
 
 	// memory object
@@ -713,6 +708,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	
 	if (true == bIsMemObj)
 	{
+		// TODO: Why we need this check
 		if (NULL != pValue)
 		{
 			// value is not NULL - get memory object from context
@@ -729,6 +725,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		{
 			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
 		}
+		// TODO: Find better way to handle argument, why we need map?
+		//		We can set the values directly into the buffer
 		if (m_mapKernelArgs.find(uiIndex) != m_mapKernelArgs.end())
 		{
 			delete m_mapKernelArgs[uiIndex];

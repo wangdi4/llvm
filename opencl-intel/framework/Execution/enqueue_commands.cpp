@@ -1061,6 +1061,9 @@ cl_err_code NDRangeKernelCommand::Init()
 
     cl_uint i;
     // First calculate location and set objects
+	// TODO: Why we need two expensive passes, access to map, memcpy
+	//		Join to single pass, consider build most of the buffer during SetKernelArgs
+	//		Consider to add KernelArgument class, that can handle all argument cases
     for(i=0; i< szArgCount; i++)
     {
         pArg = m_pKernel->GetKernelArg(i);
@@ -1102,7 +1105,8 @@ cl_err_code NDRangeKernelCommand::Init()
     // Setup Kernel parameters
     m_pDevCmd = new cl_dev_cmd_desc;
     cl_dev_cmd_param_kernel* pKernelParam = new cl_dev_cmd_param_kernel;
-        
+
+	// TODO: We are going to fill values, why we need memset
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
     memset(pKernelParam, 0, sizeof(cl_dev_cmd_param_kernel));
 
