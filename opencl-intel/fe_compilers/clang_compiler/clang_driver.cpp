@@ -585,7 +585,7 @@ void CompileTask::Execute()
 	}
 	// Copy sources to the new buffer
 	char*	pBegin = (char*)SB->getBufferStart();
-	memcpy_s(pBegin, stTotalSize, g_szIncludeFiles, sizeof(g_szIncludeFiles));
+	memcpy_s(pBegin, stTotalSize, g_szIncludeFiles, sizeof(g_szIncludeFiles)-1);
 	pBegin += sizeof(g_szIncludeFiles)-1;
 	stTotalSize -= sizeof(g_szIncludeFiles)-1;
 	for(int i=0; i<m_pTask->uiLineCount; ++i)
