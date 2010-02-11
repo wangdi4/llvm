@@ -817,6 +817,10 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 			stOffset += uiSize;
 		}
+		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
+		{
+			stOffset += sizeof(cl_int);
+		}
 		else
 		{
 			stOffset += pArgs[i].size_in_bytes;
@@ -950,6 +954,10 @@ int NDRange::Init(size_t region[], unsigned int &regCount)
 			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 			stOffset += uiSize;
 		}
+		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
+		{
+			stOffset += sizeof(cl_int);
+		}
 		else
 		{
 			stOffset += pArgs[i].size_in_bytes;
@@ -1067,6 +1075,10 @@ void NDRange::UnlockMemoryBuffers()
 			unsigned int uiSize = pArgs[i].size_in_bytes;
 			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 			stOffset += uiSize;
+		}
+		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
+		{
+			stOffset += sizeof(cl_int);
 		}
 		else
 		{
