@@ -44,7 +44,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		CFS_SSE3	= 0x0002,
 		CFS_SSSE3	= 0x0004,
 		CFS_SSE41	= 0x0008,
-		CFS_SSE42	= 0x0010
+		CFS_SSE42	= 0x0010,
+		CFS_AVX10	= 0x0020
     };
 
 	// Processor type enumeration
