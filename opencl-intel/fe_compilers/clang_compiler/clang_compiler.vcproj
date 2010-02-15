@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="task_executor.lib __ocl_svml_ia32.lib"
+				AdditionalDependencies="task_executor.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg&quot;;&quot;$(MTV_LOCAL_LIB_DIR).dbg\clang&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg\clang&quot;;&quot;$(MTV_LOCAL_LIB_DIR).dbg\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg\llvm&quot;"
 				GenerateDebugInformation="true"
@@ -137,7 +137,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="task_executor.lib __ocl_svml_ia32.lib"
+				AdditionalDependencies="task_executor.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).opt&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\clang&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\xntask&quot;;&quot;$(MTV_LOCAL_LIB_DIR).opt\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\llvm&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\xntask&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt\clang&quot;"
 				GenerateDebugInformation="true"
