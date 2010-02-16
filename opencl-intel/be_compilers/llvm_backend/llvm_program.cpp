@@ -48,6 +48,7 @@
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 
 #include "Vectorizer.h"
@@ -237,6 +238,8 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	if (UnitAtATime)
 		Passes.add(createConstantMergePass());       // Merge dup global constants 
 
+	Passes.add(createUnifyFunctionExitNodesPass());
+
 	Pass *vectorizerPass = NULL;
 	if( m_bUseVectorizer )
 	{
@@ -408,10 +411,24 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		// Store kernel to map
 		m_mapKernels[pKernel->GetKernelName()] = pKernel;
 
+		const llvm::Type *vTypeHint = pFunc->getVectTypeHint();
+		bool dontVectorize = false;
+
+		if(NULL != vTypeHint)
+		{
+			//currently if the vector_type_hint attribute is set
+			//we vectorize only for int and float types
+			if( vTypeHint != Type::Int32Ty &&
+				vTypeHint != Type::FloatTy)
+			{
+				dontVectorize = true;
+			}
+		}
+
 		if(m_bUseVectorizer)
 		{
 			assert(vecIter != VectorizedFunctions.end());
-			if(vecIter->first != NULL)
+			if(NULL != vecIter->first && !dontVectorize)
 			{
 				// We don't need to pass argument list here
 				LLVMKernel *pVecKernel = CreateKernel(vecIter->first, NULL);

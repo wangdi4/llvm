@@ -108,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			const size_t* IN pLocalOffset, 
 			const size_t* IN pItemsToProcess);
 
-		void	SwitchToMain();
+		virtual void SwitchToMain();
 
 		virtual	bool IsMultipleWIs() {return true;}
 		bool	SetAndCheckAsyncCopy(unsigned int uiKey);
@@ -131,15 +131,33 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	class LLVMExecVectorizedNoBarrier : public LLVMExecutable
 	{
 	public:
-		LLVMExecVectorizedNoBarrier(const LLVMBinary* pExec) : LLVMExecutable(pExec){}
+		LLVMExecVectorizedNoBarrier(const LLVMBinary* pExec) : LLVMExecutable(pExec) {}
 		cl_uint Execute(const size_t* IN pGroupId,
 			const size_t* IN pLocalOffset, 
 			const size_t* IN pItemsToProcess);
+
 		bool	SetAndCheckAsyncCopy(unsigned int uiKey)
 				{bool bFirst = m_bIsFirst; m_bIsFirst =false; return bFirst;}
 		bool	ResetAsyncCopy(unsigned int uiKey) {return false;}
 	private:
 		bool	m_bIsFirst;
+	};
+
+	// Specialization of executor which executes vectorized multiple WIs, with barrier()
+	class LLVMExecVectorizedWithBarrier : public LLVMExecMultipleWIWithBarrier
+	{
+	public:
+		LLVMExecVectorizedWithBarrier(const LLVMBinary* pExec) :
+		  LLVMExecMultipleWIWithBarrier(pExec) {}
+		virtual ~LLVMExecVectorizedWithBarrier();
+
+		// Override init function
+		cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
+		cl_uint Execute(const size_t* IN pGroupId,
+			const size_t* IN pLocalOffset, 
+			const size_t* IN pItemsToProcess);
+
+		virtual void SwitchToMain();
 	};
 
 }}}

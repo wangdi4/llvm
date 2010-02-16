@@ -203,7 +203,7 @@ cl_uint	LLVMBinary::Init(char* IN pArgsBuffer, size_t IN ArgBuffSize)
 		
 		m_bVectorized = true;
 		m_pVectEntryPoint = pVectKernel->m_pFuncPtr;
-		m_uiVectorWidth = pVectKernel->m_uiVectorWidth;
+		m_uiVectorWidth = m_pKernel->m_uiVectorWidth;
 
 		assert (m_pVectEntryPoint);
 
@@ -290,13 +290,18 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	if (1 == uiWGSizeLocal)
 	{
 		pLLVMExecutable = new LLVMExecSingleWI(this);
+	} else if( m_bVectorized )
+	{
+		if ( m_pKernel->m_bBarrier )
+		{
+			pLLVMExecutable = new LLVMExecVectorizedWithBarrier(this);
+		} else
+		{
+			pLLVMExecutable = new LLVMExecVectorizedNoBarrier(this);
+		}
 	} else if ( m_pKernel->m_bBarrier )
 	{
 		pLLVMExecutable = new LLVMExecMultipleWIWithBarrier(this);
-	}
-	else if(m_bVectorized)
-	{
-		pLLVMExecutable = new LLVMExecVectorizedNoBarrier(this);
 	}
 	else
 	{

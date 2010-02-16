@@ -56,24 +56,10 @@ extern "C" __declspec(dllexport) void lbarrier(unsigned flags, LLVMExecutable* *
 		// We don't have active context, empty barrier
 		return;
 	}
-	__asm{
-		push		edi
-		mov			edi, esp
-		and			esp, 0xFFFFFFF0
-		sub	esp,	512		;	// Leave space for XMM registers
-		fxsave		[esp]	;	// Save XMM state
-		pusha 				;	// Save general purpose registers
-	}
 
 	((LLVMExecMultipleWIWithBarrier*)pExec)->SwitchToMain();	// Returns control to the main execution routine
 
 	// Here we are back, so we can continue
-	__asm{
-		popa
-		fxrstor [esp]
-		mov		esp, edi
-		pop		edi
-	}
 }
 
 extern "C" __declspec(dllexport) void dbg_print(const char* fmt, ...)

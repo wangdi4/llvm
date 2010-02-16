@@ -395,7 +395,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			// Now we need to check all uses
 			while ( itVal != pLclBuff->use_end() )
 			{
-				Use &U = pLclBuff->use_begin().getUse();
+				Use &U = itVal.getUse();
 				if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(U.getUser()))
 				{
 					if ( ChangeConstantExpression(pFuncLocals, pLclBuff, pCE, pBitCast)  )
@@ -427,7 +427,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 				}
 				else
 				{
-
 					++itVal;
 				}
 			}

@@ -589,3 +589,162 @@ bool LLVMExecMultipleWIWithBarrier::ResetAsyncCopy(unsigned int uiKey)
 	return true;
 #endif
 }
+
+//---------------------------------------------------------------------------------------
+LLVMExecVectorizedWithBarrier::~LLVMExecVectorizedWithBarrier()
+{
+}
+
+cl_uint	LLVMExecVectorizedWithBarrier::Init(void* *pMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount)
+{
+	cl_uint ret = LLVMExecutable::Init(pMemoryBuffers, pWGStackFrame, uiWICount);
+	if ( CL_DEV_FAILED(ret))
+	{
+		return ret;
+	}
+
+	m_uiWIStackSize = m_pBinary->GetStackSize();
+
+	// Setup local WG index pointer
+	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
+	*pWGid = m_pLclGroupId;
+	
+	// Now setup rest of the WorkItems
+	unsigned int i=0;
+	unsigned int uiParamCopySize = m_pBinary->GetKernelParametersSize() -
+										MAX_WORK_DIM*sizeof(size_t) - sizeof(void*);
+
+	char* pCurrContext = m_pContext + m_uiWIStackSize;
+	char* pLocald = pCurrContext + uiParamCopySize;
+
+	for (unsigned int z=0; z<m_pBinary->m_WorkInfo.LocalSize[2]; ++z)
+	{
+		for (unsigned int y=0; y<m_pBinary->m_WorkInfo.LocalSize[1]; ++y)
+		{
+			for (unsigned int x=0; x<m_pBinary->m_WorkInfo.LocalSize[0]; ++x)
+			{
+				if ( i != 0 )
+				{
+					memcpy(pCurrContext, m_pContext, uiParamCopySize);
+					// Update Local id
+					((size_t*)pLocald)[0] = x;
+					((size_t*)pLocald)[1] = y;
+					((size_t*)pLocald)[2] = z;
+					*((void**)(pLocald+MAX_WORK_DIM*sizeof(size_t))) = this;
+
+					pCurrContext += m_uiWIStackSize;
+					pLocald += m_uiWIStackSize;
+				}
+				++i;
+			}
+		}
+	}
+	return CL_DEV_SUCCESS;
+}
+
+cl_uint LLVMExecVectorizedWithBarrier::Execute(const size_t* IN pGroupId,
+											   const size_t* IN pLocalOffset, 
+											   const size_t* IN pItemsToProcess)
+{
+
+	// Initialize internal states
+	memset(m_pJmpBuf, 0, sizeof(_JUMP_BUFFER)*m_uiWICount);
+
+	// Copy WG index
+	for (unsigned int i=0;i<m_pBinary->m_WorkInfo.uiWorkDim;++i)
+	{
+		m_pLclGroupId[i] = pGroupId[i];
+	}
+
+#if 0
+	m_setAsyncCopyCmds.clear();
+#endif
+
+	const void*		pEntryPoint = m_pBinary->m_pEntryPoint;
+	const void*		pVecEntryPoint = m_pBinary->m_pVectEntryPoint;
+	unsigned int    uiVectWidth    = m_pBinary->m_uiVectorWidth;
+	char*			pContext = m_pContext;
+
+#ifdef __SSE4_1__
+	__m128i xmmGroupId = _mm_lddqu_si128((__m128i*)pGroupId);
+	__m128i xmmGroupSize = _mm_lddqu_si128((__m128i*)m_pBinary->m_WorkInfo.LocalSize);
+	xmmGroupId = _mm_mullo_epi32(xmmGroupId, xmmGroupSize);
+	_mm_store_si128((__m128i*)m_pBaseGlobalId, xmmGroupId);
+#else
+	m_pBaseGlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0];
+	if ( m_pBinary->m_WorkInfo.uiWorkDim > 1 )
+		m_pBaseGlobalId[1] = pGroupId[1]*m_pBinary->m_WorkInfo.LocalSize[1];
+	if ( m_pBinary->m_WorkInfo.uiWorkDim > 2 )
+		m_pBaseGlobalId[2] = pGroupId[2]*m_pBinary->m_WorkInfo.LocalSize[2];
+#endif
+
+	unsigned int iWICount = m_uiWICount;
+	m_iCurrWI=0;
+
+	// We have WI to execute
+	while (iWICount > 0)
+	{
+		// Store main context
+		// TODO: consider to use private Cntx switch
+		int ret = setjmp((_JBTYPE*)&m_mainJmpBuf);
+		if ( 0 == ret )
+		{
+			// We just stored main task call to WI
+			_JUMP_BUFFER* pCurrJB = &m_pJmpBuf[m_iCurrWI];
+			if ( 0 != pCurrJB->Esp )
+			{
+				// Execution of previously run WI
+				longjmp((_JBTYPE*)pCurrJB, 0);
+				assert(0);	// Never got here
+			} else if ( -1 != pCurrJB->Esp)
+			{
+				pContext = m_pContext + m_iCurrWI*m_uiWIStackSize;
+				__asm
+				{
+					push	edi
+					mov		edi,		esp
+					mov		esp,		pContext
+					call	pVecEntryPoint
+					mov		esp,		edi
+					pop		edi
+				}
+				// When got here a WI was completely executed
+				pCurrJB->Esp = -1;	// Mark as done
+				iWICount -= uiVectWidth;
+			}
+
+			// Switch to next WI
+			m_iCurrWI += uiVectWidth;
+			if ( m_iCurrWI >= m_uiWICount)
+			{
+				m_iCurrWI = 0;
+			}
+		}
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+void LLVMExecVectorizedWithBarrier::SwitchToMain()
+{
+	unsigned int    uiVectWidth    = m_pBinary->m_uiVectorWidth;
+
+	// Store current state
+	_JUMP_BUFFER* pCurrJB = &m_pJmpBuf[m_iCurrWI];
+	int ret = setjmp((_JBTYPE*)pCurrJB);
+	if ( 0 == ret )
+	{
+		// Here we should return to main routine
+		// Calculate next WI to execute
+		m_iCurrWI+=uiVectWidth;
+		if ( m_iCurrWI >= m_uiWICount)
+		{
+			m_iCurrWI = 0;
+		}
+		longjmp((_JBTYPE*)&m_mainJmpBuf, 0);
+		assert(0); // Never got here
+	}
+	// Here we are back from main routine
+	// Just return to execution of WI
+}
+

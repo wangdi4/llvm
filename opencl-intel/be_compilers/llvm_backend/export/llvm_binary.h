@@ -100,6 +100,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		friend class LLVMExecMultipleWINoBarrier;
 		friend class LLVMExecMultipleWIWithBarrier;
 		friend class LLVMExecVectorizedNoBarrier;
+		friend class LLVMExecVectorizedWithBarrier;
 		virtual ~LLVMBinary();
 
 		const LLVMKernel*		m_pKernel;
