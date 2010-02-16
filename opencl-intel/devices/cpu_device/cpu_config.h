@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		void           Release();
 
 		bool		   UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
-		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, false); }
+		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true); }
 
 	private:
 
