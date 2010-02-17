@@ -292,8 +292,6 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 	m_bBarrier = info.bBarrier;
 	m_stTotalImplSize = info.stTotalImplSize;
 
-	m_uiStackSize = CPU_DEV_MIN_WI_PRIVATE_SIZE;
-
 	if ( info.bDbgPrint )
 	{
 		m_uiStackSize = max(1024*32, m_uiStackSize);	// We need large stack here
@@ -304,6 +302,8 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 			m_uiStackSize = max(1024*16, m_uiStackSize);
 		}
 	}
+
+	m_uiStackSize = max(CPU_DEV_MIN_WI_PRIVATE_SIZE, m_uiStackSize);
 
 	// JIT generated get info from function
 	m_uiStackSize = (unsigned int)(m_uiStackSize+LLVMBackend::GetInstance()->GetExecEngine()->getJitFunctionStackSize(pFunc));
