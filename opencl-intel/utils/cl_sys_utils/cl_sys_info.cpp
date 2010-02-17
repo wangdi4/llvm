@@ -144,3 +144,25 @@ unsigned int Intel::OpenCL::Utils::GetProcessId()
 {
 	return GetCurrentProcessId();
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Current Module Directory Name
+/////////////////////////////////////////////////////////////////////////////////////////
+void Intel::OpenCL::Utils::GetModuleDirectory(char* szModuleDir, size_t strLen)
+{
+	HMODULE hModule = NULL;
+	GetModuleHandleExA(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+		(LPCSTR)GetModuleDirectory,
+		&hModule);
+
+	GetModuleFileNameA(hModule, szModuleDir, MAX_PATH);
+	char* pLastDelimiter = strrchr(szModuleDir, '\\');
+	if ( NULL != pLastDelimiter )
+	{
+		*(pLastDelimiter+1) = 0;
+	} else
+	{
+		szModuleDir[0] = 0;
+	}
+}
