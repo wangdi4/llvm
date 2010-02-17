@@ -5,6 +5,7 @@
 
 #include "logger.h"
 #include "cl_cpu_detect.h"
+#include "cl_sys_info.h"
 
 #include "llvm_backend.h"
 #include "llvm/ExecutionEngine/JIT.h"
@@ -88,21 +89,10 @@ bool LLVMBackend::Init()
 
 	char szModuleName[MAX_PATH];
 	char szRTLibName[MAX_PATH];
-	HMODULE hModule = NULL;
-	GetModuleHandleEx(
-		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-		(LPCTSTR)LLVMBackend::GetInstance,
-		&hModule);
 
-	GetModuleFileNameA(hModule, szModuleName, MAX_PATH);
-	char* pLastDelimiter = strrchr(szModuleName, '\\');
-	if ( NULL != pLastDelimiter )
-	{
-		*(pLastDelimiter+1) = 0;
-	} else
-	{
-		szModuleName[0] = 0;
-	}
+
+	GetModuleDirectory(szModuleName, MAX_PATH);
+
 	unsigned int uFeatures = CPUDetect::GetInstance()->GetCPUFeatureSupport();
 	const char* pCPUPrefix = NULL;
 	if( uFeatures & CFS_AVX10 )
