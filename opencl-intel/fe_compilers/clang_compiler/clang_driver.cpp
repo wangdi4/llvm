@@ -27,6 +27,7 @@
 #include "clang_driver.h"
 #include "clang_compiler.h"
 #include "frontend_api.h"
+#include "cl_sys_info.h"
 
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/CommandLine.h"
@@ -78,6 +79,8 @@ I_dirs("I", llvm::cl::value_desc("directory"), llvm::cl::Prefix,
 static llvm::cl::opt<bool> OptNoWarnings("w");
 // "Werror" - all warnings are errors
 static llvm::cl::opt<bool> OptWarnAsErrors("Werror");
+// DebugInfo
+static llvm::cl::opt<bool> OptDebugInfo("g");
 
 
 llvm::OwningPtr<TargetInfo>			gTarget;
@@ -88,6 +91,7 @@ CompileOptions						gCompOpt;
 llvm::OwningPtr<FileManager>		gFileMgr;
 
 // Local include path
+char									szBinaryPath[MAX_STR_BUFF];
 char									szOclIncPath[MAX_STR_BUFF];
 char									szCurrDirrPath[MAX_STR_BUFF];
 
@@ -161,13 +165,12 @@ int Intel::OpenCL::ClangFE::InitClangDriver()
 	gLangInfo.ObjCGCBitmapPrint = 0;
 	gLangInfo.InstantiationDepth = 0x63;
 
-	// Create a file manager object to provide access to and cache the filesystem.
+	// Create a file manager object to provide access to and cache the file system.
 	gFileMgr.reset(new FileManager());
 
-	// Retrieve local OCL include directory
-	size_t	envLen;
-	getenv_s(&envLen, szOclIncPath, MAX_STR_BUFF, "OCL_INCLUDE_DIR");
-	szOclIncPath[envLen] = 0;
+	// Retrieve local relatively to binary directory
+	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
+	sprintf_s(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
 
 	// Add current directory
 	GetCurrentDirectoryA(MAX_STR_BUFF, szCurrDirrPath);

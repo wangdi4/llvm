@@ -4,7 +4,10 @@ set TARGET_NAME=%3
 set DEST_DIR_SUFIX=%4
 
 REM -------- export OCL FE compiler header files ------------
-xcopy .\export /Y /S %MTV_LOCAL_IMPORT_DIR% >> %PLATFORM_NAME%\%CONFIG_NAME%\exportPhase.log 2>&1
+mkdir %MTV_LOCAL_BIN_DIR%\fe_include
+xcopy .\export\clang_include /Y /S %MTV_LOCAL_BIN_DIR%\fe_include >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+mkdir %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\fe_include
+xcopy .\export\clang_include /Y /S %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\fe_include >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 
 REM -------- copy .lib file ------------
 del /f %MTV_LOCAL_LIB_DIR%\%TARGET_NAME%.lib > %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
