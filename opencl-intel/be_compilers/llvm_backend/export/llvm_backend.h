@@ -32,6 +32,7 @@
 
 #include <list>
 #include <map>
+#include "cl_dynamic_lib.h"
 
 namespace llvm {
 	class ExecutionEngine;
@@ -77,6 +78,9 @@ protected:
 	bool	Init();
 
 	void	ParseRTModule();
+
+	// Precompiled BI module
+	Intel::OpenCL::Utils::OclDynamicLib	m_dllBuiltIns;
 
 	// Global LLVM JIT
 	llvm::ExecutionEngine*	m_pExecEngine;

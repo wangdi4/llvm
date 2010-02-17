@@ -129,7 +129,13 @@ bool LLVMBackend::Init()
 	{
 		pCPUPrefix = "w7";
 	}
-	sprintf_s(szRTLibName, MAX_PATH, "%scl_bi_%s.rtl", szModuleName, pCPUPrefix);
+
+	// Load precompiled Built-in functions
+	sprintf_s(szRTLibName, MAX_PATH, "%scl_builtin_functions.dll", szModuleName);
+	m_dllBuiltIns.Load(szRTLibName);
+
+	// Load LLVM built-ins module
+	sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
 	Module *M = NULL;
 	// Load library
 	MemoryBuffer* pLibBuff = MemoryBuffer::getFile(szRTLibName);
@@ -179,6 +185,8 @@ bool LLVMBackend::Init()
 
 void LLVMBackend::Release()
 {
+	m_dllBuiltIns.Close();
+
 	// Create some dummy module
 	if ( NULL != m_pExecEngine )
 	{
