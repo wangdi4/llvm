@@ -28,8 +28,7 @@
 #error "MMX instruction set not enabled"
 #else
 
-typedef long long __m64 __attribute__((__vector_size__(8)));
-
+typedef long __m64 __attribute__((__vector_size__(8)));		// OpenCL fix, long is 64 bit
 typedef int __v2si __attribute__((__vector_size__(8)));
 typedef short __v4hi __attribute__((__vector_size__(8)));
 typedef char __v8qi __attribute__((__vector_size__(8)));
@@ -54,15 +53,15 @@ _mm_cvtsi64_si32(__m64 __m)
 }
 
 static inline __m64 __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_m64(long long __i)
+_mm_cvtsi64_m64(long __i)
 {
     return (__m64)__i;
 }
 
-static inline long long __attribute__((__always_inline__, __nodebug__))
+static inline long __attribute__((__always_inline__, __nodebug__))
 _mm_cvtm64_si64(__m64 __m)
 {
-    return (long long)__m;
+    return (long)__m;
 }
 
 static inline __m64 __attribute__((__always_inline__, __nodebug__))

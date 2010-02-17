@@ -31,11 +31,14 @@
 #include <xmmintrin.h>
 
 typedef double __m128d __attribute__((__vector_size__(16)));
-typedef long long __m128i __attribute__((__vector_size__(16)));
+typedef long __m128i __attribute__((__vector_size__(16)));	// OpenCL fix, long is 64 bit
 
 typedef int __v4si __attribute__((__vector_size__(16)));
 typedef short __v8hi __attribute__((__vector_size__(16)));
 typedef char __v16qi __attribute__((__vector_size__(16)));
+
+typedef double __v2df __attribute__((__vector_size__(16)));
+typedef long __v2di __attribute__((__vector_size__(16))); // OpenCL fix, long is 64 bit
 
 static inline __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_add_sd(__m128d a, __m128d b)
@@ -1020,11 +1023,11 @@ _mm_loadu_si128(__m128i const *p)
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_loadl_epi64(__m128i const *p)
 {
-  return (__m128i) { *(long long*)p, 0};
+  return (__m128i) { *(long *)p, 0};
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set_epi64x(long long q1, long long q0)
+_mm_set_epi64x(long q1, long q0)
 {
   return (__m128i){ q0, q1 };
 }
@@ -1032,7 +1035,7 @@ _mm_set_epi64x(long long q1, long long q0)
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set_epi64(__m64 q1, __m64 q0)
 {
-  return (__m128i){ (long long)q0, (long long)q1 };
+  return (__m128i){ (long)q0, (long)q1 };
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1062,7 +1065,7 @@ _mm_set1_epi64x(long long q)
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set1_epi64(__m64 q)
 {
-  return (__m128i){ (long long)q, (long long)q };
+  return (__m128i){ (long)q, (long)q };
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1086,7 +1089,7 @@ _mm_set1_epi8(char b)
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_setr_epi64(__m64 q0, __m64 q1)
 {
-  return (__m128i){ (long long)q0, (long long)q1 };
+  return (__m128i){ (long)q0, (long)q1 };
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1213,16 +1216,16 @@ _mm_movemask_epi8(__m128i a)
 }
 
 #define _mm_shuffle_epi32(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v4si)(a), (__v4si) {0}, \
+  ((__m128i)__builtin_shufflevector((__v4si)(a), (__v4si) {0, 0, 0 ,0}, \
                                     (imm) & 0x3, ((imm) & 0xc) >> 2, \
                                     ((imm) & 0x30) >> 4, ((imm) & 0xc0) >> 6))
 #define _mm_shufflelo_epi16(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0}, \
+  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0, 0 ,0 ,0, 0, 0, 0, 0}, \
                                     (imm) & 0x3, ((imm) & 0xc) >> 2, \
                                     ((imm) & 0x30) >> 4, ((imm) & 0xc0) >> 6, \
                                     4, 5, 6, 7))
 #define _mm_shufflehi_epi16(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0}, 0, 1, 2, 3, \
+  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0, 0 ,0 ,0, 0, 0, 0, 0}, 0, 1, 2, 3, \
                                     4 + ((imm) & 0x3), 4 + ((imm) & 0xc) >> 2, \
                                     4 + ((imm) & 0x30) >> 4, \
                                     4 + ((imm) & 0xc0) >> 6))
@@ -1284,7 +1287,7 @@ _mm_movepi64_pi64(__m128i a)
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_movpi64_epi64(__m64 a)
 {
-  return (__m128i){ (long long)a, 0 };
+  return (__m128i){ (long)a, 0 };
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
