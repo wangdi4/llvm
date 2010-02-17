@@ -34,9 +34,6 @@
 #include "cpu_dev_limits.h"
 #include "cpu_config.h"
 
-// OCL RT library initialization routing, imported from cl_builtin_functions.dll
-extern "C" int __declspec(dllimport) clRTLibInitLibrary();
-
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 extern const char* CPU_STRING;

@@ -32,8 +32,6 @@
 
 #include <intrin.h>
 
-#pragma comment (lib, "cl_builtin_functions.lib")
-
 using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
@@ -240,8 +238,6 @@ CPUDevice::CPUDevice(cl_uint uiDevId, cl_dev_call_backs *devCallbacks, cl_dev_lo
 
 	m_pCPUDeviceConfig = new CPUDeviceConfig();
 	m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
-
-	clRTLibInitLibrary();
 
 	m_pProgramService = new ProgramService(uiDevId, devCallbacks, logDesc, m_pCPUDeviceConfig);
 	m_pMemoryAllocator = new MemoryAllocator(uiDevId, logDesc);

@@ -26,7 +26,6 @@
 
 #pragma comment(lib, "cl_sys_utils.lib")
 #pragma comment(lib, "cl_logger.lib")
-#pragma comment(lib, "cl_builtin_functions.lib")
 #pragma comment(lib, "task_executor.lib")
 #pragma comment(lib, "llvm_backend.lib")
 #pragma comment(lib, "tal_s.lib")
