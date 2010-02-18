@@ -400,6 +400,7 @@ cl_uint LLVMExecVectorizedNoBarrier::Execute(const size_t* IN pGroupId,
 		return CL_DEV_ERROR_FAIL;
 	}
 
+	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
@@ -729,6 +730,7 @@ cl_uint LLVMExecVectorizedWithBarrier::Execute(const size_t* IN pGroupId,
 		}
 	}
 
+	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
