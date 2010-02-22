@@ -504,7 +504,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "llc", "..\externals\llvm\bu
 		{144EEBF6-8C9B-4473-B715-2C821666AF6C} = {144EEBF6-8C9B-4473-B715-2C821666AF6C}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BuildInFunc_test_type", "..\validation\types\BuildInFunc_test_type\BuildInFunc_test_type.vcproj", "{9A105D96-D413-4F96-939D-941BB2FE8F8D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "build_in_func_test_type", "..\validation\types\built_in_func_test_type\built_in_func_test_type.vcproj", "{9A105D96-D413-4F96-939D-941BB2FE8F8D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1298,12 +1298,12 @@ Global
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Debug|x64.ActiveCfg = Debug|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|Win32.ActiveCfg = Release|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|x64.ActiveCfg = Release|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Configure|Win32.ActiveCfg = Release|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Configure|x64.ActiveCfg = Release|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Debug|Win32.ActiveCfg = Debug|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Debug|x64.ActiveCfg = Debug|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Release|Win32.ActiveCfg = Release|Win32
-		{483323CB-05C9-466A-9041-6165EB2D25F3}.Release|x64.ActiveCfg = Release|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Configure|Win32.ActiveCfg = Release|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Configure|x64.ActiveCfg = Release|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Debug|x64.ActiveCfg = Debug|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Release|Win32.ActiveCfg = Release|Win32
+		{A93B3AAF-4716-4A4A-88CC-0A7BF1BD0A5B}.Release|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|Win32.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Debug|Win32.ActiveCfg = Debug|Win32
