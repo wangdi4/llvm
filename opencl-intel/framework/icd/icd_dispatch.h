@@ -58,6 +58,7 @@
 #endif
 #include <GL/gl.h>
 #include <CL/cl_gl.h>
+#include <CL/cl_ext.h>
 
 /*
  *
@@ -561,6 +562,15 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueReleaseGLObjects)(
     const cl_event *     event_wait_list,
     cl_event *           event) CL_API_SUFFIX__VERSION_1_0;
 
+/* cl_khr_gl_sharing */
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetGLContextInfoKHR)(
+    const cl_context_properties *properties,
+    cl_gl_context_info param_name,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret);
+
+
 /*
  *
  * vendor dispatch table structure
@@ -648,6 +658,7 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clGetGLTextureInfo             clGetGLTextureInfo;
     KHRpfn_clEnqueueAcquireGLObjects      clEnqueueAcquireGLObjects;
     KHRpfn_clEnqueueReleaseGLObjects      clEnqueueReleaseGLObjects;
+    KHRpfn_clGetGLContextInfoKHR          clGetGLContextInfoKHR;
 };
 
 /*

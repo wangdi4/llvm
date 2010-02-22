@@ -67,7 +67,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             Context*                    pContext,
             cl_device_id                clDefaultDeviceID, 
             cl_command_queue_properties clProperties,
-            EventsManager*              pEventManager
+            EventsManager*              pEventManager,
+			ocl_entry_points *			pOclEntryPoints
             );
         virtual         ~OclCommandQueue();
         void            ReleaseWorkerThread();

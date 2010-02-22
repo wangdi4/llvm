@@ -71,8 +71,8 @@ void khrIcdVendorAdd(const char *libraryName)
 {
     void *library = NULL;
     cl_int result = CL_SUCCESS;
-    pfn_clGetExtensionFunctionAddress clGetExtensionFunctionAddress = NULL;
-    pfn_clIcdGetPlatformIDs clIcdGetPlatformIDs = NULL;
+    pfn_clGetExtensionFunctionAddress p_clGetExtensionFunctionAddress = NULL;
+    pfn_clIcdGetPlatformIDs p_clIcdGetPlatformIDs = NULL;
     cl_uint i = 0;
     cl_uint platformCount = 0;
     cl_platform_id *platforms = NULL;
@@ -93,23 +93,23 @@ void khrIcdVendorAdd(const char *libraryName)
     }
 
     // get the library's clGetExtensionFunctionAddress pointer
-    clGetExtensionFunctionAddress = khrIcdOsLibraryGetFunctionAddress(library, "clGetExtensionFunctionAddress");
-    if (!clGetExtensionFunctionAddress)
+    p_clGetExtensionFunctionAddress = khrIcdOsLibraryGetFunctionAddress(library, "clGetExtensionFunctionAddress");
+    if (!p_clGetExtensionFunctionAddress)
     {
-        KHR_ICD_TRACE("failed to get function address khrIcdOsLibraryGetFunctionAddress\n");
+        KHR_ICD_TRACE("failed to get function address clGetExtensionFunctionAddress\n");
         goto Done;
     }
 
     // use that function to get the clIcdGetPlatformIDsKHR function pointer
-    clIcdGetPlatformIDs = clGetExtensionFunctionAddress("clIcdGetPlatformIDsKHR");
-    if (!clIcdGetPlatformIDs)
+    p_clIcdGetPlatformIDs = p_clGetExtensionFunctionAddress("clIcdGetPlatformIDsKHR");
+    if (!p_clIcdGetPlatformIDs)
     {
-        KHR_ICD_TRACE("failed to get function address clIcdGetPlatformIDsKHR\n");
+        KHR_ICD_TRACE("failed to get extension function address clIcdGetPlatformIDsKHR\n");
         goto Done;
     }
 
     // query the number of platforms available and allocate space to store them
-    result = clIcdGetPlatformIDs(0, NULL, &platformCount);
+    result = p_clIcdGetPlatformIDs(0, NULL, &platformCount);
     if (CL_SUCCESS != result)
     {
         KHR_ICD_TRACE("failed clIcdGetPlatformIDs\n");
@@ -122,7 +122,7 @@ void khrIcdVendorAdd(const char *libraryName)
         goto Done;
     }
     memset(platforms, 0, platformCount * sizeof(cl_platform_id) );
-    result = clIcdGetPlatformIDs(platformCount, platforms, NULL);
+    result = p_clIcdGetPlatformIDs(platformCount, platforms, NULL);
     if (CL_SUCCESS != result)
     {
         KHR_ICD_TRACE("failed clIcdGetPlatformIDs\n");
@@ -143,7 +143,7 @@ void khrIcdVendorAdd(const char *libraryName)
         }
         result = platforms[i]->dispatch->clGetPlatformInfo(
             platforms[i],
-            CL_PLATFORM_EXTENSION_SUFFIX_KHR,
+            CL_PLATFORM_ICD_SUFFIX_KHR,
             0,
             NULL,
             &suffixSize);
@@ -158,7 +158,7 @@ void khrIcdVendorAdd(const char *libraryName)
         }
         result = platforms[i]->dispatch->clGetPlatformInfo(
             platforms[i],
-            CL_PLATFORM_EXTENSION_SUFFIX_KHR,
+            CL_PLATFORM_ICD_SUFFIX_KHR,
             suffixSize,
             suffix,
             NULL);            
@@ -187,7 +187,7 @@ void khrIcdVendorAdd(const char *libraryName)
             KHR_ICD_TRACE("failed get platform handle to library\n");
             continue;
         }
-        vendor->clGetExtensionFunctionAddress = clGetExtensionFunctionAddress;
+        vendor->clGetExtensionFunctionAddress = p_clGetExtensionFunctionAddress;
         vendor->platform = platforms[i];
         vendor->suffix = suffix;
 

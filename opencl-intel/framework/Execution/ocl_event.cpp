@@ -35,7 +35,7 @@ using namespace Intel::OpenCL::Framework;
 /******************************************************************
  *
  ******************************************************************/
-OclEvent::OclEvent(QueueEvent* queueEvent, cl_command_type commandType):
+OclEvent::OclEvent(QueueEvent* queueEvent, cl_command_type commandType, ocl_entry_points * pOclEntryPoints):
     m_commandType(commandType),
     m_queueEvent(queueEvent),
 	m_bProfilingEnabled(false)
@@ -57,6 +57,7 @@ OclEvent::OclEvent(QueueEvent* queueEvent, cl_command_type commandType):
 
 	m_pHandle = new _cl_event;
 	m_pHandle->object = this;
+	m_pHandle->dispatch = pOclEntryPoints;
 
 }
 

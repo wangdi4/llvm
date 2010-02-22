@@ -372,7 +372,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		pValue = pcPlatformExtension;
 		szParamSize = strlen((char*)pcPlatformExtension) + 1;
 		break;
-	case CL_PLATFORM_EXTENSION_SUFFIX_KHR:
+	case CL_PLATFORM_ICD_SUFFIX_KHR:
 		pValue = (void*)pcPlatformICDSuffixKhr;
 		szParamSize = strlen((char*)pcPlatformICDSuffixKhr) + 1;
 		break;

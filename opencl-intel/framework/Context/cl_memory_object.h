@@ -185,7 +185,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, cl_err_code * pErr);
+		MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, ocl_entry_points * pOclEntryPoints, cl_err_code * pErr);
 
 		/******************************************************************************************
 		* Function: 	~MemoryObject

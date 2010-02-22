@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-        InOrderCommandQueue(EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue);
+		InOrderCommandQueue(EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
         virtual ~InOrderCommandQueue();
 
         // ICommandQueue methods
@@ -109,6 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // List lockers, to manage direct access to specific list
         OclMutex        m_blackCmdsListLocker;  // Lock access to the black list
 
+		ocl_entry_points * m_pOclEntryPoints;
 
         // Logger client for logging operations. DEBUGGING
 		DECLARE_LOGGER_CLIENT;

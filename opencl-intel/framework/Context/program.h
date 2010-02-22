@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Program(Context * pContext);
+		Program(Context * pContext, ocl_entry_points * pOclEntryPoints);
 
 		/******************************************************************************************
 		* Function: 	~Program

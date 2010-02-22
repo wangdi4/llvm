@@ -34,8 +34,8 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Buffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, cl_err_code * pErrCode):
-		MemoryObject(pContext, clMemFlags, pHostPtr, pErrCode)
+Buffer::Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode):
+		MemoryObject(pContext, clMemFlags, pHostPtr, pOclEntryPoints, pErrCode)
 {
 #ifdef _DEBUG
 	assert ( NULL != pErrCode );

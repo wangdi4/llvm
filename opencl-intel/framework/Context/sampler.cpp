@@ -57,7 +57,7 @@ Sampler::~Sampler()
 		delete m_pHandle;
 	}
 }
-cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode)
+cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints)
 {
 	LOG_DEBUG(L"Enter Initialize");
 
@@ -110,6 +110,8 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 	default:
 		return CL_INVALID_VALUE;
 	}
+
+	m_pHandle->dispatch = pOclEntryPoints;
 
 	return CL_SUCCESS;
 }

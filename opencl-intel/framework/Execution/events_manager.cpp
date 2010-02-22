@@ -315,13 +315,13 @@ OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
  ******************************************************************/
-QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue)
+QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
 {
 	cl_start;
     QueueEvent* pNewEvent = new QueueEvent(pOclCommandQueue);
     if ( (NULL != pNewEvent) && (NULL != pEventHndl) )
     {
-        OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType);
+        OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType, pOclEntryPoints);
         // TODO: guard ObjMap... better doing so inside the map
         m_pEvents->AddObject(pNewOclEvent);
         *pEventHndl = (cl_event)pNewOclEvent->GetId();

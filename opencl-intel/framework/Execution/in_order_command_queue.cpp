@@ -40,7 +40,7 @@ using namespace Intel::OpenCL::Framework;
  * Constructor.
  * Creates the private objects
  ******************************************************************/
-InOrderCommandQueue::InOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue ):
+InOrderCommandQueue::InOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints):
     m_clCurrentDevCmdList(0),
     m_pDevice(pDevice),
     m_pEventsManager(pEventsManager),
@@ -58,6 +58,8 @@ InOrderCommandQueue::InOrderCommandQueue( EventsManager* pEventsManager, Device*
 	// Add dependency to context
 	m_pContext = (Context*)m_pOclCommandQueue->GetContextId()->object;
 	m_pContext->AddPendency();
+
+	m_pOclEntryPoints = pOclEntryPoints;
 
     // Set logger
 	INIT_LOGGER_CLIENT(L"ICommandQueue Logger Client",LL_DEBUG);
@@ -477,7 +479,7 @@ void InOrderCommandQueue::PushInternalFlush()
         Command* pCommand = new InternalFlushCommand();
         pCommand->Init();
 
-        QueueEvent* pQueueEvent = m_pEventsManager->CreateEvent(pCommand->GetCommandType(), NULL, m_pOclCommandQueue);
+		QueueEvent* pQueueEvent = m_pEventsManager->CreateEvent(pCommand->GetCommandType(), NULL, m_pOclCommandQueue, m_pOclEntryPoints);
         // We can call an event call although the queue is locked since the event is still local and no other thread 
         // knows about its existence.
         pQueueEvent->RegisterEventColorChangeObserver( m_pColorChangeObserver );
@@ -517,7 +519,7 @@ cl_err_code InOrderCommandQueue::Flush( bool bBlocking )
     QueueEvent* pQueueEvent = NULL;
 
     Command*    pFlushCommand = new FlushCommand();
-    pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), NULL, m_pOclCommandQueue);
+    pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), NULL, m_pOclCommandQueue, m_pOclEntryPoints);
     pQueueEvent->RegisterEventColorChangeObserver( m_pColorChangeObserver );
 
     pFlushCommand->SetEvent(pQueueEvent);
@@ -559,7 +561,7 @@ cl_err_code InOrderCommandQueue::Finish()
     cl_event    clEvent;
     Command*    pFinishCommand = new FinishCommand();
     // use event manager mechanism to wait on. creates the command's event
-    pQueueEvent = m_pEventsManager->CreateEvent(pFinishCommand->GetCommandType(), &clEvent, m_pOclCommandQueue);
+    pQueueEvent = m_pEventsManager->CreateEvent(pFinishCommand->GetCommandType(), &clEvent, m_pOclCommandQueue, m_pOclEntryPoints);
     pQueueEvent->RegisterEventColorChangeObserver( m_pColorChangeObserver );
 
     pFinishCommand->SetEvent(pQueueEvent);

@@ -64,6 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				size_t            szImageWidth,
 				size_t            szImageHeight,
 				size_t            szImageRowPitch,
+				ocl_entry_points * pOclEntryPoints,
 				cl_err_code *     pErrCode);
 
 		/******************************************************************************************
@@ -146,6 +147,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				size_t            szImageDepth,
 				size_t            szImageRowPitch,
 				size_t            szImageSlicePitch,
+				ocl_entry_points * pOclEntryPoints,
 				cl_err_code *     pErrCode);
 
 		/******************************************************************************************

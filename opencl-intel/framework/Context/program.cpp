@@ -43,7 +43,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Program::Program(Context * pContext)
+Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints)
 {
 	::OCLObject();
 
@@ -79,6 +79,7 @@ Program::Program(Context * pContext)
 
 	m_pHandle = new _cl_program;
 	m_pHandle->object = this;
+	m_pHandle->dispatch = pOclEntryPoints;
 
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1086,7 +1087,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	
 	// create new kernel object - this is an empty kernel as long as there are no associated device
 	// kernel to it.
-	Kernel * pKernel = new Kernel(this, psKernelName);
+	Kernel * pKernel = new Kernel(this, psKernelName, (ocl_entry_points*)this->m_pHandle->dispatch);
 	pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// next step - for each device that has the kernel, create device kernel 
@@ -1207,7 +1208,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			bool bKernelExists = IsKernelExists(psKernelName, &pKernel);
 			if (false == bKernelExists)
 			{
-				pKernel = new Kernel(this, psKernelName);
+				pKernel = new Kernel(this, psKernelName, (ocl_entry_points*)this->m_pHandle->dispatch);
 				pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 			}
 			clErrRet = pKernel->AddDeviceKernel(pKernels[ui], pProgBin);

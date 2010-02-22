@@ -47,7 +47,8 @@ OclCommandQueue::OclCommandQueue(
     Context*                    pContext, 
     cl_device_id                clDefaultDeviceID,
     cl_command_queue_properties clProperties,
-    EventsManager*              pEventsManager
+    EventsManager*              pEventsManager,
+	ocl_entry_points *			pOclEntryPoints
     ):
     m_pContext(pContext),
     m_pEventsManager(pEventsManager),
@@ -71,6 +72,7 @@ OclCommandQueue::OclCommandQueue(
 
 	m_pHandle = new _cl_command_queue;
 	m_pHandle->object = this;
+	m_pHandle->dispatch = pOclEntryPoints;
 }
 
 /******************************************************************
@@ -120,13 +122,13 @@ cl_err_code OclCommandQueue::Initialize()
     {
 		LOG_INFO(L"OOO queue");
         //m_pCommandQueue = new OutOfOrderQueue();
-        m_pCommandQueue = new OutOfOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this );
+        m_pCommandQueue = new OutOfOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this, (ocl_entry_points*)m_pHandle->dispatch);
     }
     else
     {        
 		LOG_INFO(L"Inorder queue");
         // m_pCommandQueue = new InOrderQueue();        
-        m_pCommandQueue = new InOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this);        
+		m_pCommandQueue = new InOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this, (ocl_entry_points*)m_pHandle->dispatch);        
     }    
     m_pQueueWorkerThread = new QueueWorkerThread;
     errVal = m_pQueueWorkerThread->Init(m_pCommandQueue);
@@ -269,13 +271,13 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
         if (!m_bOutOfOrderEnabled)
         {
             // from InOrder to OutOfOrder
-            m_pCommandQueue = new OutOfOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this );
+            m_pCommandQueue = new OutOfOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this, (ocl_entry_points*)m_pHandle->dispatch);
             m_bOutOfOrderEnabled = true;
         }
         else
         {
             // Change from OutOfOrder to InOrder
-            m_pCommandQueue = new InOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this);        
+            m_pCommandQueue = new InOrderCommandQueue( m_pEventsManager, m_pDefaultDevice, this, (ocl_entry_points*)m_pHandle->dispatch);        
             m_bOutOfOrderEnabled = false;
         }
         m_pQueueWorkerThread = new QueueWorkerThread;
@@ -443,7 +445,7 @@ cl_err_code OclCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking
         pEvent = pUserEvent;
     }
     // creates the command's event
-    QueueEvent* pQueueEvent = m_pEventsManager->CreateEvent(pCommand->GetCommandType(), pEvent, this);
+	QueueEvent* pQueueEvent = m_pEventsManager->CreateEvent(pCommand->GetCommandType(), pEvent, this, (ocl_entry_points*)m_pHandle->dispatch);
     
     // Register this queue as a change color observer of the event, to signal the actual queue
     pQueueEvent->RegisterEventColorChangeObserver(this);

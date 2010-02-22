@@ -60,3 +60,16 @@ copy %PLATFORM_NAME%\%CONFIG_NAME%\%TARGET_NAME%.pdb %MTV_LOCAL_BIN_DIR% >> %PLA
 
 del /f %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\%TARGET_NAME%.pdb >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 copy %PLATFORM_NAME%\%CONFIG_NAME%\%TARGET_NAME%.pdb %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+
+REM -------- copy .reg files ------------
+del /f %MTV_LOCAL_BIN_DIR%\register_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+copy .\..\register_vendor.reg %MTV_LOCAL_BIN_DIR% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+
+del /f %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\register_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+copy .\..\register_vendor.reg %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+
+del /f %MTV_LOCAL_BIN_DIR%\unregister_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+copy .\..\unregister_vendor.reg %MTV_LOCAL_BIN_DIR% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+
+del /f %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\unregister_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
+copy .\..\unregister_vendor.reg %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1

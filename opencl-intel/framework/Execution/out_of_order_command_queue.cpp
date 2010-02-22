@@ -36,8 +36,8 @@ using namespace Intel::OpenCL::Framework;
 /******************************************************************
  *
  ******************************************************************/
-OutOfOrderCommandQueue::OutOfOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue ):
-    InOrderCommandQueue(pEventsManager, pDevice, pOclCommandQueue),
+OutOfOrderCommandQueue::OutOfOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints):
+    InOrderCommandQueue(pEventsManager, pDevice, pOclCommandQueue, pOclEntryPoints),
     m_pSynchBarrierEvent(NULL)
 {
 }
@@ -237,11 +237,11 @@ cl_err_code OutOfOrderCommandQueue::Flush( bool bBlocking )
     // creates the command's event
     if (bBlocking)
     {
-        pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), &clEvent, m_pOclCommandQueue);
+		pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), &clEvent, m_pOclCommandQueue, m_pOclEntryPoints);
     }
     else
     {
-        pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), NULL, m_pOclCommandQueue);
+		pQueueEvent = m_pEventsManager->CreateEvent(pFlushCommand->GetCommandType(), NULL, m_pOclCommandQueue, m_pOclEntryPoints);
     }
     pQueueEvent->RegisterEventColorChangeObserver( m_pColorChangeObserver );
     pFlushCommand->SetEvent(pQueueEvent);

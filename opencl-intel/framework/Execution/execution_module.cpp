@@ -105,7 +105,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
-        OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
+		OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
         errVal = pCommandQueue->Initialize();
         if(CL_SUCCEEDED(errVal))
         {

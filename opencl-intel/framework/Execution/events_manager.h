@@ -60,7 +60,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
 
         // Event handling functions
-        QueueEvent* CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue);
+        QueueEvent* CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
         cl_err_code RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_command_queue queueId = 0);
         cl_err_code ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext);
 

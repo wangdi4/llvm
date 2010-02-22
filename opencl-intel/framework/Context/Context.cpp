@@ -321,7 +321,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// create new program object
-	Program * pProgram = new Program(this);
+	Program * pProgram = new Program(this, (ocl_entry_points*)this->m_pHandle->dispatch);
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// set source code in program object
@@ -421,7 +421,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 
 	// create program object
-	Program * pProgram = new Program(this);
+	Program * pProgram = new Program(this, (ocl_entry_points*)this->m_pHandle->dispatch);
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// get devices and assign binaries to program object
@@ -533,7 +533,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	}
 
 	cl_err_code clErr = CL_SUCCESS;
-	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, &clErr);
+	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new buffer, returned: %ws", ClErrTxt(clErr));
@@ -589,7 +589,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image2D * pImage2D = new Image2D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, &clErr);
+	Image2D * pImage2D = new Image2D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image2D, returned: %ws", ClErrTxt(clErr));
@@ -650,7 +650,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image3D * pImage3D = new Image3D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, &clErr);
+	Image3D * pImage3D = new Image3D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image3D, returned: %ws", ClErrTxt(clErr));
@@ -907,7 +907,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 #endif
 
 	Sampler * pSampler = new Sampler();
-	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode);
+	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)m_pHandle->dispatch);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Sampler, returned: %ws", ClErrTxt(clErr));

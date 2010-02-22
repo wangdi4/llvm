@@ -245,6 +245,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.h"
 				>
 			</File>
@@ -259,11 +263,19 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 			<File
+				RelativePath=".\OpenCL.rc"
+				>
+			</File>
+			<File
 				RelativePath=".\PostBuild.cmd"
 				>
 			</File>
 			<File
 				RelativePath="..\register_vendor.reg"
+				>
+			</File>
+			<File
+				RelativePath="..\unregister_vendor.reg"
 				>
 			</File>
 		</Filter>

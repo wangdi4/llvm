@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-        OclEvent( QueueEvent* queueEvent, cl_command_type commandType);
+		OclEvent( QueueEvent* queueEvent, cl_command_type commandType, ocl_entry_points * pOclEntryPoints);
         virtual ~OclEvent();        
         QueueEvent* GetQueueEvent() { return m_queueEvent;}
         void    Wait();

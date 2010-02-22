@@ -374,7 +374,7 @@ cl_dev_mem_object_type DeviceMemoryObject::GetDevMemObjType(cl_mem_object_type c
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, cl_err_code * pErr)
+MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, ocl_entry_points * pOclEntryPoints, cl_err_code * pErr)
 {
 #ifdef _DEBUG
 	assert ( NULL != pErr );
@@ -442,6 +442,7 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	}
 	m_pHandle = new _cl_mem;
 	m_pHandle->object = this;
+	m_pHandle->dispatch = pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject D'tor

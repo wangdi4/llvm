@@ -93,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-        OutOfOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue );
+        OutOfOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
         virtual ~OutOfOrderCommandQueue();
         
         // All queue policy events are implemented.

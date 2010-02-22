@@ -1145,6 +1145,9 @@ clGetExtensionFunctionAddress(const char *function_name) CL_API_SUFFIX__VERSION_
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireGLObjects);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseGLObjects);
 
+    // cl_khr_gl_sharing
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetGLContextInfoKHR);
+
     // fall back to vendor extension detection
     for (vendor = khrIcdState.vendors; vendor; vendor = vendor->next)
     {
@@ -1287,5 +1290,29 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseGLObjects(
         num_events_in_wait_list,
         event_wait_list,
         event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL clGetGLContextInfoKHR(
+    const cl_context_properties *properties,
+    cl_gl_context_info param_name,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
+{
+    cl_platform_id platform = NULL;
+
+    // initialize the platforms (in case they have not been already)
+    khrIcdInitialize();
+
+    // determine the platform to use from the properties specified
+    khrIcdContextPropertiesGetPlatform(properties, &platform);
+
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(platform, CL_INVALID_PLATFORM);    
+    return platform->dispatch->clGetGLContextInfoKHR(
+        properties,
+        param_name,
+        param_value_size,
+        param_value,
+        param_value_size_ret);
 }
 

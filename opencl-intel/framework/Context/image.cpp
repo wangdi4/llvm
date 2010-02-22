@@ -41,7 +41,8 @@ Image2D::Image2D(Context *         pContext,
 				 size_t            szImageWidth,
 				 size_t            szImageHeight,
 				 size_t            szImageRowPitch,
-				 cl_err_code *     pErrCode): MemoryObject(pContext, clMemFlags, pHostPtr, pErrCode)
+				 ocl_entry_points * pOclEntryPoints,
+				 cl_err_code *     pErrCode): MemoryObject(pContext, clMemFlags, pHostPtr, pOclEntryPoints, pErrCode)
 {
 #ifdef _DEBUG
 	assert ( NULL != pErrCode );
@@ -488,7 +489,8 @@ Image3D::Image3D(Context *         pContext,
 				size_t            szImageDepth,
 				size_t            szImageRowPitch,
 				size_t            szImageSlicePitch,
-				cl_err_code *     pErrCode): Image2D(pContext, clMemFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, pErrCode)
+				ocl_entry_points * pOclEntryPoints,
+				cl_err_code *     pErrCode): Image2D(pContext, clMemFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, pOclEntryPoints, pErrCode)
 {
 #ifdef _DEBUG
 	assert ( NULL != pErrCode );

@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/		
-		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, cl_err_code * pErrCode);
+		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
 
 		/******************************************************************************************
 		* Function: 	~Buffer

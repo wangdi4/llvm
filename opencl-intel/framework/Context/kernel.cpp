@@ -232,7 +232,7 @@ bool KernelArg::IsSampler() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Kernel::Kernel(Program * pProgram, const char * psKernelName)
+Kernel::Kernel(Program * pProgram, const char * psKernelName, ocl_entry_points * pOclEntryPoints)
 {
 	m_pProgram = pProgram;
 
@@ -252,6 +252,7 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName)
 
 	m_pHandle = new _cl_kernel;
 	m_pHandle->object = this;
+	m_pHandle->dispatch = pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor
