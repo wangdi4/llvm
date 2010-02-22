@@ -34,7 +34,7 @@ extern "C" {
 // enum can be used if cl_khr_fp16 extension is supported by the OpenCL implementation.
 #define CL_DEVICE_HALF_FP_CONFIG                    0x1033
 
-#define CL_PLATFORM_EXTENSION_SUFFIX_KHR			0x1034
+#define CL_PLATFORM_ICD_SUFFIX_KHR					0x1034
 #define CL_PLATFORM_NOT_FOUND_KHR					-64
 
 #ifdef __cplusplus

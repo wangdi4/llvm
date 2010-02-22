@@ -39,9 +39,10 @@ extern "C" {
 #define CL_API_ENTRY __declspec(dllimport)
 #endif
 #define CL_API_CALL
+
 #ifdef __APPLE__
 #define CL_API_SUFFIX__VERSION_1_0   AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
-#define CL_API_SUFFIX__VERSION_1_1   AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER  /* FIXME:  Change this to 10.7 later */
+#define CL_API_SUFFIX__VERSION_1_1   
 #define CL_EXTENSION_WEAK_LINK       __attribute__((weak_import))       
 #else
 #define CL_API_SUFFIX__VERSION_1_0
@@ -165,6 +166,11 @@ typedef double          cl_double   __attribute__((aligned(8)));
 #endif
 
 #include <stddef.h>
+
+/* Mirror types to GL types. Mirror types allow us to avoid deciding which headers to load based on whether we are using GL or GLES here. */
+typedef unsigned int cl_GLuint;
+typedef int          cl_GLint;
+typedef unsigned int cl_GLenum;
 
 /*
  * Vector types 
