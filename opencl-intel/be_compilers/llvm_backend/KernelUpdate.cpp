@@ -656,6 +656,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
 	}
 
+	BasicBlock::iterator removeInstruction(BasicBlock* pBB, BasicBlock::iterator it)
+	{
+		BasicBlock::InstListType::iterator prev;
+
+		if ( pBB->begin() == it)
+		{
+			prev = pBB->end();
+		}
+		else
+		{
+			prev = it;
+			--prev;
+		}
+
+		Instruction* pInst = it;
+		pInst->removeFromParent();
+		delete pInst;
+
+		if ( pBB->end() == prev)
+		{
+			return pBB->begin();
+		}
+
+		return ++prev;
+	}
+
 	bool KernelUpdate::RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals)
 	{
 		// Initialize kernel related variables
@@ -700,9 +726,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		Function::BasicBlockListType::iterator bb_it = pFunc->getBasicBlockList().begin();
 		while ( bb_it != pFunc->getBasicBlockList().end() )
 		{
-			BasicBlock::InstListType::iterator inst_it = bb_it->getInstList().begin();
+			BasicBlock::iterator inst_it = bb_it->begin();
 			llvm::Value* pArgVal = NULL;
-			while ( inst_it != bb_it->getInstList().end() )
+			while ( inst_it != bb_it->end() )
 			{
 				bool bAddWIInfo = false;
 
@@ -710,6 +736,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 				{
 					// Call instruction
 				case Instruction::Call:
+					{
 					// Recognize WI info functions
 					if ( !strncmp("get_", inst_it->getOperand(0)->getNameStart(), 4))
 					{
@@ -719,9 +746,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						if ( NULL != pNewRes)
 						{
 							pCall->uncheckedReplaceAllUsesWith(pNewRes);
-							--inst_it;
-							pCall->removeFromParent();
-							delete pCall;
+							inst_it = removeInstruction(bb_it, inst_it);
 						}
 						break;
 					}
@@ -731,9 +756,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						AddBarrierDeclaration();
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						UpdateBarrier(pCall, pLocalId);
-						--inst_it;
-						pCall->removeFromParent();
-						delete pCall;
+						inst_it = removeInstruction(bb_it, inst_it);
 						m_sInfo.bBarrier = true;
 						break;
 					}
@@ -747,9 +770,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						if ( NULL != pNewRes)
 						{
 							pCall->uncheckedReplaceAllUsesWith(pNewRes);
-							--inst_it;
-							pCall->removeFromParent();
-							delete pCall;
+							inst_it = removeInstruction(bb_it, inst_it);
 						}
 						m_sInfo.bAsynCopy = true;
 						break;
@@ -761,9 +782,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						// Substitute extern operand with function parameter
 						UpdateWaitGroup(pCall, pLocalId);
-						--inst_it;
-						pCall->removeFromParent();
-						delete pCall;
+						inst_it = removeInstruction(bb_it, inst_it);
 						break;
 					}
 
@@ -773,9 +792,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						CallInst* pCall = dyn_cast<CallInst>(inst_it);
 						// Substitute extern operand with function parameter
 						UpdatePrefetch(pCall);
-						--inst_it;
-						pCall->removeFromParent();
-						delete pCall;
+						inst_it = removeInstruction(bb_it, inst_it);
 						break;
 					}
 
@@ -788,10 +805,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 							// TODO: Add special treatment for kernel calling kernel
 						}
 					}
+					++inst_it;
+					break;
+					}
 
+				default:
+					++inst_it;
 					break;
 				}
-				++inst_it;
 			}
 			++bb_it;
 		}
