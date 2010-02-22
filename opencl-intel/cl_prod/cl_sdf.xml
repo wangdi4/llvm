@@ -70,6 +70,9 @@
     <Component Name="build_test_type">
         <RelativeCheckoutPath>validation\types\build_test_type</RelativeCheckoutPath>
     </Component>
+   <Component Name="built_in_func_test_type">
+        <RelativeCheckoutPath>validation\types\built_in_func_test_type</RelativeCheckoutPath>
+    </Component>
     <Component Name="build_product_debug">
         <RelativeCheckoutPath>validation\tests\build_product_debug</RelativeCheckoutPath>
     </Component>
