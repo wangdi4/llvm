@@ -33,7 +33,7 @@
     #define __OPENCL_TYPES_DEFINED__
 #endif /* __OPENCL_TYPES_DEFINED__ */
 
-// Channel order
+// Channel order, must match cl.h
 enum {
   CLK_R,
   CLK_A,
@@ -41,9 +41,8 @@ enum {
   CLK_RA,
   CLK_RGB,
   CLK_RGBA,
-  CLK_ARGB,
-  CLK_xRGB,
   CLK_BGRA,
+  CLK_ARGB,
   CLK_INTENSITY,
   CLK_LUMINANCE
 };
