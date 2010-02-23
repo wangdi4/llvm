@@ -747,6 +747,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						{
 							pCall->uncheckedReplaceAllUsesWith(pNewRes);
 							inst_it = removeInstruction(bb_it, inst_it);
+						} else
+						{
+							++inst_it;
 						}
 						break;
 					}
@@ -771,6 +774,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						{
 							pCall->uncheckedReplaceAllUsesWith(pNewRes);
 							inst_it = removeInstruction(bb_it, inst_it);
+						} else
+						{
+							++inst_it;
 						}
 						m_sInfo.bAsynCopy = true;
 						break;
