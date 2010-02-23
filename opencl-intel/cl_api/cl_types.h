@@ -674,7 +674,7 @@ typedef struct _cl_mem_obj_descriptor
 typedef _cl_mem_obj_descriptor* image2d_t;
 typedef _cl_mem_obj_descriptor* image3d_t;
 
-// Channel order
+// Channel order, must match cl.h
 enum {
   CLK_R,
   CLK_A,
