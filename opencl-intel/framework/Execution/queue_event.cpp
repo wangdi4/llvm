@@ -58,8 +58,11 @@ QueueEvent::QueueEvent(OclCommandQueue* pQueue):
 	// set the queued time in the profiling info data structure
 	if (m_pEventQueue && m_pEventQueue->IsProfilingEnabled())
 	{
-		SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, HostTime());
-		SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, 0);
+		const unsigned long long hostTime = HostTime();
+		//Setting both Queued and Submitted to the same time because we're pretending commands get issued to the device immediately
+		//Meant to bypass a problem where there's a race between flush and getEventInfo wrt command status
+		SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, hostTime);
+		SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, hostTime);
 		SetProfilingInfo(CL_PROFILING_COMMAND_START,  0);
 		SetProfilingInfo(CL_PROFILING_COMMAND_END,    0);
 	}

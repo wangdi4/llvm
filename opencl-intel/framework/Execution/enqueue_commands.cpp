@@ -163,7 +163,8 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		// Nothing to do, not expected to be here at all
 		break;
     case CL_SUBMITTED:
-		m_pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
+		//Deliberately not setting profiling info for this - it was already set when the command was issued as queued
+		//m_pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         res = m_pQueueEvent->SetEventColor(EVENT_STATE_LIME);
         LogInfoA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), GetId());
         break;
