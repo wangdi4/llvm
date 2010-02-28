@@ -38,6 +38,9 @@
 #include <llvm/DerivedTypes.h>
 #include <llvm/Instructions.h>
 #include <llvm/Constants.h>
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/transforms/utils/Cloning.h>
+
 
 #include <map>
 
@@ -52,7 +55,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	class KernelUpdate : public ModulePass
 	{
 	public:
-		KernelUpdate(Vectorizer *pVect) : ModulePass(&ID) , m_pVectorizer (pVect) {}
+		KernelUpdate(Vectorizer *pVect, SmallVectorImpl<Function*> &vectFunctions) : 
+		  ModulePass(&ID) , m_pVectorizer (pVect) , m_pVectFunctions (&vectFunctions) {}
 
 		// doPassInitialization - For this pass, it removes global symbol table
 		// entries for primitive types.  These are never used for linking in GCC and
@@ -65,11 +69,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	protected:
 		static char ID; // Pass identification, replacement for typeid
 
-		Module*			m_pModule;
-		ConstantArray*	m_pAnnotations;
-		Vectorizer*		m_pVectorizer;
+		Module*						m_pModule;
+		ConstantArray*				m_pAnnotations;
+		Vectorizer*					m_pVectorizer;
+		SmallVectorImpl<Function*>*	m_pVectFunctions;
 
-		bool	RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals);
+		Function *RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals);
 		bool	IsAKernel(const Function* pFunc);
 		bool	ParseLocalBuffers(ConstantArray* pFuncLocals, Argument* pLocalMem);
 
@@ -105,8 +110,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 	char KernelUpdate::ID = 0;
 
-	ModulePass *createKernelUpdatePass(Pass* pVect) {
-		return new KernelUpdate((Vectorizer*)pVect);
+	ModulePass *createKernelUpdatePass(Pass* pVect, SmallVectorImpl<Function*> &vectFunctions) {
+		return new KernelUpdate((Vectorizer*)pVect, vectFunctions);
 	}
 
 	void getKernelInfoMap(ModulePass *pKUPath, map<const Function*, TLLVMKernelInfo>& infoMap)
@@ -140,12 +145,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		}
 
 		m_pAnnotations = dyn_cast<ConstantArray>(annotation->getInitializer());
-
-		SmallVector<Function*, 16> vectFunctions;
 		
 		if ( NULL != m_pVectorizer )
 		{
-			getVectorizerFunctions(m_pVectorizer, vectFunctions);
+			getVectorizerFunctions(m_pVectorizer, *m_pVectFunctions);
 		}
 
 		// now we need to pass every kernel and make relevant changes to match our environment
@@ -168,19 +171,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			ConstantArray *pFuncLocals = dyn_cast<ConstantArray>(pGlbVar->getInitializer());
 
 			// Run on original kernel
-			if ( !RunOnKernel(pFunc, pFuncLocals) )
-			{
-				return false;
-			}
+			Function* pNewFunc = RunOnKernel(pFunc, pFuncLocals);
+			assert(pNewFunc);
 
 			// Run on vectorized kernel if available
 			Function* pVectFunc;
-			if ( !vectFunctions.empty() && ( ( pVectFunc = vectFunctions[i]) != NULL ) )
+			if ( !m_pVectFunctions->empty() && ( ( pVectFunc = (*m_pVectFunctions)[i]) != NULL ) )
 			{
-				if ( !RunOnKernel(pVectFunc, pFuncLocals) )
-				{
-					return false;
-				}
+				(*m_pVectFunctions)[i] = RunOnKernel(pVectFunc, pFuncLocals);
 			}
 		}
 
@@ -553,7 +551,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		params.push_back(ConstantInt::get(IntegerType::get(32), 0));
 		// It's the next address after LocalId's
 		params.push_back(ConstantInt::get(IntegerType::get(32), MAX_WORK_DIM));
-		m_pCtxPtr = GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", pCall);
+
+		m_pCtxPtr = GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", pCall->getParent()->getParent()->getEntryBlock().begin());
 	}
 
 	void KernelUpdate::UpdateBarrier(llvm::CallInst* pCall, llvm::Argument* pLocalId)
@@ -682,8 +681,57 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		return ++prev;
 	}
 
-	bool KernelUpdate::RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals)
+	Function *KernelUpdate::RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals)
 	{
+		std::vector<const llvm::Type *> newArgsVec;
+
+		Function::ArgumentListType::iterator argIt = pFunc->getArgumentList().begin();
+		while(argIt != pFunc->getArgumentList().end())
+		{
+			newArgsVec.push_back(argIt->getType());
+			argIt++;
+		}
+
+		unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+
+		newArgsVec.push_back(PointerType::get(IntegerType::get(8), 0));
+		newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
+		newArgsVec.push_back(PointerType::get(IntegerType::get(uiSizeT), 0));
+		newArgsVec.push_back(PointerType::get(IntegerType::get(uiSizeT), 0));
+		newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.LocalId"), 0));
+
+		FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, pFunc->isVarArg());
+
+		Function *NewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
+
+		DenseMap<const Value*, Value*> ValueMap;
+
+		Function::arg_iterator DestI = NewF->arg_begin();
+		for (Function::const_arg_iterator I = pFunc->arg_begin(), E = pFunc->arg_end(); I != E; ++I, ++DestI)
+		{
+			DestI->setName(I->getName());
+			ValueMap[I] = DestI;
+		}
+
+		DestI->setName("pLocalMem");
+		Argument *pLocalMem = DestI;
+		++DestI;
+		DestI->setName("pWorkDim");
+		Argument *pWorkDim = DestI;
+		++DestI;
+		DestI->setName("pWGId");
+		Argument *pWGId = DestI;
+		++DestI;
+		DestI->setName("pBaseGlbId");
+		Argument *pBaseGlbId = DestI;
+		++DestI;
+		DestI->setName("LocalIds");
+		Argument *pLocalId = DestI;
+		pLocalId->addAttr(llvm::Attribute::ByVal);
+
+		std::vector<ReturnInst*> Returns;
+		CloneFunctionInto(NewF, pFunc, ValueMap, Returns, "", NULL);
+
 		// Initialize kernel related variables
 		memset(&m_sInfo, 0, sizeof(TLLVMKernelInfo));
 		memset(m_GlbIds, 0, sizeof(m_GlbIds));
@@ -696,26 +744,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		by the execution engine and passed within additional parameters to the kernel,
 		//		those parameters are not exposed to the user
 
-		// Add Implicit memory block pointer
-		Argument *pLocalMem = new Argument(PointerType::get(IntegerType::get(8), 0), "pLocalMem", pFunc);
-		// Add Working dimension information structure pointer
-		Argument *pWorkDim = new Argument(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0),
-			"pWorkDim", pFunc);
-		//	pWGInfo->addAttr(Attribute::ByVal);
-
-		unsigned int uiSizeT = m_pModule->getPointerSize()*32;
-		// Add WG id parameter
-		Argument *pWGId = new Argument(PointerType::get(IntegerType::get(uiSizeT), 0),
-			"pWGId", pFunc);
-
-		Argument *pBaseGlbId = new Argument(PointerType::get(IntegerType::get(uiSizeT), 0),
-			"pBaseGlbId", pFunc);
-		//	pBaseGlobalId->addAttr(llvm::Attribute::ByVal);
-
-		// Add WI indexing information structure
-		Argument *pLocalId = new Argument(PointerType::get(m_pModule->getTypeByName("struct.LocalId"), 0),
-			"LocalIds", pFunc);
-		pLocalId->addAttr(llvm::Attribute::ByVal);
 
 		if ( pFuncLocals && !ParseLocalBuffers(pFuncLocals, pLocalMem) )
 		{
@@ -723,8 +751,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		}
 
 		// Go through function blocks
-		Function::BasicBlockListType::iterator bb_it = pFunc->getBasicBlockList().begin();
-		while ( bb_it != pFunc->getBasicBlockList().end() )
+		Function::BasicBlockListType::iterator bb_it = NewF->getBasicBlockList().begin();
+		while ( bb_it != NewF->getBasicBlockList().end() )
 		{
 			BasicBlock::iterator inst_it = bb_it->begin();
 			llvm::Value* pArgVal = NULL;
@@ -823,8 +851,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			++bb_it;
 		}
 
-		m_mapKernelInfo[pFunc] = m_sInfo;
-		return true;
+		m_mapKernelInfo[NewF] = m_sInfo;
+
+		pFunc->uncheckedReplaceAllUsesWith(NewF);
+		pFunc->setName("__" + pFunc->getName() + "_original");
+		m_pModule->getFunctionList().push_back(NewF);
+
+		pFunc->deleteBody();
+
+		return NewF;
 	}
 
 	// ------------------------------------------------------------------------------

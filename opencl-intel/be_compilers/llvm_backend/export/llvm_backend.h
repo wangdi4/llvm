@@ -42,6 +42,7 @@ namespace llvm {
 	class Module;
 	class ModulePass;
 	class Pass;
+	template <typename T> class SmallVectorImpl;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -55,7 +56,7 @@ struct TLLVMKernelInfo
 };
 
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
-llvm::ModulePass *createKernelUpdatePass(llvm::Pass *);
+llvm::ModulePass *createKernelUpdatePass(llvm::Pass *, llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
 
@@ -76,6 +77,7 @@ protected:
 	LLVMBackend();
 	~LLVMBackend();
 	bool	Init();
+	void    InitVTune();
 
 	void	ParseRTModule();
 
@@ -86,6 +88,8 @@ protected:
 	llvm::ExecutionEngine*	m_pExecEngine;
 	llvm::ModuleProvider*	m_pModuleProvider;
 	bool					m_bRTLoaded;
+
+	bool                    m_bVTuneInitialized;
 
 	// Globals map
 	typedef	std::list<const llvm::GlobalValue*>				TGlobalsLst;

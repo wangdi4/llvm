@@ -89,7 +89,7 @@ extern DECLARE_LOGGER_CLIENT;
 // Constructor/Destructor
 LLVMProgram::LLVMProgram(LLVMProgramConfig *pConfig) :
 m_pMemBuffer(NULL), m_pModuleProvider(NULL),
-m_bUseVectorizer(pConfig->bUseVectorizer)
+m_bUseVectorizer(pConfig->bUseVectorizer), m_bUseVTune(pConfig->bUseVTune)
 {
 	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container));
 	m_strLastError = szNone;
@@ -153,6 +153,8 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 {
 	bool UnitAtATime = true;
 	bool DisableSimplifyLibCalls = true;
+
+	SmallVector<Function*, 16> vectFunctions;
 
     // Create a PassManager to hold and optimize the collection of passes we are
     // about to build...
@@ -249,10 +251,10 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	Passes.add(createVerifierPass());
 
 	Passes.add(createBuiltInImportPass(LLVMBackend::GetInstance()->GetRTModule())); // Inline BI function
-	ModulePass* updatePass = createKernelUpdatePass(vectorizerPass);
+	ModulePass* updatePass = createKernelUpdatePass(vectorizerPass, vectFunctions);
 	Passes.add(updatePass);
 #ifdef _DEBUG
-	//Passes.add(createVerifierPass());
+	Passes.add(createVerifierPass());
 #endif
 
 	Passes.add(createFunctionInliningPass());		// Inline small functions
@@ -260,7 +262,7 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	if (!DisableSimplifyLibCalls)
 		Passes.add(createSimplifyLibCallsPass());   // Library Call Optimizations
 	Passes.add(createInstructionCombiningPass());	// Cleanup for scalarrepl.
-	//Passes.add(createVerifierPass());
+	Passes.add(createVerifierPass());
 
 	for (Module::iterator I = pModule->begin(), E = pModule->end(); I != E; ++I)
 		FPasses->run(*I);
@@ -274,10 +276,8 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	{
 		VectorizedFunctions.clear();
 
-		SmallVector<Function*, 16> vectFunctions;
 		SmallVector<int, 16>       vectWidths;
 
-		getVectorizerFunctions((Vectorizer *)vectorizerPass, vectFunctions);
 		getVectorizerWidths((Vectorizer *)vectorizerPass, vectWidths);
 		assert(vectFunctions.size() == vectWidths.size());
 

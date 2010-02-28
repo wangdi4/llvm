@@ -26,10 +26,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 #pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
-#ifdef __ENABLE_VTUNE__
 #include "VTune\JITProfiling.h"
 #pragma comment (lib, "JITProfiling.lib")
-#endif
 
 llvm::Module*	        g_BuiltinsModule = NULL; 
 
@@ -37,16 +35,14 @@ llvm::Module *CreateBuiltinsModule();
 
 DECLARE_LOGGER_CLIENT;
 
-#ifdef __ENABLE_VTUNE__
-void CallBack(void *UserData, iJIT_ModeFlags Flags)
+static void VTuneCallBack(void *UserData, iJIT_ModeFlags Flags)
 {
 }
-#endif
 
 LLVMBackend* LLVMBackend::s_pLLVMInstance = NULL;
 
 LLVMBackend::LLVMBackend() :
-	m_pExecEngine(NULL), m_pModuleProvider(NULL), m_bRTLoaded(false)
+	m_pExecEngine(NULL), m_pModuleProvider(NULL), m_bRTLoaded(false), m_bVTuneInitialized(false)
 {
 
 }
@@ -156,10 +152,6 @@ bool LLVMBackend::Init()
 		delete m_pModuleProvider;
 		return false;
 	}
-#ifdef __ENABLE_VTUNE__
-	//Register the call back to notifiy application of profiling mode changes
-	iJIT_RegisterCallbackEx( NULL, &CallBack );
-#endif
 
 	g_BuiltinsModule = CreateBuiltinsModule();
 
@@ -199,6 +191,15 @@ void LLVMBackend::Release()
 
 	LOG_INFO("LLVMBackend Released");
 	RELEASE_LOGGER_CLIENT;
+}
+
+void LLVMBackend::InitVTune()
+{
+	if(!m_bVTuneInitialized)
+	{
+		//Register the call back to notifiy application of profiling mode changes
+		iJIT_RegisterCallbackEx( NULL, VTuneCallBack );
+	}
 }
 
 Module*	LLVMBackend::GetRTModule()

@@ -46,9 +46,7 @@
 #include "llvm/TypeSymbolTable.h"
 #include "llvm/ValueSymbolTable.h"
 
-#ifdef __ENABLE_VTUNE__
 #include "VTune\JITProfiling.h"
-#endif
 
 #include <string>
 #include <map>
@@ -65,7 +63,8 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_uiExplLocalMemCount(0), m_bBarrier(false), m_pModule(NULL), m_pFunction(NULL),
 	m_uiStackSize(CPU_DEV_MIN_WI_PRIVATE_SIZE), m_stTotalImplSize(0),
 	m_pProgram(pProgram), m_uiVTuneId(-1),
-	m_uiVectorWidth(0), m_pVectorizedKernel(NULL)
+	m_uiVectorWidth(0), m_pVectorizedKernel(NULL),
+	m_bUseVTune(pProgram->m_bUseVTune)
 {
 }
 
@@ -84,8 +83,8 @@ LLVMKernel::~LLVMKernel()
 
 void LLVMKernel::Release()
 {
-#if defined(__ENABLE_VTUNE__) && 0	// Bug in VTune dll's causes an exception when called during PROCESS_DETACH
-	if ( (-1 != m_uiVTuneId) && (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) )
+#if 0	// Bug in VTune dll's causes an exception when called during PROCESS_DETACH
+	if ( m_bUseVTune && (-1 != m_uiVTuneId) && (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) )
 	{
 		iJIT_Method_Id MI;
 
@@ -308,8 +307,7 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 	// JIT generated get info from function
 	m_uiStackSize = (unsigned int)(m_uiStackSize+LLVMBackend::GetInstance()->GetExecEngine()->getJitFunctionStackSize(pFunc));
 
-#ifdef __ENABLE_VTUNE__
-	if ( iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )
+	if ( m_bUseVTune && iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )
 	{
 		m_uiVTuneId = iJIT_GetNewMethodID();
 
@@ -321,7 +319,7 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 		ML.method_id = m_uiVTuneId;              // uniq method ID - can be any uniq value, (such as the mb)
 		ML.method_name = pFunc->getNameStart();          // method name (can be with or without the class and signature, in any case the class name will be added to it)
 		ML.method_load_address = m_pFuncPtr;  // virtual address of that method  - This determines the method range for the iJVM_EVENT_TYPE_ENTER/LEAVE_METHOD_ADDR events
-		ML.method_size = g_pExecEngine->getJitFunctionSize(pFunc);        // Size in memory - Must be exact
+		ML.method_size = LLVMBackend::GetInstance()->GetExecEngine()->getJitFunctionSize(pFunc);        // Size in memory - Must be exact
 #if 0
 		// Used of DebugInfo
 		// Constants in this example
@@ -336,7 +334,6 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 #endif
 		iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &ML);
 	}
-#endif
 
 	// Set optimal WG size
 	if ( m_bBarrier )

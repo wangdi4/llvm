@@ -67,6 +67,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	public:
 		typedef struct {
 			bool bUseVectorizer;
+			bool bUseVTune;
 		} LLVMProgramConfig;
 
 		// Creates a program object from a provided container. 
@@ -122,8 +123,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Retrieves a pointer to a vectorized kernel object by vectorized kernel name
 		friend class LLVMBinary;
+		friend class LLVMKernel;
 
 		bool	m_bUseVectorizer;
+		bool	m_bUseVTune;
 	};
 
 }}}

@@ -139,5 +139,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Vectorizer data
 		LLVMKernel*		m_pVectorizedKernel;
 		unsigned int    m_uiVectorWidth;
+
+		bool            m_bUseVTune;
 	};
 }}}
