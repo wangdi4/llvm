@@ -35,6 +35,7 @@ using namespace Intel::OpenCL::Utils;
 
 #define	CL_CONFIG_USE_TASKALYZER		"CL_CONFIG_USE_TASKALYZER"		// bool
 #define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"		// bool
+#define	CL_CONFIG_USE_VTUNE				"CL_CONFIG_USE_VTUNE"		    // bool
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -53,7 +54,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		void           Release();
 
 		bool		   UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
-		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true); }
+		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
+		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
 
 	private:
 

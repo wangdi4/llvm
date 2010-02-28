@@ -227,6 +227,7 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 		LLVMProgram::LLVMProgramConfig programConfig;
 		memset(&programConfig, 0, sizeof(LLVMProgram::LLVMProgramConfig));
 		programConfig.bUseVectorizer = m_pCPUConfig->UseVectorizer();
+		programConfig.bUseVTune      = m_pCPUConfig->UseVTune();
 
 		ret = LLVMProgram::CreateProgram(pProgCont, &pEntry->pProgram, &programConfig);
 		break;
