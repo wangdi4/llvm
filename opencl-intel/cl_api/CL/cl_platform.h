@@ -33,12 +33,13 @@
 extern "C" {
 #endif
 
-#ifdef OPENCL_EXPORTS
-#define CL_API_ENTRY __declspec(dllexport)
+#if defined(_WIN32)
+#define CL_API_ENTRY
+#define CL_API_CALL __stdcall
 #else
-#define CL_API_ENTRY __declspec(dllimport)
-#endif
+#define CL_API_ENTRY
 #define CL_API_CALL
+#endif
 
 #ifdef __APPLE__
 #define CL_API_SUFFIX__VERSION_1_0   AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
@@ -105,6 +106,11 @@ typedef double                  cl_double;
 #define CL_DBL_MIN          2.225073858507201383090e-308
 #define CL_DBL_EPSILON      2.220446049250313080847e-16
 
+#define CL_NAN              (CL_INFINITY - CL_INFINITY)
+#define CL_HUGE_VALF        ((cl_float) 1e50)
+#define CL_HUGE_VAL         ((cl_double) 1e500)
+#define CL_MAXFLOAT         CL_FLT_MAX
+#define CL_INFINITY         CL_HUGE_VALF
 
 #else
 
@@ -163,6 +169,19 @@ typedef double          cl_double   __attribute__((aligned(8)));
 #define CL_DBL_MIN          0x1.0p-1022
 #define CL_DBL_EPSILON      0x1.0p-52
 
+#if defined( __GNUC__ )
+   #define CL_HUGE_VALF     __builtin_huge_valf()
+   #define CL_HUGE_VAL      __builtin_huge_val()
+   #define CL_NAN           __builtin_nanf( "" )
+#else
+   #define CL_HUGE_VALF     ((cl_float) 1e50)
+   #define CL_HUGE_VAL      ((cl_double) 1e500)
+   float nanf( const char * );
+   #define CL_NAN           nanf( "" )  
+#endif
+#define CL_MAXFLOAT         CL_FLT_MAX
+#define CL_INFINITY         CL_HUGE_VALF
+
 #endif
 
 #include <stddef.h>
@@ -197,12 +216,14 @@ typedef unsigned int cl_GLenum;
    typedef vector signed short      __cl_short8;
    typedef vector unsigned int      __cl_uint4;
    typedef vector signed int        __cl_int4;
+   typedef vector float             __cl_float4;
    #define  __CL_UCHAR16__  1
    #define  __CL_CHAR16__   1
    #define  __CL_USHORT8__  1
    #define  __CL_SHORT8__   1
    #define  __CL_UINT4__    1
    #define  __CL_INT4__     1
+   #define  __CL_FLOAT4__   1
 #endif
 
 #if defined( __SSE__ )
@@ -305,6 +326,14 @@ typedef unsigned int cl_GLenum;
 #else
    #warning  Need to implement some method to align data here
    #define  CL_ALIGNED(_x)
+#endif
+
+/* Indicate whether .xyzw, .s0123 and .hi.lo are supported */
+#if defined( __GNUC__) && ! defined( __STRICT_ANSI__ )
+    /* .xyzw and .s0123...{f|F} are supported */
+    #define CL_HAS_NAMED_VECTOR_FIELDS 1
+    /* .hi and .lo are supported */
+    #define CL_HAS_HI_LO_VECTOR_FIELDS 1
 #endif
 
 /* Define cl_vector types */

@@ -21,6 +21,8 @@
  * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
  ******************************************************************************/
 
+/* $Revision$ on $Date$ */
+
 #ifndef __CL_EXT_H
 #define __CL_EXT_H
 
@@ -28,14 +30,27 @@
 extern "C" {
 #endif
 
-// enum can be used if cl_khr_fp64 extension is supported by the OpenCL implementation.
+// cl_khr_fp64 extension - no extension #define since it has no functions
 #define CL_DEVICE_DOUBLE_FP_CONFIG                  0x1032
 
-// enum can be used if cl_khr_fp16 extension is supported by the OpenCL implementation.
+
+// cl_khr_fp16 extension - no extension #define since it has no functions
 #define CL_DEVICE_HALF_FP_CONFIG                    0x1033
 
-#define CL_PLATFORM_ICD_SUFFIX_KHR					0x1034
-#define CL_PLATFORM_NOT_FOUND_KHR					-64
+
+// cl_khr_icd extension
+#define cl_khr_icd 1
+
+// cl_platform_info
+#define CL_PLATFORM_ICD_SUFFIX_KHR                  0x0920
+
+// Additional Error Codes
+#define CL_PLATFORM_NOT_FOUND_KHR                   -1001
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clIcdGetPlatformIDsKHR(cl_uint          /* num_entries */,
+                       cl_platform_id * /* platforms */,
+                       cl_uint *        /* num_platforms */);
 
 #ifdef __cplusplus
 }
