@@ -65,6 +65,7 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg&quot;"
 				IgnoreDefaultLibraryNames=""
+				ModuleDefinitionFile="intelocl.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="1"
@@ -141,6 +142,7 @@
 				Name="VCLinkerTool"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).opt&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt&quot;"
+				ModuleDefinitionFile="intelocl.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -208,6 +210,10 @@
 						CompileAsManaged="0"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\intelocl.def"
+				>
 			</File>
 			<File
 				RelativePath=".\ocl_config.cpp"
