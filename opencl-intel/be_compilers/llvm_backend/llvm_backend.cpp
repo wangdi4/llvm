@@ -117,7 +117,7 @@ bool LLVMBackend::Init()
 	}
 
 	// Load precompiled Built-in functions
-	sprintf_s(szRTLibName, MAX_PATH, "%scl_builtin_functions.dll", szModuleName);
+	sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s.dll", szModuleName, pCPUPrefix);
 	m_dllBuiltIns.Load(szRTLibName);
 
 	// Load LLVM built-ins module
@@ -247,14 +247,9 @@ void LLVMBackend::ParseRTModule()
 		}
 	} // Enumeration done
 
-	// Enumerate external functions and add to global map
+	// Enumerate functions and add to global map, those that are called from other built-ins
 	for (Module::iterator extIt = pModule->begin(), extE = pModule->end(); extIt != extE; ++extIt)
 	{
-		if ( !extIt->isDeclaration() )
-		{
-			continue;
-		}
-
 		// We need only external functions
 		GlobalValue* pVal = extIt;
 
