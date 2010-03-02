@@ -20,6 +20,7 @@
 
 #pragma once
 
+#if defined(_MSC_VER)
 // ------------------------------------
 // Define OCL types
 // Single precision floating point
@@ -112,3 +113,67 @@ struct _4u64 { __m128i a; __m128i b;};
 struct _8u64 { __m128i a; __m128i b;__m128i c; __m128i d;};
 struct _16u64 { __m128i a; __m128i b;__m128i c; __m128i d;
 __m128i e; __m128i f;__m128i g; __m128i h;};
+
+#define lo a
+#define hi b
+
+#else
+
+//char - 8bit
+#define _1i8			char
+#define _2i8			char2
+#define _4i8			char4
+#define	_8i8			char8
+#define	_16i8			char16
+
+//uchar - 8bit
+#define _1u8			uchar
+#define _2u8			uchar2
+#define _4u8			uchar4
+#define	_8u8			uchar8
+#define	_16u8			uchar16
+
+//short - 16 bit
+
+#define _1i16			short
+#define _2i16			short2
+#define _4i16			short4
+#define	_8i16			short8
+#define	_16i16			short16
+
+//ushort - 16 bit
+#define _1u16			ushort
+#define _2u16			ushort2
+#define _4u16			ushort4
+#define	_8u16			ushort8
+#define	_16u16			ushort16
+
+//int - 32 bit
+#define _1i32			int
+#define _2i32			int2
+#define _4i32			int4
+#define _8i32			int8
+#define _16i32			int16
+
+//unit - 32 bit
+#define _1u32			uint
+#define _2u32			uint2
+#define _4u32			uint4
+#define _8u32			uint8
+#define _16u32			uint16
+
+//long - 64 bit
+#define _1i64			long
+#define _2i64			long2
+#define _4i64			long4
+#define _8i64			long8
+#define _16i64			long16
+
+//ulong 64 bit
+#define _1u64			ulong
+#define _2u64			ulong2
+#define _4u64			ulong4
+#define _8u64			ulong8
+#define _16u64			ulong16
+
+#endif
