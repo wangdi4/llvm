@@ -35,6 +35,7 @@
 #include <llvm/DerivedTypes.h>
 #include <llvm/Constants.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 
 #include <list>
 #include <map>
@@ -70,9 +71,11 @@ protected:
 
 	Module*	m_pRTModule;
 
-	typedef std::list<std::pair<llvm::Function*, llvm::Function*>>			TImportListType;
+	typedef std::list<std::pair<llvm::Function*,const llvm::Function*>>			TImportListType;
 	typedef std::map<const llvm::Value*, llvm::Value*>						TValueMap;
-	bool ImportGlobalsAsExternals(Module* pModule, TImportListType& impLst, TValueMap& ValueMap);
+	// This function goes through all functions/global variable than must be imported
+	// The global values are added as external symbols, and mapped to point out to original variable
+	bool Preporcessor(Module* pModule, TImportListType& impLst, TValueMap& ValueMap);
 };
 
 char BIImport::ID = 0;
@@ -81,13 +84,13 @@ ModulePass *createBuiltInImportPass(Module* pRTModule) {
 	return new BIImport(pRTModule);
 }
 
-bool BIImport::ImportGlobalsAsExternals(Module* pModule, TImportListType& impLst, TValueMap& ValueMap)
+bool BIImport::Preporcessor(Module* pModule, TImportListType& impLst, TValueMap& ValueMap)
 {
 	TImportListType::iterator impIt, impE;
 	LLVMBackend::TGlobalUsageMap&	glbMap = LLVMBackend::GetInstance()->m_mapFunc2Glb;
 
 	// Iterate through imported functions and export all relevant global values
-	for (impIt=impLst.begin(), impE=impLst.end(); impIt!= impE; ++impIt)
+	for (impIt=impLst.begin(); impIt!= impLst.end(); ++impIt)
 	{
 		// check all globals used by imported function
 		LLVMBackend::TGlobalUsageMap::iterator mapIt = glbMap.find(impIt->second);
@@ -110,20 +113,17 @@ bool BIImport::ImportGlobalsAsExternals(Module* pModule, TImportListType& impLst
 				}
 				GlobalVariable *NewDGV =
 					new GlobalVariable(SGV->getType()->getElementType(),
-					SGV->isConstant(), SGV->getLinkage(), /*init*/0,
+					SGV->isConstant(), GlobalValue::ExternalLinkage, /*init*/0,
 					SGV->getName(), pModule, false,
 					SGV->getType()->getAddressSpace());
 				// Propagate alignment, visibility and section info.
 				NewDGV->copyAttributesFrom(SGV);
 				NewDGV->setAlignment(SGV->getAlignment());
 
-#if 0
-				// If the LLVM runtime renamed the global, but it is an externally visible
-				// symbol, DGV must be an existing global with internal linkage.  Rename
-				// it.
-				if (!NewDGV->hasLocalLinkage() && NewDGV->getName() != SGV->getName())
-					ForceRenaming(NewDGV, SGV->getName());
-#endif
+				// Now we need to make sure that we have pointer to the original variable
+				void* pGlbAddr = LLVMBackend::GetInstance()->GetExecEngine()->getPointerToGlobal(SGV);
+				LLVMBackend::GetInstance()->GetExecEngine()->addGlobalMapping(NewDGV, pGlbAddr);
+
 				// Make sure to remember this mapping.
 				ValueMap[SGV] = NewDGV;
 				continue;
@@ -131,17 +131,25 @@ bool BIImport::ImportGlobalsAsExternals(Module* pModule, TImportListType& impLst
 			const Function* SFn = dyn_cast<Function>(*glbIt);
 			if ( SFn )
 			{
-				if ( ValueMap.find(SGV) != ValueMap.end() )
+				if ( ValueMap.find(SFn) != ValueMap.end() )
 				{
 					// We already mapped this function
 					continue;
 				}
 				Function* DFn = pModule->getFunction(SFn->getNameStart());
+				// Check if function declaration already exists in the module
 				if ( NULL == DFn )
 				{
+					// Create declaration in side the module
 					DFn = Function::Create(SFn->getFunctionType(),
 						SFn->getLinkage(),
 						SFn->getName(), pModule);
+					DFn->setAttributes(SFn->getAttributes());
+				}
+				if ( DFn->isDeclaration() && !SFn->isDeclaration() )
+				{
+					// We need import the called function too
+					impLst.push_back(make_pair<Function*, const Function*>(DFn, SFn));
 				}
 
 				ValueMap[SFn] = DFn;
@@ -172,9 +180,10 @@ bool BIImport::runOnModule(Module &M)
 		if ( it->isDeclaration() && strncmp(pFuncName, "get_", 4) )
 		{
 			Function* pImpFunc = m_pRTModule->getFunction(pFuncName);
-			if ( pImpFunc && !pImpFunc->isDeclaration() )
+			// Import function only if exists, not a declaration and could be inlined
+			if ( pImpFunc && !pImpFunc->isDeclaration() && !pImpFunc->hasFnAttr(Attribute::NoInline) )
 			{
-				// Add source and destination functions
+				// Add current declaration(first) and built-in functions to be exported (second)
 				lstImported.push_back(pair<Function*, Function*>(it, pImpFunc));
 			}
 		}
@@ -186,8 +195,9 @@ bool BIImport::runOnModule(Module &M)
 	}
 
 	// Now we need to import global variable required by the new functions
+	// Also need to add other functions, which are not in-lined
 	// Declare them as external
-	ImportGlobalsAsExternals(&M, lstImported, ValueMap);
+	Preporcessor(&M, lstImported, ValueMap);
 
 	// Now we need to copy required declarations
 	TImportListType::iterator impIt, impE;
@@ -195,8 +205,12 @@ bool BIImport::runOnModule(Module &M)
 	// Now import functions
 	for (impIt = lstImported.begin(), impE=lstImported.end(); impIt != impE; ++impIt)
 	{
+		if ( !impIt->first->isDeclaration() )
+			continue;
 		// Clone the original function
 		Function* pClone = CloneFunction(impIt->second, NULL);
+		// Copy attributes
+		impIt->first->setAttributes(impIt->second->getAttributes());
 
 		// Only provide the function body if there isn't one already.
 		LinkFunctionBody( impIt->first, pClone, ValueMap, NULL );
