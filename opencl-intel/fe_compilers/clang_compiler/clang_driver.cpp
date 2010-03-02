@@ -52,6 +52,7 @@
 #include "logger.h"
 
 #include <string>
+#include <list>
 
 using namespace clang;
 using namespace Intel::OpenCL::ClangFE;
@@ -81,6 +82,26 @@ static llvm::cl::opt<bool> OptNoWarnings("w");
 static llvm::cl::opt<bool> OptWarnAsErrors("Werror");
 // DebugInfo
 static llvm::cl::opt<bool> OptDebugInfo("g");
+
+// TODO - all the options below are not handled properly !!!
+static llvm::cl::opt<bool>
+Opt_Disable("cl-opt-disable", llvm::cl::desc("Disable optimizations"));
+static llvm::cl::opt<bool>
+Single_Prec_Const("cl-single-precision-constant", llvm::cl::desc("Use single precision constants"));
+static llvm::cl::opt<bool>
+Denorms_Are_Zeros("cl-denorms-are-zero", llvm::cl::desc("Use zeros for denorms"));
+static llvm::cl::opt<bool>
+Strict_Aliasing("cl-strict-aliasing", llvm::cl::desc("Use strict aliasing"));
+static llvm::cl::opt<bool>
+Mad_Enable("cl-mad-enable", llvm::cl::desc("Enable MAD"));
+static llvm::cl::opt<bool>
+No_Signed_Zeros("cl-no-signed-zeros", llvm::cl::desc("Disable signed zeros"));
+static llvm::cl::opt<bool>
+Unsafe_Math_Optimizations("cl-unsafe-math-optimizations", llvm::cl::desc("Enable unsafe math optimizations"));
+static llvm::cl::opt<bool>
+Finite_Math_Only("cl-finite-math-only", llvm::cl::desc("Enable finite math only"));
+static llvm::cl::opt<bool>
+Fast_Relaxed_Math("cl-fast-relaxed-math", llvm::cl::desc("Enable fast relaxed math"));
 
 
 llvm::OwningPtr<TargetInfo>			gTarget;
@@ -601,7 +622,37 @@ void CompileTask::Execute()
 	// Parse user options
 	if ( NULL != m_pTask->pszOptions)
 	{
-		llvm::cl::ParseCommandLineOptions(1, (char**)&m_pTask->pszOptions);
+		std::list<char *> argList;
+
+		//first argv value is supposed to be the program name
+		argList.push_back("OpenCL");
+
+		char *string = strdup(m_pTask->pszOptions);
+		char *p;
+		
+		// Now tokenize the received string - it should be passed
+		// as an array of char*
+		p = strtok( string, " \t");
+
+		while(p)
+		{
+			argList.push_back(p);
+			p = strtok( NULL, " \t");
+		}
+
+		// create the actual array
+		char **pArgV = new char *[argList.size()];
+		std::list<char *>::iterator it = argList.begin();
+		for( int i = 0; i < argList.size(); i++ )
+		{
+			pArgV[i] = *it;
+			it++;
+		}
+
+		llvm::cl::ParseCommandLineOptions(argList.size(), (char**)pArgV);
+
+		delete pArgV;
+		free(string);
 	}
 
 	// Initialize diagnostics
