@@ -93,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		Value* SubstituteWIcall(llvm::CallInst *pCall,
 			llvm::Argument* pWorkInfo, llvm::Argument* pWGid,
 			llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId);
-		Value*	CalcGlobalId(llvm::CallInst *pCall, llvm::Argument* pWGinfo, llvm::Argument* pLocalId);
+		Value*	CalcGlobalId(llvm::CallInst *pCall, llvm::Argument* pWGinfo, llvm::Argument* pLocalId, bool bGlobal);
 		Value*	m_GlbIds[MAX_WORK_DIM];
 
 		// Barrier/AsyncCopy/Wait
@@ -507,37 +507,44 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 				if ( NULL == m_GlbIds[uiDim] )	// Check if we already have value for this dimension
 				{
 					// Create new reference for this dimension
-					m_GlbIds[uiDim] = CalcGlobalId(pCall, pBaseGlbId, pLocalId);
+					m_GlbIds[uiDim] = CalcGlobalId(pCall, pBaseGlbId, pLocalId, true);
 				}
 				return m_GlbIds[uiDim];
 			}
 			// Otherwise, calculate inplace
-			return CalcGlobalId(pCall, pBaseGlbId, pLocalId);
+			return CalcGlobalId(pCall, pBaseGlbId, pLocalId, false);
 		}
 
 		return pResult;
 	}
 
-	llvm::Value* KernelUpdate::CalcGlobalId(llvm::CallInst *pCall, llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId)
+	llvm::Value* KernelUpdate::CalcGlobalId(llvm::CallInst *pCall, llvm::Argument* pBaseGlbId, llvm::Argument* pLocalId, bool bGlobal)
 	{
 		// Load local id values
 		SmallVector<Value*, 4> params;
 		params.push_back(ConstantInt::get(IntegerType::get(32), 0));
 		params.push_back(ConstantInt::get(IntegerType::get(32), 0));
 		params.push_back(pCall->getOperand(1));
+
+		llvm::BasicBlock::iterator nextInst = pCall;
+		if(bGlobal)
+		{
+			nextInst = pCall->getParent()->getParent()->getEntryBlock().begin();
+		}
+
 		GetElementPtrInst* pLclIdAddr =
-			GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", pCall);
+			GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", nextInst);
 		// Load the value of local id
-		Value* pLocalIdVal = new LoadInst(pLclIdAddr, "", pCall);
+		Value* pLocalIdVal = new LoadInst(pLclIdAddr, "", nextInst);
 
 		// Load the value of base global index
 		GetElementPtrInst* pGlbBaseAddr =
-			GetElementPtrInst::Create(pBaseGlbId, pCall->getOperand(1), "", pCall);
+			GetElementPtrInst::Create(pBaseGlbId, pCall->getOperand(1), "", nextInst);
 		// Load the Value
-		Value* pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", pCall);
+		Value* pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", nextInst);
 
 		// Now add these two values
-		Value* pGlbId = BinaryOperator::CreateAdd(pLocalIdVal, pBaseGlbIdVal, "", pCall);
+		Value* pGlbId = BinaryOperator::CreateAdd(pLocalIdVal, pBaseGlbIdVal, "", nextInst);
 
 		return pGlbId;
 	}

@@ -456,12 +456,12 @@ cl_int	LLVMProgram::GetBuildLog(size_t* pSize, char* pLog) const
 	size_t stLogSize = m_strLastError.length();
 	if ( NULL == pLog )
 	{
-		*pSize = stLogSize;
+		*pSize = stLogSize + 1;
 		return CL_DEV_SUCCESS;
 	}
 	assert(*pSize >= stLogSize);
 
-	memcpy_s(pLog, *pSize, m_strLastError.c_str(), stLogSize);
+	memcpy_s(pLog, *pSize, m_strLastError.c_str(), stLogSize + 1);
 
 	return CL_DEV_SUCCESS;
 }
