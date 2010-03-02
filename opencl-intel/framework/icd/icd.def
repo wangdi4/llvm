@@ -1,4 +1,4 @@
-LIBRARY	"intelocl"
+LIBRARY	"OpenCL"
 EXPORTS
 	clGetExtensionFunctionAddress
 	clGetPlatformIDs
