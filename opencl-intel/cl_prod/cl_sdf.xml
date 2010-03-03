@@ -67,6 +67,9 @@
     <Component Name="opencl_sdk_installer">
         <RelativeCheckoutPath>setup</RelativeCheckoutPath>
     </Component>
+    <Component Name="AssemblyViewer">
+        <RelativeCheckoutPath>tools\AssemblyViewer</RelativeCheckoutPath>
+    </Component>
     <Component Name="build_test_type">
         <RelativeCheckoutPath>validation\types\build_test_type</RelativeCheckoutPath>
     </Component>
