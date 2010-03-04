@@ -28,3 +28,12 @@
 
 #include "cl_types.h"
 
+extern "C" __declspec(dllexport) int IsCPUSupported(void);
+
+// SSE2   = 0x0001 (1)
+// SSE3   = 0x0002 (2)
+// SSSE3  = 0x0004 (4)
+// SSE4.1 = 0x0008 (8)
+// SSE4.2 = 0x0010 (16)
+// AVX1.0 = 0x0020 (32)
+extern "C" __declspec(dllexport) int IsFeatureSupported(int iCPUFeature);

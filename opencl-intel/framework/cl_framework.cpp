@@ -5,8 +5,10 @@
 #include "cl_framework.h"
 #include "cl_objects_map.h"
 #include "framework_proxy.h"
+#include "cl_cpu_detect.h"
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 
@@ -677,5 +679,31 @@ cl_int CL_API_CALL clEnqueueReleaseGLObjects(cl_command_queue command_queue,
 								 cl_event *       event)
 {
 	return EXECUTION_MODULE->EnqueueReleaseGLObjects(command_queue, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event);
+}
+
+
+// Check if the current CPU is supported. returns 0 if it does and 1 othrewise
+// Criteria: supports SSSE3 and SSE4.1 and SSE4.2
+
+int IsCPUSupported(void)
+{
+	if( CPUDetect::GetInstance()->IsGenuineIntel()				&& 
+		CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE42)	&&
+		CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41))
+	{
+		return 0;
+	}
+	return 1;
+}
+
+// check if the cpu feature is supported
+// returns 0 is it does and 1 otherwise
+int IsFeatureSupported(int iCPUFeature)
+{
+	if (CPUDetect::GetInstance()->IsFeatureSupported((Intel::OpenCL::Utils::ECPUFeatureSupport)iCPUFeature))
+	{
+		return 0;
+	}
+	return 1;
 }
 
