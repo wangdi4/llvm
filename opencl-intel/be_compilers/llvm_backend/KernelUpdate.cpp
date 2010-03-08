@@ -837,6 +837,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						break;
 					}
 
+					if ( !strncmp("dbg_print", inst_it->getOperand(0)->getNameStart(), 9) ||
+						 !strncmp("printf", inst_it->getOperand(0)->getNameStart(), 6))
+					{
+						m_sInfo.bDbgPrint = true;
+						++inst_it;
+						break;
+					}
 					// Check call to not inlined functions/ kernels
 					Function* pCallee = dyn_cast<Function>(inst_it->getOperand(0));
 					if ( NULL != pCallee && !pCallee->isDeclaration() )
