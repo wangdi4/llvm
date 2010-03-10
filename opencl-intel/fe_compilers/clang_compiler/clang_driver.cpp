@@ -552,6 +552,27 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   TI.getTargetDefines(LangOpts, Buf);
 }
 
+// ClearOptions - make sure are options are clear, so build options
+// don't remain from a previous build
+static void ClearOptions()
+{
+	D_macros.resetList();
+	I_dirs.resetList();
+
+	OptNoWarnings.resetOpt();
+	OptWarnAsErrors.resetOpt();
+	OptDebugInfo.resetOpt();
+	Opt_Disable.resetOpt();
+	Single_Prec_Const.resetOpt();
+	Denorms_Are_Zeros.resetOpt();
+	Strict_Aliasing.resetOpt();
+	Mad_Enable.resetOpt();
+	No_Signed_Zeros.resetOpt();
+	Unsafe_Math_Optimizations.resetOpt();
+	Finite_Math_Only.resetOpt();
+	Fast_Relaxed_Math.resetOpt();
+}
+
 /// InitializePreprocessor - Initialize the preprocessor getting it and the
 /// environment ready to process a single file. This returns true on error.
 ///
@@ -603,7 +624,7 @@ void CompileTask::Execute()
 	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getNewUninitMemBuffer(stTotalSize);
 	if ( NULL == SB )
 	{
-		LOG_ERROR("CompileTask::Execute() - Failed to created buffer");
+		LOG_ERROR("CompileTask::Execute() - Failed to create buffer");
 		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
 		return;
 	}
@@ -620,6 +641,7 @@ void CompileTask::Execute()
 	}
 
 	// Parse user options
+	ClearOptions();
 	if ( NULL != m_pTask->pszOptions)
 	{
 		std::list<char *> argList;
