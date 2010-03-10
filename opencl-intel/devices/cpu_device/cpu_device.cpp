@@ -381,11 +381,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					
-					//Get the CPU info
-					__cpuid(viCPUInfo, 0);
-					
-					*(cl_uint*)paramVal = (cl_uint)viCPUInfo[0];
+					*(cl_uint*)paramVal = 0x8086;
 				}
 				return CL_DEV_SUCCESS;
 			}
