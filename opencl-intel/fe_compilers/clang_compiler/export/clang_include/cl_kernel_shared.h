@@ -66,10 +66,7 @@ typedef enum clk_channel_type{
   CLK_HALF_FLOAT,            // four channel RGBA half
   CLK_FLOAT,                 // four channel RGBA float
 
-  // CI SPI for CPU
-  __CLK_UNORM_INT8888,         // four channel ARGB unorm8
-  __CLK_UNORM_INT8888R,        // four channel BGRA unorm8
-  
+ 
   __CLK_VALID_IMAGE_TYPE_COUNT,
   __CLK_INVALID_IMAGE_TYPE = __CLK_VALID_IMAGE_TYPE_COUNT,
   __CLK_VALID_IMAGE_TYPE_MASK_BITS = 4,         // number of bits required to represent any image type
