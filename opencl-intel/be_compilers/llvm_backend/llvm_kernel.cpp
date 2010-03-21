@@ -256,7 +256,7 @@ size_t LLVMKernel::ResolveFunctionCalls(Function* pFunc)
 					{
 						size_t stLclStack = ResolveFunctionCalls(pCallee);
 						pExecEng->getPointerToFunction(pCallee);
-						stLclStack += pExecEng->getJitFunctionStackSize(pCallee);
+						stLclStack += pExecEng->getJitFunctionStackSize(pCallee) + 64;
 						stStack = max(stStack, stLclStack);
 					}
 				}
@@ -306,7 +306,7 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 	m_uiStackSize = max(CPU_DEV_MIN_WI_PRIVATE_SIZE, m_uiStackSize);
 
 	// JIT generated get info from function
-	m_uiStackSize = (unsigned int)(m_uiStackSize+LLVMBackend::GetInstance()->GetExecEngine()->getJitFunctionStackSize(pFunc));
+	m_uiStackSize = (unsigned int)(m_uiStackSize+LLVMBackend::GetInstance()->GetExecEngine()->getJitFunctionStackSize(pFunc) + 64);
 
 	if ( m_bUseVTune && iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )
 	{
