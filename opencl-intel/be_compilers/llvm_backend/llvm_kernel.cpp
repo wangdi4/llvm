@@ -64,7 +64,7 @@ LLVMKernel::LLVMKernel(LLVMProgram* pProgram) :
 	m_uiStackSize(CPU_DEV_MIN_WI_PRIVATE_SIZE), m_stTotalImplSize(0),
 	m_pProgram(pProgram), m_uiVTuneId(-1),
 	m_uiVectorWidth(0), m_pVectorizedKernel(NULL),
-	m_bUseVTune(pProgram->m_bUseVTune)
+	m_bUseVTune(pProgram->m_bUseVTune), m_bCallKernel(false)
 {
 }
 
@@ -289,6 +289,7 @@ cl_int LLVMKernel::Init(Function *pFunc, ConstantArray* pFuncArgs)
 
 	TLLVMKernelInfo& info = m_pProgram->m_mapKernelInfo[pFunc];
 	m_bBarrier = info.bBarrier;
+	m_bCallKernel = info.bCallKernel;
 	m_stTotalImplSize = info.stTotalImplSize;
 
 	if ( info.bDbgPrint )

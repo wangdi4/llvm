@@ -290,7 +290,7 @@ cl_uint LLVMBinary::CreateExecutable(void* IN *pMemoryBuffers,
 	if (1 == uiWGSizeLocal)
 	{
 		pLLVMExecutable = new LLVMExecSingleWI(this);
-	} else if( m_bVectorized )
+	} else if( m_bVectorized && !m_pKernel->m_bCallKernel)
 	{
 		if ( m_pKernel->m_bBarrier )
 		{

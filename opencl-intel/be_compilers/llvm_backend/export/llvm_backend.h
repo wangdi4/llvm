@@ -52,6 +52,7 @@ struct TLLVMKernelInfo
 	bool	bDbgPrint;
 	bool	bAsynCopy;
 	bool	bBarrier;
+	bool	bCallKernel;
 	size_t	stTotalImplSize;
 };
 

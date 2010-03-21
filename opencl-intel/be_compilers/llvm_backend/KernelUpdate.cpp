@@ -76,6 +76,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		Function *RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals);
 		bool	IsAKernel(const Function* pFunc);
+		bool	FunctionNeedsUpdate(Function *pFunc);
 		bool	ParseLocalBuffers(ConstantArray* pFuncLocals, Argument* pLocalMem);
 
 		void	AddWIInfoDeclarations();
@@ -88,6 +89,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		TLLVMKernelInfo	m_sInfo;
 		map<const Function*, TLLVMKernelInfo>	m_mapKernelInfo;
+
+		std::vector<Function*> m_nonInlinedFunctions;
+
+		std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
 
 		// Calculate and return Global ID value for given dimension
 		Value* SubstituteWIcall(llvm::CallInst *pCall,
@@ -125,6 +130,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		}
 	}
 
+	BasicBlock::iterator removeInstruction(BasicBlock* pBB, BasicBlock::iterator it);
+
 	bool KernelUpdate::runOnModule(Module &M)
 	{
 		m_pModule = &M;
@@ -134,6 +141,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		m_bPrefetchDecl = false;
 
 		m_mapKernelInfo.clear();
+
+		m_nonInlinedFunctions.clear();
+
+		m_fixupCalls.clear();
 
 		AddWIInfoDeclarations();
 
@@ -180,6 +191,52 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			{
 				(*m_pVectFunctions)[i] = RunOnKernel(pVectFunc, pFuncLocals);
 			}
+		}
+
+		for(int i = 0; i < m_nonInlinedFunctions.size(); i++)
+		{
+			RunOnKernel(m_nonInlinedFunctions[i], NULL);
+		}
+
+		while(!m_fixupCalls.empty())
+		{
+			CallInst* pCall     = m_fixupCalls.begin()->first;
+			Value**   pCallArgs = m_fixupCalls.begin()->second;
+			m_fixupCalls.erase(m_fixupCalls.begin());
+
+			Function *pCallee = pCall->getCalledFunction();
+
+			BasicBlock::iterator inst_it = pCall->getParent()->begin();
+			while ( inst_it != pCall->getParent()->end() )
+			{
+				assert(dyn_cast<Instruction>(inst_it) && dyn_cast<Instruction>(pCall));
+				if(dyn_cast<Instruction>(inst_it) == dyn_cast<Instruction>(pCall))
+				{
+					break;
+				}
+				inst_it++;
+			}
+
+			assert(inst_it != pCall->getParent()->end());
+
+			SmallVector<Value*, 4> params;
+			// Create new call instruction with extended parameters
+			params.clear();
+			for(int i = 1; i < pCall->getNumOperands(); i++ )
+			{
+				params.push_back(pCall->getOperand(i));
+			}
+			params.push_back(pCallArgs[0]);
+			params.push_back(pCallArgs[1]);
+			params.push_back(pCallArgs[2]);
+			params.push_back(pCallArgs[3]);
+			params.push_back(pCallArgs[4]);
+
+			CallInst::Create(pCallee, params.begin(), params.end(), "", pCall);
+
+			delete pCallArgs;
+
+			inst_it = removeInstruction(pCall->getParent(), inst_it);
 		}
 
 		return true;
@@ -688,6 +745,172 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		return ++prev;
 	}
 
+	int CalculateKernelLocalsSize(Function *pFunc)
+	{
+		Module *pModule = pFunc->getParent();
+
+		int iLocalsSize = 0;
+
+		// Extract pointer to module annotations
+		GlobalVariable *annotation = pModule->getGlobalVariable("llvm.global.annotations");
+		if ( NULL == annotation )
+		{
+			// No annotation
+			return -1;
+		}
+
+		ConstantArray* pAnnotations = dyn_cast<ConstantArray>(annotation->getInitializer());
+
+		// now we look for this kernel in the annotations
+		ConstantStruct *pFuncElt = NULL;
+		for (unsigned i = 0, e = pAnnotations->getType()->getNumElements(); i != e; ++i) 
+		{
+			ConstantStruct *elt = cast<ConstantStruct>(pAnnotations->getOperand(i));
+			Function *pAnnotFunc = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+			if ( NULL == pAnnotFunc )
+			{
+				continue;	// Not a function pointer
+			}
+
+			if(pAnnotFunc == pFunc)
+			{
+				pFuncElt = elt;
+				break;
+			}
+		}
+
+		if( NULL != pFuncElt )
+		{
+			//Function is in the annotation - it's a kernel
+			// Obtain local variables array
+			GlobalVariable* pGlbVar = dyn_cast<GlobalVariable>(pFuncElt->getOperand(3)->stripPointerCasts());
+			if ( NULL == pGlbVar )
+			{
+				// Can't obtain local variables array
+				return -1;
+			}
+			
+			ConstantArray *pFuncLocals = dyn_cast<ConstantArray>(pGlbVar->getInitializer());
+
+			if( NULL != pFuncLocals)
+			{
+				// Iterate through local buffers
+				for (unsigned i = 0, e = pFuncLocals->getType()->getNumElements(); i != e; ++i) 
+				{
+					// Obtain kernel function from annotation
+					Constant *elt = cast<Constant>(pFuncLocals->getOperand(i));
+					GlobalValue *pLclBuff = dyn_cast<GlobalValue>(elt->stripPointerCasts());
+
+					// Calculate required buffer size
+					const ArrayType *pArray = dyn_cast<ArrayType>(pLclBuff->getType()->getElementType());
+					unsigned int uiArraySize = pArray ? 1 : pLclBuff->getType()->getElementType()->getPrimitiveSizeInBits()/8;
+					assert ( 0 != uiArraySize );
+					while ( NULL != pArray )
+					{
+						uiArraySize *= (unsigned int)pArray->getNumElements();
+						if ( pArray->getContainedType(0)->getTypeID() != Type::ArrayTyID )
+						{
+							uiArraySize *= pArray->getContainedType(0)->getPrimitiveSizeInBits()/8;
+						}
+						pArray = dyn_cast<ArrayType>(pArray->getContainedType(0));
+					}
+
+					// Advance total implicit size
+					iLocalsSize += ADJUST_SIZE_TO_DCU_LINE(uiArraySize);
+				}
+			}
+		}
+
+		//look for calls to other kernels
+		Function::BasicBlockListType::iterator bb_it = pFunc->getBasicBlockList().begin();
+		while ( bb_it != pFunc->getBasicBlockList().end() )
+		{
+			BasicBlock::iterator inst_it = bb_it->begin();
+			while ( inst_it != bb_it->end() )
+			{
+				CallInst* pCall = dyn_cast<CallInst>(inst_it);
+				if( NULL == pCall )
+				{
+					//it's not a call instruction
+					++inst_it;
+					continue;
+				}
+
+				int iCallLocalSize = CalculateKernelLocalsSize(pCall->getCalledFunction());
+
+				if(iCallLocalSize < 0)
+				{
+					return -1;
+				}
+
+				iLocalsSize += iCallLocalSize;
+
+				++inst_it;
+			}
+			++bb_it;
+		}
+
+		return iLocalsSize;
+	}
+
+	bool KernelUpdate::FunctionNeedsUpdate(Function *pFunc)
+	{
+		//look for calls to other functions...
+		Function::BasicBlockListType::iterator bb_it = pFunc->getBasicBlockList().begin();
+		while ( bb_it != pFunc->getBasicBlockList().end() )
+		{
+			BasicBlock::iterator inst_it = bb_it->begin();
+			while ( inst_it != bb_it->end() )
+			{
+				CallInst* pCall = dyn_cast<CallInst>(inst_it);
+				if( NULL == pCall )
+				{
+					//it's not a call instruction
+					++inst_it;
+					continue;
+				}
+
+				Function *pCallee = pCall->getCalledFunction();
+
+				// It's a call
+				// check for builtin functions that need KernelUpdate
+				if ( (!strncmp("get_", inst_it->getOperand(0)->getNameStart(), 4) &&
+					(!strncmp("get_work_dim", pCallee->getNameStart(), 12) ||
+					!strncmp("get_global_size", pCallee->getNameStart(), 15) ||
+					!strncmp("get_local_size", pCallee->getNameStart(), 14) ||
+					!strncmp("get_num_groups", pCallee->getNameStart(), 14) ||
+					!strncmp("get_local_id", pCallee->getNameStart(), 12) ||
+					!strncmp("get_group_id", pCallee->getNameStart(), 12) ||
+					!strncmp("get_global_id", pCallee->getNameStart(), 13)) ) ||
+					!strcmp("barrier", pCallee->getNameStart()) ||
+					!strncmp("__async_work_group_copy", pCallee->getNameStart(), 23) ||
+					!strncmp("wait_group", pCallee->getNameStart(), 10) ||
+					!strncmp("__prefetch", pCallee->getNameStart(), 10) )
+				{
+					return true;
+				}
+
+				std::vector<Function *>::iterator iter = m_nonInlinedFunctions.begin();
+				while( (iter != m_nonInlinedFunctions.end()) && (*iter != pCallee) ) iter++;
+
+				if(iter != m_nonInlinedFunctions.end())
+				{
+					return true;
+				}
+
+				if( IsAKernel(pCallee) || FunctionNeedsUpdate(pCallee) )
+				{
+					return true;
+				}
+
+				++inst_it;
+			}
+			++bb_it;
+		}
+
+		return false;
+	}
+
 	Function *KernelUpdate::RunOnKernel(Function *pFunc, ConstantArray* pFuncLocals)
 	{
 		std::vector<const llvm::Type *> newArgsVec;
@@ -756,6 +979,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		{
 			return false;
 		}
+
+		std::map<Function *, int> LocalsMap;
 
 		// Go through function blocks
 		Function::BasicBlockListType::iterator bb_it = NewF->getBasicBlockList().begin();
@@ -837,21 +1062,55 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 						break;
 					}
 
-					if ( !strncmp("dbg_print", inst_it->getOperand(0)->getNameStart(), 9) ||
-						 !strncmp("printf", inst_it->getOperand(0)->getNameStart(), 6))
-					{
-						m_sInfo.bDbgPrint = true;
-						++inst_it;
-						break;
-					}
-					// Check call to not inlined functions/ kernels
+					// Check call for not inlined functions/ kernels
 					Function* pCallee = dyn_cast<Function>(inst_it->getOperand(0));
 					if ( NULL != pCallee && !pCallee->isDeclaration() )
 					{
-						if ( IsAKernel(pCallee) )
+						CallInst* pCall = dyn_cast<CallInst>(inst_it);
+
+						if ( !IsAKernel(pCallee) )
 						{
-							// TODO: Add special treatment for kernel calling kernel
+							if(!FunctionNeedsUpdate(pCallee))
+							{
+								++inst_it;
+								break;
+							}
+
+							std::vector<Function *>::iterator iter = m_nonInlinedFunctions.begin();
+							while( (iter != m_nonInlinedFunctions.end()) && (*iter != pCallee) ) iter++;
+
+							if(iter == m_nonInlinedFunctions.end())
+							{
+								m_nonInlinedFunctions.push_back(pCallee);
+							}
 						}
+
+						int iKernelLocalSize = CalculateKernelLocalsSize(pCallee);
+						if(iKernelLocalSize < 0)
+						{
+							return false;
+						}
+
+						if(LocalsMap.find(pCallee) == LocalsMap.end())
+						{
+							//Kernel is not in the map yet
+							LocalsMap[pCallee] = m_sInfo.stTotalImplSize;
+							m_sInfo.stTotalImplSize += iKernelLocalSize;
+						}
+
+						GetElementPtrInst* pNewLocalMem =
+							GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(32), LocalsMap[pCallee]), "", pCall);
+
+						Value **pCallArgs = new Value*[5];
+						pCallArgs[0] = pNewLocalMem;
+						pCallArgs[1] = pWorkDim;
+						pCallArgs[2] = pWGId;
+						pCallArgs[3] = pBaseGlbId;
+						pCallArgs[4] = pLocalId;
+
+						m_fixupCalls[pCall] = pCallArgs;
+
+						m_sInfo.bCallKernel = true;
 					}
 					++inst_it;
 					break;

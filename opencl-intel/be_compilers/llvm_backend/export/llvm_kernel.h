@@ -119,6 +119,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		const size_t*		m_pHintWGSize;				// A hint to work-group size that was declared during kernel compilation
 		size_t				m_uiOptWGSize;				// An optimal work-group size, that can be used for kernel execution
 		bool				m_bBarrier;					// Is true if barrier() is present in kernel
+		bool				m_bCallKernel;				// Is true if this kernel calls another kernel
 
 		llvm::Module*		m_pModule;					// Pointer to the module this kernel belongs to
 		llvm::Function*		m_pFunction;				// Pointer to LLVM related function
