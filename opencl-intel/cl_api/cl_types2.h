@@ -25,7 +25,7 @@
 // Define OCL types
 // Single precision floating point
 // Used by built-in functions
-typedef __m64 float2;
+struct float2 {float a; float b;};
 typedef __m128 float4;
 struct float8
 {
@@ -52,7 +52,7 @@ struct _2i8 { int a; int b;};
 typedef __m128i			_2i8p;
 struct _4i8 { int a; int b; int c; int d;};
 typedef __m128i			_4i8p;
-typedef __m64			_8i8;
+struct _8i8 {_4i8 a; _4i8 b;};
 typedef __m128i			_8i8p;
 typedef __m128i			_16i8;
 
@@ -62,7 +62,7 @@ struct _2u8 { unsigned int a; unsigned int b;};
 typedef __m128i			_2u8p;
 struct _4u8 { int a; int b; int c; int d;};
 typedef __m128i			_4u8p;
-typedef __m64			_8u8;
+struct _8u8 {_4u8 a; _4u8 b;};
 typedef __m128i			_8u8p;
 typedef __m128i			_16u8;
 
@@ -70,7 +70,7 @@ typedef __m128i			_16u8;
 typedef short			_1i16;
 struct _2i16 { int a; int b;};
 typedef __m128i			_2i16p;
-typedef __m64			_4i16;
+struct _4i16 { _2i16 a; _2i16 b;};
 typedef __m128i			_4i16p;
 typedef __m128i			_8i16;
 struct _16i16 { __m128i a; __m128i b;};
@@ -79,21 +79,21 @@ struct _16i16 { __m128i a; __m128i b;};
 typedef unsigned short	_1u16;
 struct _2u16 { unsigned int a; unsigned int b;};
 typedef __m128i			_2u16p;
-typedef __m64			_4u16;
+struct _4u16 { _2u16 a; _2u16 b;};
 typedef __m128i			_4u16p;
 typedef __m128i			_8u16;
 struct _16u16 { __m128i a; __m128i b;};
 
 //int - 32 bit
 typedef int				_1i32;
-typedef __m64			_2i32;
+struct _2i32 { int a; int b;};
 typedef __m128i			_4i32;
 struct _8i32 { __m128i a; __m128i b;};
 struct _16i32 { __m128i a; __m128i b;__m128i c; __m128i d;};
 
 //unit - 32 bit
 typedef unsigned int	_1u32;
-typedef __m64			_2u32;
+struct _2u32 { unsigned int a; unsigned int b;};
 typedef __m128i			_4u32;
 struct _8u32 { __m128i a; __m128i b;};
 struct _16u32 { __m128i a; __m128i b;__m128i c; __m128i d;};
@@ -116,6 +116,39 @@ __m128i e; __m128i f;__m128i g; __m128i h;};
 
 #define lo a
 #define hi b
+
+typedef short half;
+
+//Double definition should be moved to cl_types when implemented
+typedef __m128d double2;
+struct double4
+{
+	__m128d	a; __m128d	b;
+};
+struct double8
+{
+	__m128d	a; __m128d	b; __m128d	c;	__m128d	d;
+};
+struct double16
+{
+	__m128d	a; __m128d	b; __m128d	c;	__m128d	d;
+	__m128d	e; __m128d	f; __m128d	g;	__m128d	h;
+};
+
+/// SVML types
+struct _2i32_svml	{	__m128i	a;	} ;
+struct _4i32_svml	{	__m128i	a;	} ;
+struct _8i32_svml	{	__m128i	a; __m128i	b;	} ;
+struct _16i32_svml	{	__m128i	a; __m128i	b; __m128i	c; __m128i	d;	} ;
+struct float2_svml	{	__m128  a;	} ;
+struct float4_svml	{	__m128	a;	} ;
+struct float8_svml	{	__m128	a;	} ;
+// Make these types compatible with float8 in LLVM
+struct float1x2_svml {   float s0; float s4;  };
+struct float2x2_svml {   __m128 a; __m128 b;  } ;
+struct float4x2_svml {   float4 a; float4 b;  } ;
+struct float8x2_svml {   float8 r1; float8 r2;  } ;
+struct float16x2_svml {   float16 r1; float16 r2;  } ;
 
 #else
 
@@ -176,4 +209,7 @@ __m128i e; __m128i f;__m128i g; __m128i h;};
 #define _8u64			ulong8
 #define _16u64			ulong16
 
+typedef float8		float1x2_svml;
+typedef float8		float2x2_svml;
+typedef float8		float4x2_svml;
 #endif

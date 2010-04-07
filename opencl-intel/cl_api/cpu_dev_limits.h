@@ -29,7 +29,7 @@
 #define CPU_DEV_MAX_WI_SIZE				256			// Maximum values that could be specified for WI in one dimension
 #define CPU_DEV_LCL_MEM_SIZE			(24*1024)	// Total DCU size is 32k, we will leave 8k for internal data
 #define CPU_DEV_DCU_LINE_SIZE			64
-#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*2)	// Minimum memory size allocate for single WI instance
+#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*3)	// Minimum memory size allocate for single WI instance
 
 #define ADJUST_SIZE_TO_DCU_LINE(X) ( ((X)+CPU_DEV_DCU_LINE_SIZE-1) & (~(CPU_DEV_DCU_LINE_SIZE-1)))
 
@@ -50,4 +50,4 @@
 #define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
-#define CPU_MIN_VECTOR_SIZE				8
+#define CPU_MIN_VECTOR_SIZE				16				// Minimum vector size, XMM == 16bytes
