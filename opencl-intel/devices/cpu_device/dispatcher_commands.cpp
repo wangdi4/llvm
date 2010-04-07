@@ -1090,7 +1090,7 @@ void NDRange::UnlockMemoryBuffers()
 int NDRange::AttachToThread(unsigned int uiWorkerId)
 {
 #ifdef _DEBUG_PRINT
-	printf("AttachToThread %d, id(%d)\n", GetCurrentThreadId(), m_pCmd->id);
+	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", GetCurrentThreadId(), uiWorkerId, m_pCmd->id);
 #endif
 
 #ifdef _DEBUG
@@ -1123,8 +1123,6 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 	InterlockedDecrement(&m_lAttaching);
 #endif
 
-	// Clear FP stack
-	_mm_empty();
 	return ret;
 }
 
