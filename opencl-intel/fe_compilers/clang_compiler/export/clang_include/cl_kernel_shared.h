@@ -66,7 +66,6 @@ typedef enum clk_channel_type{
   CLK_HALF_FLOAT,            // four channel RGBA half
   CLK_FLOAT,                 // four channel RGBA float
 
- 
   __CLK_VALID_IMAGE_TYPE_COUNT,
   __CLK_INVALID_IMAGE_TYPE = __CLK_VALID_IMAGE_TYPE_COUNT,
   __CLK_VALID_IMAGE_TYPE_MASK_BITS = 4,         // number of bits required to represent any image type
@@ -120,95 +119,4 @@ typedef enum clk_sampler_type
     #define __FAST_CALL
 #endif
 
-#if defined( __OPENCL_TYPES_DEFINED__ )
-
-    typedef struct __ImageExecInfo
-    {
-        int4            largest;                                        //largest valid position in { x, y, z, x-3 } Unused fields should be INT_MAX
-        float4          imageSize;                                      //size of the image as { w, h, d, 0 }
-        ulong2          stride;                                         //# of elements per row in { rowElements, slicePitch } Unused fields should be 0
-        void            *data;                                          // ptr to image data
-        void            *readConstants;                                 // ptr to __gReadConstants + 8 * float4
-        void            *writeConstants;                                // ptr to __gWriteConstants + 8 * float4
-        size_t          pixelType;                                      // type of image, also index into table for writes
-        size_t          width, height, depth;
-        int             user_pixel_type;
-        int             user_channel_order;
-    }__ImageExecInfo __attribute__ ((aligned(16)));
-
-    typedef float4  (*__Read_2d_fi) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef float16 (*__Read4_2d_fi)( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef float4  (*__Read_2d_ff) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-    typedef float16 (*__Read4_2d_ff)( const __ImageExecInfo *, float4 x, float4 y )    __FAST_CALL;
-    typedef float4  (*__Read_3d_fi) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef float4  (*__Read_3d_ff) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-
-    typedef void    (*__Write_2d_fi)( float4,  const __ImageExecInfo *, int4 where )   __FAST_CALL;
-    typedef void    (*__Write4_2d_fi)( float4 r, float4 g, float4 b, float4 a, const __ImageExecInfo *i, int4 where )     __FAST_CALL;
-
-    typedef int4    (*__Read_2d_ii) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef int4    (*__Read_2d_if) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-    typedef void    (*__Write_2d_ii)( int4,  const __ImageExecInfo *, int4 where )     __FAST_CALL;
-    typedef int4    (*__Read_3d_ii) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef int4    (*__Read_3d_if) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-    
-    typedef uint4   (*__Read_2d_ui) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef uint4   (*__Read_2d_uf) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-    typedef void    (*__Write_2d_ui)( uint4,  const __ImageExecInfo *, int4 where )     __FAST_CALL;
-    typedef uint4   (*__Read_3d_ui) ( const __ImageExecInfo *, int4 where )            __FAST_CALL;
-    typedef uint4   (*__Read_3d_uf) ( const __ImageExecInfo *, float4 where )          __FAST_CALL;
-    
-    typedef event_t (*__Write_array_2d_fi) ( const __ImageExecInfo *, size_t x, size_t y, size_t count,     
-                                const float4 *r, const float4 *g,  const float4 *b, const float4 *a )   __FAST_CALL;
-    
-    typedef event_t (*__Read_array_2d_ff)( const __ImageExecInfo *i, float4 start, float4 stride, size_t offset, size_t count, 
-                                                    float4 *r, float4 *g, float4 *b, float4 *a ) __FAST_CALL;
-
-    #define READ_TABLE_SIZE  (1<<(__CLK_SAMPLER_BITS+__CLK_VALID_IMAGE_TYPE_MASK_BITS))
-    #define WRITE_TABLE_SIZE (1<< __CLK_VALID_IMAGE_TYPE_MASK_BITS )
-    extern const __Read_2d_fi    __read_2d_fi_table[READ_TABLE_SIZE];
-    extern const __Read_2d_fi    __read_2d_fi_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read4_2d_fi   __read4_2d_fi_table[READ_TABLE_SIZE];
-    extern const __Read4_2d_fi   __read4_2d_fi_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Write_2d_fi   __write_2d_fi_table[WRITE_TABLE_SIZE];
-    extern const __Write_2d_fi   __write_2d_fi_table_SSE4_1[WRITE_TABLE_SIZE];
-    extern const __Write4_2d_fi  __write4_2d_fi_table[WRITE_TABLE_SIZE];
-    extern const __Write4_2d_fi  __write4_2d_fi_table_SSE4_1[WRITE_TABLE_SIZE];
-    extern const __Read_2d_ff    __read_2d_ff_table[READ_TABLE_SIZE];
-    extern const __Read_2d_ff    __read_2d_ff_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read4_2d_ff   __read4_2d_ff_table[READ_TABLE_SIZE];
-    extern const __Read4_2d_ff   __read4_2d_ff_table_SSE4_1[READ_TABLE_SIZE];
-
-    extern const __Read_3d_fi    __read_3d_fi_table[READ_TABLE_SIZE];
-    extern const __Read_3d_fi    __read_3d_fi_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read_3d_ff    __read_3d_ff_table[READ_TABLE_SIZE];
-    extern const __Read_3d_ff    __read_3d_ff_table_SSE4_1[READ_TABLE_SIZE];
-
-    extern const __Read_2d_ii    __read_2d_ii_table[READ_TABLE_SIZE];
-    extern const __Read_2d_ii    __read_2d_ii_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Write_2d_ii   __write_2d_ii_table[WRITE_TABLE_SIZE];
-    extern const __Write_2d_ii   __write_2d_ii_table_SSE4_1[WRITE_TABLE_SIZE];
-    extern const __Read_2d_if    __read_2d_if_table[READ_TABLE_SIZE];
-    extern const __Read_2d_if    __read_2d_if_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read_3d_ii    __read_3d_ii_table[READ_TABLE_SIZE];
-    extern const __Read_3d_ii    __read_3d_ii_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read_3d_if    __read_3d_if_table[READ_TABLE_SIZE];
-    extern const __Read_3d_if    __read_3d_if_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read_2d_ui    __read_2d_ui_table[READ_TABLE_SIZE];
-    extern const __Read_2d_ui    __read_2d_ui_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Write_2d_ui   __write_2d_ui_table[WRITE_TABLE_SIZE];
-    extern const __Write_2d_ui   __write_2d_ui_table_SSE4_1[WRITE_TABLE_SIZE];
-    extern const __Read_2d_uf    __read_2d_uf_table[READ_TABLE_SIZE];
-    extern const __Read_2d_uf    __read_2d_uf_table_SSE4_1[READ_TABLE_SIZE];
-
-    extern const __Read_3d_ui    __read_3d_ui_table[READ_TABLE_SIZE];
-    extern const __Read_3d_ui    __read_3d_ui_table_SSE4_1[READ_TABLE_SIZE];
-    extern const __Read_3d_uf    __read_3d_uf_table[READ_TABLE_SIZE];
-    extern const __Read_3d_uf    __read_3d_uf_table_SSE4_1[READ_TABLE_SIZE];
-
-    extern const __Read_array_2d_ff __read_array_2d_ff_table[READ_TABLE_SIZE];
-    extern const __Write_array_2d_fi __write_array_2d_fi_table[ WRITE_TABLE_SIZE ];
-    extern const __Write_array_2d_fi __write_array_2d_fi_table_SSE4_1[ WRITE_TABLE_SIZE ];
-
-#endif  /* __CL_TYPES_DEFINED__ */
 #endif /* __CL_KERNEL_SHARED_H__ */

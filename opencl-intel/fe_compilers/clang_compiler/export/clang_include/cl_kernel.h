@@ -1264,12 +1264,12 @@ size_t get_group_id(unsigned int);
                                                         __remquolf, __remquolf2, __remquolf3, __remquolf4, __remquolf8, __remquolf16,    \
                                                         __remquold, __remquold2, __remquold3, __remquold4, __remquold8, __remquold16     )
 
-#define lgamma_r(X,Z)   __builtin_overload( 2, X, Z, __lgamma_rf1, __lgamma_rf2, __lgamma_rf3, __lgammarf4, __lgammarf8, __lgammarf16, \
-                                                        lgamma_r, __lgamma_rd2, __lgamma_rd3, __lgamma_rd4, __lgamma_rd8, __lgamma_rd16,														\
-                                                        __lgamma_rgf1, __lgamma_rgf2, __lgamma_rf3, __lgamma_rgf4, __lgamma_rgf8, __lgamma_rgf16,	\
-                                                        lgamma_r, __lgamma_rd2, __lgamma_rd3, __lgamma_rd4, __lgamma_rd8, __lgamma_rd16,														\
-                                                        __lgamma_rlf1, __lgamma_rf2, __lgamma_rf3, __lgamma_rlf4, __lgamma_rlf8, __lgamma_rlf16,	\
-                                                        lgamma_r, __lgamma_rd2, __lgamma_rd3, __lgamma_rd4, __lgamma_rd8, __lgamma_rd16)
+#define lgamma_r(X,Z)   __builtin_overload( 2, X, Z,    __lgamma_rf,  __lgamma_rf2,  __lgamma_rf3,  __lgamma_rf4,  __lgamma_rf8,  __lgamma_rf16,	\
+                                                        __lgamma_rd,  __lgamma_rd2,  __lgamma_rd3,  __lgamma_rd4,  __lgamma_rd8,  __lgamma_rd16,	\
+                                                        __lgamma_rgf, __lgamma_rgf2, __lgamma_rgf3, __lgamma_rgf4, __lgamma_rgf8, __lgamma_rgf16,	\
+                                                        __lgamma_rgd, __lgamma_rgd2, __lgamma_rgd3, __lgamma_rgd4, __lgamma_rgd8, __lgamma_rgd16,	\
+                                                        __lgamma_rlf, __lgamma_rlf2, __lgamma_rlf3, __lgamma_rlf4, __lgamma_rlf8, __lgamma_rlf16,	\
+                                                        __lgamma_rld, __lgamma_rld2, __lgamma_rld3, __lgamma_rld4, __lgamma_rld8, __lgamma_rld16)
 
 
 
@@ -1473,9 +1473,8 @@ typedef int sampler_t;
 
 // image format description
 typedef struct _cl_image_format_t {
-  unsigned int num_channels;
-  unsigned int channel_order;
-  unsigned int channel_data_type;
+  unsigned int image_channel_order;
+  unsigned int image_channel_data_type;
 } cl_image_format_t;
 
 typedef struct  _image2d_t  *image2d_t;
