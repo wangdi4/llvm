@@ -146,8 +146,6 @@ cl_uint LLVMExecSingleWI::Execute(const size_t* IN pGroupId,
 		pop		edi
 	}
 
-	//We must call _mm_empty here because the kernel could have used SSE instructions and code ahead may use X87 ops
-	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
@@ -245,9 +243,6 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 	default:
 		return CL_DEV_ERROR_FAIL;
 	}
-	//We must call _mm_empty here because the kernel could have used SSE instructions and code ahead may use X87 ops
-	//Not calling on default path because no kernel code would have been executed
-	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
@@ -400,7 +395,6 @@ cl_uint LLVMExecVectorizedNoBarrier::Execute(const size_t* IN pGroupId,
 		return CL_DEV_ERROR_FAIL;
 	}
 
-	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
@@ -533,8 +527,6 @@ cl_uint LLVMExecMultipleWIWithBarrier::Execute(const size_t* IN pGroupId,
 		}
 	}
 
-	//We must call _mm_empty here because the kernel could have used SSE instructions and code ahead may use X87 ops
-	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
@@ -730,7 +722,6 @@ cl_uint LLVMExecVectorizedWithBarrier::Execute(const size_t* IN pGroupId,
 		}
 	}
 
-	_mm_empty();
 	return CL_DEV_SUCCESS;
 }
 
