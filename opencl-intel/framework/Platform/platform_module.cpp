@@ -550,7 +550,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 	{
 	case CL_DEVICE_PLATFORM:
 		szParamSize = sizeof(cl_platform_id);
-		pValue = m_clPlatformIds[0];
+		pValue = &(m_clPlatformIds[0]);
 		break;
 	default:
 		clErrRet = m_pDevices->GetOCLObject((cl_int)clDevice, (OCLObject**)(&pDevice));
