@@ -7,5 +7,3 @@
 
 #pragma once
 
-void ComposeBinaryContainer(void* pIR, size_t stSize, void** ppOutBuff);
-

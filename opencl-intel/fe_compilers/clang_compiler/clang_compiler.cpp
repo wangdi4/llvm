@@ -47,25 +47,3 @@ extern "C" _declspec(dllexport)	int	clFEBuildProgram(FEBuildProgramDesc* pDesc)
 	LOG_INFO("Exit");
 	return CL_SUCCESS;
 }
-
-void ComposeBinaryContainer(void* pIR, size_t stSize, void** ppOutBuff)
-{
-	// Allocate continuous memory for IR container
-	size_t	stTotSize = stSize+sizeof(cl_prog_container);
-	*ppOutBuff = new char[stTotSize];
-	if ( *ppOutBuff == NULL )
-	{
-		return;
-	}
-
-	cl_prog_container*	pHeader = (cl_prog_container*)*ppOutBuff;
-	memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
-	pHeader->container_size = stSize;
-	pHeader->container_type = CL_PROG_CNT_PRIVATE;
-	pHeader->description.bin_type = CL_PROG_BIN_LLVM;
-	pHeader->description.bin_ver_major = 1;
-	pHeader->description.bin_ver_minor = 0;
-	pHeader->container = pHeader+1;
-	// Copy IR
-	memcpy_s((void*)pHeader->container, stTotSize, pIR, stSize);
-}

@@ -28,6 +28,7 @@
 #include "clang_compiler.h"
 #include "frontend_api.h"
 #include "cl_sys_info.h"
+#include "cl_types.h"
 
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/CommandLine.h"
@@ -83,13 +84,16 @@ static llvm::cl::opt<bool> OptWarnAsErrors("Werror");
 // DebugInfo
 static llvm::cl::opt<bool> OptDebugInfo("g");
 
-// TODO - all the options below are not handled properly !!!
 static llvm::cl::opt<bool>
 Opt_Disable("cl-opt-disable", llvm::cl::desc("Disable optimizations"));
 static llvm::cl::opt<bool>
-Single_Prec_Const("cl-single-precision-constant", llvm::cl::desc("Use single precision constants"));
-static llvm::cl::opt<bool>
 Denorms_Are_Zeros("cl-denorms-are-zero", llvm::cl::desc("Use zeros for denorms"));
+static llvm::cl::opt<bool>
+Fast_Relaxed_Math("cl-fast-relaxed-math", llvm::cl::desc("Enable fast relaxed math"));
+
+// TODO - all the options below are not handled properly !!!
+static llvm::cl::opt<bool>
+Single_Prec_Const("cl-single-precision-constant", llvm::cl::desc("Use single precision constants"));
 static llvm::cl::opt<bool>
 Strict_Aliasing("cl-strict-aliasing", llvm::cl::desc("Use strict aliasing"));
 static llvm::cl::opt<bool>
@@ -100,9 +104,6 @@ static llvm::cl::opt<bool>
 Unsafe_Math_Optimizations("cl-unsafe-math-optimizations", llvm::cl::desc("Enable unsafe math optimizations"));
 static llvm::cl::opt<bool>
 Finite_Math_Only("cl-finite-math-only", llvm::cl::desc("Enable finite math only"));
-static llvm::cl::opt<bool>
-Fast_Relaxed_Math("cl-fast-relaxed-math", llvm::cl::desc("Enable fast relaxed math"));
-
 
 llvm::OwningPtr<TargetInfo>			gTarget;
 llvm::OwningPtr<SourceManager>		gSourceMgr;
@@ -518,7 +519,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   
   // Build configuration options.  FIXME: these should be controlled by
   // command line options or something.
-  DefineBuiltinMacro(Buf, "__FINITE_MATH_ONLY__=0");
+  if ( Finite_Math_Only )
+	DefineBuiltinMacro(Buf, "__FINITE_MATH_ONLY__=1");
+  if ( Fast_Relaxed_Math )
+	DefineBuiltinMacro(Buf, "__FAST_RELAXED_MATH__=1");
 
   if (LangOpts.Static)
     DefineBuiltinMacro(Buf, "__STATIC__=1");
@@ -633,13 +637,22 @@ void CompileTask::Execute()
 	memcpy_s(pBegin, stTotalSize, g_szIncludeFiles, sizeof(g_szIncludeFiles)-1);
 	pBegin += sizeof(g_szIncludeFiles)-1;
 	stTotalSize -= sizeof(g_szIncludeFiles)-1;
+
+#ifdef _SAVE_TO_FILE
+	FILE* pFile = fopen("test.cl", "wt");
+#endif
 	for(int i=0; i<m_pTask->uiLineCount; ++i)
 	{
 		memcpy_s(pBegin, stTotalSize, m_pTask->ppsLineArray[i], m_pTask->pLengths[i]);
+#ifdef _SAVE_TO_FILE
+		fwrite(pBegin, stTotalSize, 1, pFile);
+#endif
 		stTotalSize -= m_pTask->pLengths[i];
 		pBegin += m_pTask->pLengths[i];
 	}
-
+#ifdef _SAVE_TO_FILE
+	fclose(pFile);
+#endif
 	// Parse user options
 	ClearOptions();
 	if ( NULL != m_pTask->pszOptions)
@@ -738,7 +751,7 @@ void CompileTask::Execute()
 	LOG_DEBUG("CompileTask::Execute() - Processing file finished");
 
 	// Create output buffer
-	void*	pOutBuff = NULL;
+	char*	pOutBuff = NULL;
 	// Create Log buffer
 	char*	pLogBuff = NULL;
 	if ( !Log.empty() )
@@ -751,9 +764,12 @@ void CompileTask::Execute()
 		}
 	}
 
+	size_t	stTotSize = 0;
 	if ( !IRbinary.empty() )
 	{
-		ComposeBinaryContainer(IRbinary.begin(), IRbinary.size(), &pOutBuff);
+		stTotSize = IRbinary.size()+
+			sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+		pOutBuff = new char[stTotSize];
 		if ( NULL == pOutBuff )
 		{
 			delete pLogBuff;
@@ -763,8 +779,28 @@ void CompileTask::Execute()
 		}
 	}
 
+	if ( NULL != pOutBuff )
+	{
+		cl_prog_container_header*	pHeader = (cl_prog_container_header*)pOutBuff;
+		memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
+		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
+		pHeader->container_type = CL_PROG_CNT_PRIVATE;
+		pHeader->description.bin_type = CL_PROG_BIN_LLVM;
+		pHeader->description.bin_ver_major = 1;
+		pHeader->description.bin_ver_minor = 1;
+		// Fill options
+		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(pOutBuff+sizeof(cl_prog_container_header));
+		pProgHeader->bDebugInfo = OptDebugInfo;
+		pProgHeader->bDisableOpt = Opt_Disable;
+		pProgHeader->bDemorsAreZero = Denorms_Are_Zeros;
+		pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+		void *pIR = (void*)(pProgHeader+1);
+		// Copy IR
+		memcpy_s(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
+	}
+
 	LOG_INFO("CompileTask::Execute() - Finished");
-	m_pTask->pCallBack(m_pTask->pData, pOutBuff, IRbinary.size(), CL_SUCCESS, pLogBuff);
+	m_pTask->pCallBack(m_pTask->pData, pOutBuff, stTotSize, CL_SUCCESS, pLogBuff);
 	// Release log and binary
 	if ( NULL != pLogBuff )
 	{
