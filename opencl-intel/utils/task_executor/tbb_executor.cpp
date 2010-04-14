@@ -213,6 +213,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 						task.ExecuteIteration(k, j, i, uiWorkerId);
+			task.DetachFromThread(uiWorkerId);
 		}
 	};
 
