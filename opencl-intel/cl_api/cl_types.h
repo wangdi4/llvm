@@ -674,6 +674,15 @@ typedef struct _cl_mem_obj_descriptor
 typedef _cl_mem_obj_descriptor* image2d_t;
 typedef _cl_mem_obj_descriptor* image3d_t;
 
+typedef struct _cl_llvm_prog_header 
+{
+	// The header contains compiler build options
+	bool	bDisableOpt;
+	bool	bDebugInfo;
+	bool	bFastRelaxedMath;
+	bool	bDemorsAreZero;
+} cl_llvm_prog_header;
+
 // Channel order, must match cl.h
 enum {
   CLK_R,

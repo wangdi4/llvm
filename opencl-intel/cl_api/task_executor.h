@@ -103,6 +103,12 @@ public:
 	// Returns 0, if attach process succeeded, otherwise -1
 	virtual int	AttachToThread(unsigned int uiWorkerId) = 0;
 
+	// Is called when the task will not be executed by the specific thread
+	// uiWorkerId specifies the worker thread id.
+	// If uiWorkerId = -1, this info is not available.
+	// Returns 0, if detach process succeeded, otherwise -1
+	virtual int	DetachFromThread(unsigned int uiWorkerId) = 0;
+
 	// "Main loop"
 	// The function is called with different 'inx' parameters for each iteration number
 	virtual void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = -1) = 0;

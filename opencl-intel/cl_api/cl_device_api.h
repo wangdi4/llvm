@@ -126,20 +126,19 @@ typedef struct _cl_prog_program
 // This structure defines a container that holds binaries or IR of OCL compiled programs
 #define _CL_CONTAINER_MASK_		"CLPC"
 
-typedef struct _cl_prog_container
+typedef struct _cl_prog_container_header
 {
 	cl_char					mask[4];		// A container identifier mask must be "CLPC"
 	cl_prog_binary_desc		description;	// Binary/IR description that is held by a container
 	cl_prog_container_type	container_type;	// Type of container that stores program binary, as defined by cl_prog_container_type
 	size_t					container_size; // Size in bytes of the container data
-	const void*				container;		// Pointer to the container data
-} cl_prog_container;
+} cl_prog_container_header;
 
 // ------------------------------------------------------------------------------
-// Device API data types defenition
+// Device API data types definition
 // ------------------------------------------------------------------------------
 
-// Command list handle defenition
+// Command list handle definition
 typedef void*	cl_dev_cmd_list;
 typedef void*	cl_dev_cmd_id;
 // Program handle definition

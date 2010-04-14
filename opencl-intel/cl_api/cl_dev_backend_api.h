@@ -101,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pDescriptor - A pointer to valid program binary descriptor that is requested
 		// Returns
 		//		Returns a pointer to the internally stored container, if this descriptor does not exists returns NULL
-		virtual cl_int GetContainer( size_t INOUT *pSize, cl_prog_container* OUT pContainer  ) const = 0;
+		virtual cl_int GetContainer( size_t INOUT *pSize, cl_prog_container_header* OUT pContainer  ) const = 0;
 
 		// Retrieves a pointer to a kernel object by kernel name
 		// Input
@@ -227,7 +227,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Returns the actual number of Work Items handled by each executable instance
 		virtual const size_t* GetWorkGroupSize() const = 0;
 
-		// Create execution context which will be used across different execution threads
+		// Create execution context that will be used by specific execution threads
 		virtual cl_uint CreateExecutable(void* IN *pMemoryBuffers, 
 			size_t IN stBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
 
@@ -244,8 +244,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	class ICLDevBackendExecutable
 	{
 	public:
+		// Prepares current thread for the executable execution
+		// For example set the required FP flags
+		virtual cl_uint PrepareThread() = 0;
+		
+		// Restores Thread state as it was before the execution
+		virtual cl_uint RestoreThreadState() = 0;
 
-		// Executes the context on specific core
+		// Executes the context on a specific thread
 		// Input
 		//  pGroupId - a 3 dimension array which containing the group id to be executed
 		//  pLocalOffset - a 3 dimension array which containing the local offset in each dimension where to start execution
