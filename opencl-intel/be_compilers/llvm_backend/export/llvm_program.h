@@ -71,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		} LLVMProgramConfig;
 
 		// Creates a program object from a provided container. 
-		static cl_int LLVM_BACKEND_API CreateProgram( const cl_prog_container* IN pContainer,
+		static cl_int LLVM_BACKEND_API CreateProgram( const cl_prog_container_header* IN pContainer,
 			ICLDevBackendProgram** OUT pProgram, LLVMProgramConfig *pConfig );
 
 		// ICLDevBackendProgram interface
@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Get the program build log
 		cl_int GetBuildLog(size_t INOUT *pSize, char* OUT pLog) const;
 		// get a container of the program 
-		cl_int GetContainer( size_t INOUT *pSize, cl_prog_container* OUT pContainer  ) const;
+		cl_int GetContainer( size_t INOUT *pSize, cl_prog_container_header* OUT pContainer  ) const;
 		// Retrieves a pointer to a kernel object by kernel name
 		cl_int	GetKernel(const char* IN pKernelName, const ICLDevBackendKernel** OUT pKernel) const;
 		// Retrieves a vector of pointers to a function descriptors
@@ -106,10 +106,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Release kernel map
 		void				FreeMap();
 
-		TKernelMap				m_mapKernels;	// A map used for translation between Short name and function descriptor
-		cl_prog_container		m_ContainerInfo;// Current container information
-		llvm::MemoryBuffer*		m_pMemBuffer;	// A memory buffer used to store LLVM IR
-		llvm::ModuleProvider*	m_pModuleProvider;	// Module provider to store the IR
+		TKernelMap					m_mapKernels;	// A map used for translation between Short name and function descriptor
+		cl_prog_container_header	m_ContainerInfo;// Current container information
+		cl_llvm_prog_header			m_ProgHeader;	// LLVM program information, contains build options
+		llvm::MemoryBuffer*			m_pMemBuffer;	// A memory buffer used to store LLVM IR
+		llvm::ModuleProvider*		m_pModuleProvider;	// Module provider to store the IR
 
 		typedef std::pair<llvm::Function *, int> FunctionWidthPair;
 
@@ -124,6 +125,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Retrieves a pointer to a vectorized kernel object by vectorized kernel name
 		friend class LLVMBinary;
 		friend class LLVMKernel;
+		friend class LLVMExecutable;
 
 		bool	m_bUseVectorizer;
 		bool	m_bUseVTune;

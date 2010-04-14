@@ -105,6 +105,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 	protected:
 		friend class LLVMBinary;
+		friend class LLVMExecutable;
 		virtual ~LLVMKernel();
 
 		LLVMProgram*		m_pProgram;

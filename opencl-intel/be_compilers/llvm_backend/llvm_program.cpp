@@ -80,8 +80,6 @@ using namespace llvm;
 
 // Compilation Log strings
 static const char szNone[] = "None";
-static const char szBuilding[] = "Building";
-static const char szError[] = "Error";
 
 extern llvm::Module*	g_BuiltinsModule;
 extern DECLARE_LOGGER_CLIENT;
@@ -91,11 +89,12 @@ LLVMProgram::LLVMProgram(LLVMProgramConfig *pConfig) :
 m_pMemBuffer(NULL), m_pModuleProvider(NULL),
 m_bUseVectorizer(pConfig->bUseVectorizer), m_bUseVTune(pConfig->bUseVTune)
 {
-	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container));
+	memset(&m_ContainerInfo, 0, sizeof(cl_prog_container_header));
+	memset(&m_ProgHeader, 0, sizeof(cl_llvm_prog_header));
 	m_strLastError = szNone;
 }
 
-cl_int LLVMProgram::CreateProgram(const cl_prog_container* IN pContainer, ICLDevBackendProgram** OUT pProgram, LLVMProgramConfig *pConfig)
+cl_int LLVMProgram::CreateProgram(const cl_prog_container_header* IN pContainer, ICLDevBackendProgram** OUT pProgram, LLVMProgramConfig *pConfig)
 {
 	LOG_INFO("Enter");
 	// Allocate Program object
@@ -107,29 +106,21 @@ cl_int LLVMProgram::CreateProgram(const cl_prog_container* IN pContainer, ICLDev
 		LOG_ERROR("Failed to allocate program class");
 		return CL_DEV_OUT_OF_MEMORY;
 	}
+
 	const char* pIR;		// Pointer to LLVM representation
-
-	// Container is provided by user
-	if ( NULL == pContainer->container )
-	{
-		pIR = (const char*)pContainer+sizeof(cl_prog_container);
-	}
-	else
-	{
-		pIR = (const char*)pContainer->container;
-	}
-
+	pIR = (const char*)pContainer+sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+	size_t stIRsize = pContainer->container_size - sizeof(cl_llvm_prog_header);
 	// Create Memory buffer to store IR data
-	pMyProg->m_pMemBuffer = MemoryBuffer::getMemBufferCopy(pIR, pIR+pContainer->container_size);
+	pMyProg->m_pMemBuffer = MemoryBuffer::getMemBufferCopy(pIR, pIR+stIRsize);
 	if ( NULL == pMyProg->m_pMemBuffer )
 	{
-		LOG_ERROR("Failed to allocate container buffer");
+		LOG_ERROR("Failed to allocate container buffer, Exit");
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
 	// Store container information
-	memcpy(&pMyProg->m_ContainerInfo, pContainer, sizeof(cl_prog_container));
-	pMyProg->m_ContainerInfo.container = pMyProg->m_pMemBuffer->getBufferStart();
+	memcpy(&pMyProg->m_ContainerInfo, pContainer, sizeof(cl_prog_container_header));
+	memcpy(&pMyProg->m_ProgHeader, (const char*)pContainer+sizeof(cl_prog_container_header), sizeof(cl_llvm_prog_header));
 
 	LOG_INFO("Exit");
 	return CL_DEV_SUCCESS;
@@ -156,7 +147,7 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 
 	SmallVector<Function*, 16> vectFunctions;
 
-    // Create a PassManager to hold and optimize the collection of passes we are
+	// Create a PassManager to hold and optimize the collection of passes we are
     // about to build...
     //
     PassManager Passes;
@@ -164,8 +155,11 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
     // Add an appropriate TargetData instance for this module...
     Passes.add(new TargetData(pModule));
 
-    FunctionPassManager *FPasses = NULL;
+	FunctionPassManager *FPasses = NULL;
 	FPasses = new FunctionPassManager(new ExistingModuleProvider(pModule));
+
+	Pass *vectorizerPass = NULL;
+
 	FPasses->add(new TargetData(pModule));
 
 	FPasses->add(createCFGSimplificationPass());
@@ -242,7 +236,6 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 
 	Passes.add(createUnifyFunctionExitNodesPass());
 
-	Pass *vectorizerPass = NULL;
 	if( m_bUseVectorizer )
 	{
 		vectorizerPass = createVectorizerPass(g_BuiltinsModule);
@@ -253,20 +246,30 @@ cl_int LLVMProgram::OptimizeProgram(Module *pModule)
 	Passes.add(createBuiltInImportPass(LLVMBackend::GetInstance()->GetRTModule())); // Inline BI function
 	ModulePass* updatePass = createKernelUpdatePass(vectorizerPass, vectFunctions);
 	Passes.add(updatePass);
+
 #ifdef _DEBUG
 	Passes.add(createVerifierPass());
 #endif
-
 	Passes.add(createFunctionInliningPass());		// Inline small functions
 	Passes.add(createArgumentPromotionPass());		// Scalarize uninlined fn args
 	if (!DisableSimplifyLibCalls)
 		Passes.add(createSimplifyLibCallsPass());   // Library Call Optimizations
 	Passes.add(createInstructionCombiningPass());	// Cleanup for scalarrepl.
-	Passes.add(createVerifierPass());
 
+	Passes.add(createCondPropagationPass());       // Propagate conditionals
+	Passes.add(createDeadStoreEliminationPass());  // Delete dead stores
+	Passes.add(createAggressiveDCEPass());   // Delete dead instructions
+	Passes.add(createCFGSimplificationPass());     // Merge & remove BBs
+	Passes.add(createInstructionCombiningPass());	// Cleanup for scalarrepl.
+
+	Passes.add(createVerifierPass());
 	for (Module::iterator I = pModule->begin(), E = pModule->end(); I != E; ++I)
 		FPasses->run(*I);
-	delete FPasses;
+
+	if (NULL != FPasses)
+	{
+		delete FPasses;
+	}
 
 	Passes.run(*pModule);
 
@@ -333,9 +336,6 @@ LLVMKernel *LLVMProgram::CreateKernel(llvm::Function *pFunc, ConstantArray *pFun
 cl_int LLVMProgram::BuildProgram(const char* pOptions)
 {
 	LOG_INFO("Entry");
-	// Initiate log string to error
-	m_strLastError = szError;
-
 	cl_int rc;
 
 	assert(NULL != m_pMemBuffer);
@@ -344,6 +344,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 	Module *pModule = ParseBitcodeFile(m_pMemBuffer, &m_strLastError);
 	if ( NULL == pModule )
 	{
+		m_strLastError = "Failed to parse IR";
 		LOG_ERROR("ParseBitcodeFile failed <%s>", m_strLastError.c_str());
 		return CL_DEV_INVALID_BINARY;
 	}
@@ -352,7 +353,7 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 	if ( CL_DEV_FAILED(rc) )
 	{
 		LOG_ERROR("FAILED to optimize module (first)");
-		m_strLastError = "Optimization failed";
+		m_strLastError = "Program optimizations failed";
 		delete pModule;
 		return rc;
 	}
@@ -366,8 +367,6 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	m_strLastError = szBuilding;
-
 	LLVMBackend::GetInstance()->GetExecEngine()->addModuleProvider(m_pModuleProvider);
 
 	// Now after JIT is up and setup with IR, we scan module for kernels
@@ -375,8 +374,12 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 	GlobalVariable *annotation = pModule->getGlobalVariable("llvm.global.annotations");
 	if ( NULL == annotation )
 	{
+		m_strLastError = "No kernels in program";
 		return CL_DEV_SUCCESS;
 	}
+
+	m_strLastError = "Build started\n";
+
 	ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
 	std::vector<FunctionWidthPair>::iterator vecIter = VectorizedFunctions.begin();
 	for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) 
@@ -403,6 +406,8 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		LLVMKernel *pKernel = CreateKernel(pFunc, pFuncArgs);
 		if ( NULL == pKernel )
 		{
+			m_strLastError = "Can't create kernel:";
+			m_strLastError += pFunc->getName();
 			FreeMap();
 			return CL_DEV_BUILD_ERROR;
 		}
@@ -417,9 +422,9 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 		if(NULL != vTypeHint)
 		{
 			//currently if the vector_type_hint attribute is set
-			//we vectorize only for int and float types
-			if( vTypeHint != Type::Int32Ty &&
-				vTypeHint != Type::FloatTy)
+			//we types that vector length is below 4, vectorizer restriction
+			const llvm::VectorType* pVect = dyn_cast<VectorType>(vTypeHint);
+			if( ( NULL != pVect) && pVect->getNumElements() >= 4)
 			{
 				dontVectorize = true;
 			}
@@ -432,19 +437,31 @@ cl_int LLVMProgram::BuildProgram(const char* pOptions)
 			{
 				// We don't need to pass argument list here
 				LLVMKernel *pVecKernel = CreateKernel(vecIter->first, NULL);
-				if ( NULL == pKernel )
+				if ( NULL == pVecKernel )
 				{
+					m_strLastError = "Can't create vectorized kernel:";
+					m_strLastError += pFunc->getName();
 					FreeMap();
 					return CL_DEV_BUILD_ERROR;
 				}
 
 				pKernel->setVectorizerProperties(pVecKernel, vecIter->second);
+				m_strLastError += "Kernel <";
+				m_strLastError += pKernel->GetKernelName();
+				m_strLastError += "> was successfully vectorized\n";
+			}
+			if ( dontVectorize )
+			{
+				m_strLastError += "Vectorization of kernel <";
+				m_strLastError += pKernel->GetKernelName();
+				m_strLastError += "> was disabled by the developer\n";
 			}
 			vecIter++;
 		}
 	}
 	LOG_DEBUG("Iterating completed");
 
+	m_strLastError += "Done.";
 	LOG_INFO("Exit");
 	return CL_DEV_SUCCESS;
 }
@@ -468,14 +485,15 @@ cl_int	LLVMProgram::GetBuildLog(size_t* pSize, char* pLog) const
 
 // ------------------------------------------------------------------------------
 // Copies internally stored container into provided buffer
-cl_int LLVMProgram::GetContainer(size_t *pSize, cl_prog_container* pContainer) const
+cl_int LLVMProgram::GetContainer(size_t *pSize, cl_prog_container_header* pContainer) const
 {
 	if ( NULL == m_pMemBuffer )
 	{
 		return CL_DEV_INVALID_BINARY;
 	}
 
-	size_t stSize = m_pMemBuffer->getBufferSize() + sizeof(cl_prog_container);
+	size_t stSize = m_pMemBuffer->getBufferSize() +
+		sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
 	if ( NULL == pContainer)
 	{
 		assert(pSize);
@@ -485,11 +503,12 @@ cl_int LLVMProgram::GetContainer(size_t *pSize, cl_prog_container* pContainer) c
 	assert(*pSize >= stSize);
 
 	// Copy container header
-	memcpy(pContainer, &m_ContainerInfo, sizeof(cl_prog_container));
+	memcpy(pContainer, &m_ContainerInfo, sizeof(cl_prog_container_header));
+	// Copy LLVM program info
+	memcpy(((char*)pContainer)+sizeof(cl_prog_container_header), &m_ProgHeader, sizeof(cl_llvm_prog_header));
 	// Copy container content
-	memcpy(((char*)pContainer)+sizeof(cl_prog_container), m_pMemBuffer->getBufferStart(), m_pMemBuffer->getBufferSize());
-	// container pointer for user must be NULL
-	((cl_prog_container*)pContainer)->container = NULL;
+	memcpy(((char*)pContainer)+sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header),
+		m_pMemBuffer->getBufferStart(), m_pMemBuffer->getBufferSize());
 
 	return CL_DEV_SUCCESS;
 }

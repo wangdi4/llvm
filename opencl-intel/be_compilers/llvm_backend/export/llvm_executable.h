@@ -44,7 +44,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		virtual ~LLVMExecutable();
 
 		// Initialize context to with specific number of WorkItems 
-		virtual cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
+		cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
+
+		// Prepares current thread for the executable execution
+		cl_uint PrepareThread();
+		// Restores Thread state as it was before the execution
+		cl_uint RestoreThreadState();
 
 		// Releases the context object
 		void	Release();
@@ -64,6 +69,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		char*				m_pContext;
 		size_t*				m_pBaseGlobalId;
 		unsigned int		m_uiWICount;
+		
+		unsigned int		m_uiMXCSRstate; // Stores thread CSR state
+		unsigned int		m_uiCSRMask;	// Mask to be applied to set the execution flags	
+		unsigned int		m_uiCSRFlags;	// Flags to be set during execution
 	};
 
 	// Specialization of executor which executes single WI in iteration

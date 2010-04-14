@@ -27,6 +27,7 @@
 
 #include "stdafx.h"
 #include "cl_device_api.h"
+#include "llvm_program.h"
 #include "llvm_kernel.h"
 #include "llvm_binary.h"
 #include "llvm_executable.h"
@@ -38,8 +39,13 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 #define DEBUG_CHECK_MASK_SIZE	16
 
+//#define _PERF_TEST
+#ifdef _PERF_TEST
+#include "cl_sys_info.h"
+#endif
+
 LLVMExecutable::LLVMExecutable(const LLVMBinary* pBin):
-	m_pBinary(pBin), m_pContext(NULL)
+	m_pBinary(pBin), m_pContext(NULL), m_uiCSRMask(0), m_uiCSRFlags(0)
 {
 	m_pBaseGlobalId = (size_t*)_aligned_malloc(4*sizeof(size_t), 16);
 	if ( NULL != m_pBaseGlobalId )
@@ -109,7 +115,33 @@ cl_uint	LLVMExecutable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, un
 	pWIParams += 3*sizeof(size_t);
 	*((void**)pWIParams) = this;
 
+	// Set CSR flags
+	m_uiCSRMask |= _MM_FLUSH_ZERO_MASK;
+	if ( m_pBinary->m_pKernel->m_pProgram->m_ProgHeader.bDemorsAreZero)
+	{
+		m_uiCSRFlags |= _MM_FLUSH_ZERO_ON;	// OFF is default
+	}
+
+	m_uiCSRMask |= _MM_ROUND_MASK;
+	m_uiCSRFlags |= _MM_ROUND_NEAREST;	// Default
+
 	return CL_DEV_SUCCESS;
+}
+
+// Prepares current thread for the executable execution
+cl_uint LLVMExecutable::PrepareThread()
+{
+	m_uiMXCSRstate = _mm_getcsr ();
+	unsigned int uiNewFlags = (m_uiMXCSRstate & ~m_uiCSRMask) | m_uiCSRFlags;
+	_mm_setcsr(uiNewFlags);
+	return 0;
+}
+
+// Restores Thread state as it was before the execution
+cl_uint LLVMExecutable::RestoreThreadState()
+{
+	_mm_setcsr(m_uiMXCSRstate);
+	return 0;
 }
 
 cl_uint LLVMExecSingleWI::Execute(const size_t* IN pGroupId,
@@ -156,6 +188,9 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
 	*pWGid = pGroupId;
 
+#ifdef _PERF_TEST
+	unsigned long long start = Intel::OpenCL::Utils::HostTime();
+#endif
 	// Retrieve local id area
 	size_t*	pLocalId = (size_t*)((const char*)pWGid+2*sizeof(void*));
 
@@ -243,6 +278,12 @@ cl_uint LLVMExecMultipleWINoBarrier::Execute(const size_t* IN pGroupId,
 	default:
 		return CL_DEV_ERROR_FAIL;
 	}
+
+#ifdef _PERF_TEST
+	unsigned long long endTime = Intel::OpenCL::Utils::HostTime();
+	printf("WG exec. time = %llu\n", endTime-start);
+#endif
+
 	return CL_DEV_SUCCESS;
 }
 
@@ -250,6 +291,11 @@ cl_uint LLVMExecVectorizedNoBarrier::Execute(const size_t* IN pGroupId,
 											 const size_t* IN pLocalOffset, 
 											 const size_t* IN pItemsToProcess)
 {
+
+#ifdef _PERF_TEST
+	unsigned long long start = Intel::OpenCL::Utils::HostTime();
+#endif
+
 	const size_t*	*pWGid = (const size_t* *)(m_pContext+m_pBinary->GetFormalParametersSize()+2*sizeof(void*));
 	*pWGid = pGroupId;
 
@@ -394,6 +440,11 @@ cl_uint LLVMExecVectorizedNoBarrier::Execute(const size_t* IN pGroupId,
 	default:
 		return CL_DEV_ERROR_FAIL;
 	}
+
+#ifdef _PERF_TEST
+	unsigned long long endTime = Intel::OpenCL::Utils::HostTime();
+	printf("WG exec. time = %llu\n", endTime-start);
+#endif
 
 	return CL_DEV_SUCCESS;
 }
