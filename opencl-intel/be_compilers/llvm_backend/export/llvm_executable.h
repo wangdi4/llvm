@@ -44,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		virtual ~LLVMExecutable();
 
 		// Initialize context to with specific number of WorkItems 
-		cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
+		virtual cl_uint	Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
 
 		// Prepares current thread for the executable execution
 		cl_uint PrepareThread();
