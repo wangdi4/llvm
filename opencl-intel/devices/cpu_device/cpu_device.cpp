@@ -450,6 +450,19 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 		}
 
 		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG): 
+			{
+				*pinternalRetunedValueSize = sizeof(cl_uint);
+				if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
+				{
+					return CL_DEV_INVALID_VALUE;
+				}
+				//if OUT paramVal is NULL it should be ignored
+				if(NULL != paramVal)
+				{
+					*(cl_uint*)paramVal = 2;
+				}
+				return CL_DEV_SUCCESS;
+			}
 		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
 		{
 			*pinternalRetunedValueSize = sizeof(cl_uint);
@@ -460,7 +473,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
 			{
-				*(cl_uint*)paramVal = 2;
+				*(cl_uint*)paramVal = 0;	// TODO: change when double are supported
 			}
 			return CL_DEV_SUCCESS;
 		}
@@ -800,7 +813,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					*(cl_ulong*)paramVal = max(128*1024*1024, TotalVirtualSize()/2);
+					*(cl_ulong*)paramVal = max(128*1024*1024, TotalVirtualSize()/4);
 				}
 				return CL_DEV_SUCCESS;
 			}
@@ -967,7 +980,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			}
 		case( CL_DEVICE_VERSION):
 			{
-				*pinternalRetunedValueSize = strlen("OpenCL 1.0") + 1;
+				*pinternalRetunedValueSize = strlen("OpenCL 1.0 ") + 1;
 				if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 				{
 					return CL_DEV_INVALID_VALUE;
@@ -975,7 +988,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					strcpy_s((char*)paramVal, valSize, "OpenCL 1.0");
+					strcpy_s((char*)paramVal, valSize, "OpenCL 1.0 ");
 				}
 				return CL_DEV_SUCCESS; 
 			}
