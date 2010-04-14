@@ -1118,12 +1118,18 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 
 	int ret = GetWGContext(uiWorkerId)->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 	assert(ret==0);
+	GetWGContext(uiWorkerId)->GetExecutable()->PrepareThread();
 
 #ifdef _DEBUG
 	InterlockedDecrement(&m_lAttaching);
 #endif
 
 	return ret;
+}
+
+int NDRange::DetachFromThread(unsigned int uiWorkerId)
+{
+	return GetWGContext(uiWorkerId)->GetExecutable()->RestoreThreadState();
 }
 
 void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsigned int uiWorkerId)

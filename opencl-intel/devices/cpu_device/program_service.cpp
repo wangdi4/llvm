@@ -110,12 +110,12 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 cl_int ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
-	const cl_prog_container*	pProgCont = (cl_prog_container*)bin;
+	const cl_prog_container_header*	pProgCont = (cl_prog_container_header*)bin;
 
 	InfoLog(m_logDescriptor, m_iLogHandle, L"CheckProgramBinary enter");
 
 	// Check container size
-	if ( sizeof(cl_prog_container) > binSize )
+	if ( sizeof(cl_prog_container_header) > binSize )
 	{
 		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid Binary Size was provided");
 		return CL_DEV_INVALID_BINARY;
@@ -206,7 +206,7 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 	}
 
 	// Create new program
-	const cl_prog_container*	pProgCont = (cl_prog_container*)bin;
+	const cl_prog_container_header*	pProgCont = (cl_prog_container_header*)bin;
 	TProgramEntry*	pEntry		= new TProgramEntry;
 	if ( NULL == pEntry )
 	{
@@ -499,7 +499,7 @@ cl_int ProgramService::GetProgramBinary( cl_dev_program IN prog,
 	}
 
 	cl_int ret = 0;
-	ret = pProg->GetContainer(&stSize, (cl_prog_container*)binary);
+	ret = pProg->GetContainer(&stSize, (cl_prog_container_header*)binary);
 	return ret;
 }
 
