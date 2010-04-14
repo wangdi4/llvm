@@ -433,6 +433,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			}
 			return CL_DEV_SUCCESS;
 		}
+		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):// FALL THROUGH
 		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):
 		{
 			*pinternalRetunedValueSize = sizeof(cl_uint);
@@ -448,30 +449,8 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			return CL_DEV_SUCCESS;
 		}
 
-		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):// FALL THROUGH
-		{
-			*pinternalRetunedValueSize = sizeof(cl_uint);
-			if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
-			{
-				return CL_DEV_INVALID_VALUE;
-			}
-			//if OUT paramVal is NULL it should be ignored
-			if(NULL != paramVal)
-			{
-				// get the CPU info
-				__cpuid(viCPUInfo, 1);
-				if(viCPUInfo[2] & 0x8000000)
-				{
- 					*(cl_uint*)paramVal = 8;
-				}
-				else
-				{
- 					*(cl_uint*)paramVal = 4;
-				}				}
-			return CL_DEV_SUCCESS;
-		}
-
 		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG): 
+		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
 		{
 			*pinternalRetunedValueSize = sizeof(cl_uint);
 			if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
@@ -483,28 +462,6 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			{
 				*(cl_uint*)paramVal = 2;
 			}
-			return CL_DEV_SUCCESS;
-		}
-		case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
-		{
-			*pinternalRetunedValueSize = sizeof(cl_uint);
-			if(NULL != paramVal && valSize != *pinternalRetunedValueSize)
-			{
-				return CL_DEV_INVALID_VALUE;
-			}
-			//if OUT paramVal is NULL it should be ignored
-			if(NULL != paramVal)
-			{
-				// get the CPU info
-				__cpuid(viCPUInfo, 1);
-				if(viCPUInfo[2] & 0x8000000)
-				{
- 					*(cl_uint*)paramVal = 4; 
-				}
-				else
-				{
- 					*(cl_uint*)paramVal = 2;
-				}				}
 			return CL_DEV_SUCCESS;
 		}
 	
@@ -843,7 +800,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 				//if OUT paramVal is NULL it should be ignored
 				if(NULL != paramVal)
 				{
-					*(cl_ulong*)paramVal = max(128*1024*1024, TotalVirtualSize()/4);
+					*(cl_ulong*)paramVal = max(128*1024*1024, TotalVirtualSize()/2);
 				}
 				return CL_DEV_SUCCESS;
 			}
