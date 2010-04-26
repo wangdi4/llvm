@@ -6,7 +6,11 @@
 #define __CL_KERNEL_H
 
 // Macro machinery for C-based type overloading of builtin functions
-
+#ifdef __FAST_RELAXED_MATH__
+#define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, __##R##rd, __##R##rd2, __##R##rd3, __##R##rd4, __##R##rd8, __##R##rd16 )
+#else
+#define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
+#endif
 
 // 1 -Parameter
 #define __CLFN_F1(x,R)		__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,		 __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
@@ -1252,7 +1256,7 @@ size_t get_group_id(unsigned int);
 #define rootn(x,y) __CLFN_F2(x,y,rootn)
 #define ldexp(x,y) __CLFN_F2(x,y,ldexp)
 #define pown(x,y) __CLFN_F2(x,y,pown)
-#define fmod(X,Y)     __CLFN_F2_D(X,Y,fmod)
+#define fmod(X,Y)     __CLFN_F2_D_R(X,Y,fmod)
 
 // 3 -Parameters
 #define mad(X,Y,Z)     __CLFN_F3(X,Y,Z,mad)
