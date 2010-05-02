@@ -39,6 +39,17 @@ using namespace Intel::OpenCL::Utils;
 #define VECTOR_RESERVE 16
 #endif
 
+#ifdef __WIN_XP__
+unsigned int g_uiWorkerIdInx = -1;
+#else
+__declspec(thread) unsigned int t_uiWorkerId = -1;
+#endif
+
+//The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
+//The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
+//When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
+static volatile LONG gThreadAvailabilityMask = 0;
+
 //! global TBB task scheduler objects
 unsigned int					gTBB_threads = 0;
 // Make TBB init class and WG executor thread local
@@ -50,14 +61,56 @@ volatile long	g_ulThreadEnum;
 // Worker thread id
 DWORD g_dwMainThreadId;
 
-#ifdef __WIN_XP__
-unsigned int g_uiWorkerIdInx = -1;
-#else
-__declspec(thread) unsigned int t_uiWorkerId = -1;
-#endif
-
 // Logger
 DECLARE_LOGGER_CLIENT;
+
+//Implementation of the interface to be notified on thread addition/removal from the working thread pool
+class ThreadIDAssigner : public tbb::task_scheduler_observer
+{
+public:
+	ThreadIDAssigner() : tbb::task_scheduler_observer() {}
+	~ThreadIDAssigner() {}
+
+	virtual void on_scheduler_entry( bool is_worker )
+	{
+		if (!is_worker) return;
+
+		unsigned int uiWorkerId = 0;
+		bool canExit = false;
+		while (uiWorkerId < gTBB_threads - 1)
+		{
+			canExit = InterlockedBitTestAndReset(&gThreadAvailabilityMask, uiWorkerId);
+			if (canExit) break;
+			++uiWorkerId;
+		}
+		assert(uiWorkerId < gTBB_threads - 1);
+#ifdef __WIN_XP__
+		TlsSetValue(g_uiWorkerIdInx, (void*)uiWorkerId);
+#else
+		t_uiWorkerId = uiWorkerId;
+#endif 
+
+	}
+	virtual void on_scheduler_exit( bool is_worker )
+	{
+		if (!is_worker) return;
+
+		assert(t_uiWorkerId != -1);
+
+		bool prevVal;
+		prevVal = InterlockedBitTestAndSet(&gThreadAvailabilityMask, t_uiWorkerId);
+		//Just for extra safety, make sure we're not relinquishing an ID somebody already relinquished
+		assert(prevVal);
+#ifdef __WIN_XP__
+		TlsSetValue(g_uiWorkerIdInx, (void*)-1);
+#else
+		t_uiWorkerId = -1;
+#endif 
+	}
+};
+
+//A singleton copy of the observer class
+static ThreadIDAssigner gThreadPoolChangeObserver;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -406,32 +459,8 @@ TBBTaskExecutor::~TBBTaskExecutor()
 #ifdef __WIN_XP__
 	TlsFree(g_uiWorkerIdInx);
 #endif
+	gThreadPoolChangeObserver.observe(false); 
 }
-
-tbb::atomic<unsigned int> _barrier_cnt;
-struct barrier {
-	barrier(unsigned int n) { _barrier_cnt = n; }
-	void operator()(unsigned int) const {
-		if (g_dwMainThreadId == GetCurrentThreadId() )
-		{
-			// Main thread is not for execution
-#ifdef __WIN_XP__
-			TlsSetValue(g_uiWorkerIdInx, (void*)-1);
-#else
-			t_uiWorkerId = -1;
-#endif
-		} else
-		{
-			unsigned int uiWrkId = --_barrier_cnt;
-#ifdef __WIN_XP__
-			TlsSetValue(g_uiWorkerIdInx, (void*)uiWrkId);
-#else
-			t_uiWorkerId = uiWrkId;
-#endif
-		}
-		while(_barrier_cnt);
-	}
-};
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 {
@@ -446,13 +475,18 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 		{
 			gTBB_threads = uiNumThreads + 1;
 		}
-		
-		gTBB_init = new tbb::task_scheduler_init( gTBB_threads );
-		gTBB_executor = new tbb::task_group();
-		// wait threads to warm up. Allocate thread id's
+
+		//Initialize the "available threads" mask
+		gThreadAvailabilityMask = (1 << (gTBB_threads - 1)) - 1;
+
 		// Store current thread id
 		g_dwMainThreadId = GetCurrentThreadId();
-		tbb::parallel_for(0U, gTBB_threads, 1U, barrier(gTBB_threads-1));
+
+		//Enable observation of thread addition/removal from the working thread pool
+		gThreadPoolChangeObserver.observe(); 
+
+		gTBB_init = new tbb::task_scheduler_init( gTBB_threads );
+		gTBB_executor = new tbb::task_group();
 	}
 	else
 	{
