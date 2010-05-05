@@ -645,7 +645,7 @@ void CompileTask::Execute()
 	{
 		memcpy_s(pBegin, stTotalSize, m_pTask->ppsLineArray[i], m_pTask->pLengths[i]);
 #ifdef _SAVE_TO_FILE
-		fwrite(pBegin, stTotalSize, 1, pFile);
+		fwrite(pBegin, m_pTask->pLengths[i], 1, pFile);
 #endif
 		stTotalSize -= m_pTask->pLengths[i];
 		pBegin += m_pTask->pLengths[i];
