@@ -7,20 +7,30 @@
 
 // Macro machinery for C-based type overloading of builtin functions
 #ifdef __FAST_RELAXED_MATH__
-#define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, __##R##rd, __##R##rd2, __##R##rd3, __##R##rd4, __##R##rd8, __##R##rd16 )
+#define __CLFN_F1_R(x,R)			__builtin_overload(1, x,    __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, R,		  __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
+#define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
+#define __CLFN_F2_R(x,y,R)			__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, R,        __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #else
+#define __CLFN_F1_R(x,R)			__builtin_overload(1, x,    __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,		__##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
+#define __CLFN_F2_R(x,y,R)			__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,	    __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #endif
 
 // 1 -Parameter
 #define __CLFN_F1(x,R)		__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,		 __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F1_D(x,R)	__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F1_NH(x,R)	__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16 )
+#define __CLFN_F1_N_R(x,R)	__builtin_overload(1, x, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
+#define __CLFN_F1_H_R(x,R)	__builtin_overload(1, x, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
+
 
 // 2 -Parameter
 #define __CLFN_F2(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,	    __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_D(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_NH(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4,__##R##f8, __##R##f16 )
+#define __CLFN_F2_N_R(x,y,R)	__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4,__##R##rf8, __##R##rf16 )
+#define __CLFN_F2_H_R(x,y,R)	__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
+
 
 
 // 3 -Parameters
@@ -1170,7 +1180,7 @@ size_t get_group_id(unsigned int);
 // 1 -Parameter
 #define sinpi(X)     __CLFN_F1(X,sinpi)
 #define cospi(X)     __CLFN_F1(X,cospi)
-#define ilogb(X)     __CLFN_F1(X,ilogb)
+#define ilogb(X)     __CLFN_F1_R(X,ilogb)
 #define tanpi(X)     __CLFN_F1(X,tanpi)
 #define asinpi(X)     __CLFN_F1(X,asinpi)
 #define acospi(X)     __CLFN_F1(X,acospi)
@@ -1188,8 +1198,8 @@ size_t get_group_id(unsigned int);
 #define exp2(X)				__CLFN_F1(X,exp2)
 #define native_exp2(X)		__CLFN_F1_NH(X,exp2)
 #define half_exp2(X)		__CLFN_F1_NH(X,exp2)
-#define native_recip(X)		__CLFN_F1_NH(X,native_recip)
-#define half_recip(X)		__CLFN_F1_NH(X,half_recip)
+#define native_recip(X)		__CLFN_F1_N_R(X,native_recip)
+#define half_recip(X)		__CLFN_F1_H_R(X,half_recip)
 #define exp10(X)			__CLFN_F1(X,exp10)
 #define native_exp10(X)     __CLFN_F1_NH(X,exp10)
 #define half_exp10(X)		__CLFN_F1_NH(X,exp10)
@@ -1213,17 +1223,17 @@ size_t get_group_id(unsigned int);
 #define log2(X)				__CLFN_F1(X,log2)
 #define native_log2(X)		__CLFN_F1_NH(X,log2)
 #define half_log2(X)		__CLFN_F1_NH(X,log2)				
-#define sqrt(X)				__CLFN_F1(X,sqrt)
-#define native_sqrt(X)		__CLFN_F1_NH(X,sqrt)
-#define half_sqrt(X)		__CLFN_F1_NH(X,sqrt)
+#define sqrt(X)				__CLFN_F1_R(X,sqrt)
+#define native_sqrt(X)		__CLFN_F1_R(X,sqrt)
+#define half_sqrt(X)		__CLFN_F1_H_R(X,sqrt)
 #define rint(X)		__CLFN_F1(X,rint)			
-#define rsqrt(X)			__CLFN_F1(X,rsqrt)			
-#define native_rsqrt(X)		__CLFN_F1_NH(X,rsqrt)
-#define half_rsqrt(X)		__CLFN_F1_NH(X,rsqrt)
-#define logb(X)		__CLFN_F1(X,logb)			
-#define log1p(X)		__CLFN_F1(X,log1p)			
-#define lgamma(X)     __CLFN_F1(X,lgamma)	   
-#define tgamma(X)     __CLFN_F1(X,tgamma)	    
+#define rsqrt(X)			__CLFN_F1_R(X,rsqrt)			
+#define native_rsqrt(X)		__CLFN_F1_R(X,rsqrt)
+#define half_rsqrt(X)		__CLFN_F1_H_R(X,rsqrt)
+#define logb(X)				__CLFN_F1_R(X,logb)			
+#define log1p(X)			__CLFN_F1(X,log1p)			
+#define lgamma(X)			__CLFN_F1(X,lgamma)	   
+#define tgamma(X)			__CLFN_F1(X,tgamma)	    
 
 #define sin(X)				__CLFN_F1_D(X,sin)
 #define native_sin(X)		__CLFN_F1_NH(X,sin)
@@ -1237,8 +1247,8 @@ size_t get_group_id(unsigned int);
 
 // 2 -Parameters  ,  FFF
 
-#define half_divide(X,Y)	__CLFN_F2_NH(X,Y,half_divide)
-#define native_divide(X,Y)	__CLFN_F2_NH(X,Y,native_divide)
+#define half_divide(X,Y)	__CLFN_F2_H_R(X,Y,half_divide)
+#define native_divide(X,Y)	__CLFN_F2_N_R(X,Y,native_divide)
 #define powr(X,Y)			__CLFN_F2(X,Y,powr)
 #define native_powr(X,Y)    __CLFN_F2_NH(X,Y,powr)
 #define half_powr(X,Y)		__CLFN_F2_NH(X,Y,powr)
@@ -1249,10 +1259,17 @@ size_t get_group_id(unsigned int);
 #define atan2pi(X,Y)     __CLFN_F2(X,Y,atan2pi)
 #define copysign(X,Y)     __CLFN_F2(X,Y,copysign)
 #define pow(X,Y)     __CLFN_F2(X,Y,pow)
-#define fdim(X,Y)     __CLFN_F2(X,Y,fdim)
+#define fdim(X,Y)     __CLFN_F2_R(X,Y,fdim)
 
+#ifdef __FAST_RELAXED_MATH__
+#define fmax(X,Y)     __builtin_overload(2, X, Y, __fmaxrf, __fmaxrf2, __fmaxrf3, __fmaxrf4, __fmaxrf8, __fmaxrf16, __fmaxrff2, __fmaxrff3, __fmaxrff4, __fmaxrff8, __fmaxrff16, fmax, __fmaxd2, __fmaxd3, __fmaxd4, __fmaxd8, __fmaxd16, __fmaxdd2, __fmaxdd3, __fmaxdd4, __fmaxdd8, __fmaxdd16 )
+#define fmin(X,Y)     __builtin_overload(2, X, Y, __fminrf, __fminrf2, __fminrf3, __fminrf4, __fminrf8, __fminrf16, __fminrff2, __fminrff3, __fminrff4, __fminrff8, __fminrff16, fmin, __fmind2, __fmind3, __fmind4, __fmind8, __fmind16, __fmindd2, __fmindd3, __fmindd4, __fmindd8, __fmindd16 )
+#else
 #define fmax(X,Y)     __builtin_overload(2, X, Y, __fmaxf, __fmaxf2, __fmaxf3, __fmaxf4, __fmaxf8, __fmaxf16, __fmaxff2, __fmaxff3, __fmaxff4, __fmaxff8, __fmaxff16, fmax, __fmaxd2, __fmaxd3, __fmaxd4, __fmaxd8, __fmaxd16, __fmaxdd2, __fmaxdd3, __fmaxdd4, __fmaxdd8, __fmaxdd16 )
-#define fmin(X,Y)     __builtin_overload(2, X, Y, __fminf, __fminf2, __fminf4, __fminf8, __fminf16, __fminff2, __fminff3, __fminff4, __fminff8, __fminff16, fmin, __fmind2, __fmind3, __fmind4, __fmind8, __fmind16, __fmindd2, __fmindd4, __fmindd8, __fmindd16 )
+#define fmin(X,Y)     __builtin_overload(2, X, Y, __fminf, __fminf2, __fminf3, __fminf4, __fminf8, __fminf16, __fminff2, __fminff3, __fminff4, __fminff8, __fminff16, fmin, __fmind2, __fmind3, __fmind4, __fmind8, __fmind16, __fmindd2, __fmindd3, __fmindd4, __fmindd8, __fmindd16 )
+#endif
+
+
 #define rootn(x,y) __CLFN_F2(x,y,rootn)
 #define ldexp(x,y) __CLFN_F2(x,y,ldexp)
 #define pown(x,y) __CLFN_F2(x,y,pown)
@@ -1305,14 +1322,21 @@ size_t get_group_id(unsigned int);
 
 
 
-
-#define fract(X,Y)   __builtin_overload( 2, X, Y, __fractf, __fractf2, __fractf3, __fractf4, __fractf8, __fractf16, \
-                                                        fract, __fractd2, __fractd3, __fractd4, __fractd8, __fractd16,\
-                                                        __fractgf, __fractgf2, __fractgf3, __fractgf4, __fractgf8, __fractgf16,\
-                                                        __fractgd, __fractgd2, __fractgd3, __fractgd4, __fractgd8, __fractgd16,\
-                                                        __fractlf, __fractlf2, __fractlf3, __fractlf4, __fractlf8, __fractlf16,\
-                                                        __fractld, __fractld2, __fractld3, __fractld4, __fractld8, __fractld16)
-
+#ifdef __FAST_RELAXED_MATH__
+#define fract(X,Y)   __builtin_overload( 2, X, Y, __fractrf,  __fractrf2,  __fractrf3,  __fractrf4,  __fractrf8,  __fractrf16, \
+                                                    fract,    __fractd2,   __fractd3,   __fractd4,   __fractd8,   __fractd16,\
+                                                  __fractrgf, __fractrgf2, __fractrgf3, __fractrgf4, __fractrgf8, __fractrgf16,\
+                                                  __fractgd,  __fractgd2,  __fractgd3,  __fractgd4,  __fractgd8,  __fractgd16,\
+                                                  __fractrlf, __fractrlf2, __fractrlf3, __fractrlf4, __fractrlf8, __fractrlf16,\
+                                                  __fractld,  __fractld2,  __fractld3,  __fractld4,  __fractld8,  __fractld16)
+#else
+#define fract(X,Y)   __builtin_overload( 2, X, Y, __fractf,  __fractf2,  __fractf3,  __fractf4,  __fractf8,  __fractf16, \
+                                                    fract,   __fractd2,  __fractd3,  __fractd4,  __fractd8,  __fractd16,\
+                                                  __fractgf, __fractgf2, __fractgf3, __fractgf4, __fractgf8, __fractgf16,\
+                                                  __fractgd, __fractgd2, __fractgd3, __fractgd4, __fractgd8, __fractgd16,\
+                                                  __fractlf, __fractlf2, __fractlf3, __fractlf4, __fractlf8, __fractlf16,\
+                                                  __fractld, __fractld2, __fractld3, __fractld4, __fractld8, __fractld16)
+#endif
 	
 							
 													
