@@ -100,6 +100,7 @@ struct _16u32 { __m128i a; __m128i b;__m128i c; __m128i d;};
 
 //long - 64 bit
 typedef __int64		_1i64;
+struct	_1i64ret { int lo; int hi;};
 typedef __m128i		_2i64;
 struct _4i64 { __m128i a; __m128i b;};
 struct _8i64 { __m128i a; __m128i b;__m128i c; __m128i d;};
@@ -108,6 +109,7 @@ __m128i e; __m128i f;__m128i g; __m128i h;};
 
 //ulong 64 bit
 typedef unsigned __int64	_1u64;
+struct	_1u64ret { unsigned int lo; unsigned int hi;};
 typedef __m128i				_2u64;
 struct _4u64 { __m128i a; __m128i b;};
 struct _8u64 { __m128i a; __m128i b;__m128i c; __m128i d;};
