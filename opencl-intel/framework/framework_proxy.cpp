@@ -187,7 +187,7 @@ void FrameworkProxy::Initialize()
 
 	// Initialize TaskExecutor
 	LOG_INFO(L"Initialize Executor");
-	GetTaskExecutor()->Init(0);
+	GetTaskExecutor()->Init(m_pConfig->GetNumWorkerThreads());
 
 }
 

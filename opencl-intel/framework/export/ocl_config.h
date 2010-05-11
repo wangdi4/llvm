@@ -38,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define CL_CONFIG_DEFAULT_DEVICE		"CL_CONFIG_DEFAULT_DEVICE"		// string
 #define	CL_CONFIG_FE_COMPILERS			"CL_CONFIG_FE_COMPILERS"		// string (use tokenize to get substrings)
 #define CL_CONFIG_DEFAULT_FE_COMPILER	"CL_CONFIG_DEFAULT_FE_COMPILER"	// string
-
+#define CL_CONFIG_NUM_WORKER_THREADS	"CL_CONFIG_NUM_WORKER_THREADS"	// int
 	
 	/**********************************************************************************************
 	* Class name:	OCLConfig
@@ -59,7 +59,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		string		   GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, "C:\\cl.log"); }
 		bool		   UseLogger() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false); }
-		
+		int			   GetNumWorkerThreads() const { return m_pConfigFile->Read<int>(CL_CONFIG_NUM_WORKER_THREADS, 0); }
+
 		vector<string> GetDevices(string& default_device);
 		string         GetDefaultDevice() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device.dll"); }
 		vector<string> GetFeCompilers(string& default_compiler);
