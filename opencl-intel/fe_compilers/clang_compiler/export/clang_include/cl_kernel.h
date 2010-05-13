@@ -10,12 +10,16 @@
 #define __CLFN_F1_R(x,R)			__builtin_overload(1, x,    __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, R,		  __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_R(x,y,R)			__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16, R,        __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F2_NH_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4,__##R##rf8, __##R##rf16 )
+#define __CLFN_F1_H_R(x,R)			__builtin_overload(1, x,	__##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
+#define __CLFN_F2_H_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
+//#define __CLFN_F2_NH_R(x,y,R)		__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4,__##R##rf8, __##R##rf16 )
 #else
 #define __CLFN_F1_R(x,R)			__builtin_overload(1, x,    __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,		__##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_D_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_R(x,y,R)			__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, R,	    __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
-#define __CLFN_F2_NH_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4,__##R##f8, __##R##f16 )
+#define __CLFN_F1_H_R(x,R)			__builtin_overload(1, x,	__##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16 )
+#define __CLFN_F2_H_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16 )
+//#define __CLFN_F2_NH_R(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4,__##R##f8, __##R##f16 )
 #endif
 
 // 1 -Parameter
@@ -23,7 +27,6 @@
 #define __CLFN_F1_D(x,R)	__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F1_NH(x,R)	__builtin_overload(1, x, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16 )
 #define __CLFN_F1_N_R(x,R)	__builtin_overload(1, x, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
-#define __CLFN_F1_H_R(x,R)	__builtin_overload(1, x, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
 
 
 // 2 -Parameter
@@ -31,7 +34,6 @@
 #define __CLFN_F2_D(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16, __##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16 )
 #define __CLFN_F2_NH(x,y,R)		__builtin_overload(2, x, y, __##R##f, __##R##f2, __##R##f3, __##R##f4,__##R##f8, __##R##f16 )
 #define __CLFN_F2_N_R(x,y,R)	__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4,__##R##rf8, __##R##rf16 )
-#define __CLFN_F2_H_R(x,y,R)	__builtin_overload(2, x, y, __##R##rf, __##R##rf2, __##R##rf3, __##R##rf4, __##R##rf8, __##R##rf16 )
 
 
 
@@ -1249,7 +1251,7 @@ size_t get_group_id(unsigned int);
 
 // 2 -Parameters  ,  FFF
 
-#define half_divide(X,Y)	__CLFN_F2_NH_R(X,Y,half_divide)
+#define half_divide(X,Y)	__CLFN_F2_H_R(X,Y,half_divide)
 #define native_divide(X,Y)	__CLFN_F2_N_R(X,Y,native_divide)
 #define powr(X,Y)			__CLFN_F2(X,Y,powr)
 #define native_powr(X,Y)    __CLFN_F2_NH(X,Y,powr)
