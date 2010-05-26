@@ -140,16 +140,8 @@ struct double16
 };
 
 
-/// SVML types
-struct double2_svml	
-{	
-	__m128d  a;	
-};
 
-struct _2i32_svml	{	__m128i	a;	} ;
-struct _4i32_svml	{	__m128i	a;	} ;
-struct _8i32_svml	{	__m128i	a; __m128i	b;	} ;
-struct _16i32_svml	{	__m128i	a; __m128i	b; __m128i	c; __m128i	d;	} ;
+
 struct float2_svml	{	__m128  a;	} ;
 struct float4_svml	{	__m128	a;	} ;
 struct float8_svml	{	__m128	a;	} ;
@@ -232,16 +224,6 @@ typedef float8		float4x2_svml;
 
 
 
-/// SVML types
-struct double2_svml	
-{	
-	__m128d  a;	
-};
-
-struct _2i32_svml	{	__m128i	a;	} ;
-struct _4i32_svml	{	__m128i	a;	} ;
-struct _8i32_svml	{	__m128i	a; __m128i	b;	} ;
-struct _16i32_svml	{	__m128i	a; __m128i	b; __m128i	c; __m128i	d;	} ;
 
 
 #endif
