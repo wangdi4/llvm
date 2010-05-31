@@ -123,6 +123,11 @@ typedef short half;
 
 //Double definition should be moved to cl_types when implemented
 typedef __m128d double2;
+struct double2_svml
+{
+	 __m128d a;
+};
+
 struct double4
 {
 	__m128d	a; __m128d	b;
@@ -138,10 +143,7 @@ struct double16
 };
 
 /// SVML types
-struct _2i32_svml	{	__m128i	a;	} ;
-struct _4i32_svml	{	__m128i	a;	} ;
-struct _8i32_svml	{	__m128i	a; __m128i	b;	} ;
-struct _16i32_svml	{	__m128i	a; __m128i	b; __m128i	c; __m128i	d;	} ;
+
 struct float2_svml	{	__m128  a;	} ;
 struct float4_svml	{	__m128	a;	} ;
 struct float8_svml	{	__m128	a;	} ;
@@ -151,6 +153,7 @@ struct float2x2_svml {   __m128 a; __m128 b;  } ;
 struct float4x2_svml {   float4 a; float4 b;  } ;
 struct float8x2_svml {   float8 r1; float8 r2;  } ;
 struct float16x2_svml {   float16 r1; float16 r2;  } ;
+
 
 #else
 
@@ -214,4 +217,10 @@ struct float16x2_svml {   float16 r1; float16 r2;  } ;
 typedef float8		float1x2_svml;
 typedef float8		float2x2_svml;
 typedef float8		float4x2_svml;
+
+struct double2_svml
+{
+	 double2 a;
+};
+
 #endif
