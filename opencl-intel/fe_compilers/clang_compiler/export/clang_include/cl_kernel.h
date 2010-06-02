@@ -1317,8 +1317,8 @@ size_t get_group_id(unsigned int);
 
 
 
-#define modf(X,Y)   __builtin_overload( 2, X, Y, __modff, __modff2, __modff3, __modff4, __modff8, __modff16, \
-                                                        modf, __modfd2, __modfd3, __modfd4, __modfd8, __modfd16,\
+#define modf(X,Y)   __builtin_overload( 2, X, Y,		__modff,  __modff2,  __modff3, __modff4, __modff8, __modff16, \
+                                                        __modfd,  __modfd2,  __modfd3, __modfd4, __modfd8, __modfd16,\
                                                         __modfgf, __modfgf2, __modfgf3, __modfgf4, __modfgf8, __modfgf16,\
                                                         __modfgd, __modfgd2, __modfgd3, __modfgd4, __modfgd8, __modfgd16,\
                                                         __modflf, __modflf2, __modflf3, __modflf4, __modflf8, __modflf16,\
