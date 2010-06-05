@@ -230,6 +230,7 @@ EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "harness", "..\validation\types\conformance_test_type\test_common\harness\harness.icproj", "{698B884D-27F6-4C73-AEA7-251AC57D8FB3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test_conformance", "test_conformance", "{2D63133B-7345-4F50-934A-F67C6E580C6C}"
@@ -1367,12 +1368,12 @@ Global
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Debug|x64.ActiveCfg = Debug|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|Win32.ActiveCfg = Release|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|x64.ActiveCfg = Release|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Configure|Win32.ActiveCfg = Release|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Configure|x64.ActiveCfg = Release|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Debug|Win32.ActiveCfg = Debug|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Debug|x64.ActiveCfg = Debug|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Release|Win32.ActiveCfg = Release|Win32
-		{402AF226-32EA-469E-B928-D9B6A08B75F3}.Release|x64.ActiveCfg = Release|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Configure|Win32.ActiveCfg = Release|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Configure|x64.ActiveCfg = Release|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Debug|x64.ActiveCfg = Debug|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Release|Win32.ActiveCfg = Release|Win32
+		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Release|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|Win32.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Debug|Win32.ActiveCfg = Debug|Win32
