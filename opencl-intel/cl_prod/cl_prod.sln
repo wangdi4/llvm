@@ -210,18 +210,21 @@ EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "api", "..\validation\types\conformance_test_type\test_conformance\api\api.icproj", "{B50AA371-E633-4024-AE42-C54C3CE364DE}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "events", "..\validation\types\conformance_test_type\test_conformance\events\events.icproj", "{38B665E8-3D04-497D-A619-DE9C24EF39FE}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "computeinfo", "..\validation\types\conformance_test_type\test_conformance\computeinfo\computeinfo.icproj", "{65E4BD9B-202F-4ABC-BD19-BC37FE94BAC9}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
@@ -238,112 +241,134 @@ EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "basic", "..\validation\types\conformance_test_type\test_conformance\basic\basic.icproj", "{B680601E-B812-490B-ADE8-542125252A0C}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "buffers", "..\validation\types\conformance_test_type\test_conformance\buffers\buffers.icproj", "{C7509A63-B18F-491C-8322-4F82F92BE641}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "math_brute_force", "..\validation\types\conformance_test_type\test_conformance\math_brute_force\math_brute_force.icproj", "{57BFC7C8-45B1-4CB6-8DD5-449EAC51F778}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F6FAD02-0312-4CDA-A655-44433D346904} = {6F6FAD02-0312-4CDA-A655-44433D346904}
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "compiler", "..\validation\types\conformance_test_type\test_conformance\compiler\compiler.icproj", "{71AC0FB6-6D9E-4035-8D25-71706A96F8C0}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "commonfns", "..\validation\types\conformance_test_type\test_conformance\commonfns\commonfns.icproj", "{45918668-49A6-4838-81C5-EAEC1E8BA9DC}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "geometrics", "..\validation\types\conformance_test_type\test_conformance\geometrics\geometrics.icproj", "{352CBA1D-6AA0-41D9-9C08-4F8EDE8AA78C}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "relationals", "..\validation\types\conformance_test_type\test_conformance\relationals\relationals.icproj", "{A0F333FB-2312-4FD6-9A60-E73F98E8CA56}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "thread_dimensions", "..\validation\types\conformance_test_type\test_conformance\thread_dimensions\thread_dimensions.icproj", "{F856607F-F7D7-4580-BD2B-0D5AD46097AD}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "images_api_info", "..\validation\types\conformance_test_type\test_conformance\images\clGetInfo\images_api_info.icproj", "{E79C6247-FCC8-4507-B590-D3B38FF1FDA3}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "images_kernel_methods", "..\validation\types\conformance_test_type\test_conformance\images\kernel_image_methods\images_kernel_methods.icproj", "{A697195E-2413-47AC-9BD6-2DE12A3EBA33}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "atomics", "..\validation\types\conformance_test_type\test_conformance\atomics\atomics.icproj", "{1BC324B6-7885-4475-AC90-7E61D5EA6BB2}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "multiple_device_context", "..\validation\types\conformance_test_type\test_conformance\multiple_device_context\multiple_device_context.icproj", "{78F6DA83-D94F-4CBE-98C1-3B155DD46130}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "profiling", "..\validation\types\conformance_test_type\test_conformance\profiling\profiling.icproj", "{404CD545-B6B4-41DA-BB3E-6FDADBFA52AB}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "allocations", "..\validation\types\conformance_test_type\test_conformance\allocations\allocations.icproj", "{EE490EA3-3CAB-4991-8C27-4D63E8A68CA6}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "images_copy_images", "..\validation\types\conformance_test_type\test_conformance\images\clCopyImage\images_copy_images.icproj", "{266A3E54-1D28-45B8-932A-0E46DE5291CC}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "images_kernel_read_write", "..\validation\types\conformance_test_type\test_conformance\images\kernel_read_write\images_kernel_read_write.icproj", "{14816B4F-4A6A-4CB8-960B-54C838C4AE28}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "images_read_write", "..\validation\types\conformance_test_type\test_conformance\images\clReadWriteImage\images_read_write.icproj", "{0DA667AC-87B7-44EA-AB12-51512F0275ED}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "select", "..\validation\types\conformance_test_type\test_conformance\select\select.icproj", "{4ADE16D3-7C61-45AD-900F-E8C04AB7D7E7}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "conversions", "..\validation\types\conformance_test_type\test_conformance\conversions\conversions.icproj", "{1789E86D-AC50-4C5E-B0C4-1F4B977C95D8}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "contractions", "..\validation\types\conformance_test_type\test_conformance\contractions\contractions.icproj", "{6FB1753A-BC4E-408E-800B-A846461C12DD}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "integer_ops", "..\validation\types\conformance_test_type\test_conformance\integer_ops\integer_ops.icproj", "{F7ADF552-DFD8-492F-A671-618B23C23EC5}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
 Project("{EAF909A5-FA59-4C3D-9431-0FCC20D5BCF9}") = "half", "..\validation\types\conformance_test_type\test_conformance\half\half.icproj", "{61A40DED-FA72-4F7C-B0B7-D81C0E9BCE81}"
 	ProjectSection(ProjectDependencies) = postProject
+		{BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357} = {BB511E3F-81C2-4D8E-B0AF-6A74C9F2E357}
 		{698B884D-27F6-4C73-AEA7-251AC57D8FB3} = {698B884D-27F6-4C73-AEA7-251AC57D8FB3}
 	EndProjectSection
 EndProject
@@ -1368,12 +1393,12 @@ Global
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Debug|x64.ActiveCfg = Debug|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|Win32.ActiveCfg = Release|Win32
 		{FA08B39E-2003-4229-9836-B4A0E36F1860}.Release|x64.ActiveCfg = Release|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Configure|Win32.ActiveCfg = Release|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Configure|x64.ActiveCfg = Release|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Debug|Win32.ActiveCfg = Debug|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Debug|x64.ActiveCfg = Debug|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Release|Win32.ActiveCfg = Release|Win32
-		{5C1F22D8-96DD-4C82-B574-9AD423A1FD50}.Release|x64.ActiveCfg = Release|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Configure|Win32.ActiveCfg = Release|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Configure|x64.ActiveCfg = Release|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Debug|x64.ActiveCfg = Debug|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Release|Win32.ActiveCfg = Release|Win32
+		{0FDC70CB-C900-47AD-9937-527FDD4A4D0F}.Release|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|Win32.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Configure|x64.ActiveCfg = Release|Win32
 		{CAE82A6A-1AE3-458F-82A7-99C5476C2236}.Debug|Win32.ActiveCfg = Debug|Win32
