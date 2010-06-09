@@ -559,7 +559,7 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 								   cl_uint uiNumDevices, 
 								   const cl_device_id * pclDeviceList, 
 								   const char * pcOptions, 
-								   void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), 
+								   void (*pfn_notify)(cl_program program, void * user_data), 
 								   void * pUserData)
 {
 	//cl_start;

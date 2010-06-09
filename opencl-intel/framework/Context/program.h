@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code Build(	cl_uint					uiNumDevices,
 							const cl_device_id *	pclDeviceList,
 							const char *			pcOptions,
-							void (CL_CALLBACK *pfnNotify)(cl_program clProgram, void * pUserData),
+							void (*pfnNotify)(cl_program clProgram, void * pUserData),
 							void *					pUserData );
 
 		// create new kernel object
@@ -185,7 +185,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool IsKernelExists(const char * psKernelName, Kernel ** ppKernelRet);
 								
 		//user notification callback for build completion
-		void									(CL_CALLBACK *m_pfnNotify)(cl_program clProgram, void * pUserData);
+		void									(*m_pfnNotify)(cl_program clProgram, void * pUserData);
 		
 		void *									m_pUserData;
 		

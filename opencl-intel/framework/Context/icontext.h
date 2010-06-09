@@ -798,7 +798,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									cl_uint              IN uiNumDevices,
 									const cl_device_id * IN pclDeviceList,
 									const char *         IN pcOptions, 
-									void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data),
+									void (*pfn_notify)(cl_program program, void * user_data),
 									void *               IN pUserData ) = 0;
 
 

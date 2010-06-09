@@ -35,6 +35,7 @@ ocl_entry_points FrameworkProxy::OclEntryPoints = {
 	clRetainCommandQueue,
 	clReleaseCommandQueue,
 	clGetCommandQueueInfo,
+	clSetCommandQueueProperty,
 	clCreateBuffer,
 	clCreateImage2D,
 	clCreateImage3D,
