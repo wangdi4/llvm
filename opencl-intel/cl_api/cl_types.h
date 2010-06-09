@@ -38,7 +38,7 @@
 **************************************************************************************************/
 typedef cl_int	cl_err_code;
 
-typedef void (CL_CALLBACK *logging_fn)(const char *, const void *, size_t, void *);
+typedef void (*logging_fn)(const char *, const void *, size_t, void *);
 
 /**************************************************************************************************
 * define widen string into multibyte
@@ -180,6 +180,12 @@ typedef cl_int (CL_API_CALL *pfn_clGetCommandQueueInfo)(
     size_t                param_value_size,
     void *                param_value,
     size_t *              param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+
+typedef cl_int (CL_API_CALL *pfn_clSetCommandQueueProperty)(
+    cl_command_queue              command_queue,
+    cl_command_queue_properties   properties, 
+    cl_bool                        enable,
+    cl_command_queue_properties * old_properties) CL_API_SUFFIX__VERSION_1_0;
 
 // Memory Object APIs
 typedef cl_mem (CL_API_CALL *pfn_clCreateBuffer)(
@@ -553,6 +559,7 @@ struct ocl_entry_points
     pfn_clRetainCommandQueue           clRetainCommandQueue;
     pfn_clReleaseCommandQueue          clReleaseCommandQueue;
     pfn_clGetCommandQueueInfo          clGetCommandQueueInfo;
+    pfn_clSetCommandQueueProperty      clSetCommandQueueProperty;
     pfn_clCreateBuffer                 clCreateBuffer;
     pfn_clCreateImage2D                clCreateImage2D;
     pfn_clCreateImage3D                clCreateImage3D;

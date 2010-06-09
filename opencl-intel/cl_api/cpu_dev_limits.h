@@ -29,7 +29,7 @@
 #define CPU_DEV_MAX_WI_SIZE				1024			// Maximum values that could be specified for WI in one dimension
 #define CPU_DEV_LCL_MEM_SIZE			(24*1024)	// Total DCU size is 32k, we will leave 8k for internal data
 #define CPU_DEV_DCU_LINE_SIZE			64
-#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*4)	// Minimum memory size allocate for single WI instance
+#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*3)	// Minimum memory size allocate for single WI instance
 
 #define ADJUST_SIZE_TO_DCU_LINE(X) ( ((X)+CPU_DEV_DCU_LINE_SIZE-1) & (~(CPU_DEV_DCU_LINE_SIZE-1)))
 
@@ -39,11 +39,11 @@
 #define CPU_MAX_SAMPLERS				256
 #define CPU_IMAGE3D_MAX_DIM_SIZE		2048
 #define CPU_IMAGE2D_MAX_DIM_SIZE		8192
-#define CPU_MAX_READ_IMAGE_ARGS			(CPU_MAX_PARAMETER_SIZE/sizeof(void*)-1)
+#define CPU_MAX_READ_IMAGE_ARGS			(CPU_MAX_PARAMETER_SIZE/sizeof(void*))
 #define CPU_MAX_WRITE_IMAGE_ARGS		(CPU_MAX_PARAMETER_SIZE/sizeof(void*))
 #define CPU_MAX_CONSTANT_BUFFER_SIZE	(128*1024)
-#define CPU_MAX_CONSTANT_ARGS			(CPU_MAX_PARAMETER_SIZE/sizeof(void*)-1)
-#define CPU_MAX_LOCAL_ARGS				(CPU_MAX_PARAMETER_SIZE/sizeof(void*)-1)
+#define CPU_MAX_CONSTANT_ARGS			(CPU_MAX_PARAMETER_SIZE/sizeof(void*))
+#define CPU_MAX_LOCAL_ARGS				(CPU_MAX_PARAMETER_SIZE/sizeof(void*))
 #define CPU_MEM_BASE_ADDR_ALIGN			CPU_DEV_DCU_LINE_SIZE
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
 #define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
