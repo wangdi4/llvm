@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008-2009 The Khronos Group Inc.
+ * Copyright (c) 2008-2010 The Khronos Group Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and/or associated documentation files (the
@@ -21,7 +21,10 @@
  * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
  ******************************************************************************/
 
-/* $Revision$ on $Date$ */
+/* $Revision: 11187 $ on $Date: 2010-04-28 00:55:05 +0300 (יום ד, 28 אפר 2010) $ */
+
+/* cl_ext.h contains OpenCL extensions which don't have external */
+/* (OpenGL, D3D) dependencies.                                   */
 
 #ifndef __CL_EXT_H
 #define __CL_EXT_H
@@ -30,27 +33,44 @@
 extern "C" {
 #endif
 
-// cl_khr_fp64 extension - no extension #define since it has no functions
+#ifdef __APPLE__
+	#include <OpenCL/cl.h>
+#else
+	#include <CL/cl.h>
+#endif
+
+/* cl_khr_fp64 extension - no extension #define since it has no functions  */
 #define CL_DEVICE_DOUBLE_FP_CONFIG                  0x1032
 
 
-// cl_khr_fp16 extension - no extension #define since it has no functions
+/* cl_khr_fp16 extension - no extension #define since it has no functions  */
 #define CL_DEVICE_HALF_FP_CONFIG                    0x1033
 
 
-// cl_khr_icd extension
+/* cl_khr_icd extension                                                    */
 #define cl_khr_icd 1
 
-// cl_platform_info
+/* cl_platform_info                                                        */
 #define CL_PLATFORM_ICD_SUFFIX_KHR                  0x0920
 
-// Additional Error Codes
+/* Additional Error Codes                                                  */
 #define CL_PLATFORM_NOT_FOUND_KHR                   -1001
 
 extern CL_API_ENTRY cl_int CL_API_CALL
 clIcdGetPlatformIDsKHR(cl_uint          /* num_entries */,
                        cl_platform_id * /* platforms */,
                        cl_uint *        /* num_platforms */);
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
+    cl_uint          num_entries,
+    cl_platform_id * platforms,
+    cl_uint *        num_platforms);
+
+/* cl_khr_icd extension                                                    */
+#define cl_khr_icd 1
+
+/* cl_amd_device_attribute_query - no extension #define since it has no functions */
+#define CL_DEVICE_PROFILING_TIMER_OFFSET_AMD        0x4036
 
 #ifdef __cplusplus
 }
