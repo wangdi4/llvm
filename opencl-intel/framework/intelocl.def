@@ -16,6 +16,8 @@ EXPORTS
 	clGetCommandQueueInfo
 	clSetCommandQueueProperty
 	clCreateBuffer
+	clCreateSubBuffer
+	clSetMemObjectDestructorCallback
 	clCreateImage2D
 	clCreateImage3D
 	clRetainMemObject
@@ -74,6 +76,9 @@ EXPORTS
 	clGetGLTextureInfo
 	clEnqueueAcquireGLObjects
 	clEnqueueReleaseGLObjects
+	clCreateUserEvent
+	clSetEventCallback
+	clSetUserEventStatus
 	IsCPUSupported
 	IsFeatureSupported
 	

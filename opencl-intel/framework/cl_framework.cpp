@@ -151,6 +151,25 @@ cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
 	return CONTEXT_MODULE->CreateBuffer(context, flags, size, host_ptr, errcode_ret);
 }
 
+cl_mem CL_API_CALL clCreateSubBuffer(cl_mem buffer,
+				  cl_mem_flags				flags,
+				  cl_buffer_create_type     buffer_create_type,
+				  const void *              buffer_create_info,
+				  cl_int *                  errcode_ret)
+{
+	// stub
+	return NULL;
+}
+
+cl_int CL_API_CALL
+clSetMemObjectDestructorCallback(  cl_mem /* memobj */, 
+								 void (CL_CALLBACK * /*pfn_notify*/)( cl_mem /* memobj */, void* /*user_data*/), 
+								 void * /*user_data */ )
+{
+	// stub
+	return CL_SUCCESS;
+}
+
 cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
 					   cl_mem_flags            flags,
 					   const cl_image_format * image_format,
@@ -281,9 +300,10 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  cl_uint              num_devices,
 					  const cl_device_id * device_list,
 					  const char *         options, 
-					  void (*pfn_notify)(cl_program program, void * user_data),
+					  void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data),
 					  void *               user_data)
 {
+
 	return CONTEXT_MODULE->BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data);
 }
 
@@ -681,6 +701,31 @@ cl_int CL_API_CALL clEnqueueReleaseGLObjects(cl_command_queue command_queue,
 	return EXECUTION_MODULE->EnqueueReleaseGLObjects(command_queue, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event);
 }
 
+cl_event CL_API_CALL
+clCreateUserEvent(cl_context    context,
+				  cl_int *      errcode_ret)
+{
+	// stub
+	return NULL;
+}
+
+cl_int CL_API_CALL
+clSetEventCallback( cl_event    event,
+				   cl_int      command_exec_callback_type,
+				   void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *),
+				   void *      user_data)
+{
+	// stub
+	return CL_SUCCESS;
+}
+
+cl_int CL_API_CALL
+clSetUserEventStatus(cl_event   event,
+					 cl_int     execution_status)
+{
+	// stub
+	return CL_SUCCESS;
+}
 
 // Check if the current CPU is supported. returns 0 if it does and 1 othrewise
 // Criteria: supports SSSE3 and SSE4.1 and SSE4.2

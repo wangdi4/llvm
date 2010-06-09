@@ -756,7 +756,7 @@ cl_err_code Program::BuildSource(cl_uint uiNumDevices, const cl_device_id * pclD
 cl_err_code Program::Build(cl_uint uiNumDevices,
 						   const cl_device_id *	pclDeviceList,
 						   const char *	pcOptions,
-						   void (*pfnNotify)(cl_program clProgram, void * pUserData),
+						   void (CL_CALLBACK *pfnNotify)(cl_program clProgram, void * pUserData),
 						   void * pUserData)
 {
 	//cl_start;

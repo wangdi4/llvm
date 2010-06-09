@@ -163,7 +163,7 @@ CL_API_ENTRY cl_context CL_API_CALL
 clCreateContext(const cl_context_properties * properties,
                 cl_uint                 num_devices,
                 const cl_device_id *    devices,
-                void (*pfn_notify)(const char *, const void *, size_t, void *),
+                void (CL_CALLBACK *pfn_notify)(const char *, const void *, size_t, void *),
                 void *                  user_data,
                 cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0
 {
@@ -190,7 +190,7 @@ clCreateContext(const cl_context_properties * properties,
 CL_API_ENTRY cl_context CL_API_CALL
 clCreateContextFromType(const cl_context_properties * properties,
                         cl_device_type          device_type,
-                        void (*pfn_notify)(const char *, const void *, size_t, void *),
+                        void (CL_CALLBACK *pfn_notify)(const char *, const void *, size_t, void *),
                         void *                  user_data,
                         cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0
 {
@@ -316,6 +316,17 @@ clCreateBuffer(cl_context   context,
         size,
         host_ptr,
         errcode_ret);
+}
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateSubBuffer(cl_mem buffer,
+									 cl_mem_flags				flags,
+									 cl_buffer_create_type     buffer_create_type,
+									 const void *              buffer_create_info,
+									 cl_int *                  errcode_ret)
+{
+	// stub
+	return NULL;
 }
 
 CL_API_ENTRY cl_mem CL_API_CALL
@@ -1316,3 +1327,28 @@ CL_API_ENTRY cl_int CL_API_CALL clGetGLContextInfoKHR(
         param_value_size_ret);
 }
 
+CL_API_ENTRY cl_event CL_API_CALL
+clCreateUserEvent(cl_context    context,
+				  cl_int *      errcode_ret)
+{
+	// stub
+	return NULL;
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clSetEventCallback( cl_event    event,
+				   cl_int      command_exec_callback_type,
+				   void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *),
+				   void *      user_data)
+{
+	// stub
+	return CL_SUCCESS;
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clSetUserEventStatus(cl_event   event,
+					 cl_int     execution_status)
+{
+	// stub
+	return CL_SUCCESS;
+}

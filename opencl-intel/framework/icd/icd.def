@@ -74,6 +74,9 @@ EXPORTS
 	clGetGLTextureInfo
 	clEnqueueAcquireGLObjects
 	clEnqueueReleaseGLObjects
+	clCreateUserEvent
+	clSetEventCallback
+	clSetUserEventStatus
 	
 	
 	
