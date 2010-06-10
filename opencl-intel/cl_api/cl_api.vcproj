@@ -84,6 +84,10 @@
 				RelativePath=".\CL\cl_platform.h"
 				>
 			</File>
+			<File
+				RelativePath=".\CL\opencl.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\cl_dev_backend_api.h"

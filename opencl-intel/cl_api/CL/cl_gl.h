@@ -21,40 +21,40 @@
  * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
  **********************************************************************************/
 
-/* $Revision: 8748 $ on $Date: 2009-08-27 14:24:36 +0300 (Thu, 27 Aug 2009) $ */
+/* $Revision: 11042 $ on $Date: 2010-04-14 20:56:05 +0300 (יום ד, 14 אפר 2010) $ */
 
-// cl_gl.h contains Khronos-approved (KHR) OpenCL extensions which have
-// OpenGL dependencies. The application is responsible for #including
-// OpenGL or OpenGL ES headers before #including cl_gl.h.
+/*
+ * cl_gl.h contains Khronos-approved (KHR) OpenCL extensions which have
+ * OpenGL dependencies. The application is responsible for #including
+ * OpenGL or OpenGL ES headers before #including cl_gl.h.
+ */
 
 #ifndef __OPENCL_CL_GL_H
 #define __OPENCL_CL_GL_H
 
 #ifdef __APPLE__
-#include <OpenCL/cl_platform.h>
-#include <OpenGL/gl.h>
+#include <OpenCL/cl.h>
+#include <OpenGL/CGLDevice.h>
 #else
-#include <CL/cl_platform.h>
-#include <GL/gl.h>
+#include <CL/cl.h>
 #endif	
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// NOTE:  Make sure that appropriate GL header file is included separately
-
 typedef cl_uint     cl_gl_object_type;
 typedef cl_uint     cl_gl_texture_info;
 typedef cl_uint     cl_gl_platform_info;
+typedef struct __GLsync *cl_GLsync;
 
-// cl_gl_object_type
+/* cl_gl_object_type */
 #define CL_GL_OBJECT_BUFFER             0x2000
 #define CL_GL_OBJECT_TEXTURE2D          0x2001
 #define CL_GL_OBJECT_TEXTURE3D          0x2002
 #define CL_GL_OBJECT_RENDERBUFFER       0x2003
 
-// cl_gl_texture_info
+/* cl_gl_texture_info */
 #define CL_GL_TEXTURE_TARGET            0x2004
 #define CL_GL_MIPMAP_LEVEL              0x2005
 
@@ -114,20 +114,20 @@ clEnqueueReleaseGLObjects(cl_command_queue      /* command_queue */,
                           const cl_event *      /* event_wait_list */,
                           cl_event *            /* event */) CL_API_SUFFIX__VERSION_1_0;
 
-// cl_khr_gl_sharing extension
+/* cl_khr_gl_sharing extension  */
 
 #define cl_khr_gl_sharing 1
 
 typedef cl_uint     cl_gl_context_info;
 
-// Additional Error Codes
+/* Additional Error Codes  */
 #define CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR  -1000
 
-// cl_gl_context_info
+/* cl_gl_context_info  */
 #define CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR    0x2006
 #define CL_DEVICES_FOR_GL_CONTEXT_KHR           0x2007
 
-// Additional cl_context_properties
+/* Additional cl_context_properties  */
 #define CL_GL_CONTEXT_KHR                       0x2008
 #define CL_EGL_DISPLAY_KHR                      0x2009
 #define CL_GLX_DISPLAY_KHR                      0x200A
@@ -141,8 +141,15 @@ clGetGLContextInfoKHR(const cl_context_properties * /* properties */,
                       void *                        /* param_value */,
                       size_t *                      /* param_value_size_ret */) CL_API_SUFFIX__VERSION_1_0;
 
+typedef CL_API_ENTRY cl_int (CL_API_CALL *clGetGLContextInfoKHR_fn)(
+    const cl_context_properties * properties,
+    cl_gl_context_info            param_name,
+    size_t                        param_value_size,
+    void *                        param_value,
+    size_t *                      param_value_size_ret);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // __OPENCL_CL_GL_H
+#endif  /* __OPENCL_CL_GL_H  */
