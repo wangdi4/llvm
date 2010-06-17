@@ -1380,9 +1380,9 @@ size_t get_group_id(unsigned int);
                                                     __##R##_1i64, __##R##_2i64, __##R##_4i64, __##R##_8i64, __##R##_16i64,  \
                                                     __##R##_1u64, __##R##_2u64, __##R##_4u64, __##R##_8u64, __##R##_16u64,  \
                                                     __##R##f, __##R##f2, __##R##f3, __##R##f4, __##R##f8, __##R##f16,       \
-                                                    __##R##ff2, __##R##ff4, __##R##ff8, __##R##ff16,       \
-                                                    R, __##R##d2, __##R##d4, __##R##d8, __##R##d16,         \
-                                                    __##R##dd2, __##R##dd4, __##R##dd8, __##R##dd16 )
+                                                    __##R##ff2, __##R##ff3, __##R##ff4, __##R##ff8, __##R##ff16,       \
+													__##R##d, __##R##d2, __##R##d3, __##R##d4, __##R##d8, __##R##d16,         \
+                                                    __##R##dd2, __##R##dd3, __##R##dd4, __##R##dd8, __##R##dd16 )
 
                                                     
 #define abs(X)          __builtin_overload(1, X,    __abs_1i8,     __abs_2i8,     __abs_4i8,     __abs_8i8,     __abs_16i8,   \
@@ -1416,12 +1416,12 @@ size_t get_group_id(unsigned int);
 #define mul24(X,Y)         __builtin_overload(2, X,Y, __mul24_1i32, __mul24_2i32, __mul24_4i32, __mul24_8i32, __mul24_16i32, __mul24_1u32, __mul24_2u32, __mul24_4u32, __mul24_8u32, __mul24_16u32 )
 
 /* Section 5.9.4 */
-#define clamp(X,Y,Z)    __builtin_overload(3,X,Y,Z, __clampf, __clampf2, __clampf4, __clampf8, __clampf16,      \
-                                                    __clampff2, __clampff4, __clampff8, __clampff16,            \
-                                                    clamp, __clampd2, __clampd4, __clampd8, __clampd16,         \
-                                                    __clampdd2, __clampdd4, __clampdd8, __clampdd16 )
+#define clamp(X,Y,Z)    __builtin_overload(3,X,Y,Z, __clampf, __clampf2, __clampf3, __clampf4, __clampf8, __clampf16,      \
+                                                    __clampff2, __clampff3, __clampff4, __clampff8, __clampff16,            \
+                                                    __clampd, __clampd2, __clampd3, __clampd4, __clampd8, __clampd16,         \
+                                                    __clampdd2, __clampdd3, __clampdd4, __clampdd8, __clampdd16 )
 #define cross(X,Y)      __builtin_overload(2,X,Y, __crossf3, __crossf4, __crossd4)
-#define degrees(X)      __CLFN_F1(X,degrees)
+#define degrees(X)      __CLFN_F1_D(X,degrees)
 
 #define distance(X,Y)   __builtin_overload( 2, X, Y, __distancef, __distancef2, __distancef3, __distancef4, __distanced, __distanced2, __distanced4 )
 
@@ -1433,20 +1433,36 @@ size_t get_group_id(unsigned int);
 #define minmag(X,Y)   __CLFN_F2(X,Y,minmag)
 #define mix(X,Y,Z)     __builtin_overload(3,X,Y,Z, __mixf, __mixf2, __mixf3, __mixf4, __mixf8, __mixf16,  \
                                                    __mixff2, __mixff3, __mixff4, __mixff8, __mixff16,     \
-                                                   mix, __mixd2, __mixd4, __mixd8, __mixd16,              \
-                                                   __mixdd2, __mixdd4, __mixdd8, __mixdd16)
+                                                   __mixd, __mixd2, __mixd3, __mixd4, __mixd8, __mixd16,              \
+                                                   __mixdd2, __mixdd3, __mixdd4, __mixdd8, __mixdd16)
 #define normalize(X)   __builtin_overload( 1, X, __normalizef, __normalizef2, __normalizef3, __normalizef4, __normalized, __normalized2, __normalized4 )
 
-#define radians(X)    __CLFN_F1(X,radians)
-#define step(X,Y)     __builtin_overload(2,X,Y, __stepf, __stepf2, __stepf4, __stepf8, __stepf16,    \
-                                                __stepff2, __stepff4, __stepff8, __stepff16,         \
-                                                step, __stepd2, __stepd4, __stepd8, __stepd16,       \
-                                                __stepdd2, __stepdd4, __stepdd8, __stepdd16 )
-#define smoothstep(X,Y,Z)     __builtin_overload(3,X,Y,Z, __smoothstepf, __smoothstepf2, __smoothstepf4, __smoothstepf8, __smoothstepf16, \
-                                                          __smoothstepff2, __smoothstepff4, __smoothstepff8, __smoothstepff16,            \
-                                                          smoothstep, __smoothstepd2, __smoothstepd4, __smoothstepd8, __smoothstepd16,    \
-                                                          __smoothstepdd2, __smoothstepdd4, __smoothstepdd8, __smoothstepdd16)
-#define sign(X)                 __CLFN_F1(X,sign)
+#define radians(X)    __CLFN_F1_D(X,radians)
+#define step(X,Y)     __builtin_overload(2,X,Y, __stepf,              \
+                                                __stepf2, __stepff2,  \
+												__stepf3, __stepff3,  \
+												__stepf4, __stepff4,  \
+												__stepf8, __stepff8,  \
+												__stepf16, __stepff16,\
+												__stepd,              \
+                                                __stepd2, __stepdd2,  \
+												__stepd3, __stepdd3,  \
+												__stepd4, __stepdd4,  \
+												__stepd8, __stepdd8,  \
+												__stepd16, __stepdd16 )
+#define smoothstep(X,Y,Z)     __builtin_overload(3,X,Y,Z, __smoothstepf,                    \
+                                                          __smoothstepf2, __smoothstepff2,  \
+														  __smoothstepf3, __smoothstepff3,  \
+													      __smoothstepf4, __smoothstepff4,  \
+														  __smoothstepf8, __smoothstepff8,  \
+														  __smoothstepf16, __smoothstepff16,\
+														  __smoothstepd,                    \
+                                                          __smoothstepd2, __smoothstepdd2,  \
+														  __smoothstepd3, __smoothstepdd3,  \
+													      __smoothstepd4, __smoothstepdd4,  \
+														  __smoothstepd8, __smoothstepdd8,  \
+														  __smoothstepd16, __smoothstepdd16 )
+#define sign(X)                 __CLFN_F1_D(X,sign)
 
 #define fast_distance(X,Y)          __builtin_overload(2,X,Y, __fast_distancef, __fast_distancef2, __fast_distancef3, __fast_distancef4 )
 #define fast_length(X)          __builtin_overload(1,X, __fast_lengthf, __fast_lengthf2, __fast_lengthf3, __fast_lengthf4 )
