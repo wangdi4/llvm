@@ -28,6 +28,8 @@
 
 #include "task_executor.h"
 
+#include "tbb/task_group.h"
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	class TBBTaskExecutor : public ITaskExecutor
@@ -39,9 +41,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(bool OOO = false);
 		unsigned int	Execute(ITaskBase * pTask);
+		bool			WaitForCompletion();
+
 		void Close(bool bCancel);
 	protected:
 		long		m_lRefCount;
+		// Independent tasks will be executed by this task group
+		static tbb::task_group*				sTBB_executor;
 	};
 
 }}}

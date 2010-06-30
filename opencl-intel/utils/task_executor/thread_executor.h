@@ -211,6 +211,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
+		bool WaitForCompletion() {return false;}
 		void         Flush() {};
 		void         Release()
 		{ 
@@ -235,6 +236,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
+		bool WaitForCompletion() {return false;}
 		void         Flush() {};
 		void         Release()
 		{ 
@@ -260,6 +262,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
 		unsigned int	Execute(ITaskBase * pTask);
+		bool WaitForCompletion() {return false;}
 		void Close(bool bCancel);
 
 	protected:

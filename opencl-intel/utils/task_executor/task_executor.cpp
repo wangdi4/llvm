@@ -174,6 +174,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_ATTACH:
 		break;
 	case DLL_THREAD_DETACH:
+#ifdef __TBB_EXECUTOR__
+		g_pTaskExecutor->Close(false);
+#endif
 		break;
 	case DLL_PROCESS_DETACH:
 		if (NULL == lpReserved) //Detach due to FreeLibrary
