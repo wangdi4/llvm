@@ -924,7 +924,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
-		newArgsVec.push_back(PointerType::get(IntegerType::get(8), 0));
+		newArgsVec.push_back(PointerType::get(IntegerType::get(8), 3));
 		newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
 		newArgsVec.push_back(PointerType::get(IntegerType::get(uiSizeT), 0));
 		newArgsVec.push_back(PointerType::get(IntegerType::get(uiSizeT), 0));

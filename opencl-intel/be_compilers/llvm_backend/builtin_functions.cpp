@@ -31,6 +31,7 @@
 #include "llvm_executable.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
+#include "cl_sys_info.h"
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -175,4 +176,9 @@ extern "C" __declspec(dllexport) void lprefetch(const char* ptr, size_t numEleme
 		_mm_prefetch(ptr, _MM_HINT_T0);
 		ptr += CPU_DEV_DCU_LINE_SIZE;
 	}
+}
+
+extern "C" __declspec(dllexport) unsigned long long get_time_counter()
+{
+	return Intel::OpenCL::Utils::HostTime();
 }

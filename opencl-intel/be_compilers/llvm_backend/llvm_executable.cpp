@@ -95,6 +95,10 @@ cl_uint	LLVMExecutable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, un
 		// Is the next buffer after explicit locals
 		*((void**)pWIParams) = pLocalMemoryBuffers[m_pBinary->m_uiLocalCount];
 	}
+	else //Initialize an easily identifiable junk address to catch uninitialized memory accesses
+	{
+		*((void**)pWIParams) = (void *)0x000DEAD0;
+	}
 	pWIParams += sizeof(void*);
 
 	// Set Work Dimension Info pointer
