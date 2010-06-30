@@ -29,6 +29,20 @@
 
 //using namespace Intel::OpenCL::Utils;
 
+
+#ifdef WIN32
+	#include <windows.h>
+	void clSleep(int milliseconds)
+	{
+		Sleep(milliseconds);
+	}
+#else
+	void clSleep(int milliseconds)
+	{
+		assert(0);
+	}
+#endif
+
 wchar_t* ClErrTxt(cl_err_code error_code)
 {
 	switch(error_code)
@@ -100,3 +114,4 @@ wchar_t* ClErrTxt(cl_err_code error_code)
 		return L"Unknown Error Code";
 	}
 }
+

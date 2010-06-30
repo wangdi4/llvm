@@ -25,6 +25,7 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 #include "cl_synch_objects.h"
+#include <tbb/concurrent_queue.h>
 #include <windows.h>
 #include <stdio.h>  // Todo: replace printf with log mechanisem
 #include <assert.h>
@@ -124,7 +125,6 @@ void OclNameMutex::Lock()
     }
 }
 
-
 /************************************************************************
  * Releases the Mutex
 /************************************************************************/
@@ -142,6 +142,36 @@ void OclNameMutex::Unlock()
 /************************************************************************
  * 
 /************************************************************************/
+OclSpinMutex::OclSpinMutex()
+{
+	lMutex = 0;
+	threadId = 0;
+}
+void OclSpinMutex::Lock()
+{
+	if (threadId == GetCurrentThreadId())
+	{
+		InterlockedIncrement(&lMutex);
+		return;
+	}
+	while (InterlockedCompareExchange(&lMutex, 1, 0));
+	threadId = GetCurrentThreadId();
+}
+void OclSpinMutex::Unlock()
+{
+	if ( 1 == lMutex )
+	{
+		threadId = 0;
+		lMutex = 0;
+		return;
+	}
+	long val = InterlockedDecrement(&lMutex);
+	assert(val != -1);
+}
+
+/************************************************************************
+ * 
+/************************************************************************/
 OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
 {
     m_mutexObj = mutexObj;
@@ -151,9 +181,6 @@ OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
 	}
 }
 
-/************************************************************************
- * 
-/************************************************************************/
 OclAutoMutex::~OclAutoMutex()
 {
     m_mutexObj->Unlock();
@@ -251,4 +278,96 @@ COND_RESULT OclCondition::Broadcast()
     }
     return COND_RESULT_OK;
 }
+
+/************************************************************************
+* OclOsDependentEvent implementation
+/************************************************************************/
+
+OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
+{
+}
+
+OclOsDependentEvent::~OclOsDependentEvent()
+{
+	if (m_eventRepresentation)
+	{
+		CloseHandle((HANDLE)m_eventRepresentation);
+	}
+	m_eventRepresentation = NULL;
+}
+
+bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
+{
+	if (m_eventRepresentation != NULL) //event already initialized
+	{
+		//Todo: raise error?
+		return true;
+	}
+	m_eventRepresentation = CreateEvent(NULL, !bAutoReset, FALSE, NULL);
+	return m_eventRepresentation != NULL;
+}
+
+bool OclOsDependentEvent::Wait()
+{
+	if (NULL == m_eventRepresentation)
+	{
+		//event not initialized
+		return false;
+	}
+	return WAIT_OBJECT_0 == WaitForSingleObject(m_eventRepresentation, INFINITE);
+}
+
+void OclOsDependentEvent::Signal()
+{
+	if (m_eventRepresentation != NULL)
+	{
+		SetEvent(m_eventRepresentation);
+	}
+	else
+	{
+		//Todo: assert here?
+	}
+}
+
+
+void* AtomicPointer::test_and_set(void* comparand, void* exchange)
+{
+	return InterlockedCompareExchangePointer(&m_ptr, exchange, comparand);	
+}
+void* AtomicPointer::exchange(void* val)
+{
+	return InterlockedExchangePointer(&m_ptr, val);
+}
+
+long AtomicCounter::operator ++() //prefix, returns new val
+{
+	return InterlockedIncrement(&m_val);
+}
+long AtomicCounter::operator ++(int alwaysZero) //postfix, returns previous val
+{
+	return InterlockedExchangeAdd(&m_val, 1);
+}
+long AtomicCounter::operator --() //prefix, returns new val
+{
+	return InterlockedDecrement(&m_val);
+}
+long AtomicCounter::operator --(int alwaysZero) //postfix, returns previous val
+{
+	return InterlockedExchangeAdd(&m_val, -1);
+}
+long AtomicCounter::add(long val)
+{
+	return InterlockedExchangeAdd(&m_val, val) + val;
+}
+long AtomicCounter::test_and_set(long comparand, long exchange)
+{
+	return InterlockedCompareExchange(&m_val, exchange, comparand);
+}
+
+
+long AtomicCounter::exchange(long val)
+{
+	return InterlockedExchange(&m_val, val);
+}
+
 

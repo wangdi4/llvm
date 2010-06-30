@@ -174,7 +174,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\cl_synch_objects.cpp"
+				RelativePath=".\cl_synch_objects_win32.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\export\cl_synch_objects_win32.hpp"
 				>
 			</File>
 			<File

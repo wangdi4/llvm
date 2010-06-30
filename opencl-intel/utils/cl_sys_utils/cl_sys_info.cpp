@@ -111,13 +111,17 @@ unsigned long long Intel::OpenCL::Utils::ProfilingTimerFrequency()
 /////////////////////////////////////////////////////////////////////////////////////////
 // HostTime - Return host time in nano second
 /////////////////////////////////////////////////////////////////////////////////////////
+#pragma data_seg(".MYSEC_FREQ")
+static double freq = 1e9/ProfilingTimerFrequency();
+#pragma data_seg()
+#pragma comment(linker, "/SECTION:.MYSEC_FREQ,RWS")
+
 unsigned long long Intel::OpenCL::Utils::HostTime()
 {
 #ifdef WIN32
 	//Generates the rdtsc instruction, which returns the processor time stamp. 
 	//The processor time stamp records the number of clock cycles since the last reset.
 	LARGE_INTEGER tiks;
-	static double freq = 1e9/ProfilingTimerFrequency();
 
 	QueryPerformanceCounter(&tiks);
 

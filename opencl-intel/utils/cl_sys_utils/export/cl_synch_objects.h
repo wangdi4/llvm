@@ -55,6 +55,10 @@
  *  TODO: More objects that may be added: Semaphore, Event, else???
 /************************************************************************/
 
+//forward declaration
+#include <tbb/concurrent_queue.h>
+#include <queue>
+
 namespace Intel { namespace OpenCL { namespace Utils {
     /************************************************************************
      * IMutex:
@@ -66,8 +70,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual void Lock()=0;
         virtual void Unlock()=0;
         virtual ~IMutex(){};
-    protected:
-        void* m_mutexHndl;
     };
 
     /************************************************************************
@@ -133,13 +135,26 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual ~OclMutex ();
         void Lock();
         void Unlock();
+	protected:
+		void* m_mutexHndl;
     };
+
+	class OclSpinMutex: public IMutex
+	{
+	public:
+		OclSpinMutex();
+		void Lock();
+		void Unlock();
+	protected:
+		long lMutex;
+		long threadId;
+	};
 
     /************************************************************************
      * OclNamedMutex:
      * Works the same as OclMutex. But a mutex is determined by its unique name 
      * Use named Mutex to explicitly share the same Mutex object
-     * between objects and threads. Better to use to sunchronize between processes.
+     * between objects and threads. Better to use to synchronize between processes.
      * 
     /************************************************************************/
     class OclNameMutex: public IMutex
@@ -149,6 +164,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual ~OclNameMutex ();
         void Lock();
         void Unlock();
+	protected:
+		void* m_mutexHndl;
     };
 
 
@@ -159,7 +176,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
      *      Condition object is a synchronization object that enables a thread to wait on a condition 
      *      until that condition is set.
      *      The object is attached with an external mutex. When the object enters into wait state,
-     *      the mutex is atomically released and atomically is aquired when the condition is set. 
+     *      the mutex is atomically released and atomically is acquired when the condition is set. 
      *      The condition may be signaled or broadcast. In case of single, only one waiting thread
      *      is released, otherwise, all threads are released
                 AND THE MUTEX IS NOT AQUIRED???
@@ -188,6 +205,108 @@ namespace Intel { namespace OpenCL { namespace Utils {
         void*           m_broadcastEvent;
         OclMutex        m_numWaitersMutex;
     };
+
+	// The class below encapsulates an OS-dependent event
+	// Can be used by OclEvent's Wait() method
+	class OclOsDependentEvent
+	{
+	public:
+		OclOsDependentEvent();
+		~OclOsDependentEvent();
+
+		// Initializes the event. Must be called before any use. Can fail.
+		bool Init(bool bAutoReset = false);
+		// Waits on an initialized event. Returns when the event was fired. Can fail, in which case another method of waiting should be used.
+		bool Wait();
+		// Fires the event
+		void Signal();
+	private:
+		// The internal, OS-dependent representation of the event.
+		void* m_eventRepresentation;
+	};
+
+	template<class T>
+	class IConcurrentQueue
+	{
+	public:
+		virtual bool IsEmpty() const            = 0;
+		virtual T   Top()                       = 0;
+		virtual T   PopFront()                  = 0;
+		virtual void PushBack(const T& newNode) = 0;
+	};
+
+	template<class T>
+	class OclConcurrentQueue : public IConcurrentQueue<T>
+	{
+	public:
+		OclConcurrentQueue() {}
+		virtual ~OclConcurrentQueue() {}
+
+		virtual bool IsEmpty() const;
+		virtual T    Top();
+		virtual T    PopFront();
+		virtual void PushBack(const T& newNode);
+	private:
+		tbb::concurrent_queue<T> m_queue;
+	};
+
+	template<class T>
+	class OclNaiveConcurrentQueue : public IConcurrentQueue<T>
+	{
+	public:
+		OclNaiveConcurrentQueue() {}
+		virtual ~OclNaiveConcurrentQueue() {}
+
+		virtual bool IsEmpty() const;
+		virtual T    Top();
+		virtual T    PopFront();
+		virtual void PushBack(const T& newNode);
+
+	private:
+		std::queue<T>   m_queue;
+		tbb::spin_mutex m_queueLock;
+	};
+
+	class AtomicPointer
+	{
+	public:
+		AtomicPointer(void* ptr = NULL) : m_ptr(ptr) {}
+		~AtomicPointer() {}
+
+		void* test_and_set(void* comparand, void* exchange);
+		void* exchange(void* val);
+
+	private:
+		AtomicPointer(const AtomicPointer& ac) {m_ptr = ac.m_ptr; }
+		void* m_ptr;
+	};
+
+	class AtomicCounter
+	{
+	public:
+		AtomicCounter(long initVal = 0) : m_val(initVal) {}
+		~AtomicCounter() {}
+
+		long operator++();               //prefix. Returns new val
+		long operator++(int alwaysZero); //postfix. Returns previous val
+		long operator--(); 
+		long operator--(int alwaysZero); //second argument enforced by the language, defaults to 0 by the compiler
+		long add(long val); //returns new val
+		long test_and_set(long comparand, long exchange);
+		long exchange(long val);
+		operator long() const {return m_val;} //casting operator 
+
+	private:
+		AtomicCounter(const AtomicCounter& ac) {m_val = ac.m_val;}
+		long m_val;
+	};
+
+//includes for the template classes
+#ifdef _WIN32
+#include "cl_synch_objects_win32.hpp"
+#else
+	//need to add the appropriate implementation here
+#endif
 
 }}};    // Intel::OpenCL::Utils
 #endif // __CL_SYNCH_OBJECTS_H__

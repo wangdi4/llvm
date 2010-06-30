@@ -31,6 +31,7 @@
 #include <cl_device_api.h>
 #include <cl_monitor.h>
 
+
 /**************************************************************************************************
 * Function: 	ClErrTxt    
 * Description:	returns a wide-character string of the error code
@@ -40,3 +41,13 @@
 * Date:			December 2008
 **************************************************************************************************/
 wchar_t* ClErrTxt(cl_err_code error_code);
+
+/**************************************************************************************************
+* Function: 	clSleep    
+* Description:	put the calling thread on sleep for time 'milliseconds'
+* Arguments:	milliseconds [ int ] - duration of required thread sleep 
+* Return value:	void
+* Author:		Rami Jioussy
+* Date:			June 2010
+**************************************************************************************************/
+void clSleep(int milliseconds);

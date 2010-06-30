@@ -64,7 +64,7 @@ private:
     unsigned short  m_usTableId;    // Table unique ID
     unsigned short  m_usObjectIdx;  // The index of the next object to be inserted
     float           m_fLoadFactor;  // The rehase load factor
-    OclMutex		m_muTable;      // Mutex that lock the table for thread safe implementation.
+    OclSpinMutex	m_muTable;      // Mutex that lock the table for thread safe implementation.
 
     static unsigned short m_susTableCounter;  // holds the id of the next table
     
