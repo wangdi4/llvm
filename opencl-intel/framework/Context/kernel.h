@@ -34,7 +34,6 @@
 #include <logger.h>
 #include <cl_device_api.h>
 #include <cl_objects_map.h>
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -76,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DeviceKernel(	Kernel *		pKernel,
 						ProgramBinary *	pProgBin, 
 						const char *	psKernelName,
-						LoggerClient *	pLoggerClient,
+						Intel::OpenCL::Utils::LoggerClient *	pLoggerClient,
 						cl_err_code *	pErr );
 
 		// Destructor
@@ -175,7 +174,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			January 2008
 	**********************************************************************************************/		
-	class Kernel : public OCLObject
+	class Kernel : public OCLObject<_cl_kernel>
 	{
 	public:
 

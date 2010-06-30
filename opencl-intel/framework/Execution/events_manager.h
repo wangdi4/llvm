@@ -31,11 +31,11 @@
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
-    // Forward declrations 
-    class OCLObjectsMap;
+    // Forward declarations 
+    template <class HandleType> class OCLObjectsMap;
     class QueueEvent;
     class OclEvent;
-    class OclCommandQueue;
+    class IOclCommandQueueBase;
 
     /**********************************************************************************************
      * Class name:    EventsManager
@@ -60,12 +60,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
 
         // Event handling functions
-        QueueEvent* CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
-        cl_err_code RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_command_queue queueId = 0);
+        OclEvent* CreateOclEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
+		OclEvent* GetEvent(cl_event clEvent);
+        cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_command_queue queueId = 0);
         cl_err_code ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext);
 
     private:
-        OCLObjectsMap* m_pEvents;   // Holds the set of clEvents that exist.
+        OCLObjectsMap<_cl_event>* m_pEvents;   // Holds the set of clEvents that exist.
 
         // Private handling functions
         OclEvent** GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList );

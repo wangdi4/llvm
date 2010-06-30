@@ -32,7 +32,7 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
     
-    // Forward declration
+    // Forward declaration
     class QueueEvent;
 
     /************************************************************************

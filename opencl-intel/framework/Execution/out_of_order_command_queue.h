@@ -30,13 +30,13 @@
 
 #include <cl_types.h>
 #include "enqueue_commands.h"
-#include "in_order_command_queue.h"
+#include "ocl_command_queue.h"
+#include "command_queue.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
     class QueueEvent;
     class EventsManager;
     class Device;
-    class OclCommandQueue;
 
     /************************************************************************
      * OutOfOrderCommandQueue implements an out-of-order version of the InOrderCommandQueue
@@ -88,36 +88,46 @@ namespace Intel { namespace OpenCL { namespace Framework {
      *         were issued and completed. The flush counter is decremented and the command is "deleted"
      *         immidately (move to the black list), this is done through the command execute (SetEventColor(black))
      *
-    /************************************************************************/                 
-    class OutOfOrderCommandQueue : public InOrderCommandQueue
-    {
+    /************************************************************************/       
+	class OutOfOrderCommandQueue : public IOclCommandQueueBase
+	{
+	public:
+		OutOfOrderCommandQueue(
+			Context*                    pContext,
+			cl_device_id                clDefaultDeviceID, 
+			cl_command_queue_properties clProperties,
+			EventsManager*              pEventManager,
+			ocl_entry_points *			pOclEntryPoints
+			);
+		~OutOfOrderCommandQueue();
 
-    public:
-        OutOfOrderCommandQueue( EventsManager* pEventsManager, Device* pDevice, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
-        virtual ~OutOfOrderCommandQueue();
-        
-        // All queue policy events are implemented.
-        cl_err_code AddCommand(Command* command);
-        cl_err_code Flush( bool bBlocking );
-        virtual cl_err_code NotifyEventColorChange( 
-            const QueueEvent*       cpEvent, 
-            QueueEventStateColor    prevColor,  
-            QueueEventStateColor    newColor );
+		virtual cl_err_code Enqueue(Command* cmd);
+		virtual cl_err_code EnqueueBarrier(Command* cmd);
+		virtual cl_err_code EnqueueMarker(Command* cmd);
+		virtual cl_err_code EnqueueWaitForEvents(Command* cmd);
 
-    private:
-        // members
-        QueueEvent* m_pSynchBarrierEvent;   // If not null, any new command (excluding Marker & Barrier) need to be dependent on
+		virtual cl_err_code Flush(bool bBlocking);
+		virtual cl_err_code NotifyStateChange(const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor);
+		virtual cl_err_code SendCommandsToDevice();
 
-        // private methods
-        void        ApplyOutOfOrderCommandsPolicy(Command* pCommand);
-        void        HandleRuntimeCommandExecuted( Command* pCommand );
-        bool        IsReadyDeviceCommands();
+	protected:
+		virtual void        AddDependentOnAll(Command* cmd);
 
-        // A queue cannot be copied
-        OutOfOrderCommandQueue(const OutOfOrderCommandQueue&);           // copy constructor
-        OutOfOrderCommandQueue& operator=(const OutOfOrderCommandQueue&);// assignment operator
+		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_queuedQueue;
+		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_submittedQueue;
+		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_runningQueue;
+		Intel::OpenCL::Utils::AtomicCounter                m_queuedQueueGuard;
+		Intel::OpenCL::Utils::AtomicCounter                m_submittedQueueGuard;                    
+		Intel::OpenCL::Utils::AtomicCounter                m_runningQueueGuard;                    
 
-    };
+		Intel::OpenCL::Utils::AtomicCounter				   m_commandsInExecution;
+		Intel::OpenCL::Utils::AtomicPointer                m_lastBarrier;
 
+	private:		
+		// Move commands from Queued to Submitted
+		void MvQueuedToSubmitted();
+		void MvSubmittedToDevice();
+		void TidyRunningQueue();
+	};
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OUT_OF_ORDER_COMMAND_QUEUE_H__)

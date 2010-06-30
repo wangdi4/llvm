@@ -39,8 +39,8 @@ Sampler::Sampler()
 {
 	INIT_LOGGER_CLIENT(L"Sampler",LL_DEBUG);
 	
-	m_pHandle = new _cl_sampler;
-	m_pHandle->object = this;
+	m_handle.dispatch = NULL;
+	m_handle.object = this;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler D'tor
@@ -51,11 +51,6 @@ Sampler::~Sampler()
 	LOG_DEBUG(L"Enter Sampler D'tor");
 
 	RELEASE_LOGGER_CLIENT;
-
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
-	}
 }
 cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints)
 {
@@ -72,7 +67,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 	// Combine sampler properties
 	m_clSamlerProps = 0;
 
-	// Set normilized coords
+	// Set normalized coords
 	m_bNormalizedCoords = bNormalizedCoords;
 	m_clSamlerProps |= bNormalizedCoords ? CL_DEV_SAMPLER_NORMALIZED_COORDS_TRUE : CL_DEV_SAMPLER_NORMALIZED_COORDS_FALSE;
 
@@ -111,7 +106,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 		return CL_INVALID_VALUE;
 	}
 
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_handle.dispatch = pOclEntryPoints;
 
 	return CL_SUCCESS;
 }
@@ -120,8 +115,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Sampler::Release()
 {
-
-	return OCLObject::Release();
+	return OCLObject<_cl_sampler>::Release();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler::GetInfo
@@ -162,7 +156,7 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 		break;
 	case CL_SAMPLER_CONTEXT:
 		szSize = sizeof(cl_context);
-		clContext = (cl_context)m_pContext->GetId();
+		clContext = m_pContext->GetHandle();
 		pValue = &clContext;
 		break;
 	default:

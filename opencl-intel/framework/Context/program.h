@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ProgramBinary;
 	class Device;
 	class Kernel;
-	class OCLObjectsMap;
+	template <class HandleType> class OCLObjectsMap;
 
 	/**********************************************************************************************
 	* Enumaration:	EProgramBuiltState
@@ -79,7 +79,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Program : public OCLObject, IBuildDoneObserver, IFrontendBuildDoneObserver
+	class Program : public OCLObject<_cl_program>, IBuildDoneObserver, IFrontendBuildDoneObserver
 	{
 	public:
 
@@ -217,7 +217,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		OCLObjectsMap *							m_pKernels;			// associated kernels
+		OCLObjectsMap<_cl_kernel> *							m_pKernels;			// associated kernels
 
 		// ------------------------------------- DEVICES -------------------------------------
 		

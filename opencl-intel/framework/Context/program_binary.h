@@ -35,8 +35,6 @@
 #include <cl_device_api.h>
 #include <observer.h>
 
-using namespace Intel::OpenCL::Utils;
-
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	class OclMutex;
@@ -83,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 						const void *				pBinData,
 						cl_dev_binary_prop			clDevBinaryProp,
 						Device *					pDevice,
-						LoggerClient *				pLoggerClient,
+						Intel::OpenCL::Utils::LoggerClient *				pLoggerClient,
 						cl_err_code *				pErr );
 
 		/******************************************************************************************

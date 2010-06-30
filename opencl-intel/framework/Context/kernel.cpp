@@ -83,7 +83,7 @@ DeviceKernel::DeviceKernel(Kernel * pKernel,
 	strcpy_s(m_sKernelPrototype.m_psKernelName, strlen(psKernelName) + 1, psKernelName);
 
 	// get kernel id
-	cl_err_code clErrRet = m_pDevice->GetKernelId(pProgBin->GetId(), m_sKernelPrototype.m_psKernelName, &m_clDevKernel);
+	cl_err_code clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelId(pProgBin->GetId(), m_sKernelPrototype.m_psKernelName, &m_clDevKernel);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"Device->GetKernelId failed");
@@ -95,7 +95,7 @@ DeviceKernel::DeviceKernel(Kernel * pKernel,
 
 	// get kernel prototype
 	size_t szArgsCount = 0;
-	clErrRet = m_pDevice->GetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &szArgsCount);
+	clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &szArgsCount);
 	if (CL_FAILED(clErrRet))
 	{
 		*pErr = clErrRet;
@@ -108,7 +108,7 @@ DeviceKernel::DeviceKernel(Kernel * pKernel,
 		*pErr = CL_OUT_OF_HOST_MEMORY;
 		return;
 	}
-	clErrRet = m_pDevice->GetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, szArgsCount, m_sKernelPrototype.m_pArgs, NULL);
+	clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, szArgsCount, m_sKernelPrototype.m_pArgs, NULL);
 	if (CL_FAILED(clErrRet))
 	{
 		*pErr = (clErrRet==CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
@@ -250,9 +250,8 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName, ocl_entry_points *
 	m_sKernelPrototype.m_pArgs = NULL;
 	m_sKernelPrototype.m_uiArgsCount = 0;
 
-	m_pHandle = new _cl_kernel;
-	m_pHandle->object = this;
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_handle.object   = this;
+	m_handle.dispatch = pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor
@@ -292,11 +291,6 @@ Kernel::~Kernel()
 		it_arg++;
 	}
 	m_mapKernelArgs.clear();
-
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
-	}
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
@@ -334,7 +328,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		if (NULL != m_pProgram && NULL != m_pProgram->GetContext())
 		{
 			szParamSize = sizeof(cl_context);
-			iParam = m_pProgram->GetContext()->GetId();
+			iParam = (cl_int)(const_cast<Context*>(m_pProgram->GetContext())->GetHandle());
 			pValue = &iParam;
 		}
 		break;
@@ -342,7 +336,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		if (NULL != m_pProgram)
 		{
 			szParamSize = sizeof(cl_program);
-			iParam = m_pProgram->GetId();
+			iParam = (cl_int)m_pProgram->GetHandle();
 			pValue = &iParam;
 		}
 		break;
@@ -400,13 +394,13 @@ cl_err_code	Kernel::GetWorkGroupInfo(cl_device_id clDevice, cl_int iParamName, s
 	switch (iParamName)
 	{
 	case CL_KERNEL_WORK_GROUP_SIZE:
-		clErr = pDevice->GetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+		clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
 		break;
 	case CL_KERNEL_COMPILE_WORK_GROUP_SIZE:
-		clErr = pDevice->GetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, szParamValueSize, pParamValue, pszParamValueSizeRet);
+		clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, szParamValueSize, pParamValue, pszParamValueSizeRet);
 		break;
 	case CL_KERNEL_LOCAL_MEM_SIZE:
-		clErr = pDevice->GetKernelInfo(clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+		clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
 		break;
 	default:
 		clErr = CL_INVALID_VALUE;
@@ -456,7 +450,7 @@ cl_err_code Kernel::CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary *
 			break;
 		}
 		pDevice = (Device*)ppBinaries[ui]->GetDevice();
-		cl_device_id clDeviceId = (cl_device_id)pDevice->GetId();
+		cl_device_id clDeviceId = pDevice->GetHandle();
 		if (m_mapDeviceKernels.find(clDeviceId) != m_mapDeviceKernels.end())
 		{
 			LOG_DEBUG(L"m_pDeviceKernels->IsExists(%d) = true", clDeviceId);
@@ -533,7 +527,7 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 	cl_err_code clErr = CL_SUCCESS;
 	SKernelPrototype sKernelPrototype;
 
-	cl_device_id iDeviceId = (cl_device_id)pProgBin->GetDevice()->GetId();
+	cl_device_id iDeviceId = pProgBin->GetDevice()->GetHandle();
 
 	// check if the current device kernel already exists
 	//bool bResult = m_pDeviceKernels->IsExists((cl_int)clDeviceKernel);

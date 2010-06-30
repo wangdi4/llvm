@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Context : public OCLObject
+	class Context : public OCLObject<_cl_context>
 	{
 	public:
 
@@ -148,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	uiDeviceIndex [in]	- Device's index
 		*				pDevice	      [out]	- Placeholder for the device object. must be a valid pointer.		
 		* Return value:	CL_SUCCESS -		- the device was found and returned
-		*				CL_ERR_KEY_NOT_FOUND- the device index is not associated with the contex
+		*				CL_ERR_KEY_NOT_FOUND- the device index is not associated with the context
         *               CL_INVALID_VALUE    - The pDevice input is not valid.   
 		* Author:		Arnon Peleg
 		* Date:			January 2009
@@ -156,9 +156,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDeviceByIndex(cl_uint uiDeviceIndex, Device** pDevice);
 
 		// get device by device id
-		cl_err_code GetDevice(cl_device_id clDeviceId, Device ** ppDevice)
+		cl_err_code GetDevice(cl_device_id clDeviceId, Device ** ppDevice) const
 		{
-			return m_pDevices->GetOCLObject((cl_int)clDeviceId, (OCLObject**)ppDevice);
+			return m_pDevices->GetOCLObject(clDeviceId, (OCLObject<_cl_device_id>**)ppDevice);
 		}
 
         // remove the program from the context
@@ -238,17 +238,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// -------------- DEVICES -------------- 
 		
-		OCLObjectsMap *							m_pDevices;		// holds the devices that associated to the program
+		OCLObjectsMap<_cl_device_id> *			m_pDevices;		// holds the devices that associated to the program
 	
 		Device **								m_ppDevices;
 
 		cl_device_id *							m_pDeviceIds;
 
-        OCLObjectsMap *							m_pPrograms;	// holds the programs that related to this context
+        OCLObjectsMap<_cl_program> *			m_pPrograms;	// holds the programs that related to this context
 
-		OCLObjectsMap *							m_pMemObjects;	// holds the memory objects that belongs to the context
+		OCLObjectsMap<_cl_mem> *				m_pMemObjects;	// holds the memory objects that belongs to the context
 
-		OCLObjectsMap *							m_pSamplers;	// holds the sampler objects that belongs to the context
+		OCLObjectsMap<_cl_sampler> *			m_pSamplers;	// holds the sampler objects that belongs to the context
 
 		cl_context_properties *					m_pclContextProperties; // context properties
 

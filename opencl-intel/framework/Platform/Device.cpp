@@ -39,19 +39,15 @@ map<cl_int, LoggerClient*>	Device::m_mapDeviceLoggerClinets;
 
 Device::Device()
 {
-	::OCLObject();
 	// initialize logger client
 	INIT_LOGGER_CLIENT(L"Device", LL_DEBUG);
 	m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
 	m_pFECompiler = NULL;
-    m_bIsDeviceOpened = false;
 	
 	LOG_DEBUG(L"Device constructor enter");
 
-	m_mapBuildDoneObservers.clear();
-
-	m_pHandle = new _cl_device_id;
-	m_pHandle->object = this;
+	m_handle.dispatch = NULL;
+	m_handle.object   = this;
 }
 
 Device::~Device()
@@ -68,11 +64,6 @@ Device::~Device()
 	}
 	m_mapDeviceLoggerClinets.clear();
 	m_dlModule.Close();
-
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
-	}
 }
 
 cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
@@ -131,7 +122,7 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 {
 	LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 	
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_handle.dispatch = pOclEntryPoints;
 
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 	if (!m_dlModule.Load(psDeviceAgentDllPath))
@@ -163,25 +154,13 @@ cl_err_code Device::CreateInstance()
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
-	// initialize cl_dev_call_backs
-	LOG_DEBUG(L"Initialize cl_dev_call_backs");
-	m_clDevCallBacks.pclDevBuildStatusUpdate = Device::BuildStatusUpdate;
-	m_clDevCallBacks.pclDevCmdStatusChanged = Device::CmdStatusChanged;
-
-	// initialize cl_dev_log_descriptor
-	LOG_DEBUG(L"Initialize cl_dev_log_descriptor");
-	m_clDevLogDescriptor.pfnclLogCreateClient = Device::CreateDeviceLogClient;
-	m_clDevLogDescriptor.pfnclLogReleaseClient = Device::ReleaseDeviceLogClient;
-	m_clDevLogDescriptor.pfnclLogAddLine = Device::DeviceAddLogLine;
-
 	LOG_DEBUG(L"Call Device::fn_clDevCreateDeviceInstance");
-	int clDevErr = devCreateInstance(m_iId, &m_clDevEntryPoints, &m_clDevCallBacks, &m_clDevLogDescriptor);
+	int clDevErr = devCreateInstance(m_iId, this, this, &m_pDevice);
 	if (clDevErr != (int)CL_DEV_SUCCESS)
 	{
 		LOG_ERROR(L"Device::devCreateInstance returned %d", clDevErr);
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
-    m_bIsDeviceOpened = true;
 	LOG_DEBUG(L"Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)");    
     return CL_SUCCESS;
 }
@@ -190,66 +169,11 @@ cl_err_code Device::CloseDeviceInstance()
 {
     LOG_DEBUG(L"CloseDeviceInstance enter");
 
-    // Close device
-    { OclAutoMutex CS(&m_muDeviceCloseLock);
-    m_bIsDeviceOpened = false;
-    } // end CS
-    m_clDevEntryPoints.pclDevCloseDevice();
+    m_pDevice->clDevCloseDevice();
 
-    // Clear objects
-	m_mapBuildDoneObservers.clear();
     return CL_SUCCESS;
 }
-
-
-
-cl_err_code Device::CheckProgramBinary(size_t szBinSize, const void* pBinData)
-{
-	LOG_DEBUG(L"CheckProgramBinary enter. szBinSize=%d, pBinData=%d", szBinSize, pBinData);
-	cl_int iRes = m_clDevEntryPoints.pclDevCheckProgramBinary(szBinSize, pBinData);
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::CreateProgram(size_t szBinSize, const void* pBinData, cl_dev_binary_prop clBinProp, cl_dev_program * pclProg)
-{
-	LOG_DEBUG(L"CreateProgram enter. szBinSize=%d, pBinData=%d, clBinProp=%d, pclProg=%d", szBinSize, pBinData, clBinProp, pclProg);
-	cl_int iRes = m_clDevEntryPoints.pclDevCreateProgram(szBinSize, pBinData, clBinProp, pclProg);
-	if (0 != iRes)
-	{
-		return (cl_err_code)iRes;
-	}
-	return CL_SUCCESS;
-}
-
-cl_err_code Device::BuildProgram(cl_dev_program clProg, const char * pcOptions, IBuildDoneObserver *	pBuildDoneObserver)
-{
-	LOG_DEBUG(L"BuildProgram enter. clProg=%d, pcOptions=%d, pBuildDoneObserver=%d", clProg, pcOptions, pBuildDoneObserver);
-
-	// check if the program exits
-	map<cl_dev_program, IBuildDoneObserver*>::iterator it = m_mapBuildDoneObservers.find(clProg);
-	if (it == m_mapBuildDoneObservers.end())
-	{
-		// register program notification function
-		m_mapBuildDoneObservers[clProg] = pBuildDoneObserver;
-	}
-
-	cl_int iRes = m_clDevEntryPoints.pclDevBuildProgram(clProg, (const cl_char *)pcOptions, this);
-	return (cl_err_code)(iRes);
-}
-cl_err_code Device::GetProgramBinary(cl_dev_program clDevProg, 
-									 size_t szBinSize, 
-									 void * pBin,
-									 size_t * pszBinSizeRet )
-{
-	LOG_DEBUG(L"GetProgramBinary enter. clDevProg=%d, szBinSize=%d, pBin=%d, pszBinSizeRet=%d", clDevProg, szBinSize, pBin, pszBinSizeRet);
-	cl_int iRes = m_clDevEntryPoints.pclDevGetProgramBinary(clDevProg, szBinSize, pBin, pszBinSizeRet);
-	if (0 != iRes)
-	{
-		return (cl_err_code)iRes;
-	}
-	return CL_SUCCESS;
-}
-
-cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
+cl_int Device::clLogCreateClient(cl_int device_id, wchar_t* client_name, cl_int * client_id)
 {
 	if (NULL == client_id)
 	{
@@ -272,7 +196,7 @@ cl_int Device::CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_
 	return CL_SUCCESS;
 }
 
-cl_int Device::ReleaseDeviceLogClient(cl_int client_id)
+cl_int Device::clLogReleaseClient(cl_int client_id)
 {
 	map<cl_int,LoggerClient*>::iterator it =  m_mapDeviceLoggerClinets.find(client_id);
 	if (it == m_mapDeviceLoggerClinets.end())
@@ -286,7 +210,7 @@ cl_int Device::ReleaseDeviceLogClient(cl_int client_id)
 	return CL_SUCCESS;
 }
 
-cl_int Device::DeviceAddLogLine(cl_int client_id, cl_int log_level, 
+cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level, 
 								const wchar_t* IN source_file, 
 								const wchar_t* IN function_name, 
 								cl_int line_num, 
@@ -311,228 +235,20 @@ cl_int Device::DeviceAddLogLine(cl_int client_id, cl_int log_level,
 	return CL_SUCCESS;
 }
 
-void Device::BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus)
+void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus)
 {
-	Device * pDevice = (Device*)pData;
+	IBuildDoneObserver * pBuildDoneObserver = (IBuildDoneObserver*)pData;
 
-	map<cl_dev_program, IBuildDoneObserver*>::iterator it = pDevice->m_mapBuildDoneObservers.find(clDevProg);
-	if (it != pDevice->m_mapBuildDoneObservers.end())
-	{
-		IBuildDoneObserver * pBuildDoneObserver = (IBuildDoneObserver*)it->second;
-		if (NULL != pBuildDoneObserver)
-		{
-			pBuildDoneObserver->NotifyBuildDone((cl_device_id)pDevice->m_iId, clBuildStatus);
-		}
-	}
+	assert(pBuildDoneObserver);
+	pBuildDoneObserver->NotifyBuildDone((cl_device_id)m_iId, clBuildStatus);
 	return;
 }
 
-void Device::CmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
+void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
 {
 	assert(pData);
 	ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;
 
 	pObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, status_result, timer);
 	return;
-}
-
-cl_err_code Device::GetKernelId(cl_dev_program	clDevProg,
-								const char *	psKernelName,
-								cl_dev_kernel *	pclKernel)
-{
-	cl_int iRes = m_clDevEntryPoints.pclDevGetKernelId(clDevProg, psKernelName, pclKernel);
-	return (cl_err_code)iRes;
-}
-
-cl_err_code Device::GetProgramKernels(cl_dev_program clDevProg,
-									  cl_uint uiNumKernels,
-									  cl_dev_kernel * pclKernels,
-									  cl_uint * puiNumKernelsRet)
-{
-	LOG_DEBUG(L"GetProgramKernels enter. clDevProg=%d, uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d", 
-		clDevProg, uiNumKernels, pclKernels, puiNumKernelsRet);
-	cl_int iRes = m_clDevEntryPoints.pclDevGetProgramKernels(clDevProg, uiNumKernels, pclKernels, puiNumKernelsRet);
-	if (0 != iRes)
-	{
-		return (cl_err_code)iRes;
-	}
-	return CL_SUCCESS;
-}
-cl_err_code Device::GetKernelInfo(cl_dev_kernel clKernel,
-								  cl_dev_kernel_info clParam,
-								  size_t szValueSize,
-								  void * pValue,
-								  size_t * pValueSizeRet)
-{
-	LOG_DEBUG(L"GetKernelInfo enter. clKernel=%d, clParam=%d, szValueSize=%d, pValue=%d, pValueSizeRet=%d", 
-		clKernel, clParam, szValueSize, pValue, pValueSizeRet);
-	cl_int iRes = m_clDevEntryPoints.pclDevGetKernelInfo(clKernel, clParam, szValueSize, pValue, pValueSizeRet);
-	return (cl_err_code)iRes;
-}
-
-cl_err_code Device::CreateMemoryObject(	cl_dev_mem_flags		clFlags,
-										const cl_image_format*	pclFormat,
-										cl_uint					uiDimCount,
-										const size_t *			pszDim,
-										void *					pBufferPtr,
-										const size_t *			pszPitch,
-										cl_dev_host_ptr_flags	hstFlags,
-										cl_dev_mem *			pMemObj)
-{
-	LOG_DEBUG(L"Enter CreateMemoryObject (clFlags=%d, pclFormat=%d, uiDimCount=%d, pszDim=%d, pBufferPtr=%d, pszPitch=%d, pMemObj=%d)", 
-		clFlags, pclFormat, uiDimCount, pszDim, pMemObj);
-	cl_int iRes = m_clDevEntryPoints.pclDevCreateMemoryObject(clFlags, pclFormat, uiDimCount, pszDim, pBufferPtr, pszPitch, hstFlags, pMemObj);
-	if (0 != iRes)
-	{
-		return (cl_err_code)iRes;
-	}
-	return CL_SUCCESS;
-}
-cl_err_code Device::DeleteMemoryObject(cl_dev_mem clMemObj)
-{
-	LOG_DEBUG(L"Enter DeleteMemoryObject (clMemObj=%d)", clMemObj);
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevDeleteMemoryObject(clMemObj);
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::GetBuildLog(cl_dev_program	clDevProg,
-								size_t			szSize,
-								char*			psLog,
-								size_t*			pszSizeRet)
-{
-	LOG_DEBUG(L"Enter GetBuildLog (clDevProg=%d, szSize-%d, psLog=%d, pszSizeRet=%d)", 
-		clDevProg, szSize, psLog, pszSizeRet);
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevGetBuildLog(clDevProg, szSize, psLog, pszSizeRet);
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::CreateCommandList(cl_dev_cmd_list_props clDevCmdListProps, cl_dev_cmd_list * pclDevCmdList)
-{
-	LOG_DEBUG(L"CreateCommandList GetBuildLog (cl_dev_cmd_list_props=%d, pclDevCmdList-%d)", 
-		clDevCmdListProps, pclDevCmdList);
-    if(!m_bIsDeviceOpened)
-    {
-        return CL_SUCCESS;
-    }	
-	cl_int iRes = m_clDevEntryPoints.pclDevCreateCommandList(clDevCmdListProps, pclDevCmdList);
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::RetainCommandList(cl_dev_cmd_list clDevCmdList)
-{
-	LOG_DEBUG(L"RetainCommandList GetBuildLog (clDevCmdList=%d)", clDevCmdList);
-
-    if(!m_bIsDeviceOpened)
-    {
-        return CL_SUCCESS;
-    }
-	cl_int iRes = m_clDevEntryPoints.pclDevRetainCommandList(clDevCmdList);
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::ReleaseCommandList(cl_dev_cmd_list clDevCmdList)
-{
-	LOG_DEBUG(L"ReleaseCommandList GetBuildLog (clDevCmdList=%d)", clDevCmdList);
-    
-    { OclAutoMutex CS(&m_muDeviceCloseLock);
-    if(!m_bIsDeviceOpened)
-    {
-        return CL_SUCCESS;
-    }
-    cl_int iRes = m_clDevEntryPoints.pclDevReleaseCommandList(clDevCmdList);
-	return (cl_err_code)iRes;
-    }
-}
-cl_err_code Device::CommandListExecute(cl_dev_cmd_list clDevCmdList,
-									   cl_dev_cmd_desc * clDevCmdDesc,
-									   cl_uint uiCount,
-									   ICmdStatusChangedObserver ** ppCmdStatusChangedObserver)
-{
-	LOG_INFO(L"Enter (clDevCmdList=%X, clDevCmdDesc-%d, uiCount=%d, ppCmdStatusChangedObserver=%d)", 
-		clDevCmdList, clDevCmdDesc, uiCount, ppCmdStatusChangedObserver);
-
-    // TODO: Move this code to upper level
-	cl_dev_cmd_desc * *pDescList = new cl_dev_cmd_desc *[uiCount];
-
-	// set observers for each command id
-	for (cl_uint ui=0; ui<uiCount; ++ui)
-	{
-		pDescList[ui] = &clDevCmdDesc[ui];
-		cl_dev_cmd_id clDevCmdId = clDevCmdDesc[ui].id;
-		clDevCmdDesc[ui].data = ppCmdStatusChangedObserver[ui];
-	}
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevCommandListExecute(clDevCmdList, pDescList, uiCount);
-	delete []pDescList;
-	LOG_INFO(L"Exit - List:%X, Res=%d", clDevCmdList, iRes);
-	return (cl_err_code)iRes;
-}
-
-
-cl_err_code Device::FlushCommandList(cl_dev_cmd_list clDevCmdList)
-{
-    LOG_INFO(L"Enter (clDevCmdList=%X)",  clDevCmdList);    
-    if(!m_bIsDeviceOpened)
-    {
-        return CL_SUCCESS;
-    }
-    cl_int iRes = m_clDevEntryPoints.pclDevFlushCommandList(clDevCmdList);
-    LOG_INFO(L"Exit (clDevCmdList=%X), Res=%d",  clDevCmdList, iRes);
-    return (cl_err_code)iRes;
-}
-
-
-cl_err_code Device::CreateMappedRegion(cl_dev_cmd_param_map * pMapParams)
-{
-	LOG_DEBUG(L"Enter CreateCommandList (pMapParams=%X)", pMapParams);
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevCreateMappedRegion(pMapParams);
-	
-	return (cl_err_code)iRes;
-}
-
-cl_err_code Device::ReleaseMappedRegion(cl_dev_cmd_param_map * pMapParams)
-{
-	LOG_DEBUG(L"Enter ReleaseMappedRegion (pMapParams=%X)", pMapParams);
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevReleaseMappedRegion(pMapParams);
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::UnloadCompiler(void)
-{
-	LOG_INFO(L"Enter UnloadCompiler");
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevUnloadCompiler();
-	
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::ReleaseProgram(cl_dev_program prog)
-{
-	LOG_INFO(L"Enter ReleaseProgram");
-
-	map<cl_dev_program, IBuildDoneObserver*>::iterator it = m_mapBuildDoneObservers.find(prog);
-	if (it != m_mapBuildDoneObservers.end())
-	{
-		m_mapBuildDoneObservers.erase(it);
-	}
-
-	cl_int iRes = m_clDevEntryPoints.pclDevReleaseProgram(prog);
-
-	return (cl_err_code)iRes;
-}
-cl_err_code Device::GetSupportedImageFormats(	cl_dev_mem_flags       clDevFlags,
-												cl_dev_mem_object_type clDevImageType,
-												cl_uint                uiNumEntries,
-												cl_image_format *      pclFormats,
-												cl_uint *              puiNumEntriesRet)
-{
-	LOG_DEBUG(L"Enter GetSupportedImageFormats (clDevFlags=%d, clDevImageType=%d, uiNumEntries=%d, pclFormats=%d, puiNumEntriesRet=%d",
-		clDevFlags, clDevImageType, uiNumEntries, pclFormats, puiNumEntriesRet);
-	
-	cl_int iRes = m_clDevEntryPoints.pclDevGetSupportedImageFormats(clDevFlags, clDevImageType, uiNumEntries, pclFormats, puiNumEntriesRet);
-	
-	return (cl_err_code)iRes;
 }

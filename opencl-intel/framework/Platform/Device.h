@@ -52,7 +52,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Device : public OCLObject
+	class Device : public OCLObject<_cl_device_id>, IOCLDevLogDescriptor, IOCLFrameworkCallbacks
 	{
 	public:
 
@@ -142,91 +142,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		const FECompiler * GetFECompiler(){ return m_pFECompiler; }
 
-		///////////////////////////////////////////////////////////////////////////////////////////
-		// Device API functions
-		//////////////////////////////////////////////////////////////////////////////////////////
-
-		/******************************************************************************************
-		* Function: 	CheckProgramBinary    
-		* Description:	Check if the binary is a valid binary
-		* Arguments:	szBinSize [in] 	- binary size (in bytes)
-		*				pBinData [in]	- pointer to the binary's data
-		* Return value:	CL_SUCCESS - operation succeded, the binary is valid
-		* Author:		Uri Levy
-		* Date:			January 2009
-		******************************************************************************************/
-		cl_err_code CheckProgramBinary(size_t szBinSize, const void* pBinData);
-
-		cl_err_code CreateProgram(	size_t				szBinSize,
-									const void*			pBinData,
-									cl_dev_binary_prop	clBinProp,
-									cl_dev_program *	clProg);
-
-		cl_err_code BuildProgram(	cl_dev_program			clProg,
-									const char *			pcOptions,
-									IBuildDoneObserver *	pBuildDoneObserver );
-
-		cl_err_code GetProgramBinary(	cl_dev_program	clDevProg, 
-										size_t			szBinSize, 
-										void *			pBin,
-										size_t *		pszBinSizeRet );
-
-		cl_err_code GetBuildLog(cl_dev_program	clDevProg,
-								size_t			szSize,
-								char*			psLog,
-								size_t*			pszSizeRet);
-
-		cl_err_code GetKernelId(	cl_dev_program	clDevProg,
-									const char *	psKernelName,
-									cl_dev_kernel *	pclKernel );
-
-		cl_err_code GetProgramKernels(	cl_dev_program	clDevProg,
-										cl_uint			uiNumKernels,
-										cl_dev_kernel *	pclKernels,
-										cl_uint *		puiNumKernelsRet );
-
-		cl_err_code GetKernelInfo(	cl_dev_kernel		clKernel,
-									cl_dev_kernel_info	clParam,
-									size_t				szValueSize,
-									void *				pValue,
-									size_t *			pValueSizeRet );
-
-		cl_err_code CreateMemoryObject(	cl_dev_mem_flags		clFlags,
-										const cl_image_format*	pclFormat,
-										cl_uint					uiDimCount,
-										const size_t *			pszDim,
-										void *					pBufferPtr,
-										const size_t *			pszPitch,
-										cl_dev_host_ptr_flags		hstFlags,
-										cl_dev_mem *			pMemObj );
-
-		cl_err_code DeleteMemoryObject(cl_dev_mem clMemObj);
-
-		cl_err_code CreateMappedRegion(cl_dev_cmd_param_map * pMapParams);
-
-		cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map * pMapParams);
-
-		cl_err_code UnloadCompiler(void);
-
-		cl_err_code ReleaseProgram(cl_dev_program prog);
-
-		cl_err_code GetSupportedImageFormats(	cl_dev_mem_flags       clDevFlags,
-												cl_dev_mem_object_type clDevImageType,
-												cl_uint                uiNumEntries,
-												cl_image_format *      pclFormats,
-												cl_uint *              puiNumEntriesRet);
-
-		///////////////////////////////////////////////////////////////////////////////////////////
-		// Command list methods
-		///////////////////////////////////////////////////////////////////////////////////////////
-		cl_err_code CreateCommandList(cl_dev_cmd_list_props clDevCmdListProps, cl_dev_cmd_list * pclDevCmdList);
-		cl_err_code RetainCommandList(cl_dev_cmd_list clDevCmdList);
-		cl_err_code ReleaseCommandList(cl_dev_cmd_list clDevCmdList);
-		cl_err_code CommandListExecute(	cl_dev_cmd_list clDevCmdList, 
-										cl_dev_cmd_desc * clDevCmdDesc, 
-										cl_uint uiCount,
-										ICmdStatusChangedObserver ** ppCmdStatusChangedObserver);
-        cl_err_code FlushCommandList(cl_dev_cmd_list clDevCmdList);
+		IOCLDevice*	GetDeviceAgent() {return m_pDevice;}
 
 	private:
 
@@ -234,29 +150,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// callback functions
 		///////////////////////////////////////////////////////////////////////////////////////////
 		
-		// cl_dev_call_backs
-		static void BuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
-		static void CmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer);
+		// IOCLFrameworkCallbacks
+		void clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
+		void clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer);
 
-		// cl_dev_log_descriptor
-		static cl_int CreateDeviceLogClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
-		static cl_int ReleaseDeviceLogClient(cl_int client_id);
-		static cl_int DeviceAddLogLine(cl_int client_id, cl_int log_level, const wchar_t* IN source_file, const wchar_t* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
+		// IOCLLoggerDescriptor
+		cl_int clLogCreateClient(cl_int device_id, wchar_t* client_name, cl_int * client_id);
+		cl_int clLogReleaseClient(cl_int client_id);
+		cl_int clLogAddLine(cl_int client_id, cl_int log_level, const wchar_t* IN source_file, const wchar_t* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// class private members
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		Utils::OclDynamicLib							m_dlModule;
+		Utils::OclDynamicLib					m_dlModule;
 		// front-end compiler
-		FECompiler *							        m_pFECompiler;
+		FECompiler *						    m_pFECompiler;
 
-		// holds pointer to notification functions for each device program object
-		std::map<cl_dev_program, IBuildDoneObserver *>	m_mapBuildDoneObservers;
-		
-        Intel::OpenCL::Utils::OclMutex          m_muDeviceCloseLock;
-		bool                                    m_bIsDeviceOpened;
-        
         // Pointer to the device GetInfo function.
         fn_clDevGetDeviceInfo*                  m_pFnClDevGetDeviceInfo;
         
@@ -264,11 +174,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		static std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
-		cl_dev_entry_points						m_clDevEntryPoints;		// device's entry points
-		
-		cl_dev_call_backs						m_clDevCallBacks;		// device's call backs
-
-		cl_dev_log_descriptor					m_clDevLogDescriptor;	// device's log descriptor
+		IOCLDevice*								m_pDevice;
 
 		DECLARE_LOGGER_CLIENT;											// device's class logger client
 

@@ -33,24 +33,19 @@
 #include <logger.h>
 #include "cl_object.h"
 #include "observer.h"
+#include "Device.h"
 #include <list>
-
-// Define internal runtime commands
-#define CL_COMMAND_RUNTIME          0x120F
-#define CL_COMMAND_FLUSH            0x120E
-#define CL_COMMAND_INTERNAL_FLUSH   0x120D
-#define CL_COMMAND_FINISH           0x120C
-#define CL_COMMAND_WAIT_FOR_EVENTS  0x120B
-#define CL_COMMAND_BARRIER			0x120A
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+	#define CL_COMMAND_RUNTIME			0
+	#define CL_COMMAND_BARRIER			1
+	#define CL_COMMAND_WAIT_FOR_EVENTS	2
     // Forward declarations
-    class QueueEvent;
-    class ICommandReceiver;
+    class OclEvent;
     class MemoryObject;
     class Kernel;
-    class ICommandQueue;
+    class OclCommandQueue;
 
     /******************************************************************
      * This enumeration is used to identify if a command is going to be
@@ -66,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class Command : public OCLObject, public ICmdStatusChangedObserver
+    class Command : public OCLObject<_cl_event>, public ICmdStatusChangedObserver
     {
 
     public:
@@ -94,7 +89,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Returns the command type for GetInfo requests and execution needs
         //
         virtual cl_command_type GetCommandType() const = 0;
-
+		//
+		// Returns True if command is: Marker || Barrier || WaitForEvents
+		//
+		virtual bool isControlCommand() const  { return false; }
         //
         // Returns whether a command is going to be executed on the device or not.
         //
@@ -105,45 +103,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
 
         // Command general functions
-        virtual void            SetEvent    (QueueEvent* queueEvent);
-        virtual QueueEvent*     GetEvent    ()                                      { return m_pQueueEvent; }   
-        virtual void            SetReceiver (ICommandReceiver* receiver)            { m_pReceiver = receiver; }
-        virtual void            SetCommandDeviceId (cl_device_id clDeviceId)        { m_clDeviceId = clDeviceId; }
-        virtual void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
-        virtual cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
+        void            SetEvent    (OclEvent* evt);
+        OclEvent*       GetEvent    ()                                      { return m_pEvent; }   
+        void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
+        cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
+		void            SetDevice(Device* pDevice)                          { m_pDevice = pDevice; }
+		Device*         GetDevice() const                                   { return m_pDevice; }
+		void            SetCommandQueue(OclCommandQueue* pQueue)            { m_pCommandQueue = pQueue; }
 
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
 
     protected:
-        QueueEvent*                 m_pQueueEvent;              // Pointer to the related event object
-        ICommandReceiver*           m_pReceiver;                // Pointer to the command receiver that execute the command
-        cl_dev_cmd_desc*            m_pDevCmd;                  // Pointer to the a device command
-        cl_device_id                m_clDeviceId;               // An handle of the device that should issue the command
+        OclEvent*                   m_pEvent;                   // Pointer to the related event object
+        cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
-        ICmdStatusChangedObserver*  m_pStatusChangeObserver;    // Observer for command status change.
+		Device*                     m_pDevice;                  // A pointer to the device executing the command
+		OclCommandQueue*            m_pCommandQueue;            // A pointer to the command queue on which the command resides
 
     public:
         bool						m_bIsFlushed;				// Required only for Debug, TODO: Remove on stabilty
-    };
-
-    /******************************************************************
-     * Runtime command is a command that was created by the runtime 
-     * and is used for synch within the runtime.
-     * The command does nothing but keep the event mechanism and therefore can be use for synch
-     * Implementation may use it for Flush or Finish commands or marker/barrier etc.
-     ******************************************************************/
-    class RuntimeCommand : public Command
-    {
-    public:
-        RuntimeCommand()                                        {}
-        virtual ~RuntimeCommand()                               {}
-        virtual cl_err_code             Init()                  { return CL_SUCCESS; }
-        virtual cl_err_code             Execute();        
-        virtual cl_err_code             CommandDone()           { return CL_SUCCESS; }
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_RUNTIME; }
-        virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_RUNTIME"; }
     };
 
     /******************************************************************
@@ -518,15 +497,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
     protected:         
-        // Private memebers
+        // Private members
         Kernel*         m_pKernel;
         cl_uint         m_uiWorkDim;
         const size_t*   m_cpszGlobalWorkOffset;
         const size_t*   m_cpszGlobalWorkSize;
         const size_t*   m_cpszLocalWorkSize;
 
-        // Intermidate data
-        std::list<OCLObject*>  m_OclObjects;
+        // Intermediate data
+        std::list<OCLObject<_cl_mem>*>  m_OclObjects;
     };
 
     /******************************************************************
@@ -584,6 +563,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
     /******************************************************************
+     * Runtime command is a command that was created by the runtime 
+     * and is used for sync within the runtime.
+     * The command does nothing but keep the event mechanism and therefore can be use for synch
+     * Implementation may use it for Flush or Finish commands or marker/barrier etc.
+     ******************************************************************/
+    class RuntimeCommand : public Command
+    {
+    public:
+        RuntimeCommand()                                        {}
+        virtual ~RuntimeCommand()                               {}
+        virtual cl_err_code             Init()                  { return CL_SUCCESS; }
+        virtual cl_err_code             Execute();        
+        virtual cl_err_code             CommandDone()           { return CL_SUCCESS; }
+        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_RUNTIME; }
+        virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
+        virtual const char*             GetCommandName() const  { return "CL_COMMAND_RUNTIME"; }
+		virtual bool isControlCommand()	const { return true; }
+    };
+
+    /******************************************************************
      *
      ******************************************************************/
     class MarkerCommand : public RuntimeCommand
@@ -624,66 +623,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }
         const char*             GetCommandName() const  { return "CL_COMMAND_BARRIER"; }
-    };
-
-
-    /******************************************************************
-     * A virtual command used to mark the position of a flush
-     * in the queue.
-     ******************************************************************/
-    class FlushCommand : public RuntimeCommand
-    {
-    public:
-        FlushCommand()          {}
-        virtual ~FlushCommand() {}
-        virtual cl_command_type GetCommandType() const  { return CL_COMMAND_FLUSH; }
-        virtual const char*     GetCommandName() const  { return "CL_COMMAND_FLUSH"; }
-    };
-
-    /******************************************************************
-     * Internal flush command, a flush with differnt type
-     * 
-     ******************************************************************/
-    class InternalFlushCommand : public RuntimeCommand
-    {
-    public:
-        InternalFlushCommand()                          {}
-        virtual ~InternalFlushCommand()                 {}
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_INTERNAL_FLUSH; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_INTERNAL_FLUSH"; }
-    };
-
-    /******************************************************************
-     * Finish command, this command is expected to been executed
-     * only after all previous device's commands were completed.
-     * 
-     ******************************************************************/
-    class FinishCommand : public RuntimeCommand
-    {
-    public:
-        FinishCommand()             {}
-        virtual ~FinishCommand()    {}
-        cl_command_type             GetCommandType() const  { return CL_COMMAND_FINISH; }
-        const char*                 GetCommandName() const  { return "CL_COMMAND_FINISH"; }
-    };
-
-    /******************************************************************
-     * DummyCommand - used for debugging
-     * On execution the command prints its status, than change its status
-     * to done... ??? will it work???
-
-     ******************************************************************/
-    class DummyCommand : public Command
-    {
-
-    public:
-        DummyCommand()  {};
-        virtual ~DummyCommand() {};
-
-        cl_err_code             Execute();    
-        cl_command_type         GetCommandType() const { return 0; };
-        ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
-
     };
 
 }}};    // Intel::OpenCL::Framework

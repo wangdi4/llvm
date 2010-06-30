@@ -174,7 +174,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class MemoryObject : public OCLObject
+	class MemoryObject : public OCLObject<_cl_mem>
 	{
 	public:
 
@@ -251,12 +251,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// same device
         cl_dev_mem GetDeviceMemoryHndl( cl_device_id clDeviceId );
 
-		// set the device id where the data is know availabe.
+		// set the device id where the data is know available.
 		// calling to this methos should be done just before the write command is sent to the device agent.
 		cl_err_code SetDataLocation(cl_device_id clDevice);
 
         // Return the cl_context handle of the context that this memory object is belong to.
-        cl_context GetContextId () const { return (cl_context)(m_pContext->GetId()); };
+        cl_context GetContextHandle () const { return m_pContext->GetHandle(); };
+
+		//Returns the ID of the context that this memory object belongs to
+		cl_int     GetContextId() const {return m_pContext->GetId(); }
 
 		// get the type of the memory object
 		cl_mem_object_type GetType() const { return m_clMemObjectType; }
@@ -271,7 +274,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const void * GetHostPtr() const { return m_pHostPtr; }
 
 		// increase map calls counter by one, returns the map calls counter value;
-		cl_uint IncreaseMapCount(){ m_uiMapCount--; return m_uiMapCount; }
+		cl_uint IncreaseMapCount(){ m_uiMapCount++; return m_uiMapCount; }
 
 		// decrease map calls counter by one, returns the map calls counter value;
 		cl_uint DecreaseMapCount(){ if (m_uiMapCount > 0) m_uiMapCount--; return m_uiMapCount; }
@@ -370,21 +373,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CheckMemFlags(cl_mem_flags clMemFlags);
 
 		cl_mem_object_type						m_clMemObjectType;
-
 		cl_mem_flags							m_clFlags; // memory object's flags
-
 		void *									m_pHostPtr; // memory object's host ptr
-
-		Context *								m_pContext;	// context to which the momory object belongs
-
+		Context *								m_pContext;	// context to which the memory object belongs
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
-
-		cl_uint									m_uiMapCount;
-
-		long									m_lDataOnHost;// flag that specify if the data is available on host;
-
+		OclSpinMutex							m_muDeviceMap;
+		cl_uint									m_uiMapCount;		
 		size_t									m_szMemObjSize;
-
 		void *									m_pMemObjData;
 
 	};

@@ -25,40 +25,31 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 #include "ocl_event.h"
-#include "queue_event.h"
-#include "ocl_command_queue.h"
+#include "command_queue.h"
+#include "enqueue_commands.h"
 #include <assert.h>
+#include <cl_sys_info.h>
 
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 /******************************************************************
  *
  ******************************************************************/
-OclEvent::OclEvent(QueueEvent* queueEvent, cl_command_type commandType, ocl_entry_points * pOclEntryPoints):
-    m_commandType(commandType),
-    m_queueEvent(queueEvent),
-	m_bProfilingEnabled(false)
+OclEvent::OclEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
+	QueueEvent(cmdQueue), m_bProfilingEnabled(false)
 {
-    if( NULL != queueEvent )
-    {
-        m_queueID = (cl_command_queue)m_queueEvent->GetEventQueue()->GetId();
-        m_contextID = (cl_context)m_queueEvent->GetEventQueue()->GetContextId();
-    }
-    else
-    {
-        m_queueID = 0;
-        m_contextID = 0;
-    }
 	m_sProfilingInfo.m_ulCommandQueued = 0;
 	m_sProfilingInfo.m_ulCommandSubmit = 0;
 	m_sProfilingInfo.m_ulCommandStart = 0;
 	m_sProfilingInfo.m_ulCommandEnd = 0;
 
-	m_pHandle = new _cl_event;
-	m_pHandle->object = this;
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
+	//Todo: workaround because OCL1.0
+	m_bProfilingEnabled = true;
 
+	m_handle.object = this;
+	m_handle.dispatch = pOclEntryPoints;
 }
 
 /******************************************************************
@@ -66,23 +57,6 @@ OclEvent::OclEvent(QueueEvent* queueEvent, cl_command_type commandType, ocl_entr
  ******************************************************************/
 OclEvent::~OclEvent()
 {
-    // Note OCL event is deleted only when is refCount is set to 0.
-    // That means that none of the threads is still waiting on the condition
-    assert ( 0 == m_uiRefCount ); 
-    {OclAutoMutex CS(&m_eventLocker); 
-    if( NULL != m_queueEvent)
-    {
-        m_queueEvent->UnRegisterEventDoneObserver(this);
-        m_queueEvent = NULL;
-    }
-    } // Prevent deletion while queue is notified done
-    // Anyhow, release all waiting... 
-    m_eventDoneCond.Broadcast();    
-
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
-	}
 }
 
 /******************************************************************
@@ -92,59 +66,97 @@ OclEvent::~OclEvent()
  ******************************************************************/
 void OclEvent::Wait()
 {
-    COND_RESULT res = COND_RESULT_COND_BROADCASTED;
-    m_eventLocker.Lock();
-    // Use loop to avoid unanticipated releases.
-    // Use lock to avoid waiting on m_queueEvent which was already set
-    while ( NULL != m_queueEvent ||  COND_RESULT_COND_BROADCASTED != res )
-    {
-        res = m_eventDoneCond.Wait(&m_eventLocker);
-    }
-    m_eventLocker.Unlock();
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
+	WaitSpin();
+#elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_YIELD
+	WaitYield();
+#elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	WaitOSEvent();
+#else
+#error "Please define which wait method OclEvent should use. See ocl_event.h"
+#endif
 }
 
-/******************************************************************
- * This function is been called when the command has completed.
- ******************************************************************/
-cl_err_code OclEvent::NotifyEventDone(QueueEvent* event)
+void OclEvent::WaitSpin()
 {
-    OclAutoMutex CS(&m_eventLocker); 
-	if (NULL != m_queueEvent)
+	while (m_color != EVENT_STATE_BLACK)
 	{
-		// copy profiling information if available
-		m_sProfilingInfo.m_ulCommandQueued = m_queueEvent->GetProfilingInfo(CL_PROFILING_COMMAND_QUEUED);
-		m_sProfilingInfo.m_ulCommandSubmit = m_queueEvent->GetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT);
-		m_sProfilingInfo.m_ulCommandStart =  m_queueEvent->GetProfilingInfo(CL_PROFILING_COMMAND_START);
-		m_sProfilingInfo.m_ulCommandEnd =    m_queueEvent->GetProfilingInfo(CL_PROFILING_COMMAND_END);
-        m_bProfilingEnabled = ((CL_TRUE == m_queueEvent->GetEventQueue()->IsProfilingEnabled()) ? true:false );
 	}
-    m_queueEvent = NULL;
-    COND_RESULT res = m_eventDoneCond.Broadcast();    
-    if ( COND_RESULT_OK != res)
-        return CL_ERR_EXECUTION_FAILED;
-    else
-        return CL_SUCCESS;
+}
+void OclEvent::WaitYield()
+{
+	while (m_color != EVENT_STATE_BLACK)
+	{
+		clSleep(0);
+	}
+}
+void OclEvent::WaitOSEvent()
+{
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	//This is a heavy routine, if I can early exit, all the better
+	if (EVENT_STATE_BLACK == m_color) return;
+
+	//Creating a manual reset event to prevent a race condition between event completion and waiting on OS event
+	if (m_osEvent.Init())
+	{
+		// Adding myself as a listener to my own completion. 
+		// My notification routine (called from the informing thread) will wake up the waiting thread
+		AddCompleteListener(this);
+		m_osEvent.Wait();
+		//Disallow inconsistent results. Let the event completion routine (from another thread) finish before returning.
+		WaitSpin(); 
+	}
+	else
+	{
+		WaitYield();
+	}
+#else
+	WaitYield();
+#endif
 }
 
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+cl_err_code OclEvent::NotifyEventDone(QueueEvent* pEvent)
+{
+	//Only care about notifications from myself
+	if (dynamic_cast<QueueEvent *>(this) != pEvent)
+	{
+		return QueueEvent::NotifyEventDone(pEvent);
+	}
+	//We only listen on ourselves after creating a legal OS event. Make sure nothing freaky happened.
+	m_osEvent.Signal();
+	//And from here continue as usual
+	return QueueEvent::NotifyEventDone(pEvent);
+}
+#endif
 
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code    OclEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * paramValue, size_t * paramValueSizeRet)
+cl_err_code OclEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * paramValue, size_t * paramValueSizeRet)
 {
     cl_err_code res = CL_SUCCESS;
     void* localParamValue = NULL;
     size_t outputValueSize = 0;
     cl_int eventStatus = CL_QUEUED;
+	cl_command_type cmd_type;
+	cl_command_queue cmd_queue;
 
     switch (paramName)
     {
         case CL_EVENT_COMMAND_QUEUE:
-            localParamValue = &m_queueID;
+			cmd_queue = GetEventQueue()->GetHandle();
+            localParamValue = &cmd_queue;
             outputValueSize = sizeof(cl_command_queue);
             break;
         case CL_EVENT_COMMAND_TYPE:
-            localParamValue = &m_commandType;
+			if (!m_pCommand)
+			{
+				//Todo: need to return CL_USER_COMMAND if user event
+				return CL_INVALID_VALUE;
+			}
+			cmd_type        = m_pCommand->GetCommandType();
+            localParamValue = &cmd_type;
             outputValueSize = sizeof(cl_command_type);
             break;
         case CL_EVENT_REFERENCE_COUNT:
@@ -190,13 +202,7 @@ cl_err_code OclEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t szP
     size_t outputValueSize = 0;
 	cl_ulong ulProfilingInfo = 0;
 
-	//if ( NULL == m_queueEvent )
-	//{
-	//	return CL_INVALID_EVENT;
-	//}
-
-	cl_bool bProfilingEnabled = (NULL == m_queueEvent) ? m_bProfilingEnabled : m_queueEvent->GetEventQueue()->IsProfilingEnabled();
-	if (false == bProfilingEnabled )
+	if (!m_bProfilingEnabled)
 	{
 		return CL_PROFILING_INFO_NOT_AVAILABLE;
 	}
@@ -206,28 +212,28 @@ cl_err_code OclEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t szP
     switch (clParamName)
     {
 	case CL_PROFILING_COMMAND_QUEUED:
-		ulProfilingInfo = (NULL == m_queueEvent) ? m_sProfilingInfo.m_ulCommandQueued : m_queueEvent->GetProfilingInfo(clParamName);
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandQueued;
 		break;
 	case CL_PROFILING_COMMAND_SUBMIT:
 		if (eventStatus > CL_SUBMITTED)
 		{
 			return CL_PROFILING_INFO_NOT_AVAILABLE;
 		}
-		ulProfilingInfo = (NULL == m_queueEvent) ? m_sProfilingInfo.m_ulCommandSubmit : m_queueEvent->GetProfilingInfo(clParamName);
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandSubmit;
 		break;
 	case CL_PROFILING_COMMAND_START:
 		if (eventStatus > CL_RUNNING)
 		{
 			return CL_PROFILING_INFO_NOT_AVAILABLE;
 		}
-		ulProfilingInfo = (NULL == m_queueEvent) ? m_sProfilingInfo.m_ulCommandStart : m_queueEvent->GetProfilingInfo(clParamName);
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandStart;
 		break;
 	case CL_PROFILING_COMMAND_END:
 		if (eventStatus > CL_COMPLETE)
 		{
 			return CL_PROFILING_INFO_NOT_AVAILABLE;
 		}
-		ulProfilingInfo = (NULL == m_queueEvent) ? m_sProfilingInfo.m_ulCommandEnd : m_queueEvent->GetProfilingInfo(clParamName);
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandEnd;
 		break;
 	default:
 		return CL_INVALID_VALUE;
@@ -255,6 +261,28 @@ cl_err_code OclEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t szP
     return res;
 }
 
+void OclEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData)
+{
+	switch ( clParamName )
+	{
+	case CL_PROFILING_COMMAND_QUEUED:
+		m_sProfilingInfo.m_ulCommandQueued = ulData;
+		break;
+	case CL_PROFILING_COMMAND_SUBMIT:
+		m_sProfilingInfo.m_ulCommandSubmit = ulData;
+		break;
+	case CL_PROFILING_COMMAND_START:
+		m_sProfilingInfo.m_ulCommandStart = ulData;
+		break;
+	case CL_PROFILING_COMMAND_END:
+		m_sProfilingInfo.m_ulCommandEnd = ulData;
+		break;
+	default:
+		break;
+	}
+}
+
+
 /******************************************************************
  * This function returns the current status of the command that is
  * corresponding to this event.
@@ -263,21 +291,14 @@ cl_err_code OclEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t szP
  ******************************************************************/
 cl_int OclEvent::GetEventCurrentStatus()
 {
-
-    QueueEventStateColor color = EVENT_STATE_BLACK;
-    if ( NULL != m_queueEvent )
+    switch(m_color)
     {
-        color = m_queueEvent->GetColor();
-    }
-
-    switch(color)
-    {
+	case EVENT_STATE_WHITE:
+		return CL_QUEUED;
     case EVENT_STATE_RED:
         // Fall through
     case EVENT_STATE_YELLOW:
-		//Intentional fall through - Doron hack to pass a test in the events suite
-		//Ignore "queued" status, always return at least "submitted" to cheat Khronos into thinking our flush works
-        //return CL_QUEUED;
+		// Fall through
     case EVENT_STATE_LIME:
         return CL_SUBMITTED;
     case EVENT_STATE_GREEN:
@@ -286,4 +307,13 @@ cl_int OclEvent::GetEventCurrentStatus()
     default:
         return CL_COMPLETE;
     }        
+}
+
+cl_context OclEvent::GetContextHandle() const
+{
+	return GetEventQueue()->GetContextHandle();
+}
+cl_command_queue OclEvent::GetQueueHandle() const
+{
+	return GetEventQueue()->GetHandle();
 }

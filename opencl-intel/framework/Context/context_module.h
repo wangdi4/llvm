@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class PlatformModule;
 	class Device;
 	class Context;
-	class OCLObjectsMap;
+	template <class HandleType> class OCLObjectsMap;
 	class MemoryObject;
     class Kernel;
 
@@ -178,15 +178,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
 
-		OCLObjectsMap *							m_pContexts; // map list of contexts
+		OCLObjectsMap<_cl_context> *			m_pContexts; // map list of contexts
 
-		OCLObjectsMap *							m_pPrograms; // map list of programs
+		OCLObjectsMap<_cl_program> *			m_pPrograms; // map list of programs
 
-		OCLObjectsMap *							m_pKernels;	// map list of kernels
+		OCLObjectsMap<_cl_kernel> *				m_pKernels;	// map list of kernels
 
-		OCLObjectsMap *							m_pMemObjects; // map list of all memory objects
+		OCLObjectsMap<_cl_mem> *				m_pMemObjects; // map list of all memory objects
 
-		OCLObjectsMap *							m_pSamplers; // map list of all memory objects
+		OCLObjectsMap<_cl_sampler> *			m_pSamplers; // map list of all memory objects
 
 		ocl_entry_points *						m_pOclEntryPoints;
 

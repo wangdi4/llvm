@@ -29,36 +29,51 @@
 #define __OCL_COMMAND_QUEUE_H__
 
 #include <cl_types.h>
-#include "event_color_change_observer.h"
+#include "queue_event.h"
+#include "ocl_command_queue.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    //Forward declration
+    //Forward declaration
     class Command;
 
     /**
      * 
      * 
      */
-    class ICommandQueue 
-    {
+	class ICommandQueue
+	{
+	public:
+		virtual cl_err_code Enqueue(Command* command)          = 0;
+		virtual cl_err_code EnqueueBarrier(Command* barrier)   = 0;
+		virtual cl_err_code EnqueueMarker(Command* marker)     = 0;
+		virtual cl_err_code EnqueueWaitForEvents(Command* wfe) = 0;
 
-    public:
-        virtual cl_err_code Init() =0;
-        virtual Command*    GetNextCommand() =0;
-        virtual cl_err_code AddCommand(Command* command)  =0;
-        virtual cl_err_code Flush( bool bBlocking )       =0;
-        virtual void        Signal()    =0;
-        virtual bool        IsEmpty()   =0;
-        virtual cl_uint     Size()      =0;
-        virtual cl_err_code Release()   =0;
-        virtual cl_err_code NotifyEventColorChange( 
-            const QueueEvent*       cpEvent, 
-            QueueEventStateColor    prevColor,  
-            QueueEventStateColor    newColor )  =0;
+		virtual cl_err_code Flush(bool bBlocking)  = 0;
+		virtual cl_err_code SendCommandsToDevice() = 0;
+		virtual cl_err_code NotifyStateChange( const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor ) = 0;
+	};
 
-        virtual ~ICommandQueue(){}; // Virtual D'tor        
-    };
+	class IOclCommandQueueBase : public ICommandQueue, public OclCommandQueue
+	{
+	public:
+		IOclCommandQueueBase(
+			Context*                    pContext,
+			cl_device_id                clDefaultDeviceID, 
+			cl_command_queue_properties clProperties,
+			EventsManager*              pEventManager,
+			ocl_entry_points *			pOclEntryPoints
+			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints) {}
+		virtual ~IOclCommandQueueBase() {}
+
+		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
+		virtual bool		WaitForCompletion(OclEvent* pEvent );
+
+	protected:
+		virtual cl_err_code SetDependentOnList(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
+
+	};
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_COMMAND_QUEUE_H__)
 

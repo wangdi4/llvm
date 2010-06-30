@@ -28,7 +28,7 @@
 #include "ocl_event.h"
 #include "queue_event.h"
 #include "cl_objects_map.h"
-#include "ocl_command_queue.h"
+#include "command_queue.h"
 #include "cl_utils.h"
 
 using namespace Intel::OpenCL::Utils;
@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Framework;
  ******************************************************************/
 EventsManager::EventsManager() 
 {
-    m_pEvents = new OCLObjectsMap();
+    m_pEvents = new OCLObjectsMap<_cl_event>();
 }
 
 /******************************************************************
@@ -52,7 +52,7 @@ EventsManager::~EventsManager()
     cl_uint     uiEventCount = m_pEvents->Count();
     for (cl_uint ui=0; ui<uiEventCount; ++ui)
     {
-        OCLObject*  pOclObject = NULL;
+        OCLObject<_cl_event>*  pOclObject = NULL;
         OclEvent*   pEvent  = NULL;
         cl_err_code res     = CL_SUCCESS;
         res = m_pEvents->GetObjectByIndex(ui, &pOclObject);
@@ -74,8 +74,8 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
 {   
     cl_err_code res     = CL_SUCCESS;
 
-    OCLObject*  pOclObject = NULL;
-    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
+    OCLObject<_cl_event>*  pOclObject = NULL;
+    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
@@ -90,9 +90,9 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
 cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 {
     cl_err_code res     = CL_SUCCESS;
-    OCLObject*  pOclObject = NULL;
+    OCLObject<_cl_event>*  pOclObject = NULL;
 
-    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
+    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
@@ -102,9 +102,11 @@ cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
             // Remove this event completely,
             // The full meaning of remove act is that the event can not be accessed by
             // the user anymore, but it related command may still running.
-            // TODO: Arnon API Q: should we delete only when the command is done?
-            m_pEvents->RemoveObject((cl_uint)clEvent, NULL);
-            delete pEvent;
+            m_pEvents->RemoveObject(clEvent, NULL);
+			if (0 == pEvent->RemovePendency())
+			{
+				delete pEvent;
+			}
         }
     }
     return res;
@@ -116,9 +118,9 @@ cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet)
 {
     cl_err_code res         = CL_SUCCESS;
-    OCLObject*  pOclObject  = NULL;
+    OCLObject<_cl_event>*  pOclObject  = NULL;
 
-    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
+    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         OclEvent*   pEvent  = dynamic_cast<OclEvent*>(pOclObject);
@@ -136,9 +138,9 @@ cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName,
 cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
     cl_err_code res         = CL_SUCCESS;
-    OCLObject*  pOclObject  = NULL;
+    OCLObject<_cl_event>*  pOclObject  = NULL;
 
-    res = m_pEvents->GetOCLObject((cl_uint)clEvent, &pOclObject);
+    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         OclEvent*   pEvent  = dynamic_cast<OclEvent*>(pOclObject);
@@ -152,7 +154,7 @@ cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling
 }
 
 /******************************************************************
- * This function implemnts the API clWaitForEvents function
+ * This function implements the API clWaitForEvents function
  * The host thread waits for commands identified by event objects in event_list to complete. 
  * The events specified in event_list act as synchronization points.
  *
@@ -196,11 +198,11 @@ cl_err_code EventsManager::ValidateEventsContext(cl_uint uiNumEvents, const cl_e
     cl_uint ui;
 
     // Next, check that events has the same context as the queued context
-    cl_context queueContext = vOclEvents[0]->GetContextId();
+    cl_context queueContext = vOclEvents[0]->GetContextHandle();
     for ( ui =1; ui < uiNumEvents; ui++)
     {
         OclEvent* pOclEvent = vOclEvents[ui];
-        if( queueContext != pOclEvent->GetContextId())
+        if( queueContext != pOclEvent->GetContextHandle())
         {
             // Error
             delete[] vOclEvents;
@@ -221,10 +223,10 @@ cl_err_code EventsManager::ValidateEventsContext(cl_uint uiNumEvents, const cl_e
  * are removed from the list
  * 
  ******************************************************************/
-cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_command_queue queueId)
+cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_command_queue queueId)
 {
 	cl_start;
-    // Check input pramaters
+    // Check input paramaters
     if ( ( NULL == pEvent) ||
          ( (NULL == eventList) && ( 0 != uiNumEvents ) ) ||
          ( (NULL != eventList) && ( 0 == uiNumEvents ) )
@@ -241,11 +243,11 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
 
         cl_uint ui;
         // Next, check that events has the same context as the queued context
-        cl_context queueContext = pEvent->GetEventQueue()->GetContextId();
+        cl_context queueContext = pEvent->GetContextHandle();
         for ( ui =0; ui < uiNumEvents; ui++)
         {
             OclEvent* pOclEvent = vOclEvents[ui];
-            if( queueContext != pOclEvent->GetContextId())
+            if( queueContext != pOclEvent->GetContextHandle())
             {
                 // Error
                 delete[] vOclEvents;
@@ -256,22 +258,25 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
         // Register input event in the entire eventList
         // If bRemoveEvents is true, events that were allocated on queueId will not
         // be registered
-        for ( ui =0; ui < uiNumEvents; ui++)
-        {
-            QueueEvent* pDependOnEvent = vOclEvents[ui]->GetQueueEvent();            
-            if ( NULL != pDependOnEvent )
-            {
-                if(bRemoveEvents)
-                {
+		if (bRemoveEvents)
+		{
+			for ( ui =0; ui < uiNumEvents; ui++)
+			{
+				QueueEvent* pDependOnEvent = dynamic_cast<QueueEvent *>(vOclEvents[ui]);
+				if ( NULL != pDependOnEvent )
+				{
                     if ( queueId == (cl_command_queue)(pDependOnEvent->GetEventQueue()->GetId()))
                     {
                         // Do not register
+						vOclEvents[ui] = NULL;
                         continue;
                     }
-                }
-                pEvent->SetDependentOn(pDependOnEvent);
+				}
             }        
         }
+		//Todo: need dynamic cast here? 
+		pEvent->AddDependentOnMulti(uiNumEvents, vOclEvents);
+
         delete[] vOclEvents;
     }
     cl_return  CL_SUCCESS;    
@@ -279,7 +284,7 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
 
 /******************************************************************
  * This function returns list of OclEvent objects corresponding
- * to the input parapters of eventId.
+ * to the input parameters of eventId.
  * If one or more of the eventId in the eventList is not valid, NULL
  * is return.
  * On success a list is returned that need to be free by the caller.
@@ -288,7 +293,7 @@ cl_err_code EventsManager::RegisterEvents(QueueEvent* pEvent, cl_uint uiNumEvent
 OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList )
 {
     cl_err_code res         = CL_SUCCESS;
-    OCLObject*  pOclObject  = NULL;
+    OCLObject<_cl_event>*  pOclObject  = NULL;
 	if(0 == uiNumEvents)
 	{
 		return NULL;
@@ -297,7 +302,7 @@ OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event
 
     for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
     {
-        res = m_pEvents->GetOCLObject((cl_int)(eventList[ui]), &pOclObject);
+        res = m_pEvents->GetOCLObject(eventList[ui], &pOclObject);
         vpOclEvents[ui] = dynamic_cast<OclEvent*>(pOclObject);
         if(CL_FAILED(res))
         {
@@ -310,23 +315,36 @@ OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event
 }
 
 /******************************************************************
- * This function creates event object. The Ocl event hadnle that can be used by
+******************************************************************/
+OclEvent* EventsManager::GetEvent(cl_event clEvent)
+{
+	OCLObject<_cl_event>* pOclObject;
+
+	cl_int ret = m_pEvents->GetOCLObject(clEvent, &pOclObject);
+	if (CL_FAILED(ret))
+	{
+		return NULL;
+	}
+	return dynamic_cast<OclEvent*>(pOclObject);
+}
+
+/******************************************************************
+ * This function creates event object. The Ocl event handle that can be used by
  * the user is assigned into the eventHndl.
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
  ******************************************************************/
-QueueEvent* EventsManager::CreateEvent(cl_command_type eventCommandType, cl_event* pEventHndl, OclCommandQueue* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
+OclEvent* EventsManager::CreateOclEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
 {
 	cl_start;
-    QueueEvent* pNewEvent = new QueueEvent(pOclCommandQueue);
-    if ( (NULL != pNewEvent) && (NULL != pEventHndl) )
-    {
-        OclEvent* pNewOclEvent = new OclEvent(pNewEvent, eventCommandType, pOclEntryPoints);
-        // TODO: guard ObjMap... better doing so inside the map
-        m_pEvents->AddObject(pNewOclEvent);
-        *pEventHndl = (cl_event)pNewOclEvent->GetId();
-        // Register the OclEvent on the QueueEvent
-        pNewEvent->RegisterEventDoneObserver(pNewOclEvent);        
-    }
-    cl_return  pNewEvent;
+    OclEvent* pNewOclEvent = new OclEvent(pOclCommandQueue, pOclEntryPoints);
+    // TODO: guard ObjMap... better doing so inside the map
+    m_pEvents->AddObject(pNewOclEvent);
+	if (pEventHndl)
+	{
+		pNewOclEvent->AddPendency();
+		*pEventHndl = pNewOclEvent->GetHandle();
+	}
+
+    cl_return  pNewOclEvent;
 }

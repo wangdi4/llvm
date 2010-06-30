@@ -54,11 +54,11 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints)
 {
 	LOG_INFO(L"ContextModule::Initialize enter");
 
-	m_pContexts = new OCLObjectsMap();
-	m_pPrograms = new OCLObjectsMap();
-	m_pKernels = new OCLObjectsMap();
-	m_pMemObjects = new OCLObjectsMap();
-	m_pSamplers = new OCLObjectsMap();
+	m_pContexts = new OCLObjectsMap<_cl_context>();
+	m_pPrograms = new OCLObjectsMap<_cl_program>();
+	m_pKernels = new OCLObjectsMap<_cl_kernel>();
+	m_pMemObjects = new OCLObjectsMap<_cl_mem>();
+	m_pSamplers = new OCLObjectsMap<_cl_sampler>();
 
 	m_pOclEntryPoints = pOclEntryPoints;
 
@@ -77,7 +77,7 @@ cl_err_code ContextModule::Release(  bool bTerminate )
 	{
 		for(cl_uint ui=0; ui<m_pContexts->Count(); ++ui)
 		{
-			clErrRet = m_pContexts->GetObjectByIndex(ui, (OCLObject**)&pContext);
+			clErrRet = m_pContexts->GetObjectByIndex(ui, (OCLObject<_cl_context>**)&pContext);
 			if (CL_SUCCEEDED(clErrRet))
 			{
 				clErrRet = pContext->Release();
@@ -230,9 +230,11 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 		{
 			*pErrcodeRet = clErrRet;
 		}
+		delete pDevices;
 		return CL_INVALID_HANDLE;
 	}
 	cl_context clContext = CreateContext(clProperties, uiNumDevices, pDevices, pfnNotify, pUserData, pErrcodeRet);
+	delete pDevices;
 	//cl_return clContext;
 	return clContext;
 }
@@ -276,7 +278,7 @@ cl_err_code ContextModule::RetainContext(cl_context context)
 		LOG_ERROR(L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	clErrRet = m_pContexts->GetOCLObject(context, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
@@ -298,7 +300,7 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 		LOG_ERROR(L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	clErrRet = m_pContexts->GetOCLObject(context, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
@@ -312,9 +314,9 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 	}
     
 
-	if (pContext->GetReferenceCount() == 0)
+	if (pContext->GetReferenceCount() == 0 && pContext->GetPendencies() == 0)
 	{
-		m_pContexts->RemoveObject((cl_int)context, (OCLObject**)&pContext, true);
+		m_pContexts->RemoveObject(context, (OCLObject<_cl_context>**)&pContext, true);
 	}
 
     GarbageCollector();
@@ -340,7 +342,7 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
 	cl_err_code clErrRet = CL_SUCCESS;
 	Context * pContext = NULL;
 	// get context from the contexts map list
-	clErrRet = m_pContexts->GetOCLObject((cl_int)context, (OCLObject**)&pContext);
+	clErrRet = m_pContexts->GetOCLObject(context, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
@@ -377,7 +379,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
-	clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	clErrRet = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
@@ -398,7 +400,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 		pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
 		return CL_INVALID_HANDLE;
 	}
-	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
+	clErrRet = m_pPrograms->AddObject((OCLObject<_cl_program>*)pProgram, false);
 	if (CL_FAILED(clErrRet))
 	{
 		if (NULL != pErrcodeRet)
@@ -412,7 +414,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_program)pProgram->GetId();
+	return pProgram->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithBinary
@@ -449,7 +451,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 		return CL_INVALID_HANDLE;
 	}
 	// get the context object
-	cl_err_code clErrRet = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErrRet = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", clContext, &pContext, clErrRet);
@@ -470,7 +472,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
 		return CL_INVALID_HANDLE;
 	}
-	clErrRet = m_pPrograms->AddObject((OCLObject*)pProgram, pProgram->GetId(), false);
+	clErrRet = m_pPrograms->AddObject((OCLObject<_cl_program>*)pProgram, false);
 	if (CL_FAILED(clErrRet))
 	{
 		if (NULL != pErrRet)
@@ -484,7 +486,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 	{
 		*pErrRet = CL_SUCCESS;
 	}
-	return (cl_program)pProgram->GetId();
+	return pProgram->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainProgram
@@ -498,7 +500,7 @@ cl_err_code	ContextModule::RetainProgram(cl_program clProgram)
 #endif
 	
 	Program *pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"program %d is invalid program", clProgram);
@@ -518,7 +520,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 #endif
 
 	Program *pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"program %d is invalid program", clProgram);
@@ -536,14 +538,14 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 		{
 			return CL_INVALID_PROGRAM;
 		}
-		clErrRet = pContext->RemoveProgram((cl_program)pProgram->GetId());
+		clErrRet = pContext->RemoveProgram(pProgram->GetHandle());
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_ERR_OUT(clErrRet);
 		}
 
 		// remove program from programs list and add it to the dirty programs list
-		clErrRet = m_pPrograms->RemoveObject((cl_int)pProgram->GetId(), NULL, true);
+		clErrRet = m_pPrograms->RemoveObject(pProgram->GetHandle(), NULL, true);
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_ERR_OUT(clErrRet);
@@ -574,7 +576,7 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 	}
 	// get program from programs map list
 	Program * pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
 			LOG_ERROR(L"program %d isn't valid program", clProgram);
@@ -605,7 +607,7 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// get program from the programs map list
-	clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pPrograms->GetOCLObject(%d, %d) = %d", clProgram, &pProgram, clErrRet);
@@ -634,7 +636,7 @@ cl_int ContextModule::GetProgramBuildInfo(cl_program clProgram,
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// get program from the programs map list
-	clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"m_pPrograms->GetOCLObject(%d, %d) = %d", clProgram, &pProgram, clErrRet);
@@ -657,7 +659,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 
 	// get program object
 	Program *pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
 		LOG_ERROR(L"clProgram is invalid program");
@@ -680,13 +682,13 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 	if (NULL != pKernel)
 	{
 		// add new kernel to the context module's kernels list
-		m_pKernels->AddObject((OCLObject*)pKernel, pKernel->GetId(), false);
+		m_pKernels->AddObject((OCLObject<_cl_kernel>*)pKernel, false);
 		if (NULL != piErr)
 		{
 			*piErr = CL_SUCCESS;
 		}
 		// return handle
-		return (cl_kernel)pKernel->GetId();
+		return pKernel->GetHandle();
 	}
 
 	return CL_INVALID_HANDLE;
@@ -711,7 +713,7 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 	
 	// get the program object
 	Program *pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgram, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgram, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
 		LOG_ERROR(L"clProgram is invalid program");
@@ -745,7 +747,7 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 	}
 	for (cl_uint ui=0; ui<uiKerenls; ++ui)
 	{
-		m_pKernels->AddObject((OCLObject*)ppKernels[ui],ppKernels[ui]->GetId(),false);
+		m_pKernels->AddObject((OCLObject<_cl_kernel>*)ppKernels[ui], false);
 	}
 	
 	delete[] ppKernels;
@@ -766,7 +768,7 @@ cl_int ContextModule::RetainKernel(cl_kernel clKernel)
 	cl_err_code clErr = CL_SUCCESS;
 	Kernel * pKernel = NULL;
 
-	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
@@ -792,7 +794,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 	cl_err_code clErr = CL_SUCCESS;
 	Kernel * pKernel = NULL;
 
-	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
@@ -813,13 +815,13 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 		{
 			return CL_INVALID_KERNEL;
 		}
-		clErr = pProgram->RemoveKernel((cl_kernel)pKernel->GetId());
+		clErr = pProgram->RemoveKernel(pKernel->GetHandle());
 		if (CL_FAILED(clErr))
 		{
 			return CL_ERR_OUT(clErr);
 		}
 		// remove kernel form kernels list and add it to the dirty kernels list		
-		clErr = m_pKernels->RemoveObject(pKernel->GetId(), NULL, true);
+		clErr = m_pKernels->RemoveObject(pKernel->GetHandle(), NULL, true);
 		if (CL_FAILED(clErr))
 		{
 			return CL_ERR_OUT(clErr);
@@ -847,7 +849,7 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
 	cl_err_code clErr = CL_SUCCESS;
 	Kernel * pKernel = NULL;
 
-	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
@@ -873,7 +875,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
 	cl_err_code clErr = CL_SUCCESS;
 	Kernel * pKernel = NULL;
 
-	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
@@ -900,7 +902,7 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 	cl_err_code clErr = CL_SUCCESS;
 	Kernel * pKernel = NULL;
 
-	clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clKernel, &pKernel, ClErrTxt(clErr));
@@ -927,7 +929,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 
 	Context * pContext = NULL;
 	Buffer * pBuffer = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext)
@@ -947,10 +949,10 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
-	clErr = m_pMemObjects->AddObject(pBuffer, pBuffer->GetId(), false);
+	clErr = m_pMemObjects->AddObject(pBuffer, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pBuffer, pBuffer->GetId(), ClErrTxt(clErr))
+		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -961,7 +963,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_mem)pBuffer->GetId();
+	return pBuffer->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateImage2D
@@ -984,7 +986,7 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
 
 	Context * pContext = NULL;
 	Image2D * pImage2d = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1004,10 +1006,10 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
-	clErr = m_pMemObjects->AddObject(pImage2d, pImage2d->GetId(), false);
+	clErr = m_pMemObjects->AddObject(pImage2d, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pImage2d, pImage2d->GetId(), ClErrTxt(clErr))
+		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pImage2d, pImage2d->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1018,7 +1020,7 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_mem)pImage2d->GetId();
+	return pImage2d->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateImage3D
@@ -1043,7 +1045,7 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
 
 	Context * pContext = NULL;
 	Image3D * pImage3d = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1063,10 +1065,10 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
-	clErr = m_pMemObjects->AddObject(pImage3d, pImage3d->GetId(), false);
+	clErr = m_pMemObjects->AddObject(pImage3d, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pImage3d, pImage3d->GetId(), ClErrTxt(clErr))
+		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pImage3d, pImage3d->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1077,7 +1079,7 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_mem)pImage3d->GetId();
+	return pImage3d->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainMemObject
@@ -1093,7 +1095,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;
 
-	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	clErr = m_pMemObjects->GetOCLObject(clMemObj, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
@@ -1116,7 +1118,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;
 
-	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	clErr = m_pMemObjects->GetOCLObject(clMemObj, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
@@ -1130,7 +1132,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	cl_uint uiRefCount = pMemObj->GetReferenceCount();
 	if (0 == uiRefCount)
 	{
-		// TODO: handle release memomry object
+		// TODO: handle release memory object
 		Context *pContext = (Context*)pMemObj->GetContext();
 		clErr = pContext->RemoveMemObject(clMemObj);
 		if (CL_FAILED(clErr))
@@ -1138,7 +1140,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 			CL_ERR_OUT(clErr);
 		}
 		//TODO: set dirty object
-		clErr = m_pMemObjects->RemoveObject((cl_int)clMemObj, NULL, true);
+		clErr = m_pMemObjects->RemoveObject(clMemObj, NULL, true);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
@@ -1165,7 +1167,7 @@ cl_int ContextModule::GetSupportedImageFormats(cl_context clContext,
 #endif
 
 	Context * pContext = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext);
@@ -1193,7 +1195,7 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj,
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;
 
-	clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObj, (OCLObject**)&pMemObj);
+	clErr = m_pMemObjects->GetOCLObject(clMemObj, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
@@ -1219,7 +1221,7 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage,
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;
 
-	clErr = m_pMemObjects->GetOCLObject((cl_int)clImage, (OCLObject**)&pMemObj);
+	clErr = m_pMemObjects->GetOCLObject(clImage, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clImage, &pMemObj, ClErrTxt(clErr));
@@ -1254,7 +1256,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 
 	Context * pContext = NULL;
 	Sampler * pSampler = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %ws , pContext = %d", clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1274,10 +1276,10 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
-	clErr = m_pSamplers->AddObject(pSampler, pSampler->GetId(), false);
+	clErr = m_pSamplers->AddObject(pSampler, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pSampler, pSampler->GetId(), ClErrTxt(clErr))
+		LOG_ERROR(L"m_pMemObjects->AddObject(%d, %d, false) = %ws", pSampler, pSampler->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1288,7 +1290,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-	return (cl_sampler)pSampler->GetId();
+	return pSampler->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainSampler
@@ -1298,13 +1300,13 @@ cl_int ContextModule::RetainSampler(cl_sampler clSampler)
 	LOG_INFO(L"Enter RetainSampler (clSampler=%d)", clSampler);
 
 #ifdef _DEBUG
-	assert ("Samplers map list wasn't initiaized" && NULL != m_pSamplers);
+	assert ("Samplers map list wasn't initialized" && NULL != m_pSamplers);
 #endif
 	
 	cl_err_code clErr = CL_SUCCESS;
 	Sampler * pSampler = NULL;
 
-	clErr = m_pSamplers->GetOCLObject((cl_int)clSampler, (OCLObject**)&pSampler);
+	clErr = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clSampler, &pSampler, ClErrTxt(clErr));
@@ -1326,7 +1328,7 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 	cl_err_code clErr = CL_SUCCESS;
 	Sampler * pSampler = NULL;
 
-	clErr = m_pSamplers->GetOCLObject((cl_int)clSampler, (OCLObject**)&pSampler);
+	clErr = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clSampler, &pSampler, ClErrTxt(clErr));
@@ -1346,7 +1348,7 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 		{
 			CL_ERR_OUT(clErr);
 		}		
-		clErr = m_pSamplers->RemoveObject((cl_int)clSampler, NULL, true);
+		clErr = m_pSamplers->RemoveObject(clSampler, NULL, true);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
@@ -1372,7 +1374,7 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
 	cl_err_code clErr = CL_SUCCESS;
 	Sampler * pSampler = NULL;
 
-	clErr = m_pSamplers->GetOCLObject((cl_int)clSampler, (OCLObject**)&pSampler);
+	clErr = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clSampler, &pSampler, ClErrTxt(clErr));
@@ -1384,11 +1386,9 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
 }
 Context* ContextModule::GetContext(cl_context clContext) const
 {
-#ifdef _DEBUG   // arnonp remark: No need for that, if _DEBUG is part of the assert iplementation
 	assert ( NULL != m_pContexts );
-#endif
 	Context * pContext = NULL;
-	cl_err_code clErr = m_pContexts->GetOCLObject((cl_int)clContext, (OCLObject**)&pContext);
+	cl_err_code clErr = m_pContexts->GetOCLObject(clContext, (OCLObject<_cl_context>**)&pContext);
 	if (CL_SUCCEEDED(clErr))
 	{
 		return pContext;
@@ -1401,7 +1401,7 @@ Kernel* ContextModule::GetKernel(cl_kernel clKernel) const
 	assert ( NULL != m_pKernels );
 
 	Kernel* pKernel = NULL;
-	cl_err_code clErr = m_pKernels->GetOCLObject((cl_int)clKernel, (OCLObject**)&pKernel);
+	cl_err_code clErr = m_pKernels->GetOCLObject(clKernel, (OCLObject<_cl_kernel>**)&pKernel);
 	if (CL_SUCCEEDED(clErr))
 	{
 		return pKernel;
@@ -1412,7 +1412,7 @@ Kernel* ContextModule::GetKernel(cl_kernel clKernel) const
 MemoryObject * ContextModule::GetMemoryObject(const cl_mem clMemObjId)
 {
 	MemoryObject * pMemoryObject = NULL;
-	cl_err_code clErr = m_pMemObjects->GetOCLObject((cl_int)clMemObjId, (OCLObject**)&pMemoryObject);
+	cl_err_code clErr = m_pMemObjects->GetOCLObject(clMemObjId, (OCLObject<_cl_mem>**)&pMemoryObject);
 	if (CL_SUCCEEDED(clErr))
 	{
 		return pMemoryObject;

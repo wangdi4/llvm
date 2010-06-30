@@ -46,7 +46,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			May 2008
 	**********************************************************************************************/		
-	class Sampler : public OCLObject
+	class Sampler : public OCLObject<_cl_sampler>
 	{
 	public:
 

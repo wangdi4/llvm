@@ -26,23 +26,22 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_OBJECT_H_)
-#define OCL_OBJECT_H_
+#pragma once
 
 #include "cl_types.h"
 #include "logger.h"
-
-using namespace Intel::OpenCL::Utils;
+#include "cl_synch_objects.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
 	* Class name:	OCLObject
 	*
-	* Description:	represnts an OpneCL object
+	* Description:	represents an OpneCL object
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/	
+	template <class HandleType> 
 	class OCLObject
 	{
 	public:
@@ -118,7 +117,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-		void AddPendency();
+		long AddPendency();
 
 		/******************************************************************************************
 		* Function: 	RemovePendency    
@@ -128,7 +127,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-		void RemovePendency();
+		long RemovePendency();
 
 		/******************************************************************************************
 		* Function: 	ReadyForDeletion    
@@ -145,9 +144,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
-		cl_uint     GetReferenceCount() const { return m_uiRefCount; }
+		long		GetReferenceCount() const { return m_uiRefCount; }
 		long		GetPendencies() const { return m_uiPendency; }
-		void *		GetHandle() const { return m_pHandle; }
+		HandleType* GetHandle() { return &m_handle; }
 
 		/******************************************************************************************
 		* Function: 	SetLoggerClient    
@@ -157,24 +156,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			July 2009
 		******************************************************************************************/
-		void SetLoggerClient(LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }
+		void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }
 
 	protected:
 		
-		cl_int			m_iId;				// object id
-		cl_uint			m_uiRefCount;		// reference count
+		cl_int								m_iId;				// object id
+		Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 		
-		long			m_uiPendency;		// recall the number of dependant resources - will be 
+		Intel::OpenCL::Utils::AtomicCounter	m_uiPendency;		// recall the number of dependent resources - will be 
 											// used in order to ensure that current object is ready 
 											// for deletion
 
-		_cl_object *	m_pHandle;			// the OpenCL handle of the object
+		HandleType	m_handle;			// the OpenCL handle of the object
 
 		DECLARE_LOGGER_CLIENT;
 
-
-
 	};
+#include "cl_object.hpp"
 
 }}}
-#endif // !defined(OCL_OBJECT_H_)

@@ -78,7 +78,7 @@ ProgramBinary::ProgramBinary(cl_uint uiBinSize,
 
 	// create device program
 	m_clDevProgram = 0;
-	*pErr = m_pDevice->CreateProgram((size_t)m_uiBinSize, m_pBinData, m_clDevBinaryProp, &m_clDevProgram);
+	*pErr = m_pDevice->GetDeviceAgent()->clDevCreateProgram((size_t)m_uiBinSize, m_pBinData, m_clDevBinaryProp, &m_clDevProgram);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ProgramBinary D'tor
@@ -119,7 +119,7 @@ cl_err_code ProgramBinary::Build(const char * pcOptions, IBuildDoneObserver * pB
 	}
 
 	IBuildDoneObserver * pMyBuildDoneObserver = dynamic_cast<IBuildDoneObserver*>(this);
-	cl_int iRet = m_pDevice->BuildProgram(m_clDevProgram, pcOptions, pMyBuildDoneObserver);
+	cl_int iRet = m_pDevice->GetDeviceAgent()->clDevBuildProgram(m_clDevProgram, pcOptions, pMyBuildDoneObserver);
 	
 	return (cl_err_code)iRet;
 }
@@ -137,7 +137,7 @@ cl_err_code ProgramBinary::NotifyBuildDone(cl_device_id device, cl_build_status 
 		// notify observer
 		if (NULL != m_pBuildDoneObserver)
 		{
-			m_pBuildDoneObserver->NotifyBuildDone((cl_device_id)m_pDevice->GetId(), build_status);
+			m_pBuildDoneObserver->NotifyBuildDone(m_pDevice->GetHandle(), build_status);
 		}
 	
 	} // Unlock
@@ -164,6 +164,6 @@ cl_err_code ProgramBinary::GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * p
 		LOG_ERROR(L"NULL == m_pDevice");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	return m_pDevice->GetProgramBinary(m_clDevProgram, uiBinSize, pBin, puiBinSizeRet);
+	return m_pDevice->GetDeviceAgent()->clDevGetProgramBinary(m_clDevProgram, uiBinSize, pBin, puiBinSizeRet);
 
 }

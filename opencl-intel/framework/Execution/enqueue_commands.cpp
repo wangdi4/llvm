@@ -25,10 +25,9 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 #include "enqueue_commands.h"
-#include "command_queue.h"
-#include "queue_event.h"
+#include "ocl_event.h"
 #include "cl_memory_object.h"
-#include "command_receiver.h"
+#include "ocl_command_queue.h"
 #include "kernel.h"
 #include "sampler.h"
 
@@ -45,7 +44,7 @@ using namespace Intel::OpenCL::Framework;
 /******************************************************************
  * Static function to be used by all commands that need to write/read data
  ******************************************************************/
-static cl_dev_cmd_desc* create_dev_cmd_rw(
+static void create_dev_cmd_rw(
     cl_dev_mem          clDevMemHndl,
     cl_mem_object_type  clMemObjType,
     void*               pData,
@@ -54,11 +53,11 @@ static cl_dev_cmd_desc* create_dev_cmd_rw(
     size_t              szRowPitch,
     size_t              szSlicePitch,
     cl_dev_cmd_type     clCmdType,
-    cl_dev_cmd_id       clCmdId         
+    cl_dev_cmd_id       clCmdId,
+	cl_dev_cmd_desc*    pDevCmd
     )
 {
         // Create Read command
-        cl_dev_cmd_desc*     pDevCmd     = new cl_dev_cmd_desc;
         cl_dev_cmd_param_rw* pRWParams   = new cl_dev_cmd_param_rw;
         
         memset(pDevCmd, 0, sizeof(cl_dev_cmd_desc));
@@ -106,8 +105,6 @@ static cl_dev_cmd_desc* create_dev_cmd_rw(
         pDevCmd->id = clCmdId;
         pDevCmd->params = pRWParams;
         pDevCmd->param_size = sizeof(cl_dev_cmd_param_rw);
-
-        return pDevCmd;
 }
 
 
@@ -117,13 +114,13 @@ static cl_dev_cmd_desc* create_dev_cmd_rw(
  *
  ******************************************************************/
 Command::Command():
-    m_pQueueEvent(NULL),
-    m_pReceiver(NULL),
-    m_pDevCmd(NULL),
+    m_pEvent(NULL),
     m_clDevCmdListId(0),
+	m_pDevice(NULL),
+	m_pCommandQueue(NULL),
     m_bIsFlushed(false)
 {
-    m_pStatusChangeObserver = this;
+	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
 
 	INIT_LOGGER_CLIENT(L"Command Logger Client",LL_DEBUG);
 }
@@ -133,11 +130,17 @@ Command::Command():
  ******************************************************************/
 Command::~Command()
 {
-    // The command delets its event
-    if ( NULL != m_pQueueEvent) delete m_pQueueEvent;
-    m_pQueueEvent =  NULL;
-    m_pReceiver =    NULL;
-    m_pDevCmd = NULL; // Should be released on CommandDone
+    // The command deletes its event
+    if ( NULL != m_pEvent) 
+	{
+		if (0 == m_pEvent->RemovePendency())
+		{
+			delete m_pEvent;
+		}
+	}
+    m_pEvent =  NULL;
+	m_pDevice = NULL;
+	m_pCommandQueue = NULL;
 
 	RELEASE_LOGGER_CLIENT;
 }
@@ -145,10 +148,12 @@ Command::~Command()
 /******************************************************************
  *
  ******************************************************************/
-void Command::SetEvent(QueueEvent* queueEvent)
+void Command::SetEvent(OclEvent* queueEvent)
 { 
-    m_pQueueEvent = queueEvent; 
-    m_iId = queueEvent->GetId(); 
+    m_pEvent = queueEvent;
+	m_pEvent->AddPendency();
+    m_iId = queueEvent->GetId();
+	m_pEvent->SetCommand(this);
 }
 
 /******************************************************************
@@ -163,18 +168,17 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		// Nothing to do, not expected to be here at all
 		break;
     case CL_SUBMITTED:
-		//Deliberately not setting profiling info for this - it was already set when the command was issued as queued
-		//m_pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
-        res = m_pQueueEvent->SetEventColor(EVENT_STATE_LIME);
-        LogInfoA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), GetId());
+		m_pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
+        m_pEvent->SetColor(EVENT_STATE_LIME);
+        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), GetId());
         break;
     case CL_RUNNING:
-        LogInfoA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), GetId());
-		m_pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
-        res = m_pQueueEvent->SetEventColor(EVENT_STATE_GREEN);
+        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), GetId());
+		m_pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
+        m_pEvent->SetColor(EVENT_STATE_GREEN);
         break;
     case CL_COMPLETE:
-		m_pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
+		m_pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
         // Complete command,
         // do that before set event, since side effect of SetEvent(black) may be deleting of this instance.
         // Is error
@@ -185,10 +189,10 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         }
         else
         {
-            LogInfoA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), GetId());
+            LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), GetId());
         }
         res = CommandDone();
-        res &= m_pQueueEvent->SetEventColor(EVENT_STATE_BLACK);
+        m_pEvent->SetColor(EVENT_STATE_BLACK);
         break;
     default:        
         break;
@@ -319,37 +323,38 @@ cl_err_code CopyMemObjCommand::Execute()
     // First check who is responsible for copy...
     cl_device_id clSrcMemObjLocation = m_pSrcMemObj->GetDataLocation();
     cl_device_id clDstMemObjLocation = m_pDstMemObj->GetDataLocation();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 
     // As long as multiple devices are not implemented always copy on device
     // This is to prevent the case that 0 == clDeviceDataLocation which is not implemented.
     // TODO: handle it correctly where there is more than one device... or for USE_HOST_PTR on host
     if(0 == clSrcMemObjLocation)
     {
-        if (!m_pSrcMemObj->IsAllocated(m_clDeviceId))
+        if (!m_pSrcMemObj->IsAllocated(clDeviceId))
         {
             // Allocate
-            res = m_pSrcMemObj->CreateDeviceResource(m_clDeviceId);
+            res = m_pSrcMemObj->CreateDeviceResource(clDeviceId);
             if( CL_FAILED(res))
             {
                 return res;
             }
         }
-        m_pSrcMemObj->SetDataLocation(m_clDeviceId);
+        m_pSrcMemObj->SetDataLocation(clDeviceId);
         clSrcMemObjLocation = m_pSrcMemObj->GetDataLocation();
     }
 
     if(0 == clDstMemObjLocation)
     {
-        if (!m_pDstMemObj->IsAllocated(m_clDeviceId))
+        if (!m_pDstMemObj->IsAllocated(clDeviceId))
         {
             // Allocate
-            res = m_pDstMemObj->CreateDeviceResource(m_clDeviceId);
+            res = m_pDstMemObj->CreateDeviceResource(clDeviceId);
             if( CL_FAILED(res))
             {
                 return res;
             }
         }
-        m_pDstMemObj->SetDataLocation(m_clDeviceId);
+        m_pDstMemObj->SetDataLocation(clDeviceId);
         clDstMemObjLocation = m_pDstMemObj->GetDataLocation();
     }
 
@@ -357,6 +362,7 @@ cl_err_code CopyMemObjCommand::Execute()
     if ( 0 == clSrcMemObjLocation && !(m_pSrcMemObj->IsAllocated(0)))
     {
         // Src is not allocate, return device is not executing error, 
+		assert("failing 0 == clSrcMemObjLocation && !(m_pSrcMemObj->IsAllocated(0))" && 0);
         // The working thread will call set command color to black.
         return CL_ERR_FAILURE;
     }
@@ -365,6 +371,7 @@ cl_err_code CopyMemObjCommand::Execute()
     if ( 0 == clDstMemObjLocation && !(m_pDstMemObj->IsAllocated(0)))
     {
         // Allocate
+		assert("failing 0 == clDstMemObjLocation && !(m_pDstMemObj->IsAllocated(0))" && 0);
         res = m_pDstMemObj->CreateDeviceResource(clSrcMemObjLocation);        
         if( CL_FAILED(res))
         {
@@ -425,7 +432,7 @@ cl_err_code CopyMemObjCommand::CopyHost()
  ******************************************************************/
 cl_err_code CopyMemObjCommand::CopyOnDevice(cl_device_id clDeviceId)
 {
-    m_pDevCmd = new cl_dev_cmd_desc;
+    cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_copy* pCopyParams   = new cl_dev_cmd_param_copy;
     
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
@@ -443,17 +450,19 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(cl_device_id clDeviceId)
         pCopyParams->region[i]      = m_szRegion[i];
     }
 
-    m_pDevCmd->type       = CL_DEV_CMD_COPY;
-    m_pDevCmd->id         = (cl_dev_cmd_id)m_pQueueEvent->GetId();
-    m_pDevCmd->params     = pCopyParams;
-    m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_copy);
+    m_pDevCmd->type			= CL_DEV_CMD_COPY;
+    m_pDevCmd->id			= (cl_dev_cmd_id)m_pEvent->GetId();
+    m_pDevCmd->params		= pCopyParams;
+    m_pDevCmd->param_size	= sizeof(cl_dev_cmd_param_copy);
+	m_pDevCmd->profiling	= (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
 
     m_pDstMemObj->SetDataLocation(clDeviceId);
-    // Sending 1 command to the device where the bufer is located now
-    // Color will be changed only when command is submited in the device    
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    // Sending 1 command to the device where the buffer is located now
+    // Color will be changed only when command is submitted in the device    
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    return m_pReceiver->EnqueueDevCommands(clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -465,16 +474,18 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(cl_device_id clDeviceId)
 cl_err_code CopyMemObjCommand::CopyFromHost(cl_device_id clDstDeviceId)
 {
     void* pData = m_pSrcMemObj->GetData(m_szSrcOrigin);    
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
     // Initiate read from device
-    // Currnetly this function does not use pitches, hence support only buffers (no pitches)
+    // Currently this function does not use pitches, hence support only buffers (no pitches)
     // TODO: Add support for images
-    m_pDevCmd = create_dev_cmd_rw(            
+    create_dev_cmd_rw(            
             m_pDstMemObj->GetDeviceMemoryHndl(clDstDeviceId), 
             m_pDstMemObj->GetType(),
             pData, m_szDstOrigin, m_szRegion, 0, 0,
             CL_DEV_CMD_WRITE,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+            (cl_dev_cmd_id)m_pEvent->GetId(), 
+			m_pDevCmd);
 
     // Set new location
     m_pDstMemObj->SetDataLocation(clDstDeviceId);
@@ -482,9 +493,12 @@ cl_err_code CopyMemObjCommand::CopyFromHost(cl_device_id clDstDeviceId)
     // Sending 1 command to the src device
     // Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submited in the device    
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    return m_pReceiver->EnqueueDevCommands(clDstDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	m_pDevCmd->profiling  = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -496,15 +510,17 @@ cl_err_code CopyMemObjCommand::CopyFromHost(cl_device_id clDstDeviceId)
 cl_err_code CopyMemObjCommand::CopyToHost(cl_device_id clSrcDeviceId)
 {
     void* pData = m_pDstMemObj->GetData(m_szDstOrigin);
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
     // Initiate read from device
     // Currnetly this function does not use pitches, hence support only buffers (no pitches)
-    m_pDevCmd = create_dev_cmd_rw(
+    create_dev_cmd_rw(
             m_pSrcMemObj->GetDeviceMemoryHndl(clSrcDeviceId), 
             m_pSrcMemObj->GetType(),
             pData, m_szSrcOrigin, m_szRegion, 0, 0,
             CL_DEV_CMD_READ,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+            (cl_dev_cmd_id)m_pEvent->GetId(),
+			m_pDevCmd);
 
     // Set new location on the host
     m_pDstMemObj->SetDataLocation(0);
@@ -512,7 +528,10 @@ cl_err_code CopyMemObjCommand::CopyToHost(cl_device_id clSrcDeviceId)
     // Sending 1 command to the src device
     // Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submited in the device    
-    return m_pReceiver->EnqueueDevCommands(clSrcDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	m_pDevCmd->profiling  = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -535,14 +554,11 @@ cl_err_code CopyMemObjCommand::CommandDone()
     m_pSrcMemObj->RemovePendency();
     m_pDstMemObj->RemovePendency();
 
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // Delete allocated resources
-    if ( NULL != m_pDevCmd )
+    if ( NULL != m_pDevCmd->params )
     {
-        if ( NULL != m_pDevCmd->params )
-        {
-            delete m_pDevCmd->params;
-        }
-        delete m_pDevCmd;
+        delete m_pDevCmd->params;
     }
     return CL_SUCCESS;
 }
@@ -709,22 +725,25 @@ cl_err_code MapMemObjCommand::Init()
 {
     cl_err_code res;
     m_pMemObj->AddPendency();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
     
     // First validate that bufer is allocated.
-    if (!m_pMemObj->IsAllocated(m_clDeviceId))
+    if (!m_pMemObj->IsAllocated(clDeviceId))
     {
         // Allocate
-        res = m_pMemObj->CreateDeviceResource(m_clDeviceId);
+        res = m_pMemObj->CreateDeviceResource(clDeviceId);
         if( CL_FAILED(res))
         {
+			assert(0);
             return res;
         }
     }
 
     // Get pointer to the device
-    m_pMappedRegion = m_pMemObj->CreateMappedRegion(m_clDeviceId, m_clMapFlags, m_pOrigin, m_pRegion, m_pszImageRowPitch, m_pszImageSlicePitch);
+    m_pMappedRegion = m_pMemObj->CreateMappedRegion(clDeviceId, m_clMapFlags, m_pOrigin, m_pRegion, m_pszImageRowPitch, m_pszImageSlicePitch);
     if ( NULL == m_pMappedRegion )
     {
+		assert(0);
         // Case of error
         return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
@@ -736,25 +755,28 @@ cl_err_code MapMemObjCommand::Init()
  ******************************************************************/
 cl_err_code MapMemObjCommand::Execute()
 {
-    // TODO: Add support for multipule device.
+    // TODO: Add support for multiple device.
     // What happens when data is not on the same device???
 
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // Prepare command. 
     // Anyhow we send the map command to the device though  we expect that on write
     // there is nothing to do, and on read the device may need to copy from device memory to host memory
-    m_pDevCmd = new cl_dev_cmd_desc;
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
-    m_pDevCmd->id          = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->id          = (cl_dev_cmd_id)m_pEvent->GetId();
     m_pDevCmd->type        = CL_DEV_CMD_MAP;
     m_pDevCmd->param_size  = sizeof(cl_dev_cmd_param_map);
-    m_pDevCmd->params      = m_pMemObj->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
-   
+    m_pDevCmd->params      = m_pMemObj->GetMappedRegionInfo(clDeviceId, m_pMappedRegion);
 
-    // Change status of the command to Gray before handle by the device
+	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+
+	// Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submited in the device    
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -763,12 +785,6 @@ cl_err_code MapMemObjCommand::Execute()
 cl_err_code MapMemObjCommand::CommandDone()
 {
     // Don't remove buffer pendency, the buffer should be alive at least until unmap is done.
-    // Clear allocated data
-    if( NULL != m_pDevCmd )
-    {
-        // Do not delete params since is local to the memory object.
-        delete m_pDevCmd;
-    }
     return CL_SUCCESS;
 }
 
@@ -794,7 +810,8 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
 cl_err_code UnmapMemObjectCommand::Init()
 {
     // First check the the region has been mapped
-    void* pMappedRegionInfo = m_pMemObject->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+    void* pMappedRegionInfo = m_pMemObject->GetMappedRegionInfo(clDeviceId, m_pMappedRegion);
     if ( NULL == pMappedRegionInfo )
     {
         return CL_INVALID_VALUE;
@@ -807,40 +824,40 @@ cl_err_code UnmapMemObjectCommand::Init()
  ******************************************************************/
 cl_err_code UnmapMemObjectCommand::Execute()
 {
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+
     // Create and send unmap command
-    m_pDevCmd = new cl_dev_cmd_desc;
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
 
-    m_pDevCmd->id          = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->id          = (cl_dev_cmd_id)m_pEvent->GetId();
     m_pDevCmd->type        = CL_DEV_CMD_UNMAP;
     m_pDevCmd->param_size  = sizeof(cl_dev_cmd_param_map);
-    m_pDevCmd->params      = m_pMemObject->GetMappedRegionInfo(m_clDeviceId, m_pMappedRegion);
+    m_pDevCmd->params      = m_pMemObject->GetMappedRegionInfo(clDeviceId, m_pMappedRegion);
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
 
-    // Color will be changed only when command is submited in the device    
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    // Color will be changed only when command is submitted in the device    
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-	m_pMemObject->SetDataLocation(m_clDeviceId);
+	m_pMemObject->SetDataLocation(clDeviceId);
 
-    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
  *
  ******************************************************************/
- cl_err_code UnmapMemObjectCommand::CommandDone()
- {
+cl_err_code UnmapMemObjectCommand::CommandDone()
+{
+    cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
     cl_err_code errVal;
-    if( NULL != m_pDevCmd )
-    {
-        // Delete local command
-        delete m_pDevCmd;
-    }
 
     // Here we do the actual operation off releasing the mapped region.
-    errVal = m_pMemObject->ReleaseMappedRegion(m_clDeviceId, m_pMappedRegion);
+    errVal = m_pMemObject->ReleaseMappedRegion(clDeviceId, m_pMappedRegion);
     m_pMemObject->RemovePendency();
     return errVal;
- }
+}
 
 /******************************************************************
  *
@@ -879,6 +896,8 @@ cl_err_code NativeKernelCommand::Init()
     size_t clMemSize = sizeof(cl_mem);
     size_t clDevMemSize = sizeof(cl_dev_mem);
     size_t szCbNewArgsSize = m_szCbArgs + m_uNumMemObjects * ( clDevMemSize - clMemSize);
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+
     void*   pNewArgs = malloc(szCbNewArgsSize);
 	if(NULL == pNewArgs)
 	{
@@ -901,10 +920,10 @@ cl_err_code NativeKernelCommand::Init()
     {
         // Check that mem object is allocated on device, if not allocate resource
         MemoryObject* pMemObj = m_ppMemObjList[i];
-        if (!(pMemObj->IsAllocated(m_clDeviceId)))
+        if (!(pMemObj->IsAllocated(clDeviceId)))
         {
             // Allocate
-            res = pMemObj->CreateDeviceResource(m_clDeviceId);
+            res = pMemObj->CreateDeviceResource(clDeviceId);
             if( CL_FAILED(res))
             {
                 free(pNewArgs);
@@ -913,7 +932,7 @@ cl_err_code NativeKernelCommand::Init()
             }
         }
         // Set the new args list
-        cl_dev_mem clDevMemHndl = pMemObj->GetDeviceMemoryHndl(m_clDeviceId);
+        cl_dev_mem clDevMemHndl = pMemObj->GetDeviceMemoryHndl(clDeviceId);
         if( 0 == i )
         {
             szCbToCopy = (cl_uchar*)m_ppArgsMemLoc[i] - (cl_uchar*)m_pArgs;
@@ -934,7 +953,7 @@ cl_err_code NativeKernelCommand::Init()
         // Set buffers pendencies
         pMemObj->AddPendency();  
         // Set new location of the buffers, the device, we have n
-        // TODO: need prefeatching in Native Kernel in case buffers are in different device.
+        // TODO: need prefetching in Native Kernel in case buffers are in different device.
     }
 
     // Copy the end of the original args
@@ -946,7 +965,7 @@ cl_err_code NativeKernelCommand::Init()
     //
     // Prepare the device command
     //
-    m_pDevCmd = new cl_dev_cmd_desc;
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_native* pNativeKernelParam = new cl_dev_cmd_param_native;
         
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
@@ -970,21 +989,27 @@ cl_err_code NativeKernelCommand::Init()
  ******************************************************************/
 cl_err_code NativeKernelCommand::Execute()
 {
-    // Fill command descriptor
-    m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+
+	// Fill command descriptor
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+    m_pDevCmd->id = (cl_dev_cmd_id)m_pEvent->GetId();
 
     // Sending the queue command
-    // TODO: Handle the case were buffers are located in different device. Prefatching
+    // TODO: Handle the case were buffers are located in different device. Prefetching
     for( unsigned int i=0; i < m_uNumMemObjects; i++ )
     {
         // Check that mem object is allocated on device, if not allocate resource
         MemoryObject* pMemObj = m_ppMemObjList[i];
-	    pMemObj->SetDataLocation(m_clDeviceId);
+	    pMemObj->SetDataLocation(clDeviceId);
 	}
 
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	m_pDevCmd->profiling	= (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -993,16 +1018,13 @@ cl_err_code NativeKernelCommand::Execute()
 cl_err_code NativeKernelCommand::CommandDone()
 {
     // Clean resources
-    if( NULL != m_pDevCmd )
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+    if( NULL != m_pDevCmd->params )
     {
-        if( NULL != m_pDevCmd->params )
-        {
-            cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
-            free(pNativeKernelParam->argv);
-            free(pNativeKernelParam->mem_loc);
-            delete pNativeKernelParam;
-        }
-        delete m_pDevCmd;
+        cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
+        free(pNativeKernelParam->argv);
+        free(pNativeKernelParam->mem_loc);
+        delete pNativeKernelParam;
     }
 
     // Remove buffers pendencies
@@ -1049,8 +1071,10 @@ cl_err_code NDRangeKernelCommand::Init()
 {
     cl_err_code res;
     // We have to use init to create a snapshot of the buffer kernels on enqueue
-    // Thus, we also create and set the device command approperly as much as we can.
-	
+    // Thus, we also create and set the device command appropriately as much as we can.
+
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+
 	// Add ownership on the object
 	m_pKernel->AddPendency();
 
@@ -1075,10 +1099,10 @@ cl_err_code NDRangeKernelCommand::Init()
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
             // Mark as used
             pMemObj->AddPendency();
-            if (!(pMemObj->IsAllocated(m_clDeviceId)))
+            if (!(pMemObj->IsAllocated(clDeviceId)))
             {
                 // Allocate
-                res = pMemObj->CreateDeviceResource(m_clDeviceId);
+                res = pMemObj->CreateDeviceResource(clDeviceId);
                 if( CL_FAILED(res))
                 {
                     return res;
@@ -1091,10 +1115,10 @@ cl_err_code NDRangeKernelCommand::Init()
 		else if ( pArg->IsSampler() )
 		{
             szSize   = sizeof(cl_uint);
-			OCLObject* pSampler = (OCLObject*)pArg->GetValue();
+			OCLObject<_cl_sampler>* pSampler = reinterpret_cast<OCLObject<_cl_sampler>*>(pArg->GetValue());
 			pSampler->AddPendency();
             szCurrentLocation += szSize;
-            m_OclObjects.push_back(pSampler);
+            m_OclObjects.push_back(reinterpret_cast<OCLObject<_cl_mem> *>(pSampler));
 		}
 		else
         {
@@ -1104,7 +1128,7 @@ cl_err_code NDRangeKernelCommand::Init()
     }
     
     // Setup Kernel parameters
-    m_pDevCmd = new cl_dev_cmd_desc;
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_kernel* pKernelParam = new cl_dev_cmd_param_kernel;
 
 	// TODO: We are going to fill values, why we need memset
@@ -1129,7 +1153,7 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             szArgSize = sizeof(cl_dev_mem);
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
-            cl_dev_mem clDevMem = pMemObj->GetDeviceMemoryHndl(m_clDeviceId);
+            cl_dev_mem clDevMem = pMemObj->GetDeviceMemoryHndl(clDeviceId);
             assert( 0 != clDevMem );
             memcpy(  pArgValuesCurrentLocation, &clDevMem , szArgSize);
         }
@@ -1180,13 +1204,15 @@ cl_err_code NDRangeKernelCommand::Init()
  ******************************************************************/
 cl_err_code NDRangeKernelCommand::Execute()
 {
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
     // Fill command descriptor
-    m_pDevCmd->id = (cl_dev_cmd_id)m_pQueueEvent->GetId();
+    m_pDevCmd->id = (cl_dev_cmd_id)m_pEvent->GetId();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 
-    pKernelParam->kernel = m_pKernel->GetDeviceKernelId(m_clDeviceId);
+    pKernelParam->kernel = m_pKernel->GetDeviceKernelId(clDeviceId);
 
-    // Color will be changed only when command is submited in the device    
+    // Color will be changed only when command is submitted in the device    
     
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device.
@@ -1201,12 +1227,15 @@ cl_err_code NDRangeKernelCommand::Execute()
         {
             // Create buffer resources here if not available.
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
-	        pMemObj->SetDataLocation(m_clDeviceId);
+	        pMemObj->SetDataLocation(clDeviceId);
 		}
 	}
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    return m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
 
 /******************************************************************
@@ -1217,20 +1246,19 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     // Clear all resources
     // Remove object pendencies
 
-    list<OCLObject*>::iterator it;
+    list<OCLObject<_cl_mem>*>::iterator it;
     for( it = m_OclObjects.begin(); it != m_OclObjects.end(); it++)
     {
-        OCLObject* obj = *it;
+        OCLObject<_cl_mem>* obj = *it;
         obj->RemovePendency();
     }
     m_OclObjects.clear();
 
     // Delete local command
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
     delete[] pKernelParam->arg_values;
     delete pKernelParam;
-    delete m_pDevCmd;
-    m_pDevCmd = NULL;
 
 	// Remove ownership from the object
 	m_pKernel->RemovePendency();
@@ -1265,7 +1293,7 @@ cl_err_code ReadBufferCommand::Init()
 }
 
 /******************************************************************
- * Read buffer reads the data from the current device, eventhough it is in other
+ * Read buffer reads the data from the current device, even though it is in other
  * device that the command device.
  * 
  *
@@ -1275,6 +1303,8 @@ cl_err_code ReadBufferCommand::Execute()
     cl_err_code res = CL_SUCCESS;
 
     cl_device_id clDeviceDataLocation = m_pBuffer->GetDataLocation();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
     // As long as multiple buffers are not implemented always create on device
     // This is to prevent the case that 0 == clDeviceDataLocation which is not implemented.
@@ -1282,37 +1312,40 @@ cl_err_code ReadBufferCommand::Execute()
     // Note that for now use_host & copy_host may not work
     if(0 == clDeviceDataLocation)
     {
-        if (!m_pBuffer->IsAllocated(m_clDeviceId))
+        if (!m_pBuffer->IsAllocated(clDeviceId))
         {
             // Allocate
-            res = m_pBuffer->CreateDeviceResource(m_clDeviceId);
+            res = m_pBuffer->CreateDeviceResource(clDeviceId);
             if( CL_FAILED(res))
             {
                 return res;
             }
         }
-        m_pBuffer->SetDataLocation(m_clDeviceId);
+        m_pBuffer->SetDataLocation(clDeviceId);
         clDeviceDataLocation = m_pBuffer->GetDataLocation();
     }
 
     if(0 != clDeviceDataLocation)
     {
-        m_pDevCmd = create_dev_cmd_rw(
+        create_dev_cmd_rw(
             m_pBuffer->GetDeviceMemoryHndl(clDeviceDataLocation), 
             m_pBuffer->GetType(),
             m_pDst, &m_szOffset, &m_szCb, 0, 0,
             CL_DEV_CMD_READ,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+            (cl_dev_cmd_id)m_pEvent->GetId(),
+			m_pDevCmd);
 
-        LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-        // Sending 1 command to the device where the bufer is located now
-        res = m_pReceiver->EnqueueDevCommands(clDeviceDataLocation, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+        // Sending 1 command to the device where the buffer is located now
+		res = m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+		m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+		res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
     }
     else
     {
-        // TODO: Copy locali from the buffer. Currently not supported. return error        
-        LogInfoA("Command - EXECUTE FAILED: %s (Id: %d)", GetCommandName(), GetId());
+        // TODO: Copy locally from the buffer. Currently not supported. return error        
+        LogDebugA("Command - EXECUTE FAILED: %s (Id: %d)", GetCommandName(), GetId());
         res = CL_ERR_FAILURE;
     }
     return res;
@@ -1325,13 +1358,12 @@ cl_err_code ReadBufferCommand::Execute()
  ******************************************************************/
 cl_err_code ReadBufferCommand::CommandDone()
 {
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // TODO: copy data from dst to the local buffer.
     m_pBuffer->RemovePendency();
     // Delete local command
     cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
     delete pRWParams;
-    delete m_pDevCmd;
-    m_pDevCmd = NULL;
 
     return CL_SUCCESS;
 }
@@ -1395,23 +1427,49 @@ cl_err_code ReadImageCommand::Execute()
 {
     cl_err_code res = CL_SUCCESS;
     cl_device_id clDeviceDataLocation = m_pImage->GetDataLocation();
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+
+	 if(0 == clDeviceDataLocation)
+    {
+        if (!m_pImage->IsAllocated(clDeviceId))
+        {
+            // Allocate
+            res = m_pImage->CreateDeviceResource(clDeviceId);
+            if( CL_FAILED(res))
+            {
+                return res;
+            }
+        }
+        m_pImage->SetDataLocation(clDeviceId);
+        clDeviceDataLocation = m_pImage->GetDataLocation();
+    }
+
     if(0 != clDeviceDataLocation)
     {
-        m_pDevCmd = create_dev_cmd_rw(
+        create_dev_cmd_rw(
             m_pImage->GetDeviceMemoryHndl(clDeviceDataLocation),
             m_pImage->GetType(),
             m_pDst, m_szOrigin, m_szRegion, m_szRowPitch, m_szSlicePitch,
             CL_DEV_CMD_READ,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId());
+            (cl_dev_cmd_id)m_pEvent->GetId(),
+			m_pDevCmd);
 
-        LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-        // Sending 1 command to the device where the bufer is located now
-        res = m_pReceiver->EnqueueDevCommands(clDeviceDataLocation, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+        // Sending 1 command to the device where the buffer is located now
+		Device* pDevice;
+		m_pImage->GetContext()->GetDevice(m_pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+		m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+		m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+		pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+
     }
     else
     {
-        // TODO: Copy locali from the buffer. Currently not supported. return error
+		// Never was debugged for two devices
+		assert("ReadImageCommand::Execute: clDeviceDataLocation == 0" && 0);
+        // TODO: Copy locally from the buffer. Currently not supported. return error
         res = CL_ERR_FAILURE;
     }
 
@@ -1424,16 +1482,15 @@ cl_err_code ReadImageCommand::Execute()
  ******************************************************************/
 cl_err_code ReadImageCommand::CommandDone()
 {
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // TODO: copy data from dst to the local buffer.
     m_pImage->RemovePendency();
     // Delete local command
-    if(NULL != m_pDevCmd)
-    {
-        cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
-        delete pRWParams;
-        delete m_pDevCmd;
-        m_pDevCmd = NULL;
-    }
+    cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
+	if (pRWParams)
+	{
+		delete pRWParams;
+	}
     return CL_SUCCESS;
 }
 
@@ -1456,21 +1513,15 @@ TaskCommand::~TaskCommand()
 }
 
 /******************************************************************
- * inititate NDRangeKernel and change the device command type
+ * initiate NDRangeKernel and change the device command type
  ******************************************************************/
 cl_err_code TaskCommand::Init()
 {
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_err_code res = NDRangeKernelCommand::Init();
     if ( CL_SUCCEEDED (res) )
     {
-        if ( NULL != m_pDevCmd)
-        {
-            m_pDevCmd->type = CL_DEV_CMD_EXEC_KERNEL;
-        }
-        else
-        {
-            res = CL_OUT_OF_HOST_MEMORY;
-        }
+        m_pDevCmd->type = CL_DEV_CMD_EXEC_KERNEL;
     }
     return res;
 }
@@ -1511,12 +1562,15 @@ cl_err_code WriteBufferCommand::Init()
 cl_err_code WriteBufferCommand::Execute()
 {
     cl_err_code res = CL_SUCCESS;
+
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
    
     // First validate that buffer is allocated.
-    if (!m_pBuffer->IsAllocated(m_clDeviceId))
+    if (!m_pBuffer->IsAllocated(clDeviceId))
     {
         // Allocate
-        res = m_pBuffer->CreateDeviceResource(m_clDeviceId);
+        res = m_pBuffer->CreateDeviceResource(clDeviceId);
         if( CL_FAILED(res))
         {
             return res;
@@ -1524,19 +1578,24 @@ cl_err_code WriteBufferCommand::Execute()
     }
 
     // TODO: Do we want to save copy in the buffer itself?
-    m_pDevCmd = create_dev_cmd_rw(
-            m_pBuffer->GetDeviceMemoryHndl(m_clDeviceId), 
+    create_dev_cmd_rw(
+            m_pBuffer->GetDeviceMemoryHndl(clDeviceId), 
             CL_MEM_OBJECT_BUFFER,
             (void*)m_cpSrc, &m_szOffset, &m_szCb, 0, 0,
             CL_DEV_CMD_WRITE,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId()) ;
+            (cl_dev_cmd_id)m_pEvent->GetId(),
+			m_pDevCmd) ;
 
-    m_pBuffer->SetDataLocation(m_clDeviceId);
+    m_pBuffer->SetDataLocation(clDeviceId);
 
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    // Sending 1 command to the device where the bufer is located now
-    res = m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    // Sending 1 command to the device where the buffer is located now
+	m_pDevCmd->profiling	= (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+	res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+
+    //res = m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, static_cast<ICmdStatusChangedObserver*>(this), 1);
 
     return res;
 }
@@ -1546,16 +1605,15 @@ cl_err_code WriteBufferCommand::Execute()
  ******************************************************************/
 cl_err_code WriteBufferCommand::CommandDone()
 {
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // TODO: Update buffer that transaction is done
     m_pBuffer->RemovePendency();
-    if (NULL != m_pDevCmd)
-    {
-        // Delete local command
-        cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
+    // Delete local command
+    cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
+	if (pRWParams)
+	{
         delete pRWParams;
-        delete m_pDevCmd;
-        m_pDevCmd = NULL;
-    }
+	}
     return CL_SUCCESS;
 }
 
@@ -1617,12 +1675,14 @@ cl_err_code WriteImageCommand::Init()
 cl_err_code WriteImageCommand::Execute()
 {
     cl_err_code res = CL_SUCCESS;
+	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
    
     // First validate that image is allocated.
-    if (!m_pImage->IsAllocated(m_clDeviceId))
+    if (!m_pImage->IsAllocated(clDeviceId))
     {
         // Allocate
-        res = m_pImage->CreateDeviceResource(m_clDeviceId);
+        res = m_pImage->CreateDeviceResource(clDeviceId);
         if( CL_FAILED(res))
         {
             return res;
@@ -1630,19 +1690,22 @@ cl_err_code WriteImageCommand::Execute()
     }
 
     // TODO: Do we want to save copy in the buffer itself?
-    m_pDevCmd = create_dev_cmd_rw(
-            m_pImage->GetDeviceMemoryHndl(m_clDeviceId), 
+    create_dev_cmd_rw(
+            m_pImage->GetDeviceMemoryHndl(clDeviceId), 
             m_pImage->GetType(),
             (void*)m_cpSrc, m_szOrigin, m_szRegion, m_szRowPitch, m_szSlicePitch,
             CL_DEV_CMD_WRITE,
-            (cl_dev_cmd_id)m_pQueueEvent->GetId()) ;
+            (cl_dev_cmd_id)m_pEvent->GetId(),
+			m_pDevCmd) ;
 
-    m_pImage->SetDataLocation(m_clDeviceId);
+    m_pImage->SetDataLocation(clDeviceId);
 
-    LogInfoA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
 
-    // Sending 1 command to the device where the bufer is located now
-    res = m_pReceiver->EnqueueDevCommands(m_clDeviceId, m_clDevCmdListId, m_pDevCmd, &m_pStatusChangeObserver, 1);
+    // Sending 1 command to the device where the buffer is located now
+	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
+	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
+	res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 
     return res;
 }
@@ -1652,16 +1715,15 @@ cl_err_code WriteImageCommand::Execute()
  ******************************************************************/
 cl_err_code WriteImageCommand::CommandDone()
 {
-    // TODO: Update buffer that transaction is done
+	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+	// TODO: Update buffer that transaction is done
     m_pImage->RemovePendency();
-    if (NULL != m_pDevCmd)
-    {
-        // Delete local command
-        cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
+    // Delete local command
+    cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
+	if (pRWParams)
+	{
         delete pRWParams;
-        delete m_pDevCmd;
-        m_pDevCmd = NULL;
-    }
+	}
     return CL_SUCCESS;
 }
 
@@ -1670,11 +1732,12 @@ cl_err_code WriteImageCommand::CommandDone()
  ******************************************************************/
 cl_err_code RuntimeCommand::Execute()
 {
-    LogInfoA("Command - DONE  : %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), GetId());
     CommandDone();
-    return m_pQueueEvent->SetEventColor(EVENT_STATE_BLACK);
+    return m_pEvent->SetColor(EVENT_STATE_BLACK);
 }
 
+#if 0
 /******************************************************************
  *
  ******************************************************************/
@@ -1682,7 +1745,7 @@ unsigned int __stdcall DummyCommandThreadEntryPoint(void* threadObject)
 {
     Sleep(300);
     Command* pCommand = (Command*)threadObject;
-    pCommand->GetEvent()->SetEventColor(EVENT_STATE_BLACK);
+    pCommand->GetEvent()->SetColor(EVENT_STATE_BLACK);
     return 1;
 }
 
@@ -1693,5 +1756,4 @@ cl_err_code DummyCommand::Execute()
     _beginthreadex(NULL, 0, DummyCommandThreadEntryPoint, this, 0, NULL);
     return CL_SUCCESS;
 }
-
-
+#endif

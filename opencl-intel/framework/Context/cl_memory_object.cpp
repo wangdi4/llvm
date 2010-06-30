@@ -72,7 +72,7 @@ cl_err_code DeviceMemoryObject::AllocateBuffer(cl_mem_flags clMemFlags, size_t s
 		return CL_SUCCESS;
 	}
 
-	cl_err_code clErr = m_pDevice->CreateMemoryObject(clDevMemFlags, NULL, 1, &szBuffersize, pHostPtr, NULL,
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevCreateMemoryObject(clDevMemFlags, NULL, 1, &szBuffersize, pHostPtr, NULL,
 							clDevHostFlags, &m_clDevMemId);
 
 	if (CL_SUCCEEDED(clErr))
@@ -112,7 +112,7 @@ cl_err_code DeviceMemoryObject::AllocateImage2D(cl_mem_flags clMemFlags,
 		return CL_SUCCESS;
 	}
 
-	cl_err_code clErr = m_pDevice->CreateMemoryObject(clDevMemFlags, pclImageFormat, 2, pszDims, pHostPtr, pszPitch,
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevCreateMemoryObject(clDevMemFlags, pclImageFormat, 2, pszDims, pHostPtr, pszPitch,
 							clDevHostFlags, &m_clDevMemId);
 	if (CL_SUCCEEDED(clErr))
 	{
@@ -156,7 +156,7 @@ cl_err_code DeviceMemoryObject::AllocateImage3D(cl_mem_flags clMemFlags,
 		return CL_SUCCESS;
 	}
 
-	cl_err_code clErr = m_pDevice->CreateMemoryObject(clDevMemFlags, pclImageFormat, 3, pszDims, pHostPtr, pszPitch,
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevCreateMemoryObject(clDevMemFlags, pclImageFormat, 3, pszDims, pHostPtr, pszPitch,
 							clDevHostFlags, &m_clDevMemId);
 	if (CL_SUCCEEDED(clErr))
 	{
@@ -174,7 +174,7 @@ cl_err_code DeviceMemoryObject::Release()
 	{
 		return CL_SUCCESS;
 	}
-	cl_err_code clErr = m_pDevice->DeleteMemoryObject(m_clDevMemId);
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevDeleteMemoryObject(m_clDevMemId);
 	if (CL_SUCCEEDED(clErr))
 	{
 		m_bAllocated = false;
@@ -240,7 +240,7 @@ void * DeviceMemoryObject::CreateMappedRegion(cl_map_flags   clMapFlags,
 	memcpy(pclDevCmdParamMap->origin, szOrigins, sizeof(size_t)*szNumDims);
 	memcpy(pclDevCmdParamMap->region, szRegions, sizeof(size_t)*szNumDims);
 
-	cl_err_code clErr = m_pDevice->CreateMappedRegion(pclDevCmdParamMap);
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevCreateMappedRegion(pclDevCmdParamMap);
 
 	if (CL_SUCCEEDED(clErr))
 	{
@@ -267,7 +267,7 @@ cl_err_code DeviceMemoryObject::ReleaseMappedRegion(void * pMappedPtr)
 	{
 		return CL_INVALID_VALUE;
 	}
-	cl_err_code clErr = m_pDevice->ReleaseMappedRegion(it->second);
+	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevReleaseMappedRegion(it->second);
     delete it->second;
 	if (CL_FAILED(clErr))
 	{
@@ -394,9 +394,7 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_szMemObjSize = 0;
 	m_pMemObjData = NULL;
 
-	m_lDataOnHost = 0;
-
-    // Sign to be dependent on the context, ensure the context will be delated only after the object was
+    // Sign to be dependent on the context, ensure the context will be deleted only after the object was
     m_pContext->AddPendency();
 
 	// assign default value
@@ -438,11 +436,10 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 		assert (NULL != ppDevices[ui]);
 #endif
 		DeviceMemoryObject * pDevMemObj = new DeviceMemoryObject(ppDevices[ui], GET_LOGGER_CLIENT);
-		m_mapDeviceMemObjects[(cl_device_id)(ppDevices[ui]->GetId())] = pDevMemObj;
+		m_mapDeviceMemObjects[(cl_device_id)(ppDevices[ui]->GetHandle())] = pDevMemObj;
 	}
-	m_pHandle = new _cl_mem;
-	m_pHandle->object = this;
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_handle.object = this;
+	m_handle.dispatch = pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject D'tor
@@ -477,11 +474,6 @@ MemoryObject::~MemoryObject()
 
 	RELEASE_LOGGER_CLIENT;
 
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
-	}
-
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::Initialize
@@ -514,8 +506,7 @@ cl_err_code MemoryObject::Initialize(void * pHostPtr)
 			if (err)
 			{
 				return CL_OUT_OF_HOST_MEMORY;
-			}
-			m_lDataOnHost = 1; //true
+			}			
 			m_pHostPtr = m_pMemObjData;
 		}
 	}
@@ -527,11 +518,8 @@ cl_err_code MemoryObject::Initialize(void * pHostPtr)
 bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 {
 	LOG_DEBUG(L"Enter IsReady (clDeviceId=%d)", clDeviceId);
-
-	if ( ::InterlockedCompareExchange(&m_lDataOnHost, 0, 0) && (0 == clDeviceId))
-	{
-		return true;
-	}
+	
+	OclAutoMutex mu(&m_muDeviceMap);
 
 	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
 	if (it == m_mapDeviceMemObjects.end())
@@ -552,6 +540,7 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
 {
 	LOG_DEBUG(L"Enter GetDeviceMemoryHndl");
+	OclAutoMutex mu(&m_muDeviceMap);
 
 	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
 	if (it == m_mapDeviceMemObjects.end())
@@ -559,7 +548,7 @@ cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
 		// device not found
 		return 0;
 	}
-	// get the device memory objectand check if it was allocated
+	// get the device memory object and check if it was allocated
 	DeviceMemoryObject * pDevMemObj = it->second;
 	return pDevMemObj->GetDeviceMemoryId();
 }
@@ -570,21 +559,22 @@ cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
 cl_device_id MemoryObject::GetDataLocation()
 {
 	LOG_DEBUG(L"Enter GetDataLocation");
-
-	if ( ::InterlockedCompareExchange(&m_lDataOnHost, 0, 0) )
+	
 	{
-		return 0;
-	}
+		OclAutoMutex mu(&m_muDeviceMap);
 
-	for (map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin(); it != m_mapDeviceMemObjects.end(); it++)
-	{
-		DeviceMemoryObject * pDevMemObj = it->second;
-		if (pDevMemObj->IsDataValid())
+		for (map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin(); it != m_mapDeviceMemObjects.end(); it++)
 		{
-			return it->first;
+			DeviceMemoryObject * pDevMemObj = it->second;
+			if (pDevMemObj->IsDataValid())
+			{
+				return it->first;
+			}
 		}
 	}
-	return 0;
+
+	// Data is not located on any device
+	return (cl_device_id)(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -593,6 +583,8 @@ cl_device_id MemoryObject::GetDataLocation()
 cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 {
 	LOG_DEBUG(L"Enter SetDataLocation (clDevice=%d)", clDevice);
+
+	OclAutoMutex mu(&m_muDeviceMap);
 
 	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDevice);
 	if (it == m_mapDeviceMemObjects.end())
@@ -617,8 +609,7 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 			pDevMemObj->SetDataValid(true);
 		}
 	}
-	// if data on host (m_lDataOnHost==1), change to false (0)
-	::InterlockedExchange(&m_lDataOnHost, 0);
+	
 	return CL_SUCCESS;
 }
 
@@ -672,7 +663,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		break;
 	case CL_MEM_CONTEXT:
 		szSize = sizeof(cl_context);
-		clContext = (cl_context)m_pContext->GetId();
+		clContext = (cl_context)m_pContext->GetHandle();
 		pValue = &clContext;
 		break;
 	default:

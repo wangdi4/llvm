@@ -33,7 +33,6 @@
 #include <logger.h>
 #include "iplatform.h"
 #include <vector>
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -41,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define CL_PLATFORM_ID_INTEL	0x1
 
 	class OCLObjectInfo;
-	class OCLObjectsMap;
+	template <class HandleType> class OCLObjectsMap;
 	class Device;
 	class OCLConfig;
 	class FECompiler;
@@ -176,7 +175,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_platform_id	m_clPlatformIds[2];
 		
 		// map list of devices
-		OCLObjectsMap * m_pDevices;
+		OCLObjectsMap<_cl_device_id> * m_pDevices;
 
 		Device **		m_ppDevices;
 
@@ -188,7 +187,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Device * m_pDefaultDevice;
 
 		// map list of all front-end compilers
-		OCLObjectsMap * m_pFECompilers;
+		OCLObjectsMap<_cl_object> * m_pFECompilers;
 
 		// default front-end compiler
 		FECompiler * m_pDefaultFECompiler;

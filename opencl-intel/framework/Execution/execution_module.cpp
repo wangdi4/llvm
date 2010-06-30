@@ -28,7 +28,7 @@
 #include "platform_module.h"
 #include "context_module.h"
 #include "events_manager.h"
-#include "ocl_command_queue.h"
+#include "command_queue.h"
 #include "in_order_command_queue.h"
 #include "out_of_order_command_queue.h"
 #include "context.h"
@@ -76,7 +76,7 @@ ExecutionModule::~ExecutionModule()
  ******************************************************************/
 cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints)
 {
-    m_pOclCommandQueueMap = new OCLObjectsMap();
+    m_pOclCommandQueueMap = new OCLObjectsMap<_cl_command_queue>();
     m_pEventsManager = new EventsManager();
 
 	m_pOclEntryPoints = pOclEntryPoints;
@@ -98,28 +98,44 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     cl_int*                     pErrRet             
     )
 {
-    cl_int      iQueueID   = CL_INVALID_HANDLE;
+    cl_command_queue iQueueID   = CL_INVALID_HANDLE;
     Context*    pContext   = NULL;
     cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
-		OclCommandQueue* pCommandQueue = new OclCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
-        errVal = pCommandQueue->Initialize();
-        if(CL_SUCCEEDED(errVal))
-        {
-			// TODO: guard ObjMap... better doing so inside the map        
-			m_pOclCommandQueueMap->AddObject((OCLObject*)pCommandQueue);
-            iQueueID = pCommandQueue->GetId();
-        }
+		IOclCommandQueueBase* pCommandQueue;
+		if (clQueueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
+		{
+			pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+		}
 		else
 		{
-			delete pCommandQueue;
+			pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+		}
+
+		if ( NULL != pCommandQueue )
+		{
+			errVal = pCommandQueue->Initialize();
+			if(CL_SUCCEEDED(errVal))
+			{
+				// TODO: guard ObjMap... better doing so inside the map        
+				m_pOclCommandQueueMap->AddObject((OCLObject<_cl_command_queue>*)pCommandQueue);
+				iQueueID = pCommandQueue->GetHandle();
+			}
+			else
+			{
+				delete pCommandQueue;
+			}
+		}
+		else
+		{
+			errVal = CL_OUT_OF_HOST_MEMORY;
 		}
     }
     if (pErrRet) *pErrRet = errVal;
-    return (cl_command_queue)iQueueID;
+    return iQueueID;
 }
 
 /******************************************************************
@@ -148,22 +164,20 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
     return errVal;
 }
 
-
-
 /******************************************************************
  * This function returns a pointer to a command queue.
  * If the command queue is not available a NULL value is returned.
  ******************************************************************/
-OclCommandQueue* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
+IOclCommandQueueBase* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
 {
     cl_err_code errCode;            
-    OCLObject*  pOclObject = NULL;
-    errCode = m_pOclCommandQueueMap->GetOCLObject((cl_uint)clCommandQueue, &pOclObject);
+    OCLObject<_cl_command_queue>*  pOclObject = NULL;
+    errCode = m_pOclCommandQueueMap->GetOCLObject(clCommandQueue, &pOclObject);
     if (CL_FAILED(errCode))
     {
         return NULL;
     }
-    OclCommandQueue* pCommandQueue = dynamic_cast<OclCommandQueue*>(pOclObject);
+    IOclCommandQueueBase* pCommandQueue = dynamic_cast<IOclCommandQueueBase*>(pOclObject);
     return pCommandQueue;
 }
 
@@ -188,7 +202,7 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
 {
 	LOG_INFO(L"Enter");
     cl_err_code errVal = CL_SUCCESS;
-    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pOclCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pOclCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -201,8 +215,11 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
     {
         // Check if the command has fully released, and if true, destroy it and remove it        
 		LOG_DEBUG(L"Remove queue from the map");   
-        m_pOclCommandQueueMap->RemoveObject((cl_uint)clCommandQueue, NULL); //TODO: guard this access        
-        pOclCommandQueue->CleanFinish(); // The CleanFinish signals the queue to finish the commands and to release itself.
+		//Todo: deliberate, known race
+		Finish(clCommandQueue);
+        m_pOclCommandQueueMap->RemoveObject(clCommandQueue, NULL); //TODO: guard this access        
+
+		delete pOclCommandQueue;
     }
 	LOG_INFO(L"Exit - retVal=0x%X", errVal);
     return  errVal;
@@ -305,14 +322,14 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
 {
 	cl_start;
     cl_err_code res = CL_SUCCESS;
-    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pOclCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pOclCommandQueue)
     {
         res = CL_INVALID_COMMAND_QUEUE;
     }
     else
     {
-        res = pOclCommandQueue->Flush();
+        res = pOclCommandQueue->Flush(true);
     }
     cl_return res;
 }
@@ -324,16 +341,28 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
 cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 {
     cl_err_code res = CL_SUCCESS;
-    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pOclCommandQueue)
-    {
-        res = CL_INVALID_COMMAND_QUEUE;
-    }
-    else
-    {
-        res = pOclCommandQueue->Finish();
-    }
-    return res;
+	cl_event dummy = NULL;
+	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pCommandQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+
+	res = EnqueueMarker(clCommandQueue, &dummy);
+	if (CL_FAILED(res))
+	{
+		return res;
+	}
+
+	if ( !pCommandQueue->WaitForCompletion(m_pEventsManager->GetEvent(dummy)) )
+	{
+		m_pEventsManager->ReleaseEvent(dummy);
+		return CL_SUCCESS;
+	}
+
+	res = WaitForEvents(1, &dummy);
+	m_pEventsManager->ReleaseEvent(dummy);
+	return res;
 }
 
 /******************************************************************
@@ -341,33 +370,37 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
 {
-    cl_err_code errVal;
+	cl_err_code errVal;
+	if (NULL == pEvent)
+	{
+		return CL_INVALID_VALUE;
+	}
 
-    if (NULL == pEvent)
-    {
-        return CL_INVALID_VALUE;
-    }
+	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pCommandQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+	/*
+	if (!pCommandQueue->IsOutOfOrderExecModeEnabled())
+	{
+		return CL_INVALID_OPERATION;
+	}
+	*/
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-   } 
+	// Create Command
+	Command* pMarkerCommand = new MarkerCommand();
+	pMarkerCommand->SetCommandQueue(pCommandQueue);
+	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+	OclEvent* pMarkerEvent = m_pEventsManager->CreateOclEvent(CL_COMMAND_MARKER, pEvent, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
+	pMarkerCommand->SetEvent(pMarkerEvent);
 
-    // Create Command
-    Command* pMarkerCommand = new MarkerCommand();
-    errVal = pMarkerCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pMarkerCommand, false, 0, NULL, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pMarkerCommand->CommandDone();
-            delete pMarkerCommand;
-        }
-    }    
-    return  errVal;
+	errVal = pMarkerCommand->Init();
+	if(CL_SUCCEEDED(errVal))
+	{
+		errVal = pCommandQueue->EnqueueMarker(pMarkerCommand);
+	}
+	return errVal;
 }
 
 /******************************************************************
@@ -376,36 +409,27 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList)
 {
     cl_err_code errVal;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
 	if ( (NULL == cpEventList) || (0 == uiNumEvents) )
 	{
 		return CL_INVALID_VALUE;
 	}
 
-    // Create Command
-    Command* pWaitForEventsCommand = new WaitForEventsCommand();
-    errVal = pWaitForEventsCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pWaitForEventsCommand, CL_FALSE, uiNumEvents, cpEventList, NULL);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pWaitForEventsCommand->CommandDone();
-            delete pWaitForEventsCommand;
-        }
-    }    
-	if( CL_INVALID_EVENT_WAIT_LIST == errVal )
+	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	// Create Command
+	if (NULL == pCommandQueue)
 	{
-		errVal = CL_INVALID_EVENT;
+		return CL_INVALID_COMMAND_QUEUE;
 	}
-
-    return  errVal;
+	
+	Command* pWaitForEventsCommand = new WaitForEventsCommand();
+	pWaitForEventsCommand->SetCommandQueue(pCommandQueue);
+	pWaitForEventsCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+	errVal = pWaitForEventsCommand->Init();
+	if(CL_SUCCEEDED(errVal))
+	{
+		errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
+	}
+	return errVal;
 }
 
 /******************************************************************
@@ -413,27 +437,25 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 {
-    cl_err_code errVal;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
+	cl_err_code errVal;
+	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pCommandQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
 
-    // Create Command
-    Command* pBarrierCommand = new BarrierCommand();
-    errVal = pBarrierCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pBarrierCommand, CL_FALSE, 0, NULL, NULL);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pBarrierCommand->CommandDone();
-            delete pBarrierCommand;
-        }
-    }    
-    return  errVal;
+	// Create Command
+	Command* pBarrierCommand = new BarrierCommand();
+	pBarrierCommand->SetCommandQueue(pCommandQueue);
+	pBarrierCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+	errVal = pBarrierCommand->Init();
+	OclEvent* pBarrierEvent = m_pEventsManager->CreateOclEvent(CL_COMMAND_BARRIER, NULL, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
+	pBarrierCommand->SetEvent(pBarrierEvent);
+	if(CL_SUCCEEDED(errVal))
+	{
+		errVal = pCommandQueue->EnqueueBarrier(pBarrierCommand);
+	}
+	return errVal;
 }
 
 
@@ -458,23 +480,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
     // Before waiting all on events, the function need to flush all relevant queues, 
     // Since the dependencies between events in different queues is unknown it is better
     // to flush all queues in the context.
-    OCLObject* pObj = NULL;	
-	for (cl_uint ui=0; ui<m_pOclCommandQueueMap->Count(); ++ui)
-	{
-		errVal = m_pOclCommandQueueMap->GetObjectByIndex(ui, &pObj);
-        if ( CL_FAILED(errVal) )
-        {
-            return errVal;
-        }
-        OclCommandQueue* pQueue = (OclCommandQueue*)pObj;
-
-        cl_context queueContext = pQueue->GetContextId();
-        if(queueContext == clEventsContext)
-        {
-            // Flush
-            pQueue->Flush();
-        }
-    }
+	FlushAllQueuesForContext(clEventsContext);
 
     // This call is blocking.    
     errVal = m_pEventsManager->WaitForEvents(uiNumEvents, cpEventList);
@@ -531,7 +537,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_VALUE;
     }
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -553,18 +559,13 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         // Out of bounds check.
         return CL_INVALID_VALUE;
     }
-	
-	// if the command queue is empty, and there are no dependencies both on the buffer and the enqueue command we don't need to concatenate 
-	// the command through the device agent, we con do it on the runtime layer.
-	if ((CL_TRUE == bBlocking) && (pBuffer->GetPendencies() == 0) && (uNumEventsInWaitList == 0) && (NULL == pEvent) && pCommandQueue->GetCommandQueue()->IsEmpty())
-	{
-		if ( !(pBuffer->GetFlags() & CL_MEM_USE_HOST_PTR) )
-		{
-			return pBuffer->ReadData(pOutData, &szOffset, &szCb);
-		}
-	}
 
-    Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pBuffer, szOffset, szCb, pOutData);
+	Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pBuffer, szOffset, szCb, pOutData);
+	pEnqueueReadBufferCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pEnqueueReadBufferCmd->SetDevice(pDevice);
+
     errVal = pEnqueueReadBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -592,7 +593,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -615,26 +616,19 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-	// if the command queue is empty, and there are no dependencies both on the buffer and the enqueue command we don't need to concatenate 
-	// the command through the device agent, we con do it on the runtime layer.
-	if ((CL_TRUE == bBlocking) && (pBuffer->GetPendencies() == 0) && (uNumEventsInWaitList == 0) && (NULL == pEvent) && pCommandQueue->GetCommandQueue()->IsEmpty())
-	{
-		if ( !(pBuffer->GetFlags() & CL_MEM_USE_HOST_PTR) )
-		{
-			return pBuffer->WriteData(cpSrcData, &szOffset, &szCb);
-		}
-	}
+	Command* pWriteBufferCmd = new WriteBufferCommand(pBuffer, szOffset, szCb, cpSrcData);
+	pWriteBufferCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pWriteBufferCmd->SetDevice(pDevice);
 
-    Command* pWriteBufferCmd = new WriteBufferCommand(pBuffer, szOffset, szCb, cpSrcData);
     errVal = pWriteBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
         errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
         if(CL_FAILED(errVal))
         {
-            // Enqueue failed, free resources
-            pWriteBufferCmd->CommandDone();
-            delete pWriteBufferCmd;
+			return errVal;
         }
     }    
     cl_return  errVal;
@@ -657,7 +651,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     )
 {
     cl_err_code errVal = CL_SUCCESS;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -693,6 +687,11 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     }
 
     Command* pCopyBufferCommand = new CopyBufferCommand(pSrcBuffer, pDstBuffer, szSrcOffset, szDstOffset, szCb);
+	pCopyBufferCommand->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pCopyBufferCommand->SetDevice(pDevice);
+
     errVal = pCopyBufferCommand->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -718,7 +717,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 	{
 		pErrcodeRet = &err;
 	}
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
@@ -755,10 +754,13 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     
     MapBufferCommand* pMapBufferCommand = new MapBufferCommand( pBuffer, clMapFlags, szOffset, szCb);
     // Must set device Id before init for buffer resource allocation.
-    pMapBufferCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+	pMapBufferCommand->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pMapBufferCommand->SetDevice(pDevice);
     *pErrcodeRet = pMapBufferCommand->Init();
     // Get pointer for mapped region since it is allocated on init. Execute will lock the region
-    // Note that if EnqueueCommand successed, by the time it returns, the command may be deleted already.
+    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedRegion = pMapBufferCommand->GetMappedRegion();
     if(CL_SUCCEEDED(*pErrcodeRet))
     {
@@ -784,7 +786,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -803,7 +805,11 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
     
     Command* pUnmapMemObjectCommand = new UnmapMemObjectCommand( pMemObject, mappedPtr);
     // Must set device Id before init for buffer resource allocation.
-    pUnmapMemObjectCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+	pUnmapMemObjectCommand->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pUnmapMemObjectCommand->SetDevice(pDevice);
+
     errVal = pUnmapMemObjectCommand->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -859,19 +865,19 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 		}
 	}
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    cl_device_id clDeviceId = pCommandQueue->GetQueueDeviceId();
+    cl_device_id clDeviceId = pCommandQueue->GetQueueDeviceHandle();
     Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
     if (NULL == pKernel)
     {
         return CL_INVALID_KERNEL;
     }
 
-    if ((cl_context)(pKernel->GetContext()->GetId()) != pCommandQueue->GetContextId())
+    if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -895,8 +901,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     //
     size_t szWorkGroupSize = 0;
     size_t szComplieWorkGroupSize[3] = {0};
-    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceId(), CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szWorkGroupSize, NULL);
-    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceId(), CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t) * 3, szComplieWorkGroupSize, NULL);
+    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceHandle(), CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szWorkGroupSize, NULL);
+    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceHandle(), CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t) * 3, szComplieWorkGroupSize, NULL);
     cl_uint ui=0;
 
     // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0) 
@@ -983,7 +989,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
     // Must set device Id before init for buffer resource allocation.
-    pNDRangeKernelCmd->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+	pNDRangeKernelCmd->SetCommandQueue(pCommandQueue);
+	pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
     if( CL_SUCCEEDED (errVal) )
     {
@@ -1006,7 +1013,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 {
     cl_err_code errVal = CL_SUCCESS;
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1017,15 +1024,15 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
         return CL_INVALID_KERNEL;
     }
 
-    if ((cl_context)(pKernel->GetContext()->GetId()) != pCommandQueue->GetContextId())
+    if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
 
 	// CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
-	cl_device_id clDeviceId = pCommandQueue->GetQueueDeviceId();
-	if(!pKernel->IsValidExecutable(clDeviceId))
+	cl_device_id clDeviceHandle = pCommandQueue->GetQueueDeviceHandle();
+	if(!pKernel->IsValidExecutable(clDeviceHandle))
     {
         return CL_INVALID_PROGRAM_EXECUTABLE;
     }
@@ -1041,8 +1048,12 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     // CL_INVALID_WORK_GROUP_SIZE
 
     Command* pTaskCommand = new TaskCommand(pKernel); 
-    // Must set device Id befor init for buffer resource allocation.
-    pTaskCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());    
+    // Must set device Id before init for buffer resource allocation.
+	pTaskCommand->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pTaskCommand->SetDevice(pDevice);
+
     errVal = pTaskCommand->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1074,7 +1085,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
         return CL_INVALID_VALUE;
     }
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1107,8 +1118,12 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-    // Must set device Id befor init for buffer resource allocation.
-    pNativeKernelCommand->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+    // Must set device Id before init for buffer resource allocation.
+	pNativeKernelCommand->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pNativeKernelCommand->SetDevice(pDevice);
+
     errVal = pNativeKernelCommand->Init();
     if( CL_SUCCEEDED (errVal) )
     {
@@ -1248,7 +1263,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_VALUE;
     }
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1274,6 +1289,11 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     }
 
     Command* pReadImageCmd  = new ReadImageCommand(pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, pOutData);
+	pReadImageCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pReadImageCmd->SetDevice(pDevice);
+
     errVal = pReadImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1312,7 +1332,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_VALUE;
     }
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1338,6 +1358,10 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     }
 
     Command* pWriteImageCmd  = new WriteImageCommand(pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
+	pWriteImageCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pWriteImageCmd->SetDevice(pDevice);
     errVal = pWriteImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1369,7 +1393,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1422,6 +1446,10 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     // Input parameters validated, enqueue the command
     //
     Command* pCopyImageCmd = new CopyImageCommand(pSrcImage, pDstImage, szSrcOrigin, szDstOrigin, szRegion);
+	pCopyImageCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pCopyImageCmd->SetDevice(pDevice);
     errVal = pCopyImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1454,7 +1482,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1492,6 +1520,10 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     // Input parameters validated, enqueue the command
     //
     Command* pCopyImageToBufferCmd = new CopyImageToBufferCommand(pSrcImage, pDstBuffer, szSrcOrigin, szRegion, szDstOffset);
+	pCopyImageToBufferCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pCopyImageToBufferCmd->SetDevice(pDevice);
     errVal = pCopyImageToBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1524,7 +1556,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -1562,6 +1594,10 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     // Input parameters validated, enqueue the command
     //
     Command* pCopyBufferToImageCmd = new CopyBufferToImageCommand(pSrcBuffer, pDstImage, szSrcOffset, szDstOrigin, szRegion);
+	pCopyBufferToImageCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pCopyBufferToImageCmd->SetDevice(pDevice);
     errVal = pCopyBufferToImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -1604,7 +1640,7 @@ void * ExecutionModule::EnqueueMapImage(
 		*pErrcodeRet = CL_SUCCESS;
 	}
 
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     MemoryObject* pImage = m_pContextModule->GetMemoryObject(clImage);    
 
     if (NULL == pCommandQueue)
@@ -1641,10 +1677,13 @@ void * ExecutionModule::EnqueueMapImage(
         
     MapImageCommand* pMapImageCmd = new MapImageCommand( pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
     // Must set device Id before init for image resource allocation.
-    pMapImageCmd->SetCommandDeviceId(pCommandQueue->GetQueueDeviceId());
+	pMapImageCmd->SetCommandQueue(pCommandQueue);
+	Device* pDevice;
+	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
+	pMapImageCmd->SetDevice(pDevice);
     *pErrcodeRet = pMapImageCmd->Init();
     // Get pointer for mapped region since it is allocated on init. Execute will lock the region
-    // Note that if EnqueueCommand successed, by the time it returns, the command may be deleted already.
+    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedRegion = pMapImageCmd->GetMappedRegion();
     if(CL_SUCCEEDED(*pErrcodeRet))
     {
@@ -1702,4 +1741,27 @@ cl_err_code ExecutionModule::EnqueueReleaseGLObjects(cl_command_queue clCommandQ
 													 cl_event * pclEvent)
 {
 	return CL_ERR_NOT_IMPLEMENTED;
+}
+
+cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext)
+{
+	cl_err_code errVal = CL_SUCCESS;
+	OCLObject<_cl_command_queue>* pObj = NULL;	
+	for (cl_uint ui=0; ui<m_pOclCommandQueueMap->Count(); ++ui)
+	{
+		errVal = m_pOclCommandQueueMap->GetObjectByIndex(ui, &pObj);
+		if ( CL_FAILED(errVal) )
+		{
+			return errVal;
+		}
+		IOclCommandQueueBase* pQueue = (IOclCommandQueueBase*)pObj;
+
+		cl_context queueContext = pQueue->GetContextHandle();
+		if(queueContext == clEventsContext)
+		{
+			// Flush
+			pQueue->Flush(false);
+		}
+	}
+	return errVal;
 }

@@ -8,6 +8,7 @@
 
 #include "ocl_config.h"
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 OCLConfig::OCLConfig()
 {

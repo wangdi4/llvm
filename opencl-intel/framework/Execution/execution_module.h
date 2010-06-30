@@ -33,15 +33,15 @@
 #include "iexecution.h"
 #include "iexecution_gl.h"
 
-// forward declrations
+// forward declarations
 
 namespace Intel { namespace OpenCL { namespace Framework {
-    // forward declrations
+    // forward declarations
     class PlatformModule;
     class ContextModule;
-    class OCLObjectsMap;
+    template <class HandleType> class OCLObjectsMap;
     class EventsManager;
-    class OclCommandQueue;
+    class IOclCommandQueueBase;
     class Context;
     class MemoryObject;
 
@@ -84,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Out Of Order Execution synch commands
         // ---------------------
-        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
+		cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
         cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList);
         cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue);
 
@@ -125,7 +125,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
 
         // Private functions
-        OclCommandQueue*    GetCommandQueue(cl_command_queue clCommandQueue);
+        IOclCommandQueueBase*    GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
         cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
@@ -133,11 +133,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code         CheckImageFormat( MemoryObject* pSrcImage, MemoryObject* pDstImage);
         bool                CheckMemoryObjectOverlapping(MemoryObject* pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(MemoryObject* pImage, const size_t* szRegion);
+		cl_err_code         FlushAllQueuesForContext(cl_context ctx);
 
         // Members
         PlatformModule*     m_pPlatfromModule;          // Pointer to the platfrom operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;           // Pointer to the context operation. This is the internal interface of the module.
-        OCLObjectsMap*      m_pOclCommandQueueMap;      // Holds the set of active queues.
+        OCLObjectsMap<_cl_command_queue>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
         EventsManager*      m_pEventsManager;           // Placeholder for all active events.
         
 		ocl_entry_points *	m_pOclEntryPoints;

@@ -51,7 +51,6 @@ Image2D::Image2D(Context *         pContext,
 	m_szImageWidth = 0;
 	m_szImageHeight = 0;
 	m_szImageRowPitch = 0;
-	m_lDataOnHost = 0;
 	m_pHostPtr = pHostPtr;
 
 	if (CL_FAILED(*pErrCode))

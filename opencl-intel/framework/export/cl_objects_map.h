@@ -29,28 +29,34 @@
 #if !defined(OCL_OBJECTS_MAP_H_)
 #define OCL_OBJECTS_MAP_H_
 
+#ifndef _DEBUG
+//#define _SECURE_SCL 0
+#endif
+
 #include "cl_types.h"
 #include "cl_object.h"
+#include "cl_synch_objects.h"
 #include <map>
-using namespace std;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
 	* Class name:	OCLObjectsMap
 	*
-	* Description:	represnts an OpneCL objects map
+	* Description:	represents an OpneCL objects map
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
+	template <class HandleType>
 	class OCLObjectsMap
 	{
 	protected:
 		// object's map
-		map<cl_int, OCLObject*>		m_mapObjects;
+		std::map<HandleType*, OCLObject<HandleType>*>		m_mapObjects;
 		// dirty object's map
-		map<cl_int, OCLObject*>		m_mapDirtyObjects;
-		static cl_int				m_iNextGenKey;
+		std::map<HandleType*, OCLObject<HandleType>*>		m_mapDirtyObjects;
+		static Intel::OpenCL::Utils::AtomicCounter		    m_iNextGenKey;
+		Intel::OpenCL::Utils::OclSpinMutex				    m_muMapMutex;
 
 	public:
 
@@ -61,7 +67,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		OCLObjectsMap();
+		OCLObjectsMap() {}
 		
 		/******************************************************************************************
 		* Function: 	~OCLObjectsMap
@@ -84,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_int AddObject(OCLObject * pObject);
+		HandleType* AddObject(OCLObject<HandleType> * pObject);
 
 		/******************************************************************************************
 		* Function: 	AddObject    
@@ -93,32 +99,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				it's on the caller responsibility to allocates and destroy the object's 
 		*				resource. 
 		* Arguments:	pObject		- pointer to the OpenCL object. must be a valid OpenCL object.
-		*				iObjectId	- object id
 		*				bAssignId	- if True the function assign the id to the object
 		* Return value:	
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/	
-		cl_err_code AddObject(OCLObject * pObject, int iObjectId, bool bAssignId);
+		cl_err_code AddObject(OCLObject<HandleType> * pObject, bool bAssignId);
 
 		/******************************************************************************************
 		* Function: 	GetOCLObject    
 		* Description:	returns the OpenCL object which assign to the object id
-		* Arguments:	iObjectId [in]	the id of the OpenCL object
-		*				pObject	[out]	pointer to the OpenCL object's opinter. must be a valid 
+		* Arguments:	hObjectHandle [in]	the handle of the OpenCL object
+		*				pObject	[out]	pointer to the OpenCL object's pointer. must be a valid 
 		*								pointer
 		* Return value:	CL_SUCCESS -			the object was found and returned
 		*				CL_ERR_KEY_NOT_FOUND -	the current object id wasn't found in the map
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code GetOCLObject(cl_int iObjectId, OCLObject ** ppObject);
+		cl_err_code GetOCLObject(HandleType* hObjectHandle, OCLObject<HandleType> ** ppObject);
 
 		/******************************************************************************************
 		* Function: 	GetObjectByIndex    
 		* Description:	returns the OpenCL object which assign to the index
 		* Arguments:	uiIndex [in]	object's index
-		*				pObject	[out]	pointer to the OpenCL object's opinter. must be a valid 
+		*				pObject	[out]	pointer to the OpenCL object's pointer. must be a valid 
 		*								pointer
 		* Return value:	CL_SUCCESS -			the object was found and returned
 		*				CL_ERR_LIST_EMPTY -		there are no objects left in the map
@@ -126,7 +131,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code GetObjectByIndex(cl_uint uiIndex, OCLObject ** ppObject);
+		cl_err_code GetObjectByIndex(cl_uint uiIndex, OCLObject<HandleType> ** ppObject);
 
 		/******************************************************************************************
 		* Function: 	GetObjects    
@@ -138,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/	
-		cl_err_code GetObjects(cl_uint uiObjectCount, OCLObject ** ppObjects, cl_uint * puiObjectCountRet);
+		cl_err_code GetObjects(cl_uint uiObjectCount, OCLObject<HandleType> ** ppObjects, cl_uint * puiObjectCountRet);
 
 		/******************************************************************************************
 		* Function: 	GetIDs    
@@ -150,16 +155,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/	
-		cl_err_code GetIDs(cl_uint uiIdsCount, cl_int * pIds, cl_uint * puiIdsCountRet);
+		cl_err_code GetIDs(cl_uint uiIdsCount, HandleType** pIds, cl_uint * puiIdsCountRet);
 
 		/******************************************************************************************
 		* Function: 	RemoveObject    
 		* Description:	remove the OpenCL object which assign to the object id from the map and
-		*				returns the object if neccessary
+		*				returns the object if necessary
 		*				if bSetDirty flag is true, the object is not entirely removed from the
-		*				objects map but set to dirty object. Once the grabage collector is
+		*				objects map but set to dirty object. Once the garbage collector is
 		*				activated, the object will be removed if it ready for deletion
-		* Arguments:	iObjectId [in]		the id of the OpenCL object
+		* Arguments:	hObjectHandle [in]		the handle of the OpenCL object
 		*				ppObjectRet [out]	return the object being removed. if ppObjectRet is
 		*									NULL it is ignored
 		* Return value:	CL_SUCCESS -			the object was removed from the map
@@ -167,7 +172,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code RemoveObject(cl_int iObjectId, OCLObject ** ppObjectRet, bool bSetDirty = false);
+		cl_err_code RemoveObject(HandleType* hObjectHandle, OCLObject<HandleType> ** ppObjectRet, bool bSetDirty = false);
 		
 		/******************************************************************************************
 		* Function: 	Count    
@@ -177,7 +182,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		const cl_uint	Count();
+		cl_uint	Count();
 
 		/******************************************************************************************
 		* Function: 	Clear    
@@ -192,12 +197,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void Clear(bool bSetDirty = false);
 
 		// check if current object id exists in map list
-		bool IsExists(cl_int iObjectId);
+		bool IsExists(HandleType* hObjectHandle);
 
 		void GarbageCollector( bool bIsTerminate = false);
 
 	};
-
+#include "cl_objects_map.hpp"
 }}};
 
 #endif //OCL_OBJECTS_MAP_H_

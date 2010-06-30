@@ -50,17 +50,16 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 {
 	//cl_start;
 
-	::OCLObject();
 	m_pfnNotify = NULL;
 	m_pUserData = NULL;
 
 	INIT_LOGGER_CLIENT(L"Context", LL_DEBUG);
 	LOG_DEBUG(L"Context constructor enter");
 
-	m_pPrograms = new OCLObjectsMap();
-	m_pDevices = new OCLObjectsMap();
-	m_pMemObjects = new OCLObjectsMap();
-	m_pSamplers = new OCLObjectsMap();
+	m_pPrograms = new OCLObjectsMap<_cl_program>();
+	m_pDevices = new OCLObjectsMap<_cl_device_id>();
+	m_pMemObjects = new OCLObjectsMap<_cl_mem>();
+	m_pSamplers = new OCLObjectsMap<_cl_sampler>();
 
 	m_ppDevices = NULL;
 	m_pDeviceIds = NULL;
@@ -83,9 +82,9 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
 	}
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		m_pDevices->AddObject(ppDevices[ui], ppDevices[ui]->GetId(), false);
+		m_pDevices->AddObject(ppDevices[ui], false);
 		m_ppDevices[ui] = ppDevices[ui];
-		m_pDeviceIds[ui] = (cl_device_id)ppDevices[ui]->GetId();
+		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
 	}
 
 	m_uiContextPropCount = 0;
@@ -121,7 +120,7 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
     //
     for(cl_uint idx = 0; idx < uiNumDevices; idx++)
     {
-        cl_device_id devId = (cl_device_id)ppDevices[idx]->GetId();
+        cl_device_id devId = ppDevices[idx]->GetHandle();
 	    map<cl_device_id, cl_uint>::iterator it = m_sContextsPerDevices.find(devId);
 	    if (it == m_sContextsPerDevices.end())
 	    {
@@ -136,9 +135,8 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
         }
     }
 
-	m_pHandle = new _cl_context;
-	m_pHandle->object = this;
-	m_pHandle->dispatch = pOclEntryPoints;
+	m_handle.object   = this;
+	m_handle.dispatch = pOclEntryPoints;
 	return;
 	//cl_return;
 }
@@ -157,13 +155,13 @@ void Context::Cleanup( bool bTerminate )
     // First, remove device if it required,
     //
     cl_uint uiNumDevices = m_pDevices->Count();
-    OCLObject** ppDevices = new OCLObject* [uiNumDevices];
+    OCLObject<_cl_device_id>** ppDevices = new OCLObject<_cl_device_id>* [uiNumDevices];
     m_pDevices->GetObjects(uiNumDevices, ppDevices, NULL);
 
     for(cl_uint idx = 0; idx < uiNumDevices; idx++)
     {
         Device* pDevice = dynamic_cast<Device*>(ppDevices[idx]);
-        cl_device_id clDevId = (cl_device_id)pDevice->GetId();
+        cl_device_id clDevId = pDevice->GetHandle();
         map<cl_device_id, cl_uint>::iterator it = m_sContextsPerDevices.find(clDevId);
         if (it != m_sContextsPerDevices.end())
         {
@@ -236,11 +234,6 @@ Context::~Context()
 	{
 		delete []m_pclContextProperties;
 		m_pclContextProperties = NULL;
-	}
-
-	if (NULL != m_pHandle)
-	{
-		delete m_pHandle;
 	}
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -321,7 +314,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	// create new program object
-	Program * pProgram = new Program(this, (ocl_entry_points*)this->m_pHandle->dispatch);
+	Program * pProgram = new Program(this, (ocl_entry_points*)m_handle.dispatch);
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// set source code in program object
@@ -334,7 +327,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 		return clErrRet;
 	}
 	// add program object to programs map list
-	m_pPrograms->AddObject((OCLObject*)pProgram);
+	m_pPrograms->AddObject((OCLObject<_cl_program>*)pProgram);
 	*ppProgram = pProgram;
 	return CL_SUCCESS;
 }
@@ -349,7 +342,7 @@ cl_err_code Context::GetDeviceByIndex(cl_uint uiDeviceIndex, Device** ppDevice)
         return CL_INVALID_VALUE;
     }
 	
-	cl_err_code clErrRet = m_pDevices->GetObjectByIndex((cl_int)uiDeviceIndex, (OCLObject**)ppDevice);
+	cl_err_code clErrRet = m_pDevices->GetObjectByIndex((cl_int)uiDeviceIndex, (OCLObject<_cl_device_id>**)ppDevice);
     if ( CL_FAILED(clErrRet) || NULL == ppDevice)
     {
         return CL_ERR_KEY_NOT_FOUND;
@@ -372,7 +365,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
 	cl_err_code clErrRet = CL_SUCCESS;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		clErrRet = m_pDevices->GetOCLObject((cl_int)pclDevices[ui], (OCLObject**)&pDevice);
+		clErrRet = m_pDevices->GetOCLObject(pclDevices[ui], (OCLObject<_cl_device_id>**)&pDevice);
 		if ( CL_FAILED(clErrRet) || NULL == pDevice)
 		{
 			LOG_ERROR(L"device %d was't found in this context", pclDevices[ui]);
@@ -421,7 +414,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 
 	// create program object
-	Program * pProgram = new Program(this, (ocl_entry_points*)this->m_pHandle->dispatch);
+	Program * pProgram = new Program(this, (ocl_entry_points*)m_handle.dispatch);
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// get devices and assign binaries to program object
@@ -438,7 +431,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	Device * pDevice = NULL;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
-		clErrRet = m_pDevices->GetOCLObject((cl_int)pclDeviceList[ui], (OCLObject**)&pDevice);
+		clErrRet = m_pDevices->GetOCLObject(pclDeviceList[ui], (OCLObject<_cl_device_id>**)&pDevice);
 		if (CL_SUCCEEDED(clErrRet))
 		{
 			ppDevices[ui] = pDevice;
@@ -448,7 +441,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	clErrRet = pProgram->AddBinaries(uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus);
 
 	delete[] ppDevices;
-	m_pPrograms->AddObject((OCLObject*)pProgram);
+	m_pPrograms->AddObject((OCLObject<_cl_program>*)pProgram);
 	*ppProgram = pProgram;
 	return clErrRet;
 }
@@ -464,12 +457,12 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId)
 #endif
 
 	Program * pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject((cl_int)clProgramId, (OCLObject**)&pProgram);
+	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgramId, (OCLObject<_cl_program>**)&pProgram);
 	if (CL_FAILED(clErrRet))
 	{
 		return clErrRet;
 	}
-	return m_pPrograms->RemoveObject((cl_int)clProgramId, NULL);
+	return m_pPrograms->RemoveObject(clProgramId, NULL);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveMemObject
@@ -483,12 +476,12 @@ cl_err_code Context::RemoveMemObject(cl_mem clMem)
 #endif
 
 	MemoryObject * pMemObj = NULL;
-	cl_err_code clErrRet = m_pMemObjects->GetOCLObject((cl_int)clMem, (OCLObject**)&pMemObj);
+	cl_err_code clErrRet = m_pMemObjects->GetOCLObject(clMem, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErrRet))
 	{
 		return clErrRet;
 	}
-	return m_pMemObjects->RemoveObject((cl_int)clMem, NULL);
+	return m_pMemObjects->RemoveObject(clMem, NULL);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveSampler
@@ -502,12 +495,12 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler)
 #endif
 
 	Sampler * pSmapler = NULL;
-	cl_err_code clErrRet = m_pSamplers->GetOCLObject((cl_int)clSampler, (OCLObject**)&pSmapler);
+	cl_err_code clErrRet = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSmapler);
 	if (CL_FAILED(clErrRet))
 	{
 		return clErrRet;
 	}
-	return m_pSamplers->RemoveObject((cl_int)clSampler, NULL);
+	return m_pSamplers->RemoveObject(clSampler, NULL);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateBuffer
@@ -533,7 +526,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	}
 
 	cl_err_code clErr = CL_SUCCESS;
-	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
+	Buffer * pBuffer = new Buffer(this, clFlags, pHostPtr, szSize, (ocl_entry_points*)m_handle.dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new buffer, returned: %ws", ClErrTxt(clErr));
@@ -544,12 +537,12 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	clErr = pBuffer->Initialize(pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Failed to initizialized data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
+		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
         delete pBuffer;
 		return clErr;
 	}
 
-	m_pMemObjects->AddObject((OCLObject*)pBuffer);
+	m_pMemObjects->AddObject((OCLObject<_cl_mem>*)pBuffer);
 
 	*ppBuffer = pBuffer;
 	return CL_SUCCESS;
@@ -589,7 +582,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image2D * pImage2D = new Image2D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
+	Image2D * pImage2D = new Image2D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, (ocl_entry_points*)m_handle.dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image2D, returned: %ws", ClErrTxt(clErr));
@@ -600,12 +593,12 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 	clErr = pImage2D->Initialize(pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Failed to initizialized data, pImage2D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
+		LOG_ERROR(L"Failed to initialize data, pImage2D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
         delete pImage2D;
 		return clErr;
 	}
 
-	m_pMemObjects->AddObject((OCLObject*)pImage2D);
+	m_pMemObjects->AddObject((OCLObject<_cl_mem>*)pImage2D);
 
 	*ppImage2d = pImage2D;
 	return CL_SUCCESS;
@@ -650,7 +643,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image3D * pImage3D = new Image3D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, (ocl_entry_points*)m_pHandle->dispatch, &clErr);
+	Image3D * pImage3D = new Image3D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, (ocl_entry_points*)m_handle.dispatch, &clErr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image3D, returned: %ws", ClErrTxt(clErr));
@@ -661,12 +654,12 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 	clErr = pImage3D->Initialize(pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Failed to initizialized data, pImage3D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
+		LOG_ERROR(L"Failed to initialize data, pImage3D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
         delete pImage3D;
 		return clErr;
 	}
 
-	m_pMemObjects->AddObject((OCLObject*)pImage3D);
+	m_pMemObjects->AddObject((OCLObject<_cl_mem>*)pImage3D);
 
 	*ppImage3d = pImage3D;
 	return CL_SUCCESS;
@@ -725,10 +718,10 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 	cl_err_code clErr = CL_SUCCESS;
 	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDevice);
+		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDevice);
 		if (CL_SUCCEEDED(clErr))
 		{
-			clErr = pDevice->GetSupportedImageFormats(clDevMemFlags, clDevMemObjType, uiNumEntries, pclImageFormats, puiNumImageFormats);
+			clErr = pDevice->GetDeviceAgent()->clDevGetSupportedImageFormats(clDevMemFlags, clDevMemObjType, uiNumEntries, pclImageFormats, puiNumImageFormats);
 			if (CL_FAILED(clErr))
 			{
 				return clErr;
@@ -755,7 +748,7 @@ cl_ulong Context::GetMaxMemAllocSize()
 	
 	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDevice);
+		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDevice);
 		if (CL_FAILED(clErr) || NULL == pDevice)
 		{
 			continue;
@@ -806,7 +799,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	
 	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDevice);
+		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDevice);
 		if (CL_FAILED(clErr) || NULL == pDevice)
 		{
 			continue;
@@ -884,7 +877,7 @@ cl_err_code Context::GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj)
 #ifdef _DEBUG
 	assert ( NULL != m_pMemObjects );
 #endif
-	return m_pMemObjects->GetOCLObject((cl_int)clMemId, (OCLObject**)ppMemObj);
+	return m_pMemObjects->GetOCLObject(clMemId, (OCLObject<_cl_mem>**)ppMemObj);
 }
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
@@ -907,7 +900,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 #endif
 
 	Sampler * pSampler = new Sampler();
-	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)m_pHandle->dispatch);
+	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)m_handle.dispatch);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Sampler, returned: %ws", ClErrTxt(clErr));
@@ -915,7 +908,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 		return clErr;
 	}
 	
-	m_pSamplers->AddObject((OCLObject*)pSampler);
+	m_pSamplers->AddObject((OCLObject<_cl_sampler>*)pSampler);
 
 	*ppSampler = pSampler;
 	return CL_SUCCESS;
@@ -928,7 +921,7 @@ cl_err_code Context::GetSampler(cl_sampler clSamplerId, Sampler ** ppSampler)
 #ifdef _DEBUG
 	assert ( NULL != m_pSamplers );
 #endif
-	return m_pSamplers->GetOCLObject((cl_int)clSamplerId, (OCLObject**)ppSampler);
+	return m_pSamplers->GetOCLObject(clSamplerId, (OCLObject<_cl_sampler>**)ppSampler);
 }
 Device ** Context::GetDevices(cl_uint * puiNumDevices)
 {

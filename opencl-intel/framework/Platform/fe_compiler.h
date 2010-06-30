@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			March 2008
 	**********************************************************************************************/
-	class FECompiler : public OCLObject
+	class FECompiler : public OCLObject<_cl_object>
 	{
 	
 	public:

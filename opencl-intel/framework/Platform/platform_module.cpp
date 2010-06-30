@@ -94,14 +94,14 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		// assign device in the objects map
 		m_pDevices->AddObject(pDevice);
 		m_ppDevices[ui] = pDevice;
-		m_pDeviceIds[ui] = (cl_device_id)pDevice->GetId();
+		m_pDeviceIds[ui] = pDevice->GetHandle();
 
 		const string& strDevice = devices[ui];
 
 		cl_err_code clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
 		if (CL_FAILED(clErrRet))
 		{
-			m_pDevices->RemoveObject(pDevice->GetId(), NULL);
+			m_pDevices->RemoveObject(pDevice->GetHandle(), NULL);
 			delete pDevice;
 			return clErrRet;
 		}
@@ -128,13 +128,13 @@ cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, con
 		// create new front-end compiler object
 		FECompiler * pFECompiler = new FECompiler();
 		// assign compiler in the objects map
-		m_pFECompilers->AddObject((OCLObject*)pFECompiler);
+		m_pFECompilers->AddObject((OCLObject<_cl_object>*)pFECompiler);
 		const string& strCompiler = compilers[i];
 
 		cl_err_code clErrRet = pFECompiler->Initialize(strCompiler.c_str());
 		if (CL_FAILED(clErrRet))
 		{
-			m_pFECompilers->RemoveObject(pFECompiler->GetId(), NULL);
+			m_pFECompilers->RemoveObject(pFECompiler->GetHandle(), NULL);
 			delete pFECompiler;
 			return clErrRet;
 		}
@@ -155,7 +155,7 @@ cl_err_code PlatformModule::ReleaseFECompilers()
 	cl_uint uifeCompcount = m_pFECompilers->Count();
 	for (cl_uint ui=0; ui<uifeCompcount; ++ui)
 	{
-		if (CL_SUCCEEDED(m_pFECompilers->GetObjectByIndex(ui, (OCLObject**)&pFeComp)))
+		if (CL_SUCCEEDED(m_pFECompilers->GetObjectByIndex(ui, (OCLObject<_cl_object>**)&pFeComp)))
 		{
 			pFeComp->Release();
 			delete pFeComp;
@@ -178,7 +178,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	m_clPlatformIds[0]->dispatch = m_pOclEntryPoints;
 
 	// initialize devices
-	m_pDevices = new OCLObjectsMap();
+	m_pDevices = new OCLObjectsMap<_cl_device_id>();
 	m_pDefaultDevice = NULL;
 
 	// get device agents dll names from configuration file
@@ -190,7 +190,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	}
 
 	// initialise front-end compilers
-	m_pFECompilers = new OCLObjectsMap();
+	m_pFECompilers = new OCLObjectsMap<_cl_object>();
 	m_pDefaultFECompiler = NULL;
 
 	// get front-end compilers dll names from configuration file
@@ -228,7 +228,7 @@ cl_err_code	PlatformModule::Release()
 	cl_uint uiDevcount = m_pDevices->Count();
 	for (cl_uint ui=0; ui<uiDevcount; ++ui)
 	{
-		if (CL_SUCCEEDED(m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDev)))
+		if (CL_SUCCEEDED(m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDev)))
 		{
 			pDev->Release();
 			delete pDev;
@@ -338,7 +338,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		pValue = (void*)m_vPlatformVendorStr;
 		break;
 	case CL_PLATFORM_EXTENSIONS:
-		assert ((m_uiDevicesCount > 0) && "No devices assicated to the platform");
+		assert ((m_uiDevicesCount > 0) && "No devices associated to the platform");
 		pDevice = m_ppDevices[0];
 		clErr = m_ppDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, NULL);
 		if (CL_FAILED(clErr))
@@ -449,7 +449,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 		LOG_ERROR(L"can't allocate memory for devices (NULL == ppDevices)")
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	clErrRet = m_pDevices->GetObjects(uiNumDevices, (OCLObject**)ppDevices, NULL);
+	clErrRet = m_pDevices->GetObjects(uiNumDevices, (OCLObject<_cl_device_id>**)ppDevices, NULL);
 	if (CL_FAILED(clErrRet))
 	{
 		delete[] ppDevices;
@@ -470,12 +470,12 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 				ppDevices[ui]->GetId() == m_pDefaultDevice->GetId())
 			{
 				//found the default device
-				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+				pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
 				continue;
 			}
 			if (clDeviceType == CL_DEVICE_TYPE_ALL)
 			{
-				pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+				pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
 			}
 			else
 			{
@@ -485,7 +485,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 				// check that the current device type satisfactory 
 				if (iErrRet == 0 && ((clType & clDeviceType) == clType))
 				{
-					pDeviceIds[uiRetNumDevices++] = (cl_device_id)ppDevices[ui]->GetId();
+					pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
 				}
 			}
 		}
@@ -553,7 +553,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		pValue = &(m_clPlatformIds[0]);
 		break;
 	default:
-		clErrRet = m_pDevices->GetOCLObject((cl_int)clDevice, (OCLObject**)(&pDevice));
+		clErrRet = m_pDevices->GetOCLObject(clDevice, (OCLObject<_cl_device_id>**)(&pDevice));
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_INVALID_DEVICE;
@@ -586,7 +586,7 @@ cl_err_code	PlatformModule::GetDevice(cl_device_id clDeviceId, Device ** ppDevic
 	assert( (NULL != ppDevice) && (NULL != m_pDevices) );
 
 	// get the device from the devices list
-	return m_pDevices->GetOCLObject((cl_int)clDeviceId, (OCLObject**)ppDevice);
+	return m_pDevices->GetOCLObject(clDeviceId, (OCLObject<_cl_device_id>**)ppDevice);
 }
 
 FECompiler * PlatformModule::GetDefaultFECompiler()
@@ -602,10 +602,10 @@ cl_int PlatformModule::UnloadCompiler(void)
 	Device * pDevice = NULL;
 	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
 	{
-		cl_err_code clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject**)&pDevice);
+		cl_err_code clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDevice);
 		if (CL_SUCCEEDED(clErr) && (NULL != pDevice))
 		{
-			pDevice->UnloadCompiler();
+			pDevice->GetDeviceAgent()->clDevUnloadCompiler();
 		}
 	}
 	return CL_SUCCESS;

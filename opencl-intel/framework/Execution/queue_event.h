@@ -35,14 +35,13 @@
 #include <list>
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    // Forward declrations
+    // Forward declarations
     class Command;
-    class IEventColorChangeObserver;
-    class OclCommandQueue;
+    class IOclCommandQueueBase;
+	class OclEvent;
 
     typedef enum
     {
@@ -100,55 +99,42 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	 * Author:		Arnon Peleg
 	 * Date:		December 2008
 	/**********************************************************************************************/	
-    class QueueEvent : public OCLObject, public IEventDoneObserver
-    {
+	class QueueEvent : public IEventDoneObserver
+	{
+	public:
+		QueueEvent(IOclCommandQueueBase* cmdQueue);
+		virtual ~QueueEvent();
 
-    public:
-    	
-		QueueEvent(OclCommandQueue* pQueue);
-	    virtual ~QueueEvent();
+		void                    AddCompleteListener(IEventDoneObserver* listener);
+		void                    AddDependentOn( OclEvent* pDependsOnEvent );
+		void                    AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
+		void                    AddFloatingDependence() { ++m_depListLength; }
+		void                    RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
+		QueueEventStateColor    SetColor(QueueEventStateColor newColor); //returns the previous color
+		void                    SetCommand(Command* cmd) {m_pCommand = cmd;}
 
-	    bool                    RegisterEventDoneObserver( IEventDoneObserver* observer );
-        void                    UnRegisterEventDoneObserver( IEventDoneObserver* observer );
-	    void                    RegisterEventColorChangeObserver( IEventColorChangeObserver* observer );
-        void                    SetDependentOn( QueueEvent* pDependsOnEvent );
-	    cl_err_code             SetEventColor( QueueEventStateColor color );
-        bool                    IsColor( QueueEventStateColor color )   {  OclAutoMutex CS(&m_locker); return (m_stateColor == color); }
-        bool                    IsColorNotBlock( QueueEventStateColor color ) const { return (m_stateColor == color); }
-        QueueEventStateColor    GetColor() const                                    { return m_stateColor; }
-        OclCommandQueue*        GetEventQueue() const                               { return m_pEventQueue;}
-        void                    SetEventQueue(OclCommandQueue* pQueue)              { m_pEventQueue = pQueue;}
+		QueueEventStateColor    GetColor() const                                    { return m_color; }
+		Command*                GetCommand() const                                  { return m_pCommand; }
+		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
+		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
+		bool                    HasDependencies() const                             { return m_depListLength > 0;}
 
-        // Implementation IEventDoneObserver
-        cl_err_code NotifyEventDone(QueueEvent* pEvent);
+		// Implementation IEventDoneObserver
+		virtual cl_err_code NotifyEventDone(QueueEvent* pEvent);
 
-		// get/set the profiling data which assigned to the profiling parameter
-		cl_ulong				GetProfilingInfo(cl_profiling_info clParamName) const;
-		void					SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
+	protected:
+		void NotifyReady(QueueEvent* pEvent); 
+		void NotifyComplete();
 
-    private:
-	    QueueEventStateColor            m_stateColor;           // Holds the current status of the event.
-        cl_uint                         m_uDependencyCount;     // Count the number of events that this event has registered on
+		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>  m_CompleteListeners;
+		Intel::OpenCL::Utils::AtomicCounter                            m_CompleteListenersGuard;
+		Intel::OpenCL::Utils::AtomicCounter                            m_depListLength;
+        volatile bool                         m_complete;
+		volatile QueueEventStateColor         m_color;
+		IOclCommandQueueBase*                 m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
+		Command*                              m_pCommand;             // Pointer to the command represented by this event
 
-        OclMutex                        m_locker;               // Synch the access to the state memebers. 
-        OclMutex                        m_codeLocker;           // Synch access to object methods to prevent races.
-
-        list<IEventDoneObserver*>       m_observersList;        // List of ovservers; Notified on event done
-        IEventColorChangeObserver*      m_colorChangeObserver;  // An observer that will be called when the status is changed
-                                                                // Expected to be the command queue.
-        OclCommandQueue*                m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
-
-		// profiling information
-		SProfilingInfo		m_sProfilingInfo;
-
-        // Private functinos
-        void        EventCompleted();
-       
-        // The event id        
-        static OclMutex     m_instanceCounterLocker;
-        static cl_uint      m_uiInstanceCounter;
-
-    };
+	};
 
 }}};    // Intel::OpenCL::Framework
 #endif  // !defined(__OCL_QUEUE_EVENT__)
