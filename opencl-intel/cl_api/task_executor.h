@@ -67,6 +67,7 @@ typedef enum
 class ITaskBase
 {
 public:
+	// Returns whether the executed task is a task set.
     virtual bool	IsTaskSet() = 0;
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
@@ -126,10 +127,15 @@ public:
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or cashed till Flush() command
 	virtual unsigned int	Enqueue(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
-//    virtual unsigned int	Enqueue(ITask * pTask) = 0; // reference may be better to protect from NULL
-//    virtual unsigned int	Enqueue(ITaskSet * pTask) = 0; // overloaded to distinguish types at compile-time
-    // Insures that all task were send to execution, non-blocking function
+
+	// Ensures that all task were send to execution, non-blocking function
     virtual void			Flush() = 0;
+
+	// Add the calling thread to execution pool
+	// Function blocks, until all tasks belonging to the list are completed.
+	// Return false, if the calling thread was not joined the execution
+	virtual bool WaitForCompletion() = 0;
+
     // Releases task object, shall be called instead of delete operator.
     virtual void			Release() = 0;
 };
@@ -148,8 +154,13 @@ public:
 
 	virtual ITaskList* CreateTaskList(bool OOO = false) = 0;
 
-	// Execute task immediately
-	virtual unsigned int	Execute(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
+	// Execute task immediately, independently to "listed" tasks
+	virtual unsigned int Execute(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
+
+	// Add the calling thread to execution pool
+	// Function blocks, until all independent tasks are completed.
+	// Return false, if the calling thread was not joined the execution
+	virtual bool WaitForCompletion() = 0;
 
 	// Cancels execution of uncompleted tasks and and then release task executor resources
 	virtual void Close(bool bCancel) = 0;
