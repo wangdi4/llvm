@@ -47,33 +47,29 @@ class TaskDispatcher
 	friend class DispatcherCommand;
 
 public:
-	TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks,
+	TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
 		ProgramService	*programService, MemoryAllocator *memAlloc,
-		cl_dev_log_descriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
+		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
 	virtual ~TaskDispatcher();
 	cl_int createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
 	cl_int retainCommandList( cl_dev_cmd_list IN list);
 	cl_int releaseCommandList( cl_dev_cmd_list IN list );
 	cl_int flushCommandList( cl_dev_cmd_list IN list);
 	cl_int commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+	cl_int commandListWaitCompletion(cl_dev_cmd_list IN list);
 
 protected:
-	// Stores pointer to a list and its reference count
-	typedef std::map<ITaskList*, OclMutex*>	TCmdListMap;
-
 	cl_int							m_iDevId;
-	cl_dev_log_descriptor           m_logDescriptor;
+	IOCLDevLogDescriptor*           m_pLogDescriptor;
 	cl_int							m_iLogHandle;
 	cl_bool							m_bUseTaskalizer;
-	cl_dev_call_backs				m_frameWorkCallBacks;
+	IOCLFrameworkCallbacks*			m_pFrameworkCallBacks;
 	ProgramService*					m_pProgramService;
 	MemoryAllocator*				m_pMemoryAllocator;
 	CPUDeviceConfig*				m_pCPUDeviceConfig;
 	ITaskExecutor*					m_pTaskExecutor;
-	OclMutex						m_muCmdList;			// Mutex for list of lists
-	TCmdListMap						m_mapCmdList;
 
-	// Contextes required for execution of NDRange
+	// Contexts required for execution of NDRange
 	WGContext*						m_pWGContexts;
 	WGContext*						GetWGContext(unsigned int id)
 										{ return m_pWGContexts ? &m_pWGContexts[id] : NULL; }

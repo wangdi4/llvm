@@ -51,7 +51,7 @@ class MemoryAllocator
 {
 
 public:
-	MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc);
+	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc);
 	virtual ~MemoryAllocator();
 
 	//Image Info Function
@@ -68,10 +68,10 @@ public:
 	cl_int	ValidateObject( cl_dev_mem IN memObj );
 
 	// Lock/Unlock functions
-	// This function retrievs a pointer to data inside the object
+	// This function retrieves a pointer to data inside the object
 	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
 							void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
-	// This function retrives a pointer to object descriptor
+	// This function retrieves a pointer to object descriptor
 	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc);
 	// This function unlocks both locks
 	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
@@ -102,7 +102,7 @@ protected:
 									void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
 
 	cl_int					m_iDevId;
-	cl_dev_log_descriptor   m_logDescriptor;
+	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 
 	// Object Management

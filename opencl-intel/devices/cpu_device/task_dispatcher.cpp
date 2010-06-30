@@ -43,20 +43,15 @@ using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
 
 // Constructor/Dispatcher
-TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, ProgramService	*programService,
-					 MemoryAllocator *memAlloc, cl_dev_log_descriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) :
-		m_iDevId(devId), m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-			m_pCPUDeviceConfig(cpuDeviceConfig), m_iLogHandle(0), m_pWGContexts(NULL)
+TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, ProgramService	*programService,
+					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) :
+		m_iDevId(devId), m_pProgramService(programService), m_pMemoryAllocator(memAlloc), m_pLogDescriptor(logDesc),
+		m_pCPUDeviceConfig(cpuDeviceConfig), m_iLogHandle(0), m_pWGContexts(NULL), m_pFrameworkCallBacks(devCallbacks)
 {
 	// Set Callbacks into the framework: Logger + Info
-	if ( NULL == logDesc )
+	if ( NULL != logDesc )
 	{
-		memset(&m_logDescriptor, 0, sizeof(cl_dev_log_descriptor));
-	}
-	else
-	{
-		memcpy_s(&m_logDescriptor, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
-		cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: TaskDispatcher", &m_iLogHandle);
+		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, L"CPU Device: TaskDispatcher", &m_iLogHandle);
 		if(CL_DEV_SUCCESS != ret)
 		{
 			//TBD
@@ -67,12 +62,11 @@ TaskDispatcher::TaskDispatcher(cl_int devId, cl_dev_call_backs *devCallbacks, Pr
 	m_bUseTaskalizer = m_pCPUDeviceConfig->UseTaskalyzer();
 	
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"TaskDispatcher Created");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"TaskDispatcher Created");
 
 	m_pTaskExecutor = GetTaskExecutor();
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
-	memcpy_s(&m_frameWorkCallBacks, sizeof(cl_dev_call_backs), devCallbacks, sizeof(cl_dev_call_backs));
 
 	// Init Command dispatcher array
 	memset(m_vCommands, 0, sizeof(m_vCommands));
@@ -97,17 +91,17 @@ TaskDispatcher::~TaskDispatcher()
 		delete []m_pWGContexts;
 		m_pWGContexts = NULL;
 	}
-	// Free task lists
-	TCmdListMap::iterator	it;
-	for(it=m_mapCmdList.begin(); it!=m_mapCmdList.end(); ++it)
+	if (NULL != m_pTaskExecutor)
 	{
-		it->first->Release();
-		delete it->second;
+		//Todo: cancel or no?
+		m_pTaskExecutor->Close(false);
+		//Deliberately not deleting, apparently it needs to stay alive as long as the CPU device is alive
+		//delete m_pTaskExecutor;
 	}
-	InfoLog(m_logDescriptor, m_iLogHandle, L"TaskDispatcher Released");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"TaskDispatcher Released");
 	if (0 != m_iLogHandle)
 	{
-		m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
+		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
 	}
 }
 /*******************************************************************************************************************
@@ -126,29 +120,18 @@ createCommandList
 **************************************************************************************************************************/
 cl_int TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Enter");
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Enter");
 	assert( list );
 
-	OclMutex*	pLstMutex = new OclMutex;
-	if ( NULL == pLstMutex )
-	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Mutex allocation failed", list);
-		return CL_DEV_OUT_OF_MEMORY;
-	}
 	ITaskList* pList = m_pTaskExecutor->CreateTaskList(CL_DEV_LIST_ENABLE_OOO == props);
 	*list = (cl_dev_cmd_list)pList;
 	if ( NULL == pList )
 	{
-		delete pLstMutex;
-		ErrLog(m_logDescriptor, m_iLogHandle, L"TaskList creation failed", list);
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"TaskList creation failed", list);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 	
-	m_muCmdList.Lock();
-	m_mapCmdList[pList] = pLstMutex;
-	m_muCmdList.Unlock();
-
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Exit - List:%X", pList);
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Exit - List:%X", pList);
 	return CL_DEV_SUCCESS;
 }
 /****************************************************************************************************************** 
@@ -165,28 +148,8 @@ retainCommandList
 *******************************************************************************************************************/
 cl_int TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
 {
-	ErrLog(m_logDescriptor, m_iLogHandle, L"Not supported List:%X", list);
-#if 1
+	ErrLog(m_pLogDescriptor, m_iLogHandle, L"Not supported List:%X", list);
 	return CL_DEV_INVALID_OPERATION;		// Not support retain list
-#else
-	OclAutoMutex lock(&m_muCmdList, false);	// Don't lock automatically
-
-	InfoLog(m_logDescriptor, m_iLogHandle, L"retainCommandList enter");
-	
-	TCmdListMap::iterator	it;
-
-	m_muCmdList.Lock();
-	it = m_mapCmdList.find((ITaskList*)list);
-	if( it == m_mapCmdList.end())
-	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid List:%X", list);
-		return CL_DEV_INVALID_COMMAND_LIST;
-	}
-
-	++it->second->refCount;
-
-	return CL_DEV_SUCCESS;
-#endif
 }
 /********************************************************************************************************************
 releaseCommandList
@@ -204,29 +167,14 @@ releaseCommandList
 ********************************************************************************************************************/
 cl_int TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 {
-	TCmdListMap::iterator	it;
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Enter - list %X", list);
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Enter - list %X", list);
-
-    {
-        OclAutoMutex lock(&m_muCmdList);
-	    it = m_mapCmdList.find((ITaskList*)list);
-	    if( it == m_mapCmdList.end())
-	    {
-			ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid list %X", list);
-		    return CL_DEV_INVALID_COMMAND_LIST;
-	    }
-		OclMutex*	pLstMutex = it->second;
-		pLstMutex->Lock();
-		it->first->Release();
-	    m_mapCmdList.erase(it);	
-		pLstMutex->Unlock();
-		delete pLstMutex;
-    }
-
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Exit - list %X", list);
+	ITaskList* pList = (ITaskList*)list;
+	pList->Release();
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Exit - list %X", list);
 	return CL_DEV_SUCCESS;
 }
+
 /****************************************************************************************************************** 
 flushCommandList
 	Description
@@ -241,26 +189,24 @@ flushCommandList
 *******************************************************************************************************************/
 cl_int TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Enter - list %X", list);
-
-	TCmdListMap::iterator	it;
-	m_muCmdList.Lock();
-	it = m_mapCmdList.find((ITaskList*)list);
-	if( it == m_mapCmdList.end())
-	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid list %X", list);
-		m_muCmdList.Unlock();
-		return CL_DEV_INVALID_COMMAND_LIST;
-	}
-	it->second->Lock();
-	m_muCmdList.Unlock();
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Enter - list %X", list);
 	// No need in lock
 	((ITaskList*)list)->Flush();
-	it->second->Unlock();
-
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Exit - list %X", list);
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Exit - list %X", list);
 	return CL_DEV_SUCCESS;
 }
+
+cl_int TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list)
+{
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Enter - list %X", list);
+
+	// No need in lock
+	((ITaskList*)list)->WaitForCompletion();
+
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Exit - list %X", list);
+	return CL_DEV_SUCCESS;
+}
+
 /********************************************************************************************************************
 commandListExecute
 	Description
@@ -296,10 +242,9 @@ commandListExecute
 ********************************************************************************************************************/
 cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Enter - List:%X", list);
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Enter - List:%X", list);
 
 	ITaskList*	pList;
-	TCmdListMap::iterator	it;
 
 	pList = (ITaskList*)list;
 	// If list id is 0, submit tasks directly to execution
@@ -308,40 +253,19 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 		// Create temporary list
 		pList = m_pTaskExecutor->CreateTaskList();
 	}
-	else
-	{
-		// Retrieve list
-		OclAutoMutex lock(&m_muCmdList);
-		it = m_mapCmdList.find(pList);
-		if(  it == m_mapCmdList.end())
-		{
-			ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid List:%X", list);
-			return CL_DEV_INVALID_COMMAND_LIST;
-		}
-		// Lock the list specific mutex
-		it->second->Lock();
-	}
 
 	// Lock current list for insert operations
 	cl_int ret;
 	
 	ret = SubmitTaskArray(pList, cmds, count);
-	// Call always for flush after sending commands to execution
-	// TODO: Consider to remove after solving problem in OOO queue, where fluh device is not called
-	if ( CL_DEV_SUCCEEDED(ret) )
-	{
-		pList->Flush();
-	}
 	// If in place created list, release it
 	if ( NULL == list )
 	{
+		pList->Flush();
 		pList->Release();
 	}
-	else // otherwise unlock private mutex
-	{
-		it->second->Unlock();
-	}
-	InfoLog(m_logDescriptor, m_iLogHandle, L"Exit - List:%X", list);
+
+	DbgLog(m_pLogDescriptor, m_iLogHandle, L"Exit - List:%X", list);
 	return CL_DEV_SUCCESS;
 }
 
@@ -349,7 +273,7 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 // Private functions
 cl_int TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
 {
-	ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to submit command[id:%d,type:%d] to execution, Err:<%d>",
+	ErrLog(m_pLogDescriptor, m_iLogHandle, L"Failed to submit command[id:%d,type:%d] to execution, Err:<%d>",
 		pCmd->id, pCmd->type, iRetCode);
 
 	TaskFailureNotification* pTask = new TaskFailureNotification(this, pCmd, iRetCode);
@@ -373,11 +297,8 @@ cl_int TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds,
 		// Create appropriate command
 		ITaskBase* pCommand;
 		cl_int	rc = fnCreate(this, cmds[i], &pCommand);
-
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
-			// Notify submission to execution
-			NotifyCommandStatusChange(cmds[i], CL_SUBMITTED, CL_DEV_SUCCESS);
 			pList->Enqueue(static_cast<ITaskBase*>(pCommand));
 		} else
 		{
@@ -404,7 +325,7 @@ void TaskDispatcher::NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsi
 	{
 		timer = HostTime();
 	}
-	m_frameWorkCallBacks.pclDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);
+	m_pFrameworkCallBacks->clDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);
 }
 
 void TaskDispatcher::TaskFailureNotification::Execute()
@@ -418,5 +339,5 @@ void TaskDispatcher::TaskFailureNotification::Execute()
 		timer = HostTime();
 	}
 
-	m_pTaskDispatcher->m_frameWorkCallBacks.pclDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, CL_DEV_ERROR_FAIL, timer);
+	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, CL_DEV_ERROR_FAIL, timer);
 }

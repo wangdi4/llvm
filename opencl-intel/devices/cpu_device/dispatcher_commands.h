@@ -53,7 +53,7 @@ protected:
 
 	TaskDispatcher*				m_pTaskDispatcher;
 	MemoryAllocator*			m_pMemAlloc;
-	cl_dev_log_descriptor&		m_logDescriptor;
+	IOCLDevLogDescriptor*		m_pLogDescriptor;
 	cl_int						m_iLogHandle;
 	cl_dev_cmd_desc*			m_pCmd;
 	cl_bool						m_bUseTaskalizer;

@@ -46,7 +46,7 @@ class ProgramService
 {
 
 public:
-	ProgramService(cl_int devId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc, CPUDeviceConfig *config);
+	ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config);
 	virtual ~ProgramService();
 
 	cl_int CheckProgramBinary (size_t IN bin_size, const void* IN bin);
@@ -56,7 +56,7 @@ public:
 										cl_dev_program* OUT prog
 									   );
     cl_int BuildProgram( cl_dev_program IN prog,
-										const cl_char* IN options,
+										const char* IN options,
 										void* IN userData
 									   );
 	cl_int ReleaseProgram( cl_dev_program IN prog );
@@ -100,12 +100,12 @@ protected:
 	void	DeleteProgramEntry(TProgramEntry* pEntry);
 
 	cl_int							m_iDevId;
-	cl_dev_log_descriptor			m_logDescriptor;
+	IOCLDevLogDescriptor*			m_pLogDescriptor;
 	cl_int							m_iLogHandle;
 	HandleAllocator<unsigned int>	m_progIdAlloc;
 	TProgramMap						m_mapPrograms;
 	OclMutex						m_muProgMap;
-	cl_dev_call_backs				m_sCallBacks;
+	IOCLFrameworkCallbacks*			m_pCallBacks;
 
 	CPUDeviceConfig                *m_pCPUConfig;
 };

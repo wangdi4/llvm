@@ -210,111 +210,77 @@ char* clDevErr2Txt(cl_dev_err_code errorCode)
 	}
 }
 
-// Static members initialization
-CPUDevice* CPUDevice::m_pDevInstance = NULL;
-
-CPUDevice::CPUDevice(cl_uint uiDevId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
-	: m_iLogHandle (0), m_uiCpuId(uiDevId), m_pCPUDeviceConfig(NULL)
+CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
+	: m_iLogHandle (0), m_uiCpuId(uiDevId), m_pCPUDeviceConfig(NULL), m_pLogDescriptor(logDesc),
+	m_pFrameworkCallBacks(devCallbacks)
 {	
-	memcpy(&m_frameWorkCallBacks, devCallbacks, sizeof(m_frameWorkCallBacks));
+}
 
-	if ( NULL == logDesc )
+cl_int CPUDevice::Init()
+{
+	if ( NULL != m_pLogDescriptor )
 	{
-		memset(&m_logDescriptor, 0, sizeof(cl_dev_log_descriptor));
-	}
-	else
-	{
-		memcpy_s(&m_logDescriptor, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
-	}
-	
-	if ( NULL != m_logDescriptor.pfnclLogCreateClient )
-	{
-		cl_int ret = m_logDescriptor.pfnclLogCreateClient(uiDevId, L"CPU Device", &m_iLogHandle);
+		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_uiCpuId, L"CPU Device", &m_iLogHandle);
 		if(CL_DEV_SUCCESS != ret)
 		{
-			return;
+			return CL_DEV_ERROR_FAIL;
 		}
 	}
 
 	m_pCPUDeviceConfig = new CPUDeviceConfig();
 	m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
 
-	m_pProgramService = new ProgramService(uiDevId, devCallbacks, logDesc, m_pCPUDeviceConfig);
-	m_pMemoryAllocator = new MemoryAllocator(uiDevId, logDesc);
-	m_pTaskDispatcher = new TaskDispatcher(uiDevId, devCallbacks, m_pProgramService, 
-		m_pMemoryAllocator, logDesc, m_pCPUDeviceConfig);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"CreateDevice function enter");
+
+	m_pProgramService = new ProgramService(m_uiCpuId, m_pFrameworkCallBacks, m_pLogDescriptor, m_pCPUDeviceConfig);
+	m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor);
+	m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, 
+		m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
+
+
+	if ( (NULL == m_pProgramService) ||	(NULL == m_pMemoryAllocator) ||	(NULL == m_pTaskDispatcher) )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	return CL_DEV_SUCCESS;
 }
 
 CPUDevice::~CPUDevice()
 {
 }
 
-void CPUDevice::Destroy()
-{
-	if( NULL != m_pDevInstance->m_pCPUDeviceConfig)
-	{
-		delete m_pDevInstance->m_pCPUDeviceConfig;
-		m_pDevInstance->m_pCPUDeviceConfig = NULL;
-	}
-	if (0 != m_pDevInstance->m_iLogHandle)
-	{
-		m_pDevInstance->m_logDescriptor.pfnclLogReleaseClient(m_pDevInstance->m_iLogHandle);
-	}
-	if(NULL != m_pDevInstance->m_pProgramService)
-	{
-		delete m_pDevInstance->m_pProgramService;
-		m_pDevInstance->m_pProgramService = NULL;
-	}
-	if(NULL != m_pDevInstance->m_pMemoryAllocator)
-	{
-		delete m_pDevInstance->m_pMemoryAllocator;
-		m_pDevInstance->m_pMemoryAllocator = NULL;
-	}
-	if(NULL != m_pDevInstance->m_pTaskDispatcher)
-	{
-		delete m_pDevInstance->m_pTaskDispatcher;
-		m_pDevInstance->m_pTaskDispatcher = NULL;
-	}	
-    if( NULL != m_pDevInstance )
-    {
-        delete m_pDevInstance;
-        m_pDevInstance = NULL;
-    }
-}
-
 // ---------------------------------------
 // Public functions / Device entry points
-
-CPUDevice* CPUDevice::CreateDevice(cl_uint uiDevId, cl_dev_call_backs *devCallbacks, cl_dev_log_descriptor *logDesc)
+cl_int clDevCreateDeviceInstance(  cl_uint		dev_id,
+								   IOCLFrameworkCallbacks	*pDevCallBacks,
+								   IOCLDevLogDescriptor		*pLogDesc,
+								   IOCLDevice*				*pDevice
+								   )
 {
-
-	if ( NULL == m_pDevInstance )
+	if(NULL == pDevCallBacks || NULL == pDevice)
 	{
-		m_pDevInstance = new CPUDevice(uiDevId, devCallbacks, logDesc);
+		return CL_DEV_INVALID_OPERATION;
 	}
 
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"CreateDevice function enter");
-
-	if ( (NULL == m_pDevInstance->m_pProgramService) ||
-			(NULL == m_pDevInstance->m_pMemoryAllocator) ||
-			(NULL == m_pDevInstance->m_pTaskDispatcher)
-		)
+	CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
+	if ( NULL == pNewDevice )
 	{
-		delete m_pDevInstance;
-		m_pDevInstance = NULL;
+		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	return m_pDevInstance;
-}
-
-CPUDevice* CPUDevice::GetInstance()
-{
-	assert(m_pDevInstance);
-	return m_pDevInstance;
+	cl_int rc = pNewDevice->Init();
+	if ( CL_DEV_FAILED(rc) )
+	{
+		pNewDevice->clDevCloseDevice();
+		return rc;
+	}
+	*pDevice = pNewDevice;
+	return CL_DEV_SUCCESS;
 }
 
 // Device entry points
-//Device Inforamtion function prototypes
+//Device Information function prototypes
 //
 /************************************************************************************************************************
    clDevGetDeviceInfo
@@ -1035,8 +1001,8 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateCommandList Function enter");
-	return m_pDevInstance->m_pTaskDispatcher->createCommandList(props,list);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCreateCommandList Function enter");
+	return m_pTaskDispatcher->createCommandList(props,list);
 }
 /****************************************************************************************************************
  clDevFlushCommandList
@@ -1044,8 +1010,8 @@ cl_int CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevFlushCommandList Function enter");
-	return m_pDevInstance->m_pTaskDispatcher->flushCommandList(list);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevFlushCommandList Function enter");
+	return m_pTaskDispatcher->flushCommandList(list);
 }
 /****************************************************************************************************************
  clDevRetainCommandList
@@ -1053,8 +1019,8 @@ cl_int CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevRetainCommandList Function enter");
-	return m_pDevInstance->m_pTaskDispatcher->retainCommandList(list);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevRetainCommandList Function enter");
+	return m_pTaskDispatcher->retainCommandList(list);
 }
 /****************************************************************************************************************
  clDevReleaseCommandList
@@ -1062,8 +1028,8 @@ cl_int CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevReleaseCommandList Function enter");
-	return m_pDevInstance->m_pTaskDispatcher->releaseCommandList(list);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevReleaseCommandList Function enter");
+	return m_pTaskDispatcher->releaseCommandList(list);
 }
 /****************************************************************************************************************
  clDevCommandListExecute
@@ -1071,9 +1037,20 @@ cl_int CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCommandListExecute Function enter");
-	return m_pDevInstance->m_pTaskDispatcher->commandListExecute(list,cmds,count);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCommandListExecute Function enter");
+	return m_pTaskDispatcher->commandListExecute(list,cmds,count);
 }
+
+/****************************************************************************************************************
+ clDevCommandListExecute
+	Call clDevCommandListWaitCompletion to add calling thread to execution pool
+********************************************************************************************************************/
+cl_int CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list)
+{
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCommandListWaitCompletion Function enter");
+	return m_pTaskDispatcher->commandListWaitCompletion(list);
+}
+
 //Memory API's
 /****************************************************************************************************************
  clDevGetSupportedImageFormats
@@ -1082,8 +1059,8 @@ cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 cl_int CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetSupportedImageFormats Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetSupportedImageFormats Function enter");
+	return m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
 	
 }
 /****************************************************************************************************************
@@ -1094,8 +1071,8 @@ cl_int CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_i
 									cl_uint	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
 									cl_dev_host_ptr_flags IN ptr_flags, cl_dev_mem* OUT memObj)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMemoryObject Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCreateMemoryObject Function enter");
+	return m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
 }
 /****************************************************************************************************************
  clDevDeleteMemoryObject
@@ -1103,8 +1080,8 @@ cl_int CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_i
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevDeleteMemoryObject Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->ReleaseObject(memObj);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevDeleteMemoryObject Function enter");
+	return m_pMemoryAllocator->ReleaseObject(memObj);
 }
 /****************************************************************************************************************
  clDevCreateMappedRegion
@@ -1112,8 +1089,8 @@ cl_int CPUDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateMappedRegion Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->CreateMappedRegion(pMapParams);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCreateMappedRegion Function enter");
+	return m_pMemoryAllocator->CreateMappedRegion(pMapParams);
 
 }
 /****************************************************************************************************************
@@ -1122,8 +1099,8 @@ cl_int CPUDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParam
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevReleaseMappedRegion Function enter");
-	return m_pDevInstance->m_pMemoryAllocator->ReleaseMappedRegion( pMapParams );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevReleaseMappedRegion Function enter");
+	return m_pMemoryAllocator->ReleaseMappedRegion( pMapParams );
 }
 
 /****************************************************************************************************************
@@ -1132,8 +1109,8 @@ cl_int CPUDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams 
 ********************************************************************************************************************/
 cl_int CPUDevice::clDevCheckProgramBinary( size_t IN binSize, const void* IN bin )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCheckProgramBinary Function enter");
-	return m_pDevInstance->m_pProgramService->CheckProgramBinary(binSize, bin );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCheckProgramBinary Function enter");
+	return m_pProgramService->CheckProgramBinary(binSize, bin );
 }
 
 /*******************************************************************************************************************
@@ -1143,8 +1120,8 @@ clDevCreateProgram
 
 cl_int CPUDevice::clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevCreateProgram Function enter");
-	return m_pDevInstance->m_pProgramService->CreateProgram(binSize, bin, prop, prog );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCreateProgram Function enter");
+	return m_pProgramService->CreateProgram(binSize, bin, prop, prog );
 }
 
 /*******************************************************************************************************************
@@ -1152,10 +1129,10 @@ clDevBuildProgram
 	Call programService to build program
 **********************************************************************************************************************/
 
-cl_int CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const cl_char* IN options, void* IN userData )
+cl_int CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevBuildProgram Function enter");
-	return m_pDevInstance->m_pProgramService->BuildProgram(prog, options, userData);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevBuildProgram Function enter");
+	return m_pProgramService->BuildProgram(prog, options, userData);
 }
 
 /*******************************************************************************************************************
@@ -1165,8 +1142,8 @@ clDevReleaseProgram
 
 cl_int CPUDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevReleaseProgram Function enter");
-	return m_pDevInstance->m_pProgramService->ReleaseProgram( prog );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevReleaseProgram Function enter");
+	return m_pProgramService->ReleaseProgram( prog );
 }
 
 /*******************************************************************************************************************
@@ -1175,8 +1152,8 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevUnloadCompiler()
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevUnloadCompiler Function enter");
-	return m_pDevInstance->m_pProgramService->UnloadCompiler();
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevUnloadCompiler Function enter");
+	return m_pProgramService->UnloadCompiler();
 }
 /*******************************************************************************************************************
 clDevGetProgramBinary
@@ -1184,8 +1161,8 @@ clDevGetProgramBinary
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetProgramBinary Function enter");
-	return m_pDevInstance->m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetProgramBinary Function enter");
+	return m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet );
 }
 /*******************************************************************************************************************
 clDevGetBuildLog
@@ -1193,8 +1170,8 @@ clDevGetBuildLog
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT sizeRet)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetBuildLog Function enter");
-	return m_pDevInstance->m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetBuildLog Function enter");
+	return m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -1202,8 +1179,8 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetSupportedBinaries Function enter");
-	return m_pDevInstance->m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetSupportedBinaries Function enter");
+	return m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -1211,8 +1188,8 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetKernelId Function enter");
-	return m_pDevInstance->m_pProgramService->GetKernelId(prog, name, kernelId );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetKernelId Function enter");
+	return m_pProgramService->GetKernelId(prog, name, kernelId );
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -1221,8 +1198,8 @@ clDevUnloadCompiler
 cl_int CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
 						 cl_uint* OUT numKernelsRet )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetProgramKernels Function enter");
-	return m_pDevInstance->m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetProgramKernels Function enter");
+	return m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
 }
 /*******************************************************************************************************************
 clDevGetKernelInfo
@@ -1231,33 +1208,70 @@ clDevGetKernelInfo
 cl_int CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 					void* OUT value, size_t* OUT valueSizeRet )
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clDevGetKernelInfo Function enter");
-	return m_pDevInstance->m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetKernelInfo Function enter");
+	return m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
 }
 
+/*******************************************************************************************************************
+clDevGetPerofrmanceCounter
+	Get performance counter value
+**********************************************************************************************************************/
+cl_ulong CPUDevice::clDevGetPerformanceCounter()
+{
+	return Intel::OpenCL::Utils::HostTime();
+}
+
+cl_int CPUDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
+{
+
+	if ( NULL != m_pLogDescriptor )
+	{
+		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+	}
+	m_pLogDescriptor = pLogDescriptor;
+	if ( NULL != m_pLogDescriptor )
+	{
+		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_uiCpuId, L"CPU Device", &m_iLogHandle);
+		if(CL_DEV_SUCCESS != ret)
+		{
+			return CL_DEV_ERROR_FAIL;
+		}
+	}
+	return CL_DEV_SUCCESS;
+}
 /*******************************************************************************************************************
 clDevCloseDevice
 	Close device
 **********************************************************************************************************************/
 void CPUDevice::clDevCloseDevice(void)
 {
-	InfoLog(m_pDevInstance->m_logDescriptor, m_pDevInstance->m_iLogHandle, L"clCloseDevice Function enter");
-	if ( NULL != m_pDevInstance->m_pProgramService )
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clCloseDevice Function enter");
+
+	if( NULL != m_pCPUDeviceConfig)
 	{
-		delete m_pDevInstance->m_pProgramService;
-		m_pDevInstance->m_pProgramService = NULL;
+		delete m_pCPUDeviceConfig;
+		m_pCPUDeviceConfig = NULL;
 	}
-	if ( NULL != m_pDevInstance->m_pMemoryAllocator )
+	if ( NULL != m_iLogHandle)
 	{
-		delete m_pDevInstance->m_pMemoryAllocator;
-		m_pDevInstance->m_pMemoryAllocator = NULL;
+		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
 	}
-	if ( NULL != m_pDevInstance->m_pTaskDispatcher )
+
+	if ( NULL != m_pProgramService )
 	{
-		delete m_pDevInstance->m_pTaskDispatcher;
-		m_pDevInstance->m_pTaskDispatcher = NULL;
+		delete m_pProgramService;
+		m_pProgramService = NULL;
+	}
+	if ( NULL != m_pMemoryAllocator )
+	{
+		delete m_pMemoryAllocator;
+		m_pMemoryAllocator = NULL;
+	}
+	if ( NULL != m_pTaskDispatcher )
+	{
+		delete m_pTaskDispatcher;
+		m_pTaskDispatcher = NULL;
 	}
    
-    delete m_pDevInstance;
-    m_pDevInstance = NULL;
+	delete this;
 }

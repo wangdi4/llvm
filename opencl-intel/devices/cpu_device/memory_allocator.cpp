@@ -42,29 +42,24 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-MemoryAllocator::MemoryAllocator(cl_int devId, cl_dev_log_descriptor *logDesc) :
-	m_iDevId(devId), m_objHandles(1, UINT_MAX), m_iLogHandle(0)
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc) :
+	m_iDevId(devId), m_objHandles(1, UINT_MAX), m_iLogHandle(0), m_pLogDescriptor(logDesc)
 {
-	if ( NULL == logDesc )
+	if ( NULL != logDesc )
 	{
-		memset(&m_logDescriptor, 0, sizeof(cl_dev_log_descriptor));
-	}
-	else
-	{
-		memcpy_s(&m_logDescriptor, sizeof(cl_dev_log_descriptor), logDesc, sizeof(cl_dev_log_descriptor));
-		cl_int ret = m_logDescriptor.pfnclLogCreateClient(m_iDevId, L"CPU Device: Memory Allocator", &m_iLogHandle);
+		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, L"CPU Device: Memory Allocator", &m_iLogHandle);
 		if(CL_DEV_SUCCESS != ret)
 		{
 			m_iLogHandle = 0;
 		}
 	}
 
-	InfoLog(m_logDescriptor, m_iLogHandle, L"MemoryAllocator Created");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"MemoryAllocator Created");
 }
 
 MemoryAllocator::~MemoryAllocator()
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"MemoryAllocator Distructed");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"MemoryAllocator Distructed");
 	TMemObjectsMap::const_iterator it;
 
 	for(it=m_mapObjects.begin(); m_mapObjects.end() != it ; ++it )
@@ -85,14 +80,14 @@ MemoryAllocator::~MemoryAllocator()
 
 	if (0 != m_iLogHandle)
 	{
-		m_logDescriptor.pfnclLogReleaseClient(m_iLogHandle);
+		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
 	}
 }
 
 // Checks that given object is valid object and belongs to memory allocator
 cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"ValidateObject enter");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"ValidateObject enter");
 
 	if ( memObj->allocId != m_iDevId )
 	{
@@ -245,7 +240,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 									 void*	buffer_ptr, const size_t* pitch, cl_dev_host_ptr_flags host_flags,
 									 cl_dev_mem* OUT memObj )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateObject enter");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"CreateObject enter");
 	size_t bufferPitch[MAX_WORK_DIM-1];
 	//size_t expectedPitchRowSize = 0;
 	//size_t expectedPitchSliceSize = 0;
@@ -264,7 +259,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 	if ( (1 != dim_count) && (NULL == buffer_ptr) && (NULL != pitch) ) 
 	{
-		InfoLog(m_logDescriptor, m_iLogHandle, L"Pich must be 0 when host ptr is NULL");
+		InfoLog(m_pLogDescriptor, m_iLogHandle, L"Pich must be 0 when host ptr is NULL");
 		return CL_DEV_INVALID_VALUE;
 	}
 #endif
@@ -289,7 +284,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		{
 			if ( pitch[i] < bufferPitch[i])
 			{
-				InfoLog(m_logDescriptor, m_iLogHandle, L"Wrong Pitch Value Enterd");
+				InfoLog(m_pLogDescriptor, m_iLogHandle, L"Wrong Pitch Value Enterd");
 				return CL_DEV_INVALID_VALUE;
 			}
 		}
@@ -301,7 +296,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 	if ( !m_objHandles.AllocateHandle(&uiNewObject) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't allocate new object handle");
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Can't allocate new object handle");
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 	// Allocate memory for memory object
@@ -310,7 +305,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	if ( NULL == pMemObj )
 	{
 		m_objHandles.FreeHandle(uiNewObject);
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object allocation failed");
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory Object allocation failed");
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 
@@ -318,7 +313,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	SMemObjectDescriptor*	pMemObjDesc = new SMemObjectDescriptor;
 	if ( NULL == pMemObjDesc )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object descriptor allocation failed");
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory Object descriptor allocation failed");
 		m_objHandles.FreeHandle(uiNewObject);
 		delete pMemObj;
 		return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -338,7 +333,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		pMemObjDesc->objDecr.pData = AllocateMem(dim_count, dim, bufferPitch);
 		if ( NULL == pMemObjDesc->objDecr.pData )
 		{
-			ErrLog(m_logDescriptor, m_iLogHandle, L"Memory Object memory buffer Allocation failed");
+			ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory Object memory buffer Allocation failed");
 			m_objHandles.FreeHandle(uiNewObject);
 			delete pMemObjDesc;
 			delete pMemObj;
@@ -424,7 +419,7 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseObject enter");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"ReleaseObject enter");
 
 	if ( (NULL == memObj) || (m_iDevId != memObj->allocId) )
 	{
@@ -438,7 +433,7 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 	if ( m_mapObjects.end() == it )
 	{
 		m_muObjectMap.Unlock();
-		InfoLog(m_logDescriptor, m_iLogHandle, L"Memory object coudn't be found");
+		InfoLog(m_pLogDescriptor, m_iLogHandle, L"Memory object coudn't be found");
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -446,7 +441,7 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 	if ( pObjDesc->bObjLocked )
 	{
 		m_muObjectMap.Unlock();
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Cannot release locked object, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Cannot release locked object, id: %d",
 			(unsigned int)memObj->objHandle );
 		return CL_DEV_OBJECT_ALREADY_LOCKED;
 	}
@@ -474,7 +469,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 
 	if ( m_iDevId != pMemObj->allocId)
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -490,7 +485,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 	if ( m_mapObjects.end() == it )
 	{
 		m_muObjectMap.Unlock();
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
@@ -499,7 +494,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 #ifdef _ENABLE_LOCK_OBJECTS_
 	if ( pObjDesc->bObjLocked )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object already locked, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object already locked, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_OBJECT_ALREADY_LOCKED;
 	}
@@ -508,7 +503,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 	cl_int rc = CalculateOffsetPointer(pObjDesc, pObjDesc->objDecr.pData, dim_count, origin, ptr, pitch, uiElementSize);
 	if ( CL_DEV_FAILED(rc) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Failed to calculate offset, id: %d, rc=%x",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Failed to calculate offset, id: %d, rc=%x",
 			(unsigned int)pMemObj->objHandle, rc );
 		return rc;
 	}
@@ -526,7 +521,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor*
 
 	if ( m_iDevId != pMemObj->allocId)
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -537,7 +532,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor*
 	if ( m_mapObjects.end() == it )
 	{
 		m_muObjectMap.Unlock();
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
@@ -546,7 +541,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor*
 #ifdef _ENABLE_LOCK_OBJECTS_
 	if ( pObjDesc->bObjLocked )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object already locked, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object already locked, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_OBJECT_ALREADY_LOCKED;
 	}
@@ -567,13 +562,13 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 
 	if ( NULL == ptr )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Cannot unlock NULL pointer");
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Cannot unlock NULL pointer");
 		return CL_DEV_INVALID_VALUE;
 	}
 
 	if ( m_iDevId != pMemObj->allocId)
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -584,7 +579,7 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 	if ( m_mapObjects.end() == it )
 	{
 		m_muObjectMap.Unlock();
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object coudn't be found, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
@@ -593,7 +588,7 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 	SMemObjectDescriptor* pObjDesc = it->second;
 	if ( !pObjDesc->bObjLocked )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Memory object already unlocked, id: %d",
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Memory object already unlocked, id: %d",
 			(unsigned int)pMemObj->objHandle );
 		return CL_DEV_INVALID_OPERATION;
 	}
@@ -606,13 +601,13 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 
 cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParams)
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"CreateMappedRegion enter");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"CreateMappedRegion enter");
 
 	cl_dev_mem pMemObj = pMapParams->memObj;
 
 	if ( m_iDevId != pMemObj->allocId)
 	{
-		InfoLog(m_logDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
+		InfoLog(m_pLogDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -623,7 +618,7 @@ cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParam
 	if ( m_mapObjects.end() == it )
 	{
 		m_muObjectMap.Unlock();
-		InfoLog(m_logDescriptor, m_iLogHandle, L"Memory object coudn't be found");
+		InfoLog(m_pLogDescriptor, m_iLogHandle, L"Memory object coudn't be found");
 		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
@@ -641,7 +636,7 @@ cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParam
 
 cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
-	InfoLog(m_logDescriptor, m_iLogHandle, L"ReleaseMappedRegion enter");
+	InfoLog(m_pLogDescriptor, m_iLogHandle, L"ReleaseMappedRegion enter");
 	return CL_DEV_SUCCESS;
 }
 
@@ -659,7 +654,7 @@ void MemoryAllocator::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 	// Copy current parameters
 	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
 	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-	// Make recoursion
+	// Make recursion
 	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
 	{
 		CopyMemoryBuffer(&sRecParam);

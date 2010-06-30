@@ -43,7 +43,7 @@ using namespace Intel::OpenCL;
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
 DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD) :
-m_pTaskDispatcher(pTD), m_logDescriptor(pTD->m_logDescriptor)
+m_pTaskDispatcher(pTD), m_pLogDescriptor(pTD->m_pLogDescriptor)
 {
 	m_iLogHandle = pTD->m_iLogHandle;
 
@@ -142,7 +142,7 @@ void ReadWriteMemObject::Execute()
 	if ( CL_DEV_FAILED(ret) )
 	{
 #ifdef _DEBUG
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Failed lock memory object, rc=%x", ret);
 #endif
 #ifdef _DEBUG_PRINT
@@ -202,7 +202,7 @@ void ReadWriteMemObject::Execute()
 #ifdef _DEBUG
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Can't unlock memory object, rc=%x", ret);
 	}
 #endif
@@ -362,7 +362,7 @@ void CopyMemObject::Execute()
 #ifdef _DEBUG
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Can't unlock destination memory object, rc=%x", ret);
 	}
 #endif
@@ -370,7 +370,7 @@ void CopyMemObject::Execute()
 #ifdef _DEBUG
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Can't unlock source memory object, rc=%x", ret);
 	}
 #endif
@@ -408,7 +408,7 @@ cl_int NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskB
 	if ( NULL == pArgV )
 	{
 #ifdef _DEBUG
-		ErrLog(pCommand->m_logDescriptor, pCommand->m_iLogHandle, L"Can't allocate memory for parameters");
+		ErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, L"Can't allocate memory for parameters");
 #endif
 		delete pCommand;
 		return CL_DEV_OUT_OF_MEMORY;
@@ -503,7 +503,7 @@ void NativeFunction::Execute()
 			cl_int ret = m_pMemAlloc->UnLockObject(memObj, *pMemPtr);
 			if ( CL_DEV_FAILED(ret) )
 			{
-				ErrLog(m_logDescriptor, m_iLogHandle, L"Can't unlock memory object, rc=%x", ret);
+				ErrLog(m_pLogDescriptor, m_iLogHandle, L"Can't unlock memory object, rc=%x", ret);
 			}
 		}
 	}
@@ -605,7 +605,7 @@ void MapMemObject::Execute()
 	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, sCpyParam.pSrc);
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Can't unlock memory object, rc=%x", ret);
 	}
 
@@ -679,7 +679,7 @@ void UnmapMemObject::Execute()
 		(void**)&sCpyParam.pDst, sCpyParam.vDstPitch, &uiElementSize);
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle, L"Can't Lock memory object, rc=%x", ret);
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Can't Lock memory object, rc=%x", ret);
 		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
 		return;
 	}
@@ -703,7 +703,7 @@ void UnmapMemObject::Execute()
 	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, sCpyParam.pDst);
 	if ( CL_DEV_FAILED(ret) )
 	{
-		ErrLog(m_logDescriptor, m_iLogHandle,
+		ErrLog(m_pLogDescriptor, m_iLogHandle,
 			L"Can't unlock memory object, rc=%x", ret);
 	}
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
@@ -891,7 +891,7 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-int NDRange::Init(size_t region[], unsigned int &regCount)
+int NDRange::Init(size_t region[], unsigned int &dimCount)
 {
 
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
@@ -1000,6 +1000,7 @@ int NDRange::Init(size_t region[], unsigned int &regCount)
 	{
 		region[i] = 1;
 	}
+	dimCount = cmdParams->work_dim;
 
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
@@ -1060,7 +1061,7 @@ void NDRange::UnlockMemoryBuffers()
 				cl_int clRet = m_pMemAlloc->UnLockObject(memObj,(void*)(m_pLockedParams+stOffset));
 				if ( CL_DEV_FAILED(clRet) )
 				{
-					ErrLog(m_logDescriptor, m_iLogHandle, L"Can't unlock memory object");
+					ErrLog(m_pLogDescriptor, m_iLogHandle, L"Can't unlock memory object");
 				}
 			}
 			*((void**)(m_pLockedParams+stOffset)) = NULL;
@@ -1092,6 +1093,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId)
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", GetCurrentThreadId(), uiWorkerId, m_pCmd->id);
 #endif
+	assert(uiWorkerId != (unsigned int)-1);
 
 #ifdef _DEBUG
 	long lVal = InterlockedCompareExchange(&m_lFinish, 0, 0);

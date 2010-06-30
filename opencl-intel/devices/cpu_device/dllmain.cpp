@@ -40,30 +40,6 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-static cl_dev_entry_points myEntryPoints = {
-	CPUDevice::clDevCreateCommandList,
-	CPUDevice::clDevFlushCommandList,
-	CPUDevice::clDevRetainCommandList,
-	CPUDevice::clDevReleaseCommandList,
-	CPUDevice::clDevCommandListExecute,
-	CPUDevice::clDevGetSupportedImageFormats,
-	CPUDevice::clDevCreateMemoryObject,
-	CPUDevice::clDevDeleteMemoryObject,
-	CPUDevice::clDevCreateMappedRegion,
-	CPUDevice::clDevReleaseMappedRegion,
-	CPUDevice::clDevCheckProgramBinary,
-	CPUDevice::clDevCreateProgram,
-	CPUDevice::clDevBuildProgram,
-	CPUDevice::clDevReleaseProgram,
-	CPUDevice::clDevUnloadCompiler,
-	CPUDevice::clDevGetProgramBinary,
-	CPUDevice::clDevGetBuildLog,
-	CPUDevice::clDevGetSupportedBinaries,
-	CPUDevice::clDevGetKernelId,
-	CPUDevice::clDevGetProgramKernels,
-	CPUDevice::clDevGetKernelInfo,
-	CPUDevice::clDevCloseDevice
-};
 
 extern char clCPUDEVICE_CFG_PATH[];
 
@@ -91,39 +67,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
         break;
 	case DLL_PROCESS_DETACH:
-		if (NULL == lpReserved) //Detach due to FreeLibrary
-		{
-			CPUDevice::Destroy();
-		}
-		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
 		break;
 	}
 	return TRUE;
-}
-
-cl_int clDevCreateDeviceInstance(	
-                        cl_uint					dev_id,
-						cl_dev_entry_points		*dev_entry,
-						cl_dev_call_backs		*dev_callbacks,
-						cl_dev_log_descriptor	*log_desc
-						)
-{
-	
-	if(NULL == dev_callbacks || NULL == dev_entry)
-	{
-		return CL_DEV_INVALID_OPERATION;
-	}
-	
-	CPUDevice* dev = CPUDevice::CreateDevice(dev_id, dev_callbacks, log_desc);
-	if (NULL == dev )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	// Copy entry points information
-	memcpy(dev_entry, &myEntryPoints, sizeof(cl_dev_entry_points));
-
-	return CL_DEV_SUCCESS;
 }
 
 /************************************************************************************************************************
