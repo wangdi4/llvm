@@ -21,18 +21,29 @@
 #ifndef __TBB_concurrent_hash_map_H
 #define __TBB_concurrent_hash_map_H
 
-#include <stdexcept>
+#include "tbb_stddef.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <iterator>
 #include <utility>      // Need std::pair
 #include <cstring>      // Need std::memset
-#include <string>
-#include "tbb_stddef.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #include "cache_aligned_allocator.h"
 #include "tbb_allocator.h"
 #include "spin_rw_mutex.h"
 #include "atomic.h"
 #include "aligned_space.h"
 #include "tbb_exception.h"
+#include "_concurrent_unordered_internal.h" // Need tbb_hasher
 #if TBB_USE_PERFORMANCE_WARNINGS
 #include <typeinfo>
 #endif
@@ -48,6 +59,7 @@ namespace internal {
     //! Routine that loads pointer from location pointed to by src without causing ITT to report a race.
     void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
 }
+//! @endcond
 
 //! hash_compare that is default argument for concurrent_hash_map
 template<typename Key>
@@ -61,6 +73,7 @@ namespace interface4 {
     template<typename Key, typename T, typename HashCompare = tbb_hash_compare<Key>, typename A = tbb_allocator<std::pair<Key, T> > >
     class concurrent_hash_map;
 
+    //! @cond INTERNAL
     namespace internal {
 
 
@@ -255,7 +268,8 @@ namespace interface4 {
             if( (h & m_old) != (h & m) ) { // mask changed for this hashcode, rare event
                 // condition above proves that 'h' has some other bits set beside 'm_old'
                 // find next applicable mask after m_old    //TODO: look at bsl instruction
-                for( ++m_old; !(h & m_old); m_old <<= 1 ); // at maximum few rounds depending on the first block size
+                for( ++m_old; !(h & m_old); m_old <<= 1 ) // at maximum few rounds depending on the first block size
+                    ;
                 m_old = (m_old<<1) - 1; // get full mask from a bit
                 __TBB_ASSERT((m_old&(m_old+1))==0 && m_old <= m, NULL);
                 // check whether it is rehashing/ed
@@ -519,31 +533,6 @@ namespace interface4 {
     } // internal
 //! @endcond
 
-//! Hash multiplier
-static const size_t hash_multiplier = sizeof(size_t)==4? 2654435769U : 11400714819323198485ULL;
-
-//! Hasher functions
-template<typename T>
-inline size_t tbb_hasher( const T& t ) {
-    return static_cast<size_t>( t ) * hash_multiplier;
-}
-template<typename P>
-inline size_t tbb_hasher( P* ptr ) {
-    size_t const h = reinterpret_cast<size_t>( ptr );
-    return (h >> 3) ^ h;
-}
-template<typename E, typename S, typename A>
-inline size_t tbb_hasher( const std::basic_string<E,S,A>& s ) {
-    size_t h = 0;
-    for( const E* c = s.c_str(); *c; c++ )
-        h = static_cast<size_t>(*c) ^ (h * hash_multiplier);
-    return h;
-}
-template<typename F, typename S>
-inline size_t tbb_hasher( const std::pair<F,S>& p ) {
-    return tbb_hasher(p.first) ^ tbb_hasher(p.second);
-}
-
 //! Unordered map from Key to T.
 /** concurrent_hash_map is associative container with concurrent access.
 
@@ -762,7 +751,7 @@ public:
 
     //! Construct empty table.
     concurrent_hash_map(const allocator_type &a = allocator_type())
-        : my_allocator(a)
+        : internal::hash_map_base(), my_allocator(a)
     {}
 
     //! Construct empty table with n preallocated buckets. This number serves also as initial concurrency level.
@@ -774,7 +763,7 @@ public:
 
     //! Copy constructor
     concurrent_hash_map( const concurrent_hash_map& table, const allocator_type &a = allocator_type())
-        : my_allocator(a)
+        : internal::hash_map_base(), my_allocator(a)
     {
         internal_copy(table);
     }
@@ -1346,7 +1335,6 @@ void concurrent_hash_map<Key,T,HashCompare,A>::internal_copy(I first, I last) {
 
 } // namespace interface4
 
-using interface4::tbb_hasher;
 using interface4::concurrent_hash_map;
 
 

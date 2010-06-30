@@ -35,7 +35,7 @@ namespace internal {
         parallel_for_each_body(const Function &_func) : my_func(_func) {}
         parallel_for_each_body(const parallel_for_each_body<Function, Iterator> &_caller) : my_func(_caller.my_func) {}
 
-        void operator() ( typename std::iterator_traits<Iterator>::value_type value ) const {
+        void operator() ( typename std::iterator_traits<Iterator>::value_type& value ) const {
             my_func(value);
         }
     };

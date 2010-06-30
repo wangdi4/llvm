@@ -54,10 +54,10 @@ class partition_type_base {
 public:
     void set_affinity( task & ) {}
     void note_affinity( task::affinity_id ) {}
-    task* continue_after_execute_range( task& ) {return NULL;}
+    task* continue_after_execute_range() {return NULL;}
     bool decide_whether_to_delay() {return false;}
-    void spawn_or_delay( bool, task& a, task& b ) {
-        a.spawn(b);
+    void spawn_or_delay( bool, task& b ) {
+        task::spawn(b);
     }
 };
 
@@ -180,12 +180,12 @@ public:
         if( map_begin<map_end ) 
             my_array[map_begin] = id;
     }
-    task* continue_after_execute_range( task& t ) {
+    task* continue_after_execute_range() {
         task* first = NULL;
         if( !delay_list.empty() ) {
             first = &delay_list.pop_front();
             while( !delay_list.empty() ) {
-                t.spawn(*first);
+                task::spawn(*first);
                 first = &delay_list.pop_front();
             }
         }
@@ -195,11 +195,11 @@ public:
         // The possible underflow caused by "-1u" is deliberate
         return (map_begin&(factor-1))==0 && map_end-map_begin-1u<factor;
     }
-    void spawn_or_delay( bool delay, task& a, task& b ) {
+    void spawn_or_delay( bool delay, task& b ) {
         if( delay )  
             delay_list.push_back(b);
         else 
-            a.spawn(b);
+            task::spawn(b);
     }
 
     ~affinity_partition_type() {

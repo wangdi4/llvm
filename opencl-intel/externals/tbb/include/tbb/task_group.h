@@ -31,7 +31,7 @@ namespace internal {
 }
 
 template<typename F>
-class task_handle {
+class task_handle : internal::no_assign {
     template<typename _F> friend class internal::task_handle_task;
 
     static const intptr_t scheduled = 0x1;
@@ -45,9 +45,6 @@ class task_handle {
             internal::throw_exception( internal::eid_invalid_multiple_scheduling );
         my_state |= scheduled;
     }
-
-    // No assignment operator
-    const task_handle& operator = ( const task_handle& );
 public:
     task_handle( const F& f ) : my_func(f), my_state(0) {}
 
@@ -96,10 +93,10 @@ protected:
 
     template<typename F>
     task_group_status internal_run_and_wait( F& f ) {
-        try {
+        __TBB_TRY {
             if ( !my_context.is_group_execution_cancelled() )
                 f();
-        } catch ( ... ) {
+        } __TBB_CATCH( ... ) {
             my_context.register_pending_exception();
         }
         return wait();
@@ -124,11 +121,11 @@ public:
     }
 
     task_group_status wait() {
-        try {
-            owner().prefix().owner->wait_for_all( *my_root, NULL );
-        } catch ( ... ) {
+        __TBB_TRY {
+            my_root->wait_for_all();
+        } __TBB_CATCH( ... ) {
             my_context.reset();
-            throw;
+            __TBB_RETHROW();
         }
         if ( my_context.is_group_execution_cancelled() ) {
             my_context.reset();
@@ -152,16 +149,18 @@ class task_group : public internal::task_group_base {
 public:
     task_group () : task_group_base( task_group_context::concurrent_wait ) {}
 
-    ~task_group() try {
+    ~task_group() __TBB_TRY {
         __TBB_ASSERT( my_root->ref_count() != 0, NULL );
         if( my_root->ref_count() > 1 )
             my_root->wait_for_all();
         owner().destroy(*my_root);
     }
+#if TBB_USE_EXCEPTIONS
     catch (...) {
         owner().destroy(*my_root);
         throw;
     }
+#endif /* TBB_USE_EXCEPTIONS */
 
 #if __SUNPRO_CC
     template<typename F>

@@ -21,7 +21,20 @@
 #ifndef __TBB_queuing_rw_mutex_H
 #define __TBB_queuing_rw_mutex_H
 
+#include "tbb_config.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <cstring>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #include "atomic.h"
 #include "tbb_profiling.h"
 
@@ -70,7 +83,6 @@ public:
         scoped_lock() {initialize();}
 
         //! Acquire lock on given mutex.
-        /** Upon entry, *this should not be in the "have acquired a mutex" state. */
         scoped_lock( queuing_rw_mutex& m, bool write=true ) {
             initialize();
             acquire(m,write);

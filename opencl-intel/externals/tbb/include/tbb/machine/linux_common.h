@@ -27,7 +27,9 @@
 #include <sched.h>
 
 // Definition of __TBB_Yield()
+#ifndef __TBB_Yield
 #define __TBB_Yield()  sched_yield()
+#endif
 
 /* Futex definitions */
 #include <sys/syscall.h>

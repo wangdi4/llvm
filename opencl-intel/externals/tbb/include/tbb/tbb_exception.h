@@ -23,11 +23,18 @@
 
 #include "tbb_stddef.h"
 
-#if __TBB_EXCEPTIONS && !defined(__EXCEPTIONS) && !defined(_CPPUNWIND) && !defined(__SUNPRO_CC)
-#error The current compilation environment does not support exception handling. Please set __TBB_EXCEPTIONS to 0 in tbb_config.h
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
 #endif
 
 #include <stdexcept>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #if __SUNPRO_CC
 #include <string> // required to construct std exception classes
 #endif
@@ -38,9 +45,9 @@ namespace tbb {
 class bad_last_alloc : public std::bad_alloc {
 public:
     /*override*/ const char* what() const throw();
-    /** Necessary to avoid ICL error: "exception specification for implicitly 
-        declared virtual is incompatible with that of overridden function". **/
+#if __TBB_DEFAULT_DTOR_THROW_SPEC_BROKEN
     /*override*/ ~bad_last_alloc() throw() {}
+#endif
 };
 
 //! Exception for PPL locks
@@ -75,9 +82,17 @@ enum exception_id {
     eid_missing_wait,
     eid_invalid_multiple_scheduling,
     eid_improper_lock,
+    eid_possible_deadlock,
+    eid_operation_not_permitted,
+    eid_condvar_wait_failed,
+    eid_invalid_load_factor,
+    eid_invalid_buckets_number,
+    eid_invalid_swap,
+    eid_reservation_length_error,
+    eid_invalid_key,
     //! The last enumerator tracks the number of defined IDs. It must remain the last one.
     /** When adding new IDs, place them immediately _before_ this comment (that is
-        _after_ all the existing IDs. Never insert new IDs between the existing ones. **/
+        _after_ all the existing IDs. NEVER insert new IDs between the existing ones. **/
     eid_max
 };
 
@@ -86,13 +101,13 @@ enum exception_id {
     scattered in multiple places, especially in templates. **/
 void __TBB_EXPORTED_FUNC throw_exception_v4 ( exception_id );
 
-//! Versionless covenience wrapper for throw_exception_v4()
+//! Versionless convenience wrapper for throw_exception_v4()
 inline void throw_exception ( exception_id eid ) { throw_exception_v4(eid); }
-} // namespace internal
 
+} // namespace internal
 } // namespace tbb
 
-#if __TBB_EXCEPTIONS
+#if __TBB_TASK_GROUP_CONTEXT
 #include "tbb_allocator.h"
 #include <exception>
 #include <typeinfo>
@@ -176,10 +191,10 @@ public:
         set(src.my_exception_name, src.my_exception_info);
     }
 
-    captured_exception ( const char* name, const char* info )
+    captured_exception ( const char* name_, const char* info )
         : my_dynamic(false)
     {
-        set(name, info);
+        set(name_, info);
     }
 
     __TBB_EXPORTED_METHOD ~captured_exception () throw() {
@@ -201,7 +216,7 @@ public:
     void __TBB_EXPORTED_METHOD destroy () throw();
 
     /*override*/ 
-    void throw_self () { throw *this; }
+    void throw_self () { __TBB_THROW(*this); }
 
     /*override*/ 
     const char* __TBB_EXPORTED_METHOD name() const throw();
@@ -235,10 +250,16 @@ class movable_exception : public tbb_exception
     typedef movable_exception<ExceptionData> self_type;
 
 public:
-    movable_exception ( const ExceptionData& data ) 
-        : my_exception_data(data)
+    movable_exception ( const ExceptionData& data_ ) 
+        : my_exception_data(data_)
         , my_dynamic(false)
-        , my_exception_name(typeid(self_type).name())
+        , my_exception_name(
+#if TBB_USE_EXCEPTIONS
+        typeid(self_type).name()
+#else /* !TBB_USE_EXCEPTIONS */
+        "movable_exception"
+#endif /* !TBB_USE_EXCEPTIONS */
+        )
     {}
 
     movable_exception ( const movable_exception& src ) throw () 
@@ -284,9 +305,7 @@ public:
         }
     }
     /*override*/ 
-    void throw_self () {
-        throw *this;
-    }
+    void throw_self () { __TBB_THROW( *this ); }
 
 protected:
     //! User data
@@ -333,6 +352,6 @@ private:
 
 } // namespace tbb
 
-#endif /* __TBB_EXCEPTIONS */
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #endif /* __TBB_exception_H */

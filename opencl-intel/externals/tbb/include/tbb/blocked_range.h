@@ -100,7 +100,7 @@ private:
     Value my_begin;
     size_type my_grainsize;
 
-    //! Auxilary function used by forking constructor.
+    //! Auxiliary function used by forking constructor.
     /** Using this function lets us not require that Value support assignment or default construction. */
     static Value do_split( blocked_range& r ) {
         __TBB_ASSERT( r.is_divisible(), "cannot split blocked_range that is not divisible" );

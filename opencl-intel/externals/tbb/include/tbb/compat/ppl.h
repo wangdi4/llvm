@@ -25,8 +25,10 @@
 #include "../parallel_invoke.h"
 #include "../parallel_for_each.h"
 #include "../parallel_for.h"
-#include "../critical_section.h"
 #include "../tbb_exception.h"
+#include "../critical_section.h"
+#include "../reader_writer_lock.h"
+#include "../combinable.h"
 
 namespace Concurrency {
 
@@ -48,6 +50,8 @@ namespace Concurrency {
     using tbb::strict_ppl::parallel_for;
     using tbb::parallel_for_each;
     using tbb::critical_section;
+    using tbb::reader_writer_lock;
+    using tbb::combinable;
 
     using tbb::improper_lock;
 
