@@ -136,6 +136,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	// Make TBB init class and WG executor thread local
 	tbb::task_group* TBBTaskExecutor::sTBB_executor = NULL;
 
+#ifdef __LOCAL_RANGES__
 	class Range1D {
 	public:
 		//! Type of a value
@@ -330,11 +331,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		const Range1D& cols() const {return my_cols;}
 
 	};
-
+#endif
 	struct TaskLoopBody3D {
 		ITaskSet &task;
 		TaskLoopBody3D(ITaskSet &t) : task(t) {}
-		void operator()(const Range3D& r) const {
+		void operator()(const tbb::blocked_range3d<int>& r) const {
 			unsigned int uiWorkerId;
 #ifdef __WIN_XP__
 			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
@@ -367,7 +368,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	struct TaskLoopBody2D {
 		ITaskSet &task;
 		TaskLoopBody2D(ITaskSet &t) : task(t) {}
-		void operator()(const Range2D& r) const {
+		void operator()(const tbb::blocked_range2d<int>& r) const {
 			unsigned int uiWorkerId;
 #ifdef __WIN_XP__
 			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
@@ -399,7 +400,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	struct TaskLoopBody1D {
 		ITaskSet &task;
 		TaskLoopBody1D(ITaskSet &t) : task(t) {}
-		void operator()(const Range1D& r) const {
+		void operator()(const tbb::blocked_range<int>& r) const {
 			unsigned int uiWorkerId;
 #ifdef __WIN_XP__
 			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
@@ -441,16 +442,21 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				task.Finish(FINISH_INIT_FAILED);
 				return;
 			}
-			if (1 == dimCount)
-			{
-				tbb::parallel_for(Range1D(0, dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
-			} else if (2 == dimCount)
-			{
-				tbb::parallel_for(Range2D(dim), TaskLoopBody2D(task), tbb::auto_partitioner());
-			} else
-			{
-				tbb::parallel_for(Range3D(dim), TaskLoopBody3D(task), tbb::auto_partitioner());
-			}
+					if (1 == dimCount)
+					{
+						tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
+					} else if (2 == dimCount)
+					{
+						tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
+																	0, dim[0]),
+																	TaskLoopBody2D(task), tbb::auto_partitioner());
+					} else
+					{
+						tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
+																	0, dim[1],
+																	0, dim[0]),
+																	TaskLoopBody3D(task), tbb::auto_partitioner());
+					}
 			task.Finish(FINISH_COMPLETED);
 			task.Release();
 		}
@@ -648,13 +654,18 @@ public:
 					}
 					if (1 == dimCount)
 					{
-						tbb::parallel_for(Range1D(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
+						tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
 					} else if (2 == dimCount)
 					{
-						tbb::parallel_for(Range2D(dim), TaskLoopBody2D(*pTask), tbb::auto_partitioner());
+						tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
+																	0, dim[0]),
+																	TaskLoopBody2D(*pTask), tbb::auto_partitioner());
 					} else
 					{
-						tbb::parallel_for(Range3D(dim), TaskLoopBody3D(*pTask), tbb::auto_partitioner());
+						tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
+																	0, dim[1],
+																	0, dim[0]),
+																	TaskLoopBody3D(*pTask), tbb::auto_partitioner());
 					}
 					pTask->Finish(FINISH_COMPLETED);
 				}
