@@ -193,6 +193,8 @@ cl_err_code ConfigFile::ReadFile(string fileName, ConfigFile& cfg)
 			cfg.m_mapContents[strKey] = line;
 		}
 	}
+	fsInputStream.close();
+
 	return CL_SUCCESS;
 }
 

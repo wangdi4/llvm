@@ -298,7 +298,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	private:
 		AtomicCounter(const AtomicCounter& ac) {m_val = ac.m_val;}
-		long m_val;
+		volatile long m_val;
 	};
 
 //includes for the template classes
