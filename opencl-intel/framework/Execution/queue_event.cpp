@@ -70,15 +70,16 @@ void QueueEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyL
 }
 
 void QueueEvent::AddCompleteListener(IEventDoneObserver* listener)
-{
-	++m_CompleteListenersGuard;
-	if (!m_complete)
+{	
+	++m_CompleteListenersGuard;	
+	
+	if (!m_complete)	
 	{
 		m_CompleteListeners.PushBack(listener);
-		--m_CompleteListenersGuard;
+		--m_CompleteListenersGuard;		
 	}
 	else //event completed while we were registering, notify immediately
-	{
+	{			
 		--m_CompleteListenersGuard;
 		listener->NotifyEventDone(this);
 	}
@@ -90,9 +91,9 @@ QueueEventStateColor QueueEvent::SetColor(QueueEventStateColor color)
 	QueueEventStateColor oldColor = m_color;
 	m_color = color;
 	if (EVENT_STATE_BLACK == color)
-	{
+	{		
 		NotifyComplete();
-	}
+	}	
 	return oldColor;
 }
 
@@ -107,37 +108,41 @@ cl_err_code QueueEvent::NotifyEventDone(QueueEvent* pEvent)
 }
 
 void QueueEvent::NotifyComplete()
-{
+{	
 	//block further requests to add notifiers
-	m_complete = true;
+	m_complete = true;	
 	//loop until all pending addition requests are complete
-	while (m_CompleteListenersGuard > 0);
-
+	
+	while (m_CompleteListenersGuard > 0) {}		
+	
 	//Notify everyone
 	while (!m_CompleteListeners.IsEmpty())
 	{
 		IEventDoneObserver* listener = m_CompleteListeners.PopFront();
 		assert(listener);
 		listener->NotifyEventDone(this);
-	}
+	}			
 
-	m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
-
-	delete m_pCommand;
+	if (m_pEventQueue)
+	{	
+		m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
+	}	
+	m_pCommand->Release();
+	return;
 }
 
 
 void QueueEvent::NotifyReady(QueueEvent* pEvent)
 {
 	if (EVENT_STATE_RED == m_color)
-	{
-		m_color = EVENT_STATE_YELLOW;
-		if ((pEvent) && (pEvent->GetEventQueue()->GetId() == GetEventQueue()->GetId()))
-		{
+	{		
+		m_color = EVENT_STATE_YELLOW;						
+		if ((pEvent) && (pEvent->GetEventQueue() && pEvent->GetEventQueue()->GetId() == GetEventQueue()->GetId()))
+		{	
 			//that event will notify my queue for me
 			return;
 		}
-		//else, I have to notify the queue myself
+		//else, I have to notify the queue myself		
 		m_pEventQueue->NotifyStateChange(this, EVENT_STATE_RED, EVENT_STATE_YELLOW);
 	}
 

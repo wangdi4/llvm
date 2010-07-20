@@ -30,10 +30,10 @@
 
 #include <cl_types.h>
 #include <cl_object.h>
-#include <cl_synch_objects.h>
+
 #include "event_done_observer.h"
 #include <list>
-
+#include <cl_synch_objects.h>
 using namespace std;
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -128,12 +128,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>  m_CompleteListeners;
 		Intel::OpenCL::Utils::AtomicCounter                            m_CompleteListenersGuard;
-		Intel::OpenCL::Utils::AtomicCounter                            m_depListLength;
-        volatile bool                         m_complete;
+		Intel::OpenCL::Utils::AtomicCounter                            m_depListLength;		        
+		volatile bool                         m_complete;
 		volatile QueueEventStateColor         m_color;
 		IOclCommandQueueBase*                 m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
 		Command*                              m_pCommand;             // Pointer to the command represented by this event
-
 	};
 
 }}};    // Intel::OpenCL::Framework

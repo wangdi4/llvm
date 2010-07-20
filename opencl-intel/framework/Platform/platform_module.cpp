@@ -87,6 +87,10 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
+	cl_uint uiNumFECompilers = m_pFECompilers->Count();
+    OCLObject<_cl_object>** ppFECompilers = new OCLObject<_cl_object>*[uiNumFECompilers];
+    m_pFECompilers->GetObjects(uiNumFECompilers, ppFECompilers, NULL);
+
 	for(unsigned int ui=0; ui<m_uiDevicesCount; ++ui)
 	{
 		// create new device object
@@ -110,10 +114,11 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		{
 			m_pDefaultDevice = pDevice;
 		}
-		pDevice->SetFECompiler(m_pDefaultFECompiler);
+		FECompiler* pFECompiler = dynamic_cast<FECompiler*>(ppFECompilers[ui]);
+		pDevice->SetFECompiler(pFECompiler);
 	}
 
-
+	
 
 	return CL_SUCCESS;
 }
@@ -500,12 +505,9 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
 	if (NULL != pclDevices)
 	{
-		if (uiRetNumDevices > uiNumEntries)
-		{
-			delete[] pDeviceIds;
-			return CL_INVALID_VALUE;
-		}
-		for (cl_uint ui=0; ui<uiRetNumDevices; ++ui)
+		cl_uint uiNumDevicesToAdd = min(uiRetNumDevices,uiNumEntries);		
+		
+		for (cl_uint ui=0; ui < uiNumDevicesToAdd; ++ui)
 		{
 			pclDevices[ui] = pDeviceIds[ui];
 		}

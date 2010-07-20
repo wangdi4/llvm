@@ -243,7 +243,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// allocated for any of the devices.
 		// calling to this method doesn't promis that once it finished the data is available on the
 		// same device
-		cl_device_id GetDataLocation();
+		cl_device_id GetDataLocation(cl_device_id clDeviceId = 0);
 
 		// returns the handle for the a device memory buffer in  clDeviceId.
 		// returns 0 when the data is not availble on the device, or the memory object wasn't allocated.
@@ -329,7 +329,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual size_t GetSlicePitchSize() const { return 0; }
 		virtual size_t CalcRowPitchSize(const size_t *  pszRegion) { return 0; }
 		virtual size_t CalcSlicePitchSize(const size_t *  pszRegion) { return 0; }
-
+		
+		virtual void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const = 0;
         // Check if the region defined with pszOrigin and pszOregion is within the dimensions
         // If it is out of bounds the function returns false. else returns true
         // The length of the pszOrigin and pszOregion arrays is 1,2,3 for buffer, 2D image, 3D image respectively.
@@ -378,7 +379,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context *								m_pContext;	// context to which the memory object belongs
 		std::map<cl_device_id, DeviceMemoryObject*>	m_mapDeviceMemObjects; // list of device memory objects
 		OclSpinMutex							m_muDeviceMap;
-		cl_uint									m_uiMapCount;		
+		cl_uint									m_uiMapCount;	
+		long									m_lDataOnHost;// flag that specify if the data is available on host;
 		size_t									m_szMemObjSize;
 		void *									m_pMemObjData;
 
