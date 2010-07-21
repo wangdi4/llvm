@@ -25,9 +25,7 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
-#ifndef __CL_SYNCH_OBJECTS_H__
-#define __CL_SYNCH_OBJECTS_H__
-
+#pragma once
 /************************************************************************
  * The synchronization objects header declares all objects in Intel OCL
  * runtime that are needed for synchronization. The header is OS independent.
@@ -43,7 +41,7 @@
  *      Is expected to use only when sharing and synchronizing objects in different processes.
  * - OclAutoMutex:
  *      By using AutoMutex, you can lock the mutex and unlock it through the
- *      object Constructor/Distructor. Use it to prevent nested lock/unlock logic.
+ *      object Constructor/Destructor. Use it to prevent nested lock/unlock logic.
  * - OclCondition:
  *      Condition object is a synchronization object that enables a thread to wait on a condition 
  *      until that condition is set.
@@ -230,8 +228,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	{
 	public:
 		virtual bool IsEmpty() const            = 0;
-		virtual T   Top()                       = 0;
-		virtual T   PopFront()                  = 0;
+		virtual T    Top()                      = 0;
+		virtual T    PopFront()                 = 0;
 		virtual void PushBack(const T& newNode) = 0;
 	};
 
@@ -309,4 +307,3 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #endif
 
 }}};    // Intel::OpenCL::Utils
-#endif // __CL_SYNCH_OBJECTS_H__

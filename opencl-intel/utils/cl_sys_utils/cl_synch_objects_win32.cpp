@@ -159,6 +159,11 @@ void OclSpinMutex::Lock()
 }
 void OclSpinMutex::Unlock()
 {
+	//Prevent a thread that doesn't own the mutex from unlocking it
+	if (GetCurrentThreadId() != threadId)
+	{
+		return;
+	}
 	if ( 1 == lMutex )
 	{
 		threadId = 0;
