@@ -25,8 +25,7 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(__OCL_OCL_COMMAND_QUEUE_H__)
-#define __OCL_OCL_COMMAND_QUEUE_H__
+#pragma once
 
 #include <cl_types.h>
 #include <logger.h>
@@ -69,9 +68,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			EventsManager*              pEventManager,
 			ocl_entry_points *			pOclEntryPoints
 			);
-		virtual         ~OclCommandQueue();
 		cl_err_code     Initialize();
-		cl_err_code     GetInfo( cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );        
+		cl_err_code	    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 
 		//These make little sense. Here for legacy support - deprecated in 1.1
@@ -87,6 +85,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Device*			GetDefaultDevice() const				{ return m_pDefaultDevice;		    }
 
 	protected:
+		virtual         ~OclCommandQueue();
+
 		Context*            m_pContext;
 		Device*             m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
@@ -99,4 +99,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	};
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_OCL_COMMAND_QUEUE_H__)

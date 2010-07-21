@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_SAMPLER_H_)
-#define _OCL_SAMPLER_H_
-
 #include <cl_types.h>
 #include <cl_object.h>
 #include <logger.h>
@@ -59,6 +56,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
 		Sampler();
 
+		// get image info
+		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+
+		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints);
+
+		const Context * GetContext() const { return m_pContext; }
+
+		cl_uint	GetValue() const {return m_clSamlerProps;}
+
+	protected:
 		/******************************************************************************************
 		* Function: 	~Sampler
 		* Description:	The Sampler class destructor
@@ -67,19 +74,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			May 2008
 		******************************************************************************************/			
 		virtual ~Sampler();
-
-		// get image info
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints);
-
-		virtual cl_err_code Release();
-
-		const Context * GetContext() const { return m_pContext; }
-
-		cl_uint	GetValue() const {return m_clSamlerProps;}
-
-	protected:
 
 		Context *			m_pContext;	// the context to which the sampler belongs
 
@@ -94,6 +88,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-
-
-#endif //_OCL_SAMPLER_H_

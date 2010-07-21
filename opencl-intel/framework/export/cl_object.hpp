@@ -6,10 +6,9 @@
 ///////////////////////////////////////////////////////////
 
 template <class HandleType>
-OCLObject<HandleType>::OCLObject() : m_uiRefCount(0), m_uiPendency(0), m_iId(0), m_pLoggerClient(NULL)
+OCLObject<HandleType>::OCLObject() : m_uiRefCount(1), m_uiPendency(1), m_iId(0), m_pLoggerClient(NULL)
 {
 	memset(&m_handle, 0, sizeof(HandleType));
-	Retain();
 }
 
 template <class HandleType>
@@ -17,20 +16,26 @@ OCLObject<HandleType>::~OCLObject()
 {}
 
 template <class HandleType>
-cl_err_code OCLObject<HandleType>::Release()
+long OCLObject<HandleType>::Release()
 {
-	if (m_uiRefCount <= 0)
+	long newVal = --m_uiRefCount;
+	if (newVal < 0)
 	{
-		return CL_INVALID_OPERATION;
+		++m_uiRefCount;
+		return -1;
 	}
-	--m_uiRefCount;
-	return CL_SUCCESS;
+	else if (0 == newVal)
+	{
+		//This may have the side effect of deleting the object
+		RemovePendency();
+	}
+	return newVal;
 }
 
 template <class HandleType>
 cl_err_code OCLObject<HandleType>::Retain()
 {
-	++m_uiRefCount;
+	m_uiRefCount++;
 	return CL_SUCCESS;
 }
 
@@ -43,11 +48,11 @@ long OCLObject<HandleType>::AddPendency()
 template <class HandleType>
 long OCLObject<HandleType>::RemovePendency()
 {
-	return --m_uiPendency;
-}
-
-template <class HandleType>
-bool OCLObject<HandleType>::ReadyForDeletion()
-{
-	return (0 == m_uiPendency) && (0 == m_uiRefCount);
+	long newVal = --m_uiPendency;
+	if (0 == newVal)
+	{
+		Cleanup();
+		delete this;
+	}
+	return newVal;
 }

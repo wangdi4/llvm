@@ -27,9 +27,6 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(__OCL_IEXECUTION_H__)
-#define __OCL_IEXECUTION_H__
-
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -1207,4 +1204,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
         };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_IEXECUTION_H__)

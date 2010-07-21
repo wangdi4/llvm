@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_IMAGE_H_)
-#define _OCL_IMAGE_H_
-
 #include <cl_types.h>
 #include <cl_memory_object.h>
 #include <logger.h>
@@ -42,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Class name:	Image2D
 	*
 	* Inherit:		MemoryObject
-	* Description:	represents a 2 dimentional image object
+	* Description:	represents a 2 dimensional image object
 	* Author:		Uri Levy
 	* Date:			April 2008
 	**********************************************************************************************/		
@@ -67,19 +64,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				ocl_entry_points * pOclEntryPoints,
 				cl_err_code *     pErrCode);
 
-		/******************************************************************************************
-		* Function: 	~Image2D
-		* Description:	The Image2D class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			April 2008
-		******************************************************************************************/			
-		virtual ~Image2D();
-
 		// get image info
 		virtual cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-		virtual cl_err_code Release();
 
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
@@ -102,6 +88,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void* GetMappedRegionInfo( cl_device_id clDeviceId, void* mappedPtr);
 
 	protected:
+		/******************************************************************************************
+		* Function: 	~Image2D
+		* Description:	The Image2D class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			April 2008
+		******************************************************************************************/			
+		virtual ~Image2D();
 
 		// check if the image format is supported and valid
 		virtual cl_err_code CheckImageFormat(cl_image_format * pclImageFormat, cl_mem_flags clMemFlags);
@@ -150,19 +144,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				ocl_entry_points * pOclEntryPoints,
 				cl_err_code *     pErrCode);
 
-		/******************************************************************************************
-		* Function: 	~Image3D
-		* Description:	The Image3D class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			April 2008
-		******************************************************************************************/			
-		virtual ~Image3D();
 
 		// get image info
 		virtual cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-		virtual cl_err_code Release();
 
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
@@ -184,6 +168,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	protected:
 
+		/******************************************************************************************
+		* Function: 	~Image3D
+		* Description:	The Image3D class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			April 2008
+		******************************************************************************************/			
+		virtual ~Image3D();
+
 		// calculate the total image size
 		size_t CalcImageSize();
 
@@ -198,5 +191,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 }}};
 
-
-#endif //_OCL_IMAGE_H_

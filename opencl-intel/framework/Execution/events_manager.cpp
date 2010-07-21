@@ -23,6 +23,7 @@
 //  Implementation of the Class EventsManager
 //  Created on:      23-Dec-2008 3:22:59 PM
 //  Original author: Peleg, Arnon
+//  Current Owner:   Singer, Doron
 //////////////////////////////////////////////////////////
 #include "events_manager.h"
 #include "ocl_event.h"
@@ -39,7 +40,7 @@ using namespace Intel::OpenCL::Framework;
  ******************************************************************/
 EventsManager::EventsManager() 
 {
-    m_pEvents = new OCLObjectsMap<_cl_event>();
+    m_pEvents     = new OCLObjectsMap<_cl_event>();
 }
 
 /******************************************************************
@@ -47,23 +48,13 @@ EventsManager::EventsManager()
  ******************************************************************/
 EventsManager::~EventsManager()
 {
-     // Need to clean event list. There is a possability that
-    // the manager is delated before all events had been released.
-    cl_uint     uiEventCount = m_pEvents->Count();
-    for (cl_uint ui=0; ui<uiEventCount; ++ui)
-    {
-        OCLObject<_cl_event>*  pOclObject = NULL;
-        OclEvent*   pEvent  = NULL;
-        cl_err_code res     = CL_SUCCESS;
-        res = m_pEvents->GetObjectByIndex(ui, &pOclObject);
-        if (CL_SUCCEEDED(res))
-        {    
-            pEvent = dynamic_cast<OclEvent*>(pOclObject);
-            delete pEvent;
-        }
-    }
-    m_pEvents->Clear();
-    delete m_pEvents;
+     // Need to clean event list. There is a possibility that
+    // the manager is deleted before all events had been released.
+	if (m_pEvents)
+	{
+		m_pEvents->ReleaseAllObjects();
+		delete m_pEvents;
+	}
 }
 
 
@@ -78,8 +69,7 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
     res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
-        OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
-        pEvent->Retain();
+        pOclObject->Retain();
     }
     return res;
 }
@@ -89,27 +79,7 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
  ******************************************************************/
 cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 {
-    cl_err_code res     = CL_SUCCESS;
-    OCLObject<_cl_event>*  pOclObject = NULL;
-
-    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
-    if (CL_SUCCEEDED(res))
-    {
-        OclEvent* pEvent = dynamic_cast<OclEvent*>(pOclObject);
-        pEvent->Release();
-        if ( 0 == pEvent->GetReferenceCount() )
-        {
-            // Remove this event completely,
-            // The full meaning of remove act is that the event can not be accessed by
-            // the user anymore, but it related command may still running.
-            m_pEvents->RemoveObject(clEvent, NULL);
-			if (0 == pEvent->RemovePendency())
-			{
-				delete pEvent;
-			}
-        }
-    }
-    return res;
+	return m_pEvents->ReleaseObject(clEvent);
 }
 
 /******************************************************************
@@ -120,16 +90,15 @@ cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName,
     cl_err_code res         = CL_SUCCESS;
     OCLObject<_cl_event>*  pOclObject  = NULL;
 
-    res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
-    if (CL_SUCCEEDED(res))
-    {
-        OclEvent*   pEvent  = dynamic_cast<OclEvent*>(pOclObject);
-        res = pEvent->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
-    }   
-    else
-    {
-        res = CL_INVALID_EVENT;
-    }
+	res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
+	if (CL_SUCCEEDED(res))
+	{
+		res = pOclObject->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
+	}   
+	else
+	{
+		res = CL_INVALID_EVENT;
+	}
     return res;
 }
 /******************************************************************
@@ -137,13 +106,17 @@ cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName,
  ******************************************************************/
 cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-    cl_err_code res         = CL_SUCCESS;
+    cl_err_code res                    = CL_SUCCESS;
     OCLObject<_cl_event>*  pOclObject  = NULL;
 
     res = m_pEvents->GetOCLObject(clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
-        OclEvent*   pEvent  = dynamic_cast<OclEvent*>(pOclObject);
+        QueueEvent* pEvent  = dynamic_cast<QueueEvent*>(pOclObject);
+		if (!pEvent) 
+		{
+			return CL_PROFILING_INFO_NOT_AVAILABLE;
+		}
         res = pEvent->GetProfilingInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     }   
     else
@@ -183,7 +156,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 
 /******************************************************************
  * This function validates that all events in eventList has the same context 
- * If not CL_INVALID_CONTEXT is returned. On sucess CL_SUCCESS is returned
+ * If not CL_INVALID_CONTEXT is returned. On success CL_SUCCESS is returned
  * 
  ******************************************************************/
 cl_err_code EventsManager::ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext)
@@ -223,10 +196,10 @@ cl_err_code EventsManager::ValidateEventsContext(cl_uint uiNumEvents, const cl_e
  * are removed from the list
  * 
  ******************************************************************/
-cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_command_queue queueId)
+cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
 {
 	cl_start;
-    // Check input paramaters
+    // Check input parameters
     if ( ( NULL == pEvent) ||
          ( (NULL == eventList) && ( 0 != uiNumEvents ) ) ||
          ( (NULL != eventList) && ( 0 == uiNumEvents ) )
@@ -262,10 +235,11 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 		{
 			for ( ui =0; ui < uiNumEvents; ui++)
 			{
-				QueueEvent* pDependOnEvent = dynamic_cast<QueueEvent *>(vOclEvents[ui]);
+				OclEvent* pDependOnEvent = vOclEvents[ui];
 				if ( NULL != pDependOnEvent )
 				{
-                    if ( queueId == (cl_command_queue)(pDependOnEvent->GetEventQueue()->GetId()))
+					if ((pDependOnEvent->GetEventQueue()) && 
+						(queueId == pDependOnEvent->GetEventQueue()->GetId()))
                     {
                         // Do not register
 						vOclEvents[ui] = NULL;
@@ -274,7 +248,6 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 				}
             }        
         }
-		//Todo: need dynamic cast here? 
 		pEvent->AddDependentOnMulti(uiNumEvents, vOclEvents);
 
         delete[] vOclEvents;
@@ -328,21 +301,35 @@ OclEvent* EventsManager::GetEvent(cl_event clEvent)
 	return dynamic_cast<OclEvent*>(pOclObject);
 }
 
+QueueEvent* EventsManager::GetQueueEvent(cl_event clEvent)
+{
+	OCLObject<_cl_event>* pOclObject;
+
+	cl_int ret = m_pEvents->GetOCLObject(clEvent, &pOclObject);
+	if (CL_FAILED(ret))
+	{
+		return NULL;
+	}
+	return dynamic_cast<QueueEvent*>(pOclObject);
+}
 /******************************************************************
- * This function creates event object. The Ocl event handle that can be used by
+ * This function creates event object. The Queue event handle that can be used by
  * the user is assigned into the eventHndl.
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
  ******************************************************************/
-OclEvent* EventsManager::CreateOclEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
+QueueEvent* EventsManager::CreateQueueEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
 {
 	cl_start;
-    OclEvent* pNewOclEvent = new OclEvent(pOclCommandQueue, pOclEntryPoints);
+    QueueEvent* pNewOclEvent = new QueueEvent(pOclCommandQueue, pOclEntryPoints);
+	if (!pNewOclEvent)
+	{
+		return NULL;
+	}
     // TODO: guard ObjMap... better doing so inside the map
     m_pEvents->AddObject(pNewOclEvent);
 	if (pEventHndl)
 	{
-		pNewOclEvent->AddPendency();
 		*pEventHndl = pNewOclEvent->GetHandle();
 	}
 

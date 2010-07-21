@@ -20,9 +20,6 @@
 
 #pragma once
 
-#if !defined(_CL_CONFIG_H_)
-#define _CL_CONFIG_H_
-
 #include "cl_config.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -71,5 +68,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 }}};
 
-
-#endif // _CL_CONFIG_H

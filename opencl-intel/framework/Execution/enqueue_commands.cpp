@@ -118,7 +118,9 @@ Command::Command():
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
 	m_pCommandQueue(NULL),
-    m_bIsFlushed(false)
+    m_bIsFlushed(false),
+	m_returnCode(1),
+	m_iId(-1)
 {
 	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
 
@@ -130,14 +132,6 @@ Command::Command():
  ******************************************************************/
 Command::~Command()
 {
-    // The command deletes its event
-    if ( NULL != m_pEvent) 
-	{
-		if (0 == m_pEvent->RemovePendency())
-		{
-			delete m_pEvent;
-		}
-	}
     m_pEvent =  NULL;
 	m_pDevice = NULL;
 	m_pCommandQueue = NULL;
@@ -148,7 +142,7 @@ Command::~Command()
 /******************************************************************
  *
  ******************************************************************/
-void Command::SetEvent(OclEvent* queueEvent)
+void Command::SetEvent(QueueEvent* queueEvent)
 { 
     m_pEvent = queueEvent;
 	m_pEvent->AddPendency();
@@ -159,6 +153,7 @@ void Command::SetEvent(OclEvent* queueEvent)
 /******************************************************************
  *
  ******************************************************************/
+//Todo: remove clCmdId param
 cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
 {
     cl_err_code res = CL_SUCCESS;
@@ -170,10 +165,10 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     case CL_SUBMITTED:
 		m_pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         m_pEvent->SetColor(EVENT_STATE_LIME);
-        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_iId);
         break;
     case CL_RUNNING:
-        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_iId);
 		m_pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
         m_pEvent->SetColor(EVENT_STATE_GREEN);
         break;
@@ -184,15 +179,17 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         // Is error
         if (CL_FAILED(iCompletionResult))
         {
-            LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), GetId());
+            LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_iId);
 			//assert(0 && "Command - DONE - Failure");
         }
         else
         {
-            LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), GetId());
+            LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_iId);
         }
+		m_returnCode = iCompletionResult;
         res = CommandDone();
         m_pEvent->SetColor(EVENT_STATE_BLACK);
+		m_pEvent->RemovePendency();
         break;
     default:        
         break;
@@ -313,7 +310,7 @@ cl_err_code CopyMemObjCommand::Init()
 /******************************************************************
  * Copy memory object asks device to perform copy only if both objects are on
  * the same device. Else, it read from 1 device and write to other. 
- * Either ways, the location of the destation data remain the same, unless 
+ * Either ways, the location of the destination data remain the same, unless 
  * it was never allocated before.
  *
  ******************************************************************/
@@ -460,7 +457,7 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(cl_device_id clDeviceId)
     m_pDstMemObj->SetDataLocation(clDeviceId);
     // Sending 1 command to the device where the buffer is located now
     // Color will be changed only when command is submitted in the device    
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
@@ -493,7 +490,7 @@ cl_err_code CopyMemObjCommand::CopyFromHost(cl_device_id clDstDeviceId)
     // Sending 1 command to the src device
     // Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submited in the device    
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	m_pDevCmd->profiling  = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
@@ -773,8 +770,8 @@ cl_err_code MapMemObjCommand::Execute()
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
 
 	// Change status of the command to Gray before handle by the device
-    // Color will be changed only when command is submited in the device    
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    // Color will be changed only when command is submitted in the device    
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
@@ -837,7 +834,7 @@ cl_err_code UnmapMemObjectCommand::Execute()
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
 
     // Color will be changed only when command is submitted in the device    
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	m_pMemObject->SetDataLocation(clDeviceId);
 
@@ -1004,7 +1001,7 @@ cl_err_code NativeKernelCommand::Execute()
 	    pMemObj->SetDataLocation(clDeviceId);
 	}
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	m_pDevCmd->profiling	= (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
@@ -1230,7 +1227,7 @@ cl_err_code NDRangeKernelCommand::Execute()
 	        pMemObj->SetDataLocation(clDeviceId);
 		}
 	}
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
@@ -1335,7 +1332,7 @@ cl_err_code ReadBufferCommand::Execute()
             (cl_dev_cmd_id)m_pEvent->GetId(),
 			m_pDevCmd);
 
-        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
         // Sending 1 command to the device where the buffer is located now
 		res = m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
@@ -1345,7 +1342,7 @@ cl_err_code ReadBufferCommand::Execute()
     else
     {
         // TODO: Copy locally from the buffer. Currently not supported. return error        
-        LogDebugA("Command - EXECUTE FAILED: %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - EXECUTE FAILED: %s (Id: %d)", GetCommandName(), m_iId);
         res = CL_ERR_FAILURE;
     }
     return res;
@@ -1455,7 +1452,7 @@ cl_err_code ReadImageCommand::Execute()
             (cl_dev_cmd_id)m_pEvent->GetId(),
 			m_pDevCmd);
 
-        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+        LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
         // Sending 1 command to the device where the buffer is located now
 		Device* pDevice;
@@ -1588,7 +1585,7 @@ cl_err_code WriteBufferCommand::Execute()
 
     m_pBuffer->SetDataLocation(clDeviceId);
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
     // Sending 1 command to the device where the buffer is located now
 	m_pDevCmd->profiling	= (m_pCommandQueue->IsProfilingEnabled() ? true : false );
@@ -1700,7 +1697,7 @@ cl_err_code WriteImageCommand::Execute()
 
     m_pImage->SetDataLocation(clDeviceId);
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
     // Sending 1 command to the device where the buffer is located now
 	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
@@ -1732,7 +1729,8 @@ cl_err_code WriteImageCommand::CommandDone()
  ******************************************************************/
 cl_err_code RuntimeCommand::Execute()
 {
-    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), GetId());
+	m_returnCode = 0;
+    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_iId);
     CommandDone();
     return m_pEvent->SetColor(EVENT_STATE_BLACK);
 }

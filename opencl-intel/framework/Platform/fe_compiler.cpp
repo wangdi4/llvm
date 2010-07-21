@@ -45,12 +45,12 @@ FECompiler::FECompiler() : m_pszModuleName(NULL), m_fnBuild(NULL), m_pLoggerClie
 
 FECompiler::~FECompiler()
 {
-	Release();
+	FreeResources();
 }
 
 cl_err_code FECompiler::Initialize(const char * psModuleName)
 {
-	Release();
+	FreeResources();
 
 	INIT_LOGGER_CLIENT(L"FECompiler", LL_DEBUG);
 
@@ -70,7 +70,7 @@ cl_err_code FECompiler::Initialize(const char * psModuleName)
 	return CL_SUCCESS;
 }
 
-cl_err_code FECompiler::Release()
+void FECompiler::FreeResources()
 {
 	RELEASE_LOGGER_CLIENT;
 
@@ -81,8 +81,6 @@ cl_err_code FECompiler::Release()
 		m_dlModule.Close();
 		m_fnBuild = NULL;
 	}
-
-	return CL_SUCCESS;
 }
 
 cl_err_code FECompiler::BuildProgram(	cl_device_id				devId,

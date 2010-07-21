@@ -126,7 +126,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 			}
 			else
 			{
-				delete pCommandQueue;
+				pCommandQueue->Release();
 			}
 		}
 		else
@@ -200,29 +200,7 @@ cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
  ******************************************************************/
 cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue)
 {
-	LOG_INFO(L"Enter");
-    cl_err_code errVal = CL_SUCCESS;
-    IOclCommandQueueBase* pOclCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pOclCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-    errVal = pOclCommandQueue->Release();
-	LOG_DEBUG(L"OCL Queue ref count - %d", pOclCommandQueue->GetReferenceCount() );   
-    if ( CL_SUCCEEDED(errVal) && 
-		( 0 == pOclCommandQueue->GetReferenceCount())    
-		)
-    {
-        // Check if the command has fully released, and if true, destroy it and remove it        
-		LOG_DEBUG(L"Remove queue from the map");   
-		//Todo: deliberate, known race
-		Finish(clCommandQueue);
-        m_pOclCommandQueueMap->RemoveObject(clCommandQueue, NULL); //TODO: guard this access        
-
-		delete pOclCommandQueue;
-    }
-	LOG_INFO(L"Exit - retVal=0x%X", errVal);
-    return  errVal;
+	return m_pOclCommandQueueMap->ReleaseObject(clCommandQueue);
 }
 
 /******************************************************************
@@ -381,18 +359,12 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	{
 		return CL_INVALID_COMMAND_QUEUE;
 	}
-	/*
-	if (!pCommandQueue->IsOutOfOrderExecModeEnabled())
-	{
-		return CL_INVALID_OPERATION;
-	}
-	*/
 
 	// Create Command
 	Command* pMarkerCommand = new MarkerCommand();
 	pMarkerCommand->SetCommandQueue(pCommandQueue);
 	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
-	OclEvent* pMarkerEvent = m_pEventsManager->CreateOclEvent(CL_COMMAND_MARKER, pEvent, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
+	QueueEvent* pMarkerEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_MARKER, pEvent, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
 	pMarkerCommand->SetEvent(pMarkerEvent);
 
 	errVal = pMarkerCommand->Init();
@@ -449,7 +421,7 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	pBarrierCommand->SetCommandQueue(pCommandQueue);
 	pBarrierCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	errVal = pBarrierCommand->Init();
-	OclEvent* pBarrierEvent = m_pEventsManager->CreateOclEvent(CL_COMMAND_BARRIER, NULL, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
+	QueueEvent* pBarrierEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_BARRIER, NULL, pCommandQueue, (ocl_entry_points*)((_cl_object *)pCommandQueue->GetHandle())->dispatch);
 	pBarrierCommand->SetEvent(pBarrierEvent);
 	if(CL_SUCCEEDED(errVal))
 	{
@@ -928,8 +900,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
         }
     }
-    // Check that if local_work_size is specified and number of workitems specified by 
-    // global_work_size is not evenly divisable by size of work-group given by local_work_size
+    // Check that if local_work_size is specified and number of work items specified by 
+    // global_work_size is not evenly divisible by size of work-group given by local_work_size
     if( NULL != cpszGlobalWorkSize && NULL != cpszLocalWorkSize )
     {
         for( ui=0; ui<uiWorkDim; ui++)
@@ -995,12 +967,14 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     if( CL_SUCCEEDED (errVal) )
     {
         errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+		/*
         if(CL_FAILED(errVal))
         {
             // Enqueue failed, free resources
             pNDRangeKernelCmd->CommandDone();
             delete pNDRangeKernelCmd;
         }
+		*/
     }    
     return  errVal;
 }

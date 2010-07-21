@@ -25,15 +25,14 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(__OCL_EVENT_DONE_OBSERVER_H__)
-#define __OCL_EVENT_DONE_OBSERVER_H__
+#pragma once
 
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
     
     // Forward declaration
-    class QueueEvent;
+    class OclEvent;
 
     /************************************************************************
      * Pure interface class 
@@ -44,9 +43,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         virtual ~IEventDoneObserver(){};
-        virtual cl_err_code NotifyEventDone(QueueEvent* pEvent) = 0;
+        virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS) = 0;
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_EVENT_DONE_OBSERVER_H__)
-

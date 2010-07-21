@@ -75,21 +75,7 @@ cl_err_code ContextModule::Release(  bool bTerminate )
 	Context *pContext = NULL;
 	if (NULL != m_pContexts)
 	{
-		for(cl_uint ui=0; ui<m_pContexts->Count(); ++ui)
-		{
-			clErrRet = m_pContexts->GetObjectByIndex(ui, (OCLObject<_cl_context>**)&pContext);
-			if (CL_SUCCEEDED(clErrRet))
-			{
-				clErrRet = pContext->Release();
-				if (CL_FAILED(clErrRet))
-				{
-					return clErrRet;
-				}
-                pContext->Cleanup(bTerminate);
-				delete pContext;
-			}
-		}
-		m_pContexts->Clear();
+		m_pContexts->ReleaseAllObjects();
 	}
 
 	if (NULL != m_pPrograms)
@@ -300,27 +286,7 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 		LOG_ERROR(L"m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	clErrRet = m_pContexts->GetOCLObject(context, (OCLObject<_cl_context>**)&pContext);
-	if (CL_FAILED(clErrRet))
-	{
-		LOG_ERROR(L"m_pContexts->GetOCLObject(%d, %d) = %d", context, &pContext, clErrRet);
-		return CL_INVALID_CONTEXT;
-	}
-
-    clErrRet = pContext->Release();
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-    
-
-	if (pContext->GetReferenceCount() == 0 && pContext->GetPendencies() == 0)
-	{
-		m_pContexts->RemoveObject(context, (OCLObject<_cl_context>**)&pContext, true);
-	}
-
-    GarbageCollector();
-	return CL_SUCCESS;
+	return m_pContexts->ReleaseObject(context);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -526,32 +492,34 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 		LOG_ERROR(L"program %d is invalid program", clProgram);
 		return CL_INVALID_PROGRAM;
 	}
-	clErrRet = pProgram->Release();
-	if (CL_FAILED(clErrRet))
+	Context * pContext = const_cast<Context *>(pProgram->GetContext());
+	if (NULL == pContext)
 	{
-		return CL_ERR_OUT(clErrRet);
+		return CL_INVALID_PROGRAM;
 	}
-	if (pProgram->GetReferenceCount() == 0)
+	//Prevent deletion of context by program release before we're ready
+	pContext->AddPendency();
+
+	long newRef = pProgram->Release();
+	if (newRef < 0)
 	{
-		Context * pContext = (Context*)pProgram->GetContext();
-		if (NULL == pContext)
-		{
-			return CL_INVALID_PROGRAM;
-		}
-		clErrRet = pContext->RemoveProgram(pProgram->GetHandle());
+		return CL_INVALID_PROGRAM;
+	}
+	else if (0 == newRef)
+	{
+		clErrRet = pContext->RemoveProgram(clProgram);
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_ERR_OUT(clErrRet);
 		}
 
-		// remove program from programs list and add it to the dirty programs list
-		clErrRet = m_pPrograms->RemoveObject(pProgram->GetHandle(), NULL, true);
+		clErrRet = m_pPrograms->RemoveObject(clProgram);
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_ERR_OUT(clErrRet);
 		}
 	}
-	GarbageCollector();
+	pContext->RemovePendency();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -801,33 +769,35 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 		return CL_INVALID_KERNEL;
 	}
 
-	clErr = pKernel->Release();
-	if (CL_FAILED(clErr))
+	Program * pProgram = const_cast<Program *>(pKernel->GetProgram());
+	if (NULL == pProgram)
 	{
-		LOG_ERROR(L"pKernel->Release() returned %ws", ClErrTxt(clErr));
-		return CL_ERR_OUT(clErr);
+		return CL_INVALID_KERNEL;
 	}
+	//Prevent deletion of program by kernel release until we're ready
+	pProgram->AddPendency();
 
-	if (pKernel->GetReferenceCount() == 0)
+	long newRef = pKernel->Release();
+	if (newRef < 0)
 	{
-		Program * pProgram = (Program*)pKernel->GetProgram();
-		if (NULL == pProgram)
-		{
-			return CL_INVALID_KERNEL;
-		}
-		clErr = pProgram->RemoveKernel(pKernel->GetHandle());
+		LOG_ERROR(L"pKernel->Release() returned %ld", newRef);
+		CL_INVALID_KERNEL;
+	}
+	else if (0 == newRef)
+	{
+		clErr = pProgram->RemoveKernel(clKernel);
 		if (CL_FAILED(clErr))
 		{
 			return CL_ERR_OUT(clErr);
 		}
 		// remove kernel form kernels list and add it to the dirty kernels list		
-		clErr = m_pKernels->RemoveObject(pKernel->GetHandle(), NULL, true);
+		clErr = m_pKernels->RemoveObject(clKernel);
 		if (CL_FAILED(clErr))
 		{
 			return CL_ERR_OUT(clErr);
 		}
 	}
-	GarbageCollector();
+	pProgram->RemovePendency();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1117,6 +1087,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	}
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;
+	Context *pContext;
 
 	clErr = m_pMemObjects->GetOCLObject(clMemObj, (OCLObject<_cl_mem>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
@@ -1124,29 +1095,38 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clMemObj, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
-	clErr =  pMemObj->Release();
-	if (CL_FAILED(clErr))
+	pContext = const_cast<Context *>(pMemObj->GetContext());
+	if (!pContext)
 	{
-		CL_ERR_OUT(clErr);
+		return CL_INVALID_MEM_OBJECT;
 	}
-	cl_uint uiRefCount = pMemObj->GetReferenceCount();
-	if (0 == uiRefCount)
+
+	//Prevent deletion of context by program release before we're ready
+	pContext->AddPendency();
+
+	long newRef = pMemObj->Release();
+
+	if (newRef < 0)
+	{
+		return CL_INVALID_MEM_OBJECT;
+	}
+	else if (0 == newRef)
 	{
 		// TODO: handle release memory object
-		Context *pContext = (Context*)pMemObj->GetContext();
 		clErr = pContext->RemoveMemObject(clMemObj);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
 		}
-		//TODO: set dirty object
-		clErr = m_pMemObjects->RemoveObject(clMemObj, NULL, true);
+
+		clErr = m_pMemObjects->RemoveObject(clMemObj);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
 		}
 	}
-	GarbageCollector();
+
+	pContext->RemovePendency();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1326,7 +1306,8 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 #endif
 
 	cl_err_code clErr = CL_SUCCESS;
-	Sampler * pSampler = NULL;
+	Sampler* pSampler = NULL;
+	Context* pContext = NULL;
 
 	clErr = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
@@ -1334,27 +1315,34 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 		LOG_ERROR(L"GetOCLObject(%d, %d) returned %ws", clSampler, &pSampler, ClErrTxt(clErr));
 		return CL_INVALID_SAMPLER;
 	}
-	clErr =  pSampler->Release();
-	if (CL_FAILED(clErr))
+	pContext = const_cast<Context *>(pSampler->GetContext());
+	if (!pContext)
 	{
-		CL_ERR_OUT(clErr);
+		return CL_INVALID_SAMPLER;
 	}
-	cl_uint uiRefCount = pSampler->GetReferenceCount();
-	if (0 == uiRefCount)
+	//Prevent deletion of context by program release before we're ready
+	pContext->AddPendency();
+
+	long newRef = pSampler->Release();
+	if (newRef < 0)
 	{
-		Context *pContext = (Context*)pSampler->GetContext();
+		return CL_INVALID_SAMPLER;
+	}
+	else if (0 == newRef)
+	{
 		clErr = pContext->RemoveSampler(clSampler);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
 		}		
-		clErr = m_pSamplers->RemoveObject(clSampler, NULL, true);
+		clErr = m_pSamplers->RemoveObject(clSampler);
 		if (CL_FAILED(clErr))
 		{
 			CL_ERR_OUT(clErr);
 		}
 	}
-	GarbageCollector();
+
+	pContext->RemovePendency();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1418,15 +1406,6 @@ MemoryObject * ContextModule::GetMemoryObject(const cl_mem clMemObjId)
 		return pMemoryObject;
 	}
 	return NULL;
-}
-
-void ContextModule::GarbageCollector()
-{
-	m_pKernels->GarbageCollector();
-	m_pPrograms->GarbageCollector();
-	m_pMemObjects->GarbageCollector();
-	m_pSamplers->GarbageCollector();
-	m_pContexts->GarbageCollector();
 }
 
 cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext, 

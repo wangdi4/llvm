@@ -41,7 +41,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 		pEvent = pUserEvent;
 	}
 	// creates the command's event
-	OclEvent* pQueueEvent = m_pEventsManager->CreateOclEvent(pCommand->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
+	QueueEvent* pQueueEvent = m_pEventsManager->CreateQueueEvent(pCommand->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
 	pCommand->SetEvent(pQueueEvent);
 
 	pQueueEvent->AddFloatingDependence();
@@ -51,7 +51,8 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	{
 		pQueueEvent->RemoveFloatingDependence();
 		pCommand->CommandDone();
-		delete pQueueEvent;
+		pQueueEvent->RemovePendency(); //implicitly added by Command->SetEvent
+		pQueueEvent->Release();
 		return errVal;
 	}   
 
@@ -60,7 +61,8 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	if (CL_FAILED(errVal))
 	{
 		pCommand->CommandDone();
-		delete pQueueEvent;
+		pQueueEvent->RemovePendency(); //implicitly added by Command->SetEvent
+		pQueueEvent->Release();
 		return CL_ERR_FAILURE;
 	}
 
@@ -69,17 +71,18 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 		pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 	}
 
+	//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+	if (NULL == pUserEvent) 
+	{
+		pQueueEvent->Release();
+	}
+
 	// If blocking, wait for object
 	if(bBlocking)
 	{
 		if ( !WaitForCompletion(pQueueEvent) )
 		{
 			pQueueEvent->Wait();
-		}
-		if ( pUserEvent == NULL )
-		{
-			// The case where it use temp event for blocking
-			m_pEventsManager->ReleaseEvent(waitEvent);
 		}
 	}
 	return CL_SUCCESS;
@@ -90,7 +93,7 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 	cl_err_code errVal;
 	//create a dummy event for the waitForEvents
 	cl_event* pEvent = NULL;
-	OclEvent* pQueueEvent = m_pEventsManager->CreateOclEvent(wfe->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
+	QueueEvent* pQueueEvent = m_pEventsManager->CreateQueueEvent(wfe->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
 	wfe->SetEvent(pQueueEvent);
 	pQueueEvent->AddFloatingDependence();
 	//wfe->SetCommandDeviceId(m_clDefaultDeviceId);
@@ -99,7 +102,7 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 	if( CL_FAILED(errVal))
 	{
 		pQueueEvent->RemoveFloatingDependence();
-		delete pQueueEvent;
+		pQueueEvent->Release();
 		return errVal;
 	}   
 
@@ -115,7 +118,7 @@ bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 
 	cl_int ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
 
-	QueueEventStateColor color = pEvent->GetColor();
+	OclEventStateColor color = pEvent->GetColor();
 	if ( CL_DEV_FAILED(ret) || (EVENT_STATE_BLACK != color) )
 	{
 		pEvent->Wait();

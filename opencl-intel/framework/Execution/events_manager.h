@@ -18,16 +18,13 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#pragma once
 ///////////////////////////////////////////////////////////
 //  events_manager.h
 //  Implementation of the Class EventsManager
 //  Created on:      23-Dec-2008 3:22:59 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
-#if !defined(__OCL_EVENTS_MANAGER_H__)
-#define __OCL_EVENTS_MANAGER_H__
-
+#pragma once
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -60,17 +57,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
 
         // Event handling functions
-        OclEvent* CreateOclEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
-		OclEvent* GetEvent(cl_event clEvent);
-        cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_command_queue queueId = 0);
+        QueueEvent* CreateQueueEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints);
+		OclEvent*   GetEvent(cl_event clEvent);
+		QueueEvent* GetQueueEvent(cl_event clEvent);
+        cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
         cl_err_code ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext);
 
     private:
-        OCLObjectsMap<_cl_event>* m_pEvents;   // Holds the set of clEvents that exist.
+        OCLObjectsMap<_cl_event>* m_pEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
         OclEvent** GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList );
-
 
         // An EventManger object cannot be copied
         EventsManager(const EventsManager&);           // copy constructor
@@ -79,4 +76,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_EVENTS_MANAGER_H__)

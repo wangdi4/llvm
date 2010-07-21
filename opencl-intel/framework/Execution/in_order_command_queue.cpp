@@ -82,7 +82,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 					cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT,
 						m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 				}
-				QueueEventStateColor color = cmd->GetCommandType() == CL_COMMAND_MARKER || cmd->GetEvent()->HasDependencies() ?
+				OclEventStateColor color = cmd->GetCommandType() == CL_COMMAND_MARKER || cmd->GetEvent()->HasDependencies() ?
 										EVENT_STATE_RED : EVENT_STATE_YELLOW;
 				cmd->GetEvent()->SetColor(color);
 				m_submittedQueue.PushBack(cmd);
@@ -100,7 +100,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor )
+cl_err_code InOrderCommandQueue::NotifyStateChange( const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
 {
 	if (EVENT_STATE_YELLOW == newColor)
 	{
@@ -133,7 +133,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 			while (!m_submittedQueue.IsEmpty())
 			{
 				Command* cmd = m_submittedQueue.Top();
-				QueueEventStateColor color = cmd->GetEvent()->GetColor();
+				OclEventStateColor color = cmd->GetEvent()->GetColor();
 				if (EVENT_STATE_YELLOW == color)
 				{
 					//Ready for execution, schedule it

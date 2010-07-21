@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_ICONTEXT_GL_H_)
-#define OCL_ICONTEXT_GL_H_
-
 #include <cl_types.h>
 #ifdef WIN32
 #include <Windows.h>
@@ -318,4 +315,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-#endif // !defined(OCL_ICONTEXT_GL_H_)

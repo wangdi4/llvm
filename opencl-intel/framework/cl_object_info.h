@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_OBJECT_INFO_H_)
-#define OCL_OBJECT_INFO_H_
-
 #include "cl_types.h"
 #include <map>
 using namespace std;
@@ -187,4 +184,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-#endif // !defined(OCL_OBJECT_INFO_H_)

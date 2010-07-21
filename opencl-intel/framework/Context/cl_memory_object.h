@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_MEMORY_OBJECT_H_)
-#define _OCL_MEMORY_OBJECT_H_
-
 #include <cl_types.h>
 #include <logger.h>
 #include <cl_object.h>
@@ -188,15 +185,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, ocl_entry_points * pOclEntryPoints, cl_err_code * pErr);
 
 		/******************************************************************************************
-		* Function: 	~MemoryObject
-		* Description:	The MemoryObject class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~MemoryObject();
-
-		/******************************************************************************************
 		* Function: 	GetInfo    
 		* Description:	get object specific information (inharited from OCLObject) the function 
 		*				query the desirable parameter value from the device
@@ -225,9 +213,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) 
             {return CL_ERR_FAILURE; }
         
-        // release the memory object
-		virtual cl_err_code Release();
-
 		// initialize the data on the memeory object
 		cl_err_code Initialize(void * pHostPtr);
 
@@ -369,6 +354,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     protected:
 
+		/******************************************************************************************
+		* Function: 	~MemoryObject
+		* Description:	The MemoryObject class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~MemoryObject();
+
 		// check if the memory flags are valid or not
 		cl_err_code CheckMemFlags(cl_mem_flags clMemFlags);
 
@@ -386,6 +380,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 }}};
-
-
-#endif //_OCL_CONTEXT_H_

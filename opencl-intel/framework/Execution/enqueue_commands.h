@@ -25,9 +25,8 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(__OCL_ENQUEUE_COMMANDS__)
-#define __OCL_ENQUEUE_COMMANDS__
-    
+#pragma once
+
 #include <cl_types.h>
 #include <cl_device_api.h>
 #include <logger.h>
@@ -42,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	#define CL_COMMAND_BARRIER			1
 	#define CL_COMMAND_WAIT_FOR_EVENTS	2
     // Forward declarations
-    class OclEvent;
+    class QueueEvent;
     class MemoryObject;
     class Kernel;
     class OclCommandQueue;
@@ -61,7 +60,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class Command : public OCLObject<_cl_event>, public ICmdStatusChangedObserver
+    class Command : public ICmdStatusChangedObserver
     {
 
     public:
@@ -93,6 +92,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Returns True if command is: Marker || Barrier || WaitForEvents
 		//
 		virtual bool isControlCommand() const  { return false; }
+		//
+		// Returns the success status of the command
+		//
+		virtual cl_int GetReturnCode() const { return m_returnCode; }
         //
         // Returns whether a command is going to be executed on the device or not.
         //
@@ -103,8 +106,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
 
         // Command general functions
-        void            SetEvent    (OclEvent* evt);
-        OclEvent*       GetEvent    ()                                      { return m_pEvent; }   
+        void            SetEvent    (QueueEvent* evt);
+        QueueEvent*     GetEvent    ()                                      { return m_pEvent; }   
         void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
 		void            SetDevice(Device* pDevice)                          { m_pDevice = pDevice; }
@@ -115,14 +118,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
 
     protected:
-        OclEvent*                   m_pEvent;                   // Pointer to the related event object
+        QueueEvent*                 m_pEvent;                   // Pointer to the related event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
 		Device*                     m_pDevice;                  // A pointer to the device executing the command
 		OclCommandQueue*            m_pCommandQueue;            // A pointer to the command queue on which the command resides
+		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec. 
+		cl_int                      m_iId;                      // The command's ID
+
+		DECLARE_LOGGER_CLIENT;
 
     public:
-        bool						m_bIsFlushed;				// Required only for Debug, TODO: Remove on stabilty
+        bool						m_bIsFlushed;				// Required only for Debug, TODO: Remove on stability
     };
 
     /******************************************************************
@@ -626,4 +633,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_ENQUEUE_COMMANDS__)

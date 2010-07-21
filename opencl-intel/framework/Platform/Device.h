@@ -24,9 +24,7 @@
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if !defined(_OCL_DEVICE_H_)
-#define _OCL_DEVICE_H_
+#pragma once
 
 #include <cl_types.h>
 #include <cl_object.h>
@@ -64,15 +62,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/		
 		Device();
-
-		/******************************************************************************************
-		* Function: 	~Device
-		* Description:	The OCLObject class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~Device();
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
@@ -144,6 +133,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		IOCLDevice*	GetDeviceAgent() {return m_pDevice;}
 
+	protected:
+		/******************************************************************************************
+		* Function: 	~Device
+		* Description:	The OCLObject class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~Device();
+
 	private:
 
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -182,4 +181,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 }}};
-#endif //_OCL_DEVICE_H_

@@ -57,39 +57,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		FECompiler();
 
 		/******************************************************************************************
-		* Function: 	~FECompiler
-		* Description:	The Frontend compiler class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/
-		virtual ~FECompiler();
-
-		/******************************************************************************************
 		* Function: 	Initialize    
 		* Description:	Initialize the front-end compiler
 		* Arguments:		
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
+		* Return value:	CL_SUCCESS - The initialization operation succeeded
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/		
 		cl_err_code		Initialize(const char * psModuleName);
 
 		/******************************************************************************************
-		* Function: 	Release    
-		* Description:	Release the front-end compiler resources
+		* Function: 	FreeResources    
+		* Description:	Frees the front-end compiler resources
 		* Arguments:		
-		* Return value:	CL_SUCCESS - The release operation succeded
-		* Author:		Uri Levy
+		* Return value:	CL_SUCCESS - The operation succeeded
+		* Author:		Doron Singer
 		* Date:			March 2008
 		******************************************************************************************/
-		cl_err_code		Release();
+		void		FreeResources();
 
 		/******************************************************************************************
 		* Function: 	BuildProgram    
 		* Description:	Build source code and return binary data
 		* Arguments:	
-		* Return value:	CL_SUCCESS - The operation succedeed
+		* Return value:	CL_SUCCESS - The operation succeeded
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/
@@ -109,6 +100,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			March 2008
 		******************************************************************************************/
 		const char * GetModuleName() const { return m_pszModuleName; }
+
+		//OclObject implementation
+		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) {return CL_INVALID_OPERATION; }
+
+	protected:
+		/******************************************************************************************
+		* Function: 	~FECompiler
+		* Description:	The Frontend compiler class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			March 2008
+		******************************************************************************************/
+		virtual ~FECompiler();
 	
 	private:
 		Utils::OclDynamicLib		m_dlModule;

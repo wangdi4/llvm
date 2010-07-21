@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#pragma once
 ///////////////////////////////////////////////////////////
 //  ocl_event.h
 //  Implementation of the Class OclEvent
@@ -26,75 +25,143 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(__OCL_OCL_EVENT_H__)
-#define __OCL_OCL_EVENT_H__
+
+#pragma once
 
 #include <cl_types.h>
 #include <cl_object.h>
 #include <cl_synch_objects.h>
-#include "queue_event.h"
 #include "event_done_observer.h"
+#include <list>
+
+namespace Intel { namespace OpenCL { namespace Framework {
+
+	// Forward declarations
+	class Command;
+	class IOclCommandQueueBase;
+
+	typedef enum
+	{
+		EVENT_STATE_WHITE,			// The command is just created
+		EVENT_STATE_RED,			// The command is dependent on 1 or more other commands
+		EVENT_STATE_YELLOW,			// The command is ready to be executed - no deps.
+		EVENT_STATE_LIME,			// The command is issued to the device, but is not processed yet.
+		EVENT_STATE_GREEN,			// The command is been executed on the device.
+		EVENT_STATE_BLACK			// Command is done and ready for deletion.
+	} OclEventStateColor;
 
 #define OCL_EVENT_WAIT_SPIN         0
 #define OCL_EVENT_WAIT_YIELD        1
 #define OCL_EVENT_WAIT_OS_DEPENDENT 2
 
-//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
+	//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
 #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
-//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
-
-namespace Intel { namespace OpenCL { namespace Framework {
-
-	class Command;
+	//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 
 
-    /**********************************************************************************************
-     * Class name:    QueueEvent
-     *
-     * Description:    
-     *      TODO
-     *
-     * Author:        Arnon Peleg
-     * Date:        December 2008
-    /**********************************************************************************************/    
-    class OclEvent : public QueueEvent, public OCLObject<_cl_event>
-    {
 
-    public:
-		OclEvent( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints );
-        virtual ~OclEvent();        
-        void    Wait();
+	/**********************************************************************************************
+	* struct name:	SProfilingInfo
+	*
+	* Description:	
+	*      Holds the profiling information of the event
+	* 
+	* Author:		Uri Levy
+	* Date:		May 2009
+	/**********************************************************************************************/
+	struct SProfilingInfo
+	{
+		cl_ulong	m_ulCommandQueued;	// A 64-bit value that describes the current device time
+		// counter in nanoseconds when the command identified by
+		// event is enqueued in a command-queue by the host.
 
-        cl_context       GetContextHandle() const;
-        cl_command_queue GetQueueHandle() const;
-		// OCLObject implementation
-        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet);
+		cl_ulong	m_ulCommandSubmit;	// A 64-bit value that describes the current device time
+		// counter in nanoseconds when the command identified by
+		// event that has been enqueued is submitted by the host
+		// to the device associated with the command queue.
 
-		// profiling support
-		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
+		cl_ulong	m_ulCommandStart;	// A 64-bit value that describes the current device time
+		// counter in nanoseconds when the command identified by
+		// event starts execution on the device
+
+		cl_ulong	m_ulCommandEnd;		// A 64-bit value that describes the current device time
+		// counter in nanoseconds when the command identified by
+		// event has finished execution on the device
+	};
+
+	/**********************************************************************************************
+	* Class name:	OclEvent
+	*
+	* Description:	
+	*      OclEvent controls the dependencies between execution commands. The queue implementation
+	*      attaches an event to each command. 
+	*      The event holds the execution state of the command, which is one of the following:
+	*          - EVENT_STATE_RED:      The command is dependent on 1 or more other commands
+	*          - EVENT_STATE_YELLOW:   The command is ready to be executed - no deps.
+	*          - EVENT_STATE_LIME:     The command is issued to the device, but is not processed yet.
+	*          - EVENT_STATE_GREEN:    The command is been executed on the device.
+	*          - EVENT_STATE_BLACK:    Command is done and ready for deletion.
+	* 
+	* Author:		Doron Singer
+	* Date:		July 2010
+	/**********************************************************************************************/	
+	class OclEvent : public IEventDoneObserver, public OCLObject<_cl_event>
+	{
+	public:
+		OclEvent(IOclCommandQueueBase* cmdQueue);
+
+		void                    AddCompleteListener(IEventDoneObserver* listener);
+		void                    AddDependentOn( OclEvent* pDependsOnEvent );
+		void                    AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
+		void                    AddFloatingDependence() { ++m_depListLength; }
+		void                    RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
+		OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
+
+		OclEventStateColor      GetColor() const                                    { return m_color; }
+		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
+		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
+		bool                    HasDependencies() const                             { return m_depListLength > 0;}
+
+		// Implementation IEventDoneObserver
+		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+
+		// Blocking function, returns after NotifyComplete is done
+		void    Wait();
+
+		cl_int GetEventCurrentStatus();
+
+
+		// Get the context to which the event belongs.
+		virtual cl_context GetContextHandle() const = 0;
+		// Get the return code of the command associated with the event.
+		virtual cl_int     GetReturnCode() const = 0; 
 
 	protected:
-        cl_int      GetEventCurrentStatus();
+		virtual ~OclEvent();
+
+		void   NotifyReady(OclEvent* pEvent); 
+		void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
+
 		//Some implementations of possible methods for waiting 
 		void        WaitSpin();
 		void        WaitYield();
 		void        WaitOSEvent();
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-		//Overriding the event done implementation for OS Wait support
-		virtual cl_err_code NotifyEventDone(QueueEvent* pEvent);
-#endif
-		SProfilingInfo		m_sProfilingInfo;
-		bool				m_bProfilingEnabled;
 
-        // An OclEvent object cannot be copied
-        OclEvent(const OclEvent&);           // copy constructor
-        OclEvent& operator=(const OclEvent&);// assignment operator
+		// An OclEvent object cannot be copied
+		OclEvent(const OclEvent&);           // copy constructor
+		OclEvent& operator=(const OclEvent&);// assignment operator
+
+		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>  m_CompleteListeners;
+		Intel::OpenCL::Utils::AtomicCounter                            m_CompleteListenersGuard;
+		Intel::OpenCL::Utils::AtomicCounter                            m_depListLength;
+		volatile bool                         m_complete;
+		volatile OclEventStateColor           m_color;
+		IOclCommandQueueBase*                 m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		Intel::OpenCL::Utils::OclOsDependentEvent m_osEvent;
 #endif
 
-    };
+	};
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_OCL_EVENT_H__)
+

@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_PROGRAM_BINARY_H_)
-#define _OCL_PROGRAM_BINARY_H_
-
 #include <cl_types.h>
 #include <logger.h>
 #include <cl_synch_objects.h>
@@ -129,10 +126,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void *									m_pBinData;		// binary data
 
-		//char *								m_pcBuildOptions; // build options
-
-		//cl_prog_container	*					m_pclDevProgContainer;
-
 		Intel::OpenCL::Utils::OclMutex			m_CS;				// Critical Section object for quering the build status
 
 		DECLARE_LOGGER_CLIENT;	// logger client
@@ -141,5 +134,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 }}};
 
-
-#endif //_OCL_PROGRAM_BINARY_H_

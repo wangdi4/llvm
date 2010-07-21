@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_IPLATFORM_H_)
-#define OCL_IPLATFORM_H_
-
 #include <cl_types.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -192,4 +189,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-#endif // !defined(OCL_IPLATFORM_H_)

@@ -25,16 +25,11 @@
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if !defined(_OCL_CONTEXT_H_)
-#define _OCL_CONTEXT_H_
-
 #include <cl_types.h>
 #include <logger.h>
 #include <cl_object.h>
 #include <cl_objects_map.h>
 #include <map>
-using namespace::std;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -45,7 +40,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Device;
 	class Program;
 	class MemoryObject;
-	//class OCLObjectsMap;
 
 	/**********************************************************************************************
 	* Class name:	Context
@@ -73,15 +67,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints);
 
 		/******************************************************************************************
-		* Function: 	~Device
-		* Description:	The Context class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~Context();
-
-        /******************************************************************************************
         * Function: 	Cleanup    
         * Description:	Cleanup devices in the context if terminate is false
         * Arguments:	
@@ -227,7 +212,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb);
 
-    private:
+	protected:
+		/******************************************************************************************
+		* Function: 	~Device
+		* Description:	The Context class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~Context();
+
+	private:
 
 		cl_ulong GetMaxMemAllocSize();
 		cl_err_code GetMaxImageDimensions(	size_t * psz2dWidth, 
@@ -258,12 +253,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void *									m_pUserData; // user data
 
-        static map<cl_device_id, cl_uint>		m_sContextsPerDevices;   // Used to determine whether to create/close a device inst.
+		static std::map<cl_device_id, cl_uint>	m_sContextsPerDevices;   // Used to determine whether to create/close a device inst.
 
 	};
 
 
 }}};
 
-
-#endif //_OCL_CONTEXT_H_

@@ -24,9 +24,7 @@
 //  Created on:      23-Dec-2008 3:23:02 PM
 //  Original author: Levy, Uri
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if !defined(__OCL_OBSERVER_H__)
-#define __OCL_OBSERVER_H__
+#pragma once
 
 #include <cl_device_api.h>
 #include <cl_types.h>
@@ -65,6 +63,4 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_OBSERVER_H__)
-
 

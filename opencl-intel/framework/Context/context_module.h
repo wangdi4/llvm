@@ -25,10 +25,6 @@
 //  Created on:      10-Dec-2008 2:08:23 PM
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if !defined(OCL_CONTEXT_MODULE_H_)
-#define OCL_CONTEXT_MODULE_H_
-
 #include <cl_types.h>
 #include <logger.h>
 #include "icontext.h"
@@ -172,10 +168,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get pointers to device objects according to the device ids
 		cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
 
-		// garbage collector - remove unused objects
-		void GarbageCollector();
-
-
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
 
 		OCLObjectsMap<_cl_context> *			m_pContexts; // map list of contexts
@@ -194,4 +186,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-#endif // !defined(OCL_CONTEXT_MODULE_H_)

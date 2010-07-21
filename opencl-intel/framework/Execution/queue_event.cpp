@@ -26,119 +26,223 @@
 ///////////////////////////////////////////////////////////
 #include "queue_event.h"
 #include "command_queue.h"
-#include <cl_sys_info.h>
 #include "enqueue_commands.h"
+#include <cl_sys_info.h>
 
 // For debugging
 #include <assert.h>
 #include "cl_utils.h"
 
 using namespace Intel::OpenCL::Framework;
-QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue) : m_complete(false), m_color(EVENT_STATE_WHITE), m_pEventQueue(cmdQueue)
+using namespace Intel::OpenCL::Utils;
+
+/******************************************************************
+*
+******************************************************************/
+QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
+OclEvent(cmdQueue), m_bProfilingEnabled(false), m_pCommand(NULL)
 {
+	m_sProfilingInfo.m_ulCommandQueued = 0;
+	m_sProfilingInfo.m_ulCommandSubmit = 0;
+	m_sProfilingInfo.m_ulCommandStart = 0;
+	m_sProfilingInfo.m_ulCommandEnd = 0;
+
+	m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
+	//Todo: workaround because OCL1.0
+	m_bProfilingEnabled = true;
+
+	m_handle.object = this;
+	m_handle.dispatch = pOclEntryPoints;
 }
 
+/******************************************************************
+*
+******************************************************************/
 QueueEvent::~QueueEvent()
 {
-}
-//Todo: very unhappy about reinterpret cast here
-//Need to consider aggregation over inheritance
-
-void QueueEvent::AddDependentOn( OclEvent* pDependsOnEvent)
-{
-	//Must increase dependency list length before adding as listener
-	//The other event may have completed already, in which case our callback will be called immediately
-	//Which will decrease the depListLength.
-	++m_depListLength;
-	QueueEvent* pQueueDependsOnEvent = reinterpret_cast<QueueEvent*>(pDependsOnEvent);
-	assert(pQueueDependsOnEvent);
-	pQueueDependsOnEvent->AddCompleteListener(this);
-}
-
-//Important to increase the guard by count immediately, otherwise there's a race condition where the first dependency is finished before the second is registered
-void QueueEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList)
-{
-	m_depListLength.add(count);
-	for (unsigned int i = 0; i < count; ++i)
+	if (m_pCommand)
 	{
-		QueueEvent* evt = reinterpret_cast<QueueEvent*>(pDependencyList[i]);
-		if (evt != NULL)
+		delete m_pCommand;
+	}
+}
+
+/******************************************************************
+*
+******************************************************************/
+cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * paramValue, size_t * paramValueSizeRet)
+{
+	cl_err_code res = CL_SUCCESS;
+	void* localParamValue = NULL;
+	size_t outputValueSize = 0;
+	cl_int eventStatus = CL_QUEUED;
+	cl_command_type  cmd_type;
+	cl_command_queue cmd_queue;
+
+	switch (paramName)
+	{
+	case CL_EVENT_COMMAND_QUEUE:
+		cmd_queue = GetEventQueue()->GetHandle();
+		localParamValue = &cmd_queue;
+		outputValueSize = sizeof(cl_command_queue);
+		break;
+	case CL_EVENT_COMMAND_TYPE:
+		if (!m_pCommand)
 		{
-			evt->AddCompleteListener(this);
+			//Todo: need to return CL_USER_COMMAND if user event
+			return CL_INVALID_VALUE;
+		}
+		cmd_type        = m_pCommand->GetCommandType();
+		localParamValue = &cmd_type;
+		outputValueSize = sizeof(cl_command_type);
+		break;
+	case CL_EVENT_COMMAND_EXECUTION_STATUS:
+		eventStatus = GetEventCurrentStatus();
+		localParamValue = &eventStatus;
+		outputValueSize = sizeof(cl_int); 
+		break;
+	case CL_EVENT_REFERENCE_COUNT:
+		localParamValue = &m_uiRefCount;
+		outputValueSize = sizeof(cl_uint);
+		break;
+	default:
+		res = CL_INVALID_VALUE;
+		break;
+	}
+
+	// check param_value_size
+	if ( (NULL != paramValue) && (paramValueSize < outputValueSize))
+	{
+		res = CL_INVALID_VALUE;
+	}
+	else
+	{
+		if ( NULL != paramValue )
+		{
+			memcpy(paramValue, localParamValue, outputValueSize);
+		}
+		if ( NULL != paramValueSizeRet )
+		{
+			*paramValueSizeRet = outputValueSize;
 		}
 	}
+	return res;
 }
 
-void QueueEvent::AddCompleteListener(IEventDoneObserver* listener)
+/******************************************************************
+*
+******************************************************************/
+cl_err_code QueueEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	++m_CompleteListenersGuard;
-	if (!m_complete)
-	{
-		m_CompleteListeners.PushBack(listener);
-		--m_CompleteListenersGuard;
-	}
-	else //event completed while we were registering, notify immediately
-	{
-		--m_CompleteListenersGuard;
-		listener->NotifyEventDone(this);
-	}
-}
+	cl_err_code res = CL_SUCCESS;
+	void* localParamValue = NULL;
+	size_t outputValueSize = 0;
+	cl_ulong ulProfilingInfo = 0;
 
-QueueEventStateColor QueueEvent::SetColor(QueueEventStateColor color)
-{
-	//Todo: do we need atomic exchange here?
-	QueueEventStateColor oldColor = m_color;
-	m_color = color;
-	if (EVENT_STATE_BLACK == color)
+	if (!m_bProfilingEnabled)
 	{
-		NotifyComplete();
-	}
-	return oldColor;
-}
-
-//Notifies us that pEvent that we were listening on, has completed
-cl_err_code QueueEvent::NotifyEventDone(QueueEvent* pEvent)
-{
-	if (0 == --m_depListLength)
-	{
-		NotifyReady(pEvent);
-	}
-	return CL_SUCCESS;
-}
-
-void QueueEvent::NotifyComplete()
-{
-	//block further requests to add notifiers
-	m_complete = true;
-	//loop until all pending addition requests are complete
-	while (m_CompleteListenersGuard > 0);
-
-	//Notify everyone
-	while (!m_CompleteListeners.IsEmpty())
-	{
-		IEventDoneObserver* listener = m_CompleteListeners.PopFront();
-		assert(listener);
-		listener->NotifyEventDone(this);
+		return CL_PROFILING_INFO_NOT_AVAILABLE;
 	}
 
-	m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
+	cl_int eventStatus = GetEventCurrentStatus();
 
-	delete m_pCommand;
-}
-
-
-void QueueEvent::NotifyReady(QueueEvent* pEvent)
-{
-	if (EVENT_STATE_RED == m_color)
+	switch (clParamName)
 	{
-		m_color = EVENT_STATE_YELLOW;
-		if ((pEvent) && (pEvent->GetEventQueue()->GetId() == GetEventQueue()->GetId()))
+	case CL_PROFILING_COMMAND_QUEUED:
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandQueued;
+		break;
+	case CL_PROFILING_COMMAND_SUBMIT:
+		if (eventStatus > CL_SUBMITTED)
 		{
-			//that event will notify my queue for me
-			return;
+			return CL_PROFILING_INFO_NOT_AVAILABLE;
 		}
-		//else, I have to notify the queue myself
-		m_pEventQueue->NotifyStateChange(this, EVENT_STATE_RED, EVENT_STATE_YELLOW);
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandSubmit;
+		break;
+	case CL_PROFILING_COMMAND_START:
+		if (eventStatus > CL_RUNNING)
+		{
+			return CL_PROFILING_INFO_NOT_AVAILABLE;
+		}
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandStart;
+		break;
+	case CL_PROFILING_COMMAND_END:
+		if (eventStatus > CL_COMPLETE)
+		{
+			return CL_PROFILING_INFO_NOT_AVAILABLE;
+		}
+		ulProfilingInfo = m_sProfilingInfo.m_ulCommandEnd;
+		break;
+	default:
+		return CL_INVALID_VALUE;
 	}
 
+	localParamValue = &ulProfilingInfo;
+	outputValueSize = sizeof(cl_ulong);
+
+	// check param_value_size
+	if ( (NULL != pParamValue) && (szParamValueSize < outputValueSize))
+	{
+		res = CL_INVALID_VALUE;
+	}
+	else
+	{
+		if ( NULL != pParamValue )
+		{
+			memcpy(pParamValue, localParamValue, outputValueSize);
+		}
+		if ( NULL != pszParamValueSizeRet )
+		{
+			*pszParamValueSizeRet = outputValueSize;
+		}
+	}
+	return res;
+}
+
+void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData)
+{
+	switch ( clParamName )
+	{
+	case CL_PROFILING_COMMAND_QUEUED:
+		m_sProfilingInfo.m_ulCommandQueued = ulData;
+		break;
+	case CL_PROFILING_COMMAND_SUBMIT:
+		m_sProfilingInfo.m_ulCommandSubmit = ulData;
+		break;
+	case CL_PROFILING_COMMAND_START:
+		m_sProfilingInfo.m_ulCommandStart = ulData;
+		break;
+	case CL_PROFILING_COMMAND_END:
+		m_sProfilingInfo.m_ulCommandEnd = ulData;
+		break;
+	default:
+		break;
+	}
+}
+
+/******************************************************************
+*
+******************************************************************/
+cl_err_code QueueEvent::NotifyEventDone(Intel::OpenCL::Framework::OclEvent *pEvent, cl_int returnCode)
+{
+	if (CL_FAILED(returnCode))
+	{
+		m_pCommand->NotifyCmdStatusChanged(0, CL_COMPLETE, returnCode, Intel::OpenCL::Utils::HostTime());
+		//Everything else will be handled from the command routine
+		return CL_SUCCESS;
+	}
+	//Else, fall back on regular routine
+	return OclEvent::NotifyEventDone(pEvent, returnCode);
+
+}
+
+cl_context QueueEvent::GetContextHandle() const
+{
+	return GetEventQueue()->GetContextHandle();
+}
+cl_command_queue QueueEvent::GetQueueHandle() const
+{
+	return GetEventQueue()->GetHandle();
+}
+cl_int QueueEvent::GetReturnCode() const
+{
+	return m_pCommand->GetReturnCode();
 }

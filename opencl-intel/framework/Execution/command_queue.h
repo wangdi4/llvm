@@ -25,8 +25,7 @@
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
 
-#if !defined(__OCL_COMMAND_QUEUE_H__)
-#define __OCL_COMMAND_QUEUE_H__
+#pragma once
 
 #include <cl_types.h>
 #include "queue_event.h"
@@ -51,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
-		virtual cl_err_code NotifyStateChange( const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor ) = 0;
+		virtual cl_err_code NotifyStateChange( const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor ) = 0;
 	};
 
 	class IOclCommandQueueBase : public ICommandQueue, public OclCommandQueue
@@ -64,18 +63,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			EventsManager*              pEventManager,
 			ocl_entry_points *			pOclEntryPoints
 			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints) {}
-		virtual ~IOclCommandQueueBase() {}
 
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 		virtual bool		WaitForCompletion(OclEvent* pEvent );
 
 	protected:
+		virtual ~IOclCommandQueueBase() {}
+
 		virtual cl_err_code SetDependentOnList(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 
 	};
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_COMMAND_QUEUE_H__)
 
 
 

@@ -69,7 +69,7 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 	Command* prev_barrier = (Command*)(m_lastBarrier.test_and_set(NULL,NULL));	
 	if (prev_barrier != NULL)
 	{		
-		QueueEvent* cmdEvent = cmd->GetEvent();		
+		OclEvent* cmdEvent = cmd->GetEvent();		
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
 	}
 	m_queuedQueue.PushBack(cmd);
@@ -89,7 +89,7 @@ void OutOfOrderCommandQueue::MvQueuedToSubmitted()
 				cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT,
 					m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 			}
-			QueueEventStateColor color = cmd->GetEvent()->HasDependencies() ? EVENT_STATE_RED : EVENT_STATE_YELLOW;
+			OclEventStateColor color = cmd->GetEvent()->HasDependencies() ? EVENT_STATE_RED : EVENT_STATE_YELLOW;
 			cmd->GetEvent()->SetColor(color);
 			m_submittedQueue.PushBack(cmd);
 		}
@@ -134,7 +134,7 @@ void OutOfOrderCommandQueue::TidyRunningQueue()
 	SendCommandsToDevice(); // Handle Marker in SubmittedQueue waiting for this command	
 }
 
-cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor )
+cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
 {	
 	if (EVENT_STATE_YELLOW == newColor)
 	{
@@ -165,7 +165,7 @@ void OutOfOrderCommandQueue::MvSubmittedToDevice()
 		while ( m_submittedQueue.Top() != NULL)
 		{
 			Command* cmd = m_submittedQueue.PopFront();
-			QueueEventStateColor color = cmd->GetEvent()->GetColor();
+			OclEventStateColor color = cmd->GetEvent()->GetColor();
 			if (!(color == EVENT_STATE_YELLOW))
 			{
 				// Command is not Ready!
@@ -251,7 +251,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
 	if (prev_barrier)
 	{				
-		QueueEvent* cmdEvent = cmd->GetEvent();		
+		OclEvent* cmdEvent = cmd->GetEvent();		
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
 	}
 	m_queuedQueue.PushBack(cmd);

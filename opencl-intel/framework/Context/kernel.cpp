@@ -67,7 +67,7 @@ DeviceKernel::DeviceKernel(Kernel * pKernel,
 	}
 
 	m_pKernel = pKernel;
-	m_pDevice = (Device*)pProgBin->GetDevice();
+	m_pDevice = pProgBin->GetDevice();
 
 	// update kernel prototype
 	m_sKernelPrototype.m_psKernelName = new char[strlen(psKernelName) + 1];
@@ -573,18 +573,6 @@ cl_err_code Kernel::AddDeviceKernel(cl_dev_kernel clDeviceKernel, ProgramBinary 
 	return clErr;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Kernel::Release
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Kernel::Release()
-{
-	cl_err_code clErr = OCLObject::Release();
-	if (CL_FAILED(clErr))
-	{
-		return clErr;
-	}
-	return CL_SUCCESS;
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::SetKernelPrototype
 ///////////////////////////////////////////////////////////////////////////////////////////////////

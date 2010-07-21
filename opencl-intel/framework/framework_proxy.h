@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Class name:	FrameworkProxy
 	*
 	* Description:	the framework proxy class design to pass the OpenCL api calls to the 
-	*				framework's moduls
+	*				framework's modules
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	Get handle to the context module
 		* Arguments:		
 		* Return value:	pointer to the ContextModule class. NULL if context module wasn't
-		*				initialized successfuly
+		*				initialized successfully
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -75,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	Get handle to the execution module
 		* Arguments:		
 		* Return value:	pointer to the ExecutionModule class. NULL if module wasn't initialized
-		*				successfuly
+		*				successfully
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	Get handle to the platform module
 		* Arguments:		
 		* Return value:	pointer to the PlatformModule class. NULL if module wasn't initialized
-		*				successfuly
+		*				successfully
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/

@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_KERNEL_H_)
-#define _OCL_KERNEL_H_
-
 #include <cl_types.h>
 #include <cl_object.h>
 #include <logger.h>
@@ -189,15 +186,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Kernel(Program * pProgram, const char * psKernelName, ocl_entry_points * pOclEntryPoints);
 
 		/******************************************************************************************
-		* Function: 	~Kernel
-		* Description:	The Kernel class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~Kernel();
-
-		/******************************************************************************************
 		* Function: 	GetInfo    
 		* Description:	get object specific information (inharited from OCLObject) the function 
 		*				query the desirable parameter value from the device
@@ -239,9 +227,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										size_t       szParamValueSize, 
 										void *       pParamValue, 
 										size_t *     pszParamValueSizeRet);
-
-		// relese kernel object
-		cl_err_code Release();
 
 		// create device kernels
 		cl_err_code CreateDeviceKernels(cl_uint uiBinariesCount, ProgramBinary ** ppBinaries);
@@ -286,6 +271,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		const Context * GetContext() const;
 
+	protected:
+		/******************************************************************************************
+		* Function: 	~Kernel
+		* Description:	The Kernel class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~Kernel();
+
 	private:
 
 		cl_err_code SetKernelPrototype(SKernelPrototype sKernelPrototype);
@@ -312,5 +307,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 }}};
 
-
-#endif //_OCL_PROGRAM_H_

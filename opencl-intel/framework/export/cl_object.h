@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#pragma once
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //  OCLObject.h
 //  Implementation of the Class OCLObject
@@ -41,6 +40,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/	
+
+	/**********************************************************************************************
+	* A note about reference count and pendencies: an OCLObject is created with one of each.
+	* The floating reference is standard (implicitly owned by the object's creator)
+	* The floating pendency will be removed when the ref count goes to zero, 
+	* so it represents that the object is still "alive" and visible to the user.
+	**********************************************************************************************/
 	template <class HandleType> 
 	class OCLObject
 	{
@@ -55,15 +61,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
 		OCLObject();
 		
-		/******************************************************************************************
-		* Function: 	~OCLObject
-		* Description:	The OCLObject class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~OCLObject();
-		
         /******************************************************************************************
         * Function: 	Cleanup    
         * Description:	Used to cleanup data before deletion. But can be done differentially if
@@ -76,21 +73,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         /******************************************************************************************
 		* Function: 	Release    
-		* Description:	release the OCLObject - decrease referace count in 1, inharited 
-		*				objects might want to add functionality to this metod
+		* Description:	release the OCLObject - decrease reference count in 1, inherited 
+		*				objects might want to add functionality to this method
 		* Arguments:	
-		* Return value:	CL_SUCCESS - release operation succeded
+		* Return value:	The new ref count or -1 in case of error
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code Release();
+		long Release();
 		
 		/******************************************************************************************
 		* Function: 	Retain    
-		* Description:	retain the OCLObject - increase referace count in 1, inharited objects 
-		*				might want to add functionality to this metod
+		* Description:	retain the OCLObject - increase reference count in 1, inherited objects 
+		*				might want to add functionality to this method
 		* Arguments:	
-		* Return value:	CL_SUCCESS - retain operation succeded
+		* Return value:	CL_SUCCESS - retain operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
@@ -103,11 +100,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
 		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) = 0;
 
 		/******************************************************************************************
 		* Function: 	AddPendency    
@@ -129,24 +126,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		long RemovePendency();
 
-		/******************************************************************************************
-		* Function: 	ReadyForDeletion    
-		* Description:	inform whether the OpenCL object is ready for deletion
-		*				one who's overide this function might want to know if there are
-		*				resources that attached to this object that need to be deleted
-		* Arguments:	
-		* Return value:	True	- the object is ready for deletion
-		*				False	- the object is not ready for deletion
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual bool ReadyForDeletion();
-
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
-		long		GetReferenceCount() const { return m_uiRefCount; }
-		long		GetPendencies() const { return m_uiPendency; }
-		HandleType* GetHandle() { return &m_handle; }
+		HandleType* GetHandle()   { return &m_handle; }
 
 		/******************************************************************************************
 		* Function: 	SetLoggerClient    
@@ -160,16 +142,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	protected:
 		
+		/******************************************************************************************
+		* Function: 	~OCLObject
+		* Description:	The OCLObject class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~OCLObject();
+
 		cl_int								m_iId;				// object id
 		Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 		
 		Intel::OpenCL::Utils::AtomicCounter	m_uiPendency;		// recall the number of dependent resources - will be 
-											// used in order to ensure that current object is ready 
-											// for deletion
+											                    // used in order to ensure that current object is ready 
+											                    // for deletion
 
 		HandleType	m_handle;			// the OpenCL handle of the object
 
 		DECLARE_LOGGER_CLIENT;
+
+
 
 	};
 #include "cl_object.hpp"

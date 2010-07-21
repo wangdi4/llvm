@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_PROGRAM_H_)
-#define _OCL_PROGRAM_H_
-
 #include <cl_types.h>
 #include <cl_object.h>
 #include <observer.h>
@@ -92,15 +89,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
 		Program(Context * pContext, ocl_entry_points * pOclEntryPoints);
 
-		/******************************************************************************************
-		* Function: 	~Program
-		* Description:	The Program class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/			
-		virtual ~Program();
-
 		// return the context to which the program belongs
 		const Context * GetContext() const { return m_pContext; }
 
@@ -112,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
 		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -123,9 +111,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t szParamValueSize, 
 									void * pParamValue, 
 									size_t * pzsParamValueSizeRet);
-
-		// relase the program object and its reosurces
-		cl_err_code Release();
 
 		// add source code to the program object
 		cl_err_code AddSource(cl_uint uiCount, const char ** ppcStrings, const size_t * pszLengths);
@@ -162,9 +147,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// IFrontendBuildDoneObserver
 		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, void * pBinData, const char* pLogStr);
 
+	protected:
+		/******************************************************************************************
+		* Function: 	~Program
+		* Description:	The Program class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/			
+		virtual ~Program();
+
 	private:
 
-		// check if the devices associated to the program and if thier binaries are valid binaries
+		// check if the devices associated to the program and if their binaries are valid binaries
 		cl_err_code CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
 		// build binaries
@@ -194,7 +189,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context *								m_pContext;			// parent context
 
 		///////////////////////////////////////////////////////////////////////////////////////////
-		// Build varaibles
+		// Build variables
 		///////////////////////////////////////////////////////////////////////////////////////////
 	
 		char *									m_pBuildOptions;
@@ -204,7 +199,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		char *									m_pcFeBuildLog;
 
 		///////////////////////////////////////////////////////////////////////////////////////////
-		// Source code varaibles
+		// Source code variables
 		///////////////////////////////////////////////////////////////////////////////////////////
 		
 		cl_uint									m_uiStcStrCount;	// number of strings in the source code
@@ -217,7 +212,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		OCLObjectsMap<_cl_kernel> *							m_pKernels;			// associated kernels
+		OCLObjectsMap<_cl_kernel> *				m_pKernels;			// associated kernels
 
 		// ------------------------------------- DEVICES -------------------------------------
 		
@@ -246,6 +241,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 }}};
-
-
-#endif //_OCL_PROGRAM_H_

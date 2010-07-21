@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(_OCL_BUFFER_H_)
-#define _OCL_BUFFER_H_
-
 #include <cl_types.h>
 #include <cl_memory_object.h>
 #include <logger.h>
@@ -59,17 +56,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
 		Buffer(Context * pContext, cl_mem_flags clMemFlags, void * pHostPtr, size_t szBufferSize, ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
 
-		/******************************************************************************************
-		* Function: 	~Buffer
-		* Description:	The Buffer class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			January 2008
-		******************************************************************************************/			
-		virtual ~Buffer();
-
-		cl_err_code Release();
-
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);
 		cl_err_code ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
@@ -87,12 +73,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void* GetMappedRegionInfo( cl_device_id clDeviceId, void* mappedPtr);
 
 
-	private:
+	protected:
+		/******************************************************************************************
+		* Function: 	~Buffer
+		* Description:	The Buffer class destructor
+		* Arguments:		
+		* Author:		Uri Levy
+		* Date:			January 2008
+		******************************************************************************************/			
+		virtual ~Buffer();
 
 	};
 
 
 }}};
 
-
-#endif //_OCL_CONTEXT_H_

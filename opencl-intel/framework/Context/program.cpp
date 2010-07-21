@@ -45,7 +45,6 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints)
 {
-	::OCLObject<_cl_program>();
 
 #ifdef _DEBUG
 	assert (pContext != NULL);
@@ -72,7 +71,7 @@ Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints)
 	m_ppDevices = pContext->GetDevices(NULL);
 	m_pDeviceIds = pContext->GetDeviceIds(&m_uiDevicesCount);
 
-    // Sign to be dependent on the context, ensure the context will be delated only after the object was
+    // Sign to be dependent on the context, ensure the context will be deleted only after the object was
     m_pContext->AddPendency();
 
 	m_bBuildFinished  = false;
@@ -127,18 +126,8 @@ Program::~Program()
 	{
 		delete []m_pcFeBuildLog;
 	}
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Release
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::Release()
-{
-	cl_err_code clErrRet = OCLObject<_cl_program>::Release();
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-	return CL_SUCCESS;
+
+	//assert(0 == m_isBuilding);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program::GetInfo
@@ -325,20 +314,10 @@ cl_err_code Program::GetBuildInfo(	cl_device_id clDevice,
 		if (NULL == pProgBin)
 		{
 			clBuildStatus = m_clSourceBuildStatus;
-			//// if the initial state of the program was source code, then NULL value means that the
-			//// build process was failed
-			//if (m_eProgramState == PST_INTERMIDIATE_FROM_SOURCE)
-			//{
-			//	clBuildStatus = CL_BUILD_ERROR;
-			//}
-			//else
-			//{
-			//	clBuildStatus = CL_BUILD_NONE;
-			//}
 		}
 		else
 		{
-			clBuildStatus = (cl_build_status)pProgBin->GetStatus();
+			clBuildStatus = pProgBin->GetStatus();
 		}
 		pValue = &clBuildStatus;
 		break;
@@ -401,10 +380,10 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 
-	// check inputarguments
+	// check input arguments
 	if (m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr)
 	{
-		// source has allready added to this program
+		// source has already added to this program
 		LOG_ERROR(L"m_uiStcStrCount > 0 || NULL != m_ppcSrcStrArr; return CL_ERR_INITILIZATION_FAILED");
 		return CL_ERR_INITILIZATION_FAILED;
 	}
@@ -474,7 +453,7 @@ cl_err_code Program::AddSource(cl_uint uiCount, const char ** ppcStrings, const 
 		m_ppcSrcStrArr[ui] = new char[m_pszSrcStrLengths[ui] + 1];
 		if (NULL == m_ppcSrcStrArr[ui])
 		{
-			// free all previouse strings
+			// free all previous strings
 			LOG_ERROR(L"NULL == m_ppcSrcStrArr");
 			for (cl_uint uj=0; uj<ui; ++uj)
 			{
@@ -538,7 +517,7 @@ cl_err_code Program::AddBinaries(cl_uint uiNumDevices,
 			return CL_INVALID_DEVICE;
 		}
 
-		// check if the current device allready have binary assign for it
+		// check if the current device already have binary assign for it
 		map<cl_device_id,ProgramBinary*>::iterator it = m_mapIntermidiates.find(pDevice->GetHandle());
 		if (it != m_mapIntermidiates.end())
 		{
@@ -566,8 +545,13 @@ cl_err_code Program::AddBinaries(cl_uint uiNumDevices,
 															pDevice, 
 															GET_LOGGER_CLIENT,
 															&clErrRet);
+			if (!pProgBin)
+			{
+				return CL_OUT_OF_HOST_MEMORY;
+			}
 			if (CL_FAILED(clErrRet))
 			{
+				delete pProgBin;
 				return clErrRet;
 			}
 			m_mapIntermidiates[pDevice->GetHandle()] = pProgBin;
@@ -622,7 +606,7 @@ cl_err_code Program::CheckBinaries(cl_uint uiNumDevices, const cl_device_id * pc
 		cl_build_status clBuildStatus = pProgBin->GetStatus();
 		if (CL_BUILD_IN_PROGRESS == clBuildStatus)
 		{
-			LOG_ERROR(L"program binarie's status is CL_BUILD_IN_PROGRESS");
+			LOG_ERROR(L"program binaries' status is CL_BUILD_IN_PROGRESS");
 			return CL_INVALID_OPERATION;
 		}
 		cl_uint uiBinsize = 0;
@@ -653,7 +637,7 @@ cl_err_code Program::BuildBinaries(cl_uint uiNumDevices, const cl_device_id * pc
 	LOG_DEBUG(L"BuildBinarys enter. uiNumDevices=%d, pclDevices=%d", uiNumDevices, pclDevices);
 	// check input parameters
 
-	// Lock intermidiates map, on the first phase start all build process
+	// Lock intermediates map, on the first phase start all build process
 	// prevent callback execution
 	OclAutoMutex CS(&m_csIntermidateMap);
 	// for each device in uiNumDevices: build binary
@@ -695,7 +679,7 @@ cl_err_code Program::BuildSource(cl_uint uiNumDevices, const cl_device_id * pclD
 		return clErr;
 	}
 
-	// Lock intermidiates map, on the first phase start all build process
+	// Lock intermediates map, on the first phase start all build process
 	// prevent callback execution
 	OclAutoMutex CS(&m_csIntermidateMap);
 
@@ -720,7 +704,7 @@ cl_err_code Program::BuildSource(cl_uint uiNumDevices, const cl_device_id * pclD
 		Device * pDevice = it_device->second;
 		FECompiler * pFeCompiler = (FECompiler*) pDevice->GetFECompiler();
 
-		// if front-end compiler isn't availble try defualt one
+		// if front-end compiler isn't available try default one
 		if (NULL == pFeCompiler)
 		{
 			pFeCompiler = FrameworkProxy::Instance()->GetPlatformModule()->GetDefaultFECompiler();
@@ -784,7 +768,7 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 	m_pUserData = pUserData;
 	m_pfnNotify = pfnNotify;
 
-	// update build options: delete previouse options and allocate memory for new options
+	// update build options: delete previous options and allocate memory for new options
 	if (NULL != m_pBuildOptions)
 	{
 		delete[] m_pBuildOptions;
@@ -795,10 +779,6 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 		m_pBuildOptions = new char[strlen(pcOptions) + 1];
 		if (NULL == m_pBuildOptions)
 		{
-			if (NULL != pclAllDeviceList)
-			{
-				delete []pclAllDeviceList;
-			}
 
 			return CL_OUT_OF_HOST_MEMORY;
 		}
@@ -848,14 +828,14 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 	
 	if (CL_SUCCEEDED(clErrRet) && (NULL == m_pfnNotify))
 	{
-        // Build started, wait for build done event in case that there isn't a notification functino
+        // Build started, wait for build done event in case that there isn't a notification function
 		{
 			OclAutoMutex CS(&m_BuildNotifyCS);
 			while (!m_bBuildFinished) { m_BuildWaitCond.Wait(&m_BuildNotifyCS); }
 			m_bBuildFinished = false;
 		}
 		
-		// if build falied - need to return error value
+		// if build failed - need to return error value
 		if ((m_eProgramState != PST_BINARY) && (m_eProgramState != PST_BINARY_FROM_SOURCE))
 		{
 			clErrRet = CL_BUILD_PROGRAM_FAILURE;
@@ -871,13 +851,12 @@ cl_err_code Program::Build(cl_uint uiNumDevices,
 				{
 					clErrRet = CL_BUILD_PROGRAM_FAILURE;
 				}
-				it++;
+				++it;
 			}
 		}
 	}
 
 	// TODO: check if kernels attached to the program
-	//cl_return clErrRet;
 	return clErrRet;
 }
 
@@ -1057,7 +1036,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 		return CL_INVALID_VALUE;
 	}
 
-	// check if the current kernel allready available in the program
+	// check if the current kernel already available in the program
 	//bool bResult = IsKernelExists(psKernelName, ppKernel);
 	//if (true == bResult)
 	//{
@@ -1090,7 +1069,6 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	{
 		LOG_ERROR(L"pKernel->CreateDeviceKernels(%d, ppBinaries) = %ws", m_mapIntermidiates.size(), ClErrTxt(clErrRet));
 		pKernel->Release();
-		delete pKernel;
 		delete[] ppBinaries;
 		return clErrRet;
 	}
@@ -1100,9 +1078,6 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	*ppKernel = pKernel;
 	delete[] ppBinaries;
 
-	AddPendency();
-
-	//cl_return CL_SUCCESS;
 	return CL_SUCCESS;
 }
 
@@ -1120,13 +1095,6 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 		return CL_INVALID_PROGRAM_EXECUTABLE;
 	}
 
-	// check input arguments
-	//if (NULL == pclKernels && NULL == puiNumKernelsRet)
-	//{
-	//	LOG_ERROR(L"NULL == pclKernels && NULL == puiNumKernelsRet")
-	//	return CL_INVALID_VALUE;
-	//}
-
 	cl_uint uiNewKernels = 0; // count the number of new kernels that added to the program
 	cl_err_code clErrRet = CL_SUCCESS;
 
@@ -1142,7 +1110,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			LOG_DEBUG(L"program binary number %d is NULL object", it->first);
 			continue;
 		}
-		Device * pDevice = (Device*)pProgBin->GetDevice();
+		Device * pDevice = pProgBin->GetDevice();
 		if (NULL == pDevice)
 		{
 			// the current binary hasn't valid device, skip and move to the next one
@@ -1182,7 +1150,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			clErrRet = pDevice->GetDeviceAgent()->clDevGetKernelInfo(pKernels[ui], CL_DEV_KERNEL_NAME, 0 , NULL, &szKernelNameSize);
 			if (CL_FAILED(clErrRet))
 			{
-				LOG_DEBUG(L"GetKernelInfo of kerenl %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
+				LOG_DEBUG(L"GetKernelInfo of kernel %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
 				continue;
 			}
 			char * psKernelName = new char[szKernelNameSize];
@@ -1193,7 +1161,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			clErrRet = pDevice->GetDeviceAgent()->clDevGetKernelInfo(pKernels[ui], CL_DEV_KERNEL_NAME, szKernelNameSize , psKernelName, NULL);
 			if (CL_FAILED(clErrRet))
 			{
-				LOG_DEBUG(L"GetKernelInfo of kerenl %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
+				LOG_DEBUG(L"GetKernelInfo of kernel %d failed (returned %ws)", pKernels[ui], ClErrTxt(clErrRet));
 				delete[] psKernelName;
 				continue;
 			}
@@ -1211,7 +1179,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 				// if it is a new kernel - delete it
 				if (false == bKernelExists)
 				{
-					delete pKernel;
+					pKernel->Release();
 				}
 				delete[] psKernelName;
 				continue;
@@ -1246,23 +1214,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 
 		if (CL_FAILED(clErrRet))
 		{
-			// remove all kernels from the kernels list
-			Kernel * pKernel = NULL;
-			for (cl_uint ui=0; ui<m_pKernels->Count(); ++ui)
-			{
-				cl_int clErr = m_pKernels->GetObjectByIndex(ui, (OCLObject<_cl_kernel>**)&pKernel);
-				if (CL_SUCCEEDED(clErr) && NULL != pKernel)
-				{
-					m_pKernels->RemoveObject(pKernel->GetHandle(), NULL);
-					pKernel->Release();
-					delete pKernel;
-				}
-			}
-			m_pKernels->Clear();
-			for(cl_uint ui=0; ui<uiNewKernels; ++ui)
-			{
-				RemovePendency();
-			}
+			m_pKernels->ReleaseAllObjects();
 			return clErrRet;
 		}			
 	}
@@ -1355,20 +1307,7 @@ cl_err_code Program::RemoveKernel(cl_kernel clKernel)
 	assert ( NULL != m_pKernels );
 #endif
 
-	bool bResult = m_pKernels->IsExists(clKernel);
-	if (false == bResult)
-	{
-		return CL_INVALID_KERNEL;
-	}
-	cl_err_code clErr = m_pKernels->RemoveObject(clKernel, NULL);
-	if (CL_FAILED(clErr))
-	{
-		return clErr;
-	}
-
-	RemovePendency();
-
-	return CL_SUCCESS;
+	return m_pKernels->RemoveObject(clKernel);
 }
 cl_err_code Program::CheckFECompilers(cl_uint uiNumDevices, const cl_device_id * pclDevices)
 {

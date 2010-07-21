@@ -51,13 +51,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
      * As a result, the queue update the state of its queues.
      *
      * The list are ordered. Hence, there is no implicit dependency between consecutive commands.
-     *
-     * The flush policy of this queue is to enqueue each ready command to a device list. 
-     * When flush/finish command is identified, a new list is created and from that point onward 
-     * command will be routed to the new list. When the flush command is ready to execute in the
-     * in-order order, the previous list will be released and a true flush will be done by the 
-     * device agent.
-     *
     /************************************************************************/ 
 	class InOrderCommandQueue : public IOclCommandQueueBase
 	{
@@ -77,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor);
+		virtual cl_err_code NotifyStateChange(const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
 		virtual cl_err_code SendCommandsToDevice();
 
 	protected:

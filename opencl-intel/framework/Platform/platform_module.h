@@ -26,9 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(OCL_PLATFORM_MODULE_H_)
-#define OCL_PLATFORM_MODULE_H_
-
 #include <cl_framework.h>
 #include <logger.h>
 #include "iplatform.h"
@@ -215,4 +212,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 }}};
-#endif // !defined(OCL_PLATFORM_MODULE_H_)

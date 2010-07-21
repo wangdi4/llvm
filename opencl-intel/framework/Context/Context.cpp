@@ -322,7 +322,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(L"pProgram->AddSource(%d, %d, %d) = %d",uiCount, ppcStrings, szLengths, clErrRet);
-		delete pProgram;
+		pProgram->Release();
 		*ppProgram = NULL;
 		return clErrRet;
 	}
@@ -421,9 +421,9 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	Device ** ppDevices = new Device * [uiNumDevices];
 	if (NULL == ppDevices)
 	{
-		// can't allocate momery for devices
+		// can't allocate memory for devices
 		LOG_ERROR(L"Can't allocated memory for devices");
-		delete pProgram;
+		pProgram->Release();
 		return CL_ERR_INITILIZATION_FAILED;
 	}
 	
@@ -456,13 +456,7 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId)
 	assert ( NULL != m_pPrograms );
 #endif
 
-	Program * pProgram = NULL;
-	cl_err_code clErrRet = m_pPrograms->GetOCLObject(clProgramId, (OCLObject<_cl_program>**)&pProgram);
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-	return m_pPrograms->RemoveObject(clProgramId, NULL);
+	return m_pPrograms->RemoveObject(clProgramId);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveMemObject
@@ -475,13 +469,7 @@ cl_err_code Context::RemoveMemObject(cl_mem clMem)
 	assert ( NULL != m_pMemObjects );
 #endif
 
-	MemoryObject * pMemObj = NULL;
-	cl_err_code clErrRet = m_pMemObjects->GetOCLObject(clMem, (OCLObject<_cl_mem>**)&pMemObj);
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-	return m_pMemObjects->RemoveObject(clMem, NULL);
+	return m_pMemObjects->RemoveObject(clMem);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveSampler
@@ -494,13 +482,7 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler)
 	assert ( NULL != m_pSamplers );
 #endif
 
-	Sampler * pSmapler = NULL;
-	cl_err_code clErrRet = m_pSamplers->GetOCLObject(clSampler, (OCLObject<_cl_sampler>**)&pSmapler);
-	if (CL_FAILED(clErrRet))
-	{
-		return clErrRet;
-	}
-	return m_pSamplers->RemoveObject(clSampler, NULL);
+	return m_pSamplers->RemoveObject(clSampler);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateBuffer
@@ -530,7 +512,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new buffer, returned: %ws", ClErrTxt(clErr));
-        delete pBuffer;
+        pBuffer->Release();
 		return clErr;
 	}
 
@@ -538,7 +520,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-        delete pBuffer;
+        pBuffer->Release();
 		return clErr;
 	}
 
@@ -586,7 +568,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image2D, returned: %ws", ClErrTxt(clErr));
-        delete pImage2D;
+        pImage2D->Release();
 		return clErr;
 	}
 
@@ -594,7 +576,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pImage2D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-        delete pImage2D;
+        pImage2D->Release();
 		return clErr;
 	}
 
@@ -647,7 +629,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Image3D, returned: %ws", ClErrTxt(clErr));
-        delete pImage3D;
+        pImage3D->Release();
 		return clErr;
 	}
 
@@ -655,7 +637,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pImage3D->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-        delete pImage3D;
+        pImage3D->Release();
 		return clErr;
 	}
 
@@ -904,7 +886,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Error creating new Sampler, returned: %ws", ClErrTxt(clErr));
-        delete pSampler;
+        pSampler->Release();
 		return clErr;
 	}
 	

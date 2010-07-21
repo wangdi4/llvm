@@ -91,20 +91,26 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 	{
 		// create new device object
 		Device * pDevice = new Device();
+		if (!pDevice)
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+
+		const string& strDevice = devices[ui];
+
+		cl_err_code clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
+
+		if (CL_FAILED(clErrRet))
+		{
+			pDevice->Release();
+			return clErrRet;
+		}
+
 		// assign device in the objects map
 		m_pDevices->AddObject(pDevice);
 		m_ppDevices[ui] = pDevice;
 		m_pDeviceIds[ui] = pDevice->GetHandle();
 
-		const string& strDevice = devices[ui];
-
-		cl_err_code clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
-		if (CL_FAILED(clErrRet))
-		{
-			m_pDevices->RemoveObject(pDevice->GetHandle(), NULL);
-			delete pDevice;
-			return clErrRet;
-		}
 
 		if (defaultDevice != "" && defaultDevice == strDevice)
 		{
@@ -127,17 +133,21 @@ cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, con
 	{
 		// create new front-end compiler object
 		FECompiler * pFECompiler = new FECompiler();
-		// assign compiler in the objects map
-		m_pFECompilers->AddObject((OCLObject<_cl_object>*)pFECompiler);
+		if (!pFECompiler)
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+
 		const string& strCompiler = compilers[i];
 
 		cl_err_code clErrRet = pFECompiler->Initialize(strCompiler.c_str());
 		if (CL_FAILED(clErrRet))
 		{
-			m_pFECompilers->RemoveObject(pFECompiler->GetHandle(), NULL);
-			delete pFECompiler;
+			pFECompiler->Release();
 			return clErrRet;
 		}
+		// assign compiler in the objects map
+		m_pFECompilers->AddObject((OCLObject<_cl_object>*)pFECompiler);
 		if (defaultCompiler != "" && defaultCompiler == strCompiler)
 		{
 			m_pDefaultFECompiler = pFECompiler;
@@ -150,18 +160,7 @@ cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, con
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::ReleaseFECompilers()
 {
-	FECompiler * pFeComp = NULL;
-	// release front-end compilers
-	cl_uint uifeCompcount = m_pFECompilers->Count();
-	for (cl_uint ui=0; ui<uifeCompcount; ++ui)
-	{
-		if (CL_SUCCEEDED(m_pFECompilers->GetObjectByIndex(ui, (OCLObject<_cl_object>**)&pFeComp)))
-		{
-			pFeComp->Release();
-			delete pFeComp;
-		}
-	}
-	m_pFECompilers->Clear();
+	m_pFECompilers->ReleaseAllObjects();
 	m_pDefaultFECompiler = NULL;
 	return CL_SUCCESS;
 }
@@ -225,16 +224,7 @@ cl_err_code	PlatformModule::Release()
 	ReleaseFECompilers();
 
 	// release devices
-	cl_uint uiDevcount = m_pDevices->Count();
-	for (cl_uint ui=0; ui<uiDevcount; ++ui)
-	{
-		if (CL_SUCCEEDED(m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id>**)&pDev)))
-		{
-			pDev->Release();
-			delete pDev;
-		}
-	}
-	m_pDevices->Clear();
+	m_pDevices->ReleaseAllObjects();
 	m_pDefaultDevice = NULL;
 
 	if (NULL != m_ppDevices)

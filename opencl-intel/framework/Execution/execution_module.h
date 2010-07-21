@@ -25,8 +25,6 @@
 //  Created on:      23-Dec-2008 3:23:00 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
-#if !defined(__OCL_EXECUTION_MODULE_H__)
-#define __OCL_EXECUTION_MODULE_H__
 
 #include <cl_types.h>
 #include <logger.h>
@@ -92,8 +90,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Event objects functions
         cl_err_code WaitForEvents           ( cl_uint uiNumEvents, const cl_event* cpEventList );
         cl_err_code GetEventInfo            ( cl_event clEvent, cl_event_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
-        cl_err_code RetainEvent             (cl_event clEevent);
-        cl_err_code ReleaseEvent            (cl_event clEvent);
+        cl_err_code RetainEvent             ( cl_event clEevent);
+        cl_err_code ReleaseEvent            ( cl_event clEvent);
 
         // Enqueue commands
         cl_err_code EnqueueReadBuffer       (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
@@ -136,7 +134,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code         FlushAllQueuesForContext(cl_context ctx);
 
         // Members
-        PlatformModule*     m_pPlatfromModule;          // Pointer to the platfrom operation. This is the internal interface of the module.
+        PlatformModule*     m_pPlatfromModule;          // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;           // Pointer to the context operation. This is the internal interface of the module.
         OCLObjectsMap<_cl_command_queue>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
         EventsManager*      m_pEventsManager;           // Placeholder for all active events.
@@ -147,4 +145,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
 }}};    // Intel::OpenCL::Framework
-#endif  // !defined(__OCL_EXECUTION_MODULE_H__)

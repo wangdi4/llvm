@@ -12,19 +12,17 @@ template <class HandleType>
 OCLObjectsMap<HandleType>::~OCLObjectsMap()
 {
 	m_mapObjects.clear();
-	m_mapDirtyObjects.clear();
 }
 
 template <class HandleType>
 HandleType* OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject)
 {
-	OclAutoMutex mu(&m_muMapMutex, false);
 	assert ( NULL != pObject );
 	HandleType* hObjectHandle = pObject->GetHandle();
 	assert(hObjectHandle);
 	cl_int iObjectId = m_iNextGenKey++;
 	pObject->SetId(iObjectId);
-	m_muMapMutex.Lock();
+	OclAutoMutex mu(&m_muMapMutex);
 	m_mapObjects[hObjectHandle] = pObject;
 
 	return hObjectHandle;
@@ -33,22 +31,21 @@ HandleType* OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject
 template <class HandleType>
 cl_err_code OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject, bool bAssignId)
 {
-	OclAutoMutex mu(&m_muMapMutex, false);
 	if (NULL == pObject)
 	{
 		return CL_INVALID_VALUE;
 	}
 	HandleType* hObjectHandle = pObject->GetHandle();
+	if (bAssignId)
+	{
+		pObject->SetId(m_iNextGenKey++);
+	}
 
-	m_muMapMutex.Lock();
+	OclAutoMutex mu(&m_muMapMutex);
 	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.find(hObjectHandle);
 	if (it != m_mapObjects.end())
 	{
 		return CL_ERR_KEY_ALLREADY_EXISTS;
-	}
-	if (bAssignId == true)
-	{
-		pObject->SetId(m_iNextGenKey++);
 	}
 	m_mapObjects[hObjectHandle] = pObject;
 	return CL_SUCCESS;
@@ -76,44 +73,27 @@ cl_err_code OCLObjectsMap<HandleType>::GetObjectByIndex(cl_uint uiIndex, OCLObje
 	assert ("Invalid input" && (NULL != ppObject) );
 
 	OclAutoMutex mu(&m_muMapMutex);
-	if (m_mapObjects.size() == 0)
-	{
-		return CL_ERR_LIST_EMPTY;
-	}
-	if (uiIndex >= m_mapObjects.size())
+	if (uiIndex > m_mapObjects.size())
 	{
 		return CL_ERR_KEY_NOT_FOUND;
 	}
 	map<HandleType*, OCLObject<HandleType>*>::const_iterator it = m_mapObjects.begin();
-	while (it != m_mapObjects.end())
+	for (cl_uint ui = 0; ui < uiIndex; ++ui)
 	{
-		if (uiIndex == 0)
-		{
-			*ppObject = it->second;
-			return CL_SUCCESS;
-		}
-		uiIndex--;
-		it++;
+		++it;
 	}
-	return CL_ERR_KEY_NOT_FOUND;
+	*ppObject = it->second;
+	return CL_SUCCESS;
 }
 
 template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::RemoveObject(HandleType* hObjectHandle, OCLObject<HandleType> ** ppObjectRet, bool bSetDirty)
+cl_err_code OCLObjectsMap<HandleType>::RemoveObject(HandleType* hObjectHandle)
 {
 	OclAutoMutex mu(&m_muMapMutex);
 	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.find(hObjectHandle);
 	if (it == m_mapObjects.end())
 	{
 		return CL_ERR_KEY_NOT_FOUND;
-	}
-	if (NULL != ppObjectRet)
-	{
-		*ppObjectRet = it->second;
-	}
-	if (true == bSetDirty)
-	{
-		m_mapDirtyObjects[it->first] = it->second;
 	}
 	m_mapObjects.erase(it);
 	return CL_SUCCESS;
@@ -176,23 +156,13 @@ cl_err_code OCLObjectsMap<HandleType>::GetIDs(cl_uint uiIdsCount, HandleType** p
 template <class HandleType>
 cl_uint OCLObjectsMap<HandleType>::Count()
 {
-	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	return m_mapObjects.size();
 }
 
 template <class HandleType>
-void OCLObjectsMap<HandleType>::Clear(bool bSetDirty)
+void OCLObjectsMap<HandleType>::Clear()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
-	if (true == bSetDirty)
-	{
-		map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.begin();
-		while (it != m_mapObjects.end())
-		{
-			m_mapDirtyObjects[it->first] = it->second;
-			it++;
-		}
-	}
 	m_mapObjects.clear();
 }
 
@@ -204,25 +174,34 @@ bool OCLObjectsMap<HandleType>::IsExists(HandleType* hObjectHandle)
 }
 
 template <class HandleType>
-void OCLObjectsMap<HandleType>::GarbageCollector( bool bIsTerminate )
+cl_err_code OCLObjectsMap<HandleType>::ReleaseObject(HandleType* hObject)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
-	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapDirtyObjects.begin();
-	while (it != m_mapDirtyObjects.end())
+	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.find(hObject);
+	if (m_mapObjects.end() == it)
 	{
-		OCLObject<HandleType> * pObject = it->second;
-		if (NULL != pObject && pObject->ReadyForDeletion())
-		{
-			it->second = NULL;
-            pObject->Cleanup(bIsTerminate);
-			delete pObject;
-            HandleType* hObjectHandle = it->first;
-            it++;
-            m_mapDirtyObjects.erase(hObjectHandle);
-		}
-        else
-        {
-            it++;
-        }
+		return CL_ERR_KEY_NOT_FOUND;
 	}
+	long newRef = it->second->Release();
+	if (newRef < 0)
+	{
+		return CL_ERR_FAILURE;
+	}
+	else if (0 == newRef)
+	{
+		m_mapObjects.erase(it);
+	}
+	return CL_SUCCESS;
+}
+
+template <class HandleType>
+void OCLObjectsMap<HandleType>::ReleaseAllObjects()
+{
+	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.begin();
+	while (it != m_mapObjects.end())
+	{
+		it->second->Release();
+	}
+	m_mapObjects.clear();
 }
