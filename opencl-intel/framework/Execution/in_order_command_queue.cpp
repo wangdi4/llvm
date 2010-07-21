@@ -101,7 +101,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 }
 
 cl_err_code InOrderCommandQueue::NotifyStateChange( const QueueEvent* cpEvent, QueueEventStateColor prevColor, QueueEventStateColor newColor )
-{	
+{
 	if (EVENT_STATE_YELLOW == newColor)
 	{
 		//one of the commands became ready. Trigger a SendToDevice as it may be on top of the queue. Todo: this can probably be improved
@@ -121,7 +121,7 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const QueueEvent* cpEvent, Q
 }
 
 cl_err_code InOrderCommandQueue::SendCommandsToDevice()
-{	
+{
 	long prev_val = m_submittedQueueGuard++;
 	if (0 == prev_val)
 	{
@@ -129,33 +129,23 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 		do //loop on all requests
 		{
 			cl_uint cmdListLength = 0;
-			cl_err_code res;			
+			cl_err_code res;
 			while (!m_submittedQueue.IsEmpty())
-			{				
+			{
 				Command* cmd = m_submittedQueue.Top();
 				QueueEventStateColor color = cmd->GetEvent()->GetColor();
 				if (EVENT_STATE_YELLOW == color)
 				{
-					//Ready for execution, schedule it										
+					//Ready for execution, schedule it
+					m_submittedQueue.PopFront();
 					assert(m_pDefaultDevice == cmd->GetDevice());
+					m_commandsInExecution++;
 					cmd->SetDevCmdListId(m_clDevCmdListId);
 					cmd->GetEvent()->SetColor(EVENT_STATE_LIME);
 					res = cmd->Execute();
 					if (CL_SUCCEEDED(res))
 					{
-						m_commandsInExecution++;
-						m_submittedQueue.PopFront();
 						++cmdListLength;
-					}					
-					else if (res == CL_NOT_READY)
-					{						
-						// keep in the queue
-					}					
-					else
-					{
-						// there has been an error, remove from queue
-						m_commandsInExecution++;
-						m_submittedQueue.PopFront();						
 					}
 				}
 				else if (EVENT_STATE_BLACK == color)
@@ -165,13 +155,13 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 				}
 				else if (EVENT_STATE_RED == color)
 				{
-					if ( (cmd->GetCommandType() == CL_COMMAND_MARKER) && (m_commandsInExecution == 0) )
+					if ( (cmd->GetCommandType() == CL_COMMAND_MARKER) && (0 == m_commandsInExecution) )
 					{
 						m_submittedQueue.PopFront();
 						m_commandsInExecution++;
 						cmd->Execute();
 						continue;
-					}				
+					}
 					break; //if a command is red and isn't a marker, there's no point in iterating further
 				}
 				else
@@ -186,7 +176,6 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 			}
 		} while (--m_submittedQueueGuard > 0);
 	}
-	
-	//else return immediately	
+	//else return immediately
 	return CL_SUCCESS;
 }

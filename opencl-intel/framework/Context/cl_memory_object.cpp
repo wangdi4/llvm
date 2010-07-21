@@ -394,7 +394,6 @@ MemoryObject::MemoryObject(Context * pContext, cl_mem_flags clMemFlags, void * p
 	m_szMemObjSize = 0;
 	m_pMemObjData = NULL;
 
-	m_lDataOnHost = 0;
     // Sign to be dependent on the context, ensure the context will be deleted only after the object was
     m_pContext->AddPendency();
 
@@ -489,7 +488,6 @@ cl_err_code MemoryObject::Initialize(void * pHostPtr)
 		// in case that we're using host ptr we don't need to allocated memory for the buffer
 		// just use the host ptr instead
 		m_pMemObjData = m_pHostPtr;
-		m_lDataOnHost = 1; //true
 	}
 	else
 	{
@@ -510,7 +508,6 @@ cl_err_code MemoryObject::Initialize(void * pHostPtr)
 				return CL_OUT_OF_HOST_MEMORY;
 			}			
 			m_pHostPtr = m_pMemObjData;
-			m_lDataOnHost = 1; //true
 		}
 	}
 	return CL_SUCCESS;
@@ -522,10 +519,6 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 {
 	LOG_DEBUG(L"Enter IsReady (clDeviceId=%d)", clDeviceId);
 	
-	if ( ::InterlockedCompareExchange(&m_lDataOnHost, 0, 0) && (0 == clDeviceId))
-	{
-		return true;
-	}
 	OclAutoMutex mu(&m_muDeviceMap);
 
 	map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.find(clDeviceId);
@@ -563,53 +556,33 @@ cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::GetDataLocation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_device_id MemoryObject::GetDataLocation(cl_device_id clDeviceId)
+cl_device_id MemoryObject::GetDataLocation()
 {
 	LOG_DEBUG(L"Enter GetDataLocation");
 	
-	cl_device_id devLocation = 0;
 	{
 		OclAutoMutex mu(&m_muDeviceMap);
-		
-		for (map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin(); it != m_mapDeviceMemObjects.end(); it++)
-		{	
-			DeviceMemoryObject * pDevMemObj = it->second;
 
-			// if clDeviceId != 0 then we are asked to return the requested clDeviceId in case the 
-			// data is valid on it.
-			// First return clDeviceId device in case the buffer is valid on it; otherwise, if the
-			// buffer is not valid on clDeviceId device then return any other device were 
-			// the buffer is valid.
+		for (map<cl_device_id, DeviceMemoryObject*>::iterator it = m_mapDeviceMemObjects.begin(); it != m_mapDeviceMemObjects.end(); it++)
+		{
+			DeviceMemoryObject * pDevMemObj = it->second;
 			if (pDevMemObj->IsDataValid())
 			{
-				if (it->first == clDeviceId)
-				{				
-					return clDeviceId;
-				}			
-				else if (!devLocation)
-				{	
-					devLocation = it->first;
-				}
+				return it->first;
 			}
 		}
 	}
 
-	// if found device where the memory object is valid, return it.
-	// in case the mem obj is not anywhere, here we return 0 (zero)
-	return devLocation;
+	// Data is not located on any device
+	return (cl_device_id)(0);
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::SetDataLocation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 {
 	LOG_DEBUG(L"Enter SetDataLocation (clDevice=%d)", clDevice);
-
-	if (0 == clDevice)
-	{
-		m_lDataOnHost = 1;
-		return CL_SUCCESS;
-	}
 
 	OclAutoMutex mu(&m_muDeviceMap);
 
@@ -636,7 +609,7 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 			pDevMemObj->SetDataValid(true);
 		}
 	}
-	m_lDataOnHost = 0;
+	
 	return CL_SUCCESS;
 }
 

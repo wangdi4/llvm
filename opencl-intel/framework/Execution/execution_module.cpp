@@ -423,7 +423,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 	
 	Command* pWaitForEventsCommand = new WaitForEventsCommand();
 	pWaitForEventsCommand->SetCommandQueue(pCommandQueue);
-	pWaitForEventsCommand->SetDevice(pCommandQueue->GetDefaultDevice());	
+	pWaitForEventsCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	errVal = pWaitForEventsCommand->Init();
 	if(CL_SUCCEEDED(errVal))
 	{

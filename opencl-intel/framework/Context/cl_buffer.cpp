@@ -132,17 +132,6 @@ size_t Buffer::GetSize() const
 	return m_szMemObjSize;
 }
 
-void Buffer::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const
-{
-	dimensions[0] = GetSize();
-	for (int i = 1; i < MAX_WORK_DIM; i++)
-	{
-		dimensions[i] = 0;
-	}
-	*rowPitch = *slicePitch = 0;	
-}
-
-
 bool Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
 

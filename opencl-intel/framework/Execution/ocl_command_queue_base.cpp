@@ -91,7 +91,6 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 	//create a dummy event for the waitForEvents
 	cl_event* pEvent = NULL;
 	OclEvent* pQueueEvent = m_pEventsManager->CreateOclEvent(wfe->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
-	pQueueEvent->SetEventQueue(this);
 	wfe->SetEvent(pQueueEvent);
 	pQueueEvent->AddFloatingDependence();
 	//wfe->SetCommandDeviceId(m_clDefaultDeviceId);
@@ -113,10 +112,9 @@ bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 {
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);
-	
+
 	cl_int ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
 
-	//printf("waiting on pEvent %p\n",pEvent);
 	QueueEventStateColor color = pEvent->GetColor();
 	if ( CL_DEV_FAILED(ret) || (EVENT_STATE_BLACK != color) )
 	{

@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class OclEvent;
     class MemoryObject;
     class Kernel;
-    class IOclCommandQueueBase;
+    class OclCommandQueue;
 
     /******************************************************************
      * This enumeration is used to identify if a command is going to be
@@ -98,15 +98,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         virtual ECommandExecutionType GetExecutionType() const = 0;
 
-		//
-		// Makes sure pSrcMemObj memory object is valid on the device where 
-		// the command belongs.
-		//
-		cl_err_code		PrepareOnDevice(
-							MemoryObject* pSrcMemObj, 						
-							const size_t* pSrcOrigin, 						
-							const size_t* pRegion,							
-							OclEvent**	pEvent);
 
         // ICmdStatusChangedObserver function
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
@@ -118,28 +109,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
 		void            SetDevice(Device* pDevice)                          { m_pDevice = pDevice; }
 		Device*         GetDevice() const                                   { return m_pDevice; }
-		void            SetCommandQueue(IOclCommandQueueBase* pQueue)       { m_pCommandQueue = pQueue; }
+		void            SetCommandQueue(OclCommandQueue* pQueue)            { m_pCommandQueue = pQueue; }
 
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
 
     protected:
-		cl_err_code CopyFromHost(
-						void* pSrcData,
-						MemoryObject* pSrcMemObj, 
-						const size_t* pSrcOrigin, 						
-						const size_t* pRegion,					
-						OclEvent**	pEvent);
-
-		cl_err_code CopyToHost(
-						MemoryObject*	pSrcMemObj, 												
-						OclEvent**		pEvent);
-
         OclEvent*                   m_pEvent;                   // Pointer to the related event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
 		Device*                     m_pDevice;                  // A pointer to the device executing the command
-		IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
+		OclCommandQueue*            m_pCommandQueue;            // A pointer to the command queue on which the command resides
 
     public:
         bool						m_bIsFlushed;				// Required only for Debug, TODO: Remove on stabilty
@@ -148,37 +128,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-	class ReadMemObjCommand : public Command
-    {
-    public:
-        ReadMemObjCommand(
-            MemoryObject*   pMemObj,
-			const size_t*   pszOrigin,
-			const size_t*   pszRegion,
-			size_t          szRowPitch, 
-			size_t          szSlicePitch, 
-			void*           pDst);
-
-        virtual ~ReadMemObjCommand();
-
-		virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_MEM_OBJECT; }
-        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
-		virtual const char*             GetCommandName() const  { return "CL_COMMAND_READ_MEM_OBJECT"; }
-
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();    
-        virtual cl_err_code             CommandDone();
-        
-    private:
-		MemoryObject*   m_pMemObj;
-        size_t          m_szOrigin[3]; 
-        size_t          m_szRegion[3];
-        size_t          m_szRowPitch;
-        size_t          m_szSlicePitch; 
-        void*           m_pDst;        
-    };
-
-    class ReadBufferCommand : public ReadMemObjCommand
+    class ReadBufferCommand : public Command
     {
     public:
         ReadBufferCommand(
@@ -188,17 +138,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*             pDst
             );
         virtual ~ReadBufferCommand();
-        
+
+        cl_err_code             Init();
+        cl_err_code             Execute();    
+        cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_BUFFER; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER"; }
-    };
 
+    private:
+        MemoryObject*   m_pBuffer;
+        size_t          m_szOffset;
+        size_t          m_szCb;
+        void*           m_pDst;
+    };
 
     /******************************************************************
      *
      ******************************************************************/
-    class ReadImageCommand : public ReadMemObjCommand
+    class ReadImageCommand : public Command
     {
 
     public:
@@ -211,52 +169,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*           pDst
             );
         virtual ~ReadImageCommand();
-     
+
+        cl_err_code             Init();
+        cl_err_code             Execute();    
+        cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_IMAGE; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_IMAGE"; }
-    };
-
-	/******************************************************************
-    *
-    ******************************************************************/
-	class WriteMemObjCommand : public Command
-    {
-
-    public:
-        WriteMemObjCommand(
-            MemoryObject*   pImage, 
-            const size_t*   pszOrigin,
-            const size_t*   pszRegion,
-            size_t          szRowPitch,
-            size_t          szSlicePitch,
-            const void *    cpSrc			
-            );
-
-        virtual ~WriteMemObjCommand();
-
-		virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_MEM_OBJECT; }
-        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
-		virtual const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_MEM_OBJECT"; }
-		
-
-        virtual cl_err_code   Init();
-        virtual cl_err_code   Execute();    
-        virtual cl_err_code   CommandDone();        
 
     private:
-        MemoryObject*   m_pMemObj;
-        size_t          m_szOrigin[3];
-        size_t          m_szRegion[3]; 
-        size_t          m_szRowPitch;
-        size_t          m_szSlicePitch; 
-        const void*     m_cpSrc;		
+            MemoryObject*   m_pImage;
+            size_t          m_szOrigin[3]; 
+            size_t          m_szRegion[3];
+            size_t          m_szRowPitch;
+            size_t          m_szSlicePitch; 
+            void*           m_pDst;
     };
+
+
 
     /******************************************************************
      *
      ******************************************************************/
-    class WriteBufferCommand : public WriteMemObjCommand
+    class WriteBufferCommand : public Command
     {
 
     public:
@@ -269,16 +204,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~WriteBufferCommand();
 
-
+        cl_err_code             Init();
+        cl_err_code             Execute();    
+        cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_BUFFER; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
         const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_BUFFER"; }
+
+    private:
+        MemoryObject*   m_pBuffer;
+        size_t          m_szOffset;
+        size_t          m_szCb;
+        const void*     m_cpSrc;
     };
 
     /******************************************************************
      *
      ******************************************************************/
-    class WriteImageCommand : public WriteMemObjCommand
+    class WriteImageCommand : public Command
     {
 
     public:
@@ -293,20 +236,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~WriteImageCommand();
 
+        cl_err_code             Init();
+        cl_err_code             Execute();    
+        cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_IMAGE; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_IMAGE"; }
 
 
     private:
-        MemoryObject*   m_pImage;
-        size_t          m_szOrigin[3];
-        size_t          m_szRegion[3]; 
-        size_t          m_szRowPitch;
-        size_t          m_szSlicePitch; 
-        const void*     m_cpSrc;
-	};
-	
+            MemoryObject*   m_pImage;
+            size_t          m_szOrigin[3];
+            size_t          m_szRegion[3]; 
+            size_t          m_szRowPitch;
+            size_t          m_szSlicePitch; 
+            const void*     m_cpSrc;
+    };
+
+
     /******************************************************************
      * This is an abstrct class that is used for all copy memory object commands
      ******************************************************************/
@@ -337,8 +284,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             // respectively are BUFFER/2D/3D. The private member is used only for ease of use.
         cl_uint         m_uiDstNumDims;
 
-        // Private functions        
-        cl_err_code CopyOnDevice    (cl_device_id clDeviceId);        
+        // Private functions
+        cl_err_code CopyHost        ();
+        cl_err_code CopyOnDevice    (cl_device_id clDeviceId);
+        cl_err_code CopyFromHost    (cl_device_id clDstDeviceId);
+        cl_err_code CopyToHost      (cl_device_id clSrcDeviceId);
+        cl_err_code CopyFromDevice  (cl_device_id clSrcDeviceId, cl_device_id clDstDeviceId);
     };
 
     /******************************************************************
@@ -554,8 +505,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*   m_cpszLocalWorkSize;
 
         // Intermediate data
-        std::list<OCLObject<_cl_mem>*>  m_MemOclObjects;
-		std::list<OCLObject<_cl_mem>*>  m_NonMemOclObjects;
+        std::list<OCLObject<_cl_mem>*>  m_OclObjects;
     };
 
     /******************************************************************

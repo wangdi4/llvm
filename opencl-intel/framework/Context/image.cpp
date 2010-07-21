@@ -211,41 +211,6 @@ cl_err_code Image2D::CreateDeviceResource(cl_device_id clDeviceId)
 	//return pDevMemObj->AllocateImage2D(m_clFlags, m_pclImageFormat, m_szImageWidth, m_szImageHeight, m_szImageRowPitch, m_pHostPtr);
 	return pDevMemObj->AllocateImage2D(m_clFlags, m_pclImageFormat, m_szImageWidth, m_szImageHeight, m_szImageRowPitch, m_pMemObjData);
 }
-
-struct SMemCpyParams
-{
-	cl_uint			uiDimCount;
-	cl_char*		pSrc;
-	size_t			vSrcPitch[MAX_WORK_DIM-1];
-	cl_char*		pDst;
-	size_t			vDstPitch[MAX_WORK_DIM-1];
-	size_t			vRegion[MAX_WORK_DIM];
-};
-
-void CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
-{
-	// Copy 1D array only
-	if ( 1 == pCopyCmd->uiDimCount )
-	{
-		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
-		return;
-	}
-
-	SMemCpyParams sRecParam;
-
-	// Copy current parameters
-	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
-	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-	// Make recursion
-	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
-	{
-		CopyMemoryBuffer(&sRecParam);
-		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
-		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
-	}
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Image2D::ReadData
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -253,29 +218,7 @@ cl_err_code Image2D::ReadData(void * pData, const size_t * pszOrigin, const size
 {
 	LOG_DEBUG(L"Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
 
-	SMemCpyParams			sCpyParam;
-	
-	// Region
-	sCpyParam.uiDimCount = 2;
-	memcpy(sCpyParam.vRegion, pszRegion, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = pszRegion[0] * GetPixelBytesCount(m_pclImageFormat);
-	
-	// set row Pitche for src and dst
-	size_t srcPitch[2] = { m_szImageRowPitch , 0 };
-	size_t dstPitch[2] = { szRowPitch , 0 };
-	
-	sCpyParam.pSrc = (cl_char*)m_pMemObjData;
-	memcpy(sCpyParam.vSrcPitch, srcPitch, sizeof(sCpyParam.vSrcPitch));
-	sCpyParam.pDst = (cl_char*)pData;
-	memcpy(sCpyParam.vDstPitch, dstPitch , sizeof(sCpyParam.vDstPitch));
-	
-	// origin
-	sCpyParam.pSrc += pszOrigin[0] * GetPixelBytesCount(m_pclImageFormat); //Origin is in Pixels
-	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch 		
-	
-	CopyMemoryBuffer(&sCpyParam);
-
-	return CL_SUCCESS;	
+	return CL_ERR_NOT_IMPLEMENTED;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Image2D::WriteData
@@ -295,19 +238,6 @@ void * Image2D::GetData( const size_t * pszOrigin ) const
     // TODO: Add support for pszOrigin != NULL;
 	return m_pMemObjData;
 }
-
-void Image2D::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const
-{
-	dimensions[0] = m_szImageWidth;
-	dimensions[1] = m_szImageHeight;
-	for (int i = 2; i < MAX_WORK_DIM; i++)
-	{
-		dimensions[i] = 0;
-	}
-	*rowPitch = GetRowPitchSize();
-	*slicePitch = 0;
-}
-
 bool Image2D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
     if( (pszOrigin[0] + pszRegion[0]) > m_szImageWidth )
@@ -709,50 +639,12 @@ cl_err_code Image3D::ReadData(void * pData, const size_t * pszOrigin, const size
 {
 	LOG_DEBUG(L"Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
 
-	SMemCpyParams			sCpyParam;
-
-	// Region
-	sCpyParam.uiDimCount = 3;
-	memcpy(sCpyParam.vRegion, pszRegion, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = pszRegion[0] * GetPixelBytesCount(m_pclImageFormat);
-	
-	// set row Pitche for src and dst
-	size_t srcPitch[3] = { m_szImageRowPitch , m_szImageSlicePitch };
-	size_t dstPitch[3] = { szRowPitch , szSlicePitch };
-	
-	sCpyParam.pSrc = (cl_char*)m_pMemObjData;
-	memcpy(sCpyParam.vSrcPitch, srcPitch, sizeof(sCpyParam.vSrcPitch));
-	sCpyParam.pDst = (cl_char*)pData;
-	memcpy(sCpyParam.vDstPitch, dstPitch , sizeof(sCpyParam.vDstPitch));
-	
-	// origin
-	sCpyParam.pSrc += pszOrigin[0] * GetPixelBytesCount(m_pclImageFormat); //Origin is in Pixels
-	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch 		
-	sCpyParam.pSrc += pszOrigin[2] * m_szImageSlicePitch; //y * image width pitch		
-	
-	CopyMemoryBuffer(&sCpyParam);
-
-	return CL_SUCCESS;
+	return CL_ERR_NOT_IMPLEMENTED;
 }
 size_t Image3D::GetSize() const
 {
 	return m_szMemObjSize;
 }
-
-void Image3D::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const
-{
-	dimensions[0] = m_szImageWidth;
-	dimensions[1] = m_szImageHeight;
-	dimensions[2] = m_szImageDepth;
-	for (int i = 3; i < MAX_WORK_DIM; i++)
-	{
-		dimensions[i] = 0;
-	}
-	*rowPitch = GetRowPitchSize();
-	*slicePitch = GetSlicePitchSize();
-}
-
-
 bool Image3D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
     if( (pszOrigin[0] + pszRegion[0]) > m_szImageWidth )

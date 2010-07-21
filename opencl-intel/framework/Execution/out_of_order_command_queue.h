@@ -101,7 +101,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			);
 		~OutOfOrderCommandQueue();
 
-		cl_err_code Initialize();
 		virtual cl_err_code Enqueue(Command* cmd);
 		virtual cl_err_code EnqueueBarrier(Command* cmd);
 		virtual cl_err_code EnqueueMarker(Command* cmd);
@@ -114,16 +113,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	protected:
 		virtual void        AddDependentOnAll(Command* cmd);
 
-#if defined TBB_BUG_SOLVED
 		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_queuedQueue;
 		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_submittedQueue;
 		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_runningQueue;
-#else
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_queuedQueue;
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_submittedQueue;
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_runningQueue;
-#endif
-
 		Intel::OpenCL::Utils::AtomicCounter                m_queuedQueueGuard;
 		Intel::OpenCL::Utils::AtomicCounter                m_submittedQueueGuard;                    
 		Intel::OpenCL::Utils::AtomicCounter                m_runningQueueGuard;                    

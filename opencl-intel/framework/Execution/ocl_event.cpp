@@ -44,10 +44,7 @@ OclEvent::OclEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryP
 	m_sProfilingInfo.m_ulCommandStart = 0;
 	m_sProfilingInfo.m_ulCommandEnd = 0;
 
-	if (cmdQueue)
-	{
-		m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
-	}
+	m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
 	//Todo: workaround because OCL1.0
 	m_bProfilingEnabled = true;
 

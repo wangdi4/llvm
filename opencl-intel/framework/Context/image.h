@@ -89,7 +89,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual size_t GetRowPitchSize() const { return m_szImageRowPitch; }
 		
 		virtual size_t CalcRowPitchSize(const size_t * pszRegion) { return pszRegion[0] * GetPixelBytesCount(m_pclImageFormat); }
-		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
+
         bool   CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		void*  GetData( const size_t * pszOrigin = NULL ) const;
 		void*  CreateMappedRegion(	cl_device_id clDeviceId, 
@@ -170,7 +170,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetSize() const;
         virtual size_t GetSlicePitchSize() const { return m_szImageSlicePitch; }
 		virtual size_t CalcSlicePitchSize(const size_t * pszRegion) { return pszRegion[0] * pszRegion[1] * GetPixelBytesCount(m_pclImageFormat); }
-		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
+
         bool CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		void * GetData( const size_t * pszOrigin = NULL ) const;
 		void* CreateMappedRegion(	cl_device_id clDeviceId, 
