@@ -71,18 +71,25 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 		pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 	}
 
-	//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
-	if (NULL == pUserEvent) 
-	{
-		pQueueEvent->Release();
-	}
-
 	// If blocking, wait for object
 	if(bBlocking)
 	{
 		if ( !WaitForCompletion(pQueueEvent) )
 		{
 			pQueueEvent->Wait();
+		}
+		//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+		if (NULL == pUserEvent) 
+		{
+			pQueueEvent->Release();
+		}
+	}
+	else
+	{
+		//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+		if (NULL == pUserEvent) 
+		{
+			pQueueEvent->Release();
 		}
 	}
 	return CL_SUCCESS;
