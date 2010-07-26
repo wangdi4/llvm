@@ -175,8 +175,9 @@ void Context::Cleanup( bool bTerminate )
             }
             else
             {
-                // Done - close device	                
-                pDevice->CloseDeviceInstance();
+                // Done - release device	                
+                //pDevice->CloseDeviceInstance();
+				//pDevice->RemovePendency();
             }
         }
     }
