@@ -68,6 +68,14 @@ tbb::atomic<long>		g_alMasterIdCheck;
 // Logger
 DECLARE_LOGGER_CLIENT;
 
+static void InitSchedulerForMasterThread()
+{
+	if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
+	{
+		t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);	
+	}
+}
+
 //Implementation of the interface to be notified on thread addition/removal from the working thread pool
 class ThreadIDAssigner : public tbb::task_scheduler_observer
 {
@@ -78,7 +86,7 @@ public:
 	virtual void on_scheduler_entry( bool is_worker )
 	{
 		unsigned int uiWorkerId = 0;
-		if ( is_worker )
+		if ( is_worker && (-1 == t_uiWorkerId))
 		{
 			long canExit = false;
 			while (uiWorkerId < gWorker_threads)
@@ -124,6 +132,16 @@ public:
 #else
 			t_uiWorkerId = -1;
 #endif 
+		}
+		else if (!is_worker) //master thread is leaving
+		{
+			assert(-1 != (size_t)t_pScheduler);
+			if (t_pScheduler)
+			{
+				delete t_pScheduler;
+				t_pScheduler = NULL;
+			}
+
 		}
 	}
 };
@@ -491,11 +509,8 @@ public:
 	}
 	bool WaitForCompletion()
 	{
-		// Initialize TBB if not, required for master threads
-		if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-		{
-			GetTaskExecutor()->Init(0);
-		}
+		InitSchedulerForMasterThread();
+
 		long lVal = g_alMasterRunning.compare_and_swap(true, false);
 		if (lVal)
 		{
@@ -519,11 +534,8 @@ public:
 	void operator delete(void *p) { scalable_free(p); }
 	unsigned int Enqueue(ITaskBase* pTask)
 	{
-		// Initialize TBB if not, required for master threads
-		if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-		{
-			GetTaskExecutor()->Init(0);
-		}
+		InitSchedulerForMasterThread();
+
 		if ( pTask->IsTaskSet() )
 			task_group->run( TaskSetBody(*((ITaskSet*)pTask)) );
 		else
@@ -532,11 +544,7 @@ public:
 	}
 	void Flush()
 	{
-		// Initialize TBB if not, required for master threads
-		if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-		{
-			GetTaskExecutor()->Init(0);
-		}
+		InitSchedulerForMasterThread();
 	}
 	void Release() { LOG_INFO("Delete 0x%X", this); delete this; }
 };
@@ -572,11 +580,8 @@ public:
 	/*override*/
 	unsigned int Enqueue(ITaskBase* pTask)
 	{
-		// Initialize TBB if not, required for master threads
-		if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-		{
-			GetTaskExecutor()->Init(0);
-		}
+		InitSchedulerForMasterThread();
+
 		input.push_back(pTask);
 		//if( !is_executed ) Flush(); // TODO: evaluate performance difference of enabled vs disabled
 		return 0;
@@ -585,12 +590,9 @@ public:
 #ifdef _EXTENDED_LOG
 		LOG_INFO("Enter");
 #endif
-		// Initialize TBB if not, required for master threads
-		if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-		{
-			GetTaskExecutor()->Init(0);
-		}
-        tbb::spin_mutex::scoped_lock lock;
+		InitSchedulerForMasterThread();
+
+		tbb::spin_mutex::scoped_lock lock;
         bool is_locked = is_executed;
         if( is_locked ) lock.acquire(mutex); // no sync necessary otherwise
         if( !input.empty() ) {
@@ -713,24 +715,15 @@ TBBTaskExecutor::~TBBTaskExecutor()
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 {
-	static bool sbFirstInitialization = true;
 	unsigned long ulNewVal = InterlockedIncrement(&m_lRefCount);
-	if (sbFirstInitialization)
+	if ( ulNewVal == 1 )
 	{
-		if ( ulNewVal == 1 )
+		INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
+		LOG_INFO("TBBTaskExecutor constructed to %d threads", gWorker_threads);
+		LOG_INFO("TBBTaskExecutor initialized to %u threads", uiNumThreads);
+		if (uiNumThreads > 0)
 		{
-			INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
-			LOG_INFO("TBBTaskExecutor constructed to %d threads", gWorker_threads);
-			LOG_INFO("TBBTaskExecutor initialized to %u threads", uiNumThreads);
-			if (uiNumThreads > 0)
-			{
-				gWorker_threads = uiNumThreads;
-			}
-
-			//Initialize the "available threads" mask
-			gThreadAvailabilityMask = (1 << (gWorker_threads)) - 1;
-
-			sbFirstInitialization = false;
+			gWorker_threads = uiNumThreads;
 		}
 	}
 	else if (uiNumThreads > 0)
@@ -740,8 +733,10 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 			LOG_ERROR("Error: an attempt to re-init TBB Executor with a different number of threads. Trying to init %u threads, %d threads already used", uiNumThreads, gWorker_threads);
 			assert(0);
 		}
-
 	}
+
+	//Initialize the "available threads" mask
+	gThreadAvailabilityMask = (1 << (gWorker_threads)) - 1;
 
 	t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
 
@@ -766,11 +761,8 @@ unsigned int TBBTaskExecutor::GetNumWorkingThreads() const
 
 ITaskList* TBBTaskExecutor::CreateTaskList(bool OOO)
 {
-	// Initialize TBB if not, required for master threads
-	if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-	{
-		GetTaskExecutor()->Init(0);
-	}
+	InitSchedulerForMasterThread();
+
 	ITaskList *pList = OOO? (ITaskList*)(new unordered_command_list()) : (ITaskList*)(new ordered_command_list());
 
 	return pList;
@@ -778,11 +770,7 @@ ITaskList* TBBTaskExecutor::CreateTaskList(bool OOO)
 
 unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
 {
-	// Initialize TBB if not, required for master threads
-	if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
-	{
-		GetTaskExecutor()->Init(0);
-	}
+	InitSchedulerForMasterThread();
 
 	if ( pTask->IsTaskSet() )
 	{
@@ -816,7 +804,7 @@ bool TBBTaskExecutor::WaitForCompletion()
 // Cancels execution of uncompleted tasks and and then release task executor resources
 void TBBTaskExecutor::Close(bool bCancel)
 {
-	// TBB was not initialized within calling thread or it's TBB worker thread.
+	// TBB was not initialized within calling thread or its TBB worker thread.
 	if ( (NULL == t_pScheduler) || (-1 == (size_t)t_pScheduler) )
 	{
 		return;
@@ -827,8 +815,11 @@ void TBBTaskExecutor::Close(bool bCancel)
 	if ( 0 != ulNewVal )
 	{
 		LOG_INFO("Still alive");
-		delete t_pScheduler;
-		t_pScheduler = NULL;
+		if (t_pScheduler != NULL)
+		{
+			delete t_pScheduler;
+			t_pScheduler = NULL;
+		}
 		return;
 	}
 	LOG_INFO("Shutting down...");
