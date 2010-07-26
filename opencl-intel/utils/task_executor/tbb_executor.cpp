@@ -713,33 +713,50 @@ TBBTaskExecutor::~TBBTaskExecutor()
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 {
+	static bool sbFirstInitialization = true;
 	unsigned long ulNewVal = InterlockedIncrement(&m_lRefCount);
-	if ( ulNewVal == 1 )
+	if (sbFirstInitialization)
 	{
-		INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
-		LOG_INFO("TBBTaskExecutor constructed to %d threads", gWorker_threads);
-		if( !uiNumThreads )
-			uiNumThreads = gWorker_threads;
-		else
+		if ( ulNewVal == 1 )
 		{
-			gWorker_threads = uiNumThreads;
+			INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
+			LOG_INFO("TBBTaskExecutor constructed to %d threads", gWorker_threads);
+			LOG_INFO("TBBTaskExecutor initialized to %u threads", uiNumThreads);
+			if (uiNumThreads > 0)
+			{
+				gWorker_threads = uiNumThreads;
+			}
+
+			//Initialize the "available threads" mask
+			gThreadAvailabilityMask = (1 << (gWorker_threads)) - 1;
+
+			sbFirstInitialization = false;
+		}
+	}
+	else if (uiNumThreads > 0)
+	{
+		if (uiNumThreads != gWorker_threads)
+		{
+			LOG_ERROR("Error: an attempt to re-init TBB Executor with a different number of threads. Trying to init %u threads, %d threads already used", uiNumThreads, gWorker_threads);
+			assert(0);
 		}
 
-		//Initialize the "available threads" mask
-		gThreadAvailabilityMask = (1 << (gWorker_threads)) - 1;
+	}
 
-		t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
+	t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
+
+	if ( ulNewVal == 1 )
+	{
 		sTBB_executor = new tbb::task_group();
 	}
 	else
 	{
-		t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
 		LOG_INFO("Local executor was already initialized to 0x%X", sTBB_executor);
 	}
 
 	gThreadPoolChangeObserver.observe();
 	LOG_INFO("Done");
-	return gWorker_threads+1;
+	return gWorker_threads + 1;
 }
 
 unsigned int TBBTaskExecutor::GetNumWorkingThreads() const
