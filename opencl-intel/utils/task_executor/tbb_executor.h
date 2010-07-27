@@ -44,6 +44,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		bool			WaitForCompletion();
 
 		void Close(bool bCancel);
+
+		void ReleasePerThreadData();
 	protected:
 		long		m_lRefCount;
 		// Independent tasks will be executed by this task group

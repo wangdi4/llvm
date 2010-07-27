@@ -133,16 +133,6 @@ public:
 			t_uiWorkerId = -1;
 #endif 
 		}
-		else if (!is_worker) //master thread is leaving
-		{
-			assert(-1 != (size_t)t_pScheduler);
-			if (t_pScheduler)
-			{
-				delete t_pScheduler;
-				t_pScheduler = NULL;
-			}
-
-		}
 	}
 };
 
@@ -700,8 +690,7 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0)
 	g_uiShedulerInx = TlsAlloc();
 #endif
 
-	//Enable observation of thread addition/removal from the working thread pool
-	gThreadPoolChangeObserver.observe(); 
+	t_pScheduler = NULL;
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
@@ -710,7 +699,6 @@ TBBTaskExecutor::~TBBTaskExecutor()
 	TlsFree(g_uiWorkerIdInx);
 	TlsFree(g_uiShedulerInx);
 #endif
-	gThreadPoolChangeObserver.observe(false); 
 }
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
@@ -740,13 +728,13 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads)
 
 	t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
 
-	if ( ulNewVal == 1 )
+	if (NULL == sTBB_executor)
 	{
 		sTBB_executor = new tbb::task_group();
 	}
 	else
 	{
-		LOG_INFO("Local executor was already initialized to 0x%X", sTBB_executor);
+		LOG_DEBUG("sTBB_executor was initialized to %0x", sTBB_executor);
 	}
 
 	gThreadPoolChangeObserver.observe();
@@ -841,6 +829,20 @@ void TBBTaskExecutor::Close(bool bCancel)
 	gThreadPoolChangeObserver.observe(false);
 	LOG_INFO("Done");
 	RELEASE_LOGGER_CLIENT;
+}
+
+void TBBTaskExecutor::ReleasePerThreadData()
+{
+	// TBB was not initialized within calling thread or its TBB worker thread.
+	if ( -1 == (size_t)t_pScheduler)
+	{
+		return;
+	}
+	if (NULL != t_pScheduler)
+	{
+		delete t_pScheduler;
+		t_pScheduler = NULL;
+	}
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

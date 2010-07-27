@@ -175,7 +175,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		break;
 	case DLL_THREAD_DETACH:
 #ifdef __TBB_EXECUTOR__
-		g_pTaskExecutor->Close(false);
+		g_pTaskExecutor->ReleasePerThreadData();
 #endif
 		break;
 	case DLL_PROCESS_DETACH:
