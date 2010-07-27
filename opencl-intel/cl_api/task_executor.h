@@ -164,6 +164,8 @@ public:
 
 	// Cancels execution of uncompleted tasks and and then release task executor resources
 	virtual void Close(bool bCancel) = 0;
+
+	virtual void ReleasePerThreadData() = 0;
 };
 
 // Function which retrieves TaskExecutor singleton object 
