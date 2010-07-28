@@ -213,7 +213,7 @@ char* clDevErr2Txt(cl_dev_err_code errorCode)
 CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
 	: m_iLogHandle (0), m_uiCpuId(uiDevId), m_pCPUDeviceConfig(NULL), m_pLogDescriptor(logDesc),
 	m_pFrameworkCallBacks(devCallbacks)
-{	
+{		
 }
 
 cl_int CPUDevice::Init()
@@ -242,12 +242,19 @@ cl_int CPUDevice::Init()
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
+	
+	cl_int ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, &m_defaultCommandList);
+	if (CL_DEV_SUCCESS != ret)
+	{	
+		return CL_DEV_ERROR_FAIL;
+	}	
 
 	return CL_DEV_SUCCESS;
 }
 
 CPUDevice::~CPUDevice()
 {
+
 }
 
 // ---------------------------------------
@@ -1038,7 +1045,13 @@ cl_int CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevCommandListExecute Function enter");
-	return m_pTaskDispatcher->commandListExecute(list,cmds,count);
+	if (list)
+		return m_pTaskDispatcher->commandListExecute(list,cmds,count);
+	else
+	{
+		return m_pTaskDispatcher->commandListExecute(m_defaultCommandList,cmds,count);
+		//return m_pTaskDispatcher->flushCommandList(m_defaultCommandList);
+	}
 }
 
 /****************************************************************************************************************
@@ -1247,6 +1260,9 @@ void CPUDevice::clDevCloseDevice(void)
 {
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clCloseDevice Function enter");
 
+	clDevReleaseCommandList(m_defaultCommandList);
+	
+
 	if( NULL != m_pCPUDeviceConfig)
 	{
 		delete m_pCPUDeviceConfig;
@@ -1273,5 +1289,6 @@ void CPUDevice::clDevCloseDevice(void)
 		m_pTaskDispatcher = NULL;
 	}
    
+
 	delete this;
 }

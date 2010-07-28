@@ -52,6 +52,10 @@ private:
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 	OclDynamicLib			m_dlRunTime;
+	
+	// This list is used by the runtime to send immediate commands
+	// to the device for exection, and not on a specific queue commmand list.
+	cl_dev_cmd_list			m_defaultCommandList;
 
 protected:
 	~CPUDevice();
