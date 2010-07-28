@@ -100,6 +100,17 @@ typedef void (*logging_fn)(const char *, const void *, size_t, void *);
 #define		CL_ERR_END						-899	// marker
 
 
+// command execution status (internal use)
+
+// States that the command sent for Exection isn't ready yet and needs to
+// be requeued in case it has been popoed. Used by all commands whenever 
+// They need to wait for a memory object to be synchronized on a specific device
+// after calling PrepareOnDevice.
+#define CL_NOT_READY  0x8
+
+// cl_command_type (internal use)
+#define CL_COMMAND_READ_MEM_OBJECT	 1500
+#define	CL_COMMAND_WRITE_MEM_OBJECT  1501
 //// ------------------------------------
 //// vendor dispatch table structure
 //
