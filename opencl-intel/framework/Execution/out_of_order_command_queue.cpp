@@ -63,6 +63,16 @@ OutOfOrderCommandQueue::~OutOfOrderCommandQueue()
 	assert(m_runningQueueGuard == 0);	
 }
 
+cl_err_code OutOfOrderCommandQueue::Initialize()
+{
+	 cl_err_code ret = CL_SUCCESS;
+	 ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, &m_clDevCmdListId);
+	 if (CL_SUCCEEDED(ret))
+	 {
+		 m_bCommandListCreated = true;
+	 }
+	 return ret;	
+}
 
 cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 {			
@@ -127,6 +137,10 @@ void OutOfOrderCommandQueue::TidyRunningQueue()
 				// Command finished execution
 				m_runningQueue.PushBack(cmd);
 			}
+			else
+			{				
+				cmd->GetEvent()->RemovePendency();
+			}
 		}
 		m_runningQueue.PopFront();
 	} while (--m_runningQueueGuard > 0);
@@ -160,6 +174,7 @@ void OutOfOrderCommandQueue::MvSubmittedToDevice()
 {
 	do
 	{
+		m_submittedQueue.PushBack(NULL);
 		cl_uint cmdListLength = 0;
 		cl_err_code res;
 		while ( m_submittedQueue.Top() != NULL)
@@ -191,18 +206,26 @@ void OutOfOrderCommandQueue::MvSubmittedToDevice()
 				else
 				{
 					// Non-control command is Ready 
-					m_runningQueue.PushBack(cmd);	
 					cmd->SetDevCmdListId(m_clDevCmdListId);
 					cmd->GetEvent()->SetColor(EVENT_STATE_LIME);
+					cmd->GetEvent()->AddPendency();					
 					res = cmd->Execute();
 					if (CL_SUCCEEDED(res))
 					{
+						m_runningQueue.PushBack(cmd);	
 						++cmdListLength;
 					}
 					else
 					{
-						cmd->CommandDone();
-						cmd->GetEvent()->SetColor(EVENT_STATE_BLACK);
+						if (res == CL_NOT_READY)
+						{
+							m_submittedQueue.PushBack(cmd);							
+						}
+						else
+						{
+							cmd->CommandDone();
+							cmd->GetEvent()->SetColor(EVENT_STATE_BLACK);
+						}
 					}
 				}
 			}
@@ -219,7 +242,7 @@ void OutOfOrderCommandQueue::MvSubmittedToDevice()
 
 cl_err_code OutOfOrderCommandQueue::SendCommandsToDevice()
 {
-	m_submittedQueue.PushBack(NULL);
+	
 	long prev_val = m_submittedQueueGuard++;
 	if (m_submittedQueueGuard == 2)
 	{

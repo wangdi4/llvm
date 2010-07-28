@@ -116,7 +116,7 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const OclEvent* cpEvent, Ocl
 	}
 
 	//basically we should not be here until we use this interface for more stuff
-	assert(0);
+	assert(0 && "InOrderCommandQueue::NotifyStateChange called with wrong color");
 	return CL_SUCCESS;
 }
 
@@ -136,16 +136,26 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 				OclEventStateColor color = cmd->GetEvent()->GetColor();
 				if (EVENT_STATE_YELLOW == color)
 				{
-					//Ready for execution, schedule it
-					m_submittedQueue.PopFront();
+					//Ready for execution, schedule it										
 					assert(m_pDefaultDevice == cmd->GetDevice());
-					m_commandsInExecution++;
 					cmd->SetDevCmdListId(m_clDevCmdListId);
 					cmd->GetEvent()->SetColor(EVENT_STATE_LIME);
 					res = cmd->Execute();
 					if (CL_SUCCEEDED(res))
 					{
+						m_commandsInExecution++;
+						m_submittedQueue.PopFront();
 						++cmdListLength;
+					}					
+					else if (res == CL_NOT_READY)
+					{						
+						// keep in the queue
+					}					
+					else
+					{
+						// there has been an error, remove from queue
+						m_commandsInExecution++;
+						m_submittedQueue.PopFront();						
 					}
 				}
 				else if (EVENT_STATE_BLACK == color)

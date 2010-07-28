@@ -61,6 +61,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
 		cl_err_code WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
 		size_t GetSize() const;
+		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
         bool CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		void * GetData( const size_t * pszOrigin = NULL ) const;
 		void* CreateMappedRegion(	cl_device_id clDeviceId, 

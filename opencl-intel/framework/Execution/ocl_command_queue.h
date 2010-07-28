@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			EventsManager*              pEventManager,
 			ocl_entry_points *			pOclEntryPoints
 			);
-		cl_err_code     Initialize();
+		virtual  cl_err_code     Initialize();
 		cl_err_code	    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 
@@ -83,6 +83,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int          GetContextId() const;
 		cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
 		Device*			GetDefaultDevice() const				{ return m_pDefaultDevice;		    }
+		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
 
 	protected:
 		virtual         ~OclCommandQueue();
