@@ -237,7 +237,8 @@ COND_RESULT OclCondition::Wait(IMutex* mutexObj)
     // Released the attached Mutex
     mutexObj->Unlock();
     // Wait both for broadcast and single, but act differently.
-    DWORD waitRes = WaitForMultipleObjects(2, &m_signalEvent,FALSE, INFINITE);
+
+	DWORD waitRes = WaitForMultipleObjects(2, &m_signalEvent,FALSE, INFINITE);
     // Critical section - check if it is the last waiter on a broadcast
     // If it is, reset the manual-reset event
     bool resetEvent = false;
