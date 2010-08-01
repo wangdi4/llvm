@@ -151,6 +151,13 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					{						
 						// keep in the queue
 					}					
+					else if (res == CL_DONE_ON_RUNTIME)
+					{																	
+						cmd->CommandDone();
+						cmd->SetCommandType(CL_COMMAND_MARKER);						
+						cmd->GetEvent()->SetColor(EVENT_STATE_RED);	
+						continue;
+					}
 					else
 					{
 						// there has been an error, remove from queue
@@ -168,7 +175,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					if ( (cmd->GetCommandType() == CL_COMMAND_MARKER) && (0 == m_commandsInExecution) )
 					{
 						m_submittedQueue.PopFront();
-						m_commandsInExecution++;
+						m_commandsInExecution++;						
 						cmd->Execute();
 						continue;
 					}

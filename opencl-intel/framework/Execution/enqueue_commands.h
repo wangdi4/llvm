@@ -87,7 +87,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         // Returns the command type for GetInfo requests and execution needs
         //
-        virtual cl_command_type GetCommandType() const = 0;
+		virtual cl_command_type GetCommandType() const = 0;
+		//
+		// set command type (some commands like ReadBuffer/ReadImage change to MARKER on their Execute() if decided not to go to device)
+		//
+		void SetCommandType(cl_command_type newCmdType) { m_commandType = newCmdType; }
+
 		//
 		// Returns True if command is: Marker || Barrier || WaitForEvents
 		//
@@ -144,6 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
 		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec. 
 		cl_int                      m_iId;                      // The command's ID
+		cl_command_type				m_commandType;				// Command type
 
 		DECLARE_LOGGER_CLIENT;
 
@@ -195,7 +201,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             );
         virtual ~ReadBufferCommand();
         
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_BUFFER; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER"; }
     };
@@ -218,7 +224,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             );
         virtual ~ReadImageCommand();
      
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_IMAGE; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_IMAGE"; }
     };
@@ -363,7 +369,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             );        
         virtual ~CopyBufferCommand();
 
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_COPY_BUFFER; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_COPY_BUFFER"; }
 
@@ -385,7 +391,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         );
         virtual ~CopyImageCommand();
 
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_COPY_IMAGE; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_COPY_IMAGE"; }
     };
@@ -405,7 +411,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         );
         virtual ~CopyImageToBufferCommand();
 
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_COPY_IMAGE_TO_BUFFER; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_COPY_IMAGE_TO_BUFFER"; }
     };
@@ -427,7 +433,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~CopyBufferToImageCommand();
 
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_COPY_BUFFER_TO_IMAGE; }
+        cl_command_type         GetCommandType() const  { return m_commandType; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;  }
         const char*             GetCommandName() const  { return "CL_COMMAND_COPY_BUFFER_TO_IMAGE"; }
 

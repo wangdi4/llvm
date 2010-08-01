@@ -363,12 +363,12 @@ cl_err_code Command::PrepareOnDevice(
 
 	if (srcDeviceId != 0 && srcDeviceId != queueDeviceId)
 	{				
-		CopyToHost(pSrcMemObj, pEvent);		
+		res = CopyToHost(pSrcMemObj, pEvent);				
 	}	
 	else if (srcDeviceId == 0 && pSrcMemObj->IsAllocated(0))
 	{						
 		void* pSrcData = pSrcMemObj->GetData(NULL);		
-		CopyFromHost(pSrcData, pSrcMemObj, NULL, NULL, pEvent);				
+		res = CopyFromHost(pSrcData, pSrcMemObj, NULL, NULL, pEvent);				
 	}
 
 	
@@ -506,6 +506,16 @@ cl_err_code CopyMemObjCommand::Execute()
 {   
 	cl_err_code res = CL_SUCCESS;
 
+	// Check if this command has become MARKER because of returning CL_DONE_ON_RUNTIME previously.
+	// if Yes; then this is the second time Execute() is being called and we don't to do anything,
+	// we already executed before.
+	if (m_commandType == CL_COMMAND_MARKER)
+	{
+		m_returnCode = CL_SUCCESS;
+		m_pEvent->SetColor(EVENT_STATE_BLACK);		
+		return CL_SUCCESS;
+	}
+
 	/// first, make sure m_pDstMemObj resides on target device.
 	/// for example, if m_pDstMemObj resides on different device this funciton will now copy
 	/// the memory object to host, then called again to copy from host to the target device.
@@ -558,9 +568,10 @@ cl_err_code CopyMemObjCommand::Execute()
 		if (CL_FAILED(res)) { return res; }
 	}
 	else
-	{
-		CommandDone();
-		m_pEvent->SetColor(EVENT_STATE_BLACK);
+	{		
+		// do nothing, return CL_DONE_ON_RUTIME to signal for the queue, that
+		// the command hasn't been forwarded to the device and finished at runtime level.
+		return CL_DONE_ON_RUNTIME;
 	}	    	
 	
 	return res;
@@ -625,6 +636,7 @@ cl_err_code CopyMemObjCommand::CommandDone()
     if ( NULL != m_pDevCmd->params )
     {
         delete m_pDevCmd->params;
+		m_pDevCmd->params = NULL;
     }
     return CL_SUCCESS;
 }
@@ -640,6 +652,7 @@ CopyBufferCommand::CopyBufferCommand(
             size_t          szCb
             ): CopyMemObjCommand(pSrcBuffer, pDstBuffer, &szSrcOffset, &szDstOffset, &szCb)
 {
+	m_commandType = CL_COMMAND_COPY_BUFFER;
 }
 
 /******************************************************************
@@ -661,6 +674,7 @@ CopyImageCommand::CopyImageCommand(
     const size_t*   pszRegion
     ): CopyMemObjCommand(pSrcImage, pDstImage, pszSrcOrigin, pszDstOrigin, pszRegion)
 {
+	m_commandType = CL_COMMAND_COPY_IMAGE;
 }
 
 /******************************************************************
@@ -681,6 +695,7 @@ CopyBufferToImageCommand::CopyBufferToImageCommand(
     const size_t*   pszDstRegion
     ): CopyMemObjCommand(pSrcBuffer, pDstImage, &szSrcOffset, pszDstOrigin, pszDstRegion)
 {
+	m_commandType = CL_COMMAND_COPY_BUFFER_TO_IMAGE;
 }
 
 /******************************************************************
@@ -701,6 +716,7 @@ CopyImageToBufferCommand::CopyImageToBufferCommand(
     size_t          szDstOffset
     ): CopyMemObjCommand(pSrcImage, pDstBuffer, pszSrcOrigin, &szDstOffset, pszSrcRegion)
 {
+	m_commandType = CL_COMMAND_COPY_IMAGE_TO_BUFFER;
 }
 
 /******************************************************************
@@ -1381,6 +1397,7 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 ReadBufferCommand::ReadBufferCommand(MemoryObject* pBuffer, size_t szOffset, size_t szCb, void* pDst)
 :ReadMemObjCommand(pBuffer, &szOffset, &szCb, 0, 0, pDst)
 {
+	m_commandType = CL_COMMAND_READ_BUFFER;
 }
 
 //////////////////
@@ -1401,6 +1418,7 @@ ReadImageCommand::ReadImageCommand(
             void*           pDst)
 :ReadMemObjCommand(pImage, pszOrigin, pszRegion, szRowPitch, szSlicePitch, pDst)
 {
+	m_commandType = CL_COMMAND_READ_IMAGE;
 }
 
 /******************************************************************
@@ -1501,35 +1519,28 @@ cl_err_code ReadMemObjCommand::Execute()
     cl_device_id clDeviceDataLocation = m_pMemObj->GetDataLocation(clDeviceId);	
 	
 
-    // As long as multiple buffers are not implemented always create on device
-    // This is to prevent the case that 0 == clDeviceDataLocation which is not implemented.
-    // TODO: handle it correctly where there is more than one device...
-    // Note that for now use_host & copy_host may not work
-    if (clDeviceDataLocation == 0)
-    {
-		// check if runtime copy is valid?
-		if (m_pMemObj->IsAllocated(0))
-		{
-			// Read data from runtime copy			
-			res = m_pMemObj->ReadData(m_pDst, m_szOrigin, m_szRegion, m_szRowPitch, m_szSlicePitch);
-			if (CL_FAILED(res))
-			{
-				return res;
-			}
-			res = CommandDone();
-			m_pEvent->SetColor(EVENT_STATE_BLACK);
-			
-		}
-		else
-		{
-			// do nothing
-			// data on runtime but isn't not valid, copying it is redundant
-			res = CommandDone();
-			m_pEvent->SetColor(EVENT_STATE_BLACK);					
-		}			
+	// Check if this command has become MARKER because of returning CL_DONE_ON_RUNTIME previously.
+	// if Yes; then this is the second time Execute() is being called and we don't to do anything,
+	// we already executed before.
+	if (m_commandType == CL_COMMAND_MARKER)
+	{
+		m_returnCode = CL_SUCCESS;
+		m_pEvent->SetColor(EVENT_STATE_BLACK);		
+		return CL_SUCCESS;
+	}
+
+	// We don't optimize the case of "clDeviceDataLocation == 0 && m_pMemObj->IsAllocated(0)" as long
+	// we run on CPU only; since it case cause performance issues. for GPU device, its better
+	// to used m_pMemObj->ReadData(..) in order to read the data.
+    if (clDeviceDataLocation == 0 && !m_pMemObj->IsAllocated(0))
+    {		
+		// do nothing
+		// data on runtime but isn't not valid, copying it is redundant				
+		return CL_DONE_ON_RUNTIME;					
 	}
 	else
 	{        
+		
         create_dev_cmd_rw(
             m_pMemObj->GetDeviceMemoryHndl(clDeviceDataLocation), 
             m_pMemObj->GetType(),
@@ -1547,14 +1558,14 @@ cl_err_code ReadMemObjCommand::Execute()
 		// Read the buffer from where the data is most valid
 		// device with Id==clDeviceDataLocation might be different than m_pDevice, hence 
 		// we don't necessarily read the data from m_pDevice.
-		Device* pDevice;
+		/*Device* pDevice;
 		Context *pContext = (Context*)m_pMemObj->GetContext();				
 		res = pContext->GetDevice(clDeviceDataLocation, &pDevice);
 		if (CL_FAILED(res))
 		{
 			return res;
-		}		
-		res = pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+		}*/		
+		res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
     }
     return res;    
 
@@ -1573,6 +1584,7 @@ cl_err_code ReadMemObjCommand::CommandDone()
 	if (pRWParams)
 	{
 		delete pRWParams;
+		pRWParams = NULL;
 	}	
     return CL_SUCCESS;
 }
