@@ -107,7 +107,7 @@ typedef void (*logging_fn)(const char *, const void *, size_t, void *);
 // They need to wait for a memory object to be synchronized on a specific device
 // after calling PrepareOnDevice.
 #define CL_NOT_READY  0x8
-
+#define CL_DONE_ON_RUNTIME  0x9
 // cl_command_type (internal use)
 #define CL_COMMAND_READ_MEM_OBJECT	 1500
 #define	CL_COMMAND_WRITE_MEM_OBJECT  1501
