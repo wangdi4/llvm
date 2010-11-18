@@ -1,0 +1,9 @@
+<TestType Name="mtv_promotion">
+    <Cmd>
+        <Pre>mtv_promotion.py --checkout &gt; promotion_checkout.log 2&gt;&amp;1</Pre>
+        <Launch>mtv_promotion.py --build &gt; promotion_build.log 2&gt;&amp;1</Launch>
+        <Post>mtv_promotion.py --export &gt; promotion_expot.log 2&gt;&amp;1</Post>
+        <OSType>Windows</OSType>
+    </Cmd>
+    <Description>This is the test type definition of the mtv_promotion.py script provided by MTV itself</Description>    
+</TestType>

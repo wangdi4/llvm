@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<VisualStudioProject
+	ProjectType="Intel C++ Project"
+	Version="11.1"
+	Name="clang_compiler"
+	ProjectGUID="{2FB93933-3FC2-4044-95E5-E4EDBBC55F54}"
+	VCNestedProjectGUID="{4F475FB4-8929-4073-A1D8-3CE62C4DA549}"
+	VCNestedProjectFileName="clang_compiler.vcproj">
+	<Configurations/>
+	<Files/>
+</VisualStudioProject>
