@@ -22,11 +22,11 @@
     <Component Name="clang_compiler">
         <RelativeCheckoutPath>fe_compilers\clang_compiler</RelativeCheckoutPath>
     </Component>
-    <Component Name="llvm">
-        <RelativeCheckoutPath>externals\llvm</RelativeCheckoutPath>
+    <Component Name="llvm_bin">
+        <RelativeCheckoutPath>externals\llvm_bin</RelativeCheckoutPath>
     </Component>
-    <Component Name="llvm_backend">
-        <RelativeCheckoutPath>be_compilers\llvm_backend</RelativeCheckoutPath>
+    <Component Name="cpu_backend">
+        <RelativeCheckoutPath>externals\cpu_backend</RelativeCheckoutPath>
     </Component>
     <Component Name="clang">
         <RelativeCheckoutPath>externals\clang</RelativeCheckoutPath>
@@ -42,12 +42,6 @@
     </Component>             
     <Component Name="tal">
         <RelativeCheckoutPath>externals\tal</RelativeCheckoutPath>
-    </Component>
-    <Component Name="svml">
-        <RelativeCheckoutPath>externals\svml</RelativeCheckoutPath>
-    </Component>
-    <Component Name="Vectorizer">
-        <RelativeCheckoutPath>externals\Vectorizer</RelativeCheckoutPath>
     </Component>
     <Component Name="VTune">
         <RelativeCheckoutPath>externals\VTune</RelativeCheckoutPath>
