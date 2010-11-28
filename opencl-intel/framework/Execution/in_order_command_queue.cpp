@@ -89,8 +89,8 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 				}
 				m_submittedQueue.PushBack(cmd);
 			}
-			SendCommandsToDevice();
 		} while (--m_queuedQueueGuard > 0);
+		SendCommandsToDevice();
 	}
 	else //another thread will handle the flush request
 	{

@@ -107,8 +107,8 @@ void OutOfOrderCommandQueue::MvQueuedToSubmitted()
 			}
 			m_submittedQueue.PushBack(cmd);
 		}
-		SendCommandsToDevice();
 	} while (--m_queuedQueueGuard > 0);	
+	SendCommandsToDevice();
 }
 
 cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
