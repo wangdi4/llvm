@@ -471,7 +471,7 @@ size_t Image2D::CalcImageSize()
 {
 	if (NULL != m_pHostPtr && 0 != m_szImageRowPitch)
 	{
-		return m_szImageRowPitch * m_szImageWidth;
+		return m_szImageRowPitch * m_szImageHeight;
 	}
 	return m_szImageWidth * m_szImageHeight * GetPixelBytesCount(m_pclImageFormat);
 }
