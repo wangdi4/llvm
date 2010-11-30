@@ -50,12 +50,25 @@ copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\include\l
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\include\llvm\System\*.* %MTV_LOCAL_IMPORT_DIR%\llvm\System\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\include\llvm\Intrinsics.gen %MTV_LOCAL_IMPORT_DIR%\llvm\
 
+echo copy CPU backend headers
+
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\export\*.h %MTV_LOCAL_IMPORT_DIR%\
+
 echo copy LLVM binaries
 
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\tblgen.exe %MTV_LOCAL_BIN_DIR%\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\llc.exe %MTV_LOCAL_BIN_DIR%\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\tblgen.exe %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\llc.exe %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
+
+echo copy CPU backend binaries
+
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\OclCpuBackEnd.dll %MTV_LOCAL_BIN_DIR%\
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\OclCpuBackEnd.dll %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
+if %CONFIG_NAME% == Debug (
+	copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\OclCpuBackEnd.pdb %MTV_LOCAL_BIN_DIR%\
+	copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\OclCpuBackEnd.pdb %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
+)
 
 echo copy LLVM libraries
 
@@ -111,3 +124,12 @@ copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONF
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\LLVMX86CodeGen.lib %MTV_LOCAL_LIB_DIR%.%DIR_SUFFIX%\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\LLVMX86Disassembler.lib %MTV_LOCAL_LIB_DIR%.%DIR_SUFFIX%\
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\LLVMX86Info.lib %MTV_LOCAL_LIB_DIR%.%DIR_SUFFIX%\
+
+echo copy CPU backend libraries
+
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\OclCpuBackEnd.lib %MTV_LOCAL_LIB_DIR%\
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\OclCpuBackEnd.lib %MTV_LOCAL_LIB_DIR%.%DIR_SUFFIX%\
+
+echo copy CPU backend builtin functions
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\lib\%PLATFORM_NAME%\built-ins\*.* %MTV_LOCAL_BIN_DIR%\
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\lib\%PLATFORM_NAME%\built-ins\*.* %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
