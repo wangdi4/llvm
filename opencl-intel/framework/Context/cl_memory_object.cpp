@@ -257,8 +257,8 @@ void * DeviceMemoryObject::CreateMappedRegion(cl_map_flags   clMapFlags,
 	pclDevCmdParamMap->flags = GetDevMapFlags(clMapFlags);
     pclDevCmdParamMap->dim_count = szNumDims;
 	pclDevCmdParamMap->refCount  = 1;
-	memcpy(pclDevCmdParamMap->origin, szOrigins, sizeof(size_t)*szNumDims);
-	memcpy(pclDevCmdParamMap->region, szRegions, sizeof(size_t)*szNumDims);
+	memcpy(pclDevCmdParamMap->origin, szOrigins, sizeof(size_t) * min(szNumDims, 3) );
+	memcpy(pclDevCmdParamMap->region, szRegions, sizeof(size_t) * min(szNumDims, 3) );
 
 	cl_err_code clErr = m_pDevice->GetDeviceAgent()->clDevCreateMappedRegion(pclDevCmdParamMap);
 

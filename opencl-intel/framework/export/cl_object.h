@@ -151,6 +151,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~OCLObject();
 
+		/******************************************************************************************
+		* Function: 	copy constructor
+		* Description:	The OCLObject class copy constructor
+		* Arguments:		
+		* Author:		Sagi Shahar
+		* Date:			November 2010
+		******************************************************************************************/			
+		OCLObject(const OCLObject& O){}
+
 		cl_int								m_iId;				// object id
 		Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 		

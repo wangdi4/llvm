@@ -810,8 +810,7 @@ clSetUserEventStatus(cl_event   evt,
 
 int IsCPUSupported(void)
 {
-	if( CPUDetect::GetInstance()->IsGenuineIntel()	&& 
-		(CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) || CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE42)))
+	if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
 	{
 		return 0;
 	}

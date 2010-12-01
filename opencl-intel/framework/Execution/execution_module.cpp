@@ -708,7 +708,11 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 	       
 
 	Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
-		buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);	
+		buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
+	if(NULL == pEnqueueReadBufferRectCmd)
+	{
+		 return CL_OUT_OF_HOST_MEMORY;
+	}
 
 	pEnqueueReadBufferRectCmd->SetCommandQueue(pCommandQueue);
 	Device* pDevice;
@@ -726,6 +730,10 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
             delete pEnqueueReadBufferRectCmd;
         }
     } 
+	else
+	{
+		delete pEnqueueReadBufferRectCmd;
+	}
     return  errVal;
 }
 /******************************************************************

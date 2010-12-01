@@ -126,6 +126,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
 
     protected:
+		Command(const Command& O){}
+
 		cl_err_code CopyFromHost(
 						void* pSrcData,
 						MemoryObject* pSrcMemObj, 
