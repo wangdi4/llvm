@@ -467,7 +467,13 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 {
 	OclAutoMutex lock(&m_muObjectMap, false);	// no auto lock
 
-	if ( (NULL == pMemObj) || (m_iDevId != pMemObj->allocId))
+	if ( NULL == pMemObj )
+	{
+		ErrLog(m_pLogDescriptor, m_iLogHandle, L"pMemObj is NULL");
+		return CL_DEV_INVALID_MEM_OBJECT;
+	}
+
+	if ( m_iDevId != pMemObj->allocId )
 	{
 		ErrLog(m_pLogDescriptor, m_iLogHandle, L"Invalid device ID:%X", pMemObj->allocId);
 		return CL_DEV_INVALID_MEM_OBJECT;
