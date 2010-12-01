@@ -131,5 +131,5 @@ copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONF
 copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\OclCpuBackEnd.lib %MTV_LOCAL_LIB_DIR%.%DIR_SUFFIX%\
 
 echo copy CPU backend builtin functions
-copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\lib\%PLATFORM_NAME%\built-ins\*.* %MTV_LOCAL_BIN_DIR%\
-copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\lib\%PLATFORM_NAME%\built-ins\*.* %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\bin\%PLATFORM_NAME%\%CONFIG_NAME%\*.* %MTV_LOCAL_BIN_DIR%\
+copy %MTV_LOCAL_ROOT_DIR%\src\externals\llvm_ext\ocl_cpu_backend\bin\%PLATFORM_NAME%\%CONFIG_NAME%\*.* %MTV_LOCAL_BIN_DIR%.%DIR_SUFFIX%\
