@@ -376,8 +376,8 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	pMarkerCommand->SetCommandQueue(pCommandQueue);
 	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	QueueEvent* pMarkerEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_MARKER, pEvent, pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
-	pMarkerCommand->SetEvent(pMarkerEvent);
 
+	pMarkerCommand->SetEvent(pMarkerEvent);
 	errVal = pMarkerCommand->Init();
 	if(CL_SUCCEEDED(errVal))
 	{
@@ -411,6 +411,9 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 	if(CL_SUCCEEDED(errVal))
 	{
 		errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
+	}else
+	{
+		pCommandQueue->Release();
 	}
 	return errVal;
 }
@@ -429,10 +432,21 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 
 	// Create Command
 	Command* pBarrierCommand = new BarrierCommand();
+	//if(NULL == pBarrierCommand) not for this commit
+	//{
+	//	return CL_OUT_OF_HOST_MEMORY;
+	//}
+
 	pBarrierCommand->SetCommandQueue(pCommandQueue);
 	pBarrierCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	errVal = pBarrierCommand->Init();
 	QueueEvent* pBarrierEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_BARRIER, NULL, pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	//if(NULL == pBarrierEvent)
+	//{
+	//	delete pBarrierCommand;
+	//	return CL_OUT_OF_HOST_MEMORY;
+	//}
+
 	pBarrierCommand->SetEvent(pBarrierEvent);
 	if(CL_SUCCEEDED(errVal))
 	{
@@ -630,7 +644,10 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
             pEnqueueReadBufferCmd->CommandDone();
             delete pEnqueueReadBufferCmd;
         }
-    }    
+    }else
+	{
+		delete pEnqueueReadBufferCmd;
+	}
     return  errVal;
 }
 
@@ -729,9 +746,9 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
             pEnqueueReadBufferRectCmd->CommandDone();
             delete pEnqueueReadBufferRectCmd;
         }
-    } 
-	else
+    }else
 	{
+		pCommandQueue->Release();
 		delete pEnqueueReadBufferRectCmd;
 	}
     return  errVal;
@@ -788,7 +805,10 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         {
 			return errVal;
         }
-    }    
+    }else
+	{
+		delete pWriteBufferCmd;
+	}
     cl_return  errVal;
 }
 
@@ -883,7 +903,10 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         {
 			return errVal;
         }
-    }    
+    }else
+	{
+		delete pWriteBufferRectCmd;
+	}
     cl_return  errVal;
 }
 
@@ -958,7 +981,10 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
             pCopyBufferCommand->CommandDone();
             delete pCopyBufferCommand;
         }
-    }    
+    }else
+	{
+		delete pCopyBufferCommand;
+	}
     return  errVal;
 }
 
@@ -1074,7 +1100,10 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
             pCopyBufferRectCommand->CommandDone();
             delete pCopyBufferRectCommand;
         }
-    } 
+    }else
+	{
+		delete pCopyBufferRectCommand;
+	}
 
     return  errVal;
 }
@@ -1147,6 +1176,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     }  
     else
     {
+		delete pMapBufferCommand;
         return  NULL;
     }
 }
@@ -1191,7 +1221,10 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
             pUnmapMemObjectCommand->CommandDone();
             delete pUnmapMemObjectCommand;
         }
-    }  
+    }else
+	{
+		delete pUnmapMemObjectCommand;
+	}
     
     return  errVal;
 }
@@ -1438,7 +1471,10 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
             pTaskCommand->CommandDone();
             delete pTaskCommand;
         }
-    }    
+    }else
+	{
+		delete pTaskCommand;
+	}
     return  errVal;
 }
 
@@ -1708,7 +1744,10 @@ cl_err_code ExecutionModule::EnqueueReadImage(
             pReadImageCmd->CommandDone();
             delete pReadImageCmd;
         }
-    }    
+    }else
+	{
+		delete pReadImageCmd;
+	}
     return  errVal;
 }
 
@@ -1776,7 +1815,10 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
             pWriteImageCmd->CommandDone();
             delete pWriteImageCmd;
         }
-    }    
+    }else
+	{
+		delete pWriteImageCmd;
+	}
     return  errVal;
 }
 
@@ -1865,7 +1907,10 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
             pCopyImageCmd->CommandDone();
             delete pCopyImageCmd;
         }
-    }    
+    }else
+	{
+		delete pCopyImageCmd;
+	}
     return  errVal;
 }
 
@@ -1940,7 +1985,10 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
             pCopyImageToBufferCmd->CommandDone();
             delete pCopyImageToBufferCmd;
         }
-    }    
+    }else
+	{
+		delete pCopyImageToBufferCmd;
+	}
     return  errVal;
 }
 
@@ -2016,7 +2064,10 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
             pCopyBufferToImageCmd->CommandDone();
             delete pCopyBufferToImageCmd;
         }
-    }    
+    }else
+	{
+		delete pCopyBufferToImageCmd;
+	}
     return  errVal;
 }
 
@@ -2106,6 +2157,7 @@ void * ExecutionModule::EnqueueMapImage(
     }  
     else
     {
+		delete pMapImageCmd;
         return  NULL;
     }
 }
@@ -2210,6 +2262,9 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 			pAcquireCmd->CommandDone();
 			delete pAcquireCmd;
 		}
+	}else
+	{
+		delete pAcquireCmd;
 	}
 
 	delete []pMemObjects;

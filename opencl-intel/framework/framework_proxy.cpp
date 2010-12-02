@@ -162,7 +162,7 @@ void FrameworkProxy::Initialize()
 			// Construct file name with process ID
 			// Search for file extension
 			size_t ext = str.rfind(".");
-			if ( -1 == ext )
+			if ( string::npos == ext )
 			{
 				// If "." not found -> no extension
 				ext = str.length();
@@ -236,9 +236,9 @@ void FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy()
 {
-	m_pInstance->Release();
 	if (NULL != m_pInstance)
 	{
+		m_pInstance->Release();
 		delete m_pInstance;
 		m_pInstance = NULL;
 	}

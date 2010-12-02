@@ -259,6 +259,7 @@ cl_err_code Command::CopyToHost(
 	
 	if (!pQueueEvent)
 	{
+		delete pReadMemObjCmd;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
@@ -340,6 +341,7 @@ cl_err_code Command::CopyFromHost(
 				
 		if (!pQueueEvent)
 		{
+			delete [] pWriteMemObjCmd;
 			return CL_OUT_OF_HOST_MEMORY;
 		}
 
@@ -435,6 +437,7 @@ CopyMemObjCommand::CopyMemObjCommand(
         m_uiSrcNumDims = 3;
         break;
     default:
+		m_uiSrcNumDims = 0;
         break;
     }
     
@@ -460,6 +463,7 @@ CopyMemObjCommand::CopyMemObjCommand(
         m_uiDstNumDims = 3;
         break;
     default:
+		m_uiDstNumDims = 0;
         break;
     }
 

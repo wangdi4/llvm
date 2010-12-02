@@ -198,7 +198,7 @@ KernelArg::~KernelArg()
 		}
 		else if (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type)
 		{
-			delete m_pValue;
+			delete [] m_pValue;
 			m_pValue = NULL;
 		}
 	}

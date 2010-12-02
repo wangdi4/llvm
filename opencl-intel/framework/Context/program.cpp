@@ -437,6 +437,12 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			return clErrRet;
 		}
 	}
+	for (size_t i = 0; i < szNumKernels; ++i)
+	{
+		delete[] ppKernelNames[i];
+	}
+	delete[] ppKernelNames;
+	delete[] pszKernelNameLengths;
 
 	if ( NULL != pclKernels )
 	{

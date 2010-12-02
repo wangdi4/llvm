@@ -510,7 +510,7 @@ Image3D::Image3D(Context *         pContext,
 
 	// check image slice pitch
 	size_t szMaxSlicePitchSize = szImageRowPitch * szImageHeight;
-	if ( (NULL != pHostPtr) && ((szImageSlicePitch<0) || (szImageSlicePitch>szMaxSlicePitchSize)) )
+	if ( (NULL != pHostPtr) && (szImageSlicePitch>szMaxSlicePitchSize) )
 	{
 		*pErrCode = CL_INVALID_IMAGE_SIZE;
 		return;

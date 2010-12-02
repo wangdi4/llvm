@@ -82,7 +82,7 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
 		return;
 	}
 	m_pDeviceIds = new cl_device_id[uiNumDevices];
-	if (NULL == m_ppDevices)
+	if (NULL == m_pDeviceIds)
 	{
 		*pclErr = CL_OUT_OF_HOST_MEMORY;
 		return;

@@ -11,6 +11,7 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
 
 	Device** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
 	m_pDevicePrograms  = new DeviceProgram[m_szNumAssociatedDevices];
+	m_pSourceStrings = NULL;
 	if (!m_pDevicePrograms)
 	{
 		err = CL_OUT_OF_HOST_MEMORY;
