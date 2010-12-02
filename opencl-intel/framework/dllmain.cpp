@@ -8,9 +8,9 @@
 
 #if defined(USE_TASKALYZER)
 #ifdef _DEBUG
-#pragma comment(lib, "tal_sd.lib")
+#pragma comment(lib, "tal_dd.lib")
 #else
-#pragma comment(lib, "tal_sr.lib")
+#pragma comment(lib, "tal_dr.lib")
 #endif
 #endif
 
