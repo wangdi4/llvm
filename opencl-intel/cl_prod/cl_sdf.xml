@@ -31,6 +31,9 @@
     <Component Name="cppunit">
         <RelativeCheckoutPath>externals\cppunit</RelativeCheckoutPath>
     </Component>    
+    <Component Name="gtest">
+        <RelativeCheckoutPath>externals\gtest</RelativeCheckoutPath>
+    </Component>        
     <Component Name="xntask">
         <RelativeCheckoutPath>externals\xntask</RelativeCheckoutPath>
     </Component>
