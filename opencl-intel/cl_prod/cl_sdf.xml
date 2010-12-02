@@ -7,9 +7,6 @@
     <Component Name="cl_api">
         <RelativeCheckoutPath>cl_api</RelativeCheckoutPath>
     </Component>
-    <Component Name="cl_builtin_functions">
-        <RelativeCheckoutPath>utils\cl_builtin_functions</RelativeCheckoutPath>
-    </Component>
     <Component Name="cl_sys_utils">
         <RelativeCheckoutPath>utils\cl_sys_utils</RelativeCheckoutPath>
     </Component>
@@ -22,11 +19,11 @@
     <Component Name="clang_compiler">
         <RelativeCheckoutPath>fe_compilers\clang_compiler</RelativeCheckoutPath>
     </Component>
-    <Component Name="llvm_bin">
-        <RelativeCheckoutPath>externals\llvm_bin</RelativeCheckoutPath>
+    <Component Name="llvm_ext">
+      <RelativeCheckoutPath>externals\llvm_ext</RelativeCheckoutPath>
     </Component>
-    <Component Name="cpu_backend">
-        <RelativeCheckoutPath>externals\cpu_backend</RelativeCheckoutPath>
+    <Component Name="llvm_build">
+        <RelativeCheckoutPath>externals\llvm_build</RelativeCheckoutPath>
     </Component>
     <Component Name="clang">
         <RelativeCheckoutPath>externals\clang</RelativeCheckoutPath>
