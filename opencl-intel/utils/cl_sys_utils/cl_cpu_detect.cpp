@@ -36,8 +36,7 @@ static const char* CPU_STRING = "GenuineIntel";
 
 cl_err_code Intel::OpenCL::Utils::IsCPUSupported()
 {
-	if( CPUDetect::GetInstance()->IsGenuineIntel() && 
-		CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
+	if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
 	{
 		return CL_SUCCESS;
 	}
@@ -102,11 +101,6 @@ bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
     if (m_bBypassCPUDetect)
     {
         return true;
-    }
-
-    if (!IsGenuineIntel())
-    {
-        return false;
     }
 
 	return (0 != (m_uiCPUFeatures & (unsigned int)featureType));
