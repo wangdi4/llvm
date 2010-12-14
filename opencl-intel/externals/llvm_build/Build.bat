@@ -12,7 +12,7 @@ if not defined CONFIG_NAME (
 	exit /b 5
 )
 
-cd ..\llvm_ext\build
+cd llvm_ext\build
 
 if %PLATFORM_NAME% == win32 (
 	echo making build environment for win32
