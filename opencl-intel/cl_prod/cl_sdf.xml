@@ -19,9 +19,6 @@
     <Component Name="clang_compiler">
         <RelativeCheckoutPath>fe_compilers\clang_compiler</RelativeCheckoutPath>
     </Component>
-    <Component Name="llvm_ext">
-      <RelativeCheckoutPath>externals\llvm_ext</RelativeCheckoutPath>
-    </Component>
     <Component Name="llvm_build">
         <RelativeCheckoutPath>externals\llvm_build</RelativeCheckoutPath>
     </Component>
