@@ -864,7 +864,10 @@ protected:
 	void process_container(TaskVector* work)
 	{
 		size_t numWork = work->size();
-		assert(numWork > 0);
+		if (0 == numWork)
+		{
+			return;
+		}
 		//Todo: handle small sizes without parallel for
 		tbb::blocked_range<size_t> r(0, numWork);
 		//for out of order, do parallel for
