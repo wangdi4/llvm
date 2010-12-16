@@ -20,15 +20,18 @@
 
 // means config.h
 #include <stdafx.h>
-#include "tbb_executor.h"
-#include "tbb/tbb.h"
-#include "tbb/scalable_allocator.h"
-#include "logger.h"
 #include <vector>
 #include <cassert>
+#include <Windows.h>
 #include <tbb/blocked_range.h>
 #include <tbb/atomic.h>
-#include <Windows.h>
+#include <tbb/tbb.h>
+#include <tbb/scalable_allocator.h>
+#include <tbb/concurrent_queue.h>
+#include <tbb/task.h>
+#include <tbb/enumerable_thread_specific.h>
+#include "tbb_executor.h"
+#include "logger.h"
 
 #if defined(USE_TASKALYZER)    
 #include "tal\tal.h"
@@ -51,14 +54,33 @@ using namespace Intel::OpenCL::Utils;
 #define VECTOR_RESERVE 16
 #endif
 
-#ifdef __WIN_XP__
-unsigned int g_uiWorkerIdInx = -1;
-unsigned int g_uiShedulerInx = -1;
-#else
-__declspec(thread) unsigned int t_uiWorkerId = -1;
-__declspec(thread) tbb::task_scheduler_init* t_pScheduler = NULL;
-#endif
+tbb::enumerable_thread_specific<unsigned int>              t_uiWorkerId;
+tbb::enumerable_thread_specific<tbb::task_scheduler_init*> t_pScheduler;
 
+static unsigned int GetWorkerID()
+{
+	bool alreadyHad = false;
+	unsigned int ret = t_uiWorkerId.local(alreadyHad);
+	return alreadyHad ? ret : -1;
+}
+static void SetWorkerID(unsigned int id)
+{
+	t_uiWorkerId.local() = id;
+}
+static tbb::task_scheduler_init* GetScheduler()
+{
+	bool alreadyHad = false;
+	tbb::task_scheduler_init* ret = t_pScheduler.local(alreadyHad);
+	return alreadyHad ? ret : NULL;
+}
+static void SetScheduler(tbb::task_scheduler_init* init)
+{
+	t_pScheduler.local() = init;
+}
+static bool IsWorkerScheduler()
+{
+	return (-1 == (size_t)GetScheduler());
+}
 //The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
 //The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
 //When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
@@ -82,9 +104,11 @@ DECLARE_LOGGER_CLIENT;
 
 static void InitSchedulerForMasterThread()
 {
-	if ( (NULL == t_pScheduler) && (-1 != (size_t)t_pScheduler) )
+	tbb::task_scheduler_init* pScheduler = GetScheduler();
+	if ( (NULL == pScheduler) && (!IsWorkerScheduler()) )
 	{
-		t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);	
+		//t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);	
+		SetScheduler(new tbb::task_scheduler_init(gWorker_threads + 1));
 	}
 }
 
@@ -105,7 +129,7 @@ public:
 	virtual void on_scheduler_entry( bool is_worker )
 	{
 		unsigned int uiWorkerId = 0;
-		if ( is_worker && (-1 == t_uiWorkerId))
+		if ( is_worker && (-1 == GetWorkerID()))
 		{
 			long canExit = false;
 			while (uiWorkerId < gWorker_threads)
@@ -117,40 +141,31 @@ public:
 			}
 			assert(uiWorkerId < gWorker_threads);
 			++uiWorkerId;
-			t_pScheduler = (tbb::task_scheduler_init*)-1;
+			SetScheduler((tbb::task_scheduler_init*)-1);
 		}
 #ifdef _EXTENDED_LOG
 		LOG_INFO("------->%s %d was joined as %d\n", is_worker ? "worker" : "master",
 			GetThreadId(GetCurrentThread()), uiWorkerId);
 #endif
-#ifdef __WIN_XP__
-		TlsSetValue(g_uiWorkerIdInx, (void*)uiWorkerId);
-#else
-		t_uiWorkerId = uiWorkerId;
-#endif 
+		SetWorkerID(uiWorkerId);
 
 	}
 	virtual void on_scheduler_exit( bool is_worker )
 	{
 #ifdef _EXTENDED_LOG
 		LOG_INFO("------->%s %d was left as %d\n", is_worker ? "worker" : "master",
-			GetThreadId(GetCurrentThread()), t_uiWorkerId);
+			GetThreadId(GetCurrentThread()), GetWorkerID());
 #endif
 
-		if ( (is_worker)  && (t_uiWorkerId != -1))
+		if ( (is_worker)  && (-1 != GetWorkerID()))
 		{
-			//assert(t_uiWorkerId != -1);
 			long prevVal;
-			--t_uiWorkerId;
-			prevVal = InterlockedBitTestAndSet(&gThreadAvailabilityMask, t_uiWorkerId);
+
+			prevVal = InterlockedBitTestAndSet(&gThreadAvailabilityMask, GetWorkerID() - 1);
 			//Just for extra safety, make sure we're not relinquishing an ID somebody already relinquished
 			assert(prevVal==0);
-			t_pScheduler = NULL;
-#ifdef __WIN_XP__
-			TlsSetValue(g_uiWorkerIdInx, (void*)-1);
-#else
-			t_uiWorkerId = -1;
-#endif
+			SetScheduler(NULL);
+			SetWorkerID(-1);
 			
 #if defined(USE_TASKALYZER)
 			// Before the thread is closed, we need to flush the
@@ -174,7 +189,7 @@ static ThreadIDAssigner gThreadPoolChangeObserver;
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	// Make TBB init class and WG executor thread local
-	tbb::task_group* TBBTaskExecutor::sTBB_executor = NULL;
+	ITaskList* TBBTaskExecutor::sTBB_executor = NULL;
 
 #ifdef __LOCAL_RANGES__
 	class Range1D {
@@ -378,11 +393,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 			unsigned int uiWorkerId;
 			unsigned int uiNumberOfWorkGroups;
-#ifdef __WIN_XP__
-			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
-#else
-			uiWorkerId = t_uiWorkerId;
-#endif
+			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -413,11 +424,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 			unsigned int uiWorkerId;
 			unsigned int uiNumberOfWorkGroups;
-#ifdef __WIN_XP__
-			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
-#else
-			uiWorkerId = t_uiWorkerId;
-#endif
+			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -447,11 +454,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range<int>& r) const {
 			unsigned int uiWorkerId;
 			unsigned int uiNumberOfWorkGroups;
-#ifdef __WIN_XP__
-			uiWorkerId = (unsigned int)TlsGetValue(g_uiWorkerIdInx);;
-#else
-			uiWorkerId = t_uiWorkerId;
-#endif
+			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -525,248 +528,376 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 class base_command_list : public ITaskList
 {
 public:
-	base_command_list() : m_flushRequests(0)
-	{
-		task_group = new tbb::task_group();
-	}
+	base_command_list();
 
 	virtual ~base_command_list()
 	{
-		task_group->wait();
-		delete task_group;
 	}
+
+	virtual unsigned int Enqueue(ITaskBase* pTask) = 0;
+
 	virtual bool WaitForCompletion()
 	{
-		bool result;
-		if (0 == m_flushRequests++)
-		{
-			//Original WaitForCompletion implementation
-			InitSchedulerForMasterThread();
+		InitSchedulerForMasterThread();
 
-			long lVal = g_alMasterRunning.compare_and_swap(true, false);
-			if (lVal)
-			{
-				// When another master is running we can't block this thread
-				result = false;
-			}
-			else
-			{
-				tbb::task_group_status st = task_group->wait();
-				g_alMasterRunning.fetch_and_store( false );
-				result = st == tbb::complete;
-			}
-			//Handle any flush requests that arrived in the meantime
-			//necessary because we could be flushing from this thread as a result of a completed command
-			do
-			{
-				FlushImpl();
-			} while (--m_flushRequests > 0);
-			return result;
+		long lVal = g_alMasterRunning.compare_and_swap(true, false);
+		if (lVal)
+		{
+			// When another master is running we can't block this thread
+			return false;
 		}
-		return false;
+		else
+		{
+			// First of all, prevent task exiting due to 0 ref-count
+			int prev = m_taskExecuteRequests.fetch_and_increment();
+			//Corner case: if prev is 0 then task isn't currently running
+			if (prev > 0)
+			{
+				// Request task abort
+				RequestStopProcessing();
+				m_rootTask->wait_for_all();
+			}
+			// Allow others to flush if they need to
+			m_taskExecuteRequests.fetch_and_store(0);
+			g_alMasterRunning = false;
+
+			// If there's some incoming work, try to flush it
+			if (HaveIncomingWork())
+			{
+				Flush();
+			}
+			return true;
+		}
 	}
 
 	void Flush()
 	{
-		InitSchedulerForMasterThread();
-
-		if (0 == m_flushRequests++)
+		int taskExecuteRequest = m_taskExecuteRequests.fetch_and_increment();
+		if (0 == taskExecuteRequest)
 		{
-			do 
-			{
-				FlushImpl();
-			} while(--m_flushRequests > 0);
+			//We need to launch the task to handle the existing input
+			LaunchExecutorTask();
 		}
+		//Otherwise, the task is already running and will see our input in the next epoch
+	}
+
+	void Release() 
+	{ 
+		m_rootTask->decrement_ref_count();
+		//tbb::task::enqueue(*m_rootTask);
+	}
+
+	tbb::atomic<int> m_taskExecuteRequests;
+
+protected:
+	// Helper functions to allow application thread participation in job execution
+	// Aborts the processing task after the current batch
+	virtual void RequestStopProcessing() = 0;
+	// Lets us know whether there's (still) incoming work
+	virtual bool HaveIncomingWork()      = 0;          
+
+	// Ordered and OOO command lists have different task objects operating on them
+	virtual void LaunchExecutorTask() = 0;
+
+	tbb::task*              m_rootTask;
+	tbb::task_group_context m_context;
+
+private:
+	//Disallow copy constructor
+	base_command_list(const base_command_list& l) {}
+};
+
+class deleting_task : public tbb::task
+{
+public:
+	deleting_task(base_command_list* list) : m_list(list) {}
+	tbb::task* execute()
+	{
+		assert(m_list);
+		delete m_list;
+		return NULL;
+	}
+protected:
+	base_command_list* m_list;
+};
+
+base_command_list::base_command_list() : m_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait)
+{
+	m_rootTask = new (tbb::task::allocate_root(m_context)) deleting_task(this);
+	m_rootTask->set_ref_count(1);
+	m_taskExecuteRequests     = 0;
+}
+
+
+
+static void execute_command(ITaskBase* cmd)
+{
+	if ( cmd->IsTaskSet() )
+	{
+		ITaskSet* pTask = static_cast<ITaskSet*>(cmd);
+		unsigned int dim[MAX_WORK_DIM], dimCount;
+		int res = pTask->Init(dim, dimCount);
+		__TBB_ASSERT(res==0, "Init Failed");
+		if (res != 0)
+		{
+			pTask->Finish(FINISH_INIT_FAILED);
+			return;
+		}
+		if (1 == dimCount)
+		{
+			tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
+		} else if (2 == dimCount)
+		{
+			tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
+				0, dim[0]),
+				TaskLoopBody2D(*pTask), tbb::auto_partitioner());
+		} else
+		{
+			tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
+				0, dim[1],
+				0, dim[0]),
+				TaskLoopBody3D(*pTask), tbb::auto_partitioner());
+		}
+		pTask->Finish(FINISH_COMPLETED);
+	}
+	else
+	{
+		(static_cast<ITask*>(cmd))->Execute(); // execute one by one
+	}
+}
+
+typedef tbb::concurrent_queue<ITaskBase*> ConcurrentTaskQueue;
+typedef std::vector<ITaskBase*>           TaskVector;
+
+
+class ordered_command_list : public base_command_list
+{
+public:
+	virtual unsigned int Enqueue(ITaskBase* pTask)
+	{
+		InitSchedulerForMasterThread();
+		m_work.push(pTask);
+		return 0;
+	}
+
+	virtual void LaunchExecutorTask();
+	virtual void RequestStopProcessing()
+	{
+		Enqueue(NULL);
+		// Must flush here or risk deadlock - the enqueued NULL can result in an early exit at the expense of another flush
+		// That will be lost as a result of storing 0 to taskExecuteRequests
+		Flush();
+	}
+
+	virtual ConcurrentTaskQueue* GetExecutingContainer()
+	{
+		return &m_work;
+	}
+
+	virtual bool HaveIncomingWork()
+	{
+		return !m_work.empty();
 	}
 
 protected:
+	ConcurrentTaskQueue m_work;
 
-	virtual void FlushImpl() = 0;
-	tbb::task_group*	task_group;
-
-	Intel::OpenCL::Utils::AtomicCounter m_flushRequests;
 };
 
-//! Out-of-order command list
+
 class unordered_command_list : public base_command_list
 {
 public:
-	void *operator new(std::size_t bytes) { return scalable_malloc(bytes); }
-	void operator delete(void *p) { scalable_free(p); }
-	unsigned int Enqueue(ITaskBase* pTask)
-	{
-		m_queue.PushBack(pTask);
-		Flush();
-		return 0;
-	}
+	unordered_command_list() : m_stopRequested(false) {}
 
-	void Release() { LOG_INFO("Delete 0x%X", this); delete this; }
-
-protected:
-
-	/*virtual*/ void FlushImpl()
-	{
-		while (!m_queue.IsEmpty())
-		{
-			ITaskBase* pTask = m_queue.PopFront();
-			if ( pTask->IsTaskSet() )
-				task_group->run( TaskSetBody(*((ITaskSet*)pTask)) );
-			else
-				task_group->run( TaskBody(*((ITask*)pTask)) );
-		}
-		// This affects a "flush" on the TBB queue
-		// Not doing it may result in starvation when the tasks just submitted are never executed
-		// Remove after rewriting TBB executor to use task::enqueue everywhere over task_group->run
-		tbb::task::enqueue(*(new (tbb::task::allocate_root()) tbb::empty_task()));
-	}
-	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<ITaskBase*> m_queue;
-};
-
-//! In-order command list
-class ordered_command_list;
-
-//! functor for service task
-struct queue_executor_proxy {
-	ordered_command_list *list;
-	queue_executor_proxy(ordered_command_list *l) : list( l ) {}
-	inline void operator()();
-};
-
-// implementation of in-order command list dispatcher
-class ordered_command_list : public base_command_list
-{
-	tbb::spin_mutex mutex;
-	tbb::atomic<int> ref_count;
-//		typedef std::vector<ITaskBase*, tbb::scalable_allocator<ITaskBase*> > queue_t;
-	typedef std::vector<ITaskBase* > queue_t;
-    tbb::atomic<bool> is_executed; //< shows whether the service task of the dispatcher runs
-	queue_t input, queue, work; //< input queues of commands
-
-public:
-	void *operator new(std::size_t bytes) { return scalable_malloc(bytes); }
-	void operator delete(void *p) { scalable_free(p); }
-    ordered_command_list() {
-		ref_count = 1;
-		is_executed = false;
-		LOG_INFO("Created at 0x%X", this);
-        input.reserve(VECTOR_RESERVE); work.reserve(VECTOR_RESERVE); queue.reserve(VECTOR_RESERVE);
-    }
-	/*override*/
-	unsigned int Enqueue(ITaskBase* pTask)
+	virtual unsigned int Enqueue(ITaskBase* pTask)
 	{
 		InitSchedulerForMasterThread();
-		OclAutoMutex CS(&m_inputMutex);
-		//Note: input is NOT MT safe. However, the command queue ensures only one thread can reach here at a time. See: SendCommandsToDevice()
-		input.push_back(pTask);
-		//if( !is_executed ) Flush(); // TODO: evaluate performance difference of enabled vs disabled
+		m_incoming.push(pTask);
 		return 0;
 	}
+	virtual void LaunchExecutorTask();
 
-	/*override*/ void Release() {
-        assert( input.empty() ); // Flush() must be called before Release()
-		if( ! --ref_count ) {
-			assert(!is_executed && queue.empty());
-			LOG_INFO("Deleted at 0x%X", this);
-			delete this;
-		}
+	virtual void RequestStopProcessing()
+	{
+		m_stopRequested = true;
 	}
 
-	//! Service task of dispatcher. Executes the commands.
-	int queue_executor() {
-#ifdef _EXTENDED_LOG
-		LOG_INFO("Enter");
-#endif
-		do {
-			work.clear();
-			{ // get new work
-				tbb::spin_mutex::scoped_lock lock(mutex);
-				queue.swap( work );
-                assert( queue.empty() );
-				if( work.empty() ) {
-					is_executed = false; // no work available, stop the task
-#ifdef _EXTENDED_LOG
-					LOG_INFO("Exit - no work");
-#endif
-					return --ref_count;
-				}
-			} // release the lock
-			for(queue_t::iterator cmd = work.begin(); cmd != work.end(); cmd++)
-				if ( (*cmd)->IsTaskSet() )
-				{
-					ITaskSet* pTask = (ITaskSet*)(*cmd);
-					unsigned int dim[MAX_WORK_DIM], dimCount;
-					int res = pTask->Init(dim, dimCount);
-					__TBB_ASSERT(res==0, "Init Failed");
-					if (res != 0)
-					{
-						pTask->Finish(FINISH_INIT_FAILED);
-						continue;
-					}
-					if (1 == dimCount)
-					{
-						tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
-					} else if (2 == dimCount)
-					{
-						tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
-																	0, dim[0]),
-																	TaskLoopBody2D(*pTask), tbb::auto_partitioner());
-					} else
-					{
-						tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
-																	0, dim[1],
-																	0, dim[0]),
-																	TaskLoopBody3D(*pTask), tbb::auto_partitioner());
-					}
-					pTask->Finish(FINISH_COMPLETED);
-				}
-				else
-				{
-					((ITask*)(*cmd))->Execute(); // execute one by one
-				}
-			for(queue_t::iterator cmd = work.begin(); cmd != work.end(); cmd++)
-				(*cmd)->Release();
-		} while(true);
-		//return 0;
+	virtual TaskVector* GetExecutingContainer()
+	{
+		return &m_work;
+	}
+
+	virtual bool HaveIncomingWork()
+	{
+		return !m_incoming.empty();
+	}
+	bool NeedStop()
+	{
+		return m_stopRequested;
+	}
+
+	void ResetStop()
+	{
+		m_stopRequested = false;
+	}
+
+	// Move work from incoming queue to work queue
+	// Todo: currently this is serial, see if we can parallelize it somehow
+	void FillWork()
+	{
+		ITaskBase* current;
+		while (m_incoming.try_pop(current))
+		{
+			m_work.push_back(current);
+		}
 	}
 
 protected:
-	/*virtual*/ void FlushImpl()
-	{
-		tbb::spin_mutex::scoped_lock lock;
-		bool is_locked = is_executed;
-		if( is_locked ) lock.acquire(mutex); // no sync necessary otherwise
-		if( !input.empty() ) {
-			OclAutoMutex CS(&m_inputMutex);
-			if( queue.empty() )
-				queue.swap( input );
-			else { // move items
-				queue.insert( queue.end(), input.begin(), input.end() );
-				input.clear();
-			}
-		}
-		if( !is_executed && !queue.empty() ) {
-			assert(ref_count > 0);
-			ref_count++; // service task will hold the reference
-			is_executed = true; // run the service task
-			if( is_locked ) lock.release(); // without the lock
-			task_group->run( queue_executor_proxy(this) );
-			// This affects a "flush" on the TBB queue
-			// Not doing it may result in starvation when the tasks just submitted are never executed
-			// Remove after rewriting TBB executor to use task::enqueue everywhere over task_group->run
-			tbb::task::enqueue(*(new (tbb::task::allocate_root()) tbb::empty_task()));
-		} // else the lock is released here
-	}
-
-	Intel::OpenCL::Utils::OclMutex      m_inputMutex;
+	volatile bool       m_stopRequested;
+	ConcurrentTaskQueue m_incoming;
+	TaskVector          m_work;
 };
 
-void queue_executor_proxy::operator()() {
-	if( list->queue_executor() == 0 )
+struct ExecuteContainerBody
+{
+	TaskVector* m_work;
+
+	ExecuteContainerBody(TaskVector* work) : m_work(work) {}
+
+	void operator()(const tbb::blocked_range<size_t>& range) const 
 	{
-		//Todo: what's up with this code?
-		delete list; // delete the command list if ref_count == 0
+		for (unsigned int it = range.begin(); it != range.end(); ++it)
+		{
+			execute_command((*m_work)[it]);
+		}
 	}
+};
+
+class in_order_executor_task : public tbb::task
+{
+public:
+	in_order_executor_task(ordered_command_list* list) : m_list(list) {}
+	tbb::task* execute()
+	{
+		ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
+		assert(m_list);
+		assert(work);
+		TaskVector forDeletion;
+		ITaskBase* currentTask;
+		bool mustExit = false;
+		do 
+		{
+			//iterate one by one
+			while(work->try_pop(currentTask))
+			{
+				if (NULL == currentTask) //stop requested
+				{
+					mustExit = true;
+					break;
+				}
+				execute_command(currentTask);
+				forDeletion.push_back(currentTask);
+			}
+
+			//release all executed tasks
+			for (TaskVector::const_iterator it = forDeletion.begin(); it != forDeletion.end(); ++it)
+			{
+				(*it)->Release();
+			}
+			forDeletion.clear();
+			//stop iterating if it was requested or if no new work entered the queue
+			if (mustExit)
+			{
+				return NULL;
+			}
+			if (1 == m_list->m_taskExecuteRequests.fetch_and_decrement())
+			{
+				return NULL;
+			}
+		} while(true);
+	}
+protected:
+
+	ordered_command_list* m_list;
+};
+
+
+
+class out_of_order_executor_task : public tbb::task
+{
+public:
+	out_of_order_executor_task(unordered_command_list* list) : m_list(list) {}
+
+	tbb::task* execute()
+	{
+		TaskVector* work = m_list->GetExecutingContainer();
+		assert(m_list);
+		assert(work);
+		do 
+		{
+			//sanity - OOO task shouldn't leave unfinished work
+			assert(work->empty());
+
+			m_list->FillWork();
+
+			//process the work vector in parallel
+			process_container(work);
+
+			work->clear();
+
+			//stop iterating if it was requested 
+			if (m_list->NeedStop())
+			{
+				m_list->ResetStop();
+				return NULL;
+			}
+
+			//stop iterating if no new work entered the queue
+			if (1 == m_list->m_taskExecuteRequests.fetch_and_decrement())
+			{
+				return NULL;
+			}
+		} while(true);
+	}
+protected:
+	void process_container(TaskVector* work)
+	{
+		size_t numWork = work->size();
+		assert(numWork > 0);
+		//Todo: handle small sizes without parallel for
+		tbb::blocked_range<size_t> r(0, numWork);
+		//for out of order, do parallel for
+		parallel_for(r, ExecuteContainerBody(work));
+		//release serially
+		for(TaskVector::iterator cmd = work->begin(); cmd != work->end(); ++cmd)
+		{
+			(*cmd)->Release();
+		}
+	}
+
+	unordered_command_list* m_list;
+};
+
+void ordered_command_list::LaunchExecutorTask()
+{
+	InitSchedulerForMasterThread();
+	tbb::task* executor = new (m_rootTask->allocate_child()) in_order_executor_task(this);
+	assert(executor);
+	m_rootTask->increment_ref_count();
+	tbb::task::enqueue(*executor);
 }
+
+void unordered_command_list::LaunchExecutorTask()
+{
+	InitSchedulerForMasterThread();
+	tbb::task* executor = new (m_rootTask->allocate_child()) out_of_order_executor_task(this);
+	assert(executor);
+	m_rootTask->increment_ref_count();
+	tbb::task::enqueue(*executor);
+}
+
+
 
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
@@ -781,7 +912,7 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
 	g_uiShedulerInx = TlsAlloc();
 #endif
 
-	t_pScheduler = NULL;
+	SetScheduler(NULL);
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
@@ -824,7 +955,8 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 
 	if (NULL == sTBB_executor)
 	{
-		sTBB_executor = new tbb::task_group();
+		//sTBB_executor = new unordered_command_list();
+		sTBB_executor = new ordered_command_list();
 	}
 	else
 	{
@@ -864,48 +996,21 @@ ITaskList* TBBTaskExecutor::CreateTaskList(bool OOO)
 
 unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
 {
-	InitSchedulerForMasterThread();
-
-	if ( pTask->IsTaskSet() )
-	{
-#ifdef _EXTENDED_LOG
-		LOG_INFO("TaskSet Enqueued %0X", pTask);
-#endif
-		sTBB_executor->run( TaskSetBody(*((ITaskSet*)pTask)) );
-	}
-	else
-	{
-#ifdef _EXTENDED_LOG
-		LOG_INFO("Task Enqueued %0X", pTask);
-#endif
-		sTBB_executor->run( TaskBody(*((ITask*)pTask)) );
-	}
-	// This affects a "flush" on the TBB queue
-	// Not doing it may result in starvation when the tasks just submitted are never executed
-	// Remove after rewriting TBB executor to use task::enqueue everywhere over task_group->run
-	//sTBBDummyTask->increment_ref_count();
-	tbb::task::enqueue(*(new (tbb::task::allocate_root()) tbb::empty_task()));
+	sTBB_executor->Enqueue(pTask);
+	sTBB_executor->Flush();
 	return 0;
 }
 
 bool TBBTaskExecutor::WaitForCompletion()
 {
-	long lVal = g_alMasterRunning.compare_and_swap(true, false);
-	if (lVal)
-	{
-		// When another master is running we can't block this thread
-		return false;
-	}
-	tbb::task_group_status st = sTBB_executor->wait();
-	g_alMasterRunning.fetch_and_store( false );
-	return st == tbb::complete;
+	return sTBB_executor->WaitForCompletion();
 }
 
 // Cancels execution of uncompleted tasks and and then release task executor resources
 void TBBTaskExecutor::Close(bool bCancel)
 {
 	// Worker threads should never get here
-	assert(-1 != (size_t)t_pScheduler);
+	assert(!IsWorkerScheduler());
 
 	unsigned long ulNewVal = InterlockedDecrement(&m_lRefCount);
 
@@ -917,12 +1022,6 @@ void TBBTaskExecutor::Close(bool bCancel)
 	LOG_INFO("Shutting down...");
 	if ( NULL != sTBB_executor )
 	{
-		if ( bCancel )
-		{
-			sTBB_executor->cancel(); // the work may be canceled if not completed
-		}
-
-		sTBB_executor->wait();
 		delete sTBB_executor;
 		sTBB_executor = NULL;
 	}
@@ -938,14 +1037,15 @@ void TBBTaskExecutor::Close(bool bCancel)
 void TBBTaskExecutor::ReleasePerThreadData()
 {
 	// TBB was not initialized within calling thread or its TBB worker thread.
-	if ( -1 == (size_t)t_pScheduler)
+	tbb::task_scheduler_init* pScheduler = GetScheduler();
+	if ( IsWorkerScheduler())
 	{
 		return;
 	}
-	if (NULL != t_pScheduler)
+	if (NULL != pScheduler)
 	{
-		delete t_pScheduler;
-		t_pScheduler = NULL;
+		delete pScheduler;
+		SetScheduler(NULL);
 	}
 }
 

@@ -28,7 +28,6 @@
 
 #include "task_executor.h"
 #include "tbb/tbb.h"
-#include "tbb/task_group.h"
 
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -49,8 +48,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	protected:
 		bool		m_bUseTaskalyzer;
 		long		m_lRefCount;
-		// Independent tasks will be executed by this task group
-		static tbb::task_group*				sTBB_executor;
+		// Independent tasks will be sent to this task list
+		static ITaskList*				sTBB_executor;
 		// The FrameworkProxy-owned copy of the scheduler object
 		// This exists independently of the per-application-thread scheduler objects t_pScheduler
 		// And is only destroyed when the task scheduler is closed by FrameworkProxy
