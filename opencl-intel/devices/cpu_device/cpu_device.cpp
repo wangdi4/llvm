@@ -1129,7 +1129,12 @@ cl_int CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 		return m_pTaskDispatcher->commandListExecute(list,cmds,count);
 	else
 	{
-		return m_pTaskDispatcher->commandListExecute(m_defaultCommandList,cmds,count);
+		cl_int ret = m_pTaskDispatcher->commandListExecute(m_defaultCommandList,cmds,count);
+		if (CL_DEV_FAILED(ret))
+		{
+			return ret;
+		}
+		return m_pTaskDispatcher->flushCommandList(m_defaultCommandList);
 	}
 }
 
