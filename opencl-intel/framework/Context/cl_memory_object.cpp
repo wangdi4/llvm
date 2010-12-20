@@ -502,6 +502,7 @@ MemoryObject::~MemoryObject()
 	{
 		for (size_t i = 0; i < m_szNumDevices; ++i)
 		{
+			m_ppDeviceMemObjects[i]->Release();
 			delete m_ppDeviceMemObjects[i];
 		}
 		delete[] m_ppDeviceMemObjects;
