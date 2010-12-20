@@ -346,7 +346,7 @@ void* AtomicPointer::exchange(void* val)
 
 AtomicCounter::operator long() const
 {
-	return InterlockedCompareExchange(const_cast<volatile LONG*>(&m_val), m_val, m_val);
+	return InterlockedCompareExchange(const_cast<volatile LONG*>(&m_val), 0, 0);
 }
 
 long AtomicCounter::operator ++() //prefix, returns new val
