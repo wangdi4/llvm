@@ -9,6 +9,7 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, De
 : Program(pContext, pOclEntryPoints)
 {
 	cl_int err = CL_SUCCESS;
+	cl_int ret = CL_SUCCESS;
 	m_szNumAssociatedDevices = uiNumDevices;
 	m_pDevicePrograms        = new DeviceProgram[m_szNumAssociatedDevices];
 	if (!m_pDevicePrograms)
@@ -26,13 +27,22 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, De
 			err = m_pDevicePrograms[i].SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
 			if (CL_SUCCESS != err)
 			{
-				break;
+				if (CL_INVALID_BINARY == err)
+				{
+					ret = CL_INVALID_BINARY;
+					// Must continue loading binaries for the rest of the devices
+				}
+				else
+				{
+					ret = err;
+					break;
+				}
 			}
 		}
 	}
 	if (piRet)
 	{
-		*piRet = err;
+		*piRet = ret;
 	}
 }
 

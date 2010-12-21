@@ -456,6 +456,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 			*pErrRet = clErrRet;
 		}
 		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
+		pProgram->Release();
 		return CL_INVALID_HANDLE;
 	}
 	clErrRet = m_pPrograms->AddObject((OCLObject<_cl_program_int>*)pProgram, false);

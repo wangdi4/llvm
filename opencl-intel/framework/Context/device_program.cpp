@@ -104,6 +104,11 @@ cl_err_code DeviceProgram::SetBinary(size_t szBinarySize, const unsigned char *p
 		}
 		return clErrRet;
 	}
+	else
+	{
+		m_state = DEVICE_PROGRAM_INVALID;
+		return CL_INVALID_BINARY;
+	}
 	return CL_SUCCESS;
 }
 
@@ -143,12 +148,17 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 			}
 			return CL_SUCCESS;
 		}
-		//Else: some changed to build options. Need to build.
+		//Else: some changes to build options. Need to build.
 		m_state = DEVICE_PROGRAM_INVALID;
-		//Intetional fall through.
+		//Intentional fall through.
 
 	case DEVICE_PROGRAM_INVALID:
 		// Possibly retrying a failed build - legal
+		if (!m_bBuiltFromSource)
+		{
+			//invalid binaries are hopeless, report the appropriate failure
+			return CL_INVALID_BINARY;
+		}
 	case DEVICE_PROGRAM_SOURCE:		 
 		// Building from source
 	case DEVICE_PROGRAM_EXTERNAL_BIN:
