@@ -236,11 +236,11 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 		{
 			*pErrcodeRet = clErrRet;
 		}
-		delete pDevices;
+		delete[] pDevices;
 		return CL_INVALID_HANDLE;
 	}
 	cl_context clContext = CreateContext(clProperties, uiNumDevices, pDevices, pfnNotify, pUserData, pErrcodeRet);
-	delete pDevices;
+	delete[] pDevices;
 	//cl_return clContext;
 	return clContext;
 }

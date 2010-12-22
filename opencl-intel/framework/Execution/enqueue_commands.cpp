@@ -341,7 +341,7 @@ cl_err_code Command::CopyFromHost(
 				
 		if (!pQueueEvent)
 		{
-			delete [] pWriteMemObjCmd;
+			delete pWriteMemObjCmd;
 			return CL_OUT_OF_HOST_MEMORY;
 		}
 
