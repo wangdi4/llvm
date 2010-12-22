@@ -345,7 +345,7 @@ cl_int CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize,
 			*pinternalRetunedValueSize = sizeof(cl_device_type);
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 			{
-				return CL_INVALID_VALUE;
+				return CL_DEV_INVALID_VALUE;
 			}
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
