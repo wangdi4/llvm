@@ -220,6 +220,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\export\cl_local_array.h"
+				>
+			</File>
+			<File
 				RelativePath=".\export\cl_monitor.h"
 				>
 			</File>
