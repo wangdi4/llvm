@@ -104,12 +104,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         virtual ECommandExecutionType GetExecutionType() const = 0;
 
-		cl_err_code		PrepareOnDevice(
-							MemoryObject* pSrcMemObj, 						
-							const size_t* pSrcOrigin, 						
-							const size_t* pRegion,							
-							QueueEvent**  pEvent);
-
         // ICmdStatusChangedObserver function
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
 
@@ -128,21 +122,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     protected:
 		Command(const Command& O){}
 
-		cl_err_code CopyFromHost(
-						void* pSrcData,
-						MemoryObject* pSrcMemObj, 
-						const size_t* pSrcOrigin,
-						const size_t* pDstOrigin,
-						const size_t* pRegion,
-						const size_t  szSrcRowPitch,
-						const size_t  szSrcSlicePitch,
-						const size_t  szDstRowPitch,
-						const size_t  szDstSlicePitch,
-						QueueEvent**  pEvent);
-
-		cl_err_code CopyToHost(
-						MemoryObject*	pSrcMemObj, 												
-						QueueEvent**		pEvent);
         QueueEvent*                 m_pEvent;                   // Pointer to the related event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
@@ -155,10 +134,40 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DECLARE_LOGGER_CLIENT;
     };
 
+	class MemoryCommand : public Command
+	{
+	public:
+		cl_err_code		PrepareOnDevice(
+			MemoryObject* pSrcMemObj, 						
+			const size_t* pSrcOrigin, 						
+			const size_t* pRegion,							
+			QueueEvent**  pEvent);
+
+	protected:
+		cl_err_code CopyFromHost(
+			void* pSrcData,
+			MemoryObject* pSrcMemObj, 
+			const size_t* pSrcOrigin,
+			const size_t* pDstOrigin,
+			const size_t* pRegion,
+			const size_t  szSrcRowPitch,
+			const size_t  szSrcSlicePitch,
+			const size_t  szDstRowPitch,
+			const size_t  szDstSlicePitch,
+			QueueEvent**  pEvent);
+
+		cl_err_code CopyToHost(
+			MemoryObject*	pSrcMemObj, 												
+			QueueEvent**		pEvent);
+
+		cl_dev_cmd_param_rw m_rwParams;
+
+	};
+
     /******************************************************************
      *
      ******************************************************************/
-	class ReadMemObjCommand : public Command
+	class ReadMemObjCommand : public MemoryCommand
     {
     public:
         ReadMemObjCommand(
@@ -255,7 +264,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	/******************************************************************
     *
     ******************************************************************/
-	class WriteMemObjCommand : public Command
+	class WriteMemObjCommand : public MemoryCommand
     {
 
     public:
@@ -368,9 +377,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
     /******************************************************************
-     * This is an abstrct class that is used for all copy memory object commands
+     * This is an abstract class that is used for all copy memory object commands
      ******************************************************************/
-    class CopyMemObjCommand : public Command
+    class CopyMemObjCommand : public MemoryCommand
     {
 
     public:
@@ -404,6 +413,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint         m_uiSrcNumDims;     // The dimensions represent the memory object type, 1,2,3 
                                             // respectively are BUFFER/2D/3D. The private member is used only for ease of use.
         cl_uint         m_uiDstNumDims;
+		cl_dev_cmd_param_copy m_copyParams;
 
 		size_t	m_szSrcRowPitch;
 		size_t	m_szSrcSlicePitch;
@@ -642,6 +652,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
     protected:         
+		cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
         Kernel*         m_pKernel;
         cl_uint         m_uiWorkDim;
@@ -697,6 +708,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_type         GetCommandType() const  { return CL_COMMAND_NATIVE_KERNEL;  }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
         const char*             GetCommandName() const  { return "CL_COMMAND_NATIVE_KERNEL"; }
+
+	protected:
+		cl_dev_cmd_param_native m_nativeParams;
 
     private:
 

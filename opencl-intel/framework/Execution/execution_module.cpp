@@ -462,19 +462,16 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event* cpEventList )
 {
 	cl_start;
-    cl_err_code errVal;
-    if ( 0 == uiNumEvents)
+    cl_err_code errVal = CL_SUCCESS;
+    if ( 0 == uiNumEvents || NULL == cpEventList)
         return CL_INVALID_VALUE;
 
-    // Validate event context
+    // Get event context
     cl_context clEventsContext = 0;
-    errVal = m_pEventsManager->ValidateEventsContext(uiNumEvents, cpEventList, &clEventsContext);
-    if ( CL_FAILED(errVal) )
-    {
-        return errVal;
-    }
+	OclEvent* pEvent = m_pEventsManager->GetEvent(cpEventList[0]);
+	clEventsContext = pEvent->GetContextHandle();
 
-    // Before waiting all on events, the function need to flush all relevant queues, 
+	// Before waiting all on events, the function need to flush all relevant queues, 
     // Since the dependencies between events in different queues is unknown it is better
     // to flush all queues in the context.
 	FlushAllQueuesForContext(clEventsContext);
@@ -485,7 +482,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
     {
         return CL_INVALID_EVENT;
     }
-    cl_return CL_SUCCESS;
+    cl_return errVal;
 }
 
 /******************************************************************

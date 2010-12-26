@@ -68,7 +68,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		BuildEvent* GetBuildEvent(cl_event clEvent);
 		UserEvent*  GetUserEvent(cl_event clEvent);
         cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
-        cl_err_code ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext);
 
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
 
@@ -76,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_event_int>* m_pEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
-        OclEvent** GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList );
+		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, OclEvent** vOclEvents );
 
         // An EventManger object cannot be copied
         EventsManager(const EventsManager&);           // copy constructor

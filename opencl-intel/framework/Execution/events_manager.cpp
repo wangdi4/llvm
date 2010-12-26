@@ -33,6 +33,7 @@
 #include "cl_objects_map.h"
 #include "command_queue.h"
 #include "cl_utils.h"
+#include "cl_local_array.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -141,9 +142,28 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
          return CL_INVALID_EVENT_WAIT_LIST;
 
     // First validate that all ids in the event list exists
-    OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
-    if( NULL == vOclEvents)
+	clLocalArray<OclEvent*> vOclEventsStorage(uiNumEvents);
+	OclEvent** vOclEvents = vOclEventsStorage;
+	if (!vOclEvents)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+	if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
+	{
         return CL_INVALID_EVENT_WAIT_LIST;
+	}
+
+	cl_context eventContext;
+	//Ensure all events are in the same context
+	eventContext = vOclEvents[0]->GetContextHandle();
+	for (cl_uint ui = 1; ui < uiNumEvents; ++ui)
+	{
+		if (eventContext != vOclEvents[ui]->GetContextHandle())
+		{
+			return CL_INVALID_CONTEXT;
+		}
+	}
 
     // Wait on all events. Order doesn't matter since you always bonded to the longest event.
     // OclEvent wait on event that is done do nothing    
@@ -151,88 +171,58 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
     {
         vOclEvents[ui]->Wait();
     }
-    
-    delete[] vOclEvents;  
-    cl_return CL_SUCCESS;
+	cl_return CL_SUCCESS;
 }
 
 /******************************************************************
- * This function validates that all events in eventList has the same context 
- * If not CL_INVALID_CONTEXT is returned. On success CL_SUCCESS is returned
- * 
- ******************************************************************/
-cl_err_code EventsManager::ValidateEventsContext(cl_uint uiNumEvents, const cl_event* eventList, cl_context* pclEventsContext)
-{
-    // First validate that all ids in the event list exists
-    OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
-    if( NULL == vOclEvents || 0 == uiNumEvents)
-    {
-        return CL_INVALID_EVENT;
-    }
-
-    cl_uint ui;
-
-    // Next, check that events has the same context as the queued context
-    cl_context queueContext = vOclEvents[0]->GetContextHandle();
-    for ( ui =1; ui < uiNumEvents; ui++)
-    {
-        OclEvent* pOclEvent = vOclEvents[ui];
-        if( queueContext != pOclEvent->GetContextHandle())
-        {
-            // Error
-            delete[] vOclEvents;
-            return CL_INVALID_CONTEXT;
-        }
-    }
-    // Success
-    delete[] vOclEvents;
-    *pclEventsContext = queueContext;
-    return CL_SUCCESS;
-}
-
-/******************************************************************
- * This function gets an handle to event that represents command
- * that is dependent on the command that are attached with the list
- * of events in the event list.
- * If bRemoveEvents is true, events that were allocated on queueId a
- * are removed from the list
- * 
- ******************************************************************/
+* This function gets an handle to event that represents command
+* that is dependent on the command that are attached with the list
+* of events in the event list.
+* If bRemoveEvents is true, events that were allocated on queueId a
+* are removed from the list
+* 
+******************************************************************/
 cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
 {
 	cl_start;
-    // Check input parameters
-    if ( ( NULL == pEvent) ||
-         ( (NULL == eventList) && ( 0 != uiNumEvents ) ) ||
-         ( (NULL != eventList) && ( 0 == uiNumEvents ) )
-         )
-         return CL_INVALID_EVENT_WAIT_LIST;
+	// Check input parameters
+	if ( ( NULL == pEvent) ||
+		( (NULL == eventList) && ( 0 != uiNumEvents ) ) ||
+		( (NULL != eventList) && ( 0 == uiNumEvents ) )
+		)
+		return CL_INVALID_EVENT_WAIT_LIST;
 
-    // If 0, no event list
-    if (0 != uiNumEvents)
-    {
-        // First validate that all ids in the event list exists
-        OclEvent** vOclEvents = GetEventsFromList(uiNumEvents, eventList);
-        if( NULL == vOclEvents)
-            return CL_INVALID_EVENT_WAIT_LIST;
+	// If 0, no event list
+	if (0 != uiNumEvents)
+	{
+		// First validate that all ids in the event list exists
+		clLocalArray<OclEvent*> vOclEventsStorage(uiNumEvents);
+		OclEvent** vOclEvents = vOclEventsStorage;
+		if (!vOclEvents)
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+		if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
+		{
+			return CL_INVALID_EVENT_WAIT_LIST;
+		}
 
-        cl_uint ui;
-        // Next, check that events has the same context as the queued context
-        cl_context queueContext = pEvent->GetContextHandle();
-        for ( ui =0; ui < uiNumEvents; ui++)
-        {
-            OclEvent* pOclEvent = vOclEvents[ui];
-            if( queueContext != pOclEvent->GetContextHandle())
-            {
-                // Error
-                delete[] vOclEvents;
-                return CL_INVALID_CONTEXT;
-            }
-        }
-        
-        // Register input event in the entire eventList
-        // If bRemoveEvents is true, events that were allocated on queueId will not
-        // be registered
+		cl_uint ui;
+		// Next, check that events has the same context as the queued context
+		cl_context queueContext = pEvent->GetContextHandle();
+		for ( ui =0; ui < uiNumEvents; ui++)
+		{
+			OclEvent* pOclEvent = vOclEvents[ui];
+			if( queueContext != pOclEvent->GetContextHandle())
+			{
+				// Error
+				return CL_INVALID_CONTEXT;
+			}
+		}
+
+		// Register input event in the entire eventList
+		// If bRemoveEvents is true, events that were allocated on queueId will not
+		// be registered
 		if (bRemoveEvents)
 		{
 			for ( ui =0; ui < uiNumEvents; ui++)
@@ -242,19 +232,17 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 				{
 					if ((pDependOnEvent->GetEventQueue()) && 
 						(queueId == pDependOnEvent->GetEventQueue()->GetId()))
-                    {
-                        // Do not register
+					{
+						// Do not register
 						vOclEvents[ui] = NULL;
-                        continue;
-                    }
+						continue;
+					}
 				}
-            }        
-        }
+			}        
+		}
 		pEvent->AddDependentOnMulti(uiNumEvents, vOclEvents);
-
-        delete[] vOclEvents;
-    }
-    cl_return  CL_SUCCESS;    
+	}
+	cl_return  CL_SUCCESS;    
 }
 
 /******************************************************************
@@ -265,28 +253,25 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
  * On success a list is returned that need to be free by the caller.
  * 
  ******************************************************************/
-OclEvent** EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList )
+bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, OclEvent** ppList )
 {
     cl_err_code res         = CL_SUCCESS;
     OCLObject<_cl_event_int>*  pOclObject  = NULL;
 	if(0 == uiNumEvents)
 	{
-		return NULL;
+		return false;
 	}
-    OclEvent**  vpOclEvents = new OclEvent*[uiNumEvents];
-
     for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
     {
         res = m_pEvents->GetOCLObject((_cl_event_int*)eventList[ui], &pOclObject);
-        vpOclEvents[ui] = dynamic_cast<OclEvent*>(pOclObject);
-        if(CL_FAILED(res))
-        {
-            // Not valid, return
-            delete[] vpOclEvents;
-            return NULL;
-        }
+		if(CL_FAILED(res))
+		{
+			// Not valid, return
+			return false;
+		}
+		ppList[ui] = (dynamic_cast<OclEvent*>(pOclObject));
     } 
-    return vpOclEvents;    
+    return true;    
 }
 
 /******************************************************************

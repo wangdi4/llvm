@@ -51,24 +51,23 @@ using namespace Intel::OpenCL::Framework;
  * Static function to be used by all commands that need to write/read data
  ******************************************************************/
 static void create_dev_cmd_rw(
-    cl_dev_mem          clDevMemHndl,
-    cl_mem_object_type  clMemObjType,
-    void*               pPtr,
-    const size_t*       pszMemOrigin,
-	const size_t*       pszPtrOrigin,    
-    const size_t*       pszRegion,
-    size_t              szRowPitch,
-    size_t              szSlicePitch,	
-    size_t              szMemRowPitch,
-    size_t              szMemSlicePitch,	
-    cl_dev_cmd_type     clCmdType,
-    cl_dev_cmd_id       clCmdId,
-	cl_dev_cmd_desc*    pDevCmd
+    cl_dev_mem           clDevMemHndl,
+    cl_mem_object_type   clMemObjType,
+    void*                pPtr,
+    const size_t*        pszMemOrigin,
+	const size_t*        pszPtrOrigin,    
+    const size_t*        pszRegion,
+    size_t               szRowPitch,
+    size_t               szSlicePitch,	
+    size_t               szMemRowPitch,
+    size_t               szMemSlicePitch,	
+    cl_dev_cmd_type      clCmdType,
+    cl_dev_cmd_id        clCmdId,
+	cl_dev_cmd_desc*     pDevCmd,
+	cl_dev_cmd_param_rw* pRWParams
     )
 {
         // Create Read command
-        cl_dev_cmd_param_rw* pRWParams   = new cl_dev_cmd_param_rw;
-        
         memset(pDevCmd, 0, sizeof(cl_dev_cmd_desc));
         memset(pRWParams, 0, sizeof(cl_dev_cmd_param_rw));
         
@@ -227,7 +226,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code Command::CopyToHost(						
+cl_err_code MemoryCommand::CopyToHost(						
 						MemoryObject*	pSrcMemObj,					
 						QueueEvent**		pEvent)
 {
@@ -248,7 +247,7 @@ cl_err_code Command::CopyToHost(
 	size_t rowPitch, slicePitch;
 	pSrcMemObj->GetLayout(region, &rowPitch, &slicePitch);
 	
-	Command* pReadMemObjCmd = new ReadMemObjCommand(pSrcMemObj, origin, region, rowPitch, slicePitch, pData);		
+	MemoryCommand* pReadMemObjCmd = new ReadMemObjCommand(pSrcMemObj, origin, region, rowPitch, slicePitch, pData);		
 	pReadMemObjCmd->SetDevice(pSrcDevice);
 	
 	cl_event waitEvent = NULL;
@@ -270,8 +269,8 @@ cl_err_code Command::CopyToHost(
 		return res; 
 	}
 		
-	cl_dev_cmd_desc* pReadDevCmd =  &pReadMemObjCmd->m_DevCmd;		
-	memset(pReadDevCmd,0,sizeof(cl_dev_cmd_desc));	
+	cl_dev_cmd_desc* pReadDevCmd   =  &pReadMemObjCmd->m_DevCmd;		
+	cl_dev_cmd_param_rw* pRWParams =  &pReadMemObjCmd->m_rwParams;
 					
 	// copy from host to device
 	create_dev_cmd_rw(            
@@ -280,7 +279,8 @@ cl_err_code Command::CopyToHost(
 		pData, origin, NULL, region, 0, 0, 0, 0,
 		CL_DEV_CMD_READ,
 		(cl_dev_cmd_id)pQueueEvent->GetId(), 
-		pReadDevCmd);		
+		pReadDevCmd, 
+		pRWParams);		
 
 	pSrcMemObj->SetDataLocation(0);
 
@@ -294,7 +294,7 @@ cl_err_code Command::CopyToHost(
 	*pEvent = pQueueEvent;
 	return res;
 }
-cl_err_code Command::CopyFromHost(
+cl_err_code MemoryCommand::CopyFromHost(
 						void* pSrcData,
 						MemoryObject* pSrcMemObj, 
 						const size_t* pSrcOrigin,
@@ -319,7 +319,8 @@ cl_err_code Command::CopyFromHost(
 				(void*)pSrcData, pDstOrigin, pSrcOrigin, pRegion, szSrcRowPitch, szSrcSlicePitch, szDstRowPitch, szDstSlicePitch,
 				CL_DEV_CMD_WRITE,
 				(cl_dev_cmd_id)(*pEvent)->GetId(),
-				pDevCmd) ;
+				pDevCmd,
+				&m_rwParams) ;
 		pSrcMemObj->SetDataLocation(m_pDevice->GetHandle());
 		LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 		// Sending 1 command to the device where the buffer is located now
@@ -330,7 +331,7 @@ cl_err_code Command::CopyFromHost(
 	}
 	else
 	{		
-		Command* pWriteMemObjCmd = new WriteMemObjCommand(pSrcMemObj, pDstOrigin, pRegion, szDstRowPitch,szDstSlicePitch,pSrcData,pSrcOrigin,szSrcRowPitch,szSrcSlicePitch);		
+		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(pSrcMemObj, pDstOrigin, pRegion, szDstRowPitch,szDstSlicePitch,pSrcData,pSrcOrigin,szSrcRowPitch,szSrcSlicePitch);		
 		pWriteMemObjCmd->SetCommandQueue(m_pCommandQueue);					
 		pWriteMemObjCmd->SetDevice(m_pDevice);
 		
@@ -352,8 +353,8 @@ cl_err_code Command::CopyFromHost(
 			return res; 
 		}
 			
-		cl_dev_cmd_desc* pWriteDevCmd =  &pWriteMemObjCmd->m_DevCmd;		
-		memset(pWriteDevCmd,0,sizeof(cl_dev_cmd_desc));	
+		cl_dev_cmd_desc* pWriteDevCmd  = &pWriteMemObjCmd->m_DevCmd;		
+		cl_dev_cmd_param_rw* pRWParams = &pWriteMemObjCmd->m_rwParams;
 					
 		// copy from host to device
 		create_dev_cmd_rw(            
@@ -362,7 +363,8 @@ cl_err_code Command::CopyFromHost(
 			(void*)pSrcData, pDstOrigin, pSrcOrigin, pRegion, szSrcRowPitch, szSrcSlicePitch, szDstRowPitch, szDstSlicePitch,			
 			CL_DEV_CMD_WRITE,
 			(cl_dev_cmd_id)pQueueEvent->GetId(), 
-			pWriteDevCmd);
+			pWriteDevCmd, 
+			pRWParams);
 
 		// Set new location			
 		pSrcMemObj->SetDataLocation(m_pDevice->GetHandle());
@@ -376,7 +378,7 @@ cl_err_code Command::CopyFromHost(
 	return res;
 }
 
-cl_err_code Command::PrepareOnDevice(
+cl_err_code MemoryCommand::PrepareOnDevice(
 						MemoryObject* pSrcMemObj, 						
 						const size_t* pSrcOrigin, 						
 						const size_t* pRegion,					
@@ -535,16 +537,16 @@ cl_err_code CopyMemObjCommand::Execute()
 	}
 
 	/// first, make sure m_pDstMemObj resides on target device.
-	/// for example, if m_pDstMemObj resides on different device this funciton will now copy
+	/// for example, if m_pDstMemObj resides on different device this function will now copy
 	/// the memory object to host, then called again to copy from host to the target device.
-	/// notice we are returning CL_NOT_READY in cas extra operation is required.
+	/// notice we are returning CL_NOT_READY in case extra operation is required.
 	QueueEvent* pDepEvent = NULL;	
 #ifdef USE_PREPARE_ON_DEVICE
 
 	/// first, make sure m_pDstMemObj resides on target device.
-	/// for example, if m_pDstMemObj resides on different device this funciton will now copy
+	/// for example, if m_pDstMemObj resides on different device this function will now copy
 	/// the memory object to host, then called again to copy from host to the target device.
-	/// notice we are returning CL_NOT_READY in cas extra operation is required.
+	/// notice we are returning CL_NOT_READY in case extra operation is required.
 	
 	PrepareOnDevice(m_pDstMemObj, NULL, NULL, &pDepEvent);
 	if (pDepEvent)
@@ -612,14 +614,14 @@ cl_err_code CopyMemObjCommand::Execute()
  ******************************************************************/
 
 /******************************************************************
- * Use device copy command to copy betweem the buffers.
+ * Use device copy command to copy between the buffers.
  * Pre condition for this function is that the 2 buffers are allocated
  * in the device.
  ******************************************************************/
 cl_err_code CopyMemObjCommand::CopyOnDevice(cl_device_id clDeviceId)
 {
-    cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    cl_dev_cmd_param_copy* pCopyParams   = new cl_dev_cmd_param_copy;
+    cl_dev_cmd_desc *m_pDevCmd           = &m_DevCmd;
+    cl_dev_cmd_param_copy* pCopyParams   = &m_copyParams;
     
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
     memset(pCopyParams, 0, sizeof(cl_dev_cmd_param_copy));
@@ -1025,39 +1027,39 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 }
 
 /******************************************************************
- *
- ******************************************************************/
+*
+******************************************************************/
 NativeKernelCommand::NativeKernelCommand(
-           void              (*pUserFnc)(void *), 
-           void*               pArgs, 
-           size_t              szCbArgs,
-           cl_uint             uNumMemObjects,
-           MemoryObject**      ppMemObjList,
-           const void**        ppArgsMemLoc):
-    m_pUserFnc(pUserFnc),
-    m_pArgs(pArgs),
-    m_szCbArgs(szCbArgs),
-    m_uNumMemObjects(uNumMemObjects),
-    m_ppMemObjList(ppMemObjList),
-    m_ppArgsMemLoc(ppArgsMemLoc)    
+	void              (*pUserFnc)(void *), 
+	void*               pArgs, 
+	size_t              szCbArgs,
+	cl_uint             uNumMemObjects,
+	MemoryObject**      ppMemObjList,
+	const void**        ppArgsMemLoc):
+m_pUserFnc(pUserFnc),
+m_pArgs(pArgs),
+m_szCbArgs(szCbArgs),
+m_uNumMemObjects(uNumMemObjects),
+m_ppMemObjList(ppMemObjList),
+m_ppArgsMemLoc(ppArgsMemLoc)    
 {
 }
 
 /******************************************************************
- *
- ******************************************************************/
+*
+******************************************************************/
 NativeKernelCommand::~NativeKernelCommand()
 {    
 }
 
 /******************************************************************
- * On init the command validates the input buffers and creates new args list
- * the contains the device handlers of the buffers.
- ******************************************************************/
+* On init the command validates the input buffers and creates new args list
+* the contains the device handlers of the buffers.
+******************************************************************/
 cl_err_code NativeKernelCommand::Init()
 {
-    cl_err_code res = CL_SUCCESS;
-    // Create new arg list
+	cl_err_code res = CL_SUCCESS;
+	// Create new arg list
 	// Expect same size for cl_mem and cl_dev_mem
 	// Actually they are pointers, so the size should be the same
 	// Prefer #if with #pragma error, but doesn't pass compiler
@@ -1065,10 +1067,10 @@ cl_err_code NativeKernelCommand::Init()
 	{
 		return CL_INVALID_KERNEL_ARGS;
 	}
-    char*   pNewArgs = new char[m_szCbArgs];
+	char*   pNewArgs = new char[m_szCbArgs];
 	if(NULL == pNewArgs)
 	{
-		 return CL_OUT_OF_HOST_MEMORY;
+		return CL_OUT_OF_HOST_MEMORY;
 	}
 
 	// Now copy the whole buffer
@@ -1087,7 +1089,7 @@ cl_err_code NativeKernelCommand::Init()
 	}
 
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
-    cl_uint i;
+	cl_uint i;
 	for( i=0; i < m_uNumMemObjects; i++ )
 	{
 		// Check that mem object is allocated on device, if not allocate resource
@@ -1102,7 +1104,7 @@ cl_err_code NativeKernelCommand::Init()
 		}
 
 		size_t stObjOffset = (size_t)((char*)(m_ppArgsMemLoc[i]) - (char*)m_pArgs);
-	    void* pCurrentArgsLocation = pNewArgs + stObjOffset;
+		void* pCurrentArgsLocation = pNewArgs + stObjOffset;
 
 		// Set the new args list
 		cl_dev_mem clDevMemHndl = pMemObj->GetDeviceMemoryHndl(clDeviceId);
@@ -1131,46 +1133,46 @@ cl_err_code NativeKernelCommand::Init()
 		return res;
 	}
 
-    //
-    // Prepare the device command
-    //
+	//
+	// Prepare the device command
+	//
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    cl_dev_cmd_param_native* pNativeKernelParam = new cl_dev_cmd_param_native;
-        
-    memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
-    memset(pNativeKernelParam, 0, sizeof(cl_dev_cmd_param_native));
+	cl_dev_cmd_param_native* pNativeKernelParam = &m_nativeParams;
 
-    pNativeKernelParam->args     = m_szCbArgs;
-    pNativeKernelParam->argv     = pNewArgs;
-    pNativeKernelParam->func_ptr = m_pUserFnc;
-    pNativeKernelParam->mem_num  = m_uNumMemObjects;
-    pNativeKernelParam->mem_loc  = ppNewArgsMemLoc;
+	memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
+	memset(pNativeKernelParam, 0, sizeof(cl_dev_cmd_param_native));
 
-    m_pDevCmd->params = pNativeKernelParam;
-    m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_native);
-    m_pDevCmd->type = CL_DEV_CMD_EXEC_NATIVE;
+	pNativeKernelParam->args     = m_szCbArgs;
+	pNativeKernelParam->argv     = pNewArgs;
+	pNativeKernelParam->func_ptr = m_pUserFnc;
+	pNativeKernelParam->mem_num  = m_uNumMemObjects;
+	pNativeKernelParam->mem_loc  = ppNewArgsMemLoc;
 
-    return CL_SUCCESS;
+	m_pDevCmd->params = pNativeKernelParam;
+	m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_native);
+	m_pDevCmd->type = CL_DEV_CMD_EXEC_NATIVE;
+
+	return CL_SUCCESS;
 }
 
 /******************************************************************
- *
- ******************************************************************/
+*
+******************************************************************/
 cl_err_code NativeKernelCommand::Execute()
 {
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
+	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 
 	// Fill command descriptor
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    m_pDevCmd->id = (cl_dev_cmd_id)m_pEvent->GetId();
+	m_pDevCmd->id = (cl_dev_cmd_id)m_pEvent->GetId();
 
 #ifdef USE_PREPARE_ON_DEVICE
-	#error please review the code
-    for( unsigned int i=0; i < m_uNumMemObjects; i++ )
-    {        
-        MemoryObject* pMemObj = m_ppMemObjList[i];
+#error please review the code
+	for( unsigned int i=0; i < m_uNumMemObjects; i++ )
+	{        
+		MemoryObject* pMemObj = m_ppMemObjList[i];
 		QueueEvent* pDepEvent = NULL;			
 		PrepareOnDevice(pMemObj, NULL, NULL, &pDepEvent);		
 		if (pDepEvent)
@@ -1195,10 +1197,10 @@ cl_err_code NativeKernelCommand::Execute()
 		return CL_NOT_READY;
 	}	
 #else
-    for( unsigned int i=0; i < m_uNumMemObjects; i++ )
-    {
-        MemoryObject* pMemObj = m_ppMemObjList[i];
-	    pMemObj->SetDataLocation(clDeviceId);
+	for( unsigned int i=0; i < m_uNumMemObjects; i++ )
+	{
+		MemoryObject* pMemObj = m_ppMemObjList[i];
+		pMemObj->SetDataLocation(clDeviceId);
 	}
 #endif
 
@@ -1209,30 +1211,30 @@ cl_err_code NativeKernelCommand::Execute()
 }
 
 /******************************************************************
- *
- ******************************************************************/
+*
+******************************************************************/
 cl_err_code NativeKernelCommand::CommandDone()
 {
-    // Clean resources
+	// Clean resources
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    if( NULL != m_pDevCmd->params )
-    {
-        cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
-        delete []pNativeKernelParam->argv;
-        delete []pNativeKernelParam->mem_loc;
-        delete pNativeKernelParam;
-    }
+	if( NULL != m_pDevCmd->params )
+	{
+		cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
+		delete []pNativeKernelParam->argv;
+		delete []pNativeKernelParam->mem_loc;
+		delete pNativeKernelParam;
+	}
 
-    // Remove buffers pendencies
-    for( cl_uint i=0; i < m_uNumMemObjects; i++ )
-    {
-        // Check that mem object is allocated on device, if not allocate resource
-        MemoryObject* pMemObj = m_ppMemObjList[i];    
-        pMemObj->RemovePendency();
-    }
-    delete []m_ppMemObjList;
+	// Remove buffers pendencies
+	for( cl_uint i=0; i < m_uNumMemObjects; i++ )
+	{
+		// Check that mem object is allocated on device, if not allocate resource
+		MemoryObject* pMemObj = m_ppMemObjList[i];    
+		pMemObj->RemovePendency();
+	}
+	delete []m_ppMemObjList;
 
-    return CL_SUCCESS;
+	return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -1363,13 +1365,12 @@ cl_err_code NDRangeKernelCommand::Init()
 	}
 
     // Setup Kernel parameters
-	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    cl_dev_cmd_param_kernel* pKernelParam = new cl_dev_cmd_param_kernel;
+	cl_dev_cmd_desc *m_pDevCmd            = &m_DevCmd;
+    cl_dev_cmd_param_kernel* pKernelParam = &m_kernelParams;
 
 	// TODO: We are going to fill values, why we need memset
     memset(m_pDevCmd, 0, sizeof(cl_dev_cmd_desc));
     memset(pKernelParam, 0, sizeof(cl_dev_cmd_param_kernel));
-
   
     cl_char* pArgValues = new cl_char[szCurrentLocation];
     memset(pArgValues, 0, sizeof(cl_char)*szCurrentLocation);
@@ -1736,7 +1737,8 @@ cl_err_code ReadMemObjCommand::Execute()
 			m_pDst, m_szOrigin, m_szDstOrigin, m_szRegion, m_szDstRowPitch, m_szDstSlicePitch, m_szRowPitch, m_szSlicePitch, 
             CL_DEV_CMD_READ,
             (cl_dev_cmd_id)m_pEvent->GetId(),
-			m_pDevCmd);
+			m_pDevCmd, 
+			&m_rwParams);
 
         LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 		m_pEvent->SetEventQueue(m_pCommandQueue);
@@ -1770,13 +1772,6 @@ cl_err_code ReadMemObjCommand::CommandDone()
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // TODO: copy data from dst to the local buffer.
     m_pMemObj->RemovePendency();
-    // Delete local command
-    cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;	
-	if (pRWParams)
-	{
-		delete pRWParams;
-		pRWParams = NULL;
-	}	
     return CL_SUCCESS;
 }
 
@@ -2004,7 +1999,8 @@ cl_err_code WriteMemObjCommand::Execute()
 			(void*)m_cpSrc, m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szRowPitch, m_szSlicePitch, 
 			CL_DEV_CMD_WRITE,
 			(cl_dev_cmd_id)m_pEvent->GetId(),
-			m_pDevCmd) ;
+			m_pDevCmd, 
+			&m_rwParams) ;
 
 	m_pMemObj->SetDataLocation(clDeviceId);
 
@@ -2027,12 +2023,6 @@ cl_err_code WriteMemObjCommand::CommandDone()
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // TODO: copy data from dst to the local buffer.
     m_pMemObj->RemovePendency();
-    // Delete local command
-    cl_dev_cmd_param_rw* pRWParams = (cl_dev_cmd_param_rw*)m_pDevCmd->params;
-	if (pRWParams)
-	{
-		delete pRWParams;
-	}
     return CL_SUCCESS;
 }
 
