@@ -12,6 +12,9 @@
 		<Platform
 			Name="Win32"
 		/>
+		<Platform
+			Name="x64"
+		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
@@ -25,7 +28,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine=""
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;md $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy /E /Y $(ProjectDir)include $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbb_debug.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbbmalloc_debug.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb_debug.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb_debug.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc_debug.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc_debug.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -35,7 +38,30 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="xcopy /E /Y $(ProjectDir)include %MTV_LOCAL_IMPORT_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbb_debug.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbb_debug.lib %MTV_LOCAL_LIB_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbbmalloc_debug.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbbmalloc_debug.lib %MTV_LOCAL_LIB_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbb_debug.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbbmalloc_debug.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbb_debug.dll %MTV_LOCAL_BIN_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbbmalloc_debug.dll %MTV_LOCAL_BIN_DIR%.dbg&#x0D;&#x0A;"
+				CommandLine=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug|x64"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="10"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;md $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy /E /Y $(ProjectDir)include $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbb_debug.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbbmalloc_debug.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb_debug.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb_debug.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc_debug.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc_debug.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
@@ -48,7 +74,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine=""
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;md $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy /E /Y $(ProjectDir)include $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbb.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbbmalloc.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -58,7 +84,31 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="xcopy /E /Y $(ProjectDir)include %MTV_LOCAL_IMPORT_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbb.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbb.lib %MTV_LOCAL_LIB_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbbmalloc.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\lib\tbbmalloc.lib %MTV_LOCAL_LIB_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbb.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbb.dll %MTV_LOCAL_BIN_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbbmalloc.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)Win32\bin\tbbmalloc.dll %MTV_LOCAL_BIN_DIR%.opt&#x0D;&#x0A;"
+				CommandLine=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|x64"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="10"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;md $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy /E /Y $(ProjectDir)include $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbb.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\lib\tbbmalloc.lib $(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbb.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc.dll $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;copy $(ProjectDir)\$(PlatformName)\bin\tbbmalloc.pdb $(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)&#x0D;&#x0A;"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine=""
 			/>
 		</Configuration>
 	</Configurations>

@@ -22,15 +22,17 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include "linux_common.h"
+#include <stdint.h>
+#include <unistd.h>
 
 #define __TBB_WORDSIZE 8
 #define __TBB_BIG_ENDIAN 0
 
 #define __TBB_release_consistency_helper() __asm__ __volatile__("": : :"memory")
 
-#ifndef __TBB_rel_acq_fence
-inline void __TBB_rel_acq_fence() { __asm__ __volatile__("mfence": : :"memory"); }
+// __TBB_full_memory_fence can be predefined
+#ifndef __TBB_full_memory_fence
+#define __TBB_full_memory_fence() __asm__ __volatile__("mfence": : :"memory")
 #endif
 
 #define __MACHINE_DECL_ATOMICS(S,T,X) \
@@ -84,13 +86,6 @@ static inline void __TBB_machine_and( volatile void *ptr, uint64_t addend ) {
     __asm__ __volatile__("lock\nandq %1,%0" : "=m"(*(volatile uint64_t*)ptr) : "r"(addend), "m"(*(volatile uint64_t*)ptr) : "memory");
 }
 
-static inline void __TBB_machine_pause( int32_t delay ) {
-    for (int32_t i = 0; i < delay; i++) {
-       __asm__ __volatile__("pause;");
-    }
-    return;
-}
-
 // Machine specific atomic operations
 
 #define __TBB_CompareAndSwap1(P,V,C) __TBB_machine_cmpswp1(P,V,C)
@@ -111,14 +106,20 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 #define __TBB_FetchAndStore8(P,V)  __TBB_machine_fetchstore8(P,V)
 #define __TBB_FetchAndStoreW(P,V)  __TBB_machine_fetchstore8(P,V)
 
-#define __TBB_Store8(P,V) (*P = V)
-#define __TBB_Load8(P)    (*P)
+#undef __TBB_Store8
+#undef __TBB_Load8
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_or(P,V)
 #define __TBB_AtomicAND(P,V) __TBB_machine_and(P,V)
 
 // Definition of other functions
 #ifndef __TBB_Pause
+static inline void __TBB_machine_pause( int32_t delay ) {
+    for (int32_t i = 0; i < delay; i++) {
+       __asm__ __volatile__("pause;");
+    }
+    return;
+}
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #endif
 #define __TBB_Log2(V)    __TBB_machine_lg(V)

@@ -43,23 +43,13 @@
 #include "atomic.h"
 #include "aligned_space.h"
 #include "tbb_exception.h"
+#include "tbb_profiling.h"
 #include "_concurrent_unordered_internal.h" // Need tbb_hasher
 #if TBB_USE_PERFORMANCE_WARNINGS
 #include <typeinfo>
 #endif
 
 namespace tbb {
-
-//! @cond INTERNAL
-namespace internal {
-    //! ITT instrumented routine that loads pointer from location pointed to by src.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_with_acquire_v3( const void* src );
-    //! ITT instrumented routine that stores src into location pointed to by dst.
-    void __TBB_EXPORTED_FUNC itt_store_pointer_with_release_v3( void* dst, void* src );
-    //! Routine that loads pointer from location pointed to by src without causing ITT to report a race.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
-}
-//! @endcond
 
 //! hash_compare that is default argument for concurrent_hash_map
 template<typename Key>
@@ -125,7 +115,7 @@ namespace interface4 {
         typedef bucket *segment_ptr_t;
         //! Segment pointers table type
         typedef segment_ptr_t segments_table_t[pointers_per_table];
-        //! Hash mask = sum of allocated segments sizes - 1
+        //! Hash mask = sum of allocated segment sizes - 1
         atomic<hashcode_t> my_mask;
         //! Segment pointers table. Also prevents false sharing between my_mask and my_size
         segments_table_t my_table;
@@ -133,7 +123,14 @@ namespace interface4 {
         atomic<size_type> my_size; // It must be in separate cache line from my_mask due to performance effects
         //! Zero segment
         bucket my_embedded_segment[embedded_buckets];
-
+#if __TBB_STATISTICS
+        atomic<unsigned> my_info_resizes; // concurrent ones
+        mutable atomic<unsigned> my_info_restarts; // race collisions
+        atomic<unsigned> my_info_rehashes;  // invocations of rehash_bucket
+        #if !TBB_USE_PERFORMANCE_WARNINGS
+        #error Please enable TBB_USE_PERFORMANCE_WARNINGS as well
+        #endif
+#endif
         //! Constructor
         hash_map_base() {
             std::memset( this, 0, pointers_per_table*sizeof(segment_ptr_t) // 32*4=128   or 64*8=512
@@ -143,6 +140,11 @@ namespace interface4 {
                 my_table[i] = my_embedded_segment + segment_base(i);
             my_mask = embedded_buckets - 1;
             __TBB_ASSERT( embedded_block <= first_block, "The first block number must include embedded blocks");
+#if __TBB_STATISTICS
+            my_info_resizes = 0; // concurrent ones
+            my_info_restarts = 0; // race collisions
+            my_info_rehashes = 0;  // invocations of rehash_bucket
+#endif
         }
 
         //! @return segment index of given index in the array
@@ -201,12 +203,7 @@ namespace interface4 {
                 sz = segment_size( k );
                 segment_ptr_t ptr = alloc.allocate( sz );
                 init_buckets( ptr, sz, is_initial );
-#if TBB_USE_THREADING_TOOLS
-                // TODO: actually, fence and notification are unnecessary here and below
-                itt_store_pointer_with_release_v3( my_table + k, ptr );
-#else
-                my_table[k] = ptr;// my_mask has release fence
-#endif
+                itt_hide_store_word( my_table[k], ptr );
                 sz <<= 1;// double it to get entire capacity of the container
             } else { // the first block
                 __TBB_ASSERT( k == embedded_block, "Wrong segment index" );
@@ -215,17 +212,9 @@ namespace interface4 {
                 init_buckets( ptr, sz - embedded_buckets, is_initial );
                 ptr -= segment_base(embedded_block);
                 for(segment_index_t i = embedded_block; i < first_block; i++) // calc the offsets
-#if TBB_USE_THREADING_TOOLS
-                    itt_store_pointer_with_release_v3( my_table + i, ptr + segment_base(i) );
-#else
-                    my_table[i] = ptr + segment_base(i);
-#endif
+                    itt_hide_store_word( my_table[i], ptr + segment_base(i) );
             }
-#if TBB_USE_THREADING_TOOLS
-            itt_store_pointer_with_release_v3( &my_mask, (void*)(sz-1) );
-#else
-            my_mask = sz - 1;
-#endif
+            itt_store_word_with_release( my_mask, sz-1 );
             watchdog.my_segment_ptr = 0;
         }
 
@@ -252,11 +241,7 @@ namespace interface4 {
         // Splitting into two functions should help inlining
         inline bool check_mask_race( const hashcode_t h, hashcode_t &m ) const {
             hashcode_t m_now, m_old = m;
-#if TBB_USE_THREADING_TOOLS
-            m_now = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-            m_now = my_mask;
-#endif
+            m_now = (hashcode_t) itt_load_word_with_acquire( my_mask );
             if( m_old != m_now )
                 return check_rehashing_collision( h, m_old, m = m_now );
             return false;
@@ -273,12 +258,13 @@ namespace interface4 {
                 m_old = (m_old<<1) - 1; // get full mask from a bit
                 __TBB_ASSERT((m_old&(m_old+1))==0 && m_old <= m, NULL);
                 // check whether it is rehashing/ed
-#if TBB_USE_THREADING_TOOLS
-                if( itt_load_pointer_with_acquire_v3(&( get_bucket(h & m_old)->node_list )) != rehash_req )
-#else
-                if( __TBB_load_with_acquire(get_bucket( h & m_old )->node_list) != rehash_req )
+                if( itt_load_word_with_acquire(get_bucket(h & m_old)->node_list) != rehash_req )
+                {
+#if __TBB_STATISTICS
+                    my_info_restarts++; // race collisions
 #endif
                     return true;
+                }
             }
             return false;
         }
@@ -291,11 +277,7 @@ namespace interface4 {
             if( sz >= mask ) { // TODO: add custom load_factor 
                 segment_index_t new_seg = segment_index_of( mask+1 );
                 __TBB_ASSERT( is_valid(my_table[new_seg-1]), "new allocations must not publish new mask until segment has allocated");
-#if TBB_USE_THREADING_TOOLS
-                if( !itt_load_pointer_v3(my_table+new_seg)
-#else
-                if( !my_table[new_seg]
-#endif
+                if( !itt_hide_load_word(my_table[new_seg])
                   && __TBB_CompareAndSwapW(&my_table[new_seg], 2, 0) == 0 )
                     return new_seg; // The value must be processed
             }
@@ -402,10 +384,10 @@ namespace interface4 {
         hash_map_iterator& operator++();
         
         //! Post increment
-        Value* operator++(int) {
-            Value* result = &operator*();
+        hash_map_iterator operator++(int) {
+            hash_map_iterator old(*this);
             operator++();
-            return result;
+            return old;
         }
     };
 
@@ -631,12 +613,8 @@ protected:
         //! find a bucket by masked hashcode, optionally rehash, and acquire the lock
         inline void acquire( concurrent_hash_map *base, const hashcode_t h, bool writer = false ) {
             my_b = base->get_bucket( h );
-#if TBB_USE_THREADING_TOOLS
             // TODO: actually, notification is unnecessary here, just hiding double-check
-            if( itt_load_pointer_with_acquire_v3(&my_b->node_list) == internal::rehash_req
-#else
-            if( __TBB_load_with_acquire(my_b->node_list) == internal::rehash_req
-#endif
+            if( itt_load_word_with_acquire(my_b->node_list) == internal::rehash_req
                 && try_acquire( my_b->mutex, /*write=*/true ) )
             {
                 if( my_b->node_list == internal::rehash_req ) base->rehash_bucket( my_b, h ); //recursive rehashing
@@ -659,6 +637,9 @@ protected:
         __TBB_ASSERT( h > 1, "The lowermost buckets can't be rehashed" );
         __TBB_store_with_release(b_new->node_list, internal::empty_rehashed); // mark rehashed
         hashcode_t mask = ( 1u<<__TBB_Log2( h ) ) - 1; // get parent mask from the topmost bit
+#if __TBB_STATISTICS
+        my_info_rehashes++; // invocations of rehash_bucket
+#endif
 
         bucket_accessor b_old( this, h & mask );
 
@@ -938,21 +919,13 @@ protected:
         Must not be called concurrently with erasure operations. */
     const_pointer internal_fast_find( const Key& key ) const {
         hashcode_t h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-        hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-        hashcode_t m = my_mask;
-#endif
+        hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
         node *n;
     restart:
         __TBB_ASSERT((m&(m+1))==0, NULL);
         bucket *b = get_bucket( h & m );
-#if TBB_USE_THREADING_TOOLS
         // TODO: actually, notification is unnecessary here, just hiding double-check
-        if( itt_load_pointer_with_acquire_v3(&b->node_list) == internal::rehash_req )
-#else
-        if( __TBB_load_with_acquire(b->node_list) == internal::rehash_req )
-#endif
+        if( itt_load_word_with_acquire(b->node_list) == internal::rehash_req )
         {
             bucket::scoped_t lock;
             if( lock.try_acquire( b->mutex, /*write=*/true ) ) {
@@ -980,15 +953,11 @@ protected:
 template<typename Key, typename T, typename HashCompare, typename A>
 bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write ) {
     __TBB_ASSERT( !result || !result->my_node, NULL );
-    segment_index_t grow_segment;
     bool return_value;
-    node *n, *tmp_n = 0;
     hashcode_t const h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
+    segment_index_t grow_segment = 0;
+    node *n, *tmp_n = 0;
     restart:
     {//lock scope
         __TBB_ASSERT((m&(m+1))==0, NULL);
@@ -1019,8 +988,6 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                 grow_segment = insert_new_node( b(), n = tmp_n, m );
                 tmp_n = 0;
                 return_value = true;
-            } else {
-    exists:     grow_segment = 0;
             }
         } else { // find or count
             if( !n ) {
@@ -1029,8 +996,8 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                 return false;
             }
             return_value = true;
-            grow_segment = 0;
         }
+    exists:
         if( !result ) goto check_growth;
         // TODO: the following seems as generic/regular operation
         // acquire the item
@@ -1043,11 +1010,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                     b.release();
                     __TBB_ASSERT( !op_insert || !return_value, "Can't acquire new item in locked bucket?" );
                     __TBB_Yield();
-#if TBB_USE_THREADING_TOOLS
-                    m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-                    m = my_mask;
-#endif
+                    m = (hashcode_t) itt_load_word_with_acquire( my_mask );
                     goto restart;
                 }
             } while( !result->my_lock.try_acquire( n->mutex, write ) );
@@ -1057,8 +1020,12 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
     result->my_hash = h;
 check_growth:
     // [opt] grow the container
-    if( grow_segment )
+    if( grow_segment ) {
+#if __TBB_STATISTICS
+        my_info_resizes++; // concurrent ones
+#endif
         enable_segment( grow_segment );
+    }
     if( tmp_n ) // if op_insert only
         delete_node( tmp_n );
     return return_value;
@@ -1089,11 +1056,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_acc
     node_base *const n = item_accessor.my_node;
     item_accessor.my_node = NULL; // we ought release accessor anyway
     hashcode_t const h = item_accessor.my_hash;
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
     do {
         // get bucket
         bucket_accessor b( this, h & m, /*writer=*/true );
@@ -1122,11 +1085,7 @@ template<typename Key, typename T, typename HashCompare, typename A>
 bool concurrent_hash_map<Key,T,HashCompare,A>::erase( const Key &key ) {
     node_base *n;
     hashcode_t const h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
 restart:
     {//lock scope
         // get bucket
@@ -1263,6 +1222,15 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
 #endif
     }
 #if TBB_USE_PERFORMANCE_WARNINGS
+#if __TBB_STATISTICS
+    printf( "items=%d buckets: capacity=%d rehashed=%d empty=%d overpopulated=%d"
+        " concurrent: resizes=%u rehashes=%u restarts=%u\n",
+        current_size, int(m+1), buckets, empty_buckets, overpopulated_buckets,
+        unsigned(my_info_resizes), unsigned(my_info_rehashes), unsigned(my_info_restarts) );
+    my_info_resizes = 0; // concurrent ones
+    my_info_restarts = 0; // race collisions
+    my_info_rehashes = 0;  // invocations of rehash_bucket
+#endif
     if( buckets > current_size) empty_buckets -= buckets - current_size;
     else overpopulated_buckets -= current_size - buckets; // TODO: load_factor?
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {

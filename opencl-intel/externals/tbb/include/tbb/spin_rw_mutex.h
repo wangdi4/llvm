@@ -87,7 +87,6 @@ public:
         scoped_lock() : mutex(NULL), is_writer(false) {}
 
         //! Acquire lock on given mutex.
-        /** Upon entry, *this should not be in the "have acquired a mutex" state. */
         scoped_lock( spin_rw_mutex& m, bool write = true ) : mutex(NULL) {
             acquire(m, write);
         }
