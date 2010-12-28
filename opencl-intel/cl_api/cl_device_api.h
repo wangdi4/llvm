@@ -970,7 +970,7 @@ public:
 	virtual cl_int (clDevGetProgramKernels)( cl_dev_program IN prog,
 											 cl_uint IN num_kernels,
 											 cl_dev_kernel* OUT kernels,
-											 cl_uint* OUT num_kernels_ret
+											 size_t* OUT num_kernels_ret
 											 ) = 0;
 
 	/* clDevGetKernelInfo

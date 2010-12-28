@@ -96,7 +96,7 @@ public:
 	// Fills the buffer with 3D number of iterations to run
 	// Fills regCount with actual number of regions
 	// Returns 0 if initialization success, otherwise an error code
-	virtual int		Init(unsigned int region[], unsigned int& regCount) = 0;
+	virtual int		Init(size_t region[], unsigned int& regCount) = 0;
 
 	// Is called when the task is going to be called for the first time
 	// within specific thread. uiWorkerId specifies the worker thread id.
