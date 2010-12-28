@@ -396,7 +396,7 @@ _mm_cmpgt_pi32(__m64 __m1, __m64 __m2)
 static inline __m64 __attribute__((__always_inline__, __nodebug__))
 _mm_setzero_si64(void)
 {
-    return (__m64){ 0LL };
+    return (__m64){ 0L };
 }
 
 static inline __m64 __attribute__((__always_inline__, __nodebug__))

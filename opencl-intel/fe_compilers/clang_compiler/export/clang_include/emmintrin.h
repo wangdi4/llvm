@@ -959,19 +959,19 @@ _mm_cmplt_epi32(__m128i a, __m128i b)
 
 #ifdef __x86_64__
 static inline __m128d __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_sd(__m128d a, long long b)
+_mm_cvtsi64_sd(__m128d a, long b)
 {
   a[0] = b;
   return a;
 }
 
-static inline long long __attribute__((__always_inline__, __nodebug__))
+static inline long __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsd_si64(__m128d a)
 {
   return __builtin_ia32_cvtsd2si64(a);
 }
 
-static inline long long __attribute__((__always_inline__, __nodebug__))
+static inline long __attribute__((__always_inline__, __nodebug__))
 _mm_cvttsd_si64(__m128d a)
 {
   return a[0];
@@ -1004,7 +1004,7 @@ _mm_cvtsi32_si128(int a)
 
 #ifdef __x86_64__
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_cvtsi64_si128(long long a)
+_mm_cvtsi64_si128(long a)
 {
   return (__m128i){ a, 0 };
 }
@@ -1018,7 +1018,7 @@ _mm_cvtsi128_si32(__m128i a)
 }
 
 #ifdef __x86_64__
-static inline long long __attribute__((__always_inline__, __nodebug__))
+static inline long __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsi128_si64(__m128i a)
 {
   return a[0];
@@ -1074,7 +1074,7 @@ _mm_set_epi8(char b15, char b14, char b13, char b12, char b11, char b10, char b9
 }
 
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_set1_epi64x(long long q)
+_mm_set1_epi64x(long q)
 {
   return (__m128i){ q, q };
 }
@@ -1130,7 +1130,7 @@ _mm_setr_epi8(char b0, char b1, char b2, char b3, char b4, char b5, char b6, cha
 static inline __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_setzero_si128(void)
 {
-  return (__m128i){ 0LL, 0LL };
+  return (__m128i){ 0L, 0L };
 }
 
 static inline void __attribute__((__always_inline__, __nodebug__))

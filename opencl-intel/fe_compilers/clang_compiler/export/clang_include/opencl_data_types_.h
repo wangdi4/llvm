@@ -66,7 +66,7 @@ typedef short half;
  * defined in table 4.3 is 32-bits and is a 64-bit unsigned integer if
  * CL_DEVICE_ADDRESS_BITS is 64-bits.
  */
-typedef unsigned int size_t;
+typedef __typeof__(sizeof(int)) size_t;
 
 /**
  * A signed integer type that is the result of subtracting two pointers.
@@ -74,21 +74,45 @@ typedef unsigned int size_t;
  * defined in table 4.3 is 32-bits and is a 64-bit signed integer if
  * CL_DEVICE_ADDRESS_BITS is 64-bits.
  */
-typedef char* ptrdiff_t;
+typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
 
 /**
  * A signed integer type with the property that any valid pointer to
  * void can be converted to this type, then converted back to pointer
  * to void, and the result will compare equal to the original pointer.
  */
-typedef long intptr_t;
+
+// the following code is copied from stdint.h
+
+#define __stdint_join3(a,b,c) a ## b ## c
+
+// we use _t1, so the generated type won't be called int64_t/int32_t, since these types are already defined in stdint.h
+#define  __intn_t(n) __stdint_join3( int, n, _t1)
+#define __uintn_t(n) __stdint_join3(uint, n, _t1)
+
+# ifndef __int8_t_defined /* glibc sys/types.h also defines int64_t*/
+#define int64_t1 long
+#define int32_t1 int
+# endif /* __int8_t_defined */
+#define uint64_t1 unsigned long
+#define uint32_t1 unsigned int
+
+#ifndef __intptr_t_defined
+typedef  __intn_t(__INTPTR_WIDTH__)  intptr_t;
+#define __intptr_t_defined
+#endif
 
 /**
  * An unsigned integer type with the property that any valid pointer to
  * void can be converted to this type, then converted back to pointer
  * to void, and the result will compare equal to the original pointer.
  */
-typedef unsigned long uintptr_t;
+typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
+
+#undef int64_t1
+#undef uint64_t1
+#undef int32_t1
+#undef uint32_t1
 
 struct _image2d_t;
 struct _image3d_t;

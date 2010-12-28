@@ -246,14 +246,6 @@ _mm_insert_epi32 (__m128i dst, int value, const int n)
 						 value, n);
 }
 
-#ifdef __x86_64__
-static inline __m128i __attribute__((__always_inline__))
-_mm_insert_epi64 (__m128i dst, long long value, const int n)
-{
-  return (__m128i) __builtin_ia32_vec_set_v2di ((__v2di)dst,
-						 value, n);
-}
-#endif
 
 static inline int __attribute__((__always_inline__))
 _mm_extract_epi8 (__m128i a, const int n)
@@ -267,13 +259,6 @@ _mm_extract_epi32 (__m128i a, const int n)
    return __builtin_ia32_vec_ext_v4si ((__v4si)a, n);
 }
 
-#ifdef __x86_64__
-static inline long long  __attribute__((__always_inline__))
-_mm_extract_epi64 (__m128i a, const int n)
-{
-  return __builtin_ia32_vec_ext_v2di ((__v2di)a, n);
-}
-#endif
 
 static inline __m128i __attribute__((__always_inline__))
 _mm_minpos_epu16 (__m128i a)
@@ -549,8 +534,8 @@ _mm_popcnt_u32 (unsigned int a)
 }
 
 #ifdef __x86_64__
-static inline long long  __attribute__((__always_inline__))
-_mm_popcnt_u64 (unsigned long long a)
+static inline long  __attribute__((__always_inline__))
+_mm_popcnt_u64 (unsigned long a)
 {
   return __builtin_popcountll (a);
 }
@@ -574,13 +559,6 @@ _mm_crc32_u32 (unsigned int c, unsigned int value)
   return __builtin_ia32_crc32si (c, value);
 }
 
-#ifdef __x86_64__
-static inline unsigned long long __attribute__((__always_inline__))
-_mm_crc32_u64 (unsigned long long c, unsigned long long value)
-{
-  return __builtin_ia32_crc32di (c, value);
-}
-#endif
 
 #endif /* __SSE4_2__ */
 
