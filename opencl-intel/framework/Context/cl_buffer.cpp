@@ -25,8 +25,8 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "cl_buffer.h"
-#include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;

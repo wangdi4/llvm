@@ -2,21 +2,21 @@ set PLATFORM_NAME=%1
 set CONFIG_NAME=%2
 set TARGET_NAME=%3
 
+REM -------- export header files ------------
+attrib -r %MTV_LOCAL_IMPORT_DIR% > %PLATFORM_NAME%\%CONFIG_NAME%\exportPhase.log 2>&1
+copy .\export\* %MTV_LOCAL_IMPORT_DIR% >> %PLATFORM_NAME%\%CONFIG_NAME%\exportPhase.log 2>&1
+
+REM -------- export configuration file ------------
+copy .\*.cfg %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\exportPhase.log 2>&1
+
 REM -------- copy .lib file ------------
 del /f %MTV_LOCAL_LIB_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\%TARGET_NAME%.lib > %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 copy %PLATFORM_NAME%\%CONFIG_NAME%\%TARGET_NAME%.lib %MTV_LOCAL_LIB_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 
-REM -------- copy .dll file ------------
+REM -------- copy .bin file ------------
 del /f %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\%TARGET_NAME%.dll > %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 copy %PLATFORM_NAME%\%CONFIG_NAME%\%TARGET_NAME%.dll %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 
 REM -------- copy .pdb file ------------
 del /f %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\%TARGET_NAME%.pdb >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
 copy %PLATFORM_NAME%\%CONFIG_NAME%\%TARGET_NAME%.pdb %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
-
-REM -------- copy .reg files ------------
-del /f %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\register_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
-copy .\..\register_vendor.reg %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
-
-del /f %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\unregister_vendor.reg >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1
-copy .\..\unregister_vendor.reg %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME% >> %PLATFORM_NAME%\%CONFIG_NAME%\customBuild.log 2>&1

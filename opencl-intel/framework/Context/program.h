@@ -84,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Context*       m_pContext;
 		DeviceProgram* m_pDevicePrograms;
-		size_t         m_szNumAssociatedDevices;
+		cl_uint        m_szNumAssociatedDevices;
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
 

@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include <cassert>
 #include <cl_types.h>
 #include "ocl_event.h"
 #include "command_queue.h"

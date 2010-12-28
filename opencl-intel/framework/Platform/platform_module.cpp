@@ -25,6 +25,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "platform_module.h"
 #include "gl_shr_utils.h"
 #include <cl_object_info.h>
@@ -33,8 +34,6 @@
 #include "device.h"
 #include "fe_compiler.h"
 #include <ocl_config.h>
-#include <assert.h>
-
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -137,7 +136,8 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, const string& defaultCompiler)
 {
-	int numCompilers = compilers.size();
+	assert(compilers.size() <= MAXINT32);
+	int numCompilers = (int)compilers.size();
 	for(int i=0; i<numCompilers; ++i)
 	{
 		// create new front-end compiler object
@@ -619,9 +619,13 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 	switch(param_name)
 	{
 	case CL_DEVICES_FOR_GL_CONTEXT_KHR:
+	{
 		// Return all device in context
 		param_value_size /= sizeof(cl_device_id);
-		ret = GetDeviceIDs(0, CL_DEVICE_TYPE_ALL, param_value_size, (cl_device_id*)param_value, param_value_size_ret);
+		cl_uint uiNumDevices;
+		assert(param_value_size <= MAXUINT32);
+		ret = GetDeviceIDs(0, CL_DEVICE_TYPE_ALL, (cl_uint)param_value_size, (cl_device_id*)param_value, &uiNumDevices);
+		*param_value_size_ret = uiNumDevices;
 		if ( CL_FAILED(ret))
 		{
 			return ret;
@@ -632,6 +636,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 			*param_value_size_ret *= sizeof(cl_device_id);
 		}
 		break;
+	}
 
 	case CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR:
 		// Parse options

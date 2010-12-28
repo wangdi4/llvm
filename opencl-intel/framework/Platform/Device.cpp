@@ -25,10 +25,10 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "device.h"
 #include "observer.h"
 #include <cl\cl_gl.h>
-#include <assert.h>
 #include <stdarg.h>
 
 using namespace std;

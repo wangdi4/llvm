@@ -25,6 +25,7 @@
 //  Original author: Doron Singer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "device_program.h"
 #include "device.h"
 #include "framework_proxy.h"
@@ -529,7 +530,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 	return CL_SUCCESS;
 }
 
-cl_err_code DeviceProgram::GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * puiBinSizeRet)
+cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet)
 {
 	if (NULL == pBin && NULL == puiBinSizeRet)
 	{
@@ -551,7 +552,8 @@ cl_err_code DeviceProgram::GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * p
 		//Return the user-supplied IR
 		if (!pBin)
 		{
-			*puiBinSizeRet = m_szBinaryBitsSize;
+			assert(m_szBinaryBitsSize <= MAXUINT32);
+			*puiBinSizeRet = (cl_uint)m_szBinaryBitsSize;
 			return CL_SUCCESS;
 		}
 		if (uiBinSize < m_szBinaryBitsSize)
@@ -590,8 +592,8 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
 		delete[] devKernels;
 		return CL_INVALID_VALUE;
 	}
-
-	errRet = m_pDevice->GetDeviceAgent()->clDevGetProgramKernels(m_programHandle, szNumNames, devKernels, &numKernels);
+	assert(szNumNames <= MAXUINT32);
+	errRet = m_pDevice->GetDeviceAgent()->clDevGetProgramKernels(m_programHandle, (cl_uint)szNumNames, devKernels, &numKernels);
 	if (CL_FAILED(errRet))
 	{
 		delete[] devKernels;

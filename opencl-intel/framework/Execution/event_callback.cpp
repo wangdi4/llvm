@@ -1,3 +1,4 @@
+#include <cassert>
 #include "event_callback.h"
 #include "ocl_event.h"
 

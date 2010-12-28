@@ -18,9 +18,10 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include <stdafx.h>
+#include <cassert>
 #include "gl_commands.h"
 #include "queue_event.h"
-#include <stdafx.h>
 
 using namespace Intel::OpenCL::Framework;
 

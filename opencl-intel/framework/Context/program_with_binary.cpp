@@ -1,3 +1,4 @@
+#include <cassert>
 #include "Context.h"
 #include "program_with_binary.h"
 #include "cl_logger.h"
@@ -68,7 +69,7 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 	size_t szParamValueSize = 0;
 	void * pValue = NULL;
 
-	cl_uint uiParam = 0;
+	size_t uiParam = 0;
 	switch ( (cl_program_info)param_name )
 	{
 	case CL_PROGRAM_BINARIES:
@@ -113,6 +114,7 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 				{
 					return CL_INVALID_VALUE;
 				}
+				assert(param_value_size >= m_szNumAssociatedDevices * sizeof(size_t));
 				size_t * pParamValue = static_cast<size_t *>(param_value);
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{

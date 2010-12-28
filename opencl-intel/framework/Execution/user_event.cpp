@@ -25,9 +25,9 @@
 //  Original author: Singer, Doron
 ///////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "user_event.h"
 #include "enqueue_commands.h"
-#include <assert.h>
 #include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;

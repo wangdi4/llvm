@@ -24,6 +24,7 @@
 //  Created on:      23-Dec-2008 3:23:00 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "execution_module.h"
 #include "platform_module.h"
 #include "context_module.h"

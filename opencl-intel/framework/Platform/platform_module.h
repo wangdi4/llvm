@@ -112,7 +112,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			July 2007
 		******************************************************************************************/
-		Device ** GetDevices(unsigned int * puiNumDevices)
+		Device ** GetDevices(size_t * puiNumDevices)
 		{ 
 			if (NULL != puiNumDevices)
 			{
@@ -177,7 +177,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Device **		m_ppDevices;
 
-		unsigned int	m_uiDevicesCount;
+		size_t	m_uiDevicesCount;
 
 		// default device
 		Device * m_pDefaultDevice;

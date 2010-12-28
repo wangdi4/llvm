@@ -90,7 +90,7 @@ struct _cl_sampler_int : public _cl_sampler
 	void * object;
 };
 
-extern "C" __declspec(dllexport) int IsCPUSupported(void);
+extern "C" int IsCPUSupported(void);
 
 // SSE2   = 0x0001 (1)
 // SSE3   = 0x0002 (2)
@@ -98,7 +98,7 @@ extern "C" __declspec(dllexport) int IsCPUSupported(void);
 // SSE4.1 = 0x0008 (8)
 // SSE4.2 = 0x0010 (16)
 // AVX1.0 = 0x0020 (32)
-extern "C" __declspec(dllexport) int IsFeatureSupported(int iCPUFeature);
+extern "C" int IsFeatureSupported(int iCPUFeature);
 
 // Define a static map for extension functions support
 typedef std::map<std::string, void*> ExtensionFunctionAddressResolveMap;

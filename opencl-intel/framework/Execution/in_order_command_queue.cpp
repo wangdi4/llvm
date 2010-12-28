@@ -24,6 +24,7 @@
 //  Created on:      23-Dec-2008 3:23:02 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "in_order_command_queue.h"
 #include "enqueue_commands.h"
 #include "ocl_event.h"
@@ -31,8 +32,6 @@
 #include "events_manager.h"
 #include "ocl_command_queue.h"
 #include "context.h"
-
-#include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 InOrderCommandQueue::InOrderCommandQueue(

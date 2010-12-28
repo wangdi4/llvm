@@ -5,6 +5,7 @@
 //  Original author: Uri Levy
 ///////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "context_module.h"
 #include "context.h"
 #include "gl_context.h"
@@ -19,7 +20,6 @@
 #include <device.h>
 #include <cl_objects_map.h>
 #include <cl_utils.h>
-#include <assert.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 

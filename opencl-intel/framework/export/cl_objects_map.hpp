@@ -126,7 +126,8 @@ cl_err_code OCLObjectsMap<HandleType>::GetObjects(cl_uint uiObjectCount, OCLObje
 	}
 	if (NULL != puiObjectCountRet)
 	{
-		*puiObjectCountRet = m_mapObjects.size();
+		assert(m_mapObjects.size() <= MAXUINT32);
+		*puiObjectCountRet = (cl_uint)m_mapObjects.size();
 	}
 	if (NULL != ppObjects)
 	{
@@ -153,7 +154,8 @@ cl_err_code OCLObjectsMap<HandleType>::GetIDs(cl_uint uiIdsCount, HandleType** p
 	}
 	if (NULL != puiIdsCountRet)
 	{
-		*puiIdsCountRet = m_mapObjects.size();
+		assert(m_mapObjects.size() <= MAXUINT32);
+		*puiIdsCountRet = (cl_uint)m_mapObjects.size();
 	}
 	if (NULL != pIds)
 	{
@@ -170,7 +172,8 @@ template <class HandleType>
 cl_uint OCLObjectsMap<HandleType>::Count()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
-	return m_mapObjects.size();
+	assert(m_mapObjects.size() <= MAXUINT32);
+	return (cl_uint)m_mapObjects.size();
 }
 
 template <class HandleType>

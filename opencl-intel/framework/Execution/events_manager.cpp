@@ -25,6 +25,7 @@
 //  Original author: Peleg, Arnon
 //  Current Owner:   Singer, Doron
 //////////////////////////////////////////////////////////
+#include <cassert>
 #include "events_manager.h"
 #include "ocl_event.h"
 #include "user_event.h"

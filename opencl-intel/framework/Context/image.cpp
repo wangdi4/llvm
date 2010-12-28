@@ -25,8 +25,8 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "image.h"
-#include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;

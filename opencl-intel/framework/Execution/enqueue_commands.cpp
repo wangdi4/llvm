@@ -24,6 +24,7 @@
 //  Created on:      16-Dec-2008 10:11:31 AM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "enqueue_commands.h"
 #include "ocl_event.h"
 #include "cl_memory_object.h"
@@ -673,13 +674,6 @@ cl_err_code CopyMemObjCommand::CommandDone()
     m_pSrcMemObj->RemovePendency();
     m_pDstMemObj->RemovePendency();
 
-	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    // Delete allocated resources
-    if ( NULL != m_pDevCmd->params )
-    {
-        delete m_pDevCmd->params;
-		m_pDevCmd->params = NULL;
-    }
     return CL_SUCCESS;
 }
 
@@ -1217,12 +1211,16 @@ cl_err_code NativeKernelCommand::CommandDone()
 {
 	// Clean resources
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-	if( NULL != m_pDevCmd->params )
+	cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
+	//Can be null of out of memory encountered during init
+	if (NULL != pNativeKernelParam->argv)
 	{
-		cl_dev_cmd_param_native* pNativeKernelParam = (cl_dev_cmd_param_native*)m_pDevCmd->params;
-		delete []pNativeKernelParam->argv;
-		delete []pNativeKernelParam->mem_loc;
-		delete pNativeKernelParam;
+		delete[] pNativeKernelParam->argv;
+	}
+	//Can be null if no memory objects given as args
+	if (NULL != pNativeKernelParam->mem_loc)
+	{
+		delete[] pNativeKernelParam->mem_loc;
 	}
 
 	// Remove buffers pendencies
@@ -1521,7 +1519,6 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
     delete[] pKernelParam->arg_values;
-    delete pKernelParam;
 
 	// Remove ownership from the object
 	m_pKernel->RemovePendency();

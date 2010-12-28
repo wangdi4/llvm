@@ -24,12 +24,12 @@
 //  Created on:      25-Mar-2009
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "out_of_order_command_queue.h"
 #include "ocl_event.h"
 #include "enqueue_commands.h"
 #include "device.h"
 #include "events_manager.h"
-#include <assert.h>
 #include <cl_utils.h>
 
 

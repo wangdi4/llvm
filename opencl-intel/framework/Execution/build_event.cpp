@@ -25,8 +25,8 @@
 //  Original author: Singer, Doron
 ///////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "build_event.h"
-#include <assert.h>
 #include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;

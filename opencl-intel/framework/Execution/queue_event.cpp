@@ -24,6 +24,7 @@
 //  Created on:      23-Dec-2008 3:23:06 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "queue_event.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"

@@ -18,13 +18,12 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-
+#include <cassert>
 #include "gl_mem_objects.h"
 #include "cl_memory_object.h"
 #include <gl\GL.h>
 #include <gl\glext.h>
 #include <cl\cl.h>
-#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;

@@ -25,6 +25,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "framework_proxy.h"
 #include "program.h"
 #include "device_program.h"
@@ -35,7 +36,6 @@
 #include <device.h>
 #include <fe_compiler.h>
 #include <cl_utils.h>
-#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -220,7 +220,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		break;
 
 	case CL_PROGRAM_NUM_DEVICES:
-		szParamValueSize = sizeof(size_t);
+		szParamValueSize = sizeof(m_szNumAssociatedDevices);
 		pValue = &m_szNumAssociatedDevices;
 		break;
 
@@ -371,7 +371,8 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	}
 	if (NULL != puiNumKernelsRet)
 	{
-		*puiNumKernelsRet = szNumKernels;
+		assert(szNumKernels <= MAXUINT32);
+		*puiNumKernelsRet = (cl_uint)szNumKernels;
 	}
 	//No point in creating user-invisible kernels
 	if (NULL == pclKernels)

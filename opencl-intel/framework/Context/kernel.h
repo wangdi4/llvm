@@ -250,7 +250,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsValidExecutable(cl_device_id clDeviceId) const;
 
 		// get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
-		const KernelArg * GetKernelArg(cl_uint uiIndex) const;
+		const KernelArg * GetKernelArg(size_t uiIndex) const;
 
         // Returns non zero handle.
         cl_dev_kernel GetDeviceKernelId(cl_device_id clDeviceId) const;

@@ -24,6 +24,8 @@
 //  Created on:      23-Dec-2008 3:23:05 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+// Debug
+#include <cassert>
 #include "ocl_command_queue.h"
 #include "context.h"
 #include "events_manager.h"
@@ -32,9 +34,6 @@
 #include "in_order_command_queue.h"
 #include "out_of_order_command_queue.h"
 #include "device.h"
-
-// Debug
-#include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;

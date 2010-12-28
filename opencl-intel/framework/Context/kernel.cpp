@@ -25,12 +25,13 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
+#include <basetsd.h>
 #include "kernel.h"
 #include "context.h"
 #include "program.h"
 #include <cl_objects_map.h>
 #include <device.h>
-#include <assert.h>
 #include <cl_utils.h>
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -97,7 +98,8 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 		*pErr = clErrRet;
 		return;
 	}
-	m_sKernelPrototype.m_uiArgsCount = szArgsCount / sizeof(cl_kernel_argument);
+	assert(szArgsCount / sizeof(cl_kernel_argument) <= MAXUINT32);
+	m_sKernelPrototype.m_uiArgsCount = (cl_uint)(szArgsCount / sizeof(cl_kernel_argument));
 	m_sKernelPrototype.m_pArgs = new cl_kernel_argument[m_sKernelPrototype.m_uiArgsCount];
 	if (NULL == m_sKernelPrototype.m_pArgs)
 	{
@@ -313,7 +315,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 	}
 	size_t szParamSize = 0;
 	void * pValue = NULL;
-	cl_int iParam = 0;
+	cl_ulong iParam = 0;
 	switch (iParamName)
 	{
 	case CL_KERNEL_FUNCTION_NAME:
@@ -335,7 +337,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		if (NULL != m_pProgram && NULL != m_pProgram->GetContext())
 		{
 			szParamSize = sizeof(cl_context);
-			iParam = (cl_int)(const_cast<Context*>(m_pProgram->GetContext())->GetHandle());
+			iParam = (cl_long)(const_cast<Context*>(m_pProgram->GetContext())->GetHandle());
 			pValue = &iParam;
 		}
 		break;
@@ -343,7 +345,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		if (NULL != m_pProgram)
 		{
 			szParamSize = sizeof(cl_program);
-			iParam = (cl_int)m_pProgram->GetHandle();
+			iParam = (cl_ulong)m_pProgram->GetHandle();
 			pValue = &iParam;
 		}
 		break;
@@ -737,7 +739,7 @@ DeviceKernel* Kernel::GetDeviceKernel(cl_device_id clDevId) const
 	return NULL;
 }
 
-const KernelArg * Kernel::GetKernelArg(cl_uint uiIndex) const
+const KernelArg * Kernel::GetKernelArg(size_t uiIndex) const
 {
 	assert (uiIndex < m_sKernelPrototype.m_uiArgsCount);
 	return m_ppArgs[uiIndex];

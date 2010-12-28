@@ -76,7 +76,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// If the program was built, the resulting binary
 		// Otherwise, if IR was supplied, return that
 		// Otherwise, return error
-		cl_err_code   GetBinary(cl_uint uiBinSize, void * pBin, cl_uint * puiBinSizeRet);
+		cl_err_code   GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet);
 
 		// Builds the program for the associated device
 		cl_err_code Build( const char * pcOptions, pfnNotifyBuildDone pfn, void* pUserData);

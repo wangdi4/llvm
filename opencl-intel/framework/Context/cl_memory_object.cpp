@@ -25,9 +25,9 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "cl_memory_object.h"
 #include <device.h>
-#include <assert.h>
 #include <Windows.h>
 #include <cl_buffer.h>
 
@@ -255,7 +255,8 @@ void * DeviceMemoryObject::CreateMappedRegion(cl_map_flags   clMapFlags,
 	pclDevCmdParamMap->ptr = NULL;
 	pclDevCmdParamMap->memObj = m_clDevMemId;
 	pclDevCmdParamMap->flags = GetDevMapFlags(clMapFlags);
-    pclDevCmdParamMap->dim_count = szNumDims;
+	assert(szNumDims <= MAXUINT32);
+    pclDevCmdParamMap->dim_count = (cl_uint)szNumDims;
 	pclDevCmdParamMap->refCount  = 1;
 	memcpy(pclDevCmdParamMap->origin, szOrigins, sizeof(size_t) * min(szNumDims, 3) );
 	memcpy(pclDevCmdParamMap->region, szRegions, sizeof(size_t) * min(szNumDims, 3) );

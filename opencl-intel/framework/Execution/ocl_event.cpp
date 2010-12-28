@@ -24,9 +24,9 @@
 //  Created on:      23-Dec-2008 3:23:05 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <cassert>
 #include "ocl_event.h"
 #include "command_queue.h"
-#include <assert.h>
 #include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;

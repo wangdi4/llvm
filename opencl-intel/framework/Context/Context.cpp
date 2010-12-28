@@ -25,6 +25,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "Context.h"
 #include "program_with_source.h"
 #include "program_with_binary.h"
@@ -43,7 +44,6 @@
 
 // for debug...???
 #include <limits.h>
-#include <assert.h>
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
