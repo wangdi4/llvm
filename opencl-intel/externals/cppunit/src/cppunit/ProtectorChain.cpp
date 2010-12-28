@@ -1,4 +1,6 @@
 #include "ProtectorChain.h"
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -51,7 +53,8 @@ ProtectorChain::pop()
 int 
 ProtectorChain::count() const
 {
-  return m_protectors.size();
+  assert(m_protectors.size() <= MAXINT32);
+  return (int)m_protectors.size();
 }
 
 
@@ -63,7 +66,8 @@ ProtectorChain::protect( const Functor &functor,
     return functor();
 
   Functors functors;
-  for ( int index = m_protectors.size()-1; index >= 0; --index )
+  assert(m_protectors.size() <= MAXINT32);
+  for ( int index = (int)m_protectors.size()-1; index >= 0; --index )
   {
     const Functor &protectedFunctor = 
               functors.empty() ? functor : *functors.back();

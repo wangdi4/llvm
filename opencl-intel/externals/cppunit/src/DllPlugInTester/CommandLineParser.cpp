@@ -1,5 +1,6 @@
 #include "CommandLineParser.h"
-
+#include <basetsd.h>
+#include <cassert>
 
 CommandLineParser::CommandLineParser( int argc, 
                                       const char *argv[] )
@@ -68,8 +69,9 @@ CommandLineParser::readNonOptionCommands()
   else
   {
     CommandLinePlugInInfo plugIn;
-    int indexParameter = getCurrentArgument().find( '=' );
-    if ( indexParameter < 0 )
+	assert(getCurrentArgument().find('=') <= MAXINT32);
+    int indexParameter = (int)getCurrentArgument().find( '=' );
+	if ( indexParameter == string::npos )
       plugIn.m_fileName = getCurrentArgument();
     else
     {
@@ -235,7 +237,8 @@ CommandLineParser::waitBeforeExit() const
 int 
 CommandLineParser::getPlugInCount() const
 {
-  return m_plugIns.size(); 
+  assert(m_plugIns.size() <= MAXINT32);
+  return (int)m_plugIns.size(); 
 }
 
 CommandLinePlugInInfo 

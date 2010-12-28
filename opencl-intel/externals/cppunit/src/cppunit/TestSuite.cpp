@@ -1,6 +1,8 @@
 #include <cppunit/config/SourcePrefix.h>
 #include <cppunit/TestSuite.h>
 #include <cppunit/TestResult.h>
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -49,7 +51,8 @@ TestSuite::getTests() const
 int 
 TestSuite::getChildTestCount() const
 {
-  return m_tests.size();
+  assert(m_tests.size() <= MAXINT32);
+  return (int)m_tests.size();
 }
 
 

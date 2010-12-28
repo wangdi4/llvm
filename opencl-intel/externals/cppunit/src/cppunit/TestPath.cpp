@@ -2,7 +2,8 @@
 #include <cppunit/Test.h>
 #include <cppunit/TestPath.h>
 #include <stdexcept>
-
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -158,7 +159,8 @@ TestPath::up()
 int 
 TestPath::getTestCount() const
 {
-  return m_tests.size();
+  assert(m_tests.size() <= MAXINT32);
+  return (int)m_tests.size();
 }
 
 
@@ -234,8 +236,9 @@ TestPath::splitPathString( const std::string &pathAsString,
   int index = (isRelative ? 0 : 1);
   while ( true )
   {
-    int separatorIndex = pathAsString.find( '/', index );
-    if ( separatorIndex >= 0 )
+	assert(pathAsString.find( '/', index ) <= MAXINT32);
+    int separatorIndex = (int)pathAsString.find( '/', index );
+    if ( separatorIndex != string::npos )
     {
       testNames.push_back( pathAsString.substr( index, separatorIndex - index ) );
       index = separatorIndex + 1;

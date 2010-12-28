@@ -6,7 +6,8 @@
 #include <cppunit/CompilerOutputter.h>
 #include <algorithm>
 #include <cppunit/tools/StringTools.h>
-
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -139,12 +140,15 @@ CompilerOutputter::processLocationFormatCommand( char command,
 std::string 
 CompilerOutputter::extractBaseName( const std::string &fileName ) const
 {
-  int indexLastDirectorySeparator = fileName.find_last_of( '/' );
+  assert(fileName.find_last_of( '/' ) <= MAXINT32);
+  int indexLastDirectorySeparator = (int)fileName.find_last_of( '/' );
   
-  if ( indexLastDirectorySeparator < 0 )
-    indexLastDirectorySeparator = fileName.find_last_of( '\\' );
+  if ( indexLastDirectorySeparator == string::npos ) {
+    assert(fileName.find_last_of( '\\' ) <= MAXINT32);
+    indexLastDirectorySeparator = (int)fileName.find_last_of( '\\' );
+  }
   
-  if ( indexLastDirectorySeparator < 0 )
+  if ( indexLastDirectorySeparator == string::npos )
     return fileName;
 
   return fileName.substr( indexLastDirectorySeparator +1 );

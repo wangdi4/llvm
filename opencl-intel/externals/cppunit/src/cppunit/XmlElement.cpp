@@ -1,7 +1,8 @@
 #include <cppunit/tools/StringTools.h>
 #include <cppunit/tools/XmlElement.h>
 #include <stdexcept>
-
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -94,7 +95,8 @@ XmlElement::addElement( XmlElement *node )
 int 
 XmlElement::elementCount() const
 {
-  return m_elements.size();
+  assert(m_elements.size() <= MAXINT32);
+  return (int)m_elements.size();
 }
 
 

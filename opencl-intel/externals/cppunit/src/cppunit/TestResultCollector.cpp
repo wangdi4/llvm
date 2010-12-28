@@ -1,6 +1,7 @@
 #include <cppunit/TestFailure.h>
 #include <cppunit/TestResultCollector.h>
-
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -65,7 +66,8 @@ int
 TestResultCollector::runTests() const
 { 
   ExclusiveZone zone( m_syncObject ); 
-  return m_tests.size(); 
+  assert(m_tests.size() <= MAXINT32);
+  return (int)m_tests.size(); 
 }
 
 
@@ -83,7 +85,8 @@ int
 TestResultCollector::testFailures() const
 { 
   ExclusiveZone zone( m_syncObject ); 
-  return m_failures.size() - m_testErrors;
+  assert(m_failures.size() <= MAXINT32);
+  return (int)m_failures.size() - m_testErrors;
 }
 
 
@@ -92,7 +95,8 @@ int
 TestResultCollector::testFailuresTotal() const
 {
   ExclusiveZone zone( m_syncObject ); 
-  return m_failures.size();
+  assert(m_failures.size() <= MAXINT32);
+  return (int)m_failures.size();
 }
 
 

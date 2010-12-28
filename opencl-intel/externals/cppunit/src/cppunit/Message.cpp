@@ -1,6 +1,7 @@
 #include <cppunit/Message.h>
 #include <stdexcept>
-
+#include <basetsd.h>
+#include <cassert>
 
 CPPUNIT_NS_BEGIN
 
@@ -74,7 +75,8 @@ Message::shortDescription() const
 int 
 Message::detailCount() const
 {
-  return m_details.size();
+  assert(m_details.size() <= MAXINT32);
+  return (int)m_details.size();
 }
 
 
