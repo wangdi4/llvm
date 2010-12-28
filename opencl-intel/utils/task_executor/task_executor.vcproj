@@ -12,13 +12,16 @@
 		<Platform
 			Name="Win32"
 		/>
+		<Platform
+			Name="x64"
+		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="2"
@@ -41,7 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
 				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;&quot;$(OCL_THREADING_MODEL)&quot;;WIN32;_DEBUG;_WINDOWS;_USRDLL;TASK_EXECUTOR_EXPORTS;USE_TASKALYZER"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -62,9 +65,10 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;;&quot;$(MTV_RELEASE_LIB_DIR).dbg&quot;"
+				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="2"
+				ImportLibrary="$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)\$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -87,12 +91,88 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="PostBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot; &quot;$(TargetName)&quot; dbg"
+				CommandLine=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug|x64"
+			OutputDirectory="$(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
+				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;&quot;$(OCL_THREADING_MODEL)&quot;;WIN32;_DEBUG;_WINDOWS;_USRDLL;TASK_EXECUTOR_EXPORTS"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				LinkIncremental="2"
+				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&quot;"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				ImportLibrary="$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)\$(TargetName).lib"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="2"
@@ -117,7 +197,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)\xntask&quot;;&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
 				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;&quot;$(OCL_THREADING_MODEL)&quot;;WIN32;NDEBUG;_WINDOWS;_USRDLL;TASK_EXECUTOR_EXPORTS;USE_TASKALYZER"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -137,11 +217,12 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).opt&quot;;&quot;$(MTV_RELEASE_LIB_DIR).opt&quot;"
+				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				ImportLibrary="$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)\$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -164,7 +245,86 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="PostBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot; &quot;$(TargetName)&quot; opt"
+				CommandLine=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|x64"
+			OutputDirectory="$(MTV_LOCAL_BIN_DIR).$(PlatformName).$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;$(MTV_LOCAL_IMPORT_DIR)&quot;"
+				PreprocessorDefinitions="&quot;$(MTV_OS_VERSION)&quot;;&quot;$(OCL_THREADING_MODEL)&quot;;WIN32;NDEBUG;_WINDOWS;_USRDLL;TASK_EXECUTOR_EXPORTS"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories="&quot;$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)&quot;"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				ImportLibrary="$(MTV_LOCAL_LIB_DIR).$(PlatformName).$(ConfigurationName)\$(TargetName).lib"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine=""
 			/>
 		</Configuration>
 	</Configurations>
@@ -188,7 +348,23 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
 					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"

@@ -483,7 +483,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TaskSetBody(ITaskSet &t) : task(t) {}
 		void operator()() { 
 			// TODO: How iterations in task sets can differ in workload? Define gs appropriately.
-			unsigned int dim[3], dimCount;
+			size_t dim[3];
+			unsigned int dimCount;
 			int res = task.Init(dim, dimCount);
 			__TBB_ASSERT(res==0, "Init failed");
 			if (res != 0)
@@ -493,17 +494,23 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 					if (1 == dimCount)
 					{
-						tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
+						assert(dim[0] <= MAXINT32);
+						tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
 					} else if (2 == dimCount)
 					{
-						tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
-																	0, dim[0]),
+						assert(dim[0] <= MAXINT32);
+						assert(dim[1] <= MAXINT32);
+						tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
+																	0, (int)dim[0]),
 																	TaskLoopBody2D(task), tbb::auto_partitioner());
 					} else
 					{
-						tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
-																	0, dim[1],
-																	0, dim[0]),
+						assert(dim[0] <= MAXINT32);
+						assert(dim[1] <= MAXINT32);
+						assert(dim[2] <= MAXINT32);
+						tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
+																	0, (int)dim[1],
+																	0, (int)dim[0]),
 																	TaskLoopBody3D(task), tbb::auto_partitioner());
 					}
 			task.Finish(FINISH_COMPLETED);
@@ -635,7 +642,8 @@ static void execute_command(ITaskBase* cmd)
 	if ( cmd->IsTaskSet() )
 	{
 		ITaskSet* pTask = static_cast<ITaskSet*>(cmd);
-		unsigned int dim[MAX_WORK_DIM], dimCount;
+		size_t dim[MAX_WORK_DIM];
+		unsigned int dimCount;
 		int res = pTask->Init(dim, dimCount);
 		__TBB_ASSERT(res==0, "Init Failed");
 		if (res != 0)
@@ -645,18 +653,24 @@ static void execute_command(ITaskBase* cmd)
 		}
 		if (1 == dimCount)
 		{
-			tbb::parallel_for(tbb::blocked_range<int>(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
+			assert(dim[0] <= MAXINT32);
+			tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
 		} else if (2 == dimCount)
 		{
-			tbb::parallel_for(tbb::blocked_range2d<int>(0, dim[1],
-				0, dim[0]),
-				TaskLoopBody2D(*pTask), tbb::auto_partitioner());
+			assert(dim[0] <= MAXINT32);
+			assert(dim[1] <= MAXINT32);
+			tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
+														0, (int)dim[0]),
+														TaskLoopBody2D(*pTask), tbb::auto_partitioner());
 		} else
 		{
-			tbb::parallel_for(tbb::blocked_range3d<int>(0, dim[2],
-				0, dim[1],
-				0, dim[0]),
-				TaskLoopBody3D(*pTask), tbb::auto_partitioner());
+			assert(dim[0] <= MAXINT32);
+			assert(dim[1] <= MAXINT32);
+			assert(dim[2] <= MAXINT32);
+			tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
+														0, (int)dim[1],
+														0, (int)dim[0]),
+														TaskLoopBody3D(*pTask), tbb::auto_partitioner());
 		}
 		pTask->Finish(FINISH_COMPLETED);
 	}

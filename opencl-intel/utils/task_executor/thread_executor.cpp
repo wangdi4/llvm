@@ -28,7 +28,7 @@
 #include "thread_executor.h"
 
 #include <process.h>
-#include <assert.h>
+#include <cassert>
 
 #if defined(USE_TASKALYZER)    
 #include "tal\tal.h"
@@ -345,7 +345,7 @@ CTaskSetFragment * WorkerThread::GetNextFragment()
 // CTaskSet implementation
 struct sDim 
 {
-	unsigned int dim[3];
+	size_t dim[3];
 };
 CTaskSet::CTaskSet(ITaskSet * pTaskSet, int iQueueId) :
 m_pTaskSet(pTaskSet), m_iQueueId(iQueueId)
@@ -364,7 +364,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 	sDim start = {0, 0, 0};
 	sDim range;
 	unsigned int dimCount;
-	int res = m_pTaskSet->Init((unsigned int *)&range, dimCount);
+	int res = m_pTaskSet->Init((size_t*)&range, dimCount);
 	if ( res )
 	{
 #ifdef _DEBUG
@@ -404,14 +404,20 @@ void CTaskSet::Execute(void** pCurrentSet)
 		pair<sDim,sDim> range = ranges.front();
 		ranges.pop_front();
 
-		unsigned int pages_size = range.second.dim[2]-range.first.dim[2];
-		unsigned int rows_size = range.second.dim[1]-range.first.dim[1];
-		unsigned int cols_size = range.second.dim[0]-range.first.dim[0];
+		size_t pages_size = range.second.dim[2]-range.first.dim[2];
+		size_t rows_size = range.second.dim[1]-range.first.dim[1];
+		size_t cols_size = range.second.dim[0]-range.first.dim[0];
 		if ( pages_size*rows_size*cols_size <= uiGranSize)
 		{
+			assert(range.first.dim[0] <= MAXUINT32);
+			assert(range.first.dim[1] <= MAXUINT32);
+			assert(range.first.dim[2] <= MAXUINT32);
+			assert(range.second.dim[0] <= MAXUINT32);
+			assert(range.second.dim[1] <= MAXUINT32);
+			assert(range.second.dim[2] <= MAXUINT32);
 			m_vectFragments.push_back(new CTaskSetFragment(m_iQueueId,
-				(unsigned int*)(&range.first),
-				(unsigned int*)(&range.second),
+				(unsigned int)range.first.dim[0], (unsigned int)range.first.dim[1], (unsigned int)range.first.dim[2],
+				(unsigned int)range.second.dim[0], (unsigned int)range.second.dim[1], (unsigned int)range.second.dim[2],
 				m_pTaskSet));
 			continue;
 		}
@@ -419,21 +425,21 @@ void CTaskSet::Execute(void** pCurrentSet)
 		pair<sDim,sDim> newRange = range;
 		if( pages_size < rows_size ) {
 			if ( rows_size < cols_size ) {
-				unsigned int middle = range.first.dim[0] + (range.second.dim[0]-range.first.dim[0])/2u;
+				size_t middle = range.first.dim[0] + (range.second.dim[0]-range.first.dim[0])/2u;
 				range.second.dim[0] = middle;
 				newRange.first.dim[0] = middle;
 			} else {
-				unsigned int middle = range.first.dim[1] + (range.second.dim[1]-range.first.dim[1])/2u;
+				size_t middle = range.first.dim[1] + (range.second.dim[1]-range.first.dim[1])/2u;
 				range.second.dim[1] = middle;
 				newRange.first.dim[1] = middle;
 			}
 		} else {
 			if ( pages_size < cols_size ) {
-				unsigned int middle = range.first.dim[0] + (range.second.dim[0]-range.first.dim[0])/2u;
+				size_t middle = range.first.dim[0] + (range.second.dim[0]-range.first.dim[0])/2u;
 				range.second.dim[0] = middle;
 				newRange.first.dim[0] = middle;
 			} else {
-				unsigned int middle = range.first.dim[2] + (range.second.dim[2]-range.first.dim[2])/2u;
+				size_t middle = range.first.dim[2] + (range.second.dim[2]-range.first.dim[2])/2u;
 				range.second.dim[2] = middle;
 				newRange.first.dim[2] = middle;
 			}
@@ -448,7 +454,8 @@ void CTaskSet::Execute(void** pCurrentSet)
 #endif
 
 	// Set the number of waiting fragments
-	long lNumFragemtns = m_vectFragments.size();
+	assert(m_vectFragments.size() <= MAXINT32);
+	long lNumFragemtns = (long)m_vectFragments.size();
 	g_plFragmentsNotFinished[m_iQueueId] = lNumFragemtns;
 	
 	// Set current task set
