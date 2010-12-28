@@ -25,6 +25,7 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
 #include "cl_sys_info.h"
 
 using namespace Intel::OpenCL::Utils;
@@ -44,8 +45,7 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 	{
 		return 0;
 	}
-
-	return memStatus.ullTotalVirtual;
+	return min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
 #else
 	return 0;
 #endif
@@ -138,7 +138,8 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 /////////////////////////////////////////////////////////////////////////////////////////
 void Intel::OpenCL::Utils::GetProcessName(wchar_t* pProcName, size_t strLen)
 {
-	GetModuleFileNameW((HMODULE)NULL, pProcName, strLen);
+	assert(strLen <= MAXUINT32);
+	GetModuleFileNameW((HMODULE)NULL, pProcName, (DWORD)strLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

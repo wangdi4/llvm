@@ -26,6 +26,8 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_config.h"
+#include <basetsd.h>
+#include <cassert>
 
 using namespace Intel::OpenCL::Utils;
 using std::string;
@@ -74,9 +76,9 @@ int ConfigFile::tokenize(const string & sin, std::vector<string> & tokens)
 	s += char(0);    // add a 0 char for getting end-of-string parsing
 	string seps = ",;|";
 	seps += char(0);    
-	int pos1 = 0;
-	int pos2 = 0;
-	while ((pos2 = s.find_first_of(seps, pos1)) != string::npos) 
+	size_t pos1 = 0;
+	size_t pos2 = 0;
+	while ((pos2 = (int)s.find_first_of(seps, pos1)) != string::npos) 
 	{
 		if (pos2 > pos1)
 		{
@@ -86,7 +88,8 @@ int ConfigFile::tokenize(const string & sin, std::vector<string> & tokens)
 		}
 		pos1 = pos2+1;   // don't forget that or you'll get an infinite loop
 	}
-	return tokens.size();
+	assert(tokens.size() <= MAXINT32);
+	return (int)tokens.size();
 }
 
 
