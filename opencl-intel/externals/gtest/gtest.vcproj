@@ -12,6 +12,9 @@
 		<Platform
 			Name="Win32"
 		/>
+		<Platform
+			Name="x64"
+		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
@@ -77,7 +80,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;"
+				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -142,7 +145,138 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).opt&quot;"
+				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).opt&quot;&#x0D;&#x0A;"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug|x64"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine=""
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories=".\include;.\"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).dbg&quot;&#x0D;&#x0A;"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|x64"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine=""
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories=".\include;.\"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;md &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy .\include\gtest\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest&quot;&#x0D;&#x0A;Copy .\include\gtest\internal\*.h &quot;$(MTV_LOCAL_IMPORT_DIR)\gtest\internal&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR)&quot;&#x0D;&#x0A;Copy &quot;$(OutDir)\$(TargetName).lib&quot; &quot;$(MTV_LOCAL_LIB_DIR).opt&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
