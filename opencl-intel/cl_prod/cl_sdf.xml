@@ -108,7 +108,10 @@
     </Component>
     <Component Name="conformance_test_nightly">
         <RelativeCheckoutPath>validation\tests\conformance_test_nightly</RelativeCheckoutPath>
-    </Component>  
+    </Component>
+	<Component Name="conformance_test_nightly_64">
+        <RelativeCheckoutPath>validation\tests\conformance_test_nightly_64</RelativeCheckoutPath>
+    </Component> 
     <Component Name="conformance_api">
         <RelativeCheckoutPath>validation\tests\conformance_api</RelativeCheckoutPath>
     </Component>  
