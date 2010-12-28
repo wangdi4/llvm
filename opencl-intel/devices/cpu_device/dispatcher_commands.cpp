@@ -158,7 +158,6 @@ void ReadWriteMemObject::Execute()
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
 	SMemCpyParams			sCpyParam;
 	void*	pObjPtr;
-	size_t	pPitch[MAX_WORK_DIM-1];
 	size_t  uiElementSize;
 
 	
@@ -921,7 +920,10 @@ cl_int NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *p
 }
 
 NDRange::NDRange(TaskDispatcher* pTD) :
-DispatcherCommand(pTD), m_pBinary(NULL), m_lastError(CL_DEV_SUCCESS), m_talKernelNameHandle(NULL),
+DispatcherCommand(pTD), m_pBinary(NULL), m_lastError(CL_DEV_SUCCESS),
+#ifdef USE_TASKALYZER
+m_talKernelNameHandle(NULL),
+#endif
 m_pMemBuffSizes(NULL)
 {
 #ifdef _DEBUG
@@ -1388,7 +1390,7 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 	return GetWGContext(uiWorkerId)->GetExecutable()->RestoreThreadState();
 }
 
-void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsigned int uiWorkerId)
+void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
 {
 #ifdef _DEBUG
 	long lVal = InterlockedCompareExchange(&m_lFinish, 0, 0);
@@ -1416,7 +1418,8 @@ void NDRange::ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsig
 #endif
 
 	// Execute WG
-	pExec->Execute(&x, NULL, NULL);
+	size_t groupId[MAX_WORK_DIM] = {x, y, z};
+	pExec->Execute(groupId, NULL, NULL);
 
 #ifdef _DEBUG
 	InterlockedDecrement(&m_lExecuting);

@@ -163,10 +163,10 @@ public:
 	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITaskSet interface
-	int		Init(unsigned int region[], unsigned int &regCount);
+	int		Init(size_t region[], unsigned int &regCount);
 	int		AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups);
 	int		DetachFromThread(unsigned int uiWorkerId);
-	void	ExecuteIteration(unsigned int x, unsigned y, unsigned int z, unsigned int uiWorkerId);
+	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId);
 	void	Finish(FINISH_REASON reason);
 	void	Release();
 

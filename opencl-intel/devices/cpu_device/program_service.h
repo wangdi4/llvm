@@ -80,7 +80,7 @@ public:
 	cl_int GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 
 	cl_int GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 cl_uint* OUT numKernelsRet );
+						 size_t* OUT numKernelsRet );
 
 	cl_int GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 					void* OUT value, size_t* OUT valueSizeRet ) const;

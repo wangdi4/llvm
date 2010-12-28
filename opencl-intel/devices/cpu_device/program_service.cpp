@@ -667,7 +667,7 @@ cl_int ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name,
 }
 
 cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 cl_uint* OUT numKernelsRet )
+						 size_t* OUT numKernelsRet )
 {
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"GetProgramKernels enter");
 
@@ -776,7 +776,7 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 	const ICLDevBackendKernel* pKernel = (const ICLDevBackendKernel*)kernel;
 
 	// Set value parameters
-	size_t stValSize;
+	cl_uint stValSize;
 	unsigned long long ullValue;
 	const void*	pValue;
 	pValue = &ullValue;
@@ -785,7 +785,8 @@ cl_int ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_inf
 	{
 	case CL_DEV_KERNEL_NAME:
 		pValue = pKernel->GetKernelName();
-		stValSize = strlen((const char*)pValue)+1;
+		assert(strlen((const char*)pValue) + 1 <= MAXUINT32);
+		stValSize = (cl_uint)strlen((const char*)pValue)+1;
 		break;
 
 	case CL_DEV_KERNEL_PROTOTYPE:

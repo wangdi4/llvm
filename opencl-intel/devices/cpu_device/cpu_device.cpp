@@ -1274,7 +1274,7 @@ cl_int CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char
 clDevUnloadCompiler
 	Call programService to get supported binary description
 **********************************************************************************************************************/
-cl_int CPUDevice::clDevGetSupportedBinaries( cl_uint IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
+cl_int CPUDevice::clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
 {
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetSupportedBinaries Function enter");
 	return m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
@@ -1293,7 +1293,7 @@ clDevUnloadCompiler
 	Call programService to get kernels from the program
 **********************************************************************************************************************/
 cl_int CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-						 cl_uint* OUT numKernelsRet )
+						 size_t* OUT numKernelsRet )
 {
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"clDevGetProgramKernels Function enter");
 	return m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );

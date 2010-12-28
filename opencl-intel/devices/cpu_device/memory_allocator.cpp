@@ -351,7 +351,8 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 
 	pMemObjDesc->objDecr.dim_count = dim_count;
 	pMemObjDesc->memFlags = flags;
-	pMemObjDesc->objDecr.uiElementSize = uiElementSize;
+	assert(uiElementSize <= MAXUINT32);
+	pMemObjDesc->objDecr.uiElementSize = (unsigned int)uiElementSize;
 	if ( NULL != format )
 	{
 		// Convert from User to Kernel format
@@ -362,7 +363,10 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 		memset(&pMemObjDesc->objDecr.format, 0, sizeof(cl_image_format));
 	}
 
-	memcpy(pMemObjDesc->objDecr.dim, dim, dim_count * sizeof(size_t));
+	for (size_t i = 0; i < dim_count; i++) {
+		assert(dim[i] <= MAXUINT32);
+		pMemObjDesc->objDecr.dim[i] = (unsigned int)dim[i];
+	}
 
 	pMemObjDesc->myHandle = pMemObj;
 
