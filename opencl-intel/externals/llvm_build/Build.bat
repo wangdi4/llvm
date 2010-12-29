@@ -89,4 +89,9 @@ copy /Y ..\..\build\%PLATFORM_NAME%\bin\%CONFIG_NAME%\OclCpuBackEnd.pdb %MTV_LOC
 copy /Y ..\..\build\%PLATFORM_NAME%\lib\%CONFIG_NAME%\OclCpuBackEnd.lib %MTV_LOCAL_LIB_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%\
 
 echo copy CPU backend builtin functions
-copy ..\..\ocl_cpu_backend\bin\%PLATFORM_NAME%\%CONFIG_NAME%\*.* %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%%\
+if %PLATFORM_NAME% == x64 (
+	copy ..\..\ocl_cpu_backend\bin\Win64\%CONFIG_NAME%\*.* %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%%\
+) else (
+	copy ..\..\ocl_cpu_backend\bin\%PLATFORM_NAME%\%CONFIG_NAME%\*.* %MTV_LOCAL_BIN_DIR%.%PLATFORM_NAME%.%CONFIG_NAME%%\
+)
+
