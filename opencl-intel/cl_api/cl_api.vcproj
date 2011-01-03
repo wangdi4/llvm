@@ -28,7 +28,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.h $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.h $(MTV_LOCAL_IMPORT_DIR)\gl"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.* $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.* $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -50,7 +50,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.h $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.h $(MTV_LOCAL_IMPORT_DIR)\gl"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.* $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.* $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -74,7 +74,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.h $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.h $(MTV_LOCAL_IMPORT_DIR)\gl"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.* $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.* $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -97,7 +97,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.h $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.h $(MTV_LOCAL_IMPORT_DIR)\gl"
+				CommandLine="md $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;md $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;&#x0D;&#x0A;Copy $(ProjectDir)*.h $(MTV_LOCAL_IMPORT_DIR)&#x0D;&#x0A;Copy $(ProjectDir)CL\*.* $(MTV_LOCAL_IMPORT_DIR)\CL&#x0D;&#x0A;Copy $(ProjectDir)gl\*.* $(MTV_LOCAL_IMPORT_DIR)\gl&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
