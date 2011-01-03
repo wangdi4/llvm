@@ -262,22 +262,24 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 
 	// Retrieve local relatively to binary directory
 	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
+#ifndef WIN32
 	sprintf_s(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
 	sprintf_s(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
 
 	list.push_back("-I");
 	list.push_back(szOclIncPath);
 
-	// Add current directory
-	GetCurrentDirectoryA(MAX_STR_BUFF, szCurrDirrPath);
-	list.push_back("-I");
-	list.push_back(szCurrDirrPath);
-
 	list.push_back("-isysroot");
 	list.push_back(szBinaryPath);
 
 	list.push_back("-include-pch");
 	list.push_back(szOclPchPath);
+#endif
+
+	// Add current directory
+	GetCurrentDirectoryA(MAX_STR_BUFF, szCurrDirrPath);
+	list.push_back("-I");
+	list.push_back(szCurrDirrPath);
 
 	//Add OpenCL predefined macros
 	list.push_back("-D");
@@ -412,6 +414,56 @@ void CompileTask::Execute()
 	SmallVector<char, 4096>	IRbinary;
 	Clang.SetOutputStream(new llvm::raw_svector_ostream(IRbinary));
 
+#ifdef WIN32
+	//prepare pch buffer
+	HMODULE hMod = NULL;
+	HRSRC hRes = NULL;
+	HGLOBAL hBytes = NULL;
+	char *pData = NULL;
+	size_t dResSize = NULL;
+	llvm::MemoryBuffer* pchBuff = NULL;
+
+	// Get the handle to the current module
+	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
+					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+					  (LPCSTR)"clang_compiler",
+					  &hMod);
+
+	// Locate the resource
+	if( NULL != hMod )
+	{
+		hRes = FindResource(hMod, "#101", "PCH");
+	}
+
+	// Load the resource
+	if( NULL != hRes )
+	{
+		hBytes = LoadResource(hMod, hRes);
+	}
+	
+	// Get the base address to the resource. This call doesn't really lock it
+	if( NULL != hBytes )
+	{
+		pData = (char *)LockResource(hBytes);
+	}
+	
+	// Get the buffer size
+	if( NULL != pData )
+	{
+		dResSize = SizeofResource(hMod, hRes);
+	}
+
+	if( dResSize > 0 )
+	{	
+		pchBuff = llvm::MemoryBuffer::getMemBufferCopy(pData, pData + dResSize);
+	}
+
+	if( NULL != pchBuff )
+	{
+		Clang.SetPchBuffer(pchBuff);
+	}
+#endif
+
 	// If there were errors in processing arguments, don't do anything else.
 	bool Success = false;
 	if (!Clang.getDiagnostics().getNumErrors()) {
@@ -479,6 +531,12 @@ void CompileTask::Execute()
 		delete []pLogBuff;
 	}
 	delete []pOutBuff;
+#ifdef WIN32
+	if( NULL != pchBuff )
+	{
+		delete pchBuff;
+	}
+#endif
 	IRbinary.clear();
 
 	return;

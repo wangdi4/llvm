@@ -28,6 +28,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="PreBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -104,6 +105,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="PreBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -183,6 +185,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="PreBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -262,6 +265,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="PreBuild.cmd &quot;$(PlatformName)&quot; &quot;$(ConfigurationName)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -440,6 +444,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.h"
 				>
 			</File>
@@ -455,6 +463,14 @@
 			>
 			<File
 				RelativePath=".\clang_compiler.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\OpenCL.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\opencl_.pch"
 				>
 			</File>
 		</Filter>
