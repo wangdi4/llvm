@@ -1341,7 +1341,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 
 	int ret = pCtx->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 	assert(ret==0 && "Probably allocation for WG has failed; encountered on NUMA machines where many threads try to allocate at once private data for their WGs");
-	GetWGContext(uiWorkerId)->GetExecutable()->PrepareThread();
+	pCtx->GetExecutable()->PrepareThread();
 
 #ifdef _DEBUG
 	InterlockedDecrement(&m_lAttaching);
