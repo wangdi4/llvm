@@ -282,8 +282,6 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 			ResetEvent(pWorkerThread->m_evQueueEvent);
 			::LeaveCriticalSection( &(pWorkerThread->m_QueueLock) );
 		}
-
-	}
 #if defined(USE_TASKALYZER)
 	// Before the thread is closed, we need to flush the
 	// trace data into file in order not to lose trace data
@@ -296,6 +294,8 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 		TAL_Flush(trace);
 	}
 #endif
+
+	}
 	return dwRetVal;
 }
 
