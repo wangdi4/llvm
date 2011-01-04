@@ -373,16 +373,25 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	}
 
 	// Create Command
-	Command* pMarkerCommand = new MarkerCommand();
-	pMarkerCommand->SetCommandQueue(pCommandQueue);
-	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
-	QueueEvent* pMarkerEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_MARKER, pEvent, pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	if (NULL == pMarkerCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 
-	pMarkerCommand->SetEvent(pMarkerEvent);
+	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+	QueueEvent* pMarkerEvent = pMarkerCommand->GetEvent();
+	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
+
 	errVal = pMarkerCommand->Init();
 	if(CL_SUCCEEDED(errVal))
 	{
 		errVal = pCommandQueue->EnqueueMarker(pMarkerCommand);
+	}
+	else
+	{
+		m_pEventsManager->ReleaseEvent(pMarkerEvent->GetHandle());
+		delete pMarkerCommand;
 	}
 	return errVal;
 }
@@ -405,16 +414,20 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 	
-	Command* pWaitForEventsCommand = new WaitForEventsCommand();
-	pWaitForEventsCommand->SetCommandQueue(pCommandQueue);
+	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	if (NULL == pWaitForEventsCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	pWaitForEventsCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	errVal = pWaitForEventsCommand->Init();
 	if(CL_SUCCEEDED(errVal))
 	{
 		errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
-	}else
+	}
+	else
 	{
-		pCommandQueue->Release();
+		delete pWaitForEventsCommand;
 	}
 	return errVal;
 }
@@ -432,26 +445,25 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	}
 
 	// Create Command
-	Command* pBarrierCommand = new BarrierCommand();
-	//if(NULL == pBarrierCommand) not for this commit
-	//{
-	//	return CL_OUT_OF_HOST_MEMORY;
-	//}
+	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	if (NULL == pBarrierCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 
-	pBarrierCommand->SetCommandQueue(pCommandQueue);
 	pBarrierCommand->SetDevice(pCommandQueue->GetDefaultDevice());
 	errVal = pBarrierCommand->Init();
-	QueueEvent* pBarrierEvent = m_pEventsManager->CreateQueueEvent(CL_COMMAND_BARRIER, NULL, pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
-	//if(NULL == pBarrierEvent)
-	//{
-	//	delete pBarrierCommand;
-	//	return CL_OUT_OF_HOST_MEMORY;
-	//}
+	QueueEvent* pBarrierEvent = pBarrierCommand->GetEvent();
+	m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
 
-	pBarrierCommand->SetEvent(pBarrierEvent);
 	if(CL_SUCCEEDED(errVal))
 	{
 		errVal = pCommandQueue->EnqueueBarrier(pBarrierCommand);
+	}
+	else
+	{
+		m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());
+		delete pBarrierCommand;
 	}
 	return errVal;
 }
@@ -561,7 +573,7 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 {
 	UserEvent* pUserEvent = m_pEventsManager->GetUserEvent(evt);
-	if (!pUserEvent)
+	if (NULL == pUserEvent)
 	{
 		return CL_INVALID_EVENT;
 	}
@@ -626,8 +638,11 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
 	const size_t pszRegion[3] = {szCb, 1, 1};
 
-	Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pBuffer, pszOrigin, pszRegion, pOutData);
-	pEnqueueReadBufferCmd->SetCommandQueue(pCommandQueue);
+	Command* pEnqueueReadBufferCmd = new ReadBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, pszOrigin, pszRegion, pOutData);
+	if (NULL == pEnqueueReadBufferCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pEnqueueReadBufferCmd->SetDevice(pDevice);
@@ -722,14 +737,13 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 	}
 	       
 
-	Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
+	Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
 		buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
 	if(NULL == pEnqueueReadBufferRectCmd)
 	{
 		 return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	pEnqueueReadBufferRectCmd->SetCommandQueue(pCommandQueue);
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pEnqueueReadBufferRectCmd->SetDevice(pDevice);
@@ -789,8 +803,11 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
 	const size_t pszRegion[3] = {szCb, 1, 1};
 
-	Command* pWriteBufferCmd = new WriteBufferCommand(pBuffer, pszOrigin, pszRegion, cpSrcData);
-	pWriteBufferCmd->SetCommandQueue(pCommandQueue);
+	Command* pWriteBufferCmd = new WriteBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, pszOrigin, pszRegion, cpSrcData);
+	if (NULL == pWriteBufferCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteBufferCmd->SetDevice(pDevice);
@@ -885,10 +902,13 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	}
 	       
 
-	Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
+	Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
 		buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
-	
-	pWriteBufferRectCmd->SetCommandQueue(pCommandQueue);
+
+	if (NULL == pWriteBufferRectCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteBufferRectCmd->SetDevice(pDevice);
@@ -962,8 +982,11 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 	const size_t pszSrcOrigin[3] = { szSrcOffset, 0, 0 };
 	const size_t pszDstOrigin[3] = { szDstOffset, 0, 0 };
 	const size_t pszRegion[3] = { szCb, 1, 1 };
-    Command* pCopyBufferCommand = new CopyBufferCommand(pSrcBuffer, pDstBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
-	pCopyBufferCommand->SetCommandQueue(pCommandQueue);
+    Command* pCopyBufferCommand = new CopyBufferCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
+	if (NULL == pCopyBufferCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferCommand->SetDevice(pDevice);
@@ -1080,9 +1103,12 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
 	
-    Command* pCopyBufferRectCommand = new CopyBufferRectCommand(pSrcBuffer, pDstBuffer, szSrcOrigin, szDstOrigin, region,
+    Command* pCopyBufferRectCommand = new CopyBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin, szDstOrigin, region,
 		src_buffer_row_pitch, src_buffer_slice_pitch, dst_buffer_row_pitch, dst_buffer_slice_pitch);
-	pCopyBufferRectCommand->SetCommandQueue(pCommandQueue);
+	if (NULL == pCopyBufferRectCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferRectCommand->SetDevice(pDevice);
@@ -1150,9 +1176,13 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
          return NULL;
     }
     
-    MapBufferCommand* pMapBufferCommand = new MapBufferCommand( pBuffer, clMapFlags, szOffset, szCb);
+    MapBufferCommand* pMapBufferCommand = new MapBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb);
     // Must set device Id before init for buffer resource allocation.
-	pMapBufferCommand->SetCommandQueue(pCommandQueue);
+	if (NULL == pMapBufferCommand)
+	{
+		*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
+		return NULL;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pMapBufferCommand->SetDevice(pDevice);
@@ -1202,9 +1232,12 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
         return CL_INVALID_CONTEXT;
     }
     
-    Command* pUnmapMemObjectCommand = new UnmapMemObjectCommand( pMemObject, mappedPtr);
+    Command* pUnmapMemObjectCommand = new UnmapMemObjectCommand(pCommandQueue, m_pOclEntryPoints, pMemObject, mappedPtr);
     // Must set device Id before init for buffer resource allocation.
-	pUnmapMemObjectCommand->SetCommandQueue(pCommandQueue);
+	if (NULL == pUnmapMemObjectCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pUnmapMemObjectCommand->SetDevice(pDevice);
@@ -1383,13 +1416,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     // TODO: create buffer resources in advance, if they are not exists,
     //      On error return: CL_OUT_OF_RESOURCES
 
-    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
+    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
 	if ( NULL == pNDRangeKernelCmd )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
     // Must set device Id before init for buffer resource allocation.
-	pNDRangeKernelCmd->SetCommandQueue(pCommandQueue);
 	pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
     if( CL_SUCCEEDED (errVal) )
@@ -1452,9 +1484,12 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     // CL_INVALID_PROGRAM_EXECUTABLE
     // CL_INVALID_WORK_GROUP_SIZE
 
-    Command* pTaskCommand = new TaskCommand(pKernel); 
+    Command* pTaskCommand = new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel); 
     // Must set device Id before init for buffer resource allocation.
-	pTaskCommand->SetCommandQueue(pCommandQueue);
+	if (NULL == pTaskCommand)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pTaskCommand->SetDevice(pDevice);
@@ -1524,7 +1559,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
     // TODO: Handle those error values, probably through the DEVICE object...
     // CL_INVALID_OPERATION
    
-    Command* pNativeKernelCommand = new NativeKernelCommand( pUserFnc, pArgs, szCbArgs, uNumMemObjects, pMemObjectsList, ppArgsMemLoc );
+    Command* pNativeKernelCommand = new NativeKernelCommand(pCommandQueue, m_pOclEntryPoints, pUserFnc, pArgs, szCbArgs, uNumMemObjects, pMemObjectsList, ppArgsMemLoc );
 	if(NULL == pNativeKernelCommand)
 	{
 		if ( NULL != pMemObjectsList )
@@ -1534,7 +1569,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 		return CL_OUT_OF_HOST_MEMORY;
 	}
     // Must set device Id before init for buffer resource allocation.
-	pNativeKernelCommand->SetCommandQueue(pCommandQueue);
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pNativeKernelCommand->SetDevice(pDevice);
@@ -1726,8 +1760,11 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_VALUE;
     }
 
-    Command* pReadImageCmd  = new ReadImageCommand(pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, pOutData);
-	pReadImageCmd->SetCommandQueue(pCommandQueue);
+    Command* pReadImageCmd  = new ReadImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, pOutData);
+	if (NULL == pReadImageCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pReadImageCmd->SetDevice(pDevice);
@@ -1798,8 +1835,11 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_VALUE;
     }
 
-    Command* pWriteImageCmd  = new WriteImageCommand(pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
-	pWriteImageCmd->SetCommandQueue(pCommandQueue);
+    Command* pWriteImageCmd  = new WriteImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
+	if (NULL == pWriteImageCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteImageCmd->SetDevice(pDevice);
@@ -1889,8 +1929,11 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     //
     // Input parameters validated, enqueue the command
     //
-    Command* pCopyImageCmd = new CopyImageCommand(pSrcImage, pDstImage, szSrcOrigin, szDstOrigin, szRegion);
-	pCopyImageCmd->SetCommandQueue(pCommandQueue);
+    Command* pCopyImageCmd = new CopyImageCommand(pCommandQueue, m_pOclEntryPoints, pSrcImage, pDstImage, szSrcOrigin, szDstOrigin, szRegion);
+	if (NULL == pCopyImageCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyImageCmd->SetDevice(pDevice);
@@ -1967,8 +2010,11 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     // Input parameters validated, enqueue the command
     //
 	size_t	pszDstOffset[3] = {szDstOffset,0,0};
-    Command* pCopyImageToBufferCmd = new CopyImageToBufferCommand(pSrcImage, pDstBuffer, szSrcOrigin, szRegion, pszDstOffset/*szDstOffset*/);
-	pCopyImageToBufferCmd->SetCommandQueue(pCommandQueue);
+    Command* pCopyImageToBufferCmd = new CopyImageToBufferCommand(pCommandQueue, m_pOclEntryPoints, pSrcImage, pDstBuffer, szSrcOrigin, szRegion, pszDstOffset/*szDstOffset*/);
+	if (NULL == pCopyImageToBufferCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyImageToBufferCmd->SetDevice(pDevice);
@@ -2046,8 +2092,11 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     //
 
 	size_t	pszSrcOffset[3] = {szSrcOffset,0,0};
-    Command* pCopyBufferToImageCmd = new CopyBufferToImageCommand(pSrcBuffer, pDstImage, pszSrcOffset, szDstOrigin, szRegion);
-	pCopyBufferToImageCmd->SetCommandQueue(pCommandQueue);
+    Command* pCopyBufferToImageCmd = new CopyBufferToImageCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstImage, pszSrcOffset, szDstOrigin, szRegion);
+	if (NULL == pCopyBufferToImageCmd)	
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferToImageCmd->SetDevice(pDevice);
@@ -2131,9 +2180,13 @@ void * ExecutionModule::EnqueueMapImage(
         return NULL;
     }
         
-    MapImageCommand* pMapImageCmd = new MapImageCommand( pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
+    MapImageCommand* pMapImageCmd = new MapImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
     // Must set device Id before init for image resource allocation.
-	pMapImageCmd->SetCommandQueue(pCommandQueue);
+	if (NULL == pMapImageCmd)
+	{
+		*pErrcodeRet = CL_INVALID_VALUE;
+		return NULL;
+	}
 	Device* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pMapImageCmd->SetDevice(pDevice);
@@ -2244,8 +2297,11 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects);
-	pAcquireCmd->SetCommandQueue(pCommandQueue);
+	Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects, pCommandQueue, m_pOclEntryPoints);
+	if (NULL == pAcquireCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
 	Device* pDevice;
 	pContext->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pAcquireCmd->SetDevice(pDevice);

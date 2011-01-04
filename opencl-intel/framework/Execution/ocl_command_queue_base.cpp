@@ -63,13 +63,8 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	{
 		pEvent = pUserEvent;
 	}
-	// creates the command's event
-	QueueEvent* pQueueEvent = m_pEventsManager->CreateQueueEvent(pCommand->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
-	//if(NULL == pQueueEvent) not for this commit
-	//{
-	//	return CL_OUT_OF_HOST_MEMORY;
-	//}
-	pCommand->SetEvent(pQueueEvent);
+	QueueEvent* pQueueEvent = pCommand->GetEvent();
+	m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
 
 	pQueueEvent->AddFloatingDependence();
 	errVal = SetDependentOnList(pCommand, uNumEventsInWaitList, cpEeventWaitList);
@@ -133,13 +128,13 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 	cl_err_code errVal;
 	//create a dummy event for the waitForEvents
 	cl_event* pEvent = NULL;
-	QueueEvent* pQueueEvent = m_pEventsManager->CreateQueueEvent(wfe->GetCommandType(), pEvent, this, (ocl_entry_points*)m_handle.dispatch);
+	QueueEvent* pQueueEvent = wfe->GetEvent();
+	m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
 	//if(NULL == pQueueEvent) not for this commit
 	//{
 	//	return CL_OUT_OF_HOST_MEMORY;
 	//}
 	pQueueEvent->AddFloatingDependence();
-	wfe->SetEvent(pQueueEvent);
 	//wfe->SetCommandDeviceId(m_clDefaultDeviceId);
 	errVal = SetDependentOnList(wfe, uNumEventsInWaitList, cpEventWaitList);
 

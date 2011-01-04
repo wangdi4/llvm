@@ -128,6 +128,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		EventsManager*      GetEventsManager() const { return m_pEventsManager; }
 
+		ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
     private:
 
 		bool				m_bUseTaskalyzer;

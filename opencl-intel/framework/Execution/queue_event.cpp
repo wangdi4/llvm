@@ -51,10 +51,7 @@ OclEvent(cmdQueue), m_bProfilingEnabled(false), m_pCommand(NULL)
 	if (cmdQueue != NULL)
 	{
 		m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
-		cmdQueue->AddPendency();
 	}
-	//Todo: workaround because OCL1.0
-	m_bProfilingEnabled = true;
 
 	m_handle.object = this;
 	m_handle.dispatch = pOclEntryPoints;
@@ -65,14 +62,6 @@ OclEvent(cmdQueue), m_bProfilingEnabled(false), m_pCommand(NULL)
 ******************************************************************/
 QueueEvent::~QueueEvent()
 {
-	if (m_pCommand)
-	{
-		delete m_pCommand;
-	}
-	if (m_pEventQueue)
-	{
-		m_pEventQueue->RemovePendency();
-	}
 }
 
 /******************************************************************
@@ -246,7 +235,16 @@ cl_err_code QueueEvent::NotifyEventDone(Intel::OpenCL::Framework::OclEvent *pEve
 	}
 	//Else, fall back on regular routine
 	return OclEvent::NotifyEventDone(pEvent, returnCode);
+}
 
+long QueueEvent::RemovePendency()
+{
+	long newVal = --m_uiPendency;
+	if (0 == newVal)
+	{
+		delete m_pCommand;
+	}
+	return newVal;
 }
 
 cl_context QueueEvent::GetContextHandle() const

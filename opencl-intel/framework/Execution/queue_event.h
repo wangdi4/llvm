@@ -50,6 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 
 	public:
+		friend class Command;
 		QueueEvent( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints );
 
 		cl_context       GetContextHandle() const;
@@ -64,6 +65,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// profiling support
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
+
+		//Must override RemovePendency to prevent this aggregated object from being deleted
+		virtual long RemovePendency();
 
 		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
 		Command*                GetCommand() const                                  { return m_pCommand; }

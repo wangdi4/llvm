@@ -29,7 +29,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class SyncGLObjects : public RuntimeCommand
 	{
 	public:
-		SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum);
+		SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints);
 		virtual ~SyncGLObjects();
 		virtual cl_err_code             Init();        
 		virtual cl_err_code             Execute();        

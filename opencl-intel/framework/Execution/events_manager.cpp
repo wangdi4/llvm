@@ -310,21 +310,14 @@ BuildEvent* EventsManager::GetBuildEvent(cl_event clEvent)
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
  ******************************************************************/
-QueueEvent* EventsManager::CreateQueueEvent(cl_command_type eventCommandType, cl_event* pEventHndl, IOclCommandQueueBase* pOclCommandQueue, ocl_entry_points * pOclEntryPoints)
+void EventsManager::RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl)
 {
-	cl_start;
-    QueueEvent* pNewOclEvent = new QueueEvent(pOclCommandQueue, pOclEntryPoints);
-	if (!pNewOclEvent)
-	{
-		return NULL;
-	}
-    m_pEvents->AddObject(pNewOclEvent);
+	assert(pEvent);
+    m_pEvents->AddObject(pEvent);
 	if (pEventHndl)
 	{
-		*pEventHndl = pNewOclEvent->GetHandle();
+		*pEventHndl = pEvent->GetHandle();
 	}
-
-    cl_return  pNewOclEvent;
 }
 
 /******************************************************************

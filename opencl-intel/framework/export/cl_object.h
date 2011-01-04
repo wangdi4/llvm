@@ -124,7 +124,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-		long RemovePendency();
+		virtual long RemovePendency();
 
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }

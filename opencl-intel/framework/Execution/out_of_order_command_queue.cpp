@@ -266,12 +266,7 @@ void OutOfOrderCommandQueue::MvSubmittedToDevice()
 
 cl_err_code OutOfOrderCommandQueue::SendCommandsToDevice()
 {
-	
 	long prev_val = m_submittedQueueGuard++;
-	if (m_submittedQueueGuard == 2)
-	{
-		int iii=0;
-	}
 	if (0 == prev_val)
 	{		
 		MvSubmittedToDevice();

@@ -25,8 +25,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
-SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum) :
-m_uiMemObjNum(uiMemObjNum),m_pContext(pContext), m_cmdType(cmdType), m_hCallingThread(NULL)
+SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
+RuntimeCommand(cmdQueue, pOclEntryPoints), m_uiMemObjNum(uiMemObjNum),m_pContext(pContext), m_cmdType(cmdType), m_hCallingThread(NULL)
 {
 	m_pMemObjects = new GLMemoryObject*[uiMemObjNum];
 	memcpy_s(m_pMemObjects, sizeof(GLMemoryObject*)*uiMemObjNum, pMemObjects, sizeof(GLMemoryObject*)*uiMemObjNum);
@@ -77,8 +77,7 @@ cl_err_code SyncGLObjects::Execute()
 	}
 
 	// Set event to RED
-	assert(m_pEvent);
-	m_pEvent->SetColor(EVENT_STATE_LIME);
+	m_Event.SetColor(EVENT_STATE_LIME);
 	QueueUserAPC((PAPCFUNC)ExecGLSync, m_hCallingThread, (ULONG_PTR)this);
 	return CL_NOT_READY;
 }
