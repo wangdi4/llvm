@@ -482,6 +482,11 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
     // Get event context
     cl_context clEventsContext = 0;
 	OclEvent* pEvent = m_pEventsManager->GetEvent(cpEventList[0]);
+	if ( NULL == pEvent )
+	{
+		return CL_INVALID_EVENT_WAIT_LIST;
+	}
+
 	clEventsContext = pEvent->GetContextHandle();
 
 	// Before waiting all on events, the function need to flush all relevant queues, 

@@ -625,7 +625,6 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 		cl_uint uiNumDevices;
 		assert(param_value_size <= MAXUINT32);
 		ret = GetDeviceIDs(0, CL_DEVICE_TYPE_ALL, (cl_uint)param_value_size, (cl_device_id*)param_value, &uiNumDevices);
-		*param_value_size_ret = uiNumDevices;
 		if ( CL_FAILED(ret))
 		{
 			return ret;
@@ -633,7 +632,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 
 		if ( NULL != param_value_size_ret )
 		{
-			*param_value_size_ret *= sizeof(cl_device_id);
+			*param_value_size_ret = ( uiNumDevices * sizeof(cl_device_id) );
 		}
 		break;
 	}
