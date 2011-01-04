@@ -165,6 +165,9 @@ void CPUDetect::GetCPUInfo()
     *((int*)(vcCPUString+8)) = viCPUInfo[2];
 
     m_szCPUString = _strdup(vcCPUString);
+	if(!m_szCPUString)
+		m_bIsGenuineIntel = false;
+
     if (strcmp(m_szCPUString, CPU_STRING) == 0)
     {
         m_bIsGenuineIntel = true;
