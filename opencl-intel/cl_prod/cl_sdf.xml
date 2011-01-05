@@ -22,6 +22,9 @@
     <Component Name="llvm_build">
         <RelativeCheckoutPath>externals\llvm_build</RelativeCheckoutPath>
     </Component>
+    <Component Name="builtins_build">
+      <RelativeCheckoutPath>externals\builtins_build</RelativeCheckoutPath>
+    </Component>
     <Component Name="clang">
         <RelativeCheckoutPath>externals\clang</RelativeCheckoutPath>
     </Component>
