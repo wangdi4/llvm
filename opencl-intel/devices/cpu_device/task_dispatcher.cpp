@@ -93,7 +93,7 @@ TaskDispatcher::~TaskDispatcher()
 	}
 	if (NULL != m_pTaskExecutor)
 	{
-		m_pTaskExecutor->ReleasePerThreadData();
+		//m_pTaskExecutor->ReleasePerThreadData();
 	}
 	InfoLog(m_pLogDescriptor, m_iLogHandle, L"TaskDispatcher Released");
 	if (0 != m_iLogHandle)
