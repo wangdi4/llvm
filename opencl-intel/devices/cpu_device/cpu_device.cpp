@@ -179,11 +179,14 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel Corporation";
 #ifdef __DOUBLE_ENABLED__
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\
 												"cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-												"cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store";
+												"cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
+												"cl_intel_printf cl_intel_overloading";
+
 #else
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_global_int32_base_atomics "\
-											   "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-											   "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store";
+												"cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
+												"cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
+												"cl_intel_printf cl_intel_overloading";
 #endif
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
