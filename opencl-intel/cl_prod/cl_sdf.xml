@@ -76,11 +76,17 @@
     <Component Name="built_in_func_test_type">
         <RelativeCheckoutPath>validation\types\built_in_func_test_type</RelativeCheckoutPath>
     </Component>
-    <Component Name="build_product_debug">
-        <RelativeCheckoutPath>validation\tests\build_product_debug</RelativeCheckoutPath>
+	<Component Name="build_product_32_debug">
+        <RelativeCheckoutPath>validation\tests\build_product_32_debug</RelativeCheckoutPath>
     </Component>
-    <Component Name="build_product_release">
-        <RelativeCheckoutPath>validation\tests\build_product_release</RelativeCheckoutPath>
+    <Component Name="build_product_32_release">
+        <RelativeCheckoutPath>validation\tests\build_product_32_release</RelativeCheckoutPath>
+    </Component>
+	<Component Name="build_product_64_debug">
+        <RelativeCheckoutPath>validation\tests\build_product_64_debug</RelativeCheckoutPath>
+    </Component>
+    <Component Name="build_product_64_release">
+        <RelativeCheckoutPath>validation\tests\build_product_64_release</RelativeCheckoutPath>
     </Component>
     <Component Name="framework_test_type">
         <RelativeCheckoutPath>validation\types\framework_test_type</RelativeCheckoutPath>
@@ -205,6 +211,9 @@
     <Component Name="conformance_post_commit">
         <RelativeCheckoutPath>validation\tests\conformance_post_commit</RelativeCheckoutPath>
     </Component>
+	<Component Name="conformance_pre_commit">
+        <RelativeCheckoutPath>validation\tests\conformance_pre_commit</RelativeCheckoutPath>
+    </Component>
     <Component Name="api_test_type">
         <RelativeCheckoutPath>validation\types\api_test_type</RelativeCheckoutPath>
     </Component>       
@@ -213,6 +222,9 @@
     </Component> 
     <Component Name="pre-commit">
         <RelativeCheckoutPath>validation\workplans\pre-commit</RelativeCheckoutPath>
+    </Component>
+	<Component Name="pre-commit-64">
+        <RelativeCheckoutPath>validation\workplans\pre-commit-64</RelativeCheckoutPath>
     </Component>
     <Component Name="post-commit">
         <RelativeCheckoutPath>validation\workplans\post-commit</RelativeCheckoutPath>
