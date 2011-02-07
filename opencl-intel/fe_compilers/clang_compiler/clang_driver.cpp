@@ -301,24 +301,18 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 	std::string extStr = OCL_SUPPORTED_EXTENSIONS;
 	while(extStr != "")
 	{
-        std::string subExtStr;
-        std::string::size_type pos = extStr.find(" ", 0);
+		list.push_back("-D");
+		std::string::size_type pos = extStr.find(" ", 0);
 		if(pos == string::npos)
 		{
-            subExtStr = extStr;
+			list.push_back(extStr);
 			extStr.clear();
 		}
 		else
 		{
-			subExtStr = extStr.substr(0, pos);
+			list.push_back(extStr.substr(0, pos));
 			extStr = extStr.substr(pos + 1);
-		}
-
-		list.push_back("-D");
-        list.push_back(subExtStr);
-
-        list.push_back("-target-feature");
-        list.push_back('+' + subExtStr);
+		}	
 	}
 
 	// Don't optimize in the frontend
