@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="9.00"
+	Name="tbb"
+	ProjectGUID="{4B384DFA-EA05-4A1A-9DCA-43984D2F664C}"
+	RootNamespace="tbb"
+	Keyword="Win32Proj"
+	TargetFrameworkVersion="196613"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="10"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine=""
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="xcopy /E /Y $(ProjectDir)include %MTV_LOCAL_IMPORT_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Debug\tbb_debug.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Debug\tbb_debug.lib %MTV_LOCAL_LIB_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Debug\tbbmalloc_debug.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Debug\tbbmalloc_debug.lib %MTV_LOCAL_LIB_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Debug\tbb_debug.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Debug\tbbmalloc_debug.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Debug\tbb_debug.dll %MTV_LOCAL_BIN_DIR%.dbg&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Debug\tbbmalloc_debug.dll %MTV_LOCAL_BIN_DIR%.dbg&#x0D;&#x0A;"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="10"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine=""
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="xcopy /E /Y $(ProjectDir)include %MTV_LOCAL_IMPORT_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Release\tbb.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Release\tbb.lib %MTV_LOCAL_LIB_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Release\tbbmalloc.lib %MTV_LOCAL_LIB_DIR%&#x0D;&#x0A;copy $(ProjectDir)lib\Win32_Release\tbbmalloc.lib %MTV_LOCAL_LIB_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Release\tbb.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Release\tbb.dll %MTV_LOCAL_BIN_DIR%.opt&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Release\tbbmalloc.dll %MTV_LOCAL_BIN_DIR%&#x0D;&#x0A;copy $(ProjectDir)bin\Win32_Release\tbbmalloc.dll %MTV_LOCAL_BIN_DIR%.opt&#x0D;&#x0A;"
+			/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
