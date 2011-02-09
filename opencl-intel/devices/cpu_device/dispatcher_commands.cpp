@@ -618,7 +618,7 @@ void NativeFunction::Execute()
 		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
 
 		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
-		void*	*pMemPtr = (void**)(cl_char*)m_pArgV+Offset;
+		void*	*pMemPtr = (void**)((cl_char*)m_pArgV + Offset);
 
 		// defined private ret value
 		if ( NULL != *pMemPtr )
