@@ -1,0 +1,26 @@
+gcc           /usr/intel/pkgs/gcc/4.4.2/bin/gcc
+icc           /usr/intel/pkgs/icc/10.0.026e/bin/icc
+g++           /usr/intel/pkgs/gcc/4.4.2/bin/g++
+gas           /usr/intel/pkgs/gcc/4.4.2/bin/gas
+gar           /usr/intel/pkgs/gcc/4.4.2/bin/gar
+gld           /usr/intel/pkgs/gcc/4.4.2/bin/gld
+gobjdump      /usr/intel/pkgs/gcc/4.4.2/bin/gobjdump
+gobjcopy      /usr/intel/pkgs/gcc/4.4.2/bin/gobjcopy
+gstrings      /usr/intel/pkgs/gcc/4.4.2/bin/gstrings
+
+gawk          /usr/bin/awk
+awk           /usr/bin/awk
+python        /usr/intel/pkgs/python/2.6.5/bin/python
+perl          /usr/intel/pkgs/perl/5.10.0/bin/perl
+
+gdb 		  /usr/intel/pkgs/gdb/7.1/bin/gdb	
+ddd           /usr/intel/pkgs/ddd/3.3.11-64/bin/ddd
+
+java 		  /usr/intel/pkgs/java/1.6.0.10/bin/java
+javac 		  /usr/intel/pkgs/java/1.6.0.10/bin/javac
+jar 		  /usr/intel/pkgs/java/1.6.0.10/bin/jar
+
+cmake 	      /usr/intel/pkgs/cmake/2.6.3/bin/cmake
+ccmake 	      /usr/intel/pkgs/cmake/2.6.3/bin/ccmake
+cpack 	      /usr/intel/pkgs/cmake/2.6.3/bin/cpack
+ctest 	      /usr/intel/pkgs/cmake/2.6.3/bin/ctest

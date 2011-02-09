@@ -1,0 +1,4 @@
+LIBRARY	"DummyDevice"
+
+EXPORTS
+	clDevInitDevice

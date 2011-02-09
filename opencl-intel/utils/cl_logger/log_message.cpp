@@ -1,0 +1,325 @@
+// Copyright (c) 2006-2007 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+/****************************************************
+ *  LogMessage.cpp
+ *  Created on: 10-Dec-2008 11:42:24 AM
+ *  Implementation of the log message class
+ *  Original author: ulevy
+ ****************************************************/
+
+#include "log_message.h"
+#include <stdarg.h>
+#include <sstream>              // required by: owstringstream
+#include <assert.h>
+#include <time.h>
+#if defined (_WIN32)
+#include <windows.h>
+#else
+#include "cl_secure_string_linux.h"
+#include <sys/syscall.h>
+#endif
+#include "cl_sys_defines.h"
+using namespace Intel::OpenCL::Utils;
+
+
+#if defined (_WIN32)
+    #define VA_COPY(dst, src) ((dst) = (src))
+    #define VA_END(va)
+
+    #define GMTIME(tmNow, tNow) (gmtime_s(&(tmNow), &(tNow)))
+    #define GET_CURRENT_PROCESS_ID() GetCurrentProcessId()
+    #define GET_CURRENT_THREAD_ID() GetCurrentThreadId()
+
+#else
+    #define VA_COPY(dst, src) (va_copy((dst), (src)))
+    #define VA_END(va) (va_end(va))
+
+    #define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
+    #define GET_CURRENT_PROCESS_ID() getpid()
+    #define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
+#endif
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// LogMessage Ctor Implementation
+/////////////////////////////////////////////////////////////////////////////////////////
+LogMessage::LogMessage(ELogLevel eLevel,
+					   ELogConfigField eConfig,
+					   const wchar_t * pwsClientName,
+					   const wchar_t * pwsSourceFile,
+					   const wchar_t * pwsFunctionName,
+					   __int32 i32SourceLine,
+					   const wchar_t * pwsMessage,
+					   va_list va)
+{
+	m_bUnicodeMessage = true;
+
+    m_eLogLevel        = eLevel;
+	m_eLogConfig	   = eConfig;
+    m_pwsMessage       = pwsMessage;
+    m_pwsSourceFile    = pwsSourceFile;
+    m_i32SourceLine    = i32SourceLine;
+    m_pwsFunctionName  = pwsFunctionName;
+    VA_COPY(m_va, va);
+	m_pwsClientName	   = pwsClientName;
+    m_pwsFormattedMsg  = NULL;
+
+    CreateFormattedMessageW();
+}
+
+LogMessage::LogMessage(ELogLevel eLevel,
+					   ELogConfigField eConfig,
+					   const char * psClientName,
+					   const char * psSourceFile,
+					   const char * psFunctionName,
+					   __int32 i32SourceLine,
+					   const char * psMessage,
+					   va_list va)
+{
+	m_bUnicodeMessage = false;
+
+    m_eLogLevel        = eLevel;
+	m_eLogConfig	   = eConfig;
+    m_psMessage        = psMessage;
+    m_psSourceFile     = psSourceFile;
+    m_i32SourceLine    = i32SourceLine;
+    m_psFunctionName   = psFunctionName;
+    VA_COPY(m_va, va);
+	m_psClientName	   = psClientName;
+	m_psFormattedMsg   = NULL;
+
+    CreateFormattedMessage();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// LogMessage Dtor
+/////////////////////////////////////////////////////////////////////////////////////////
+
+inline LogMessage::~LogMessage()
+{
+	if (m_bUnicodeMessage && m_pwsFormattedMsg)
+	{
+        delete[] m_pwsFormattedMsg;
+	}
+	else if (m_psFormattedMsg)
+	{
+		delete[] m_psFormattedMsg;
+	}
+	VA_END(m_va);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// CreateFormattedMessage
+/////////////////////////////////////////////////////////////////////////////////////////
+void LogMessage::CreateFormattedMessageW()
+{
+
+	wchar_t szLine[MAX_LOG_STRING_LENGTH] = {0};
+	WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"\n" );
+
+    //std::wostringstream tmpFormatMessage;
+    //tmpFormatMessage << L"\n////////////////////////////////////////////////////////////////\n";
+
+	// Message format:
+	// <LEVEL>|<TAB>|<DATE>|<TAB>|<TIME>|<TAB>|<PID>|<TAB>|<TID>|<TAB>|<FILE>(<LINE#>)|<TAB>|<FUNC>|<TAB>|<MSG>
+
+	// write log level
+	switch (m_eLogLevel)
+	{
+	case LL_DEBUG:
+		WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"DEBUG\t" );
+		break;
+	case LL_INFO:
+		WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"INFO\t" );
+		break;
+	case LL_ERROR:
+		WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"ERROR\t" );
+		break;
+	case LL_CRITICAL:
+		WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"CRITICAL\t" );
+		break;
+	case LL_STATISTIC:
+		WCSCAT_S( szLine, MAX_LOG_STRING_LENGTH, L"STATISTIC\t" );
+		break;
+    default:;
+	}
+
+	// write client name
+	if ( (m_eLogConfig & LCF_LINE_CLIENT_NAME) && m_pwsClientName != NULL && wcslen(m_pwsClientName) > 0)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%S\t", m_pwsClientName);
+	}
+
+	// get time and date
+	time_t tNow =0;
+    tm tmNow;
+	tNow = time( NULL );
+    GMTIME( tmNow, tNow );
+
+	// date
+	if (m_eLogConfig & LCF_LINE_DATE)
+	{
+		wcsftime( &szLine[wcslen( szLine )], MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%x\t", &tmNow );
+	}
+
+	// time
+	if (m_eLogConfig & LCF_LINE_TIME)
+	{
+		wcsftime( &szLine[wcslen( szLine )], MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%X\t", &tmNow );
+	}
+
+	// write process ID
+	if (m_eLogConfig & LCF_LINE_PID)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%d\t", GET_CURRENT_PROCESS_ID());
+	}
+
+	// write thread ID
+	if (m_eLogConfig & LCF_LINE_TID)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%d\t", GET_CURRENT_THREAD_ID());
+	}
+
+	// write source file name
+	if (NULL != m_pwsSourceFile && wcslen(m_pwsSourceFile) > 0)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%S\t", m_pwsSourceFile);
+	}
+
+	// write line number
+	if (m_i32SourceLine >= 0)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"(%d)\t", m_i32SourceLine);
+	}
+
+	// write function name
+	if (NULL != m_pwsFunctionName && wcslen(m_pwsFunctionName) > 0)
+	{
+		SWPRINTF_S( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), L"%S\t", m_pwsFunctionName);
+	}
+
+	// write message
+        vswprintf( &(szLine[wcslen( szLine )]), MAX_LOG_STRING_LENGTH - wcslen( szLine ), m_pwsMessage, m_va );
+
+	m_pwsFormattedMsg = new wchar_t[MAX_LOG_STRING_LENGTH];
+	if (m_pwsFormattedMsg)
+	{
+		WCSCPY_S(m_pwsFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
+	}
+
+}
+void LogMessage::CreateFormattedMessage()
+{
+
+	char szLine[MAX_LOG_STRING_LENGTH] = {0};
+	STRCAT_S(szLine, MAX_LOG_STRING_LENGTH, "\n");
+
+    //std::wostringstream tmpFormatMessage;
+    //tmpFormatMessage << L"\n////////////////////////////////////////////////////////////////\n";
+
+	// Message format:
+	// <LEVEL>|<TAB>|<DATE>|<TAB>|<TIME>|<TAB>|<PID>|<TAB>|<TID>|<TAB>|<FILE>(<LINE#>)|<TAB>|<FUNC>|<TAB>|<MSG>
+
+	// write log level
+	switch (m_eLogLevel)
+	{
+	case LL_DEBUG:
+		STRCAT_S( szLine, MAX_LOG_STRING_LENGTH, "DEBUG\t" );
+		break;
+	case LL_INFO:
+		STRCAT_S( szLine, MAX_LOG_STRING_LENGTH, "INFO\t" );
+		break;
+	case LL_ERROR:
+		STRCAT_S( szLine, MAX_LOG_STRING_LENGTH, "ERROR\t" );
+		break;
+	case LL_CRITICAL:
+		STRCAT_S( szLine, MAX_LOG_STRING_LENGTH, "CRITICAL\t" );
+		break;
+	case LL_STATISTIC:
+		STRCAT_S( szLine, MAX_LOG_STRING_LENGTH, "STATISTIC\t" );
+		break;
+    default:;
+	}
+
+	// write client name
+	if ( (m_eLogConfig & LCF_LINE_CLIENT_NAME) && m_psClientName != NULL && strlen(m_psClientName) > 0)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psClientName);
+	}
+
+	// get time and date
+	time_t tNow =0;
+    tm tmNow;
+	tNow = time( NULL );
+    GMTIME( tmNow, tNow );
+
+	// date
+	if (m_eLogConfig & LCF_LINE_DATE)
+	{
+
+		strftime( &szLine[strlen( szLine )], MAX_LOG_STRING_LENGTH - strlen( szLine ), "%x\t", &tmNow );
+	}
+
+	// time
+	if (m_eLogConfig & LCF_LINE_TIME)
+	{
+		strftime( &szLine[strlen( szLine )], MAX_LOG_STRING_LENGTH - strlen( szLine ), "%X\t", &tmNow );
+	}
+
+	// write process ID
+	if (m_eLogConfig & LCF_LINE_PID)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%d\t", GET_CURRENT_PROCESS_ID());
+	}
+
+	// write thread ID
+	if (m_eLogConfig & LCF_LINE_TID)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%d\t", GET_CURRENT_THREAD_ID());
+	}
+
+	// write source file name
+	if (NULL != m_psSourceFile && strlen(m_psSourceFile) > 0)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psSourceFile);
+	}
+
+	// write line number
+	if (m_i32SourceLine >= 0)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "(%d)\t", m_i32SourceLine);
+	}
+
+	// write function name
+	if (NULL != m_psFunctionName && strlen(m_psFunctionName) > 0)
+	{
+		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psFunctionName);
+	}
+
+	// write message
+        VSPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), m_psMessage, m_va );
+
+	m_psFormattedMsg = new char[MAX_LOG_STRING_LENGTH];
+	if (m_psFormattedMsg)
+	{
+		STRCPY_S(m_psFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
+	}
+
+}

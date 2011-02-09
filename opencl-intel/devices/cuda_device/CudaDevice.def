@@ -1,0 +1,5 @@
+LIBRARY	"cuda_device"
+
+EXPORTS
+	clDevCreateDeviceInstance
+	clDevGetDeviceInfo
