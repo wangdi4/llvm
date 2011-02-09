@@ -2308,6 +2308,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 	Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects, pCommandQueue, m_pOclEntryPoints);
 	if (NULL == pAcquireCmd)
 	{
+		delete []pMemObjects;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	Device* pDevice;
