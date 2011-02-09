@@ -70,18 +70,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
+		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
 		virtual cl_err_code SendCommandsToDevice();
 
 	protected:
 #if defined TBB_BUG_SOLVED
-		Intel::OpenCL::Utils::OclConcurrentQueue<Command*>	m_queuedQueue;
 		Intel::OpenCL::Utils::OclConcurrentQueue<Command*>	m_submittedQueue;
 #else
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_queuedQueue;
 		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_submittedQueue;
 #endif
-		Intel::OpenCL::Utils::AtomicCounter					m_queuedQueueGuard;
 		Intel::OpenCL::Utils::AtomicCounter					m_submittedQueueGuard;
 		Intel::OpenCL::Utils::AtomicCounter					m_commandsInExecution;
 	};

@@ -48,61 +48,39 @@ InOrderCommandQueue::InOrderCommandQueue(
 }
 InOrderCommandQueue::~InOrderCommandQueue() 
 {
-	assert(m_queuedQueue.IsEmpty());
 	assert(m_submittedQueue.IsEmpty());
-	assert(m_queuedQueueGuard == 0);
 	assert(m_submittedQueueGuard == 0);
 }
 
 cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 {
-	m_queuedQueue.PushBack(cmd);
+    if ( m_bProfilingEnabled )
+    {
+        cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+    }				
+    cmd->GetEvent()->SetColor(EVENT_STATE_RED);
+    if (!cmd->GetEvent()->HasDependencies())
+    {
+        cmd->GetEvent()->SetColor(EVENT_STATE_YELLOW);
+    }
+    m_submittedQueue.PushBack(cmd);
 	return CL_SUCCESS;
 }
 
 cl_err_code InOrderCommandQueue::EnqueueMarker(Command* cmd)
 {
-	m_queuedQueue.PushBack(cmd);
 	//marker-ness guaranteed implicitly by the queue being in-order
+    Enqueue(cmd);
 	return CL_SUCCESS;
 }
 
 cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 {
-	long prev_val = m_queuedQueueGuard++;
-	if (0 == prev_val)
-	{
-		do //loop on all requests
-		{
-			while (!m_queuedQueue.IsEmpty())
-			{
-				Command* cmd = m_queuedQueue.PopFront();
-				if ( m_bProfilingEnabled )
-				{
-					cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT,
-						m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-				}
-				cmd->GetEvent()->SetColor(EVENT_STATE_RED);
-				if (!cmd->GetEvent()->HasDependencies())
-				{
-					cmd->GetEvent()->SetColor(EVENT_STATE_YELLOW);
-				}
-				m_submittedQueue.PushBack(cmd);
-			}
-		} while (--m_queuedQueueGuard > 0);
-		SendCommandsToDevice();
-	}
-	else //another thread will handle the flush request
-	{
-		if (bBlocking) //explicit flush requests must return only when flush is complete
-		{
-			while (m_queuedQueueGuard > 0){}; //loop until the handling thread is done with the flush request
-		}
-	}
+	SendCommandsToDevice();
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
+cl_err_code InOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
 {
 	if (EVENT_STATE_YELLOW == newColor)
 	{

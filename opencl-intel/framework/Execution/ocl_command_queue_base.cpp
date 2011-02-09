@@ -80,7 +80,12 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 		return errVal;
 	}   
 	pQueueEvent->RemoveFloatingDependence();
-	errVal = Enqueue(pCommand);
+    if (m_bProfilingEnabled)
+    {
+        pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+    }
+
+    errVal = Enqueue(pCommand);
 	
 	if (CL_FAILED(errVal))
 	{
@@ -91,11 +96,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
 		}
 		return CL_ERR_FAILURE;
-	}
-
-	if (m_bProfilingEnabled)
-	{
-		pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 	}
 
 	// If blocking, wait for object

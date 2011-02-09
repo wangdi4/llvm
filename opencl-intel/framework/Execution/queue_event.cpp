@@ -242,9 +242,40 @@ long QueueEvent::RemovePendency()
 	long newVal = --m_uiPendency;
 	if (0 == newVal)
 	{
+		//m_pCommand aggregates me, so I'm also deleted as a side-effect
 		delete m_pCommand;
 	}
 	return newVal;
+}
+
+void QueueEvent::NotifyReady(OclEvent* pEvent)
+{
+    if (EVENT_STATE_RED == m_color)
+    {
+        m_color = EVENT_STATE_YELLOW;
+
+        //See if I have to notify my queue or not
+        if ((pEvent) && (pEvent->GetEventQueue()))
+        {
+            if (pEvent->GetEventQueue()->GetId() == m_pEventQueue->GetId())
+            {
+                //that event will notify my queue for me
+                if (!m_pEventQueue->IsOutOfOrderExecModeEnabled())
+                {
+                    //Optimization only valid for in-order queue
+                    return;
+                }
+            }
+        }
+        //else, I have to notify the queue myself
+        m_pEventQueue->NotifyStateChange(this, EVENT_STATE_RED, EVENT_STATE_YELLOW);
+    }
+}
+
+void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
+{
+    OclEvent::NotifyComplete(returnCode);
+    m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
 }
 
 cl_context QueueEvent::GetContextHandle() const

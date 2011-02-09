@@ -58,32 +58,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitForEvents(Command* cmd);
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(const OclEvent* cpEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
-		virtual cl_err_code SendCommandsToDevice();
+		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
+		// No need for explicit "send commands to device" method, commands are submitted as they become ready
+		virtual cl_err_code SendCommandsToDevice() {return CL_SUCCESS; }
 
 	protected:
-		virtual void        AddDependentOnAll(Command* cmd);
+		virtual cl_err_code AddDependentOnAll(Command* cmd);
 
-#if defined TBB_BUG_SOLVED
-		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_queuedQueue;
-		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_submittedQueue;
-		Intel::OpenCL::Utils::OclConcurrentQueue<Command*> m_runningQueue;
-#else
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_queuedQueue;
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_submittedQueue;
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Command *> m_runningQueue;
-#endif
-		Intel::OpenCL::Utils::AtomicCounter                m_queuedQueueGuard;
-		Intel::OpenCL::Utils::AtomicCounter                m_submittedQueueGuard;                    
-		Intel::OpenCL::Utils::AtomicCounter                m_runningQueueGuard;                    
+		void                Submit(Command* cmd);
 
-		Intel::OpenCL::Utils::AtomicCounter				   m_commandsInExecution;
-		Intel::OpenCL::Utils::AtomicPointer                m_lastBarrier;
+    // At all times, points to a command that depends on everything enqueued since the last time clEnqueueBarrier/Marker was enqueued to this queue
+		Intel::OpenCL::Utils::AtomicPointer m_depOnAll;
+		Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
+		Intel::OpenCL::Utils::AtomicPointer m_lastBarrier;
+		// Is meant to optimize away flushes made to an empty queue
+		Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
 
-	private:		
-		// Move commands from Queued to Submitted
-		void MvQueuedToSubmitted();
-		void MvSubmittedToDevice();
-		void TidyRunningQueue();
 	};
 }}}    // Intel::OpenCL::Framework

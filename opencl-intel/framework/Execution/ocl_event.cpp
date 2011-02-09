@@ -41,6 +41,7 @@ OclEvent::~OclEvent()
 
 void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
 {
+    assert(!m_complete);
 	//Must increase dependency list length before adding as listener
 	//The other event may have completed already, in which case our callback will be called immediately
 	//Which will decrease the depListLength.
@@ -51,6 +52,7 @@ void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
 //Important to increase the guard by count immediately, otherwise there's a race condition where the first dependency is finished before the second is registered
 void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList)
 {
+    assert(!m_complete);
 	m_depListLength.add(count);
 	for (unsigned int i = 0; i < count; ++i)
 	{
@@ -132,11 +134,6 @@ void OclEvent::NotifyComplete(cl_int returnCode)
 		assert(listener);
 		listener->NotifyEventDone(this, returnCode);
 	}
-
-	if (m_pEventQueue) //User events have no associated queue
-	{
-		m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
-	}
 }
 
 
@@ -145,23 +142,7 @@ void OclEvent::NotifyReady(OclEvent* pEvent)
 	if (EVENT_STATE_RED == m_color)
 	{
 		m_color = EVENT_STATE_YELLOW;
-		if (NULL == m_pEventQueue)
-		{
-			//Nothing more to do
-			return;
-		}
-		//Else, see if I have to notify my queue or not
-		if ((pEvent) && (pEvent->GetEventQueue()))
-		{
-			if (pEvent->GetEventQueue()->GetId() == m_pEventQueue->GetId())
-			{
-				//that event will notify my queue for me
-				return;
-			}
-		}
-		//else, I have to notify the queue myself
-		m_pEventQueue->NotifyStateChange(this, EVENT_STATE_RED, EVENT_STATE_YELLOW);
-	}
+    }
 }
 
 /******************************************************************

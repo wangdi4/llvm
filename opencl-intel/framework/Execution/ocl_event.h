@@ -139,8 +139,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	protected:
 		virtual ~OclEvent();
 
-		void   NotifyReady(OclEvent* pEvent); 
-		void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
+		virtual void   NotifyReady(OclEvent* pEvent); 
+		virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
 		//Some implementations of possible methods for waiting 
 		void        WaitSpin();

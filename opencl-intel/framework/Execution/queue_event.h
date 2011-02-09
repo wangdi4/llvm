@@ -65,6 +65,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// profiling support
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
+
+		//Must override RemovePendency to prevent this aggregated object from being deleted
 		virtual long RemovePendency();
 
 		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
@@ -74,6 +76,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	protected:
 		virtual ~QueueEvent();        
+
+        //overrides from OclEvent
+        virtual void   NotifyReady(OclEvent* pEvent); 
+        virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
 		SProfilingInfo		m_sProfilingInfo;
 		bool				m_bProfilingEnabled;

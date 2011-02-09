@@ -70,6 +70,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		void* test_and_set(void* comparand, void* exchange);
 		void* exchange(void* val);
 
+		operator void*() const {return m_ptr; }
+
 	private:
 		AtomicPointer(const AtomicPointer& ac) {m_ptr = ac.m_ptr; }
 		void* m_ptr;
