@@ -55,7 +55,7 @@ OutOfOrderCommandQueue::~OutOfOrderCommandQueue()
 {
 	if (NULL != m_depOnAll)
 	{
-		delete m_depOnAll;
+		delete (Command*)((void*)m_depOnAll);
 	}
 	if (m_bCommandListCreated)
 	{
