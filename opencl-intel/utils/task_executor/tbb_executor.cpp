@@ -420,7 +420,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
-            assert(uiNumberOfWorkGroups <= MAXINT32);
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
@@ -452,7 +452,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
-            assert(uiNumberOfWorkGroups <= MAXINT32);
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
@@ -483,7 +483,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = r.size();
-            assert(uiNumberOfWorkGroups <= MAXINT32);
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
