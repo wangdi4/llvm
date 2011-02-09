@@ -44,10 +44,10 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
 	ocl_entry_points *			pOclEntryPoints
 	) :
 	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints),
+	m_depOnAll(NULL),
 	m_commandsInExecution(0),
-	m_unflushedCommands(0),
 	m_lastBarrier(NULL),
-	m_depOnAll(NULL)
+	m_unflushedCommands(0)
 {		
 }
 
