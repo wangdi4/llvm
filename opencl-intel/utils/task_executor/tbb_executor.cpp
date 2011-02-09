@@ -410,7 +410,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TaskLoopBody3D(ITaskSet &t) : task(t) {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 			unsigned int uiWorkerId;
-			unsigned int uiNumberOfWorkGroups;
+			size_t uiNumberOfWorkGroups;
 			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
@@ -420,7 +420,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
-			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups) != 0 )
+            assert(uiNumberOfWorkGroups <= MAXINT32);
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
@@ -441,7 +442,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TaskLoopBody2D(ITaskSet &t) : task(t) {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 			unsigned int uiWorkerId;
-			unsigned int uiNumberOfWorkGroups;
+			size_t uiNumberOfWorkGroups;
 			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
@@ -451,7 +452,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
-			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups) != 0 )
+            assert(uiNumberOfWorkGroups <= MAXINT32);
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
@@ -471,7 +473,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TaskLoopBody1D(ITaskSet &t) : task(t) {}
 		void operator()(const tbb::blocked_range<int>& r) const {
 			unsigned int uiWorkerId;
-			unsigned int uiNumberOfWorkGroups;
+			size_t uiNumberOfWorkGroups;
 			uiWorkerId = GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
@@ -481,7 +483,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			}
 #endif
 			uiNumberOfWorkGroups = r.size();
-			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups) != 0 )
+            assert(uiNumberOfWorkGroups <= MAXINT32);
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
 				return;
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task.ExecuteIteration(k, 0, 0, uiWorkerId);
@@ -799,7 +802,7 @@ struct ExecuteContainerBody
 
 	void operator()(const tbb::blocked_range<size_t>& range) const 
 	{
-		for (unsigned int it = range.begin(); it != range.end(); ++it)
+		for (size_t it = range.begin(); it != range.end(); ++it)
 		{
 			execute_command((*m_work)[it]);
 		}
