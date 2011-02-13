@@ -111,7 +111,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 	}
 
 	clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, szArgsCount, m_sKernelPrototype.m_pArgs, NULL);
-	if (CL_FAILED(clErrRet))
+	if (CL_DEV_FAILED(clErrRet))
 	{
 		*pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
 		return;

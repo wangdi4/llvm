@@ -49,37 +49,37 @@ public:
 	ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config);
 	virtual ~ProgramService();
 
-	cl_int CheckProgramBinary (size_t IN bin_size, const void* IN bin);
-    cl_int CreateProgram( size_t IN binSize,
+	cl_dev_err_code CheckProgramBinary (size_t IN bin_size, const void* IN bin);
+    cl_dev_err_code CreateProgram( size_t IN binSize,
 										const void* IN bin,
 										cl_dev_binary_prop IN prop,
 										cl_dev_program* OUT prog
 									   );
-    cl_int BuildProgram( cl_dev_program IN prog,
+    cl_dev_err_code BuildProgram( cl_dev_program IN prog,
 										const char* IN options,
 										void* IN userData
 									   );
-	cl_int ReleaseProgram( cl_dev_program IN prog );
-	cl_int UnloadCompiler();
-    cl_int GetProgramBinary( cl_dev_program IN prog,
+	cl_dev_err_code ReleaseProgram( cl_dev_program IN prog );
+	cl_dev_err_code UnloadCompiler();
+    cl_dev_err_code GetProgramBinary( cl_dev_program IN prog,
 										size_t IN size,
 										void* OUT binary,
 										size_t* OUT sizeRet
 										);
 
-	cl_int GetBuildLog( cl_dev_program IN prog,
+	cl_dev_err_code GetBuildLog( cl_dev_program IN prog,
 									  size_t IN size,
 									  char* OUT log,
 									  size_t* OUT sizeRet
 									  );
-	cl_int GetSupportedBinaries( size_t IN size,
+	cl_dev_err_code GetSupportedBinaries( size_t IN size,
 										   cl_prog_binary_desc* OUT types,
 										   size_t* OUT sizeRet
 										   );
 
 	cl_dev_err_code GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 
-	cl_int GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
+	cl_dev_err_code GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 size_t* OUT numKernelsRet );
 
 	cl_dev_err_code GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,

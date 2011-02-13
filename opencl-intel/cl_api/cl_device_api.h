@@ -1,22 +1,20 @@
-// Copyright (c) 2006-2008 Intel Corporation
-// All rights reserved.
-//
-// WARRANTY DISCLAIMER
-//
-// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
-// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Intel Corporation is the author of the Materials, and requests that all
-// problem reports or change requests be submitted to it directly
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2010).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  cl_device_api.h
+
+\*****************************************************************************/
 
 /*
 *
@@ -55,7 +53,7 @@ typedef enum _cl_prog_binary_type
 typedef enum _cl_prog_container_type
 {
 	CL_PROG_CNT_PRIVATE,			//	Containers is private container and it’s structure is unknown
-	CL_PROG_CNT_PROGRAM 			//	Container holds OCL program container as defined by cl_prog_program
+	CL_PROG_CNT_PROGRAM			//	Container holds OCL program container as defined by cl_prog_program
 } cl_prog_container_type;
 
 
@@ -144,7 +142,7 @@ typedef void* cl_dev_kernel;
 typedef enum _cl_dev_err_code
 {
 	CL_DEV_SUCCESS				= 0,			// Function call or query call succeeded
-	CL_DEV_ERROR_FAIL			= (signed)0x80000000,	// Internal unspecified error
+	CL_DEV_ERROR_FAIL			= 0x80000000,	// Internal unspecified error
 	CL_DEV_INVALID_VALUE,						// Invalid value was passed to the function.
 	CL_DEV_INVALID_PROPERTIES,					// Properties might be valid but not supported
 	CL_DEV_OUT_OF_MEMORY,						// Resource allocation failure
@@ -163,21 +161,21 @@ typedef enum _cl_dev_err_code
 	CL_DEV_OBJECT_ALLOC_FAIL,					// Failed to allocate resources for memory object
 	CL_DEV_INVALID_BINARY,						// The binary is not supported by the device or program container content is invalid
 	CL_DEV_INVALID_BUILD_OPTIONS,				// One of more build options specified for the back-end compiler are invalid
-	CL_DEV_INVALID_PROGRAM,						// Invalid program object handle
+	CL_DEV_INVALID_PROGRAM,						// Invalid program object handle 
 	CL_DEV_BUILD_IN_PROGRESS,					// Back-end compiler is still in operation
 	CL_DEV_BUILD_ALREADY_COMPLETE,				// Back-end compiler previously compiled this program
 	CL_DEV_BUILD_ERROR,							// Error occurred during back-end build process
 	CL_DEV_INVALID_KERNEL_NAME,					// Kernel name is not found in the program
 	CL_DEV_OBJECT_ALREADY_LOCKED,				// Object already is locked
-	CL_DEV_NOT_SUPPORTED 						// The operation is not supported by the device
+	CL_DEV_NOT_SUPPORTED						// The operation is not supported by the device
 } cl_dev_err_code;
 
 /**
 * CL_FAILED
 * Checks whether a return code is failure
 */
-#define CL_DEV_FAILED(code)				(CL_DEV_SUCCESS > (code))
-#define CL_DEV_SUCCEEDED(code)			(CL_DEV_SUCCESS <= (code))
+#define CL_DEV_FAILED(code)				((int)CL_DEV_SUCCESS > (int)(code))
+#define CL_DEV_SUCCEEDED(code)			((int)CL_DEV_SUCCESS <= (int)(code))
 
 //Defines possible values of device allocated buffer
 typedef enum _cl_dev_mem_flags
@@ -185,8 +183,8 @@ typedef enum _cl_dev_mem_flags
 	CL_DEV_MEM_READ			= 1,	// Buffer is accessible only for READ
 	CL_DEV_MEM_WRITE		= 2,	// Buffer is accessible only for WRITE
 	CL_DEV_MEM_READ_WRITE	= 3,	// Buffer is accessible for both READING and WRITING.
-	CL_DEV_MEM_HOST_MEM		= 4 	// Buffer should be allocated within host memory accessible by the device.
-									// The buffer could be accessed by map commands.
+	CL_DEV_MEM_HOST_MEM		= 4		// Buffer should be allocated within host memory accessible by the device.
+									// The buffer could be accessed by map commands. 
 } cl_dev_mem_flags;
 
 //Defines possible values of a host pointer provided for device memory object.
@@ -194,14 +192,14 @@ typedef enum _cl_dev_host_ptr_flags
 {
 	CL_DEV_HOST_PTR_NONE			= 0,		// The host buffer could be used internally by the agent.
 	CL_DEV_HOST_PTR_DATA_AVAIL		= 1,		// The HOST pointer contains initial data for the memory object.
-	CL_DEV_HOST_PTR_MAPPED_REGION	= 2 		// The host pointer defines a region wherein map operation must be completed.
+	CL_DEV_HOST_PTR_MAPPED_REGION	= 2			// The host pointer defines a region wherein map operation must be completed.
 } cl_dev_host_ptr_flags;
 
 //Defines possible values of device list properties
 typedef enum _cl_dev_cmd_list_props
 {
 	CL_DEV_LIST_NONE = 0,		// Determines a list wherein all items will be executed sequentially.
-	CL_DEV_LIST_ENABLE_OOO 		// Determines whether the out-of-order optimization could be applied on items in the command list
+	CL_DEV_LIST_ENABLE_OOO		// Determines whether the out-of-order optimization could be applied on items in the command list
 } cl_dev_cmd_list_props;
 
 //Defines possible values of device command identifiers that is passed within cl_dev_cmd_desc structure.
@@ -224,7 +222,7 @@ typedef enum _cl_dev_map_flags
 {
 	CL_DEV_MAP_READ			= 1,			//The mapped region is READ only.
 	CL_DEV_MAP_WRITE		= 2,			//The mapped region is WRITE only.
-	CL_DEV_MAP_READ_WRITE	= 3 			//The mapped region is accessible for both reading and writing.
+	CL_DEV_MAP_READ_WRITE	= 3				//The mapped region is accessible for both reading and writing.
 } cl_dev_map_flags;
 
 //Defines possible values of memory object types.
@@ -275,7 +273,7 @@ typedef enum _cl_dev_sampler_prop
     __NORMALIZED_BASE							= __ADDRESS_BITS,
     CL_DEV_SAMPLER_NORMALIZED_COORDS_FALSE		= 0,
     CL_DEV_SAMPLER_NORMALIZED_COORDS_TRUE		= 1 << __NORMALIZED_BASE,
-    __NORMALIZED_BITS							=	1,        // number of bits required to represent normalization
+    __NORMALIZED_BITS							=	1,        // number of bits required to represent normalization 
     __NORMALIZED_MASK							= ( ((1<<__NORMALIZED_BITS)-1) << __NORMALIZED_BASE ),
 
     __FILTER_BASE								= __NORMALIZED_BASE + __NORMALIZED_BITS,
@@ -317,9 +315,9 @@ typedef struct _cl_dev_cmd_param_rw
 	cl_dev_mem		memObj;					// Handle to a memory object from where/to the data to be read/written.
 											// It can be a buffer, image2D or image3D
 	cl_uint			dim_count;				// A number of dimensions in the memory object.
-	size_t			origin[MAX_WORK_DIM];	// Multi-dimensional offset in the memory object.
+	size_t			origin[MAX_WORK_DIM];	// Multi-dimensional offset in the memory object. 
 											// For 2Dimages origin[2] must be 0.
-	size_t			region[MAX_WORK_DIM];	// Defines multi-dimensional region of the memory object to be used.
+	size_t			region[MAX_WORK_DIM];	// Defines multi-dimensional region of the memory object to be used. 
 											// region[0] is width of region,
 											// region[1] is height of the region,
 											// region[2] is depth of the region.
@@ -329,8 +327,8 @@ typedef struct _cl_dev_cmd_param_rw
 	void*			ptr;					// Pointer to the host memory where the data to be read/written
 	size_t			pitch[MAX_WORK_DIM-1];	// A pointer to array of dimension pitches in bytes for the pointer parameter. The size of the array is dim_count-1.
 											// pitch[0] will contain the scan-line pitch in bytes for the mapped region,
-											// pitch[1] will contain the size in bytes of each 2D slice for the mapped region.
-	size_t			ptr_origin[MAX_WORK_DIM]; // Multi-dimensional offset in the ptr.
+											// pitch[1] will contain the size in bytes of each 2D slice for the mapped region.									
+	size_t			ptr_origin[MAX_WORK_DIM]; // Multi-dimensional offset in the ptr.	
 } cl_dev_cmd_param_rw;
 
 // This structure holds a value of parameters which are passed within cl_dev_cmd_desc and associated with CL_DEV_CMD_COPY identifier.
@@ -342,7 +340,7 @@ typedef struct _cl_dev_cmd_param_copy
 	cl_uint			dst_dim_count;				// A number of dimensions in the destination memory object.
 	size_t			src_origin[MAX_WORK_DIM];	// Multi-dimensional offset in the source memory object.
 	size_t			dst_origin[MAX_WORK_DIM];	// Multi-dimensional offset in the destination memory object.
-	size_t			region[MAX_WORK_DIM];		// Defines multi-dimensional region of the memory object to be copied.
+	size_t			region[MAX_WORK_DIM];		// Defines multi-dimensional region of the memory object to be copied. 
 												//	region[0] is width of region,
 												//	region[1] is height of the region,
 												//	region[2] is depth of the region.
@@ -360,7 +358,7 @@ typedef struct	_cl_dev_cmd_param_map
 												// The values are defined by cl_dev_map_flags.
 	cl_uint				dim_count;				// A number of dimensions in the mapped memory object.
 	size_t				origin[MAX_WORK_DIM];	// Multi-dimensional offset in the memory object to mapped.
-	size_t				region[MAX_WORK_DIM];	// Defines multi-dimensional region of the memory object to be mapped.
+	size_t				region[MAX_WORK_DIM];	// Defines multi-dimensional region of the memory object to be mapped. 
 												// region[0] is width of region,
 												// region[1] is height of the region,
 												// region[2] is depth of the region.
@@ -428,25 +426,25 @@ class IOCLDevice;
 //
 /* clDevInitDevice
    Description
-		Initialize internal state of the device driver, returns a set of device driver entry points.
-   Input
+		Initialize internal state of the device driver, returns a set of device driver entry points. 
+   Input 
 		dev_id			Device identifier as it appears in framework. This value is used in cl_dev_mem object identification.
 		pDevCallBacks	A pointer to an interface for callback functions provided to the device by the framework
 		pLogDesc		A pointer to an interface for logger functions provided to the device by the framework
-   Output
-		pDevice			A pointer to an interface to the device
+   Output 
+		pDevice			A pointer to an interface to the device 
    Returns
 		CL_DEV_SUCCESS		The device was successfully created. pDevEntry holds updated pointers
 		CL_DEV_ERROR_FAIL	Internal error
 */
-cl_int (clDevCreateDeviceInstance)(
+cl_dev_err_code (clDevCreateDeviceInstance)(
                         cl_uint		dev_id,
 						IOCLFrameworkCallbacks	*pDevCallBacks,
 						IOCLDevLogDescriptor	*pLogDesc,
 						IOCLDevice*				*pDevice
 						);
 
-typedef cl_int (fn_clDevCreateDeviceInstance)(
+typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
 								   cl_uint		dev_id,
 								   IOCLFrameworkCallbacks	*pDevCallBacks,
 								   IOCLDevLogDescriptor		*pLogDesc,
@@ -469,17 +467,17 @@ typedef cl_int (fn_clDevCreateDeviceInstance)(
 		CL_DEV_SUCCESS			If functions is executed successfully.
 		CL_DEV_INVALID_VALUE	If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
 **************************************************************************************************************************/
-cl_int clDevGetDeviceInfo(  cl_device_info  IN  param,
-                            size_t          IN  valSize,
+cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  IN  param, 
+                            size_t          IN  valSize, 
                             void*           OUT paramVal,
 				            size_t*         OUT paramValSizeRet
                             );
 
-typedef cl_int (fn_clDevGetDeviceInfo)(
-                        cl_device_info  IN  param,
-                        size_t          IN  valSize,
+typedef cl_dev_err_code (fn_clDevGetDeviceInfo)(
+                        cl_device_info  IN  param, 
+                        size_t          IN  valSize, 
                         void*           OUT paramVal,
-                        size_t*         OUT paramValSizeRet
+                        size_t*         OUT paramValSizeRet						
 						);
 
 //
@@ -490,7 +488,7 @@ class IOCLFrameworkCallbacks
 public:
 /* clDevCmdStatusChanged
 	Description
-		This function is called when previously enqueued command changes its state to RUNNING or COMPLETED.
+		This function is called when previously enqueued command changes its state to RUNNING or COMPLETED. 
 	Input
 		cmd_id				Identifier of the enqueued command that changes its status
 		data				A pointer to buffer that was passed within cl_dev_cmd_desc within clDevCommandListExecute().
@@ -548,7 +546,7 @@ public:
 			CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 			CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 	*/
-	virtual cl_int (clDevCreateCommandList)(	cl_dev_cmd_list_props IN props,
+	virtual cl_dev_err_code (clDevCreateCommandList)(	cl_dev_cmd_list_props IN props,
 										   cl_dev_cmd_list* OUT list
 										   ) = 0;
 
@@ -563,12 +561,12 @@ public:
 			CL_DEV_SUCCESS				The function is executed successfully
 			CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 	*/
-	virtual cl_int (clDevFlushCommandList)(	cl_dev_cmd_list IN list
+	virtual cl_dev_err_code (clDevFlushCommandList)(	cl_dev_cmd_list IN list
 										  ) = 0;
 
 	/* clDevRetainCommandList
 		Description
-			Increments the command list reference count.
+			Increments the command list reference count. 
 		Input
 			list						A valid handle to device command list
 		Output
@@ -577,14 +575,14 @@ public:
 			CL_DEV_SUCCESS				The function is executed successfully
 			CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 	*/
-	virtual cl_int (clDevRetainCommandList)(	cl_dev_cmd_list IN list
+	virtual cl_dev_err_code (clDevRetainCommandList)(	cl_dev_cmd_list IN list
 											) = 0;
 
 	/* clDevReleaseCommandList
 		Description
 			Decrements the command list reference count. After the command list reference count becomes zero and
 			all commands of the command list have completed (eg. Kernel executions, memory object updates etc.),
-			the command queue is deleted.
+			the command queue is deleted. 
 		Input
 			list						A valid handle to device command list
 		Output
@@ -593,7 +591,7 @@ public:
 			CL_DEV_SUCCESS				The function is executed successfully
 			CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 	*/
-	virtual cl_int (clDevReleaseCommandList)( cl_dev_cmd_list IN list
+	virtual cl_dev_err_code (clDevReleaseCommandList)( cl_dev_cmd_list IN list
 											 ) = 0;
 
 	/* clDevCommandListExecute
@@ -627,7 +625,7 @@ public:
 			CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
 											values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 	*/
-	virtual cl_int (clDevCommandListExecute)( cl_dev_cmd_list IN list,
+	virtual cl_dev_err_code (clDevCommandListExecute)( cl_dev_cmd_list IN list,
 												 cl_dev_cmd_desc* IN *cmds,
 												 cl_uint IN count
 												 ) = 0;
@@ -645,7 +643,7 @@ public:
 			CL_DEV_INVALID_COMMAND_LIST		If command list is not a valid command list
 			CL_DEV_NOT_SUPPORTED			The operation is not supported by device. The runtime should handle wait by itself
 	*/
-	virtual cl_int (clDevCommandListWaitCompletion)( cl_dev_cmd_list IN list
+	virtual cl_dev_err_code (clDevCommandListWaitCompletion)( cl_dev_cmd_list IN list
 												 ) = 0;
 
 	//
@@ -670,7 +668,7 @@ public:
 			CL_DEV_SUCCESS			The function is executed successfully.
 			CL_DEV_INVALID_VALUE	If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
 	*/
-	virtual cl_int (clDevGetSupportedImageFormats)( cl_dev_mem_flags IN flags,
+	virtual cl_dev_err_code (clDevGetSupportedImageFormats)( cl_dev_mem_flags IN flags,
 									   cl_dev_mem_object_type IN image_type,
 									   cl_uint IN num_entries,
 									   cl_image_format* OUT formats,
@@ -689,7 +687,7 @@ public:
 			dim_count		A number of dimensions in the required memory object.
 			dim_size		A pointer to a buffer that defines object dimentions.
 							When creating a buffer, dim points size of the buffer in bytes.
-							dim[0] specifies width of the image in pixel,
+							dim[0] specifies width of the image in pixel, 
 							dim[1] specifies height of the image in pixel,
 							dim[2] specifies depth of the image in pixel,
 							dim[dim_count-1] specefies size of the dim_count dimension.
@@ -716,7 +714,7 @@ public:
 			CL_DEV_OBJECT_ALLOC_FAIL		If there is a failure to allocate resources for memory object.
 			CL_DEV_INVALID_OPERATION		If the device does not support images.
 	*/
-	virtual cl_int (clDevCreateMemoryObject)( cl_dev_mem_flags	IN flags,
+	virtual cl_dev_err_code (clDevCreateMemoryObject)( cl_dev_mem_flags	IN flags,
 									const cl_image_format*			IN format,
 									cl_uint							IN dim_count,
 									const size_t*					IN dim_size,
@@ -738,7 +736,7 @@ public:
 			CL_DEV_INVALID_MEM_OBJECT	If memObj is not a valid memory object.
 			CL_DEV_INVALID_OPERATION	If memObj has one or mapped regions.
 	*/
-	virtual cl_int (clDevDeleteMemoryObject)( cl_dev_mem IN memObj
+	virtual cl_dev_err_code (clDevDeleteMemoryObject)( cl_dev_mem IN memObj
 												 ) = 0;
 	/* clDevCreateMappedRegion
 		Description
@@ -765,7 +763,7 @@ public:
 										If object is a 2D or 3D image and row_pitch is NULL.
 										If image is a 3D image object and slice_pitch is NULL
 	*/
-	virtual cl_int (clDevCreateMappedRegion)( cl_dev_cmd_param_map*	INOUT	pMapParams
+	virtual cl_dev_err_code (clDevCreateMappedRegion)( cl_dev_cmd_param_map*	INOUT	pMapParams
 												 ) = 0;
 
 	/* clDevReleaseMappedRegion
@@ -780,7 +778,7 @@ public:
 			CL_DEV_INVALID_MEM_OBJECT	If memObj is not a valid memory object.
 			CL_INVALID_VALUE			If mapped memory pointer is not associated with memory object.
 	*/
-	virtual cl_int (clDevReleaseMappedRegion)( cl_dev_cmd_param_map*	IN	pMapParams
+	virtual cl_dev_err_code (clDevReleaseMappedRegion)( cl_dev_cmd_param_map*	IN	pMapParams
 												  ) = 0;
 
 	//
@@ -800,7 +798,7 @@ public:
 			CL_DEV_INVALID_VALUE	If bin_size is 0 or bin is NULL.
 			CL_DEV_INVALID_BINARY	If the binary is not supported by the device or program container content is invalid.
 	*/
-	virtual cl_int (clDevCheckProgramBinary)( size_t IN bin_size,
+	virtual cl_dev_err_code (clDevCheckProgramBinary)( size_t IN bin_size,
 												 const void* IN bin
 												 ) = 0;
 
@@ -809,7 +807,7 @@ public:
 			Creates a device specific program entity (no build is performed).
 		Input
 			bin_size						Size of the binary buffer
-			bin								A pointer to binary buffer that holds program container defined by cl_prog_container.
+			bin								A pointer to binary buffer that holds program container defined by cl_prog_container. 
 			prop							Specifies the origin of the input binary. The values is defined by cl_dev_binary_prop.
 		Output
 			prog							A valid (non zero) handle to created program object.
@@ -818,7 +816,7 @@ public:
 			CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
 			CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program.
 	*/
-	virtual cl_int (clDevCreateProgram)( size_t IN bin_size,
+	virtual cl_dev_err_code (clDevCreateProgram)( size_t IN bin_size,
 										   const void* IN bin,
 										   cl_dev_binary_prop IN prop,
 										   cl_dev_program* OUT prog
@@ -838,9 +836,9 @@ public:
 			CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
 			CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program.
 	*/
-	virtual cl_int (clDevBuildProgram)( cl_dev_program IN prog,
+	virtual cl_dev_err_code (clDevBuildProgram)( cl_dev_program IN prog,
 										   const char* IN options,
-										   void* IN user_data
+										   void* IN user_data								   
 										   ) = 0;
 
 	/* clDevReleaseProgram
@@ -854,7 +852,7 @@ public:
 			CL_DEV_SUCCESS					The function is executed successfully.
 			CL_DEV_INVALID_PROGRAM			Invalid program object was specified.
 	*/
-	virtual cl_int (clDevReleaseProgram)(cl_dev_program IN prog) = 0;
+	virtual cl_dev_err_code (clDevReleaseProgram)(cl_dev_program IN prog) = 0;
 
 	/* clDevUnloadCompiler
 		Description
@@ -868,23 +866,23 @@ public:
 		Returns
 			CL_DEV_SUCCESS	The function is executed successfully.
 	*/
-	virtual cl_int (clDevUnloadCompiler)() = 0;
+	virtual cl_dev_err_code (clDevUnloadCompiler)() = 0;
 
 	/* clDevGetProgramBinary
 		Description
 			Returns the compiled program binary. The output buffer contains program container as defined cl_prog_binary_desc.
 		Input
 			prog					A handle to created program object.
-			size					Size in bytes of the buffer passed to the function.
+			size					Size in bytes of the buffer passed to the function. 
 		Output
 			binary					A pointer to buffer wherein program binary will be stored.
 			size_ret				The actual size in bytes of the returned buffer. When size is equal to 0 and binary is NULL, returns size in bytes of a program binary. If NULL the parameter is ignored.
 		Returns
 			CL_DEV_SUCCESS			The function is executed successfully.
-			CL_DEV_INVALID_PROGRAM	If program is not valid program object.
+			CL_DEV_INVALID_PROGRAM	If program is not valid program object. 
 			CL_DEV_INVALID_VALUE	If size is not enough to store the binary or binary is NULL and size is not 0.
 	*/
-	virtual cl_int (clDevGetProgramBinary)( cl_dev_program IN prog,
+	virtual cl_dev_err_code (clDevGetProgramBinary)( cl_dev_program IN prog,
 											 size_t	IN size,
 											 void* OUT binary,
 											 size_t* OUT size_ret
@@ -894,18 +892,18 @@ public:
 			Returns the build log after clDevBuildProgram was called and finished.
 		Input
 			prog					A handle to created program object.
-			size					Size in bytes of the buffer passed to the function.
+			size					Size in bytes of the buffer passed to the function. 
 		Output
 			log						A pointer to buffer wherein program build log will be stored.
 			size_ret				The actual size in bytes of the returned buffer. When size is equal to 0 and binary is NULL,
 									returns size in bytes of the log. If NULL the parameter is ignored.
 		Returns
 			CL_DEV_SUCCESS			The function is executed successfully.
-			CL_DEV_INVALID_PROGRAM	If program is not valid program object.
+			CL_DEV_INVALID_PROGRAM	If program is not valid program object. 
 			CL_DEV_INVALID_VALUE	If size is not enough to store the binary or binary is NULL and size is not 0.
 			CL_DEV_STILL_BUILDING	If program is under build process.
 	*/
-	virtual cl_int (clDevGetBuildLog)( cl_dev_program IN prog,
+	virtual cl_dev_err_code (clDevGetBuildLog)( cl_dev_program IN prog,
 										  size_t IN size,
 										  char* OUT log,
 										  size_t* OUT size_ret
@@ -915,7 +913,7 @@ public:
 		Description
 			Returns the list of supported binaries.
 		Input
-			count					Size of the buffer passed to the function in terms of cl_prog_binary_desc.
+			count					Size of the buffer passed to the function in terms of cl_prog_binary_desc. 
 		Output
 			types					A pointer to buffer wherein binary types will be stored.
 			count_ret				The actual size ofthe buffer returned by the function in terms of cl_prog_binary_desc.
@@ -923,10 +921,10 @@ public:
 									If NULL the parameter is ignored.
 		Returns
 			CL_DEV_SUCCESS			The function is executed successfully.
-			CL_DEV_INVALID_PROGRAM	If program is not valid program object.
+			CL_DEV_INVALID_PROGRAM	If program is not valid program object. 
 			CL_DEV_INVALID_VALUE	If count is not enough to store the binary or types is NULL and count is not 0.
 	*/
-	virtual cl_int (clDevGetSupportedBinaries)( size_t IN size,
+	virtual cl_dev_err_code (clDevGetSupportedBinaries)( size_t IN size,
 											   cl_prog_binary_desc* OUT types,
 											   size_t* OUT size_ret
 											   ) = 0;
@@ -940,7 +938,7 @@ public:
 			Returns an internal identifier of the kernel.
 		Input
 			prog					A handle to created program object.
-			name					A pointer to NULL terminated string that contains kernel name.
+			name					A pointer to NULL terminated string that contains kernel name. 
 		Output
 			kernel_id				A valid (non zero) kernel internal identifier.
 		Returns
@@ -958,17 +956,17 @@ public:
 			Returns identifiers of all kernels belong to specific program object.
 		Input
 			prog					A handle to created program object.
-			num_kernels				Size of array pointed to by kernels specified as the number of cl_dev_kernel entries.
+			num_kernels				Size of array pointed to by kernels specified as the number of cl_dev_kernel entries. 
 		Output
 			kernels					The buffer where the kernel objects for kernels in program will be returned.
 			num_kernels_ret			The number of kernels in program. When num_kernels is equal to 0 and kernels is NULL,
 									returns only the number of kernels. If NULL the parameter is ignored.
 		Returns
 			CL_DEV_SUCCESS			The function is executed successfully.
-			CL_DEV_INVALID_PROGRAM	If program is not valid program object.
+			CL_DEV_INVALID_PROGRAM	If program is not valid program object. 
 			CL_DEV_INVALID_VALUE	If num_kernels is not enough to store the identifiers or kernels is NULL and num_kernels is not 0.
 	*/
-	virtual cl_int (clDevGetProgramKernels)( cl_dev_program IN prog,
+	virtual cl_dev_err_code (clDevGetProgramKernels)( cl_dev_program IN prog,
 											 cl_uint IN num_kernels,
 											 cl_dev_kernel* OUT kernels,
 											 size_t* OUT num_kernels_ret
@@ -1014,7 +1012,7 @@ public:
 							CL_DEV_SUCCESS	The function is executed successfully.
 							CL_DEV_INVALID_OPERATION	Device doesn't supports logging operations.
 	*/
-	virtual cl_int (clDevSetLogger)(IOCLDevLogDescriptor* IN pLogger) = 0;
+	virtual cl_dev_err_code (clDevSetLogger)(IOCLDevLogDescriptor* IN pLogger) = 0;
 
 	/* clDevGetTimeCounter
 		Description
@@ -1097,7 +1095,6 @@ public:
 									 const wchar_t* IN function_name,
 									 cl_int IN line_num,
 									 const wchar_t* IN message, ...) = 0;
-	
 	virtual cl_int (clLogAddLine)( cl_int IN client_id,
 									 cl_int IN log_level,
 									 const char* IN source_file,

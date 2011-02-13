@@ -60,40 +60,40 @@ protected:
 
 public:
 	CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
-	cl_int	Init();
+	cl_dev_err_code	Init();
 
-	static cl_int   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
+	static cl_dev_err_code   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
 	// Device entry points
-	cl_int clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-	cl_int clDevFlushCommandList( cl_dev_cmd_list IN list);
-	cl_int clDevRetainCommandList( cl_dev_cmd_list IN list);
-	cl_int clDevReleaseCommandList( cl_dev_cmd_list IN list );
-	cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-	cl_int clDevCommandListWaitCompletion(cl_dev_cmd_list IN list);
-	cl_int clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+	cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+	cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);
+	cl_dev_err_code clDevRetainCommandList( cl_dev_cmd_list IN list);
+	cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
+	cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+	cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list);
+	cl_dev_err_code clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 					cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
-	cl_int clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+	cl_dev_err_code clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 							cl_uint	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
 							cl_dev_host_ptr_flags IN host_flags, cl_dev_mem* OUT memObj);
-	cl_int clDevDeleteMemoryObject( cl_dev_mem IN memObj );
-	cl_int clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams);
-	cl_int clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
-	cl_int clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
-	cl_int clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
-	cl_int clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData);
-	cl_int clDevReleaseProgram( cl_dev_program IN prog );
-	cl_int clDevUnloadCompiler();
-	cl_int clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet );
-	cl_int clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
-	cl_int clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
+	cl_dev_err_code clDevDeleteMemoryObject( cl_dev_mem IN memObj );
+	cl_dev_err_code clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams);
+	cl_dev_err_code clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
+	cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
+	cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData);
+	cl_dev_err_code clDevReleaseProgram( cl_dev_program IN prog );
+	cl_dev_err_code clDevUnloadCompiler();
+	cl_dev_err_code clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet );
+	cl_dev_err_code clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT size_ret);
+	cl_dev_err_code clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
 	cl_dev_err_code clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
-	cl_int clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
+	cl_dev_err_code clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
 							 size_t* OUT numKernelsRet );
 	cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 						void* OUT value, size_t* OUT valueSizeRet );
 	cl_ulong	clDevGetPerformanceCounter();
-	cl_int		clDevSetLogger(IOCLDevLogDescriptor *);
+	cl_dev_err_code	clDevSetLogger(IOCLDevLogDescriptor *);
 	void		clDevCloseDevice(void);
 };
 

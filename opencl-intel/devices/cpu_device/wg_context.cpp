@@ -64,7 +64,7 @@ WGContext::~WGContext()
 
 }
 
-int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, size_t* pBuffSizes, size_t count)
+cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, size_t* pBuffSizes, size_t count)
 {
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
@@ -104,7 +104,7 @@ int WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, 
 
 	pBuffPtr[count] = m_pPrivateMem;
 
-	int rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
+	cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
 	if (CL_DEV_FAILED(rc))
 	{
 		return CL_DEV_ERROR_FAIL;

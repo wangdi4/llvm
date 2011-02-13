@@ -52,7 +52,7 @@ void dll_fini(void)
 /************************************************************************************************************************
    clDevGetDeviceInfo
 **************************************************************************************************************************/
-cl_int clDevGetDeviceInfo(  cl_device_info  param, 
+cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param, 
                             size_t          valSize, 
                             void*           paramVal,
 				            size_t*         paramValSizeRet

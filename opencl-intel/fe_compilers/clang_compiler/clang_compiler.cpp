@@ -62,7 +62,7 @@ extern "C" DLL_EXPORT	int	clFEBuildProgram(FEBuildProgramDesc* pDesc)
 
 	ITask* pTask = new CompileTask(pDesc);
 	if ( NULL == pTask )
-		return CL_DEV_OUT_OF_MEMORY;
+		return (int) CL_DEV_OUT_OF_MEMORY;
 
 	GetTaskExecutor()->Execute(pTask);
 	LOG_INFO(TEXT("%S"), TEXT("Exit"));

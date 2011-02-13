@@ -210,9 +210,9 @@ COND_RESULT OclCondition::Wait(IMutex* mutexObj)
 
 	assert(0 && "AdirD Not implemented in Linux");
 
+    COND_RESULT res = COND_RESULT_OK;
 #if defined(WIN32)
 
-    COND_RESULT res = COND_RESULT_OK;
     if(NULL == mutexObj)
     {
         return COND_RESULT_FAIL;
@@ -239,8 +239,8 @@ COND_RESULT OclCondition::Wait(IMutex* mutexObj)
     }
     // Acquire the Mutex
     mutexObj->Lock();
-    return res;
 #endif
+    return res;
 }
 
 /************************************************************************
@@ -261,6 +261,8 @@ COND_RESULT OclCondition::Signal()
     }
     return COND_RESULT_OK;
 
+#else
+    return COND_RESULT_OK;
 #endif
 }
 
@@ -282,6 +284,8 @@ COND_RESULT OclCondition::Broadcast()
     }
     return COND_RESULT_OK;
 
+#else
+    return COND_RESULT_OK;
 #endif
 }
 

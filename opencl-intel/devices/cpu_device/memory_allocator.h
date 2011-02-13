@@ -55,30 +55,30 @@ public:
 	virtual ~MemoryAllocator();
 
 	//Image Info Function
-	cl_int GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+	cl_dev_err_code GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
 	// Create/Release functions
-	cl_int	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+	cl_dev_err_code	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 							cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
 							cl_dev_host_ptr_flags host_flags,
 							cl_dev_mem* OUT memObj );
-	cl_int	ReleaseObject( cl_dev_mem IN memObj );
+	cl_dev_err_code	ReleaseObject( cl_dev_mem IN memObj );
 
 	// Checks that given object is valid object and belongs to memory allocator
-	cl_int	ValidateObject( cl_dev_mem IN memObj );
+	cl_dev_err_code	ValidateObject( cl_dev_mem IN memObj );
 
 	// Lock/Unlock functions
 	// This function retrieves a pointer to data inside the object
-	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
+	cl_dev_err_code	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
 							void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
 	// This function retrieves a pointer to object descriptor
-	cl_int	LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc);
+	cl_dev_err_code	LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc);
 	// This function unlocks both locks
-	cl_int	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
+	cl_dev_err_code	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
 
 	// Mapped region functions
-	cl_int	CreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams );
-	cl_int	ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
+	cl_dev_err_code	CreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams );
+	cl_dev_err_code	ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
 
 	// Utility functions
 	static void CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
@@ -97,7 +97,7 @@ protected:
 	void*	AllocateMem(cl_uint	dim_count, const size_t* dim, size_t* pitch);
 	size_t  ElementSize(const cl_image_format* format);
 
-	cl_int CalculateOffsetPointer(const SMemObjectDescriptor* pObjDesc, void* pBasePtr,
+	cl_dev_err_code CalculateOffsetPointer(const SMemObjectDescriptor* pObjDesc, void* pBasePtr,
 								   cl_uint dim_count, const size_t* IN origin,
 									void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
 

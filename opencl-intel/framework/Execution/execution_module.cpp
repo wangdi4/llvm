@@ -2334,6 +2334,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 	return  errVal;
 #else
 	assert (0 && "NOT Implemented on Linux");
+        return CL_OUT_OF_HOST_MEMORY;
 #endif
 }
 

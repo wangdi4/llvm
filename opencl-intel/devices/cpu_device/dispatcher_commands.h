@@ -44,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 class TaskDispatcher;
 
-typedef cl_int fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+typedef cl_dev_err_code fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 // Base class for handling dispatcher command execution
 // All Commands will be implement this interface
@@ -69,7 +69,7 @@ protected:
 class ReadWriteMemObject : public DispatcherCommand, public ITask
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	// ITask interface
 	void	Execute();
@@ -77,17 +77,17 @@ public:
 
 protected:
 	ReadWriteMemObject(TaskDispatcher* pTD);
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
 //OCL Copy Mem Obj Command
 class CopyMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	// DispatcherCommand interface
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITask interface
 	void	Execute();
@@ -101,10 +101,10 @@ protected:
 class NativeFunction : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	// DispatcherCommand interface
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITask interface
 	void	Execute();
@@ -120,10 +120,10 @@ protected:
 class MapMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	// DispatcherCommand interface
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITask interface
 	void	Execute();
@@ -137,10 +137,10 @@ protected:
 class UnmapMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	// DispatcherCommand interface
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITask interface
 	void	Execute();
@@ -154,13 +154,13 @@ protected:
 class NDRange : public DispatcherCommand, public ITaskSet
 {
 public:
-	static cl_int Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 	static unsigned int RGBTable[COLOR_TABLE_SIZE];
 	static AtomicCounter RGBTableCounter;
 
 	// DispatcherCommand interface
-	cl_int	CheckCommandParams(cl_dev_cmd_desc* cmd);
+	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITaskSet interface
 	int		Init(size_t region[], unsigned int &regCount);

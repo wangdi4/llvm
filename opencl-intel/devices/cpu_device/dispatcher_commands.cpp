@@ -90,7 +90,7 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
-cl_int ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD);
 	if (NULL == pCommand)
@@ -98,7 +98,7 @@ cl_int ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, IT
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -119,7 +119,7 @@ ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD) :
 {
 }
 
-cl_int ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if ( (CL_DEV_CMD_READ != cmd->type) && (CL_DEV_CMD_WRITE != cmd->type) )
 	{
@@ -133,7 +133,7 @@ cl_int ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw*)(cmd->params);
 
-	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
+	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
@@ -166,7 +166,7 @@ void ReadWriteMemObject::Execute()
 	// Lock memory object
 	// cmdParams->memobj_pitch for Buffers already has valid values, either zero or non-zero for BufferRect calls.
 	// cmdParams->memobj_pitch for Non-Buffers is being updated inside with correct values.
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, cmdParams->memobj_pitch, &uiElementSize);
+	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, cmdParams->memobj_pitch, &uiElementSize);
 
 	if ( CL_DEV_FAILED(ret) )
 	{
@@ -284,7 +284,7 @@ void ReadWriteMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Copy memory object execution
-cl_int CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	CopyMemObject* pCommand = new CopyMemObject(pTD);
 	if (NULL == pCommand)
@@ -292,7 +292,7 @@ cl_int CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBa
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -313,7 +313,7 @@ CopyMemObject::CopyMemObject(TaskDispatcher* pTD) :
 {
 }
 
-cl_int CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if(CL_DEV_CMD_COPY != cmd->type)
 	{
@@ -327,7 +327,7 @@ cl_int CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	cl_dev_cmd_param_copy *cmdParams = (cl_dev_cmd_param_copy*)(cmd->params);
 
-	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->dstMemObj);
+	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->dstMemObj);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
@@ -348,7 +348,7 @@ void CopyMemObject::Execute()
 	SMemCpyParams			sCpyParam;
 
 	size_t  uiSrcElementSize, uiDstElementSize;
-	cl_int ret;
+	cl_dev_err_code ret;
 
 	// Lock src memory object
 	ret = m_pMemAlloc->LockObject(cmdParams->srcMemObj, cmdParams->src_dim_count, cmdParams->src_origin,
@@ -489,7 +489,7 @@ void CopyMemObject::Execute()
 			TEXT("Can't unlock destination memory object, rc=%x"), ret);
 	}
 #endif
-	ret |= m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, sCpyParam.pSrc);
+	ret = m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, sCpyParam.pSrc);
 #ifdef _DEBUG
 	if ( CL_DEV_FAILED(ret) )
 	{
@@ -506,7 +506,7 @@ void CopyMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Native function execution
-cl_int NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	NativeFunction* pCommand = new NativeFunction(pTD);
 	if (NULL == pCommand)
@@ -514,7 +514,7 @@ cl_int NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskB
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -549,7 +549,7 @@ NativeFunction::NativeFunction(TaskDispatcher* pTD) :
 {
 }
 
-cl_int	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if ( CL_DEV_CMD_EXEC_NATIVE != cmd->type )
 	{
@@ -573,7 +573,7 @@ cl_int	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	{
 		cl_dev_mem memObj = *((cl_dev_mem*)(cmdParams->mem_loc[i]));
 
-		cl_int ret = m_pMemAlloc->ValidateObject(memObj);
+		cl_dev_err_code ret = m_pMemAlloc->ValidateObject(memObj);
 		if ( CL_DEV_FAILED(ret) )
 		{
 			return ret;
@@ -588,7 +588,7 @@ void NativeFunction::Execute()
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)m_pCmd->params;
 
 	// Lock Memory objects handles
-	cl_int ret = CL_DEV_SUCCESS;
+	cl_dev_err_code ret = CL_DEV_SUCCESS;
 	for(unsigned int i=0; (i<cmdParams->mem_num) && CL_DEV_SUCCEEDED(ret); ++i )
 	{
 		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
@@ -623,7 +623,7 @@ void NativeFunction::Execute()
 		// defined private ret value
 		if ( NULL != *pMemPtr )
 		{
-			cl_int ret = m_pMemAlloc->UnLockObject(memObj, *pMemPtr);
+			cl_dev_err_code ret = m_pMemAlloc->UnLockObject(memObj, *pMemPtr);
 			if ( CL_DEV_FAILED(ret) )
 			{
 				CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Can't unlock memory object, rc=%x"), ret);
@@ -642,7 +642,7 @@ void NativeFunction::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Map buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_int MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	MapMemObject* pCommand = new MapMemObject(pTD);
 	if (NULL == pCommand)
@@ -650,7 +650,7 @@ cl_int MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBas
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -671,7 +671,7 @@ MapMemObject::MapMemObject(TaskDispatcher* pTD) :
 {
 }
 
-cl_int MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if (CL_DEV_CMD_MAP != cmd->type)
 	{
@@ -685,7 +685,7 @@ cl_int MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
 
-	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
+	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
@@ -702,7 +702,7 @@ void MapMemObject::Execute()
 	size_t  uiElementSize;
 
 	// Lock memory object
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
+	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
 		(void**)&sCpyParam.pSrc, sCpyParam.vSrcPitch, &uiElementSize);
 	if ( CL_DEV_FAILED(ret) )
 	{
@@ -777,7 +777,7 @@ void MapMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Unmap buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_int UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	UnmapMemObject* pCommand = new UnmapMemObject(pTD);
 	if (NULL == pCommand)
@@ -785,7 +785,7 @@ cl_int UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskB
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -806,7 +806,7 @@ UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD) :
 {
 }
 
-cl_int UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if (CL_DEV_CMD_UNMAP != cmd->type)
 	{
@@ -820,7 +820,7 @@ cl_int UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
 
-	cl_int ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
+	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
@@ -837,7 +837,7 @@ void UnmapMemObject::Execute()
 	size_t  uiElementSize;
 
 	// Lock memory object
-	cl_int ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
+	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
 		(void**)&sCpyParam.pDst, sCpyParam.vDstPitch, &uiElementSize);
 	if ( CL_DEV_FAILED(ret) )
 	{
@@ -891,7 +891,7 @@ void UnmapMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Kernel execution
 
-cl_int NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
 	NDRange* pCommand = new NDRange(pTD);
 	if (NULL == pCommand)
@@ -899,7 +899,7 @@ cl_int NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *p
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 #ifdef _DEBUG
-	cl_int rc;
+	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
 	if( CL_DEV_FAILED(rc))
 	{
@@ -944,7 +944,7 @@ void NDRange::Release()
 	delete this;
 }
 
-cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
+cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 {
 	if ( (CL_DEV_CMD_EXEC_KERNEL != cmd->type) && (CL_DEV_CMD_EXEC_TASK != cmd->type) )
 	{
@@ -979,7 +979,7 @@ cl_int NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		{
 			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
 			// Is valid memory object
-			cl_int clRet = m_pMemAlloc->ValidateObject(memObj);
+			cl_dev_err_code clRet = m_pMemAlloc->ValidateObject(memObj);
 			if ( CL_DEV_FAILED(clRet) )
 			{
 				return clRet;
@@ -1151,7 +1151,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	}
 
 	// Create an "Binary" for these parameters
-	cl_int clRet = pKernel->CreateBinary(m_pLockedParams, cmdParams->arg_size,
+	cl_dev_err_code clRet = pKernel->CreateBinary(m_pLockedParams, cmdParams->arg_size,
 								cmdParams->work_dim, cmdParams->glb_wrk_offs,
 								cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size,
 								&m_pBinary);
@@ -1247,7 +1247,7 @@ void NDRange::UnlockMemoryBuffers()
 			if ( ((cl_uint)-1 != memObj->allocId) && (NULL != (m_pLockedParams+stOffset)) )
 			{
 				// UnLock memory object / Get pointer
-				cl_int clRet = m_pMemAlloc->UnLockObject(memObj,(void*)(m_pLockedParams+stOffset));
+				cl_dev_err_code clRet = m_pMemAlloc->UnLockObject(memObj,(void*)(m_pLockedParams+stOffset));
 				if ( CL_DEV_FAILED(clRet) )
 				{
 					CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Can't unlock memory object"));

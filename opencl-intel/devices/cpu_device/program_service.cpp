@@ -104,7 +104,7 @@ ProgramService::~ProgramService()
 		CL_DEV_INVALID_VALUE	If bin_size is 0 or bin is NULL.
 		CL_DEV_INVALID_BINARY	If the binary is not supported by the device or program container content is invalid.
 ********************************************************************************************************************/
-cl_int ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
+cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
 	const cl_prog_container_header*	pProgCont = (cl_prog_container_header*)bin;
 
@@ -168,7 +168,7 @@ clDevCreateProgram
 		CL_DEV_INVALID_BINARY			If the back-end compiler failed to process binary.
 		CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program
 ***********************************************************************************************************************/
-cl_int ProgramService::CreateProgram( size_t IN binSize,
+cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 								   const void* IN bin,
 								   cl_dev_binary_prop IN prop,
 								   cl_dev_program* OUT prog
@@ -193,7 +193,7 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 	// check for rightness
 	if(prop == CL_DEV_BINARY_USER)
 	{
-		cl_int rc = CheckProgramBinary(binSize, bin);
+		cl_dev_err_code rc = CheckProgramBinary(binSize, bin);
 		if ( CL_DEV_FAILED(rc) )
 		{
 			CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Check program binary failed"));
@@ -212,7 +212,7 @@ cl_int ProgramService::CreateProgram( size_t IN binSize,
 	pEntry->pProgram = NULL;
 	pEntry->clBuildStatus = CL_BUILD_NONE;
 
-	cl_int ret;
+	cl_dev_err_code ret;
 	switch(pProgCont->description.bin_type)
 	{
 // Deprecated
@@ -297,7 +297,7 @@ public:
 	{
 		CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 
-		cl_int ret = m_pProgEntry->pProgram->BuildProgram((const char*)m_pOptions);
+		cl_dev_err_code ret = m_pProgEntry->pProgram->BuildProgram((const char*)m_pOptions);
 
 		CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
 
@@ -321,7 +321,7 @@ protected:
 };
 }}}
 
-cl_int ProgramService::BuildProgram( cl_dev_program OUT prog,
+cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 									const char* IN options,
 								    void* IN userData
 								   )
@@ -401,7 +401,7 @@ clDevReleaseProgram
 		CL_DEV_SUCCESS					The function is executed successfully.
 		CL_DEV_INVALID_PROGRAM			Invalid program object was specified.
 ********************************************************************************************************************/
-cl_int ProgramService::ReleaseProgram( cl_dev_program IN prog )
+cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseProgram enter"));
 
@@ -440,7 +440,7 @@ clDevUnloadCompiler
 	Returns
 		CL_DEV_SUCCESS	The function is executed successfully.
 ********************************************************************************************************************/
-cl_int ProgramService::UnloadCompiler()
+cl_dev_err_code ProgramService::UnloadCompiler()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("UnloadCompiler enter"));
 	return CL_DEV_SUCCESS;
@@ -461,7 +461,7 @@ clDevGetProgramBinary
 		CL_DEV_INVALID_PROGRAM	If program is not valid program object.
 		CL_DEV_INVALID_VALUE	If size is not enough to store the binary or binary is NULL and size is not 0.
 ********************************************************************************************************************/
-cl_int ProgramService::GetProgramBinary( cl_dev_program IN prog,
+cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 										size_t IN size,
 										void* OUT binary,
 										size_t* OUT sizeRet
@@ -501,12 +501,12 @@ cl_int ProgramService::GetProgramBinary( cl_dev_program IN prog,
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	cl_int ret = 0;
+	cl_dev_err_code ret = CL_DEV_SUCCESS;
 	ret = pProg->GetContainer(&stSize, (cl_prog_container_header*)binary);
 	return ret;
 }
 
-cl_int ProgramService::GetBuildLog( cl_dev_program IN prog,
+cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 								  size_t IN size,
 								  char* OUT log,
 								  size_t* OUT sizeRet
@@ -546,7 +546,7 @@ cl_int ProgramService::GetBuildLog( cl_dev_program IN prog,
 		return CL_DEV_INVALID_VALUE;
 	}
 
-	cl_int ret = pProg->GetBuildLog(&stLogSize, log);
+	cl_dev_err_code ret = pProg->GetBuildLog(&stLogSize, log);
 	if ( CL_DEV_FAILED(ret) )
 	{
 		return ret;
@@ -575,7 +575,7 @@ cl_int ProgramService::GetBuildLog( cl_dev_program IN prog,
 		CL_DEV_INVALID_PROGRAM	If program is not valid program object.
 		CL_DEV_INVALID_VALUE	If count is not enough to store the binary or types is NULL and count is not 0.
 ***************************************************************************************************************/
-cl_int ProgramService::GetSupportedBinaries( size_t IN size,
+cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
 									   cl_prog_binary_desc* OUT types,
 									   size_t* OUT sizeRet
 									   )
@@ -666,7 +666,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 	return CL_DEV_SUCCESS;
 }
 
-cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
+cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
 						 size_t* OUT numKernelsRet )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramKernels enter"));
@@ -691,7 +691,7 @@ cl_int ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num
 	}
 
 	unsigned int	uiNumProgKernels;
-	cl_int			iRet;
+	cl_dev_err_code			iRet;
 
 	iRet = pEntry->pProgram->GetAllKernels(NULL, &uiNumProgKernels);
 	if ( CL_DEV_FAILED(iRet) )

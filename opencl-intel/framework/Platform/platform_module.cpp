@@ -710,4 +710,5 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 #else
 	assert(0 && "GL NOT Implemented on Linux");
 #endif
+       return CL_SUCCESS;
 }

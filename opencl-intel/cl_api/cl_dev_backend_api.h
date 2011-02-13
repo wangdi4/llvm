@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//    4. we need to make sure we allocate all of the resources based on the return values of the build program API (OUT_OF_MEMORY)
 		//    5. Texture sampler format is known only at runtime (setArgs)
 		//
-		virtual cl_int	BuildProgram( const char IN *pOptions ) = 0;
+		virtual cl_dev_err_code	BuildProgram( const char IN *pOptions ) = 0;
 
 		// Get the program build log
 		// Input
@@ -94,14 +94,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		pLog  - A pointer to the a null terminated string containing the build log
 		// Returns
 		//      CL_DEV_SUCCESS				- upon success
-		virtual cl_int GetBuildLog(size_t INOUT *pSize, char* OUT pLog) const = 0;
+		virtual cl_dev_err_code GetBuildLog(size_t INOUT *pSize, char* OUT pLog) const = 0;
 
 		// get a container of the program 
 		// Input
 		//		pDescriptor - A pointer to valid program binary descriptor that is requested
 		// Returns
 		//		Returns a pointer to the internally stored container, if this descriptor does not exists returns NULL
-		virtual cl_int GetContainer( size_t INOUT *pSize, cl_prog_container_header* OUT pContainer  ) const = 0;
+		virtual cl_dev_err_code GetContainer( size_t INOUT *pSize, cl_prog_container_header* OUT pContainer  ) const = 0;
 
 		// Retrieves a pointer to a kernel object by kernel name
 		// Input
@@ -121,7 +121,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Returns
 		//		CL_DEV_SUCCESS		- if vector successfully was retrieved
 		//		CL_DEV_ERROR_FAIL	- if provided buffer is not enough or one of the parameters is invalid
-		virtual cl_int	GetAllKernels(const ICLDevBackendKernel** IN pKernels, cl_uint* INOUT puiRetCount) const = 0;
+		virtual cl_dev_err_code	GetAllKernels(const ICLDevBackendKernel** IN pKernels, cl_uint* INOUT puiRetCount) const = 0;
 
 		// Releases program instance
 		virtual void	Release() = 0;
@@ -156,7 +156,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//			... more need to fill that (TBD)
 		// Notes:
 		//	    In Dasher this will cause final specialization of the code based on the state.
-		virtual cl_int CreateBinary(void* IN pArgsBuffer, 
+		virtual cl_dev_err_code CreateBinary(void* IN pArgsBuffer, 
 			size_t IN BufferSize, 
 			cl_uint IN WorkDimension,		
 			const size_t* IN pGlobalWorkOffeset, 
@@ -165,7 +165,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			ICLDevBackendBinary** OUT pBinary) const = 0;
 
 		// return a pointer to the Kernel Arguments
-		virtual cl_int GetKernelParams( const cl_kernel_argument* OUT *pArgsBuffer, cl_uint* OUT ArgCount ) const = 0;
+		virtual cl_dev_err_code GetKernelParams( const cl_kernel_argument* OUT *pArgsBuffer, cl_uint* OUT ArgCount ) const = 0;
 
 		// Returns a pointer to the kernel name
 		virtual const char*	GetKernelName() const = 0;
@@ -206,7 +206,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		CL_DEV_SUCCESS - the execution completed successfully
 		//		CL_DEV_ERROR_FAIL - the execution failed
 		//
-		virtual cl_uint Execute( void* IN pMemoryBuffers, 
+		virtual cl_dev_err_code Execute( void* IN pMemoryBuffers, 
 			const size_t* IN pBufferCount, 
 			const size_t* IN pGlobalId, 
 			const size_t* IN pLocalId, 
@@ -220,7 +220,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Returns
 		//		CL_DEV_BE_SUCCESS - the execution completed successfully
 		//
-		virtual cl_uint GetMemoryBuffersDescriptions(size_t* IN pBuffersSizes, 
+		virtual cl_dev_err_code GetMemoryBuffersDescriptions(size_t* IN pBuffersSizes, 
 			cl_exec_mem_type* IN pBuffersTypes, 
 			size_t* INOUT pBufferCount ) const = 0;
 
@@ -228,7 +228,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		virtual const size_t* GetWorkGroupSize() const = 0;
 
 		// Create execution context that will be used by specific execution threads
-		virtual cl_uint CreateExecutable(void* IN *pMemoryBuffers, 
+		virtual cl_dev_err_code CreateExecutable(void* IN *pMemoryBuffers, 
 			size_t IN stBufferCount, ICLDevBackendExecutable* OUT *pContext) = 0;
 
 		// Returns the kernel object which generated this executable
@@ -246,10 +246,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	public:
 		// Prepares current thread for the executable execution
 		// For example set the required FP flags
-		virtual cl_uint PrepareThread() = 0;
+		virtual cl_dev_err_code PrepareThread() = 0;
 		
 		// Restores Thread state as it was before the execution
-		virtual cl_uint RestoreThreadState() = 0;
+		virtual cl_dev_err_code RestoreThreadState() = 0;
 
 		// Executes the context on a specific thread
 		// Input
@@ -260,7 +260,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		//		CL_DEV_SUCCESS - the execution completed successfully
 		//		CL_DEV_ERROR_FAIL - the execution failed
 		//
-		virtual cl_uint Execute(const size_t* IN pGroupId,
+		virtual cl_dev_err_code Execute(const size_t* IN pGroupId,
 			const size_t* IN pLocalOffset, 
 			const size_t* IN pItemsToProcess) = 0;
 

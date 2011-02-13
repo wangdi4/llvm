@@ -39,7 +39,7 @@ public:
 	WGContext();
 	virtual ~WGContext();
 
-	int						CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
+	cl_dev_err_code		CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
 	cl_dev_cmd_id			GetCmdId() const {return m_cmdId;}
 	inline ICLDevBackendExecutable*	GetExecutable() const {return m_pContext;}
 

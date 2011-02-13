@@ -51,12 +51,12 @@ public:
 		ProgramService	*programService, MemoryAllocator *memAlloc,
 		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
 	virtual ~TaskDispatcher();
-	cl_int createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-	cl_int retainCommandList( cl_dev_cmd_list IN list);
-	cl_int releaseCommandList( cl_dev_cmd_list IN list );
-	cl_int flushCommandList( cl_dev_cmd_list IN list);
-	cl_int commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-	cl_int commandListWaitCompletion(cl_dev_cmd_list IN list);
+	cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+	cl_dev_err_code retainCommandList( cl_dev_cmd_list IN list);
+	cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
+	cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
+	cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+	cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
 
 protected:
 	cl_int							m_iDevId;
@@ -77,7 +77,7 @@ protected:
 	// Internal implementation of functions
 	fnDispatcherCommandCreate_t*		m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
-	cl_int	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
+	cl_dev_err_code	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
 	void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
 
@@ -96,7 +96,7 @@ protected:
 		const cl_dev_cmd_desc*	m_pCmd;
 		cl_int					m_retCode;
 	};
-	cl_int NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+	cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
 };
 
 }}}

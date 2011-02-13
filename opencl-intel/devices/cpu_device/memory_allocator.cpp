@@ -86,7 +86,7 @@ MemoryAllocator::~MemoryAllocator()
 }
 
 // Checks that given object is valid object and belongs to memory allocator
-cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
+cl_dev_err_code	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ValidateObject enter"));
 
@@ -119,7 +119,7 @@ cl_int	MemoryAllocator::ValidateObject( cl_dev_mem IN memObj )
 		CL_DEV_SUCCESS			The function is executed successfully.
 		CL_DEV_INVALID_VALUE	If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
 ********************************************************************************************************************/
-cl_int MemoryAllocator::GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
 	//image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
@@ -236,7 +236,7 @@ size_t MemoryAllocator::ElementSize(const cl_image_format* format)
 }
 
 
-cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
+cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
 									 cl_uint dim_count, const size_t* dim,
 									 void*	buffer_ptr, const size_t* pitch, cl_dev_host_ptr_flags host_flags,
 									 cl_dev_mem* OUT memObj )
@@ -422,13 +422,13 @@ cl_int MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const cl_image_
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
+cl_dev_err_code MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseObject enter"));
 
 	if ( (NULL == memObj) || (m_iDevId != memObj->allocId) )
 	{
-		return CL_INVALID_MEM_OBJECT;
+		return CL_DEV_INVALID_MEM_OBJECT;
 	}
 
 	TMemObjectsMap::iterator it;
@@ -467,7 +467,7 @@ cl_int MemoryAllocator::ReleaseObject( cl_dev_mem IN memObj )
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, const size_t* IN origin,
+cl_dev_err_code MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, const size_t* IN origin,
 							void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize)
 {
 	OclAutoMutex lock(&m_muObjectMap, false);	// no auto lock
@@ -510,7 +510,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 	}
 #endif
 
-	cl_int rc = CalculateOffsetPointer(pObjDesc, pObjDesc->objDecr.pData, dim_count, origin, ptr, pitch, uiElementSize);
+	cl_dev_err_code rc = CalculateOffsetPointer(pObjDesc, pObjDesc->objDecr.pData, dim_count, origin, ptr, pitch, uiElementSize);
 	if ( CL_DEV_FAILED(rc) )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to calculate offset, id: %d, rc=%x"),
@@ -525,7 +525,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_uint dim_count, con
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc)
+cl_dev_err_code MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc)
 {
 	OclAutoMutex lock(&m_muObjectMap, false);	// no auto lock
 
@@ -566,7 +566,7 @@ cl_int MemoryAllocator::LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor*
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
+cl_dev_err_code MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 {
 	OclAutoMutex lock(&m_muObjectMap, false);	// no auto lock
 
@@ -609,7 +609,7 @@ cl_int MemoryAllocator::UnLockObject(cl_dev_mem IN pMemObj, void* IN ptr)
 	return CL_DEV_SUCCESS;
 }
 
-cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParams)
+cl_dev_err_code MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParams)
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateMappedRegion enter"));
 
@@ -639,12 +639,12 @@ cl_int MemoryAllocator::CreateMappedRegion(cl_dev_cmd_param_map* INOUT pMapParam
 	// Determine which pointer to use
 	pMapPtr = pObjDesc->clHostPtrFlags & CL_DEV_HOST_PTR_MAPPED_REGION ? pObjDesc->pHostPtr : pObjDesc->objDecr.pData;
 
-	cl_int ret = CalculateOffsetPointer(pObjDesc, pMapPtr, pMapParams->dim_count, pMapParams->origin, &(pMapParams->ptr), pMapParams->pitch, NULL);
+	cl_dev_err_code ret = CalculateOffsetPointer(pObjDesc, pMapPtr, pMapParams->dim_count, pMapParams->origin, &(pMapParams->ptr), pMapParams->pitch, NULL);
 
 	return ret;
 }
 
-cl_int MemoryAllocator::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
+cl_dev_err_code MemoryAllocator::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
 	return CL_DEV_SUCCESS;
@@ -675,7 +675,7 @@ void MemoryAllocator::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private functions
-cl_int MemoryAllocator::CalculateOffsetPointer(const SMemObjectDescriptor* pObjDesc, void* pBasePtr,
+cl_dev_err_code MemoryAllocator::CalculateOffsetPointer(const SMemObjectDescriptor* pObjDesc, void* pBasePtr,
 											   cl_uint dim_count, const size_t* IN origin,
 												void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize)
 {

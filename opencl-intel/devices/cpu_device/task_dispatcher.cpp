@@ -116,7 +116,7 @@ createCommandList
 		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
-cl_int TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
+cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 	assert( list );
@@ -144,7 +144,7 @@ retainCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 *******************************************************************************************************************/
-cl_int TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
 {
 	CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Not supported List:%X"), list);
 	return CL_DEV_INVALID_OPERATION;		// Not support retain list
@@ -163,7 +163,7 @@ releaseCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 ********************************************************************************************************************/
-cl_int TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
+cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
@@ -185,7 +185,7 @@ flushCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 *******************************************************************************************************************/
-cl_int TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 	// No need in lock
@@ -194,7 +194,7 @@ cl_int TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
 	return CL_DEV_SUCCESS;
 }
 
-cl_int TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
@@ -242,7 +242,7 @@ commandListExecute
 		CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
 										values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 ********************************************************************************************************************/
-cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
+cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"), list);
 
@@ -257,7 +257,7 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 	}
 
 	// Lock current list for insert operations
-	cl_int ret;
+	cl_dev_err_code ret;
 
 	ret = SubmitTaskArray(pList, cmds, count);
 	// If in place created list, release it
@@ -273,7 +273,7 @@ cl_int TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_d
 
 //---------------------------------------------------------------------------
 // Private functions
-cl_int TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
+cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
 {
 	CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
 		pCmd->id, pCmd->type, iRetCode);
@@ -289,7 +289,7 @@ cl_int TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl
 	return CL_DEV_SUCCESS;
 }
 
-cl_int TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count)
+cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count)
 {
 	for (unsigned int i=0; i<count; ++i)
 	{
@@ -298,7 +298,7 @@ cl_int TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds,
 
 		// Create appropriate command
 		ITaskBase* pCommand;
-		cl_int	rc = fnCreate(this, cmds[i], &pCommand);
+		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
 			pList->Enqueue(static_cast<ITaskBase*>(pCommand));
