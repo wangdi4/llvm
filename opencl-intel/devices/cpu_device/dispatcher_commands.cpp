@@ -384,7 +384,7 @@ void CopyMemObject::Execute()
 #ifdef _DEBUG_PRINT
 		printf("--> CopyMemObject(fail,3), cmdid:%d(%d)\n", m_pCmd->id, ret);
 #endif
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_INVALID_COMMAND_PARAM);
+		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
 		return;
 	}
 
@@ -1173,7 +1173,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
 	if ( NULL == m_pMemBuffSizes )
 	{
-		m_lastError = CL_DEV_OUT_OF_MEMORY;
+		m_lastError = (cl_int)CL_DEV_OUT_OF_MEMORY;
 		return -1;
 	}
 	m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, NULL, &m_MemBuffCount);
@@ -1297,7 +1297,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 	WGContext* pCtx = GetWGContext(uiWorkerId);
 	if ( NULL == pCtx )
 	{
-		return CL_DEV_ERROR_FAIL;
+		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
 
 	else if (m_pCmd->id == pCtx->GetCmdId() )

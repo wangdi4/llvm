@@ -341,5 +341,5 @@ void TaskDispatcher::TaskFailureNotification::Execute()
 		timer = HostTime();
 	}
 
-	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, CL_DEV_ERROR_FAIL, timer);
+	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)CL_DEV_ERROR_FAIL, timer);
 }
