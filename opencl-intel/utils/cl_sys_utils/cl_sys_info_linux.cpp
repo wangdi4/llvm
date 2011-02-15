@@ -36,26 +36,30 @@ using namespace Intel::OpenCL::Utils;
 #include <assert.h>
 #include <unistd.h>
 
+#include <sys/resource.h> 
+#include <sys/sysinfo.h>
+
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
-	ifstream ifs("/proc/self/stat", ifstream::in);
-	if (ifs == NULL)
+
+	unsigned long long vsize = 0;
+	rlimit tLimitStruct;
+	if (getrlimit(RLIMIT_AS, &tLimitStruct) != 0)
 	{
-		return -1;
+		return 0;
 	}
-	int pid, ppid, pgrp, session, tty_nr, tpgid;
-	char state;
-	string comm;
-	unsigned long int flags, minflt, cminflt, majflt, cmajflt, utime, stime, starttime, vsize;
-	long int cutime, cstime, priority, nice, o, itrealvalue;
+	unsigned long long totalVirtual = tLimitStruct.rlim_cur;
 
-	ifs >> pid >> comm >> state >> ppid >> pgrp >> session >> tty_nr >> tpgid
-	    >> flags >> minflt >> cminflt >> majflt >> cmajflt >> utime >> stime
-	    >> cutime >> cstime >> priority >> nice >> o >> itrealvalue >> starttime
-	    >> vsize;
+	struct sysinfo tSysInfoStruct;
+	if (sysinfo(&tSysInfoStruct) != 0)
+	{
+		return 0;
+	}
+	unsigned long long totalPhys = tSysInfoStruct.totalram;
 
+	vsize = min(totalPhys, totalVirtual);
 	return vsize;
 }
 

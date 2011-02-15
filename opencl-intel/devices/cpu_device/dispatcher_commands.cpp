@@ -1396,10 +1396,11 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 #ifdef _DEBUG
 	const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+	size_t tDimArr[3] = {x, y, z};
 	for (unsigned int i=0; i<cmdParams->work_dim;++i)
 	{
 		unsigned int val = (unsigned int)((cmdParams->glb_wrk_size[i])/(pWGSize[i]));
-		assert((&x)[i]<val);
+		assert(tDimArr[i]<val);
 	}
 #endif
 

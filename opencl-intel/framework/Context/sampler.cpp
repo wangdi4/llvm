@@ -129,7 +129,7 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 		return CL_INVALID_VALUE;
 	}
 	size_t szSize = 0;
-	cl_context clContext = 0;
+	volatile cl_context clContext = 0;
 	void * pValue = NULL;
 	
 	cl_err_code clErrRet = CL_SUCCESS;
@@ -155,7 +155,7 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 	case CL_SAMPLER_CONTEXT:
 		szSize = sizeof(cl_context);
 		clContext = m_pContext->GetHandle();
-		pValue = &clContext;
+		pValue = (void*)&clContext;
 		break;
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);

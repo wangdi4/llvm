@@ -365,7 +365,6 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const 
 	}
 
 	for (size_t i = 0; i < dim_count; i++) {
-		assert(dim[i] <= CL_MAX_UINT32);
 		pMemObjDesc->objDecr.dim[i] = (unsigned int)dim[i];
 	}
 
