@@ -60,45 +60,6 @@ using namespace Intel::OpenCL::Utils;
 #define VECTOR_RESERVE 16
 #endif
 
-//tbb::enumerable_thread_specific<unsigned int>              t_uiWorkerId;
-//tbb::enumerable_thread_specific<tbb::task_scheduler_init*> t_pScheduler;
-
-tbb::enumerable_thread_specific<unsigned int>& t_uiWorkerId()
-{
-	static tbb::enumerable_thread_specific<unsigned int> uiWorkerIdAns;
-	return uiWorkerIdAns;
-}
-
-tbb::enumerable_thread_specific<tbb::task_scheduler_init*>& t_pScheduler()
-{
-	static tbb::enumerable_thread_specific<tbb::task_scheduler_init*> pSchedulerAns;
-	return pSchedulerAns;
-}
-
-static unsigned int GetWorkerID()
-{
-	bool alreadyHad = false;
-	unsigned int ret = t_uiWorkerId().local(alreadyHad);
-	return alreadyHad ? ret : INVALID_WORKER_ID;
-}
-static void SetWorkerID(unsigned int id)
-{
-	t_uiWorkerId().local() = id;
-}
-static tbb::task_scheduler_init* GetScheduler()
-{
-	bool alreadyHad = false;
-	tbb::task_scheduler_init* ret = t_pScheduler().local(alreadyHad);
-	return alreadyHad ? ret : NULL;
-}
-static void SetScheduler(tbb::task_scheduler_init* init)
-{
-	t_pScheduler().local() = init;
-}
-static bool IsWorkerScheduler()
-{
-	return (INVALID_SCHEDULER_ID == (cl_ulong)GetScheduler());
-}
 //The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
 //The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
 //When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
@@ -120,24 +81,72 @@ tbb::atomic<long>		g_alMasterIdCheck;
 // Logger
 DECLARE_LOGGER_CLIENT;
 
-static void InitSchedulerForMasterThread()
-{
-	tbb::task_scheduler_init* pScheduler = GetScheduler();
-	if ( (NULL == pScheduler) && (!IsWorkerScheduler()) )
-	{
-		//t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);	
-		SetScheduler(new tbb::task_scheduler_init(gWorker_threads + 1));
-	}
-}
-
 //Implementation of the interface to be notified on thread addition/removal from the working thread pool
 class ThreadIDAssigner : public tbb::task_scheduler_observer
 {
+private:
+	static tbb::enumerable_thread_specific<unsigned int>              *t_uiWorkerId;
+	static tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *t_pScheduler;
+
 public:
 	bool m_bUseTaskalyzer;
 
-	ThreadIDAssigner() : tbb::task_scheduler_observer() {}
-	~ThreadIDAssigner() {}
+	ThreadIDAssigner() : tbb::task_scheduler_observer()
+	{
+		assert(NULL == t_uiWorkerId);
+		assert(NULL == t_pScheduler);
+
+		if (NULL == t_uiWorkerId)
+		{
+			t_uiWorkerId = new tbb::enumerable_thread_specific<unsigned int>;
+		}
+
+		if (NULL == t_pScheduler)
+		{
+			t_pScheduler = new tbb::enumerable_thread_specific<tbb::task_scheduler_init*>;
+		}
+	}
+
+	~ThreadIDAssigner()
+	{
+		if (NULL != t_uiWorkerId)
+		{
+			delete t_uiWorkerId;
+			t_uiWorkerId = NULL;
+		}
+
+		if (NULL != t_pScheduler)
+		{
+			delete t_pScheduler;
+			t_pScheduler = NULL;
+		}
+	}
+
+	static unsigned int GetWorkerID()
+	{
+		bool alreadyHad = false;
+		unsigned int ret = t_uiWorkerId->local(alreadyHad);
+		return alreadyHad ? ret : INVALID_WORKER_ID;
+	}
+	static void SetWorkerID(unsigned int id)
+	{
+		t_uiWorkerId->local() = id;
+	}
+
+	static tbb::task_scheduler_init* GetScheduler()
+	{
+		bool alreadyHad = false;
+		tbb::task_scheduler_init* ret = t_pScheduler->local(alreadyHad);
+		return alreadyHad ? ret : NULL;
+	}
+	static void SetScheduler(tbb::task_scheduler_init* init)
+	{
+		t_pScheduler->local() = init;
+	}
+	static bool IsWorkerScheduler()
+	{
+		return (INVALID_SCHEDULER_ID == (cl_ulong)GetScheduler());
+	}
 
 	void SetUseTaskalyzer(bool bUseTaskalyzer)
 	{
@@ -202,7 +211,21 @@ public:
 };
 
 //A singleton copy of the observer class
+// The implementation base on the fact that 'gThreadPoolChangeObserver' is static and single.
+tbb::enumerable_thread_specific<unsigned int>              *ThreadIDAssigner::t_uiWorkerId = NULL;
+tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *ThreadIDAssigner::t_pScheduler = NULL;
 static ThreadIDAssigner gThreadPoolChangeObserver;
+
+static void InitSchedulerForMasterThread()
+{
+	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+	if ( (NULL == pScheduler) && (!ThreadIDAssigner::IsWorkerScheduler()) )
+	{
+		//t_pScheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
+		ThreadIDAssigner::SetScheduler(new tbb::task_scheduler_init(gWorker_threads + 1));
+	}
+}
+
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -411,7 +434,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
-			uiWorkerId = GetWorkerID();
+			uiWorkerId = ThreadIDAssigner::GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -443,7 +466,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
-			uiWorkerId = GetWorkerID();
+			uiWorkerId = ThreadIDAssigner::GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -474,7 +497,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void operator()(const tbb::blocked_range<int>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
-			uiWorkerId = GetWorkerID();
+			uiWorkerId = ThreadIDAssigner::GetWorkerID();
 #ifdef _DEBUG
 			if ( 0 == uiWorkerId )
 			{
@@ -950,7 +973,7 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
 	g_uiShedulerInx = TlsAlloc();
 #endif
 
-	SetScheduler(NULL);
+	ThreadIDAssigner::SetScheduler(NULL);
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
@@ -1048,7 +1071,7 @@ bool TBBTaskExecutor::WaitForCompletion()
 void TBBTaskExecutor::Close(bool bCancel)
 {
 	// Worker threads should never get here
-	assert(!IsWorkerScheduler());
+	assert(!ThreadIDAssigner::IsWorkerScheduler());
 
 	unsigned long ulNewVal = --m_lRefCount;
 
@@ -1075,15 +1098,15 @@ void TBBTaskExecutor::Close(bool bCancel)
 void TBBTaskExecutor::ReleasePerThreadData()
 {
 	// TBB was not initialized within calling thread or its TBB worker thread.
-	tbb::task_scheduler_init* pScheduler = GetScheduler();
-	if ( IsWorkerScheduler())
+	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+	if ( ThreadIDAssigner::IsWorkerScheduler())
 	{
 		return;
 	}
 	if (NULL != pScheduler)
 	{
 		delete pScheduler;
-		SetScheduler(NULL);
+		ThreadIDAssigner::SetScheduler(NULL);
 	}
 }
 
