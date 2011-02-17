@@ -214,7 +214,7 @@ public:
 // The implementation base on the fact that 'gThreadPoolChangeObserver' is static and single.
 tbb::enumerable_thread_specific<unsigned int>              *ThreadIDAssigner::t_uiWorkerId = NULL;
 tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *ThreadIDAssigner::t_pScheduler = NULL;
-static ThreadIDAssigner gThreadPoolChangeObserver;
+//static ThreadIDAssigner* gThreadPoolChangeObserver = NULL;
 
 static void InitSchedulerForMasterThread()
 {
@@ -963,6 +963,8 @@ void unordered_command_list::LaunchExecutorTask()
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
 {
+	m_threadPoolChangeObserver = new ThreadIDAssigner;
+
 	g_alMasterRunning = false;
 #ifdef _DEBUG
 	g_alMasterIdCheck = false;
@@ -982,6 +984,11 @@ TBBTaskExecutor::~TBBTaskExecutor()
 	TlsFree(g_uiWorkerIdInx);
 	TlsFree(g_uiShedulerInx);
 #endif
+	if (m_threadPoolChangeObserver != NULL)
+	{
+		delete m_threadPoolChangeObserver;
+		m_threadPoolChangeObserver = NULL;
+	}
 }
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
@@ -1024,9 +1031,9 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 		LOG_DEBUG("sTBB_executor was initialized to %0x", sTBB_executor);
 	}
 
-	gThreadPoolChangeObserver.observe();
+	m_threadPoolChangeObserver->observe();
 	// Set TAL usage flag 
-	gThreadPoolChangeObserver.SetUseTaskalyzer(bUseTaskalyzer);
+	m_threadPoolChangeObserver->SetUseTaskalyzer(bUseTaskalyzer);
 	m_bUseTaskalyzer = bUseTaskalyzer;
 	
 	LOG_INFO(TEXT("%s"),"Done");
@@ -1090,7 +1097,7 @@ void TBBTaskExecutor::Close(bool bCancel)
 	m_scheduler->terminate();
 	delete m_scheduler;
 	m_scheduler = NULL;
-	gThreadPoolChangeObserver.observe(false);
+	m_threadPoolChangeObserver->observe(false);
 	LOG_INFO(TEXT("%s"),"Done");
 	RELEASE_LOGGER_CLIENT;
 }

@@ -31,6 +31,8 @@
 
 #include "cl_synch_objects.h"
 
+class ThreadIDAssigner;
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	class TBBTaskExecutor : public ITaskExecutor
@@ -56,6 +58,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		// This exists independently of the per-application-thread scheduler objects t_pScheduler
 		// And is only destroyed when the task scheduler is closed by FrameworkProxy
 		tbb::task_scheduler_init*            m_scheduler;
+	private:
+		ThreadIDAssigner* m_threadPoolChangeObserver;
 	};
 
 }}}
