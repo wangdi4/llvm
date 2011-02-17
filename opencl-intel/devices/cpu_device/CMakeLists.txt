@@ -21,14 +21,8 @@ FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 
-if (CMAKE_SIZEOF_VOID_P MATCHES "8")
-	set(arch_tal_dir x64)
-else (CMAKE_SIZEOF_VOID_P MATCHES "8")
-	set(arch_tal_dir x86)
-endif (CMAKE_SIZEOF_VOID_P MATCHES "8")
-
 link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-                  ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/lib/${arch_tal_dir} 
+                  ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} 
 				  ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/llvm_external/ocl_cpu_backend
 				  ${OCL_INSTALL_DIR}
 				  )
@@ -36,7 +30,7 @@ link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SY
 
 if (WIN32)
      add_definitions( -D_WINDOWS )
-     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tal_dr${IMPLIB_SUFFIX} ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
+     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tal_s${IMPLIB_SUFFIX} ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
 else ()
      add_definitions( -D_LINUX )
 	 list(APPEND LINK_LIBS OclCpuBackEnd ) #${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
