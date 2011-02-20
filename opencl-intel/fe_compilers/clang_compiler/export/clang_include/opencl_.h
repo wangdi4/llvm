@@ -7161,8 +7161,8 @@ double16 	__attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong16
 #define CLK_ADDRESS_NONE				0 
 #define CLK_ADDRESS_CLAMP				(1 << __ADDRESS_BASE)
 #define CLK_ADDRESS_CLAMP_TO_EDGE		(2 << __ADDRESS_BASE)
-#define CLK_ADDRESS_CLAMP_REPEAT		(3 << __ADDRESS_BASE)
-#define CLK_ADDRESS_CLAMP_MIRRORED_REPEAT	(4 << __ADDRESS_BASE)
+#define CLK_ADDRESS_REPEAT			(3 << __ADDRESS_BASE)
+#define CLK_ADDRESS_MIRRORED_REPEAT		(4 << __ADDRESS_BASE)
 
 #define __NORMALIZED_BASE				3
 #define CLK_NORMALIZED_COORDS_FALSE			0
