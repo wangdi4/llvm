@@ -58,13 +58,13 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	size_t outputValueSize = 0;
 	cl_int eventStatus;
 	cl_command_type cmd_type;
-	cl_command_queue cmd_queue;
+	volatile cl_command_queue cmd_queue;
 
 	switch (iParamName)
 	{
 	case CL_EVENT_COMMAND_QUEUE:
 		cmd_queue = (cl_command_queue)0;
-		localParamValue = &cmd_queue;
+		localParamValue = (void*)(&cmd_queue);
 		outputValueSize = sizeof(cl_command_queue);
 		break;
 	case CL_EVENT_COMMAND_TYPE:
