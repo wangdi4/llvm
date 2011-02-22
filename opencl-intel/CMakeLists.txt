@@ -74,8 +74,8 @@ set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR}
 
 # END OF set OS-dependent source tree elements
 
-link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-		  ${OCL_SOURCE_DIR}/externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+#link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+#		  ${OCL_SOURCE_DIR}/externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}	)
 
 SET_UNICODE_ON()
 

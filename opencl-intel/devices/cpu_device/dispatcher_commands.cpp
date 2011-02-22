@@ -1106,7 +1106,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
 			// Lock memory object / Get pointer
 			// Fill in the local parameters buffer the virtual pointer of the buffer
-			m_lastError = m_pMemAlloc->LockObject(memObj, -1, NULL, (void**)(m_pLockedParams+stOffset), NULL, NULL);
+			m_lastError = m_pMemAlloc->LockObject(memObj, (cl_mem_obj_descriptor**)(m_pLockedParams+stOffset));
 			if ( CL_DEV_FAILED(m_lastError) )
 			{
 				break;

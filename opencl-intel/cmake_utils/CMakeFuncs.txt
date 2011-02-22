@@ -1,3 +1,4 @@
+set (__MAKEFUNCS_INCLUDED__ 1)
 # Usage
 #     COPY_FILES_POST_BUILD_EX( target SRC_DIR OUT_DIR <list-of-files> )
 #

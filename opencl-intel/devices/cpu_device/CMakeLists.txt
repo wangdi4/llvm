@@ -12,7 +12,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 include_directories( BEFORE ../../externals/llvm_wrap/include
-                            ../../externals/llvm_wrap/llvm_external/llvm/include
+                            ../../externals/llvm_wrap/llvm28/llvm/include
                             ${HW_UTILS_HEADERS} )
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
@@ -21,28 +21,31 @@ FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-                  ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} 
-				  ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/llvm_external/ocl_cpu_backend
-				  ${OCL_INSTALL_DIR}
-				  )
-
+link_directories( 	${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
+					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} 
+					${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+				  	${OCL_INSTALL_DIR}
+				)
+if(WIN32)
+link_directories(
+					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM28_BUILD/lib/${INSTALL_SUBDIR}
+				)
+endif(WIN32)
 
 if (WIN32)
      add_definitions( -D_WINDOWS )
      list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tal_s${IMPLIB_SUFFIX} ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
 else ()
-     add_definitions( -D_LINUX )
-	 list(APPEND LINK_LIBS OclCpuBackEnd ) #${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
-    message( WARNING " ERROR-in-CPU-device: Task Analizer DLLs for Linux are not ready yet" )
+	add_definitions( -D_LINUX )
+	list(APPEND LINK_LIBS ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX} )
+ 	message( WARNING " ERROR-in-CPU-device: Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
-
-
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-add_dependencies( ${TARGET_NAME} OclCpuBackEnd )
+add_dependencies( ${TARGET_NAME} LLVM_copy_tools )
 
 
 COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )

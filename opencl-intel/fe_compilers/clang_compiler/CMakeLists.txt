@@ -42,6 +42,8 @@ else (WIN32)
 	set(RESOURCCES )
 endif(WIN32)
 
+link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+
 # add a target named ${TARGET_NAME}
 add_clang_library( ${TARGET_NAME}
 		${RESOURCCES}
