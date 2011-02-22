@@ -9,6 +9,9 @@ set( TARGET_NAME task_executor )
 
 include_directories( BEFORE . )
 
+link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+)
+
 add_definitions( -DTASK_EXECUTOR_EXPORTS -D__TBB_EXECUTOR__ -D_USRDLL )
 SET_UNICODE_OFF()
 

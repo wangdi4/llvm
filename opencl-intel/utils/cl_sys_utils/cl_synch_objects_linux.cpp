@@ -137,8 +137,8 @@ void OclSpinMutex::Unlock()
 		lMutex.exchange(0);
 		return;
 	}
-	long val = --lMutex;
-	assert(val > 0);
+	--lMutex;
+	assert(lMutex > 0);
 }
 
 /************************************************************************
