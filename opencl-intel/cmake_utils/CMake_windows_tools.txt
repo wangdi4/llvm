@@ -5,6 +5,13 @@ else (BUILD_X64)
     set(BIN_OUTPUT_DIR_SUFFIX win32)
 endif (BUILD_X64)
 
+# TAL libraries directory suffix
+if (BUILD_X64)    
+    set(TAL_LIB_DIR_SUFFIX x64)
+else (BUILD_X64)    
+    set(TAL_LIB_DIR_SUFFIX x86)
+endif (BUILD_X64)
+
 # C Compiler
 if (DEFINED INTEL_COMPILER)
     set( CMAKE_C_COMPILER "icl" )

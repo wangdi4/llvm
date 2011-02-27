@@ -23,7 +23,7 @@ CALCULATE_TARGET_SOURCES()
 
 link_directories( 	${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} 
+					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/lib/${TAL_LIB_DIR_SUFFIX} 
 					${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 				  	${OCL_INSTALL_DIR}
 				)
@@ -35,7 +35,7 @@ endif(WIN32)
 
 if (WIN32)
      add_definitions( -D_WINDOWS )
-     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tal_s${IMPLIB_SUFFIX} ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
+     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
 else ()
 	add_definitions( -D_LINUX )
 	list(APPEND LINK_LIBS ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX} )
