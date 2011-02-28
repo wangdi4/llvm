@@ -51,16 +51,16 @@ const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformI
 const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.1 WINDOWS";
 const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
 
-const char PlatformModule::m_vPlatformNameStr[] = "Intel OpenCL";
+const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #else
 const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.1 LINUX";
 const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
 
-const char PlatformModule::m_vPlatformNameStr[] = "OPENCL_INTEL_LINUX";
+const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #endif
-const char PlatformModule::m_vPlatformVendorStr[] = "Intel Corporation";
+const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
 const char PlatformModule::m_vPlatformExtensionsStr[] = "cl_khr_icd";

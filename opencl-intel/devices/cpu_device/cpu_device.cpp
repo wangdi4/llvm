@@ -30,6 +30,8 @@
 #include "cl_sys_info.h"
 #include "cpu_dev_limits.h"
 #include "cl_sys_defines.h"
+#include "cl_cpu_detect.h"
+
 //#include <intrin.h>
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
@@ -180,13 +182,14 @@ const cl_image_format Intel::OpenCL::CPUDevice::suportedImageFormats[] = {
 #endif
 };
 
+#define CPU_DEVICE_NAME_SIZE	48
+
 const unsigned int Intel::OpenCL::CPUDevice::NUM_OF_SUPPORTED_IMAGE_FORMATS =
 sizeof(Intel::OpenCL::CPUDevice::suportedImageFormats)/sizeof(cl_image_format);
 
 using namespace Intel::OpenCL::CPUDevice;
 
-const char* Intel::OpenCL::CPUDevice::CPU_STRING = "GenuineIntel";
-const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel Corporation";
+const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 // Update also in clang_driver.cpp (Guy)
 #ifdef __DOUBLE_ENABLED__
@@ -988,7 +991,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 		}
 		case( CL_DEVICE_NAME):
 		{
-			*pinternalRetunedValueSize = strlen(CPU_STRING) + 1;
+			*pinternalRetunedValueSize = CPU_DEVICE_NAME_SIZE + 1;
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 			{
 				return CL_DEV_INVALID_VALUE;
@@ -996,7 +999,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
 			{
-		  		STRCPY_S((char*)paramVal, valSize, CPU_STRING);
+		  		STRCPY_S((char*)paramVal, valSize, CPUDetect::GetInstance()->GetCPUBrandString());
 			}
 
 			return CL_DEV_SUCCESS;
