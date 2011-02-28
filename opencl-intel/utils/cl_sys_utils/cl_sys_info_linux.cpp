@@ -65,10 +65,16 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
-	unsigned long long freq = 0;
+	static unsigned long long freq = 0;
 	int cpuInfo[4] = {-1};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
+
+	if ( freq )
+	{
+		return freq;
+	}
+
 	memset(buffer, 0, sizeof(cpuInfo)*3 + 1);
 	for (unsigned int i = 0x80000002; i <= 0x80000004; i++)
 	{
@@ -85,13 +91,13 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 		switch (buffer[buffLen-3])
 		{
 			case 'M':
-				mul = 1000000;
+				mul = 1;
 				break;
 			case 'G':
-				mul = 1000000000;
+				mul = 1000;
 				break;
 			case 'T':
-				mul = 1000000000000;
+				mul = 1000000;
 				break;
 		}
 
@@ -107,8 +113,8 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 		}
 
 	}
-
-	freq = (long long unsigned int)(freqDouble * mul);
+	// We return ClockFreq in MHz
+	freq = (unsigned long long)(freqDouble * mul);
 	return freq;
 }
 

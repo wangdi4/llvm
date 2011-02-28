@@ -47,18 +47,24 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
-	unsigned long long freq = 0;
-	int cpuInfo[4];
+	static unsigned long long freq = 0;
+	int cpuInfo[4] = {-1};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
+
+	if ( freq )
+	{
+		return freq;
+	}
+
 	memset(buffer, 0, sizeof(cpuInfo)*3 + 1);
-	for (int i = 0x80000002; i <= 0x80000004; i++)
+	for (unsigned int i = 0x80000002; i <= 0x80000004; i++)
 	{
 		__cpuid(cpuInfo, i);
 		memcpy(pBuffer, cpuInfo, sizeof(cpuInfo));
 		pBuffer = pBuffer + sizeof(cpuInfo);
 	}
-	
+
 	int buffLen = strlen(buffer);
 	long long mul = 0;
 	double freqDouble = 0;
@@ -66,17 +72,17 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 	{
 		switch (buffer[buffLen-3])
 		{
-			case 'M':
-				mul = 1000000;
-				break;
-			case 'G':
-				mul = 1000000000;
-				break;
-			case 'T':
-				mul = 1000000000000;
-				break;
+		case 'M':
+			mul = 1;
+			break;
+		case 'G':
+			mul = 1000;
+			break;
+		case 'T':
+			mul = 1000000;
+			break;
 		}
-		
+
 		int i = buffLen - 1;
 		while (i >= 0)
 		{
@@ -87,11 +93,11 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 			}
 			i--;
 		}
-		
+
 	}
 
 	// We return ClockFreq in MHz
-	freq = (unsigned long long)(freqDouble * (mul / 1000000));
+	freq = (unsigned long long)(freqDouble * mul);
 	return freq;
 }
 
@@ -171,7 +177,8 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 	HMODULE hModule = *((HMODULE*)modulePtr);
 	return GetModuleFileNameA(hModule, fileName, strLen-1);
 }
-///////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of logical processors in the current group.
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
