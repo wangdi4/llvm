@@ -170,7 +170,7 @@ void FileLogHandler::Log(LogMessage& logMessage)
     {
         // Lock
         OclAutoMutex CS(&m_CS);
-        if (!fprintf(m_fileHandler, formattedMsg) )
+        if (!fprintf(m_fileHandler, "%s", formattedMsg) )
         {
             wprintf(L"fwrite failed\n");
             assert(false);
@@ -275,7 +275,7 @@ void ConsoleLogHandler::Log(LogMessage& logMessage)
     {
         // Lock
         OclAutoMutex CS(&m_CS);
-        fprintf ( stdout, formattedMsg) ;
+        fprintf ( stdout, "%s", formattedMsg) ;
         Flush();
         // UnLock
     }
