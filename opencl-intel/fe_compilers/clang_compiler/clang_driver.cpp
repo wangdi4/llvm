@@ -371,6 +371,7 @@ void CompileTask::Execute()
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to create diagnostics"));
 		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
+		delete []argArray;
 		return;
 	}
 
@@ -397,6 +398,7 @@ void CompileTask::Execute()
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to create buffer"));
 		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
+		delete []argArray;
 		return;
 	}
 	// Copy sources to the new buffer
@@ -498,6 +500,7 @@ void CompileTask::Execute()
 		{
 			LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to allocate memory for buffer"));
 			m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
+			delete []argArray;
 			return;
 		}
 	}
@@ -537,6 +540,7 @@ void CompileTask::Execute()
 	}
 #endif
 	IRbinary.clear();
+	delete []argArray;
 
 	return;
 }
