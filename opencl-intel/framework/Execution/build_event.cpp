@@ -44,7 +44,7 @@ BuildEvent::~BuildEvent()
 
 void BuildEvent::SetComplete(cl_int returnCode)
 {
-	m_color = EVENT_STATE_BLACK;
 	m_returnCode = returnCode;
+	m_color = EVENT_STATE_BLACK;
 	OclEvent::NotifyComplete(returnCode);
 }
