@@ -13,11 +13,11 @@ if %ERRORLEVEL% NEQ 0 goto BUILDFAIL
 exit %ERRORLEVEL%
 
 :PERLNE
-echo ActivePerl v5.10.1 is not currently installed and it's required for msi's generations. Please install it from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools".
+echo ActivePerl v5.10.1 is not currently installed and it's required for msi's generations. Please install it from "\\ger\ec\proj\ha\ptl\MobileTV\Installations\ActivePerl" or from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools\ActivePerl".
 exit 1
 
 :WIXNE
-echo Directory "%ProgramFiles%\Windows Installer XML\bin" doesn't exist. Please install WIX v2.0 to it. Which can be obtained from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools\WIX Tools\Windows Installer XML".
+echo Directory "%ProgramFiles%\Windows Installer XML\bin" doesn't exist. Please install WIX v2.0 to it. Which can be obtained from "\\ger\ec\proj\ha\ptl\MobileTV\Installations\WIX Tools\Windows Installer XML" or from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools\WIX Tools\Windows Installer XML".
 exit 1
 
 :BSNE
