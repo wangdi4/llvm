@@ -36,7 +36,7 @@ set_source_files_properties(${EXTERNAL_HEADERS} PROPERTIES HEADER_FILE_ONLY ON)
 
 if (WIN32)
     set(DLLMAIN dllmain_win32.cpp)
-	set(RESOURCCES OpenCL.rc)
+	set(RESOURCCES OpenCL.rc clang_compiler.rc)
 else (WIN32)
     set(DLLMAIN dllmain_linux.cpp)
 	set(RESOURCCES )
