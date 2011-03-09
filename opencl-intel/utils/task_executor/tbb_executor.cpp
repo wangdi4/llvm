@@ -1018,7 +1018,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 
 	if (NULL == m_scheduler)
 	{
-		m_scheduler = new tbb::task_scheduler_init(gWorker_threads + 1);
+		m_scheduler = new tbb::task_scheduler_init(gWorker_threads + 1);		
 	}
 
 	if (NULL == sTBB_executor)
@@ -1036,7 +1036,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 	m_threadPoolChangeObserver->SetUseTaskalyzer(bUseTaskalyzer);
 	m_bUseTaskalyzer = bUseTaskalyzer;
 	
-	LOG_INFO(TEXT("%s"),"Done");
+	LOG_INFO(TEXT("%s"),"Done");	
 	return gWorker_threads + 1;
 }
 
@@ -1065,7 +1065,7 @@ ITaskList* TBBTaskExecutor::CreateTaskList(bool OOO)
 unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
 {
 	sTBB_executor->Enqueue(pTask);
-	sTBB_executor->Flush();
+	sTBB_executor->Flush();		
 	return 0;
 }
 
@@ -1087,16 +1087,20 @@ void TBBTaskExecutor::Close(bool bCancel)
 		LOG_INFO(TEXT("%s"),"Still alive");
 		return;
 	}
+
 	LOG_INFO(TEXT("%s"),"Shutting down...");
+	
+	
+	m_scheduler->terminate();
+	delete m_scheduler;
+	m_scheduler = NULL;
+
 	if ( NULL != sTBB_executor )
 	{
 		delete sTBB_executor;
 		sTBB_executor = NULL;
-	}
-
-	m_scheduler->terminate();
-	delete m_scheduler;
-	m_scheduler = NULL;
+	}	
+	
 	m_threadPoolChangeObserver->observe(false);
 	LOG_INFO(TEXT("%s"),"Done");
 	RELEASE_LOGGER_CLIENT;

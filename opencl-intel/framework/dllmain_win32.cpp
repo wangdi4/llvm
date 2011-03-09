@@ -38,12 +38,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-		if (NULL == lpReserved) //Detach due to FreeLibrary
-		{
-			// release the framework proxy object 
-			Intel::OpenCL::Framework::FrameworkProxy::Destroy();
-		}
-		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
+		// release the framework proxy object 
+		Intel::OpenCL::Framework::FrameworkProxy::Destroy();		
 		break;
 	}
 	return TRUE;

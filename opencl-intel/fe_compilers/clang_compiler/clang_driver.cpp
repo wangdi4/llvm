@@ -152,7 +152,9 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 		{
 			if(!strncmp(opt, "-g", 2))
 			{
-				list.push_back("-g");
+				//FIXIT: disabled it for now, it causes "UNREACHABLE EXECUTED" in some cases
+				//currently we don't need it, but later on we might want it for the debugger (Guy)
+				//list.push_back("-g");
 				OptDebugInfo = true;
 			}
 			else if(!strncmp(opt, "-w", 2))
