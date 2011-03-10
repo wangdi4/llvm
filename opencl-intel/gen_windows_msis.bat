@@ -8,7 +8,9 @@ cd "%ProgramFiles%\Windows Installer XML\bin"
 if %ERRORLEVEL% NEQ 0 goto WIXNE
 cd "%CUR_DIR%..\BuildSystem"
 if %ERRORLEVEL% NEQ 0 goto BSNE
-call build.bat -bt opencl11_create_msis -p -napz -c
+if "%1" EQU "debug" (
+call build.bat -bt opencl11_create_msis -p -napz -c -glp binaries_target[Debug]
+) else call build.bat -bt opencl11_create_msis -p -napz -c
 if %ERRORLEVEL% NEQ 0 goto BUILDFAIL
 exit %ERRORLEVEL%
 
