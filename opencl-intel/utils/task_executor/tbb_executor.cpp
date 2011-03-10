@@ -140,8 +140,8 @@ public:
 		return alreadyHad ? ret : NULL;
 	}
 	static void SetScheduler(tbb::task_scheduler_init* init)
-	{
-		t_pScheduler->local() = init;
+	{						
+		t_pScheduler->local() = init;		
 	}
 	static bool IsWorkerScheduler()
 	{
@@ -988,7 +988,7 @@ TBBTaskExecutor::~TBBTaskExecutor()
 	{
 		delete m_threadPoolChangeObserver;
 		m_threadPoolChangeObserver = NULL;
-	}
+	}		
 }
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
@@ -1089,14 +1089,13 @@ void TBBTaskExecutor::Close(bool bCancel)
 	}
 
 	LOG_INFO(TEXT("%s"),"Shutting down...");
-	
-	
-	m_scheduler->terminate();
-	delete m_scheduler;
-	m_scheduler = NULL;
+
+	m_scheduler->terminate();	
+	delete m_scheduler;	
+	m_scheduler = NULL;	
 
 	if ( NULL != sTBB_executor )
-	{
+	{		
 		delete sTBB_executor;
 		sTBB_executor = NULL;
 	}	
@@ -1114,7 +1113,7 @@ void TBBTaskExecutor::ReleasePerThreadData()
 	{
 		return;
 	}
-	if (NULL != pScheduler)
+	if ((NULL != pScheduler) && (INVALID_SCHEDULER_ID != (uintptr_t)pScheduler))
 	{
 		delete pScheduler;
 		ThreadIDAssigner::SetScheduler(NULL);

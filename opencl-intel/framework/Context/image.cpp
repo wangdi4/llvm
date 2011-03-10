@@ -346,7 +346,7 @@ cl_err_code Image2D::CheckImageFormat(cl_image_format * pclImageFormat, cl_mem_f
 		( (pclImageFormat->image_channel_data_type != CL_UNORM_SHORT_565) &&
 		  (pclImageFormat->image_channel_data_type != CL_UNORM_SHORT_555) &&
 		  (pclImageFormat->image_channel_data_type != CL_UNORM_INT_101010) ))
-	{
+	{		
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
 
@@ -383,16 +383,16 @@ cl_err_code Image2D::CheckImageFormat(cl_image_format * pclImageFormat, cl_mem_f
 
 		for (cl_uint ui=0; ui<uiImagesFormatsCount; ++ui)
 		{
-			if ( (pclImageFormat->image_channel_order == pclImageFormat[ui].image_channel_order) &&
-				(pclImageFormat->image_channel_data_type == pclImageFormat[ui].image_channel_data_type) )
+			if ( (pclImageFormat->image_channel_order == pclImageFormats[ui].image_channel_order) &&
+				(pclImageFormat->image_channel_data_type == pclImageFormats[ui].image_channel_data_type) )
 			{
 				delete[] pclImageFormats;
 				return CL_SUCCESS;
 			}
-		}
+		}		
 		delete[] pclImageFormats;
 	}
-
+	
 	return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 }
 size_t Image2D::GetPixelBytesCount(cl_image_format * pclImageFormat)

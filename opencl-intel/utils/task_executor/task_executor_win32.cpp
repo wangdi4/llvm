@@ -175,15 +175,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		break;
 	case DLL_THREAD_DETACH:
 #ifdef __TBB_EXECUTOR__
-		g_pTaskExecutor->ReleasePerThreadData();
+		g_pTaskExecutor->ReleasePerThreadData();		
 #endif
 		break;
 	case DLL_PROCESS_DETACH:
-		if (NULL == lpReserved) //Detach due to FreeLibrary
-		{
-			delete ((PTR_CAST*)g_pTaskExecutor);
-			g_pTaskExecutor = NULL;
-		}
+		delete ((PTR_CAST*)g_pTaskExecutor);
+		g_pTaskExecutor = NULL;				
 		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
 		return TRUE;
 	}
