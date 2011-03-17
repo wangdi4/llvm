@@ -29,11 +29,11 @@
 #pragma comment(lib, "task_executor.lib")
 #pragma comment(lib, "OclCpuBackEnd.lib")
 
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 #ifdef _DEBUG
-#pragma comment(lib, "tal_dd.lib")
+#pragma comment(lib, "gpasdk_dd_2008.lib")
 #else
-#pragma comment(lib, "tal_dr.lib")
+#pragma comment(lib, "gpasdk_dr_2008.lib")
 #endif
 #endif
 #pragma warning(push)

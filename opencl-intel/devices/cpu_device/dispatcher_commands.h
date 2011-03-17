@@ -32,8 +32,9 @@
 #include "task_executor.h"
 #include "wg_context.h"
 #include "cl_synch_objects.h"
-#if defined(USE_TASKALYZER)    
-	#include "tal\tal.h"
+#if defined(USE_GPA)    
+	//#include "tal\tal.h"
+	#include <ittnotify.h>
 #endif
 
 #define COLOR_TABLE_SIZE 64
@@ -185,9 +186,11 @@ protected:
 
 //	LARGE_INTEGER start, stop, freq;
 
-#if defined(USE_TASKALYZER)
-	TAL_STRING_HANDLE			m_talKernelNameHandle;
-	unsigned int				m_talRGBColor;
+#if defined(USE_GPA)
+	// This code was removed for the initial porting of TAL
+	// to GPA 4.0 and might be used in later stages
+//	TAL_STRING_HANDLE			m_talKernelNameHandle;
+//	unsigned int				m_talRGBColor;
 #endif
 #ifdef _DEBUG
 	// For debug

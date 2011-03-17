@@ -33,8 +33,9 @@
 #include "cl_dev_backend_api.h"
 #include "cl_sys_defines.h"
 
-#if defined(USE_TASKALYZER)
-	#include "tal\tal.h"
+#if defined(USE_GPA)
+	//#include "tal\tal.h"
+	#include <ittnotify.h>
 #endif
 
 #define getR(color) ((color >> 16) & 0xFF)
@@ -231,29 +232,36 @@ void ReadWriteMemObject::Execute()
 	}
 
 	// Execute copy routine
-#if defined(USE_TASKALYZER)
-	TAL_TRACE* trace;
+#if defined(USE_GPA)
+	__itt_domain* domain;
+	
 	if (m_bUseTaskalyzer)
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
+		static __itt_string_handle* pReadHandle = __itt_string_handle_create(L"Read");
+		static __itt_string_handle* pWriteHandle = __itt_string_handle_create(L"Write");
+		static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
+		static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
+		static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
+		static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
 
-		TAL_BeginNamedTask(trace, ( CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write" ));
-		TAL_SetNamedTaskColor (( CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write" ),255,0,0);
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
+		
+		__itt_task_begin(domain, __itt_null, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? pReadHandle : pWriteHandle ));
 
 		switch(cmdParams->dim_count)
 		{
 		case 1:
-			TAL_Parami(trace, "Size", sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			TAL_Parami(trace, "Width", cmdParams->region[0]);
-			TAL_Parami(trace, "Height", cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			TAL_Parami(trace, "Width", cmdParams->region[0]);
-			TAL_Parami(trace, "Height", cmdParams->region[1]);
-			TAL_Parami(trace, "Depth", cmdParams->region[2]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
 			break;
 		}
 	}
@@ -261,10 +269,10 @@ void ReadWriteMemObject::Execute()
 
 	MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
 
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 	if (m_bUseTaskalyzer)
 	{
-		TAL_EndTask(trace);
+		__itt_task_end(domain);
 	}
 #endif
 
@@ -443,30 +451,37 @@ void CopyMemObject::Execute()
 	sCpyParam.vRegion[0] *= uiSrcElementSize;
 
 	// Execute copy routine
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 
-	TAL_TRACE* trace;
+	__itt_domain* domain;
+
 	if (m_bUseTaskalyzer)
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
-
-		TAL_BeginNamedTask(trace, "Copy");
-		TAL_SetNamedTaskColor ("Copy",255,0,0);
+		static __itt_string_handle* pCopyHandle = __itt_string_handle_create(L"Copy");
+		static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
+		static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
+		static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
+		static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
+		
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
+				
+		__itt_task_begin(domain, __itt_null, __itt_null, pCopyHandle);
 
 		switch(cmdParams->src_dim_count)
 		{
 		case 1:
-			TAL_Parami(trace, "Size", sCpyParam.vRegion[0]);
+			
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			TAL_Parami(trace, "Width", cmdParams->region[0]);
-			TAL_Parami(trace, "Height", cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			TAL_Parami(trace, "Width", cmdParams->region[0]);
-			TAL_Parami(trace, "Height", cmdParams->region[1]);
-			TAL_Parami(trace, "Depth", cmdParams->region[2]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
 			break;
 		}
 	}
@@ -475,10 +490,10 @@ void CopyMemObject::Execute()
 	// Execute copy routine
 	MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
 
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 	if (m_bUseTaskalyzer)
 	{
-		TAL_EndTask(trace);
+		__itt_task_end(domain);
 	} 
 #endif
 	ret = m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, sCpyParam.pDst);
@@ -709,15 +724,17 @@ void MapMemObject::Execute()
 		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
 		return;
 	}
-#if defined(USE_TASKALYZER)
-	TAL_TRACE* trace;
+#if defined(USE_GPA)
+	__itt_domain* domain;
+
 	if (m_bUseTaskalyzer)
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
+		static __itt_string_handle* pMapHandle = __itt_string_handle_create(L"Map");
 
-		TAL_BeginNamedTask(trace, "Map");
-		TAL_SetNamedTaskColor ("Map",153,24,44);
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
+
+		__itt_task_begin(domain, __itt_null, __itt_null, pMapHandle);
 	}
 #endif
 
@@ -733,23 +750,28 @@ void MapMemObject::Execute()
 		sCpyParam.pDst = (cl_char*)cmdParams->ptr;
 		memcpy(sCpyParam.vDstPitch, cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
 
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 		// In case of data copy during Map, add size/dimention parameters to the task
 		if (m_bUseTaskalyzer)
 		{
+			static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
+			static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
+			static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
+			static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
+			
 			switch(cmdParams->dim_count)
 			{
-			case 1:
-				TAL_Parami(trace, "Size", sCpyParam.vRegion[0]);
+			case 1:		
+				__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
 				break;
 			case 2:
-				TAL_Parami(trace, "Width", cmdParams->region[0]);
-				TAL_Parami(trace, "Height", cmdParams->region[1]);
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
 				break;
 			case 3:
-				TAL_Parami(trace, "Width", cmdParams->region[0]);
-				TAL_Parami(trace, "Height", cmdParams->region[1]);
-				TAL_Parami(trace, "Depth", cmdParams->region[2]);
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
 				break;
 			}
 		}
@@ -758,10 +780,10 @@ void MapMemObject::Execute()
 		MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
 	}
 
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 	if (m_bUseTaskalyzer)
 	{
-		TAL_EndTask(trace);
+		__itt_task_end(domain);
 	} 
 #endif
 	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, sCpyParam.pSrc);
@@ -858,23 +880,25 @@ void UnmapMemObject::Execute()
 		sCpyParam.pSrc = (cl_char*)cmdParams->ptr;
 		memcpy(sCpyParam.vSrcPitch, cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
 
-#if defined(USE_TASKALYZER)
-		TAL_TRACE* trace;
+#if defined(USE_GPA)
+
+		__itt_domain* domain;
 		if (m_bUseTaskalyzer)
 		{
-			trace = TAL_GetThreadTrace();
-			assert(NULL != trace);
+			static __itt_string_handle* pUnmapHandle = __itt_string_handle_create(L"Unmap");
+			
+			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			assert(NULL != domain);
 
-			TAL_BeginNamedTask(trace, "Unmap");
-			TAL_SetNamedTaskColor ("Unmap",153,24,44);
+			__itt_task_begin(domain, __itt_null, __itt_null, pUnmapHandle);
 		}
 #endif
 		// Execute copy command
 		MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 		if (m_bUseTaskalyzer)
 		{
-			TAL_EndTask(trace);
+			__itt_task_end(domain);
 		}
 #endif
 	}
@@ -916,8 +940,9 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITas
 
 NDRange::NDRange(TaskDispatcher* pTD) :
 DispatcherCommand(pTD), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
-#ifdef USE_TASKALYZER
-m_talKernelNameHandle(NULL),
+#if defined(USE_GPA)
+//canceled
+//m_talKernelNameHandle(NULL),
 #endif
 m_pMemBuffSizes(NULL)
 {
@@ -1161,12 +1186,14 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 		return -1;
 	}
 
-#if defined(USE_TASKALYZER)
-	if (m_bUseTaskalyzer)
-	{
-		m_talKernelNameHandle = TAL_GetStringHandle(m_pBinary->GetKernel()->GetKernelName());
-		m_talRGBColor = RGBTable[(RGBTableCounter++) % COLOR_TABLE_SIZE];
-	}
+#if defined(USE_GPA)
+	// This code was removed for the initial porting of TAL
+	// to GPA 4.0 and might be used in later stages
+//	if (m_bUseTaskalyzer)
+//	{
+//		m_talKernelNameHandle = TAL_GetStringHandle(m_pBinary->GetKernel()->GetKernelName());
+//		m_talRGBColor = RGBTable[(RGBTableCounter++) % COLOR_TABLE_SIZE];
+//	}
 #endif
 	// Update buffer parameters
 	m_pBinary->GetMemoryBuffersDescriptions(NULL, NULL, &m_MemBuffCount);
@@ -1305,25 +1332,32 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		pCtx->GetExecutable()->PrepareThread();
 
 		// Start execution task
-#if defined(USE_TASKALYZER)
-		TAL_TRACE* trace;
+#if defined(USE_GPA)
+		__itt_domain* domain;
+		
 		if (m_bUseTaskalyzer)
 		{
-			trace = TAL_GetThreadTrace();
-			assert(NULL != trace);
+			static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
+			static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
+
+			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			assert(NULL != domain);
 
 			unsigned int uiWorkGroupSize = 1;
 			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-			TAL_BeginNamedTaskH(trace, m_talKernelNameHandle);
-			TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
+			
+			__itt_string_handle* pshCtor = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
+			__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
+			// This coloring will be enabled in the future
+			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
 			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
 			{
 				uiWorkGroupSize *= pWGSize[i];
 			}
-			TAL_Parami(trace, "Work Group Size", uiWorkGroupSize);
-			TAL_Parami(trace, "Number of Work Groups", uiNumberOfWorkGroups);
 			
+			__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_u32 , 1, &uiWorkGroupSize);  
+			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);			
 		}
 #endif
 #ifdef _DEBUG
@@ -1340,25 +1374,33 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 	-- m_lAttaching;
 #endif
 	// Start execution task
-#if defined(USE_TASKALYZER)
-	TAL_TRACE* trace;
+#if defined(USE_GPA)
+	__itt_domain* domain;
+	
 	if (m_bUseTaskalyzer)
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
+		static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
+		static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
+
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
 
 		unsigned int uiWorkGroupSize = 1;
 		const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-		TAL_BeginNamedTaskH(trace, m_talKernelNameHandle);
-		TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
+		
+		__itt_string_handle* pshCtor = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
+		__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
+		// This coloring will be enabled in the future
+		//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
+		
 		for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
 		{
 			uiWorkGroupSize *= pWGSize[i];
 		}
-		TAL_Parami(trace, "Work Group Size", uiWorkGroupSize);
-		TAL_Parami(trace, "Number of Work Groups", uiNumberOfWorkGroups);
-		
+
+		__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_s32 , 1, &uiWorkGroupSize);  
+		__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_s32 , 1, &uiNumberOfWorkGroups);
 	}
 #endif
 
@@ -1368,14 +1410,15 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 int NDRange::DetachFromThread(unsigned int uiWorkerId)
 {
 	// End execution task
-#if defined(USE_TASKALYZER)
-	TAL_TRACE* trace;
+#if defined(USE_GPA)
+	__itt_domain* domain;
+
 	if (m_bUseTaskalyzer)
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
 
-		TAL_EndTask(trace);
+		__itt_task_end(domain);
 	}
 #endif
 	return GetWGContext(uiWorkerId)->GetExecutable()->RestoreThreadState();

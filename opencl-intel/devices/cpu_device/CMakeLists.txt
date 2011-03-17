@@ -14,6 +14,12 @@ endif (NOT WIN32)
 include_directories( BEFORE ../../externals/llvm_wrap/include
                             ../../externals/llvm_wrap/llvm28/llvm/include
                             ${HW_UTILS_HEADERS} )
+							
+if(WIN32)
+include_directories(
+						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include 
+				    )
+endif(WIN32)
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
@@ -23,18 +29,18 @@ CALCULATE_TARGET_SOURCES()
 
 link_directories( 	${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/lib/${TAL_LIB_DIR_SUFFIX} 
 					${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 				  	${OCL_INSTALL_DIR}
 				)
 if(WIN32)
 link_directories(
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM28_BUILD/lib/${INSTALL_SUBDIR}
+					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
 				)
 endif(WIN32)
 
 if (WIN32)
-     add_definitions( -D_WINDOWS )
+     add_definitions( -D_WINDOWS -DUSE_GPA )
      list(APPEND LINK_LIBS ${IMPLIB_PREFIX}OclCpuBackEnd${IMPLIB_SUFFIX})
 else ()
 	add_definitions( -D_LINUX )
