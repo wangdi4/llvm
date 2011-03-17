@@ -9,11 +9,24 @@ include_directories ( BEFORE
             Context
             Execution
     )
-
+	
 add_subdirectory( icd )
+add_subdirectory( Platform )
+
+if(WIN32)
+	include_directories(
+						${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/include 
+				    )
+	link_directories(
+					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
+				)
+							
+    add_definitions( -DUSE_GPA )
+endif(WIN32)
+
+# these sub-directories must be added here in order to recieve the GPA definitions
 add_subdirectory( Context )
 add_subdirectory( Execution )
-add_subdirectory( Platform )
 
 if (WIN32)
     add_subdirectory( gl_sharing )
@@ -49,6 +62,8 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
                   ${IMPORT_LIB} )
 
 link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+
+
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})

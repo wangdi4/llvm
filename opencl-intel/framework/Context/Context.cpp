@@ -38,8 +38,9 @@
 #include "context_module.h"
 
 
-#if defined(USE_TASKALYZER)    
-	#include "tal\tal.h"
+#if defined(USE_GPA)    
+	//#include "tal\tal.h"
+	#include <ittnotify.h>
 #endif
 // for debug...???
 #include <limits.h>
@@ -152,17 +153,20 @@ void Context::Cleanup( bool bTerminate )
     cl_uint uiNumDevices = m_pDevices->Count();
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
 		// Before the thread is closed, we need to flush the
 		// trace data into file in order not to lose trace data
-		TAL_TRACE* trace;
-		if (m_bUseTaskalyzer)
-		{
-			trace = TAL_GetThreadTrace();
-			assert(NULL != trace);
-			
-			TAL_Flush(trace);
-		}
+		
+		// This code was removed for the initial porting of TAL
+		// to GPA 4.0 and might be used in later stages
+//      TAL_TRACE* trace;
+//		if (m_bUseTaskalyzer)
+//		{
+//			trace = TAL_GetThreadTrace();
+//			assert(NULL != trace);
+//			
+//			TAL_Flush(trace);
+//		}
 #endif
 		m_ppDevices[ui]->CloseDeviceInstance();
 	}

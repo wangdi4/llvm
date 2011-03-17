@@ -43,8 +43,9 @@
 #include <assert.h>
 #include <cl_buffer.h>
 #include "execution_module.h"
-#if defined(USE_TASKALYZER)   
-	#include "tal\tal.h"
+#if defined(USE_GPA)  
+	#include <ittnotify.h>
+	//#include "tal\tal.h"
 #endif
 using namespace Intel::OpenCL::Framework;
 
@@ -195,16 +196,23 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         res = CommandDone();
         m_Event.SetColor(EVENT_STATE_BLACK);
 // finish marker
-#if defined(USE_TASKALYZER)
-		TAL_TRACE* trace;
+#if defined(USE_GPA)
+		__itt_domain* domain;
+
 		if (m_pCommandQueue->IsTaskalyzerEnabled())
 		{
-			trace = TAL_GetThreadTrace();
-			assert(NULL != trace);
+			__itt_string_handle* marker = __itt_string_handle_create(L"Done");
+			__itt_string_handle* pshCtor = __itt_string_handle_create(L"Marker");
 			
-			TAL_BeginNamedTask(trace,"Marker");
-			TAL_Marker(trace,"Done!");
-			TAL_EndTask(trace);
+			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			assert(NULL != domain);
+
+			//due to a bug in GPA 4.0 the marker is within a task 
+			__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
+			
+			__itt_marker(domain, __itt_null, marker, __itt_marker_scope_global);
+
+			__itt_task_end(domain);
 		}
 #endif
 		m_Event.RemovePendency();

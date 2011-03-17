@@ -27,27 +27,34 @@
 #include "execution_module.h"
 #include <cstring>
 
-#if defined(USE_TASKALYZER)
-	#include "tal\tal.h"
+#if defined(USE_GPA)
+	#include <ittnotify.h>
+	//#include "tal\tal.h"
 #endif
 using namespace Intel::OpenCL::Framework;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
  
-	TAL_TRACE* trace;
+	__itt_domain* domain;
+	
 	if (m_pContext->GetUseTaskalyzer())
 	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
-		const char* pCommandName = pCommand->GetCommandName();
-		char pMarkerString[50] = "Marker - ";
-		strcat_s(pMarkerString, 50,pCommandName);
+		__itt_string_handle* pshCtor = __itt_string_handle_create(L"Marker");
+
+		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		assert(NULL != domain);
 		
-		TAL_BeginNamedTask(trace,pMarkerString);
-		TAL_Marker(trace,pCommand->GetCommandName());
-		TAL_EndTask(trace);
+		const char* pCommandName = pCommand->GetCommandName();	
+		
+		//due to a bug in GPA 4.0 the marker is within a task 
+		__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
+		
+		__itt_string_handle* kmarker = __itt_string_handle_createA(pCommand->GetCommandName());
+		__itt_marker(domain, __itt_null, kmarker, __itt_marker_scope_global);
+		
+		__itt_task_end(domain);
 	}
 #endif
 	cl_err_code errVal = CL_SUCCESS;

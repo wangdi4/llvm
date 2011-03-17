@@ -18,8 +18,10 @@
 #include "cl_secure_string_linux.h"
 #include "cl_framework_alias_linux.h"
 #endif
-#if defined(USE_TASKALYZER)   
-	#include "tal\tal.h"
+#if defined(USE_GPA)
+	// This code was removed for the initial porting of TAL
+	// to GPA 4.0 and might be used in later stages
+//	#include "tal\tal.h"
 #endif
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -206,13 +208,16 @@ void FrameworkProxy::Initialize()
 	Logger::GetInstance().SetActive(bUseLogger);
 
 	INIT_LOGGER_CLIENT(L"FrameworkProxy", LL_DEBUG);
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
+	// This code was removed for the initial porting of TAL
+	// to GPA 4.0 and might be used in later stages
+	
 	// Open the trace file before any task started in order 
 	// to prevent it as showing as part of the task
-	if(m_pConfig->UseTaskalyzer())
-	{
-		TAL_GetThreadTrace();
-	}
+	//if(m_pConfig->UseTaskalyzer())
+	//{
+	//	TAL_GetThreadTrace();
+	//}
 #endif
 	
 	LOG_INFO(TEXT("%S"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
