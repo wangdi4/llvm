@@ -30,8 +30,10 @@
 #include <process.h>
 #include <cassert>
 
-#if defined(USE_TASKALYZER)    
-#include "tal\tal.h"
+#if defined(USE_GPA)
+// This code was removed for the initial porting of TAL
+// to GPA 4.0 and might be used in later stages
+//#include "tal\tal.h"
 #endif
 
 using namespace std;
@@ -282,17 +284,20 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 			ResetEvent(pWorkerThread->m_evQueueEvent);
 			::LeaveCriticalSection( &(pWorkerThread->m_QueueLock) );
 		}
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
+	// This code was removed for the initial porting of TAL
+	// to GPA 4.0 and might be used in later stages
+
 	// Before the thread is closed, we need to flush the
 	// trace data into file in order not to lose trace data
-	TAL_TRACE* trace;
-	if(pWorkerThread->m_bUseTaskalyzer)
-	{
-		trace = TAL_GetThreadTrace();
-		assert(NULL != trace);
-
-		TAL_Flush(trace);
-	}
+	//TAL_TRACE* trace;
+	//if(pWorkerThread->m_bUseTaskalyzer)
+	//{
+	//	trace = TAL_GetThreadTrace();
+	//	assert(NULL != trace);
+	//
+	//	TAL_Flush(trace);
+	//}
 #endif
 
 	}

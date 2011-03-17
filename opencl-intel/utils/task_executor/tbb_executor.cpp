@@ -36,8 +36,10 @@
 #include "tbb_executor.h"
 #include "Logger.h"
 
-#if defined(USE_TASKALYZER)    
-#include "tal\tal.h"
+#if defined(USE_GPA)   
+// This code was removed for the initial porting of TAL
+// to GPA 4.0 and might be used in later stages
+//#include "tal\tal.h"
 #endif
 
 #define INVALID_WORKER_ID 0xFFFFFFFF
@@ -46,12 +48,14 @@
 #pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
-#if defined(USE_TASKALYZER)
-#ifdef _DEBUG
-#pragma comment(lib, "tal_dd.lib")
-#else
-#pragma comment(lib, "tal_dr.lib")
-#endif
+#if defined(USE_GPA)
+// This code was removed for the initial porting of TAL
+// to GPA 4.0 and might be used in later stages
+//#ifdef _DEBUG
+//#pragma comment(lib, "gpasdk_dd_2008.lib")
+//#else
+//#pragma comment(lib, "gpasdk_dr_2008.lib")
+//#endif
 #endif
 using namespace Intel::OpenCL::Utils;
 
@@ -194,17 +198,20 @@ public:
 			SetScheduler(NULL);
 			SetWorkerID(INVALID_WORKER_ID);
 			
-#if defined(USE_TASKALYZER)
+#if defined(USE_GPA)
+			// This code was removed for the initial porting of TAL
+			// to GPA 4.0 and might be used in later stages
+
 			// Before the thread is closed, we need to flush the
 			// trace data into file in order not to lose trace data
-			TAL_TRACE* trace;
-			if(m_bUseTaskalyzer)
-			{
-				trace = TAL_GetThreadTrace();
-				assert(NULL != trace);
-
-				TAL_Flush(trace);
-			}
+			//TAL_TRACE* trace;
+			//if(m_bUseTaskalyzer)
+			//{
+			//	trace = TAL_GetThreadTrace();
+			//	assert(NULL != trace);
+			//
+			//	TAL_Flush(trace);
+			//}
 #endif
 		}
 	}
