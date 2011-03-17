@@ -178,10 +178,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		g_pTaskExecutor->ReleasePerThreadData();		
 #endif
 		break;
-	case DLL_PROCESS_DETACH:
-		delete ((PTR_CAST*)g_pTaskExecutor);
-		g_pTaskExecutor = NULL;				
-		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
+	case DLL_PROCESS_DETACH:		
+		if (g_pTaskExecutor) 
+		{
+			delete ((PTR_CAST*)g_pTaskExecutor);
+			g_pTaskExecutor = NULL;						
+			}
 		return TRUE;
 	}
 	return g_pTaskExecutor != NULL;

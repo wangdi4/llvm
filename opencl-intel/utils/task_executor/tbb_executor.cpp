@@ -1090,12 +1090,15 @@ void TBBTaskExecutor::Close(bool bCancel)
 
 	LOG_INFO(TEXT("%s"),"Shutting down...");
 
-	m_scheduler->terminate();	
-	delete m_scheduler;	
-	m_scheduler = NULL;	
+	if (m_scheduler != NULL) 
+	{
+		//m_scheduler->terminate();
+		delete m_scheduler;
+		m_scheduler = NULL;	
+	}
 
 	if ( NULL != sTBB_executor )
-	{		
+	{				
 		delete sTBB_executor;
 		sTBB_executor = NULL;
 	}	
@@ -1114,9 +1117,13 @@ void TBBTaskExecutor::ReleasePerThreadData()
 		return;
 	}
 	if ((NULL != pScheduler) && (INVALID_SCHEDULER_ID != (uintptr_t)pScheduler))
-	{
-		delete pScheduler;
+	{				
+		
+		//pScheduler->terminate();
+		delete pScheduler;		
 		ThreadIDAssigner::SetScheduler(NULL);
+		
+		
 	}
 }
 

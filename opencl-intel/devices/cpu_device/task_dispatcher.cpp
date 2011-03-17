@@ -64,8 +64,9 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 
 
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Created"));
+	
 
-	m_pTaskExecutor = GetTaskExecutor();
+	m_pTaskExecutor = GetTaskExecutor();	
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
 
@@ -93,8 +94,12 @@ TaskDispatcher::~TaskDispatcher()
 		m_pWGContexts = NULL;
 	}
 	if (NULL != m_pTaskExecutor)
-	{
-		m_pTaskExecutor->ReleasePerThreadData();
+	{	
+		// ToDo: consult doron about this
+		// TBB dllmain is releasing this data already Per each thread
+		// no need here to do it gain
+
+		//m_pTaskExecutor->ReleasePerThreadData();
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)
