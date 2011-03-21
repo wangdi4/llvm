@@ -482,7 +482,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 	bool bExecuted = false;
 	if (pFragment)
 	{
-		m_pTaskSet->AttachToThread(m_iQueueId, pFragment->Size());
+		m_pTaskSet->AttachToThread(m_iQueueId, pFragment->Size(), (size_t*)pFragment->getFirstWGID(), (size_t*)pFragment->getLastWGID());
 		bExecuted = true;
 	}
 	while(pFragment) 
@@ -607,13 +607,36 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
-	return m_pTaskSet->AttachToThread(uiWorkerId, Size());
+	return m_pTaskSet->AttachToThread(uiWorkerId, Size(), (size_t*)getFirstWGID(), (size_t*)getLastWGID());
 }
 
 unsigned int CTaskSetFragment::Size() const
 {
 	return ((m_iEndZ-m_iStartZ)*(m_iEndY-m_iStartY)*(m_iEndX-m_iStartX));
 }
+
+int* CTaskSetFragment::getFirstWGID() const
+{
+	int firstWGID[3];
+	
+	firstWGID[0] = m_iStartX;
+	firstWGID[1] = m_iStartY;
+	firstWGID[2] = m_iStartZ;
+	
+	return firstWGID;
+}
+
+int* CTaskSetFragment::getLastWGID() const
+{
+	int lastWGID[3];
+	
+	lastWGID[0] = m_iEndX;
+	lastWGID[1] = m_iEndY;
+	lastWGID[2] = m_iEndZ;
+	
+	return lastWGID;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // ThreadTaskListOrderedImpl implementation

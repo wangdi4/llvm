@@ -165,7 +165,7 @@ public:
 
 	// ITaskSet interface
 	int		Init(size_t region[], unsigned int &regCount);
-	int		AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups);
+	int		AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
 	int		DetachFromThread(unsigned int uiWorkerId);
 	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId);
 	void	Finish(FINISH_REASON reason);

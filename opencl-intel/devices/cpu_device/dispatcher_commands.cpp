@@ -42,6 +42,9 @@
 #define getG(color) ((color >> 8) & 0xFF)
 #define getB(color) (color & 0xFF)
 
+// This string size is calculated as 6x(the maximal number of digits assuming size_t is 64 bit) + 8
+#define GPA_RANGE_STRING_SIZE 130
+
 #define COLOR(R,G,B)	(((R)<<16) + ((G)<<8) + (B))
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL;
@@ -1305,7 +1308,7 @@ void NDRange::UnlockMemoryBuffers()
 }
 
 
-int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups)
+int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", GetCurrentThreadId(), uiWorkerId, m_pCmd->id);
@@ -1337,8 +1340,10 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		
 		if (m_bUseTaskalyzer)
 		{
+			char pWGRangeString[GPA_RANGE_STRING_SIZE];
 			static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
 			static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
+			static __itt_string_handle* pWorkGroupRange = __itt_string_handle_create(L"Work Group Range");
 
 			domain = __itt_domain_create(L"OpenCL.Domain.Global");
 			assert(NULL != domain);
@@ -1346,6 +1351,19 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 			unsigned int uiWorkGroupSize = 1;
 			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+
+			switch(cmdParams->work_dim)
+			{
+			case 1:
+				sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
+				break;
+			case 2:
+				sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
+				break;
+			case 3:
+				sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
+				break;
+			}
 			
 			__itt_string_handle* pshCtor = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
 			__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
@@ -1357,7 +1375,8 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 			}
 			
 			__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_u32 , 1, &uiWorkGroupSize);  
-			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);			
+			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+			__itt_metadata_str_addA(domain, __itt_null, pWorkGroupRange, pWGRangeString, GPA_RANGE_STRING_SIZE);
 		}
 #endif
 #ifdef _DEBUG
@@ -1379,8 +1398,10 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 	
 	if (m_bUseTaskalyzer)
 	{
+		char pWGRangeString[GPA_RANGE_STRING_SIZE];
 		static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
 		static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
+		static __itt_string_handle* pWorkGroupRange = __itt_string_handle_create(L"Work Group Range");
 
 		domain = __itt_domain_create(L"OpenCL.Domain.Global");
 		assert(NULL != domain);
@@ -1388,6 +1409,19 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		unsigned int uiWorkGroupSize = 1;
 		const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+
+		switch(cmdParams->work_dim)
+		{
+		case 1:
+			sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
+			break;
+		case 2:
+			sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
+			break;
+		case 3:
+			sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
+			break;
+		}
 		
 		__itt_string_handle* pshCtor = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
 		__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
@@ -1401,6 +1435,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 
 		__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_s32 , 1, &uiWorkGroupSize);  
 		__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_s32 , 1, &uiNumberOfWorkGroups);
+		__itt_metadata_str_addA(domain, __itt_null, pWorkGroupRange, pWGRangeString, GPA_RANGE_STRING_SIZE);
 	}
 #endif
 

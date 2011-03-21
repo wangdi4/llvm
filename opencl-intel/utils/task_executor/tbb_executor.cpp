@@ -449,9 +449,14 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				assert(lMasterCheck == false);
 			}
 #endif
+
+			size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
+
 			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
+
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
@@ -481,9 +486,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				assert(lMasterCheck == false);
 			}
 #endif
+
+			size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
+
 			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
@@ -512,9 +521,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				assert(lMasterCheck == false);
 			}
 #endif
+
+			size_t firstWGID[1] = {r.begin()}; 
+			size_t lastWGID[1] = {r.end()}; 
+
 			uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups) != 0 )
+			if ( task.AttachToThread(uiWorkerId, (unsigned int)uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task.ExecuteIteration(k, 0, 0, uiWorkerId);
