@@ -29,10 +29,11 @@
 
 #include "program_service.h"
 #include "cpu_logger.h"
-#include "cl_dynamic_lib.h"
+
+#include <cpu_dev_limits.h>
+#include <cl_dynamic_lib.h>
+#include <task_executor.h>
 #include <llvm_program.h>
-#include "task_executor.h"
-#include "cpu_dev_limits.h"
 
 #include <stdlib.h>
 #include <limits.h>
@@ -798,7 +799,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 		break;
 
 	case CL_DEV_KERNEL_MAX_WG_SIZE:
-		ullValue = min(CPU_DEV_MAX_WI_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernel->GetPrivateMemorySize()) );
+		ullValue = MIN(CPU_DEV_MAX_WI_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernel->GetPrivateMemorySize()) );
 		stValSize = sizeof(size_t);
 		break;
 
