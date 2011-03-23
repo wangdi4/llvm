@@ -35,9 +35,6 @@
 #define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)		( ((X)+CPU_DEV_MAXIMUM_ALIGN-1) & (~(CPU_DEV_MAXIMUM_ALIGN-1)))
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
-// Minimum memory size allocate for single WI instance
-#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*sizeof(size_t))	
-
 // Maximum number of arguments to be passed to the kernel
 #define CPU_MAX_PARAMETER_SIZE			1024
 #define CPU_MAX_PARAM_COUNT				(CPU_MAX_PARAMETER_SIZE/8)
@@ -53,6 +50,12 @@
 #define CPU_MEM_BASE_ADDR_ALIGN			(CPU_DEV_MAXIMUM_ALIGN*8) // In bits
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
 #define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
+#define CPU_DEFAULT_WG_SIZE				32
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
 #define CPU_MIN_VECTOR_SIZE				16				// Minimum vector size, XMM == 16bytes
+
+// Minimum memory size allocate for single WI instance
+#define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*sizeof(size_t))
+// Maximum memory size that could be allocated for WG execution
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE		(CPU_DEV_MIN_WI_PRIVATE_SIZE*CPU_MAX_WORK_GROUP_SIZE)

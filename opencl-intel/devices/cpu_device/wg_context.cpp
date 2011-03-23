@@ -37,7 +37,7 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(2*CPU_DEV_MIN_WI_PRIVATE_SIZE)
+WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(CPU_DEFAULT_WG_SIZE*CPU_DEV_MIN_WI_PRIVATE_SIZE)
 {
 	// Create local memory
 	m_pLocalMem = (char*)ALIGNED_MALLOC(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN);

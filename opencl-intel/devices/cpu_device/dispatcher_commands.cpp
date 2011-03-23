@@ -1175,7 +1175,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	}
 	if ( CL_DEV_FAILED(m_lastError) )
 	{
-		return -1;
+		return m_lastError;
 	}
 
 	// Create an "Binary" for these parameters
@@ -1186,7 +1186,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	if ( CL_DEV_FAILED(clRet) )
 	{
 		m_lastError = clRet;
-		return -1;
+		return clRet;
 	}
 
 #if defined(USE_GPA)
@@ -1321,15 +1321,19 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 	{
 		assert(0);
 	}
-	++ m_lAttaching ;
+	++m_lAttaching ;
 #endif
 
 	WGContext* pCtx = GetWGContext(uiWorkerId);
 	if ( NULL == pCtx )
 	{
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
+		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
+#ifdef _DEBUG
+	--m_lAttaching ;
+#endif
 		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
-
 	else if (m_pCmd->id == pCtx->GetCmdId() )
 	{
 		pCtx->GetExecutable()->PrepareThread();
@@ -1385,13 +1389,18 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		return CL_DEV_SUCCESS;
 	}
 
-	int ret = pCtx->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
-	assert(ret==0 && "Probably allocation for WG has failed; encountered on NUMA machines where many threads try to allocate at once private data for their WGs");
+	cl_dev_err_code ret = pCtx->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
+		m_lastError = (int)ret;
+#ifdef _DEBUG
+		--m_lAttaching ;
+#endif
+		return (int)ret;
+	}
 	pCtx->GetExecutable()->PrepareThread();
 
-#ifdef _DEBUG
-	-- m_lAttaching;
-#endif
 	// Start execution task
 #if defined(USE_GPA)
 	__itt_domain* domain;
@@ -1437,6 +1446,10 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_s32 , 1, &uiNumberOfWorkGroups);
 		__itt_metadata_str_addA(domain, __itt_null, pWorkGroupRange, pWGRangeString, GPA_RANGE_STRING_SIZE);
 	}
+#endif
+
+#ifdef _DEBUG
+	-- m_lAttaching;
 #endif
 
 	return ret;
