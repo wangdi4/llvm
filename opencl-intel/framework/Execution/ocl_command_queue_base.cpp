@@ -41,9 +41,9 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	
 	if (m_pContext->GetUseTaskalyzer())
 	{
-		__itt_string_handle* pshCtor = __itt_string_handle_create(L"Marker");
+		__itt_string_handle* pshCtor = __itt_string_handle_createA("Marker");
 
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 		
 		const char* pCommandName = pCommand->GetCommandName();	

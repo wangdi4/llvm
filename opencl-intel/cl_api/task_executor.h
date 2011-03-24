@@ -108,7 +108,7 @@ public:
 	// within specific thread. uiWorkerId specifies the worker thread id.
 	// If uiWorkerId = -1, this info is not available.
 	// Returns 0, if attach process succeeded, otherwise -1
-	virtual int	AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
+	virtual int	AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
 
 	// Is called when the task will not be executed by the specific thread
 	// uiWorkerId specifies the worker thread id.

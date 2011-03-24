@@ -201,10 +201,10 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
 		if (m_pCommandQueue->IsTaskalyzerEnabled())
 		{
-			__itt_string_handle* marker = __itt_string_handle_create(L"Done");
-			__itt_string_handle* pshCtor = __itt_string_handle_create(L"Marker");
+			__itt_string_handle* marker = __itt_string_handle_createA("Done");
+			__itt_string_handle* pshCtor = __itt_string_handle_createA("Marker");
 			
-			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			domain = __itt_domain_createA("OpenCL.Domain.Global");
 			assert(NULL != domain);
 
 			//due to a bug in GPA 4.0 the marker is within a task 

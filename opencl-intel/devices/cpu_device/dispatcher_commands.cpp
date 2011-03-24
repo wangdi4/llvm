@@ -34,7 +34,7 @@
 #include "cl_sys_defines.h"
 
 #if defined(USE_GPA)
-	//#include "tal\tal.h"
+	#include "tal.h"
 	#include <ittnotify.h>
 #endif
 
@@ -240,32 +240,49 @@ void ReadWriteMemObject::Execute()
 	
 	if (m_bUseTaskalyzer)
 	{
-		static __itt_string_handle* pReadHandle = __itt_string_handle_create(L"Read");
-		static __itt_string_handle* pWriteHandle = __itt_string_handle_create(L"Write");
-		static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
-		static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
-		static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
-		static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
+		static __itt_string_handle* pReadHandle = __itt_string_handle_createA("Read");
+		static __itt_string_handle* pWriteHandle = __itt_string_handle_createA("Write");
+		static __itt_string_handle* pSizeHandle = __itt_string_handle_createA("Size");
+		static __itt_string_handle* pWidthHandle = __itt_string_handle_createA("Width");
+		static __itt_string_handle* pHeightHandle = __itt_string_handle_createA("Height");
+		static __itt_string_handle* pDepthHandle = __itt_string_handle_createA("Depth");
 
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 		
 		__itt_task_begin(domain, __itt_null, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? pReadHandle : pWriteHandle ));
 
+		TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"), 255, 0, 0);
+
 		switch(cmdParams->dim_count)
 		{
+#if defined(_M_X64)
 		case 1:
-			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 			break;
+#else
+		case 1:
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			break;
+		case 2:
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			break;
+		case 3:
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+			break;
+#endif
 		}
 	}
 #endif
@@ -460,32 +477,50 @@ void CopyMemObject::Execute()
 
 	if (m_bUseTaskalyzer)
 	{
-		static __itt_string_handle* pCopyHandle = __itt_string_handle_create(L"Copy");
-		static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
-		static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
-		static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
-		static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
+		static __itt_string_handle* pCopyHandle = __itt_string_handle_createA("Copy");
+		static __itt_string_handle* pSizeHandle = __itt_string_handle_createA("Size");
+		static __itt_string_handle* pWidthHandle = __itt_string_handle_createA("Width");
+		static __itt_string_handle* pHeightHandle = __itt_string_handle_createA("Height");
+		static __itt_string_handle* pDepthHandle = __itt_string_handle_createA("Depth");
 		
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 				
 		__itt_task_begin(domain, __itt_null, __itt_null, pCopyHandle);
 
+		TAL_SetNamedTaskColor("Copy", 255, 0, 0);
+
 		switch(cmdParams->src_dim_count)
 		{
+#if defined(_M_X64)
 		case 1:
 			
-			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 			break;
+#else
+		case 1:
+			
+			__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			break;
+		case 2:
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			break;
+		case 3:
+			__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+			break;
+#endif
 		}
 	}
 #endif	
@@ -732,12 +767,13 @@ void MapMemObject::Execute()
 
 	if (m_bUseTaskalyzer)
 	{
-		static __itt_string_handle* pMapHandle = __itt_string_handle_create(L"Map");
+		static __itt_string_handle* pMapHandle = __itt_string_handle_createA("Map");
 
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 
 		__itt_task_begin(domain, __itt_null, __itt_null, pMapHandle);
+		TAL_SetNamedTaskColor("Map", 255, 0, 0);
 	}
 #endif
 
@@ -757,25 +793,40 @@ void MapMemObject::Execute()
 		// In case of data copy during Map, add size/dimention parameters to the task
 		if (m_bUseTaskalyzer)
 		{
-			static __itt_string_handle* pSizeHandle = __itt_string_handle_create(L"Size");
-			static __itt_string_handle* pWidthHandle = __itt_string_handle_create(L"Width");
-			static __itt_string_handle* pHeightHandle = __itt_string_handle_create(L"Height");
-			static __itt_string_handle* pDepthHandle = __itt_string_handle_create(L"Depth");
+			static __itt_string_handle* pSizeHandle = __itt_string_handle_createA("Size");
+			static __itt_string_handle* pWidthHandle = __itt_string_handle_createA("Width");
+			static __itt_string_handle* pHeightHandle = __itt_string_handle_createA("Height");
+			static __itt_string_handle* pDepthHandle = __itt_string_handle_createA("Depth");
 			
 			switch(cmdParams->dim_count)
 			{
+#if defined(_M_X64)
 			case 1:		
-				__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
 				break;
 			case 2:
-				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 				break;
 			case 3:
-				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_s32 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_s32 , 1, &cmdParams->region[1]);
-				__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_s32 , 1, &cmdParams->region[2]);
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 				break;
+#else
+			case 1:		
+				__itt_metadata_add(domain, __itt_null, pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				break;
+			case 2:
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				break;
+			case 3:
+				__itt_metadata_add(domain, __itt_null, pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(domain, __itt_null, pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(domain, __itt_null, pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+				break;
+#endif
 			}
 		}
 #endif
@@ -888,12 +939,13 @@ void UnmapMemObject::Execute()
 		__itt_domain* domain;
 		if (m_bUseTaskalyzer)
 		{
-			static __itt_string_handle* pUnmapHandle = __itt_string_handle_create(L"Unmap");
+			static __itt_string_handle* pUnmapHandle = __itt_string_handle_createA("Unmap");
 			
-			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			domain = __itt_domain_createA("OpenCL.Domain.Global");
 			assert(NULL != domain);
 
 			__itt_task_begin(domain, __itt_null, __itt_null, pUnmapHandle);
+			TAL_SetNamedTaskColor("Unmap", 255, 0, 0);
 		}
 #endif
 		// Execute copy command
@@ -1308,7 +1360,7 @@ void NDRange::UnlockMemoryBuffers()
 }
 
 
-int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", GetCurrentThreadId(), uiWorkerId, m_pCmd->id);
@@ -1345,11 +1397,11 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		if (m_bUseTaskalyzer)
 		{
 			char pWGRangeString[GPA_RANGE_STRING_SIZE];
-			static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
-			static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
-			static __itt_string_handle* pWorkGroupRange = __itt_string_handle_create(L"Work Group Range");
+			static __itt_string_handle* pWorkGroupSize = __itt_string_handle_createA("Work Group Size");
+			static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_createA("Number of Work Groups");
+			static __itt_string_handle* pWorkGroupRange = __itt_string_handle_createA("Work Group Range");
 
-			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			domain = __itt_domain_createA("OpenCL.Domain.Global");
 			assert(NULL != domain);
 
 			unsigned int uiWorkGroupSize = 1;
@@ -1378,8 +1430,14 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 				uiWorkGroupSize *= pWGSize[i];
 			}
 			
-			__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_u32 , 1, &uiWorkGroupSize);  
+			__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_u32 , 1, &uiWorkGroupSize);
+
+#if defined(_M_X64)
+			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
+#else
 			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+#endif
+
 			__itt_metadata_str_addA(domain, __itt_null, pWorkGroupRange, pWGRangeString, GPA_RANGE_STRING_SIZE);
 		}
 #endif
@@ -1408,11 +1466,11 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 	if (m_bUseTaskalyzer)
 	{
 		char pWGRangeString[GPA_RANGE_STRING_SIZE];
-		static __itt_string_handle* pWorkGroupSize = __itt_string_handle_create(L"Work Group Size");
-		static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_create(L"Number of Work Groups");
-		static __itt_string_handle* pWorkGroupRange = __itt_string_handle_create(L"Work Group Range");
+		static __itt_string_handle* pWorkGroupSize = __itt_string_handle_createA("Work Group Size");
+		static __itt_string_handle* pNumberOfWorkGroups = __itt_string_handle_createA("Number of Work Groups");
+		static __itt_string_handle* pWorkGroupRange = __itt_string_handle_createA("Work Group Range");
 
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 
 		unsigned int uiWorkGroupSize = 1;
@@ -1443,7 +1501,13 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, unsigned int uiNumberOfWork
 		}
 
 		__itt_metadata_add(domain, __itt_null, pWorkGroupSize, __itt_metadata_s32 , 1, &uiWorkGroupSize);  
-		__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_s32 , 1, &uiNumberOfWorkGroups);
+
+#if defined(_M_X64)
+			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
+#else
+			__itt_metadata_add(domain, __itt_null, pNumberOfWorkGroups, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+#endif
+
 		__itt_metadata_str_addA(domain, __itt_null, pWorkGroupRange, pWGRangeString, GPA_RANGE_STRING_SIZE);
 	}
 #endif
@@ -1463,7 +1527,7 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 
 	if (m_bUseTaskalyzer)
 	{
-		domain = __itt_domain_create(L"OpenCL.Domain.Global");
+		domain = __itt_domain_createA("OpenCL.Domain.Global");
 		assert(NULL != domain);
 
 		__itt_task_end(domain);

@@ -144,9 +144,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		//Also returns the next fragment to Execute if such exists
 		inline CTaskSetFragment*		ExecuteAndGetNext(unsigned int uiWorkerId);
 		inline int		                AttachToThread(unsigned int uiWorkerId);
-		inline unsigned int				Size() const;
-		inline int*						getFirstWGID() const;
-		inline int*						getLastWGID() const;
+		inline size_t					Size() const;
+		inline size_t*					getFirstWGID() const;
+		inline size_t*					getLastWGID() const;
 
 	protected:
 		int				m_iStartX;
