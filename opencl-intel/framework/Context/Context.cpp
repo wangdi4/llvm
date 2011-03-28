@@ -53,7 +53,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer)
+Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags)
 {
 	//cl_start;
 
@@ -71,6 +71,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	m_ppDevices = NULL;
 	m_pDeviceIds = NULL;
 	m_bUseTaskalyzer = bUseTaskalyzer;
+	m_cStageMarkerFlags = cStageMarkerFlags;
 
 #ifdef _DEBUG
 assert ((NULL != ppDevices) && (uiNumDevices > 0));
@@ -404,6 +405,14 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclD
 bool Context::GetUseTaskalyzer() const
 {
 	return m_bUseTaskalyzer;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::GetStatusMarkerFlags
+///////////////////////////////////////////////////////////////////////////////////////////////////
+char Context::GetStatusMarkerFlags() const
+{
+	return m_cStageMarkerFlags;
 }
 
 // Context::CreateProgramWithBinary

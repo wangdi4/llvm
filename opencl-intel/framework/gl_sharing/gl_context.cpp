@@ -40,8 +40,8 @@ using namespace Intel::OpenCL::Utils;
 
 GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-					 cl_context_properties hGLCtx, cl_context_properties hDC, bool bUseTaskalyzer) :
-	Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, bUseTaskalyzer)
+					 cl_context_properties hGLCtx, cl_context_properties hDC, bool bUseTaskalyzer, char cStageMarkerFlags) :
+	Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, bUseTaskalyzer, m_cStageMarkerFlags)
 {
 	if ( (NULL == hGLCtx) || (NULL == hDC) )
 	{

@@ -22,6 +22,7 @@
 #include <cl_objects_map.h>
 #include <cl_utils.h>
 #include <assert.h>
+#include "ocl_itt.h"
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -67,6 +68,21 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCon
 
 	m_pOclEntryPoints = pOclEntryPoints;
 	m_bUseTaskalyzer = pOclConfig->UseTaskalyzer();
+
+	// Initialize Stage Marker flags
+	m_cStageMarkerFlags = 0;
+
+	if (m_bUseTaskalyzer)
+	{
+		if (pOclConfig->ShowQueuedMarker())
+			m_cStageMarkerFlags += GPA_SHOW_QUEUED_MARKER;			// Set first bit
+		if (pOclConfig->ShowSubmittedMarker())
+			m_cStageMarkerFlags += GPA_SHOW_SUBMITTED_MARKER;		// Set second bit
+		if (pOclConfig->ShowRunningMarker())
+			m_cStageMarkerFlags += GPA_SHOW_RUNNING_MARKER;			// Set third bit
+		if (pOclConfig->ShowCompletedMarker())
+			m_cStageMarkerFlags += GPA_SHOW_COMPLETED_MARKER;		// Set fourth bit
+	}
 
 	return CL_SUCCESS;
 }
@@ -166,11 +182,11 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (_WIN32)  //TODO GL support for Linux
 	if ( (NULL != hGLCtx) || (NULL != hDC) )
 	{
-		pContext = 	new GLContext(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_bUseTaskalyzer);
+		pContext = 	new GLContext(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_bUseTaskalyzer, m_cStageMarkerFlags);
 	} else
 #endif
 	{
-		pContext = 	new Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_bUseTaskalyzer);
+		pContext = 	new Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_bUseTaskalyzer, m_cStageMarkerFlags);
 	}
 	if (CL_FAILED(clErrRet))
 	{

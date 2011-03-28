@@ -36,6 +36,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define CL_CONFIG_DEFAULT_FE_COMPILER	"CL_CONFIG_DEFAULT_FE_COMPILER"	// string
 #define	CL_CONFIG_USE_TASKALYZER		"CL_CONFIG_USE_TASKALYZER"		// bool
 
+// Used to Enable/Disable task state Markers in GPA Platform Analyzer
+#define	CL_GPA_CONFIG_SHOW_QUEUED_MARKER		"CL_CONFIG_SHOW_QUEUED_MARKER"		// bool
+#define	CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER		"CL_CONFIG_SHOW_SUBMITTED_MARKER"	// bool
+#define	CL_GPA_CONFIG_SHOW_RUNNING_MARKER		"CL_CONFIG_SHOW_RUNNING_MARKER"		// bool
+#define	CL_GPA_CONFIG_SHOW_COMPLETED_MARKER		"CL_CONFIG_SHOW_COMPLETED_MARKER"	// bool
 	
 	/**********************************************************************************************
 	* Class name:	OCLConfig
@@ -61,7 +66,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		string         GetDefaultDevice() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device.dll"); }
 		vector<string> GetFeCompilers(string& default_compiler);
 		string         GetDefaultFeCompiler() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "clang_compiler.dll"); }
-		bool			UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
+		bool		   UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
+		
+		bool			ShowQueuedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_QUEUED_MARKER, true); }
+		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER, false); }
+		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_RUNNING_MARKER, false); }
+		bool			ShowCompletedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_COMPLETED_MARKER, true); }
 
 	private:
 

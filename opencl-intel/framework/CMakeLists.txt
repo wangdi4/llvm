@@ -46,7 +46,7 @@ set (CONFIG_FILES cl.cfg)
 if (WIN32)
     list( APPEND CONFIG_FILES register_vendor.reg unregister_vendor.reg)
 
-    source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h )
+    source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h ocl_itt.h)
 
     source_group( "Resource Files" FILES ${CONFIG_FILES} )
     list( APPEND TARGET_SOURCES ${CONFIG_FILES} )

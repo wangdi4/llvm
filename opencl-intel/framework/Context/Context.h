@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer);
+		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -202,7 +202,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Get devices from the device list
 		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, Device** ppDevices);
+		
+		// 
 		bool GetUseTaskalyzer() const;
+
+		char GetStatusMarkerFlags() const;
         /******************************************************************************************
 		* Function: 	NotifyError
 		* Description:	Report information on errors that occur in this context using the callback
@@ -260,6 +264,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void *									m_pUserData; // user data
 
 		bool									m_bUseTaskalyzer;
+
+		char									m_cStageMarkerFlags;
 	};
 
 

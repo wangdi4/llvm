@@ -68,7 +68,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 		virtual bool		WaitForCompletion(OclEvent* pEvent );
-		virtual bool	IsTaskalyzerEnabled( ) const { return m_pContext->GetUseTaskalyzer(); }
+		virtual bool		IsTaskalyzerEnabled() const { return m_pContext->GetUseTaskalyzer(); }
+		virtual char		GetStatusMarkerFlags() const { return m_pContext->GetStatusMarkerFlags(); }
 
 	protected:
 		virtual ~IOclCommandQueueBase() {}

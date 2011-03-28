@@ -186,6 +186,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_entry_points *						m_pOclEntryPoints;
 
 		bool									m_bUseTaskalyzer;
+		char									m_cStageMarkerFlags;
 		DECLARE_LOGGER_CLIENT;
 	};
 

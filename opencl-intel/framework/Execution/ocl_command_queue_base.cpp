@@ -29,6 +29,7 @@
 
 #if defined(USE_GPA)
 	#include <ittnotify.h>
+	#include "ocl_itt.h"
 	//#include "tal\tal.h"
 #endif
 using namespace Intel::OpenCL::Framework;
@@ -41,20 +42,26 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	
 	if (m_pContext->GetUseTaskalyzer())
 	{
-		__itt_string_handle* pshCtor = __itt_string_handle_createA("Marker");
+		if (m_pContext->GetStatusMarkerFlags() & GPA_SHOW_QUEUED_MARKER)
+		{
+			char pMarkerString[64] = "Queued - ";
+			const char* pCommandName = pCommand->GetCommandName();
+			strcat_s(pMarkerString, 64,pCommandName);
 
-		domain = __itt_domain_createA("OpenCL.Domain.Global");
-		assert(NULL != domain);
-		
-		const char* pCommandName = pCommand->GetCommandName();	
-		
-		//due to a bug in GPA 4.0 the marker is within a task 
-		__itt_task_begin(domain, __itt_null, __itt_null, pshCtor);
-		
-		__itt_string_handle* kmarker = __itt_string_handle_createA(pCommand->GetCommandName());
-		__itt_marker(domain, __itt_null, kmarker, __itt_marker_scope_global);
-		
-		__itt_task_end(domain);
+			domain = __itt_domain_create(L"OpenCL.Domain.Global");
+			assert(NULL != domain);
+
+			__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
+			__itt_string_handle* pMarkerTask = __itt_string_handle_create(L"Marker");
+
+			//Due to a bug in GPA 4.0 the marker is within a task
+			//Should be removed in GPA 4.1  
+			__itt_task_begin(domain, __itt_null, __itt_null, pMarkerTask);
+
+			__itt_marker(domain, __itt_null, pMarker, __itt_marker_scope_global);
+			
+			__itt_task_end(domain);
+		}
 	}
 #endif
 	cl_err_code errVal = CL_SUCCESS;

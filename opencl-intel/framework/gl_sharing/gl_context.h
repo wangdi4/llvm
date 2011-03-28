@@ -47,7 +47,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices,
 			logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-			cl_context_properties hDC, cl_context_properties hGLCtx, bool bUseTaskalyzer);
+			cl_context_properties hDC, cl_context_properties hGLCtx, bool bUseTaskalyzer, char cStageMarkerFlags);
 
 
 		cl_context_properties GetDC() const { return m_hDC;}
