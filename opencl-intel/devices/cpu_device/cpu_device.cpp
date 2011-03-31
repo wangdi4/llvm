@@ -74,6 +74,12 @@ const cl_image_format Intel::OpenCL::CPUDevice::suportedImageFormats[] = {
 	// CL_BGRA
 	{CL_BGRA,	CL_UNORM_INT8},
 
+	// Additional formats required by users
+	// CL_INTENCITY
+	{CL_INTENSITY,	CL_FLOAT},
+
+	// CL_LUMINANCE
+	{CL_LUMINANCE,	CL_FLOAT},
 #ifndef __MINUMUM_SUPPORT__
 	// CL_R
 	{CL_R,		CL_UNORM_INT8},
