@@ -29,29 +29,35 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-typedef struct _fmt_cvt
+struct fmt_cl_gl
 {
-	cl_image_format clType;
+	cl_image_format clType;	// Original CL format
+	bool			isGLExt; // is true if GL extended format
+};
+
+struct fmt_cvt
+{
+	fmt_cl_gl		clType;
 	GLuint			glInternalType;
-} fmt_cvt;
+};
 
 fmt_cvt formatConvert[] =
 {
-	{{CL_RGBA, CL_UNSIGNED_INT8}, GL_RGBA},
-	{{CL_RGBA, CL_UNORM_INT8}, GL_RGBA8},
-	{{CL_RGBA, CL_UNORM_INT16}, GL_RGBA16},
-	{{CL_RGBA, CL_SIGNED_INT8}, GL_RGBA8I},
-	{{CL_RGBA, CL_SIGNED_INT16}, GL_RGBA16I},
-	{{CL_RGBA, CL_SIGNED_INT32}, GL_RGBA32I},
-	{{CL_RGBA, CL_UNSIGNED_INT8}, GL_RGBA8UI},
-	{{CL_RGBA, CL_UNSIGNED_INT16}, GL_RGBA16UI},
-	{{CL_RGBA, CL_UNSIGNED_INT32}, GL_RGBA32UI},
-	{{CL_RGBA, CL_HALF_FLOAT}, GL_RGBA16F},
-	{{CL_RGBA, CL_FLOAT}, GL_RGBA32F},
-	{{0,0}, 0}
+	{{{CL_RGBA, CL_UNSIGNED_INT8}, false}, GL_RGBA},
+	{{{CL_RGBA, CL_UNORM_INT8}, false}, GL_RGBA8},
+	{{{CL_RGBA, CL_UNORM_INT16}, false}, GL_RGBA16},
+	{{{CL_RGBA, CL_SIGNED_INT8}, true}, GL_RGBA8I},
+	{{{CL_RGBA, CL_SIGNED_INT16}, true}, GL_RGBA16I},
+	{{{CL_RGBA, CL_SIGNED_INT32}, true}, GL_RGBA32I},
+	{{{CL_RGBA, CL_UNSIGNED_INT8}, true}, GL_RGBA8UI},
+	{{{CL_RGBA, CL_UNSIGNED_INT16}, true}, GL_RGBA16UI},
+	{{{CL_RGBA, CL_UNSIGNED_INT32}, true}, GL_RGBA32UI},
+	{{{CL_RGBA, CL_HALF_FLOAT}, true}, GL_RGBA16F},
+	{{{CL_RGBA, CL_FLOAT}, false}, GL_RGBA32F},
+	{{{0,0},false}, 0}
 };
 
-cl_image_format ImageFrmtConvertGL2CL(GLuint glFrmt)
+fmt_cl_gl ImageFrmtConvertGL2CL(GLuint glFrmt)
 {
 	unsigned int i=0;
 	while (formatConvert[i].glInternalType != 0)
@@ -70,8 +76,8 @@ GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt)
 	unsigned int i=0;
 	while (formatConvert[i].glInternalType != 0)
 	{
-		if ( (clFrmt.image_channel_order == formatConvert[i].clType.image_channel_order) &&
-			 (clFrmt.image_channel_data_type == formatConvert[i].clType.image_channel_data_type) )
+		if ( (clFrmt.image_channel_order == formatConvert[i].clType.clType.image_channel_order) &&
+			 (clFrmt.image_channel_data_type == formatConvert[i].clType.clType.image_channel_data_type) )
 		{
 			return formatConvert[i].glInternalType;
 		}
@@ -142,8 +148,18 @@ GLenum GetGLType(cl_channel_type clType)
 	return 0;
 }
 
-GLenum GetGLFormat(cl_channel_type clType)
+GLenum GetGLFormat(cl_channel_type clType, bool isExt)
 {
+	if ( isExt )
+	{
+		return GL_RGBA_INTEGER_EXT;
+	}
+	else
+	{
+		return GL_RGBA;
+	}
+
+	/*
 	switch (clType)
 	{
 	case CL_UNORM_INT8:
@@ -160,6 +176,7 @@ GLenum GetGLFormat(cl_channel_type clType)
 	case CL_FLOAT:
 		return GL_RGBA;
 	}
+	*/
 	return 0;
 }
 
@@ -357,8 +374,13 @@ GLTexture2D::GLTexture2D(GLContext * pContext, cl_mem_flags clMemFlags,
 	m_szImageHeight = realHeight;
 
 	// set image format (copy data);
-	m_pclImageFormat = new cl_image_format();
-	*m_pclImageFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
+	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
+	if ( NULL == m_pclImageFormat )
+	{
+		*pErrCode = CL_OUT_OF_HOST_MEMORY;
+		return;
+	}
+	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_pclImageFormat->image_channel_order)
 	{
 		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
@@ -375,8 +397,10 @@ GLTexture2D::GLTexture2D(GLContext * pContext, cl_mem_flags clMemFlags,
 
 void GLTexture2D::GetGLObjectData()
 {
-	GLenum readBackFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum readBackType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
+
+	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 	GLint	currTexture;
 	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
@@ -386,6 +410,9 @@ void GLTexture2D::GetGLObjectData()
 	glBindTexture(glBaseTarget, m_glBufObj);
 
 	glGetTexImage( m_glTextureTarget, m_glMipLevel, readBackFormat, readBackType, m_pMemObjData );
+	GLenum rc = glGetError();
+
+	//GL_INVALID_ENUM
 
 	glBindTexture(glBaseTarget, currTexture);
 }
@@ -396,9 +423,10 @@ void GLTexture2D::SetGLObjectData()
 	{
 		return;
 	}
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
 
-	GLenum readBackFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum readBackType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 	GLint	currTexture;
 	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
@@ -476,8 +504,13 @@ GLTexture(glTextureTarget, glMipLevel, glTexture)
 	m_szImageDepth = realDepth;
 
 	// set image format (copy data);
-	m_pclImageFormat = new cl_image_format();
-	*m_pclImageFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
+	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
+	if ( NULL == m_pclImageFormat )
+	{
+		*pErrCode = CL_OUT_OF_HOST_MEMORY;
+		return;
+	}
+	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_pclImageFormat->image_channel_order)
 	{
 		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
@@ -495,8 +528,10 @@ GLTexture(glTextureTarget, glMipLevel, glTexture)
 
 void GLTexture3D::GetGLObjectData()
 {
-	GLenum readBackFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum readBackType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
+
+	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 	GLint	currTexture;
 	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
@@ -518,8 +553,10 @@ void GLTexture3D::SetGLObjectData()
 		return;
 	}
 
-	GLenum readBackFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum readBackType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
+
+	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 	GLint	currTexture;
 	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
@@ -595,8 +632,13 @@ GLRenderBuffer::GLRenderBuffer(GLContext * pContext, cl_mem_flags clMemFlags, GL
 	m_szImageHeight = realHeight;
 
 	// set image format (copy data);
-	m_pclImageFormat = new cl_image_format();
-	*m_pclImageFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
+	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
+	if ( NULL == m_pclImageFormat )
+	{
+		*pErrCode = CL_OUT_OF_HOST_MEMORY;
+		return;
+	}
+	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_pclImageFormat->image_channel_order)
 	{
 		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
@@ -640,8 +682,10 @@ void GLRenderBuffer::GetGLObjectData()
 		return;
 	}
 
-	GLenum readBackFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum readBackType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
+
+	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 	glReadPixels( 0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, readBackFormat, readBackType, m_pMemObjData );
 
@@ -669,9 +713,11 @@ void GLRenderBuffer::SetGLObjectData()
 	{
 		return;
 	}
+	
+	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
 
-	GLenum glFormat = GetGLFormat(m_pclImageFormat->image_channel_data_type);
-	GLenum glType = GetGLType(m_pclImageFormat->image_channel_data_type); 
+	GLenum glFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
+	GLenum glType = GetGLType(pFmt->clType.image_channel_data_type); 
 
 #if 1
     // Fill a texture with our input data

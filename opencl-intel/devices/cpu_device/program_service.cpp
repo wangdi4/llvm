@@ -799,7 +799,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 		break;
 
 	case CL_DEV_KERNEL_MAX_WG_SIZE:
-		ullValue = MIN(CPU_DEV_MAX_WI_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernel->GetPrivateMemorySize()) );
+		ullValue = MIN(CPU_MAX_WORK_GROUP_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernel->GetPrivateMemorySize()) );
 		stValSize = sizeof(size_t);
 		break;
 
