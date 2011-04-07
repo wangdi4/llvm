@@ -72,11 +72,11 @@ const unsigned int PlatformModule::m_uiPlatformExtensionsStrSize = sizeof(m_vPla
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 PlatformModule::PlatformModule()
 {
-	m_ppDevices = NULL;
-	m_uiDevicesCount = 0;
-	m_clPlatformIds[0] = NULL;
-	m_clPlatformIds[1] = NULL;
-	m_pOclEntryPoints = NULL;
+    m_ppRootDevices        = NULL;
+	m_uiRootDevicesCount   = 0;
+	m_clPlatformIds[0]     = NULL;
+	m_clPlatformIds[1]     = NULL;
+	m_pOclEntryPoints      = NULL;
 	// initialize logger
 	INIT_LOGGER_CLIENT(L"PlatformModule", LL_DEBUG);
 }
@@ -92,17 +92,17 @@ PlatformModule::~PlatformModule()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
 {
-	m_uiDevicesCount = devices.size();
+	m_uiRootDevicesCount = devices.size();
 
-	m_ppDevices = new Device * [m_uiDevicesCount];
-	if (NULL == m_ppDevices)
+	m_ppRootDevices = new Device * [m_uiRootDevicesCount];
+	if (NULL == m_ppRootDevices)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
 #if defined (_WIN32) || defined (USE_COMPILER)
 	cl_uint uiNumFECompilers = m_pFECompilers->Count();
-	assert(m_uiDevicesCount == uiNumFECompilers);
+	assert(m_uiRootDevicesCount == uiNumFECompilers);
 
     OCLObject<_cl_object>** ppFECompilers = new OCLObject<_cl_object>*[uiNumFECompilers];
 	if (!ppFECompilers)
@@ -112,7 +112,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
     m_pFECompilers->GetObjects(uiNumFECompilers, ppFECompilers, NULL);
 #endif
-	for(unsigned int ui=0; ui<m_uiDevicesCount; ++ui)
+	for(unsigned int ui=0; ui<m_uiRootDevicesCount; ++ui)
 	{
 		// create new device object
 		Device * pDevice = new Device();
@@ -139,7 +139,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
 		// assign device in the objects map
 		m_pDevices->AddObject(pDevice);
-		m_ppDevices[ui] = pDevice;
+		m_ppRootDevices[ui] = pDevice;
 
 		if (defaultDevice != "" && defaultDevice == strDevice)
 		{
@@ -259,10 +259,10 @@ cl_err_code	PlatformModule::Release()
 	m_pDevices->ReleaseAllObjects();
 	m_pDefaultDevice = NULL;
 
-	if (NULL != m_ppDevices)
+	if (NULL != m_ppRootDevices)
 	{
-		delete m_ppDevices;
-		m_ppDevices = NULL;
+		delete[] m_ppRootDevices;
+		m_ppRootDevices = NULL;
 	}
 
 	LOG_INFO(TEXT("%S"), TEXT("Platform module logger release"));
@@ -355,9 +355,9 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		pValue = (void*)m_vPlatformVendorStr;
 		break;
 	case CL_PLATFORM_EXTENSIONS:
-		assert ((m_uiDevicesCount > 0) && "No devices associated to the platform");
-		pDevice = m_ppDevices[0];
-		clErr = m_ppDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, NULL);
+		assert ((m_uiRootDevicesCount > 0) && "No devices associated to the platform");
+		pDevice = m_ppRootDevices[0];
+		clErr = m_ppRootDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, NULL);
 		if (CL_FAILED(clErr))
 		{
 			return CL_INVALID_VALUE;
@@ -366,9 +366,9 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		while (pch != NULL)
 		{
 			bRes = true;
-			for (unsigned int ui=1; ui<m_uiDevicesCount; ++ui)
+			for (unsigned int ui=1; ui<m_uiRootDevicesCount; ++ui)
 			{
-				clErr = m_ppDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, NULL);
+				clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, NULL);
 				if (CL_FAILED(clErr))
 				{
 					return CL_INVALID_VALUE;
@@ -447,8 +447,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 		return CL_INVALID_VALUE;
 	}
 
-	cl_err_code clErrRet = CL_SUCCESS;
-	cl_uint uiNumDevices = m_pDevices->Count();
+	cl_uint uiNumDevices = m_uiRootDevicesCount;
 	cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
 	Device ** ppDevices = NULL;
 	cl_device_id * pDeviceIds = NULL;
@@ -469,12 +468,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 		LOG_ERROR(TEXT("%S"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	clErrRet = m_pDevices->GetObjects(uiNumDevices, (OCLObject<_cl_device_id_int>**)ppDevices, NULL);
-	if (CL_FAILED(clErrRet))
-	{
-		delete[] ppDevices;
-		return CL_ERR_OUT(clErrRet);
-	}
+    MEMCPY_S(ppDevices, uiNumDevices * sizeof(Device *), m_ppRootDevices, m_uiRootDevicesCount * sizeof(Device *));
 	pDeviceIds = new cl_device_id[uiNumDevices];
 	if (NULL == pDeviceIds)
 	{
@@ -597,14 +591,31 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDevice
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetDevice(cl_device_id clDeviceId, Device ** ppDevice)
+cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppDevice)
 {
 	LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
 	assert( (NULL != ppDevice) && (NULL != m_pDevices) );
 
+    FissionableDevice* temp = NULL;
+    cl_err_code ret;
 	// get the device from the devices list
-	return m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+	ret = m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+    if (CL_SUCCESS != ret)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    *ppDevice = temp->GetRootDevice();
+    return CL_SUCCESS;
 }
+cl_err_code	PlatformModule::GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice)
+{
+    LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
+    assert( (NULL != ppDevice) && (NULL != m_pDevices) );
+
+    // get the device from the devices list
+    return m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+}
+
 
 FECompiler * PlatformModule::GetDefaultFECompiler()
 {
@@ -711,4 +722,158 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 	assert(0 && "GL NOT Implemented on Linux");
 #endif
        return CL_SUCCESS;
+}
+
+// Device Fission
+cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property_ext *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
+{
+    OclAutoMutex CS(&m_deviceFissionMutex);
+    cl_err_code ret; 
+    FissionableDevice* pParentDevice; 
+    cl_uint numOutputDevices;
+    ret = m_pDevices->GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
+    if (CL_SUCCESS != ret)
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if (NULL == properties)
+    {
+        return CL_INVALID_PROPERTY;
+    }
+
+    if (0 == num_entries)
+    {
+        if (NULL != out_devices)
+        {
+            return CL_INVALID_VALUE;
+        }
+    }
+    if (NULL == pParentDevice->GetDeviceAgent())
+    {
+        ret = pParentDevice->GetRootDevice()->CreateInstance();
+        if (CL_SUCCESS != ret)
+        {
+            return ret;
+        }
+    }
+
+    //Get the number of devices to be generated
+    ret = pParentDevice->FissionDevice(properties, 0, NULL, &numOutputDevices, NULL);
+    if (ret != CL_SUCCESS)
+    {
+        return ret;
+    }
+
+    //if the user is only interested in count
+    if (NULL == out_devices)
+    {
+        if (NULL == num_devices)
+        {
+            return CL_INVALID_VALUE;
+        }
+        *num_devices = numOutputDevices;
+        return CL_SUCCESS;
+    }
+    if (NULL != num_devices)
+    {
+        *num_devices = numOutputDevices;
+    }
+
+    cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numOutputDevices];
+    if (NULL == subdevice_ids)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    size_t* sizes = new size_t[numOutputDevices];
+    if (NULL == sizes)
+    {
+        delete[] subdevice_ids;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, num_devices, sizes);
+    if (ret != CL_SUCCESS)
+    {
+        return ret;
+    }
+    //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
+    FissionableDevice** pNewDevices = new FissionableDevice*[numOutputDevices];
+    if (NULL == pNewDevices)
+    {
+        delete[] subdevice_ids;
+        delete[] sizes;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    //Get the partitioning mode
+    cl_int partitionMode = properties[0];
+    if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == partitionMode)
+    {
+        partitionMode = properties[1];
+    }
+    for (cl_uint i = 0; i < numOutputDevices; ++i)
+    {
+        pNewDevices[i] = new SubDevice(pParentDevice, sizes[i], subdevice_ids[i], properties, m_pOclEntryPoints);
+        if (NULL == pNewDevices[i])
+        {
+            for (cl_uint j = 0; j < i; ++j)
+            {
+                pNewDevices[j]->Release();
+            }
+            delete[] pNewDevices;
+            delete[] sizes;
+            delete[] subdevice_ids;
+        }
+        out_devices[i] = pNewDevices[i]->GetHandle();
+    }
+    delete[] sizes;
+    delete[] subdevice_ids;
+
+    //Successful fission. Update device maps
+    ret = AddDevices(pNewDevices, numOutputDevices);
+    if (ret != CL_SUCCESS)
+    {
+        for (cl_uint i = 0; i < numOutputDevices; ++i)
+        {
+            pNewDevices[i]->Release();
+        }
+        delete[] pNewDevices;
+        return ret;
+    }
+
+    //Successful fission, tell the device it can notify the dependents
+    pParentDevice->NotifyDeviceFissioned(numOutputDevices, pNewDevices);
+    delete[] pNewDevices;
+    
+    return CL_SUCCESS;
+}
+cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
+{
+    cl_err_code ret = CL_SUCCESS;
+    ret = m_pDevices->ReleaseObject((_cl_device_id_int *)device);
+    if (CL_ERR_KEY_NOT_FOUND == ret)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    return ret;
+}
+cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
+{
+    FissionableDevice* pDevice;
+    cl_err_code ret = CL_SUCCESS;
+    ret = m_pDevices->GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
+    if (CL_ERR_KEY_NOT_FOUND == ret)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    return pDevice->Retain();
+}
+
+cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevice ** ppDevices, unsigned int count)
+{
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        m_pDevices->AddObject(ppDevices[i]);
+    }
+    return CL_SUCCESS;
 }

@@ -38,10 +38,10 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices, logging_fn pfnNotify,
+GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 					 cl_context_properties hGLCtx, cl_context_properties hDC, bool bUseTaskalyzer, char cStageMarkerFlags) :
-	Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, bUseTaskalyzer, m_cStageMarkerFlags)
+	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, bUseTaskalyzer, m_cStageMarkerFlags)
 {
 	if ( (NULL == hGLCtx) || (NULL == hDC) )
 	{
@@ -52,6 +52,10 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 	// Check if any device is attached to context
 	for(cl_uint idx = 0; idx < uiNumDevices; idx++)
 	{
+        if (!ppDevices[idx]->IsRootLevelDevice())
+        {
+            continue;
+        }
 		cl_context_properties devProp;
 		ppDevices[idx]->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &devProp, NULL);
 		if ( (NULL != devProp) && (devProp != hGLCtx) )
@@ -70,11 +74,10 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 	m_hDC = hDC;
 
 	// All device passed, update GL info
-	for(cl_uint idx = 0; idx < uiNumDevices; idx++)
-	{
-		ppDevices[idx]->SetGLProperties(m_hGLCtx, m_hDC);
-	}
-
+    for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
+    {
+        m_ppRootDevices[idx]->SetGLProperties(m_hGLCtx, m_hDC);
+    }
 	// Init GL extension functions
 #ifdef WIN32
 	this->glBindBuffer = (pFnglBindBuffer*)wglGetProcAddress("glBindBuffer");
@@ -96,10 +99,10 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 GLContext::~GLContext()
 {
 	// All device passed, update GL info
-	for(cl_uint idx = 0; idx < m_pDevices->Count(); idx++)
-	{
-		m_ppDevices[idx]->SetGLProperties(NULL, NULL);
-	}
+    for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
+    {
+        m_ppRootDevices[idx]->SetGLProperties(NULL, NULL);
+    }
 }
 
 // create GL buffer object

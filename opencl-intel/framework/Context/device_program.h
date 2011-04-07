@@ -37,6 +37,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
 
+    class Device;
+    class FissionableDevice;
+
 	enum EDeviceProgramState
 	{
 		DEVICE_PROGRAM_INVALID,      // Object was just created or build failed
@@ -48,16 +51,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DEVICE_PROGRAM_MACHINE_CODE // Build complete, executable code ready
 	};
 
-	class Device;
-
 	class DeviceProgram : public IFrontendBuildDoneObserver, IBuildDoneObserver
 	{
 	public:
 		DeviceProgram();
+        DeviceProgram(const DeviceProgram& dp);
 		virtual ~DeviceProgram();
 
-		void           SetDevice(Device* pDevice);
-		const Device*  GetDevice()              const { return m_pDevice; }
+		void           SetDevice(FissionableDevice* pDevice);
+		const FissionableDevice*  GetDevice()   const { return m_pDevice; }
 		cl_device_id   GetDeviceId()            const { return m_deviceHandle; }
 		cl_dev_program GetDeviceProgramHandle() const { return m_programHandle; }
 		void           SetHandle(cl_program handle)   { m_parentProgramHandle = handle; }
@@ -114,9 +116,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		EDeviceProgramState m_state;
 		bool                m_bBuiltFromSource;
 		bool                m_bFECompilerSuccess;
+        bool                m_bIsClone;
 
 		// Associated device members
-		Device*             m_pDevice;
+		FissionableDevice*  m_pDevice;
 		cl_device_id        m_deviceHandle;
 		cl_dev_program      m_programHandle;
 		cl_program          m_parentProgramHandle;

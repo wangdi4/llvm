@@ -35,7 +35,8 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
+DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), 
+m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
 m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
 m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
 m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
@@ -43,6 +44,25 @@ m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 	//initialize build log to be the empty string
 	m_szBuildLog = 1;
 	m_pBuildLog  = &m_emptyString;
+}
+
+DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : m_bIsClone(true)
+{
+    SetDevice(dp.m_pDevice);
+    SetHandle(dp.m_parentProgramHandle);
+    SetContext(dp.m_parentProgramContext);
+    m_bBuiltFromSource   = dp.m_bBuiltFromSource;
+    m_bFECompilerSuccess = dp.m_bFECompilerSuccess;
+    //Current spec doesn't support cloning programs created from binaries
+    assert(m_bBuiltFromSource);
+    if (m_bBuiltFromSource)
+    {
+        SetSource(dp.m_uiNumStrings, dp.m_pszStringLengths, dp.m_pSourceStrings);
+    }
+    //Todo: in the future it's a good idea to copy a completed binary from my source, or to add myself as an observer for its completion
+    // Currently, force a real re-build of the program even if we're copying a built program
+    // Thus, no use for m_bIsClone currently
+    m_bIsClone = false;
 }
 
 DeviceProgram::~DeviceProgram()
@@ -74,10 +94,8 @@ DeviceProgram::~DeviceProgram()
 	}
 }
 
-void DeviceProgram::SetDevice(Device* pDevice)
+void DeviceProgram::SetDevice(FissionableDevice* pDevice)
 {
-	//Must not call this twice
-	assert(!m_pDevice);
 	m_pDevice = pDevice;
 	//Must not give NULL ptr
 	assert(m_pDevice);
@@ -216,7 +234,7 @@ cl_err_code DeviceProgram::FeBuild()
 {
 	FECompiler* pFeCompiler = NULL;
 
-	pFeCompiler = const_cast<FECompiler *>(m_pDevice->GetFECompiler());
+	pFeCompiler = const_cast<FECompiler *>(m_pDevice->GetRootDevice()->GetFECompiler());
 	if (NULL == pFeCompiler) //attempt to get global FE compiler
 	{
 		pFeCompiler = const_cast<FECompiler *>(FrameworkProxy::Instance()->GetPlatformModule()->GetDefaultFECompiler());

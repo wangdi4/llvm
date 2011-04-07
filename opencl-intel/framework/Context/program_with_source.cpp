@@ -10,10 +10,10 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
 {
 	cl_int err = CL_SUCCESS;
 
-	Device** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
-	m_pDevicePrograms  = new DeviceProgram[m_szNumAssociatedDevices];
+	FissionableDevice** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
+	m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
 	m_pSourceStrings = NULL;
-	if (!m_pDevicePrograms)
+	if (!m_ppDevicePrograms)
 	{
 		err = CL_OUT_OF_HOST_MEMORY;
 	}
@@ -22,17 +22,32 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
 		if (!CopySourceStrings(uiNumStrings, pSources, pszLengths))
 		{
 			err = CL_OUT_OF_HOST_MEMORY;
-			delete[] m_pDevicePrograms;
-			m_pDevicePrograms = NULL;
+			delete[] m_ppDevicePrograms;
+			m_ppDevicePrograms = NULL;
 		}
 		else
 		{
 			for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 			{
-				m_pDevicePrograms[i].SetDevice(pDevices[i]);
-				m_pDevicePrograms[i].SetHandle(GetHandle());
-				m_pDevicePrograms[i].SetContext(pContext->GetHandle());
-				m_pDevicePrograms[i].SetSource(m_uiNumStrings, m_pszStringLengths, const_cast<const char**>(m_pSourceStrings));
+                m_ppDevicePrograms[i] = new DeviceProgram();
+                if (NULL == m_ppDevicePrograms[i])
+                {
+                    err = CL_OUT_OF_HOST_MEMORY;
+                    for (size_t j = 0; j < i; ++j)
+                    {
+                        delete m_ppDevicePrograms[j];
+                    }
+                    delete[] m_ppDevicePrograms;
+                    m_ppDevicePrograms = NULL;
+                    break;
+                }
+                else
+                {
+                    m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
+                    m_ppDevicePrograms[i]->SetHandle(GetHandle());
+                    m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
+                    m_ppDevicePrograms[i]->SetSource(m_uiNumStrings, m_pszStringLengths, const_cast<const char**>(m_pSourceStrings));
+                }
 			}
 		}
 	}
@@ -46,10 +61,14 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
 
 ProgramWithSource::~ProgramWithSource()
 {
-	if ((m_szNumAssociatedDevices > 0) && (NULL != m_pDevicePrograms))
+	if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
 	{
-		delete[] m_pDevicePrograms;
-		m_pDevicePrograms = NULL;
+        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+        {
+            delete m_ppDevicePrograms[i];
+        }
+		delete[] m_ppDevicePrograms;
+		m_ppDevicePrograms = NULL;
 	}
 
 	if (m_pSourceStrings)
@@ -82,6 +101,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 	case CL_PROGRAM_BINARIES:
 		{
+            OclAutoReader CS(&m_deviceProgramLock);
 			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
 			char ** pParamValue = static_cast<char **>(param_value);
 			// get  data
@@ -93,12 +113,12 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 				}
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					clErrRet = m_pDevicePrograms[i].GetBinary(0, NULL, &uiParam);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
 					}
-					clErrRet = m_pDevicePrograms[i].GetBinary(uiParam, pParamValue[i], &uiParam);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(uiParam, pParamValue[i], &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -115,6 +135,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 
 	case CL_PROGRAM_BINARY_SIZES:
 		{
+            OclAutoReader CS(&m_deviceProgramLock);
 			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
 			if (NULL != param_value)
 			{
@@ -126,7 +147,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 				size_t * pParamValue = static_cast<size_t *>(param_value);
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					clErrRet = m_pDevicePrograms[i].GetBinary(0, NULL, pParamValue + i);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, pParamValue + i);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -223,4 +244,44 @@ bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSo
 		m_pSourceStrings[ui][m_pszStringLengths[ui]] = 0; 
 	}
 	return true;
+}
+
+cl_err_code ProgramWithSource::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
+{
+    // Prevent further read access to device program map as we're about to relocate it
+    OclAutoWriter CS(&m_deviceProgramLock);
+
+    // Prepare new device program map
+    size_t szNewNumAssociatedDevices = m_szNumAssociatedDevices + count;
+    DeviceProgram** ppNewDevicesPrograms = new DeviceProgram*[szNewNumAssociatedDevices];
+    if (NULL == ppNewDevicesPrograms)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    MEMCPY_S(ppNewDevicesPrograms, sizeof(DeviceProgram*) * m_szNumAssociatedDevices, m_ppDevicePrograms, sizeof(DeviceProgram*) * m_szNumAssociatedDevices);
+
+    // Get the device program to be cloned
+    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(parent->GetHandle());
+    assert(pDeviceProgram);
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        DeviceProgram* pNewDeviceProgram = new DeviceProgram(*pDeviceProgram);
+        if (NULL == pNewDeviceProgram)
+        {
+            for (size_t j = 0; j < i; ++j)
+            {
+                delete ppNewDevicesPrograms[m_szNumAssociatedDevices + j];
+            }
+            delete[] ppNewDevicesPrograms;
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        ppNewDevicesPrograms[m_szNumAssociatedDevices + i] = pNewDeviceProgram;
+    }
+
+    m_szNumAssociatedDevices = szNewNumAssociatedDevices;
+    delete[] m_ppDevicePrograms;
+    m_ppDevicePrograms = ppNewDevicesPrograms;
+
+    return CL_SUCCESS;
 }

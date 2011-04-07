@@ -188,3 +188,21 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
         return sInfo.dwNumberOfProcessors;
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the number of NUMA nodes on the system
+////////////////////////////////////////////////////////////////////
+unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
+{
+    unsigned long ret = 0;
+    GetNumaHighestNodeNumber(&ret);
+    return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return a bitmask representing the processors in a given NUMA node
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+{
+    return 0 != GetNumaNodeProcessorMask((unsigned char)node, pMask); 
+}

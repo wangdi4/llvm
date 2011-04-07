@@ -31,6 +31,7 @@
 #include <stdio.h>  // Todo: replace printf with log mechanisem
 #include <assert.h>
 #include <algorithm>
+#include <semaphore.h>
 #include "hw_utils.h"
 /************************************************************************
  * This file is the Linux implementation of the cl_synch_objects interface
@@ -497,3 +498,26 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 	return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
 }
 
+OclBinarySemaphore::OclBinarySemaphore()
+{
+    sem_t* pSemaphore = new sem_t();
+    assert(NULL != pSemaphore);
+
+    sem_init(pSemaphore, 0, 0);
+    m_semaphore = pSemaphore;
+}
+OclBinarySemaphore::~OclBinarySemaphore()
+{
+    if (NULL != m_semaphore)
+    {
+        delete static_cast<sem_t*>(m_semaphore);
+    }
+}
+void OclBinarySemaphore::Signal()
+{
+    sem_post((sem_t*)m_semaphore);
+}
+void OclBinarySemaphore::Wait()
+{
+    sem_wait((sem_t*)m_semaphore);
+}

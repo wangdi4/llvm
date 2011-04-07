@@ -58,14 +58,21 @@ private:
 protected:
 	~CPUDevice();
 
+    TaskDispatcher* GetTaskDispatcher(cl_dev_subdevice_id subdevice_id); 
+
 public:
 	CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
 	cl_dev_err_code	Init();
 
 	static cl_dev_err_code   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
+    //Device Fission support
+
+    cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN props, cl_uint* INOUT num_subdevices, void* IN param, cl_dev_subdevice_id* OUT subdevice_ids);
+    cl_dev_err_code clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id);
+
 	// Device entry points
-	cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+	cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list);
 	cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);
 	cl_dev_err_code clDevRetainCommandList( cl_dev_cmd_list IN list);
 	cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );

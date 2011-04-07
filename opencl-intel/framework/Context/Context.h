@@ -26,9 +26,11 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
+#include "observer.h"
 #include <Logger.h>
 #include <cl_object.h>
 #include <cl_objects_map.h>
+#include <cl_synch_objects.h>
 #include <map>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -37,7 +39,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Image2D;
 	class Image3D;
 	class Sampler;
-	class Device;
+    class Device;
+	class FissionableDevice;
 	class Program;
 	class MemoryObject;
 
@@ -49,7 +52,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Context : public OCLObject<_cl_context_int>
+	class Context : public OCLObject<_cl_context_int>, public IDeviceFissionObserver
 	{
 	public:
 
@@ -64,7 +67,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags);
+		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -77,13 +80,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
-		* Description:	get object specific information (inharited from OCLObject) the function 
+		* Description:	get object specific information (inherited from OCLObject) the function 
 		*				query the desirable parameter value from the device
 		* Arguments:	param_name [in]				parameter's name
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
 		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -122,10 +125,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint GetDevicesCount() const { return m_pDevices->Count(); }
 
 		// get the device object pointers that associated to the context
-		Device ** GetDevices(cl_uint * puiNumDevices);
+		FissionableDevice ** GetDevices(cl_uint * puiNumDevices);
 
 		// get the device ids that associated to the context
 		cl_device_id * GetDeviceIds(cl_uint * puiNumDevices);
+
+        // Get the list of root-level devices associated with this context
+        Device** GetRootDevices(cl_uint* puiNumDevices);
+
+        cl_dev_subdevice_id GetSubdeviceId(cl_device_id id); 
 
         /******************************************************************************************
 		* Function: 	GetDeviceByIndex
@@ -141,7 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDeviceByIndex(cl_uint uiDeviceIndex, Device** pDevice);
 
 		// get device by device id
-		cl_err_code GetDevice(cl_device_id clDeviceId, Device ** ppDevice) const
+		cl_err_code GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice) const
 		{
 			return m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
 		}
@@ -161,7 +169,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// create new sub buffer object
 		cl_err_code CreateSubBuffer(Buffer* buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, Buffer ** ppBuffer);
 
-		// create new 1 or 2 dimentional image object
+		// create new 1 or 2 dimensional image object
 		cl_err_code CreateImage2D(	cl_mem_flags	        clFlags,
 									const cl_image_format * pclImageFormat,
 									void *                  pHostPtr,
@@ -201,9 +209,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
 		// Get devices from the device list
-		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, Device** ppDevices);
-		
-		// 
+		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, FissionableDevice** ppDevices);
 		bool GetUseTaskalyzer() const;
 
 		char GetStatusMarkerFlags() const;
@@ -221,6 +227,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			January 2009
 		******************************************************************************************/
 		void NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb);
+
+        //Implementation of the IDeviceFissionObserver interface
+        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
 	protected:
 		/******************************************************************************************
@@ -241,17 +250,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// -------------- DEVICES -------------- 
 		
-		OCLObjectsMap<_cl_device_id_int> *			m_pDevices;		// holds the devices that associated to the program
+		OCLObjectsMap<_cl_device_id_int> *		m_pDevices;		// holds the devices that associated to the program
+
+        Device**                                m_ppRootDevices;
 	
-		Device **								m_ppDevices;
+		FissionableDevice **					m_ppAllDevices;
 
 		cl_device_id *							m_pDeviceIds;
 
-        OCLObjectsMap<_cl_program_int> *			m_pPrograms;	// holds the programs that related to this context
+        cl_device_id *                          m_pOriginalDeviceIds;
 
-		OCLObjectsMap<_cl_mem_int> *				m_pMemObjects;	// holds the memory objects that belongs to the context
+        cl_uint                                 m_pOriginalNumDevices;
 
-		OCLObjectsMap<_cl_sampler_int> *			m_pSamplers;	// holds the sampler objects that belongs to the context
+        cl_uint                                 m_uiNumRootDevices;
+
+        Utils::OclReaderWriterLock              m_deviceMapsLock;   // used to prevent a race between accesses to the device maps and the device fission sequence
+
+        Utils::OclReaderWriterLock              m_deviceDependentObjectsLock; // Used to prevent a race between program / memory object "device" objects and device fission sequence
+
+        OCLObjectsMap<_cl_program_int> *		m_pPrograms;	// holds the programs that related to this context
+
+		OCLObjectsMap<_cl_mem_int> *			m_pMemObjects;	// holds the memory objects that belongs to the context
+
+		OCLObjectsMap<_cl_sampler_int> *		m_pSamplers;	// holds the sampler objects that belongs to the context
 
 		cl_context_properties *					m_pclContextProperties; // context properties
 //		std::map<cl_context_properties, cl_context_properties>

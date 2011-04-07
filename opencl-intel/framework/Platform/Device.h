@@ -33,24 +33,70 @@
 #include <cl_device_api.h>
 #include <cl_dynamic_lib.h>
 #include <map>
+#include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Froward declarations
-	class IBuildDoneObserver;
-	class ICmdStatusChangedObserver;
+    class IDeviceFissionObserver;
 	class FECompiler;
+    class Device;
+
+    /**********************************************************************************************
+    * Class name:	FissionableDevice
+    *
+    * Inherit:		OCLObject
+    * Description:	An artificial base class to support repeated fissioning of devices
+    * Author:		Doron Singer
+    * Date:			March 2011
+    **********************************************************************************************/
+    class FissionableDevice : public OCLObject<_cl_device_id_int>
+    {
+    public:
+    FissionableDevice() {}
+
+        cl_err_code RegisterDeviceFissionObserver(IDeviceFissionObserver* ob); 
+        void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
+
+        //virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_device_id* out_devices, cl_uint* num_devices) = 0;
+        // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
+        virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes) = 0;
+
+        virtual void NotifyDeviceFissioned(cl_uint numChildren, FissionableDevice** children);
+
+        //Currently not implemented
+        virtual void NotifyDeviceReleased(cl_device_id device) {}
+
+        // An API to get the root-level device of deriving subclasses
+        virtual Device*     GetRootDevice() = 0;
+
+        // A convenience API to query whether a device is root-level or not
+        virtual bool        IsRootLevelDevice() = 0;
+
+        // An API to query the appropriate sub-device ID (0 for root-level devices)
+        virtual cl_dev_subdevice_id GetSubdeviceId() { return 0; }
+
+        virtual IOCLDevice*	GetDeviceAgent() = 0;
+
+    protected:
+        ~FissionableDevice() {}
+
+        Utils::OclSpinMutex                     m_fissionObserverListMutex;
+
+        std::list<IDeviceFissionObserver*>      m_fissionObserverList;
+
+    };
 
 	/**********************************************************************************************
 	* Class name:	Device
 	*
 	* Inherit:		OCLObject
 	* Description:	This object is a gate from the framework into the openCL device driver that is
-	*				implemented by a seperated library.
+	*				implemented by a separate library.
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class Device : public OCLObject<_cl_device_id_int>, IOCLDevLogDescriptor, IOCLFrameworkCallbacks
+	class Device : public FissionableDevice, IOCLDevLogDescriptor, IOCLFrameworkCallbacks
 	{
 	public:
 
@@ -65,13 +111,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	GetInfo
-		* Description:	get object specific information (inharited from OCLObject) the function
+		* Description:	get object specific information (inherited from OCLObject) the function
 		*				query the desirable parameter value from the device
 		* Arguments:	param_name [in]				parameter's name
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
 		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -84,7 +130,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	InitDevice
 		* Description:	Load OpenCL device library
 		* Arguments:	pwcDllPath [in]		full path of device driver's dll
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -94,7 +140,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	CreateInstance
 		* Description:	Create a device agent instance
 		* Arguments:
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Arnon Peleg
 		* Date:			June 2009
 		******************************************************************************************/
@@ -105,7 +151,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	Close the instance that was created by CreateInstance.
         *               Local members of the device class may not be valid until next call to CreateInstance
 		* Arguments:
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Arnon Peleg
 		* Date:			June 2009
 		******************************************************************************************/
@@ -137,6 +183,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							 { m_hGLContext = hGLCtx; m_hHDC = hHDC;}
 
 		cl_ulong GetMaxLocalMemorySize() const {return m_stMaxLocalMemorySize;}
+
+        // Inherited from FissionableDevice
+        cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
+        Device* GetRootDevice() { return this; }
+        bool    IsRootLevelDevice() { return true; }
+
+        //Override the OCLObject defaults
+        // Cannot release root-level devices, always pretend to have another reference
+        long Release() { return 1; }
+        // Cannot retains root-level devices
+        cl_err_code Retain() { return CL_SUCCESS; }
+
 	protected:
 		/******************************************************************************************
 		* Function: 	~Device
@@ -192,6 +250,53 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_context_properties					m_hHDC;
 
 	};
+
+    class SubDevice : public FissionableDevice
+    {
+    public:
+        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints);
+
+        /******************************************************************************************
+        * Function: 	GetInfo
+        * Description:	get object specific information (inherited from OCLObject) the function
+        *				queries the desirable parameter value from the root-level device
+        * Arguments:	param_name [in]				parameter's name
+        *				param_value_size [inout]	parameter's value size (in bytes)
+        *				param_value [out]			parameter's value
+        *				param_value_size_ret [out]	parameter's value return size
+        * Return value:	CL_SUCCESS - operation succeeded
+        * Author:		Doron Singer
+        * Date:			March 2011
+        ******************************************************************************************/
+        cl_err_code	GetInfo(cl_int		param_name,
+                            size_t		param_value_size,
+                            void *		param_value,
+                            size_t *	param_value_size_ret);
+
+        // Inherited from FissionableDevice
+        cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
+        Device* GetRootDevice() { return m_pRootDevice; }
+        bool    IsRootLevelDevice() { return false; }
+
+        size_t              GetNumComputeUnits() { return m_numComputeUnits; }
+        cl_dev_subdevice_id GetSubdeviceId()     { return m_deviceId; }
+        FissionableDevice*  GetParentDevice()    { return m_pParentDevice; }
+        IOCLDevice*         GetDeviceAgent()     { return m_pParentDevice->GetDeviceAgent(); }
+
+    protected:
+        ~SubDevice(); 
+
+        void CacheFissionProperties(const cl_device_partition_property_ext* props); 
+
+        Device*             m_pRootDevice;
+        FissionableDevice*  m_pParentDevice;   // Can be a sub-device or a device 
+        cl_dev_subdevice_id m_deviceId;        // The ID assigned to me by the device
+        size_t              m_numComputeUnits; // The amount of compute units represented by this sub-device
+        cl_int              m_fissionMode;     // The fission mode that created this sub-device
+
+        cl_device_partition_property_ext* m_cachedFissionMode;   // A copy of the property list used to create this device
+        cl_uint                           m_cachedFissionLength; // How many entries the list contains
+    };
 
 
 }}}

@@ -20,7 +20,11 @@ SET_UNICODE_OFF()
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
-
-target_link_libraries( ${TARGET_NAME} cl_hw_utils )
+if (NOT WIN32)
+  target_link_libraries( ${TARGET_NAME} cl_hw_utils numa )
+else ()
+  target_link_libraries( ${TARGET_NAME} cl_hw_utils )
+endif(NOT WIN32)
+ 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 

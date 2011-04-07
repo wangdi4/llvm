@@ -35,6 +35,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class PlatformModule;
 	class Device;
+    class FissionableDevice;
 	class Context;
 	template <class HandleType> class OCLObjectsMap;
 	class MemoryObject;
@@ -169,7 +170,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	private:
 
 		// get pointers to device objects according to the device ids
-		cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
+		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
+        cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
 

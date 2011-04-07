@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceMemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-DeviceMemoryObject::DeviceMemoryObject(Device * pDevice, LoggerClient * pLoggerClient) : m_bAllocated(false), m_bDataValid(false),m_pDevice(pDevice),m_clDevMemId(0)
+DeviceMemoryObject::DeviceMemoryObject(FissionableDevice * pDevice, LoggerClient * pLoggerClient) : m_bAllocated(false), m_bDataValid(false),m_pDevice(pDevice),m_clDevMemId(0)
 {
 	SET_LOGGER_CLIENT(pLoggerClient);
 }
@@ -425,12 +425,38 @@ m_clMemObjectType(0),m_clFlags(clMemFlags),m_pContext(pContext),m_ppDeviceMemObj
 	}
 	
 	
-	//create device memory object for each device
+	//create device memory object for each root device of devices participating in this context
 	cl_uint uiNumDevices = 0;
-	Device ** ppDevices = m_pContext->GetDevices(&uiNumDevices);
+	FissionableDevice ** ppDevices = m_pContext->GetDevices(&uiNumDevices);
 	assert(uiNumDevices > 0);
-	m_szNumDevices = 0;
-	m_szNumDevices = (size_t)uiNumDevices;
+
+    //Create a unique list of relevant root-level devices 
+    Device** ppRootDevices = new Device*[uiNumDevices];
+    if (NULL == ppRootDevices)
+    {
+        *pErr = CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+    ppRootDevices[0] = ppDevices[0]->GetRootDevice();
+    cl_uint nextRoot = 1;
+    for (cl_uint i = 1; i < uiNumDevices; ++i)
+    {
+        Device* pDevice = ppDevices[i]->GetRootDevice();
+        bool add = true;
+        for (cl_uint j = 0; j < nextRoot; ++j)
+        {
+            if (pDevice == ppRootDevices[j])
+            {
+                add = false;
+            }
+        }
+        if (add)
+        {
+            ppDevices[nextRoot++] = pDevice;
+        }
+    }
+
+	m_szNumDevices = (size_t)nextRoot;
 
 	m_ppDeviceMemObjects = new DeviceMemoryObject*[m_szNumDevices];
 	if (!m_ppDeviceMemObjects)
@@ -442,7 +468,7 @@ m_clMemObjectType(0),m_clFlags(clMemFlags),m_pContext(pContext),m_ppDeviceMemObj
 	for (cl_uint ui = 0; ui < m_szNumDevices; ++ui)
 	{
 		assert (NULL != ppDevices[ui]);
-		m_ppDeviceMemObjects[ui] = new DeviceMemoryObject(ppDevices[ui], GET_LOGGER_CLIENT);
+		m_ppDeviceMemObjects[ui] = new DeviceMemoryObject(ppRootDevices[ui], GET_LOGGER_CLIENT);
 		if (NULL == m_ppDeviceMemObjects[ui])
 		{
 			for (cl_uint uj = 0; uj < ui; ++uj)
@@ -450,10 +476,12 @@ m_clMemObjectType(0),m_clFlags(clMemFlags),m_pContext(pContext),m_ppDeviceMemObj
 				delete m_ppDeviceMemObjects[uj];
 			}
 			delete[] m_ppDeviceMemObjects;
+            delete[] ppRootDevices;
 			*pErr = CL_OUT_OF_HOST_MEMORY;
 			return;
 		}
 	}
+    delete[] ppRootDevices;
 	m_handle.object = this;
 	m_handle.dispatch = pOclEntryPoints;
 }
@@ -808,9 +836,19 @@ cl_err_code MemoryObject::CheckMemFlags(cl_mem_flags clMemFlags)
 }
 DeviceMemoryObject* MemoryObject::GetDeviceMemoryObject(cl_device_id devId)
 {
+    //Todo: will need synchronization once we actually fission it
+
+    //Translate devId to root device ID
+    FissionableDevice* pDevice;
+    if (CL_SUCCESS != m_pContext->GetDevice(devId, &pDevice))
+    {
+        return NULL;
+    }
+    cl_device_id rootId = pDevice->GetRootDevice()->GetHandle();
+
 	for (size_t i = 0; i < m_szNumDevices; ++i)
 	{
-		if (devId == m_ppDeviceMemObjects[i]->GetDeviceId())
+		if (rootId == m_ppDeviceMemObjects[i]->GetDeviceId())
 		{
 			return m_ppDeviceMemObjects[i];
 		}
@@ -867,4 +905,11 @@ void* MemoryObject::CreateMappedRegion(cl_device_id clDeviceId,
 	}
 	++m_mapCount;
 	return pDevMemObj->CreateMappedRegion(clMapFlags, GetNumDimensions(), szOrigins, szRegions, pszImageRowPitch, pszImageSlicePitch);
+}
+
+cl_err_code MemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
+{
+    //Todo: implement
+    //Left empty intentionally until we implement a memory manager
+    return CL_SUCCESS;
 }

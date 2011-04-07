@@ -150,7 +150,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 		return CL_INVALID_HANDLE;
 	}
 
-	Device ** ppDevices = new Device * [uiNumDevices];
+	FissionableDevice ** ppDevices = new FissionableDevice * [uiNumDevices];
 	if (NULL == ppDevices)
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("Failed to allocate memory for devices: new Device[uiNumDevices] = NULL"));
@@ -172,6 +172,15 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 		return CL_INVALID_HANDLE;
 	}
 
+    cl_uint numRootDevices = 0;
+    for (cl_uint i = 0; i < uiNumDevices; ++i)
+    {
+        if (ppDevices[i]->IsRootLevelDevice())
+        {
+            ++numRootDevices;
+        }
+    }
+
 	Context *pContext = NULL;
 #if defined (_WIN32)  //TODO GL support for Linux
 	cl_context_properties hGLCtx, hDC;
@@ -182,11 +191,11 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (_WIN32)  //TODO GL support for Linux
 	if ( (NULL != hGLCtx) || (NULL != hDC) )
 	{
-		pContext = 	new GLContext(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_bUseTaskalyzer, m_cStageMarkerFlags);
+		pContext = 	new GLContext(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_bUseTaskalyzer, m_cStageMarkerFlags);
 	} else
 #endif
 	{
-		pContext = 	new Context(clProperties, uiNumDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_bUseTaskalyzer, m_cStageMarkerFlags);
+		pContext = 	new Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_bUseTaskalyzer, m_cStageMarkerFlags);
 	}
 	if (CL_FAILED(clErrRet))
 	{
@@ -266,9 +275,9 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CheckDevices
 //////////////////////////////////////////////////////////////////////////
-cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
+cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
 {
-	LOG_DEBUG(TEXT("ContextModule::CheckDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
+	LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
 	cl_err_code clErrRet = CL_SUCCESS;
 
 #ifdef _DEBUG
@@ -276,8 +285,9 @@ cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *
 	assert ( (NULL != ppDevices) && (0 != uiNumDevices) );
 #endif
 
+    cl_uint rootId = 0;
 	// go through device ids and get the device from the platform module
-	Device * pDevice = NULL;
+	FissionableDevice * pDevice = NULL;
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
 		clErrRet = m_pPlatformModule->GetDevice(pclDeviceIds[ui], &pDevice);
@@ -286,9 +296,37 @@ cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *
 			LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%d, %d) = %d"), pclDeviceIds[ui], &pDevice, clErrRet);
 			return clErrRet;
 		}
-		ppDevices[ui] = pDevice;
+        if (pDevice->IsRootLevelDevice())
+        {
+            ppDevices[rootId++] = pDevice->GetRootDevice();
+        }
 	}
 	return CL_SUCCESS;
+}
+
+cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices)
+{
+    LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
+    cl_err_code clErrRet = CL_SUCCESS;
+
+#ifdef _DEBUG
+    assert ( NULL != m_pPlatformModule );
+    assert ( (NULL != ppDevices) && (0 != uiNumDevices) );
+#endif
+
+    // go through device ids and get the device from the platform module
+    FissionableDevice * pDevice = NULL;
+    for (cl_uint ui=0; ui<uiNumDevices; ++ui)
+    {
+        clErrRet = m_pPlatformModule->GetDevice(pclDeviceIds[ui], &pDevice);
+        if (CL_FAILED(clErrRet))
+        {
+            LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%d, %d) = %d"), pclDeviceIds[ui], &pDevice, clErrRet);
+            return clErrRet;
+        }
+        ppDevices[ui] = pDevice;
+    }
+    return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainContext

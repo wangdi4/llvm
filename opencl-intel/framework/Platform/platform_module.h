@@ -27,6 +27,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "cl_framework.h"
+#include "cl_synch_objects.h"
 #include <Logger.h>
 #include "iplatform.h"
 #include <vector>
@@ -39,6 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class OCLObjectInfo;
 	template <class HandleType> class OCLObjectsMap;
 	class Device;
+    class FissionableDevice;
 	class OCLConfig;
 	class FECompiler;
 
@@ -77,7 +79,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Description:	Initialize the platform module object: set platform's information
 		*				and load devices
 		* Arguments:		
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
+		* Return value:	CL_SUCCESS - The initialization operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
@@ -87,41 +89,34 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	Release    
 		* Description:	Release the platform module's resources
 		* Arguments:		
-		* Return value:	CL_SUCCESS - The release operation succeded
+		* Return value:	CL_SUCCESS - The release operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
 		cl_err_code		Release();
 
 		/******************************************************************************************
-		* Function: 	GetDevice    
-		* Description:	Get device object that asigned to the device id
+		* Function: 	GetRootDevice    
+		* Description:	Get the root device object that assigned to the device id
 		* Arguments:	clDeviceId [in] -	device id
 		*				ppDevice [out] -	pointer to the device
-		* Return value:	CL_SUCCESS - The operation succedeed
+		* Return value:	CL_SUCCESS - The operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetDevice(cl_device_id IN  clDeviceId, Device ** OUT ppDevice);
+		cl_err_code		GetRootDevice(cl_device_id IN  clDeviceId, Device ** OUT ppDevice);
 
-		/******************************************************************************************
-		* Function: 	GetDevices    
-		* Description:	Get device objects 
-		* Arguments:	puiNumDevices [in] -	pointer to number of devices
-		* Return value:	Device ** - Devices list
-		* Author:		Uri Levy
-		* Date:			July 2007
-		******************************************************************************************/
-		Device ** GetDevices(size_t * puiNumDevices)
-		{ 
-			if (NULL != puiNumDevices)
-			{
-				*puiNumDevices = m_uiDevicesCount;
-			}
-			return m_ppDevices; 
-		}
+        /******************************************************************************************
+        * Function: 	GetDevice    
+        * Description:	Get the device object that assigned to the device id
+        * Arguments:	clDeviceId [in] -	device id
+        *				ppDevice [out] -	pointer to the device
+        * Return value:	CL_SUCCESS - The operation succeeded
+        * Author:		Doron Singer
+        * Date:			March 2011
+        ******************************************************************************************/
+        cl_err_code		GetDevice(cl_device_id IN  clDeviceId, FissionableDevice ** OUT ppDevice);
 
-		
 		// get default front-end compiler
 		virtual FECompiler * GetDefaultFECompiler();
 
@@ -130,10 +125,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		///////////////////////////////////////////////////////////////////////////////////////////
 		virtual cl_int GetPlatformIDs(cl_uint uiNumEntries, cl_platform_id * pclPlatforms, cl_uint * puiNumPlatforms);
 		virtual cl_int GetPlatformInfo(cl_platform_id clPlatform, cl_platform_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
-		virtual cl_int	GetDeviceIDs(cl_platform_id clPlatform, cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
-		virtual cl_int	GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
+		virtual cl_int GetDeviceIDs(cl_platform_id clPlatform, cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
+		virtual cl_int GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
 		virtual cl_int UnloadCompiler(void);
 		virtual cl_int GetGLContextInfo(const cl_context_properties * properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
+        // Device Fission support
+        cl_err_code clCreateSubDevices(cl_device_id device,
+                                       const cl_device_partition_property_ext* properties,
+                                       cl_uint num_entries,
+                                       cl_device_id* out_devices,
+                                       cl_uint* num_devices);
+
+        cl_err_code clReleaseDevice(cl_device_id device);
+
+        cl_err_code clRetainDevice(cl_device_id device);
+
+
 
 	private:
 
@@ -170,14 +178,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform==m_clPlatformIds[0]) ||
 																	   (clPlatform==NULL); }
 
+        cl_err_code AddDevices(FissionableDevice** ppDevices, unsigned int count);
+
 		cl_platform_id	m_clPlatformIds[2];
 		
-		// map list of devices
+		// map list of all devices
 		OCLObjectsMap<_cl_device_id_int> * m_pDevices;
 
-		Device **		m_ppDevices;
-
-		size_t	m_uiDevicesCount;
+        // A list of root-level devices only. This list is static throughout the module's existence
+		Device **		m_ppRootDevices;
+        unsigned int	m_uiRootDevicesCount;
 
 		// default device
 		Device * m_pDefaultDevice;
@@ -187,6 +197,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// default front-end compiler
 		FECompiler * m_pDefaultFECompiler;
+
+        // A mutex to prevent concurrent calls to clCreateSubDevices
+        Intel::OpenCL::Utils::OclMutex m_deviceFissionMutex;
 
 		// static chars array - holds the platform's information string
 		static const char m_vPlatformInfoStr[];

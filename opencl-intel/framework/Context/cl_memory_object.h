@@ -32,8 +32,10 @@
 #include <cl_synch_objects.h>
 #include "Context.h"
 #include "Device.h"
+#include "observer.h"
 #include <cl_device_api.h>
 #include <stack>
+#include <vector>
 // TODO: accuire this data from CPU info
 #define CPU_DCU_LINE_SIZE		64
 #define CPU_MAXIMUM_ALIGN		128
@@ -88,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		
 		// Contstructor
-		DeviceMemoryObject(Device * pDevice, LoggerClient * pLoggerClient);
+		DeviceMemoryObject(FissionableDevice * pDevice, LoggerClient * pLoggerClient);
 
 		// Destructor
 		~DeviceMemoryObject();
@@ -154,12 +156,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool			m_bAllocated;	// Allocation flag - inform whether the device memory 
 										//resources was allocated or not.
 
-		bool			m_bDataValid;	// valid daya flag - inform whether the momory data
+		bool			m_bDataValid;	// valid data flag - inform whether the memory data
 										// within the device is valid or not. it is on the
 										// memory object's responsiblity to modify this flag
 										// on any status changes
 
-		Device *				m_pDevice;		// pointer to the parent device
+		FissionableDevice *		m_pDevice;		// pointer to the parent device
 	
 		cl_dev_mem				m_clDevMemId;	// device memory handler
 
@@ -180,7 +182,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class MemoryObject : public OCLObject<_cl_mem_int>
+	class MemoryObject : public OCLObject<_cl_mem_int>, IDeviceFissionObserver
 	{
 	public:
 
@@ -195,13 +197,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
-		* Description:	get object specific information (inharited from OCLObject) the function 
+		* Description:	get object specific information (inherited from OCLObject) the function 
 		*				query the desirable parameter value from the device
 		* Arguments:	param_name [in]				parameter's name
 		*				param_value_size [inout]	parameter's value size (in bytes)
 		*				param_value [out]			parameter's value
 		*				param_value_size_ret [out]	parameter's value return size
-		* Return value:	CL_SUCCESS - operation succeded
+		* Return value:	CL_SUCCESS - operation succeeded
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
@@ -266,6 +268,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// got host ptr; TODO: Uri, check if neccassery.
 		const void * GetHostPtr() const { return m_pHostPtr; }
+
+        // Called by my context when a device has been fissioned
+        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// Pure virtual functions

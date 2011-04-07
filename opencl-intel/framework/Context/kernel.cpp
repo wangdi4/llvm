@@ -43,7 +43,7 @@ using namespace std;
 // DeviceKernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 DeviceKernel::DeviceKernel(Kernel *        pKernel, 
-						   Device *        pDevice,
+						   FissionableDevice *        pDevice,
 						   cl_dev_program  devProgramId,
 						   const char *    psKernelName, 
 						   LoggerClient *  pLoggerClient,
@@ -391,7 +391,7 @@ cl_err_code	Kernel::GetWorkGroupInfo(cl_device_id clDevice, cl_int iParamName, s
 	}
 
 	//get device
-	Device * pDevice = NULL;
+	FissionableDevice * pDevice = NULL;
 	const Context * pContext = GetContext();
 	cl_err_code clErr = pContext->GetDevice(clDevice, &pDevice);
 	if (CL_FAILED(clErr) || NULL == pDevice)
@@ -437,9 +437,9 @@ cl_err_code	Kernel::GetWorkGroupInfo(cl_device_id clDevice, cl_int iParamName, s
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Kernel::CreateDeviceKernels(const DeviceProgram* pDevicePrograms)
+cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 {
-	if (NULL == pDevicePrograms)
+	if (NULL == ppDevicePrograms)
 	{
 		return CL_INVALID_VALUE;
 	}
@@ -453,13 +453,13 @@ cl_err_code Kernel::CreateDeviceKernels(const DeviceProgram* pDevicePrograms)
 	{
 
 		// get build status and check that there is a valid binary;
-		cl_build_status clBuildStatus = pDevicePrograms[i].GetBuildStatus();
+		cl_build_status clBuildStatus = ppDevicePrograms[i]->GetBuildStatus();
 		if (clBuildStatus != CL_BUILD_SUCCESS)
 		{
 			clErrRet = CL_INVALID_PROGRAM_EXECUTABLE;
 			break;
 		}
-		cl_device_id clDeviceId = pDevicePrograms[i].GetDeviceId();
+		cl_device_id clDeviceId = ppDevicePrograms[i]->GetDeviceId();
 		if (NULL != GetDeviceKernel(clDeviceId))
 		{
 			LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), clDeviceId);
@@ -467,7 +467,7 @@ cl_err_code Kernel::CreateDeviceKernels(const DeviceProgram* pDevicePrograms)
 		}
 		
 		// create the device kernel object
-		pDeviceKernel = new DeviceKernel(this, const_cast<Device *>(pDevicePrograms[i].GetDevice()), pDevicePrograms[i].GetDeviceProgramHandle(), m_sKernelPrototype.m_psKernelName, GET_LOGGER_CLIENT, &clErrRet);
+		pDeviceKernel = new DeviceKernel(this, const_cast<FissionableDevice*>(ppDevicePrograms[i]->GetDevice()), ppDevicePrograms[i]->GetDeviceProgramHandle(), m_sKernelPrototype.m_psKernelName, GET_LOGGER_CLIENT, &clErrRet);
 		if (!pDeviceKernel)
 		{
 			clErrRet = CL_OUT_OF_HOST_MEMORY;

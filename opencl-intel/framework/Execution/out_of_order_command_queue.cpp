@@ -66,7 +66,8 @@ OutOfOrderCommandQueue::~OutOfOrderCommandQueue()
 cl_err_code OutOfOrderCommandQueue::Initialize()
 {
 	 cl_err_code ret = CL_SUCCESS;
-	 ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, &m_clDevCmdListId);
+     cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
+	 ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, subdevice_id, &m_clDevCmdListId);
 	 if (CL_SUCCEEDED(ret))
 	 {
 		 m_bCommandListCreated = true;

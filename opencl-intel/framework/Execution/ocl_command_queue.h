@@ -34,9 +34,10 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    // Forward declrations
+    // Forward declarations
     class Context;
     class Device;
+    class FissionableDevice;
     class QueueWorkerThread;
     class EventsManager;
     class ICommandQueue;
@@ -82,14 +83,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_context      GetContextHandle () const               { return m_clContextHandle;         }
 		cl_int          GetContextId() const;
 		cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
-		Device*			GetDefaultDevice() const				{ return m_pDefaultDevice;		    }
+		FissionableDevice*	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
 		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
 
 	protected:
 		virtual         ~OclCommandQueue();
 
 		Context*            m_pContext;
-		Device*             m_pDefaultDevice;
+		FissionableDevice*  m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
 		cl_context          m_clContextHandle;
 		cl_device_id        m_clDefaultDeviceHandle;

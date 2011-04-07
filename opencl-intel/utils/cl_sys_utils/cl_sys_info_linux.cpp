@@ -39,6 +39,9 @@ using namespace Intel::OpenCL::Utils;
 #include <sys/resource.h> 
 #include <sys/sysinfo.h>
 
+//cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
+#include <numa.h>
+
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
@@ -312,3 +315,39 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
         return sysconf(_SC_NPROCESSORS_CONF);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the number of NUMA nodes on the system
+////////////////////////////////////////////////////////////////////
+unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
+{
+    int ret = numa_max_node();
+    return (unsigned long)ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return a bitmask representing the processors in a given NUMA node
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+{
+    struct bitmask b;
+    unsigned long long CPUs;
+    b.size  = 8 * sizeof(unsigned long long);
+    b.maskp = (unsigned long *)(&CPUs);
+    int ret = numa_node_to_cpus((int)node, &b);
+    if (0 != ret)
+    {
+        return false;
+    }
+    CPU_ZERO(pMask);
+    int cpu = 0;
+    while (0 != CPUs)
+    {
+        if (CPUs & 0x1)
+        {
+            CPU_SET(cpu, pMask);
+        }
+        CPUs >>= 1;
+        ++cpu;
+    }
+    return true;
+}

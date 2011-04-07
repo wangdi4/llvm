@@ -71,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		// Constructor
 		DeviceKernel(	Kernel *		pKernel,
-						Device *        pDevice,
+						FissionableDevice *        pDevice,
 						cl_dev_program  devProgramId,
 						const char *	psKernelName,
 						Intel::OpenCL::Utils::LoggerClient *	pLoggerClient,
@@ -104,7 +104,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Kernel *								m_pKernel;
 		
 		// device to which the device kernel is associated
-		Device *								m_pDevice;
+		FissionableDevice *						m_pDevice;
 
 		// logger client
 		DECLARE_LOGGER_CLIENT;
@@ -235,7 +235,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										size_t *     pszParamValueSizeRet);
 
 		// create device kernels
-		cl_err_code CreateDeviceKernels(const DeviceProgram * pDevicePrograms);
+		cl_err_code CreateDeviceKernels(DeviceProgram ** pDevicePrograms);
 
 		// set kernel argument
 		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue);

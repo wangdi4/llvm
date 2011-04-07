@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ExecutionModule( PlatformModule *pPlatformModule, ContextModule* pContextModule );
         virtual ~ExecutionModule();
 
-        // Initialization is done right after the construction in order to capture errors on initilazations.
+        // Initialization is done right after the construction in order to capture errors on initialization.
         cl_err_code Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig);
 
         

@@ -33,6 +33,8 @@
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
 #include "wg_context.h"
+#include "cl_synch_objects.h"
+#include "cl_thread.h"
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
@@ -51,12 +53,14 @@ public:
 		ProgramService	*programService, MemoryAllocator *memAlloc,
 		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
 	virtual ~TaskDispatcher();
-	cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-	cl_dev_err_code retainCommandList( cl_dev_cmd_list IN list);
-	cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
-	cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-	cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-	cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void** OUT list);
+	virtual cl_dev_err_code retainCommandList( cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
+	virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+
+    virtual affinityMask_t* getAffinityMask() { return NULL; }
 
 protected:
 	cl_int							m_iDevId;
@@ -97,6 +101,73 @@ protected:
 		cl_int					m_retCode;
 	};
 	cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+};
+
+class SubdeviceTaskDispatcherThread;
+
+class SubdeviceTaskDispatcher : public TaskDispatcher
+{
+    friend class SubdeviceTaskDispatcherThread;
+public:
+    SubdeviceTaskDispatcher(size_t numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
+        ProgramService	*programService, MemoryAllocator *memAlloc,
+        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
+    virtual ~SubdeviceTaskDispatcher();
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+    //virtual cl_int retainCommandList( cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
+    virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+    virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+
+    virtual affinityMask_t* getAffinityMask(); 
+
+    enum CommandType
+    {
+        TASK_DISPATCHER_CREATE_COMMAND_LIST, 
+        TASK_DISPATCHER_RELEASE_COMMAND_LIST, 
+        TASK_DISPATCHER_FLUSH_COMMAND_LIST, 
+        TASK_DISPATCHER_EXECUTE_COMMAND_LIST 
+    };
+protected:
+    SubdeviceTaskDispatcherThread*           m_thread;
+    size_t           m_subdeviceSize;
+
+    cl_dev_cmd_list       m_lastList;
+    cl_dev_cmd_desc*      m_lastDesc;
+    cl_uint               m_lastCount;
+    cl_dev_cmd_list_props m_lastProps;
+    cl_dev_err_code       m_lastReturn;
+    CommandType           m_lastCommandType;
+    OclBinarySemaphore    m_sent;
+    volatile bool         m_received;
+
+    OclSpinMutex          m_commandMutex;
+
+    size_t                m_numThreads;
+    affinityMask_t*       m_affinityMask;
+
+    void SynchronousDispatchCommand(CommandType type);
+
+    virtual cl_dev_err_code internalCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
+    //virtual cl_dev_err_code internalRetainCommandList( cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code internalReleaseCommandList( cl_dev_cmd_list IN list );
+    virtual cl_dev_err_code internalFlushCommandList( cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code internalCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+    //virtual cl_dev_err_code internalCommandListWaitCompletion(cl_dev_cmd_list IN list);
+};
+
+class SubdeviceTaskDispatcherThread : public OclThread
+{
+    friend class SubdeviceTaskDispatcher;
+public:
+    SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher); 
+    virtual ~SubdeviceTaskDispatcherThread(); 
+
+    virtual int Run();
+protected:
+    SubdeviceTaskDispatcher* m_dispatcher;
+    IThreadPoolPartitioner*  m_partitioner;
 };
 
 }}}

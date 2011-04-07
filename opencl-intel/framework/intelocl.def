@@ -84,6 +84,7 @@ EXPORTS
 	clSetUserEventStatus
 	IsCPUSupported
 	IsFeatureSupported
-	
-	
+	clReleaseDeviceEXT
+	clRetainDeviceEXT
+	clCreateSubDevicesEXT	
 	

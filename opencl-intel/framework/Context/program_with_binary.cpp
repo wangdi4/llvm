@@ -6,14 +6,14 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, Device** pDevices, const size_t* pszLengths, const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
+ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, const size_t* pszLengths, const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
 : Program(pContext, pOclEntryPoints)
 {
 	cl_int err = CL_SUCCESS;
 	cl_int ret = CL_SUCCESS;
 	m_szNumAssociatedDevices = uiNumDevices;
-	m_pDevicePrograms        = new DeviceProgram[m_szNumAssociatedDevices];
-	if (!m_pDevicePrograms)
+    m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
+    if (!m_ppDevicePrograms)
 	{
 		err = CL_OUT_OF_HOST_MEMORY;
 	}
@@ -21,11 +21,25 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, De
 	{
 		for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 		{
-			m_pDevicePrograms[i].SetDevice(pDevices[i]);
-			m_pDevicePrograms[i].SetHandle(GetHandle());
-			m_pDevicePrograms[i].SetContext(pContext->GetHandle());
-			cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
-			err = m_pDevicePrograms[i].SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
+            m_ppDevicePrograms[i] = new DeviceProgram();
+            if (NULL == m_ppDevicePrograms[i])
+            {
+                err = CL_OUT_OF_HOST_MEMORY;
+                for (size_t j = 0; j < i; ++j)
+                {
+                    delete m_ppDevicePrograms[j];
+                }
+                delete[] m_ppDevicePrograms;
+                m_ppDevicePrograms = NULL;
+                break;
+            }
+            else
+            {
+                m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
+                m_ppDevicePrograms[i]->SetHandle(GetHandle());
+                m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
+			    cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
+			    err = m_ppDevicePrograms[i]->SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
 			if (CL_SUCCESS != err)
 			{
 				if (CL_INVALID_BINARY == err)
@@ -37,6 +51,7 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, De
 				{
 					ret = err;
 					break;
+				    }
 				}
 			}
 		}
@@ -49,10 +64,14 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, De
 
 ProgramWithBinary::~ProgramWithBinary()
 {
-	if ((m_szNumAssociatedDevices > 0) && (NULL != m_pDevicePrograms))
-	{
-		delete[] m_pDevicePrograms;
-		m_pDevicePrograms = NULL;
+    if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
+    {
+        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+        {
+            delete m_ppDevicePrograms[i];
+        }
+        delete[] m_ppDevicePrograms;
+        m_ppDevicePrograms = NULL;
 	}
 }
 
@@ -73,6 +92,8 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 	case CL_PROGRAM_BINARIES:
 		{
+            OclAutoReader CS(&m_deviceProgramLock);
+
 			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
 			char ** pParamValue = static_cast<char **>(param_value);
 			// get  data
@@ -84,12 +105,12 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 				}
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					clErrRet = m_pDevicePrograms[i].GetBinary(0, NULL, &uiParam);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
 					}
-					clErrRet = m_pDevicePrograms[i].GetBinary(uiParam, pParamValue[i], &uiParam);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(uiParam, pParamValue[i], &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -106,6 +127,7 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 
 	case CL_PROGRAM_BINARY_SIZES:
 		{
+            OclAutoReader CS(&m_deviceProgramLock);
 			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
 			if (NULL != param_value)
 			{
@@ -117,7 +139,7 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 				size_t * pParamValue = static_cast<size_t *>(param_value);
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					clErrRet = m_pDevicePrograms[i].GetBinary(0, NULL, pParamValue + i);
+					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, pParamValue + i);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;

@@ -137,6 +137,8 @@ typedef void*	cl_dev_cmd_id;
 typedef void* cl_dev_program;
 // Kernel handle definition
 typedef void* cl_dev_kernel;
+// Sub-device ID definition
+typedef void* cl_dev_subdevice_id;
 
 //Defines device return values that are used by the OCL framework.
 typedef enum _cl_dev_err_code
@@ -198,8 +200,9 @@ typedef enum _cl_dev_host_ptr_flags
 //Defines possible values of device list properties
 typedef enum _cl_dev_cmd_list_props
 {
-	CL_DEV_LIST_NONE = 0,		// Determines a list wherein all items will be executed sequentially.
-	CL_DEV_LIST_ENABLE_OOO		// Determines whether the out-of-order optimization could be applied on items in the command list
+	CL_DEV_LIST_NONE       = 0, // Determines a list wherein all items will be executed sequentially.
+	CL_DEV_LIST_ENABLE_OOO = 1,	// Determines whether the out-of-order optimization could be applied on items in the command list
+    CL_DEV_LIST_SUBDEVICE  = 2  // Determines whether the command list executes on a root-level device or on a sub-device
 } cl_dev_cmd_list_props;
 
 //Defines possible values of device command identifiers that is passed within cl_dev_cmd_desc structure.
@@ -283,6 +286,20 @@ typedef enum _cl_dev_sampler_prop
     __FILTER_MASK								= ( ((1<<__FILTER_BITS)-1) << __FILTER_BASE)
 
 } cl_dev_sampler_prop;
+
+//A list of possible device partitioning properties. Reflects the list in the Device Fission extension. Not all are supported
+typedef enum _cl_dev_partition_prop
+{
+    CL_DEV_PARTITION_EQUALLY = 1,
+    CL_DEV_PARTITION_BY_COUNTS,
+    CL_DEV_PARTITION_BY_NAMES,
+    CL_DEV_PARTITION_AFFINITY_L1,
+    CL_DEV_PARTITION_AFFINITY_L2,
+    CL_DEV_PARTITION_AFFINITY_L3,
+    CL_DEV_PARTITION_AFFINITY_L4,
+    CL_DEV_PARTITION_AFFINITY_NUMA,
+    CL_DEV_PARTITION_AFFINITY_NEXT
+} cl_dev_partition_prop;
 
 // ------------------------------------------------------------------------------
 // Device API data structure definition
@@ -533,20 +550,59 @@ public:
 	//
 	// Command List function prototypes
 	//
+	/* clDevPartition
+		Description
+			This function partitions the device into sub-devices allowing execution on parts of a device's compute units.
+		Input
+			props						The desired partitioning criterion
+            num_subdevices              The number of sub-devices to be generated if using CL_DEV_PARTITION_BY_COUNTS or BY_NAMES
+            param                       An optional param: the partition size in case of PARTITION_EQUALLY, the count list if BY_COUNTS, the name list if BY_NAMES etc
+		Output
+            num_subdevices              The number of sub-devices to be generated if partitioning equally or by affinity
+			cl_dev_subdevice_id 		A list of ids, one for each partition created
+		Returns
+			CL_DEV_SUCCESS				The command queue successfully created
+			CL_DEV_INVALID_VALUE		If values specified in properties are not valid, num_subdevices is NULL, *num_subdevices is > 0 but subdevice_ids is NULL
+			CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
+			CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
+	*/
+    virtual cl_dev_err_code (clDevPartition)(  cl_dev_partition_prop IN     props, 
+                                               cl_uint*              INOUT  num_subdevices, 
+                                               void*                 IN     param,
+                                               cl_dev_subdevice_id*  OUT    subdevice_ids
+                                            ) = 0;
+
+	/* clDevReleaseSubdevice
+		Description
+			This function releases the resources associated with the given sub-device ID. 
+            Behaviour is undefined if command lists still exist that reference that sub-device. 
+            It is the framework's responsibility to ensure this is not called prematurely. 
+		Input
+			subdevice_id				The sub-device to release
+		Returns
+			CL_DEV_SUCCESS				The command queue successfully created
+			CL_DEV_INVALID_VALUE		If the subdevice_id is invalid
+	*/
+    virtual cl_dev_err_code (clDevReleaseSubdevice)(  cl_dev_subdevice_id IN subdevice_id
+                                                   ) = 0;
+
+
 	/* clDevCreateCommandList
 		Description
-			This function creates a dependent command list on a device. This function performs an implicit retain of the command list.
+			This function creates a command list on a device. This function performs an implicit retain of the command list.
 		Input
 			props						Determines whether the out-of-order optimization could be applied on items in the command list.
+            subdevice_id                0 if creating a command list for a root-level device, or a sub-device ID returned from clDevPartitionDevice
 		Output
 			list						A valid (non zero) handle to device command list.
 		Returns
 			CL_DEV_SUCCESS				The command queue successfully created
-			CL_DEV_INVALID_VALUE		If values specified in properties are not valid
+			CL_DEV_INVALID_VALUE		If values specified in properties are not valid or subdevice_id is not a valid sub-device ID
 			CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 			CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 	*/
 	virtual cl_dev_err_code (clDevCreateCommandList)(	cl_dev_cmd_list_props IN props,
+                                                        cl_dev_subdevice_id   IN subdevice_id,
 										   cl_dev_cmd_list* OUT list
 										   ) = 0;
 

@@ -116,8 +116,8 @@ DECLARE_ALIAS(clSetUserEventStatus);
 DECLARE_ALIAS(clEnqueueReadBufferRect);
 DECLARE_ALIAS(clEnqueueWriteBufferRect);
 DECLARE_ALIAS(clEnqueueCopyBufferRect);
-//	NULL, // DECLARE_ALIAS(clCreateSubDevicesEXT);
-//	NULL, // DECLARE_ALIAS(clRetainDeviceEXT);
-//	NULL, // DECLARE_ALIAS(clReleaseDeviceEXT)
+DECLARE_ALIAS(clCreateSubDevicesEXT);
+DECLARE_ALIAS(clRetainDeviceEXT);
+DECLARE_ALIAS(clReleaseDeviceEXT);
 
 }}}

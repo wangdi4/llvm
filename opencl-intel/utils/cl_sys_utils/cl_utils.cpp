@@ -36,12 +36,37 @@
 	{
 		SleepEx(milliseconds, TRUE);
 	}
+
+    void clSetThreadAffinityMask(affinityMask_t* mask)
+    {
+        SetThreadAffinityMask(GetCurrentThread(), *mask);
+    }
+    void clResetThreadAffinityMask()
+    {
+        static const unsigned long long allMask = (const unsigned long long)-1;
+        SetThreadAffinityMask(GetCurrentThread(), allMask);
+    }
 #else
 	#include <unistd.h>
 	void clSleep(int milliseconds)
 	{
 		usleep(1000 * milliseconds);
 	}
+
+    void clSetThreadAffinityMask(affinityMask_t* mask)
+    {
+        sched_setaffinity(0, sizeof(cpu_set_t), mask);
+    }
+    void clResetThreadAffinityMask()
+    {
+        // Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
+        // cpu_set_t is a bitmask and I'm going to abuse that knowledge
+
+        // This should be long enough
+        static const unsigned long long allOnes[] = {-1, -1, -1, -1};
+        static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
+        sched_setaffinity(0, sizeof(cpu_set_t), allMask);
+    }
 #endif
 
 const wchar_t* ClErrTxt(cl_err_code error_code)

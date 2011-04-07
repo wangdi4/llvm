@@ -599,7 +599,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 class base_command_list : public ITaskList
 {
 public:
-	base_command_list();
+    base_command_list(bool subdevice);
 
 	virtual ~base_command_list()
 	{
@@ -670,8 +670,9 @@ protected:
 	// Ordered and OOO command lists have different task objects operating on them
 	virtual void LaunchExecutorTask() = 0;
 
-	tbb::task*              m_rootTask;
 	tbb::task_group_context m_context;
+    bool                    m_subdevice;
+    tbb::task*              m_rootTask;
 
 private:
 	//Disallow copy constructor
@@ -692,7 +693,7 @@ protected:
 	base_command_list* m_list;
 };
 
-base_command_list::base_command_list() : m_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait)
+base_command_list::base_command_list(bool subdevice) : m_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait), m_subdevice(subdevice)
 {
 	m_rootTask = new (tbb::task::allocate_root(m_context)) deleting_task(this);
 	m_rootTask->set_ref_count(1);
@@ -740,7 +741,10 @@ static void execute_command(ITaskBase* cmd)
 	}
 	else
 	{
-		(static_cast<ITask*>(cmd))->Execute(); // execute one by one
+        ITask* pCmd = static_cast<ITask*>(cmd);
+        pCmd->AffinitizeToTask();
+		pCmd->Execute(); // execute one by one
+        clResetThreadAffinityMask();
 	}
 }
 
@@ -751,9 +755,13 @@ typedef std::vector<ITaskBase*>           TaskVector;
 class ordered_command_list : public base_command_list
 {
 public:
+    ordered_command_list(bool subdevice) : base_command_list(subdevice) {}
 	virtual unsigned int Enqueue(ITaskBase* pTask)
 	{
-		InitSchedulerForMasterThread();
+        if (!m_subdevice)
+        {
+            InitSchedulerForMasterThread();
+        }
 		m_work.push(pTask);
 		return 0;
 	}
@@ -786,11 +794,14 @@ protected:
 class unordered_command_list : public base_command_list
 {
 public:
-	unordered_command_list() : m_stopRequested(false) {}
+    unordered_command_list(bool subdevice) : base_command_list(subdevice), m_stopRequested(false) {}
 
 	virtual unsigned int Enqueue(ITaskBase* pTask)
 	{
-		InitSchedulerForMasterThread();
+        if (!m_subdevice)
+        {
+            InitSchedulerForMasterThread();
+        }
 		m_incoming.push(pTask);
 		return 0;
 	}
@@ -962,20 +973,26 @@ protected:
 
 void ordered_command_list::LaunchExecutorTask()
 {
-	InitSchedulerForMasterThread();
-	tbb::task* executor = new (m_rootTask->allocate_child()) in_order_executor_task(this);
-	assert(executor);
-	m_rootTask->increment_ref_count();
-	tbb::task::enqueue(*executor);
+    if (!m_subdevice)
+    {
+	    InitSchedulerForMasterThread();
+    }
+	  tbb::task* executor = new (m_rootTask->allocate_child()) in_order_executor_task(this);
+	  assert(executor);
+	  m_rootTask->increment_ref_count();
+    tbb::task::enqueue(*executor);
 }
 
 void unordered_command_list::LaunchExecutorTask()
 {
-	InitSchedulerForMasterThread();
-	tbb::task* executor = new (m_rootTask->allocate_child()) out_of_order_executor_task(this);
-	assert(executor);
-	m_rootTask->increment_ref_count();
-	tbb::task::enqueue(*executor);
+    if (!m_subdevice)
+    {
+        InitSchedulerForMasterThread();
+    }
+	  tbb::task* executor = new (m_rootTask->allocate_child()) out_of_order_executor_task(this);
+	  assert(executor);
+	  m_rootTask->increment_ref_count();
+    tbb::task::enqueue(*executor);
 }
 
 
@@ -1044,7 +1061,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 	if (NULL == sTBB_executor)
 	{
 		//sTBB_executor = new unordered_command_list();
-		sTBB_executor = new ordered_command_list();
+		sTBB_executor = new ordered_command_list(false);
 	}
 	else
 	{
@@ -1065,18 +1082,24 @@ unsigned int TBBTaskExecutor::GetNumWorkingThreads() const
 	return gWorker_threads + 1;
 }
 
-ITaskList* TBBTaskExecutor::CreateTaskList(bool OOO)
+ITaskList* TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param)
 {
-	InitSchedulerForMasterThread();
+    bool       subdevice = param->isSubdevice;
+    bool       OOO       = param->isOOO;
+
+    if (!subdevice)
+    {
+	    InitSchedulerForMasterThread();
+    }
 
 	ITaskList *pList = NULL;
 	if (OOO) 
 	{
-		pList = new unordered_command_list();
+		pList = new unordered_command_list(subdevice);
 	}
 	else
 	{
-		pList = new ordered_command_list();
+		pList = new ordered_command_list(subdevice);
 	}
 
 	return pList;

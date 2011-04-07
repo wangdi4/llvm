@@ -51,3 +51,23 @@ const wchar_t* ClErrTxt(cl_err_code error_code);
 * Date:			June 2010
 **************************************************************************************************/
 void clSleep(int milliseconds);
+
+
+/**************************************************************************************************
+* Function: 	clSetThreadAffinityMask
+* Description:	sets the given affinity mask 
+* Arguments:	mask [ affinityMask_t* ] - a pointer to the mask to use
+* Return value:	void
+* Author:		Doron Singer
+* Date:			March 2011
+**************************************************************************************************/
+void clSetThreadAffinityMask(affinityMask_t* mask);
+
+/**************************************************************************************************
+* Function: 	clResetThreadAffinityMask
+* Description:	allows the thread to run on any CPU in the process
+* Return value:	void
+* Author:		Doron Singer
+* Date:			March 2011
+**************************************************************************************************/
+void clResetThreadAffinityMask();

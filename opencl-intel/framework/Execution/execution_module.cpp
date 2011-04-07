@@ -649,7 +649,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pEnqueueReadBufferCmd->SetDevice(pDevice);
 
@@ -750,7 +750,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 		 return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pEnqueueReadBufferRectCmd->SetDevice(pDevice);
 
@@ -814,7 +814,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteBufferCmd->SetDevice(pDevice);
 
@@ -915,7 +915,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteBufferRectCmd->SetDevice(pDevice);
 
@@ -993,7 +993,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferCommand->SetDevice(pDevice);
 
@@ -1115,7 +1115,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferRectCommand->SetDevice(pDevice);
 
@@ -1189,7 +1189,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 		*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
 		return NULL;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pMapBufferCommand->SetDevice(pDevice);
     *pErrcodeRet = pMapBufferCommand->Init();
@@ -1244,7 +1244,7 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pUnmapMemObjectCommand->SetDevice(pDevice);
 
@@ -1380,7 +1380,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     // CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items in the work-group
     // computed as local_work_size[0] * …local_work_size[work_dim – 1] is greater than the value specified by 
     // CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
-    Device* pDevice = NULL;
+    FissionableDevice* pDevice = NULL;
     cl_err_code err = m_pPlatfromModule->GetDevice(clDeviceId, &pDevice);
     if(CL_FAILED(err))
     {
@@ -1497,7 +1497,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pTaskCommand->SetDevice(pDevice);
 
@@ -1576,7 +1576,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 		return CL_OUT_OF_HOST_MEMORY;
 	}
     // Must set device Id before init for buffer resource allocation.
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pNativeKernelCommand->SetDevice(pDevice);
 
@@ -1772,7 +1772,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pReadImageCmd->SetDevice(pDevice);
 
@@ -1847,7 +1847,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pWriteImageCmd->SetDevice(pDevice);
     errVal = pWriteImageCmd->Init();
@@ -1941,7 +1941,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyImageCmd->SetDevice(pDevice);
     errVal = pCopyImageCmd->Init();
@@ -2022,7 +2022,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyImageToBufferCmd->SetDevice(pDevice);
     errVal = pCopyImageToBufferCmd->Init();
@@ -2104,7 +2104,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pCopyBufferToImageCmd->SetDevice(pDevice);
     errVal = pCopyBufferToImageCmd->Init();
@@ -2194,7 +2194,7 @@ void * ExecutionModule::EnqueueMapImage(
 		*pErrcodeRet = CL_INVALID_VALUE;
 		return NULL;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pMapImageCmd->SetDevice(pDevice);
     *pErrcodeRet = pMapImageCmd->Init();
@@ -2311,7 +2311,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		delete []pMemObjects;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	Device* pDevice;
+	FissionableDevice* pDevice;
 	pContext->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
 	pAcquireCmd->SetDevice(pDevice);
 

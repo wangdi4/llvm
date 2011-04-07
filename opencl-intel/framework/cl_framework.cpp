@@ -922,3 +922,29 @@ int IsFeatureSupported(int iCPUFeature)
 	return 1;
 }
 
+cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id devId)
+{
+	return PLATFORM_MODULE->clRetainDevice(devId);
+}
+SET_ALIAS(clRetainDeviceEXT);
+REGISTER_EXTENSION_FUNCTION(clRetainDeviceEXT, clRetainDeviceEXT);
+
+cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
+{
+	return PLATFORM_MODULE->clReleaseDevice(device);
+}
+SET_ALIAS(clReleaseDeviceEXT);
+REGISTER_EXTENSION_FUNCTION(clReleaseDeviceEXT, clReleaseDeviceEXT);
+
+cl_int CL_API_CALL clCreateSubDevicesEXT(cl_device_id device,
+										 const cl_device_partition_property_ext* properties,
+										 cl_uint num_entries,
+										 cl_device_id* out_devices,
+										 cl_uint* num_devices)
+{
+	return PLATFORM_MODULE->clCreateSubDevices(device, properties, num_entries, out_devices, num_devices);
+}
+SET_ALIAS(clCreateSubDevicesEXT);
+REGISTER_EXTENSION_FUNCTION(clCreateSubDevicesEXT, clCreateSubDevicesEXT);
+
+	

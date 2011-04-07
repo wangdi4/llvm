@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLContext : public Context
 	{
 	public:
-		GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, Device **ppDevices,
+		GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices,
 			logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 			cl_context_properties hDC, cl_context_properties hGLCtx, bool bUseTaskalyzer, char cStageMarkerFlags);
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "program.h"
+#include "observer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -9,6 +10,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet, ocl_entry_points * pOclEntryPoints);
 
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+
+        // Called by the context when a device has been fissioned
+        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
 	protected:
 		virtual ~ProgramWithSource();

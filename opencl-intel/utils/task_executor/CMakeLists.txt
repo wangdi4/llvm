@@ -19,7 +19,7 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 
 # only tbb executor is supported on Linux
 if (NOT WIN32)
-    set( IGNORE_FILES thread_|xn_ )
+    set( IGNORE_FILES thread_executor|xn_ )
 endif(NOT WIN32)
 
 if (WIN32)

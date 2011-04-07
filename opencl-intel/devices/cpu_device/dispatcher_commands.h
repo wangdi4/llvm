@@ -66,8 +66,22 @@ protected:
 	cl_bool						m_bUseTaskalyzer;
 };
 
+// A parent class for dispatcher commands to have a single implementation of ITask::AffinitizeToTask
+class AffinitizableCommand : public DispatcherCommand, public ITask
+{
+public:
+    AffinitizableCommand(TaskDispatcher* pTD);
+    virtual ~AffinitizableCommand() {}
+
+    // ITask interface
+    virtual void AffinitizeToTask(); 
+
+protected:
+    affinityMask_t* m_affinityMask;
+};
+
 // OCL Read/Write buffer execution
-class ReadWriteMemObject : public DispatcherCommand, public ITask
+class ReadWriteMemObject : public AffinitizableCommand
 {
 public:
 	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -82,7 +96,7 @@ protected:
 };
 
 //OCL Copy Mem Obj Command
-class CopyMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
+class CopyMemObject : public AffinitizableCommand
 {
 public:
 	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -99,7 +113,7 @@ protected:
 };
 
 // OCL Native function execution
-class NativeFunction : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
+class NativeFunction : public AffinitizableCommand
 {
 public:
 	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -118,7 +132,7 @@ protected:
 };
 
 // OCL Map function execution
-class MapMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
+class MapMemObject : public AffinitizableCommand
 {
 public:
 	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -135,7 +149,7 @@ protected:
 };
 
 // OCL UnMap function execution
-class UnmapMemObject : public DispatcherCommand, public Intel::OpenCL::TaskExecutor::ITask
+class UnmapMemObject : public AffinitizableCommand
 {
 public:
 	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -183,6 +197,8 @@ protected:
 	size_t*						m_pMemBuffSizes;
 
 	void	UnlockMemoryBuffers();
+
+    affinityMask_t*             m_affinityMask;
 
 //	LARGE_INTEGER start, stop, freq;
 

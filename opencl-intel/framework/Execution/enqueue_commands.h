@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code     CommandDone() = 0;
 
         //
-        // The function that is called when the command is poped out from the queue and ready for the device
+        // The function that is called when the command is popped out from the queue and ready for the device
         // Each command implements its local logic within this function.
         //
         virtual cl_err_code     Execute() = 0;    
@@ -109,11 +109,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
 
         // Command general functions
-        QueueEvent*     GetEvent    ()                                      { return &m_Event; }   
-        void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
-        cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
-		void            SetDevice(Device* pDevice)                          { m_pDevice = pDevice; }
-		Device*         GetDevice() const                                   { return m_pDevice; }
+        QueueEvent*        GetEvent    ()                                      { return &m_Event; }   
+        void               SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
+        cl_dev_cmd_list    GetDevCmdListId    () const                         { return m_clDevCmdListId; }
+		void               SetDevice(FissionableDevice* pDevice)               { m_pDevice = pDevice; }
+		FissionableDevice* GetDevice() const                                   { return m_pDevice; }
 
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
@@ -124,7 +124,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         QueueEvent                  m_Event;                    // An associated event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
-		Device*                     m_pDevice;                  // A pointer to the device executing the command
+		FissionableDevice*          m_pDevice;                  // A pointer to the device executing the command
 		IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
 		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec. 
 		cl_int                      m_iId;                      // The command's ID

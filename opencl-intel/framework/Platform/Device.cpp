@@ -82,8 +82,12 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	{
 		return CL_INVALID_VALUE;
 	}
-	size_t szParamValueSize = 0;
-	cl_bool bValue = false;
+	size_t       szParamValueSize = 0;
+	cl_bool      bValue           = false;
+    cl_device_id zeroHandle       = (cl_device_id)0;
+    cl_uint      one              = 1;
+    
+    cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
 	void * pValue = NULL;
 
 	switch (param_name)
@@ -103,6 +107,22 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 		szParamValueSize = sizeof(cl_context_properties);
 		pValue = &m_hHDC;
 		break;
+
+    case CL_DEVICE_PARENT_DEVICE_EXT:
+        szParamValueSize = sizeof(cl_device_id);
+        pValue = &zeroHandle;
+        break;
+
+    case CL_DEVICE_REFERENCE_COUNT_EXT:
+        szParamValueSize = sizeof(cl_uint);
+        pValue           = &one;
+        break;
+
+    case CL_DEVICE_PARTITION_STYLE_EXT:
+        //szParamValueSize = sizeof(emptyList);
+        szParamValueSize = 1;
+        pValue           = &emptyList;
+        break;
 
 	default:
 		clDevErr = m_pFnClDevGetDeviceInfo(param_name, param_value_size, param_value, param_value_size_ret);
@@ -128,6 +148,11 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 
 	if (NULL != param_value && szParamValueSize > 0)
 	{
+        //hack but the units defined for CL_DEVICE_PARTITION_STYLE_EXT are entries in the list
+        if (CL_DEVICE_PARTITION_STYLE_EXT == param_name)
+        {
+            szParamValueSize = sizeof(emptyList);
+        }
 		MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
 	}
 	return CL_SUCCESS;
@@ -341,4 +366,272 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 
 	pObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, status_result, timer);
 	return;
+}
+
+cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
+{
+    cl_err_code ret = CL_SUCCESS;
+    cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
+    //identify the partition mode and translate to device enum
+    cl_dev_partition_prop partitionMode;
+    switch (props[0])
+    {
+    case CL_DEVICE_PARTITION_EQUALLY_EXT:
+        partitionMode = CL_DEV_PARTITION_EQUALLY;
+        break;
+
+    case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
+        partitionMode = CL_DEV_PARTITION_BY_COUNTS;
+        break;
+
+    case CL_DEVICE_PARTITION_BY_NAMES_EXT:
+        partitionMode = CL_DEV_PARTITION_BY_NAMES;
+        break;
+
+    case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
+        switch (props[1])
+        {
+        case CL_AFFINITY_DOMAIN_L1_CACHE_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_L1;
+            break;
+
+        case CL_AFFINITY_DOMAIN_L2_CACHE_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_L2;
+            break;
+
+        case CL_AFFINITY_DOMAIN_L3_CACHE_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_L3;
+            break;
+
+        case CL_AFFINITY_DOMAIN_L4_CACHE_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_L4;
+            break;
+
+        case CL_AFFINITY_DOMAIN_NUMA_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_NUMA;
+            break;
+
+        case CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT:
+            partitionMode = CL_DEV_PARTITION_AFFINITY_NEXT;
+            break;
+
+        default:
+            return CL_INVALID_PROPERTY;
+        }
+        break;
+
+    default:
+        return CL_INVALID_PROPERTY;
+    }
+
+    // prepare additional info for the CPU device, for counts / equally
+    if (CL_DEV_PARTITION_BY_COUNTS == partitionMode)
+    {
+        std::vector<size_t> partitionSizes;
+        size_t partitionIndex = 1;
+        while (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex])
+        {
+            partitionSizes.push_back(props[partitionIndex++]);
+        }
+        if (NULL != sizes)
+        {
+            for (size_t i = 0; i < partitionSizes.size(); ++i)
+            {
+                sizes[i] = partitionSizes[i];
+            }
+        }
+        //If the user doesn't actually want fission, no reason to send it to the device, just return the size
+        if (NULL == out_devices)
+        {
+            *num_devices = partitionSizes.size();
+            return CL_SUCCESS;
+        }
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, &partitionSizes, out_devices);
+    }
+    else if (CL_DEV_PARTITION_EQUALLY == partitionMode)
+    {
+        size_t partitionSize = props[1];
+        if (CL_PROPERTIES_LIST_END_EXT != props[2])
+        {
+            return CL_INVALID_PROPERTY;
+        }
+
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, &partitionSize, out_devices);
+        if (NULL != sizes)
+        {
+            if (CL_DEV_SUCCESS == dev_ret)
+            {
+                for (cl_uint i = 0; i < *num_devices; ++i )
+                {
+                    sizes[i] = partitionSize;
+                }
+            }
+        }
+    }
+    else // no other mode today requires an additional param
+    {
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, NULL, out_devices);
+    }
+    if (CL_SUCCESS != ret)
+    {
+        return ret;
+    }
+    if (CL_DEV_SUCCESS == dev_ret)
+    {
+        return ret;
+    }
+    if (CL_DEV_INVALID_PROPERTIES == dev_ret)
+    {
+        //Unsupported fission mode
+        return CL_INVALID_PROPERTY;
+    }
+    return CL_DEVICE_PARTITION_FAILED_EXT;
+}
+
+cl_err_code FissionableDevice::RegisterDeviceFissionObserver(Intel::OpenCL::Framework::IDeviceFissionObserver *ob)
+{
+    OclAutoMutex CS(&m_fissionObserverListMutex);
+    m_fissionObserverList.push_back(ob);
+    return CL_SUCCESS;
+}
+
+void FissionableDevice::UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob)
+{
+    OclAutoMutex CS(&m_fissionObserverListMutex);
+    std::list<IDeviceFissionObserver*>::iterator it = m_fissionObserverList.begin();
+    while (it != m_fissionObserverList.end())
+    {
+        if (ob == *it)
+        {
+            m_fissionObserverList.erase(it);
+            return;
+        }
+        ++it;
+    }
+}
+
+void FissionableDevice::NotifyDeviceFissioned(cl_uint numChildren, FissionableDevice** children)
+{
+    OclAutoMutex CS(&m_fissionObserverListMutex);
+    for (std::list<IDeviceFissionObserver*>::iterator it = m_fissionObserverList.begin(); it != m_fissionObserverList.end(); ++it)
+    {
+        (*it)->NotifyDeviceFissioned(this, numChildren, children);
+    }
+}
+
+SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints) : 
+m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits)
+{
+    m_pRootDevice = m_pParentDevice->GetRootDevice();
+    m_pParentDevice->AddPendency();
+    m_handle.object   = this;
+    m_handle.dispatch = pOclEntryPoints;
+    CacheFissionProperties(props);
+}
+
+SubDevice::~SubDevice()
+{
+    IOCLDevice* pRoot = GetDeviceAgent();
+    if (NULL != pRoot)
+    {
+        pRoot->clDevReleaseSubdevice(m_deviceId);
+    }
+    m_pParentDevice->RemovePendency();
+}
+cl_err_code SubDevice::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
+{
+    return m_pRootDevice->FissionDevice(props, num_entries, out_devices, num_devices, sizes);
+}
+cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+{
+    if (NULL == param_value && NULL == param_value_size_ret)
+    {
+        return CL_INVALID_VALUE;
+    }
+    size_t szParamValueSize = 0;
+    cl_uint uValue = 0;
+    cl_device_id clDevIdVal = 0;
+    void * pValue = NULL;
+
+    switch (param_name)
+    {
+    case CL_DEVICE_MAX_COMPUTE_UNITS:
+        szParamValueSize = sizeof(cl_uint);
+        uValue = (cl_uint)m_numComputeUnits;
+        pValue = &uValue;
+        break;
+
+    //Todo: handle these
+    case CL_DEVICE_PARENT_DEVICE_EXT:
+        szParamValueSize = sizeof(cl_device_id);
+        clDevIdVal = m_pParentDevice->GetHandle();
+        pValue = &clDevIdVal;
+        break;
+
+    //CL_DEVICE_PARTITION_TYPES_EXT and CL_DEVICE_AFFINITY_DOMAINS_EXT handled on root-level device
+
+    case CL_DEVICE_REFERENCE_COUNT_EXT:
+        szParamValueSize = sizeof(cl_uint);
+        pValue = &m_uiRefCount;
+        break;
+
+    case CL_DEVICE_PARTITION_STYLE_EXT:
+        szParamValueSize = m_cachedFissionLength;// * sizeof(cl_device_partition_property_ext);
+        pValue = m_cachedFissionMode;
+        break;
+
+    default:
+        return m_pRootDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
+    }
+
+    // if param_value_size < actual value size return CL_INVALID_VALUE
+    if (NULL != param_value && param_value_size < szParamValueSize)
+    {
+        LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"), param_value_size, szParamValueSize);
+        return CL_INVALID_VALUE;
+    }
+
+    // return param value size
+    if (NULL != param_value_size_ret)
+    {
+        *param_value_size_ret = szParamValueSize;
+    }
+
+    //Hack, but spec defines the "size" as the size of the list
+    if (CL_DEVICE_PARTITION_STYLE_EXT == param_name)
+    {
+        szParamValueSize *= sizeof(cl_device_partition_property_ext);
+    }
+
+    if (NULL != param_value && szParamValueSize > 0)
+    {
+        MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
+    }
+    return CL_SUCCESS;
+}
+void SubDevice::CacheFissionProperties(const cl_device_partition_property_ext* props)
+{
+    m_cachedFissionLength = 0;
+    //Todo: don't copy the partition properties for every sub-device, keep it in the parent
+    if (props)
+    {
+        m_fissionMode = props[0];
+        if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == m_fissionMode)
+        {
+            m_fissionMode = props[1];
+        }
+
+        //Ninja-style is still the most readable here, I think
+        while (props[m_cachedFissionLength++] != CL_PROPERTIES_LIST_END_EXT)
+        {
+            //Nothing, I'm just counting the property list length 
+        }
+        m_cachedFissionMode = new cl_device_partition_property_ext[m_cachedFissionLength];
+        if (NULL == m_cachedFissionMode)
+        {
+            //Todo: what?
+            return;
+        }
+        MEMCPY_S(m_cachedFissionMode, m_cachedFissionLength * sizeof(cl_device_partition_property_ext), props, m_cachedFissionLength * sizeof(cl_device_partition_property_ext));
+    }
 }

@@ -223,7 +223,7 @@ bool SubBuffer::CheckIfSupportedByDevice(cl_device_id deviceId)
 	cl_uint         align;
 	size_t          rsize;
 
-	Intel::OpenCL::Framework::Device* ppDevice = NULL;
+	Intel::OpenCL::Framework::FissionableDevice* ppDevice = NULL;
 	GetContext()->GetDevice(deviceId,&ppDevice);		
 	ppDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(align), &align, &rsize);		
 	return ((m_Origin % align) == 0);	

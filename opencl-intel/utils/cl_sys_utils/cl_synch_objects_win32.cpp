@@ -271,6 +271,23 @@ void OclOsDependentEvent::Signal()
 	}
 }
 
+OclBinarySemaphore::OclBinarySemaphore()
+{
+    m_semaphore = CreateEvent(NULL, false, false, NULL);
+}
+OclBinarySemaphore::~OclBinarySemaphore()
+{
+    CloseHandle(m_semaphore);
+}
+void OclBinarySemaphore::Signal()
+{
+    SetEvent(m_semaphore);
+}
+void OclBinarySemaphore::Wait()
+{
+    WaitForSingleObject(m_semaphore, INFINITE);
+}
+
 
 void* AtomicPointer::test_and_set(void* comparand, void* exchange)
 {

@@ -42,7 +42,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : m_pContext(pContext), m_pDevicePrograms(NULL), m_szNumAssociatedDevices(0)
+Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
 	m_handle.object   = this;
 	m_handle.dispatch = pOclEntryPoints;
@@ -84,6 +84,9 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 		return CL_INVALID_OPERATION;
 	}
 
+   // Acquire read access to the device program array to prevent device fission from switching it under our feet
+    OclAutoReader CS(&m_deviceProgramLock);
+
 	size_t* indices = new size_t[m_szNumAssociatedDevices];
 
 	if (uiNumDevices > 0)
@@ -96,16 +99,16 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 			for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
 			{
 				bool bFound = false;
-				DeviceProgram& pDeviceProgram = m_pDevicePrograms[deviceProg];
-				if (curDeviceId == pDeviceProgram.GetDeviceId())
+				DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+				if (curDeviceId == pDeviceProgram->GetDeviceId())
 				{
 					bFound = true;
-					if (!pDeviceProgram.Acquire()) //Oops, someone else is trying to build this program for that device
+					if (!pDeviceProgram->Acquire()) //Oops, someone else is trying to build this program for that device
 					{
 						//Release all accesses already acquired
 						for (cl_uint j = i; j > 0; --j)
 						{
-							m_pDevicePrograms[indices[j-1]].Unacquire();
+							m_ppDevicePrograms[indices[j-1]]->Unacquire();
 						}
 
 						delete[] indices;
@@ -122,7 +125,7 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 					//Release all accesses already acquired
 					for (cl_uint j = i; j > 0; --j)
 					{
-						m_pDevicePrograms[indices[j-1]].Unacquire();
+						m_ppDevicePrograms[indices[j-1]]->Unacquire();
 					}
 					delete[] indices;
 					return CL_INVALID_DEVICE;
@@ -135,13 +138,13 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 		//Phase one: acquire DeviceProgram objects on all associated devices
 		for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
 		{
-			DeviceProgram& pDeviceProgram = m_pDevicePrograms[deviceProg];
-			if (!pDeviceProgram.Acquire()) //Oops, someone else is trying to build this program for that device
+			DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+			if (!pDeviceProgram->Acquire()) //Oops, someone else is trying to build this program for that device
 			{
 				//Release all accesses already acquired
 				for (size_t j = deviceProg; j > 0; --j)
 				{
-					m_pDevicePrograms[j-1].Unacquire();
+					m_ppDevicePrograms[j-1]->Unacquire();
 				}
 
 				delete[] indices;
@@ -168,7 +171,7 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 	//Phase 2: build them
 	for (size_t i = 0; i < numDevicesToBuildFor; ++i)
 	{
-		ret = m_pDevicePrograms[indices[i]].Build(pcOptions, pfn, pUserData);
+		ret = m_ppDevicePrograms[indices[i]]->Build(pcOptions, pfn, pUserData);
 		if (!CL_SUCCEEDED(ret))
 		{
 			break;
@@ -178,7 +181,7 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 	//Release access on all programs. Further accesses while they're building should fail in the call to Build
 	for (size_t i = 0; i < numDevicesToBuildFor; ++i)
 	{
-		m_pDevicePrograms[indices[i]].Unacquire();
+		m_ppDevicePrograms[indices[i]]->Unacquire();
 	}
 
 	delete[] indices;
@@ -223,18 +226,23 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		break;
 
 	case CL_PROGRAM_DEVICES:
-		szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
-		clDevIds = new cl_device_id[m_szNumAssociatedDevices];
-		if (!clDevIds)
-		{
-			return CL_OUT_OF_HOST_MEMORY;
-		}
-		for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-		{
-			clDevIds[i] = m_pDevicePrograms[i].GetDeviceId();
-		}
-		pValue = clDevIds;
-		break;
+        {
+            //Prevent change in associated device by device fission during the query
+            OclAutoReader CS(&m_deviceProgramLock);
+
+		    szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
+		    clDevIds = new cl_device_id[m_szNumAssociatedDevices];
+		    if (!clDevIds)
+		    {
+			    return CL_OUT_OF_HOST_MEMORY;
+		    }
+		    for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+		    {
+			    clDevIds[i] = m_ppDevicePrograms[i]->GetDeviceId();
+		    }
+		    pValue = clDevIds;
+		    break;
+        }
 
 	case CL_PROGRAM_BINARIES:
 	case CL_PROGRAM_BINARY_SIZES:
@@ -292,10 +300,12 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 		return CL_INVALID_VALUE;
 	}
 
+    OclAutoReader CS(&m_deviceProgramLock);
+
 	// check if program binary already built for all devices
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
-		if (CL_BUILD_SUCCESS != m_pDevicePrograms[i].GetBuildStatus())
+		if (CL_BUILD_SUCCESS != m_ppDevicePrograms[i]->GetBuildStatus())
 		{
 			return CL_INVALID_PROGRAM_EXECUTABLE;
 		}
@@ -314,7 +324,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// next step - for each device that has the kernel, create device kernel 
-	cl_err_code clErrRet = pKernel->CreateDeviceKernels(m_pDevicePrograms);
+	cl_err_code clErrRet = pKernel->CreateDeviceKernels(m_ppDevicePrograms);
 	if (CL_FAILED(clErrRet))
 	{
 		LOG_ERROR(TEXT("pKernel->CreateDeviceKernels(ppBinaries) = %S"), ClErrTxt(clErrRet));
@@ -341,9 +351,11 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	LOG_DEBUG(TEXT("Enter CreateAllKernels (uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d"), 
 		uiNumKernels, pclKernels, puiNumKernelsRet);
 
+    OclAutoReader Cs(&m_deviceProgramLock);
+
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
-		if (CL_BUILD_SUCCESS != m_pDevicePrograms[i].GetBuildStatus())
+		if (CL_BUILD_SUCCESS != m_ppDevicePrograms[i]->GetBuildStatus())
 		{
 			return CL_INVALID_PROGRAM_EXECUTABLE;
 		}
@@ -358,7 +370,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	assert(m_szNumAssociatedDevices > 0);
 
 	size_t szNumKernels = 0;
-	clErrRet = m_pDevicePrograms[0].GetNumKernels(&szNumKernels);
+	clErrRet = m_ppDevicePrograms[0]->GetNumKernels(&szNumKernels);
 	if (CL_FAILED(clErrRet))
 	{
 		return clErrRet;
@@ -383,7 +395,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	clErrRet = m_pDevicePrograms[0].GetKernelNames(NULL, pszKernelNameLengths, szNumKernels);
+	clErrRet = m_ppDevicePrograms[0]->GetKernelNames(NULL, pszKernelNameLengths, szNumKernels);
 	if (CL_FAILED(clErrRet))
 	{
 		delete[] pszKernelNameLengths;
@@ -410,7 +422,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 		}
 	}
 
-	clErrRet = m_pDevicePrograms[0].GetKernelNames(ppKernelNames, pszKernelNameLengths, szNumKernels);
+	clErrRet = m_ppDevicePrograms[0]->GetKernelNames(ppKernelNames, pszKernelNameLengths, szNumKernels);
 	if (CL_FAILED(clErrRet))
 	{
 		for (size_t i = 0; i < szNumKernels; ++i)
@@ -484,15 +496,20 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_ui
 
 DeviceProgram* Program::GetDeviceProgram(cl_device_id clDeviceId)
 {
-	for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
-	{
-		DeviceProgram& pDeviceProgram = m_pDevicePrograms[deviceProg];
-		if (clDeviceId == pDeviceProgram.GetDeviceId())
-		{
-			return m_pDevicePrograms + deviceProg;
-		}
-	}
-	return NULL;
+    OclAutoReader CS(&m_deviceProgramLock);
+    return InternalGetDeviceProgram(clDeviceId);
+}
+DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)
+{
+    for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
+    {
+        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+        if (clDeviceId == pDeviceProgram->GetDeviceId())
+        {
+            return m_ppDevicePrograms[deviceProg];
+        }
+    }
+    return NULL;
 }
 
 

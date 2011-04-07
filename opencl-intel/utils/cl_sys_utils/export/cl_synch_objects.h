@@ -57,6 +57,7 @@
 #include <tbb/concurrent_queue.h>
 #include <queue>
 #include <assert.h>
+#include "cl_utils.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -245,6 +246,23 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		void* m_eventRepresentation;
 	};
 
+    // A class representing a binary semaphore, i.e. an OS-dependent object allowing a thread waiting on it to yield.
+    // For a user-space implementation, use the atomic counters
+    class OclBinarySemaphore
+    {
+    public:
+        OclBinarySemaphore();
+        virtual ~OclBinarySemaphore();
+
+        // Signals the semaphore. 
+        void Signal();
+
+        // Consumes a signal
+        void Wait();
+    protected:
+        void* m_semaphore;
+    };
+
 	template<class T>
 	class IConcurrentQueue
 	{
@@ -322,6 +340,63 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		volatile bool m_isInitialize;
 		OclOsDependentEvent m_eventLock;
 	};
+    class OclReaderWriterLock
+    {
+    public:
+        OclReaderWriterLock() : m_readers(0) {}
+        virtual ~OclReaderWriterLock() { assert(0 == m_readers); }
+
+        void EnterRead()  { m_writeLock.Lock(); m_readers++; m_writeLock.Unlock();}
+        void LeaveRead()  { m_readers--; }
+        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) clSleep(0); }
+        void LeaveWrite() { m_writeLock.Unlock();  }
+
+    protected:
+        OclSpinMutex  m_writeLock;
+        AtomicCounter m_readers;
+    };
+
+    class OclAutoReader
+    {
+    public:
+        OclAutoReader(OclReaderWriterLock* mutexObj, bool bAutoLock = true) : m_mutexObj(mutexObj)
+        {
+            assert(m_mutexObj);
+            if (bAutoLock)
+            {
+                m_mutexObj->EnterRead();
+            }
+        }
+        ~OclAutoReader()
+        {
+            assert(m_mutexObj);
+            m_mutexObj->LeaveRead();
+        }
+
+    private:
+        OclReaderWriterLock* m_mutexObj;
+    };
+
+    class OclAutoWriter
+    {
+    public:
+        OclAutoWriter(OclReaderWriterLock* mutexObj, bool bAutoLock = true) : m_mutexObj(mutexObj)
+        {
+            assert(m_mutexObj);
+            if (bAutoLock)
+            {
+                m_mutexObj->EnterWrite();
+            }
+        }
+        ~OclAutoWriter()
+        {
+            assert(m_mutexObj);
+            m_mutexObj->LeaveWrite();
+        }
+
+    private:
+        OclReaderWriterLock* m_mutexObj;
+    };
 
 //includes for the template classes
 #include "cl_synch_objects.hpp"

@@ -92,6 +92,23 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// Affinitizable command
+AffinitizableCommand::AffinitizableCommand(TaskDispatcher *pTD) : DispatcherCommand(pTD)
+{
+    assert(pTD);
+    m_affinityMask = pTD->getAffinityMask();
+}
+
+void AffinitizableCommand::AffinitizeToTask()
+{
+    if (NULL != m_affinityMask)
+    {
+        clSetThreadAffinityMask(m_affinityMask);
+    }
+}
+
+
+///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
 cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
@@ -119,7 +136,7 @@ cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc*
 }
 
 ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+	AffinitizableCommand(pTD)
 {
 }
 
@@ -337,7 +354,7 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 }
 
 CopyMemObject::CopyMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+	AffinitizableCommand(pTD)
 {
 }
 
@@ -598,7 +615,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 }
 
 NativeFunction::NativeFunction(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+	AffinitizableCommand(pTD)
 {
 }
 
@@ -720,7 +737,7 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd,
 }
 
 MapMemObject::MapMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+	AffinitizableCommand(pTD)
 {
 }
 
@@ -878,7 +895,7 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 }
 
 UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+	AffinitizableCommand(pTD)
 {
 }
 
@@ -1008,7 +1025,7 @@ m_pMemBuffSizes(NULL)
 	m_lExecuting.exchange(0);
 #endif
 //	QueryPerformanceFrequency(&freq);
-
+    m_affinityMask = pTD->getAffinityMask();
 }
 
 void NDRange::Release()
@@ -1376,6 +1393,11 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	++m_lAttaching ;
 #endif
 
+    if (NULL != m_affinityMask)
+    {
+        clSetThreadAffinityMask(m_affinityMask);
+    }
+
 	WGContext* pCtx = GetWGContext(uiWorkerId);
 	if ( NULL == pCtx )
 	{
@@ -1383,7 +1405,11 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
 #ifdef _DEBUG
 	--m_lAttaching ;
-#endif
+#endif	
+        if (NULL != m_affinityMask)
+        {
+            clResetThreadAffinityMask();
+        }
 		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
 	else if (m_pCmd->id == pCtx->GetCmdId() )
@@ -1521,6 +1547,10 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 
 int NDRange::DetachFromThread(unsigned int uiWorkerId)
 {
+    if (NULL != m_affinityMask)
+    {
+        clResetThreadAffinityMask();
+    }
 	// End execution task
 #if defined(USE_GPA)
 	__itt_domain* domain;

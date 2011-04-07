@@ -299,7 +299,7 @@ cl_err_code MemoryCommand::CopyToHost(
 
 	cl_device_id srcDeviceId = pSrcMemObj->GetDataLocation(m_pDevice->GetHandle());
 
-	Device* pSrcDevice;		
+	FissionableDevice* pSrcDevice;		
 	Context *pContext = (Context*)pSrcMemObj->GetContext();				
 	res = pContext->GetDevice(srcDeviceId, &pSrcDevice);
 	if (CL_FAILED(res)) { return res; }		
@@ -1407,7 +1407,7 @@ cl_err_code NDRangeKernelCommand::Init()
 	cl_ulong stImplicitSize = 0;
 	m_pKernel->GetWorkGroupInfo(m_pCommandQueue->GetQueueDeviceHandle(), CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &stImplicitSize, NULL);
 	stImplicitSize += stTotalLocalSize;
-	if ( stImplicitSize > m_pDevice->GetMaxLocalMemorySize() )
+	if ( stImplicitSize > m_pDevice->GetRootDevice()->GetMaxLocalMemorySize() )
 	{
 		res = CL_OUT_OF_RESOURCES;
 	}

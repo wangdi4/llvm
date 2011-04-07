@@ -121,9 +121,9 @@ ocl_entry_points FrameworkProxy::OclEntryPoints = {
 	(KHRpfn_clEnqueueReadBufferRect)GET_ALIAS(clEnqueueReadBufferRect),
 	(KHRpfn_clEnqueueWriteBufferRect)GET_ALIAS(clEnqueueWriteBufferRect),
 	(KHRpfn_clEnqueueCopyBufferRect)GET_ALIAS(clEnqueueCopyBufferRect),
-	NULL, // clCreateSubDevicesEXT,
-	NULL, // clRetainDeviceEXT,
-	NULL, // clReleaseDeviceEXT,
+	(KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT), 
+	(KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT),
+	(KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT)
 };
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;

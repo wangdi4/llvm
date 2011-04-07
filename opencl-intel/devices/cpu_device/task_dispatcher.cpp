@@ -121,13 +121,18 @@ createCommandList
 		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list)
+cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, void** OUT list)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 	assert( list );
 
-	ITaskList* pList = m_pTaskExecutor->CreateTaskList(CL_DEV_LIST_ENABLE_OOO == props);
-	*list = (cl_dev_cmd_list)pList;
+    bool isSubdevice = (0 != ((int)props & (int)CL_DEV_LIST_SUBDEVICE));
+    bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
+    CommandListCreationParam p;
+    p.isOOO = isOOO;
+    p.isSubdevice = isSubdevice;
+	ITaskList* pList = m_pTaskExecutor->CreateTaskList(&p);
+	*list = pList;
 	if ( NULL == pList )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list);
@@ -257,8 +262,11 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 	// If list id is 0, submit tasks directly to execution
 	if ( NULL == pList )
 	{
+        CommandListCreationParam p;
+        p.isOOO = false;
+        p.isSubdevice = false;
 		// Create temporary list
-		pList = m_pTaskExecutor->CreateTaskList();
+		pList = m_pTaskExecutor->CreateTaskList(&p);
 	}
 
 	// Lock current list for insert operations
@@ -347,4 +355,166 @@ void TaskDispatcher::TaskFailureNotification::Execute()
 	}
 
 	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)CL_DEV_ERROR_FAIL, timer);
+}
+
+void SubdeviceTaskDispatcher::SynchronousDispatchCommand(CommandType type)
+{
+    assert(!m_received);
+    //assert(!m_sent);
+    m_lastCommandType = type;
+    //m_sent = true;
+    m_sent.Signal();
+    while (!m_received)
+    {
+        //Todo: add pause when applicable
+        clSleep(0);
+    }
+    m_received = false;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props props, cl_dev_cmd_list *list)
+{
+    OclAutoMutex CS(&m_commandMutex);
+    assert(list);
+    m_lastProps = props;
+    SynchronousDispatchCommand(TASK_DISPATCHER_CREATE_COMMAND_LIST);
+    *list = m_lastList;
+    return m_lastReturn;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::releaseCommandList(cl_dev_cmd_list list)
+{
+    OclAutoMutex CS(&m_commandMutex);
+    m_lastList = list;
+    SynchronousDispatchCommand(TASK_DISPATCHER_RELEASE_COMMAND_LIST);
+    return m_lastReturn;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN list)
+{
+    OclAutoMutex CS(&m_commandMutex);
+    m_lastList = list;
+    SynchronousDispatchCommand(TASK_DISPATCHER_FLUSH_COMMAND_LIST);
+    return m_lastReturn;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
+{
+    return CL_DEV_NOT_SUPPORTED;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::commandListExecute(cl_dev_cmd_list list, cl_dev_cmd_desc **cmds, cl_uint count)
+{
+    OclAutoMutex CS(&m_commandMutex);
+    assert(cmds);
+    assert(count > 0);
+    m_lastList  = list;
+    m_lastDesc  = *cmds;
+    m_lastCount = count;
+    SynchronousDispatchCommand(TASK_DISPATCHER_EXECUTE_COMMAND_LIST);
+    return m_lastReturn;
+}
+
+SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(size_t numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService, MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) 
+: TaskDispatcher(devId, pDevCallbacks, programService, memAlloc, logDesc, cpuDeviceConfig), 
+m_subdeviceSize(numThreads), m_received(false), m_numThreads(numThreads), m_affinityMask(affinityMask)
+{
+    m_thread = new SubdeviceTaskDispatcherThread(this);
+    m_thread->Start();
+}
+SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
+{
+    m_thread->Terminate(0);
+    if (NULL != m_affinityMask)
+    {
+        delete m_affinityMask;
+    }
+}
+affinityMask_t* SubdeviceTaskDispatcher::getAffinityMask()
+{
+    return m_affinityMask;
+}
+
+cl_dev_err_code SubdeviceTaskDispatcher::internalCommandListExecute(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
+{
+    return TaskDispatcher::commandListExecute(list, cmds, count);
+}
+cl_dev_err_code SubdeviceTaskDispatcher::internalCreateCommandList(cl_dev_cmd_list_props props, cl_dev_cmd_list *list)
+{
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
+    assert( list );
+
+    bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
+    bool isSubdevice = true;
+    CommandListCreationParam p;
+    p.isOOO       = isOOO;
+    p.isSubdevice = isSubdevice;
+    ITaskList* pList = m_pTaskExecutor->CreateTaskList(&p);
+    *list = pList;
+    if ( NULL == pList )
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list);
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), pList);
+    return CL_DEV_SUCCESS;
+}
+cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
+{
+    return TaskDispatcher::flushCommandList(list);
+}
+cl_dev_err_code SubdeviceTaskDispatcher::internalReleaseCommandList( cl_dev_cmd_list IN list )
+{
+    return TaskDispatcher::releaseCommandList(list);
+}
+
+SubdeviceTaskDispatcherThread::SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher) : OclThread("SubdeviceDispatcher"), m_dispatcher(dispatcher)
+{
+    m_partitioner = NULL;
+}
+
+SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
+{
+    if (NULL != m_partitioner)
+    {
+        m_partitioner->Deactivate();
+        delete m_partitioner;
+    }
+}
+
+int SubdeviceTaskDispatcherThread::Run()
+{
+    //Creation of this object must be in the thread routine
+    m_partitioner = TaskExecutor::CreateThreadPartitioner(m_dispatcher->m_numThreads);
+    m_partitioner->Activate();
+    do 
+    {
+        m_dispatcher->m_sent.Wait();
+        assert(!m_dispatcher->m_received);
+
+        switch(m_dispatcher->m_lastCommandType)
+        {
+        case SubdeviceTaskDispatcher::TASK_DISPATCHER_CREATE_COMMAND_LIST:
+            m_dispatcher->m_lastReturn = m_dispatcher->internalCreateCommandList(m_dispatcher->m_lastProps, &m_dispatcher->m_lastList);
+            break;
+
+        case SubdeviceTaskDispatcher::TASK_DISPATCHER_EXECUTE_COMMAND_LIST:
+            m_dispatcher->m_lastReturn = m_dispatcher->internalCommandListExecute(m_dispatcher->m_lastList, &m_dispatcher->m_lastDesc, m_dispatcher->m_lastCount);
+            break;
+
+        case SubdeviceTaskDispatcher::TASK_DISPATCHER_FLUSH_COMMAND_LIST:
+            m_dispatcher->m_lastReturn = m_dispatcher->internalFlushCommandList(m_dispatcher->m_lastList);
+            break;
+
+        case SubdeviceTaskDispatcher::TASK_DISPATCHER_RELEASE_COMMAND_LIST:
+            m_dispatcher->m_lastReturn = m_dispatcher->internalReleaseCommandList(m_dispatcher->m_lastList);
+            break;
+        default:
+            assert(0);
+            break;
+        }
+        m_dispatcher->m_received = true;
+    } while(true);
+
 }

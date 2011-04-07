@@ -102,6 +102,8 @@ typedef int errno_t;
 #define ALIGNED_MALLOC                   _aligned_malloc
 #define ALIGNED_FREE                     _aligned_free
 
+typedef unsigned long long               affinityMask_t;
+
 #else
 
 #include "cl_secure_string_linux.h"
@@ -121,4 +123,6 @@ typedef int errno_t;
 #define ALIGNED_MALLOC                 _mm_malloc
 #define ALIGNED_FREE                   _mm_free
 
+#include <sched.h>
+typedef cpu_set_t                      affinityMask_t;
 #endif

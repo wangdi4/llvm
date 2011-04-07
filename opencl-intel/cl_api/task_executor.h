@@ -39,6 +39,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <cl_sys_defines.h>
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -68,6 +69,12 @@ typedef enum
 	FINISH_EXECUTION_FAILED
 } FINISH_REASON;
 
+struct CommandListCreationParam
+{
+    bool  isOOO;
+    bool  isSubdevice;
+};
+
 /////////////////////////////////////////////////////////////////////////////
 // ITaskBase interface - defines a basic set of functions
 class ITaskBase
@@ -89,6 +96,8 @@ public:
 	bool	IsTaskSet() {return false;}
 	// Task execution routine, will be called by task executor
 	virtual void	Execute() = 0;
+    // Affinitizes the calling thread to this task's affinity mask if applicable
+    virtual void    AffinitizeToTask() {}
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -158,7 +167,7 @@ public:
 	// Return number of initialized worker threads
 	virtual unsigned int GetNumWorkingThreads() const = 0;
 
-	virtual ITaskList* CreateTaskList(bool OOO = false) = 0;
+	virtual ITaskList* CreateTaskList(CommandListCreationParam* param) = 0;
 
 	// Execute task immediately, independently to "listed" tasks
 	virtual unsigned int Execute(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
@@ -176,5 +185,16 @@ public:
 
 // Function which retrieves TaskExecutor singleton object
 TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor();
+
+// IThreadPartitioner class - a class enabling controlling executing threads by affinity mask / count
+class IThreadPoolPartitioner
+{
+public:
+    virtual void Activate()   = 0;
+    virtual void Deactivate() = 0; 
+};
+
+// Factory function to instantiate the appropriate partitioner object
+TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(size_t numThreads);
 
 }}}

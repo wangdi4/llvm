@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		virtual ~TBBTaskExecutor();
 		int	Init(unsigned int uiNumThreads, bool bUseTaskalyzer);
 		unsigned int GetNumWorkingThreads() const;
-		ITaskList* CreateTaskList(bool OOO = false);
+		ITaskList* CreateTaskList(CommandListCreationParam* param);
 		unsigned int	Execute(ITaskBase * pTask);
 		bool			WaitForCompletion();
 
@@ -61,5 +61,20 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	private:
 		ThreadIDAssigner* m_threadPoolChangeObserver;
 	};
+
+    class MyObserver;
+
+    class TBBThreadPoolPartitioner : public IThreadPoolPartitioner
+    {
+    public:
+        TBBThreadPoolPartitioner(size_t numThreads);
+        virtual ~TBBThreadPoolPartitioner();
+        void Activate();
+        void Deactivate();
+
+    protected:
+        MyObserver* m_observer;
+    };
+
 
 }}}
