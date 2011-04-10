@@ -106,6 +106,7 @@ add_subdirectory( externals/llvm_wrap )
 
 #devices
 add_subdirectory( devices )
+add_subdirectory( fe_compilers/clang_compiler )
 
 #tools
 add_subdirectory( tools/OfflineCompiler )

@@ -173,6 +173,12 @@ bool DeviceKernel::CheckKernelDefinition(DeviceKernel * pKernel)
 KernelArg::KernelArg(cl_uint uiIndex, size_t szSize, void * pValue, cl_kernel_argument clKernelArgType) :
 m_uiIndex(uiIndex), m_szSize(szSize), m_pValue(pValue), m_clKernelArgType(clKernelArgType)
 {
+	if (m_clKernelArgType.type == CL_KRNL_ARG_COMPOSITE)
+	{
+		m_pValue = new char[m_szSize];
+		MEMCPY_S(m_pValue, m_szSize, pValue, szSize);
+		return;
+	}
 	if (m_clKernelArgType.type <= CL_KRNL_ARG_VECTOR)
 	{
 		m_pValue = new char[m_szSize];
@@ -620,6 +626,14 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	else if (clArgType == CL_KRNL_ARG_VECTOR)
 	{
 		szArgSize = (szArgSize & 0xFFFF) * ((szArgSize >> 16) & 0xFFFF);
+		if (szSize != szArgSize)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+	}
+
+	else if (clArgType == CL_KRNL_ARG_COMPOSITE)
+	{
 		if (szSize != szArgSize)
 		{
 			return CL_INVALID_ARG_SIZE;

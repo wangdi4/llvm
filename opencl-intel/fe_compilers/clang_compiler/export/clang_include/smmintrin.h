@@ -1,4 +1,4 @@
-/*===---- smmintrin.h - SSE4 intrinsics -----------------------------------===
+/*===---- smmintrin.h - SSE4 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,9 +20,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
- 
-#ifndef __SMMINTRIN_H
-#define __SMMINTRIN_H
+
+#ifndef _SMMINTRIN_H
+#define _SMMINTRIN_H
 
 #ifndef __SSE4_1__
 #error "SSE4.1 instruction set not enabled"
@@ -30,560 +30,423 @@
 
 #include <tmmintrin.h>
 
-/* SSE4.1 */
+/* SSE4 Rounding macros. */
+#define _MM_FROUND_TO_NEAREST_INT    0x00
+#define _MM_FROUND_TO_NEG_INF        0x01
+#define _MM_FROUND_TO_POS_INF        0x02
+#define _MM_FROUND_TO_ZERO           0x03
+#define _MM_FROUND_CUR_DIRECTION     0x04
 
-/* Rounding mode macros. */
-#define _MM_FROUND_TO_NEAREST_INT	0x00
-#define _MM_FROUND_TO_NEG_INF		0x01
-#define _MM_FROUND_TO_POS_INF		0x02
-#define _MM_FROUND_TO_ZERO			0x03
-#define _MM_FROUND_CUR_DIRECTION	0x04
+#define _MM_FROUND_RAISE_EXC         0x00
+#define _MM_FROUND_NO_EXC            0x08
 
-#define _MM_FROUND_RAISE_EXC		0x00
-#define _MM_FROUND_NO_EXC			0x08
+#define _MM_FROUND_NINT      (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEAREST_INT)
+#define _MM_FROUND_FLOOR     (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEG_INF)
+#define _MM_FROUND_CEIL      (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_POS_INF)
+#define _MM_FROUND_TRUNC     (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_ZERO)
+#define _MM_FROUND_RINT      (_MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION)
+#define _MM_FROUND_NEARBYINT (_MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION)
 
-#define _MM_FROUND_NINT			(_MM_FROUND_TO_NEAREST_INT | _MM_FROUND_RAISE_EXC)
-#define _MM_FROUND_FLOOR		(_MM_FROUND_TO_NEG_INF | _MM_FROUND_RAISE_EXC)
-#define _MM_FROUND_CEIL			(_MM_FROUND_TO_POS_INF | _MM_FROUND_RAISE_EXC)
-#define _MM_FROUND_TRUNC		(_MM_FROUND_TO_ZERO | _MM_FROUND_RAISE_EXC)
-#define _MM_FROUND_RINT			(_MM_FROUND_CUR_DIRECTION | _MM_FROUND_RAISE_EXC)
-#define _MM_FROUND_NEARBYINT	(_MM_FROUND_CUR_DIRECTION | _MM_FROUND_NO_EXC)
+#define _mm_ceil_ps(X)       _mm_round_ps((X), _MM_FROUND_CEIL)
+#define _mm_ceil_pd(X)       _mm_round_pd((X), _MM_FROUND_CEIL)
+#define _mm_ceil_ss(X, Y)    _mm_round_ss((X), (Y), _MM_FROUND_CEIL)
+#define _mm_ceil_sd(X, Y)    _mm_round_sd((X), (Y), _MM_FROUND_CEIL)
 
+#define _mm_floor_ps(X)      _mm_round_ps((X), _MM_FROUND_FLOOR)
+#define _mm_floor_pd(X)      _mm_round_pd((X), _MM_FROUND_FLOOR)
+#define _mm_floor_ss(X, Y)   _mm_round_ss((X), (Y), _MM_FROUND_FLOOR)
+#define _mm_floor_sd(X, Y)   _mm_round_sd((X), (Y), _MM_FROUND_FLOOR)
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_blend_epi16 (__m128i a, __m128i b, const int mask)
+#define _mm_round_ps(X, Y)      __builtin_ia32_roundps((X), (Y))
+#define _mm_round_ss(X, Y, M)   __builtin_ia32_roundss((X), (Y), (M))
+#define _mm_round_pd(X, M)      __builtin_ia32_roundpd((X), (M))
+#define _mm_round_sd(X, Y, M)   __builtin_ia32_roundsd((X), (Y), (M))
+
+/* SSE4 Packed Blending Intrinsics.  */
+__inline__ __m128d __attribute__((__always_inline__, __nodebug__))
+_mm_blend_pd (__m128d __V1, __m128d __V2, const int __M)
 {
-  return (__m128i) __builtin_ia32_pblendw128 ((__v8hi)a, (__v8hi)b, mask);
+  return (__m128d) __builtin_ia32_blendpd ((__v2df)__V1, (__v2df)__V2, __M);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_blendv_epi8 (__m128i a, __m128i b, __m128i mask)
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_blend_ps (__m128 __V1, __m128 __V2, const int __M)
 {
-  return (__m128i) __builtin_ia32_pblendvb128 ((__v16qi)a, (__v16qi)b, (__v16qi)mask);
+  return (__m128) __builtin_ia32_blendps ((__v4sf)__V1, (__v4sf)__V2, __M);
 }
 
-static inline __m128 __attribute__((__always_inline__))
-_mm_blend_ps (__m128 a, __m128 b, const int mask)
+__inline__ __m128d __attribute__((__always_inline__, __nodebug__))
+_mm_blendv_pd (__m128d __V1, __m128d __V2, __m128d __M)
 {
-  return (__m128) __builtin_ia32_blendps ((__v4sf)a, (__v4sf)b, mask);
+  return (__m128d) __builtin_ia32_blendvpd ((__v2df)__V1, (__v2df)__V2,
+                                            (__v2df)__M);
 }
 
-static inline __m128 __attribute__((__always_inline__))
-_mm_blendv_ps (__m128 a, __m128 b, __m128 mask)
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_blendv_ps (__m128 __V1, __m128 __V2, __m128 __M)
 {
-  return (__m128) __builtin_ia32_blendvps ((__v4sf)a, (__v4sf)b, (__v4sf)mask);
+  return (__m128) __builtin_ia32_blendvps ((__v4sf)__V1, (__v4sf)__V2,
+                                           (__v4sf)__M);
 }
 
-static inline __m128d __attribute__((__always_inline__))
-_mm_blend_pd (__m128d a, __m128d b, const int mask)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
 {
-  return (__m128d) __builtin_ia32_blendpd ((__v2df)a, (__v2df)b, mask);
+  return (__m128i) __builtin_ia32_pblendvb128 ((__v16qi)__V1, (__v16qi)__V2,
+                                               (__v16qi)__M);
 }
 
-static inline __m128d __attribute__((__always_inline__))
-_mm_blendv_pd (__m128d a, __m128d b, __m128d mask)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_blend_epi16 (__m128i __V1, __m128i __V2, const int __M)
 {
-  return (__m128d) __builtin_ia32_blendvpd ((__v2df)a, (__v2df)b, (__v2df)mask);
+  return (__m128i) __builtin_ia32_pblendw128 ((__v8hi)__V1, (__v8hi)__V2, __M);
 }
 
-static inline __m128 __attribute__((__always_inline__))
-_mm_dp_ps (__m128 a, __m128 b, const int mask)
+/* SSE4 Dword Multiply Instructions.  */
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_mullo_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128) __builtin_ia32_dpps ((__v4sf)a, (__v4sf)b, mask);
+  return (__m128i) ((__v4si)__V1 * (__v4si)__V2);
 }
 
-static inline __m128d __attribute__((__always_inline__))
-_mm_dp_pd (__m128d a, __m128d b, const int mask)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_mul_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128d) __builtin_ia32_dppd ((__v2df)a, (__v2df)b, mask);
+  return (__m128i) __builtin_ia32_pmuldq128 ((__v4si)__V1, (__v4si)__V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cmpeq_epi64 (__m128i a, __m128i b)
+/* SSE4 Floating Point Dot Product Instructions.  */
+#define _mm_dp_ps(X, Y, M) __builtin_ia32_dpps ((X), (Y), (M))
+#define _mm_dp_pd(X, Y, M) __builtin_ia32_dppd ((X), (Y), (M))
+
+/* SSE4 Streaming Load Hint Instruction.  */
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_stream_load_si128 (__m128i *__V)
 {
-  return (__m128i) __builtin_ia32_pcmpeqq ((__v2di)a, (__v2di)b);
+  return (__m128i) __builtin_ia32_movntdqa ((__v2di *) __V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_min_epi8 (__m128i a, __m128i b)
+/* SSE4 Packed Integer Min/Max Instructions.  */
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_min_epi8 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminsb128 ((__v16qi)a, (__v16qi)b);
+  return (__m128i) __builtin_ia32_pminsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_max_epi8 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_max_epi8 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxsb128 ((__v16qi)a, (__v16qi)b);
+  return (__m128i) __builtin_ia32_pmaxsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_min_epu16 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_min_epu16 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminuw128 ((__v8hi)a, (__v8hi)b);
+  return (__m128i) __builtin_ia32_pminuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_max_epu16 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_max_epu16 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxuw128 ((__v8hi)a, (__v8hi)b);
+  return (__m128i) __builtin_ia32_pmaxuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_min_epi32 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_min_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminsd128 ((__v4si)a, (__v4si)b);
+  return (__m128i) __builtin_ia32_pminsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_max_epi32 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_max_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxsd128 ((__v4si)a, (__v4si)b);
+  return (__m128i) __builtin_ia32_pmaxsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_min_epu32 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_min_epu32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminud128 ((__v4si)a, (__v4si)b);
+  return (__m128i) __builtin_ia32_pminud128((__v4si) __V1, (__v4si) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_max_epu32 (__m128i a, __m128i b)
+__inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_max_epu32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxud128 ((__v4si)a, (__v4si)b);
+  return (__m128i) __builtin_ia32_pmaxud128((__v4si) __V1, (__v4si) __V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_mullo_epi32 (__m128i a, __m128i b)
-{
-  return (__m128i) __builtin_ia32_pmulld128 ((__v4si)a, (__v4si)b);
-}
+/* SSE4 Insertion and Extraction from XMM Register Instructions.  */
+#define _mm_insert_ps(X, Y, N) __builtin_ia32_insertps128((X), (Y), (N))
+#define _mm_extract_ps(X, N) (__extension__                      \
+                              ({ union { int i; float f; } __t;  \
+                                 __v4sf __a = (__v4sf)(X);       \
+                                 __t.f = __a[N];                 \
+                                 __t.i;}))
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_mul_epi32 (__m128i a, __m128i b)
-{
-  return (__m128i) __builtin_ia32_pmuldq128 ((__v4si)a, (__v4si)b);
-}
+/* Miscellaneous insert and extract macros.  */
+/* Extract a single-precision float from X at index N into D.  */
+#define _MM_EXTRACT_FLOAT(D, X, N) (__extension__ ({ __v4sf __a = (__v4sf)(X); \
+                                                    (D) = __a[N]; }))
+                                                    
+/* Or together 2 sets of indexes (X and Y) with the zeroing bits (Z) to create
+   an index suitable for _mm_insert_ps.  */
+#define _MM_MK_INSERTPS_NDX(X, Y, Z) (((X) << 6) | ((Y) << 4) | (Z))
+                                           
+/* Extract a float from X at index N into the first index of the return.  */
+#define _MM_PICK_OUT_PS(X, N) _mm_insert_ps (_mm_setzero_ps(), (X),   \
+                                             _MM_MK_INSERTPS_NDX((N), 0, 0x0e))
+                                             
+/* Insert int into packed integer array at index.  */
+#define _mm_insert_epi8(X, I, N) (__extension__ ({ __v16qi __a = (__v16qi)(X); \
+                                                   __a[N] = I;               \
+                                                   __a;}))
+#define _mm_insert_epi32(X, I, N) (__extension__ ({ __v4si __a = (__v4si)(X); \
+                                                    __a[N] = I;             \
+                                                    __a;}))
+#ifdef __x86_64__
+#define _mm_insert_epi64(X, I, N) (__extension__ ({ __v2di __a = (__v2di)(X); \
+                                                    __a[N] = I;             \
+                                                    __a;}))
+#endif /* __x86_64__ */
 
-static inline int __attribute__((__always_inline__))
-_mm_testz_si128 (__m128i mask, __m128i value)
-{
-  return __builtin_ia32_ptestz128 ((__v4sf)mask, (__v4sf)value);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_testc_si128 (__m128i mask, __m128i value)
-{
-  return __builtin_ia32_ptestc128 ((__v4sf)mask, (__v4sf)value);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_testnzc_si128 (__m128i mask, __m128i value)
-{
-  return __builtin_ia32_ptestnzc128 ((__v4sf)mask, (__v4sf)value);
-}
-
-#define _mm_test_all_zeros(mask, val)      _mm_testz_si128((mask), (val))
-
-#define _mm_test_all_ones(val) \
-	_mm_testc_si128((val), _mm_cmpeq_epi32((val),(val)))
-
-#define _mm_test_mix_ones_zeros(mask, val) _mm_testnzc_si128((mask), (val))
-
-static inline __m128 __attribute__((__always_inline__))
-_mm_insert_ps (__m128 dst, __m128 value, const int n)
-{
-  return (__m128) __builtin_ia32_insertps128 ((__v4sf)dst,
-					      (__v4sf)value,
-					      n);
-}
-
-/*
- * Helper macro to create ndx-parameter value for _mm_insert_ps
+/* Extract int from packed integer array at index.  This returns the element
+ * as a zero extended value, so it is unsigned.
  */
-#define _MM_MK_INSERTPS_NDX(srcField, dstField, zeroMask) \
-        (((srcField)<<6) | ((dstField)<<4) | (zeroMask))
+#define _mm_extract_epi8(X, N) (__extension__ ({ __v16qi __a = (__v16qi)(X); \
+                                                 (unsigned char)__a[N];}))
+#define _mm_extract_epi32(X, N) (__extension__ ({ __v4si __a = (__v4si)(X); \
+                                                  (unsigned)__a[N];}))
+#ifdef __x86_64__
+#define _mm_extract_epi64(X, N) (__extension__ ({ __v2di __a = (__v2di)(X); \
+                                                  __a[N];}))
+#endif /* __x86_64 */
 
-/* Extract binary representation of single precision float from packed
-   single precision array element of X selected by index N.  */
-
-static inline int __attribute__((__always_inline__))
-_mm_extract_ps (__m128 a, const int n)
+/* SSE4 128-bit Packed Integer Comparisons.  */
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_testz_si128(__m128i __M, __m128i __V)
 {
-  union { int i; float f; } __tmp;
-  __tmp.f = __builtin_ia32_vec_ext_v4sf ((__v4sf)a, n);
-  return __tmp.i;
+  return __builtin_ia32_ptestz128((__v2di)__M, (__v2di)__V);
 }
 
-/*
- * Extract single precision float from packed single precision 
- * array element selected by index into dest
- */
-#define _MM_EXTRACT_FLOAT(dest, src, ndx) \
-        *((int*)&(dest)) = _mm_extract_ps((src), (ndx))
-  
-/*
- * Extract specified single precision float element
- * into the lower part of __m128
- */
-#define _MM_PICK_OUT_PS(src, num) \
-        _mm_insert_ps(_mm_setzero_ps(), (src), \
-                      _MM_MK_INSERTPS_NDX((num), 0, 0x0e));
-
-/* Insert integer, S, into packed integer array element of D
-   selected by index N.  */
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_insert_epi8 (__m128i dst, int value, const int n)
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_testc_si128(__m128i __M, __m128i __V)
 {
-  return (__m128i) __builtin_ia32_vec_set_v16qi ((__v16qi)dst,
-						 value, n);
+  return __builtin_ia32_ptestc128((__v2di)__M, (__v2di)__V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_insert_epi32 (__m128i dst, int value, const int n)
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_testnzc_si128(__m128i __M, __m128i __V)
 {
-  return (__m128i) __builtin_ia32_vec_set_v4si ((__v4si)dst,
-						 value, n);
+  return __builtin_ia32_ptestnzc128((__v2di)__M, (__v2di)__V);
 }
 
-//#ifdef __x86_64__
-//static inline __m128i __attribute__((__always_inline__))
-//_mm_insert_epi64 (__m128i dst, long value, const int n)
-//{
-//  return (__m128i) __builtin_ia32_vec_set_v2di ((__v2di)dst,
-//						 value, n);
-//}
-//#endif
+#define _mm_test_all_ones(V) _mm_testc_si128((V), _mm_cmpeq_epi32((V), (V)))
+#define _mm_test_mix_ones_zeros(M, V) _mm_testnzc_si128((M), (V))
+#define _mm_test_all_zeros(M, V) _mm_testz_si128 ((V), (V))
 
-static inline int __attribute__((__always_inline__))
-_mm_extract_epi8 (__m128i a, const int n)
+/* SSE4 64-bit Packed Integer Comparisons.  */
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cmpeq_epi64(__m128i __V1, __m128i __V2)
 {
-   return __builtin_ia32_vec_ext_v16qi ((__v16qi)a, n);
+  return (__m128i) __builtin_ia32_pcmpeqq((__v2di)__V1, (__v2di)__V2);
 }
 
-static inline int __attribute__((__always_inline__))
-_mm_extract_epi32 (__m128i a, const int n)
+/* SSE4 Packed Integer Sign-Extension.  */
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi8_epi16(__m128i __V)
 {
-   return __builtin_ia32_vec_ext_v4si ((__v4si)a, n);
+  return (__m128i) __builtin_ia32_pmovsxbw128((__v16qi) __V);
 }
 
-//#ifdef __x86_64__
-//static inline long  __attribute__((__always_inline__))
-//_mm_extract_epi64 (__m128i a, const int n)
-//{
-//  return __builtin_ia32_vec_ext_v2di ((__v2di)a, n);
-//}
-//#endif
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_minpos_epu16 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi8_epi32(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_phminposuw128 ((__v8hi)a);
+  return (__m128i) __builtin_ia32_pmovsxbd128((__v16qi) __V);
 }
 
-static inline __m128d __attribute__((__always_inline__))
-_mm_round_pd (__m128d value, const int mask)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi8_epi64(__m128i __V)
 {
-  return (__m128d) __builtin_ia32_roundpd ((__v2df)value, mask);
+  return (__m128i) __builtin_ia32_pmovsxbq128((__v16qi) __V);
 }
 
-static inline __m128d __attribute__((__always_inline__))
-_mm_round_sd(__m128d dst, __m128d value, const int mask)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi16_epi32(__m128i __V)
 {
-  return (__m128d) __builtin_ia32_roundsd ((__v2df)dst,
-					   (__v2df)value,
-					   mask);
+  return (__m128i) __builtin_ia32_pmovsxwd128((__v8hi) __V); 
 }
 
-static inline __m128 __attribute__((__always_inline__))
-_mm_round_ps (__m128 value, const int mask)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi16_epi64(__m128i __V)
 {
-  return (__m128) __builtin_ia32_roundps ((__v4sf)value, mask);
+  return (__m128i) __builtin_ia32_pmovsxwq128((__v8hi)__V);
 }
 
-static inline __m128 __attribute__((__always_inline__))
-_mm_round_ss (__m128 dst, __m128 value, const int mask)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepi32_epi64(__m128i __V)
 {
-  return (__m128) __builtin_ia32_roundss ((__v4sf)dst,
-					  (__v4sf)value,
-					  mask);
+  return (__m128i) __builtin_ia32_pmovsxdq128((__v4si)__V);
 }
 
-/*
- * MACRO functions for ceil/floor intrinsics
- */
-
-#define _mm_ceil_pd(val)       _mm_round_pd((val), _MM_FROUND_CEIL);      
-#define _mm_ceil_sd(dst, val)  _mm_round_sd((dst), (val), _MM_FROUND_CEIL);
-
-#define _mm_floor_pd(val)      _mm_round_pd((val), _MM_FROUND_FLOOR);     
-#define _mm_floor_sd(dst, val) _mm_round_sd((dst), (val), _MM_FROUND_FLOOR);
-
-#define _mm_ceil_ps(val)       _mm_round_ps((val), _MM_FROUND_CEIL);     
-#define _mm_ceil_ss(dst, val)  _mm_round_ss((dst), (val), _MM_FROUND_CEIL);
-                                                                            
-#define _mm_floor_ps(val)      _mm_round_ps((val), _MM_FROUND_FLOOR);     
-#define _mm_floor_ss(dst, val) _mm_round_ss((dst), (val), _MM_FROUND_FLOOR);
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi8_epi32 (__m128i a)
+/* SSE4 Packed Integer Zero-Extension.  */
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu8_epi16(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbd128 ((__v16qi)a);
+  return (__m128i) __builtin_ia32_pmovzxbw128((__v16qi) __V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi16_epi32 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu8_epi32(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxwd128 ((__v8hi)a);
+  return (__m128i) __builtin_ia32_pmovzxbd128((__v16qi)__V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi8_epi64 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu8_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbq128 ((__v16qi)a);
+  return (__m128i) __builtin_ia32_pmovzxbq128((__v16qi)__V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi32_epi64 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu16_epi32(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxdq128 ((__v4si)a);
+  return (__m128i) __builtin_ia32_pmovzxwd128((__v8hi)__V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi16_epi64 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu16_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxwq128 ((__v8hi)a);
+  return (__m128i) __builtin_ia32_pmovzxwq128((__v8hi)__V);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepi8_epi16 (__m128i a)
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cvtepu32_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbw128 ((__v16qi)a);
+  return (__m128i) __builtin_ia32_pmovzxdq128((__v4si)__V);
 }
 
-/* Packed integer zero-extension. */
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu8_epi32 (__m128i a)
+/* SSE4 Pack with Unsigned Saturation.  */
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_packus_epi32(__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmovzxbd128 ((__v16qi)a);
+  return (__m128i) __builtin_ia32_packusdw128((__v4si)__V1, (__v4si)__V2);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu16_epi32 (__m128i a)
-{
-  return (__m128i) __builtin_ia32_pmovzxwd128 ((__v8hi)a);
-}
+/* SSE4 Multiple Packed Sums of Absolute Difference.  */
+#define _mm_mpsadbw_epu8(X, Y, M) __builtin_ia32_mpsadbw128((X), (Y), (M))
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu8_epi64 (__m128i a)
-{
-  return (__m128i) __builtin_ia32_pmovzxbq128 ((__v16qi)a);
-}
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu32_epi64 (__m128i a)
-{
-  return (__m128i) __builtin_ia32_pmovzxdq128 ((__v4si)a);
-}
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu16_epi64 (__m128i a)
-{
-  return (__m128i) __builtin_ia32_pmovzxwq128 ((__v8hi)a);
-}
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_cvtepu8_epi16 (__m128i a)
-{
-  return (__m128i) __builtin_ia32_pmovzxbw128 ((__v16qi)a);
-}
-
-/* Pack 8 double words from 2 operands into 8 words of result with
-   unsigned saturation. */
-static inline __m128i __attribute__((__always_inline__))
-_mm_packus_epi32 (__m128i a, __m128i b)
-{
-  return (__m128i) __builtin_ia32_packusdw128 ((__v4si)a, (__v4si)b);
-}
-
-/* Sum absolute 8-bit integer difference of adjacent groups of 4
-   byte integers in the first 2 operands.  Starting offsets within
-   operands are determined by the 3rd mask operand.  */
-
-static inline __m128i __attribute__((__always_inline__))
-_mm_mpsadbw_epu8 (__m128i a, __m128i b, const int mask)
-{
-  return (__m128i) __builtin_ia32_mpsadbw128 ((__v16qi)a,
-					      (__v16qi)b, mask);
-}
-
-/* Load double quadword using non-temporal aligned hint.  */
-static inline __m128i __attribute__((__always_inline__))
-_mm_stream_load_si128 (__m128i *a)
-{
-  return (__m128i) __builtin_ia32_movntdqa ((__v2di *) a);
-}
-
+/* These definitions are normally in nmmintrin.h, but gcc puts them in here
+   so we'll do the same.  */
 #ifdef __SSE4_2__
 
-/* These macros specify the source data format.  */
-#define SIDD_UBYTE_OPS				0x00
-#define SIDD_UWORD_OPS				0x01
-#define SIDD_SBYTE_OPS				0x02
-#define SIDD_SWORD_OPS				0x03
+/* These specify the type of data that we're comparing.  */
+#define _SIDD_UBYTE_OPS                 0x00
+#define _SIDD_UWORD_OPS                 0x01
+#define _SIDD_SBYTE_OPS                 0x02
+#define _SIDD_SWORD_OPS                 0x03
 
-/* These macros specify the comparison operation.  */
-#define SIDD_CMP_EQUAL_ANY			0x00
-#define SIDD_CMP_RANGES				0x04
-#define SIDD_CMP_EQUAL_EACH			0x08
-#define SIDD_CMP_EQUAL_ORDERED		0x0c
+/* These specify the type of comparison operation.  */
+#define _SIDD_CMP_EQUAL_ANY             0x00
+#define _SIDD_CMP_RANGES                0x04
+#define _SIDD_CMP_EQUAL_EACH            0x08
+#define _SIDD_CMP_EQUAL_ORDERED         0x0c
 
-/* These macros specify the the polarity.  */
-#define SIDD_POSITIVE_POLARITY		0x00
-#define SIDD_NEGATIVE_POLARITY		0x10
-#define SIDD_MASKED_POSITIVE_POLARITY	0x20
-#define SIDD_MASKED_NEGATIVE_POLARITY	0x30
+/* These macros specify the polarity of the operation.  */
+#define _SIDD_POSITIVE_POLARITY         0x00
+#define _SIDD_NEGATIVE_POLARITY         0x10
+#define _SIDD_MASKED_POSITIVE_POLARITY  0x20
+#define _SIDD_MASKED_NEGATIVE_POLARITY  0x30
 
-/* These macros specify the output selection in _mm_cmpXstri ().  */
-#define SIDD_LEAST_SIGNIFICANT		0x00
-#define SIDD_MOST_SIGNIFICANT		0x40
+/* These macros are used in _mm_cmpXstri() to specify the return.  */
+#define _SIDD_LEAST_SIGNIFICANT         0x00
+#define _SIDD_MOST_SIGNIFICANT          0x40
 
-/* These macros specify the output selection in _mm_cmpXstrm ().  */
-#define SIDD_BIT_MASK			0x00
-#define SIDD_UNIT_MASK			0x40
+/* These macros are used in _mm_cmpXstri() to specify the return.  */
+#define _SIDD_BIT_MASK                  0x00
+#define _SIDD_UNIT_MASK                 0x40
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cmpistrm (__m128i a, __m128i b, const int mask)
+/* SSE4.2 Packed Comparison Intrinsics.  */
+#define _mm_cmpistrm(A, B, M) __builtin_ia32_pcmpistrm128((A), (B), (M))
+#define _mm_cmpistri(A, B, M) __builtin_ia32_pcmpistri128((A), (B), (M))
+
+#define _mm_cmpestrm(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestrm128((A), (LA), (B), (LB), (M))
+#define _mm_cmpestri(X, LX, Y, LY, M) \
+     __builtin_ia32_pcmpestri128((A), (LA), (B), (LB), (M))
+     
+/* SSE4.2 Packed Comparison Intrinsics and EFlag Reading.  */
+#define _mm_cmpistra(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpistria128((A), (LA), (B), (LB), (M))
+#define _mm_cmpistrc(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpistric128((A), (LA), (B), (LB), (M))
+#define _mm_cmpistro(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpistrio128((A), (LA), (B), (LB), (M))
+#define _mm_cmpistrs(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpistris128((A), (LA), (B), (LB), (M))
+#define _mm_cmpistrz(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpistriz128((A), (LA), (B), (LB), (M))
+
+#define _mm_cmpestra(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestria128((A), (LA), (B), (LB), (M))
+#define _mm_cmpestrc(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestric128((A), (LA), (B), (LB), (M))
+#define _mm_cmpestro(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestrio128((A), (LA), (B), (LB), (M))
+#define _mm_cmpestrs(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestris128((A), (LA), (B), (LB), (M))
+#define _mm_cmpestrz(A, LA, B, LB, M) \
+     __builtin_ia32_pcmpestriz128((A), (LA), (B), (LB), (M))
+
+/* SSE4.2 Compare Packed Data -- Greater Than.  */
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_cmpgt_epi64(__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pcmpistrm128 ((__v16qi)a, (__v16qi)b, mask);
+  return __builtin_ia32_pcmpgtq((__v2di)__V1, (__v2di)__V2);
 }
 
-static inline int __attribute__((__always_inline__))
-_mm_cmpistri (__m128i a, __m128i b, const int mask)
+/* SSE4.2 Accumulate CRC32.  */
+__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+_mm_crc32_u8(unsigned int __C, unsigned char __D)
 {
-  return __builtin_ia32_pcmpistri128 ((__v16qi)a, (__v16qi)b, mask);
+  return __builtin_ia32_crc32qi(__C, __D);
 }
 
-static inline __m128i __attribute__((__always_inline__))
-_mm_cmpestrm (__m128i a, int x, __m128i b, int y, const int mask)
+__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+_mm_crc32_u16(unsigned int __C, unsigned short __D)
 {
-  return (__m128i) __builtin_ia32_pcmpestrm128 ((__v16qi)a, x, (__v16qi)b, y, mask);
+  return __builtin_ia32_crc32hi(__C, __D);
 }
 
-static inline int __attribute__((__always_inline__))
-_mm_cmpestri (__m128i a, int x, __m128i b, int y, const int mask)
+__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+_mm_crc32_u32(unsigned int __C, unsigned int __D)
 {
-  return __builtin_ia32_pcmpestri128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpistra (__m128i a, __m128i b, const int mask)
-{
-  return __builtin_ia32_pcmpistria128 ((__v16qi)a, (__v16qi)b, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpistrc (__m128i a, __m128i b, const int mask)
-{
-  return __builtin_ia32_pcmpistric128 ((__v16qi)a, (__v16qi)b, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpistro (__m128i a, __m128i b, const int mask)
-{
-  return __builtin_ia32_pcmpistrio128 ((__v16qi)a, (__v16qi)b, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpistrs (__m128i a, __m128i b, const int mask)
-{
-  return __builtin_ia32_pcmpistris128 ((__v16qi)a, (__v16qi)b, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpistrz (__m128i a, __m128i b, const int mask)
-{
-  return __builtin_ia32_pcmpistriz128 ((__v16qi)a, (__v16qi)b, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpestra (__m128i a, int x, __m128i b, int y, const int mask)
-{
-  return __builtin_ia32_pcmpestria128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpestrc (__m128i a, int x, __m128i b, int y, const int mask)
-{
-  return __builtin_ia32_pcmpestric128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpestro (__m128i a, int x, __m128i b, int y, const int mask)
-{
-  return __builtin_ia32_pcmpestrio128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpestrs (__m128i a, int x, __m128i b, int y, const int mask)
-{
-  return __builtin_ia32_pcmpestris128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_cmpestrz (__m128i a, int x, __m128i b, int y, const int mask)
-{
-  return __builtin_ia32_pcmpestriz128 ((__v16qi)a, x, (__v16qi)b, y, mask);
-}
-static inline __m128i __attribute__((__always_inline__))
-_mm_cmpgt_epi64 (__m128i a, __m128i b)
-{
-  return (__m128i) __builtin_ia32_pcmpgtq ((__v2di)a, (__v2di)b);
-}
-
-static inline int __attribute__((__always_inline__))
-_mm_popcnt_u32 (unsigned int a)
-{
-  return __builtin_popcount (a);
+  return __builtin_ia32_crc32si(__C, __D);
 }
 
 #ifdef __x86_64__
-static inline long  __attribute__((__always_inline__))
-_mm_popcnt_u64 (unsigned long a)
+__inline__ unsigned long __attribute__((__always_inline__, __nodebug__))
+_mm_crc32_u64(unsigned long __C, unsigned long __D)
 {
-  return __builtin_popcountll (a);
+  return __builtin_ia32_crc32di(__C, __D);
 }
-#endif
+#endif /* __x86_64__ */
 
-static inline unsigned int __attribute__((__always_inline__))
-_mm_crc32_u8 (unsigned int c, unsigned char value)
+/* SSE4.2 Population Count.  */
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_popcnt_u32(unsigned int __A)
 {
-  return __builtin_ia32_crc32qi (c, value);
-}
-
-static inline unsigned int __attribute__((__always_inline__))
-_mm_crc32_u16 (unsigned int c, unsigned short value)
-{
-  return __builtin_ia32_crc32hi (c, value);
+  return __builtin_popcount(__A);
 }
 
-static inline unsigned int __attribute__((__always_inline__))
-_mm_crc32_u32 (unsigned int c, unsigned int value)
+#ifdef __x86_64__
+__inline__ long __attribute__((__always_inline__, __nodebug__))
+_mm_popcnt_u64(unsigned long __A)
 {
-  return __builtin_ia32_crc32si (c, value);
+  return __builtin_popcountll(__A);
 }
-
-//#ifdef __x86_64__
-//static inline unsigned long __attribute__((__always_inline__))
-//_mm_crc32_u64 (unsigned long c, unsigned long value)
-//{
-//  return __builtin_ia32_crc32di (c, value);
-//}
-//#endif
+#endif /* __x86_64__ */
 
 #endif /* __SSE4_2__ */
-
 #endif /* __SSE4_1__ */
 
-#endif /* SMMINTRIN_H */
+#endif /* _SMMINTRIN_H */

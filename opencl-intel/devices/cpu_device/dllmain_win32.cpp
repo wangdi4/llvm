@@ -27,7 +27,6 @@
 #pragma comment(lib, "cl_sys_utils.lib")
 #pragma comment(lib, "cl_logger.lib")
 #pragma comment(lib, "task_executor.lib")
-#pragma comment(lib, "OclCpuBackEnd.lib")
 
 #if defined(USE_GPA)
 #ifdef _DEBUG

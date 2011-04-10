@@ -24,13 +24,14 @@
 
 #include "stdafx.h"
 
+#include "llvm/Exception.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/ArgList.h"
 #include "clang/Driver/CC1Options.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/OptTable.h"
-#include "clang/Frontend/CodeGenAction.h"
+#include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -38,6 +39,7 @@
 #include "clang/Frontend/FrontendPluginRegistry.h"
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/FrontendTool/Utils.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -93,6 +95,7 @@ static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_global_int32_base_atomics
 DECLARE_LOGGER_CLIENT;
 
 OclMutex CompileTask::s_serializingMutex;
+
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   Diagnostic &Diags = *static_cast<Diagnostic*>(UserData);
 
@@ -112,6 +115,7 @@ int Intel::OpenCL::ClangFE::InitClangDriver()
 
 	llvm::InitializeAllTargets();
 	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllAsmParsers();
 
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
 	return 0;
@@ -262,8 +266,10 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 	list.push_back(CPUType);
 
 	char	szBinaryPath[MAX_STR_BUFF];
+#ifndef WIN32
 	char	szOclIncPath[MAX_STR_BUFF];
 	char	szOclPchPath[MAX_STR_BUFF];
+#endif
 	char	szCurrDirrPath[MAX_STR_BUFF];
 
 	// Retrieve local relatively to binary directory
@@ -274,9 +280,6 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 
 	list.push_back("-I");
 	list.push_back(szOclIncPath);
-
-	list.push_back("-isysroot");
-	list.push_back(szBinaryPath);
 
 	list.push_back("-include-pch");
 	list.push_back(szOclPchPath);
@@ -305,25 +308,31 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 	std::string extStr = OCL_SUPPORTED_EXTENSIONS;
 	while(extStr != "")
 	{
-		list.push_back("-D");
-		std::string::size_type pos = extStr.find(" ", 0);
+        std::string subExtStr;
+        std::string::size_type pos = extStr.find(" ", 0);
 		if(pos == string::npos)
 		{
-			list.push_back(extStr);
+            subExtStr = extStr;
 			extStr.clear();
 		}
 		else
 		{
-			list.push_back(extStr.substr(0, pos));
+			subExtStr = extStr.substr(0, pos);
 			extStr = extStr.substr(pos + 1);
-		}	
+		}
+
+		list.push_back("-D");
+        list.push_back(subExtStr);
+
+        list.push_back("-target-feature");
+        list.push_back('+' + subExtStr);
 	}
 
 	// Don't optimize in the frontend
 	list.push_back("-O0");
 #if defined(__linux__)	
 	list.push_back("-triple");
-	list.push_back("amd64");	
+	list.push_back("x86_64-unknown-linux-gnu");
 #endif
 }
 
@@ -331,13 +340,7 @@ void CompileTask::Execute()
 {
 	LOG_INFO(TEXT("%s"), TEXT("CompileTask::Execute() - Started"));
 
-	CompilerInstance Clang;
-
 	OclAutoMutex CS(&s_serializingMutex);
-	Clang.setLLVMContext(new llvm::LLVMContext);
-
-	TextDiagnosticBuffer DiagsBuffer;
-	Diagnostic Diags(&DiagsBuffer);
 
 	ArgListType ArgList;
 	ArgListType IgnoredArgs;
@@ -353,11 +356,9 @@ void CompileTask::Execute()
 		iter++;
 	}
 
-	CompilerInvocation::CreateFromArgs(Clang.getInvocation(), argArray, argArray + ArgList.size(),
-                                     Diags);
-
 	SmallVector<char, 4096>	Log;
 	llvm::raw_svector_ostream errStream(Log);
+
 	while(!IgnoredArgs.empty())
 	{
 		errStream << "warning: ignoring build option: \"";
@@ -366,27 +367,39 @@ void CompileTask::Execute()
 		IgnoredArgs.pop_front();
 	}
 
-	Clang.SetErrorStream(&errStream);
+	llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
 
-	Clang.createDiagnostics(ArgList.size(), const_cast<char**>(argArray));
-	if (!Clang.hasDiagnostics())
+	Clang->setLLVMContext(new llvm::LLVMContext());
+
+	// Buffer diagnostics from argument parsing so that we can output them using a
+	//well formed diagnostic object.
+	TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
+	Diagnostic Diags(DiagsBuffer);
+	CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
+                                     Diags);
+
+	// Create the actual diagnostics engine.
+	Clang->SetErrorStream(&errStream);
+
+	Clang->createDiagnostics(ArgList.size(), const_cast<char**>(argArray));
+	if (!Clang->hasDiagnostics())
 	{
-		LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to create diagnostics"));
+		LOG_ERROR(TEXT("CompileTask::Execute() - Failed to create diagnostics"), "");
 		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
 		delete []argArray;
 		return;
 	}
 
 	// don't write anything on the screen
-	Clang.getDiagnosticOpts().ShowCarets = 0;
+	Clang->getDiagnosticOpts().ShowCarets = 0;
 
 	// Set an error handler, so that any LLVM backend diagnostics go through our
 	// error handler.
-	llvm::llvm_remove_error_handler();
-	llvm::llvm_install_error_handler(LLVMErrorHandler,
-		static_cast<void*>(&Clang.getDiagnostics()));
+	llvm::remove_fatal_error_handler();
+	llvm::install_fatal_error_handler(LLVMErrorHandler,
+                                  static_cast<void*>(&Clang->getDiagnostics()));
 
-	DiagsBuffer.FlushDiagnostics(Clang.getDiagnostics());
+	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
 	size_t stTotalSize = 0;
 	for(unsigned int i=0; i<m_pTask->uiLineCount; ++i)
@@ -412,11 +425,13 @@ void CompileTask::Execute()
 		pBegin += m_pTask->pLengths[i];
 	}
 
-	Clang.SetInputBuffer(SB);
+	Clang->SetInputBuffer(SB);
 
 	//prepare output buffer
 	SmallVector<char, 4096>	IRbinary;
-	Clang.SetOutputStream(new llvm::raw_svector_ostream(IRbinary));
+	llvm::raw_svector_ostream *IRStream = new llvm::raw_svector_ostream(IRbinary);
+	Clang->SetOutputStream(IRStream);
+
 #ifdef WIN32
 	//prepare pch buffer
 	HMODULE hMod = NULL;
@@ -424,18 +439,18 @@ void CompileTask::Execute()
 	HGLOBAL hBytes = NULL;
 	char *pData = NULL;
 	size_t dResSize = NULL;
-	llvm::MemoryBuffer* pchBuff = NULL;
+	llvm::MemoryBuffer *pchBuff = NULL;
 
 	// Get the handle to the current module
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
 					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-					  (LPCSTR)"clang_compiler",
+					  (LPCWSTR)L"clang_compiler",
 					  &hMod);
 
 	// Locate the resource
 	if( NULL != hMod )
 	{
-		hRes = FindResource(hMod, "#101", "PCH");
+		hRes = FindResource(hMod, L"#101", L"PCH");
 	}
 
 	// Load the resource
@@ -458,23 +473,32 @@ void CompileTask::Execute()
 
 	if( dResSize > 0 )
 	{	
-		pchBuff = llvm::MemoryBuffer::getMemBufferCopy(pData, pData + dResSize);
+		pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
 	}
 
 	if( NULL != pchBuff )
 	{
-		Clang.SetPchBuffer(pchBuff);
+		Clang->SetPchBuffer(pchBuff);
 	}
 #endif
 
-	// If there were errors in processing arguments, don't do anything else.
-	bool Success = false;
-	if (!Clang.getDiagnostics().getNumErrors()) {
-		// Create and execute the frontend action.
-		llvm::OwningPtr<FrontendAction> Act(new EmitBCAction());
-		if (Act)
-			Success = Clang.ExecuteAction(*Act);
+	// Execute the frontend actions.
+	bool Success;
+	try {
+		Success = ExecuteCompilerInvocation(Clang.get());
+	} catch (const std::exception& e) {
+		Success = false;
+		LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
 	}
+
+	// Our error handler depends on the Diagnostics object, which we're
+	// potentially about to delete. Uninstall the handler now so that any
+	// later errors use the default handling behavior instead.
+	llvm::remove_fatal_error_handler();
+
+	//Clang.take();
+
+	IRStream->flush();
 
 	// Create output buffer
 	char*	pOutBuff = NULL;
@@ -490,6 +514,12 @@ void CompileTask::Execute()
 			MEMCPY_S(pLogBuff, Log.size(), Log.begin(), Log.size());
 			pLogBuff[Log.size()] = '\0';
 		}
+	}
+	
+	if (!Success)
+	{
+		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_BUILD_PROGRAM_FAILURE, pLogBuff);
+		return;
 	}
 
 	size_t	stTotSize = 0;
@@ -535,14 +565,9 @@ void CompileTask::Execute()
 		delete []pLogBuff;
 	}
 	delete []pOutBuff;
-#ifdef WIN32
-	if( NULL != pchBuff )
-	{
-		delete pchBuff;
-	}
-#endif
 	IRbinary.clear();
 	delete []argArray;
 
 	return;
 }
+

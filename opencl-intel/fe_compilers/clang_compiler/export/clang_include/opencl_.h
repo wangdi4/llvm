@@ -1,4 +1,4 @@
-// Copyright (c) 1997-2010 Intel Corporation
+// Copyright (c) 2010-2011 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -6564,14 +6564,11 @@ unsigned long __attribute__((overloadable)) atom_xor( __local unsigned long *p, 
 
 // Function qualifiers (section 6.7)
 
-#define kernel				__attribute__((ocl_krnl))
-#define __kernel			__attribute__((ocl_krnl))
-
-#define __kernel_exec(X, typen) __attribute__((ocl_krnl)) \
+#define __kernel_exec(X, typen) __kernel \
 	__attribute__((work_group_size_hint(X, 1, 1))) \
 	__attribute__((vec_type_hint(typen)))
 
-#define kernel_exec(X, typen) __attribute__((ocl_krnl)) \
+#define kernel_exec(X, typen) __kernel \
 	__attribute__((work_group_size_hint(X, 1, 1))) \
 	__attribute__((vec_type_hint(typen)))
 
@@ -7161,8 +7158,8 @@ double16 	__attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong16
 #define CLK_ADDRESS_NONE				0 
 #define CLK_ADDRESS_CLAMP				(1 << __ADDRESS_BASE)
 #define CLK_ADDRESS_CLAMP_TO_EDGE		(2 << __ADDRESS_BASE)
-#define CLK_ADDRESS_REPEAT			(3 << __ADDRESS_BASE)
-#define CLK_ADDRESS_MIRRORED_REPEAT		(4 << __ADDRESS_BASE)
+#define CLK_ADDRESS_CLAMP_REPEAT		(3 << __ADDRESS_BASE)
+#define CLK_ADDRESS_CLAMP_MIRRORED_REPEAT	(4 << __ADDRESS_BASE)
 
 #define __NORMALIZED_BASE				3
 #define CLK_NORMALIZED_COORDS_FALSE			0
@@ -7486,75 +7483,76 @@ int4 __attribute__((overloadable)) get_image_dim(image3d_t image);
  * OpenCL as_typen operators
  * Reinterprets a data type as another data type of the same size
  */
-#define as_char(X)		__builtin_as_typen( 1,  0,(X))
-#define as_char2(X)		__builtin_as_typen( 1,  2,(X))
-#define as_char3(X)		__builtin_as_typen( 1,  3,(X))
-#define as_char4(X)		__builtin_as_typen( 1,  4,(X))
-#define as_char8(X)		__builtin_as_typen( 1,  8,(X))
-#define as_char16(X)	__builtin_as_typen( 1, 16,(X))
 
-#define as_uchar(X)		__builtin_as_typen( 2,  0, (X))
-#define as_uchar2(X)	__builtin_as_typen( 2,  2, (X))
-#define as_uchar3(X)	__builtin_as_typen( 2,  3, (X))
-#define as_uchar4(X)	__builtin_as_typen( 2,  4, (X))
-#define as_uchar8(X)	__builtin_as_typen( 2,  8, (X))
-#define as_uchar16(X)	__builtin_as_typen( 2, 16, (X))
+#define as_char     __builtin_as_char
+#define as_char2    __builtin_as_char2
+#define as_char3    __builtin_as_char3
+#define as_char4    __builtin_as_char4
+#define as_char8    __builtin_as_char8
+#define as_char16   __builtin_as_char16
 
-#define as_short(X)		__builtin_as_typen( 3,  0, (X))
-#define as_short2(X)	__builtin_as_typen( 3,  2, (X))
-#define as_short3(X)	__builtin_as_typen( 3,  3, (X))
-#define as_short4(X)	__builtin_as_typen( 3,  4, (X))
-#define as_short8(X)	__builtin_as_typen( 3,  8, (X))
-#define as_short16(X)	__builtin_as_typen( 3, 16, (X))
+#define as_uchar    __builtin_as_uchar
+#define as_uchar2   __builtin_as_uchar2
+#define as_uchar3   __builtin_as_uchar3
+#define as_uchar4   __builtin_as_uchar4
+#define as_uchar8   __builtin_as_uchar8
+#define as_uchar16  __builtin_as_uchar16
 
-#define as_ushort(X)	__builtin_as_typen( 4,  0, (X))
-#define as_ushort2(X)	__builtin_as_typen( 4,  2, (X))
-#define as_ushort3(X)	__builtin_as_typen( 4,  3, (X))
-#define as_ushort4(X)	__builtin_as_typen( 4,  4, (X))
-#define as_ushort8(X)	__builtin_as_typen( 4,  8, (X))
-#define as_ushort16(X)	__builtin_as_typen( 4, 16, (X))
+#define as_short    __builtin_as_short
+#define as_short2   __builtin_as_short2
+#define as_short3   __builtin_as_short3
+#define as_short4   __builtin_as_short4
+#define as_short8   __builtin_as_short8
+#define as_short16  __builtin_as_short16
 
-#define as_int(X)		__builtin_as_typen( 5,  0, (X))
-#define as_int2(X)		__builtin_as_typen( 5,  2, (X))
-#define as_int3(X)		__builtin_as_typen( 5,  3, (X))
-#define as_int4(X)		__builtin_as_typen( 5,  4, (X))
-#define as_int8(X)		__builtin_as_typen( 5,  8, (X))
-#define as_int16(X)		__builtin_as_typen( 5, 16, (X))
+#define as_ushort   __builtin_as_ushort
+#define as_ushort2  __builtin_as_ushort2
+#define as_ushort3  __builtin_as_ushort3
+#define as_ushort4  __builtin_as_ushort4
+#define as_ushort8  __builtin_as_ushort8
+#define as_ushort16 __builtin_as_ushort16
 
-#define as_uint(X)		__builtin_as_typen( 6,  0, (X))
-#define as_uint2(X)		__builtin_as_typen( 6,  2, (X))
-#define as_uint3(X)		__builtin_as_typen( 6,  3, (X))
-#define as_uint4(X)		__builtin_as_typen( 6,  4, (X))
-#define as_uint8(X)		__builtin_as_typen( 6,  8, (X))
-#define as_uint16(X)	__builtin_as_typen( 6, 16, (X))
+#define as_int      __builtin_as_int
+#define as_int2     __builtin_as_int2
+#define as_int3     __builtin_as_int3
+#define as_int4     __builtin_as_int4
+#define as_int8     __builtin_as_int8
+#define as_int16    __builtin_as_int16
 
-#define as_long(X)		__builtin_as_typen( 7,  0, (X))
-#define as_long2(X)		__builtin_as_typen( 7,  2, (X))
-#define as_long3(X)		__builtin_as_typen( 7,  3, (X))
-#define as_long4(X)		__builtin_as_typen( 7,  4, (X))
-#define as_long8(X)		__builtin_as_typen( 7,  8, (X))
-#define as_long16(X)	__builtin_as_typen( 7, 16, (X))
+#define as_uint     __builtin_as_uint
+#define as_uint2    __builtin_as_uint2
+#define as_uint3    __builtin_as_uint3
+#define as_uint4    __builtin_as_uint4
+#define as_uint8    __builtin_as_uint8
+#define as_uint16   __builtin_as_uint16
 
-#define as_ulong(X)		__builtin_as_typen( 8,  0, (X))
-#define as_ulong2(X)	__builtin_as_typen( 8,  2, (X))
-#define as_ulong3(X)	__builtin_as_typen( 8,  3, (X))
-#define as_ulong4(X)	__builtin_as_typen( 8,  4, (X))
-#define as_ulong8(X)	__builtin_as_typen( 8,  8, (X))
-#define as_ulong16(X)	__builtin_as_typen( 8, 16, (X))
+#define as_long     __builtin_as_long
+#define as_long2    __builtin_as_long2
+#define as_long3    __builtin_as_long3
+#define as_long4    __builtin_as_long4
+#define as_long8    __builtin_as_long8
+#define as_long16   __builtin_as_long16
 
-#define as_float(X)		__builtin_as_typen( 9,  0, (X))
-#define as_float2(X)	__builtin_as_typen( 9,  2, (X))
-#define as_float3(X)	__builtin_as_typen( 9,  3, (X))
-#define as_float4(X)	__builtin_as_typen( 9,  4, (X))
-#define as_float8(X)	__builtin_as_typen( 9,  8, (X))
-#define as_float16(X)	__builtin_as_typen( 9, 16, (X))
+#define as_ulong    __builtin_as_ulong
+#define as_ulong2   __builtin_as_ulong2
+#define as_ulong3   __builtin_as_ulong3
+#define as_ulong4   __builtin_as_ulong4
+#define as_ulong8   __builtin_as_ulong8
+#define as_ulong16  __builtin_as_ulong16
 
-#define as_double(X)	__builtin_as_typen(10,  0, (X))
-#define as_double2(X)	__builtin_as_typen(10,  2, (X))
-#define as_double3(X)	__builtin_as_typen(10,  3, (X))
-#define as_double4(X)	__builtin_as_typen(10,  4, (X))
-#define as_double8(X)	__builtin_as_typen(10,  8, (X))
-#define as_double16(X)	__builtin_as_typen(10, 16, (X))
+#define as_float    __builtin_as_float
+#define as_float2   __builtin_as_float2
+#define as_float3   __builtin_as_float3
+#define as_float4   __builtin_as_float4
+#define as_float8   __builtin_as_float8
+#define as_float16  __builtin_as_float16
+
+#define as_double   __builtin_as_double
+#define as_double2  __builtin_as_double2
+#define as_double3  __builtin_as_double3
+#define as_double4  __builtin_as_double4
+#define as_double8  __builtin_as_double8
+#define as_double16 __builtin_as_double16
 
 // Explicit conversions
 

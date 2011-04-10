@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2009 Intel Corporation
+// Copyright (c) 2010-2011 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -22,7 +22,7 @@
 #define __INTRIN_H__
 
 #if defined (__SSE4_2__) || defined(__SSE4_1__)
-#include <smmintrin.h>
+#include <smmintrin.h >
 #else
 #ifdef __SSSE3__
 #include <tmmintrin.h>

@@ -58,7 +58,7 @@ echo -- Convert relevant projects to Intel C++, please wait...
 set converter="C:\Program Files (x86)\Common Files\Intel\shared files\ia32\Bin\ICProjConvert110.exe"
 
 if %use_vc% == 0 goto use_intel
-set intel_subset=clangSema clang clang_compiler
+REM set intel_subset=clangSema clang clang_compiler
 
 set builtins=clbltfnn8 clbltfnp8 clbltfnt7 clbltfnv8 clbltfnh8 clbltfny8 clbltfne7 clbltfnu8
 %converter% OCL.sln %intel_subset% %conformance_list% %builtins% /IC /nologo /q

@@ -73,7 +73,8 @@ typedef enum _cl_kernel_arg_type
 								// User must pass a handle to a memory buffer for this argument type
 	CL_KRNL_ARG_PTR_CONST,		// Argument is a pointer to buffer declared in constant(global) memory
 	CL_KRNL_ARG_PTR_IMG_2D,		// Argument is a pointer to 2D image
-	CL_KRNL_ARG_PTR_IMG_3D		// Argument is a pointer to 3D image
+	CL_KRNL_ARG_PTR_IMG_3D,		// Argument is a pointer to 3D image
+	CL_KRNL_ARG_COMPOSITE			// Argument is a user defined struct
 } cl_kernel_arg_type;
 
 // Defines possible values for kernel argument types

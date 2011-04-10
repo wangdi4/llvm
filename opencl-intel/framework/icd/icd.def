@@ -82,5 +82,8 @@ EXPORTS
 	clCreateUserEvent
 	clSetEventCallback
 	clSetUserEventStatus	
+	clReleaseDeviceEXT
+	clRetainDeviceEXT
+	clCreateSubDevicesEXT
 	
 	
