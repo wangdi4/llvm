@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <assert.h>
+#include <math.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL;
@@ -800,6 +801,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
 	case CL_DEV_KERNEL_MAX_WG_SIZE:
 		ullValue = MIN(CPU_MAX_WORK_GROUP_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernel->GetPrivateMemorySize()) );
+		ullValue = ((unsigned long long)1) << ((unsigned long long)(logf((float)ullValue)/logf(2.f)));
 		stValSize = sizeof(size_t);
 		break;
 
