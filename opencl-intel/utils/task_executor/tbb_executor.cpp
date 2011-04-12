@@ -654,8 +654,12 @@ public:
 
 	void Release() 
 	{ 
-		m_rootTask->decrement_ref_count();
-		//tbb::task::enqueue(*m_rootTask);
+        // Dec ref-count. If processor task is running, this task will get executed when it's done
+        // Otherwise, enqueue it now
+        if (0 == m_rootTask->decrement_ref_count())
+        {
+            tbb::task::enqueue(*m_rootTask);
+        }
 	}
 
 	tbb::atomic<int> m_taskExecuteRequests;
@@ -998,8 +1002,11 @@ void unordered_command_list::LaunchExecutorTask()
 
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
+TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0)
 {
+#if defined(USE_GPA)   
+    m_scheduler = NULL;
+#endif
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
 
 	g_alMasterRunning = false;
@@ -1007,20 +1014,12 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0), m_scheduler(NULL)
 	g_alMasterIdCheck = false;
 #endif
 	gWorker_threads = tbb::task_scheduler_init::default_num_threads();
-#ifdef __WIN_XP__
-	g_uiWorkerIdInx = TlsAlloc();
-	g_uiShedulerInx = TlsAlloc();
-#endif
 
 	ThreadIDAssigner::SetScheduler(NULL);
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-#ifdef __WIN_XP__
-	TlsFree(g_uiWorkerIdInx);
-	TlsFree(g_uiShedulerInx);
-#endif
 	if (m_threadPoolChangeObserver != NULL)
 	{
 		delete m_threadPoolChangeObserver;
@@ -1053,11 +1052,23 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 	//Initialize the "available threads" mask
 	gThreadAvailabilityMask.init(gWorker_threads, 1);
 
-	if (NULL == m_scheduler)
-	{
-		m_scheduler = new tbb::task_scheduler_init(gWorker_threads + 1);		
-	}
-
+    // if using GPA, initialize the "global" task scheduler init
+    // Otherwise, initialize this master thread's observer
+#if defined(USE_GPA)   
+    if (bUseTaskalyzer)
+    {
+	    if (NULL == m_scheduler)
+	    {
+		    m_scheduler = new tbb::task_scheduler_init(gWorker_threads + 1);		
+	    }
+    }
+    else
+    {
+#endif
+    InitSchedulerForMasterThread();
+#if defined(USE_GPA)   
+    }
+#endif
 	if (NULL == sTBB_executor)
 	{
 		//sTBB_executor = new unordered_command_list();
@@ -1133,13 +1144,6 @@ void TBBTaskExecutor::Close(bool bCancel)
 
 	LOG_INFO(TEXT("%s"),"Shutting down...");
 
-	if (m_scheduler != NULL) 
-	{
-		//m_scheduler->terminate();
-		delete m_scheduler;
-		m_scheduler = NULL;	
-	}
-
 	if ( NULL != sTBB_executor )
 	{				
 		delete sTBB_executor;
@@ -1165,8 +1169,6 @@ void TBBTaskExecutor::ReleasePerThreadData()
 		//pScheduler->terminate();
 		delete pScheduler;		
 		ThreadIDAssigner::SetScheduler(NULL);
-		
-		
 	}
 }
 

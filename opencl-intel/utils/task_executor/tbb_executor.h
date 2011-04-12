@@ -54,10 +54,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		bool		m_bUseTaskalyzer;
 		// Independent tasks will be executed by this task group
 		static ITaskList*				sTBB_executor;
-		// The FrameworkProxy-owned copy of the scheduler object
-		// This exists independently of the per-application-thread scheduler objects t_pScheduler
-		// And is only destroyed when the task scheduler is closed by FrameworkProxy
-		tbb::task_scheduler_init*            m_scheduler;
+#if defined(USE_GPA)   
+		// When using GPA, keep an extra task_scheduler_init to keep the same worker pool even after CPU device shutdown
+		// This is a deliberate memory leak and is never freed
+		tbb::task_scheduler_init*       m_scheduler;
+#endif
 	private:
 		ThreadIDAssigner* m_threadPoolChangeObserver;
 	};
