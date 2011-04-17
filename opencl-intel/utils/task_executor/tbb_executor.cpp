@@ -654,12 +654,8 @@ public:
 
 	void Release() 
 	{ 
-        // Dec ref-count. If processor task is running, this task will get executed when it's done
-        // Otherwise, enqueue it now
-        if (0 == m_rootTask->decrement_ref_count())
-        {
-            tbb::task::enqueue(*m_rootTask);
-        }
+		m_rootTask->decrement_ref_count();
+		//tbb::task::enqueue(*m_rootTask);
 	}
 
 	tbb::atomic<int> m_taskExecuteRequests;
