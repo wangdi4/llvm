@@ -218,6 +218,34 @@ void FrameworkProxy::Initialize()
 	//{
 	//	TAL_GetThreadTrace();
 	//}
+	m_GPAData.bUseGPA = m_pConfig->UseGPA();
+	m_GPAData.cStatusMarkerFlags = 0;
+	if (m_GPAData.bUseGPA)
+	{
+		if (m_pConfig->ShowQueuedMarker())
+			m_GPAData.cStatusMarkerFlags += GPA_SHOW_QUEUED_MARKER;
+		if (m_pConfig->ShowSubmittedMarker())
+			m_GPAData.cStatusMarkerFlags += GPA_SHOW_SUBMITTED_MARKER;
+		if (m_pConfig->ShowRunningMarker())
+			m_GPAData.cStatusMarkerFlags += GPA_SHOW_RUNNING_MARKER;
+		if (m_pConfig->ShowCompletedMarker())
+			m_GPAData.cStatusMarkerFlags += GPA_SHOW_COMPLETED_MARKER;
+
+		m_GPAData.pDomain = __itt_domain_createA("OpenCL.Domain.Global");
+		m_GPAData.pReadHandle = __itt_string_handle_createA("Read");
+		m_GPAData.pWriteHandle = __itt_string_handle_createA("Write");
+		m_GPAData.pCopyHandle = __itt_string_handle_createA("Copy");
+		m_GPAData.pMapHandle = __itt_string_handle_createA("Map");
+		m_GPAData.pUnmapHandle = __itt_string_handle_createA("Unmap");
+		m_GPAData.pSizeHandle = __itt_string_handle_createA("Size");
+		m_GPAData.pWidthHandle = __itt_string_handle_createA("Width");
+		m_GPAData.pHeightHandle = __itt_string_handle_createA("Height");
+		m_GPAData.pDepthHandle = __itt_string_handle_createA("Depth");
+		m_GPAData.pWorkGroupSizeHandle = __itt_string_handle_createA("Work Group Size");
+		m_GPAData.pNumberOfWorkGroupsHandle = __itt_string_handle_createA("Number of Work Groups");
+		m_GPAData.pWorkGroupRangeHandle = __itt_string_handle_createA("Work Group Range");
+		m_GPAData.pMarkerHandle = __itt_string_handle_createA("Marker");
+	}
 #endif
 	
 	LOG_INFO(TEXT("%S"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
@@ -226,7 +254,7 @@ void FrameworkProxy::Initialize()
 
 	LOG_INFO(TEXT("Initialize context module: m_pContextModule = new ContextModule(%d)"),m_pPlatformModule);
 	m_pContextModule = new ContextModule(m_pPlatformModule);
-	m_pContextModule->Initialize(&OclEntryPoints, m_pConfig);
+	m_pContextModule->Initialize(&OclEntryPoints, &m_GPAData);
 
 	LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)"), m_pPlatformModule, m_pContextModule);
 	m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
@@ -234,7 +262,7 @@ void FrameworkProxy::Initialize()
 
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%S"), TEXT("Initialize Executor"));
-	GetTaskExecutor()->Init(0, m_pConfig->UseTaskalyzer());
+	GetTaskExecutor()->Init(0, &m_GPAData);
 
 }
 

@@ -716,7 +716,7 @@ unsigned int ThreadTaskListUnOrderedImpl::Enqueue(ITaskBase* pTaskBase)
 
 //////////////////////////////////////////////////////////////////////////
 // ThreadTaskExecutor implementation
-int	ThreadTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
+int	ThreadTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 {
 	unsigned long ulNewVal = InterlockedIncrement(&m_lRefCount);
 	if ( ulNewVal > 1 )
@@ -740,7 +740,9 @@ int	ThreadTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 
 	for ( unsigned int i = 0; i < uiNumThreads; i ++ ) 
 	{
-		g_obThreadPool.push_back( new WorkerThread(i, bUseTaskalyzer) );
+		// The instrumentation in WorkerThread is disabled in the initial
+		// porting of TAL to GPA 4.0 and might be used in later stages
+		g_obThreadPool.push_back( new WorkerThread(i, false) );
 	}
 	m_bIsPoolValid = true;
 
@@ -756,6 +758,11 @@ void ThreadTaskExecutor::Close(bool bCancel)
 	}
 
 	ClearThreadPool();
+}
+
+ocl_gpa_data* ThreadTaskExecutor::GetGPAData() const
+{
+	return m_pGPAData;
 }
 
 ITaskList* ThreadTaskExecutor::CreateTaskList(bool OOO)

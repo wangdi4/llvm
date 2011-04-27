@@ -43,11 +43,8 @@
 #include <assert.h>
 #include <cl_buffer.h>
 #include "execution_module.h"
-#if defined(USE_GPA)  
-	#include <ittnotify.h>
-	#include "ocl_itt.h"
-	//#include "tal\tal.h"
-#endif
+#include "ocl_itt.h"
+
 using namespace Intel::OpenCL::Framework;
 
 /******************************************************************
@@ -164,10 +161,9 @@ Command::~Command()
 cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
 {
 #if defined(USE_GPA)
-	__itt_domain* domain;
 	//char pMarkerString[64];
 	const char* pCommandName;
-	const char statusMarkerFlags = m_pCommandQueue->GetStatusMarkerFlags();
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 #endif
     cl_err_code res = CL_SUCCESS;
     switch(iCmdStatus)
@@ -178,27 +174,22 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     case CL_SUBMITTED:
 		// Running marker
 #if defined(USE_GPA)
-		if (m_pCommandQueue->IsTaskalyzerEnabled())
+		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
-			if (statusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
+			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
 			{
 				char pMarkerString[64] = "Submitted - ";
 				pCommandName = this->GetCommandName();
 				strcat_s(pMarkerString, 64,pCommandName);
 				
 				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-				__itt_string_handle* pMarkerTask = __itt_string_handle_create(L"Marker");
-				
-				domain = __itt_domain_create(L"OpenCL.Domain.Global");
-				assert(NULL != domain);
-
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1 
-				__itt_task_begin(domain, __itt_null, __itt_null, pMarkerTask);
+				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
 				
-				__itt_marker(domain, __itt_null, pMarker, __itt_marker_scope_global);
+				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
 
-				__itt_task_end(domain);
+				__itt_task_end(pGPAData->pDomain);
 			}
 		}
 #endif
@@ -210,27 +201,23 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_iId);
 		// Running marker
 #if defined(USE_GPA)
-		if (m_pCommandQueue->IsTaskalyzerEnabled())
+		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
-			if (statusMarkerFlags & GPA_SHOW_RUNNING_MARKER)
+			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_RUNNING_MARKER)
 			{
 				char pMarkerString[64] = "Running - ";
 				pCommandName = this->GetCommandName();
 				strcat_s(pMarkerString, 64,pCommandName);
 
 				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-				__itt_string_handle* pMarkerTask = __itt_string_handle_create(L"Marker");
-				
-				domain = __itt_domain_create(L"OpenCL.Domain.Global");
-				assert(NULL != domain);
 
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(domain, __itt_null, __itt_null, pMarkerTask);
+				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
 				
-				__itt_marker(domain, __itt_null, pMarker, __itt_marker_scope_global);
+				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
 
-				__itt_task_end(domain);
+				__itt_task_end(pGPAData->pDomain);
 			}
 		}
 #endif
@@ -256,27 +243,23 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         m_Event.SetColor(EVENT_STATE_BLACK);
 // Complete marker
 #if defined(USE_GPA)
-		if (m_pCommandQueue->IsTaskalyzerEnabled())
+		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
-			if (statusMarkerFlags & GPA_SHOW_COMPLETED_MARKER)
+			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_COMPLETED_MARKER)
 			{
 				char pMarkerString[64] = "Completed - ";
 				pCommandName = this->GetCommandName();
 				strcat_s(pMarkerString, 64,pCommandName);
 
 				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-				__itt_string_handle* pMarkerTask = __itt_string_handle_create(L"Marker");
-				
-				domain = __itt_domain_create(L"OpenCL.Domain.Global");
-				assert(NULL != domain);
 
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(domain, __itt_null, __itt_null, pMarkerTask);
+				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
 				
-				__itt_marker(domain, __itt_null, pMarker, __itt_marker_scope_global);
+				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
 
-				__itt_task_end(domain);
+				__itt_task_end(pGPAData->pDomain);
 			}
 		}
 #endif

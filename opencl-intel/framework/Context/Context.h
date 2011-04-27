@@ -32,6 +32,7 @@
 #include <cl_objects_map.h>
 #include <cl_synch_objects.h>
 #include <map>
+#include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -67,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags);
+		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -210,9 +211,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Get devices from the device list
 		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, FissionableDevice** ppDevices);
-		bool GetUseTaskalyzer() const;
-
-		char GetStatusMarkerFlags() const;
+		
+		ocl_gpa_data * GetGPAData() const;
         /******************************************************************************************
 		* Function: 	NotifyError
 		* Description:	Report information on errors that occur in this context using the callback
@@ -284,9 +284,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void *									m_pUserData; // user data
 
-		bool									m_bUseTaskalyzer;
-
-		char									m_cStageMarkerFlags;
+		ocl_gpa_data *							m_pGPAData;
 	};
 
 

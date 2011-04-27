@@ -30,6 +30,7 @@
 #include "icontext.h"
 #include "icontext_gl.h"
 #include "ocl_config.h"
+#include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -80,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code		Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig);
+		cl_err_code		Initialize(ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
 
 		/******************************************************************************************
 		* Function: 	Release    
@@ -187,8 +188,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		ocl_entry_points *						m_pOclEntryPoints;
 
-		bool									m_bUseTaskalyzer;
-		char									m_cStageMarkerFlags;
+		ocl_gpa_data *							m_pGPAData;
+
 		DECLARE_LOGGER_CLIENT;
 	};
 

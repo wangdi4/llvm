@@ -33,7 +33,7 @@ using namespace Intel::OpenCL::Utils;
 * Configuration keys
 **************************************************************************************************/
 
-#define	CL_CONFIG_USE_TASKALYZER		"CL_CONFIG_USE_TASKALYZER"		// bool
+#define	CL_CONFIG_USE_GPA				"CL_CONFIG_USE_GPA"				// bool
 #define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"		// bool
 #define	CL_CONFIG_USE_VTUNE				"CL_CONFIG_USE_VTUNE"		    // bool
 
@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		cl_err_code    Initialize(string file_name);
 		void           Release();
 
-		bool		   UseTaskalyzer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TASKALYZER, false); }
+		bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
 		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
 		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
 

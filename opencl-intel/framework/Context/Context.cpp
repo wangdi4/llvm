@@ -37,12 +37,8 @@
 #include <cl_objects_map.h>
 #include "context_module.h"
 #include <cl_local_array.h>
+#include "ocl_itt.h"
 
-
-#if defined(USE_GPA)    
-	//#include "tal\tal.h"
-	#include <ittnotify.h>
-#endif
 // for debug...???
 #include <limits.h>
 #include <assert.h>
@@ -54,7 +50,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, bool bUseTaskalyzer, char cStageMarkerFlags)
+Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
 {
 	//cl_start;
 
@@ -73,8 +69,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_ppRootDevices = NULL;
 	m_pDeviceIds = NULL;
     m_pOriginalDeviceIds = NULL;
-	m_bUseTaskalyzer = bUseTaskalyzer;
-	m_cStageMarkerFlags = cStageMarkerFlags;
+	m_pGPAData = pGPAData;
 
 #ifdef _DEBUG
 assert ((NULL != ppDevices) && (uiNumDevices > 0));
@@ -458,20 +453,13 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclD
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::GetUseTaskalyzer
+// Context::GetGPAData
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-bool Context::GetUseTaskalyzer() const
+ocl_gpa_data * Context::GetGPAData() const
 {
-	return m_bUseTaskalyzer;
+	return m_pGPAData;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::GetStatusMarkerFlags
-///////////////////////////////////////////////////////////////////////////////////////////////////
-char Context::GetStatusMarkerFlags() const
-{
-	return m_cStageMarkerFlags;
-}
 
 // Context::CreateProgramWithBinary
 ///////////////////////////////////////////////////////////////////////////////////////////////////

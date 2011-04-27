@@ -123,11 +123,12 @@ class XNTaskExecutor : public ITaskExecutor
 public:
 	XNTaskExecutor() : m_lRefCount(0) {}
 	// ITaskExecutor interface
-	int	Init(unsigned int uiNumThreads);
+	int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
 	unsigned int GetNumWorkingThreads() const;
 	ITaskList* CreateTaskList(bool OOO = false);
 	unsigned int	Execute(ITaskBase * pTask);
 	void Close(bool bCancel);
+	ocl_gpa_data* GetGPAData() const;
 
 protected:
 		long		m_lRefCount;

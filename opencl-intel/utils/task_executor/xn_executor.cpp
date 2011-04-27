@@ -28,6 +28,7 @@
 
 #if 0 //!defined (__WIN_XP__)
 #include "xn_executor.h"
+#include "ocl_itt.h"
 #include <windows.h>
 #include <limits.h>
 #include <assert.h>
@@ -255,7 +256,7 @@ void XNTaskListUnorderedImpl::Release()
 //---------------------------------------------
 //---------------------------------------------
 // XNTaskExecutorImpl - task executor implementation
-int	XNTaskExecutor::Init(unsigned int uiNumThreads)
+int	XNTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 {
 	unsigned long ulNewVal = InterlockedIncrement(&m_lRefCount);
 	if ( ulNewVal > 1 )
@@ -300,6 +301,11 @@ void XNTaskExecutor::Close(bool bCancel)
 	assert(g_TaskCount == 0);
 	// Shutdwon Task System
 	XN0TaskShutdown();
+}
+
+ocl_gpa_data* XNTaskExecutor::GetGPAData() const
+{
+	return m_pGPAData;
 }
 
 ITaskList* XNTaskExecutor::CreateTaskList(bool OOO)

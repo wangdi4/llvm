@@ -33,6 +33,7 @@
 #include "Logger.h"
 #include "ocl_config.h"
 #include "cl_synch_objects.h"
+#include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -134,6 +135,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		// handle to the configuration object
 		OCLConfig * m_pConfig;
+
+		ocl_gpa_data m_GPAData;
 
 		// a lock to prevent double initialization
 		static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;

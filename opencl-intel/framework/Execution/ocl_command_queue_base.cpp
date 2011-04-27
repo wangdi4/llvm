@@ -26,41 +26,32 @@
 #include "enqueue_commands.h"
 #include "execution_module.h"
 #include <cstring>
+#include "ocl_itt.h"
 
-#if defined(USE_GPA)
-	#include <ittnotify.h>
-	#include "ocl_itt.h"
-	//#include "tal\tal.h"
-#endif
 using namespace Intel::OpenCL::Framework;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
 #if defined(USE_GPA)
- 
-	__itt_domain* domain;
-	
-	if (m_pContext->GetUseTaskalyzer())
+	ocl_gpa_data* pGPAData = m_pContext->GetGPAData();
+
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
-		if (m_pContext->GetStatusMarkerFlags() & GPA_SHOW_QUEUED_MARKER)
+		if (pGPAData->cStatusMarkerFlags & GPA_SHOW_QUEUED_MARKER)
 		{
 			char pMarkerString[64] = "Queued - ";
 			const char* pCommandName = pCommand->GetCommandName();
 			strcat_s(pMarkerString, 64,pCommandName);
 
-			domain = __itt_domain_create(L"OpenCL.Domain.Global");
-			assert(NULL != domain);
-
 			__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-			__itt_string_handle* pMarkerTask = __itt_string_handle_create(L"Marker");
 
 			//Due to a bug in GPA 4.0 the marker is within a task
 			//Should be removed in GPA 4.1  
-			__itt_task_begin(domain, __itt_null, __itt_null, pMarkerTask);
+			__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
 
-			__itt_marker(domain, __itt_null, pMarker, __itt_marker_scope_global);
+			__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
 			
-			__itt_task_end(domain);
+			__itt_task_end(pGPAData->pDomain);
 		}
 	}
 #endif

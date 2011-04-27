@@ -40,6 +40,7 @@
 
 #include <stddef.h>
 #include <cl_sys_defines.h>
+#include "ocl_itt.h"
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -162,7 +163,7 @@ public:
 	// Init task executor to use uiNumThreads for execution
 	// if uiNumThreads == 0, number of threads will be defined by implementation
 	// Returns 0, if succeeded, else -1
-	virtual int	Init(unsigned int uiNumThreads, bool bUseTaskalyzer) = 0;
+	virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
 
 	// Return number of initialized worker threads
 	virtual unsigned int GetNumWorkingThreads() const = 0;
@@ -181,6 +182,11 @@ public:
 	virtual void Close(bool bCancel) = 0;
 
 	virtual void ReleasePerThreadData() = 0;
+
+	virtual ocl_gpa_data* GetGPAData() const = 0;
+
+protected:
+	ocl_gpa_data *m_pGPAData;
 };
 
 // Function which retrieves TaskExecutor singleton object

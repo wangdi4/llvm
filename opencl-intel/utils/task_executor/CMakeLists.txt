@@ -13,6 +13,7 @@ link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUB
 )
 
 add_definitions( -DTASK_EXECUTOR_EXPORTS -D__TBB_EXECUTOR__ -D_USRDLL )
+
 SET_UNICODE_OFF()
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -24,6 +25,15 @@ endif(NOT WIN32)
 
 if (WIN32)
      # tbb name is encoded in windows sources to use the right one
+	 
+	 # add GPA include files, libs and defines
+	 include_directories(
+						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include 
+				    )
+	link_directories(
+					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
+				)						
+    add_definitions( -DUSE_GPA )
 else ()
      if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
         list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX}

@@ -66,7 +66,7 @@ protected:
 	cl_int							m_iDevId;
 	IOCLDevLogDescriptor*           m_pLogDescriptor;
 	cl_int							m_iLogHandle;
-	cl_bool							m_bUseTaskalyzer;
+	ocl_gpa_data*					m_pGPAData;
 	IOCLFrameworkCallbacks*			m_pFrameworkCallBacks;
 	ProgramService*					m_pProgramService;
 	MemoryAllocator*				m_pMemoryAllocator;

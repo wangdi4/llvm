@@ -152,11 +152,6 @@ public:
 		return (INVALID_SCHEDULER_ID == (cl_ulong)GetScheduler());
 	}
 
-	void SetUseTaskalyzer(bool bUseTaskalyzer)
-	{
-		m_bUseTaskalyzer = bUseTaskalyzer;
-	}
-
 	virtual void on_scheduler_entry( bool is_worker )
 	{
 		unsigned int uiWorkerId = 0;
@@ -1023,9 +1018,12 @@ TBBTaskExecutor::~TBBTaskExecutor()
 	}		
 }
 
-int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
+int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 {
 	unsigned long ulNewVal = ++m_lRefCount;
+
+	m_pGPAData = pGPAData;
+	
 	if ( ulNewVal == 1 )
 	{
 		INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
@@ -1051,7 +1049,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
     // if using GPA, initialize the "global" task scheduler init
     // Otherwise, initialize this master thread's observer
 #if defined(USE_GPA)   
-    if (bUseTaskalyzer)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 	    if (NULL == m_scheduler)
 	    {
@@ -1076,9 +1074,6 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, bool bUseTaskalyzer)
 	}
 
 	m_threadPoolChangeObserver->observe();
-	// Set TAL usage flag 
-	m_threadPoolChangeObserver->SetUseTaskalyzer(bUseTaskalyzer);
-	m_bUseTaskalyzer = bUseTaskalyzer;
 	
 	LOG_INFO(TEXT("%s"),"Done");	
 	return gWorker_threads + 1;
@@ -1166,6 +1161,11 @@ void TBBTaskExecutor::ReleasePerThreadData()
 		delete pScheduler;		
 		ThreadIDAssigner::SetScheduler(NULL);
 	}
+}
+
+ocl_gpa_data* TBBTaskExecutor::GetGPAData() const
+{
+	return m_pGPAData;
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

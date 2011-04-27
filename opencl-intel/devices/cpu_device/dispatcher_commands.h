@@ -32,10 +32,8 @@
 #include "task_executor.h"
 #include "wg_context.h"
 #include "cl_synch_objects.h"
-#if defined(USE_GPA)    
-	//#include "tal\tal.h"
-	#include <ittnotify.h>
-#endif
+#include "ocl_itt.h"
+
 
 #define COLOR_TABLE_SIZE 64
 
@@ -63,7 +61,7 @@ protected:
 	IOCLDevLogDescriptor*		m_pLogDescriptor;
 	cl_int						m_iLogHandle;
 	cl_dev_cmd_desc*			m_pCmd;
-	cl_bool						m_bUseTaskalyzer;
+	ocl_gpa_data*				m_pGPAData;
 };
 
 // A parent class for dispatcher commands to have a single implementation of ITask::AffinitizeToTask

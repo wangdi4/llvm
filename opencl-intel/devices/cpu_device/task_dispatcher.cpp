@@ -34,6 +34,7 @@
 #include "task_executor.h"
 #include "task_dispatcher.h"
 #include "dispatcher_commands.h"
+#include "ocl_itt.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -60,13 +61,10 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 		}
 	}
 
-	m_bUseTaskalyzer = m_pCPUDeviceConfig->UseTaskalyzer();
-
-
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Created"));
 	
-
 	m_pTaskExecutor = GetTaskExecutor();	
+	m_pGPAData = m_pTaskExecutor->GetGPAData();
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
 

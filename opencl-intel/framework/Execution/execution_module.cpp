@@ -98,7 +98,7 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLC
     {
         return CL_ERR_FAILURE;
     }
-	m_bUseTaskalyzer = pOclConfig->UseTaskalyzer();
+	m_bUseTaskalyzer = pOclConfig->UseGPA();
     return CL_SUCCESS;
 }
 

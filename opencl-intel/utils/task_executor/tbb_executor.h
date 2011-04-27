@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		TBBTaskExecutor();
 		virtual ~TBBTaskExecutor();
-		int	Init(unsigned int uiNumThreads, bool bUseTaskalyzer);
+		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(CommandListCreationParam* param);
 		unsigned int	Execute(ITaskBase * pTask);
@@ -49,9 +49,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void Close(bool bCancel);
 
 		void ReleasePerThreadData();
+
+		ocl_gpa_data* GetGPAData() const;
 	protected:
 		Intel::OpenCL::Utils::AtomicCounter		m_lRefCount;
-		bool		m_bUseTaskalyzer;
 		// Independent tasks will be executed by this task group
 		static ITaskList*				sTBB_executor;
 #if defined(USE_GPA)   

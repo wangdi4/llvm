@@ -262,7 +262,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		virtual ~ThreadTaskExecutor(){}
 
 		// ITaskExecutor interface
-		int	Init(unsigned int uiNumThreads, bool bUseTaskalyzer);
+		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
 		unsigned int GetNumWorkingThreads() const
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
@@ -270,6 +270,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		bool WaitForCompletion() {return false;}
 		void ReleasePerThreadData() {}
 		void Close(bool bCancel);
+		ocl_gpa_data* GetGPAData() const;
 
 	protected:
 		long		m_lRefCount;
