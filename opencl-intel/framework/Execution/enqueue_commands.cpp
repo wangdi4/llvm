@@ -319,7 +319,7 @@ cl_err_code MemoryCommand::CopyToHost(
 	cl_dev_cmd_desc* pReadDevCmd =  &pReadMemObjCmd->m_DevCmd;		
 	cl_dev_cmd_param_rw* pRWParams =  &pReadMemObjCmd->m_rwParams;
 					
-	// copy from host to device
+	// copy from device to host
 	create_dev_cmd_rw(            
 		pSrcMemObj->GetDeviceMemoryHndl(srcDeviceId), 
 		pSrcMemObj->GetType(),
@@ -343,7 +343,7 @@ cl_err_code MemoryCommand::CopyToHost(
 }
 cl_err_code MemoryCommand::CopyFromHost(
 						void* pSrcData,
-						MemoryObject* pSrcMemObj, 
+						MemoryObject* pDstMemObj, 
 						const size_t* pSrcOrigin,
 						const size_t* pDstOrigin,
 						const size_t* pRegion,	
@@ -361,14 +361,14 @@ cl_err_code MemoryCommand::CopyFromHost(
 	{				
 		cl_dev_cmd_desc *pDevCmd = &m_DevCmd;
 		create_dev_cmd_rw(
-				pSrcMemObj->GetDeviceMemoryHndl(m_pDevice->GetHandle()), 
-				pSrcMemObj->GetType(),			
+				pDstMemObj->GetDeviceMemoryHndl(m_pDevice->GetHandle()), 
+				pDstMemObj->GetType(),			
 				(void*)pSrcData, pDstOrigin, pSrcOrigin, pRegion, szSrcRowPitch, szSrcSlicePitch, szDstRowPitch, szDstSlicePitch,
 				CL_DEV_CMD_WRITE,
 				(cl_dev_cmd_id)(*pEvent)->GetId(),
 				pDevCmd,
 				&m_rwParams) ;
-		pSrcMemObj->SetDataLocation(m_pDevice->GetHandle());
+		pDstMemObj->SetDataLocation(m_pDevice->GetHandle());
 		LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 		// Sending 1 command to the device where the buffer is located now
 		m_Event.SetEventQueue(m_pCommandQueue);
@@ -378,7 +378,7 @@ cl_err_code MemoryCommand::CopyFromHost(
 	}
 	else
 	{		
-		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(m_pCommandQueue, (ocl_entry_points*)(((_cl_command_queue_int*)m_pCommandQueue->GetHandle())->dispatch), pSrcMemObj, pDstOrigin, pRegion, szDstRowPitch,szDstSlicePitch,pSrcData,pSrcOrigin,szSrcRowPitch,szSrcSlicePitch);		
+		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(m_pCommandQueue, (ocl_entry_points*)(((_cl_command_queue_int*)m_pCommandQueue->GetHandle())->dispatch), pDstMemObj, pDstOrigin, pRegion, szDstRowPitch,szDstSlicePitch,pSrcData,pSrcOrigin,szSrcRowPitch,szSrcSlicePitch);		
 		if (!pWriteMemObjCmd)
 		{
 			return CL_OUT_OF_HOST_MEMORY;
@@ -399,8 +399,8 @@ cl_err_code MemoryCommand::CopyFromHost(
 					
 		// copy from host to device
 		create_dev_cmd_rw(            
-			pSrcMemObj->GetDeviceMemoryHndl(m_pDevice->GetHandle()), 
-			pSrcMemObj->GetType(),
+			pDstMemObj->GetDeviceMemoryHndl(m_pDevice->GetHandle()), 
+			pDstMemObj->GetType(),
 			(void*)pSrcData, pDstOrigin, pSrcOrigin, pRegion, szSrcRowPitch, szSrcSlicePitch, szDstRowPitch, szDstSlicePitch,			
 			CL_DEV_CMD_WRITE,
 			(cl_dev_cmd_id)pQueueEvent->GetId(), 
@@ -408,7 +408,7 @@ cl_err_code MemoryCommand::CopyFromHost(
 			pRWParams);
 
 		// Set new location			
-		pSrcMemObj->SetDataLocation(m_pDevice->GetHandle());
+		pDstMemObj->SetDataLocation(m_pDevice->GetHandle());
 
 		pWriteDevCmd->data = static_cast<ICmdStatusChangedObserver*>(pWriteMemObjCmd);		
 		res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(NULL, &pWriteDevCmd, 1);							
@@ -552,6 +552,15 @@ cl_err_code CopyMemObjCommand::Init()
             return res;
         }
     }
+	if (!m_pSrcMemObj->IsAllocated(clDeviceId))
+    {
+        // Allocate
+        cl_err_code res = m_pSrcMemObj->CreateDeviceResource(clDeviceId);
+        if( CL_FAILED(res))
+        {
+            return res;
+        }
+    }	
 
     m_pSrcMemObj->AddPendency();
     m_pDstMemObj->AddPendency();
@@ -626,9 +635,18 @@ cl_err_code CopyMemObjCommand::Execute()
 	}
 	else if (bSrcOnRuntime)
 	{				
-		void* pData = m_pSrcMemObj->GetData(NULL);    								
-		QueueEvent* pEvent = GetEvent();
-		res = CopyFromHost(pData, m_pDstMemObj, m_szSrcOrigin, m_szDstOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szDstRowPitch, m_szDstSlicePitch, &pEvent);		
+		// For buffers which are in sync with the host we can can simply copy the raw data from the memory using Write operation.		
+		if (m_pSrcMemObj->GetType() == CL_MEM_OBJECT_BUFFER)
+		{
+			void* pData = m_pSrcMemObj->GetData(NULL);    								
+			QueueEvent* pEvent = GetEvent();			
+			res = CopyFromHost(pData, m_pDstMemObj, m_szSrcOrigin, m_szDstOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szDstRowPitch, m_szDstSlicePitch, &pEvent);			
+		} else 
+		{
+			// We cannot copy images from host using Write operation, since images has their own ElementSize/Pitches ... and write operation won't
+			// work there
+			res = CopyOnDevice(clDeviceId);
+		}
 		if (CL_FAILED(res)) 
 		{ 
 			return res; 

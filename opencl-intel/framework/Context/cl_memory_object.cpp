@@ -718,10 +718,13 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		return CL_INVALID_VALUE;
 	}
 	size_t szSize = 0;
-	size_t szParam = 0;
+	size_t szParam = 0;	
 	cl_context clContext = 0;
 	void * pValue = NULL;
 	
+	// For non-subbuffer objects, we return NULL (Spec)
+	cl_mem pMemObj = NULL;
+
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_mem_info)iParamName )
 	{
@@ -759,34 +762,32 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		break;
 	case CL_MEM_ASSOCIATED_MEMOBJECT:
 		{
-			szSize = sizeof(cl_mem);
-			cl_mem ret = NULL;
+			szSize = sizeof(cl_mem);			
 			if (GetType() == CL_MEM_OBJECT_BUFFER)
 			{
 				Buffer* pBuffer = reinterpret_cast<Buffer*>(this);
 				if (pBuffer->IsSubBuffer())
 				{
 					SubBuffer* pSubBuffer = reinterpret_cast<SubBuffer*>(this);
-					ret = pSubBuffer->m_pParentBuffer->GetHandle();
+					pMemObj = pSubBuffer->m_pParentBuffer->GetHandle();
 				}								
 			}						
-			pValue = &ret;			
+			pValue = &pMemObj;			
 		}
 		break;
 	case CL_MEM_OFFSET:
 		{			
-			szSize = sizeof(size_t);
-			size_t ret = 0;
+			szSize = sizeof(size_t);			
 			if (GetType() == CL_MEM_OBJECT_BUFFER)
 			{
 				Buffer* pBuffer = reinterpret_cast<Buffer*>(this);
 				if (pBuffer->IsSubBuffer())
 				{
 					SubBuffer* pSubBuffer = reinterpret_cast<SubBuffer*>(this);
-					ret = pSubBuffer->m_Origin;
+					szParam = pSubBuffer->m_Origin;
 				}								
 			}						
-			pValue = &ret;
+			pValue = &szParam;
 		}
 		break;
 	default:
