@@ -156,6 +156,11 @@ void FrameworkProxy::Initialize()
 {	  
 	// initialize configuration file
 	m_pConfig = new OCLConfig();
+    if (NULL == m_pConfig)
+    {
+        //Todo: terrible crash imminent
+        return;
+    }
 	m_pConfig->Initialize(clFRAMEWORK_CFG_PATH);
 
 	bool bUseLogger = m_pConfig->UseLogger();
@@ -287,30 +292,43 @@ void FrameworkProxy::Release()
 	LOG_DEBUG(TEXT("%S"), TEXT("FrameworkProxy::Release enter"));
 
 	// Close TaskExecutor
-	GetTaskExecutor()->Close(true);	
+    ITaskExecutor* pTaskExecutor = GetTaskExecutor();
+	if (NULL != pTaskExecutor)
+    {
+        pTaskExecutor->Close(true);
+    }
 
-	m_pExecutionModule->Release();
-    delete m_pExecutionModule;
+    if (NULL != m_pExecutionModule)
+    {
+        m_pExecutionModule->Release();
+        delete m_pExecutionModule;
+    }
 
-    m_pContextModule->Release(true);
-	delete m_pContextModule;
+    if (NULL != m_pContextModule)
+    {
+        m_pContextModule->Release(true);
+        delete m_pContextModule;
+    }
 	
-	m_pPlatformModule->Release();
-	delete m_pPlatformModule;
+    if (NULL != m_pPlatformModule)
+    {
+        m_pPlatformModule->Release();
+        delete m_pPlatformModule;
+    }
 
 	
-	if (m_pFileLogHandler)
+	if (NULL != m_pFileLogHandler)
 	{
 		m_pFileLogHandler->Flush();
 		delete m_pFileLogHandler;
 		m_pFileLogHandler = NULL;
 	}
-	m_pConfig->Release();
-	if (m_pConfig)
-	{
-		delete m_pConfig;
-		m_pConfig = NULL;
-	}
+    if (NULL != m_pConfig)
+    {
+        m_pConfig->Release();
+        delete m_pConfig;
+        m_pConfig = NULL;
+    }
 	cl_monitor_summary;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

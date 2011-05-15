@@ -473,6 +473,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	if (NULL == pDeviceIds)
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
+        delete[] ppDevices;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
@@ -599,7 +600,7 @@ cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppD
     FissionableDevice* temp = NULL;
     cl_err_code ret;
 	// get the device from the devices list
-	ret = m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+	ret = m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)temp);
     if (CL_SUCCESS != ret)
     {
         return CL_INVALID_DEVICE;
@@ -823,6 +824,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
             delete[] pNewDevices;
             delete[] sizes;
             delete[] subdevice_ids;
+            return CL_OUT_OF_HOST_MEMORY;
         }
         out_devices[i] = pNewDevices[i]->GetHandle();
     }

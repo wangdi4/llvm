@@ -46,7 +46,11 @@ m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 	m_pBuildLog  = &m_emptyString;
 }
 
-DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : m_bIsClone(true)
+DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
+m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
+m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
+m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
+m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 {
     SetDevice(dp.m_pDevice);
     SetHandle(dp.m_parentProgramHandle);
