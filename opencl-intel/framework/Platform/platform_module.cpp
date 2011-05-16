@@ -731,7 +731,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     OclAutoMutex CS(&m_deviceFissionMutex);
     cl_err_code ret; 
     FissionableDevice* pParentDevice; 
-    cl_uint numOutputDevices;
+    cl_uint numOutputDevices, numSubdevicesToCreate;
     ret = m_pDevices->GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
     if (CL_SUCCESS != ret)
     {
@@ -780,13 +780,26 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     {
         *num_devices = numOutputDevices;
     }
+    if (0 == num_entries)
+    {
+        return CL_INVALID_VALUE;
+    }
 
-    cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numOutputDevices];
+    if (numOutputDevices > num_entries)
+    {
+        numSubdevicesToCreate = num_entries;
+    }
+    else
+    {
+        numSubdevicesToCreate = numOutputDevices;
+    }
+
+    cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numSubdevicesToCreate];
     if (NULL == subdevice_ids)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
-    size_t* sizes = new size_t[numOutputDevices];
+    size_t* sizes = new size_t[numSubdevicesToCreate];
     if (NULL == sizes)
     {
         delete[] subdevice_ids;
@@ -799,7 +812,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return ret;
     }
     //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
-    FissionableDevice** pNewDevices = new FissionableDevice*[numOutputDevices];
+    FissionableDevice** pNewDevices = new FissionableDevice*[numSubdevicesToCreate];
     if (NULL == pNewDevices)
     {
         delete[] subdevice_ids;
@@ -812,7 +825,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     {
         partitionMode = properties[1];
     }
-    for (cl_uint i = 0; i < numOutputDevices; ++i)
+    for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {
         pNewDevices[i] = new SubDevice(pParentDevice, sizes[i], subdevice_ids[i], properties, m_pOclEntryPoints);
         if (NULL == pNewDevices[i])
@@ -832,10 +845,10 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     delete[] subdevice_ids;
 
     //Successful fission. Update device maps
-    ret = AddDevices(pNewDevices, numOutputDevices);
+    ret = AddDevices(pNewDevices, numSubdevicesToCreate);
     if (ret != CL_SUCCESS)
     {
-        for (cl_uint i = 0; i < numOutputDevices; ++i)
+        for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
         {
             pNewDevices[i]->Release();
         }
@@ -844,7 +857,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
 
     //Successful fission, tell the device it can notify the dependents
-    pParentDevice->NotifyDeviceFissioned(numOutputDevices, pNewDevices);
+    pParentDevice->NotifyDeviceFissioned(numSubdevicesToCreate, pNewDevices);
     delete[] pNewDevices;
     
     return CL_SUCCESS;

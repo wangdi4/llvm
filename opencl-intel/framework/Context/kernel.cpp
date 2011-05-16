@@ -462,14 +462,13 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 		cl_build_status clBuildStatus = ppDevicePrograms[i]->GetBuildStatus();
 		if (clBuildStatus != CL_BUILD_SUCCESS)
 		{
-			clErrRet = CL_INVALID_PROGRAM_EXECUTABLE;
-			break;
+            continue;
 		}
 		cl_device_id clDeviceId = ppDevicePrograms[i]->GetDeviceId();
 		if (NULL != GetDeviceKernel(clDeviceId))
 		{
 			LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), clDeviceId);
-			break;
+			continue;
 		}
 		
 		// create the device kernel object

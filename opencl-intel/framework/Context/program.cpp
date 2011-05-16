@@ -96,9 +96,9 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 		for (cl_uint i = 0; i < uiNumDevices; ++i)
 		{
 			cl_device_id curDeviceId = pclDeviceList[i];
+            bool bFound = false;
 			for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
 			{
-				bool bFound = false;
 				DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
 				if (curDeviceId == pDeviceProgram->GetDeviceId())
 				{
@@ -120,16 +120,16 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 						break;
 					}
 				}
-				if (!bFound) //We've been given a device not in the device list associated with program
+            }
+			if (!bFound) //We've been given a device not in the device list associated with program
+			{
+				//Release all accesses already acquired
+				for (cl_uint j = i; j > 0; --j)
 				{
-					//Release all accesses already acquired
-					for (cl_uint j = i; j > 0; --j)
-					{
-						m_ppDevicePrograms[indices[j-1]]->Unacquire();
-					}
-					delete[] indices;
-					return CL_INVALID_DEVICE;
+					m_ppDevicePrograms[indices[j-1]]->Unacquire();
 				}
+				delete[] indices;
+				return CL_INVALID_DEVICE;
 			}
 		}
 	}
@@ -302,14 +302,20 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 
     OclAutoReader CS(&m_deviceProgramLock);
 
-	// check if program binary already built for all devices
+	// check if there's a valid program binary already built for any device
+    bool bAnyValid = false;
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
-		if (CL_BUILD_SUCCESS != m_ppDevicePrograms[i]->GetBuildStatus())
-		{
-			return CL_INVALID_PROGRAM_EXECUTABLE;
-		}
+        if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()))
+        {
+            bAnyValid = true;
+            break;
+        }
 	}
+    if (!bAnyValid)
+    {
+        return CL_INVALID_PROGRAM_EXECUTABLE;
+    }
 
 
 	// check if the current kernel already available in the program

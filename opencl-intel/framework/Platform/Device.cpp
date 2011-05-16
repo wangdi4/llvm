@@ -446,7 +446,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
             *num_devices = partitionSizes.size();
             return CL_SUCCESS;
         }
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, &partitionSizes, out_devices);
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, &partitionSizes, out_devices);
     }
     else if (CL_DEV_PARTITION_EQUALLY == partitionMode)
     {
@@ -456,7 +456,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
             return CL_INVALID_PROPERTY;
         }
 
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, &partitionSize, out_devices);
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, &partitionSize, out_devices);
         if (NULL != sizes)
         {
             if (CL_DEV_SUCCESS == dev_ret)
@@ -470,7 +470,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
     }
     else // no other mode today requires an additional param
     {
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_devices, NULL, out_devices);
+        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, NULL, out_devices);
     }
     if (CL_SUCCESS != ret)
     {
@@ -527,6 +527,8 @@ m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits)
     m_handle.object   = this;
     m_handle.dispatch = pOclEntryPoints;
     CacheFissionProperties(props);
+    //Todo: handle more intelligently
+    m_pRootDevice->CreateInstance();
 }
 
 SubDevice::~SubDevice()
@@ -537,6 +539,8 @@ SubDevice::~SubDevice()
         pRoot->clDevReleaseSubdevice(m_deviceId);
     }
     m_pParentDevice->RemovePendency();
+    //Todo: handle more intelligently
+    m_pRootDevice->CloseDeviceInstance();
 }
 cl_err_code SubDevice::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
 {

@@ -556,6 +556,7 @@ public:
 			This function partitions the device into sub-devices allowing execution on parts of a device's compute units.
 		Input
 			props						The desired partitioning criterion
+            num_requested_subdevices    An upper bound on the amount of sub-devices to be created
             num_subdevices              The number of sub-devices to be generated if using CL_DEV_PARTITION_BY_COUNTS or BY_NAMES
             param                       An optional param: the partition size in case of PARTITION_EQUALLY, the count list if BY_COUNTS, the name list if BY_NAMES etc
 		Output
@@ -568,6 +569,7 @@ public:
 			CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 	*/
     virtual cl_dev_err_code (clDevPartition)(  cl_dev_partition_prop IN     props, 
+                                               cl_uint               IN     num_requested_subdevices,
                                                cl_uint*              INOUT  num_subdevices, 
                                                void*                 IN     param,
                                                cl_dev_subdevice_id*  OUT    subdevice_ids

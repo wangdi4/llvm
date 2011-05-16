@@ -1160,7 +1160,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
  clDevPartition
 	Calculate appropriate affinity mask to support the partitioning mode and instantiate as many SubdeviceTaskDispatcher objects as needed
 ********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
+cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
 {
     if (NULL == num_subdevices)
     {
@@ -1192,6 +1192,10 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 return CL_DEV_INVALID_VALUE;
             }
             *num_subdevices = numPartitions;
+            if (numPartitions > num_requested_subdevices)
+            {
+                numPartitions = num_requested_subdevices;
+            }
             for (size_t i = 0; i < numPartitions; ++i)
             {
                 subdevice_ids[i] = new SubdeviceTaskDispatcher(partitionSize, NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
@@ -1231,7 +1235,13 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 return CL_DEV_SUCCESS;
             }
-            for (size_t i = 0; i < *num_subdevices; ++i)
+            cl_uint num_subdevices_to_create = *num_subdevices;
+            if (num_subdevices_to_create > num_requested_subdevices)
+            {
+                num_subdevices_to_create = num_requested_subdevices;
+            }
+
+            for (size_t i = 0; i < num_subdevices_to_create; ++i)
             {
                 subdevice_ids[i] = new SubdeviceTaskDispatcher(partitionSizes[i], NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
                 if (NULL == subdevice_ids[i])
@@ -1264,31 +1274,38 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 return CL_DEV_INVALID_VALUE;
             }
             *num_subdevices = maxNumaNode + 1;
+            cl_uint num_subdevices_to_create = *num_subdevices;
+            if (num_subdevices_to_create > num_requested_subdevices)
+            {
+                num_subdevices_to_create = num_requested_subdevices;
+            }
+
             //Todo: currently I assume NUMA systems are symmetric rather than counting bits
             size_t processorSize = GetNumberOfProcessors() / (maxNumaNode + 1);
-            for (unsigned char numaNode = 0; numaNode <= maxNumaNode; ++numaNode)
+            cl_uint i, j;
+            for (i = 0; i < num_subdevices_to_create; ++i)
             {
                 affinityMask_t* processorMask = new affinityMask_t;
                 if (NULL == processorMask)
                 {
                     return CL_DEV_OUT_OF_MEMORY;
                 }
-                if (!GetProcessorMaskFromNumaNode(numaNode, processorMask))
+                if (!GetProcessorMaskFromNumaNode((unsigned char)i, processorMask))
                 {
                     //No clue why this would happen
                     ret = CL_DEV_ERROR_FAIL;
                 }
                 if (CL_DEV_SUCCESS == ret)
                 {
-                    subdevice_ids[numaNode] = new SubdeviceTaskDispatcher(processorSize, processorMask, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
+                    subdevice_ids[i] = new SubdeviceTaskDispatcher(processorSize, processorMask, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
                 }
-                if (NULL == subdevice_ids[numaNode])
+                if (NULL == subdevice_ids[i])
                 {
                     ret = CL_DEV_OUT_OF_MEMORY;
                 }
                 if (CL_DEV_SUCCESS != ret)
                 {
-                    for (unsigned char j = 0; j < numaNode; ++j)
+                    for (j = 0; j < i; ++j)
                     {
                         delete static_cast<SubdeviceTaskDispatcher*>(subdevice_ids[j]);
                     }
