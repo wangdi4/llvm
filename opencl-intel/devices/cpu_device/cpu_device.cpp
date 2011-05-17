@@ -31,6 +31,7 @@
 #include "cpu_dev_limits.h"
 #include "cl_sys_defines.h"
 #include "cl_cpu_detect.h"
+#include "buildversion.h"
 
 //#include <intrin.h>
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
@@ -1070,7 +1071,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			}
 		case( CL_DEVICE_VERSION):
 		{
-			*pinternalRetunedValueSize = strlen("OpenCL 1.1 ") + 1;
+			*pinternalRetunedValueSize = strlen("OpenCL 1.1 ") + strlen(BUILDVERSIONSTR) + 1;
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 			{
 				return CL_DEV_INVALID_VALUE;
@@ -1079,6 +1080,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			if(NULL != paramVal)
 			{
 				STRCPY_S((char*)paramVal, valSize, "OpenCL 1.1 ");
+				STRCAT_S((char*)paramVal, valSize, BUILDVERSIONSTR);
 			}
 			return CL_DEV_SUCCESS;
 		}
