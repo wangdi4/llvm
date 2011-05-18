@@ -13,13 +13,12 @@ endif (NOT WIN32)
 
 include_directories( BEFORE ../../externals/llvm_wrap/include
                             ../../externals/llvm_wrap/llvm/llvm/include
-                            ${HW_UTILS_HEADERS} )
+                            ${HW_UTILS_HEADERS} 
+                            ${OCL_BINARY_DIR} )
 							
 if(WIN32)
 include_directories(
-						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include 
-                        ${OCL_BINARY_DIR}
-				    )
+						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include )
 endif(WIN32)
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
