@@ -7,14 +7,9 @@ cmake_policy(SET CMP0011 OLD)
 
 include( cmake_utils/CMakeFuncs.txt )
 
+
 # the FindSubversion.cmake module is part of the standard distribution
 include(FindSubversion)
-
-# extract working copy information for all components into variables
-Subversion_WC_INFO(${OCL_SOURCE_DIR} SDKVER)
-Subversion_WC_INFO(${OCL_SOURCE_DIR}/externals/llvm_wrap/llvm/ocl_cpu_backend BEVER)
-
-message("Current build version is ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
 
 string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
 
@@ -36,6 +31,12 @@ project(OCL)
 #  OCL_SOURCE_DIR    - points to the top src directory
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
+
+# extract working copy information for all components into variables
+Subversion_WC_INFO(${OCL_SOURCE_DIR} SDKVER)
+Subversion_WC_INFO(${OCL_SOURCE_DIR}/externals/llvm_wrap/llvm/ocl_cpu_backend BEVER)
+
+message("Current build version is ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
 
 # vars
 set( OCL_MAKE_UTILS_DIR ${OCL_SOURCE_DIR}/cmake_utils )
