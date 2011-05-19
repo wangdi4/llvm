@@ -52,7 +52,7 @@ set( OCL_GLOBAL_INCLUDE   ${OCL_SOURCE_DIR}/cl_api )
 
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}\n#define BUILDVERSIONSTR "\"(Build\ ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION})\")
-file(WRITE ${OCL_BINARY_DIR}/version.txt "runtime: ${SDKVER_WC_REVISION}\ncompiler: ${BEVER_WC_REVISION}\n")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "1.1.${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
 
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
