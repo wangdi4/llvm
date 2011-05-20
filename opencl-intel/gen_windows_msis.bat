@@ -4,22 +4,14 @@ set CUR_DIR=%~dp0
 
 call perl -v | find "5.10.1">nul
 if %ERRORLEVEL% NEQ 0 goto PERLNE
-cd "%ProgramFiles%\Windows Installer XML\bin"
-if %ERRORLEVEL% NEQ 0 goto WIXNE
 cd "%CUR_DIR%..\BuildSystem"
 if %ERRORLEVEL% NEQ 0 goto BSNE
-if "%1" EQU "debug" (
-call build.bat -bt opencl11_create_msis -p -napz -c -glp binaries_target[Debug]
-) else call build.bat -bt opencl11_create_msis -p -napz -c
+call perl gen_windows_msis.pl %*
 if %ERRORLEVEL% NEQ 0 goto BUILDFAIL
 exit /B %ERRORLEVEL%
 
 :PERLNE
 echo ActivePerl v5.10.1 is not currently installed and it's required for msi's generations. Please install it from "\\ger\ec\proj\ha\ptl\MobileTV\Installations\ActivePerl" or from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools\ActivePerl".
-exit /B 1
-
-:WIXNE
-echo Directory "%ProgramFiles%\Windows Installer XML\bin" doesn't exist. Please install WIX v2.0 to it. Which can be obtained from "\\ger\ec\proj\ha\ptl\MobileTV\Installations\WIX Tools\Windows Installer XML" or from "\\nntavc101xwb1.ccr.corp.intel.com\AVC.QA_OpenCL_resources\OpenCL Tools\WIX Tools\Windows Installer XML".
 exit /B 1
 
 :BSNE
