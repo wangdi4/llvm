@@ -232,6 +232,11 @@ void CPUDetect::GetCPUInfo()
 		m_uiCPUFeatures |= CFS_SSE42;
 	}
 
+	if (viCPUInfo[2] & 0x10000000)
+	{
+		m_uiCPUFeatures |= CFS_AVX10;
+	}
+
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
 
