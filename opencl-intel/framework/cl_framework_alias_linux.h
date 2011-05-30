@@ -119,5 +119,6 @@ DECLARE_ALIAS(clEnqueueCopyBufferRect);
 DECLARE_ALIAS(clCreateSubDevicesEXT);
 DECLARE_ALIAS(clRetainDeviceEXT);
 DECLARE_ALIAS(clReleaseDeviceEXT);
+DECLARE_ALIAS(clCreateImage2DArrayINTEL);
 
 }}}

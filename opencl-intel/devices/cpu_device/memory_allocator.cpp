@@ -283,7 +283,9 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_mem_flags IN flags, const 
 	{
 		for(unsigned i=0; i < dim_count-1; ++i)
 		{
-			if ( pitch[i] < bufferPitch[i])
+			if ( pitch[i] < bufferPitch[i] &&
+                // 2D image array doesn't use pitch[1], although it has 3 dimensions
+                !(0 == pitch[i] && 1 == i))
 			{
 				CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Wrong Pitch Value Enterd"));
 				return CL_DEV_INVALID_VALUE;

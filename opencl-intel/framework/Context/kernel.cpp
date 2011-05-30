@@ -601,7 +601,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	else if ((clArgType == CL_KRNL_ARG_PTR_GLOBAL)	||
 	    (clArgType == CL_KRNL_ARG_PTR_CONST)	||
 		(clArgType == CL_KRNL_ARG_PTR_IMG_2D)	||
-		(clArgType == CL_KRNL_ARG_PTR_IMG_3D))
+		(clArgType == CL_KRNL_ARG_PTR_IMG_3D)   ||
+        (clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR))
 	{
 		if (sizeof(cl_mem) != szSize)
 		{

@@ -1165,7 +1165,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 			stOffset += sizeof(void*);
 		}
 		else if ( ( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
+			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type ) ||
+            ( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type )
 			)
 		{
 			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));

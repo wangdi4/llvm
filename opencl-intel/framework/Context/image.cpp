@@ -127,8 +127,9 @@ cl_err_code Image2D::GetImageInfo(cl_image_info clParamName, size_t szParamValue
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	size_t szValue = 0;
+    const cl_image_array_type zero = 0;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -160,6 +161,10 @@ cl_err_code Image2D::GetImageInfo(cl_image_info clParamName, size_t szParamValue
 		szSize = sizeof(size_t);
 		pValue = &szValue;
 		break;
+    case CL_IMAGE_ARRAY_TYPE:
+        szSize = sizeof(cl_image_array_type);
+        pValue = &zero;
+        break;
 	default:
 		return CL_INVALID_VALUE;
 		break;
@@ -295,18 +300,18 @@ void Image2D::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_
 	*rowPitch = GetRowPitchSize();
 	*slicePitch = 0;
 }
-bool Image2D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
+cl_err_code Image2D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
     if( (pszOrigin[0] + pszRegion[0]) > m_szImageWidth )
     {
-        return false;
+        return CL_INVALID_VALUE;
     }
     if( (pszOrigin[1] + pszRegion[1]) > m_szImageHeight )
     {
-        return false;
+        return CL_INVALID_VALUE;
     }
     // In bounds
-    return true;
+    return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -395,7 +400,7 @@ cl_err_code Image2D::CheckImageFormat(cl_image_format * pclImageFormat, cl_mem_f
 	
 	return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 }
-size_t Image2D::GetPixelBytesCount(cl_image_format * pclImageFormat)
+size_t Image2D::GetPixelBytesCount(const cl_image_format * pclImageFormat)
 {
 	if (NULL == pclImageFormat)
 	{
@@ -438,7 +443,7 @@ size_t Image2D::GetPixelBytesCount(cl_image_format * pclImageFormat)
 		szBytesCount = sizeof(cl_float);
 		break;
 	default:
-		assert(0);
+		return 0;
 	}
 
 	// get number of elements in pixel
@@ -465,7 +470,7 @@ size_t Image2D::GetPixelBytesCount(cl_image_format * pclImageFormat)
 		szElementsCount = 1;
 		break;
 	default:
-		assert(0);
+		return 0;
 	}
 
 	return szBytesCount * szElementsCount;
@@ -548,8 +553,9 @@ cl_err_code Image3D::GetImageInfo(cl_image_info clParamName, size_t szParamValue
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	size_t szValue = 0;
+    const cl_image_array_type zero = 0;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -581,6 +587,10 @@ cl_err_code Image3D::GetImageInfo(cl_image_info clParamName, size_t szParamValue
 		szSize = sizeof(size_t);
 		pValue = &m_szImageDepth;
 		break;
+    case CL_IMAGE_ARRAY_TYPE:
+        szSize = sizeof(cl_image_array_type);
+        pValue = &zero;
+        break;
 	default:
 		return CL_INVALID_VALUE;
 		break;
@@ -667,22 +677,22 @@ void Image3D::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_
 	*rowPitch = GetRowPitchSize();
 	*slicePitch = GetSlicePitchSize();
 }
-bool Image3D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
+cl_err_code Image3D::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
     if( (pszOrigin[0] + pszRegion[0]) > m_szImageWidth )
     {
-        return false;
+        return CL_INVALID_VALUE;
     }
     if( (pszOrigin[1] + pszRegion[1]) > m_szImageHeight )
     {
-        return false;
+        return CL_INVALID_VALUE;
     }
     if( (pszOrigin[2] + pszRegion[2]) > m_szImageDepth )
     {
-        return false;
+        return CL_INVALID_VALUE;
     }
     // In bounds
-    return true;
+    return CL_SUCCESS;
 }
 
 void * Image3D::GetData( const size_t * pszOrigin ) const
@@ -697,4 +707,227 @@ size_t Image3D::CalcImageSize()
 		return m_szImageSlicePitch * m_szImageDepth;
 	}
 	return m_szImageWidth * m_szImageHeight * m_szImageDepth * GetPixelBytesCount(m_pclImageFormat);
+}
+
+Image2DArray::Image2DArray(Context* pContext, cl_mem_flags clMemFlags,
+                           cl_image_format* pclImageFormat, void* pHostPtr, size_t szImageWidth,
+                           size_t szImageHeight, size_t szNumImages, size_t szImageRowPitch,
+                           size_t szImageSlicePitch, ocl_entry_points* pOclEntryPoints,
+                           cl_err_code* pErrCode)
+                           : MemoryObject(pContext, clMemFlags, pOclEntryPoints, pErrCode),
+						   m_pImageArr(new Image2D*[szNumImages]), m_szNumImages(szNumImages),
+                           m_pclImageFormat(*pclImageFormat), m_szImageWidth(szImageWidth),
+                           m_szImageHeight(szImageHeight), m_pImageData(NULL)
+{
+    m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+    memset(m_pImageArr, 0, sizeof(m_pImageArr[0]) * szNumImages);
+    m_szImageRowPitch = 0 == szImageRowPitch ?
+        szImageWidth * Image2D::GetPixelBytesCount(pclImageFormat) : szImageRowPitch;
+    m_szImageSlicePitch = 0 == szImageSlicePitch ? m_szImageRowPitch * szImageHeight :
+        szImageSlicePitch;
+    for (size_t i = 0; i < szNumImages; i++)
+    {
+        m_pImageArr[i] = new Image2D(pContext, clMemFlags, pclImageFormat,
+            &((char*)pHostPtr)[m_szImageSlicePitch * i], szImageWidth, szImageHeight, szImageRowPitch,
+            pOclEntryPoints, pErrCode);
+        if (CL_FAILED(pErrCode))
+        {            
+            return;
+        }
+        m_szMemObjSize += m_pImageArr[i]->GetSize();
+    }
+}
+
+Image2DArray::~Image2DArray()
+{
+    if (NULL != m_pImageArr)
+    {
+        for (size_t i = 0; i < m_szNumImages; i++)
+        {
+            if (NULL != m_pImageArr[i])
+            {
+                m_pImageArr[i]->Release();
+            }
+        }
+        delete[] m_pImageArr;
+        m_pImageArr = NULL;
+    }
+    if (NULL != m_pImageData)
+    {
+        ALIGNED_FREE(m_pImageData);
+    }
+}
+
+cl_err_code Image2DArray::Initialize(void* pHostPtr)
+{
+    if ((NULL == pHostPtr && m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) ||
+        (NULL != pHostPtr && !(m_clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR))))
+    {
+        LOG_ERROR(TEXT("%S"), TEXT("invalid usage of host ptr"));
+        return CL_INVALID_HOST_PTR;
+    }
+    m_pHostPtr = NULL;
+    if (m_clFlags & CL_MEM_USE_HOST_PTR)
+    {
+        m_pHostPtr = pHostPtr;
+
+#ifdef _DEBUG
+        assert(NULL != pHostPtr);
+#endif
+        m_lDataOnHost = 1;
+    }
+    if (!(m_clFlags & CL_MEM_USE_HOST_PTR) && m_clFlags & CL_MEM_COPY_HOST_PTR)
+    {
+        m_lDataOnHost = 1;
+    }
+    for (size_t i = 0; i < m_szNumImages; i++)
+    {
+        m_pImageArr[i]->Initialize(&((char*)pHostPtr)[m_szImageSlicePitch * i]);
+    }
+    return CL_SUCCESS;
+}
+
+cl_err_code Image2DArray::ReadData(void* pOutData, const size_t* pszOrigin,
+                                   const size_t* pszRegion, size_t szRowPitch,
+                                   size_t szSlicePitch)
+{
+    const size_t imageIndex = pszOrigin[2];  
+    Image2D& image = *m_pImageArr[imageIndex];
+    const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
+    return image.ReadData(pOutData, origin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+cl_err_code Image2DArray::WriteData(const void* pOutData, const size_t* pszOrigin,
+                                    const size_t* pszRegion, size_t szRowPitch,
+                                    size_t szSlicePitch)
+{
+    const size_t imageIndex = pszOrigin[2];
+    Image2D& image = *m_pImageArr[imageIndex];
+    const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
+    return image.WriteData(pOutData, origin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+size_t Image2DArray::GetSize() const
+{
+    return m_szMemObjSize;
+}
+
+size_t Image2DArray::GetNumDimensions() const
+{
+    return 3;
+}
+
+void Image2DArray::GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch)
+    const
+{
+    m_pImageArr[0]->GetLayout(dimensions, rowPitch, slicePitch);
+}
+
+cl_err_code Image2DArray::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (pszOrigin[2] >= m_szNumImages)
+    {
+        return CL_INVALID_IMAGE_ARRAY_INDEX;
+    }
+    if (1 != pszRegion[2])
+    {
+        return CL_INVALID_VALUE;
+    }
+    const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
+    return m_pImageArr[pszOrigin[2]]->CheckBounds(origin, pszRegion);
+}
+
+void* Image2DArray::GetData(const size_t* pszOrigin) const
+{
+    if (pszOrigin[2] >= m_szNumImages)
+        return NULL;
+    const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
+    return m_pImageArr[pszOrigin[2]]->GetData(origin);
+}
+
+cl_err_code Image2DArray::CreateDeviceResource(cl_device_id clDeviceId)
+{
+    cl_err_code ret;
+    m_pImageData = (void**)ALIGNED_MALLOC(m_szNumImages * sizeof(void*), CPU_MAXIMUM_ALIGN);
+    if (NULL == m_pImageData)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    for (size_t i = 0; i < m_szNumImages; i++)
+    {
+        ret = m_pImageArr[i]->CreateDeviceResource(clDeviceId);
+        if (CL_SUCCESS != ret)
+        {
+            return ret;
+        }
+        m_pImageData[i] = m_pImageArr[i]->GetData();
+    }
+    DeviceMemoryObject * pDevMemObj = GetDeviceMemoryObject(clDeviceId);
+    if (NULL == pDevMemObj)
+    {
+        LOG_ERROR(TEXT("Can't find device %d"), clDeviceId);
+        return CL_INVALID_DEVICE;
+    }
+    /* 2D image array is laid out exactly as a 3D image, except that the data is a an array of
+    pointers to each individual 2D image */
+    return pDevMemObj->AllocateImage3D(m_clFlags, &m_pclImageFormat, m_szImageWidth,
+        m_szImageHeight, m_szNumImages, m_szImageRowPitch, 0, m_pImageData);
+}
+
+size_t Image2DArray::CalcRowPitchSize(const size_t *  pszRegion)
+{
+    return pszRegion[0] * Image2D::GetPixelBytesCount(&m_pclImageFormat);
+}
+
+size_t Image2DArray::CalcSlicePitchSize(const size_t *  pszRegion)
+{
+    return pszRegion[0] * pszRegion[1] * Image2D::GetPixelBytesCount(&m_pclImageFormat);
+}
+
+cl_err_code Image2DArray::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+{
+    LOG_DEBUG(TEXT("Enter ::::GetImageInfo (clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+        clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    {
+        return CL_INVALID_VALUE;
+    }
+    size_t  szSize = 0;
+    const void * pValue = NULL;
+    const cl_image_array_type imageArrType = CL_IMAGE_ARRAY_SAME_DIMENSIONS;
+    switch (clParamName)
+    {
+    case CL_IMAGE_FORMAT:
+        szSize = sizeof(cl_image_format);
+        pValue = &m_pclImageFormat;
+        break;
+    case CL_IMAGE_SLICE_PITCH:
+        szSize = sizeof(size_t);
+        pValue = &m_szImageSlicePitch;
+        break;
+    case CL_IMAGE_ARRAY_TYPE:
+        szSize = sizeof(imageArrType);
+        pValue = &imageArrType;
+        break;
+    default:
+        return m_pImageArr[0]->GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    }
+
+    if (NULL != pParamValue && szParamValueSize < szSize)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = szSize;
+    }
+
+    if (NULL != pParamValue && szSize > 0)
+    {
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+
+    return CL_SUCCESS;
 }

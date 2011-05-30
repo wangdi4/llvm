@@ -117,8 +117,10 @@ typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
 
 struct _image2d_t;
 struct _image3d_t;
+struct _image2d_array_t;
 typedef struct _image2d_t* image2d_t;
 typedef struct _image3d_t* image3d_t;
+typedef struct _image2d_array_t* image2d_array_t;
 typedef uint sampler_t;
 
 // built-in vector data types:
@@ -7478,6 +7480,55 @@ int2 __attribute__((overloadable)) get_image_dim(image2d_t image);
  */
 int4 __attribute__((overloadable)) get_image_dim(image3d_t image);
 
+/**
+ * Return the number of images in the 2D image array.
+ */
+size_t get_array_size(image2d_array_t image_array);
+
+/**
+ *  Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+float4 __attribute__((overloadable)) read_imagef(image2d_array_t image_array,	sampler_t sampler, int4 coord);
+
+/**
+ * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+float4 __attribute__((overloadable)) read_imagef(image2d_array_t image_array,	sampler_t sampler, float4 coord);
+
+/**
+ * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+int4 __attribute__((overloadable)) read_imagei(image2d_array_t image_array, sampler_t sampler, int4 coord);
+
+/**
+ * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+int4 __attribute__((overloadable)) read_imagei(image2d_array_t image_array, sampler_t sampler, float4 coord);
+
+/**
+ * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+uint4 __attribute__((overloadable)) read_imageui(image2d_array_t image_array, sampler_t sampler, int4 coord);
+
+/**
+ * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+uint4 __attribute__((overloadable)) read_imageui(image2d_array_t image_array, sampler_t sampler, float4 coord);
+
+/**
+ * Write color value to location specified by coord.xy in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+void __attribute__((overloadable)) write_imagef(image2d_array_t image_array, int4 coord, float4 color);
+
+/**
+ * Write color value to location specified by coord.xy in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+void __attribute__((overloadable)) write_imagei(image2d_array_t image_array, int4 coord, int4 color);
+
+/**
+ * Write color value to location specified by coord.xy in the 2D image layer identified by index coord.z in the 2D image array.
+ */
+void __attribute__((overloadable)) write_imageui(image2d_array_t image_array, int4 coord, uint4 color);
 
 /**
  * OpenCL as_typen operators

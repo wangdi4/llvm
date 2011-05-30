@@ -65,8 +65,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetSize() const;
 		size_t GetNumDimensions() const { return 1; }
 		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
-        bool CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
-		bool CheckBounds( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
+        cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
+		cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
 		void * GetData( const size_t * pszOrigin = NULL ) const;
 
 		/******************************************************************************************

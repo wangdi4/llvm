@@ -390,6 +390,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *                  IN  pHostPtr,
 										cl_int *                OUT pErrcodeRet ) = 0;
 
+        virtual cl_mem CreateImage2DArray(  cl_context              IN clContext,
+                                            cl_mem_flags            IN clFlags,
+                                            const cl_image_format * IN clImageFormat,
+                                            cl_image_array_type     IN clImageArrayType,
+                                            const size_t *          IN pszImageWidth,
+                                            const size_t *          IN pszImageHeight,
+                                            size_t                  IN clNumImages,
+                                            size_t                  IN clImageRowPitch,
+                                            size_t                  IN szImageSlicePitch,
+                                            void *                  IN pHostPtr,
+                                            cl_int *	            OUT pErrcodeRet) = 0;
+
 		/******************************************************************************************
 		* Function: 	RetainMemObject    
 		* Description:	increments the memobj reference count. CreateBuffer and CreateImage{2D|3D}

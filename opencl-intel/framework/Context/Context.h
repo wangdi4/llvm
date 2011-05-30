@@ -39,6 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Buffer;
 	class Image2D;
 	class Image3D;
+    class Image2DArray;
 	class Sampler;
     class Device;
 	class FissionableDevice;
@@ -190,6 +191,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t                  szImageSlicePitch,
 									Image3D **		        ppImage3d);
 
+        // create new array of 2 dimensional image objects
+        cl_err_code clCreateImage2DArrayINTEL(
+                                    cl_mem_flags		    clflags,
+                                    const cl_image_format *	pclImageFormat,
+                                    void *					pHostPtr,
+                                    cl_image_array_type		clImageArrayType,
+                                    const size_t *			pszImageWidth,
+                                    const size_t *			pszImageHeight,
+                                    size_t					szNumImages,
+                                    size_t					szImageRowPitch,
+                                    size_t					szImageSlicePitch,                                    
+                                    Image2DArray**          ppImage2dArr);
+
 		// get the supported image formats for this context
 		cl_err_code GetSupportedImageFormats(	cl_mem_flags       clFlags,
 												cl_mem_object_type clType,
@@ -246,7 +260,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											size_t * psz2dHeight, 
 											size_t * psz3dWidth, 
 											size_t * psz3dHeight, 
-											size_t * psz3dDepth);
+											size_t * psz3dDepth,
+                                            size_t * psz2dArraySize);
 
 		// -------------- DEVICES -------------- 
 		

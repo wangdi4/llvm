@@ -1125,6 +1125,65 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
 	}
 	return pImage2d->GetHandle();
 }
+
+cl_mem ContextModule::CreateImage2DArray(cl_context clContext,
+                                         cl_mem_flags clFlags,
+                                         const cl_image_format * clImageFormat,
+                                         cl_image_array_type clImageArrayType,
+                                         const size_t * pszImageWidth,
+                                         const size_t * pszImageHeight,
+                                         size_t szNumImages,
+                                         size_t szImageRowPitch,
+                                         size_t szImageSlicePitch,
+                                         void * pHostPtr,
+                                         cl_int *	pErrcodeRet)
+{
+    LOG_DEBUG(TEXT("Enter CreateImage2DArray (clContext=%d, clFlags=%d, clImageFormat=%d, clImageArrayType=%d, pszImageWidth=%p, pszImageHeight=%p, szNumImages=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%d, pErrcodeRet=%d)"), 
+        clContext, clFlags, clImageFormat, clImageArrayType, pszImageWidth, pszImageHeight, szNumImages, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
+
+#ifdef _DEBUG
+    assert (NULL != m_pMemObjects && NULL != m_pContexts);
+#endif
+
+    Context * pContext = NULL;
+    Image2DArray * pImage2dArr = NULL;
+    cl_err_code clErr = m_pContexts->GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+    if (CL_FAILED(clErr) || NULL == pContext)
+    {
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_INVALID_CONTEXT;
+            }
+            return CL_INVALID_HANDLE;
+    }
+    clErr = pContext->clCreateImage2DArrayINTEL(clFlags, clImageFormat, pHostPtr, clImageArrayType, pszImageWidth, pszImageHeight, szNumImages, szImageRowPitch, szImageSlicePitch, &pImage2dArr);
+    if (CL_FAILED(clErr) || NULL == pImage2dArr)
+    {
+        LOG_ERROR(TEXT("pContext->CreateImage2DArray(%d, %d, %d, %d, %d, %d, %d, %d, %d, %d) = %S"), clFlags, clImageFormat, pHostPtr, clImageArrayType, pszImageWidth, pszImageHeight, szNumImages, szImageRowPitch, szImageSlicePitch, &pImage2dArr, ClErrTxt(clErr))
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_ERR_OUT(clErr);
+            }
+            return CL_INVALID_HANDLE;
+    }
+    clErr = m_pMemObjects->AddObject(pImage2dArr, false);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("m_pMemObjects->AddObject(%d, %d, false) = %S"), pImage2dArr, pImage2dArr->GetHandle(), ClErrTxt(clErr))
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_ERR_OUT(clErr);
+            }
+            return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pImage2dArr->GetHandle();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateImage3D
 //////////////////////////////////////////////////////////////////////////
@@ -1350,6 +1409,10 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage,
 	{
 		return ((Image3D*)pMemObj)->GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}
+    if (pMemObj->GetType() == CL_MEM_OBJECT_IMAGE2D_ARRAY)
+    {
+        return ((Image2DArray*)pMemObj)->GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    }
 	return CL_INVALID_MEM_OBJECT;
 }
 

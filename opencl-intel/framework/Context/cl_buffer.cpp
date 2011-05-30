@@ -146,13 +146,16 @@ void Buffer::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t
 }
 
 
-bool Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
+cl_err_code Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
-
-    return ((*pszOrigin + *pszRegion) <= (m_szMemObjSize));
+    if ((*pszOrigin + *pszRegion) <= (m_szMemObjSize))
+    {
+        return CL_SUCCESS;
+    }
+    return CL_INVALID_VALUE;
 }
 
-bool Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
+cl_err_code Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
 {
 	
 	size_t totalSize = 
@@ -160,7 +163,11 @@ bool Buffer::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion, size
 		pszOrigin[2] * szSlicePitch + pszOrigin[1] * szRowPitch + pszOrigin[0] + 
 	// data size
 		(pszRegion[2]-1)*szSlicePitch + (pszRegion[1]-1) * szRowPitch + pszRegion[0];
-	return (totalSize <= m_szMemObjSize);    
+	if (totalSize <= m_szMemObjSize)
+    {
+        return CL_SUCCESS;
+    }
+    return CL_INVALID_VALUE;
 }
 
 void * Buffer::GetData( const size_t * pszOrigin ) const

@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <cl_buffer.h>
 #include "cl_sys_defines.h"
-
+#include "image.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -392,6 +392,10 @@ cl_dev_mem_object_type DeviceMemoryObject::GetDevMemObjType(cl_mem_object_type c
 	{
 		clDevMemObjType = CL_DEV_MEM_OBJECT_IMAGE3D;
 	}
+    else if (clMemObjType == CL_MEM_OBJECT_IMAGE2D_ARRAY)
+    {
+        clDevMemObjType = CL_DEV_MEM_OBJECT_IMAGE2D_ARRAY;
+    }
 	return clDevMemObjType;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -625,7 +629,7 @@ bool MemoryObject::IsAllocated(cl_device_id clDeviceId)
 // MemoryObject::GetDeviceMemoryHndl
 // If there is no resource in this device, or resource is not valid, 0 hndl is returned.
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId )
+cl_dev_mem MemoryObject::GetDeviceMemoryHndl( cl_device_id clDeviceId ) const
 {
 	LOG_DEBUG(TEXT("%S"), TEXT("Enter GetDeviceMemoryHndl"));
 	DeviceMemoryObject* pDevMemObj = GetDeviceMemoryObject(clDeviceId);
@@ -722,6 +726,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 	size_t szParam = 0;	
 	cl_context clContext = 0;
 	void * pValue = NULL;
+    size_t ret;
 	
 	// For non-subbuffer objects, we return NULL (Spec)
 	cl_mem pMemObj = NULL;
@@ -791,6 +796,18 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 			pValue = &szParam;
 		}
 		break;
+    case CL_MEM_ARRAY_SIZE:
+        szSize = sizeof(size_t);
+        if (CL_MEM_OBJECT_IMAGE2D_ARRAY == GetType())
+        {
+            ret = (dynamic_cast<Image2DArray*>(this))->GetNumImages();
+        }
+        else
+        {
+            ret = 0;
+        }
+        pValue = &ret;
+        break;
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);
 		return CL_INVALID_VALUE;
@@ -836,7 +853,7 @@ cl_err_code MemoryObject::CheckMemFlags(cl_mem_flags clMemFlags)
 	}
 	return CL_SUCCESS;
 }
-DeviceMemoryObject* MemoryObject::GetDeviceMemoryObject(cl_device_id devId)
+DeviceMemoryObject* MemoryObject::GetDeviceMemoryObject(cl_device_id devId) const
 {
     //Todo: will need synchronization once we actually fission it
 

@@ -676,7 +676,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 #endif
 
 	size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0;
-	cl_err_code clErr = GetMaxImageDimensions(&szMaxAllowedImageWidth, &szMaxAllowedImageHeight, NULL, NULL, NULL);
+	cl_err_code clErr = GetMaxImageDimensions(&szMaxAllowedImageWidth, &szMaxAllowedImageHeight, NULL, NULL, NULL, NULL);
 	
 	LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d"), szMaxAllowedImageWidth, szMaxAllowedImageHeight);
 	
@@ -712,6 +712,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 	return CL_SUCCESS;
 
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateImage3D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -736,7 +737,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 #endif
 
 	size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0, szMaxAllowedImageDepth = 0;
-	cl_err_code clErr = GetMaxImageDimensions(NULL, NULL, &szMaxAllowedImageWidth, &szMaxAllowedImageHeight, &szMaxAllowedImageDepth);
+	cl_err_code clErr = GetMaxImageDimensions(NULL, NULL, &szMaxAllowedImageWidth, &szMaxAllowedImageHeight, &szMaxAllowedImageDepth, NULL);
 	
 	LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d, szMaxAllowedImageDepth=%d"), 
 		szMaxAllowedImageWidth, szMaxAllowedImageHeight, szMaxAllowedImageDepth);
@@ -775,6 +776,114 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 	return CL_SUCCESS;
 
 }
+
+// Context::clCreateImage2DArrayINTEL
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::clCreateImage2DArrayINTEL(
+    cl_mem_flags		    clFlags,
+    const cl_image_format *	pclImageFormat,
+    void *					pHostPtr,
+    cl_image_array_type		clImageArrayType,
+    const size_t *			pszImageWidth,
+    const size_t *			pszImageHeight,
+    size_t					szNumImages,
+    size_t					szImageRowPitch,
+    size_t					szImageSlicePitch,                                    
+    Image2DArray**          ppImage2dArr)
+{
+    LOG_DEBUG(TEXT("Enter clCreateImage2DArrayINTEL (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, clImageArrayType=%d, pszImageWidth=%d, pszImageHeight=%d, szNumImages=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2dArr=%d)"), 
+        clFlags, pclImageFormat, pHostPtr, clImageArrayType, pszImageWidth, pszImageHeight,
+        szNumImages, szImageRowPitch, szImageSlicePitch, ppImage2dArr);
+
+    //Acquire a reader lock on the device map to prevent race with device fission
+    OclAutoReader CS(&m_deviceDependentObjectsLock);
+#ifdef _DEBUG
+    assert ( NULL != ppImage2dArr );
+    assert ( NULL != m_pMemObjects );
+#endif
+
+    size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0, szMaxAllowedImageArraySize = 0;
+    cl_err_code clErr = GetMaxImageDimensions(&szMaxAllowedImageWidth, &szMaxAllowedImageHeight,
+        NULL, NULL, NULL, &szMaxAllowedImageArraySize);
+
+    LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d, szMaxAllowedImageArraySize = %d"),
+        szMaxAllowedImageWidth, szMaxAllowedImageHeight, szMaxAllowedImageArraySize);
+    if (NULL == pszImageWidth || NULL == pszImageHeight)
+    {
+        LOG_ERROR(TEXT("pszImageWidth == %p, pszImageHeight == %p"), pszImageWidth,
+            pszImageHeight);
+        return CL_INVALID_VALUE;
+    }
+
+    if ((*pszImageWidth < 1)	||
+        (*pszImageHeight < 1)	||
+        (*pszImageWidth > szMaxAllowedImageWidth)	||
+        (*pszImageHeight > szMaxAllowedImageHeight) ||
+        (szNumImages <= 1) ||
+        (szNumImages > szMaxAllowedImageArraySize))
+    {
+        LOG_ERROR(TEXT("pszImageWidth = %p, pszImageHeight = %p, szNumImages = %d"), pszImageWidth,
+            pszImageHeight, szNumImages);
+        return CL_INVALID_IMAGE_SIZE;
+    }
+    if (NULL == pclImageFormat)
+    {
+        LOG_ERROR(TEXT("NULL == pclImageFormat"), "");
+        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+    }
+    const size_t pixelBytesCnt = Image2D::GetPixelBytesCount(pclImageFormat);
+    if (0 == pixelBytesCnt)
+    {
+        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+    }
+    if ((NULL == pHostPtr && 0 != szImageRowPitch) ||
+        (NULL != pHostPtr && 0 < szImageRowPitch && pixelBytesCnt > szImageRowPitch) ||
+        0 != szImageRowPitch % pixelBytesCnt)
+    {
+        LOG_ERROR(TEXT("szImageRowPitch = %d"), szImageRowPitch);
+        return CL_INVALID_IMAGE_SIZE;
+    }
+    const size_t imageRowPitch =
+        0 == szImageRowPitch ? *pszImageWidth * pixelBytesCnt : szImageRowPitch;
+    if ((NULL == pHostPtr && 0 != szImageSlicePitch) ||
+        (NULL != pHostPtr && 0 < szImageSlicePitch &&
+         imageRowPitch * *pszImageHeight > szImageSlicePitch) ||
+        0 != szImageSlicePitch % imageRowPitch)
+    {
+        LOG_ERROR(TEXT("szImageSlicePitch = %d"), szImageSlicePitch);
+        return CL_INVALID_IMAGE_SIZE;
+    }
+    if (CL_IMAGE_ARRAY_SAME_DIMENSIONS != clImageArrayType)
+    {
+        LOG_ERROR(TEXT("clImageArrayType = %d"), clImageArrayType);
+        return CL_INVALID_VALUE;
+    }
+    // flags and imageFormat are validated by Image2D and MemoryObject contained inside Image2DArray and hostPtr by MemoryObject::initialize.
+
+    Image2DArray * pImage2DArr = new Image2DArray(this, clFlags, (cl_image_format*)pclImageFormat,
+        pHostPtr, *pszImageWidth, *pszImageHeight, szNumImages, szImageRowPitch, szImageSlicePitch,
+        (ocl_entry_points*)m_handle.dispatch, &clErr);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("Error creating new Image2DArr, returned: %S"), ClErrTxt(clErr));
+        pImage2DArr->Release();
+        return clErr;
+    }
+
+    clErr = pImage2DArr->Initialize(pHostPtr);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("Failed to initialize data, pImage2D->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
+        pImage2DArr->Release();
+        return clErr;
+    }
+
+    m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage2DArr);
+
+    *ppImage2dArr = pImage2DArr;
+    return CL_SUCCESS;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::GetSupportedImageFormats
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -793,7 +902,7 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 		return CL_INVALID_VALUE;
 	}
 
-	if ( clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D )
+	if ( clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D && clType != CL_MEM_OBJECT_IMAGE2D_ARRAY)
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D"));
 		return CL_INVALID_VALUE;
@@ -893,7 +1002,8 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 										   size_t * psz2dHeight, 
 										   size_t * psz3dWidth, 
 										   size_t * psz3dHeight, 
-										   size_t * psz3dDepth)
+										   size_t * psz3dDepth,
+                                           size_t * psz2dArraySize)
 {
 #ifdef _DEBUG
 	assert ( "There are no devices associated to the context!!!" && (m_pDevices != NULL) );
@@ -904,6 +1014,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 
 	size_t sz2dWith = 0, sz2dHeight = 0, szMax2dWith = 0, szMax2dHeight = 0;
 	size_t sz3dWith = 0, sz3dHeight = 0, szMax3dWith = 0, szMax3dHeight = 0, sz3dDepth = 0, szMax3dDepth = 0;
+    size_t sz2dArraySize = 0, szMax2dArraySize = 0;
 	cl_err_code clErr = CL_SUCCESS;
 	Device * pDevice = NULL;
 	
@@ -954,6 +1065,14 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 				szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
 			}
 		}
+        if (NULL != psz2dArraySize)
+        {
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_ARRAY_MAX_SIZE, sizeof(size_t), &sz2dArraySize, NULL);
+            if (CL_SUCCEEDED(clErr))
+            {
+                szMax2dArraySize = ((0 == ui) || (sz2dArraySize < szMax2dArraySize)) ? sz2dArraySize : szMax2dArraySize;
+            }
+        }
 	}
 
 	if (NULL != psz2dWidth)
@@ -976,6 +1095,10 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	{
 		*psz3dDepth = szMax3dDepth;
 	}
+    if (NULL != psz2dArraySize)
+    {
+        *psz2dArraySize = szMax2dArraySize;
+    }
 
 	return CL_SUCCESS;
 }

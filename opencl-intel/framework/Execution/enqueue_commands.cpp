@@ -32,6 +32,7 @@
 #include "sampler.h"
 #include "events_manager.h"
 #include "cl_sys_defines.h"
+#include "image.h"
 //For debug
 #include <stdio.h>
 #if defined (_WIN32)
@@ -448,6 +449,16 @@ cl_err_code MemoryCommand::PrepareOnDevice(
 	}									
 	return res;
 }
+
+// in case of an image array we need to substitute the MemoryObject representing the array with the indexed 2D image.
+static void CheckImageArray(MemoryObject*& memObj, size_t index)
+{
+    if (CL_MEM_OBJECT_IMAGE2D_ARRAY == memObj->GetType())
+    {
+        memObj = &dynamic_cast<Image2DArray*>(memObj)->GetImage(index);
+    }
+}
+
 CopyMemObjCommand::CopyMemObjCommand( 
 				  IOclCommandQueueBase* cmdQueue, 
 				  ocl_entry_points *    pOclEntryPoints,
@@ -477,6 +488,7 @@ CopyMemObjCommand::CopyMemObjCommand(
         m_uiSrcNumDims = 1;
         break;
     case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         m_uiSrcNumDims = 2;
         break;
     case CL_MEM_OBJECT_IMAGE3D:
@@ -503,6 +515,7 @@ CopyMemObjCommand::CopyMemObjCommand(
         m_uiDstNumDims = 1;
         break;
     case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         m_uiDstNumDims = 2;
         break;
     case CL_MEM_OBJECT_IMAGE3D:
@@ -542,6 +555,8 @@ CopyMemObjCommand::~CopyMemObjCommand()
  ******************************************************************/
 cl_err_code CopyMemObjCommand::Init()
 {
+    CheckImageArray(m_pSrcMemObj, m_szSrcOrigin[2]);
+    CheckImageArray(m_pDstMemObj, m_szDstOrigin[2]);
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 	if (!m_pDstMemObj->IsAllocated(clDeviceId))
     {
@@ -938,6 +953,7 @@ MapMemObjCommand::~MapMemObjCommand()
  ******************************************************************/
 cl_err_code MapMemObjCommand::Init()
 {
+    CheckImageArray(m_pMemObj, m_pOrigin[2]);
     cl_err_code res;
     m_pMemObj->AddPendency();
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
@@ -1696,6 +1712,7 @@ ReadMemObjCommand::ReadMemObjCommand(
         uiDimCount = 1;
         break;
     case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         uiDimCount = 2;
         break;
     case CL_MEM_OBJECT_IMAGE3D:
@@ -1748,9 +1765,10 @@ ReadMemObjCommand::~ReadMemObjCommand()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::Init()
 {
+    CheckImageArray(m_pMemObj, m_szOrigin[2]);
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 	cl_device_id clDeviceDataLocation = m_pMemObj->GetDataLocation(clDeviceId);	
-	
+
 	if(0 == clDeviceDataLocation)
     {
         if (!m_pMemObj->IsAllocated(clDeviceId))
@@ -1981,6 +1999,7 @@ WriteMemObjCommand::WriteMemObjCommand(
         uiDimCount = 1;
         break;
     case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         uiDimCount = 2;
         break;
     case CL_MEM_OBJECT_IMAGE3D:
@@ -2033,6 +2052,7 @@ WriteMemObjCommand::~WriteMemObjCommand()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Init()
 {
+    CheckImageArray(m_pMemObj, m_szOrigin[2]);
 	cl_device_id clDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 	 // First validate that image is allocated.
     if (!m_pMemObj->IsAllocated(clDeviceId))

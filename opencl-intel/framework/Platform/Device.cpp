@@ -86,6 +86,9 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	cl_bool      bValue           = false;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
+    /* This is the minimum value for the FULL profile. We may change this in the future in order to
+       be aligned with GEN. */
+    size_t       devImageArrMaxSize = 2048;
     
     cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
 	void * pValue = NULL;
@@ -122,6 +125,11 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
         //szParamValueSize = sizeof(emptyList);
         szParamValueSize = 1;
         pValue           = &emptyList;
+        break;
+
+    case CL_DEVICE_IMAGE_ARRAY_MAX_SIZE:
+        szParamValueSize = sizeof(size_t);
+        pValue = &devImageArrMaxSize;
         break;
 
 	default:

@@ -48,7 +48,7 @@ ocl_entry_points FrameworkProxy::OclEntryPoints = {
     NULL/*(KHRpfn_clSetCommandQueueProperty)GET_ALIAS(clSetCommandQueueProperty)*/,
     (KHRpfn_clCreateBuffer)GET_ALIAS(clCreateBuffer),
     (KHRpfn_clCreateImage2D)GET_ALIAS(clCreateImage2D),
-    (KHRpfn_clCreateImage3D)GET_ALIAS(clCreateImage3D),
+    (KHRpfn_clCreateImage3D)GET_ALIAS(clCreateImage3D),	
     (KHRpfn_clRetainMemObject)GET_ALIAS(clRetainMemObject),
     (KHRpfn_clReleaseMemObject)GET_ALIAS(clReleaseMemObject),
     (KHRpfn_clGetSupportedImageFormats)GET_ALIAS(clGetSupportedImageFormats),
@@ -123,7 +123,8 @@ ocl_entry_points FrameworkProxy::OclEntryPoints = {
 	(KHRpfn_clEnqueueCopyBufferRect)GET_ALIAS(clEnqueueCopyBufferRect),
 	(KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT), 
 	(KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT),
-	(KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT)
+	(KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT),
+    (KHRpfn_clCreateImage2DArrayINTEL)GET_ALIAS(clCreateImage2DArrayINTEL)
 };
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;

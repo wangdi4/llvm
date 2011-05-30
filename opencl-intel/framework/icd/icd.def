@@ -20,6 +20,7 @@ EXPORTS
 	clSetMemObjectDestructorCallback
 	clCreateImage2D
 	clCreateImage3D
+	clCreateImage2DArrayINTEL
 	clRetainMemObject
 	clReleaseMemObject
 	clGetSupportedImageFormats

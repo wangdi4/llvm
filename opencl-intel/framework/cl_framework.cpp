@@ -220,6 +220,23 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
 	return CONTEXT_MODULE->CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret);
 }
 SET_ALIAS(clCreateImage3D);
+
+SET_ALIAS(clCreateImage2DArrayINTEL);
+REGISTER_EXTENSION_FUNCTION(clCreateImage2DArrayINTEL, clCreateImage2DArrayINTEL);
+cl_mem CL_API_CALL clCreateImage2DArrayINTEL(cl_context				context,
+					 cl_mem_flags				flags,
+					 const cl_image_format *	image_format,
+					 cl_image_array_type		image_array_type,
+					 const size_t *				image_width,
+					 const size_t *				image_height,
+					 size_t						num_images,
+					 size_t						image_row_pitch,
+					 size_t						image_slice_pitch,
+					 void *						host_ptr,
+					 cl_int *					errcode_ret) CL_EXT_SUFFIX__VERSION_1_1
+{
+	return CONTEXT_MODULE->CreateImage2DArray(context, flags, image_format, image_array_type, image_width, image_height, num_images, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret);
+}
                         
 cl_int CL_API_CALL clRetainMemObject(cl_mem memobj)
 {

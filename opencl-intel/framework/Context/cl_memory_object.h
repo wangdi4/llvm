@@ -225,7 +225,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             {return CL_ERR_FAILURE; }
         
 		// initialize the data on the memeory object
-		cl_err_code Initialize(void * pHostPtr);
+		virtual cl_err_code Initialize(void * pHostPtr);
 
 		// check if the device memory object was allocated for the specific device
 		// it is'nt assure that the data is available on the device. in order to know that you should
@@ -245,7 +245,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// returns 0 when the data is not availble on the device, or the memory object wasn't allocated.
 		// calling to this method doesn't promis that once it finished the data is available on the
 		// same device
-        cl_dev_mem GetDeviceMemoryHndl( cl_device_id clDeviceId );
+        cl_dev_mem GetDeviceMemoryHndl( cl_device_id clDeviceId ) const;
 
 		// set the device id where the data is know available.
 		// calling to this methos should be done just before the write command is sent to the device agent.
@@ -323,9 +323,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const = 0;
         // Check if the region defined with pszOrigin and pszOregion is within the dimensions
-        // If it is out of bounds the function returns false. else returns true
+        // If it is out of bounds the function returns an error code. else returns CL_SUCCESS.
         // The length of the pszOrigin and pszOregion arrays is 1,2,3 for buffer, 2D image, 3D image respectively.
-        virtual bool CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const = 0;
+        virtual cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const = 0;
 
 		// get pointer to the data of the memory object.
 		// it is on the caller responsiblity to save the data.
@@ -378,7 +378,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CheckMemFlags(cl_mem_flags clMemFlags);
 
 		// Returns the appropriate DeviceMemoryObject or NULL if it doesn't exist
-		DeviceMemoryObject* GetDeviceMemoryObject(cl_device_id devId);
+		DeviceMemoryObject* GetDeviceMemoryObject(cl_device_id devId) const;
 		cl_mem_object_type						m_clMemObjectType;
 		cl_mem_flags							m_clFlags; // memory object's flags
 		void *									m_pHostPtr; // memory object's host ptr

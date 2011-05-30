@@ -634,10 +634,10 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_CONTEXT;
     }
 
-    if (!(pBuffer->CheckBounds(&szOffset, &szCb)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb)))
     {
         // Out of bounds check.
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
 
@@ -728,10 +728,10 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 	SetIfZero(buffer_slice_pitch	, region[1] * buffer_row_pitch);
 	SetIfZero(host_slice_pitch		, region[1] * host_row_pitch);		
 
-    if (!(pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 		
 	if (pBuffer->IsSubBuffer())
@@ -800,10 +800,10 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_CONTEXT;
     }
 
-    if (!(pBuffer->CheckBounds(&szOffset, &szCb)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb)))
     {
         // Out of bounds check.
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
@@ -893,10 +893,10 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	SetIfZero(host_slice_pitch		, region[1] * host_row_pitch);
 	
 	
-    if (!(pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
 	if (pBuffer->IsSubBuffer())
@@ -971,9 +971,13 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     }
 
     // Check boundaries.
-    if (!(pSrcBuffer->CheckBounds(&szSrcOffset,&szCb)) || !(pDstBuffer->CheckBounds(&szDstOffset,&szCb)))
+    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(&szSrcOffset,&szCb)))
     {
-        return CL_INVALID_VALUE;
+        return errVal;
+    }
+    if (CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(&szDstOffset,&szCb)))
+    {
+        return errVal;
     }
 
     if( clSrcBuffer == clDstBuffer)
@@ -1073,12 +1077,12 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 	SetIfZero(dst_buffer_slice_pitch	, region[1] * dst_buffer_row_pitch);
 	
 	
-    if (!(pSrcBuffer->CheckBounds(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) || 
-		!(pDstBuffer->CheckBounds(szDstOrigin, region, dst_buffer_row_pitch, dst_buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) || 
+		CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(szDstOrigin, region, dst_buffer_row_pitch, dst_buffer_slice_pitch)))
 
     {
         // Out of bounds check.
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
 	if (pSrcBuffer->IsSubBuffer())
@@ -1621,6 +1625,13 @@ inline cl_err_code ExecutionModule::Check2DImageParameters( MemoryObject* pImage
             errVal = CL_INVALID_VALUE;
         }
     }
+    if (CL_MEM_OBJECT_IMAGE2D_ARRAY == pImage->GetType())
+    {
+        if (1 != szRegion[2])
+        {
+            errVal = CL_INVALID_VALUE;
+        }
+    }
     return errVal;
 }
 
@@ -1639,12 +1650,17 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj,
         {
             isOverlaps = true;
         }
+        // fall through
     case CL_MEM_OBJECT_IMAGE2D:
-        if ( (szDstOrigin[1] < (szSrcOrigin[1] + szRegion[1])) && 
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+        if (((CL_MEM_OBJECT_IMAGE2D_ARRAY == memObjType && szSrcOrigin[2] == szDstOrigin[2]) ||
+             CL_DEV_MEM_OBJECT_IMAGE2D_ARRAY != memObjType) &&
+            (szDstOrigin[1] < (szSrcOrigin[1] + szRegion[1])) &&
              ((szDstOrigin[1]+szRegion[1]) > szSrcOrigin[1]))
         {
             isOverlaps = true;
         }
+        // fall through
     case CL_MEM_OBJECT_BUFFER:
        /* if ( (szDstOrigin[0] < (szSrcOrigin[0] + szRegion[0])) && 
              ((szDstOrigin[0]+szRegion[0]) > szSrcOrigin[0]))
@@ -1759,8 +1775,11 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_CONTEXT;
     }
 
-    if (!(pImage->CheckBounds(szOrigin, szRegion))                     ||
-        CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
+    if (CL_SUCCESS != (errVal = pImage->CheckBounds(szOrigin, szRegion)))
+    {
+        return errVal;
+    }
+    if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
         ((CL_MEM_OBJECT_IMAGE2D == pImage->GetType()) && (0 != szSlicePitch))
         )
     {
@@ -1834,8 +1853,11 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_CONTEXT;
     }
 
-    if (!(pImage->CheckBounds(szOrigin, szRegion))                     ||
-        CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
+    if (CL_SUCCESS != (errVal = pImage->CheckBounds(szOrigin, szRegion)))
+    {
+        return errVal;
+    }
+    if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
         ((CL_MEM_OBJECT_IMAGE2D == pImage->GetType()) && (0 != szSlicePitch))
         )
     {
@@ -1912,9 +1934,9 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     }
 
     // Check boundaries.
-    if (!(pSrcImage->CheckBounds(szSrcOrigin,szRegion)) || !(pDstImage->CheckBounds(szDstOrigin,szRegion)))
+    if (CL_SUCCESS != (errVal = pSrcImage->CheckBounds(szSrcOrigin,szRegion)) || CL_SUCCESS != (errVal = pDstImage->CheckBounds(szDstOrigin,szRegion)))
     {
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
     if( CL_FAILED(Check2DImageParameters(pSrcImage, szSrcOrigin, szRegion))  ||
@@ -2008,9 +2030,9 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     size_t szDstCb = CalcRegionSizeInBytes(pSrcImage, szRegion);
 
     // Check boundaries.
-    if (!(pSrcImage->CheckBounds(szSrcOrigin,szRegion)) || !(pDstBuffer->CheckBounds(&szDstOffset,&szDstCb)))
+    if (CL_SUCCESS != (errVal = pSrcImage->CheckBounds(szSrcOrigin,szRegion)) || CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(&szDstOffset,&szDstCb)))
     {
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
     //
@@ -2089,9 +2111,9 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     size_t szDstCb = CalcRegionSizeInBytes(pDstImage, szRegion);
 
     // Check boundaries.
-    if (!(pSrcBuffer->CheckBounds(&szSrcOffset,&szDstCb)) || !(pDstImage->CheckBounds(szDstOrigin,szRegion)))
+    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(&szSrcOffset,&szDstCb)) || CL_SUCCESS != (errVal = pDstImage->CheckBounds(szDstOrigin,szRegion)))
     {
-        return CL_INVALID_VALUE;
+        return errVal;
     }
 
     //
@@ -2173,13 +2195,22 @@ void * ExecutionModule::EnqueueMapImage(
         *pErrcodeRet = CL_INVALID_CONTEXT;
         return NULL;
     }    
-    else if (!(pImage->CheckBounds(szOrigin, szRegion))                 ||
-        CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))   ||
-        (NULL == pszImageRowPitch)                                      ||
-        ((CL_MEM_OBJECT_IMAGE3D == pImage->GetType()) && (NULL == pszImageSlicePitch))  
-        )
+    else
     {
-        *pErrcodeRet = CL_INVALID_VALUE;
+        if (CL_SUCCESS != (err = pImage->CheckBounds(szOrigin, szRegion)))
+        {
+            *pErrcodeRet = err;
+        }
+        else
+        {
+            if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))   ||
+                (NULL == pszImageRowPitch)                                      ||
+                ((CL_MEM_OBJECT_IMAGE3D == pImage->GetType()) && (NULL == pszImageSlicePitch))  
+                )
+            {
+                *pErrcodeRet = CL_INVALID_VALUE;
+            }
+        }
     }
 
     if(CL_FAILED(*pErrcodeRet))
