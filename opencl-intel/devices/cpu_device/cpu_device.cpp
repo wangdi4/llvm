@@ -1115,7 +1115,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 		}
 
         case CL_DEVICE_PARTITION_TYPES_EXT:
-            *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES) / sizeof(cl_device_partition_property_ext);
+            *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;

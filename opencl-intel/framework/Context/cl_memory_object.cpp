@@ -462,6 +462,7 @@ m_clMemObjectType(0),m_clFlags(clMemFlags),m_pContext(pContext),m_ppDeviceMemObj
 	if (!m_ppDeviceMemObjects)
 	{
 		*pErr = CL_OUT_OF_HOST_MEMORY;
+		delete[] ppRootDevices;
 		return;
 	}
 
