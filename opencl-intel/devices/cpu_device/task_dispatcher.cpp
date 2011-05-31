@@ -514,5 +514,6 @@ int SubdeviceTaskDispatcherThread::Run()
         }
         m_dispatcher->m_received = true;
     } while(true);
+	return 0;
 
 }
