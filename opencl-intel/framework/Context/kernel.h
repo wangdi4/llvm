@@ -148,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool IsLocalPtr() const;
 		void ModifyValue(size_t szSize, void * pValue)
 		{ 
-			if (m_clKernelArgType.type <= CL_KRNL_ARG_VECTOR)
+			if ((m_clKernelArgType.type <= CL_KRNL_ARG_VECTOR) || (m_clKernelArgType.type == CL_KRNL_ARG_COMPOSITE))
 				MEMCPY_S(m_pValue, m_szSize, pValue, szSize);
 			else if (m_clKernelArgType.type == CL_KRNL_ARG_PTR_LOCAL)
 				*((void**)m_pValue) = (void*)szSize;
