@@ -683,7 +683,15 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 		return CL_SUCCESS;
 	}
 
-	DeviceMemoryObject* pDevMemObj = GetDeviceMemoryObject(clDevice);
+    //Translate devId to root device ID
+    FissionableDevice* pDevice;
+    if (CL_SUCCESS != m_pContext->GetDevice(clDevice, &pDevice))
+    {
+        return NULL;
+    }
+    cl_device_id rootId = pDevice->GetRootDevice()->GetHandle();
+
+    DeviceMemoryObject* pDevMemObj = GetDeviceMemoryObject(clDevice);
 	if (NULL == pDevMemObj)
 	{
 		LOG_ERROR(L"Can't find device %d", clDevice);
@@ -695,7 +703,7 @@ cl_err_code MemoryObject::SetDataLocation(cl_device_id clDevice)
 		DeviceMemoryObject*& pDevMemObj = m_ppDeviceMemObjects[i];
 		assert ( pDevMemObj != NULL );
 
-		if (clDevice != pDevMemObj->GetDeviceId())
+		if (rootId != pDevMemObj->GetDeviceId())
 		{
 			pDevMemObj->SetDataValid(false);
 		}
