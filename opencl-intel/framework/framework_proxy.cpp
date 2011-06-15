@@ -154,7 +154,35 @@ FrameworkProxy::~FrameworkProxy()
 // FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Initialize()
-{	  
+{
+#ifdef WIN32
+	// The loading on tbb.dll was delayed,
+	// Need to load manually before defualt dll is loaded
+	char tBuff[MAX_PATH], *ptCutBuff;
+	char oldDLLDir[MAX_PATH];
+	DWORD oldDllRet;
+	int iCh = '\\';
+	int iPathLength;
+
+	HMODULE hModule = NULL;
+	
+	GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)FrameworkProxy::Instance, &hModule);
+	assert(NULL!=hModule);
+	if ( NULL != hModule )
+	{
+		oldDllRet = GetDllDirectoryA(MAX_PATH, oldDLLDir);
+		GetModuleFileNameA(hModule, tBuff, MAX_PATH-1);
+		ptCutBuff = strrchr ( tBuff, iCh );
+		iPathLength = (int)(ptCutBuff - tBuff + 1);
+		tBuff[iPathLength] = 0;
+		// Add SDK installation path to DLL search directory
+		SetDllDirectoryA(tBuff);
+
+		strcpy_s(clFRAMEWORK_CFG_PATH, MAX_PATH-1, tBuff);
+		strcat_s(clFRAMEWORK_CFG_PATH, MAX_PATH-1, "cl.cfg");
+	}
+#endif
+
 	// initialize configuration file
 	m_pConfig = new OCLConfig();
     if (NULL == m_pConfig)
@@ -269,6 +297,13 @@ void FrameworkProxy::Initialize()
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%S"), TEXT("Initialize Executor"));
 	GetTaskExecutor()->Init(0, &m_GPAData);
+
+#ifdef WIN32
+	if ( 0 != oldDllRet )
+	{
+		SetDllDirectoryA(oldDLLDir);
+	}
+#endif
 
 }
 

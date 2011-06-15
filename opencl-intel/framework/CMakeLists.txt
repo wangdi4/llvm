@@ -63,13 +63,20 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 
 link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 
-
-
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 COPY_SOURCE_FILES_POST_BUILD( ${TARGET_NAME} ${CONFIG_FILES} )
+
+if (WIN32)
+	set_target_properties(${TARGET_NAME} PROPERTIES
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll /DELAYLOAD:task_executor.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll /DELAYLOAD:task_executor.dll"
+	)
+
+	list( APPEND LINK_LIBS delayimp.lib )		
+endif(WIN32)
 
 target_link_libraries( ${TARGET_NAME} Context
                                       Execution
@@ -80,4 +87,3 @@ target_link_libraries( ${TARGET_NAME} Context
                                       ${LINK_LIBS} )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
-

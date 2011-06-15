@@ -32,10 +32,6 @@
 #include "thread_executor.h"
 #define PTR_CAST	ThreadTaskExecutor
 #endif
-#ifdef __XN_EXECUTOR__
-#include "xn_executor.h"
-#define PTR_CAST	XNTaskExecutor
-#endif
 
 #include <Windows.h>
 #include <stdio.h>

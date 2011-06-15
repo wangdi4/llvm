@@ -27,7 +27,7 @@
 #pragma once
 
 #include "task_executor.h"
-#include "tbb/tbb.h"
+#include <tbb/tbb.h>
 
 #include "cl_synch_objects.h"
 
