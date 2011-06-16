@@ -639,7 +639,11 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         // Out of bounds check.
         return errVal;
     }
-
+	
+	if ((NULL == cpEeventWaitList && (0 < uNumEventsInWaitList)) || (cpEeventWaitList && (0 == uNumEventsInWaitList)))
+	{
+		return CL_INVALID_EVENT_WAIT_LIST;
+	}
 
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
 	const size_t pszRegion[3] = {szCb, 1, 1};
@@ -805,6 +809,11 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         // Out of bounds check.
         return errVal;
     }
+
+	if ((NULL == cpEeventWaitList && (0 < uNumEventsInWaitList)) || (cpEeventWaitList && (0 == uNumEventsInWaitList)))
+	{
+		return CL_INVALID_EVENT_WAIT_LIST;
+	}
 
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
 	const size_t pszRegion[3] = {szCb, 1, 1};

@@ -120,19 +120,29 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 
 	LOG_INFO(TEXT("Enter ContextModule::CreateContext (clProperties=%d, uiNumDevices=%d, pDevices=%d)"), clProperties, uiNumDevices, pDevices);
 	
-	if (NULL != pRrrcodeRet)
+	if (!pDevices)
 	{
-		*pRrrcodeRet = CL_SUCCESS;
-	}
-	
-	if ((NULL == pDevices) || (0 == uiNumDevices))
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("(NULL == pDevices) || (0 == uiNumDevices); return CL_INVALID_VALUE"));
+		LOG_ERROR(TEXT("%S"), TEXT("(!pDevices); return CL_INVALID_VALUE"));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_VALUE;
 		}
 		return CL_INVALID_HANDLE;
+	}
+
+	if (!pfnNotify && pUserData)
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
+		if (NULL != pRrrcodeRet)
+		{	
+			*pRrrcodeRet = CL_INVALID_VALUE;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+	if (NULL != pRrrcodeRet)
+	{
+		*pRrrcodeRet = CL_SUCCESS;
 	}
 
 	FissionableDevice ** ppDevices = new FissionableDevice * [uiNumDevices];
@@ -346,7 +356,9 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 		LOG_ERROR(TEXT("%S"), TEXT("m_pContexts == NULL; return CL_ERR_INITILIZATION_FAILED"));
 		return CL_ERR_INITILIZATION_FAILED;
 	}
-	return m_pContexts->ReleaseObject((_cl_context_int*)context);
+	 
+	cl_err_code err = m_pContexts->ReleaseObject((_cl_context_int*)context);
+	return ((CL_ERR_KEY_NOT_FOUND == err) ? CL_INVALID_CONTEXT : err);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -976,6 +988,34 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
+
+	if (0 == clFlags )
+	{
+		clFlags |= CL_MEM_READ_WRITE;
+	}
+	else if (clFlags & CL_MEM_READ_ONLY)
+	{
+		if (clFlags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE))
+		{
+			*pErrcodeRet = CL_INVALID_VALUE;
+			return CL_INVALID_HANDLE;  
+		}
+	}
+	else if ((clFlags & CL_MEM_WRITE_ONLY) && (clFlags & CL_MEM_READ_WRITE))
+	{
+		*pErrcodeRet = CL_INVALID_VALUE;
+		return CL_INVALID_HANDLE;  
+	}
+
+	if (clFlags & CL_MEM_USE_HOST_PTR)
+	{
+		if (clFlags & (CL_MEM_COPY_HOST_PTR | CL_MEM_ALLOC_HOST_PTR))
+		{
+			*pErrcodeRet = CL_INVALID_VALUE;
+			return CL_INVALID_HANDLE; 
+		}
+	}
+
 	clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
 	if (CL_FAILED(clErr))
 	{
@@ -1017,6 +1057,12 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 #ifdef _DEBUG
 	assert (NULL != m_pMemObjects && NULL != m_pContexts);
 #endif
+
+	if (!clBuffer)
+	{
+		*pErrcodeRet = CL_INVALID_MEM_OBJECT;		
+		return CL_INVALID_HANDLE;
+	}
 
 	MemoryObject * pMemObj = NULL;
 	cl_err_code clErr = m_pMemObjects->GetOCLObject((_cl_mem_int*)clBuffer, (OCLObject<_cl_mem_int>**)&pMemObj);

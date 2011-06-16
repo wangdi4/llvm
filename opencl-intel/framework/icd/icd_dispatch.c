@@ -196,7 +196,7 @@ clCreateContext(const cl_context_properties * properties,
 {
     // initialize the platforms (in case they have not been already)
     khrIcdInitialize();
-    if (!num_devices)
+    if (!devices || !num_devices)
     {
         if (errcode_ret)
         {

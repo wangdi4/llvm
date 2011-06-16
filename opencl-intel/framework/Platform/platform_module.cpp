@@ -440,8 +440,8 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 		return CL_INVALID_DEVICE_TYPE;
 	}
 
-	if ((NULL == pclDevices && NULL == puiNumDevices) ||
-		(NULL == pclDevices && uiNumEntries > 0))
+	if ((NULL != pclDevices && 0 == uiNumEntries) ||
+		(NULL == pclDevices && NULL == puiNumDevices))
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
 		return CL_INVALID_VALUE;
@@ -578,13 +578,14 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		*pszParamValueSizeRet = szParamSize;
 	}
 
+	if (szParamValueSize < szParamSize)
+	{
+		LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
+		return CL_INVALID_VALUE;
+	}
+
 	if (NULL != pParamValue)
 	{
-		if (szParamValueSize < szParamSize)
-		{
-			LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
-			return CL_INVALID_VALUE;
-		}
 		MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
 	}
 	return CL_SUCCESS;

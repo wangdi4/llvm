@@ -133,16 +133,21 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
         break;
 
 	default:
-		clDevErr = m_pFnClDevGetDeviceInfo(param_name, param_value_size, param_value, param_value_size_ret);
-		if (clDevErr != (int)CL_DEV_SUCCESS)
+		size_t s;
+		clDevErr = m_pFnClDevGetDeviceInfo(param_name, param_value_size, param_value, &s);
+		if ((clDevErr != (int)CL_DEV_SUCCESS) || (param_value && (param_value_size < s)))
 		{
 			return CL_INVALID_VALUE;
+		}
+		if (param_value_size_ret)
+		{
+			*param_value_size_ret = s;
 		}
 		return CL_SUCCESS;
 	}
 
 	// if param_value_size < actual value size return CL_INVALID_VALUE
-	if (NULL != param_value && param_value_size < szParamValueSize)
+	if (param_value && (param_value_size < szParamValueSize))
 	{
 		LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"), param_value_size, szParamValueSize);
 		return CL_INVALID_VALUE;
