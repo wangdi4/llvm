@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 #include "task_executor.h"
 
-#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ ) && ! defined( __XN_EXECUTOR__ )
+#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ )
 #define __THREAD_EXECUTOR__
 #endif
 
@@ -50,9 +50,6 @@ void Intel::OpenCL::TaskExecutor::dll_init(void)
 #endif
 #ifdef __THREAD_EXECUTOR__
 	g_pTaskExecutor = new ThreadTaskExecutor;
-#endif
-#ifdef __XN_EXECUTOR__
-	g_pTaskExecutor = new XNTaskExecutor;
 #endif
 }
 

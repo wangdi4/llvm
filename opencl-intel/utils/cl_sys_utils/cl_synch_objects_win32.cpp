@@ -364,13 +364,15 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 	}
 	if (size <= 0)
 	{
-		assert(0 && "Error occured while trying to create bit field array, invalid size");
+		assert(0 && "Error occurred while trying to create bit field array, invalid size");
 	}
 	m_size = size;
 	m_bitField = (long*)malloc(sizeof(long) * m_size);
 	if (NULL == m_bitField)
 	{
-		assert(0 && "Error occured while trying to create bit field array, malloc failed");
+		assert(0 && "Error occurred while trying to create bit field array, malloc failed");
+		m_eventLock.Signal();
+		return;
 	}
 	if (initVal)
 	{

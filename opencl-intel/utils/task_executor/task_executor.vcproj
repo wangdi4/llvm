@@ -208,10 +208,6 @@
 				RelativePath=".\thread_executor.cpp"
 				>
 			</File>
-			<File
-				RelativePath=".\xn_executor.cpp"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -228,10 +224,6 @@
 			</File>
 			<File
 				RelativePath=".\thread_executor.h"
-				>
-			</File>
-			<File
-				RelativePath=".\xn_executor.h"
 				>
 			</File>
 		</Filter>

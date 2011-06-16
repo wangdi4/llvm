@@ -20,7 +20,7 @@
 #include <stdafx.h>
 #include "task_executor.h"
 
-#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ ) && ! defined( __XN_EXECUTOR__ )
+#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ )
 #define __THREAD_EXECUTOR__
 #endif
 
@@ -115,10 +115,6 @@ struct ExecutorSingletonHandler
 		pTaskExecutor = new ThreadTaskExecutorImpl;
 		pTaskExecutor->Init(0);
 #endif
-#ifdef __XN_EXECUTOR__
-		pTaskExecutor = new XNTaskExecutor;
-		pTaskExecutor->Init(0);
-#endif
 		*ppTaskExecutor = pTaskExecutor;
 		// Release Mutex
 		ReleaseMutex(hMutex);
@@ -162,9 +158,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #endif
 #ifdef __THREAD_EXECUTOR__
 		g_pTaskExecutor = new ThreadTaskExecutor;
-#endif
-#ifdef __XN_EXECUTOR__
-		g_pTaskExecutor = new XNTaskExecutor;
 #endif
 		 break;
 	case DLL_THREAD_ATTACH:
