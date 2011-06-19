@@ -988,19 +988,19 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     {
         return errVal;
     }
+	const size_t pszSrcOrigin[3] = { szSrcOffset, 0, 0 };
+	const size_t pszDstOrigin[3] = { szDstOffset, 0, 0 };
+	const size_t pszRegion[3] = { szCb, 1, 1 };
 
     if( clSrcBuffer == clDstBuffer)
     {
         // Check overlapping
-        if (CheckMemoryObjectOverlapping(pSrcBuffer, &szSrcOffset, &szDstOffset, &szCb))
+        if (CheckMemoryObjectOverlapping(pSrcBuffer, pszSrcOrigin, pszDstOrigin, pszRegion))
         {
             return CL_MEM_COPY_OVERLAP;
         }
     }
 
-	const size_t pszSrcOrigin[3] = { szSrcOffset, 0, 0 };
-	const size_t pszDstOrigin[3] = { szDstOffset, 0, 0 };
-	const size_t pszRegion[3] = { szCb, 1, 1 };
     Command* pCopyBufferCommand = new CopyBufferCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
 	if (NULL == pCopyBufferCommand)
 	{
@@ -1644,55 +1644,64 @@ inline cl_err_code ExecutionModule::Check2DImageParameters( MemoryObject* pImage
     return errVal;
 }
 
+inline bool DimensionsOverlap(size_t d1_min, size_t d1_max, size_t d2_min, size_t d2_max)
+{
+	assert (d1_max >= d1_min);
+	assert (d2_max >= d2_min);
+	if ((d1_min == d1_max) || (d2_min == d2_max))
+	{
+		return false;
+	}
+	return !((d1_min > d2_max) || (d2_min > d1_max));
+}
+
 /******************************************************************
  * Returns true if regions in pMemObj overlap
  ******************************************************************/
 inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion)
 {
-    bool isOverlaps = false;
+    bool isOverlaps = true;
     cl_mem_object_type memObjType = pMemObj->GetType();
+	const size_t src_min[] = {szSrcOrigin[0], szSrcOrigin[1], szSrcOrigin[2]};
+	const size_t src_max[] = {szSrcOrigin[0]+szRegion[0], szSrcOrigin[1]+szRegion[1], szSrcOrigin[2]+szRegion[2]};
+
+	const size_t dst_min[] = {szDstOrigin[0], szDstOrigin[1], szDstOrigin[2]};
+	const size_t dst_max[] = {szDstOrigin[0]+szRegion[0], szDstOrigin[1]+szRegion[1], szDstOrigin[2]+szRegion[2]};    
+
+	size_t dimensionsToCompare = 0;
+
     switch(memObjType)
     {
-    case CL_MEM_OBJECT_IMAGE3D:
-        if ( (szDstOrigin[2] < (szSrcOrigin[2] + szRegion[2])) && 
-             ((szDstOrigin[2]+szRegion[2]) > szSrcOrigin[2]))
-        {
-            isOverlaps = true;
-        }
-        // fall through
-    case CL_MEM_OBJECT_IMAGE2D:
-    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-        if (((CL_MEM_OBJECT_IMAGE2D_ARRAY == memObjType && szSrcOrigin[2] == szDstOrigin[2]) ||
-             CL_DEV_MEM_OBJECT_IMAGE2D_ARRAY != memObjType) &&
-            (szDstOrigin[1] < (szSrcOrigin[1] + szRegion[1])) &&
-             ((szDstOrigin[1]+szRegion[1]) > szSrcOrigin[1]))
-        {
-            isOverlaps = true;
-        }
-        // fall through
-    case CL_MEM_OBJECT_BUFFER:
-       /* if ( (szDstOrigin[0] < (szSrcOrigin[0] + szRegion[0])) && 
-             ((szDstOrigin[0]+szRegion[0]) > szSrcOrigin[0]))
-        {
-            isOverlaps = true;
-			}*/
+	case CL_MEM_OBJECT_IMAGE3D:
+		dimensionsToCompare = 3;
+		break;
+
+	case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+		if (szSrcOrigin[2] != szDstOrigin[2])
 		{
-			const size_t src_min[] = {szSrcOrigin[0], szSrcOrigin[1], szSrcOrigin[2]};
-			const size_t src_max[] = {szSrcOrigin[0]+szRegion[0], szSrcOrigin[1]+szRegion[1], szSrcOrigin[2]+szRegion[2]};
-		    
-			const size_t dst_min[] = {szDstOrigin[0], szDstOrigin[1], szDstOrigin[2]};
-			const size_t dst_max[] = {szDstOrigin[0]+szRegion[0], szDstOrigin[1]+szRegion[1], szDstOrigin[2]+szRegion[2]};    
-		    
-			// Check for overlap, using the span space formulation.
-			isOverlaps = true;
-			unsigned i;
-			for (i=0; i != 3; ++i) {
-				isOverlaps = isOverlaps && (src_min[i] < dst_max[i]) && (src_max[i] > dst_min[i]);
-			}	
+			// For image array with different image index, no need to compare any boundaries 
+			// keep dimensionToCompare at 0.
+			break;
 		}
+		dimensionsToCompare = 2;
+		break;
+
+	case CL_MEM_OBJECT_IMAGE2D:
+		dimensionsToCompare = 2;
+		break;
+
+	case CL_MEM_OBJECT_BUFFER:
+		dimensionsToCompare = 3;
+		break;
+
     default:
+		assert(0 && "Illegal type of memory object");
         break;
     }
+	for (size_t dimension = 0; dimension < dimensionsToCompare; ++dimension)
+	{
+		isOverlaps &= DimensionsOverlap(src_min[dimension], src_max[dimension], dst_min[dimension], dst_max[dimension]);
+	}
     return isOverlaps;
 }
 
