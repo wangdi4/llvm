@@ -375,7 +375,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 
 	assert(m_szNumAssociatedDevices > 0);
 
-	size_t szNumKernels = 0;
+	cl_uint szNumKernels = 0;
 	clErrRet = m_ppDevicePrograms[0]->GetNumKernels(&szNumKernels);
 	if (CL_FAILED(clErrRet))
 	{

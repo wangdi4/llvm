@@ -32,7 +32,9 @@
 #include "task_executor.h"
 #include "wg_context.h"
 #include "cl_synch_objects.h"
-#include "ocl_itt.h"
+#if defined(USE_GPA)    
+	#include <ittnotify.h>
+#endif
 
 
 #define COLOR_TABLE_SIZE 64
@@ -126,7 +128,7 @@ public:
 protected:
 	NativeFunction(TaskDispatcher* pTD);
 
-	void*				m_pArgV;
+	char*				m_pArgV;
 };
 
 // OCL Map function execution
@@ -194,7 +196,6 @@ protected:
 	size_t						m_MemBuffCount;
 	size_t*						m_pMemBuffSizes;
 
-	void	UnlockMemoryBuffers();
 
     affinityMask_t*             m_affinityMask;
 

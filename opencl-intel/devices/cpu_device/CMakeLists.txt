@@ -11,8 +11,7 @@ if (NOT WIN32)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif (NOT WIN32)
 
-include_directories( BEFORE ../../externals/llvm_wrap/include
-                            ../../externals/llvm_wrap/llvm/llvm/include
+include_directories( BEFORE ../../externals/llvm_wrap/llvm/ocl_cpu_backend/export
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR} )
 							

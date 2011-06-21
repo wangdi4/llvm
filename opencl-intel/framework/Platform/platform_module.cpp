@@ -44,6 +44,7 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
@@ -821,10 +822,10 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return CL_OUT_OF_HOST_MEMORY;
     }
     //Get the partitioning mode
-    cl_int partitionMode = properties[0];
+    cl_int partitionMode = (cl_int)properties[0];
     if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == partitionMode)
     {
-        partitionMode = properties[1];
+        partitionMode = (cl_int)properties[1];
     }
     for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {

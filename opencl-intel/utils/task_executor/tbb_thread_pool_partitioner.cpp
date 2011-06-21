@@ -59,7 +59,7 @@ protected:
     tbb::task_scheduler_init m_init;
 };
 
-TBBThreadPoolPartitioner::TBBThreadPoolPartitioner(size_t numThreads)
+TBBThreadPoolPartitioner::TBBThreadPoolPartitioner(int numThreads)
 {
     m_observer = new MyObserver(numThreads);
     assert(NULL != m_observer);

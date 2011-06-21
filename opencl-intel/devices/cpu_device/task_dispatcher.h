@@ -109,7 +109,7 @@ class SubdeviceTaskDispatcher : public TaskDispatcher
 {
     friend class SubdeviceTaskDispatcherThread;
 public:
-    SubdeviceTaskDispatcher(size_t numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
+    SubdeviceTaskDispatcher(int numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
         ProgramService	*programService, MemoryAllocator *memAlloc,
         IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
     virtual ~SubdeviceTaskDispatcher();
@@ -131,7 +131,7 @@ public:
     };
 protected:
     SubdeviceTaskDispatcherThread*           m_thread;
-    size_t           m_subdeviceSize;
+    int						m_subdeviceSize;
 
     cl_dev_cmd_list       m_lastList;
     cl_dev_cmd_desc*      m_lastDesc;
@@ -144,7 +144,7 @@ protected:
 
     OclSpinMutex          m_commandMutex;
 
-    size_t                m_numThreads;
+    int		              m_numThreads;
     affinityMask_t*       m_affinityMask;
 
     void SynchronousDispatchCommand(CommandType type);

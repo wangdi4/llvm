@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 		char *					m_psKernelName;
 		cl_uint					m_uiArgsCount;
-		cl_kernel_argument *	m_pArgs;
+		cl_kernel_argument*		m_pArgs;
 	};
 
 	/**********************************************************************************************
@@ -84,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_dev_kernel GetId(){ return m_clDevKernel; }
 
 		// Get device ID
-		cl_device_id        GetDeviceId() { return m_pDevice->GetHandle(); }
+		cl_int        GetDeviceId() const { return m_pDevice->GetId(); }
 
 		// get kernel prototype
 		const SKernelPrototype GetPrototype(){ return m_sKernelPrototype; }
@@ -95,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	private:
 
 		// device kernel id
-		cl_dev_kernel							m_clDevKernel;
+		cl_dev_kernel	m_clDevKernel;
 
 		// kernel prototype
 		SKernelPrototype						m_sKernelPrototype;
@@ -228,11 +228,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			April 2008
 		******************************************************************************************/
-		cl_err_code	GetWorkGroupInfo(	cl_device_id clDevice,
-										cl_int       iParamName, 
-										size_t       szParamValueSize, 
-										void *       pParamValue, 
-										size_t *     pszParamValueSizeRet);
+		cl_err_code	GetWorkGroupInfo(	FissionableDevice*		pDevice,
+										cl_int      iParamName, 
+										size_t      szParamValueSize, 
+										void *      pParamValue, 
+										size_t *    pszParamValueSizeRet);
 
 		// create device kernels
 		cl_err_code CreateDeviceKernels(DeviceProgram ** pDevicePrograms);
@@ -247,13 +247,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsValidKernelArgs() const;
 
         // Return true if there is a successfully built program executable available for device
-        bool IsValidExecutable(cl_device_id clDeviceId) const;
+        bool IsValidExecutable(const FissionableDevice* pDevice) const;
 
 		// get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
 		const KernelArg * GetKernelArg(size_t uiIndex) const;
 
         // Returns non zero handle.
-        cl_dev_kernel GetDeviceKernelId(cl_device_id clDeviceId) const;
+        cl_dev_kernel GetDeviceKernelId(FissionableDevice* pDevice) const;
 
 		// get kernel's name
 		const char * GetName() const { return m_sKernelPrototype.m_psKernelName; }
@@ -273,7 +273,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Kernel();
 
-		DeviceKernel* GetDeviceKernel(cl_device_id clDevId) const;
+		DeviceKernel* GetDeviceKernel(const FissionableDevice* pDevice) const;
 
 
 		//Kernel prototype

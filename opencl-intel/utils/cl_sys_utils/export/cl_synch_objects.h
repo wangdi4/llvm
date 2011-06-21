@@ -54,28 +54,47 @@
  ************************************************************************/
 
 //forward declaration
+#include "cl_utils.h"
+
 #include <tbb/concurrent_queue.h>
 #include <queue>
 #include <assert.h>
-#include "cl_utils.h"
+
+#ifdef WIN32
+#include <windows.h>
+#define CAS(ptr,old_val,new_val)	InterlockedCompareExchangePointer((void*volatile*)ptr,new_val,old_val)
+#define TAS(ptr,new_val)			InterlockedExchangePointer((void*volatile*)ptr,new_val)
+#else
+#define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
+#define TAS(ptr,new_val)			__sync_lock_test_and_set(ptr,new_val)
+#endif
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-
+	template<class T=void>
 	class AtomicPointer
 	{
 	public:
-		AtomicPointer(void* ptr = NULL) : m_ptr(ptr) {}
+		AtomicPointer(T* ptr = NULL) : m_ptr(ptr) {}
 		~AtomicPointer() {}
 
-		void* test_and_set(void* comparand, void* exchange);
-		void* exchange(void* val);
+		T* test_and_set(T* comparand, T* exchange)
+		{
 
-		operator void*() const {return m_ptr; }
+			return (T*)CAS(&m_ptr, comparand, exchange);   // CAS(*ptr, old, new)
+		}
+
+		T* exchange(T* val)
+		{
+			return (T*)TAS(&m_ptr, val);
+		}
+
+		operator T*() const {return m_ptr;}
+		T* operator ->() const {return m_ptr;}
 
 	private:
 		AtomicPointer(const AtomicPointer& ac) {m_ptr = ac.m_ptr; }
-		void* m_ptr;
+		T* volatile m_ptr;
 	};
 
 	class AtomicCounter

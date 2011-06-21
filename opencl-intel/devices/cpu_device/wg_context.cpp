@@ -35,6 +35,8 @@
 #endif
 #include <malloc.h>
 
+using namespace Intel::OpenCL::DeviceBackend;
+
 using namespace Intel::OpenCL::CPUDevice;
 
 WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(CPU_DEFAULT_WG_SIZE*CPU_DEV_MIN_WI_PRIVATE_SIZE)

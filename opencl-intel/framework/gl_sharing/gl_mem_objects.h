@@ -20,9 +20,10 @@
 
 #pragma once
 
-#include "cl_buffer.h"
-#include "image.h"
+#include "MemoryAllocator/MemoryObject.h"
 #include "gl_context.h"
+
+#include <cl_synch_objects.h>
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -32,81 +33,131 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class GLMemoryObject
+	struct cl_image_format_ext
 	{
-	public:
-		GLMemoryObject(GLuint glObj) : m_glBufObj(glObj) {}
-		virtual void GetGLObjectData() = 0;
-		virtual void SetGLObjectData() = 0;
-		virtual cl_gl_object_type GetObjectType() = 0;
-		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
-
-	protected:
-		GLuint m_glBufObj;
+		cl_image_format clType;	// Original CL format
+		bool			isGLExt; // is true if GL extended format
 	};
 
-	class GLBuffer : public Buffer, public GLMemoryObject
+	cl_image_format_ext ImageFrmtConvertGL2CL(GLuint glFrmt);
+	GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt);
+	GLenum GetTargetBinding( GLenum target );
+	GLenum GetBaseTarget( GLenum target );
+	GLenum GetGLType(cl_channel_type clType);
+	GLenum GetGLFormat(cl_channel_type clType, bool isExt);
+
+	class GLMemoryObject : public MemoryObject
 	{
 	public:
-		GLBuffer(GLContext * pContext, cl_mem_flags clMemFlags, GLuint glBufObj,
-			ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
+		virtual cl_err_code AcquireGLObject() = 0;
+		virtual cl_err_code ReleaseGLObject() = 0;
+		virtual cl_gl_object_type GetObjectType() = 0;
+		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
+		
+		cl_err_code SetAcquireCmdEvent(OclEvent* pEvent); // Set Event of Acquire command that belongs to the object.
 
-		void GetGLObjectData();
-		void SetGLObjectData();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_BUFFER;}
+		// Memory Object interface
+		cl_err_code			UpdateLocation(FissionableDevice* pDevice);
+		cl_err_code			CreateDeviceResource(FissionableDevice* pDevice);
+		cl_err_code			GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
+		cl_err_code			RelinquishDeviceHandle(FissionableDevice* pDevice, cl_dev_memobj_handle handle);
+		bool				IsSharedWith(FissionableDevice* pDevice);
+
+		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
+		cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
+		cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
+		void *GetBackingStore( const size_t * pszOrigin = NULL ) const;
+
+		cl_err_code ReadData(	void *          pOutData, 
+			const size_t *  pszOrigin, 
+			const size_t *  pszRegion,
+			size_t          szRowPitch   = 0,
+			size_t          szSlicePitch = 0);
+
+		cl_err_code WriteData(	const void *    pOutData, 
+			const size_t *  pszOrigin, 
+			const size_t *  pszRegion,
+			size_t          szRowPitch   = 0,
+			size_t          szSlicePitch = 0);
+
+		bool		IsSupportedByDevice(FissionableDevice* pDevice) {return true;}
+
+		size_t GetSize() const {return m_stMemObjSize;}
+
+		// Update the host pointer that is used for the memory object
+		cl_err_code UpdateHostPtr(cl_mem_flags		clMemFlags,	void* pHostPtr) {return CL_SUCCESS;}
+
+		// Low level mapped region creation function
+		cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
+							cl_dev_cmd_param_map*	cmd_param_map);
+		cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
+				cl_dev_cmd_param_map*	cmd_param_map);
+
+		// IDeviceFissionObserver interface
+		cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
+
+	protected:
+		GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints);
+		virtual ~GLMemoryObject();
+
+		// This function is reposiable for creating a supporting child object
+		virtual cl_err_code CreateChildObject() = 0;
+
+		cl_err_code	SetGLMemFlags();
+		
+		GLuint	m_glObjHandle;
+		GLuint	m_glMemFlags;
+
+		Intel::OpenCL::Utils::AtomicPointer<OclEvent>		m_pAcquireEvent;
+		Intel::OpenCL::Utils::AtomicPointer<MemoryObject>	m_pChildObject;
+		// This object is the actual object that handle interaction with devices
+		Intel::OpenCL::Utils::OclMutex		m_muAcquireRelease;
+		Intel::OpenCL::Utils::AtomicCounter					m_clAcqurieState;
 	};
 
 	class GLTexture : public GLMemoryObject
 	{
 	public:
-		GLTexture(GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture):
-		  GLMemoryObject(glTexture), m_glTextureTarget(glTextureTarget),
-		  m_glMipLevel(glMipLevel){}
-
 		  cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 
+		  // Texture desription structure. This structure is used to pass parameters of the user texture.
+		  // A pointer to this structure is passed to Initialize() method via pHostPtr parameter
+		  struct GLTextureDescriptor
+		  {
+			  GLenum	glTextureTarget;
+			  GLint		glMipLevel;
+			  GLuint	glTexture;
+		  };
+
+		size_t GetPixelSize() const { return m_szElementSize;}
+		// Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
+		size_t GetRowPitchSize() const { return m_szImageRowPitch; }
+
+		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+			const void * buffer_create_info, MemoryObject** ppBuffer) {return CL_INVALID_OPERATION;}
+
+        cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+
 	protected:
-		GLenum	m_glTextureTarget;
-		GLint	m_glMipLevel;
+		GLTexture(Context * pContext, ocl_entry_points * pOclEntryPoints):
+		GLMemoryObject(pContext, pOclEntryPoints),  m_glFramebuffer(0), m_glPBO(0) {}
+		~GLTexture();
+
+		cl_err_code CreateChildObject();
+
+		GLTextureDescriptor	m_txtDescriptor;
+		cl_image_format_ext m_clFormat;
+		size_t				m_szElementSize;
+
+		size_t	m_szImageWidth;
+		size_t	m_szImageHeight;
+		size_t	m_szImageRowPitch;
+
+		GLint	m_glInternalFormat;
 		GLint	m_glBorder;
-		GLint	m_glInternalFormat;
-	};
-
-	class GLTexture2D : public Image2D, public GLTexture
-	{
-	public:
-		GLTexture2D(GLContext * pContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture,
-			ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
-
-		void GetGLObjectData();
-		void SetGLObjectData();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_TEXTURE2D;}
-	};
-
-	class GLTexture3D : public Image3D, public GLTexture
-	{
-	public:
-		GLTexture3D(GLContext * pContext, cl_mem_flags clMemFlags,
-			GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture,
-			ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
-
-		void GetGLObjectData();
-		void SetGLObjectData();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_TEXTURE3D;}
-	};
-
-	class GLRenderBuffer : public Image2D, public GLMemoryObject
-	{
-	public:
-		GLRenderBuffer(GLContext * pContext, cl_mem_flags clMemFlags, GLuint glBufObj,
-			ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode);
-		~GLRenderBuffer();
-
-		void GetGLObjectData();
-		void SetGLObjectData();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_RENDERBUFFER;}
-	protected:
-		GLint	m_glInternalFormat;
 		GLuint	m_glFramebuffer;
+		GLuint	m_glPBO;
+
 	};
+
 }}}

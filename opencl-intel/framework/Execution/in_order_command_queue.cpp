@@ -35,6 +35,8 @@
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
+
+
 InOrderCommandQueue::InOrderCommandQueue(
 	Context*                    pContext,
 	cl_device_id                clDefaultDeviceID, 
@@ -184,8 +186,10 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 				{
 					break; // Runtime command is still executing
 				}
-				else if ( (EVENT_STATE_BLACK == color) && (RUNTIME_EXECUTION_TYPE == cmd->GetExecutionType()) )
+				else if ( EVENT_STATE_BLACK == color )
 				{
+					// We have completed command in the queue
+					// There is two reasons: 1. runtime command, 2. failed command(one of the dependencies failed)
 					m_submittedQueue.PopFront();
 					cmd->GetEvent()->RemovePendency();
 					continue;

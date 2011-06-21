@@ -26,14 +26,16 @@
 #include "stdafx.h"
 #include "cpu_device.h"
 #include "program_service.h"
+#include "memory_allocator.h"
+#include "task_dispatcher.h"
 #include "cpu_logger.h"
-#include "cl_sys_info.h"
-#include "cpu_dev_limits.h"
-#include "cl_sys_defines.h"
-#include "cl_cpu_detect.h"
 #include "buildversion.h"
 
-//#include <intrin.h>
+#include <cl_sys_info.h>
+#include <cpu_dev_limits.h>
+#include <cl_sys_defines.h>
+#include <cl_cpu_detect.h>
+
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
 #endif
@@ -54,6 +56,7 @@ using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
 
+#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, TotalPhysicalSize()/4))
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
 const cl_image_format Intel::OpenCL::CPUDevice::suportedImageFormats[] = {
@@ -231,7 +234,7 @@ static const cl_device_partition_property_ext CPU_SUPPORTED_AFFINITY_DOMAINS[] =
         CL_AFFINITY_DOMAIN_NUMA_EXT
     };
 
-const char* clDevErr2Txt(cl_dev_err_code errorCode)
+extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
 	switch(errorCode)
 	{
@@ -290,8 +293,8 @@ cl_dev_err_code CPUDevice::Init()
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateDevice function enter"));
 
 	m_pProgramService = new ProgramService(m_uiCpuId, m_pFrameworkCallBacks, m_pLogDescriptor, m_pCPUDeviceConfig);
-	m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor);
-	m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, 
+	m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE);
+	m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
 		m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
 	if ( (NULL == m_pProgramService) ||	(NULL == m_pMemoryAllocator) ||	(NULL == m_pTaskDispatcher) )
 	{
@@ -312,10 +315,10 @@ CPUDevice::~CPUDevice()
 
 // ---------------------------------------
 // Public functions / Device entry points
-cl_dev_err_code clDevCreateDeviceInstance(  cl_uint		dev_id,
+extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint		dev_id,
 								   IOCLFrameworkCallbacks	*pDevCallBacks,
 								   IOCLDevLogDescriptor		*pLogDesc,
-								   IOCLDevice*				*pDevice
+								   IOCLDeviceAgent*			*pDevice
 								   )
 {
 	if(NULL == pDevCallBacks || NULL == pDevice)
@@ -879,7 +882,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
 			{
-				*(cl_ulong*)paramVal = MAX(128*1024*1024, TotalVirtualSize()/4);
+				*(cl_ulong*)paramVal = MAX_MEM_ALLOC_SIZE;
 			}
 			return CL_DEV_SUCCESS;
 		}
@@ -1186,21 +1189,21 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             size_t numPartitions = numProcessors / partitionSize;
             if (NULL == subdevice_ids)
             {
-                *num_subdevices = numPartitions;
+                *num_subdevices = (cl_uint)numPartitions;
                 return CL_DEV_SUCCESS;
             }
             if (*num_subdevices < numPartitions)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            *num_subdevices = numPartitions;
+            *num_subdevices = (cl_uint) numPartitions;
             if (numPartitions > num_requested_subdevices)
             {
                 numPartitions = num_requested_subdevices;
             }
             for (size_t i = 0; i < numPartitions; ++i)
             {
-                subdevice_ids[i] = new SubdeviceTaskDispatcher(partitionSize, NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
+                subdevice_ids[i] = new SubdeviceTaskDispatcher((int)partitionSize, NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
                 if (NULL == subdevice_ids[i])
                 {
                     for (size_t j = 0; j < i; ++j)
@@ -1245,7 +1248,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
             for (size_t i = 0; i < num_subdevices_to_create; ++i)
             {
-                subdevice_ids[i] = new SubdeviceTaskDispatcher(partitionSizes[i], NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
+                subdevice_ids[i] = new SubdeviceTaskDispatcher((int)partitionSizes[i], NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
                 if (NULL == subdevice_ids[i])
                 {
                     for (size_t j = 0; j < i; ++j)
@@ -1299,7 +1302,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 }
                 if (CL_DEV_SUCCESS == ret)
                 {
-                    subdevice_ids[i] = new SubdeviceTaskDispatcher(processorSize, processorMask, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
+                    subdevice_ids[i] = new SubdeviceTaskDispatcher((int)processorSize, processorMask, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
                 }
                 if (NULL == subdevice_ids[i])
                 {
@@ -1464,51 +1467,30 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
  clDevGetSupportedImageFormats
 	Call Memory Allocator to get supported image formats
 ********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+cl_dev_err_code CPUDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedImageFormats Function enter"));
 	return (cl_dev_err_code)m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
 
 }
+
+cl_dev_err_code CPUDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp )
+{
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetMemoryAllocProperties Function enter"));
+	return m_pMemoryAllocator->GetAllocProperties(memObjType, pAllocProp);
+}
+
 /****************************************************************************************************************
  clDevCreateMemoryObject
 	Call Memory Allocator to create memory object
 ********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-									cl_uint	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
-									cl_dev_host_ptr_flags IN ptr_flags, cl_dev_mem* OUT memObj)
+cl_dev_err_code CPUDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
+									size_t	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
+									cl_dev_host_ptr_flags IN ptr_flags, IOCLDevMemoryObject* OUT *memObj)
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateMemoryObject Function enter"));
-	return (cl_dev_err_code)m_pMemoryAllocator->CreateObject(flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
-}
-/****************************************************************************************************************
- clDevDeleteMemoryObject
-	Call Memory Allocator to delete memory object
-********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevDeleteMemoryObject( cl_dev_mem IN memObj )
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevDeleteMemoryObject Function enter"));
-	return (cl_dev_err_code)m_pMemoryAllocator->ReleaseObject(memObj);
-}
-/****************************************************************************************************************
- clDevCreateMappedRegion
-	Call Memory Allocator to craete mapped region
-********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams)
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateMappedRegion Function enter"));
-	return (cl_dev_err_code)m_pMemoryAllocator->CreateMappedRegion(pMapParams);
-
-}
-/****************************************************************************************************************
- clDevReleaseMappedRegion
-	Call Memory Allocator to release mapped region
-********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevReleaseMappedRegion Function enter"));
-	return (cl_dev_err_code)m_pMemoryAllocator->ReleaseMappedRegion( pMapParams );
+	return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
 }
 
 /****************************************************************************************************************
@@ -1604,7 +1586,7 @@ clDevUnloadCompiler
 	Call programService to get kernels from the program
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT numKernelsRet )
+						 cl_uint* OUT numKernelsRet )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetProgramKernels Function enter"));
 	return (cl_dev_err_code)m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );

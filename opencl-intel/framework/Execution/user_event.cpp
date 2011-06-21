@@ -32,7 +32,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-UserEvent::UserEvent( cl_context context ) : OclEvent(NULL), m_context(context), m_returnCode(0xdead)
+UserEvent::UserEvent( cl_context context ) : OclEvent(), m_context(context), m_returnCode(0xdead)
 {
 	//User events start as CL_SUBMITTED
 	m_color = EVENT_STATE_RED;

@@ -26,16 +26,16 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "Context.h"
+#include "Device.h"
 #include "program_with_source.h"
 #include "program_with_binary.h"
-#include "cl_buffer.h"
-#include "image.h"
 #include "sampler.h"
 #include "cl_sys_defines.h"
-#include <cl_utils.h>
-#include <Device.h>
-#include <cl_objects_map.h>
 #include "context_module.h"
+#include "MemoryAllocator/MemoryObjectFactory.h"
+#include "MemoryAllocator/MemoryObject.h"
+#include <cl_utils.h>
+#include <cl_objects_map.h>
 #include <cl_local_array.h>
 #include "ocl_itt.h"
 
@@ -47,23 +47,17 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
+	: m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0)
 {
-	//cl_start;
 
-	m_pfnNotify = NULL;
-	m_pUserData = NULL;
-
-	INIT_LOGGER_CLIENT(L"Context", LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
 	LOG_DEBUG(TEXT("%S"), TEXT("Context constructor enter"));
 
-	m_pPrograms = new OCLObjectsMap<_cl_program_int>();
-	m_pDevices = new OCLObjectsMap<_cl_device_id_int>();
-	m_pMemObjects = new OCLObjectsMap<_cl_mem_int>();
-	m_pSamplers = new OCLObjectsMap<_cl_sampler_int>();
 
 	m_ppAllDevices = NULL;
     m_ppRootDevices = NULL;
@@ -71,9 +65,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_pOriginalDeviceIds = NULL;
 	m_pGPAData = pGPAData;
 
-#ifdef _DEBUG
-assert ((NULL != ppDevices) && (uiNumDevices > 0));
-#endif
+	assert ((NULL != ppDevices) && (uiNumDevices > 0));
     m_uiNumRootDevices = uiNumRootDevices;
 
 	m_ppAllDevices = new FissionableDevice*[uiNumDevices];
@@ -111,7 +103,7 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
     cl_uint curRoot = 0;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-		m_pDevices->AddObject(ppDevices[ui], false);
+		m_mapDevices.AddObject(ppDevices[ui], false);
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
         m_pOriginalDeviceIds[ui] = ppDevices[ui]->GetHandle();
@@ -119,7 +111,10 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
         {
             assert(curRoot < m_uiNumRootDevices);
             m_ppRootDevices[curRoot++] = ppDevices[ui]->GetRootDevice();
+			
         }
+		cl_bitfield devType = ppDevices[ui]->GetRootDevice()->GetDeviceType();
+		m_devTypeMask |= devType;
 	}
     m_pOriginalNumDevices = uiNumDevices;
 
@@ -168,6 +163,8 @@ assert ((NULL != ppDevices) && (uiNumDevices > 0));
         ppDevices[idx]->RegisterDeviceFissionObserver(this);
     }
 
+	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_sz2dArraySize);
+
 	m_handle.object   = this;
 	m_handle.dispatch = pOclEntryPoints;
 
@@ -186,7 +183,7 @@ void Context::Cleanup( bool bTerminate )
     }
 
 	// Close all device instances. Device will decide whether to close or just decrease ref count
-    cl_uint uiNumDevices = m_pDevices->Count();
+    cl_uint uiNumDevices = m_mapDevices.Count();
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
 #if defined(USE_GPA)
@@ -209,7 +206,7 @@ void Context::Cleanup( bool bTerminate )
         {
             m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
         }
-        m_pDevices->RemoveObject(m_ppAllDevices[ui]->GetHandle());
+        m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
 	}
 }
 
@@ -227,16 +224,10 @@ Context::~Context()
 
 	RELEASE_LOGGER_CLIENT;
 
-    if ( NULL != m_pPrograms )
-    {
-        delete m_pPrograms;
-        m_pPrograms = NULL;
-    }
-    if ( NULL != m_pDevices )
-    {
-        delete m_pDevices;
-        m_pDevices = NULL;
-    }
+	m_mapPrograms.Clear();
+
+    m_mapDevices.Clear();
+ 
 	if (NULL != m_ppAllDevices)
 	{
 		delete[] m_ppAllDevices;
@@ -257,16 +248,8 @@ Context::~Context()
         delete[] m_pOriginalDeviceIds;
         m_pOriginalDeviceIds = NULL;
     }
-    if ( NULL != m_pMemObjects )
-    {
-        delete m_pMemObjects;
-        m_pMemObjects = NULL;
-    }
-    if ( NULL != m_pSamplers )
-    {
-        delete m_pSamplers;
-        m_pSamplers = NULL;
-    }
+    m_mapMemObjects.Clear();
+    m_mapSamplers.Clear();
 
 	if (NULL != m_pclContextProperties)
 	{
@@ -307,7 +290,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		break;
 	case CL_CONTEXT_NUM_DEVICES:
 		szParamValueSize = sizeof(cl_uint);
-		uiVal = m_pDevices->Count();
+		uiVal = (cl_uint)m_mapDevices.Count();
 		pValue = &uiVal;
 		break;
 
@@ -356,11 +339,6 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 		LOG_ERROR(TEXT("%S"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
 		return CL_INVALID_VALUE;
 	}
-	if (NULL == m_pPrograms)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == m_pPrograms; return CL_ERR_INITILIZATION_FAILED"));
-		return CL_ERR_INITILIZATION_FAILED;
-	}
 	cl_err_code clErrRet;
 	// create new program object
 	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
@@ -379,7 +357,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	}
 
 	// add program object to programs map list
-	m_pPrograms->AddObject((OCLObject<_cl_program_int>*)pProgram);
+	m_mapPrograms.AddObject((OCLObject<_cl_program_int>*)pProgram);
 	*ppProgram = pProgram;
 	return CL_SUCCESS;
 }
@@ -394,7 +372,7 @@ cl_err_code Context::GetDeviceByIndex(cl_uint uiDeviceIndex, Device** ppDevice)
         return CL_INVALID_VALUE;
     }
 	
-	cl_err_code clErrRet = m_pDevices->GetObjectByIndex((cl_int)uiDeviceIndex, (OCLObject<_cl_device_id_int>**)ppDevice);
+	cl_err_code clErrRet = m_mapDevices.GetObjectByIndex((cl_int)uiDeviceIndex, (OCLObject<_cl_device_id_int>**)ppDevice);
     if ( CL_FAILED(clErrRet) || NULL == ppDevice)
     {
         return CL_ERR_KEY_NOT_FOUND;
@@ -417,7 +395,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
 	cl_err_code clErrRet = CL_SUCCESS;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-		clErrRet = m_pDevices->GetOCLObject((_cl_device_id_int*)pclDevices[ui], reinterpret_cast<OCLObject<_cl_device_id_int>**>(&pDevice));
+		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)pclDevices[ui], reinterpret_cast<OCLObject<_cl_device_id_int>**>(&pDevice));
 		if ( CL_FAILED(clErrRet) || NULL == pDevice)
 		{
 			LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
@@ -442,7 +420,7 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclD
 	cl_err_code clErrRet = CL_SUCCESS;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-		clErrRet = m_pDevices->GetOCLObject((_cl_device_id_int*)pclDevices[ui], reinterpret_cast<OCLObject<_cl_device_id_int>**>(ppDevices + ui));
+		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)pclDevices[ui], reinterpret_cast<OCLObject<_cl_device_id_int>**>(ppDevices + ui));
 		if ( CL_FAILED(clErrRet) || NULL == ppDevices[ui])
 		{
 			LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
@@ -521,7 +499,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 	
-	m_pPrograms->AddObject(pProgram);
+	m_mapPrograms.AddObject(pProgram);
 	*ppProgram = pProgram;
 	return clErrRet;
 }
@@ -532,11 +510,7 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId)
 {
 	LOG_DEBUG(TEXT("Enter RemoveProgram (clProgramId=%d)"), clProgramId);
 
-#ifdef _DEBUG
-	assert ( NULL != m_pPrograms );
-#endif
-
-	return m_pPrograms->RemoveObject((_cl_program_int*)clProgramId);
+	return m_mapPrograms.RemoveObject((_cl_program_int*)clProgramId);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveMemObject
@@ -545,11 +519,7 @@ cl_err_code Context::RemoveMemObject(cl_mem clMem)
 {
 	LOG_DEBUG(TEXT("Enter RemoveMemObject (clMem=%d)"), clMem);
 
-#ifdef _DEBUG
-	assert ( NULL != m_pMemObjects );
-#endif
-
-	return m_pMemObjects->RemoveObject((_cl_mem_int*)clMem);
+	return m_mapMemObjects.RemoveObject((_cl_mem_int*)clMem);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveSampler
@@ -558,16 +528,12 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler)
 {
 	LOG_DEBUG(TEXT("Enter RemoveSampler (clSampler=%d)"), clSampler);
 
-#ifdef _DEBUG
-	assert ( NULL != m_pSamplers );
-#endif
-
-	return m_pSamplers->RemoveObject((_cl_sampler_int*)clSampler);
+	return m_mapSamplers.RemoveObject((_cl_sampler_int*)clSampler);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateBuffer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer)
+cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, MemoryObject ** ppBuffer)
 {
 	LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, szSize=%d, pHostPtr=%d, ppBuffer=%d)"), 
 		clFlags, szSize, pHostPtr, ppBuffer);
@@ -575,10 +541,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
 
-#ifdef _DEBUG
 	assert ( NULL != ppBuffer );
-	assert ( NULL != m_pMemObjects );
-#endif
 
 	cl_ulong ulMaxMemAllocSize = GetMaxMemAllocSize();
 	LOG_DEBUG(TEXT("GetMaxMemAllocSize() = %d"), ulMaxMemAllocSize);
@@ -590,70 +553,96 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 		return CL_INVALID_BUFFER_SIZE;
 	}
 
-	cl_err_code clErr = CL_SUCCESS;
-	Buffer * pBuffer = new Buffer(this, clFlags, szSize, (ocl_entry_points*)m_handle.dispatch, &clErr);
+	cl_err_code clErr;
+	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_NONE, this, ppBuffer);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new buffer, returned: %S"), ClErrTxt(clErr));
-        pBuffer->Release();
 		return clErr;
 	}
 
-	clErr = pBuffer->Initialize(pHostPtr);
+	clErr = (*ppBuffer)->Initialize(clFlags, NULL, 1, &szSize, NULL, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
-        pBuffer->Release();
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		(*ppBuffer)->Release();
 		return clErr;
 	}
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppBuffer);
 
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pBuffer);
-
-	*ppBuffer = pBuffer;
 	return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateSubBuffer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateSubBuffer(Buffer* clBuffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, Buffer ** ppBuffer)
+cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+									 const void * buffer_create_info, MemoryObject** ppBuffer)
 {
 	LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"), 
 		clFlags, buffer_create_type, ppBuffer);
 
-#ifdef _DEBUG
 	assert ( NULL != ppBuffer );
-	assert ( NULL != m_pMemObjects );
-#endif
+
 
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
-
-	cl_err_code clErr = CL_SUCCESS;		
-
-	SubBuffer * pBuffer = new SubBuffer(this, clFlags, (ocl_entry_points*)m_handle.dispatch, &clErr);
-	if (pBuffer == NULL)
+	
+	// Parameters check
+	if ( CL_BUFFER_CREATE_TYPE_REGION != buffer_create_type )
 	{
-		return CL_OUT_OF_HOST_MEMORY;
+		return CL_INVALID_VALUE;
 	}
-	if (CL_FAILED(clErr))
+
+	if ( NULL == buffer_create_info )
 	{
-		LOG_ERROR(TEXT("Error creating new buffer, returned: %S"), ClErrTxt(clErr));
-        pBuffer->Release();
-		return clErr;
-	}		
-		
-	clErr = pBuffer->initialize(clBuffer, buffer_create_type, buffer_create_info);
+		return CL_INVALID_VALUE;
+	}
+	const cl_buffer_region* region = reinterpret_cast<const cl_buffer_region*>(buffer_create_info);
+	assert(region);
+
+	if (region->size == 0 )
+	{
+		return CL_INVALID_BUFFER_SIZE;
+	}
+
+	if ( (region->origin + region->size) > pBuffer->GetSize()  )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if ( CL_MEM_WRITE_ONLY & pBuffer->GetFlags() ) 
+	{
+		if ( (CL_MEM_READ_ONLY & clFlags) || (CL_MEM_READ_WRITE & clFlags) )
+		{
+			return CL_INVALID_VALUE;
+		}
+	}
+	else if ( CL_MEM_READ_ONLY & pBuffer->GetFlags() )
+	{
+		cl_mem_flags nonReadOnlyFlag = CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_ALLOC_HOST_PTR;			
+		if ( clFlags & nonReadOnlyFlag )
+		{
+			return CL_INVALID_VALUE;
+		}
+	}
+
+	if ( (CL_MEM_USE_HOST_PTR & clFlags) && !(CL_MEM_USE_HOST_PTR & pBuffer->GetFlags()) )
+	{
+		return CL_INVALID_VALUE;
+	}							
+
+	cl_err_code clErr;		
+	clErr = pBuffer->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error initializing sub buffer, returned: %S"), ClErrTxt(clErr));
-        pBuffer->Release();
 		return clErr;
-	}
-	m_pMemObjects->AddObject(pBuffer);
+	}		
+		
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppBuffer);
 
-	*ppBuffer = pBuffer;
-	return CL_SUCCESS;
+	return clErr;
 }
 // Context::CreateImage2D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -663,52 +652,63 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 								   size_t szImageWidth, 
 								   size_t szImageHeight, 
 								   size_t szImageRowPitch,
-								   Image2D ** ppImage2d)
+								   MemoryObject ** ppImage2d)
 {
 	LOG_DEBUG(TEXT("Enter CreateImage2D (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, szImageWidth=%d, szImageHeight=%d, szImageRowPitch=%d, ppImage2d=%d)"), 
 		clFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, ppImage2d);
 
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
-#ifdef _DEBUG
 	assert ( NULL != ppImage2d );
-	assert ( NULL != m_pMemObjects );
-#endif
 
-	size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0;
-	cl_err_code clErr = GetMaxImageDimensions(&szMaxAllowedImageWidth, &szMaxAllowedImageHeight, NULL, NULL, NULL, NULL);
-	
-	LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d"), szMaxAllowedImageWidth, szMaxAllowedImageHeight);
-	
 	//check image sizes
-	if ((szImageWidth < 1)	||
-		(szImageHeight < 1)	||
-		(szImageWidth > szMaxAllowedImageWidth)	||
-		(szImageHeight > szMaxAllowedImageHeight))
+	if ( (szImageWidth < 1)	|| (szImageHeight < 1)	|| (szImageWidth > m_sz2dWidth)	|| (szImageHeight > m_sz2dHeight))
 	{
-		LOG_ERROR(TEXT("szImageWidth == %d, szImageHeight =%d"), szImageWidth, szImageHeight);
+		LOG_ERROR(TEXT("Image dimension are not allowed, szImageWidth == %d, szImageHeight =%d"), szImageWidth, szImageHeight);
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image2D * pImage2D = new Image2D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, (ocl_entry_points*)m_handle.dispatch, &clErr);
+	cl_err_code clErr;
+	// Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
+	// If WRITE_ONLY flag is not set check for read image support
+	if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
+	{
+		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE2D);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+			return clErr;
+		}
+	}
+	// If READ_ONLY flag is not set check for write image support
+	if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
+	{
+		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE2D);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+			return clErr;
+		}
+	}
+
+	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE2D, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage2d);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new Image2D, returned: %S"), ClErrTxt(clErr));
-        pImage2D->Release();
+		LOG_ERROR(TEXT("Failed to create image: %S"), ClErrTxt(clErr));
 		return clErr;
 	}
 
-	clErr = pImage2D->Initialize(pHostPtr);
+	size_t dim[2] = {szImageWidth, szImageHeight};
+	clErr = (*ppImage2d)->Initialize(clFlags, pclImageFormat, 2, dim, &szImageRowPitch, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Failed to initialize data, pImage2D->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
-        pImage2D->Release();
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		(*ppImage2d)->Release();
 		return clErr;
 	}
 
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage2D);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage2d);
 
-	*ppImage2d = pImage2D;
 	return CL_SUCCESS;
 
 }
@@ -724,163 +724,134 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 								   size_t szImageDepth, 
 								   size_t szImageRowPitch,
 								   size_t szImageSlicePitch,
-								   Image3D ** ppImage3d)
+								   MemoryObject ** ppImage3d)
 {
 	LOG_DEBUG(TEXT("Enter CreateImage3D (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2d=%d)"), 
 		clFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, ppImage3d);
 
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
-#ifdef _DEBUG
 	assert ( NULL != ppImage3d );
-	assert ( NULL != m_pMemObjects );
-#endif
-
-	size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0, szMaxAllowedImageDepth = 0;
-	cl_err_code clErr = GetMaxImageDimensions(NULL, NULL, &szMaxAllowedImageWidth, &szMaxAllowedImageHeight, &szMaxAllowedImageDepth, NULL);
-	
-	LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d, szMaxAllowedImageDepth=%d"), 
-		szMaxAllowedImageWidth, szMaxAllowedImageHeight, szMaxAllowedImageDepth);
-	
 	//check image sizes
-	if ((szImageWidth < 1)	||
-		(szImageHeight < 1)	||
-		(szImageDepth <= 1)	||
-		(szImageWidth > szMaxAllowedImageWidth)	||
-		(szImageHeight > szMaxAllowedImageHeight) ||
-		(szImageDepth > szMaxAllowedImageDepth))
+	if ((szImageWidth < 1)	|| (szImageHeight < 1) || (szImageDepth <= 1) ||
+		(szImageWidth > m_sz3dWidth) || (szImageHeight > m_sz3dHeight) || (szImageDepth > m_sz3dDepth) )
 	{
-		LOG_ERROR(TEXT("szImageWidth == %d, szImageHeight =%d, szImageDepth = %d"), szImageWidth, szImageHeight, szImageDepth);
+		LOG_ERROR(TEXT("Image dimension are not allowed, szImageWidth == %d, szImageHeight =%d, szImageDepth = %d"),
+			szImageWidth, szImageHeight, szImageDepth);
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
-	Image3D * pImage3D = new Image3D(this, clFlags, (cl_image_format*)pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, (ocl_entry_points*)m_handle.dispatch, &clErr);
+	cl_err_code clErr;
+	// Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
+	// If WRITE_ONLY flag is not set check for read image support
+	if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
+	{
+		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE3D);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+			return clErr;
+		}
+	}
+	// If READ_ONLY flag is not set check for write image support
+	if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
+	{
+		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE3D);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+			return clErr;
+		}
+	}
+
+	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE3D, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage3d);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new Image3D, returned: %S"), ClErrTxt(clErr));
-        pImage3D->Release();
+		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
 		return clErr;
 	}
 
-	clErr = pImage3D->Initialize(pHostPtr);
+	size_t dim[3] = {szImageWidth, szImageHeight, szImageDepth};
+	size_t pitch[2] = {szImageRowPitch, szImageSlicePitch};
+	clErr = (*ppImage3d)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Failed to initialize data, pImage3D->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
-        pImage3D->Release();
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		(*ppImage3d)->Release();
 		return clErr;
 	}
 
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage3D);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage3d);
 
-	*ppImage3d = pImage3D;
-	return CL_SUCCESS;
-
+	return clErr;
 }
 
-// Context::clCreateImage2DArrayINTEL
+// Context::clCreateImage2DArray
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::clCreateImage2DArrayINTEL(
+cl_err_code Context::clCreateImage2DArray(
     cl_mem_flags		    clFlags,
     const cl_image_format *	pclImageFormat,
     void *					pHostPtr,
     cl_image_array_type		clImageArrayType,
-    const size_t *			pszImageWidth,
-    const size_t *			pszImageHeight,
+    const size_t*			pszImageWidth,
+    const size_t*			pszImageHeight,
     size_t					szNumImages,
     size_t					szImageRowPitch,
     size_t					szImageSlicePitch,                                    
-    Image2DArray**          ppImage2dArr)
+    MemoryObject**          ppImage2dArr)
 {
-    LOG_DEBUG(TEXT("Enter clCreateImage2DArrayINTEL (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, clImageArrayType=%d, pszImageWidth=%d, pszImageHeight=%d, szNumImages=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2dArr=%d)"), 
-        clFlags, pclImageFormat, pHostPtr, clImageArrayType, pszImageWidth, pszImageHeight,
+    LOG_DEBUG(TEXT("Enter (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, clImageArrayType=%d, pszImageWidth[0]=%d, pszImageHeight[0]=%d, szNumImages=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2dArr=%d)"), 
+        clFlags, pclImageFormat, pHostPtr, clImageArrayType, pszImageWidth[0], pszImageHeight[0],
         szNumImages, szImageRowPitch, szImageSlicePitch, ppImage2dArr);
+
+	assert ( NULL != ppImage2dArr );
+
+	//Curretnly only same size array is supported
+    if (CL_IMAGE_ARRAY_SAME_DIMENSIONS != clImageArrayType)
+    {
+        LOG_ERROR(TEXT("Invalide clImageArrayType = %d"), clImageArrayType);
+        return CL_INVALID_VALUE;
+    }
+
+    if ((pszImageWidth[0] < 1)	||
+        (pszImageHeight[0] < 1)	||
+		(pszImageWidth[0] > m_sz2dWidth)	||
+        (pszImageHeight[0] > m_sz2dHeight) ||
+        (szNumImages <= 1) ||
+        (szNumImages > m_sz2dArraySize))
+    {
+        LOG_ERROR(TEXT("pszImageWidth = %p, pszImageHeight = %p, szNumImages = %d"), pszImageWidth[0],
+            pszImageHeight[0], szNumImages);
+        return CL_INVALID_IMAGE_SIZE;
+    }
+
+	size_t pixelBytesCnt = GetPixelBytesCount(pclImageFormat);
+	size_t imageRowPitch = (0 == szImageRowPitch) ? pszImageWidth[0] * pixelBytesCnt : szImageRowPitch;
+	size_t imageSlicePitch = (0 == szImageSlicePitch) ? imageRowPitch * pszImageHeight[0] : szImageSlicePitch;
 
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
-#ifdef _DEBUG
-    assert ( NULL != ppImage2dArr );
-    assert ( NULL != m_pMemObjects );
-#endif
 
-    size_t szMaxAllowedImageWidth = 0, szMaxAllowedImageHeight = 0, szMaxAllowedImageArraySize = 0;
-    cl_err_code clErr = GetMaxImageDimensions(&szMaxAllowedImageWidth, &szMaxAllowedImageHeight,
-        NULL, NULL, NULL, &szMaxAllowedImageArraySize);
-
-    LOG_DEBUG(TEXT("szMaxAllowedImageWidth = %d, szMaxAllowedImageHeight = %d, szMaxAllowedImageArraySize = %d"),
-        szMaxAllowedImageWidth, szMaxAllowedImageHeight, szMaxAllowedImageArraySize);
-    if (NULL == pszImageWidth || NULL == pszImageHeight)
-    {
-        LOG_ERROR(TEXT("pszImageWidth == %p, pszImageHeight == %p"), pszImageWidth,
-            pszImageHeight);
-        return CL_INVALID_VALUE;
-    }
-
-    if ((*pszImageWidth < 1)	||
-        (*pszImageHeight < 1)	||
-        (*pszImageWidth > szMaxAllowedImageWidth)	||
-        (*pszImageHeight > szMaxAllowedImageHeight) ||
-        (szNumImages <= 1) ||
-        (szNumImages > szMaxAllowedImageArraySize))
-    {
-        LOG_ERROR(TEXT("pszImageWidth = %p, pszImageHeight = %p, szNumImages = %d"), pszImageWidth,
-            pszImageHeight, szNumImages);
-        return CL_INVALID_IMAGE_SIZE;
-    }
-    if (NULL == pclImageFormat)
-    {
-        LOG_ERROR(TEXT("NULL == pclImageFormat"), "");
-        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-    }
-    const size_t pixelBytesCnt = Image2D::GetPixelBytesCount(pclImageFormat);
-    if (0 == pixelBytesCnt)
-    {
-        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-    }
-    if ((NULL == pHostPtr && 0 != szImageRowPitch) ||
-        (NULL != pHostPtr && 0 < szImageRowPitch && pixelBytesCnt > szImageRowPitch) ||
-        0 != szImageRowPitch % pixelBytesCnt)
-    {
-        LOG_ERROR(TEXT("szImageRowPitch = %d"), szImageRowPitch);
-        return CL_INVALID_IMAGE_SIZE;
-    }
-    const size_t imageRowPitch =
-        0 == szImageRowPitch ? *pszImageWidth * pixelBytesCnt : szImageRowPitch;
-    if ((NULL == pHostPtr && 0 != szImageSlicePitch) ||
-        (NULL != pHostPtr && 0 < szImageSlicePitch &&
-         imageRowPitch * *pszImageHeight > szImageSlicePitch) ||
-        0 != szImageSlicePitch % imageRowPitch)
-    {
-        LOG_ERROR(TEXT("szImageSlicePitch = %d"), szImageSlicePitch);
-        return CL_INVALID_IMAGE_SIZE;
-    }
-    if (CL_IMAGE_ARRAY_SAME_DIMENSIONS != clImageArrayType)
-    {
-        LOG_ERROR(TEXT("clImageArrayType = %d"), clImageArrayType);
-        return CL_INVALID_VALUE;
-    }
     // flags and imageFormat are validated by Image2D and MemoryObject contained inside Image2DArray and hostPtr by MemoryObject::initialize.
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE2D_ARRAY, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage2dArr);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
+		return clErr;
+	}
 
-    Image2DArray * pImage2DArr = new Image2DArray(this, clFlags, (cl_image_format*)pclImageFormat,
-        pHostPtr, *pszImageWidth, *pszImageHeight, szNumImages, szImageRowPitch, szImageSlicePitch,
-        (ocl_entry_points*)m_handle.dispatch, &clErr);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("Error creating new Image2DArr, returned: %S"), ClErrTxt(clErr));
-        pImage2DArr->Release();
-        return clErr;
-    }
+	size_t dim[3] = {pszImageWidth[0], pszImageHeight[0], szNumImages};
+	size_t pitch[2] = {imageRowPitch, imageSlicePitch};
+	clErr = (*ppImage2dArr)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		(*ppImage2dArr)->Release();
+		return clErr;
+	}
 
-    clErr = pImage2DArr->Initialize(pHostPtr);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("Failed to initialize data, pImage2D->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
-        pImage2DArr->Release();
-        return clErr;
-    }
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage2dArr);
 
-    m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage2DArr);
-
-    *ppImage2dArr = pImage2DArr;
     return CL_SUCCESS;
 }
 
@@ -925,26 +896,18 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 		clFlags = clFlags | CL_MEM_READ_WRITE;
 	}
 
-	// get device flags
-	cl_dev_mem_flags clDevMemFlags = DeviceMemoryObject::GetDevMemFlags(clFlags);
-	cl_dev_mem_object_type clDevMemObjType =  DeviceMemoryObject::GetDevMemObjType(clType);
-
-
 	// get supported image types from all devices
 	// TODO: prepare the minimum overlapping list from all devices
+	// Need to iterate only over root devices
+	assert(m_mapDevices.Count() == 1);
 
-	Device * pDevice = NULL;
 	cl_err_code clErr = CL_SUCCESS;
-	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
-		if (CL_SUCCEEDED(clErr))
+		clErr = m_ppAllDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
+		if (CL_FAILED(clErr))
 		{
-			clErr = pDevice->GetDeviceAgent()->clDevGetSupportedImageFormats(clDevMemFlags, clDevMemObjType, uiNumEntries, pclImageFormats, puiNumImageFormats);
-			if (CL_FAILED(clErr))
-			{
-				return clErr;
-			}
+			return clErr;
 		}
 	}
 
@@ -955,44 +918,27 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_ulong Context::GetMaxMemAllocSize()
 {
-#ifdef _DEBUG
-	assert ( m_pDevices != NULL );
-#endif
+	if ( 0 != m_ulMaxMemAllocSize )
+	{
+		return m_ulMaxMemAllocSize;
+	}
 
 	LOG_DEBUG(TEXT("%S"), TEXT("Enter GetDeviceMaxMemAllocSize"));
 
-	cl_ulong ulMemAllocSize = 0, ulMaxMemAllocSize = 0;
-	cl_err_code clErr = CL_SUCCESS;
-	Device * pDevice = NULL;
+	cl_ulong ulMemAllocSize = 0;
 	
-	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
-		if (CL_FAILED(clErr) || NULL == pDevice)
-		{
-			continue;
-		}
-		clErr = pDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, NULL);
+		cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, NULL);
 		if (CL_FAILED(clErr))
 		{
 			continue;
 		}
-		// get minimum of all maximum
-		if (0 == ui) // first iteration
-		{
-			ulMaxMemAllocSize = ulMemAllocSize;
-		}
-		else
-		{
-			ulMaxMemAllocSize = (ulMemAllocSize < ulMaxMemAllocSize) ? ulMemAllocSize : ulMaxMemAllocSize;
-		}
+		m_ulMaxMemAllocSize = (0 == m_ulMaxMemAllocSize) ? ulMemAllocSize :
+									(ulMemAllocSize < m_ulMaxMemAllocSize) ? ulMemAllocSize : m_ulMaxMemAllocSize;
 	}
-    if ( 0 == ulMaxMemAllocSize)
-    {
-        // No one declared size, probably ignore this value, set default.
-        ulMaxMemAllocSize = SHRT_MAX;
-    }
-	return ulMaxMemAllocSize;
+
+	return m_ulMaxMemAllocSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1005,10 +951,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 										   size_t * psz3dDepth,
                                            size_t * psz2dArraySize)
 {
-#ifdef _DEBUG
-	assert ( "There are no devices associated to the context!!!" && (m_pDevices != NULL) );
 	assert ( "wrong input params" && ((psz2dWidth != NULL) || (psz2dHeight != NULL) || (psz3dWidth != NULL) || (psz3dHeight != NULL) || (psz3dDepth != NULL)) );
-#endif
 
 	LOG_DEBUG(TEXT("%S"), TEXT("Enter GetMaxAllowedImageWidth"));
 
@@ -1018,9 +961,9 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	cl_err_code clErr = CL_SUCCESS;
 	Device * pDevice = NULL;
 	
-	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
+		clErr = m_mapDevices.GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
 		if (CL_FAILED(clErr) || NULL == pDevice)
 		{
 			continue;
@@ -1107,11 +1050,9 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj)
 {
-#ifdef _DEBUG
-	assert ( NULL != m_pMemObjects );
-#endif
-	return m_pMemObjects->GetOCLObject((_cl_mem_int*)clMemId, (OCLObject<_cl_mem_int>**)ppMemObj);
+	return m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemId, (OCLObject<_cl_mem_int>**)ppMemObj);
 }
+
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
 	if (NULL != m_pfnNotify)
@@ -1124,12 +1065,12 @@ void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, siz
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, Sampler ** ppSampler)
 {
+	assert ( NULL != ppSampler );
 	LOG_DEBUG(TEXT("Enter CreateSampler (bNormalizedCoords=%d, clAddressingMode=%d, clFilterMode=%d, ppSampler=%d)"), 
 		bNormalizedCoords, clAddressingMode, clFilterMode, ppSampler);
 
 #ifdef _DEBUG
 	assert ( NULL != ppSampler );
-	assert ( NULL != m_pSamplers );
 #endif
 
 	Sampler * pSampler = new Sampler();
@@ -1141,7 +1082,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 		return clErr;
 	}
 	
-	m_pSamplers->AddObject((OCLObject<_cl_sampler_int>*)pSampler);
+	m_mapSamplers.AddObject((OCLObject<_cl_sampler_int>*)pSampler);
 
 	*ppSampler = pSampler;
 	return CL_SUCCESS;
@@ -1151,10 +1092,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::GetSampler(cl_sampler clSamplerId, Sampler ** ppSampler)
 {
-#ifdef _DEBUG
-	assert ( NULL != m_pSamplers );
-#endif
-	return m_pSamplers->GetOCLObject((_cl_sampler_int*)clSamplerId, (OCLObject<_cl_sampler_int>**)ppSampler);
+	return m_mapSamplers.GetOCLObject((_cl_sampler_int*)clSamplerId, (OCLObject<_cl_sampler_int>**)ppSampler);
 }
 FissionableDevice ** Context::GetDevices(cl_uint * puiNumDevices)
 {
@@ -1163,7 +1101,7 @@ FissionableDevice ** Context::GetDevices(cl_uint * puiNumDevices)
 
 	if (NULL != puiNumDevices)
 	{
-		*puiNumDevices = m_pDevices->Count();
+		*puiNumDevices = m_mapDevices.Count();
 	}
 	return m_ppAllDevices;
 }
@@ -1177,14 +1115,14 @@ Device** Context::GetRootDevices(cl_uint* puiNumDevices)
     return m_ppRootDevices;
 }
 
-cl_device_id * Context::GetDeviceIds(cl_uint * puiNumDevices)
+cl_device_id * Context::GetDeviceIds(size_t * puiNumDevices)
 {
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
 
 	if (NULL != puiNumDevices)
 	{
-		*puiNumDevices = m_pDevices->Count();
+		*puiNumDevices = m_mapDevices.Count();
 	}
 	return m_pDeviceIds;
 }
@@ -1193,7 +1131,7 @@ cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
 {
     OclAutoReader CS(&m_deviceDependentObjectsLock);
     FissionableDevice* pDevice;
-    if (CL_SUCCESS != m_pDevices->GetOCLObject((_cl_device_id_int*)id, (OCLObject<_cl_device_id_int>**)(&pDevice)))
+    if (CL_SUCCESS != m_mapDevices.GetOCLObject((_cl_device_id_int*)id, (OCLObject<_cl_device_id_int>**)(&pDevice)))
     {
         return 0;
     }
@@ -1213,7 +1151,7 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
     // This will block further calls to clCreate<MemObj> and clCreateProgramWithXXX
     OclAutoWriter CS(&m_deviceDependentObjectsLock);
 
-    size_t prevNumDevices = m_pDevices->Count();
+    size_t prevNumDevices = m_mapDevices.Count();
     cl_device_id* pNewDeviceIds = new cl_device_id[prevNumDevices + count];
     if (NULL == pNewDeviceIds)
     {
@@ -1232,7 +1170,7 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
     {
         pNewDeviceIds[prevNumDevices + i] = children[i]->GetHandle();
         pNewDevices[prevNumDevices + i]   = children[i];
-        m_pDevices->AddObject(children[i], false);
+        m_mapDevices.AddObject(children[i], false);
     }
 
     delete m_pDeviceIds;
@@ -1256,8 +1194,8 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
             delete[] progs;
         }
 
-        numMemObjects = m_pMemObjects->Count();
-        numPrograms   = m_pPrograms->Count();
+        numMemObjects = m_mapMemObjects.Count();
+        numPrograms   = m_mapPrograms.Count();
 
         //Todo: use local array here
         memObjs       = new OCLObject<_cl_mem_int>*[numMemObjects];
@@ -1266,24 +1204,232 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
         assert(memObjs);
         assert(progs);
 
-        ret  = m_pMemObjects->GetObjects(numMemObjects, memObjs, NULL);
-        ret |= m_pPrograms->GetObjects(numPrograms, progs, NULL);
+        ret  = m_mapMemObjects.GetObjects(numMemObjects, memObjs, NULL);
+        ret |= m_mapPrograms.GetObjects(numPrograms, progs, NULL);
     } while (CL_SUCCESS != ret);
 
     //Iterate over all programs and all memory objects and notify them of the new device
     for (cl_uint i = 0; i < numMemObjects; ++i)
     {
-        MemoryObject* pMemObj = dynamic_cast<MemoryObject*>(memObjs[i]);
-        assert(pMemObj);
+		assert(NULL != dynamic_cast<MemoryObject*>(memObjs[i]));
+        MemoryObject* pMemObj = static_cast<MemoryObject*>(memObjs[i]);
+        
         pMemObj->NotifyDeviceFissioned(parent, count, children);
     }
     for (cl_uint i = 0; i < numPrograms; ++i)
     {
-        Program* pProgram = dynamic_cast<Program*>(progs[i]);
-        assert(pProgram);
+        assert(NULL != dynamic_cast<Program*>(progs[i]));
+        Program* pProgram = static_cast<Program*>(progs[i]);
         pProgram->NotifyDeviceFissioned(parent, count, children);
     }
     delete[] memObjs;
     delete[] progs;
     return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::CheckSupportedImageFormat
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType)
+{
+	// Check for invalid format
+	if (NULL == pclImageFormat || (0 == GetPixelBytesCount(pclImageFormat)) )
+	{
+		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+	}
+
+	// Calculate supported format key
+	int key = clObjType << 16 | (int)clMemFlags;
+	tImageFormatMap::iterator mapIT;
+	{	// Critical section
+		OclAutoMutex mu(&m_muFormatsMap);
+		mapIT = m_mapSupportedFormats.find(key);
+		// First access to the key, need to get formats from devices
+		if ( m_mapSupportedFormats.end() == mapIT )
+		{
+			if ( 0 == QuerySupportedImageFormats(clMemFlags, clObjType) )
+			{
+				return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+			}
+			mapIT = m_mapSupportedFormats.find(key);
+		}
+	}
+
+	tImageFormatList::iterator listIT = mapIT->second.begin();
+	while (mapIT->second.end() != listIT)
+	{
+		if ( (pclImageFormat->image_channel_order == listIT->image_channel_order) &&
+			(pclImageFormat->image_channel_data_type == listIT->image_channel_data_type) )
+		{
+			return CL_SUCCESS;
+		}
+		listIT++;
+	}
+
+	return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::QuerySupportedImageFormats
+///////////////////////////////////////////////////////////////////////////////////////////////////
+size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType )
+{
+	// Calculate supported format key
+	int key = clObjType << 16 | (int)clMemFlags;
+
+	OclAutoMutex mu(&m_muFormatsMap);
+
+	tImageFormatMap::iterator mapIT = m_mapSupportedFormats.find(key);
+	// First access to the key, found the data is inside
+	if ( m_mapSupportedFormats.end() != mapIT )
+	{
+		return CL_SUCCESS;
+	}
+
+	cl_err_code clErr = CL_SUCCESS;
+	unsigned int uiMaxFormatCount = 0;
+	unsigned int uiFormatCount;
+	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
+	{
+		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, 0, NULL, &uiFormatCount);
+		if (CL_FAILED(clErr))
+		{
+			return 0;
+		}
+		uiMaxFormatCount = std::max<unsigned int>(uiFormatCount, uiMaxFormatCount);
+	}
+
+	// No formats count
+	if (0 == uiMaxFormatCount)
+	{
+		return 0;
+	}
+
+	// Now allocate maximum array
+	cl_image_format* pFortmats = new cl_image_format[uiMaxFormatCount];
+
+	// Get formats from first device
+	clErr = m_ppRootDevices[0]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFortmats, &uiFormatCount);
+	if (CL_FAILED(clErr) || (0 == uiFormatCount))
+	{
+		return 0;
+	}
+	// Add formats to the list
+	tImageFormatList tmpList;
+	for (unsigned int ui=0; ui<uiFormatCount; ++ui)
+	{
+		tmpList.push_back(pFortmats[ui]);
+	}
+
+	// No go through rest of the devices and eliminate not supported formats
+	for (cl_uint ui=1; ui<m_mapDevices.Count(); ++ui)
+	{
+		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFortmats, &uiFormatCount);
+		if (CL_FAILED(clErr) || (0 == uiFormatCount))
+		{
+			return 0;
+		}
+		tImageFormatList::iterator it=tmpList.begin();
+		while(it != tmpList.end())
+		{
+			bool bFound = false;
+			// Check if we have format in device list
+			for (unsigned int i=0; i<uiFormatCount && !bFound; ++i)
+			{
+				if ( (pFortmats[i].image_channel_order == it->image_channel_order) &&
+					(pFortmats[i].image_channel_data_type == it->image_channel_data_type) )
+				{
+					bFound = true;
+				}
+			}
+			if (!bFound)
+			{
+				tmpList.erase(it);
+			} else
+			{
+				it++;
+			}
+		}
+	}
+
+	m_mapSupportedFormats[key] = tmpList;
+	return tmpList.size();	
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::GetPixelBytesCount
+///////////////////////////////////////////////////////////////////////////////////////////////////
+size_t Context::GetPixelBytesCount(const cl_image_format * pclImageFormat)
+{
+	if (NULL == pclImageFormat)
+	{
+		return 0;
+	}
+	size_t szBytesCount = 0, szElementsCount = 0;
+
+	// get size of element in bytes
+	switch(pclImageFormat->image_channel_data_type)
+	{
+	case CL_SNORM_INT8:
+	case CL_SIGNED_INT8:
+		szBytesCount = sizeof(cl_char);
+		break;
+	case CL_UNORM_INT8:
+	case CL_UNSIGNED_INT8:
+		szBytesCount = sizeof(cl_uchar);
+		break;
+	case CL_SNORM_INT16:
+	case CL_SIGNED_INT16:
+		szBytesCount = sizeof(cl_short);
+		break;
+	case CL_UNORM_SHORT_565:
+	case CL_UNORM_SHORT_555:
+	case CL_UNORM_INT16:
+	case CL_UNSIGNED_INT16:
+		szBytesCount = sizeof(cl_ushort);
+		break;
+	case CL_SIGNED_INT32:
+	case CL_UNORM_INT_101010:
+		szBytesCount = sizeof(cl_int);
+		break;
+	case CL_UNSIGNED_INT32:
+		szBytesCount = sizeof(cl_uint);
+		break;
+	case CL_HALF_FLOAT:
+		szBytesCount = sizeof(cl_half);
+		break;
+	case CL_FLOAT:
+		szBytesCount = sizeof(cl_float);
+		break;
+	default:
+		return 0;
+	}
+
+	// get number of elements in pixel
+	switch(pclImageFormat->image_channel_order)
+	{
+	case CL_R:
+	case CL_A:
+		szElementsCount = 1;
+		break;
+	case CL_RG:
+	case CL_RA:
+		szElementsCount = 2;
+		break;
+	case CL_RGB:
+		szElementsCount = 1;
+		break;
+	case CL_RGBA:
+	case CL_BGRA:
+	case CL_ARGB:
+		szElementsCount = 4;
+		break;
+	case CL_LUMINANCE:
+	case CL_INTENSITY:
+		szElementsCount = 1;
+		break;
+	default:
+		return 0;
+	}
+
+	return szBytesCount * szElementsCount;
 }

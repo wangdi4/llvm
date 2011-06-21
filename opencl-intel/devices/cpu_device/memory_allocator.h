@@ -28,12 +28,14 @@
 
 #pragma once
 
-#include "cl_device_api.h"
-#include "handle_allocator.h"
-#include "cl_types.h"
+#include <cl_device_api.h>
+#include <cl_types.h>
+#include <cl_heap.h>
+#include <cl_synch_objects.h>
 #include <map>
 
 using namespace Intel::OpenCL::Utils;
+
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -51,67 +53,81 @@ class MemoryAllocator
 {
 
 public:
-	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc);
+	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize);
 	virtual ~MemoryAllocator();
 
 	//Image Info Function
-	cl_dev_err_code GetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+	cl_dev_err_code GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
 				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
+	cl_dev_err_code GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp );
 	// Create/Release functions
-	cl_dev_err_code	CreateObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-							cl_uint	IN dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
+	cl_dev_err_code	CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
+							size_t	dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
 							cl_dev_host_ptr_flags host_flags,
-							cl_dev_mem* OUT memObj );
-	cl_dev_err_code	ReleaseObject( cl_dev_mem IN memObj );
+							IOCLDevMemoryObject* *memObj );
 
-	// Checks that given object is valid object and belongs to memory allocator
-	cl_dev_err_code	ValidateObject( cl_dev_mem IN memObj );
-
-	// Lock/Unlock functions
-	// This function retrieves a pointer to data inside the object
-	cl_dev_err_code	LockObject(cl_dev_mem IN pMemObj, cl_uint IN dim_count, const size_t* origin,
-							void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
-	// This function retrieves a pointer to object descriptor
-	cl_dev_err_code	LockObject(cl_dev_mem IN pMemObj, cl_mem_obj_descriptor* OUT *pMemObjDesc);
-	// This function unlocks both locks
-	cl_dev_err_code	UnLockObject(cl_dev_mem IN memObj, void* IN ptr);
-
-	// Mapped region functions
-	cl_dev_err_code	CreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams );
-	cl_dev_err_code	ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
 
 	// Utility functions
 	static void CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
+	static void* CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
+protected:
+	size_t GetElementSize(const cl_image_format* format);
+	cl_int					m_iDevId;
+	IOCLDevLogDescriptor*	m_pLogDescriptor;
+	cl_int					m_iLogHandle;
+	ClHeap					m_lclHeap;
+};
+
+class CPUDevMemoryObject : public IOCLDevMemoryObject
+{
+public:
+	friend class CPUDevMemorySubObject;
+
+	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, ClHeap lclHeap,
+		cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
+		const cl_image_format* pImgFormat, size_t elemSize,
+		size_t dimCount, const size_t* dim,
+		void* pBuffer, const size_t* pPitches,
+		cl_dev_host_ptr_flags hostFlags);
+
+	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
+		m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
+			m_nodeId(NULL), m_memFlags(0), m_hostPtrFlags(CL_DEV_HOST_PTR_NONE), m_pHostPtr(NULL) {}
+
+	cl_dev_err_code Init();
+
+	cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*	pMapParams );
+	cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
+	cl_dev_err_code clDevMemObjRelease();
+	cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
+
+	cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags, 
+					const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
 protected:
-	struct SMemObjectDescriptor
-	{
-		cl_dev_mem					myHandle;
-		cl_mem_obj_descriptor		objDecr;
-		cl_dev_mem_flags			memFlags;
-		cl_dev_host_ptr_flags		clHostPtrFlags;
-		void*						pHostPtr;						// A pointer provided by framework
-		bool						bObjLocked;
-	};
-
-	void*	AllocateMem(cl_uint	dim_count, const size_t* dim, size_t* pitch);
-	size_t  ElementSize(const cl_image_format* format);
-
-	cl_dev_err_code CalculateOffsetPointer(const SMemObjectDescriptor* pObjDesc, void* pBasePtr,
-								   cl_uint dim_count, const size_t* IN origin,
-									void** OUT ptr, size_t* OUT pitch, size_t* OUT uiElementSize);
-
-	cl_uint					m_iDevId;
+	ClHeap					m_lclHeap;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 
 	// Object Management
-	typedef	std::map<unsigned int, SMemObjectDescriptor*>	TMemObjectsMap;
+	cl_dev_subdevice_id		m_nodeId;
 
-	TMemObjectsMap					m_mapObjects;
-	OclMutex						m_muObjectMap;
-	HandleAllocator<unsigned int>	m_objHandles;
+	cl_mem_obj_descriptor	m_objDecr;
+	cl_mem_flags			m_memFlags;
+	cl_dev_host_ptr_flags	m_hostPtrFlags;		
+	void*					m_pHostPtr;			// A pointer provided by the framework
+	size_t					m_hostPitch[MAX_WORK_DIM-1];
 
 };
 
+class CPUDevMemorySubObject : public CPUDevMemoryObject
+{
+public:
+	CPUDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, CPUDevMemoryObject* pParent);
+
+	cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size);
+
+protected:
+	CPUDevMemoryObject* m_pParent;
+};
 }}}

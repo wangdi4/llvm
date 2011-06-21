@@ -58,7 +58,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code RegisterDeviceFissionObserver(IDeviceFissionObserver* ob); 
         void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
 
-        //virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_device_id* out_devices, cl_uint* num_devices) = 0;
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
         virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes) = 0;
 
@@ -76,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // An API to query the appropriate sub-device ID (0 for root-level devices)
         virtual cl_dev_subdevice_id GetSubdeviceId() { return 0; }
 
-        virtual IOCLDevice*	GetDeviceAgent() = 0;
+		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
     protected:
         ~FissionableDevice() {}
@@ -177,7 +176,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		const FECompiler * GetFECompiler(){ return m_pFECompiler; }
 
-		IOCLDevice*	GetDeviceAgent() {return m_pDevice;}
+		IOCLDeviceAgent*	GetDeviceAgent() {return m_pDevice;}
+
+		cl_device_type		GetDeviceType() {return m_deviceType;}
 
 		void SetGLProperties(cl_context_properties hGLCtx, cl_context_properties hHDC)
 							 { m_hGLContext = hGLCtx; m_hHDC = hHDC;}
@@ -186,7 +187,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Inherited from FissionableDevice
         cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
-        Device* GetRootDevice() { return this; }
+        
+		Device* GetRootDevice() { return this; }
+
         bool    IsRootLevelDevice() { return true; }
 
         //Override the OCLObject defaults
@@ -225,26 +228,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// class private members
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		Utils::OclDynamicLib					m_dlModule;
+		Intel::OpenCL::Utils::OclDynamicLib		m_dlModule;
 		// front-end compiler
 		FECompiler *						    m_pFECompiler;
 
         // Pointer to the device GetInfo function.
-        fn_clDevGetDeviceInfo*                  m_pFnClDevGetDeviceInfo;
+        fn_clDevGetDeviceInfo*	m_pFnClDevGetDeviceInfo;
 
         cl_int							        m_iNextClientId;		// hold the next client logger id
 
-		Utils::AtomicCounter                    m_pDeviceRefCount;     // holds the reference count for the associated IOCLDevice
+		Intel::OpenCL::Utils::AtomicCounter     m_pDeviceRefCount;     // holds the reference count for the associated IOCLDevice
 
 		Utils::OclSpinMutex                     m_deviceInitializationMutex;
 
 		std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
-		IOCLDevice*								m_pDevice;
+		IOCLDeviceAgent*	m_pDevice;
 
 		DECLARE_LOGGER_CLIENT;											// device's class logger client
 
+		// Prefetched data
 		cl_ulong								m_stMaxLocalMemorySize;
+
+		cl_device_type							m_deviceType;
 		// GL Sharing info
 		cl_context_properties					m_hGLContext;
 		cl_context_properties					m_hHDC;
@@ -281,7 +287,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t              GetNumComputeUnits() { return m_numComputeUnits; }
         cl_dev_subdevice_id GetSubdeviceId()     { return m_deviceId; }
         FissionableDevice*  GetParentDevice()    { return m_pParentDevice; }
-        IOCLDevice*         GetDeviceAgent()     { return m_pParentDevice->GetDeviceAgent(); }
+        IOCLDeviceAgent*    GetDeviceAgent()     { return m_pRootDevice->GetDeviceAgent(); }
 
     protected:
         ~SubDevice(); 

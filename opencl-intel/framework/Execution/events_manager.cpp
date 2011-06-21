@@ -228,7 +228,7 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 		{
 			for ( ui =0; ui < uiNumEvents; ui++)
 			{
-				OclEvent* pDependOnEvent = vOclEvents[ui];
+				QueueEvent* pDependOnEvent = dynamic_cast<QueueEvent*>(vOclEvents[ui]);
 				if ( NULL != pDependOnEvent )
 				{
 					if ((pDependOnEvent->GetEventQueue()) && 

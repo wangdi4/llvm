@@ -27,12 +27,11 @@
 #pragma once
 
 #include "cl_device_api.h"
-#include "program_service.h"
-#include "memory_allocator.h"
-#include "task_dispatcher.h"
 #include "cl_dynamic_lib.h"
 #include "cpu_dev_limits.h"
 #include "cpu_config.h"
+
+
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -41,7 +40,11 @@ extern const char* VENDOR_STRING;
 extern const cl_image_format suportedImageFormats[];
 extern const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS;
 
-class CPUDevice : public IOCLDevice
+class ProgramService;
+class MemoryAllocator;
+class TaskDispatcher;
+
+class CPUDevice : public IOCLDeviceAgent
 {
 private:
 	ProgramService*			m_pProgramService;
@@ -78,14 +81,12 @@ public:
 	cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
 	cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 	cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list);
-	cl_dev_err_code clDevGetSupportedImageFormats( cl_dev_mem_flags IN flags, cl_dev_mem_object_type IN imageType,
+	cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
 					cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
-	cl_dev_err_code clDevCreateMemoryObject( cl_dev_mem_flags IN flags, const cl_image_format* IN format,
-							cl_uint	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
-							cl_dev_host_ptr_flags IN host_flags, cl_dev_mem* OUT memObj);
-	cl_dev_err_code clDevDeleteMemoryObject( cl_dev_mem IN memObj );
-	cl_dev_err_code clDevCreateMappedRegion( cl_dev_cmd_param_map* INOUT pMapParams);
-	cl_dev_err_code clDevReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams );
+	cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp );
+	cl_dev_err_code clDevCreateMemoryObject( cl_dev_subdevice_id IN node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
+							size_t	IN dim_count, const size_t* IN dim_size, void*	IN buffer_ptr, const size_t* IN pitch,
+							cl_dev_host_ptr_flags IN host_flags, IOCLDevMemoryObject* OUT *memObj);
 	cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
 	cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
 	cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData);
@@ -96,7 +97,7 @@ public:
 	cl_dev_err_code clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
 	cl_dev_err_code clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
 	cl_dev_err_code clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-							 size_t* OUT numKernelsRet );
+							 cl_uint* OUT numKernelsRet );
 	cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 						void* OUT value, size_t* OUT valueSizeRet );
 	cl_ulong	clDevGetPerformanceCounter();

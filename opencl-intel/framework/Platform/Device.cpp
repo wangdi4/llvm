@@ -37,6 +37,7 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+
 Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 {
 	// initialize logger client
@@ -77,7 +78,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
 		param_name, param_value_size, param_value, param_value_size_ret);
 
-	int clDevErr = CL_SUCCESS;
+	int clDevErr = CL_DEV_SUCCESS;
 	if (NULL == param_value && NULL == param_value_size_ret)
 	{
 		return CL_INVALID_VALUE;
@@ -196,6 +197,7 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 	m_stMaxLocalMemorySize = 0;
 	m_pFnClDevGetDeviceInfo(CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
 
+	m_pFnClDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
 	return CL_SUCCESS;
 }
 
@@ -456,7 +458,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
         //If the user doesn't actually want fission, no reason to send it to the device, just return the size
         if (NULL == out_devices)
         {
-            *num_devices = partitionSizes.size();
+            *num_devices = (cl_uint)partitionSizes.size();
             return CL_SUCCESS;
         }
         dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, &partitionSizes, out_devices);
@@ -546,7 +548,7 @@ m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits)
 
 SubDevice::~SubDevice()
 {
-    IOCLDevice* pRoot = GetDeviceAgent();
+    IOCLDeviceAgent* pRoot = GetDeviceAgent();
     if (NULL != pRoot)
     {
         pRoot->clDevReleaseSubdevice(m_deviceId);
@@ -632,10 +634,10 @@ void SubDevice::CacheFissionProperties(const cl_device_partition_property_ext* p
     //Todo: don't copy the partition properties for every sub-device, keep it in the parent
     if (props)
     {
-        m_fissionMode = props[0];
+        m_fissionMode = (cl_int)props[0];
         if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == m_fissionMode)
         {
-            m_fissionMode = props[1];
+            m_fissionMode = (cl_int)props[1];
         }
 
         //Ninja-style is still the most readable here, I think

@@ -41,7 +41,7 @@ using namespace Intel::OpenCL::Utils;
 *
 ******************************************************************/
 QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
-OclEvent(cmdQueue), m_bProfilingEnabled(false), m_pCommand(NULL)
+OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
 {
 	m_sProfilingInfo.m_ulCommandQueued = 0;
 	m_sProfilingInfo.m_ulCommandSubmit = 0;
@@ -254,10 +254,11 @@ void QueueEvent::NotifyReady(OclEvent* pEvent)
     {
         m_color = EVENT_STATE_YELLOW;
 
+		QueueEvent *pQEvent = dynamic_cast<QueueEvent*>(pEvent);
         //See if I have to notify my queue or not
-        if ((pEvent) && (pEvent->GetEventQueue()))
+        if ((NULL != pQEvent) && (pQEvent->GetEventQueue()))
         {
-            if (pEvent->GetEventQueue()->GetId() == m_pEventQueue->GetId())
+            if (pQEvent->GetEventQueue()->GetId() == m_pEventQueue->GetId())
             {
                 //that event will notify my queue for me
                 if (!m_pEventQueue->IsOutOfOrderExecModeEnabled())

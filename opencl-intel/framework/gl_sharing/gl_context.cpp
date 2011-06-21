@@ -19,10 +19,10 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  Context.cpp
+//  gl_context.cpp
 //  Implementation of the Class Context
 //  Created on:      10-Dec-2008 2:08:23 PM
-//  Original author: ulevy
+//  Original author: efiksman
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <cassert>
@@ -84,6 +84,7 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 	this->glMapBuffer = (pFnglMapBuffer*)wglGetProcAddress("glMapBuffer");
 	this->glUnmapBuffer = (pFnglUnmapBuffer*)wglGetProcAddress("glUnmapBuffer");
 	this->glGetBufferParameteriv = (pFnglGetBufferParameteriv*)wglGetProcAddress("glGetBufferParameteriv");
+	this->glBufferData = (pFnglBufferData*)wglGetProcAddress("glBufferData");
 	this->glTexImage3D = (pFnglTexImage3D*)wglGetProcAddress("glTexImage3D");
 	this->glGetRenderbufferParameterivEXT = (pFnglGetRenderbufferParameterivEXT*)wglGetProcAddress("glGetRenderbufferParameterivEXT");
 	this->glBindRenderbufferEXT = (pFnglBindRenderbufferEXT*)wglGetProcAddress("glBindRenderbufferEXT");
@@ -91,7 +92,10 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 	this->glDeleteFramebuffersEXT = (pFnglDeleteFramebuffersEXT*)wglGetProcAddress("glDeleteFramebuffersEXT");
 	this->glBindFramebufferEXT = (pFnglBindFramebufferEXT*)wglGetProcAddress("glBindFramebufferEXT");
 	this->glFramebufferRenderbufferEXT = (pFnglFramebufferRenderbufferEXT*)wglGetProcAddress("glFramebufferRenderbufferEXT");
+	this->glFramebufferTexture2DEXT = (pFnglFramebufferTexture2DEXT*)wglGetProcAddress("glFramebufferTexture2DEXT");
 	this->glCheckFramebufferStatusEXT = (pFnglCheckFramebufferStatusEXT*)wglGetProcAddress("glCheckFramebufferStatusEXT");
+	this->glGenBuffers = (pFnglGenBuffers*)wglGetProcAddress("glGenBuffers");
+	this->glDeleteBuffers = (pFnglDeleteBuffers*)wglGetProcAddress("glDeleteBuffers");
 #endif
 
 }
@@ -106,36 +110,30 @@ GLContext::~GLContext()
 }
 
 // create GL buffer object
-cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Buffer ** ppBuffer)
+cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, MemoryObject ** ppBuffer)
 {
-	LOG_DEBUG(L"Enter CreateBuffer (cl_mem_flags=%d, glBufObj=%d, ppBuffer=%d)", 
+	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glBufObj=%d, ppBuffer=%d)"),
 		clFlags, glBufObj, ppBuffer);
 
 	assert ( NULL != ppBuffer );
-	assert ( NULL != m_pMemObjects );
 
-	cl_err_code clErr = CL_SUCCESS;
-	Buffer * pBuffer = new GLBuffer(this, clFlags, glBufObj, (ocl_entry_points*)m_handle.dispatch, &clErr);
-	if ( NULL == pBuffer )
+	MemoryObject* pBuffer;
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pBuffer);
+	if ( CL_FAILED(clErr) )
 	{
-		return CL_OUT_OF_HOST_MEMORY;
+		LOG_ERROR(TEXT("Error creating new GL buffer, returned: %S"), ClErrTxt(clErr));
+		return clErr;
 	}
+
+	clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Error creating new GL buffer, returned: %ws", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
 		pBuffer->Release();
 		return clErr;
 	}
 
-	clErr = pBuffer->Initialize(NULL);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-		pBuffer->Release();
-		return clErr;
-	}
-
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pBuffer);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pBuffer);
 
 	*ppBuffer = pBuffer;
 	return CL_SUCCESS;
@@ -144,34 +142,33 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Buf
 cl_err_code GLContext::CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage)
 {
 
-	LOG_DEBUG(L"Enter CreateGLTexture2D (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)", 
+	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
 		clMemFlags, glTextureTarget, glMipLevel, glTexture, ppImage);
 
 	assert ( NULL != ppImage );
-	assert ( NULL != m_pMemObjects );
 
-	cl_err_code clErr = CL_SUCCESS;
-	MemoryObject * pImage = new GLTexture2D(this, clMemFlags, glTextureTarget, glMipLevel, glTexture,(ocl_entry_points*)m_handle.dispatch, &clErr);
-	if ( NULL == pImage )
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+	MemoryObject * pImage;
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_TEXTURE2D, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Error creating new GLTexture2D, returned: %ws", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GLTexture2D, returned: %S"), ClErrTxt(clErr));
+		return clErr;
+	}
+
+	GLTexture::GLTextureDescriptor txtDesc;
+	txtDesc.glTexture = glTexture;
+	txtDesc.glMipLevel = glMipLevel;
+	txtDesc.glTextureTarget = glTextureTarget;
+
+	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, &txtDesc);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %S", ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}
 
-	clErr = pImage->Initialize(NULL);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
-	}
-
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
 
 	*ppImage = pImage;
 	return CL_SUCCESS;
@@ -179,34 +176,33 @@ cl_err_code GLContext::CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextu
 
 cl_err_code GLContext::CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage)
 {
-	LOG_DEBUG(L"Enter CreateGLTexture3D (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)", 
+	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
 		clMemFlags, glTextureTarget, glMipLevel, glTexture, ppImage);
 
 	assert ( NULL != ppImage );
-	assert ( NULL != m_pMemObjects );
 
-	cl_err_code clErr = CL_SUCCESS;
-	MemoryObject * pImage = new GLTexture3D(this, clMemFlags, glTextureTarget, glMipLevel, glTexture,(ocl_entry_points*)m_handle.dispatch, &clErr);
-	if ( NULL == pImage )
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+	MemoryObject * pImage;
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_TEXTURE3D, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Error creating new GLTexture3D, returned: %ws", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GLTexture3D, returned: %S"), ClErrTxt(clErr));
+		return clErr;
+	}
+
+	GLTexture::GLTextureDescriptor txtDesc;
+	txtDesc.glTexture = glTexture;
+	txtDesc.glMipLevel = glMipLevel;
+	txtDesc.glTextureTarget = glTextureTarget;
+
+	clErr = pImage->Initialize(clMemFlags, NULL, 3, NULL, NULL, &txtDesc);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}
 
-	clErr = pImage->Initialize(NULL);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
-	}
-
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
 
 	*ppImage = pImage;
 	return CL_SUCCESS;
@@ -214,34 +210,28 @@ cl_err_code GLContext::CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextu
 
 cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRednderBuffer, MemoryObject* *ppImage)
 {
-	LOG_DEBUG(L"Enter CreateGLRenderBuffer (cl_mem_flags=%d, glRednderBuffer=%d, ppImage=%d)", 
+	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glRednderBuffer=%d, ppImage=%d)"),
 		clMemFlags, glRednderBuffer, ppImage);
 
 	assert ( NULL != ppImage );
-	assert ( NULL != m_pMemObjects );
 
-	cl_err_code clErr = CL_SUCCESS;
-	MemoryObject * pImage = new GLRenderBuffer(this, clMemFlags, glRednderBuffer, (ocl_entry_points*)m_handle.dispatch, &clErr);
-	if ( NULL == pImage )
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+	MemoryObject * pImage;
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_RENDERBUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Error creating new GLRenderBuffer, returned: %ws", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GLRederBuffer, returned: %S"), ClErrTxt(clErr));
+		return clErr;
+	}
+
+	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}
 
-	clErr = pImage->Initialize(NULL);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(L"Failed to initialize data, pBuffer->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
-	}
-
-	m_pMemObjects->AddObject((OCLObject<_cl_mem_int>*)pImage);
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
 
 	*ppImage = pImage;
 	return CL_SUCCESS;

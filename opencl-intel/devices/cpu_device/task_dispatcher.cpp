@@ -40,6 +40,7 @@
 #include <assert.h>
 #include <limits.h>
 
+
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -413,7 +414,7 @@ cl_dev_err_code SubdeviceTaskDispatcher::commandListExecute(cl_dev_cmd_list list
     return m_lastReturn;
 }
 
-SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(size_t numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService, MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) 
+SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService, MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) 
 : TaskDispatcher(devId, pDevCallbacks, programService, memAlloc, logDesc, cpuDeviceConfig), 
 m_subdeviceSize(numThreads), m_received(false), m_numThreads(numThreads), m_affinityMask(affinityMask)
 {

@@ -37,6 +37,7 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -381,10 +382,10 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetWorkGroupInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Kernel::GetWorkGroupInfo(cl_device_id clDevice, cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	Kernel::GetWorkGroupInfo(FissionableDevice* pDevice, cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	LOG_DEBUG(TEXT("Enter Kernel::GetWorkGroupInfo (clDevice=%d, iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
-		clDevice, iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+	LOG_DEBUG(TEXT("Enter Kernel::GetWorkGroupInfo (pDevice=%p, iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+		pDevice, iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
 #ifdef _DEBUG
 	assert ( "No context assigned to the kernel" && (NULL != m_pProgram) && (NULL != m_pProgram->GetContext()) );
@@ -397,16 +398,9 @@ cl_err_code	Kernel::GetWorkGroupInfo(cl_device_id clDevice, cl_int iParamName, s
 	}
 
 	//get device
-	FissionableDevice * pDevice = NULL;
-	const Context * pContext = GetContext();
-	cl_err_code clErr = pContext->GetDevice(clDevice, &pDevice);
-	if (CL_FAILED(clErr) || NULL == pDevice)
-	{
-		return CL_INVALID_DEVICE;
-	}
+	cl_dev_kernel clDevKernel = GetDeviceKernelId(pDevice);
 
-	cl_dev_kernel clDevKernel = GetDeviceKernelId(clDevice);
-
+	cl_err_code clErr = CL_SUCCESS;
 	switch (iParamName)
 	{
 	case CL_KERNEL_WORK_GROUP_SIZE:
@@ -464,10 +458,10 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 		{
             continue;
 		}
-		cl_device_id clDeviceId = ppDevicePrograms[i]->GetDeviceId();
-		if (NULL != GetDeviceKernel(clDeviceId))
+		const FissionableDevice* pDevice = ppDevicePrograms[i]->GetDevice();
+		if (NULL != GetDeviceKernel(pDevice))
 		{
-			LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), clDeviceId);
+			LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), pDevice->GetId());
 			continue;
 		}
 		
@@ -737,12 +731,12 @@ bool Kernel::IsValidKernelArgs() const
 	return m_numValidArgs == m_sKernelPrototype.m_uiArgsCount;
 }
 
-DeviceKernel* Kernel::GetDeviceKernel(cl_device_id clDevId) const
+DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) const
 {
 	assert (m_ppDeviceKernels);
 	for (size_t i = 0; i < m_szAssociatedDevices; ++i)
 	{
-		if (NULL != m_ppDeviceKernels[i] && clDevId == m_ppDeviceKernels[i]->GetDeviceId())
+		if (NULL != m_ppDeviceKernels[i] && pDevice->GetId() == m_ppDeviceKernels[i]->GetDeviceId())
 		{
 			return m_ppDeviceKernels[i];
 		}
@@ -756,9 +750,9 @@ const KernelArg * Kernel::GetKernelArg(size_t uiIndex) const
 	return m_ppArgs[uiIndex];
 }
 
-cl_dev_kernel Kernel::GetDeviceKernelId(cl_device_id clDeviceId) const
+cl_dev_kernel Kernel::GetDeviceKernelId(FissionableDevice* pDevice) const
 {
-	DeviceKernel* pDeviceKernel = GetDeviceKernel(clDeviceId);
+	DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
 	if (pDeviceKernel)
 	{
 		return pDeviceKernel->GetId();
@@ -766,8 +760,8 @@ cl_dev_kernel Kernel::GetDeviceKernelId(cl_device_id clDeviceId) const
 	return CL_INVALID_HANDLE;
 }
 
-bool Kernel::IsValidExecutable(cl_device_id clDeviceId) const
+bool Kernel::IsValidExecutable(const FissionableDevice* pDevice) const
 {
-	DeviceKernel* pDeviceKernel = GetDeviceKernel(clDeviceId);
+	DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
 	return NULL != pDeviceKernel;
 }

@@ -47,23 +47,42 @@ using namespace Intel::OpenCL::Utils;
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
 
-	unsigned long long vsize = 0;
-	rlimit tLimitStruct;
-	if (getrlimit(RLIMIT_AS, &tLimitStruct) != 0)
+	static unsigned long long vsize = 0;
+	if ( 0 == vsize )
 	{
-		return 0;
-	}
-	unsigned long long totalVirtual = tLimitStruct.rlim_cur;
+		rlimit tLimitStruct;
+		if (getrlimit(RLIMIT_AS, &tLimitStruct) != 0)
+		{
+			return 0;
+		}
+		unsigned long long totalVirtual = tLimitStruct.rlim_cur;
 
-	struct sysinfo tSysInfoStruct;
-	if (sysinfo(&tSysInfoStruct) != 0)
-	{
-		return 0;
-	}
-	unsigned long long totalPhys = tSysInfoStruct.totalram;
+		struct sysinfo tSysInfoStruct;
+		if (sysinfo(&tSysInfoStruct) != 0)
+		{
+			return 0;
+		}
+		unsigned long long totalPhys = tSysInfoStruct.totalram;
 
-	vsize = min(totalPhys, totalVirtual);
+		vsize = min(totalPhys, totalVirtual);
+	}
 	return vsize;
+}
+
+unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
+{
+	static unsigned long long totalPhys = 0;
+	if ( 0 == totalPhys )
+	{
+		struct sysinfo tSysInfoStruct;
+		if (sysinfo(&tSysInfoStruct) != 0)
+		{
+			return 0;
+		}
+		totalPhys = tSysInfoStruct.totalram;
+	}
+
+	return totalPhys;
 }
 
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()

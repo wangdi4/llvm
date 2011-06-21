@@ -25,13 +25,14 @@
 #include <Windows.h> // Required for gl.h
 #endif
 #include "gl/gl.h"
-
+#include "gl/glext.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	typedef void APIENTRY pFnglBindBuffer(GLenum target, GLuint buffer);
 	typedef GLvoid* APIENTRY pFnglMapBuffer(GLenum target, GLenum   access);
 	typedef GLboolean APIENTRY pFnglUnmapBuffer(GLenum target);
+	typedef void pFnglBufferData(GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage); 
 	typedef void APIENTRY pFnglGetBufferParameteriv(GLenum target, GLenum value, GLint* data);
 	typedef void APIENTRY pFnglTexImage3D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 	typedef void APIENTRY pFnglGetRenderbufferParameterivEXT(GLenum target, GLenum param, GLint* value);
@@ -40,7 +41,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	typedef void APIENTRY pFnglDeleteFramebuffersEXT(GLsizei n, GLuint* framebuffers);
 	typedef void APIENTRY pFnglBindFramebufferEXT(GLenum target, GLuint framebuffer);
 	typedef void APIENTRY pFnglFramebufferRenderbufferEXT(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);;
+	typedef void APIENTRY pFnglFramebufferTexture2DEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
 	typedef GLenum APIENTRY pFnglCheckFramebufferStatusEXT(GLenum target);
+	typedef void APIENTRY pFnglGenBuffers(GLsizei n, GLuint *buffers); 
+	typedef void APIENTRY pFnglDeleteBuffers(GLsizei n, const GLuint *   buffers);
+
 
 	class GLContext : public Context
 	{
@@ -49,12 +54,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 			cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData);
 
-
 		cl_context_properties GetDC() const { return m_hDC;}
 		cl_context_properties GetGLCtx() const { return m_hGLCtx;}
 
 		// create GL buffer object
-		cl_err_code CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Buffer ** ppBuffer);
+		cl_err_code CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, MemoryObject ** ppBuffer);
 		cl_err_code CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage);
 		cl_err_code CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage);
 		cl_err_code CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRenderBuffer, MemoryObject* *ppImage);
@@ -63,6 +67,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		pFnglMapBuffer*				glMapBuffer;
 		pFnglUnmapBuffer*			glUnmapBuffer;
 		pFnglGetBufferParameteriv*	glGetBufferParameteriv;
+		pFnglBufferData*			glBufferData;
 		pFnglTexImage3D*			glTexImage3D;
 		pFnglGetRenderbufferParameterivEXT*	glGetRenderbufferParameterivEXT;
 		pFnglBindRenderbufferEXT*	glBindRenderbufferEXT;
@@ -70,7 +75,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		pFnglDeleteFramebuffersEXT*	glDeleteFramebuffersEXT;
 		pFnglBindFramebufferEXT*	glBindFramebufferEXT;
 		pFnglFramebufferRenderbufferEXT* glFramebufferRenderbufferEXT;
+		pFnglFramebufferTexture2DEXT*	glFramebufferTexture2DEXT;
 		pFnglCheckFramebufferStatusEXT*	glCheckFramebufferStatusEXT;
+		pFnglGenBuffers*				glGenBuffers;
+		pFnglDeleteBuffers*				glDeleteBuffers;
 
 	protected:
 		~GLContext();

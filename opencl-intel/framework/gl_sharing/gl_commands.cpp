@@ -59,6 +59,14 @@ cl_err_code SyncGLObjects::Init()
 	DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
 					GetCurrentProcess(), &m_hCallingThread, 0, FALSE, DUPLICATE_SAME_ACCESS);
 
+	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == m_cmdType )
+	{
+		for (unsigned int i=0; i<m_uiMemObjNum; ++i)
+		{
+			m_pMemObjects[i]->SetAcquireCmdEvent(&m_Event);
+		}
+	}
+
 	return CL_SUCCESS;
 }
 
@@ -89,16 +97,16 @@ void SyncGLObjects::ExecGLSync(SyncGLObjects* _this)
 	{
 		for (unsigned int i=0; i<_this->m_uiMemObjNum; ++i)
 		{
-			_this->m_pMemObjects[i]->GetGLObjectData();
+			_this->m_pMemObjects[i]->AcquireGLObject();
 		}
 	}
 	else
 	{
 		for (unsigned int i=0; i<_this->m_uiMemObjNum; ++i)
 		{
-			_this->m_pMemObjects[i]->SetGLObjectData();
+			_this->m_pMemObjects[i]->ReleaseGLObject();
 		}
-		glFinish();
+//		glFinish();
 	}
 
 	_this->RuntimeCommand::Execute();

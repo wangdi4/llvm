@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class TBBThreadPoolPartitioner : public IThreadPoolPartitioner
     {
     public:
-        TBBThreadPoolPartitioner(size_t numThreads);
+        TBBThreadPoolPartitioner(int numThreads);
         virtual ~TBBThreadPoolPartitioner();
         void Activate();
         void Deactivate();

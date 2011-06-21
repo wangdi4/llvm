@@ -29,7 +29,6 @@
 
 #include <cl_device_api.h>
 #include <cl_dev_backend_api.h>
-using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -39,12 +38,12 @@ public:
 	WGContext();
 	virtual ~WGContext();
 
-	cl_dev_err_code		CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
-	cl_dev_cmd_id			GetCmdId() const {return m_cmdId;}
-	inline ICLDevBackendExecutable*	GetExecutable() const {return m_pContext;}
+	cl_dev_err_code				CreateContext(cl_dev_cmd_id cmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
+	cl_dev_cmd_id				GetCmdId() const {return m_cmdId;}
+	Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable*	GetExecutable() const {return m_pContext;}
 
 protected:
-	ICLDevBackendExecutable*	m_pContext;
+	Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable*	m_pContext;
 	cl_dev_cmd_id				m_cmdId;
 	char*						m_pLocalMem;
 	void*						m_pPrivateMem;

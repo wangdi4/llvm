@@ -381,7 +381,7 @@ void CompileTask::Execute()
 	// Create the actual diagnostics engine.
 	Clang->SetErrorStream(&errStream);
 
-	Clang->createDiagnostics(ArgList.size(), const_cast<char**>(argArray));
+	Clang->createDiagnostics((int)ArgList.size(), const_cast<char**>(argArray));
 	if (!Clang->hasDiagnostics())
 	{
 		LOG_ERROR(TEXT("CompileTask::Execute() - Failed to create diagnostics"), "");

@@ -25,11 +25,13 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 #include "cl_synch_objects.h"
+#include "hw_utils.h"
+
 #include <tbb/concurrent_queue.h>
 #include <windows.h>
 #include <stdio.h>  // Todo: replace printf with log mechanisem
 #include <assert.h>
-#include "hw_utils.h"
+
 /************************************************************************
  * This file is the Windows implementation of the cl_synch_objects interface
 /************************************************************************/
@@ -286,16 +288,6 @@ void OclBinarySemaphore::Signal()
 void OclBinarySemaphore::Wait()
 {
     WaitForSingleObject(m_semaphore, INFINITE);
-}
-
-
-void* AtomicPointer::test_and_set(void* comparand, void* exchange)
-{
-	return InterlockedCompareExchangePointer(&m_ptr, exchange, comparand);
-}
-void* AtomicPointer::exchange(void* val)
-{
-	return InterlockedExchangePointer(&m_ptr, val);
 }
 
 AtomicCounter::operator long() const

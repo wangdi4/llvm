@@ -1,13 +1,12 @@
 include_directories ( BEFORE
-            .
-            export
-            ../include
-            ../../include
-            icd
-            gl_sharing
-            Platform
-            Context
-            Execution
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/export
+        ${CMAKE_CURRENT_SOURCE_DIR}/icd
+        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing
+        ${CMAKE_CURRENT_SOURCE_DIR}/Platform
+        ${CMAKE_CURRENT_SOURCE_DIR}/Context
+        ${CMAKE_CURRENT_SOURCE_DIR}/Execution
+		${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
     )
 	
 add_subdirectory( icd )
@@ -27,6 +26,7 @@ endif(WIN32)
 # these sub-directories must be added here in order to recieve the GPA definitions
 add_subdirectory( Context )
 add_subdirectory( Execution )
+add_subdirectory( MemoryAllocator )
 
 if (WIN32)
     add_subdirectory( gl_sharing )
@@ -81,6 +81,7 @@ endif(WIN32)
 target_link_libraries( ${TARGET_NAME} Context
                                       Execution
                                       Platform
+									  MemoryAllocator
                                       cl_logger
                                       cl_sys_utils
                                       task_executor

@@ -68,9 +68,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void                Submit(Command* cmd);
 
     // At all times, points to a command that depends on everything enqueued since the last time clEnqueueBarrier/Marker was enqueued to this queue
-		Intel::OpenCL::Utils::AtomicPointer m_depOnAll;
+		Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
 		Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
-		Intel::OpenCL::Utils::AtomicPointer m_lastBarrier;
+		Intel::OpenCL::Utils::AtomicPointer<Command> m_lastBarrier;
 		// Is meant to optimize away flushes made to an empty queue
 		Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
 

@@ -20,7 +20,9 @@
 
 
 #include "gl_mem_objects.h"
-#include "cl_memory_object.h"
+#include "ocl_event.h"
+#include "memobj_event.h"
+
 #include <gl\GL.h>
 #include <gl\glext.h>
 #include <cl\cl.h>
@@ -29,16 +31,11 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-struct fmt_cl_gl
-{
-	cl_image_format clType;	// Original CL format
-	bool			isGLExt; // is true if GL extended format
-};
 
 struct fmt_cvt
 {
-	fmt_cl_gl		clType;
-	GLuint			glInternalType;
+	cl_image_format_ext		clType;
+	GLuint					glInternalType;
 };
 
 fmt_cvt formatConvert[] =
@@ -57,7 +54,7 @@ fmt_cvt formatConvert[] =
 	{{{0,0},false}, 0}
 };
 
-fmt_cl_gl ImageFrmtConvertGL2CL(GLuint glFrmt)
+cl_image_format_ext Intel::OpenCL::Framework::ImageFrmtConvertGL2CL(GLuint glFrmt)
 {
 	unsigned int i=0;
 	while (formatConvert[i].glInternalType != 0)
@@ -71,7 +68,7 @@ fmt_cl_gl ImageFrmtConvertGL2CL(GLuint glFrmt)
 	return formatConvert[i].clType;
 }
 
-GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt)
+GLuint Intel::OpenCL::Framework::ImageFrmtConvertCL2GL(cl_image_format clFrmt)
 {
 	unsigned int i=0;
 	while (formatConvert[i].glInternalType != 0)
@@ -86,7 +83,7 @@ GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt)
 	return formatConvert[i].glInternalType;
 }
 
-GLenum GetTargetBinding( GLenum target )
+GLenum Intel::OpenCL::Framework::GetTargetBinding( GLenum target )
 {
 	switch( target )
 	{
@@ -106,7 +103,7 @@ GLenum GetTargetBinding( GLenum target )
 	}
 }
 
-GLenum GetBaseTarget( GLenum target )
+GLenum Intel::OpenCL::Framework::GetBaseTarget( GLenum target )
 {
 	switch( target )
 	{
@@ -122,7 +119,7 @@ GLenum GetBaseTarget( GLenum target )
 	}
 }
 
-GLenum GetGLType(cl_channel_type clType)
+GLenum Intel::OpenCL::Framework::GetGLType(cl_channel_type clType)
 {
 	switch (clType)
 	{
@@ -148,7 +145,7 @@ GLenum GetGLType(cl_channel_type clType)
 	return 0;
 }
 
-GLenum GetGLFormat(cl_channel_type clType, bool isExt)
+GLenum Intel::OpenCL::Framework::GetGLFormat(cl_channel_type clType, bool isExt)
 {
 	if ( isExt )
 	{
@@ -180,6 +177,21 @@ GLenum GetGLFormat(cl_channel_type clType, bool isExt)
 	return 0;
 }
 
+GLMemoryObject::GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints) : 
+MemoryObject(pContext, pOclEntryPoints), m_glObjHandle(NULL), m_pChildObject(NULL), m_glMemFlags(0),
+m_clAcqurieState(CL_SUCCESS), m_pAcquireEvent(NULL)
+{
+}
+
+GLMemoryObject::~GLMemoryObject()
+{
+	OclEvent* pOldEvent = m_pAcquireEvent.exchange(NULL);
+	if ( NULL != pOldEvent )
+	{
+		pOldEvent->RemovePendency();
+	}
+}
+
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
 {
 	if ( NULL != pglObjectType)
@@ -189,102 +201,241 @@ cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, G
 
 	if ( NULL != pglObjectName)
 	{
-		*pglObjectName = m_glBufObj;
+		*pglObjectName = m_glObjHandle;
 	}
 	return CL_SUCCESS;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// GLBuffer C'tor
-///////////////////////////////////////////////////////////////////////////////////////////////////
-GLBuffer::GLBuffer(GLContext * pContext, cl_mem_flags clMemFlags, GLuint glBufObj, ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode) :
-	Buffer(pContext, clMemFlags, 0, pOclEntryPoints, pErrCode), GLMemoryObject(glBufObj)
+cl_err_code GLMemoryObject::GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent)
 {
-	assert ( NULL != pErrCode );
-	if (CL_FAILED(*pErrCode))
+	if ( NULL == m_pAcquireEvent )
 	{
-		return;
+		// Trying to get device descriptor before acquire operation was enqued
+		return CL_INVALID_OPERATION;
 	}
 
-	// Retrieve open GL buffer size
-	GLint	currBuff;
-	GLint	buffSize;
-	GLint	glErr = 0;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
-	glErr |= glGetError();
-	pContext->glBindBuffer(GL_ARRAY_BUFFER, glBufObj);
-	glErr |= glGetError();
-	pContext->glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &buffSize);
-	glErr |= glGetError();
-	pContext->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-	glErr |= glGetError();
-
-	if ( 0 != glErr )
+	if ( CL_NOT_READY == m_clAcqurieState )
 	{
-		*pErrCode = CL_INVALID_GL_OBJECT;
-		return;
-	}
-	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
-
-	m_szMemObjSize = buffSize;
-
-	*pErrCode = CL_SUCCESS;
-}
-
-void GLBuffer::GetGLObjectData()
-{
-	GLint	currBuff;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, m_glBufObj);
-	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
-	if ( NULL == pBuffer )
-	{
-		if ( 0 != currBuff )
+		// Here the acquire operation is not finished and we need to create child object
+		cl_err_code err = CreateChildObject();
+		if ( CL_FAILED(err) )
 		{
-			((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+			return err;
 		}
-		return;
 	}
 
-	memcpy_s(m_pMemObjData, m_szMemObjSize, pBuffer, m_szMemObjSize);
-	m_lDataOnHost = 1;
-	((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
-	if ( 0 != currBuff )
+	if ( NULL != m_pChildObject )
 	{
-		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+		return m_pChildObject->GetDeviceDescriptor(pDevice, ppDevObject, ppEvent);
+	}
+
+	if ( CL_FAILED(m_clAcqurieState) )
+	{
+		return m_clAcqurieState;
+	}
+
+
+	// Now we need to create event that will updated on acquire complition
+	assert(NULL!=ppEvent);
+	OclEvent* pNewEvent = new MemoryObjectEvent(ppDevObject, this, pDevice);
+	if ( NULL == pNewEvent )
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	pNewEvent->AddDependentOn(m_pAcquireEvent);
+	*ppEvent = pNewEvent;
+	pNewEvent->Release();
+
+	return CL_NOT_READY;
+}
+
+cl_err_code GLMemoryObject::ReadData(void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
+					 size_t          szRowPitch, size_t          szSlicePitch)
+{
+	if ( NULL == m_pChildObject)
+	{
+		return CL_INVALID_GL_OBJECT;
+	}
+
+	return m_pChildObject->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+cl_err_code GLMemoryObject::WriteData(	const void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
+					  size_t          szRowPitch, size_t          szSlicePitch)
+{
+	if ( NULL == m_pChildObject)
+	{
+		return CL_INVALID_GL_OBJECT;
+	}
+
+	return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+void GLMemoryObject::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const
+{
+	if (NULL != m_pChildObject)
+	{
+		m_pChildObject->GetLayout(dimensions, rowPitch, slicePitch);
 	}
 }
 
-void GLBuffer::SetGLObjectData()
+cl_err_code GLMemoryObject::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
+	if (NULL == m_pChildObject)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return m_pChildObject->CheckBounds(pszOrigin, pszRegion);
+}
+
+cl_err_code GLMemoryObject::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
+{
+	if (NULL == m_pChildObject)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return m_pChildObject->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+void *GLMemoryObject::GetBackingStore( const size_t * pszOrigin ) const
+{
+	if (NULL == m_pChildObject)
+	{
+		return NULL;
+	}
+
+	return m_pChildObject->GetBackingStore(pszOrigin);
+}
+
+cl_err_code	GLMemoryObject::SetGLMemFlags()
+{
+	m_glMemFlags = 0;
+
 	if ( m_clFlags & CL_MEM_READ_ONLY )
+		m_glMemFlags |= GL_READ_ONLY;
+	if ( m_clFlags & CL_MEM_WRITE_ONLY )
+		m_glMemFlags |= GL_WRITE_ONLY;
+
+	return CL_SUCCESS;
+}
+
+cl_err_code GLMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
+{
+	OclEvent* pOldEvent = m_pAcquireEvent.test_and_set(NULL, pEvent);
+	if ( NULL == pOldEvent )
 	{
-		return;
-	}
-	GLint	currBuff;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, m_glBufObj);
-	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	if ( NULL == pBuffer )
-	{
-		if ( 0 != currBuff )
-		{
-			((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-		}
-		return;
+		pEvent->AddPendency();
+		return CL_SUCCESS;
 	}
 
-	memcpy_s(pBuffer, m_szMemObjSize, m_pMemObjData, m_szMemObjSize);
-	((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
-	if ( 0 != currBuff )
-	{
-		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-	}
+	return CL_INVALID_OPERATION;
+}
+
+cl_err_code	GLMemoryObject::UpdateLocation(FissionableDevice* pDevice)
+{
+	return CL_SUCCESS;
+}
+
+cl_err_code	GLMemoryObject::CreateDeviceResource(FissionableDevice* pDevice)
+{
+	return CL_SUCCESS;
+}
+
+bool GLMemoryObject::IsSharedWith(FissionableDevice* pDevice)
+{
+	return false;
+}
+
+		// Low level mapped region creation function
+cl_err_code	GLMemoryObject::MemObjCreateDevMappedRegion(const FissionableDevice* pDevice, cl_dev_cmd_param_map*	cmd_param_map)
+{
+	return CL_INVALID_OPERATION;
+}
+
+cl_err_code	GLMemoryObject::MemObjReleaseDevMappedRegion(const FissionableDevice* pDevice, cl_dev_cmd_param_map*	cmd_param_map)
+{
+	return CL_INVALID_OPERATION;
+}
+
+cl_err_code GLMemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
+{
+    return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GLTexture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+GLTexture::~GLTexture()
+{
+	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
+
+	if ( 0 != m_glFramebuffer )
+	{
+		pGLContext->glDeleteFramebuffersEXT( 1, &m_glFramebuffer );
+	}
+
+	if ( 0 != m_glPBO )
+	{
+		pGLContext->glDeleteBuffers( 1, &m_glPBO );
+	}
+
+}
+
+cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+{
+	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+	{
+		return CL_INVALID_VALUE;
+	}
+	size_t  szSize = 0;
+	void * pValue = NULL;
+	switch (clParamName)
+	{
+	case CL_IMAGE_FORMAT:
+		szSize = sizeof(cl_image_format);
+		pValue = &m_clFormat.clType;
+		break;
+	case CL_IMAGE_ELEMENT_SIZE:
+		szSize = sizeof(size_t);
+		pValue = &m_szElementSize;
+		break;
+	case CL_IMAGE_ROW_PITCH:
+		szSize = sizeof(size_t);
+		pValue = &m_szImageRowPitch;
+		break;
+	case CL_IMAGE_WIDTH:
+		szSize = sizeof(size_t);
+		pValue = &m_szImageWidth;
+		break;
+	case CL_IMAGE_HEIGHT:
+		szSize = sizeof(size_t);
+		pValue = &m_szImageHeight;
+		break;
+	default:
+		return CL_INVALID_VALUE;
+		break;
+	}
+
+	if (NULL != pParamValue && szParamValueSize < szSize)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != pszParamValueSizeRet)
+	{
+		*pszParamValueSizeRet = szSize;
+	}
+
+	if (NULL != pParamValue && szSize > 0)
+	{
+		MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+	}
+	
+	return CL_SUCCESS;
+
+}
 
 cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize)
 {
@@ -294,12 +445,12 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 	switch (glTextInfo)
 	{
 	case CL_GL_TEXTURE_TARGET:
-		pIntVal = &m_glTextureTarget;
-		intSize = sizeof(m_glTextureTarget);
+		pIntVal = &m_txtDescriptor.glTextureTarget;
+		intSize = sizeof(m_txtDescriptor.glTextureTarget);
 		break;
 	case CL_GL_MIPMAP_LEVEL:
-		pIntVal = &m_glMipLevel;
-		intSize = sizeof(m_glMipLevel);
+		pIntVal = &m_txtDescriptor.glMipLevel;
+		intSize = sizeof(m_txtDescriptor.glMipLevel);
 		break;
 	default:
 		return CL_INVALID_VALUE;
@@ -323,450 +474,64 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 	return CL_SUCCESS;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// GLTexture2D C'tor
-///////////////////////////////////////////////////////////////////////////////////////////////////
-GLTexture2D::GLTexture2D(GLContext * pContext, cl_mem_flags clMemFlags,
-						 GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, 
-						 ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode) :
-	Image2D(pContext, clMemFlags, NULL, NULL, 0, 0, 0, pOclEntryPoints, pErrCode),
-	GLTexture(glTextureTarget, glMipLevel, glTexture)
+cl_err_code GLTexture::CreateChildObject()
 {
-	// Retrieve open GL buffer size
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(glTextureTarget);
+	GLint glBindingType = 0;
+	GLint glBind = 0;
 	GLint glErr = 0;
-	glGetIntegerv(targetBinding, &currTexture);
-	glErr |= glGetError();
+	GLint pboBinding;
 
-	GLenum glBaseTarget = GetBaseTarget(glTextureTarget);
-	glBindTexture(glBaseTarget, glTexture);
-	glErr |= glGetError();
+	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
 
-	// Read results from the GL texture
-	GLint realWidth, realHeight;
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_WIDTH, &realWidth );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_HEIGHT, &realHeight );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_BORDER, &m_glBorder );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_INTERNAL_FORMAT, &m_glInternalFormat );
-	glErr |= glGetError();
-	glBindTexture(glBaseTarget, currTexture);
-	glErr |= glGetError();
-
-	if ( 0 != glErr)
+	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
-		*pErrCode = CL_INVALID_GL_OBJECT;
-		return;
+		glBindingType = GL_PIXEL_PACK_BUFFER_BINDING_ARB;
+		glBind = GL_PIXEL_PACK_BUFFER_ARB;
+	} else if ( m_clFlags & CL_MEM_WRITE_ONLY )
+	{
+		glBindingType = GL_PIXEL_UNPACK_BUFFER_BINDING_ARB;
+		glBind = GL_PIXEL_UNPACK_BUFFER_ARB;
 	}
 
-	if (0 == m_glInternalFormat)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
-	}
-	// Setup internal parameters
-	m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D;
+	glGetIntegerv(glBindingType, &pboBinding);
 
-	m_szImageWidth = realWidth;
-	m_szImageHeight = realHeight;
-
-	// set image format (copy data);
-	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
-	if ( NULL == m_pclImageFormat )
+	// read pixels from framebuffer to PBO
+	// glReadPixels() should return immediately, the transfer is in background by DMA
+	pGLContext->glBindBuffer(glBind, m_glPBO);
+	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(glBind, m_glMemFlags);
+	if ( NULL == pBuffer )
 	{
-		*pErrCode = CL_OUT_OF_HOST_MEMORY;
-		return;
-	}
-	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
-	if ( 0 == m_pclImageFormat->image_channel_order)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
+		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		m_clAcqurieState = CL_INVALID_OPERATION;
+		return CL_INVALID_OPERATION;
 	}
 
-	m_szImageRowPitch = m_szImageWidth * GetPixelBytesCount(m_pclImageFormat);
-
-	// create buffer for image data
-	m_szMemObjSize = CalcImageSize();
-
-	*pErrCode = CL_SUCCESS;
-}
-
-void GLTexture2D::GetGLObjectData()
-{
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
-	glGetIntegerv(targetBinding, &currTexture);
-
-	GLenum glBaseTarget = GetBaseTarget(m_glTextureTarget);
-	glBindTexture(glBaseTarget, m_glBufObj);
-
-	glGetTexImage( m_glTextureTarget, m_glMipLevel, readBackFormat, readBackType, m_pMemObjData );
-	GLenum rc = glGetError();
-
-	//GL_INVALID_ENUM
-
-	glBindTexture(glBaseTarget, currTexture);
-}
-
-void GLTexture2D::SetGLObjectData()
-{
-	if ( m_clFlags & CL_MEM_READ_ONLY )
+	// Now we need to create child object
+	MemoryObject* pChild;
+	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, CL_MEM_OBJECT_IMAGE2D, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+	if (CL_FAILED(res))
 	{
-		return;
-	}
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
-	glGetIntegerv(targetBinding, &currTexture);
-
-	GLenum glBaseTarget = GetBaseTarget(m_glTextureTarget);
-	glBindTexture(glBaseTarget, m_glBufObj);
-
-	if( glBaseTarget == GL_TEXTURE_CUBE_MAP )
-	{
-		glTexImage2D( m_glTextureTarget, m_glMipLevel, m_glInternalFormat,
-			(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, m_glBorder, readBackFormat, readBackType, m_pMemObjData );
-	}
-	else
-	{
-		glTexImage2D( m_glTextureTarget, m_glMipLevel, m_glInternalFormat,
-			(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, m_glBorder, readBackFormat, readBackType, m_pMemObjData );        
+		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
+		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		m_clAcqurieState = res;
+		return res;
 	}
 
-	glBindTexture(glBaseTarget, currTexture);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// GLTexture3D C'tor
-///////////////////////////////////////////////////////////////////////////////////////////////////
-GLTexture3D::GLTexture3D(GLContext * pContext, cl_mem_flags clMemFlags,
-						 GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, 
-						 ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode) :
-Image3D(pContext, clMemFlags, NULL, NULL, 0, 0, 0, 0, 0, pOclEntryPoints, pErrCode),
-GLTexture(glTextureTarget, glMipLevel, glTexture)
-{
-	// Retrieve open GL buffer size
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(glTextureTarget);
-	GLint glErr = 0;
-	glGetIntegerv(targetBinding, &currTexture);
-	glErr |= glGetError();
-
-	GLenum glBaseTarget = GetBaseTarget(glTextureTarget);
-	glBindTexture(glBaseTarget, glTexture);
-	glErr |= glGetError();
-
-	// Read results from the GL texture
-	GLint realWidth, realHeight, realDepth;
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_WIDTH, &realWidth );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_HEIGHT, &realHeight );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_DEPTH, &realDepth );
-	glErr |= glGetError();
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_BORDER, &m_glBorder);
-
-	glGetTexLevelParameteriv( glTextureTarget, glMipLevel, GL_TEXTURE_INTERNAL_FORMAT, &m_glInternalFormat );
-	glErr |= glGetError();
-
-	glBindTexture(glBaseTarget, currTexture);
-	glErr |= glGetError();
-
-	if ( 0 != glErr )
+	size_t dim[] = {m_szImageWidth, m_szImageHeight};
+	res = pChild->Initialize(m_clFlags | CL_MEM_USE_HOST_PTR, &m_clFormat.clType, 2, dim, &m_szImageRowPitch, pBuffer);
+	if (CL_FAILED(res))
 	{
-		*pErrCode = CL_INVALID_GL_OBJECT;
-		return;
+		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
+		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		pChild->Release();
+		m_clAcqurieState = CL_OUT_OF_RESOURCES;
+		return CL_OUT_OF_RESOURCES;
 	}
 
-	if (0 == m_glInternalFormat)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
-	}
-	// Setup internal parameters
-	m_clMemObjectType = CL_MEM_OBJECT_IMAGE3D;
+	m_clAcqurieState = CL_SUCCESS;
+	m_pChildObject.exchange(pChild);
 
-	m_szImageWidth = realWidth;
-	m_szImageHeight = realHeight;
-	m_szImageDepth = realDepth;
+	((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
 
-	// set image format (copy data);
-	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
-	if ( NULL == m_pclImageFormat )
-	{
-		*pErrCode = CL_OUT_OF_HOST_MEMORY;
-		return;
-	}
-	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
-	if ( 0 == m_pclImageFormat->image_channel_order)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
-	}
-
-	m_szImageRowPitch = m_szImageWidth * GetPixelBytesCount(m_pclImageFormat);
-	m_szImageSlicePitch = m_szImageRowPitch*m_szImageHeight;
-
-	// create buffer for image data
-	m_szMemObjSize = CalcImageSize();
-
-	*pErrCode = CL_SUCCESS;
-}
-
-void GLTexture3D::GetGLObjectData()
-{
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
-	GLint glErr = 0;
-	glGetIntegerv(targetBinding, &currTexture);
-
-	GLenum glBaseTarget = GetBaseTarget(m_glTextureTarget);
-	glBindTexture(glBaseTarget, m_glBufObj);
-
-	glGetTexImage( m_glTextureTarget, m_glMipLevel, readBackFormat, readBackType, m_pMemObjData );
-
-	glBindTexture(glBaseTarget, currTexture);
-}
-
-void GLTexture3D::SetGLObjectData()
-{
-	if ( m_clFlags & CL_MEM_READ_ONLY )
-	{
-		return;
-	}
-
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-	GLint	currTexture;
-	GLenum	targetBinding = GetTargetBinding(m_glTextureTarget);
-	GLint glErr = 0;
-	glGetIntegerv(targetBinding, &currTexture);
-
-	GLenum glBaseTarget = GetBaseTarget(m_glTextureTarget);
-	glBindTexture(glBaseTarget, m_glBufObj);
-
-	if( glBaseTarget == GL_TEXTURE_CUBE_MAP )
-	{
-		((GLContext*)m_pContext)->glTexImage3D( m_glTextureTarget, m_glMipLevel, m_glInternalFormat,
-			(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, (GLsizei)m_szImageDepth, m_glBorder, readBackFormat, readBackType, m_pMemObjData );
-	}
-	else
-	{
-		((GLContext*)m_pContext)->glTexImage3D( m_glTextureTarget, m_glMipLevel, m_glInternalFormat,
-			(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, (GLsizei)m_szImageDepth, m_glBorder, readBackFormat, readBackType, m_pMemObjData );        
-	}
-
-	glBindTexture(glBaseTarget, currTexture);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// GLRenderBuffer C'tor
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-GLRenderBuffer::GLRenderBuffer(GLContext * pContext, cl_mem_flags clMemFlags, GLuint glBufObj,
-							   ocl_entry_points * pOclEntryPoints, cl_err_code * pErrCode):
-	Image2D(pContext, clMemFlags, NULL, NULL, 0, 0, 0, pOclEntryPoints, pErrCode),
-	GLMemoryObject(glBufObj), m_glFramebuffer(0)
-{
-	GLint	currBuffer;
-	GLint glErr = 0;
-	glGetIntegerv(GL_RENDERBUFFER_BINDING, &currBuffer);
-	glErr |= glGetError();
-
-	((GLContext*)m_pContext)->glBindRenderbufferEXT(GL_RENDERBUFFER, m_glBufObj);
-
-	GLint realWidth, realHeight;
-	((GLContext*)m_pContext)->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &realWidth);
-	glErr |= glGetError();
-	((GLContext*)m_pContext)->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &realHeight);
-	glErr |= glGetError();
-	((GLContext*)m_pContext)->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_INTERNAL_FORMAT_EXT, &m_glInternalFormat);
-	glErr |= glGetError();
-
-	((GLContext*)m_pContext)->glBindRenderbufferEXT(GL_RENDERBUFFER, currBuffer);
-	glErr |= glGetError();
-	if ( 0 != glErr )
-	{
-		*pErrCode = CL_INVALID_GL_OBJECT;
-		return;
-	}
-
-	// Now we need to create a frame buffer
-	((GLContext*)m_pContext)->glGenFramebuffersEXT( 1, &m_glFramebuffer );
-	if ( 0 != glGetError() )
-	{
-		*pErrCode = CL_INVALID_GL_OBJECT;
-		return;
-	}
-
-	if (0 == m_glInternalFormat)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
-	}
-	// Setup internal parameters
-	m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D;
-
-	m_szImageWidth = realWidth;
-	m_szImageHeight = realHeight;
-
-	// set image format (copy data);
-	m_pclImageFormat = (cl_image_format*)new fmt_cl_gl();
-	if ( NULL == m_pclImageFormat )
-	{
-		*pErrCode = CL_OUT_OF_HOST_MEMORY;
-		return;
-	}
-	*((fmt_cl_gl*)m_pclImageFormat) = ImageFrmtConvertGL2CL(m_glInternalFormat);
-	if ( 0 == m_pclImageFormat->image_channel_order)
-	{
-		*pErrCode = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		return;
-	}
-
-	m_szImageRowPitch = m_szImageWidth * GetPixelBytesCount(m_pclImageFormat);
-
-	// create buffer for image data
-	m_szMemObjSize = CalcImageSize();
-
-	*pErrCode = CL_SUCCESS;
-}
-
-GLRenderBuffer::~GLRenderBuffer()
-{
-	if ( 0 != m_glFramebuffer )
-	{
-		((GLContext*)m_pContext)->glDeleteFramebuffersEXT( 1, &m_glFramebuffer );
-	}
-}
-void GLRenderBuffer::GetGLObjectData()
-{
-	GLint	currBuffer;
-	GLint glErr = 0;
-	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currBuffer);
-	glErr |= glGetError();
-
-	// Create and bind a frame buffer to render with
-	((GLContext*)m_pContext)->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
-	if( glGetError() != GL_NO_ERROR )
-		return;
-
-	// Attach to the framebuffer
-	((GLContext*)m_pContext)->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
-		GL_RENDERBUFFER, m_glBufObj );
-	if( glGetError() != GL_NO_ERROR )
-		return;
-	if( ((GLContext*)m_pContext)->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
-	{
-		return;
-	}
-
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum readBackFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum readBackType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-	glReadPixels( 0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, readBackFormat, readBackType, m_pMemObjData );
-
-	((GLContext*)m_pContext)->glBindFramebufferEXT( GL_FRAMEBUFFER, currBuffer );
-
-}
-void GLRenderBuffer::SetGLObjectData()
-{
-	GLint	currBuffer;
-	GLint glErr = 0;
-	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currBuffer);
-	glErr |= glGetError();
-
-	// Create and bind a frame buffer to render with
-	((GLContext*)m_pContext)->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
-	if( glGetError() != GL_NO_ERROR )
-		return;
-
-	// Attach to the framebuffer
-	((GLContext*)m_pContext)->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
-		GL_RENDERBUFFER, m_glBufObj );
-	if( glGetError() != GL_NO_ERROR )
-		return;
-	if( ((GLContext*)m_pContext)->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
-	{
-		return;
-	}
-	
-	fmt_cl_gl* pFmt = (fmt_cl_gl*)m_pclImageFormat;
-
-	GLenum glFormat = GetGLFormat(pFmt->clType.image_channel_data_type, pFmt->isGLExt);
-	GLenum glType = GetGLType(pFmt->clType.image_channel_data_type); 
-
-#if 1
-    // Fill a texture with our input data
-    GLuint texture;
-    glGenTextures( 1, &texture );
-    glBindTexture( GL_TEXTURE_RECTANGLE_ARB, texture );
-    glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-    glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-    glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-    glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-	glTexImage2D( GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat,
-		(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, 0/*Border*/,
-		glFormat, glType, m_pMemObjData );
-    glEnable( GL_TEXTURE_RECTANGLE_ARB );
-
-    // Render fullscreen textured quad 
-    glDisable( GL_LIGHTING );
-    glViewport(0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glMatrixMode( GL_TEXTURE );
-    glLoadIdentity();
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glClear(GL_COLOR_BUFFER_BIT);
-    //gluOrtho2D( -1.0, 1.0, -1.0, 1.0 );
-    glMatrixMode( GL_MODELVIEW );
-    glBegin( GL_QUADS );
-    {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glTexCoord2f( 0.0f, 0.0f );
-        glVertex3f( -1.0f, -1.0f, 0.0f );
-        glTexCoord2f( 0.0f, (float)m_szImageHeight );
-        glVertex3f( -1.0f, 1.0f, 0.0f );
-        glTexCoord2f( (float)m_szImageWidth, (float)m_szImageHeight );
-        glVertex3f( 1.0f, 1.0f, 0.0f );
-        glTexCoord2f( (float)m_szImageWidth, 0.0f );
-        glVertex3f( 1.0f, -1.0f, 0.0f );
-    }
-    glEnd();
-    glBindTexture( GL_TEXTURE_RECTANGLE_ARB, 0 );
-    glDisable( GL_TEXTURE_RECTANGLE_ARB );
-
-	glFlush();
-	glDeleteTextures(1, &texture);
-    
-#else
-	glDrawPixels((GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, glFormat, glType, m_pMemObjData );
-	glErr = glGetError();
-#endif
-	((GLContext*)m_pContext)->glBindFramebufferEXT( GL_FRAMEBUFFER, currBuffer );
+	return CL_SUCCESS;
 }

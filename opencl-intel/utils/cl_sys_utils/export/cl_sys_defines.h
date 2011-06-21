@@ -126,3 +126,6 @@ typedef unsigned long long               affinityMask_t;
 #include <sched.h>
 typedef cpu_set_t                      affinityMask_t;
 #endif
+
+// Define compiler static assert
+#define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]

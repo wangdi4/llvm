@@ -27,19 +27,19 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
 #include "observer.h"
+
+#include "cl_object.h"
+#include "cl_objects_map.h"
+#include "MemoryAllocator/MemoryObjectFactory.h"
+
 #include <Logger.h>
-#include <cl_object.h>
-#include <cl_objects_map.h>
 #include <cl_synch_objects.h>
+#include <list>
 #include <map>
 #include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class Buffer;
-	class Image2D;
-	class Image3D;
-    class Image2DArray;
 	class Sampler;
     class Device;
 	class FissionableDevice;
@@ -124,13 +124,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 		// get the number of devices
-		cl_uint GetDevicesCount() const { return m_pDevices->Count(); }
+		cl_uint GetDevicesCount() { return m_mapDevices.Count(); }
 
 		// get the device object pointers that associated to the context
 		FissionableDevice ** GetDevices(cl_uint * puiNumDevices);
 
 		// get the device ids that associated to the context
-		cl_device_id * GetDeviceIds(cl_uint * puiNumDevices);
+		cl_device_id * GetDeviceIds(size_t * puiNumDevices);
 
         // Get the list of root-level devices associated with this context
         Device** GetRootDevices(cl_uint* puiNumDevices);
@@ -151,9 +151,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDeviceByIndex(cl_uint uiDeviceIndex, Device** pDevice);
 
 		// get device by device id
-		cl_err_code GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice) const
+		cl_err_code GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice)
 		{
-			return m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+			return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
 		}
 
         // remove the program from the context
@@ -166,10 +166,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code RemoveSampler(cl_sampler clSampler);
 
 		// create new buffer object
-		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, Buffer ** ppBuffer);
+		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, MemoryObject ** ppBuffer);
 
 		// create new sub buffer object
-		cl_err_code CreateSubBuffer(Buffer* buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, Buffer ** ppBuffer);
+		cl_err_code CreateSubBuffer(MemoryObject * buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, MemoryObject ** ppBuffer);
 
 		// create new 1 or 2 dimensional image object
 		cl_err_code CreateImage2D(	cl_mem_flags	        clFlags,
@@ -178,7 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t                  szImageWidth,
 									size_t                  szImageHeight,
 									size_t                  szImageRowPitch,
-									Image2D **		        ppImage2d);
+									MemoryObject **		        ppImage2d);
 
 		// create new 3 dimensional image object
 		cl_err_code CreateImage3D(	cl_mem_flags	        clFlags,
@@ -189,27 +189,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t                  szImageDepth,
 									size_t                  szImageRowPitch,
 									size_t                  szImageSlicePitch,
-									Image3D **		        ppImage3d);
+									MemoryObject **		        ppImage3d);
 
         // create new array of 2 dimensional image objects
-        cl_err_code clCreateImage2DArrayINTEL(
+        cl_err_code clCreateImage2DArray(
                                     cl_mem_flags		    clflags,
                                     const cl_image_format *	pclImageFormat,
                                     void *					pHostPtr,
                                     cl_image_array_type		clImageArrayType,
-                                    const size_t *			pszImageWidth,
-                                    const size_t *			pszImageHeight,
+                                    const size_t*			pszImageWidth,
+                                    const size_t*			pszImageHeight,
                                     size_t					szNumImages,
                                     size_t					szImageRowPitch,
                                     size_t					szImageSlicePitch,                                    
-                                    Image2DArray**          ppImage2dArr);
+                                    MemoryObject**          ppImage2dArr);
 
 		// get the supported image formats for this context
-		cl_err_code GetSupportedImageFormats(	cl_mem_flags       clFlags,
-												cl_mem_object_type clType,
-												cl_uint            uiNumEntries,
-												cl_image_format * pclImageFormats,
-												cl_uint *         puiNumImageFormats);
+		cl_err_code GetSupportedImageFormats(	cl_mem_flags		clFlags,
+												cl_mem_object_type	clType,
+												cl_uint				uiNumEntries,
+												cl_image_format*	pclImageFormats,
+												cl_uint *			puiNumImageFormats);
 
 		// get memory object according the mem id
 		cl_err_code GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj);
@@ -245,6 +245,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //Implementation of the IDeviceFissionObserver interface
         virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
+		static size_t		GetPixelBytesCount(const cl_image_format * pclImageFormat);
+
 	protected:
 		/******************************************************************************************
 		* Function: 	~Device
@@ -255,7 +257,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Context();
 
-		cl_ulong GetMaxMemAllocSize();
+		cl_ulong	GetMaxMemAllocSize();
 		cl_err_code GetMaxImageDimensions(	size_t * psz2dWidth, 
 											size_t * psz2dHeight, 
 											size_t * psz3dWidth, 
@@ -263,31 +265,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											size_t * psz3dDepth,
                                             size_t * psz2dArraySize);
 
+		cl_err_code	CheckSupportedImageFormat(const cl_image_format *pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType);
+		size_t		QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
+
 		// -------------- DEVICES -------------- 
 		
-		OCLObjectsMap<_cl_device_id_int> *		m_pDevices;		// holds the devices that associated to the program
-
+		OCLObjectsMap<_cl_device_id_int>		m_mapDevices;			// holds the devices that associated to the program
         Device**                                m_ppRootDevices;
-	
 		FissionableDevice **					m_ppAllDevices;
-
 		cl_device_id *							m_pDeviceIds;
-
         cl_device_id *                          m_pOriginalDeviceIds;
-
         cl_uint                                 m_pOriginalNumDevices;
-
         cl_uint                                 m_uiNumRootDevices;
-
         Utils::OclReaderWriterLock              m_deviceMapsLock;   // used to prevent a race between accesses to the device maps and the device fission sequence
-
         Utils::OclReaderWriterLock              m_deviceDependentObjectsLock; // Used to prevent a race between program / memory object "device" objects and device fission sequence
 
-        OCLObjectsMap<_cl_program_int> *		m_pPrograms;	// holds the programs that related to this context
-
-		OCLObjectsMap<_cl_mem_int> *			m_pMemObjects;	// holds the memory objects that belongs to the context
-
-		OCLObjectsMap<_cl_sampler_int> *		m_pSamplers;	// holds the sampler objects that belongs to the context
+		cl_bitfield								m_devTypeMask;			// Mask of device types involved by the context
+		
+        OCLObjectsMap<_cl_program_int>			m_mapPrograms;			// holds the programs that related to this context
+		OCLObjectsMap<_cl_mem_int>				m_mapMemObjects;		// holds the memory objects that belongs to the context
+		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;			// holds the sampler objects that belongs to the context
 
 		cl_context_properties *					m_pclContextProperties; // context properties
 //		std::map<cl_context_properties, cl_context_properties>
@@ -300,6 +297,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void *									m_pUserData; // user data
 
 		ocl_gpa_data *							m_pGPAData;
+		cl_ulong								m_ulMaxMemAllocSize;
+		size_t									m_sz2dWidth;
+		size_t									m_sz2dHeight;
+		size_t									m_sz3dWidth;
+		size_t									m_sz3dHeight;
+		size_t									m_sz3dDepth;
+		size_t									m_sz2dArraySize;
+
+		typedef std::list<cl_image_format>		tImageFormatList;
+		typedef std::map<int, tImageFormatList>	tImageFormatMap;
+		Intel::OpenCL::Utils::OclSpinMutex		m_muFormatsMap;
+		tImageFormatMap							m_mapSupportedFormats;
 	};
 
 

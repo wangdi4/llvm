@@ -252,7 +252,7 @@ cl_err_code ProgramWithSource::NotifyDeviceFissioned(FissionableDevice* parent, 
     OclAutoWriter CS(&m_deviceProgramLock);
 
     // Prepare new device program map
-    size_t szNewNumAssociatedDevices = m_szNumAssociatedDevices + count;
+    cl_uint szNewNumAssociatedDevices = m_szNumAssociatedDevices + (cl_uint)count;
     DeviceProgram** ppNewDevicesPrograms = new DeviceProgram*[szNewNumAssociatedDevices];
     if (NULL == ppNewDevicesPrograms)
     {

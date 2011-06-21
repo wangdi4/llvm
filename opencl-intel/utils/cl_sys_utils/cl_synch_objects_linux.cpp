@@ -383,16 +383,6 @@ void OclOsDependentEvent::Signal()
 	}
 }
 
-
-void* AtomicPointer::test_and_set(void* comparand, void* exchange)
-{
-	return __sync_val_compare_and_swap(&m_ptr, comparand, exchange);   // CAS(*ptr, old, new)
-}
-void* AtomicPointer::exchange(void* val)
-{
-	return __sync_lock_test_and_set(&m_ptr, val);
-}
-
 AtomicCounter::operator long() const
 {
 	return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);

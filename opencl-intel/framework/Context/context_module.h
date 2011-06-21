@@ -26,11 +26,13 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
-#include <Logger.h>
 #include "icontext.h"
 #include "icontext_gl.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
+#include "cl_objects_map.h"
+
+#include <Logger.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -99,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clContext [in] - a valid context handle               	
 		* Return value:	Returns the context object if valid, else returns NULL.
 		******************************************************************************************/
-        Context*        GetContext( cl_context clContext ) const;
+        Context*        GetContext( cl_context clContext );
 
 		/******************************************************************************************
 		* Function: 	GetKernel
@@ -107,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clKernel [in] - a valid memory kernel handle
 		* Return value:	Returns the kernel object if valid, else returns NULL.
 		******************************************************************************************/
-        Kernel*         GetKernel( cl_kernel clKernel ) const;
+        Kernel*         GetKernel( cl_kernel clKernel );
 
 		/******************************************************************************************
 		* Function: 	GetMemoryObject    
@@ -140,7 +142,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int ReleaseKernel(cl_kernel clKernel);
 		virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint	uiArgIndex, size_t szArgSize, const void * pszArgValue);
 		virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id clDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id pDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
 		// memory object methods
 		virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
 		virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
@@ -171,21 +173,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:
 
+		cl_err_code CheckImageParameters(cl_mem_flags clMemFlags,
+										const cl_image_format * clImageFormat,
+                                         size_t szImageWidth,
+                                         size_t szImageHeight,
+                                         size_t szImageDepth,
+                                         size_t szImageRowPitch,
+                                         size_t szImageSlicePitch,
+                                         void * pHostPtr);
+
 		// get pointers to device objects according to the device ids
 		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
         cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
 
-		OCLObjectsMap<_cl_context_int> *			m_pContexts; // map list of contexts
-
-		OCLObjectsMap<_cl_program_int> *			m_pPrograms; // map list of programs
-
-		OCLObjectsMap<_cl_kernel_int> *				m_pKernels;	// map list of kernels
-
-		OCLObjectsMap<_cl_mem_int> *				m_pMemObjects; // map list of all memory objects
-
-		OCLObjectsMap<_cl_sampler_int> *			m_pSamplers; // map list of all memory objects
+		OCLObjectsMap<_cl_context_int>			m_mapContexts;	// map list of contexts
+		OCLObjectsMap<_cl_program_int>			m_mapPrograms;	// map list of programs
+		OCLObjectsMap<_cl_kernel_int>			m_mapKernels;		// map list of kernels
+		OCLObjectsMap<_cl_mem_int>				m_mapMemObjects;	// map list of all memory objects
+		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;	// map list of all memory objects
 
 		ocl_entry_points *						m_pOclEntryPoints;
 

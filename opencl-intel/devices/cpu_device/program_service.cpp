@@ -669,7 +669,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 }
 
 cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
-						 size_t* OUT numKernelsRet )
+						 cl_uint* OUT numKernelsRet )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramKernels enter"));
 

@@ -34,6 +34,10 @@
 #include "cl_sys_defines.h"
 #include "ocl_itt.h"
 
+#if defined(USE_GPA)
+	#include "tal.h"
+	#include <ittnotify.h>
+#endif
 
 #define getR(color) ((color >> 16) & 0xFF)
 #define getG(color) ((color >> 8) & 0xFF)
@@ -151,12 +155,6 @@ cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 	cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw*)(cmd->params);
 
-	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		return ret;
-	}
-
 	for (unsigned int i=0; i< cmdParams->dim_count-1; i++)
 	{
 		if(0 == cmdParams->pitch[i])
@@ -172,58 +170,29 @@ cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 void ReadWriteMemObject::Execute()
 {
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
+	cl_mem_obj_descriptor*	pMemObj;
 	SMemCpyParams			sCpyParam;
-	void*	pObjPtr;
-	size_t  uiElementSize;
 
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+
+	void*	pObjPtr;
+	size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
 
 #ifdef _DEBUG_PRINT
 	printf("--> ReadWriteMemObject(start), cmdid:%d\n", m_pCmd->id);
 #endif
 
-	// Lock memory object
-	// cmdParams->memobj_pitch for Buffers already has valid values, either zero or non-zero for BufferRect calls.
-	// cmdParams->memobj_pitch for Non-Buffers is being updated inside with correct values.
-	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin, &pObjPtr, cmdParams->memobj_pitch, &uiElementSize);
 
-	if ( CL_DEV_FAILED(ret) )
-	{
-#ifdef _DEBUG
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Failed lock memory object, rc=%x"), ret);
-#endif
-#ifdef _DEBUG_PRINT
-		printf("--> ReadWriteMemObject(fail), cmdid:%d(%d)\n", m_pCmd->id, ret);
-#endif
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
-        return;
-	}
-
-	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-
-
-
+	// Request access on default device
 
 	sCpyParam.uiDimCount = cmdParams->dim_count;
-	// in case of buffers, we need to consider the case of BufferRect execution.
-	if (cmdParams->dim_count == 1)
-	{
-		for (int i= MAX_WORK_DIM; i > 1 ; i--)
-		{
-			// find first dimension where region has non default value;
-			// we need to process up to this dimension.
-			if (cmdParams->region[i-1] != 1)
-			{
-				sCpyParam.uiDimCount = i;
-				break;
-			}
-		}
-	}
+	pObjPtr = MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
 
 	// Set Source/Destination
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = cmdParams->region[0] * uiElementSize;
+	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
 
 	// In case the pointer parameter (Destination for CMD_READ and Source for CMD_WRITE) has pitch properties,
 	// we need to consider that too.
@@ -231,12 +200,10 @@ void ReadWriteMemObject::Execute()
 						cmdParams->ptr_origin[1] * cmdParams->pitch[0] + \
 						cmdParams->ptr_origin[0];
 
-
 	if ( CL_DEV_CMD_READ == m_pCmd->type )
 	{
-
 		sCpyParam.pSrc = (cl_char*)pObjPtr;
-		memcpy(sCpyParam.vSrcPitch, cmdParams->memobj_pitch, sizeof(sCpyParam.vSrcPitch));
+		memcpy(sCpyParam.vSrcPitch, pObjPitchPtr, sizeof(sCpyParam.vSrcPitch));
 		sCpyParam.pDst = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
 		memcpy(sCpyParam.vDstPitch, cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
 	}
@@ -245,7 +212,7 @@ void ReadWriteMemObject::Execute()
 		sCpyParam.pSrc = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
 		memcpy(sCpyParam.vSrcPitch, cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
 		sCpyParam.pDst = (cl_char*)pObjPtr;
-		memcpy(sCpyParam.vDstPitch, cmdParams->memobj_pitch, sizeof(sCpyParam.vDstPitch));
+		memcpy(sCpyParam.vDstPitch, pObjPitchPtr, sizeof(sCpyParam.vDstPitch));
 	}
 
 	// Execute copy routine
@@ -298,18 +265,10 @@ void ReadWriteMemObject::Execute()
 	}
 #endif
 
-	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, pObjPtr);
-#ifdef _DEBUG
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Can't unlock memory object, rc=%x"), ret);
-	}
-#endif
 #ifdef _DEBUG_PRINT
-	printf("--> ReadWriteMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, ret);
+	printf("--> ReadWriteMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
-	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -355,64 +314,28 @@ cl_dev_err_code CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return CL_DEV_INVALID_COMMAND_PARAM;
 	}
 
-	cl_dev_cmd_param_copy *cmdParams = (cl_dev_cmd_param_copy*)(cmd->params);
-
-	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->dstMemObj);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		return ret;
-	}
-
-	ret = m_pMemAlloc->ValidateObject(cmdParams->srcMemObj);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		return ret;
-	}
-
 	return CL_DEV_SUCCESS;
 }
 
 void CopyMemObject::Execute()
 {
 	cl_dev_cmd_param_copy*	cmdParams = (cl_dev_cmd_param_copy*)m_pCmd->params;
+	cl_mem_obj_descriptor*	pSrcMemObj;;
+	cl_mem_obj_descriptor*	pDstMemObj;
 	SMemCpyParams			sCpyParam;
 
-	size_t  uiSrcElementSize, uiDstElementSize;
-	cl_dev_err_code ret;
+	cmdParams->srcMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pSrcMemObj);
+	cmdParams->dstMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pDstMemObj);
 
-	// Lock src memory object
-	ret = m_pMemAlloc->LockObject(cmdParams->srcMemObj, cmdParams->src_dim_count, cmdParams->src_origin,
-		(void**)&sCpyParam.pSrc, cmdParams->src_pitch, &uiSrcElementSize);
-	if ( CL_DEV_FAILED(ret) )
-	{
-#ifdef _DEBUG_PRINT
-		printf("--> CopyMemObject(fail,1), cmdid:%d(%d)\n", m_pCmd->id, ret);
-#endif
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
-		return;
-	}
-
-	// Lock dst memory object
-	ret = m_pMemAlloc->LockObject(cmdParams->dstMemObj, cmdParams->dst_dim_count, cmdParams->dst_origin,
-		(void**)&sCpyParam.pDst, cmdParams->dst_pitch, &uiDstElementSize);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, sCpyParam.pSrc);
-#ifdef _DEBUG_PRINT
-		printf("--> CopyMemObject(fail,2), cmdid:%d(%d)\n", m_pCmd->id, ret);
-#endif
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
-		return;
-	}
+	size_t  uiSrcElementSize = pSrcMemObj->uiElementSize;
+	size_t	uiDstElementSize = pDstMemObj->uiElementSize;
 
 	// Objects has to have same element size or buffer<->image
 	if( (uiDstElementSize != uiSrcElementSize) &&
 		(1 != uiDstElementSize) && (1 != uiSrcElementSize) )
 	{
-		m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, sCpyParam.pSrc);
-		m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, sCpyParam.pDst);
 #ifdef _DEBUG_PRINT
-		printf("--> CopyMemObject(fail,3), cmdid:%d(%d)\n", m_pCmd->id, ret);
+		printf("--> CopyMemObject(fail,3), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_INVALID_COMMAND_PARAM);
 #endif
 		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
 		return;
@@ -429,9 +352,11 @@ void CopyMemObject::Execute()
 	//Copy 2D image to buffer
 	//Copy 3D image to buffer
 	//Buffer to image
+	memcpy(sCpyParam.vSrcPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
+	memcpy(sCpyParam.vDstPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vDstPitch));
 
-	memcpy(sCpyParam.vSrcPitch, cmdParams->src_pitch, sizeof(sCpyParam.vSrcPitch));
-	memcpy(sCpyParam.vDstPitch, cmdParams->dst_pitch, sizeof(sCpyParam.vDstPitch));
+	sCpyParam.pSrc = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pSrcMemObj->pData, cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vSrcPitch, pSrcMemObj->uiElementSize);
+	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pDstMemObj->pData, cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
 
 	sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
 	if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
@@ -452,20 +377,7 @@ void CopyMemObject::Execute()
 			sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * cmdParams->region[1];
 		}
 	}
-	else if (cmdParams->src_dim_count == 1)
-	{
-		// in case of buffers, we need to consider the case of BufferRect execution.
-		for (int i= MAX_WORK_DIM; i > 1 ; i--)
-		{
-			// find first dimension where region has non default value;
-			// we need to process up to this dimension.
-			if (cmdParams->region[i-1] != 1)
-			{
-				sCpyParam.uiDimCount = i;
-				break;
-			}
-		}
-	}
+
 
 	//If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
 	//based on the size of each element in bytes multiplied by width.
@@ -524,27 +436,11 @@ void CopyMemObject::Execute()
 		__itt_task_end(m_pGPAData->pDomain);
 	} 
 #endif
-	ret = m_pMemAlloc->UnLockObject(cmdParams->dstMemObj, sCpyParam.pDst);
-#ifdef _DEBUG
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Can't unlock destination memory object, rc=%x"), ret);
-	}
-#endif
-	ret = m_pMemAlloc->UnLockObject(cmdParams->srcMemObj, sCpyParam.pSrc);
-#ifdef _DEBUG
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Can't unlock source memory object, rc=%x"), ret);
-	}
-#endif
 
 #ifdef _DEBUG_PRINT
-	printf("--> CopyMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, ret);
+	printf("--> CopyMemObject(end), cmd_id:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
-	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -570,7 +466,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)pCmd->params;
 
 	// Create temporal buffer for execution
-	void*	pArgV = new char[cmdParams->args];
+	char*	pArgV = new char[cmdParams->args];
 	if ( NULL == pArgV )
 	{
 #ifdef _DEBUG
@@ -611,18 +507,6 @@ cl_dev_err_code	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return CL_DEV_INVALID_COMMAND_PARAM;
 	}
 
-	// Check memory object handles
-	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
-	{
-		cl_dev_mem memObj = *((cl_dev_mem*)(cmdParams->mem_loc[i]));
-
-		cl_dev_err_code ret = m_pMemAlloc->ValidateObject(memObj);
-		if ( CL_DEV_FAILED(ret) )
-		{
-			return ret;
-		}
-	}
-
 	return CL_DEV_SUCCESS;
 }
 
@@ -630,55 +514,30 @@ void NativeFunction::Execute()
 {
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)m_pCmd->params;
 
-	// Lock Memory objects handles
-	cl_dev_err_code ret = CL_DEV_SUCCESS;
-	for(unsigned int i=0; (i<cmdParams->mem_num) && CL_DEV_SUCCEEDED(ret); ++i )
-	{
-		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
-		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
-		void*	*pMemPtr = (void**)((cl_char*)m_pArgV+Offset);
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-		ret = m_pMemAlloc->LockObject(memObj, -1, NULL, pMemPtr, NULL, NULL);
-		if ( CL_DEV_FAILED(ret) )
-		{
-			*pMemPtr = NULL;
-		}
+	for(unsigned int i=0; (i<cmdParams->mem_num); ++i )
+	{
+		IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)((((char*)cmdParams->argv)+cmdParams->mem_offset[i])));
+		
+		cl_mem_obj_descriptor* memObjDesc;
+		memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&memObjDesc);
+
+		void*	*pMemPtr = (void**)((cl_char*)m_pArgV+cmdParams->mem_offset[i]);
+		*pMemPtr = memObjDesc->pData;
 	}
 
-	if ( CL_DEV_SUCCEEDED(ret) )
-	{
-		// Notify start execution
-		NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+	// Notify start execution
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-		// Execute native function
-		fn_clNativeKernel *func = (fn_clNativeKernel*)cmdParams->func_ptr;
-		func(m_pArgV);
-	}
-
-	// Unlock memory buffers
-	for(unsigned int i=0; i<cmdParams->mem_num; ++i )
-	{
-		cl_dev_mem memObj = *((cl_dev_mem*)cmdParams->mem_loc[i]);
-
-		size_t	Offset = (size_t)cmdParams->mem_loc[i] - (size_t)cmdParams->argv;
-		void*	*pMemPtr = (void**)((cl_char*)m_pArgV + Offset);
-
-		// defined private ret value
-		if ( NULL != *pMemPtr )
-		{
-			cl_dev_err_code ret = m_pMemAlloc->UnLockObject(memObj, *pMemPtr);
-			if ( CL_DEV_FAILED(ret) )
-			{
-				CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Can't unlock memory object, rc=%x"), ret);
-			}
-		}
-	}
+	// Execute native function
+	fn_clNativeKernel *func = (fn_clNativeKernel*)cmdParams->func_ptr;
+	func(m_pArgV);
 
 	// Free memory allocated to execution parameters
-	char* temp = (char*)m_pArgV;
-	delete [] temp;
+	delete []m_pArgV;
 
-	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
 }
 
@@ -726,32 +585,24 @@ cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return CL_DEV_INVALID_COMMAND_PARAM;
 	}
 
-	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
-
-	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		return ret;
-	}
-
 	return CL_DEV_SUCCESS;
 }
 
 void MapMemObject::Execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+	cl_mem_obj_descriptor*	pMemObj;
 	SMemCpyParams			sCpyParam;
 
-	size_t  uiElementSize;
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-	// Lock memory object
-	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
-		(void**)&sCpyParam.pSrc, sCpyParam.vSrcPitch, &uiElementSize);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
-		return;
-	}
+	// Request access on default device
+	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+
+	sCpyParam.pSrc = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	memcpy(sCpyParam.vSrcPitch, pMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
+
+	// Write Map task to TAL trace
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
@@ -767,7 +618,7 @@ void MapMemObject::Execute()
 		// Set Source/Destination
 		sCpyParam.uiDimCount = cmdParams->dim_count;
 		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-		sCpyParam.vRegion[0] = cmdParams->region[0] * uiElementSize;
+		sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
 
 		sCpyParam.pDst = (cl_char*)cmdParams->ptr;
 		memcpy(sCpyParam.vDstPitch, cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
@@ -818,14 +669,8 @@ void MapMemObject::Execute()
 		__itt_task_end(m_pGPAData->pDomain);
 	} 
 #endif
-	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, sCpyParam.pSrc);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Can't unlock memory object, rc=%x"), ret);
-	}
 
-	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -872,33 +717,21 @@ cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		return CL_DEV_INVALID_COMMAND_PARAM;
 	}
 
-	cl_dev_cmd_param_map *cmdParams = (cl_dev_cmd_param_map*)(cmd->params);
-
-	cl_dev_err_code ret = m_pMemAlloc->ValidateObject(cmdParams->memObj);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		return ret;
-	}
-
 	return CL_DEV_SUCCESS;
 }
 
 void UnmapMemObject::Execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
-
+	cl_mem_obj_descriptor*	pMemObj = NULL;
 	SMemCpyParams			sCpyParam;
-	size_t  uiElementSize;
 
-	// Lock memory object
-	cl_dev_err_code ret = m_pMemAlloc->LockObject(cmdParams->memObj, cmdParams->dim_count, cmdParams->origin,
-		(void**)&sCpyParam.pDst, sCpyParam.vDstPitch, &uiElementSize);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Can't Lock memory object, rc=%x"), ret);
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
-		return;
-	}
+	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	memcpy(sCpyParam.vDstPitch, pMemObj->pitch, sizeof(sCpyParam.vDstPitch));
 
 	// Different pointer to map, need copy data
 	if (sCpyParam.pDst != cmdParams->ptr)
@@ -907,7 +740,7 @@ void UnmapMemObject::Execute()
 		// Set Source/Destination
 		sCpyParam.uiDimCount = cmdParams->dim_count;
 		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-		sCpyParam.vRegion[0] = cmdParams->region[0] * uiElementSize;
+		sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
 
 		sCpyParam.pSrc = (cl_char*)cmdParams->ptr;
 		memcpy(sCpyParam.vSrcPitch, cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
@@ -929,13 +762,7 @@ void UnmapMemObject::Execute()
 #endif
 	}
 
-	ret = m_pMemAlloc->UnLockObject(cmdParams->memObj, sCpyParam.pDst);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-			TEXT("Can't unlock memory object, rc=%x"), ret);
-	}
-	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, ret);
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1028,13 +855,6 @@ cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 		// Argument is buffer object or local memory size
 		if ( CL_KRNL_ARG_PTR_GLOBAL <= pArgs[i].type )
 		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pCurrParamPtr+stOffset));
-			// Is valid memory object
-			cl_dev_err_code clRet = m_pMemAlloc->ValidateObject(memObj);
-			if ( CL_DEV_FAILED(clRet) )
-			{
-				return clRet;
-			}
 			stOffset += sizeof(void*);
 		}
 		else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)
@@ -1150,33 +970,15 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	{
 		// Argument is buffer object or local memory size
 		if ( ( CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_CONST == pArgs[i].type )
+			( CL_KRNL_ARG_PTR_CONST == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
 			)
 
 		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
-			// Lock memory object / Get pointer
-			// Fill in the local parameters buffer the virtual pointer of the buffer
-			m_lastError = m_pMemAlloc->LockObject(memObj, (cl_mem_obj_descriptor**)(m_pLockedParams+stOffset));
-			if ( CL_DEV_FAILED(m_lastError) )
-			{
-				break;
-			}
-			stOffset += sizeof(void*);
-		}
-		else if ( ( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type ) ||
-            ( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type )
-			)
-		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
-			m_lastError = m_pMemAlloc->LockObject(memObj, (cl_mem_obj_descriptor**)(m_pLockedParams+stOffset));
-			if ( CL_DEV_FAILED(m_lastError) )
-			{
-				break;
-			}
-			// Set a pointer to image here
-			stOffset += sizeof(void*);
+			IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)(pKernelParams+stOffset));
+			memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(m_pLockedParams+stOffset));
+			stOffset += sizeof(IOCLDevMemoryObject*);
 		}
 		else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)
 		{
@@ -1259,8 +1061,6 @@ void NDRange::Finish(FINISH_REASON reason)
 	m_lFinish.exchange(1);
 #endif
 
-	UnlockMemoryBuffers();
-
 #ifdef _DEBUG_PRINT
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
@@ -1277,58 +1077,6 @@ void NDRange::Finish(FINISH_REASON reason)
 #ifdef _DEBUG
 	m_lFinish.exchange(0);
 #endif
-}
-
-void NDRange::UnlockMemoryBuffers()
-{
-	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
-	const char*					pKernelParams = (const char*)cmdParams->arg_values;
-	size_t stOffset = 0;
-	unsigned					uiNumArgs;
-	const cl_kernel_argument*	pArgs;
-
-	pKernel->GetKernelParams(&pArgs, &uiNumArgs);
-
-	// Unlock memory buffers
-	for(unsigned int i=0; i<uiNumArgs; ++i)
-	{
-		// Argument is buffer object or local memory size
-		if ( CL_KRNL_ARG_PTR_GLOBAL <= pArgs[i].type )
-		{
-			cl_dev_mem memObj = (cl_dev_mem)*((void**)(pKernelParams+stOffset));
-
-			if ( ((cl_uint)-1 != memObj->allocId) && (NULL != (m_pLockedParams+stOffset)) )
-			{
-				// UnLock memory object / Get pointer
-				cl_dev_err_code clRet = m_pMemAlloc->UnLockObject(memObj,(void*)(m_pLockedParams+stOffset));
-				if ( CL_DEV_FAILED(clRet) )
-				{
-					CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Can't unlock memory object"));
-				}
-			}
-			*((void**)(m_pLockedParams+stOffset)) = NULL;
-			stOffset += sizeof(void*);
-		}
-		else if ( CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type )
-		{
-			stOffset += sizeof(void*);
-		}
-		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
-		{
-			unsigned int uiSize = pArgs[i].size_in_bytes;
-			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
-			stOffset += uiSize;
-		}
-		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
-		{
-			stOffset += sizeof(cl_int);
-		}
-		else
-		{
-			stOffset += pArgs[i].size_in_bytes;
-		}
-	}
 }
 
 
@@ -1377,7 +1125,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 		{
 			char pWGRangeString[GPA_RANGE_STRING_SIZE];
 
-			unsigned int uiWorkGroupSize = 1;
+			size_t uiWorkGroupSize = 1;
 			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 

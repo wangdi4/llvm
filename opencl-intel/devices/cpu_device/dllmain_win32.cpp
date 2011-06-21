@@ -35,10 +35,6 @@
 #pragma comment(lib, "gpasdk_dr_2008.lib")
 #endif
 #endif
-#pragma warning(push)
-  #pragma warning(disable:4391)
-  #include <intrin.h>
-#pragma warning(pop)
 #include "cpu_device.h"
 
 #include<stdlib.h>
@@ -80,7 +76,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 /************************************************************************************************************************
    clDevGetDeviceInfo
 **************************************************************************************************************************/
-cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param, 
+extern "C" cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param, 
                             size_t          valSize, 
                             void*           paramVal,
 				            size_t*         paramValSizeRet

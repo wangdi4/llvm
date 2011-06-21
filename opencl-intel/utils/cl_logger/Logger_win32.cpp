@@ -122,7 +122,7 @@ struct LoggerSingletonHandler
 			return;
 		}
 
-		// The mutex was created, we need allocate task executor and share it.
+		// The mutex was created, we need allocate logger and share it.
 		pLogger = new Logger;
 		*ppLogger = pLogger;
 		// Release Mutex

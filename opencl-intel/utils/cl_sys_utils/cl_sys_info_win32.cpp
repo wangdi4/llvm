@@ -35,14 +35,37 @@ using namespace Intel::OpenCL::Utils;
 
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
-	MEMORYSTATUSEX	memStatus;
-
-	memStatus.dwLength = sizeof(MEMORYSTATUSEX);
-	if ( !GlobalMemoryStatusEx(&memStatus) )
+	static unsigned long long vsize = 0;
+	if ( 0 == vsize )
 	{
-		return 0;
+		MEMORYSTATUSEX	memStatus;
+
+		memStatus.dwLength = sizeof(MEMORYSTATUSEX);
+		if ( !GlobalMemoryStatusEx(&memStatus) )
+		{
+			return 0;
+		}
+		vsize = min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
 	}
-	return min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
+	return vsize;
+}
+
+unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
+{
+	static unsigned long long psize = 0;
+
+	if ( 0 == psize )
+	{
+		MEMORYSTATUSEX	memStatus;
+
+		memStatus.dwLength = sizeof(MEMORYSTATUSEX);
+		if ( !GlobalMemoryStatusEx(&memStatus) )
+		{
+			return 0;
+		}
+		psize = memStatus.ullTotalPhys;
+	}
+	return psize;
 }
 
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
@@ -65,7 +88,7 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 		pBuffer = pBuffer + sizeof(cpuInfo);
 	}
 
-	int buffLen = strlen(buffer);
+	size_t buffLen = strlen(buffer);
 	long long mul = 0;
 	double freqDouble = 0;
 	if ((buffer[buffLen-1] == 'z') && (buffer[buffLen-2] == 'H') && ((buffer[buffLen-3] == 'M') || (buffer[buffLen-3] == 'G') || (buffer[buffLen-3] == 'T')))
@@ -83,7 +106,7 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 			break;
 		}
 
-		int i = buffLen - 1;
+		int i = (int)buffLen - 1;
 		while (i >= 0)
 		{
 			if (buffer[i] == ' ')
@@ -157,7 +180,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 		(LPCSTR)addr,
 		&hModule);
 
-	GetModuleFileNameA(hModule, szModuleDir, strLen);
+	GetModuleFileNameA(hModule, szModuleDir, (DWORD)strLen);
 	char* pLastDelimiter = strrchr(szModuleDir, '\\');
 	if ( NULL != pLastDelimiter )
 	{
@@ -175,7 +198,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
 {
 	HMODULE hModule = *((HMODULE*)modulePtr);
-	return GetModuleFileNameA(hModule, fileName, strLen-1);
+	return GetModuleFileNameA(hModule, fileName, (DWORD)(strLen-1));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

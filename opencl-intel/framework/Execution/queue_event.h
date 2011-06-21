@@ -53,6 +53,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		friend class Command;
 		QueueEvent( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints );
 
+		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
+		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
+
 		cl_context       GetContextHandle() const;
 		cl_command_queue GetQueueHandle() const;
 		cl_int           GetReturnCode() const;
@@ -81,10 +84,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void   NotifyReady(OclEvent* pEvent); 
         virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
-		SProfilingInfo		m_sProfilingInfo;
-		bool				m_bProfilingEnabled;
-		Command*            m_pCommand;             // Pointer to the command represented by this event
-
+		SProfilingInfo			m_sProfilingInfo;
+		bool					m_bProfilingEnabled;
+		Command*				m_pCommand;             // Pointer to the command represented by this event
+		IOclCommandQueueBase*   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
 
 	};
 

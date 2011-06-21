@@ -31,7 +31,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-BuildEvent::BuildEvent( cl_context context ) : OclEvent(NULL), m_context(context), m_returnCode(0xdead)
+BuildEvent::BuildEvent( cl_context context ) : OclEvent(), m_context(context), m_returnCode(0xdead)
 {
 	m_color = EVENT_STATE_RED;
 	m_handle.object   = this;

@@ -31,7 +31,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-OclEvent::OclEvent(IOclCommandQueueBase* cmdQueue) : m_complete(false), m_color(EVENT_STATE_WHITE), m_pEventQueue(cmdQueue)
+OclEvent::OclEvent() : m_complete(false), m_color(EVENT_STATE_WHITE)
 {
 }
 
@@ -45,6 +45,9 @@ void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
 	//Must increase dependency list length before adding as listener
 	//The other event may have completed already, in which case our callback will be called immediately
 	//Which will decrease the depListLength.
+
+	//BugFix: When command waits for queue event and user event, and user event is set with failure, the second notification will fail
+	AddPendency();	// There is an event that will notify us.
 	++m_depListLength;
 	pDependsOnEvent->AddCompleteListener(this);
 }
@@ -59,6 +62,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyLis
 		OclEvent*& evt = pDependencyList[i];
 		if (evt != NULL)
 		{
+			AddPendency(); //BugFix: When command waits for queue event and user event, and user event is set with failure, the second notification will fail
 			evt->AddCompleteListener(this);
 		}
 		else
@@ -86,8 +90,8 @@ void OclEvent::AddCompleteListener(IEventDoneObserver* listener)
 OclEventStateColor OclEvent::SetColor(OclEventStateColor color)
 {
 	//Todo: do we need atomic exchange here?
-	OclEventStateColor oldColor = m_color;
-	m_color = color;
+	OclEventStateColor oldColor = (OclEventStateColor)m_color.exchange(color);
+	assert( !((color==EVENT_STATE_BLACK) && (oldColor == EVENT_STATE_BLACK)) );
 	if (EVENT_STATE_BLACK == color)
 	{
 		NotifyComplete(GetReturnCode());
@@ -98,6 +102,7 @@ OclEventStateColor OclEvent::SetColor(OclEventStateColor color)
 //Notifies us that pEvent that we were listening on, has completed
 cl_err_code OclEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
 {
+	// Should remove pendency once was notified
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 	//Check for notifications from myself
 	if (pEvent == this)
@@ -117,6 +122,9 @@ cl_err_code OclEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
 	{
 		NotifyComplete(returnCode);
 	}
+
+	RemovePendency();
+
 	return CL_SUCCESS;
 }
 
@@ -135,7 +143,6 @@ void OclEvent::NotifyComplete(cl_int returnCode)
 		listener->NotifyEventDone(this, returnCode);
 	}
 }
-
 
 void OclEvent::NotifyReady(OclEvent* pEvent)
 {

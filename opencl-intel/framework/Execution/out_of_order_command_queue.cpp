@@ -33,7 +33,6 @@
 #include <cl_utils.h>
 
 
-
 using namespace Intel::OpenCL::Framework;
 
 OutOfOrderCommandQueue::OutOfOrderCommandQueue(
@@ -121,7 +120,7 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
 cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 {
 	OclEvent* cmdEvent = cmd->GetEvent();
-	((Command *)((void *)m_depOnAll))->GetEvent()->AddDependentOn(cmdEvent);
+	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.test_and_set(NULL,NULL));	
 	if (prev_barrier != NULL)
 	{		
@@ -170,7 +169,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 	OclEvent* cmdEvent = cmd->GetEvent();
     cmdEvent->AddFloatingDependence();
 	cmdEvent->SetColor(EVENT_STATE_RED);
-	((Command *)((void *)m_depOnAll))->GetEvent()->AddDependentOn(cmdEvent);
+	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
 	if (prev_barrier)
 	{				

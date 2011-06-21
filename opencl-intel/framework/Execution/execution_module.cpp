@@ -24,7 +24,6 @@
 //  Created on:      23-Dec-2008 3:23:00 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
-#include <cassert>
 #include "execution_module.h"
 #include "platform_module.h"
 #include "context_module.h"
@@ -35,18 +34,20 @@
 #include "user_event.h"
 #include "Context.h"
 #include "enqueue_commands.h"
-#include "cl_memory_object.h"
+#include "MemoryAllocator/MemoryObject.h"
+
 #if defined (_WIN32)
 #include "gl_mem_objects.h"
 #include "gl_commands.h"
 #endif
 #include "kernel.h"
 #include "Device.h"
+#include "cl_sys_defines.h"
+
+#include <CL/cl_ext.h>
+#include <cassert>
 #include <cl_objects_map.h>
 #include <Logger.h>
-#include <cl_buffer.h>
-
-#include "cl_sys_defines.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -382,7 +383,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	pMarkerCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+
 	QueueEvent* pMarkerEvent = pMarkerCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
 
@@ -422,7 +423,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	pWaitForEventsCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+
 	errVal = pWaitForEventsCommand->Init();
 	if(CL_SUCCEEDED(errVal))
 	{
@@ -453,7 +454,7 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	pBarrierCommand->SetDevice(pCommandQueue->GetDefaultDevice());
+
 	errVal = pBarrierCommand->Init();
 	QueueEvent* pBarrierEvent = pBarrierCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
@@ -629,7 +630,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -653,9 +654,6 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pEnqueueReadBufferCmd->SetDevice(pDevice);
 
     errVal = pEnqueueReadBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
@@ -706,13 +704,13 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    Buffer* pBuffer = dynamic_cast<Buffer*>(m_pContextModule->GetMemoryObject(clBuffer));
+    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
     }
 	
-    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -732,15 +730,16 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 	SetIfZero(buffer_slice_pitch	, region[1] * buffer_row_pitch);
 	SetIfZero(host_slice_pitch		, region[1] * host_row_pitch);		
 
-    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBoundsRect(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
         return errVal;
     }
-		
-	if (pBuffer->IsSubBuffer())
+	
+	// Is Sub-buffer
+	if ( NULL != pBuffer->GetParent() )
 	{		
-		if (!pBuffer->CheckIfSupportedByDevice(pCommandQueue->GetQueueDeviceHandle()))
+		if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
 		{
 			return CL_MISALIGNED_SUB_BUFFER_OFFSET;
 		}
@@ -754,10 +753,6 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 		 return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pEnqueueReadBufferRectCmd->SetDevice(pDevice);
-
     errVal = pEnqueueReadBufferRectCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -770,7 +765,6 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
         }
     }else
 	{
-		pCommandQueue->Release();
 		delete pEnqueueReadBufferRectCmd;
 	}
     return  errVal;
@@ -799,7 +793,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -823,9 +817,6 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pWriteBufferCmd->SetDevice(pDevice);
 
     errVal = pWriteBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
@@ -875,13 +866,13 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    Buffer* pBuffer = dynamic_cast<Buffer*>(m_pContextModule->GetMemoryObject(clBuffer));
+    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }  
@@ -902,15 +893,15 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	SetIfZero(host_slice_pitch		, region[1] * host_row_pitch);
 	
 	
-    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pBuffer->CheckBoundsRect(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
         return errVal;
     }
 
-	if (pBuffer->IsSubBuffer())
+	if ( NULL != pBuffer->GetParent() )
 	{		
-		if (!pBuffer->CheckIfSupportedByDevice(pCommandQueue->GetQueueDeviceHandle()))
+		if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
 		{
 			return CL_MISALIGNED_SUB_BUFFER_OFFSET;
 		}
@@ -924,9 +915,6 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pWriteBufferRectCmd->SetDevice(pDevice);
 
     errVal = pWriteBufferRectCmd->Init();
     if(CL_SUCCEEDED(errVal))
@@ -972,8 +960,8 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pSrcBuffer->GetContextId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContextId() != pDstBuffer->GetContextId() 
+    if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
+        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
         )
     {
         return CL_INVALID_CONTEXT;
@@ -1006,9 +994,6 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pCopyBufferCommand->SetDevice(pDevice);
 
     errVal = pCopyBufferCommand->Init();
     if(CL_SUCCEEDED(errVal))
@@ -1054,15 +1039,15 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    Buffer* pSrcBuffer = dynamic_cast<Buffer*>(m_pContextModule->GetMemoryObject(clSrcBuffer));
-    Buffer* pDstBuffer = dynamic_cast<Buffer*>(m_pContextModule->GetMemoryObject(clDstBuffer));
+    MemoryObject* pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
+    MemoryObject* pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcBuffer || NULL == pDstBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pSrcBuffer->GetContextId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContextId() != pDstBuffer->GetContextId() 
+    if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
+        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
         )
     {
         return CL_INVALID_CONTEXT;
@@ -1086,25 +1071,25 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 	SetIfZero(dst_buffer_slice_pitch	, region[1] * dst_buffer_row_pitch);
 	
 	
-    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) || 
-		CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(szDstOrigin, region, dst_buffer_row_pitch, dst_buffer_slice_pitch)))
+    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBoundsRect(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) || 
+		CL_SUCCESS != (errVal = pDstBuffer->CheckBoundsRect(szDstOrigin, region, dst_buffer_row_pitch, dst_buffer_slice_pitch)))
 
     {
         // Out of bounds check.
         return errVal;
     }
 
-	if (pSrcBuffer->IsSubBuffer())
+	if ( NULL != pSrcBuffer->GetParent())
 	{		
-		if (!pSrcBuffer->CheckIfSupportedByDevice(pCommandQueue->GetQueueDeviceHandle()))
+		if (!pSrcBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
 		{
 			return CL_MISALIGNED_SUB_BUFFER_OFFSET;
 		}
 	}
 
-	if (pDstBuffer->IsSubBuffer())
+	if ( NULL != pDstBuffer->GetParent())
 	{		
-		if (!pDstBuffer->CheckIfSupportedByDevice(pCommandQueue->GetQueueDeviceHandle()))
+		if (!pDstBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
 		{
 			return CL_MISALIGNED_SUB_BUFFER_OFFSET;
 		}
@@ -1128,9 +1113,6 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pCopyBufferRectCommand->SetDevice(pDevice);
 
     errVal = pCopyBufferRectCommand->Init();
     if(CL_SUCCEEDED(errVal))
@@ -1182,7 +1164,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
         return NULL;
     }
 
-    if (pBuffer->GetContextId() != pCommandQueue->GetContextId())
+    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         *pErrcodeRet = CL_INVALID_CONTEXT;
         return NULL;
@@ -1202,30 +1184,27 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 		*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
 		return NULL;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pMapBufferCommand->SetDevice(pDevice);
+
     *pErrcodeRet = pMapBufferCommand->Init();
-    // Get pointer for mapped region since it is allocated on init. Execute will lock the region
-    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
-    void* mappedRegion = pMapBufferCommand->GetMappedRegion();
-    if(CL_SUCCEEDED(*pErrcodeRet))
-    {
-        *pErrcodeRet = pCommandQueue->EnqueueCommand(pMapBufferCommand, bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(*pErrcodeRet))
-        {
-            // Enqueue failed, free resources
-            pMapBufferCommand->CommandDone();
-            delete pMapBufferCommand;
-            return NULL;
-        }
-        return mappedRegion;
-    }  
-    else
+	if ( CL_FAILED(*pErrcodeRet))
     {
 		delete pMapBufferCommand;
         return  NULL;
     }
+
+	// Get pointer for mapped region since it is allocated on init. Execute will lock the region
+    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
+    void* mappedPtr = pMapBufferCommand->GetMappedPtr();
+
+    *pErrcodeRet = pCommandQueue->EnqueueCommand(pMapBufferCommand, bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(*pErrcodeRet))
+    {
+        // Enqueue failed, free resources
+        pMapBufferCommand->CommandDone();
+        delete pMapBufferCommand;
+        return NULL;
+    }
+    return mappedPtr;
 }
 
 /******************************************************************
@@ -1246,7 +1225,7 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
         return  CL_INVALID_MEM_OBJECT;
     }
 
-    if (pMemObject->GetContextId() != pCommandQueue->GetContextId())
+    if (pMemObject->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -1257,9 +1236,6 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pUnmapMemObjectCommand->SetDevice(pDevice);
 
     errVal = pUnmapMemObjectCommand->Init();
     if(CL_SUCCEEDED(errVal))
@@ -1319,7 +1295,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    cl_device_id clDeviceId = pCommandQueue->GetQueueDeviceHandle();
     Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
     if (NULL == pKernel)
     {
@@ -1331,9 +1306,11 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_CONTEXT;
     }
 
+	FissionableDevice* pDevice = pCommandQueue->GetDefaultDevice();
+	
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
-    if(!pKernel->IsValidExecutable(clDeviceId))
+    if(!pKernel->IsValidExecutable(pDevice))
     {
         return CL_INVALID_PROGRAM_EXECUTABLE;
     }
@@ -1350,8 +1327,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     //
     size_t szWorkGroupSize = 0;
     size_t szComplieWorkGroupSize[3] = {0};
-    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceHandle(), CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szWorkGroupSize, NULL);
-    pKernel->GetWorkGroupInfo(pCommandQueue->GetQueueDeviceHandle(), CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t) * 3, szComplieWorkGroupSize, NULL);
+    pKernel->GetWorkGroupInfo(pDevice, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szWorkGroupSize, NULL);
+    pKernel->GetWorkGroupInfo(pDevice, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t) * 3, szComplieWorkGroupSize, NULL);
     cl_uint ui=0;
 
     // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0) 
@@ -1393,13 +1370,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     // CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items in the work-group
     // computed as local_work_size[0] * …local_work_size[work_dim – 1] is greater than the value specified by 
     // CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
-    FissionableDevice* pDevice = NULL;
-    cl_err_code err = m_pPlatfromModule->GetDevice(clDeviceId, &pDevice);
-    if(CL_FAILED(err))
-    {
-        return CL_INVALID_CONTEXT;
-    }
-
     if( NULL != cpszLocalWorkSize )
     {
         size_t szDeviceMaxWorkGroupSize = 0;
@@ -1488,8 +1458,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 
 	// CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
-	cl_device_id clDeviceHandle = pCommandQueue->GetQueueDeviceHandle();
-	if(!pKernel->IsValidExecutable(clDeviceHandle))
+	if(!pKernel->IsValidExecutable(pCommandQueue->GetDefaultDevice()) )
     {
         return CL_INVALID_PROGRAM_EXECUTABLE;
     }
@@ -1510,9 +1479,6 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pTaskCommand->SetDevice(pDevice);
 
     errVal = pTaskCommand->Init();
     if(CL_SUCCEEDED(errVal))
@@ -1588,10 +1554,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 		}
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-    // Must set device Id before init for buffer resource allocation.
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pNativeKernelCommand->SetDevice(pDevice);
 
     errVal = pNativeKernelCommand->Init();
     if( CL_SUCCEEDED (errVal) )
@@ -1678,6 +1640,7 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj,
 
 	case CL_MEM_OBJECT_IMAGE2D_ARRAY:
 		if (szSrcOrigin[2] != szDstOrigin[2])
+
 		{
 			// For image array with different image index, no need to compare any boundaries 
 			// keep dimensionToCompare at 0.
@@ -1729,7 +1692,7 @@ inline size_t ExecutionModule::CalcRegionSizeInBytes(MemoryObject* pImage, const
 /******************************************************************
  *
  ******************************************************************/
-inline cl_err_code ExecutionModule::CheckImageFormat( MemoryObject* pSrcImage, MemoryObject* pDstImage)
+inline cl_err_code ExecutionModule::CheckImageFormats( MemoryObject* pSrcImage, MemoryObject* pDstImage)
 {
     cl_err_code errVal;
     cl_image_format clSrcFormat;
@@ -1788,7 +1751,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pImage->GetContextId() != pCommandQueue->GetContextId())
+    if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -1809,9 +1772,6 @@ cl_err_code ExecutionModule::EnqueueReadImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pReadImageCmd->SetDevice(pDevice);
 
     errVal = pReadImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
@@ -1866,7 +1826,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pImage->GetContextId() != pCommandQueue->GetContextId())
+    if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
     }
@@ -1887,10 +1847,8 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pWriteImageCmd->SetDevice(pDevice);
-    errVal = pWriteImageCmd->Init();
+
+	errVal = pWriteImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
         errVal = pCommandQueue->EnqueueCommand(pWriteImageCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
@@ -1937,15 +1895,15 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pSrcImage->GetContextId() != pCommandQueue->GetContextId()  ||
-        pSrcImage->GetContextId() != pDstImage->GetContextId() 
+    if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
+        pSrcImage->GetContext()->GetId() != pDstImage->GetContext()->GetId() 
         )
     {
         return CL_INVALID_CONTEXT;
     }
     
     // Check format
-    errVal = CheckImageFormat(pSrcImage, pDstImage);
+    errVal = CheckImageFormats(pSrcImage, pDstImage);
     if(CL_FAILED(errVal))
     {
         return CL_IMAGE_FORMAT_MISMATCH;
@@ -1981,9 +1939,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pCopyImageCmd->SetDevice(pDevice);
+
     errVal = pCopyImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
@@ -2032,8 +1988,8 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pSrcImage->GetContextId() != pCommandQueue->GetContextId()  ||
-        pSrcImage->GetContextId() != pDstBuffer->GetContextId() 
+    if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
+        pSrcImage->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
         )
     {
         return CL_INVALID_CONTEXT;
@@ -2062,10 +2018,8 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pCopyImageToBufferCmd->SetDevice(pDevice);
-    errVal = pCopyImageToBufferCmd->Init();
+
+	errVal = pCopyImageToBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
         // Enqueue copy command, never blocking
@@ -2113,8 +2067,8 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
         return CL_INVALID_MEM_OBJECT;
     }
 
-    if (pSrcBuffer->GetContextId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContextId() != pDstImage->GetContextId() 
+    if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
+        pSrcBuffer->GetContext()->GetId() != pDstImage->GetContext()->GetId() 
         )
     {
         return CL_INVALID_CONTEXT;
@@ -2144,10 +2098,8 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pCopyBufferToImageCmd->SetDevice(pDevice);
-    errVal = pCopyBufferToImageCmd->Init();
+
+	errVal = pCopyBufferToImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
         // Enqueue copy command, never blocking
@@ -2208,7 +2160,7 @@ void * ExecutionModule::EnqueueMapImage(
         // Check that flags CL_MAP_READ or CL_MAP_WRITE only
         *pErrcodeRet = CL_INVALID_VALUE;
     }
-    else if (pImage->GetContextId() != pCommandQueue->GetContextId())
+    else if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         *pErrcodeRet = CL_INVALID_CONTEXT;
         return NULL;
@@ -2243,30 +2195,27 @@ void * ExecutionModule::EnqueueMapImage(
 		*pErrcodeRet = CL_INVALID_VALUE;
 		return NULL;
 	}
-	FissionableDevice* pDevice;
-	m_pContextModule->GetContext(pCommandQueue->GetContextHandle())->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pMapImageCmd->SetDevice(pDevice);
-    *pErrcodeRet = pMapImageCmd->Init();
-    // Get pointer for mapped region since it is allocated on init. Execute will lock the region
-    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
-    void* mappedRegion = pMapImageCmd->GetMappedRegion();
-    if(CL_SUCCEEDED(*pErrcodeRet))
-    {
-        *pErrcodeRet = pCommandQueue->EnqueueCommand(pMapImageCmd, bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(*pErrcodeRet))
-        {
-            // Enqueue failed, free resources
-            pMapImageCmd->CommandDone();
-            delete pMapImageCmd;
-            return NULL;
-        }
-        return mappedRegion;
-    }  
-    else
+
+	*pErrcodeRet = pMapImageCmd->Init();
+    if(CL_FAILED(*pErrcodeRet))
     {
 		delete pMapImageCmd;
         return  NULL;
     }
+
+    // Get pointer for mapped region since it is allocated on init. Execute will lock the region
+    // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
+    void* mappedPtr = pMapImageCmd->GetMappedPtr();
+    *pErrcodeRet = pCommandQueue->EnqueueCommand(pMapImageCmd, bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(*pErrcodeRet))
+    {
+        // Enqueue failed, free resources
+        pMapImageCmd->CommandDone();
+        delete pMapImageCmd;
+        return NULL;
+    }
+
+    return mappedPtr;
 }
 
 
@@ -2326,25 +2275,13 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 			delete []pMemObjects;
 			return CL_INVALID_MEM_OBJECT;
 		}
-		if (pMemObj->GetContextId() != pCommandQueue->GetContextId())
+		if (pMemObj->GetContext()->GetId() != pCommandQueue->GetContextId())
 		{
 			delete []pMemObjects;
 			return CL_INVALID_CONTEXT;
 		}
 		// Check if it's a GL object
- 		if ( NULL != (pMemObjects[i] = static_cast<GLMemoryObject*>(dynamic_cast<GLBuffer*>(pMemObj))) )
-		{
-			continue;
-		}
-		if ( NULL != (pMemObjects[i] = static_cast<GLMemoryObject*>(dynamic_cast<GLTexture2D*>(pMemObj))) )
-		{
-			continue;
-		}
-		if ( NULL != (pMemObjects[i] = static_cast<GLMemoryObject*>(dynamic_cast<GLTexture3D*>(pMemObj))) )
-		{
-			continue;
-		}
-		if ( NULL != (pMemObjects[i] = static_cast<GLMemoryObject*>(dynamic_cast<GLRenderBuffer*>(pMemObj))) )
+ 		if ( NULL != (pMemObjects[i] = dynamic_cast<GLMemoryObject*>(pMemObj)) )
 		{
 			continue;
 		}
@@ -2360,9 +2297,6 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		delete []pMemObjects;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	FissionableDevice* pDevice;
-	pContext->GetDevice(pCommandQueue->GetQueueDeviceHandle(), &pDevice);
-	pAcquireCmd->SetDevice(pDevice);
 
 	errVal = pAcquireCmd->Init();
 	if(CL_SUCCEEDED(errVal))

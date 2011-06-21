@@ -35,6 +35,7 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+
 DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), 
 m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
 m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
@@ -592,7 +593,7 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 	}
 }
 
-cl_err_code DeviceProgram::GetNumKernels(size_t* pszNumKernels)
+cl_err_code DeviceProgram::GetNumKernels(cl_uint* pszNumKernels)
 {
 	assert(pszNumKernels);
 	return m_pDevice->GetDeviceAgent()->clDevGetProgramKernels(m_programHandle, 0, NULL, pszNumKernels);
@@ -600,7 +601,7 @@ cl_err_code DeviceProgram::GetNumKernels(size_t* pszNumKernels)
 
 cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, size_t szNumNames)
 {
-	size_t         numKernels;
+	cl_uint         numKernels;
 	cl_err_code    errRet     = CL_SUCCESS;
 	cl_dev_kernel* devKernels = new cl_dev_kernel[szNumNames];
 

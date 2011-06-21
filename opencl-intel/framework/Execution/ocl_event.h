@@ -108,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class OclEvent : public IEventDoneObserver, public OCLObject<_cl_event_int>
 	{
 	public:
-		OclEvent(IOclCommandQueueBase* cmdQueue);
+		OclEvent();
 
 		void                    AddCompleteListener(IEventDoneObserver* listener);
 		void                    AddDependentOn( OclEvent* pDependsOnEvent );
@@ -117,9 +117,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void                    RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
 		OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
 
-		OclEventStateColor      GetColor() const                                    { return m_color; }
-		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
-		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
+		OclEventStateColor      GetColor() const                                    { return (OclEventStateColor)((long)m_color); }
 		bool                    HasDependencies() const                             { return m_depListLength > 0;}
 
 		// Implementation IEventDoneObserver
@@ -151,12 +149,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OclEvent(const OclEvent&);           // copy constructor
 		OclEvent& operator=(const OclEvent&);// assignment operator
 
-		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>  m_CompleteListeners;
-		Intel::OpenCL::Utils::AtomicCounter                            m_CompleteListenersGuard;
-		Intel::OpenCL::Utils::AtomicCounter                            m_depListLength;
-		volatile bool                         m_complete;
-		volatile OclEventStateColor           m_color;
-		IOclCommandQueueBase*                 m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
+		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>	m_CompleteListeners;
+		Intel::OpenCL::Utils::AtomicCounter								m_CompleteListenersGuard;
+		Intel::OpenCL::Utils::AtomicCounter								m_depListLength;
+		volatile bool													m_complete;
+		Intel::OpenCL::Utils::AtomicCounter								m_color;
+		
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		Intel::OpenCL::Utils::OclOsDependentEvent m_osEvent;
 #endif
