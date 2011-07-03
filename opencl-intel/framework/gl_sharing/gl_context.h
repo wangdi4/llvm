@@ -32,7 +32,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	typedef void APIENTRY pFnglBindBuffer(GLenum target, GLuint buffer);
 	typedef GLvoid* APIENTRY pFnglMapBuffer(GLenum target, GLenum   access);
 	typedef GLboolean APIENTRY pFnglUnmapBuffer(GLenum target);
-	typedef void pFnglBufferData(GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage); 
+	typedef void APIENTRY pFnglBufferData(GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage); 
 	typedef void APIENTRY pFnglGetBufferParameteriv(GLenum target, GLenum value, GLint* data);
 	typedef void APIENTRY pFnglTexImage3D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 	typedef void APIENTRY pFnglGetRenderbufferParameterivEXT(GLenum target, GLenum param, GLint* value);
