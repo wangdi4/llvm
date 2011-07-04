@@ -184,15 +184,20 @@ void CPUDetect::GetCPUInfo()
 
     m_szCPUString = STRDUP(vcCPUString);
 	if(!m_szCPUString)
+	{
 		m_bIsGenuineIntel = false;
-    if (strcmp(m_szCPUString, CPU_STRING) == 0)
-    {
-        m_bIsGenuineIntel = true;
-    }
-    else
-    {
-        m_bIsGenuineIntel = false;
-    }
+	}
+	else
+	{
+		if (strcmp(m_szCPUString, CPU_STRING) == 0)
+		{
+			m_bIsGenuineIntel = true;
+		}
+		else
+		{
+			m_bIsGenuineIntel = false;
+		}
+	}
 
     if (iValidIDs == 1)
     {

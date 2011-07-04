@@ -13,6 +13,7 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
 	FissionableDevice** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
 	m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
 	m_pSourceStrings = NULL;
+	m_pszStringLengths = NULL;
 	if (!m_ppDevicePrograms)
 	{
 		err = CL_OUT_OF_HOST_MEMORY;

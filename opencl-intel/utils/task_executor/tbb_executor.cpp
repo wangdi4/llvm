@@ -864,8 +864,8 @@ public:
 	in_order_executor_task(ordered_command_list* list) : m_list(list) {}
 	tbb::task* execute()
 	{
-		ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 		assert(m_list);
+		ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 		assert(work);
 		TaskVector forDeletion;
 		ITaskBase* currentTask;
@@ -915,8 +915,8 @@ public:
 
 	tbb::task* execute()
 	{
-		TaskVector* work = m_list->GetExecutingContainer();
 		assert(m_list);
+		TaskVector* work = m_list->GetExecutingContainer();
 		assert(work);
 		do 
 		{

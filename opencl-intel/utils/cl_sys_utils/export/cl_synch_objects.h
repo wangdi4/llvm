@@ -124,9 +124,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class IMutex
     {
     public:
+		IMutex() {}
         virtual void Lock()=0;
         virtual void Unlock()=0;
-        virtual ~IMutex(){};
+        virtual ~IMutex(){}
+	private:
+		//Disallow copying
+		IMutex(const IMutex& im) {}
     };
 
     /************************************************************************
