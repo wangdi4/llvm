@@ -4,10 +4,11 @@
 # Build Unix Makefiles for OpenCL
 #
 # Usage:
-#    gen_linux_make [+cnf] [-e] [debug|release] [gcc|intel] [working_dir]
+#    gen_linux_make [+cnf] [+java] [-e] [debug|release] [gcc|intel] [working_dir]
 #
 #  +cnf           - include conformance tests into build - ONLY FOR INITIAL SETTINGS!
 #                                use 'make edit_cache' to modify later!
+#  +java          - include java code
 #  -e             - create eclipse project
 #  debug|release  - create debug or release Makefiles version. Default - release
 #  gcc|intel      - use GCC or Intel compiler. Default - GCC.
@@ -28,6 +29,12 @@ generator="Unix Makefiles"
 incl_cnf=OFF
 if test x$1 = x+cnf; then
 	incl_cnf=ON
+	shift
+fi
+
+incl_java=OFF
+if test x$1 = x+java; then
+	incl_java=ON
 	shift
 fi
 
@@ -59,7 +66,7 @@ cd $top_work_dir
 
 conformance_list="test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep" 
 
-cmake -G "$generator" -D CMAKE_BUILD_TYPE=$target -D CONFORMANCE_LIST="$conformance_list" -D INCLUDE_CONFORMANCE_TESTS:BOOL=$incl_cnf $top_dir/src 
+cmake -G "$generator" -D CMAKE_BUILD_TYPE=$target -D CONFORMANCE_LIST="$conformance_list" -D INCLUDE_CONFORMANCE_TESTS:BOOL=$incl_cnf -D BUILD_JAVA:BOOL=$incl_java $top_dir/src 
 
 if test $? = 0; then
 	echo .

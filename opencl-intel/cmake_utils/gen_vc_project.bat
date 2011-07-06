@@ -5,10 +5,11 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+gen] [-x64] [vc|intel] [working_dir] 
+rem    gen_vc_project [+cnf] [+gen] [+java] [-x64] [vc|intel] [working_dir] 
 rem
 rem  +cnf           - include conformance tests into solution
 rem  +gen			- include GEN device into solution
+rem  +java          - include java code
 rem  vc|intel       - use VC or Intel compiler. Default - VC.
 rem  working_dir    - working directory. Default - "build" dir in parallel to "src"
 rem  -x64 	    - build 64-bit version (default is 32-bit)
@@ -32,6 +33,10 @@ set incl_gen=OFF
 if x%1 == x+gen set incl_gen=ON
 if x%1 == x+gen shift
 
+set incl_java=OFF
+if x%1 == x+java set incl_java=ON
+if x%1 == x+java shift
+
 set use_x64=OFF
 if x%1 == x-x64 set use_x64=ON
 if x%1 == x-x64 shift
@@ -52,12 +57,13 @@ if %use_x64% == ON  call "%VS90COMNTOOLS:\=/%/../../VC/bin/x86_amd64/vcvarsx86_a
 
 set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
 
-cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DEVICE=%incl_gen% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% %top_dir%\src
+cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DEVICE=%incl_gen% -D BUILD_JAVA=%incl_java% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% %top_dir%\src
 
 if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
-python "%script_dir%\c++_2_c#.py" OCL.sln OfflineCompiler OpenCLTracer 
+python "%script_dir%\c++_2_c#.py" OCL.sln OpenCLTracer
+REM python "%script_dir%\c++_2_c#.py" OCL.sln OfflineCompiler OpenCLTracer 
 
 echo -- Convert relevant projects to Intel C++, please wait...
 set converter="C:\Program Files (x86)\Common Files\Intel\shared files\ia32\Bin\ICProjConvert110.exe"

@@ -90,6 +90,7 @@ RETURN_TYPE_ENTRY_POINT OclThread::ThreadEntryPoint(void* threadObject)
 {
 	cl_start;
 	OclThread* thisWorker = (OclThread*)threadObject;
+	thisWorker->m_threadId = pthread_self();
     int rc = thisWorker->Run();
     // The worker finished his job
     thisWorker->m_running = false;
@@ -125,7 +126,6 @@ int OclThread::Start()
     // Create the thread and run it immediately
     m_threadHandle = new pthread_t;
     int err = pthread_create((pthread_t*)m_threadHandle, NULL, ThreadEntryPoint, (void*) this);
-    m_threadId = pthread_self();
     if (0 != err)
     {
        Clean();
