@@ -305,9 +305,15 @@ m_nodeId(nodeId), m_memFlags(memFlags), m_hostPtrFlags(hostFlags), m_pHostPtr(pB
 		m_objDecr.format.image_channel_data_type = pImgFormat->image_channel_data_type - CL_SNORM_INT8;
 		m_objDecr.format.image_channel_order = pImgFormat->image_channel_order - CL_R;
 	}
-	for (size_t i=0; i<MAX_WORK_DIM; ++i)
+	if ( 1 == dimCount )
 	{
-		m_objDecr.dim[i] = (unsigned int)dim[i];
+		m_objDecr.dimensions.buffer_size = dim[0];
+	} else
+	{
+		for (size_t i=0; i<MAX_WORK_DIM; ++i)
+		{
+			m_objDecr.dimensions.dim[i] = (unsigned int)dim[i];
+		}
 	}
 	if ( NULL != pPitches )
 	{
@@ -341,10 +347,18 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 	if ( NULL == m_pHostPtr || bPtrNotAligned || (CL_DEV_HOST_PTR_DATA_AVAIL == m_hostPtrFlags) )
 	{
 		// Calculate total memory required for allocation
-		size_t allocSize = m_objDecr.uiElementSize;
-		for(unsigned int i=0; i<m_objDecr.dim_count; ++i)
+		size_t allocSize;
+		if ( 1 == m_objDecr.dim_count )
 		{
-			allocSize*=m_objDecr.dim[i];
+			allocSize = m_objDecr.dimensions.buffer_size;
+		}
+		else
+		{
+			allocSize = m_objDecr.uiElementSize;
+			for(unsigned int i=0; i<m_objDecr.dim_count; ++i)
+			{
+				allocSize*=m_objDecr.dimensions.dim[i];
+			}
 		}
 		m_objDecr.pData = clAllocateFromHeap(m_lclHeap, allocSize, CPU_DEV_MAXIMUM_ALIGN);
 		if ( NULL == m_objDecr.pData )
@@ -352,10 +366,11 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object memory buffer Allocation failed"));
 			return CL_DEV_OBJECT_ALLOC_FAIL;
 		}
+		// For images only
 		size_t prev_pitch = m_objDecr.uiElementSize;
 		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
 		{
-			m_objDecr.pitch[i] = prev_pitch*m_objDecr.dim[i];
+			m_objDecr.pitch[i] = prev_pitch*m_objDecr.dimensions.dim[i];
 			prev_pitch = m_objDecr.pitch[i];
 		}
 	} else
@@ -384,11 +399,18 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 			sCpyPrm.vDstPitch[i] = m_objDecr.pitch[i];
 			sCpyPrm.vSrcPitch[i] = m_hostPitch[i];
 		}
-		for(unsigned int i=0; i< m_objDecr.dim_count; i++)
+		if ( 1 == m_objDecr.dim_count )
 		{
-			sCpyPrm.vRegion[i] = m_objDecr.dim[i];
+			sCpyPrm.vRegion[0] = m_objDecr.dimensions.buffer_size;
 		}
-		sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * m_objDecr.uiElementSize;
+		else
+		{
+			for(unsigned int i=0; i< m_objDecr.dim_count; i++)
+			{
+				sCpyPrm.vRegion[i] = m_objDecr.dimensions.dim[i];
+			}
+			sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * m_objDecr.uiElementSize;
+		}
 		// Copy original buffer to internal area
 		MemoryAllocator::CopyMemoryBuffer(&sCpyPrm);
 	}
@@ -474,9 +496,22 @@ CPUDevMemorySubObject::CPUDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescri
 cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size)
 {
 	MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_pParent->m_objDecr, sizeof(cl_mem_obj_descriptor));
+
 	// Update dimensions
 	m_objDecr.pData = MemoryAllocator::CalculateOffsetPointer(m_objDecr.pData, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
-	MEMCPY_S(m_objDecr.dim, sizeof(size_t)*MAX_WORK_DIM, size, sizeof(size_t)*m_objDecr.dim_count);
+
+	if ( 1 == m_objDecr.dim_count )
+	{
+		m_objDecr.dimensions.buffer_size = size[0];
+	}
+	else
+	{
+		for(int i=0; i<MAX_WORK_DIM; ++i)
+		{
+			m_objDecr.dimensions.dim[i] = (unsigned int)size[i];
+		}
+	}
+
 	m_memFlags = mem_flags;
 
 	if ( NULL != m_pParent->m_pHostPtr )

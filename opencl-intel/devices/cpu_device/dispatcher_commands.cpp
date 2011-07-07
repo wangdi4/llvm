@@ -1209,7 +1209,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
 			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
 			{
-				uiWorkGroupSize *= pWGSize[i];
+				uiWorkGroupSize *= (unsigned int)pWGSize[i];
 			}
 			
 			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
