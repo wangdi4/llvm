@@ -100,6 +100,7 @@ cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t
 	}
 	size_t  szSize = 0;
 	void * pValue = NULL;
+	size_t	stZero = 0;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -122,6 +123,12 @@ cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t
 		szSize = sizeof(size_t);
 		pValue = &m_szImageHeight;
 		break;
+	case CL_IMAGE_DEPTH:
+	case CL_IMAGE_SLICE_PITCH:
+		szSize = sizeof(size_t);
+		pValue = &stZero;
+		break;
+
 	default:
 		return CL_INVALID_VALUE;
 		break;
