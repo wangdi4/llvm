@@ -502,7 +502,10 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 			{
 				return CL_INVALID_VALUE;
 			}
-			szParamSize += m_szBuildLog;
+			if ( '\0' != m_pBuildLog[0] )
+			{
+				szParamSize += m_szBuildLog;
+			}
 			if (NULL != pParamValue && szParamSize > szParamValueSize)
 			{
 				return CL_INVALID_VALUE;
@@ -517,10 +520,13 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 			// get the actual log
 			if (NULL != pParamValue)
 			{
-				//Copy the FE log minus the terminating NULL
-				MEMCPY_S(pParamValue, szParamValueSize, m_pBuildLog, m_szBuildLog - 1);
-				// and let the device write the rest of the log
-				szParamSize -= m_szBuildLog;
+				if ( '\0' != m_pBuildLog[0] )
+				{
+					//Copy the FE log minus the terminating NULL
+					MEMCPY_S(pParamValue, szParamValueSize, m_pBuildLog, m_szBuildLog - 1);
+					// and let the device write the rest of the log
+					szParamSize -= m_szBuildLog;
+				}
 				clErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, szParamSize, ((char*)pParamValue) + m_szBuildLog - 1, NULL);
 			}
 			return clErr;
