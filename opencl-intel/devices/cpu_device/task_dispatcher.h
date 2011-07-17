@@ -62,6 +62,7 @@ public:
 
     virtual affinityMask_t* getAffinityMask() { return NULL; }
 
+ 
 protected:
 	cl_int							m_iDevId;
 	IOCLDevLogDescriptor*           m_pLogDescriptor;
@@ -75,8 +76,8 @@ protected:
 
 	// Contexts required for execution of NDRange
 	WGContext*						m_pWGContexts;
-	WGContext*						GetWGContext(unsigned int id)
-										{ return m_pWGContexts ? &m_pWGContexts[id] : NULL; }
+	WGContext*						GetWGContext(unsigned int id);
+
 
 	// Internal implementation of functions
 	fnDispatcherCommandCreate_t*		m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];

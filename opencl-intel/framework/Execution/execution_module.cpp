@@ -48,6 +48,7 @@
 #include <cassert>
 #include <cl_objects_map.h>
 #include <Logger.h>
+#include <cl_local_array.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -1388,18 +1389,16 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …. CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim – 1].
         cl_uint uiMaxWorkItemDim = 0;
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uiMaxWorkItemDim, NULL);
-        size_t* pszMaxWorkItemSizes = new size_t[uiMaxWorkItemDim];
+        clLocalArray<size_t> pszMaxWorkItemSizes(uiMaxWorkItemDim);
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
 
         for( ui =0; ui<uiWorkDim; ui++)
         {
             if( cpszLocalWorkSize[ui] > pszMaxWorkItemSizes[ui])
             {
-                delete[] pszMaxWorkItemSizes;
                 return CL_INVALID_WORK_ITEM_SIZE;
             }
         }
-        delete[] pszMaxWorkItemSizes;
     }
 
     

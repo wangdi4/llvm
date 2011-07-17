@@ -77,11 +77,6 @@ unsigned int gWorker_threads = 0;
 // the master if another master is running
 tbb::atomic<long>		g_alMasterRunning;
 
-#ifdef _DEBUG
-// Required for testing only single Master is using worker ID=0,
-// As only single master should occupy ID=0, others will fail on assert 
-tbb::atomic<long>		g_alMasterIdCheck;
-#endif
 // Logger
 DECLARE_LOGGER_CLIENT;
 
@@ -437,15 +432,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				long lMasterCheck = g_alMasterIdCheck.compare_and_swap(true, false);
-				assert(lMasterCheck == false);
-			}
-#endif
 
-			size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
+            size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
 			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
 
 			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
@@ -458,12 +446,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 						task.ExecuteIteration(k, j, i, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				g_alMasterIdCheck.fetch_and_store(false);
-			}
-#endif
 		}
 	};
 
@@ -474,15 +456,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				long lMasterCheck = g_alMasterIdCheck.compare_and_swap(true, false);
-				assert(lMasterCheck == false);
-			}
-#endif
 
-			size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
+            size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
 			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
 
 			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
@@ -493,12 +468,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 					task.ExecuteIteration(k, j, 0, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				g_alMasterIdCheck.fetch_and_store(false);
-			}
-#endif
 		}
 	};
 
@@ -509,13 +478,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				long lMasterCheck = g_alMasterIdCheck.compare_and_swap(true, false);
-				assert(lMasterCheck == false);
-			}
-#endif
 
 			size_t firstWGID[1] = {r.begin()}; 
 			size_t lastWGID[1] = {r.end()}; 
@@ -527,12 +489,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task.ExecuteIteration(k, 0, 0, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
-#ifdef _DEBUG
-			if ( 0 == uiWorkerId )
-			{
-				g_alMasterIdCheck.fetch_and_store(false);
-			}
-#endif
 		}
 	};
 
@@ -1001,9 +957,6 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0)
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
 
 	g_alMasterRunning = false;
-#ifdef _DEBUG
-	g_alMasterIdCheck = false;
-#endif
 	gWorker_threads = tbb::task_scheduler_init::default_num_threads();
 
 	ThreadIDAssigner::SetScheduler(NULL);

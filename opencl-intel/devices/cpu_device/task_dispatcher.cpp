@@ -44,6 +44,14 @@
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
 
+#if defined(_WIN32)
+  #if defined(__WIN_XP__)
+    #error "Windows XP is not supported"
+  #endif
+__declspec(thread) WGContext* t_context = NULL;
+#else
+__thread WGContext* t_context = NULL;
+#endif
 // Constructor/Dispatcher
 TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, ProgramService	*programService,
 					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) :
@@ -82,7 +90,9 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 	// Init WGContexts
 	// Allocate required number of working contexts
 	unsigned int uiNumOfThread = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
-	m_pWGContexts = new WGContext[uiNumOfThread];
+    //master thread(s) get their context from their TLS
+	m_pWGContexts = new WGContext[uiNumOfThread - 1];
+
 }
 
 TaskDispatcher::~TaskDispatcher()
@@ -516,5 +526,17 @@ int SubdeviceTaskDispatcherThread::Run()
         m_dispatcher->m_received = true;
     } while(true);
 	return 0;
+}
 
+WGContext* TaskDispatcher::GetWGContext(unsigned int id)
+{
+    if (0 == id)
+    {
+        if (NULL == t_context)
+        {
+            t_context = new WGContext();
+        }
+        return t_context;
+    }
+    return m_pWGContexts + (id - 1);
 }

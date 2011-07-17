@@ -39,12 +39,11 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(CPU_DEFAULT_WG_SIZE*CPU_DEV_MIN_WI_PRIVATE_SIZE)
+WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_PRIVATE_SIZE)
 {
 	// Create local memory
 	m_pLocalMem = (char*)ALIGNED_MALLOC(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN);
 	m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN);
-
 }
 
 WGContext::~WGContext()
@@ -92,16 +91,10 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 		pCurrPtr += pBuffSizes[i];
 	}
 
-	// Check allocated size of the private memory, and allocate new if nessesary.
+	// Check allocated size of the private memory, and allocate new if necessary.
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
-		ALIGNED_FREE(m_pPrivateMem);
-		m_stPrivMemAllocSize = pBuffSizes[count];
-		m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN);
-		if (NULL == m_pPrivateMem)
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
+	    return CL_DEV_OUT_OF_MEMORY;
 	}
 
 	pBuffPtr[count] = m_pPrivateMem;
