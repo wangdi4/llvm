@@ -1244,7 +1244,15 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 		__itt_task_end(m_pGPAData->pDomain);
 	}
 #endif
-	return GetWGContext(uiWorkerId)->GetExecutable()->RestoreThreadState();
+    WGContext* pCtx = GetWGContext(uiWorkerId);
+    int ret = pCtx->GetExecutable()->RestoreThreadState();
+    //For application threads, must invalidate their context's command ID
+    if (0 == uiWorkerId)
+    {
+        pCtx->SetCmdId((cl_dev_cmd_id) -1);
+    }
+    return ret;
+
 }
 
 void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
