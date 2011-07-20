@@ -123,7 +123,6 @@ add_subdirectory( fe_compilers/clang_compiler )
 
 #tools
 add_subdirectory( tools/OfflineCompiler )
-add_subdirectory( tools/OpenCLTracer )
 
 #gtest
 add_subdirectory( externals/gtest )

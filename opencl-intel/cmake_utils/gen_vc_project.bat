@@ -62,8 +62,7 @@ cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DE
 if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
-python "%script_dir%\c++_2_c#.py" OCL.sln OpenCLTracer
-REM python "%script_dir%\c++_2_c#.py" OCL.sln OfflineCompiler OpenCLTracer 
+python "%script_dir%\c++_2_c#.py" OCL.sln iocgui
 
 echo -- Convert relevant projects to Intel C++, please wait...
 set converter="C:\Program Files (x86)\Common Files\Intel\shared files\ia32\Bin\ICProjConvert110.exe"
