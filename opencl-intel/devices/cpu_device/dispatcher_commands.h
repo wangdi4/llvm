@@ -33,7 +33,7 @@
 #include "wg_context.h"
 #include "cl_synch_objects.h"
 #if defined(USE_GPA)    
-	#include <ittnotify.h>
+    #include <ittnotify.h>
 #endif
 
 
@@ -52,18 +52,18 @@ typedef cl_dev_err_code fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_
 class DispatcherCommand
 {
 public:
-	DispatcherCommand(TaskDispatcher* pTD);
+    DispatcherCommand(TaskDispatcher* pTD);
 
 protected:
-	void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
-	inline WGContext*	GetWGContext(unsigned int id);
+    void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
+    inline WGContext*   GetWGContext(unsigned int id);
 
-	TaskDispatcher*				m_pTaskDispatcher;
-	MemoryAllocator*			m_pMemAlloc;
-	IOCLDevLogDescriptor*		m_pLogDescriptor;
-	cl_int						m_iLogHandle;
-	cl_dev_cmd_desc*			m_pCmd;
-	ocl_gpa_data*				m_pGPAData;
+    TaskDispatcher*             m_pTaskDispatcher;
+    MemoryAllocator*            m_pMemAlloc;
+    IOCLDevLogDescriptor*       m_pLogDescriptor;
+    cl_int                      m_iLogHandle;
+    cl_dev_cmd_desc*            m_pCmd;
+    ocl_gpa_data*               m_pGPAData;
 };
 
 // A parent class for dispatcher commands to have a single implementation of ITask::AffinitizeToTask
@@ -84,134 +84,134 @@ protected:
 class ReadWriteMemObject : public AffinitizableCommand
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	// ITask interface
-	void	Execute();
-	void	Release() {delete this;}
+    // ITask interface
+    void    Execute();
+    void    Release() {delete this;}
 
 protected:
-	ReadWriteMemObject(TaskDispatcher* pTD);
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    ReadWriteMemObject(TaskDispatcher* pTD);
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
 //OCL Copy Mem Obj Command
 class CopyMemObject : public AffinitizableCommand
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	// DispatcherCommand interface
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITask interface
-	void	Execute();
-	void	Release() {delete this;}
+    // ITask interface
+    void    Execute();
+    void    Release() {delete this;}
 
 protected:
-	CopyMemObject(TaskDispatcher* pTD);
+    CopyMemObject(TaskDispatcher* pTD);
 };
 
 // OCL Native function execution
 class NativeFunction : public AffinitizableCommand
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	// DispatcherCommand interface
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITask interface
-	void	Execute();
-	void	Release() {delete this;}
+    // ITask interface
+    void    Execute();
+    void    Release() {delete this;}
 
 protected:
-	NativeFunction(TaskDispatcher* pTD);
+    NativeFunction(TaskDispatcher* pTD);
 
-	char*				m_pArgV;
+    char*               m_pArgV;
 };
 
 // OCL Map function execution
 class MapMemObject : public AffinitizableCommand
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	// DispatcherCommand interface
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITask interface
-	void	Execute();
-	void	Release() {delete this;}
+    // ITask interface
+    void    Execute();
+    void    Release() {delete this;}
 
 protected:
-	MapMemObject(TaskDispatcher* pTD);
+    MapMemObject(TaskDispatcher* pTD);
 };
 
 // OCL UnMap function execution
 class UnmapMemObject : public AffinitizableCommand
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	// DispatcherCommand interface
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITask interface
-	void	Execute();
-	void	Release() {delete this;}
+    // ITask interface
+    void    Execute();
+    void    Release() {delete this;}
 
 protected:
-	UnmapMemObject(TaskDispatcher* pTD);
+    UnmapMemObject(TaskDispatcher* pTD);
 };
 
 // OCL Kernel execution
 class NDRange : public DispatcherCommand, public ITaskSet
 {
 public:
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
-	static unsigned int RGBTable[COLOR_TABLE_SIZE];
-	static AtomicCounter RGBTableCounter;
+    static unsigned int RGBTable[COLOR_TABLE_SIZE];
+    static AtomicCounter RGBTableCounter;
 
-	// DispatcherCommand interface
-	cl_dev_err_code	CheckCommandParams(cl_dev_cmd_desc* cmd);
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITaskSet interface
-	int		Init(size_t region[], unsigned int &regCount);
-	int		AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int		DetachFromThread(unsigned int uiWorkerId);
-	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId);
-	void	Finish(FINISH_REASON reason);
-	void	Release();
+    // ITaskSet interface
+    int     Init(size_t region[], unsigned int &regCount);
+    int     AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+    int     DetachFromThread(unsigned int uiWorkerId);
+    void    ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId);
+    void    Finish(FINISH_REASON reason);
+    void    Release();
 
 protected:
-	NDRange(TaskDispatcher* pTD);
+    NDRange(TaskDispatcher* pTD);
 
-	cl_int						m_lastError;
-	char						m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
-	ICLDevBackendBinary*		m_pBinary;
+    cl_int                      m_lastError;
+    char                        m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
+    ICLDevBackendBinary_*       m_pBinary;
 
-	// Executable information
-	size_t						m_MemBuffCount;
-	size_t*						m_pMemBuffSizes;
+    // Executable information
+    size_t                      m_MemBuffCount;
+    size_t*                     m_pMemBuffSizes;
 
 
     affinityMask_t*             m_affinityMask;
 
-//	LARGE_INTEGER start, stop, freq;
+//  LARGE_INTEGER start, stop, freq;
 
 #if defined(USE_GPA)
-	// This code was removed for the initial porting of TAL
-	// to GPA 4.0 and might be used in later stages
-//	TAL_STRING_HANDLE			m_talKernelNameHandle;
-//	unsigned int				m_talRGBColor;
+    // This code was removed for the initial porting of TAL
+    // to GPA 4.0 and might be used in later stages
+//  TAL_STRING_HANDLE           m_talKernelNameHandle;
+//  unsigned int                m_talRGBColor;
 #endif
 #ifdef _DEBUG
-	// For debug
-	AtomicCounter m_lExecuting;
-	AtomicCounter m_lFinish;
-	AtomicCounter m_lAttaching;
+    // For debug
+    AtomicCounter m_lExecuting;
+    AtomicCounter m_lFinish;
+    AtomicCounter m_lAttaching;
 #endif
 };
 

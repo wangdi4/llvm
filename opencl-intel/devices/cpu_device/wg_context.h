@@ -35,20 +35,20 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 class WGContext
 {
 public:
-	WGContext();
-	virtual ~WGContext();
+    WGContext();
+    virtual ~WGContext();
 
-	cl_dev_err_code				CreateContext(cl_dev_cmd_id cmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary* pExec, size_t* pBuffSizes, size_t count);
-	cl_dev_cmd_id				GetCmdId() const {return m_cmdId;}
-	Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable*	GetExecutable() const {return m_pContext;}
+    cl_dev_err_code             CreateContext(cl_dev_cmd_id cmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
+    cl_dev_cmd_id               GetCmdId() const {return m_cmdId;}
+    Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* GetExecutable() const {return m_pContext;}
     void                        SetCmdId(cl_dev_cmd_id id) {m_cmdId = id;} 
 
 protected:
-	Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable*	m_pContext;
-	cl_dev_cmd_id				m_cmdId;
-	char*						m_pLocalMem;
-	void*						m_pPrivateMem;
-	size_t						m_stPrivMemAllocSize;
+    Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* m_pContext;
+    cl_dev_cmd_id               m_cmdId;
+    char*                       m_pLocalMem;
+    void*                       m_pPrivateMem;
+    size_t                      m_stPrivMemAllocSize;
 };
 
 }}}

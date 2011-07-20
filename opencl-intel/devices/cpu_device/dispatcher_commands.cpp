@@ -837,15 +837,15 @@ cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)(cmd->params);
 
 
-	const ICLDevBackendKernel*	pKernel = (const ICLDevBackendKernel*)(cmdParams->kernel);
+    const ICLDevBackendKernel_* pKernel = (const ICLDevBackendKernel_*)(cmdParams->kernel);
+    const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
 	assert(pKernel);
 
 	size_t	stLocMemSize = 0;
 
 	// Check kernel parameters
-	cl_uint						uiNumArgs;
-	const cl_kernel_argument*	pArgs;
-	pKernel->GetKernelParams(&pArgs, &uiNumArgs);
+    cl_uint                     uiNumArgs = pKernel->GetKernelParamsCount();
+    const cl_kernel_argument*   pArgs = pKernel->GetKernelParams();
 
 	cl_char*	pCurrParamPtr = (cl_char*)cmdParams->arg_values;
 	size_t		stOffset = 0;
@@ -886,7 +886,8 @@ cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	}
 
 	// Check implicit memory sizes
-	stLocMemSize += pKernel->GetImplicitLocalMemoryBufferSize();
+    stLocMemSize += pKernelProps->GetImplicitLocalMemoryBufferSize();
+
 
 	// Check if local memory size is enough for kernel
 	if ( CPU_DEV_LCL_MEM_SIZE < stLocMemSize )
@@ -905,7 +906,7 @@ cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 			return CL_DEV_INVALID_WRK_DIM;
 		}
 
-		const size_t	*pReqdWGSize = pKernel->GetRequiredWorkgroupSize();
+        const size_t    *pReqdWGSize = pKernelProps->GetRequiredWorkGroupSize();
 		for(unsigned int i=0; i<cmdParams->work_dim; ++i)
 		{
 			if ( ((0 != cmdParams->lcl_wrk_size[i]) && (CPU_DEV_MAX_WI_SIZE < cmdParams->lcl_wrk_size[i])) ||
@@ -948,7 +949,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 {
 
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
+    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 	const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
 #ifdef _DEBUG_PRINT
@@ -957,9 +958,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-	unsigned					uiNumArgs;
-	const cl_kernel_argument*	pArgs;
-	pKernel->GetKernelParams(&pArgs, &uiNumArgs);
+    unsigned                    uiNumArgs = pKernel->GetKernelParamsCount();
+    const cl_kernel_argument*   pArgs = pKernel->GetKernelParams();
 	size_t						stOffset = 0;
 
 	// Copy initial values
@@ -1004,10 +1004,22 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 		return m_lastError;
 	}
 
+    ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
+    assert(pExecutionService);
+
+    cl_work_description_type workDesc;
+    //TODO: Find more elegant solution for filling the workDesc structure
+    //      Probably by making it part of cmdParams.
+    workDesc.workDimension = cmdParams->work_dim;
+    memcpy(workDesc.globalWorkOffset, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM);
+    memcpy(workDesc.globalWorkSize, cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
+    memcpy(workDesc.localWorkSize, cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
+
 	// Create an "Binary" for these parameters
-	cl_dev_err_code clRet = pKernel->CreateBinary(m_pLockedParams, cmdParams->arg_size,
-								cmdParams->work_dim, cmdParams->glb_wrk_offs,
-								cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size,
+    cl_dev_err_code clRet = pExecutionService->CreateBinary(pKernel, 
+                                                            m_pLockedParams, 
+                                                            cmdParams->arg_size, 
+                                                            &workDesc, 
 								&m_pBinary);
 	if ( CL_DEV_FAILED(clRet) )
 	{
@@ -1025,14 +1037,14 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 //	}
 #endif
 	// Update buffer parameters
-	m_pBinary->GetMemoryBuffersDescriptions(NULL, NULL, &m_MemBuffCount);
+    m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
 	if ( NULL == m_pMemBuffSizes )
 	{
 		m_lastError = (cl_int)CL_DEV_OUT_OF_MEMORY;
 		return -1;
 	}
-	m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, NULL, &m_MemBuffCount);
+    m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
 
 	// copy execution parameters
 	const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
@@ -1063,7 +1075,7 @@ void NDRange::Finish(FINISH_REASON reason)
 
 #ifdef _DEBUG_PRINT
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-	const ICLDevBackendKernel* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
+    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
 #endif
 #ifdef _DEBUG
 	lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
@@ -1128,6 +1140,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			size_t uiWorkGroupSize = 1;
 			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+            const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 
 			switch(cmdParams->work_dim)
 			{
@@ -1142,7 +1155,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 				break;
 			}
 			
-			__itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
+            __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
 			__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, pKernelNameHandle);
 			// This coloring will be enabled in the future
 			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
@@ -1189,6 +1202,8 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			unsigned int uiWorkGroupSize = 1;
 			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+            const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+
 
 			switch(cmdParams->work_dim)
 			{
@@ -1203,7 +1218,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 				break;
 			}
 			
-			__itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(m_pBinary->GetKernel()->GetKernelName());
+            __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
 			__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, pKernelNameHandle);
 			// This coloring will be enabled in the future
 			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
@@ -1264,7 +1279,7 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 #endif
 
 	assert(GetWGContext(uiWorkerId));
-	ICLDevBackendExecutable* pExec = GetWGContext(uiWorkerId)->GetExecutable();
+    ICLDevBackendExecutable_* pExec = GetWGContext(uiWorkerId)->GetExecutable();
 	// We always start from (0,0,0) and process whole WG
 	// No Need in parameters now
 #ifdef _DEBUG

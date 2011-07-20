@@ -53,11 +53,10 @@ else ()
  	message( WARNING " ERROR-in-CPU-device: Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
 
-# add a target named ${TARGET_NAME}
+#add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd)
-
+add_dependencies( ${TARGET_NAME} clang )
 
 COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 
@@ -65,7 +64,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
                                       task_executor 
-                                      OclCpuBackEnd									  
                                       ${LINK_LIBS} )
 									  
 

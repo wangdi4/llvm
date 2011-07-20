@@ -61,6 +61,7 @@ public:
 	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
 
     virtual affinityMask_t* getAffinityMask() { return NULL; }
+    virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
  
 protected:

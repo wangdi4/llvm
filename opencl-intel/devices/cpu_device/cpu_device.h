@@ -30,6 +30,7 @@
 #include "cl_dynamic_lib.h"
 #include "cpu_dev_limits.h"
 #include "cpu_config.h"
+#include "backend_wrapper.h"
 
 
 
@@ -55,8 +56,8 @@ private:
 	cl_uint					m_uiCpuId; 
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
-	OclDynamicLib			m_dlRunTime;
 	cl_dev_cmd_list			m_defaultCommandList;
+    OpenCLBackendWrapper    m_backendWrapper;
 
 protected:
 	~CPUDevice();
