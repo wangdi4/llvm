@@ -813,7 +813,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	const size_t pszOrigin[3] = {szOffset, 0 , 0};
 	const size_t pszRegion[3] = {szCb, 1, 1};
 
-	Command* pWriteBufferCmd = new WriteBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, pszOrigin, pszRegion, cpSrcData);
+	Command* pWriteBufferCmd = new WriteBufferCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, pszOrigin, pszRegion, cpSrcData);
 	if (NULL == pWriteBufferCmd)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -822,7 +822,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
     errVal = pWriteBufferCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
-        errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+        errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
         if(CL_FAILED(errVal))
         {
 			return errVal;
@@ -909,7 +909,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	}
 	       
 
-	Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
+	Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
 		buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
 	
 	if (NULL == pWriteBufferRectCmd)
@@ -920,7 +920,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     errVal = pWriteBufferRectCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
-        errVal = pCommandQueue->EnqueueCommand(pWriteBufferRectCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+        errVal = pCommandQueue->EnqueueCommand(pWriteBufferRectCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
         if(CL_FAILED(errVal))
         {
 			return errVal;
@@ -1841,7 +1841,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_VALUE;
     }
 
-    Command* pWriteImageCmd  = new WriteImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
+    Command* pWriteImageCmd  = new WriteImageCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
 	if (NULL == pWriteImageCmd)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -1850,7 +1850,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	errVal = pWriteImageCmd->Init();
     if(CL_SUCCEEDED(errVal))
     {
-        errVal = pCommandQueue->EnqueueCommand(pWriteImageCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+        errVal = pCommandQueue->EnqueueCommand(pWriteImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
         if(CL_FAILED(errVal))
         {
             // Enqueue failed, free resources

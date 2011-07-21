@@ -161,7 +161,7 @@ cl_err_code SingleUnifiedImage3D::ReadData(void * pData, const size_t * pszOrigi
 	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch 		
 	sCpyParam.pSrc += pszOrigin[2] * m_szImageSlicePitch; //y * image width pitch		
 	
-	CopyMemoryBuffer(&sCpyParam);
+	clCopyMemoryRegion(&sCpyParam);
 
 	return CL_SUCCESS;
 }

@@ -405,7 +405,7 @@ cl_err_code MemoryCommand::CopyFromHost(
 	else
 	{		
 		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(m_pCommandQueue, (ocl_entry_points*)(((_cl_command_queue_int*)m_pCommandQueue->GetHandle())->dispatch),
-			pDstMemObj, pDstOrigin, pRegion, szDstRowPitch, szDstSlicePitch, pSrcData, pSrcOrigin, szSrcRowPitch, szSrcSlicePitch);		
+			false, pDstMemObj, pDstOrigin, pRegion, szDstRowPitch, szDstSlicePitch, pSrcData, pSrcOrigin, szSrcRowPitch, szSrcSlicePitch);		
 		if (!pWriteMemObjCmd)
 		{
 			return CL_OUT_OF_HOST_MEMORY;
@@ -1847,8 +1847,8 @@ cl_err_code TaskCommand::Init()
 /******************************************************************
  *
  ******************************************************************/
-WriteBufferCommand::WriteBufferCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, MemoryObject* pBuffer, const size_t* pszOffset, const size_t* pszCb, const void* cpSrc)
-: WriteMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset, pszCb, 0, 0, cpSrc)
+WriteBufferCommand::WriteBufferCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, cl_bool bBlocking, MemoryObject* pBuffer, const size_t* pszOffset, const size_t* pszCb, const void* cpSrc)
+: WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, pszOffset, pszCb, 0, 0, cpSrc)
 {
 	m_commandType = CL_COMMAND_WRITE_BUFFER;
 }
@@ -1868,7 +1868,8 @@ WriteBufferCommand::~WriteBufferCommand()
 WriteBufferRectCommand::WriteBufferRectCommand(
 	    IOclCommandQueueBase* cmdQueue, 
 	    ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer, 
+            cl_bool			bBlocking,
+			MemoryObject*     pBuffer, 
             const size_t      szBufferOrigin[3],
 			const size_t      szSrcOrigin[3],
 			const size_t	  szRegion[3],
@@ -1877,7 +1878,8 @@ WriteBufferRectCommand::WriteBufferRectCommand(
 			const size_t	  szDstRowPitch,
 			const size_t	  szDstSlicePitch,			            
             const void*       pDst
-			):WriteMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, szBufferOrigin, szRegion, szBufferRowPitch, szBufferSlicePitch, pDst, szSrcOrigin, szDstRowPitch, szDstSlicePitch)
+			):
+	WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin, szRegion, szBufferRowPitch, szBufferSlicePitch, pDst, szSrcOrigin, szDstRowPitch, szDstSlicePitch)
 {
 	m_commandType = CL_COMMAND_WRITE_BUFFER_RECT;
 }
@@ -1892,13 +1894,14 @@ WriteBufferRectCommand::~WriteBufferRectCommand()
 WriteImageCommand::WriteImageCommand(
 	IOclCommandQueueBase* cmdQueue, 
 	ocl_entry_points *    pOclEntryPoints,
+	cl_bool			bBlocking,
     MemoryObject*   pImage, 
     const size_t*   pszOrigin,
     const size_t*   pszRegion,
     size_t          szRowPitch,
     size_t          szSlicePitch,
     const void *    cpSrc                                 
-    ): WriteMemObjCommand(cmdQueue, pOclEntryPoints, pImage,pszOrigin, pszRegion, 0, 0, cpSrc, NULL, szRowPitch, szSlicePitch)
+    ): WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pImage,pszOrigin, pszRegion, 0, 0, cpSrc, NULL, szRowPitch, szSlicePitch)
 {
 	m_commandType = CL_COMMAND_WRITE_IMAGE;
 }
@@ -1915,7 +1918,8 @@ WriteImageCommand::~WriteImageCommand()
 WriteMemObjCommand::WriteMemObjCommand(
 	IOclCommandQueueBase* cmdQueue, 
 	ocl_entry_points *    pOclEntryPoints,
-    MemoryObject*   pMemObj, 
+	cl_bool			bBlocking,
+    MemoryObject*   pMemObj,
     const size_t*   pszOrigin,
     const size_t*   pszRegion,
     size_t          szRowPitch,
@@ -1926,6 +1930,7 @@ WriteMemObjCommand::WriteMemObjCommand(
 	const size_t    szSrcSlicePitch
     ):
 	MemoryCommand(cmdQueue, pOclEntryPoints),
+	m_bBlocking(bBlocking),
     m_szMemObjRowPitch(szRowPitch),
     m_szMemObjSlicePitch(szSlicePitch),
     m_cpSrc(cpSrc),
@@ -1963,6 +1968,18 @@ WriteMemObjCommand::WriteMemObjCommand(
 			m_szSrcSlicePitch = m_szSrcRowPitch*pszRegion[1];
 		}
 	}
+	else
+	{
+		// For buffers, if not set row_pitch == slice_pitch == lenght
+		if ( 0 == m_szSrcRowPitch )
+		{
+			m_szSrcRowPitch = m_szRegion[0];
+		}
+		if ( 0 == m_szSrcSlicePitch )
+		{
+			m_szSrcSlicePitch = m_szRegion[0];
+		}
+	}
 }
 
 /******************************************************************
@@ -1977,6 +1994,43 @@ WriteMemObjCommand::~WriteMemObjCommand()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Init()
 {
+	// If we are blocking command, we need to allocate internal buffer
+	if ( m_bBlocking )
+	{
+		SMemCpyParams sCpyParam;
+		// We need to allocate only the amount to being copied
+		size_t sizeToAlloc = m_pMemObj->GetPixelSize();
+		for(size_t dim=0; dim<MAX_WORK_DIM; ++dim)
+		{
+			sizeToAlloc *= m_szRegion[dim];
+			sCpyParam.vRegion[dim] = m_szRegion[dim];
+		}
+		
+		m_pTempBuffer = malloc(sizeToAlloc);
+		if ( NULL == m_pTempBuffer )
+		{
+			LogErrorA("Can't allocate temporary storage for blockng command (%s)", GetCommandName());
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+
+		// Copy data
+		sCpyParam.vRegion[0] *= m_pMemObj->GetPixelSize();
+		sCpyParam.uiDimCount = m_commandType == CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : m_pMemObj->GetNumDimensions();
+		sCpyParam.pDst = (cl_char*)m_pTempBuffer;
+		sCpyParam.vDstPitch[0] = sCpyParam.vRegion[0];
+		sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * m_szRegion[1];
+		sCpyParam.pSrc = (cl_char*)m_cpSrc + m_szSrcOrigin[0]*m_pMemObj->GetPixelSize() + m_szSrcOrigin[1]*m_szSrcRowPitch + m_szSrcOrigin[2]*m_szSrcSlicePitch;
+		sCpyParam.vSrcPitch[0] = m_szSrcRowPitch;
+		sCpyParam.vSrcPitch[1] = m_szSrcSlicePitch;
+
+		clCopyMemoryRegion(&sCpyParam);
+
+		// Need to update source origin and pitch, now we will write from temporary buffer
+		m_szSrcRowPitch = sCpyParam.vDstPitch[0];
+		m_szSrcSlicePitch = sCpyParam.vDstPitch[1];
+		memset(m_szSrcOrigin, 0, sizeof(m_szSrcOrigin));
+	}
+
     // Allocate
     cl_err_code res = m_pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(res))
@@ -2020,7 +2074,8 @@ cl_err_code WriteMemObjCommand::Execute()
 
 	create_dev_cmd_rw(
 			m_commandType == CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : m_pMemObj->GetNumDimensions(),
-			(void*)m_cpSrc, m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch, 
+			m_bBlocking ? m_pTempBuffer : (void*)m_cpSrc,
+			m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch, 
 			CL_DEV_CMD_WRITE,
 			(cl_dev_cmd_id)m_Event.GetId(),
 			m_pDevCmd, 
@@ -2048,6 +2103,12 @@ cl_err_code WriteMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::CommandDone()
 {
+	if ( m_bBlocking && (NULL != m_pTempBuffer) )
+	{
+		free(m_pTempBuffer);
+		m_pTempBuffer = NULL;
+	}
+
     m_pMemObj->RemovePendency();
 
     return CL_SUCCESS;

@@ -153,28 +153,6 @@ cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t
 
 }
 
-void SingleUnifiedImage2D::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
-{
-	// Copy 1D array only
-	if ( 1 == pCopyCmd->uiDimCount )
-	{
-		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
-		return;
-	}
-
-	SMemCpyParams sRecParam;
-
-	// Copy current parameters
-	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
-	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-	// Make recursion
-	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
-	{
-		CopyMemoryBuffer(&sRecParam);
-		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
-		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
-	}
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SingleUnifiedImage2D::ReadData
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -202,7 +180,7 @@ cl_err_code SingleUnifiedImage2D::ReadData(void * pData, const size_t * pszOrigi
 	sCpyParam.pSrc += pszOrigin[0] * m_szElementSize; //Origin is in Pixels
 	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch 		
 	
-	CopyMemoryBuffer(&sCpyParam);
+	clCopyMemoryRegion(&sCpyParam);
 
 	return CL_SUCCESS;	
 }

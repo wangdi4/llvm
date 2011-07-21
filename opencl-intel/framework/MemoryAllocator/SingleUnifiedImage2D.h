@@ -89,18 +89,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~SingleUnifiedImage2D();
 
-		struct SMemCpyParams
-		{
-			cl_uint			uiDimCount;
-			cl_char*		pSrc;
-			size_t			vSrcPitch[MAX_WORK_DIM-1];
-			cl_char*		pDst;
-			size_t			vDstPitch[MAX_WORK_DIM-1];
-			size_t			vRegion[MAX_WORK_DIM];
-		};
-
-		void CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
-
 		// calculate the total image size
 		virtual size_t CalcImageSize();
 
