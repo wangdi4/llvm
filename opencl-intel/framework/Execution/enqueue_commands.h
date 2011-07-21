@@ -313,7 +313,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         WriteMemObjCommand(
 			IOclCommandQueueBase* cmdQueue, 
 			ocl_entry_points *    pOclEntryPoints,
-			cl_bool			bBlocking,
             MemoryObject*   pMemObj, 
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
@@ -339,15 +338,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
         MemoryObject*   m_pMemObj;
 		size_t          m_szOrigin[MAX_WORK_DIM];
-        size_t          m_szRegion[MAX_WORK_DIM];
-		cl_bool			m_bBlocking;
+        size_t          m_szRegion[MAX_WORK_DIM]; 
         size_t          m_szMemObjRowPitch;
         size_t          m_szMemObjSlicePitch; 
         const void*     m_cpSrc;
 		size_t			m_szSrcOrigin[MAX_WORK_DIM];
 		size_t			m_szSrcRowPitch;
 		size_t			m_szSrcSlicePitch;
-		void*			m_pTempBuffer;			// This buffer is used when command is blocking
     };
 
     /******************************************************************
@@ -360,7 +357,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         WriteBufferCommand(
 			IOclCommandQueueBase* cmdQueue, 
 			ocl_entry_points *    pOclEntryPoints,
-			cl_bool			bBlocking,
             MemoryObject*   pBuffer, 
             const size_t    pszOffset[MAX_WORK_DIM], 
             const size_t    pszCb[MAX_WORK_DIM],
@@ -380,7 +376,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         WriteBufferRectCommand(
 			IOclCommandQueueBase* cmdQueue, 
 			ocl_entry_points *    pOclEntryPoints,
-			cl_bool			bBlocking,
             MemoryObject*     pBuffer, 
             const size_t      szBufferOrigin[MAX_WORK_DIM],
 			const size_t      szSrcOrigin[MAX_WORK_DIM],
@@ -407,7 +402,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         WriteImageCommand(
 			IOclCommandQueueBase* cmdQueue, 
 			ocl_entry_points *    pOclEntryPoints,
-			cl_bool			bBlocking,
             MemoryObject*   pImage, 
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
