@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
 {
 	assert(phHeap);
-	HANDLE hHeap = HeapCreate(HEAP_NO_SERIALIZE, 0, 0);
+	HANDLE hHeap = HeapCreate(0, 0, 0);
 
 	if ( NULL == hHeap)
 	{
@@ -53,7 +53,7 @@ int	clDeleteHeap(ClHeap hHeap)
 void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t aligment)
 {
 	size_t newSize = allocSize + sizeof(void*) + aligment-1;
-	void* ptr = HeapAlloc((HANDLE)hHeap, HEAP_NO_SERIALIZE, newSize);
+	void* ptr = HeapAlloc((HANDLE)hHeap, 0, newSize);
 
 	if ( NULL == ptr )
 	{
@@ -75,7 +75,7 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 	void** pOrigPtr = (void**)(uiPtr-sizeof(void*));
 	void* relPtr = *pOrigPtr;
 
-	return HeapFree((HANDLE)hHeap, HEAP_NO_SERIALIZE, relPtr) == TRUE ? 0 : -1;
+	return HeapFree((HANDLE)hHeap, 0, relPtr) == TRUE ? 0 : -1;
 }
 
 }}}
