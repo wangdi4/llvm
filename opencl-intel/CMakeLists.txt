@@ -149,3 +149,13 @@ endif(WIN32)
     
 endif (INCLUDE_CONFORMANCE_TESTS)
 
+option(INCLUDE_DEBUGGER "Include Debug engine Into Build"  OFF)
+
+if (INCLUDE_DEBUGGER)
+	
+	add_subdirectory( tools/OCLDebugEngine )
+	add_subdirectory( tools/OCLDebugConfig )
+	add_subdirectory( tools/iocdbg )
+    
+endif (INCLUDE_DEBUGGER)
+
