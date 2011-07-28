@@ -287,42 +287,34 @@ namespace Intel { namespace OpenCL { namespace Utils {
     };
 
 	template<class T>
-	class IConcurrentQueue
-	{
-	public:
-		virtual bool IsEmpty() const            = 0;
-		virtual T    Top()                      = 0;
-		virtual T    PopFront()                 = 0;
-		virtual void PushBack(const T& newNode) = 0;
-	};
-
-	template<class T>
-	class OclConcurrentQueue : public IConcurrentQueue<T>
+	class OclConcurrentQueue
 	{
 	public:
 		OclConcurrentQueue() {}
-		virtual ~OclConcurrentQueue() {}
+		~OclConcurrentQueue() {}
 
-		virtual bool IsEmpty() const;
-		virtual T    Top();
-		virtual T    PopFront();
-		virtual void PushBack(const T& newNode);
+		bool IsEmpty() const;
+		T    Top();
+		T    PopFront();
+		void PushBack(const T& newNode);
+		bool TryPop(T& val);
 	private:
 		typedef typename tbb::concurrent_queue<T>::const_iterator TTypeConcurrentQueueConstIterator;
 		tbb::concurrent_queue<T> m_queue;
 	};
 
 	template<class T>
-	class OclNaiveConcurrentQueue : public IConcurrentQueue<T>
+	class OclNaiveConcurrentQueue
 	{
 	public:
 		OclNaiveConcurrentQueue() {}
-		virtual ~OclNaiveConcurrentQueue() {}
+		~OclNaiveConcurrentQueue() {}
 
-		virtual bool IsEmpty() const;
-		virtual T    Top();
-		virtual T    PopFront();
-		virtual void PushBack(const T& newNode);
+		bool IsEmpty() const;
+		T    Top();
+		T    PopFront();
+		void PushBack(const T& newNode);
+		bool TryPop(T& val);
 
 	private:
 		std::queue<T>   m_queue;

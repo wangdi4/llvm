@@ -96,7 +96,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_device_id        m_clDefaultDeviceHandle;
 		cl_bool             m_bProfilingEnabled;
 		cl_bool             m_bOutOfOrderEnabled;
-		cl_bool             m_bCommandListCreated;
 		cl_dev_cmd_list     m_clDevCmdListId;
 
 	};

@@ -31,6 +31,16 @@ void OclConcurrentQueue<T>::PushBack(const T& newNode)
 	m_queue.push(newNode);	
 }
 
+template<class T>
+bool OclConcurrentQueue<T>::TryPop(T& val)
+{
+	return m_queue.try_pop(val);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// OclNaiveConcurrentQueue
+/////////////////////////////////////////////////////////////////////////////
 template<class T> inline
 bool OclNaiveConcurrentQueue<T>::IsEmpty() const
 {
@@ -64,4 +74,19 @@ void OclNaiveConcurrentQueue<T>::PushBack(const T& newNode)
 	m_queueLock.lock();
 	m_queue.push(newNode);
 	m_queueLock.unlock();
+}
+
+template<class T>
+bool OclNaiveConcurrentQueue<T>::TryPop(T& val)
+{
+	m_queueLock.lock();
+	if ( m_queue.empty() )
+	{
+		m_queueLock.unlock();
+		return false;
+	}
+	val = m_queue.front();
+	m_queue.pop();
+	m_queueLock.unlock();
+	return true;
 }

@@ -224,10 +224,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_dev_cmd_param_map* OUT *mappedPtr
 			);
 
-		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, void* OUT *pMapInfo);
+		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo);
 
 		// Release the region pointed by mappedPtr from clDeviceId.
-		virtual cl_err_code ReleaseMappedRegion(void* mappedPtr);
+		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo);
 
 		/******************************************************************************************
 		* Function: 	CreateSubBuffer 

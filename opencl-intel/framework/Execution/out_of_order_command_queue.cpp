@@ -56,21 +56,18 @@ OutOfOrderCommandQueue::~OutOfOrderCommandQueue()
 	{
 		delete (Command*)((void*)m_depOnAll);
 	}
-	if (m_bCommandListCreated)
-	{
-		m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
-	}
 }
 
 cl_err_code OutOfOrderCommandQueue::Initialize()
 {
-	 cl_err_code ret = CL_SUCCESS;
      cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
-	 ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, subdevice_id, &m_clDevCmdListId);
-	 if (CL_SUCCEEDED(ret))
+	 cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, subdevice_id, &m_clDevCmdListId);
+	 if (CL_DEV_FAILED(retDev))
 	 {
-		 m_bCommandListCreated = true;
+		 m_clDevCmdListId = 0;
+		 return CL_OUT_OF_RESOURCES;
 	 }
+
      Command* pDepOnAll = new MarkerCommand(this, m_handle.dispatch);
      if (NULL == pDepOnAll)
      {
@@ -81,7 +78,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      pDepOnAllEvent->AddFloatingDependence();
      pDepOnAllEvent->SetColor(EVENT_STATE_RED);
 	 m_depOnAll = pDepOnAll;
-	 return ret;	
+	 return CL_SUCCESS;	
 }
 
 void OutOfOrderCommandQueue::Submit(Command* cmd)

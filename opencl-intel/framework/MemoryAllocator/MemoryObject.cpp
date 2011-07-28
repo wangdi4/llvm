@@ -299,7 +299,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	return CL_SUCCESS;
 }
 
-cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, void* OUT *pMapInfo)
+cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo)
 {
 	LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"), pDevice, mappedPtr);
 	assert(NULL!=pMapInfo);
@@ -315,14 +315,14 @@ cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevic
 	*pMapInfo = &(it->second->cmd_param_map);
 	return CL_SUCCESS;
 }
-cl_err_code MemoryObject::ReleaseMappedRegion( void* mappedPtr )
+cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo )
 {
-	LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mappedPtr=%d)"), mappedPtr);
+	LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mapInfo=%P)"), pMapInfo);
 
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(mappedPtr);
+	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(pMapInfo->ptr);
 	if ( it == m_mapMappedRegions.end() )
 	{
 		return CL_INVALID_VALUE;

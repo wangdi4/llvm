@@ -56,7 +56,16 @@ using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
 
-#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, TotalPhysicalSize()/4))
+#if defined(_M_X64) || defined(__x86_64__)
+	#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, TotalPhysicalSize()/4))
+	#define GLOBAL_MEM_SIZE (TotalPhysicalSize())
+#else
+	// When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory 
+	#define MEMORY_LIMIT	(MIN(TotalPhysicalSize(), TotalVirtualSize()))
+	#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, MEMORY_LIMIT/4))
+	#define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
+#endif
+
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
 const cl_image_format Intel::OpenCL::CPUDevice::suportedImageFormats[] = {
@@ -920,7 +929,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_ulong*)paramVal = TotalVirtualSize();
+                *(cl_ulong*)paramVal = GLOBAL_MEM_SIZE;
             }
             return CL_DEV_SUCCESS;
         }
@@ -1443,7 +1452,11 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
         return CL_DEV_INVALID_VALUE;
     }
     TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-    return pTaskDispatcher->releaseCommandList(pList->cmd_list);
+
+	void* pCmdList = pList->cmd_list;
+	delete pList;
+
+    return pTaskDispatcher->releaseCommandList(pCmdList);
 }
 /****************************************************************************************************************
  clDevCommandListExecute

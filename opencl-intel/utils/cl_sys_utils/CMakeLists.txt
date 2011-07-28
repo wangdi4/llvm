@@ -11,8 +11,6 @@ include_directories( AFTER
             ../cl_hw_utils/export
             )
 
-add_definitions( -D_SCL_SECURE_NO_WARNINGS )
-
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 

@@ -52,7 +52,6 @@ OclCommandQueue::OclCommandQueue(
     m_pContext(pContext),
     m_pEventsManager(pEventsManager),
     m_clDefaultDeviceHandle(clDefaultDeviceID),
-	m_bCommandListCreated(false),
 	m_clDevCmdListId(0)
 {
     m_clContextHandle = m_pContext->GetHandle();
@@ -79,7 +78,7 @@ OclCommandQueue::~OclCommandQueue()
 {   
     LOG_INFO(TEXT("OclCommandQueue delete: 0x%X"), this);
 
-	if (m_bCommandListCreated)
+	if (0 != m_clDevCmdListId)
 	{
 		m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
 	}
@@ -188,14 +187,15 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 
  cl_err_code OclCommandQueue::Initialize()
  {
-	 cl_err_code ret = CL_SUCCESS;
      cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
-	 ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_NONE, subdevice_id, &m_clDevCmdListId);
-	 if (CL_SUCCEEDED(ret))
+	 cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_NONE, subdevice_id, &m_clDevCmdListId);
+	 if (CL_DEV_FAILED(retDev))
 	 {
-		 m_bCommandListCreated = true;
+		 m_clDevCmdListId = 0;
+		 return CL_OUT_OF_RESOURCES;
 	 }
-	 return ret;
+
+	 return CL_SUCCESS;
  }
 
  cl_int OclCommandQueue::GetContextId() const

@@ -697,9 +697,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const char*             GetCommandName() const  { return "CL_COMMAND_UNMAP_MEM_OBJECT"; }
 
     private: 
-        MemoryObject* m_pMemObject;
-		void*         m_pMappedPtr;
-        void*         m_pMappedRegion;
+        MemoryObject*			m_pMemObject;
+		void*					m_pMappedPtr;
+        cl_dev_cmd_param_map*   m_pMappedRegion;
     };
 
     /******************************************************************

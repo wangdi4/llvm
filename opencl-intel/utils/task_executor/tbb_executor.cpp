@@ -699,7 +699,7 @@ static void execute_command(ITaskBase* cmd)
 	}
 }
 
-typedef tbb::concurrent_queue<ITaskBase*> ConcurrentTaskQueue;
+typedef OclNaiveConcurrentQueue<ITaskBase*> ConcurrentTaskQueue;
 typedef std::vector<ITaskBase*>           TaskVector;
 
 
@@ -713,7 +713,7 @@ public:
         {
             InitSchedulerForMasterThread();
         }
-		m_work.push(pTask);
+		m_work.PushBack(pTask);
 		return 0;
 	}
 
@@ -733,7 +733,7 @@ public:
 
 	virtual bool HaveIncomingWork()
 	{
-		return !m_work.empty();
+		return !m_work.IsEmpty();
 	}
 
 protected:
@@ -753,7 +753,7 @@ public:
         {
             InitSchedulerForMasterThread();
         }
-		m_incoming.push(pTask);
+		m_incoming.PushBack(pTask);
 		return 0;
 	}
 	virtual void LaunchExecutorTask();
@@ -770,7 +770,7 @@ public:
 
 	virtual bool HaveIncomingWork()
 	{
-		return !m_incoming.empty();
+		return !m_incoming.IsEmpty();
 	}
 	bool NeedStop()
 	{
@@ -787,7 +787,7 @@ public:
 	void FillWork()
 	{
 		ITaskBase* current;
-		while (m_incoming.try_pop(current))
+		while (m_incoming.TryPop(current))
 		{
 			m_work.push_back(current);
 		}
@@ -829,7 +829,7 @@ public:
 		do 
 		{
 			//iterate one by one
-			while(work->try_pop(currentTask))
+			while(work->TryPop(currentTask))
 			{
 				if (NULL == currentTask) //stop requested
 				{

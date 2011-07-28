@@ -149,7 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OclEvent(const OclEvent&);           // copy constructor
 		OclEvent& operator=(const OclEvent&);// assignment operator
 
-		Intel::OpenCL::Utils::OclConcurrentQueue<IEventDoneObserver*>	m_CompleteListeners;
+		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventDoneObserver*>	m_CompleteListeners;
 		Intel::OpenCL::Utils::AtomicCounter								m_CompleteListenersGuard;
 		Intel::OpenCL::Utils::AtomicCounter								m_depListLength;
 		volatile bool													m_complete;
