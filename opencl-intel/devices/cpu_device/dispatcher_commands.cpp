@@ -256,7 +256,7 @@ void ReadWriteMemObject::Execute()
 	}
 #endif
 
-	MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
+	clCopyMemoryRegion(&sCpyParam);
 
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -428,7 +428,7 @@ void CopyMemObject::Execute()
 #endif	
 	
 	// Execute copy routine
-	MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
+	clCopyMemoryRegion(&sCpyParam);
 
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -660,7 +660,7 @@ void MapMemObject::Execute()
 		}
 #endif
 		// Execute copy routine
-		MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
+		clCopyMemoryRegion(&sCpyParam);
 	}
 
 #if defined(USE_GPA)
@@ -753,7 +753,7 @@ void UnmapMemObject::Execute()
 		}
 #endif
 		// Execute copy command
-		MemoryAllocator::CopyMemoryBuffer(&sCpyParam);
+		clCopyMemoryRegion(&sCpyParam);
 #if defined(USE_GPA)
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{

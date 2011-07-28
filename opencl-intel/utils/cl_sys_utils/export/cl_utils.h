@@ -71,3 +71,22 @@ void clSetThreadAffinityMask(affinityMask_t* mask);
 * Date:			March 2011
 **************************************************************************************************/
 void clResetThreadAffinityMask();
+
+/**************************************************************************************************
+* Function: 	clCopyMemoryRegion
+* Description:	Copies memory region defined in SMemCpyParams
+* Return value:	void
+* Author:		Evgeny Fiksman
+* Date:			March 2011
+**************************************************************************************************/
+struct SMemCpyParams
+{
+	cl_uint			uiDimCount;
+	const cl_char*	pSrc;
+	size_t			vSrcPitch[MAX_WORK_DIM-1];
+	cl_char*		pDst;
+	size_t			vDstPitch[MAX_WORK_DIM-1];
+	size_t			vRegion[MAX_WORK_DIM];
+};
+
+void clCopyMemoryRegion(SMemCpyParams* pCopyCmd);

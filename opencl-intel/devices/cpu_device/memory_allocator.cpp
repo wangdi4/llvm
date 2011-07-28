@@ -262,28 +262,6 @@ void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count,
 
 	return lockedPtr;
 }
-void MemoryAllocator::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
-{
-	// Copy 1D array only
-	if ( 1 == pCopyCmd->uiDimCount )
-	{
-		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
-		return;
-	}
-
-	SMemCpyParams sRecParam;
-
-	// Copy current parameters
-	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
-	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-	// Make recursion
-	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
-	{
-		CopyMemoryBuffer(&sRecParam);
-		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
-		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
-	}
-}
 
 //-----------------------------------------------------------------------------------------------------
 // CPUDevMemoryObject
@@ -412,7 +390,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 			sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * m_objDecr.uiElementSize;
 		}
 		// Copy original buffer to internal area
-		MemoryAllocator::CopyMemoryBuffer(&sCpyPrm);
+		clCopyMemoryRegion(&sCpyPrm);
 	}
 
 	return CL_DEV_SUCCESS;

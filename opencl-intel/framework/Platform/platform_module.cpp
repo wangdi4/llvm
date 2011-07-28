@@ -93,7 +93,7 @@ PlatformModule::~PlatformModule()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
 {
-	m_uiRootDevicesCount = devices.size();
+	m_uiRootDevicesCount = (unsigned int)devices.size();
 
 	m_ppRootDevices = new Device * [m_uiRootDevicesCount];
 	if (NULL == m_ppRootDevices)

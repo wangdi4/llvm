@@ -141,3 +141,25 @@ const wchar_t* ClErrTxt(cl_err_code error_code)
 	}
 }
 
+void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
+{
+	// Copy 1D array only
+	if ( 1 == pCopyCmd->uiDimCount )
+	{
+		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
+		return;
+	}
+
+	SMemCpyParams sRecParam;
+
+	// Copy current parameters
+	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
+	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
+	// Make recursion
+	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
+	{
+		clCopyMemoryRegion(&sRecParam);
+		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
+		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
+	}
+}

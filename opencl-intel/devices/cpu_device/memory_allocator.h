@@ -39,16 +39,6 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-struct SMemCpyParams
-{
-	cl_uint			uiDimCount;
-	cl_char*		pSrc;
-	size_t			vSrcPitch[MAX_WORK_DIM-1];
-	cl_char*		pDst;
-	size_t			vDstPitch[MAX_WORK_DIM-1];
-	size_t			vRegion[MAX_WORK_DIM];
-};
-
 class MemoryAllocator
 {
 
@@ -68,7 +58,6 @@ public:
 
 
 	// Utility functions
-	static void CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
 	static void* CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
 protected:
 	size_t GetElementSize(const cl_image_format* format);
