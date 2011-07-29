@@ -5,7 +5,7 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+gen] [+java] [+dbg] [-x64] [vc|intel] [working_dir] 
+rem    gen_vc_project [+cnf] [+gen] [+java] [+dbg] [-x64] [vc|intel] [working_dir] [build_type]
 rem
 rem  +cnf           - include conformance tests into solution
 rem  +gen           - include GEN device into solution
@@ -14,6 +14,7 @@ rem  +dbg           - include debugger engine into solution
 rem  vc|intel       - use VC or Intel compiler. Default - VC.
 rem  working_dir    - working directory. Default - "build" dir in parallel to "src"
 rem  -x64 	        - build 64-bit version (default is 32-bit)
+rem  build_type     - Debug or Release.
 rem
 rem  VC project is created in the directory working_dir parallel to top level src directory
 rem  Compilation output during build is copied to the directory bin\Debug or bin\Release
@@ -28,29 +29,37 @@ set top_dir= %CD%
 
 set incl_conf=OFF
 if x%1 == x+cnf set incl_cnf=ON
-if x%1 == x+cnf shift
+if x%1 == x+cnf shift /1
 
 set incl_gen=OFF
 if x%1 == x+gen set incl_gen=ON
-if x%1 == x+gen shift
+if x%1 == x+gen shift /1
 
 set incl_java=OFF
 if x%1 == x+java set incl_java=ON
-if x%1 == x+java shift
+if x%1 == x+java shift /1
 
 set incl_dbg=OFF
 if x%1 == x+dbg set incl_dbg=ON
-if x%1 == x+dbg shift
+if x%1 == x+dbg shift /1
 
 set use_x64=OFF
 if x%1 == x-x64 set use_x64=ON
-if x%1 == x-x64 shift
+if x%1 == x-x64 shift /1
 
 set use_vc=1
 if x%1 == xintel set use_vc=0
 
 set working_dir=build
 if not x%2 == x set working_dir=%2
+
+set build_type=
+if "%~3" == ""        set build_type=Release
+if "%~3" == "Debug"   set build_type=Debug
+if "%~3" == "debug"   set build_type=Debug
+if "%~3" == "Release" set build_type=Release
+if "%~3" == "release" set build_type=Release
+if "%build_type%" == "" ( echo %0: Unknown build type: "%~3". >&2 & exit /b 1 )
 
 if not exist %working_dir% mkdir %working_dir%
 
@@ -62,7 +71,7 @@ if %use_x64% == ON  call "%VS90COMNTOOLS:\=/%/../../VC/bin/x86_amd64/vcvarsx86_a
 
 set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
 
-cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DEVICE=%incl_gen% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% %top_dir%\src
+cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DEVICE=%incl_gen% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type% %top_dir%\src
 
 if not errorlevel 0 goto error_end
 
