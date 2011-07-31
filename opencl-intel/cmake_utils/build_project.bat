@@ -29,7 +29,7 @@ if x%2==xintel set comp_type=intel
 
 set compile_dir= "%~dp0\..\..\cmd_build_%comp_type%"
 
-call "%~dp0\gen_vc_project.bat" %comp_type% %compile_dir% %target%
+call "%~dp0\gen_vc_project.bat" %comp_type% %compile_dir%
 
 cd %compile_dir%
 

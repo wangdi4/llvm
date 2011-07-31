@@ -135,9 +135,19 @@ add_subdirectory( validation/types/framework_test_type )
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
 
-if( INCLUDE_CONFORMANCE_TESTS )
-    add_subdirectory( validation/types/khronos_conformance )
-endif()
+if (INCLUDE_CONFORMANCE_TESTS)
+
+if (WIN32)	
+	
+	set(MSVC 1)
+	set(USE_ICC 1)
+	add_subdirectory( validation/types/khronos_conformance )
+	
+else (WIN32)
+	add_subdirectory( validation/types/khronos_conformance )
+endif(WIN32)
+    
+endif (INCLUDE_CONFORMANCE_TESTS)
 
 option(INCLUDE_DEBUGGER "Include Debug engine Into Build"  OFF)
 
