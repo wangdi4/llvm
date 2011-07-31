@@ -72,6 +72,7 @@ extern "C" {
 # define __GPA_DESCRIPTION_LENGTH       256
 # define __GPA_URI_LENGTH               256
 # define __GPA_UNITS_LENGTH             32
+# define __GPA_GROUP_NAME_LENGTH        128
 
 typedef struct ___gpa_metric
 {
