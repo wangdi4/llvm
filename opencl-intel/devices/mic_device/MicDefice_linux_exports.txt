@@ -1,0 +1,10 @@
+Base {
+    global:
+        clDevCreateDeviceInstance;
+        clDevGetDeviceInfo;
+        clDevErr2Txt;
+
+    local:
+        *;
+};
+

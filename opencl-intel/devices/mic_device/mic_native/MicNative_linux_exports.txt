@@ -1,0 +1,11 @@
+Base {
+    global:
+        hello_world;
+        get_backend_target_description;
+        get_backend_target_description_size;
+        copy_program_to_device;
+        remove_program_from_device;
+
+    local:
+        *;
+};

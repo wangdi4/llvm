@@ -1,0 +1,6 @@
+LIBRARY	"mic_device"
+
+EXPORTS
+	clDevCreateDeviceInstance
+	clDevGetDeviceInfo
+	clDevErr2Txt
