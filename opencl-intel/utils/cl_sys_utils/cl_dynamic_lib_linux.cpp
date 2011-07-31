@@ -69,6 +69,10 @@ bool OclDynamicLib::Load(const char* pLibName)
 
 	if ( NULL == m_hLibrary )
 	{
+#ifdef _DEBUG
+        const char* e = dlerror();
+        printf("Error loading %s: %s\n", pLibName, e);
+#endif
 		return false;
 	}
 

@@ -11,7 +11,7 @@ if (NOT WIN32)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif (NOT WIN32)
 
-set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/COI_SDK )
+set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi )
 set( BACKEND_SDK_PATH_RELATIVE BackEnd_SDK )
 set( BACKEND_SDK_PATH       ${CMAKE_CURRENT_SOURCE_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
 set( MIC_NATIVE_SERVER_EXE  mic_server )
