@@ -313,16 +313,16 @@ m_nodeId(nodeId), m_memFlags(memFlags), m_hostPtrFlags(hostFlags), m_pHostPtr(pB
 
 cl_dev_err_code CPUDevMemoryObject::Init()
 {
-	bool bPtrNotAligned = ((CL_DEV_HOST_PTR_MAPPED_REGION & m_hostPtrFlags)!=0) &&
+	bool bUserPtrNotAligned = ((CL_DEV_HOST_PTR_USER_MAPPED_REGION & m_hostPtrFlags)!=0) &&
 		( ((((size_t)m_pHostPtr & (CPU_DEV_MAXIMUM_ALIGN-1)) != 0) && (1 == m_objDecr.dim_count)) ||
-		  ((((size_t)m_pHostPtr & (CPU_DEV_IMAGE_ALIGN-1)) != 0) && (1 != m_objDecr.dim_count))
+		  ((((size_t)m_pHostPtr & (m_objDecr.uiElementSize-1)) != 0) && (1 != m_objDecr.dim_count))
 		);
 
-	// Allocate memory internally
+	// Allocate memory internally, required when:
 	// 1. No host pointer provided
-	// 2. Pointer provided by RT is not alligned and it's working area
-	// 3. Host pointer contains user data (not working area)
-	if ( NULL == m_pHostPtr || bPtrNotAligned || (CL_DEV_HOST_PTR_DATA_AVAIL == m_hostPtrFlags) )
+	// 2. Pointer provided by RT is not aligned and it's working area
+	// 3. Host pointer contains user data to be copied(not working area)
+	if ( NULL == m_pHostPtr || bUserPtrNotAligned || (CL_DEV_HOST_PTR_DATA_AVAIL == m_hostPtrFlags) )
 	{
 		// Calculate total memory required for allocation
 		size_t allocSize;
@@ -363,7 +363,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 	}
 
 	// Copy initial data if required:
-	//		Data available and our PTR is not HOST ptr
+	//		Data available and our PTR is not the HOST ptr provided by user
 	if ( (m_hostPtrFlags & CL_DEV_HOST_PTR_DATA_AVAIL) && (NULL != m_pHostPtr) && (m_objDecr.pData != m_pHostPtr) )
 	{
 		SMemCpyParams sCpyPrm;
@@ -426,8 +426,8 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 	void*	pMapPtr = NULL;
 	// Determine which pointer to use
-	pMapPtr = m_hostPtrFlags & CL_DEV_HOST_PTR_MAPPED_REGION ? m_pHostPtr : m_objDecr.pData;
-	size_t*	pitch = m_hostPtrFlags & CL_DEV_HOST_PTR_MAPPED_REGION ? m_hostPitch : m_objDecr.pitch;
+	pMapPtr = m_hostPtrFlags & CL_DEV_HOST_PTR_USER_MAPPED_REGION ? m_pHostPtr : m_objDecr.pData;
+	size_t*	pitch = m_hostPtrFlags & CL_DEV_HOST_PTR_USER_MAPPED_REGION ? m_hostPitch : m_objDecr.pitch;
 
 	assert(pMapParams->dim_count == m_objDecr.dim_count);
 	pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(pMapPtr, m_objDecr.dim_count, pMapParams->origin, pitch, m_objDecr.uiElementSize);

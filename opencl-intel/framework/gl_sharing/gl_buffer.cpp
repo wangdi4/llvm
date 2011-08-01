@@ -111,7 +111,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 		return res;
 	}
 
-	res = pChild->Initialize(m_clFlags | CL_MEM_USE_HOST_PTR, NULL, 1, &m_stMemObjSize, NULL, pBuffer);
+	res = pChild->Initialize(m_clFlags, NULL, 1, &m_stMemObjSize, NULL, pBuffer);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);

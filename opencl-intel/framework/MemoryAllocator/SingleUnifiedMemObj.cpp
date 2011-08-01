@@ -94,7 +94,7 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 		// in case that we're using host ptr we don't need to allocated memory for the buffer
 		// just use the host ptr instead
 		m_pHostPtr = pHostPtr;
-		devMemFlags = CL_DEV_HOST_PTR_MAPPED_REGION;
+		devMemFlags = CL_DEV_HOST_PTR_USER_MAPPED_REGION;
 		if ( 0 == (clMemFlags & CL_MEM_WRITE_ONLY))
 			devMemFlags |= CL_DEV_HOST_PTR_DATA_AVAIL;
 	}

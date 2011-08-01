@@ -518,7 +518,7 @@ cl_err_code GLTexture::CreateChildObject()
 	}
 
 	size_t dim[] = {m_szImageWidth, m_szImageHeight};
-	res = pChild->Initialize(m_clFlags | CL_MEM_USE_HOST_PTR, &m_clFormat.clType, 2, dim, &m_szImageRowPitch, pBuffer);
+	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_szImageRowPitch, pBuffer);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
