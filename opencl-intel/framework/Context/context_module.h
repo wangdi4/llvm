@@ -119,6 +119,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		MemoryObject * GetMemoryObject(const cl_mem clMemObjId);
 
+		/******************************************************************************************
+		* Function: 	GetGPAData    
+		* Description:	Returns a pointer to the GPA data object.
+		* Arguments:	None               	
+		* Return value:	Returns a pointer to the GPA data object.
+		******************************************************************************************/
+		ocl_gpa_data * GetGPAData() const { return m_pGPAData; }
+
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
 		///////////////////////////////////////////////////////////////////////////////////////////

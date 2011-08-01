@@ -30,6 +30,7 @@
 #include "cl_synch_objects.h"
 #include <Logger.h>
 #include "iplatform.h"
+#include "ocl_itt.h"
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -83,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code		Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig);
+		cl_err_code		Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig, ocl_gpa_data * pGPAData);
 
 		/******************************************************************************************
 		* Function: 	Release    
@@ -116,6 +117,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Date:			March 2011
         ******************************************************************************************/
         cl_err_code		GetDevice(cl_device_id IN  clDeviceId, FissionableDevice ** OUT ppDevice);
+
+		/******************************************************************************************
+        * Function: 	GetGPAData    
+        * Description:	Returns a pointer to the GPA data object.
+        * Arguments:	None
+        * Return value:	ocl_gpa_data
+        * Author:		Oded Perez
+        * Date:			July 2011
+        ******************************************************************************************/
+		ocl_gpa_data * GetGPAData() const { return m_pGPAData; }
 
 		// get default front-end compiler
 		virtual FECompiler * GetDefaultFECompiler();
@@ -221,6 +232,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		static const unsigned int m_uiPlatformExtensionsStrSize;
 
 		ocl_entry_points * m_pOclEntryPoints;
+
+		ocl_gpa_data * m_pGPAData;
 
 		DECLARE_LOGGER_CLIENT;
 

@@ -203,7 +203,7 @@ cl_err_code PlatformModule::ReleaseFECompilers()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::Initialize
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig)
+cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig, ocl_gpa_data * pGPAData)
 {
 	LOG_INFO(TEXT("%S"), TEXT("Platform module logger initialized"));
 
@@ -214,6 +214,9 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	// initialize devices
 	m_pDevices = new OCLObjectsMap<_cl_device_id_int>();
 	m_pDefaultDevice = NULL;
+
+	// initialize GPA data
+	m_pGPAData = pGPAData;
 
 	// get device agents dll names from configuration file
 	string strDefaultDevice;
@@ -532,6 +535,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	delete[] pDeviceIds;
 	return CL_SUCCESS;
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////

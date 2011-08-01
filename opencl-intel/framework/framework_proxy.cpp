@@ -253,6 +253,7 @@ void FrameworkProxy::Initialize()
 	//	TAL_GetThreadTrace();
 	//}
 	m_GPAData.bUseGPA = m_pConfig->UseGPA();
+	m_GPAData.bEnableAPITracing = m_pConfig->EnableAPITracing();
 	m_GPAData.cStatusMarkerFlags = 0;
 	if (m_GPAData.bUseGPA)
 	{
@@ -266,6 +267,7 @@ void FrameworkProxy::Initialize()
 			m_GPAData.cStatusMarkerFlags += GPA_SHOW_COMPLETED_MARKER;
 
 		m_GPAData.pDomain = __itt_domain_createA("OpenCL.Domain.Global");
+		m_GPAData.pAPIDomain = __itt_domain_createA("OpenCL.Domain.API");
 		m_GPAData.pReadHandle = __itt_string_handle_createA("Read");
 		m_GPAData.pWriteHandle = __itt_string_handle_createA("Write");
 		m_GPAData.pCopyHandle = __itt_string_handle_createA("Copy");
@@ -284,7 +286,7 @@ void FrameworkProxy::Initialize()
 	
 	LOG_INFO(TEXT("%S"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
 	m_pPlatformModule = new PlatformModule();
-	m_pPlatformModule->Initialize(&OclEntryPoints, m_pConfig);
+	m_pPlatformModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
 	LOG_INFO(TEXT("Initialize context module: m_pContextModule = new ContextModule(%d)"),m_pPlatformModule);
 	m_pContextModule = new ContextModule(m_pPlatformModule);
@@ -292,7 +294,7 @@ void FrameworkProxy::Initialize()
 
 	LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)"), m_pPlatformModule, m_pContextModule);
 	m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
-	m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig);
+	m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%S"), TEXT("Initialize Executor"));

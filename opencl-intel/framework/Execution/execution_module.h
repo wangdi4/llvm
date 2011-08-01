@@ -30,6 +30,7 @@
 #include <Logger.h>
 #include "iexecution.h"
 #include "iexecution_gl.h"
+#include "ocl_itt.h"
 #include "ocl_config.h"
 
 // forward declarations
@@ -69,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~ExecutionModule();
 
         // Initialization is done right after the construction in order to capture errors on initialization.
-        cl_err_code Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig);
+        cl_err_code Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig, ocl_gpa_data * pGPAData);
 
         
         // Command Queues functions
@@ -129,6 +130,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		EventsManager*      GetEventsManager() const { return m_pEventsManager; }
 
 		ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
+
+		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
 
 		bool				m_bUseTaskalyzer;
@@ -150,6 +153,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         EventsManager*      m_pEventsManager;           // Placeholder for all active events.
         
 		ocl_entry_points *	m_pOclEntryPoints;
+
+		ocl_gpa_data *      m_pGPAData;
 
 		DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
     };

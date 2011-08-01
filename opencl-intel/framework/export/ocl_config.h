@@ -37,6 +37,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define	CL_CONFIG_USE_GPA				"CL_CONFIG_USE_GPA"				// bool
 
 // Used to Enable/Disable task state Markers in GPA Platform Analyzer
+#define	CL_GPA_CONFIG_ENABLE_API_TRACING		"CL_GPA_CONFIG_ENABLE_API_TRACING"	// bool
 #define	CL_GPA_CONFIG_SHOW_QUEUED_MARKER		"CL_CONFIG_SHOW_QUEUED_MARKER"		// bool
 #define	CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER		"CL_CONFIG_SHOW_SUBMITTED_MARKER"	// bool
 #define	CL_GPA_CONFIG_SHOW_RUNNING_MARKER		"CL_CONFIG_SHOW_RUNNING_MARKER"		// bool
@@ -67,7 +68,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		vector<string> GetFeCompilers(string& default_compiler);
 		string         GetDefaultFeCompiler() const { return m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "clang_compiler.dll"); }
 		bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
-		
+
+		bool			EnableAPITracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_API_TRACING, false); }
 		bool			ShowQueuedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_QUEUED_MARKER, true); }
 		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER, false); }
 		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_RUNNING_MARKER, false); }

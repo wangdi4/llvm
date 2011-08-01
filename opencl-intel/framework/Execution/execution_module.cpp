@@ -89,12 +89,15 @@ ExecutionModule::~ExecutionModule()
  * If the caller will not release it, other function will terminate
  * the application.
  ******************************************************************/
-cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig)
+cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig, ocl_gpa_data * pGPAData)
 {
     m_pOclCommandQueueMap = new OCLObjectsMap<_cl_command_queue_int>();
     m_pEventsManager = new EventsManager();
 
 	m_pOclEntryPoints = pOclEntryPoints;
+
+	// initialize GPA data
+	m_pGPAData = pGPAData;
     
     if ( (NULL == m_pOclCommandQueueMap) || ( NULL == m_pEventsManager))
     {
