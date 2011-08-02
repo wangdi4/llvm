@@ -59,7 +59,9 @@ set build_path=build
 		set use_vc=1
 		echo Use Visual compiler
 	) else (
-		set build_path=%1
+		if %build_path% == build (
+			set build_path=%1
+		)
 	)
 	
     shift
