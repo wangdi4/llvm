@@ -5,17 +5,17 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+gen] [+java] [+dbg] [-x64] [vc|intel] [working_dir] 
+rem    gen_vc_project [+cnf] [+gen] [+java] [+dbg] [-x64] [vc|intel] [build_path] 
 rem
 rem  +cnf           - include conformance tests into solution
 rem  +gen           - include GEN device into solution
 rem  +java          - include java code
 rem  +dbg           - include debugger engine into solution	
 rem  vc|intel       - use VC or Intel compiler. Default - VC.
-rem  working_dir    - working directory. Default - "build" dir in parallel to "src"
+rem  build_path     - working directory. Default - "build" dir in parallel to "src"
 rem  -x64 	        - build 64-bit version (default is 32-bit)
 rem
-rem  VC project is created in the directory working_dir parallel to top level src directory
+rem  VC project is created in the directory build_path parallel to top level src directory
 rem  Compilation output during build is copied to the directory bin\Debug or bin\Release
 rem  parallel to the top level src directory
 rem
@@ -27,34 +27,50 @@ set top_dir= %CD%
 
 
 set incl_conf=OFF
-if x%1 == x+cnf set incl_cnf=ON
-if x%1 == x+cnf shift
-
 set incl_gen=OFF
-if x%1 == x+gen set incl_gen=ON
-if x%1 == x+gen shift
-
 set incl_java=OFF
-if x%1 == x+java set incl_java=ON
-if x%1 == x+java shift
-
 set incl_dbg=OFF
-if x%1 == x+dbg set incl_dbg=ON
-if x%1 == x+dbg shift
-
 set use_x64=OFF
-if x%1 == x-x64 set use_x64=ON
-if x%1 == x-x64 shift
-
 set use_vc=1
-if x%1 == xintel set use_vc=0
+set build_path=build
 
-set working_dir=build
-if not x%2 == x set working_dir=%2
+:params_loop
+    if "%1" == "" goto exit_params_loop
 
-if not exist %working_dir% mkdir %working_dir%
+	if x%1 == x+cnf (
+		set incl_cnf=ON
+		echo Include CNF
+	) else if x%1 == x+gen (
+		set incl_gen=ON
+		echo Include GEN
+	) else if x%1 == x+java (
+		set incl_java=ON
+		echo Include Java
+	) else if x%1 == x+dbg (
+		set incl_dbg=ON
+		echo Debug mode
+	) else if x%1 == x-x64 (
+		set use_x64=ON
+		echo 64bit mode
+	) else if x%1 == xintel (
+		set use_vc=0
+		echo Use Intel compiler
+	) else if x%1 == xvc (
+		set use_vc=1
+		echo Use Visual compiler
+	) else (
+		set build_path=%1
+	)
+	
+    shift
+	goto params_loop
+:exit_params_loop
 
-cd %working_dir%
+echo BUILD PATH: "%build_path%"
+
+if not exist %build_path% mkdir %build_path%
+
+cd /D %build_path%
 
 set GEN_VERSION="Visual Studio 9 2008"
 if %use_x64% == ON set GEN_VERSION="Visual Studio 9 2008 Win64"
