@@ -25,13 +25,18 @@
 //  Original author: efiksman
 ///////////////////////////////////////////////////////////
 
+#include "pragmas.h"
 #include "memory_allocator.h"
 #include "mic_logger.h"
 #include "mic_dev_limits.h"
 #include "mic_device.h"
 #include "cl_sys_defines.h"
+#include "device_service_communication.h"
+
+#include <source/COIBuffer_source.h>
 
 #include<stdlib.h>
+#include <alloca.h>
 
 // The flag below enables a check that allows only a single use of cl_mem objects
 // The "lock" on the memory object is obtained during the call to NDRange->Init() and is released when the kernel is done executing
@@ -41,7 +46,50 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize) :
+OclMutex         MemoryAllocator::m_instance_guard;
+MemoryAllocator* MemoryAllocator::m_the_instance = NULL;
+cl_uint          MemoryAllocator::m_instance_referencies = 0;
+
+MemoryAllocator* MemoryAllocator::getMemoryAllocator(
+                                cl_int devId,
+                                IOCLDevLogDescriptor *pLogDesc,
+                                unsigned long long maxAllocSize )
+{
+    MemoryAllocator* instance = NULL;
+
+    OclAutoMutex lock( &m_instance_guard );
+
+    if (NULL == m_the_instance)
+    {
+        m_the_instance = new MemoryAllocator( devId, pLogDesc, maxAllocSize );
+        assert( NULL != m_the_instance && "Creating MIC MemoryAllocator singleton" );
+    }
+
+    instance = m_the_instance;
+    ++m_instance_referencies;
+
+    assert( m_instance_referencies > 0 && "MIC MemoryAllocator singleton - error in refcounter" );
+
+    return instance;
+}
+
+void MemoryAllocator::Release( void )
+{
+    OclAutoMutex lock( &m_instance_guard );
+
+    assert( m_instance_referencies > 0 && "MIC MemoryAllocator singleton - error in refcounter" );
+
+    --m_instance_referencies;
+
+    if (0 == m_instance_referencies)
+    {
+        assert( NULL != m_the_instance && "Releasing MIC MemoryAllocator singleton" );
+        delete m_the_instance; // this is the same as this!!!! Do not access non-static members after!
+        m_the_instance = NULL;
+    }
+}
+
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
 {
     if ( NULL != logDesc )
@@ -60,6 +108,8 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
 MemoryAllocator::~MemoryAllocator()
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Distructed"));
+
+    clDeleteHeap( m_lclHeap );
 
     if (0 != m_iLogHandle)
     {
@@ -130,7 +180,7 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
     assert( NULL == pAllocProp );
 
     pAllocProp->supportedDevices = CL_DEVICE_TYPE_ACCELERATOR;
-    pAllocProp->hostUnified = true;
+    pAllocProp->hostUnified = false;
     pAllocProp->alignment = MIC_DEV_MAXIMUM_ALIGN;
     pAllocProp->DXSharing = false;
     pAllocProp->GLSharing = false;
@@ -219,7 +269,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
     }
 
     // Allocate memory for memory object
-    MICDevMemoryObject*    pMemObj = new MICDevMemoryObject(m_iLogHandle, m_pLogDescriptor, m_lclHeap,
+    MICDevMemoryObject*    pMemObj = new MICDevMemoryObject(*this,
                                                             node_id, flags,
                                                             format, uiElementSize,
                                                             dim_count, dim,
@@ -287,14 +337,14 @@ void MemoryAllocator::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
 // MICDevMemoryObject
 //-----------------------------------------------------------------------------------------------------
 
-MICDevMemoryObject::MICDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, ClHeap lclHeap,
+MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
                    cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
                    const cl_image_format* pImgFormat, size_t elemSize,
                    size_t dimCount, const size_t* dim,
                    void* pBuffer, const size_t* pPitches,
-                   cl_dev_host_ptr_flags hostFlags):
-m_lclHeap(lclHeap), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
-m_nodeId(nodeId), m_memFlags(memFlags), m_hostPtrFlags(hostFlags), m_pHostPtr(pBuffer)
+                   cl_dev_host_ptr_flags hostFlags): m_Allocator(allocator),
+m_nodeId(nodeId), m_memFlags(memFlags), m_hostPtrFlags(hostFlags), m_pHostPtr(pBuffer),
+m_coi_buffer(0), m_bAlocated(false)
 {
     m_objDecr.dim_count = (cl_uint)dimCount;
     if ( NULL != pImgFormat )
@@ -333,10 +383,25 @@ m_nodeId(nodeId), m_memFlags(memFlags), m_hostPtrFlags(hostFlags), m_pHostPtr(pB
 
 cl_dev_err_code MICDevMemoryObject::Init()
 {
-    bool bPtrNotAligned = ((CL_DEV_HOST_PTR_MAPPED_REGION & m_hostPtrFlags)!=0) &&
+    bool bPtrNotAligned = ((CL_DEV_HOST_PTR_USER_MAPPED_REGION & m_hostPtrFlags)!=0) &&
         ( ((((size_t)m_pHostPtr & (MIC_DEV_MAXIMUM_ALIGN-1)) != 0) && (1 == m_objDecr.dim_count)) ||
           ((((size_t)m_pHostPtr & (MIC_DEV_IMAGE_ALIGN-1)) != 0) && (1 != m_objDecr.dim_count))
         );
+
+    // Calculate total memory required for allocation
+    size_t allocSize;
+    if ( 1 == m_objDecr.dim_count )
+    {
+        allocSize = m_objDecr.dimensions.buffer_size;
+    }
+    else
+    {
+        allocSize = m_objDecr.uiElementSize;
+        for(unsigned int i=0; i<m_objDecr.dim_count; ++i)
+        {
+            allocSize*=m_objDecr.dimensions.dim[i];
+        }
+    }
 
     // Allocate memory internally
     // 1. No host pointer provided
@@ -344,26 +409,14 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // 3. Host pointer contains user data (not working area)
     if ( NULL == m_pHostPtr || bPtrNotAligned || (CL_DEV_HOST_PTR_DATA_AVAIL == m_hostPtrFlags) )
     {
-        // Calculate total memory required for allocation
-        size_t allocSize;
-        if ( 1 == m_objDecr.dim_count )
-        {
-            allocSize = m_objDecr.dimensions.buffer_size;
-        }
-        else
-        {
-            allocSize = m_objDecr.uiElementSize;
-            for(unsigned int i=0; i<m_objDecr.dim_count; ++i)
-            {
-                allocSize*=m_objDecr.dimensions.dim[i];
-            }
-        }
-        m_objDecr.pData = clAllocateFromHeap(m_lclHeap, allocSize, MIC_DEV_MAXIMUM_ALIGN);
+        m_objDecr.pData = clAllocateFromHeap(m_Allocator.GetHeap(), allocSize, MIC_DEV_MAXIMUM_ALIGN);
         if ( NULL == m_objDecr.pData )
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object memory buffer Allocation failed"));
+            MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object memory buffer Allocation failed"));
             return CL_DEV_OBJECT_ALLOC_FAIL;
         }
+        m_bAlocated = true;
+
         // For images only
         size_t prev_pitch = m_objDecr.uiElementSize;
         for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
@@ -380,6 +433,43 @@ cl_dev_err_code MICDevMemoryObject::Init()
         {
             m_objDecr.pitch[i] = m_hostPitch[i];
         }
+    }
+
+    // create COI buffer on top of allocated memory
+
+    // BUGBUG: DK - Runtime should privide service that returns list of Device Agents for buffer
+    // we will need to filter MIC DAs from there
+    // temporaryget the full list of MIC DAs
+    MICDevice::TMicsList active_mics = MICDevice::GetActiveMicDevices();
+    size_t               active_procs_count = active_mics.size();
+    assert( active_procs_count > 0 && "Creating MIC buffer without active devices" );
+
+    // allocate array on stack for simplicity - it will be very small
+    COIPROCESS*  coi_processes = (COIPROCESS*)alloca( active_procs_count * sizeof(COIPROCESS) );
+    assert( NULL != coi_processes && "Cannot allocate small array on a stack" );
+
+    MICDevice::TMicsList::iterator mic_it  = active_mics.begin();
+    MICDevice::TMicsList::iterator mic_end = active_mics.end();
+
+    for(unsigned int i = 0; mic_it != mic_end; ++mic_it, ++i)
+    {
+        coi_processes[i] = (*mic_it)->GetDeviceService().getDeviceProcessHandle();
+    }
+
+    COIRESULT coi_err = COIBufferCreateFromMemory(
+                                allocSize, COI_BUFFER_NORMAL, 0, m_objDecr.pData,
+                                active_procs_count, coi_processes,
+                                &m_coi_buffer);
+
+    if (COI_SUCCESS != coi_err)
+    {
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object COI buffer Allocation failed"));
+
+        if (m_bAlocated)
+        {
+            clFreeHeapPointer(m_Allocator.GetHeap(), m_objDecr.pData);
+        }
+        return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
     // Copy initial data if required:
@@ -418,12 +508,18 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseObject enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseObject enter"));
+
+    if (0 != m_coi_buffer)
+    {
+        COIRESULT coi_err = COIBufferDestroy( m_coi_buffer );
+        assert( COI_SUCCESS == coi_err && "Cannot destroy COI Buffer" );
+    }
 
     // Did we allocate the buffer and not sub-object
-    if ( (m_pHostPtr != m_objDecr.pData) && (NULL != m_lclHeap) )
+    if ( m_bAlocated )
     {
-        clFreeHeapPointer(m_lclHeap, m_objDecr.pData);
+        clFreeHeapPointer(m_Allocator.GetHeap(), m_objDecr.pData);
     }
 
     delete this;
@@ -440,31 +536,66 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams)
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateMappedRegion enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("CreateMappedRegion enter"));
+
+    SMemMapParams* coi_params = new SMemMapParams;
+    assert( coi_params && "Cannot allocate coi_params record" );
+    if (NULL == coi_params)
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
 
     pMapParams->memObj = this;
 
     void*    pMapPtr = NULL;
     // Determine which pointer to use
-    pMapPtr = m_hostPtrFlags & CL_DEV_HOST_PTR_MAPPED_REGION ? m_pHostPtr : m_objDecr.pData;
-    size_t*    pitch = m_hostPtrFlags & CL_DEV_HOST_PTR_MAPPED_REGION ? m_hostPitch : m_objDecr.pitch;
+    pMapPtr = m_hostPtrFlags & CL_DEV_HOST_PTR_USER_MAPPED_REGION ? m_pHostPtr : m_objDecr.pData;
+    size_t*    pitch = m_hostPtrFlags & CL_DEV_HOST_PTR_USER_MAPPED_REGION ? m_hostPitch : m_objDecr.pitch;
 
     assert(pMapParams->dim_count == m_objDecr.dim_count);
     pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(pMapPtr, m_objDecr.dim_count, pMapParams->origin, pitch, m_objDecr.uiElementSize);
     MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), pitch, sizeof(size_t)*(m_objDecr.dim_count-1));
+
+    // init coi_params
+    pMapParams->map_handle = coi_params;
+
+    // calculate size of the mapped region
+    if ( 1 == pMapParams->dim_count )
+    {
+        coi_params->size = pMapParams->region[0];
+    }
+    else
+    {
+        coi_params->size = m_objDecr.uiElementSize;
+        for(unsigned int i=0; i<pMapParams->dim_count ; ++i)
+        {
+            coi_params->size *= pMapParams->region[i];
+        }
+    }
+
+    coi_params->coi_buffer = m_coi_buffer;
+    coi_params->offset     = (char*)pMapParams->ptr - (char*)pMapPtr;
+    coi_params->map_handle = NULL;
+
     return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
+    assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
+
+    SMemMapParams* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
+    delete coi_params;
+    pMapParams->map_handle = NULL;
+
     return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
                                            const size_t *size, IOCLDevMemoryObject** ppSubBuffer )
 {
-    MICDevMemorySubObject* pSubObject = new MICDevMemorySubObject(m_iLogHandle, m_pLogDescriptor, this);
+    MICDevMemorySubObject* pSubObject = new MICDevMemorySubObject(m_Allocator, *this);
     if ( NULL == pSubObject )
     {
         return CL_DEV_OUT_OF_MEMORY;
@@ -485,15 +616,15 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-MICDevMemorySubObject::MICDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, MICDevMemoryObject* pParent) :
-    MICDevMemoryObject(iLogHandle, pLogDescriptor), m_pParent(pParent)
+MICDevMemorySubObject::MICDevMemorySubObject(MemoryAllocator& allocator, MICDevMemoryObject& pParent) :
+    MICDevMemoryObject(allocator), m_Parent(pParent)
 
 {
 }
 
 cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size)
 {
-    MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_pParent->m_objDecr, sizeof(cl_mem_obj_descriptor));
+    MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_Parent.m_objDecr, sizeof(cl_mem_obj_descriptor));
 
     // Update dimensions
     m_objDecr.pData = MemoryAllocator::CalculateOffsetPointer(m_objDecr.pData, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
@@ -512,13 +643,16 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     m_memFlags = mem_flags;
 
-    if ( NULL != m_pParent->m_pHostPtr )
+    if ( NULL != m_Parent.m_pHostPtr )
     {
         // Set appropriate host pointer values
-        m_pHostPtr = MemoryAllocator::CalculateOffsetPointer(m_pParent->m_pHostPtr, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
-        MEMCPY_S(m_hostPitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_pParent->m_hostPitch, sizeof(size_t)*(m_objDecr.dim_count-1));
-        m_hostPtrFlags = m_pParent->m_hostPtrFlags;
+        m_pHostPtr = MemoryAllocator::CalculateOffsetPointer(m_Parent.m_pHostPtr, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
+        MEMCPY_S(m_hostPitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_Parent.m_hostPitch, sizeof(size_t)*(m_objDecr.dim_count-1));
+        m_hostPtrFlags = m_Parent.m_hostPtrFlags;
     }
+
+    // BUGBUG: DK - need to create COI sub-buffer
+//    m_coi_buffer =
 
     return CL_DEV_SUCCESS;
 }

@@ -32,8 +32,10 @@
 #include "mic_dev_limits.h"
 #include "mic_config.h"
 #include "notification_port.h"
+#include "cl_synch_objects.h"
 
 #include <set>
+#include <list>
 
 using namespace std;
 
@@ -51,19 +53,27 @@ class MICDevice : public IOCLDeviceAgent
 {
 
 private:
-    ProgramService*                    m_pProgramService;
+    ProgramService*                 m_pProgramService;
     MemoryAllocator*                m_pMemoryAllocator;
     MICDeviceConfig*                m_pMICDeviceConfig;
-    IOCLFrameworkCallbacks*            m_pFrameworkCallBacks;
-    cl_uint                            m_uiMicId;
-    IOCLDevLogDescriptor*            m_pLogDescriptor;
-    cl_int                            m_iLogHandle;
-    OclDynamicLib                    m_dlRunTime;
-    cl_dev_cmd_list                    m_defaultCommandList;
+    IOCLFrameworkCallbacks*         m_pFrameworkCallBacks;
+    cl_uint                         m_uiMicId;
+    IOCLDevLogDescriptor*           m_pLogDescriptor;
+    cl_int                          m_iLogHandle;
+    OclDynamicLib                   m_dlRunTime;
+    cl_dev_cmd_list                 m_defaultCommandList;
     DeviceServiceCommunication*     m_pDeviceServiceComm;
     NotificationPort                m_notificationPort;
 
     set<CommandList*>               m_commandListsSet;
+
+    // static set to handle all existing MIC DA instancies
+    static set<IOCLDeviceAgent*>    m_mic_instancies;
+    static OclMutex                 m_mic_instancies_mutex;
+
+    // manage multiple DAs
+    static void RegisterMicDevice( MICDevice* dev );
+    static void UnregisterMicDevice( MICDevice* dev );
 
 protected:
     ~MICDevice();
@@ -71,7 +81,9 @@ protected:
 public:
 
     MICDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
-    cl_dev_err_code    Init();
+    cl_dev_err_code                     Init();
+
+    const DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
 
     static cl_dev_err_code   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
@@ -111,8 +123,14 @@ public:
     void        clDevCloseDevice(void);
 
     static void loadingInit();
-
     static void unloadRelease();
+
+    // manage multiple DAs
+    typedef list<MICDevice*>  TMicsList;
+    static TMicsList FilterMicDevices( const list<IOCLDeviceAgent*>& devices );
+    static TMicsList GetActiveMicDevices( void );
+
+
 };
 
 }}}

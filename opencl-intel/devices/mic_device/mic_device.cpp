@@ -37,6 +37,9 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+set<IOCLDeviceAgent*> MICDevice::m_mic_instancies;
+OclMutex              MICDevice::m_mic_instancies_mutex;
+
 char clMICDEVICE_CFG_PATH[MAX_PATH];
 
 typedef struct _cl_dev_internal_cmd_list
@@ -45,6 +48,68 @@ typedef struct _cl_dev_internal_cmd_list
     cl_dev_subdevice_id subdevice_id;
 } cl_dev_internal_cmd_list;
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// BEGIN MIC global management
+//
+///////////////////////////////////////////////////////////////////////////////
+
+void MICDevice::RegisterMicDevice( MICDevice* dev )
+{
+    OclAutoMutex lock( &m_mic_instancies_mutex );
+    m_mic_instancies.insert( dev );
+}
+
+void MICDevice::UnregisterMicDevice( MICDevice* dev )
+{
+    OclAutoMutex lock( &m_mic_instancies_mutex );
+    m_mic_instancies.erase( dev );
+}
+
+MICDevice::TMicsList MICDevice::GetActiveMicDevices( void )
+{
+    TMicsList ret_list;
+
+    OclAutoMutex lock( &m_mic_instancies_mutex );
+
+    set<IOCLDeviceAgent*>::iterator it  = m_mic_instancies.end();
+    set<IOCLDeviceAgent*>::iterator end = m_mic_instancies.end();
+
+    for(; it != end; ++it)
+    {
+        ret_list.push_back( (MICDevice*)*it );
+    }
+
+    return ret_list;
+}
+
+MICDevice::TMicsList MICDevice::FilterMicDevices( const list<IOCLDeviceAgent*>& devices )
+{
+    TMicsList ret_list;
+
+    list<IOCLDeviceAgent*>::const_iterator in_it = devices.begin();
+    list<IOCLDeviceAgent*>::const_iterator in_end = devices.end();
+
+    OclAutoMutex lock( &m_mic_instancies_mutex );
+
+    set<IOCLDeviceAgent*>::iterator found_end = m_mic_instancies.end();
+
+    for(; in_it != in_end; ++in_it)
+    {
+        if (m_mic_instancies.find( *in_it ) != found_end)
+        {
+            ret_list.push_back( (MICDevice*)*in_it );
+        }
+    }
+
+    return ret_list;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// END MIC global management
+//
+///////////////////////////////////////////////////////////////////////////////
 
 MICDevice::MICDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
     : m_pMICDeviceConfig(NULL), m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiDevId),
@@ -72,25 +137,18 @@ cl_dev_err_code MICDevice::Init()
     bool result = DeviceServiceCommunication::devcieSeviceCommunicationFactory(&m_pDeviceServiceComm);
     if ((result == false) || (m_pDeviceServiceComm == NULL))
     {
-        m_pDeviceServiceComm = NULL;
-        delete(m_pMICDeviceConfig);
-        m_pMICDeviceConfig = NULL;
         return CL_DEV_ERROR_FAIL;
     }
 
     // initialize the notificationPort mechanism.
     if (NotificationPort::SUCCESS != m_notificationPort.initialize(NOTIFICATION_PORT_MAX_BARRIERS))
     {
-        delete(m_pDeviceServiceComm);
-        m_pDeviceServiceComm = NULL;
-        delete(m_pMICDeviceConfig);
-        m_pMICDeviceConfig = NULL;
         return CL_DEV_ERROR_FAIL;
     }
 
     m_pProgramService = new ProgramService(m_uiMicId, m_pFrameworkCallBacks, m_pLogDescriptor,
                                            m_pMICDeviceConfig, *m_pDeviceServiceComm);
-    m_pMemoryAllocator = new MemoryAllocator(m_uiMicId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId));
+    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiMicId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
     if ( (NULL == m_pProgramService) ||    (NULL == m_pMemoryAllocator) )
     {
@@ -103,6 +161,9 @@ cl_dev_err_code MICDevice::Init()
 //    {
 //        return CL_DEV_ERROR_FAIL;
 //    }
+
+    // record Mic device in global set
+    RegisterMicDevice( this );
 
     return CL_DEV_SUCCESS;
 }
@@ -462,6 +523,9 @@ void MICDevice::clDevCloseDevice(void)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clCloseDevice Function enter"));
 
+    // remove Mic device from global set
+    UnregisterMicDevice( this );
+
     clDevReleaseCommandList(m_defaultCommandList);
     if( NULL != m_pMICDeviceConfig)
     {
@@ -480,7 +544,7 @@ void MICDevice::clDevCloseDevice(void)
     }
     if ( NULL != m_pMemoryAllocator )
     {
-        delete m_pMemoryAllocator;
+        m_pMemoryAllocator->Release();
         m_pMemoryAllocator = NULL;
     }
 
@@ -503,3 +567,4 @@ void MICDevice::clDevCloseDevice(void)
 
     delete this;
 }
+
