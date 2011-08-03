@@ -5,10 +5,10 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+gen] [+java] [+dbg] [-x64] [vc|intel] [build_path] 
+rem    gen_vc_project [+cnf] [+cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] 
 rem
 rem  +cnf           - include conformance tests into solution
-rem  +gen           - include GEN device into solution
+rem  +cmrt           - include Common Runtime into solution
 rem  +java          - include java code
 rem  +dbg           - include debugger engine into solution	
 rem  vc|intel       - use VC or Intel compiler. Default - VC.
@@ -27,7 +27,7 @@ set top_dir= %CD%
 
 
 set incl_conf=OFF
-set incl_gen=OFF
+set incl_cmrt=OFF
 set incl_java=OFF
 set incl_dbg=OFF
 set use_x64=OFF
@@ -40,8 +40,8 @@ set build_path=build
 	if x%1 == x+cnf (
 		set incl_cnf=ON
 		echo Include CNF
-	) else if x%1 == x+gen (
-		set incl_gen=ON
+	) else if x%1 == x+cmrt (
+		set incl_cmrt=ON
 		echo Include GEN
 	) else if x%1 == x+java (
 		set incl_java=ON
@@ -80,7 +80,7 @@ if %use_x64% == ON  call "%VS90COMNTOOLS:\=/%/../../VC/bin/x86_amd64/vcvarsx86_a
 
 set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
 
-cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_GEN_DEVICE=%incl_gen% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% %top_dir%\src
+cmake -G %GEN_VERSION% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% %top_dir%\src
 
 if not errorlevel 0 goto error_end
 

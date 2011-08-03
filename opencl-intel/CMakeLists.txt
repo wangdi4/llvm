@@ -72,11 +72,13 @@ if (WIN32)
     set(IMPLIB_SUBDIR lib)
     set(IMPLIB_PREFIX    )
     set(IMPLIB_SUFFIX .lib)
+	set(DLL_SUFIX .dll)
 else ()
     set(OS Lin)
     set(IMPLIB_SUBDIR bin)
     set(IMPLIB_PREFIX lib)
     set(IMPLIB_SUFFIX .so)
+	set(DLL_SUFIX .so)
 endif( WIN32)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -104,58 +106,29 @@ set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
 set( EXTERNAL_FOLDER_NAME       External )
 
-#recurse
+# externals
+add_subdirectory(externals)
 
-# Framework
-add_subdirectory( framework )
 add_subdirectory( cl_api )
 add_subdirectory( utils )
-add_subdirectory( externals/tbb )
-add_subdirectory( externals/tal )
-
-# Backend
-
-add_subdirectory( externals/llvm_wrap )
 
 #devices
 add_subdirectory( devices )
-add_subdirectory( fe_compilers/clang_compiler )
 
+#FE compilers
+add_subdirectory( fe_compilers )
+
+# Framework
+add_subdirectory( framework )
+
+# Common Runime
+option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
+if (WIN32 AND INCLUDE_CMRT)
+	message ("Adding Common Runtime sources...")
+	add_subdirectory ( common_runtime )
+endif(WIN32 AND INCLUDE_CMRT)
 #tools
-add_subdirectory( tools/OfflineCompiler )
-
-#gtest
-add_subdirectory( externals/gtest )
+add_subdirectory ( tools )
 
 #validation
-add_subdirectory( validation/types/workloads_test_type )
-add_subdirectory( validation/types/cpu_device_test_type )
-add_subdirectory( validation/types/framework_test_type )
-
-
-option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
-
-if (INCLUDE_CONFORMANCE_TESTS)
-
-if (WIN32)	
-	
-	set(MSVC 1)
-	set(USE_ICC 1)
-	add_subdirectory( validation/types/khronos_conformance )
-	
-else (WIN32)
-	add_subdirectory( validation/types/khronos_conformance )
-endif(WIN32)
-    
-endif (INCLUDE_CONFORMANCE_TESTS)
-
-option(INCLUDE_DEBUGGER "Include Debug engine Into Build"  OFF)
-
-if (INCLUDE_DEBUGGER)
-	
-	add_subdirectory( tools/OCLDebugEngine )
-	add_subdirectory( tools/OCLDebugConfig )
-	add_subdirectory( tools/iocdbg )
-    
-endif (INCLUDE_DEBUGGER)
-
+add_subdirectory( validation/types )
