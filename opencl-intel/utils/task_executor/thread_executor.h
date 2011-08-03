@@ -145,8 +145,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		inline CTaskSetFragment*		ExecuteAndGetNext(unsigned int uiWorkerId);
 		inline int		                AttachToThread(unsigned int uiWorkerId);
 		inline size_t					Size() const;
-		inline size_t*					getFirstWGID() const;
-		inline size_t*					getLastWGID() const;
+		inline void						getFirstWGID(size_t firstWGID[3]) const;
+		inline void						getLastWGID(size_t lastWGID[3]) const;
 
 	protected:
 		int				m_iStartX;

@@ -482,7 +482,11 @@ void CTaskSet::Execute(void** pCurrentSet)
 	bool bExecuted = false;
 	if (pFragment)
 	{
-		m_pTaskSet->AttachToThread(m_iQueueId, pFragment->Size(), pFragment->getFirstWGID(), pFragment->getLastWGID());
+		size_t firstWGID[3];
+		size_t lastWGID[3];
+		pFragment->getFirstWGID(firstWGID);
+		pFragment->getLastWGID(lastWGID);
+		m_pTaskSet->AttachToThread(m_iQueueId, pFragment->Size(), firstWGID, lastWGID);
 		bExecuted = true;
 	}
 	while(pFragment) 
@@ -600,6 +604,8 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 
 int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 {
+	size_t firstWGID[3];
+	size_t lastWGID[3];
 #ifdef _DEBUG
 	long lInit = InterlockedCompareExchange(&g_lTaskSetInit[m_iQueueId], 0, 0);
 	assert(lInit==0);
@@ -607,7 +613,9 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 	long lExecute = InterlockedCompareExchange( &g_lTaskSetExecute[m_iQueueId], 1, 1);
 	assert(lExecute==1);
 #endif
-	return m_pTaskSet->AttachToThread(uiWorkerId, Size(), getFirstWGID(), getLastWGID());
+	getFirstWGID(firstWGID);
+	getLastWGID(lastWGID);
+	return m_pTaskSet->AttachToThread(uiWorkerId, Size(), firstWGID, lastWGID);
 }
 
 size_t CTaskSetFragment::Size() const
@@ -615,26 +623,20 @@ size_t CTaskSetFragment::Size() const
 	return (size_t)((m_iEndZ-m_iStartZ)*(m_iEndY-m_iStartY)*(m_iEndX-m_iStartX));
 }
 
-size_t* CTaskSetFragment::getFirstWGID() const
+void CTaskSetFragment::getFirstWGID(size_t firstWGID[3]) const
 {
-	size_t firstWGID[3];
-	
 	firstWGID[0] = m_iStartX;
 	firstWGID[1] = m_iStartY;
 	firstWGID[2] = m_iStartZ;
-	
-	return firstWGID;
+	return;
 }
 
-size_t* CTaskSetFragment::getLastWGID() const
-{
-	size_t lastWGID[3];
-	
+void CTaskSetFragment::getLastWGID(size_t lastWGID[3]) const
+{	
 	lastWGID[0] = m_iEndX;
 	lastWGID[1] = m_iEndY;
 	lastWGID[2] = m_iEndZ;
-	
-	return lastWGID;
+	return;
 }
 
 
