@@ -52,6 +52,102 @@ __declspec(thread) WGContext* t_context = NULL;
 #else
 __thread WGContext* t_context = NULL;
 #endif
+
+class InPlaceTaskList : public ITaskList
+{
+public:
+    InPlaceTaskList(bool bImmediate = true);
+    virtual ~InPlaceTaskList();
+
+    virtual unsigned int	Enqueue(ITaskBase * pTaskBase);
+    virtual void			Flush();
+    //Todo: WaitForCompletion only immediately returns if bImmediate is true
+    virtual bool            WaitForCompletion() { return true; }
+    virtual void			Release();
+
+protected:
+    bool m_immediate;
+
+    virtual void ExecuteInPlace(ITaskBase* pTaskBase);
+};
+
+InPlaceTaskList::InPlaceTaskList(bool bImmediate) : m_immediate(bImmediate)
+{
+    //No support for just synchronous at the moment
+    assert(m_immediate);
+}
+
+InPlaceTaskList::~InPlaceTaskList()
+{
+}
+
+unsigned int InPlaceTaskList::Enqueue(ITaskBase *pTaskBase)
+{
+    if (m_immediate)
+    {
+        ExecuteInPlace(pTaskBase);
+    }
+    else
+    {
+        //Todo: handle "execute on flush" lists
+    }
+    return CL_DEV_SUCCESS;
+}
+
+void InPlaceTaskList::Flush()
+{
+
+}
+
+void InPlaceTaskList::Release()
+{
+
+}
+
+void InPlaceTaskList::ExecuteInPlace(Intel::OpenCL::TaskExecutor::ITaskBase *pTaskBase)
+{
+    static size_t firstWGID[] = {0, 0, 0};
+    assert(pTaskBase);
+    if (pTaskBase->IsTaskSet())
+    {
+        ITaskSet* pTaskSet = static_cast<ITaskSet*>(pTaskBase);
+        size_t dim[MAX_WORK_DIM];
+        unsigned int dimCount;
+        int res = pTaskSet->Init(dim, dimCount);
+        if (res != 0)
+        {
+            pTaskSet->Finish(FINISH_INIT_FAILED);
+        }
+        res = pTaskSet->AttachToThread(0, dim[0] * dim[1] * dim[2], firstWGID, dim);
+        if (res != 0)
+        {
+            pTaskSet->Finish(FINISH_INIT_FAILED);
+        }
+        /*
+        for (size_t pages = 0; pages < dim[2]; ++pages)
+        {
+            for (size_t rows = 0; rows < dim[1]; ++rows)
+            {
+                for (size_t cols = 0; cols < dim[0]; ++cols)
+                {
+                    pTaskSet->ExecuteIteration(cols, rows, pages, 0);
+                }
+            }
+        }
+        */
+        pTaskSet->ExecuteAllIterations(dim, 0);
+        pTaskSet->DetachFromThread(0);
+        pTaskSet->Finish(FINISH_COMPLETED);
+        pTaskSet->Release();
+    }
+    else
+    {
+        ITask* pTask = static_cast<ITask*>(pTaskBase);
+        pTask->Execute();
+        pTask->Release();
+    }
+}
+
 // Constructor/Dispatcher
 TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, ProgramService	*programService,
 					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig) :
@@ -134,13 +230,23 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 	assert( list );
+    ITaskList* pList = NULL;
 
-    bool isSubdevice = (0 != ((int)props & (int)CL_DEV_LIST_SUBDEVICE));
-    bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-    CommandListCreationParam p;
-    p.isOOO = isOOO;
-    p.isSubdevice = isSubdevice;
-	ITaskList* pList = m_pTaskExecutor->CreateTaskList(&p);
+    bool isInPlace   = (0 != ((int)props & (int)CL_DEV_LIST_IN_PLACE));
+    if (!isInPlace)
+    {
+        bool isSubdevice = (0 != ((int)props & (int)CL_DEV_LIST_SUBDEVICE));
+        bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
+        CommandListCreationParam p;
+        p.isOOO       = isOOO;
+        p.isSubdevice = isSubdevice;
+	    pList = m_pTaskExecutor->CreateTaskList(&p);
+    }
+    else
+    {
+        //Todo: handle non-immediate lists
+        pList = new InPlaceTaskList();
+    }
 	*list = pList;
 	if ( NULL == pList )
 	{

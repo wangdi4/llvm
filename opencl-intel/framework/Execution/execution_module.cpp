@@ -31,6 +31,7 @@
 #include "command_queue.h"
 #include "in_order_command_queue.h"
 #include "out_of_order_command_queue.h"
+#include "immediate_command_queue.h"
 #include "user_event.h"
 #include "Context.h"
 #include "enqueue_commands.h"
@@ -119,20 +120,28 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 {
     cl_command_queue iQueueID   = CL_INVALID_HANDLE;
     Context*    pContext   = NULL;
+    //clQueueProperties |= CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT;
     cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
 		IOclCommandQueueBase* pCommandQueue;
-		if (clQueueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
-		{
-			pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
-		}
-		else
-		{
-			pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
-		}
+        if (clQueueProperties & CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT)
+        {
+            pCommandQueue = new ImmediateCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+        }
+        else
+        {
+		    if (clQueueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
+		    {
+			    pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+		    }
+		    else
+		    {
+			    pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+		    }
+        }
 
 		if ( NULL != pCommandQueue )
 		{
@@ -176,7 +185,8 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
         errVal = CL_INVALID_DEVICE;        
     }
     else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | 
-                                                   CL_QUEUE_PROFILING_ENABLE ) ) 
+                                                   CL_QUEUE_PROFILING_ENABLE              |
+                                                   CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT ) ) 
     {
         errVal = CL_INVALID_VALUE;
     }

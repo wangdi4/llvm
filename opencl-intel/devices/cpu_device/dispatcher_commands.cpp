@@ -1307,3 +1307,39 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 #endif
 
 }
+
+void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
+{
+#ifdef _DEBUG
+    long lVal = m_lFinish.test_and_set(0, 0);
+    assert(lVal == 0);
+    ++ m_lExecuting;
+#endif
+
+    assert(GetWGContext(uiWorkerId));
+    ICLDevBackendExecutable_* pExec = GetWGContext(uiWorkerId)->GetExecutable();
+    // We always start from (0,0,0) and process whole WG
+    // No Need in parameters now
+#ifdef _DEBUG
+    lVal = m_lFinish.test_and_set(0, 0);
+    assert(lVal == 0);
+#endif
+
+    // Execute WG
+    size_t groupId[MAX_WORK_DIM] = {0, 0, 0};
+    for (; groupId[2] < dims[2]; ++groupId[2])
+    {
+        for (; groupId[1] < dims[1]; ++groupId[1])
+        {
+            for (; groupId[0] < dims[0]; ++groupId[0])
+            {
+                pExec->Execute(groupId, NULL, NULL);
+            }
+        }
+    }
+
+#ifdef _DEBUG
+    -- m_lExecuting;
+#endif
+
+}
