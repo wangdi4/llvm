@@ -45,6 +45,14 @@
 #define PACK_OFF pack()
 #define UNUSED(var) var
 
+#ifdef MAX
+#undef MAX
+#endif // #ifdef MAX
+
+#ifdef MIN
+#undef MIN
+#endif // #ifdef MIN
+
 #define MAX(a, b) max(a, b)
 #define MIN(a, b) min(a, b)
 
