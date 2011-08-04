@@ -18,11 +18,19 @@ set(FILES_TO_COPY
 		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} 
 		)
 			
+if (WIN32)
+    set( CONFIG_FILES register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg)
+endif (WIN32)
+			
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+
+if (WIN32)
+	COPY_SOURCE_FILES_POST_BUILD( ${TARGET_NAME} ${CONFIG_FILES} )
+endif (WIN32)
 
 target_link_libraries( ${TARGET_NAME} common_runtime_utils)
 
