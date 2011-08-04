@@ -89,6 +89,14 @@ typedef int errno_t;
 
 #define FALSE	0
 
+#ifdef MAX
+#undef MAX
+#endif // #ifdef MAX
+
+#ifdef MIN
+#undef MIN
+#endif // #ifdef MIN
+
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 #define MIN(a, b)  (((a) > (b)) ? (b) : (a))
 
