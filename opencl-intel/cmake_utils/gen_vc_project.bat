@@ -5,10 +5,10 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] 
+rem    gen_vc_project [+cnf] [-cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] 
 rem
 rem  +cnf           - include conformance tests into solution
-rem  +cmrt           - include Common Runtime into solution
+rem  -cmrt          - remove Common Runtime from the solution
 rem  +java          - include java code
 rem  +dbg           - include debugger engine into solution	
 rem  vc|intel       - use VC or Intel compiler. Default - VC.
@@ -27,7 +27,7 @@ set top_dir= %CD%
 
 
 set incl_conf=OFF
-set incl_cmrt=OFF
+set incl_cmrt=ON
 set incl_java=OFF
 set incl_dbg=OFF
 set use_x64=OFF
@@ -40,8 +40,8 @@ set build_path=build
 	if x%1 == x+cnf (
 		set incl_cnf=ON
 		echo Include CNF
-	) else if x%1 == x+cmrt (
-		set incl_cmrt=ON
+	) else if x%1 == x-cmrt (
+		set incl_cmrt=OFF
 		echo Include GEN
 	) else if x%1 == x+java (
 		set incl_java=ON
