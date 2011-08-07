@@ -259,7 +259,7 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
         else if (*opt_i == "-w") {
             list.push_back(*opt_i);
         }
-        else if (opt_i->find("-D") == 0 || opt_i->find("-U") == 0) {
+        else if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) {
             if (opt_i->length() == 2) {
                 // Definition is separated from the flag, so grab it from the
                 // next token
