@@ -54,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		bool Opt_Disable;
 		bool Denorms_Are_Zeros;
 		bool Fast_Relaxed_Math;
+        std::string m_source_filename;
 
 		void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
 		FEBuildProgramDesc* m_pTask;

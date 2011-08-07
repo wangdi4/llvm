@@ -59,6 +59,11 @@
 #include "cl_types.h"
 #include "cl_sys_defines.h"
 
+#include <string>
+#include <list>
+#include <vector>
+#include <cctype>
+#include <algorithm>
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
 using namespace clang;
@@ -66,8 +71,7 @@ using namespace clang::frontend;
 using namespace Intel::OpenCL::Utils;
 
 
-#include <string>
-#include <list>
+using namespace std;
 
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
@@ -132,6 +136,101 @@ int Intel::OpenCL::ClangFE::CloseClangDriver()
 	return 0;
 }
 
+
+// Tokenize a string into tokens separated by any char in 'delims'. 
+// Support quoting to allow some tokens to contain delimiters, with possible
+// escape characters to support quotes inside quotes.
+// To disable quoting or escaping, set relevant chars to '\x00'.
+//
+static vector<string> quoted_tokenize(string str, string delims, char quote, char escape)
+{
+    vector<string> ret;
+    string::size_type ptr = str.find_first_not_of(delims);
+
+    if (ptr == string::npos)
+        return ret;
+
+    // A state machine, with the following state vars:
+    //
+    // ptr        - points to the current char in the string
+    // is_escaped - is the current char escaped (i.e. was the
+    //              previous char = escape, inside a quote)
+    // in_quote   - are we in a quote now (i.e. a quote character
+    //              appeared without a maching closing quote)
+    // tok        - accumulates the current token. once an unquoted
+    //              delimiter or end of string is encountered, tok
+    //              is added to the return vector and re-initialized
+    //
+    bool is_escaped = false;
+    bool in_quote = false;
+    string tok;
+
+    do
+    {
+        char c = str.at(ptr);
+
+        if (c == quote)
+        {
+            if (in_quote)
+            {
+                if (is_escaped)
+                    tok += c;
+                else
+                    in_quote = false;
+            }
+            else
+                in_quote = true;
+
+            is_escaped = false;
+        }
+        else if (c == escape)
+        {
+            if (in_quote)
+            {
+                if (is_escaped)
+                {
+                    tok += c;
+                    is_escaped = false;
+                }
+                else
+                    is_escaped = true;
+            }
+            else
+            {
+                tok += c;
+                is_escaped = false;
+            }
+        }
+        else if (delims.find(c) != string::npos)
+        {
+            if (in_quote)
+                tok += c;
+            else
+            {
+                ret.push_back(tok);
+                tok.clear();
+                ptr = str.find_first_not_of(delims, ptr);
+
+                if (ptr == string::npos)
+                    break;
+                else
+                    --ptr; // will be increased at end of iteration
+            }
+
+            is_escaped = false;
+        }
+        else
+            tok += c;
+
+        if (ptr == str.size() - 1)
+            ret.push_back(tok);
+    }
+    while (++ptr < str.size());
+
+    return ret;
+}
+
+
 void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
 {
 	// Reset options
@@ -140,100 +239,103 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 	Denorms_Are_Zeros = false;
 	Fast_Relaxed_Math = false;
 	
-	// Parse user build options
-	// Check for known options, and pass the rest to clang
-	if ( NULL != m_pTask->pszOptions)
-	{
-		char *sOptions = strdup(buildOpts);
-		char *opt;
-		char *cont;
-		
-		// Now tokenize the received string - it should be passed
-		// as an array of char*
-		opt = STRTOK_S( sOptions, " \t", &cont);
+    if (!buildOpts)
+        buildOpts = "";
 
-		while(opt)
-		{
-			if(!strncmp(opt, "-g", 2))
-			{
-				//FIXIT: disabled it for now, it causes "UNREACHABLE EXECUTED" in some cases
-				//currently we don't need it, but later on we might want it for the debugger (Guy)
-				//list.push_back("-g");
-				OptDebugInfo = true;
-			}
-			else if(!strncmp(opt, "-w", 2))
-			{
-				list.push_back("-w");
-			}
-			else if(!strncmp(opt, "-D", 2) || !strncmp(opt, "-I", 2))
-			{
-				if(opt[2] == 0)
-				{
-					char* flag = opt;
-					opt = STRTOK_S( NULL, " \t", &cont);
-					if(!opt)
-					{
-						ignored.push_back(flag);
-						continue;
-					}
-					list.push_back(flag);
-				}
-				list.push_back(opt);
-			}
-			else if(!strncmp(opt, "-Werror", 7))
-			{
-				list.push_back("-Werror");
-			}
-			else if(!strncmp(opt, "-cl-mad-enable", 14))
-			{
-			}
-			else if(!strncmp(opt, "-dump-opt-llvm=", 15))
-			{
-				// this option is parsed by the backend - disregard it
-			}
-			else if(!strncmp(opt, "-cl-opt-disable", 15))
-			{
-				Opt_Disable = true;
-			}
-			else if(!strncmp(opt, "-cl-strict-aliasing", 19))
-			{
-			}
-			else if(!strncmp(opt, "-cl-no-signed-zeros", 19))
-			{
-			}
-			else if(!strncmp(opt, "-cl-denorms-are-zero", 20))
-			{
-				Denorms_Are_Zeros = true;
-			}
-			else if(!strncmp(opt, "-cl-finite-math-only", 20))
-			{
-				list.push_back("-D");
-				list.push_back("__FINITE_MATH_ONLY__=1");
-			}
-			else if(!strncmp(opt, "-cl-fast-relaxed-math", 21))
-			{
-				list.push_back("-D");
-				list.push_back("__FAST_RELAXED_MATH__=1");
-				Fast_Relaxed_Math = true;
-			}
-			else if(!strncmp(opt, "-cl-unsafe-math-optimizations", 29))
-			{
-			}
-			else if(!strncmp(opt, "-cl-single-precision-constant", 29))
-			{
-			}
-			else
-			{
-				// command line option ignored!
-				ignored.push_back(opt);
-			}
+    // Parse the build options - handle the ones we understand and pass the
+    // rest into 'ignored'. Use " quoting to accept token with whitespace, but
+    // don't use escaping (since we only need path tokens).
+    //
+    vector<string> opts = quoted_tokenize(buildOpts, " \t", '"', '\x00');
+    vector<string>::const_iterator opt_i = opts.begin();
+    while (opt_i != opts.end()) {
+        if (*opt_i == "-g") {
+            list.push_back(*opt_i);
+            // Note: Linux debugging disabled for now
+#ifdef _WIN32
+            OptDebugInfo = true;
+#endif // _WIN32
+        } 
+        else if (*opt_i == "-w") {
+            list.push_back(*opt_i);
+        }
+        else if (opt_i->find("-D") == 0 || opt_i->find("-U") == 0) {
+            if (opt_i->length() == 2) {
+                // Definition is separated from the flag, so grab it from the
+                // next token
+                //
+                string flag = *opt_i;
+                if (++opt_i != opts.end()) {
+                    list.push_back(flag);
+                    list.push_back(*opt_i);
+                }
+                else {
+                    ignored.push_back(flag);
+                    continue;
+                }
+            }
+            else {
+                // Definition is attached to the flag, so pass it as is
+                //
+                list.push_back(*opt_i);
+            }
+        }
+        else if (*opt_i == "-s") {
+            // Expect the file name as the next token
+            //
+            if (++opt_i != opts.end()) {
+                m_source_filename = *opt_i;
+                // Normalize path to contain forward slashes
+                replace(
+                    m_source_filename.begin(), 
+                    m_source_filename.end(), 
+                    '\\', '/');
 
-			opt = STRTOK_S( NULL, " \t", &cont);
-		}
+                // On Windows only, normalize the filename to lowercase, since
+                // LLVM saves buffer names in a case-sensitive manner, while
+                // other Windows tools don't.
+                //
+#ifdef _WIN32
+                transform(
+                    m_source_filename.begin(),
+                    m_source_filename.end(),
+                    m_source_filename.begin(),
+                    ::tolower);
+#endif
+            }
+        }
+        else if (*opt_i == "-Werror") {
+            list.push_back(*opt_i);
+        }
+        else if (   *opt_i == "-cl-mad-enable" ||
+                    *opt_i == "-cl-strict-aliasing" || 
+                    *opt_i == "-cl-no-signed-zeros" || 
+                    *opt_i == "-cl-unsafe-math-optimizations" || 
+                    *opt_i == "-cl-single-precision-constant" || 
+                    opt_i->find("-dump-opt-llvm=") == 0) {
+            // nop
+        }
+        else if (*opt_i == "-cl-opt-disable") {
+            Opt_Disable = true;
+        }
+        else if (*opt_i == "-cl-denorms-are-zero") {
+            Denorms_Are_Zeros = true;
+        }
+        else if (*opt_i == "-cl-finite-math-only") {
+            list.push_back("-D");
+            list.push_back("__FINITE_MATH_ONLY__=1");
+        }
+        else if (*opt_i == "-cl-fast-relaxed-math") {
+            list.push_back("-D");
+            list.push_back("__FAST_RELAXED_MATH__=1");
+            Fast_Relaxed_Math = true;
+        }
+        else {
+            ignored.push_back(*opt_i);
+        }
 
-		free(sOptions);
-	}
-
+        ++opt_i;
+    }
 
 	// Add standard OpenCL options
 
@@ -408,7 +510,8 @@ void CompileTask::Execute()
 	}
 
 	// Prepare input buffer
-	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getNewUninitMemBuffer(stTotalSize);
+	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getNewUninitMemBuffer(
+        stTotalSize, m_source_filename);
 	if ( NULL == SB )
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to create buffer"));
@@ -486,7 +589,7 @@ void CompileTask::Execute()
 	bool Success;
 	try {
 		Success = ExecuteCompilerInvocation(Clang.get());
-	} catch (const std::exception& e) {
+	} catch (const std::exception&) {
 		Success = false;
 		LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
 	}
