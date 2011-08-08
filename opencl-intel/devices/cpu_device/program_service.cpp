@@ -367,7 +367,7 @@ public:
 
         cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
         m_pProgEntry->clBuildStatus = status;
-        m_pCallBack->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
+        
 
         // if the user requested -dump-opt-llvm, print this module
         if( CL_DEV_SUCCEEDED(ret) && (NULL != m_pOptions) && !strncmp(m_pOptions, "-dump-opt-llvm=", 15))
@@ -377,7 +377,7 @@ public:
             m_pCompileService->DumpCodeContainer( m_pProgEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
         }
 
-
+		m_pCallBack->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
         CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
     }
 
