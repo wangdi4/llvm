@@ -174,13 +174,13 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	if ( (NULL != hGLCtx) || (NULL != hDC) )
 	{
 		pContext = 	new GLContext(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData);
-	}
+	} else
+#endif
 #if defined (DX9_SHARING)
-    else if (NULL != pD3D9Device)
+    if (NULL != pD3D9Device)
     {
         pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device);
     } else
-#endif
 #endif
 	{
 		pContext = 	new Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData);
