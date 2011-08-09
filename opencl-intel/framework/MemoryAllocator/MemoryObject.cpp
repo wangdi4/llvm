@@ -28,6 +28,10 @@
 #include "Context.h"
 
 #include <cl_synch_objects.h>
+#if defined (DX9_SHARING)
+#include "d3d9_resource.h"
+#include "CL/cl_d3d9.h"
+#endif
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -99,7 +103,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 	size_t szParam = 0;
 	cl_context clContext = 0;
 	cl_mem	clMem = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_mem_info)iParamName )
@@ -161,7 +165,21 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
         }
         pValue = &szParam;
         break;
-
+#if defined (DX9_SHARING)
+    case CL_MEM_D3D9_RESOURCE_INTEL:
+        {
+            const D3D9Resource* const pD3d9Resource = dynamic_cast<D3D9Resource*>(this);
+            if (NULL == pD3d9Resource)
+            {
+                return CL_INVALID_D3D9_RESOURCE_INTEL;
+            }
+            szSize = sizeof(IDirect3DResource9*);
+            pValue = &pD3d9Resource->GetResourceInfo().m_pResource;
+            break;
+        }
+#else
+	return CL_INVALID_OPERATION;
+#endif
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);
 		return CL_INVALID_VALUE;

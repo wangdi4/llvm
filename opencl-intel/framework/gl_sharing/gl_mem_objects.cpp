@@ -178,18 +178,8 @@ GLenum Intel::OpenCL::Framework::GetGLFormat(cl_channel_type clType, bool isExt)
 }
 
 GLMemoryObject::GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints) : 
-MemoryObject(pContext, pOclEntryPoints), m_glObjHandle(NULL), m_pChildObject(NULL), m_glMemFlags(0),
-m_clAcqurieState(CL_SUCCESS), m_pAcquireEvent(NULL)
+GraphicsApiMemoryObject(pContext, pOclEntryPoints), m_glObjHandle(NULL), m_glMemFlags(0)
 {
-}
-
-GLMemoryObject::~GLMemoryObject()
-{
-	OclEvent* pOldEvent = m_pAcquireEvent.exchange(NULL);
-	if ( NULL != pOldEvent )
-	{
-		pOldEvent->RemovePendency();
-	}
 }
 
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
@@ -204,49 +194,6 @@ cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, G
 		*pglObjectName = m_glObjHandle;
 	}
 	return CL_SUCCESS;
-}
-
-cl_err_code GLMemoryObject::GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent)
-{
-	if ( NULL == m_pAcquireEvent )
-	{
-		// Trying to get device descriptor before acquire operation was enqued
-		return CL_INVALID_OPERATION;
-	}
-
-	if ( CL_NOT_READY == m_clAcqurieState )
-	{
-		// Here the acquire operation is not finished and we need to create child object
-		cl_err_code err = CreateChildObject();
-		if ( CL_FAILED(err) )
-		{
-			return err;
-		}
-	}
-
-	if ( NULL != m_pChildObject )
-	{
-		return m_pChildObject->GetDeviceDescriptor(pDevice, ppDevObject, ppEvent);
-	}
-
-	if ( CL_FAILED(m_clAcqurieState) )
-	{
-		return m_clAcqurieState;
-	}
-
-
-	// Now we need to create event that will updated on acquire complition
-	assert(NULL!=ppEvent);
-	OclEvent* pNewEvent = new MemoryObjectEvent(ppDevObject, this, pDevice);
-	if ( NULL == pNewEvent )
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-	pNewEvent->AddDependentOn(m_pAcquireEvent);
-	*ppEvent = pNewEvent;
-	pNewEvent->Release();
-
-	return CL_NOT_READY;
 }
 
 cl_err_code GLMemoryObject::ReadData(void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
@@ -271,44 +218,6 @@ cl_err_code GLMemoryObject::WriteData(	const void * pOutData, const size_t *  ps
 	return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
-void GLMemoryObject::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const
-{
-	if (NULL != m_pChildObject)
-	{
-		m_pChildObject->GetLayout(dimensions, rowPitch, slicePitch);
-	}
-}
-
-cl_err_code GLMemoryObject::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
-{
-	if (NULL == m_pChildObject)
-	{
-		return CL_INVALID_VALUE;
-	}
-
-	return m_pChildObject->CheckBounds(pszOrigin, pszRegion);
-}
-
-cl_err_code GLMemoryObject::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
-{
-	if (NULL == m_pChildObject)
-	{
-		return CL_INVALID_VALUE;
-	}
-
-	return m_pChildObject->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
-}
-
-void *GLMemoryObject::GetBackingStore( const size_t * pszOrigin ) const
-{
-	if (NULL == m_pChildObject)
-	{
-		return NULL;
-	}
-
-	return m_pChildObject->GetBackingStore(pszOrigin);
-}
-
 cl_err_code	GLMemoryObject::SetGLMemFlags()
 {
 	m_glMemFlags = 0;
@@ -319,49 +228,6 @@ cl_err_code	GLMemoryObject::SetGLMemFlags()
 		m_glMemFlags |= GL_WRITE_ONLY;
 
 	return CL_SUCCESS;
-}
-
-cl_err_code GLMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
-{
-	OclEvent* pOldEvent = m_pAcquireEvent.test_and_set(NULL, pEvent);
-	if ( NULL == pOldEvent )
-	{
-		pEvent->AddPendency();
-		return CL_SUCCESS;
-	}
-
-	return CL_INVALID_OPERATION;
-}
-
-cl_err_code	GLMemoryObject::UpdateLocation(FissionableDevice* pDevice)
-{
-	return CL_SUCCESS;
-}
-
-cl_err_code	GLMemoryObject::CreateDeviceResource(FissionableDevice* pDevice)
-{
-	return CL_SUCCESS;
-}
-
-bool GLMemoryObject::IsSharedWith(FissionableDevice* pDevice)
-{
-	return false;
-}
-
-		// Low level mapped region creation function
-cl_err_code	GLMemoryObject::MemObjCreateDevMappedRegion(const FissionableDevice* pDevice, cl_dev_cmd_param_map*	cmd_param_map)
-{
-	return CL_INVALID_OPERATION;
-}
-
-cl_err_code	GLMemoryObject::MemObjReleaseDevMappedRegion(const FissionableDevice* pDevice, cl_dev_cmd_param_map*	cmd_param_map)
-{
-	return CL_INVALID_OPERATION;
-}
-
-cl_err_code GLMemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
-{
-    return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -414,8 +280,7 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 		pValue = &m_szImageHeight;
 		break;
 	default:
-		return CL_INVALID_VALUE;
-		break;
+        return CL_INVALID_VALUE;
 	}
 
 	if (NULL != pParamValue && szParamValueSize < szSize)
@@ -502,7 +367,7 @@ cl_err_code GLTexture::CreateChildObject()
 	if ( NULL == pBuffer )
 	{
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
-		m_clAcqurieState = CL_INVALID_OPERATION;
+        SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 
@@ -513,7 +378,7 @@ cl_err_code GLTexture::CreateChildObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
-		m_clAcqurieState = res;
+		SetAcquireState(res);
 		return res;
 	}
 
@@ -524,14 +389,23 @@ cl_err_code GLTexture::CreateChildObject()
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
 		pChild->Release();
-		m_clAcqurieState = CL_OUT_OF_RESOURCES;
+		SetAcquireState(CL_OUT_OF_RESOURCES);
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	m_clAcqurieState = CL_SUCCESS;
+	SetAcquireState(CL_SUCCESS);
 	m_pChildObject.exchange(pChild);
 
 	((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
 
 	return CL_SUCCESS;
+}
+
+cl_err_code GLMemoryObject::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (NULL == m_pChildObject)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return m_pChildObject->CheckBounds(pszOrigin, pszRegion);
 }

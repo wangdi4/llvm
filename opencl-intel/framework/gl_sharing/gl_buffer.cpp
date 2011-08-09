@@ -81,7 +81,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
 
-	if (NULL != m_pChildObject && CL_SUCCEEDED(m_clAcqurieState))
+	if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
 	{
 		// We have already acquired object
 		return CL_SUCCESS;
@@ -96,7 +96,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 	if ( NULL == pBuffer )
 	{
 		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-		m_clAcqurieState = CL_INVALID_OPERATION;
+		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 
@@ -107,7 +107,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
 		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-		m_clAcqurieState = res;
+		SetAcquireState(res);
 		return res;
 	}
 
@@ -116,7 +116,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
 		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
-		m_clAcqurieState = CL_OUT_OF_RESOURCES;
+		SetAcquireState(CL_OUT_OF_RESOURCES);
 		return CL_OUT_OF_RESOURCES;
 	}
 

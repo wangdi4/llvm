@@ -22,30 +22,24 @@
 
 #include "gl_context.h"
 #include "gl_mem_objects.h"
-#include "enqueue_commands.h"
+#include "sync_graphics_api_objects.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class SyncGLObjects : public RuntimeCommand
+	class SyncGLObjects : public SyncGraphicsApiObjects
 	{
 	public:
 		SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints);
 		virtual ~SyncGLObjects();
 		virtual cl_err_code             Init();        
 		virtual cl_err_code             Execute();        
-		virtual cl_command_type         GetCommandType() const  { return m_cmdType; }
-		virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
-		virtual const char*             GetCommandName() const;
-		virtual bool isControlCommand()	const { return false; }
+		virtual const char*             GetCommandName() const;		
 
 	private:
-		GLContext*		m_pContext;
-		GLMemoryObject* *m_pMemObjects;
-		unsigned int	m_uiMemObjNum;
-		cl_command_type m_cmdType;
+		GLContext*		m_pContext;		
 		void*			m_hCallingThread;
 
-		static void __stdcall ExecGLSync(SyncGLObjects* _this);
+		static void __stdcall ExecGLSync(SyncGraphicsApiObjects* _this);
 	};
 
 }}}

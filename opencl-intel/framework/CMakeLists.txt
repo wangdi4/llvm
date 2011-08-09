@@ -2,12 +2,25 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export
         ${CMAKE_CURRENT_SOURCE_DIR}/icd
-        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing
+        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing		
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
 		${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
     )
+
+if (DEFINED ENV{DXSDK_DIR})	
+	include_directories (BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/d3d9_sharing)
+endif (DEFINED ENV{DXSDK_DIR})	
+	
+if (DEFINED ENV{DXSDK_DIR})
+	if (${BUILD_X64} STREQUAL "ON")
+		link_directories($ENV{DXSDK_DIR}/Lib/x64)
+	else (${BUILD_X64} STREQUAL "ON")
+		link_directories($ENV{DXSDK_DIR}/Lib/x86)
+	endif(${BUILD_X64} STREQUAL "ON")
+add_definitions (-DDX9_SHARING)
+endif (DEFINED ENV{DXSDK_DIR})
 	
 add_subdirectory( icd )
 add_subdirectory( Platform )
@@ -17,9 +30,8 @@ if(WIN32)
 						${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/include 
 				    )
 	link_directories(
-					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
-				)
-							
+					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 										
+				)							
     add_definitions( -DUSE_GPA )
 endif(WIN32)
 
@@ -31,6 +43,10 @@ add_subdirectory( MemoryAllocator )
 if (WIN32)
     add_subdirectory( gl_sharing )
     list( APPEND LINK_LIBS gl_sharing )
+	if (DEFINED ENV{DXSDK_DIR})
+		add_subdirectory( d3d9_sharing )
+		list( APPEND LINK_LIBS d3d9_sharing )
+	endif (DEFINED ENV{DXSDK_DIR})
 else()
     message( WARNING " ERROR: OpenGL Sharing is not ported to Linux!")
 endif(WIN32)

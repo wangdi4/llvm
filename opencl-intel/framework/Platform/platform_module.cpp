@@ -39,6 +39,9 @@
 #include "cl_sys_defines.h"
 #include <assert.h>
 #include <malloc.h>
+#if defined (DX9_SHARING)
+#include "CL\cl_d3d9.h"
+#endif
 
 #define USE_COMPILER
 using namespace Intel::OpenCL::Utils;
@@ -753,7 +756,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     {
         if (NULL != out_devices)
         {
-            return CL_INVALID_VALUE;
+            return CL_INVALID_VALUE;
         }
     }
     if (NULL == pParentDevice->GetDeviceAgent())
@@ -898,3 +901,93 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
     }
     return CL_SUCCESS;
 }
+
+
+#if defined (DX9_SHARING)
+cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
+                                              cl_d3d9_device_source_intel clD3dDeviceSource,
+                                              void *pD3dObject,
+                                              cl_d3d9_device_set_intel clD3dDeviceSet,
+                                              cl_uint uiNumEntries, cl_device_id *pclDevices,
+                                              cl_uint *puiNumDevices)
+{
+    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D9NV(clPlatform=%p, clD3dDeviceSource=%d, pD3dObject=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
+        clPlatform, clD3dDeviceSource, pD3dObject, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
+    if (NULL != pclDevices && 0 == uiNumEntries)
+    {
+        LOG_ERROR(TEXT("uiNumEntries is equal to zero and pclDevices is not NULL."));
+        return CL_INVALID_VALUE;
+    }
+    if (NULL == pclDevices && NULL == puiNumDevices)
+    {
+        LOG_ERROR(TEXT("both puiNumDevices and pclDevices are NULL."));
+        return CL_INVALID_VALUE;
+    }
+    if (!CheckPlatformId(clPlatform))
+    {
+        LOG_ERROR(TEXT("clPlatform is not a valid platform."));
+        return CL_INVALID_PLATFORM;
+    }
+    if (CL_PREFERRED_DEVICES_FOR_D3D9_INTEL != clD3dDeviceSet && CL_ALL_DEVICES_FOR_D3D9_INTEL != clD3dDeviceSet)
+    {
+        LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
+        return CL_INVALID_VALUE;
+    }
+    if (NULL == pD3dObject)
+    {
+        LOG_ERROR(TEXT("pD3dObject is NULL."));
+        return CL_INVALID_VALUE;
+    }
+    size_t szDevIndex = 0;
+    if (NULL != puiNumDevices)
+    {
+        *puiNumDevices = 0;
+    }
+    size_t szFoundDevices = 0;
+    for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
+    {
+        bool bDeviceMatch = false;
+        switch (clD3dDeviceSource)
+        {
+        case CL_D3D9_DEVICE_INTEL:
+            bDeviceMatch = m_ppRootDevices[i]->GetD3D9Device() == (IDirect3DDevice9*)pD3dObject;
+            break;
+        case CL_D3D9_ADAPTER_NAME_INTEL:
+            if (IDirect3DDevice9* const d3d9Dev = m_ppRootDevices[i]->GetD3D9Device())
+            {
+                D3DDEVICE_CREATION_PARAMETERS params; 
+                HRESULT res = d3d9Dev->GetCreationParameters(&params);
+                assert(D3D_OK == res);
+                IDirect3D9* pD3d9;
+                res = d3d9Dev->GetDirect3D(&pD3d9);
+                assert(D3D_OK == res);
+                D3DADAPTER_IDENTIFIER9 id;
+                res = pD3d9->GetAdapterIdentifier(params.AdapterOrdinal, 0, &id);
+                assert(D3D_OK == res);
+                bDeviceMatch = strcmp(id.DeviceName, (char*)pD3dObject) == 0;
+            }
+            break;
+        default:
+            LOG_ERROR(TEXT("clD3dDeviceSource is not a valid value"));
+            return CL_INVALID_VALUE;
+        }
+        if (bDeviceMatch)
+        {
+            szFoundDevices++;
+            if (NULL != pclDevices && szDevIndex < uiNumEntries)
+            {
+                pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
+            }
+            if (NULL != puiNumDevices)
+            {
+                (*puiNumDevices)++;
+            }        
+        }
+    }
+    if (0 == szFoundDevices)
+    {
+        return CL_DEVICE_NOT_FOUND;
+    }
+    return CL_SUCCESS;
+}
+#endif

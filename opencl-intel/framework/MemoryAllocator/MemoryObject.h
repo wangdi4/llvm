@@ -45,6 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
 	class FissionableDevice;
 	class OclEvent;
+	class GraphicsApiMemoryObject;
 
 	// This struct contains information about previous maps
 	// It will be inserted into the map, indexed by the pointer the device returns
@@ -68,6 +69,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class MemoryObject : public OCLObject<_cl_mem_int>, public IDeviceFissionObserver
 	{
 	public:
+
+        friend class GraphicsApiMemoryObject;
+
 		/******************************************************************************************
 		* Function: 	GetInfo    
 		* Description:	get object specific information (inherited from OCLObject) the function 
@@ -117,7 +121,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// allocated for any of the devices.
 		// calling to this method doesn't promise that once it finished the data is available on the
 		// same device
-		FissionableDevice* GetLocation() const	{return m_pLocation;}
+		virtual FissionableDevice* GetLocation() const	{return m_pLocation;}
 
 		// set the device id where the data is know available.
 		// calling to this methods should be done just before the write command is sent to the device agent.

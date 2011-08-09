@@ -25,12 +25,9 @@
 
 using namespace Intel::OpenCL::Framework;
 
-SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
-RuntimeCommand(cmdQueue, pOclEntryPoints), m_uiMemObjNum(uiMemObjNum),m_pContext(pContext), m_cmdType(cmdType), m_hCallingThread(NULL)
-{
-	m_pMemObjects = new GLMemoryObject*[uiMemObjNum];
-	memcpy_s(m_pMemObjects, sizeof(GLMemoryObject*)*uiMemObjNum, pMemObjects, sizeof(GLMemoryObject*)*uiMemObjNum);
-}
+SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject**pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
+SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, pOclEntryPoints, (GraphicsApiMemoryObject**)(pMemObjects),
+                       cmdType == CL_COMMAND_ACQUIRE_GL_OBJECTS), m_pContext(pContext) { }
 
 SyncGLObjects::~SyncGLObjects()
 {
@@ -38,12 +35,11 @@ SyncGLObjects::~SyncGLObjects()
 	{
 		CloseHandle(m_hCallingThread);
 	}
-	delete []m_pMemObjects;
 }
 
 const char* SyncGLObjects::GetCommandName() const
 {
-	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == m_cmdType)
+	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType())
 	{
 		return "CL_COMMAND_ACQUIRE_GL_OBJECTS";
 	}
@@ -55,56 +51,47 @@ const char* SyncGLObjects::GetCommandName() const
 
 cl_err_code SyncGLObjects::Init()
 {
-	// Get calling thread handle
-	DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
-					GetCurrentProcess(), &m_hCallingThread, 0, FALSE, DUPLICATE_SAME_ACCESS);
-
-	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == m_cmdType )
-	{
-		for (unsigned int i=0; i<m_uiMemObjNum; ++i)
-		{
-			m_pMemObjects[i]->SetAcquireCmdEvent(&m_Event);
-		}
-	}
-
-	return CL_SUCCESS;
+    // Get calling thread handle
+    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+        GetCurrentProcess(), &m_hCallingThread, 0, FALSE, DUPLICATE_SAME_ACCESS);
+    return SyncGraphicsApiObjects::Init();
 }
 
 cl_err_code SyncGLObjects::Execute()
 {
-	// Attach GL context to thread
-	HGLRC hGL = wglGetCurrentContext();
-	HDC hDC = wglGetCurrentDC();
+    // Attach GL context to thread
+    HGLRC hGL = wglGetCurrentContext();
+    HDC hDC = wglGetCurrentDC();
 
-	if ( ((HGLRC)m_pContext->GetGLCtx() == hGL) &&
-		 ((HDC)m_pContext->GetDC() == hDC))
-	{
-		// We are in the same thread as the context, so execute directly
-		ExecGLSync(this);
-		return CL_SUCCESS;
-	}
+    if ( ((HGLRC)m_pContext->GetGLCtx() == hGL) &&
+        ((HDC)m_pContext->GetDC() == hDC))
+    {
+        // We are in the same thread as the context, so execute directly
+        ExecGLSync(this);
+        return CL_SUCCESS;
+    }
 
-	// Set event to RED
-	m_Event.SetColor(EVENT_STATE_LIME);
-	QueueUserAPC((PAPCFUNC)ExecGLSync, m_hCallingThread, (ULONG_PTR)this);
-	return CL_NOT_READY;
+    // Set event to RED
+    m_Event.SetColor(EVENT_STATE_LIME);
+    QueueUserAPC((PAPCFUNC)ExecGLSync, m_hCallingThread, (ULONG_PTR)this);
+    return CL_NOT_READY;
 }
 
-void SyncGLObjects::ExecGLSync(SyncGLObjects* _this)
+void SyncGLObjects::ExecGLSync(SyncGraphicsApiObjects* _this)
 {
 	// Do the actual work here
-	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == _this->m_cmdType )
+	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == _this->GetCommandType() )
 	{
-		for (unsigned int i=0; i<_this->m_uiMemObjNum; ++i)
+		for (unsigned int i=0; i<_this->GetNumMemObjs(); ++i)
 		{
-			_this->m_pMemObjects[i]->AcquireGLObject();
+			dynamic_cast<GLMemoryObject&>(_this->GetMemoryObject(i)).AcquireGLObject();
 		}
 	}
 	else
 	{
-		for (unsigned int i=0; i<_this->m_uiMemObjNum; ++i)
+		for (unsigned int i=0; i<_this->GetNumMemObjs(); ++i)
 		{
-			_this->m_pMemObjects[i]->ReleaseGLObject();
+			dynamic_cast<GLMemoryObject&>(_this->GetMemoryObject(i)).ReleaseGLObject();
 		}
 //		glFinish();
 	}

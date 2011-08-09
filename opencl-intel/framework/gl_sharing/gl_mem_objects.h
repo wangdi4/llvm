@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "MemoryAllocator/MemoryObject.h"
+#include "MemoryAllocator/GraphicsApiMemoryObject.h"
 #include "gl_context.h"
 
 #include <cl_synch_objects.h>
@@ -46,27 +46,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	GLenum GetGLType(cl_channel_type clType);
 	GLenum GetGLFormat(cl_channel_type clType, bool isExt);
 
-	class GLMemoryObject : public MemoryObject
+	class GLMemoryObject : public GraphicsApiMemoryObject
 	{
 	public:
 		virtual cl_err_code AcquireGLObject() = 0;
 		virtual cl_err_code ReleaseGLObject() = 0;
 		virtual cl_gl_object_type GetObjectType() = 0;
 		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
-		
-		cl_err_code SetAcquireCmdEvent(OclEvent* pEvent); // Set Event of Acquire command that belongs to the object.
 
 		// Memory Object interface
-		cl_err_code			UpdateLocation(FissionableDevice* pDevice);
-		cl_err_code			CreateDeviceResource(FissionableDevice* pDevice);
-		cl_err_code			GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
 		cl_err_code			RelinquishDeviceHandle(FissionableDevice* pDevice, cl_dev_memobj_handle handle);
-		bool				IsSharedWith(FissionableDevice* pDevice);
-
-		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
-		cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
-		cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
-		void *GetBackingStore( const size_t * pszOrigin = NULL ) const;
 
 		cl_err_code ReadData(	void *          pOutData, 
 			const size_t *  pszOrigin, 
@@ -79,40 +68,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			const size_t *  pszRegion,
 			size_t          szRowPitch   = 0,
 			size_t          szSlicePitch = 0);
-
-		bool		IsSupportedByDevice(FissionableDevice* pDevice) {return true;}
-
 		size_t GetSize() const {return m_stMemObjSize;}
 
-		// Update the host pointer that is used for the memory object
-		cl_err_code UpdateHostPtr(cl_mem_flags		clMemFlags,	void* pHostPtr) {return CL_SUCCESS;}
-
-		// Low level mapped region creation function
-		cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
-							cl_dev_cmd_param_map*	cmd_param_map);
-		cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
-				cl_dev_cmd_param_map*	cmd_param_map);
-
-		// IDeviceFissionObserver interface
-		cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
+        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 	protected:
 		GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints);
-		virtual ~GLMemoryObject();
-
-		// This function is reposiable for creating a supporting child object
-		virtual cl_err_code CreateChildObject() = 0;
 
 		cl_err_code	SetGLMemFlags();
 		
 		GLuint	m_glObjHandle;
 		GLuint	m_glMemFlags;
 
-		Intel::OpenCL::Utils::AtomicPointer<OclEvent>		m_pAcquireEvent;
-		Intel::OpenCL::Utils::AtomicPointer<MemoryObject>	m_pChildObject;
-		// This object is the actual object that handle interaction with devices
-		Intel::OpenCL::Utils::OclMutex		m_muAcquireRelease;
-		Intel::OpenCL::Utils::AtomicCounter					m_clAcqurieState;
 	};
 
 	class GLTexture : public GLMemoryObject

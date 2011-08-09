@@ -113,7 +113,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, CL_MEM_OBJECT_IMAGE3D, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
-		m_clAcqurieState = res;
+		SetAcquireState(res);
 		return res;
 	}
 
@@ -123,7 +123,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 	if (CL_FAILED(res))
 	{
 		pChild->Release();
-		m_clAcqurieState = CL_OUT_OF_RESOURCES;
+		SetAcquireState(CL_OUT_OF_RESOURCES);
 		return CL_OUT_OF_RESOURCES;
 	}
 
@@ -148,7 +148,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 		glBindTexture(glBaseTarget, currTexture);
 	}
 
-	m_clAcqurieState = CL_SUCCESS;
+	SetAcquireState(CL_SUCCESS);
 	m_pChildObject.exchange(pChild);
 
 	return CL_SUCCESS;

@@ -70,7 +70,6 @@ using namespace clang;
 using namespace clang::frontend;
 using namespace Intel::OpenCL::Utils;
 
-
 using namespace std;
 
 #if defined (_WIN32)
@@ -82,18 +81,8 @@ using namespace std;
 #define MAX_STR_BUFF	1024
 #define __DOUBLE_ENABLED__
 
-// copied from cpu_device.cpp (Guy)
-#ifdef __DOUBLE_ENABLED__
-static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\
-												"cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-												"cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-												"cl_intel_printf cl_intel_overloading";
-#else
-static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_global_int32_base_atomics "\
-											   "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-											   "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-												"cl_intel_printf cl_intel_overloading";
-#endif
+// We put it here, because just here all the required macros are defined.
+#include "ocl_supported_extensions.h"
 
 // Declare logger client
 DECLARE_LOGGER_CLIENT;

@@ -30,6 +30,7 @@
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
 #include "buildversion.h"
+#include "CL/cl_ext.h"
 
 #include <cl_sys_info.h>
 #include <cpu_dev_limits.h>
@@ -210,19 +211,8 @@ using namespace Intel::OpenCL::CPUDevice;
 
 const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
-// Update also in clang_driver.cpp (Guy)
-#ifdef __DOUBLE_ENABLED__
-static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\
-                                                "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-                                                "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-                                                "cl_intel_printf cl_ext_device_fission";
-
-#else
-static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_global_int32_base_atomics "\
-                                               "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-                                                "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-                                                "cl_intel_printf cl_ext_device_fission";
-#endif
+// We put it here, because just here all the required macros are defined.
+#include "ocl_supported_extensions.h"
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {

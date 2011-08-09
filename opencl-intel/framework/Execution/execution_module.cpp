@@ -46,6 +46,12 @@
 #include "cl_sys_defines.h"
 
 #include <CL/cl_ext.h>
+#if defined (DX9_SHARING)
+#include <CL/cl_d3d9.h>
+#include "d3d9_sharing/d3d9_context.h"
+#include "d3d9_sharing/d3d9_resource.h"
+#include "d3d9_sharing/d3d9_sync_d3d9_resources.h"
+#endif
 #include <cassert>
 #include <cl_objects_map.h>
 #include <Logger.h>
@@ -2355,3 +2361,95 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 	}
 	return errVal;
 }
+
+#if defined (DX9_SHARING)
+cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
+                                                 cl_command_type cmdType, cl_uint uiNumObjects,
+                                                 const cl_mem *pclMemObjects,
+                                                 cl_uint uiNumEventsInWaitList,
+                                                 const cl_event *pclEventWaitList,
+                                                 cl_event *pclEvent)
+{
+    cl_err_code errVal = CL_SUCCESS;
+    if (NULL == pclMemObjects || 0 == uiNumObjects)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    D3D9Context* const pContext = dynamic_cast<D3D9Context*>(m_pContextModule->GetContext(pCommandQueue->GetContextHandle()));
+    if (NULL == pContext)
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    D3D9Resource** const pMemObjects = new D3D9Resource*[uiNumObjects];
+    if (NULL == pMemObjects)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    for (cl_uint i = 0; i < uiNumObjects; i++)
+    {
+        MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
+        if (NULL == pMemObj)
+        {
+            delete[] pMemObjects;
+            return CL_INVALID_MEM_OBJECT;
+        }
+        if (pMemObj->GetContext()->GetId() != pCommandQueue->GetContextId())
+        {
+            delete[] pMemObjects;
+            return CL_INVALID_CONTEXT;
+        }
+        D3D9Resource* const pD3d9Resource = pMemObjects[i] = dynamic_cast<D3D9Resource*>(pMemObj);
+        // Check if it's a Direct3D 9 object
+        if (NULL != pD3d9Resource)
+        {
+            if (CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL == cmdType && pD3d9Resource->IsAcquired())
+            {
+                delete[] pclMemObjects;
+                return CL_D3D9_RESOURCE_ALREADY_ACQUIRED_INTEL;
+            }
+            if (CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL == cmdType && !pD3d9Resource->IsAcquired())
+            {
+                delete[] pclMemObjects;
+                return CL_D3D9_RESOURCE_NOT_ACQUIRED_INTEL;
+            }
+            continue;
+        }
+        // If we've got here invalid Direct3D 9 object
+        delete[] pMemObjects;
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, m_pOclEntryPoints, pMemObjects, uiNumObjects, cmdType);
+    if (NULL == pAcquireCmd)
+    {
+        delete []pMemObjects;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    errVal = pAcquireCmd->Init();
+    if (CL_SUCCEEDED(errVal))
+    {
+        errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        if (CL_FAILED(errVal))
+        {
+            // Enqueue failed, free resources
+            pAcquireCmd->CommandDone();
+            delete pAcquireCmd;
+        }
+    } else
+    {
+        delete pAcquireCmd;
+    }
+
+    delete[] pMemObjects;
+    return errVal;
+}
+#endif

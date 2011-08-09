@@ -130,8 +130,7 @@ cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t
 		break;
 
 	default:
-		return CL_INVALID_VALUE;
-		break;
+        return CL_INVALID_VALUE;
 	}
 
 	if (NULL != pParamValue && szParamValueSize < szSize)

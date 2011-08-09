@@ -114,7 +114,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
 
-	if (NULL != m_pChildObject && CL_SUCCEEDED(m_clAcqurieState))
+	if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
 	{
 		// We have already acquired object
 		return CL_SUCCESS;
@@ -134,7 +134,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 	pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
 	if( glGetError() != GL_NO_ERROR )
 	{
-		m_clAcqurieState = CL_INVALID_OPERATION;
+		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 
@@ -143,13 +143,13 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 	if( glGetError() != GL_NO_ERROR )
 	{
 		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
-		m_clAcqurieState = CL_INVALID_OPERATION;
+		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 	if( pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
 		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
-		m_clAcqurieState = CL_INVALID_OPERATION;
+		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 
@@ -165,7 +165,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		{
 			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
 			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
-			m_clAcqurieState = CL_INVALID_OPERATION;
+			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 		GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
@@ -174,7 +174,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		{
 			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
 			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
-			m_clAcqurieState = CL_INVALID_OPERATION;
+			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 		GLenum readBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
@@ -186,7 +186,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		{
 			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
 			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
-			m_clAcqurieState = CL_INVALID_OPERATION;
+			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 
@@ -207,7 +207,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_clAcqurieState = CL_INVALID_OPERATION;
+			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 
@@ -222,14 +222,14 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_clAcqurieState = CL_INVALID_OPERATION;
+			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 
 		pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
 	}
 
-	m_clAcqurieState = CL_NOT_READY;
+	SetAcquireState(CL_NOT_READY);
 
 	return CL_SUCCESS;
 }

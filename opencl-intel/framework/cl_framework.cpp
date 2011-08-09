@@ -7,7 +7,11 @@
 #include "framework_proxy.h"
 #include "cl_cpu_detect.h"
 #include "cl_linux_utils.h"
+#if defined (DX9_SHARING)
+#include "CL/cl_d3d9.h"
+#endif
 #include "ocl_itt.h"
+
 #ifndef _WIN32
 #include "cl_framework_alias_linux.h"
 #endif
@@ -1326,4 +1330,112 @@ cl_int CL_API_CALL clCreateSubDevicesEXT(cl_device_id device,
 SET_ALIAS(clCreateSubDevicesEXT);
 REGISTER_EXTENSION_FUNCTION(clCreateSubDevicesEXT, clCreateSubDevicesEXT);
 
-	
+#if defined (DX9_SHARING)
+cl_mem CL_API_CALL clCreateFromD3D9VertexBufferIntel(cl_context context,
+                                                  cl_mem_flags flags,
+                                                  IDirect3DVertexBuffer9 *resource,
+                                                  cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9VertexBuffer(context, flags, resource, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9VertexBufferIntel, clCreateFromD3D9VertexBufferIntel);
+
+cl_mem CL_API_CALL clCreateFromD3D9IndexBufferIntel(cl_context context,
+                                                 cl_mem_flags flags,
+                                                 IDirect3DIndexBuffer9 *resource,
+                                                 cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9IndexBuffer(context, flags, resource, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9IndexBufferIntel, clCreateFromD3D9IndexBufferIntel);
+
+cl_mem CL_API_CALL clCreateFromD3D9SurfaceIntel(cl_context context,
+                                             cl_mem_flags flags,
+                                             IDirect3DSurface9 *resource,
+                                             cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, resource, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9SurfaceIntel, clCreateFromD3D9SurfaceIntel);
+
+cl_mem CL_API_CALL clCreateFromD3D9TextureIntel(cl_context context,
+                                             cl_mem_flags flags,
+                                             IDirect3DTexture9 *resource,
+                                             UINT miplevel,
+                                             cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9Texture(context, flags, resource, miplevel, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9TextureIntel, clCreateFromD3D9TextureIntel);
+
+cl_mem CL_API_CALL clCreateFromD3D9CubeTextureIntel(cl_context context,
+                                                 cl_mem_flags flags,
+                                                 IDirect3DCubeTexture9 *resource,
+                                                 D3DCUBEMAP_FACES facetype,
+                                                 UINT miplevel,
+                                                 cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9CubeTexture(context, flags, resource, facetype, miplevel, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9CubeTextureIntel, clCreateFromD3D9CubeTextureIntel);
+
+cl_mem CL_API_CALL clCreateFromD3D9VolumeTextureIntel(cl_context context,
+                                                   cl_mem_flags flags,
+                                                   IDirect3DVolumeTexture9 *resource,
+                                                   UINT miplevel,
+                                                   cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9VolumeTexture(context, flags, resource, miplevel, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9VolumeTextureIntel, clCreateFromD3D9VolumeTextureIntel);
+
+cl_int CL_API_CALL clEnqueueAcquireD3D9ObjectsIntel(cl_command_queue command_queue,
+                                                 cl_uint num_objects,
+                                                 const cl_mem *mem_objects,
+                                                 cl_uint num_events_in_wait_list,
+                                                 const cl_event *event_wait_list,
+                                                 cl_event *event)
+{
+    return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue,
+        CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
+        event_wait_list, event);
+}
+REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireD3D9ObjectsIntel, clEnqueueAcquireD3D9ObjectsIntel);
+
+cl_int CL_API_CALL clEnqueueReleaseD3D9ObjectsIntel(cl_command_queue command_queue,
+                                                 cl_uint num_objects,
+                                                 cl_mem *mem_objects,
+                                                 cl_uint num_events_in_wait_list,
+                                                 const cl_event *event_wait_list,
+                                                 cl_event *event)
+{
+    return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue,
+        CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
+        event_wait_list, event);
+}
+REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseD3D9ObjectsIntel, clEnqueueReleaseD3D9ObjectsIntel);
+
+cl_int CL_API_CALL clGetDeviceIDsFromD3D9Intel(cl_platform_id platform,
+                                            cl_d3d9_device_source_intel d3d_device_source,
+                                            void *d3d_object,
+                                            cl_d3d9_device_set_intel d3d_device_set,
+                                            cl_uint num_entries, 
+                                            cl_device_id *devices, 
+                                            cl_uint *num_devices)
+{
+    return PLATFORM_MODULE->GetDeviceIDsFromD3D9(platform, d3d_device_source, d3d_object, d3d_device_set, num_entries, devices, num_devices);
+}
+REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromD3D9Intel, clGetDeviceIDsFromD3D9Intel);
+
+#else
+// dummy definitions
+void CL_API_CALL clCreateFromD3D9VertexBufferIntel() { }
+void CL_API_CALL clCreateFromD3D9IndexBufferIntel() { }
+void CL_API_CALL clCreateFromD3D9SurfaceIntel() { }
+void CL_API_CALL clCreateFromD3D9TextureIntel() { }
+void CL_API_CALL clCreateFromD3D9CubeTextureIntel() { }
+void CL_API_CALL clCreateFromD3D9VolumeTextureIntel() { }
+void CL_API_CALL clEnqueueAcquireD3D9ObjectsIntel() { }
+void CL_API_CALL clEnqueueReleaseD3D9ObjectsIntel() { }
+void CL_API_CALL clGetDeviceIDsFromD3D9Intel() { }
+#endif

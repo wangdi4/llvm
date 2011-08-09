@@ -34,6 +34,9 @@
 #include <cl_dynamic_lib.h>
 #include <map>
 #include <list>
+#if defined (DX9_SHARING)
+#include <d3d9.h>
+#endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -53,7 +56,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class FissionableDevice : public OCLObject<_cl_device_id_int>
     {
     public:
-    FissionableDevice() {}
+        FissionableDevice()
+#if defined (DX9_SHARING)
+	  :  m_pD3D9Device(NULL)
+#endif
+	  {}
 
         cl_err_code RegisterDeviceFissionObserver(IDeviceFissionObserver* ob); 
         void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
@@ -77,12 +84,54 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
+        /**
+         * @fn  void FissionableDevice::setD3D9Device(IDirect3DDevice9* const pD3D9Device)
+         *
+         * @brief   Sets a IDirect3DDevice9*
+         *
+         * @author  Aharon
+         * @date    7/5/2011
+         *
+         * @param   the IDirect3DDevice9* to set (may be NULL)
+         */
+
+#if defined (DX9_SHARING)
+        void SetD3D9Device(IDirect3DDevice9* const pD3D9Device)
+        {
+            m_pD3D9Device = pD3D9Device;
+        }
+
+        /**
+         * @fn  IDirect3DDevice9* FissionableDevice::GetD3D9Device() const
+         *
+         * @brief   Gets the IDirect3DDevice9*.
+         *
+         * @author  Aharon
+         * @date    7/18/2011
+         *
+         * @return  the IDirect3DDevice9*.
+         */
+
+        IDirect3DDevice9* GetD3D9Device() const { return m_pD3D9Device; }
+#endif
+
     protected:
         ~FissionableDevice() {}
 
         Utils::OclSpinMutex                     m_fissionObserverListMutex;
 
         std::list<IDeviceFissionObserver*>      m_fissionObserverList;
+
+    private:
+
+#if ! defined (DX9_SHARING)
+        struct IDirect3DDevice9;
+#endif
+        /* I define this attribute even if DX9_SHARING is not defined, since it is too dangerous to
+        make the size of the FissionableDevice object dependent on a macro definition, which may
+        differ from one project to another. This might cause bugs that wouldn't be caught by the
+        compiler, but appear in runtime and would be very hard to detect. */
+        IDirect3DDevice9* m_pD3D9Device;
 
     };
 
