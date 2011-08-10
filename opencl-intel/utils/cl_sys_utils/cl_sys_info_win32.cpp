@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade 
 // secret laws and treaty provisions. No part of the Material may be used, copied, 
 // reproduced, modified, published, uploaded, posted, transmitted, distributed, 
-// or disclosed in any way without Intel’s prior express written permission. 
+// or disclosed in any way without Intelï¿½s prior express written permission. 
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery 
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice 
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors 
+// or any other notice embedded in Materials by Intel or Intelï¿½s suppliers or licensors 
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
@@ -124,19 +124,20 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 	return freq;
 }
 
-unsigned long long Intel::OpenCL::Utils::ProfilingTimerFrequency()
+unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
 {
 	LARGE_INTEGER freq;
 
 	QueryPerformanceFrequency(&freq);
-	return freq.QuadPart;
+
+	return (1e9/freq.QuadPart);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // HostTime - Return host time in nano second
 /////////////////////////////////////////////////////////////////////////////////////////
 #pragma data_seg(".MYSEC_FREQ")
-static double freq = 1e9/ProfilingTimerFrequency();
+static double timerRes = ProfilingTimerResolution();
 #pragma data_seg()
 #pragma comment(linker, "/SECTION:.MYSEC_FREQ,RWS")
 
@@ -149,7 +150,7 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 	QueryPerformanceCounter(&tiks);
 
 	//Convert from ticks to nano second
-	return (unsigned long long)(tiks.QuadPart * freq);
+	return (unsigned long long)(tiks.QuadPart * timerRes);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

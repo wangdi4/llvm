@@ -54,9 +54,9 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         If failed return 0 */
         cl_uint getMaxClockFrequency(uint32_t deviceId);
 
-        /* Return profiling timer frequency.
+        /* Return profiling timer resolution.
         If failed return 0 */
-        unsigned long long getProfilingTimerFrequency(uint32_t deviceId);
+        unsigned long long getProfilingTimerResolution(uint32_t deviceId);
 
         /* Return total physical memory size.
            If failed return 0 */

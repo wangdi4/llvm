@@ -345,7 +345,7 @@ cl_uint MICSysInfo::getMaxClockFrequency(uint32_t deviceId)
     return 0;
 }
 
-unsigned long long MICSysInfo::getProfilingTimerFrequency(uint32_t deviceId)
+unsigned long long MICSysInfo::getProfilingTimerResolution(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
@@ -470,7 +470,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             //if OUT paramVal is NULL it should be ignored
             if(NULL != buf)
             {
-                *(size_t*)buf = (size_t)(1e9/MAX((long long unsigned int)1,getProfilingTimerFrequency(deviceId)));
+                *(size_t*)buf = (size_t)(getProfilingTimerResolution((deviceId)));
             }
             return CL_DEV_SUCCESS;
         }

@@ -877,7 +877,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(size_t*)paramVal = (size_t)(1e9/ProfilingTimerFrequency());
+                *(size_t*)paramVal = (size_t)ProfilingTimerResolution();
             }
             return CL_DEV_SUCCESS;
         }
