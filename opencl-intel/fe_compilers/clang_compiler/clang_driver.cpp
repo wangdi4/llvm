@@ -521,8 +521,8 @@ void CompileTask::Execute()
 
 	//prepare output buffer
 	SmallVector<char, 4096>	IRbinary;
-	llvm::raw_svector_ostream IRStream(IRbinary);
-	Clang->SetOutputStream(&IRStream);
+	llvm::raw_svector_ostream *IRStream = new llvm::raw_svector_ostream(IRbinary);
+	Clang->SetOutputStream(IRStream);
 
 #ifdef WIN32
 	//prepare pch buffer
@@ -590,7 +590,7 @@ void CompileTask::Execute()
 
 	//Clang.take();
 
-	IRStream.flush();
+	IRStream->flush();
 
 	// Create output buffer
 	char*	pOutBuff = NULL;
