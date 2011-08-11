@@ -31,6 +31,7 @@
 #include <Logger.h>
 #include "cl_object.h"
 #include "queue_event.h"
+#include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -86,6 +87,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		FissionableDevice*	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
 		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
 
+        // Create a custom tracker in GAP that correspond to the OCL queue
+        cl_err_code GPA_InitializeQueue();
+        ocl_gpa_queue * GPA_GetQueue() { return m_pOclGpaQueue; }
+        cl_err_code GPA_ReleaseQueue();
+
 	protected:
 		virtual         ~OclCommandQueue();
 
@@ -97,6 +103,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_bool             m_bProfilingEnabled;
 		cl_bool             m_bOutOfOrderEnabled;
 		cl_dev_cmd_list     m_clDevCmdListId;
+
+        ocl_gpa_queue*      m_pOclGpaQueue;
 
 	};
 }}}    // Intel::OpenCL::Framework

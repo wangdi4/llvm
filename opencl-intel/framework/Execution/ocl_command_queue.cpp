@@ -200,5 +200,31 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 
  cl_int OclCommandQueue::GetContextId() const
  { 
-	 return m_pContext->GetId();       
+	 return m_pContext->GetId();      
  }   
+
+ cl_err_code OclCommandQueue::GPA_InitializeQueue()
+ {
+    m_pOclGpaQueue = new ocl_gpa_queue();
+    if (NULL == m_pOclGpaQueue)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+#if defined(USE_GPA_42)
+    m_pOclGpaQueue->m_pStrHndl = m_bOutOfOrderEnabled ?
+    __itt_string_handle_create(L"Out Of Order Queue (CPU)") :
+    __itt_string_handle_create(L"In Order Queue (CPU)");
+
+    m_pOclGpaQueue->m_pTrackGroup = __itt_track_group_create(m_pOclGpaQueue->m_pStrHndl);
+
+    m_pOclGpaQueue->m_pTrack = __itt_track_create(m_pOclGpaQueue->m_pTrackGroup, m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
+
+    __itt_set_track(m_pOclGpaQueue->m_pTrack);
+#endif
+    return CL_SUCCESS;
+ }
+ cl_err_code OclCommandQueue::GPA_ReleaseQueue()
+ {
+     delete m_pOclGpaQueue;
+     return CL_SUCCESS;
+ }

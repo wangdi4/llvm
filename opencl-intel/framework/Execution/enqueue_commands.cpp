@@ -123,6 +123,8 @@ Command::Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPo
 	assert(m_pCommandQueue);
 	m_pCommandQueue->AddPendency();
 	m_pDevice = m_pCommandQueue->GetDefaultDevice();
+
+    m_pGpaCommand = NULL;
 	INIT_LOGGER_CLIENT(TEXT("Command Logger Client"),LL_DEBUG);
 }
 
@@ -176,6 +178,23 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 				__itt_task_end(pGPAData->pDomain);
 			}
 		}
+
+#if defined (USE_GPA_42)
+        // This is the first time we need to create a task
+        if (pGPAData->bEnableContextView)
+        {
+            // Initizliae GPA command's parameters
+            if (NULL != m_pGpaCommand)
+            {
+                m_pGpaCommand->m_waitCmdId = __itt_id_make(0, 0);
+            
+                __itt_id_create(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId);
+            
+                __itt_task_begin_overlapped(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId, __itt_null, m_pGpaCommand->m_strCmdWaitName);
+            }
+        }
+#endif
+
 #endif
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         m_Event.SetColor(EVENT_STATE_LIME);
@@ -204,6 +223,20 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 				__itt_task_end(pGPAData->pDomain);
 			}
 		}
+
+#if defined (USE_GPA_42)
+        if (pGPAData->bEnableContextView && NULL != m_pGpaCommand)
+        {
+            __itt_task_end_overlapped(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId);
+
+            m_pGpaCommand->m_runCmdId = __itt_id_make(0, 0);
+            
+            __itt_id_create(pGPAData->pDomain, m_pGpaCommand->m_runCmdId);
+            
+            __itt_task_begin_overlapped(pGPAData->pDomain, m_pGpaCommand->m_runCmdId, __itt_null, m_pGpaCommand->m_strCmdRunName);
+        }
+#endif
+        
 #endif
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
         m_Event.SetColor(EVENT_STATE_GREEN);
@@ -247,6 +280,15 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 				__itt_task_end(pGPAData->pDomain);
 			}
 		}
+
+#if defined (USE_GPA_42)
+         //complete the running task on the context view
+        if (pGPAData->bEnableContextView && (NULL != m_pGpaCommand))
+        {
+            __itt_task_end_overlapped(pGPAData->pDomain, m_pGpaCommand->m_runCmdId);
+        }
+#endif
+
 #endif
 		m_Event.RemovePendency();
 		break;
@@ -1591,6 +1633,24 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 }
 
 
+/******************************************************************
+ *
+ ******************************************************************/
+void NDRangeKernelCommand::GPA_InitCommand()
+{ 
+#if defined (USE_GPA_42)
+    
+    m_pGpaCommand = NULL;
+    m_pGpaCommand = new ocl_gpa_command();
+    
+    if (NULL != m_pGpaCommand)
+    {
+        // In NDRangeKernelCommand, the GPA command name will be the kernel name
+        m_pGpaCommand->m_strCmdWaitName = __itt_string_handle_createA(GetKernelName());
+        m_pGpaCommand->m_strCmdRunName = __itt_string_handle_createA(GetKernelName());
+    }
+#endif
+}
 /******************************************************************
  * Command: ReadBufferCommand
  * The functions below implement the Read Buffer functinoality

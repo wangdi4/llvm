@@ -157,6 +157,9 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 				// TODO: guard ObjMap... better doing so inside the map        
 				m_pOclCommandQueueMap->AddObject((OCLObject<_cl_command_queue_int>*)pCommandQueue);
 				iQueueID = pCommandQueue->GetHandle();
+                
+                // this is the first place where we are sure that the commmand queue was created
+                errVal = pCommandQueue->GPA_InitializeQueue();
 			}
 			else
 			{
@@ -169,6 +172,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 		}
     }
     if (pErrRet) *pErrRet = errVal;
+
     return iQueueID;
 }
 

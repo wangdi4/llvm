@@ -34,6 +34,8 @@
 #include "observer.h"
 #include "Device.h"
 #include "queue_event.h"
+#include "kernel.h"
+#include <ocl_itt.h>
 #include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -118,6 +120,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
 
+        // GPA related functions
+        virtual ocl_gpa_command* GPA_GetCommand() { return m_pGpaCommand; }
+        virtual void GPA_InitCommand(){ }
+
     protected:
 		Command(const Command& O) : ICmdStatusChangedObserver(), m_Event(NULL, NULL) {}
 
@@ -136,6 +142,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec. 
 		cl_int                      m_iId;                      // The command's ID
 		cl_command_type				m_commandType;				// Command type
+
+        ocl_gpa_command*            m_pGpaCommand;
 
 		DECLARE_LOGGER_CLIENT;
     };
@@ -723,8 +731,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_command_type GetCommandType() const  { return CL_COMMAND_NDRANGE_KERNEL; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
         const char*             GetCommandName() const  { return "CL_COMMAND_NDRANGE_KERNEL"; }
+        const char*             GetKernelName() const { return m_pKernel->GetName(); }
 
 
+        virtual void            GPA_InitCommand();
     protected:         
 		cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
