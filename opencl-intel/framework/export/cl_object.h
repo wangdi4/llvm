@@ -114,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-		long AddPendency();
+		virtual long AddPendency();
 
 		/******************************************************************************************
 		* Function: 	RemovePendency    

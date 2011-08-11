@@ -239,8 +239,13 @@ cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
  ******************************************************************/
 cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue)
 {
-	cl_int ret = m_pOclCommandQueueMap->ReleaseObject((_cl_command_queue_int*)clCommandQueue);
-	if (0 != ret)
+	cl_err_code errCode = Flush(clCommandQueue);
+	if ( CL_FAILED(errCode) )
+	{
+		return errCode;
+	}
+	errCode = m_pOclCommandQueueMap->ReleaseObject((_cl_command_queue_int*)clCommandQueue);
+	if (0 != errCode)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
 	}
