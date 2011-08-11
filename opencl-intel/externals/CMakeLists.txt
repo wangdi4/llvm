@@ -1,5 +1,4 @@
 add_subdirectory( tbb )
-add_subdirectory( tal )
 
 # Backend + LLVM + Clang
 add_subdirectory(llvm_wrap )
