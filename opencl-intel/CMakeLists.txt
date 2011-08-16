@@ -14,9 +14,9 @@ include(FindSubversion)
 string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
 
 if (WIN32)
-    include( cmake_utils/CMake_windows_tools.txt )
+    include( cmake_utils/CMake_windows_tools.cmake )
 else ()
-    include( cmake_utils/CMake_linux_tools.txt )
+    include( cmake_utils/CMake_linux_tools.cmake )
 endif (WIN32)
 
 #PRINT_TOOLS()
