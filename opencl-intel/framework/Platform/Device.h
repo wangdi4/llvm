@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Froward declarations
     class IDeviceFissionObserver;
-	class FECompiler;
+	class FrontEndCompiler;
     class Device;
 
     /**********************************************************************************************
@@ -206,24 +206,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code CloseDeviceInstance();
 
         /******************************************************************************************
-		* Function: 	SetFECompiler
+		* Function: 	SetFrontEndCompiler
 		* Description:	Set the front-end compiler to the device
-		* Arguments:	pFECompiler [in]	pointer to the front-end compiler
+		* Arguments:	pFrontEndCompiler [in]	pointer to the front-end compiler
 		* Return value:	void
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		void SetFECompiler(FECompiler * pFECompiler) { m_pFECompiler = pFECompiler; }
+		void SetFrontEndCompiler(FrontEndCompiler * pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
 
 		/******************************************************************************************
-		* Function: 	GetFECompiler
+		* Function: 	GetFrontEndCompiler
 		* Description:	Get the front-end compiler of the device
 		* Arguments:	N/A
 		* Return value:	pointer to the front-end compiler (null if compiler not initialized)
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		const FECompiler * GetFECompiler(){ return m_pFECompiler; }
+		const FrontEndCompiler * GetFrontEndCompiler(){ return m_pFrontEndCompiler; }
 
 		IOCLDeviceAgent*	GetDeviceAgent() {return m_pDevice;}
 
@@ -246,6 +246,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         long Release() { return 1; }
         // Cannot retains root-level devices
         cl_err_code Retain() { return CL_SUCCESS; }
+		void Cleanup( bool bIsTerminate = false );
 
 	protected:
 		/******************************************************************************************
@@ -277,9 +278,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// class private members
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		Intel::OpenCL::Utils::OclDynamicLib		m_dlModule;
+		Intel::OpenCL::Utils::OclDynamicLib			m_dlModule;
 		// front-end compiler
-		FECompiler *						    m_pFECompiler;
+		FrontEndCompiler *						    m_pFrontEndCompiler;
 
         // Pointer to the device GetInfo function.
         fn_clDevGetDeviceInfo*	m_pFnClDevGetDeviceInfo;

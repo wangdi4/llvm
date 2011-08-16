@@ -43,10 +43,14 @@
 #include "CL\cl_d3d9.h"
 #endif
 
-#define USE_COMPILER
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+#if defined (_WIN32)
+#define OS_DLL_POST(fileName) ((fileName) + ".dll")
+#else
+#define OS_DLL_POST(fileName) ("lib" + (fileName) + ".so")
+#endif
 
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
@@ -98,99 +102,76 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 {
 	m_uiRootDevicesCount = (unsigned int)devices.size();
 
-	m_ppRootDevices = new Device * [m_uiRootDevicesCount];
+	m_ppRootDevices = new Device*[m_uiRootDevicesCount];
 	if (NULL == m_ppRootDevices)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-#if defined (_WIN32) || defined (USE_COMPILER)
-	cl_uint uiNumFECompilers = m_pFECompilers->Count();
-	assert(m_uiRootDevicesCount == uiNumFECompilers);
+//    m_mapFECompilers.GetObjects(uiNumFECompilers, ppFECompilers, NULL);
 
-    OCLObject<_cl_object>** ppFECompilers = new OCLObject<_cl_object>*[uiNumFECompilers];
-	if (!ppFECompilers)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-    m_pFECompilers->GetObjects(uiNumFECompilers, ppFECompilers, NULL);
-#endif
 	for(unsigned int ui=0; ui<m_uiRootDevicesCount; ++ui)
 	{
 		// create new device object
 		Device * pDevice = new Device();
 		if (!pDevice)
 		{
-#if defined (_WIN32) || defined (USE_COMPILER)
-			delete[] ppFECompilers;
-#endif
 			return CL_OUT_OF_HOST_MEMORY;
 		}
 
-		const string& strDevice = devices[ui];
+		string strDevice = OS_DLL_POST(devices[ui]);
 
 		cl_err_code clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
-
 		if (CL_FAILED(clErrRet))
 		{
-			pDevice->Release();
-#if defined (_WIN32) || defined (USE_COMPILER)
-			delete[] ppFECompilers;
-#endif
+			// We should use RemovePendency because Release() in not effect ref count
+			pDevice->RemovePendency();
+			LOG_ERROR(TEXT("InitDevice() failed with %d"), clErrRet);
 			return clErrRet;
 		}
 
 		// assign device in the objects map
-		m_pDevices->AddObject(pDevice);
+		m_mapDevices.AddObject(pDevice);
 		m_ppRootDevices[ui] = pDevice;
 
-		if (defaultDevice != "" && defaultDevice == strDevice)
+		// The Root device was created with floating pendency. For root level devices we need
+		// to remove the floating pendency.
+		pDevice->RemovePendency();
+
+		if (defaultDevice != "" && defaultDevice == devices[ui])
 		{
 			m_pDefaultDevice = pDevice;
 		}
-#if defined (_WIN32) || defined (USE_COMPILER)
-		FECompiler* pFECompiler = dynamic_cast<FECompiler*>(ppFECompilers[ui]);
-		pDevice->SetFECompiler(pFECompiler);
-#endif
 	}
 
-#if defined (_WIN32) || defined (USE_COMPILER)
-	delete[] ppFECompilers;
-#endif
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, const string& defaultCompiler)
+cl_err_code PlatformModule::InitFECompiler(Device* pRootDevice)
 {
-	assert(compilers.size() <= CL_MAX_INT32);
-	int numCompilers = (int)compilers.size();
-	for(int i=0; i<numCompilers; ++i)
+	const IOCLDeviceFECompilerDescription& pFEConfig = pRootDevice->GetDeviceAgent()->clDevGetFECompilerDecription();
+	string strModule = pFEConfig.clDevFEModuleName();
+	FrontEndCompiler * pFECompiler = new FrontEndCompiler();
+
+	if (!pFECompiler)
 	{
-		// create new front-end compiler object
-		FECompiler * pFECompiler = new FECompiler();
-		if (!pFECompiler)
-		{
-			return CL_OUT_OF_HOST_MEMORY;
-		}
-
-		const string& strCompiler = compilers[i];
-
-		cl_err_code clErrRet = pFECompiler->Initialize(strCompiler.c_str());
-		if (CL_FAILED(clErrRet))
-		{
-			pFECompiler->Release();
-			return clErrRet;
-		}
-		// assign compiler in the objects map
-		m_pFECompilers->AddObject((OCLObject<_cl_object>*)pFECompiler);
-		if (defaultCompiler != "" && defaultCompiler == strCompiler)
-		{
-			m_pDefaultFECompiler = pFECompiler;
-		}
+		return CL_OUT_OF_HOST_MEMORY;
 	}
+
+	cl_err_code clErrRet = pFECompiler->Initialize(OS_DLL_POST(strModule).c_str(),
+		pFEConfig.clDevFEDeviceInfo(), pFEConfig.clDevFEDeviceInfoSize() );
+	if (CL_FAILED(clErrRet))
+	{
+		pFECompiler->Release();
+		return clErrRet;
+	}
+
+	pRootDevice->SetFrontEndCompiler(pFECompiler);
+
+	// assign compiler in the objects map
+	m_mapFECompilers.AddObject((OCLObject<_cl_object>*)pFECompiler);
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,8 +179,7 @@ cl_err_code PlatformModule::InitFECompilers(const vector<string>& compilers, con
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::ReleaseFECompilers()
 {
-	m_pFECompilers->ReleaseAllObjects();
-	m_pDefaultFECompiler = NULL;
+	m_mapFECompilers.ReleaseAllObjects();
 	return CL_SUCCESS;
 }
 
@@ -215,41 +195,27 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	m_clPlatformIds[0]->dispatch = m_pOclEntryPoints;
 
 	// initialize devices
-	m_pDevices = new OCLObjectsMap<_cl_device_id_int>();
 	m_pDefaultDevice = NULL;
 
 	// initialize GPA data
 	m_pGPAData = pGPAData;
 
 	// get device agents dll names from configuration file
-	string strDefaultDevice;
+	string strDefaultDevice = pConfig->GetDefaultDevice();
 	vector<string> strDevices = pConfig->GetDevices(strDefaultDevice);
 	if (strDevices.size() == 0)
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
-	// initialise front-end compilers
-	m_pFECompilers = new OCLObjectsMap<_cl_object>();
-	m_pDefaultFECompiler = NULL;
-
-	// get front-end compilers dll names from configuration file
-	string strDefaultFeCompiler;
-	vector<string> strFeCompilers;
-#if defined (_WIN32) || defined (USE_COMPILER)
-	strFeCompilers = pConfig->GetFeCompilers(strDefaultFeCompiler);
-#endif
-	if (0 != strFeCompilers.size())
-	{
-	    cl_err_code clErr = InitFECompilers(strFeCompilers, strDefaultFeCompiler);
-	    if (CL_FAILED(clErr))
-	    {
-			LOG_CRITICAL(TEXT("%S"), TEXT("Failed to initialize front-end compilers"));
-		    //return clErr;
-	    }
-    }
+	// Initialize devices, included initialization of required FE compiler
 	cl_err_code clErr = InitDevices(strDevices, strDefaultDevice);
+	if (CL_FAILED(clErr))
+    {
+		LOG_CRITICAL(TEXT("%S"), TEXT("Failed to initialize devices compilers"));
+    }
 	return clErr;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,7 +229,7 @@ cl_err_code	PlatformModule::Release()
 	ReleaseFECompilers();
 
 	// release devices
-	m_pDevices->ReleaseAllObjects();
+	m_mapDevices.ReleaseAllObjects();
 	m_pDefaultDevice = NULL;
 
 	if (NULL != m_ppRootDevices)
@@ -436,8 +402,6 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	LOG_INFO(TEXT("Enter GetDeviceIDs (device_type=%d, num_entried=%d, pclDevices=%d, puiNumDevices=%d)"),
 		clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
 
-	assert (NULL != m_pDevices);
-
 	if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT)		&&
 		!(clDeviceType & CL_DEVICE_TYPE_CPU)			&&
 		!(clDeviceType & CL_DEVICE_TYPE_GPU)			&&
@@ -548,11 +512,6 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 									  void* pParamValue,
 									  size_t* pszParamValueSizeRet)
 {
-	if (NULL == m_pDevices)
-	{
-		return CL_ERR_INITILIZATION_FAILED;
-	}
-
 	// both param_value and param_value_size_ret are null pointers - in this case there is no
 	// meaning to do anything
 	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
@@ -573,7 +532,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		pValue = &(m_clPlatformIds[0]);
 		break;
 	default:
-		clErrRet = m_pDevices->GetOCLObject((_cl_device_id_int*)clDevice, (OCLObject<_cl_device_id_int>**)(&pDevice));
+		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice, (OCLObject<_cl_device_id_int>**)(&pDevice));
 		if (CL_FAILED(clErrRet))
 		{
 			return CL_INVALID_DEVICE;
@@ -604,12 +563,12 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppDevice)
 {
 	LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
-	assert( (NULL != ppDevice) && (NULL != m_pDevices) );
+	assert( (NULL != ppDevice) );
 
     FissionableDevice* temp = NULL;
     cl_err_code ret;
 	// get the device from the devices list
-	ret = m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)temp);
+	ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)temp);
     if (CL_SUCCESS != ret)
     {
         return CL_INVALID_DEVICE;
@@ -617,19 +576,14 @@ cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppD
     *ppDevice = temp->GetRootDevice();
     return CL_SUCCESS;
 }
+
 cl_err_code	PlatformModule::GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice)
 {
     LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
-    assert( (NULL != ppDevice) && (NULL != m_pDevices) );
+    assert( (NULL != ppDevice) );
 
     // get the device from the devices list
-    return m_pDevices->GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
-}
-
-
-FECompiler * PlatformModule::GetDefaultFECompiler()
-{
-	return m_pDefaultFECompiler;
+    return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -638,9 +592,9 @@ FECompiler * PlatformModule::GetDefaultFECompiler()
 cl_int PlatformModule::UnloadCompiler(void)
 {
 	Device * pDevice = NULL;
-	for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		cl_err_code clErr = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
+		cl_err_code clErr = m_mapDevices.GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
 		if (CL_SUCCEEDED(clErr) && (NULL != pDevice))
 		{
 			pDevice->GetDeviceAgent()->clDevUnloadCompiler();
@@ -691,9 +645,9 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 			return ret;
 		}
 		// Find appropriate device
-		for (cl_uint ui=0; ui<m_pDevices->Count(); ++ui)
+		for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 		{
-			ret = m_pDevices->GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
+			ret = m_mapDevices.GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
 			if (CL_SUCCEEDED(ret) && (NULL != pDevice))
 			{
 				pDevice->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &hDevGL, NULL);
@@ -741,7 +695,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     cl_err_code ret; 
     FissionableDevice* pParentDevice; 
     cl_uint numOutputDevices, numSubdevicesToCreate;
-    ret = m_pDevices->GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
+    ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
     if (CL_SUCCESS != ret)
     {
         return CL_INVALID_DEVICE;
@@ -756,7 +710,8 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     {
         if (NULL != out_devices)
         {
-            return CL_INVALID_VALUE;
+            return CL_INVALID_VALUE;
+
         }
     }
     if (NULL == pParentDevice->GetDeviceAgent())
@@ -869,12 +824,16 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     pParentDevice->NotifyDeviceFissioned(numSubdevicesToCreate, pNewDevices);
     delete[] pNewDevices;
     
+	// No we can close Root device instance
+	pParentDevice->GetRootDevice()->CloseDeviceInstance();
+
     return CL_SUCCESS;
 }
+
 cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 {
     cl_err_code ret = CL_SUCCESS;
-    ret = m_pDevices->ReleaseObject((_cl_device_id_int *)device);
+    ret = m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
     if (CL_ERR_KEY_NOT_FOUND == ret)
     {
         return CL_INVALID_DEVICE;
@@ -885,7 +844,7 @@ cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
     FissionableDevice* pDevice;
     cl_err_code ret = CL_SUCCESS;
-    ret = m_pDevices->GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
+    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
     if (CL_ERR_KEY_NOT_FOUND == ret)
     {
         return CL_INVALID_DEVICE;
@@ -897,7 +856,7 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
 {
     for (unsigned int i = 0; i < count; ++i)
     {
-        m_pDevices->AddObject(ppDevices[i]);
+        m_mapDevices.AddObject(ppDevices[i]);
     }
     return CL_SUCCESS;
 }

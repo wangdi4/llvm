@@ -37,13 +37,12 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-
-Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
+Device::Device() : m_iNextClientId(1), m_pDevice(NULL)
 {
 	// initialize logger client
 	INIT_LOGGER_CLIENT(L"Device", LL_DEBUG);
 	m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
-	m_pFECompiler = NULL;
+	m_pFrontEndCompiler = NULL;
 
 	LOG_DEBUG(TEXT("%S"), TEXT("Device constructor enter"));
 
@@ -52,12 +51,20 @@ Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 
 	m_hGLContext = 0;
 	m_hHDC = 0;
+
+	// We forbidden reference counting on the root device objects
+	// The Release() always return 1.
+	// So, no reference count on user side
+	m_uiRefCount = 0;
 }
 
 Device::~Device()
 {
 	LOG_DEBUG(TEXT("%S"), TEXT("Device destructor enter"));
+}
 
+void Device::Cleanup( bool bIsTerminate )
+{
 	// release logger clients
 	map<cl_int,LoggerClient*>::iterator it = m_mapDeviceLoggerClinets.begin();
 	while (it != m_mapDeviceLoggerClinets.end())
@@ -70,6 +77,7 @@ Device::~Device()
 		it++;
 	}
 	m_mapDeviceLoggerClinets.clear();
+
 	m_dlModule.Close();
 }
 
@@ -84,24 +92,14 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 		return CL_INVALID_VALUE;
 	}
 	size_t       szParamValueSize = 0;
-	cl_bool      bValue           = false;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
-    /* This is the minimum value for the FULL profile. We may change this in the future in order to
-       be aligned with GEN. */
-    size_t       devImageArrMaxSize = 2048;
     
     cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
 	void * pValue = NULL;
 
 	switch (param_name)
 	{
-	case CL_DEVICE_COMPILER_AVAILABLE:
-		szParamValueSize = sizeof(cl_bool);
-		bValue = (NULL == m_pFECompiler) ? false : true;
-		pValue = &bValue;
-		break;
-
 	case CL_GL_CONTEXT_KHR:
 		szParamValueSize = sizeof(cl_context_properties);
 		pValue = &m_hGLContext;
@@ -126,11 +124,6 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
         //szParamValueSize = sizeof(emptyList);
         szParamValueSize = 1;
         pValue           = &emptyList;
-        break;
-
-    case CL_DEVICE_IMAGE_ARRAY_MAX_SIZE:
-        szParamValueSize = sizeof(size_t);
-        pValue = &devImageArrMaxSize;
         break;
 
 	default:
@@ -198,12 +191,14 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 	m_pFnClDevGetDeviceInfo(CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
 
 	m_pFnClDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+
+	// Here we still don't have DeviceAgent instance intialized.
+	// We should wait for CreateContext or Device Fission to create Device Agent instance, potentially saves memory footprint on Atom machines
 	return CL_SUCCESS;
 }
 
 cl_err_code Device::CreateInstance()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("GetProcAddress(clDevCreateDeviceInstance)"));
 	fn_clDevCreateDeviceInstance *devCreateInstance;
 	if (0 == m_pDeviceRefCount)
 	{
@@ -244,9 +239,10 @@ cl_err_code Device::CloseDeviceInstance()
 	    m_pDevice->clDevCloseDevice();
 		m_pDevice = NULL;
 	}
-
+	assert(m_pDeviceRefCount>=0);
     return CL_SUCCESS;
 }
+
 cl_int Device::clLogCreateClient(cl_int device_id, const wchar_t* client_name, cl_int * client_id)
 {
 	if (NULL == client_id)
@@ -446,13 +442,13 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
         size_t partitionIndex = 1;
         while (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex])
         {
-            partitionSizes.push_back(props[partitionIndex++]);
+            partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
         if (NULL != sizes)
         {
             for (size_t i = 0; i < partitionSizes.size(); ++i)
             {
-                sizes[i] = partitionSizes[i];
+                sizes[i] = (size_t)partitionSizes[i];
             }
         }
         //If the user doesn't actually want fission, no reason to send it to the device, just return the size
@@ -465,7 +461,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
     }
     else if (CL_DEV_PARTITION_EQUALLY == partitionMode)
     {
-        size_t partitionSize = props[1];
+        size_t partitionSize = (size_t)props[1];
         if (CL_PROPERTIES_LIST_END_EXT != props[2])
         {
             return CL_INVALID_PROPERTY;
@@ -535,7 +531,7 @@ void FissionableDevice::NotifyDeviceFissioned(cl_uint numChildren, FissionableDe
 }
 
 SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints) : 
-m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits)
+m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
     m_pParentDevice->AddPendency();
@@ -548,6 +544,10 @@ m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits)
 
 SubDevice::~SubDevice()
 {
+	if (NULL != m_cachedFissionMode)
+	{
+		delete []m_cachedFissionMode;
+	}
     IOCLDeviceAgent* pRoot = GetDeviceAgent();
     if (NULL != pRoot)
     {

@@ -50,14 +50,13 @@
 #include "llvm/Target/TargetSelect.h"
 #include "llvm/System/Threading.h"
 
-#include "Logger.h"
 #include "clang_driver.h"
-#include "clang_compiler.h"
-#include "frontend_api.h"
-#include "cl_sys_info.h"
-#include "cl_cpu_detect.h"
-#include "cl_types.h"
-#include "cl_sys_defines.h"
+
+#include <Logger.h>
+#include <cl_sys_info.h>
+#include <cl_cpu_detect.h>
+//#include "cl_types.h"
+//#include "cl_sys_defines.h"
 
 #include <string>
 #include <list>
@@ -79,15 +78,11 @@ using namespace std;
 #endif
 
 #define MAX_STR_BUFF	1024
-#define __DOUBLE_ENABLED__
-
-// We put it here, because just here all the required macros are defined.
-#include "ocl_supported_extensions.h"
 
 // Declare logger client
 DECLARE_LOGGER_CLIENT;
 
-OclMutex CompileTask::s_serializingMutex;
+OclMutex ClangFECompilerBuildTask::s_serializingMutex;
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   Diagnostic &Diags = *static_cast<Diagnostic*>(UserData);
@@ -98,33 +93,24 @@ void LLVMErrorHandler(void *UserData, const std::string &Message) {
   exit(1);
 }
 
-int Intel::OpenCL::ClangFE::InitClangDriver()
+// ClangFECompilerBuildTask calls implementation
+ClangFECompilerBuildTask::ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions)
+: m_pSource(pSources), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
-	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
-
-	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
-	
-	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
-
-	llvm::InitializeAllTargets();
-	llvm::InitializeAllAsmPrinters();
-	llvm::InitializeAllAsmParsers();
-
-	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
-	return 0;
 }
 
-int Intel::OpenCL::ClangFE::CloseClangDriver()
+ClangFECompilerBuildTask::~ClangFECompilerBuildTask()
 {
-	llvm::llvm_shutdown();
+	if ( NULL != m_pOutIR )
+	{
+		delete []m_pOutIR;
+	}
 
-	LOG_INFO(TEXT("%s"), TEXT("Close ClangCompiler - done"));
-
-	RELEASE_LOGGER_CLIENT;
-
-	return 0;
+	if ( NULL != m_pLogString )
+	{
+		delete []m_pLogString;
+	}
 }
-
 
 // Tokenize a string into tokens separated by any char in 'delims'. 
 // Support quoting to allow some tokens to contain delimiters, with possible
@@ -219,8 +205,7 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
     return ret;
 }
 
-
-void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
+void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
 {
 	// Reset options
 	OptDebugInfo = false;
@@ -396,7 +381,7 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 	list.push_back("__IMAGE_SUPPORT__=1");	
 
 	// Add extension defines
-	std::string extStr = OCL_SUPPORTED_EXTENSIONS;
+	std::string extStr = m_pszDeviceExtensions;
 	while(extStr != "")
 	{
         std::string subExtStr;
@@ -427,16 +412,16 @@ void CompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, c
 #endif
 }
 
-void CompileTask::Execute()
+int ClangFECompilerBuildTask::Build()
 {
-	LOG_INFO(TEXT("%s"), TEXT("CompileTask::Execute() - Started"));
+	LOG_INFO(TEXT("%s"), TEXT("enter"));
 
 	OclAutoMutex CS(&s_serializingMutex);
 
 	ArgListType ArgList;
 	ArgListType IgnoredArgs;
 
-	PrepareArgumentList(ArgList, IgnoredArgs, m_pTask->pszOptions);
+	PrepareArgumentList(ArgList, IgnoredArgs, m_pSource->pszOptions);
 
 	const char **argArray = new const char *[ArgList.size()];
 	ArgListType::iterator iter = ArgList.begin();
@@ -475,10 +460,9 @@ void CompileTask::Execute()
 	Clang->createDiagnostics((int)ArgList.size(), const_cast<char**>(argArray));
 	if (!Clang->hasDiagnostics())
 	{
-		LOG_ERROR(TEXT("CompileTask::Execute() - Failed to create diagnostics"), "");
-		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
+		LOG_ERROR(TEXT("Failed to create diagnostics"), "");
 		delete []argArray;
-		return;
+		return CL_OUT_OF_HOST_MEMORY;
 	}
 
 	// don't write anything on the screen
@@ -492,31 +476,7 @@ void CompileTask::Execute()
 
 	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
-	size_t stTotalSize = 0;
-	for(unsigned int i=0; i<m_pTask->uiLineCount; ++i)
-	{
-		stTotalSize += m_pTask->pLengths[i];
-	}
-
-	// Prepare input buffer
-	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getNewUninitMemBuffer(
-        stTotalSize, m_source_filename);
-	if ( NULL == SB )
-	{
-		LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to create buffer"));
-		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
-		delete []argArray;
-		return;
-	}
-	// Copy sources to the new buffer
-	char*	pBegin = (char*)SB->getBufferStart();
-	for(unsigned int i=0; i<m_pTask->uiLineCount; ++i)
-	{
-		MEMCPY_S(pBegin, stTotalSize, m_pTask->ppsLineArray[i], m_pTask->pLengths[i]);
-		stTotalSize -= m_pTask->pLengths[i];
-		pBegin += m_pTask->pLengths[i];
-	}
-
+	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(m_pSource->pInput, "input buffer");
 	Clang->SetInputBuffer(SB);
 
 	//prepare output buffer
@@ -578,9 +538,9 @@ void CompileTask::Execute()
 	bool Success;
 	try {
 		Success = ExecuteCompilerInvocation(Clang.get());
-	} catch (const std::exception&) {
+	} catch (const std::exception& e) {
 		Success = false;
-		LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
+		LOG_ERROR(TEXT("Caught an exception during compilation %s"), e.what());
 	}
 
 	// Our error handler depends on the Diagnostics object, which we're
@@ -592,26 +552,20 @@ void CompileTask::Execute()
 
 	IRStream->flush();
 
-	// Create output buffer
-	char*	pOutBuff = NULL;
-	// Create Log buffer
-	char*	pLogBuff = NULL;
-
 	errStream.flush();
 	if ( !Log.empty() )
 	{
-		pLogBuff = new char[Log.size()+1];
-		if ( pLogBuff != NULL )
+		m_pLogString = new char[Log.size()+1];
+		if ( m_pLogString != NULL )
 		{
-			MEMCPY_S(pLogBuff, Log.size(), Log.begin(), Log.size());
-			pLogBuff[Log.size()] = '\0';
+			MEMCPY_S(m_pLogString, Log.size(), Log.begin(), Log.size());
+			m_pLogString[Log.size()] = '\0';
 		}
 	}
 	
 	if (!Success)
 	{
-		m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_BUILD_PROGRAM_FAILURE, pLogBuff);
-		return;
+		return CL_BUILD_PROGRAM_FAILURE;
 	}
 
 	size_t	stTotSize = 0;
@@ -619,19 +573,19 @@ void CompileTask::Execute()
 	{
 		stTotSize = IRbinary.size()+
 			sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
-		pOutBuff = new char[stTotSize];
-		if ( NULL == pOutBuff )
+		m_pOutIR = new char[stTotSize];
+		if ( NULL == m_pOutIR )
 		{
-			LOG_ERROR(TEXT("%s"), TEXT("CompileTask::Execute() - Failed to allocate memory for buffer"));
-			m_pTask->pCallBack(m_pTask->pData, NULL, 0, CL_OUT_OF_HOST_MEMORY, NULL);
+			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
 			delete []argArray;
-			return;
+			return CL_OUT_OF_HOST_MEMORY;
 		}
 	}
 
-	if ( NULL != pOutBuff )
+	if ( NULL != m_pOutIR )
 	{
-		cl_prog_container_header*	pHeader = (cl_prog_container_header*)pOutBuff;
+		m_stOutIRSize = stTotSize;
+		cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
 		memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
 		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
 		pHeader->container_type = CL_PROG_CNT_PRIVATE;
@@ -639,7 +593,7 @@ void CompileTask::Execute()
 		pHeader->description.bin_ver_major = 1;
 		pHeader->description.bin_ver_minor = 1;
 		// Fill options
-		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(pOutBuff+sizeof(cl_prog_container_header));
+		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
 		pProgHeader->bDebugInfo = OptDebugInfo;
 		pProgHeader->bDisableOpt = Opt_Disable;
 		pProgHeader->bDemorsAreZero = Denorms_Are_Zeros;
@@ -649,17 +603,11 @@ void CompileTask::Execute()
 		MEMCPY_S(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
 	}
 
-	LOG_INFO(TEXT("%s"), TEXT("CompileTask::Execute() - Finished"));
-	m_pTask->pCallBack(m_pTask->pData, pOutBuff, stTotSize, CL_SUCCESS, pLogBuff);
-	// Release log and binary
-	if ( NULL != pLogBuff )
-	{
-		delete []pLogBuff;
-	}
-	delete []pOutBuff;
 	IRbinary.clear();
+	LOG_INFO(TEXT("%s"), TEXT("Finished"));
+
 	delete []argArray;
 
-	return;
+	return CL_SUCCESS;
 }
 

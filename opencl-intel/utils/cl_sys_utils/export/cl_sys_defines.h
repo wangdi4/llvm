@@ -56,6 +56,9 @@
 #define MAX(a, b) max(a, b)
 #define MIN(a, b) min(a, b)
 
+#define STRDUP(X) (_strdup(X))
+#define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
+
 #else //LINUX
 
 #define CL_MAX_INT32 INT_MAX
@@ -99,6 +102,14 @@ typedef int errno_t;
 
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 #define MIN(a, b)  (((a) > (b)) ? (b) : (a))
+
+#define STRDUP(X) (strdup(X))
+
+#if defined (__INTEL_COMPILER)
+	#define CPUID(cpu_info, type) __cpuid(cpu_info, type)
+#else
+	#define CPUID(cpu_info, type) cpuid(cpu_info, type)
+#endif
 
 #endif
 

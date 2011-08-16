@@ -47,7 +47,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class IFrontendBuildDoneObserver
 	{
 	public:
-		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, void * pBinData, const char *pBuildLog) = 0;
+		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, const void * pBinData, const char *pBuildLog) = 0;
 
         virtual ~IFrontendBuildDoneObserver(){}; // Virtual D'tor
     };

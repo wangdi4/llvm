@@ -9,11 +9,9 @@ void __attribute__ ((destructor)) dll_fini(void);
 
 void dll_init(void)
 {
-    InitClangDriver();
 }
 
 void dll_fini(void)
 {
-    CloseClangDriver();
 }
 

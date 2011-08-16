@@ -52,8 +52,8 @@ public:
 	cl_dev_err_code GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp );
 	// Create/Release functions
 	cl_dev_err_code	CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
-							size_t	dim_count, const size_t* dim, void*	buffer_ptr, const size_t* pitch,
-							cl_dev_host_ptr_flags host_flags,
+							size_t	dim_count, const size_t* dim,
+							IOCLDevRTMemObjectService*	pRTMemObjService,
 							IOCLDevMemoryObject* *memObj );
 
 
@@ -76,12 +76,9 @@ public:
 		cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
 		const cl_image_format* pImgFormat, size_t elemSize,
 		size_t dimCount, const size_t* dim,
-		void* pBuffer, const size_t* pPitches,
-		cl_dev_host_ptr_flags hostFlags);
+		IOCLDevRTMemObjectService*	pRTMemObjService);
 
-	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
-		m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
-			m_nodeId(NULL), m_memFlags(0), m_hostPtrFlags(CL_DEV_HOST_PTR_NONE), m_pHostPtr(NULL) {}
+	~CPUDevMemoryObject();
 
 	cl_dev_err_code Init();
 
@@ -94,6 +91,11 @@ public:
 					const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
 protected:
+	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
+		m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
+			m_nodeId(NULL), m_memFlags(0), 
+			m_pRTMemObjService(NULL), m_pBackingStore(NULL), m_pHostPtr(NULL) {}
+
 	ClHeap					m_lclHeap;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
@@ -101,11 +103,12 @@ protected:
 	// Object Management
 	cl_dev_subdevice_id		m_nodeId;
 
-	cl_mem_obj_descriptor	m_objDecr;
-	cl_mem_flags			m_memFlags;
-	cl_dev_host_ptr_flags	m_hostPtrFlags;		
-	void*					m_pHostPtr;			// A pointer provided by the framework
-	size_t					m_hostPitch[MAX_WORK_DIM-1];
+	cl_mem_obj_descriptor		m_objDecr;
+	cl_mem_flags				m_memFlags;
+	IOCLDevRTMemObjectService*	m_pRTMemObjService;
+	IOCLDevBackingStore*		m_pBackingStore;
+	void*						m_pHostPtr;			// A pointer provided by the framework
+	size_t						m_hostPitch[MAX_WORK_DIM-1];
 
 };
 
@@ -119,4 +122,27 @@ public:
 protected:
 	CPUDevMemoryObject* m_pParent;
 };
+
+class CPUDevBackingStore : public IOCLDevBackingStore
+{
+public:
+	CPUDevBackingStore(void* ptr, const size_t pitch[]);
+	void* GetRawData() const {return m_ptr;}
+	cl_dev_bs_description GetRawDataDecription() const {return CL_DEV_BS_RT_ALLOCATED;}
+	bool IsDataValid() const { return true;}
+	size_t GetDimCount() const {return 0;}
+	const size_t* GetDimentions() const {return NULL;}
+	const size_t* GetPitch() const {return m_pitch;}
+
+	int AddPendency();
+	int RemovePendency();
+
+protected:
+	virtual ~CPUDevBackingStore() {};
+
+	void*			m_ptr;
+	size_t			m_pitch[MAX_WORK_DIM-1];
+	AtomicCounter	m_refCount;
+};
+
 }}}

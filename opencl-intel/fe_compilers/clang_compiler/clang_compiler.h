@@ -7,3 +7,31 @@
 
 #pragma once
 
+#include <cl_synch_objects.h>
+#include <frontend_api.h>
+
+
+namespace Intel { namespace OpenCL { namespace ClangFE {
+
+	class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
+	{
+	public:
+		ClangFECompiler(const char* pszDeviceExtensions);
+
+		// IOCLFECompiler
+		int BuildProgram(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pProgDesc,
+									Intel::OpenCL::FECompilerAPI::IOCLFEBuildProgramResult* *pBuildResult);
+		void Release()
+		{
+			delete this;
+		}
+	protected:
+		~ClangFECompiler();
+
+		char*	m_pszDeviceExtensions; // A string for device supported extensions
+
+		// Static members
+		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;
+	};
+
+}}}

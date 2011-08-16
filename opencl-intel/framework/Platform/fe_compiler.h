@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			March 2008
 	**********************************************************************************************/
-	class FECompiler : public OCLObject<_cl_object>
+	class FrontEndCompiler : public OCLObject<_cl_object>
 	{
 	
 	public:
@@ -54,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/
-		FECompiler();
+		FrontEndCompiler();
 
 		/******************************************************************************************
 		* Function: 	Initialize    
@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/		
-		cl_err_code		Initialize(const char * psModuleName);
+		cl_err_code		Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize);
 
 		/******************************************************************************************
 		* Function: 	FreeResources    
@@ -112,15 +112,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/
-		virtual ~FECompiler();
+		virtual ~FrontEndCompiler();
 	
-	private:
 		Utils::OclDynamicLib		m_dlModule;
+		Intel::OpenCL::FECompilerAPI::fnCreateFECompilerInstance*	m_pfnCreateInstance;
+
 		// module name
 		const char *				m_pszModuleName;
-		fn_FEBuildProgram	*		m_fnBuild;
 
-		static void BuildNotifyCallBack(void* pData, void* pBuffer, size_t stBufferSize, int iStatus, const char* szErrLog);
+		Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pFECompiler;
 
 		DECLARE_LOGGER_CLIENT;
 	};

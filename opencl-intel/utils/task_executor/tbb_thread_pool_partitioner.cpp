@@ -67,7 +67,6 @@ TBBThreadPoolPartitioner::TBBThreadPoolPartitioner(int numThreads)
 
 TBBThreadPoolPartitioner::~TBBThreadPoolPartitioner()
 {
-    Deactivate();
     delete m_observer;
 }
 

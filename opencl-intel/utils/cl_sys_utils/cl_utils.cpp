@@ -39,12 +39,12 @@
 
     void clSetThreadAffinityMask(affinityMask_t* mask)
     {
-        SetThreadAffinityMask(GetCurrentThread(), *mask);
+        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)*mask);
     }
     void clResetThreadAffinityMask()
     {
         static const unsigned long long allMask = (const unsigned long long)-1;
-        SetThreadAffinityMask(GetCurrentThread(), allMask);
+        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)allMask);
     }
 #else
 	#include <unistd.h>

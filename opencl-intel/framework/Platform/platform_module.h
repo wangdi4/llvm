@@ -28,9 +28,10 @@
 
 #include "cl_framework.h"
 #include "cl_synch_objects.h"
-#include <Logger.h>
 #include "iplatform.h"
 #include "ocl_itt.h"
+#include "cl_objects_map.h"
+#include <Logger.h>
 #include <vector>
 #if defined (DX9_SHARING)
 #include "CL\cl_d3d9.h"
@@ -46,7 +47,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Device;
     class FissionableDevice;
 	class OCLConfig;
-	class FECompiler;
+	class FrontEndCompiler;
 
 	/**********************************************************************************************
 	* Class name:	PlatformModule
@@ -131,9 +132,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ******************************************************************************************/
 		ocl_gpa_data * GetGPAData() const { return m_pGPAData; }
 
-		// get default front-end compiler
-		virtual FECompiler * GetDefaultFECompiler();
-
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IPlatform methods
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -158,6 +156,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code clRetainDevice(cl_device_id device);
 
+		/******************************************************************************************
+		* Function: 	InitFECompiler
+		* Description:	Load OpenCL front-end compiler for the specific device.
+		* Arguments:	pRootDevice - a pointer to device for which FE should be initialized
+		* Return value:	CL_SUCCESS - The initializtion operation succeded
+		*				CL_ERR_FE_COMPILER_INIT_FAIL - one or more devices falied to initialize
+		* Author:		Uri Levy
+		* Date:			March 2008
+		******************************************************************************************/
+		cl_err_code InitFECompiler(Device* pRootDevice);
 
 
 	private:
@@ -177,19 +185,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code InitDevices(const std::vector<std::string>& devices, const std::string& defaultDevice);
 
-		/******************************************************************************************
-		* Function: 	InitFECompilers
-		* Description:	Load OpenCL front-end compilers and initialize them. all fe compilers dll's 
-		*				must be located in the same folder as the framework dll
-		* Arguments:	vector<string> compilers -	list of fron-end compilers dll names
-		*				string defaultCompiler -	name of default front-end compiler's dll name
-		* Return value:	CL_SUCCESS - The initializtion operation succeded
-		*				CL_ERR_FE_COMPILER_INIT_FAIL - one or more devices falied to initialize
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/
-		cl_err_code InitFECompilers(const std::vector<std::string>& compilers, const std::string& defaultCompiler);
-
 		cl_err_code ReleaseFECompilers();
 
 		bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform==m_clPlatformIds[0]) ||
@@ -200,7 +195,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_platform_id	m_clPlatformIds[2];
 		
 		// map list of all devices
-		OCLObjectsMap<_cl_device_id_int> * m_pDevices;
+		OCLObjectsMap<_cl_device_id_int> m_mapDevices;
 
         // A list of root-level devices only. This list is static throughout the module's existence
 		Device **		m_ppRootDevices;
@@ -210,10 +205,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Device * m_pDefaultDevice;
 
 		// map list of all front-end compilers
-		OCLObjectsMap<_cl_object> * m_pFECompilers;
-
-		// default front-end compiler
-		FECompiler * m_pDefaultFECompiler;
+		OCLObjectsMap<_cl_object>	m_mapFECompilers;
 
         // A mutex to prevent concurrent calls to clCreateSubDevices
         Intel::OpenCL::Utils::OclMutex m_deviceFissionMutex;

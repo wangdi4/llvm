@@ -85,6 +85,7 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 		return CL_INVALID_VALUE;
 	}
+
 	size_t szParamValueSize = 0;
 
 	size_t uiParam = 0;

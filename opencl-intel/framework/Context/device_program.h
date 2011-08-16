@@ -100,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void Unacquire() { m_currentAccesses--; }
 
 		//observer interfaces
-		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, void * pBinData, const char *pBuildLog);
+		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, const void * pBinData, const char *pBuildLog);
 		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
 
 

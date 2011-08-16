@@ -4,10 +4,13 @@
 #include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
-#include "Logger.h"
-#include "cl_sys_defines.h"
 
+#include <Logger.h>
+#include <cl_sys_defines.h>
 #include <cl_device_api.h>
+
+#include <llvm/Target/TargetSelect.h>
+#include <llvm/Support/ManagedStatic.h>
 
 #if defined (_WIN32)
 #include<windows.h>
@@ -54,17 +57,93 @@ using namespace Intel::OpenCL::Utils;
 #define DLL_EXPORT
 #endif
 
+using namespace Intel::OpenCL::FECompilerAPI;
+
 extern DECLARE_LOGGER_CLIENT;
 
-extern "C" DLL_EXPORT	int	clFEBuildProgram(FEBuildProgramDesc* pDesc)
+int InitClangDriver()
 {
-	LOG_INFO(TEXT("%S"), TEXT("Enter"));
+	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
 
-	ITask* pTask = new CompileTask(pDesc);
-	if ( NULL == pTask )
-		return (int) CL_DEV_OUT_OF_MEMORY;
+	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
+	
+	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
 
-	GetTaskExecutor()->Execute(pTask);
-	LOG_INFO(TEXT("%S"), TEXT("Exit"));
+	llvm::InitializeAllTargets();
+	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllAsmParsers();
+
+	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
+	return 0;
+}
+
+int CloseClangDriver()
+{
+	llvm::llvm_shutdown();
+
+	LOG_INFO(TEXT("%s"), TEXT("Close ClangCompiler - done"));
+
+	RELEASE_LOGGER_CLIENT;
+
+	return 0;
+}
+
+Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_llvmReferenceCount(0);
+
+// ClangFECompiler class implementation
+ClangFECompiler::ClangFECompiler(const char* pszDeviceExtensions)
+{
+	long prev = s_llvmReferenceCount++;
+	if ( 0 == prev )
+	{
+		InitClangDriver();
+	}
+
+	m_pszDeviceExtensions = STRDUP(pszDeviceExtensions);
+}
+
+ClangFECompiler::~ClangFECompiler()
+{
+	if ( NULL != m_pszDeviceExtensions )
+	{
+		free(m_pszDeviceExtensions);
+	}
+	long prev = s_llvmReferenceCount--;
+	if ( 1 == prev )
+	{
+		CloseClangDriver();
+	}
+}
+
+int ClangFECompiler::BuildProgram(FEBuildProgramDescriptor* pProgDesc, IOCLFEBuildProgramResult* *pBuildResult)
+{
+	assert(NULL != pProgDesc);
+	assert(NULL != pBuildResult);
+
+	// Create new build task
+	ClangFECompilerBuildTask* pNewBuild = new ClangFECompilerBuildTask(pProgDesc, m_pszDeviceExtensions);
+	if ( NULL == pNewBuild )
+	{
+		*pBuildResult = NULL;
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+	cl_err_code ret = pNewBuild->Build();
+	*pBuildResult = pNewBuild;
+	return ret;
+}
+
+extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
+{
+	assert(NULL != pFECompiler);
+
+	IOCLFECompiler* pNewCompiler = new ClangFECompiler((const char*)pDeviceInfo);
+	if ( NULL == pNewCompiler )
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("Cann't allocate compiler instance"));
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	
+	*pFECompiler = pNewCompiler;
 	return CL_SUCCESS;
 }

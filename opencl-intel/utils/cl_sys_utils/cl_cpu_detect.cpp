@@ -36,18 +36,6 @@
 #include "hw_utils.h"
 #endif
 
-#if defined( _WIN32 )
-	#define STRDUP(X) (_strdup(X))
-	#define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
-#else
-	#define STRDUP(X) (strdup(X))
-#if defined (__INTEL_COMPILER)
-	#define CPUID(cpu_info, type) __cpuid(cpu_info, type)
-#else
-	#define CPUID(cpu_info, type) cpuid(cpu_info, type)
-#endif
-#endif
-
 using namespace Intel::OpenCL::Utils;
 
 static const char* CPU_STRING = "GenuineIntel";

@@ -28,73 +28,105 @@
 #include "fe_compiler.h"
 #include "observer.h"
 
+#include <cl_sys_defines.h>
+#include <task_executor.h>
+
 #if !defined(_WIN32)
 #include <malloc.h>
 #endif
 
-#if defined (_WIN32)
-#define STRDUP(src) (_strdup(src))
-#else
-#define STRDUP(src) (strdup(src))
-#endif
-
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL::TaskExecutor;
 
-struct FECompileTask
+struct FECompileTask : public ITask
 {
 	cl_device_id					devId;
-	FEBuildProgramDesc*				pBuildDesc;
+	FEBuildProgramDescriptor		BuildDesc;
 	IFrontendBuildDoneObserver *	pFEObserver;
-	LoggerClient *					pLoggerClient;
+	LoggerClient *					m_pLoggerClient;
+	IOCLFECompiler*					pFECompiler;
+
+	void	Execute()
+	{
+		IOCLFEBuildProgramResult*	pResult;
+		int err = pFECompiler->BuildProgram(&BuildDesc, &pResult);
+		if ( 0 != err )
+		{
+			LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
+		}
+		pFEObserver->NotifyFEBuildDone(devId, pResult->GetIRSize(), pResult->GetIR(), pResult->GetErrorLog());
+		pResult->Release();
+	};
+
+	void	Release()
+	{
+		delete []BuildDesc.pInput;
+		delete this;
+	}
 };
 
-FECompiler::FECompiler() : m_pszModuleName(NULL), m_fnBuild(NULL), m_pLoggerClient(NULL)
+FrontEndCompiler::FrontEndCompiler() : m_pszModuleName(NULL), m_pFECompiler(NULL), m_pLoggerClient(NULL)
 {
 }
 
-FECompiler::~FECompiler()
+FrontEndCompiler::~FrontEndCompiler()
 {
 	FreeResources();
 }
 
-cl_err_code FECompiler::Initialize(const char * psModuleName)
+cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize)
 {
 	FreeResources();
 
-	INIT_LOGGER_CLIENT(L"FECompiler", LL_DEBUG);
+	INIT_LOGGER_CLIENT(L"FrontEndCompiler", LL_DEBUG);
 
 	if ( !m_dlModule.Load(psModuleName) )
 	{
+		LOG_ERROR(TEXT("Can't find compiler module %s)"), psModuleName);
+		return CL_COMPILER_NOT_AVAILABLE;
+	}
+
+	m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
+	if ( NULL == m_pfnCreateInstance )
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("Can't find entry function"));
 		return CL_COMPILER_NOT_AVAILABLE;
 	}
 
 	m_pszModuleName = STRDUP(psModuleName);
-	m_fnBuild = (fn_FEBuildProgram*)m_dlModule.GetFunctionPtrByName("clFEBuildProgram");
-	if ( NULL == m_fnBuild )
+
+	cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
+	if ( CL_FAILED(err) )
 	{
-		Release();
-		return CL_COMPILER_NOT_AVAILABLE;
+		LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
 	}
 
-	return CL_SUCCESS;
+	return err;
 }
 
-void FECompiler::FreeResources()
+void FrontEndCompiler::FreeResources()
 {
 	RELEASE_LOGGER_CLIENT;
+
+	if ( NULL != m_pFECompiler )
+	{
+		m_pFECompiler->Release();
+		m_pFECompiler = NULL;
+	}
 
 	if ( NULL != m_pszModuleName )
 	{
 		free((void*)m_pszModuleName);
 		m_pszModuleName = NULL;
 		m_dlModule.Close();
-		m_fnBuild = NULL;
+		m_pfnCreateInstance = NULL;
 	}
 }
 
-cl_err_code FECompiler::BuildProgram(	cl_device_id				devId,
-										cl_uint						uiStcStrCount,
+cl_err_code FrontEndCompiler::BuildProgram(	cl_device_id			devId,
+										cl_uint						uiStrCount,
 										const char **				ppcSrcStrArr,
 										size_t *					pszSrcStrLengths,
 										const char *				psOptions,
@@ -102,7 +134,7 @@ cl_err_code FECompiler::BuildProgram(	cl_device_id				devId,
 {
 	//cl_start;
 	LOG_DEBUG(TEXT("Enter BuildProgram(devId=%d, uiStcStrCount=%d, ppcSrcStrArr=%d, pszSrcStrLengths=%d, psOptions=%d, pBuildDoneObserver=%d)"),
-		devId, uiStcStrCount, ppcSrcStrArr, pszSrcStrLengths, psOptions, pBuildDoneObserver);
+		devId, uiStrCount, ppcSrcStrArr, pszSrcStrLengths, psOptions, pBuildDoneObserver);
 	
 	FECompileTask* pTask = new FECompileTask;
 	if ( NULL == pTask )
@@ -111,53 +143,48 @@ cl_err_code FECompiler::BuildProgram(	cl_device_id				devId,
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	FEBuildProgramDesc*	pBuildDesc = new FEBuildProgramDesc;
-	if ( NULL == pBuildDesc )
+	pTask->devId = devId;
+	pTask->pFEObserver = pBuildDoneObserver;
+	pTask->m_pLoggerClient = GET_LOGGER_CLIENT;
+	pTask->pFECompiler = m_pFECompiler;
+
+	// Fill build descriptor
+	pTask->BuildDesc.pszOptions = psOptions;
+
+	size_t stTotalSize = 0;
+	for(unsigned int i=0; i<uiStrCount; ++i)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("FEBuildProgramDesc*	pBuildDesc = new FEBuildProgramDesc"));
+		stTotalSize += pszSrcStrLengths[i];
+	}
+
+	// Prepare input buffer
+	pTask->BuildDesc.pInput = new char[stTotalSize+1];	// Allocate another symbol for '\0'
+	if ( NULL == pTask->BuildDesc.pInput )
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("NULL == pTask->BuildDesc.pInput"));
 		delete pTask;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	pTask->devId = devId;
-	pTask->pFEObserver = pBuildDoneObserver;
-	pTask->pLoggerClient = GET_LOGGER_CLIENT;
-	pTask->pBuildDesc = pBuildDesc;
-
-	// Fill build descriptor
-	pBuildDesc->uiLineCount = uiStcStrCount;
-	pBuildDesc->ppsLineArray = ppcSrcStrArr;
-	pBuildDesc->pLengths = pszSrcStrLengths;
-	pBuildDesc->pszOptions = psOptions;
-	pBuildDesc->pCallBack = BuildNotifyCallBack;
-	pBuildDesc->pData = pTask;
-
-	int iBuildRes = m_fnBuild(pBuildDesc);
-	if ( 0 != iBuildRes )
+	// Copy sources to the new buffer
+	char*	pBegin = (char*)pTask->BuildDesc.pInput;
+	for(unsigned int i=0; i<uiStrCount; ++i)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("0 != m_fnBuild(uiStcStrCount, ppcSrcStrArr, pszSrcStrLengths, psOptions, &BuildNotifyCallBack, pTask)"));
+		MEMCPY_S(pBegin, stTotalSize, ppcSrcStrArr[i], pszSrcStrLengths[i]);
+		stTotalSize -= pszSrcStrLengths[i];
+		pBegin += pszSrcStrLengths[i];
+	}
+	*pBegin = '\0';
+
+	unsigned int teErr =  TaskExecutor::GetTaskExecutor()->Execute(pTask);
+	if ( 0 != teErr )
+	{
+		LOG_ERROR(TEXT("%d == TaskExecutor::GetTaskExecutor()->Execute(pTask)"), teErr);
+		pTask->Release();
 		return CL_OUT_OF_RESOURCES;
 	}
 
 	LOG_DEBUG(TEXT("%S"), TEXT("BuildProgram succeeded!"));
 	//cl_return CL_SUCCESS;
 	return CL_SUCCESS;
-}
-
-void FECompiler::BuildNotifyCallBack(void* pData, void* pBuffer, size_t stBufferSize, int iStatus, const char* szErrLog)
-{
-	//cl_start;
-	FECompileTask* pTask = (FECompileTask*)pData;
-
-	//DbgLogA(pTask->pLoggerClient,
-	//	"Enter BuildNotifyCallBack (pData (void*)=%d, pBuffer (void*)=%d, stBufferSize (size_t)=%d, iStatus (int) = %d, szErrLog (const char*)=%s)", 
-	//	pData, pBuffer, stBufferSize, iStatus, szErrLog);
-
-	pTask->pFEObserver->NotifyFEBuildDone(pTask->devId, stBufferSize, pBuffer, szErrLog);
-
-	// Free memory objects
-	delete pTask->pBuildDesc;
-	delete pTask;
-	//cl_return;
-	return;
 }

@@ -59,6 +59,10 @@ SingleUnifiedMemObject::~SingleUnifiedMemObject()
 		m_pDeviceObject->clDevMemObjRelease();
 	}
 
+	if ( NULL != m_pBackingStore )
+	{
+		m_pBackingStore->RemovePendency();
+	}
 	RELEASE_LOGGER_CLIENT;
 }
 
@@ -71,12 +75,13 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 							   cl_mem_flags		clMemFlags,
 							   const cl_image_format*	pclImageFormat,
 							   unsigned int		dim_count,
-							   const size_t*		dimension,
-							   const size_t*       pitches,
+							   const size_t*	dimension,
+							   const size_t*    pitches,
 							   void*			pHostPtr
 							   )
 {
 	m_clFlags = clMemFlags;
+	m_pHostPtr = pHostPtr;
 
 	// assign default value
 	if ( !(m_clFlags & (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)) )
@@ -85,32 +90,30 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 	}
 
 	// save host ptr only if CL_MEM_USE_HOST_PTR is set
-	m_pHostPtr = NULL;
+	m_pBackingStore = NULL;
 
-	int devMemFlags = CL_DEV_HOST_PTR_NONE;
-
-	if (m_clFlags & CL_MEM_USE_HOST_PTR)
+	// Need to create Backing store
+	if (m_clFlags & CL_MEM_COPY_HOST_PTR)
+	{
+		m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, true, false);
+		if ( NULL == m_pBackingStore )
+		{
+			LOG_ERROR(TEXT("%S"), TEXT("Allocation of Backing Store failed"));
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+	}
+	else if (m_clFlags & CL_MEM_USE_HOST_PTR || (NULL !=pHostPtr) )
 	{
 		// in case that we're using host ptr we don't need to allocated memory for the buffer
 		// just use the host ptr instead
-		m_pHostPtr = pHostPtr;
-		devMemFlags = CL_DEV_HOST_PTR_USER_MAPPED_REGION;
-		if ( 0 == (clMemFlags & CL_MEM_WRITE_ONLY))
-			devMemFlags |= CL_DEV_HOST_PTR_DATA_AVAIL;
-	}
-	else if (m_clFlags & CL_MEM_COPY_HOST_PTR)
-	{
-		devMemFlags = CL_DEV_HOST_PTR_DATA_AVAIL;
+		m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, 0 == (clMemFlags & CL_MEM_WRITE_ONLY), true);
+		if ( NULL == m_pBackingStore )
+		{
+			LOG_ERROR(TEXT("%S"), TEXT("Allocation of Backing Store failed"));
+			return CL_OUT_OF_HOST_MEMORY;
+		}
 	}
 
-#if 0 // Create always the object, no need to wait for first command
-	// If not created with USE_HOST or COPY_HOST don't create the resource
-	if ( !((CL_DEV_HOST_PTR_DATA_AVAIL & devMemFlags) || (CL_DEV_HOST_PTR_MAPPED_REGION & devMemFlags)) )
-	{
-		return CL_SUCCESS;
-	}
-#endif
-	// If we have user pointed we need to create the resource now
 	// Pass only R/W values
 	clMemFlags &= (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY);
 
@@ -121,7 +124,7 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 	assert(numDev > 0 && "Context should have atleast one device");
 	// We assume we have only single device, for fission it's first
 	cl_dev_err_code devErr = pDevices[0]->GetDeviceAgent()->clDevCreateMemoryObject(pDevices[0]->GetSubdeviceId(),
-			clMemFlags, pclImageFormat, dim_count, dimension, pHostPtr, pitches, (cl_dev_host_ptr_flags)devMemFlags, &m_pDeviceObject);
+			clMemFlags, pclImageFormat, dim_count, dimension, this, &m_pDeviceObject);
 
 	if ( CL_DEV_FAILED(devErr) )
 	{
@@ -186,7 +189,7 @@ cl_err_code SingleUnifiedMemObject::CreateDeviceResource(FissionableDevice* pDev
 
 	cl_dev_err_code devErr;
 	devErr = pDevice->GetDeviceAgent()->clDevCreateMemoryObject(
-		subDevId, clMemFlags, pImgFormat, numDim, dim, NULL, pitch, CL_DEV_HOST_PTR_NONE, &m_pDeviceObject);
+		subDevId, clMemFlags, pImgFormat, numDim, dim, this, &m_pDeviceObject);
 
 	return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
@@ -220,4 +223,82 @@ cl_err_code	SingleUnifiedMemObject::MemObjReleaseDevMappedRegion(const Fissionab
 cl_err_code SingleUnifiedMemObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
 {
     return CL_SUCCESS;
+}
+
+// IOCLDevRTMemObjectService Methods
+cl_dev_err_code SingleUnifiedMemObject::GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS)
+{
+	assert(NULL!= ppBS);
+
+	if ( (CL_DEV_BS_GET_ALWAYS & flags) && (NULL == m_pBackingStore ) )
+	{
+		return CL_DEV_NOT_SUPPORTED;
+	}
+
+	*ppBS = m_pBackingStore;
+
+	return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code SingleUnifiedMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
+{
+	pBS->AddPendency();
+	IOCLDevBackingStore* pOldBS = m_pBackingStore.exchange(pBS);
+	if ( NULL != pOldBS )
+	{
+		pOldBS->RemovePendency();
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+size_t SingleUnifiedMemObject::GetDeviceAgentListSize() const
+{
+	// In this version we don't support this functionality
+	assert(0);
+	return 0;
+}
+
+const IOCLDeviceAgent* *SingleUnifiedMemObject::GetDeviceAgentList() const
+{
+	// In this version we don't support this functionality
+	assert(0);
+	return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////
+/// SingleUnifiedMemObjectBackingStore
+//////////////////////////////////////////////////////////////////////////
+SingleUnifiedMemObjectBackingStore::SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, bool isHostMapped) :
+	m_ptr(ptr), m_dataAvail(dataAvail), m_isHostMapped(isHostMapped)
+{
+	if ( NULL != pitch )
+	{
+		memcpy(m_pitch, pitch, sizeof(m_pitch));
+	}
+	else
+	{
+		memset(m_pitch, 0, sizeof(m_pitch));
+	}
+	m_refCount = 1;
+}
+
+SingleUnifiedMemObjectBackingStore::~SingleUnifiedMemObjectBackingStore()
+{
+	// Nothing to delete, pointer is always allocated by user/developer
+}
+
+int SingleUnifiedMemObjectBackingStore::AddPendency()
+{
+	return m_refCount++;
+}
+
+int SingleUnifiedMemObjectBackingStore::RemovePendency()
+{
+	long prevVal = m_refCount--;
+	if ( 1 == prevVal )
+	{
+		delete this;
+	}
+	return prevVal;
 }

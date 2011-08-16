@@ -24,40 +24,50 @@
 
 #pragma once
 
-#include "task_executor.h"
-#include "frontend_api.h"
-#include "cl_synch_objects.h"
+#include <frontend_api.h>
+#include <cl_synch_objects.h>
 
 #include <string>
 #include <list>
 
-using namespace Intel::OpenCL::TaskExecutor;
-
 namespace Intel { namespace OpenCL { namespace ClangFE {
-	// Internal routines used during library initialization/destroy
-	int InitClangDriver();
-	int CloseClangDriver();
 
-	typedef std::list<std::string> ArgListType;
-
-	class CompileTask : public ITask
+	class ClangFECompilerBuildTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBuildProgramResult
 	{
 	public:
-		CompileTask(FEBuildProgramDesc* pDesc): m_pTask(pDesc){};
-		void Execute();
-		void Release()
-		{
-			delete this;
-		}
+		typedef std::list<std::string> ArgListType;
+
+		ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions);
+
+		void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
+		
+		int Build();
+
+		// IOCLFEBuildProgramResult
+		size_t	GetIRSize() {return m_stOutIRSize;}
+		const void*	GetIR() { return m_pOutIR;}
+		const char* GetErrorLog() {return m_pLogString;}
+		// release result
+		void Release() { delete this;}
+
 	protected:
+		~ClangFECompilerBuildTask();
+		Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* m_pSource;
+		const char* m_pszDeviceExtensions;
+
 		bool OptDebugInfo;
 		bool Opt_Disable;
 		bool Denorms_Are_Zeros;
 		bool Fast_Relaxed_Math;
         std::string m_source_filename;
 
-		void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
-		FEBuildProgramDesc* m_pTask;
-		static Intel::OpenCL::Utils::OclMutex s_serializingMutex;
+		char*	m_pOutIR;				// Output IR
+		size_t	m_stOutIRSize;
+		char*	m_pLogString;			// Output log
+		size_t	m_stLogSize;
+
+
+		// Static members
+		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
 	};
 }}}

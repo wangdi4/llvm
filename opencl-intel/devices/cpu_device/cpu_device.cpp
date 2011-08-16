@@ -41,17 +41,6 @@
 #include "hw_utils.h"
 #endif
 
-#if defined( _WIN32 )
-    #define STRDUP(X) (_strdup(X))
-    #define CPUID(cpu_info, type) __cpuid(cpu_info, type)
-#else
-    #define STRDUP(X) (strdup(X))
-#if defined (__INTEL_COMPILER)
-    #define CPUID(cpu_info, type) __cpuid(cpu_info, type)
-#else
-    #define CPUID(cpu_info, type) cpuid(cpu_info, type)
-#endif
-#endif
 #define __DOUBLE_ENABLED__
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -1176,6 +1165,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             break;
 
+		case CL_DEVICE_IMAGE_ARRAY_MAX_SIZE:
+			*pinternalRetunedValueSize = sizeof(size_t);
+			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			//if OUT paramVal is NULL it should be ignored
+			if(NULL != paramVal)
+			{
+				*(size_t*)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
+			}
+			return CL_DEV_SUCCESS;
 
         default:
             return CL_DEV_INVALID_VALUE;
@@ -1513,11 +1514,10 @@ cl_dev_err_code CPUDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN 
     Call Memory Allocator to create memory object
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
-                                    size_t  IN dim_count, const size_t* IN dim_size, void*  IN buffer_ptr, const size_t* IN pitch,
-                                    cl_dev_host_ptr_flags IN ptr_flags, IOCLDevMemoryObject* OUT *memObj)
+                                    size_t  IN dim_count, const size_t* IN dim_size, IOCLDevRTMemObjectService* pRTService, IOCLDevMemoryObject* OUT *memObj)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateMemoryObject Function enter"));
-    return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
+    return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, pRTService, memObj);
 }
 
 /****************************************************************************************************************
@@ -1694,4 +1694,20 @@ void CPUDevice::clDevCloseDevice(void)
     m_backendWrapper.Terminate();
 
     delete this;
+}
+
+const char* CPUDevice::clDevFEModuleName() const
+{
+	static const char* sFEModuleName = "clang_compiler";
+	return sFEModuleName;
+}
+
+const void* CPUDevice::clDevFEDeviceInfo() const
+{
+	return OCL_SUPPORTED_EXTENSIONS;
+}
+
+size_t CPUDevice::clDevFEDeviceInfoSize() const
+{
+	return strlen(OCL_SUPPORTED_EXTENSIONS)+1;
 }

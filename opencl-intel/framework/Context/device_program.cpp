@@ -237,12 +237,14 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 
 cl_err_code DeviceProgram::FeBuild()
 {
-	FECompiler* pFeCompiler = NULL;
+	FrontEndCompiler* pFeCompiler = NULL;
 
-	pFeCompiler = const_cast<FECompiler *>(m_pDevice->GetRootDevice()->GetFECompiler());
-	if (NULL == pFeCompiler) //attempt to get global FE compiler
+	pFeCompiler = const_cast<FrontEndCompiler *>(m_pDevice->GetRootDevice()->GetFrontEndCompiler());
+	if (NULL == pFeCompiler)
 	{
-		pFeCompiler = const_cast<FECompiler *>(FrameworkProxy::Instance()->GetPlatformModule()->GetDefaultFECompiler());
+		// No FE compiler assigned, need to allocate one
+		FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(m_pDevice->GetRootDevice());
+		pFeCompiler = const_cast<FrontEndCompiler *>(m_pDevice->GetRootDevice()->GetFrontEndCompiler());
 	}
 
 	if (NULL == pFeCompiler)
@@ -303,7 +305,7 @@ cl_err_code DeviceProgram::BeBuild()
 	return (cl_err_code)iRet;
 }
 
-cl_err_code DeviceProgram::NotifyFEBuildDone(cl_device_id device, size_t szBinSize, void * pBinData, const char *pBuildLog)
+cl_err_code DeviceProgram::NotifyFEBuildDone(cl_device_id device, size_t szBinSize, const void * pBinData, const char *pBuildLog)
 {
 	if (NULL != pBuildLog)
 	{
@@ -330,7 +332,7 @@ cl_err_code DeviceProgram::NotifyFEBuildDone(cl_device_id device, size_t szBinSi
 
 	//Else FE build succeeded
 	m_bFECompilerSuccess = true;
-	CopyBinary(szBinSize, static_cast<unsigned char*>(pBinData));
+	CopyBinary(szBinSize, static_cast<const unsigned char*>(pBinData));
 	m_state = DEVICE_PROGRAM_INTERNAL_IR;
 	m_pFeBuildEvent->SetComplete(CL_SUCCESS);
 	FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pFeBuildEvent->GetHandle());

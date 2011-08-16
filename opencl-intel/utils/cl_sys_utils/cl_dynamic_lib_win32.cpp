@@ -94,7 +94,7 @@ void OclDynamicLib::Close()
 	m_pOffsetFunc = NULL;
 
 	FreeLibrary((HMODULE)m_hLibrary);
-    m_hLibrary = NULL;
+	m_hLibrary = NULL;
 }
 
 // Returns a number of named functions found in the library

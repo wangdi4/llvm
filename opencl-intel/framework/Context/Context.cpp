@@ -152,15 +152,17 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     //
     for(cl_uint idx = 0; idx < uiNumDevices; idx++)
     {
+		// Need to make insure that instance of DeviceAgent exists
+		cl_err_code err = CL_SUCCESS;
         if (ppDevices[idx]->IsRootLevelDevice())
         {
-            ppDevices[idx]->GetRootDevice()->CreateInstance();		    
+             err = ppDevices[idx]->GetRootDevice()->CreateInstance();		    
         }
-        else
-        {
-            ppDevices[idx]->AddPendency();
-        }
-        ppDevices[idx]->RegisterDeviceFissionObserver(this);
+		if ( CL_SUCCEEDED(err) )
+		{
+			// This context uses device, no need add pendency explicitly, it was added during inserting to device map
+			ppDevices[idx]->RegisterDeviceFissionObserver(this);
+		}
     }
 
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_sz2dArraySize);
@@ -201,6 +203,7 @@ void Context::Cleanup( bool bTerminate )
 //			TAL_Flush(trace);
 //		}
 #endif
+		// The pendency to the device implicitly removed by RemoveObject()
         m_ppAllDevices[ui]->UnregisterDeviceFissionObserver(this);
         if (m_ppAllDevices[ui]->IsRootLevelDevice())
         {
@@ -1305,27 +1308,33 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 	}
 
 	// Now allocate maximum array
-	cl_image_format* pFortmats = new cl_image_format[uiMaxFormatCount];
+	cl_image_format* pFormats = new cl_image_format[uiMaxFormatCount];
+	if ( NULL == pFormats )
+	{
+		return 0;
+	}
 
 	// Get formats from first device
-	clErr = m_ppRootDevices[0]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFortmats, &uiFormatCount);
+	clErr = m_ppRootDevices[0]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
 	if (CL_FAILED(clErr) || (0 == uiFormatCount))
 	{
+		delete []pFormats;
 		return 0;
 	}
 	// Add formats to the list
 	tImageFormatList tmpList;
 	for (unsigned int ui=0; ui<uiFormatCount; ++ui)
 	{
-		tmpList.push_back(pFortmats[ui]);
+		tmpList.push_back(pFormats[ui]);
 	}
 
 	// No go through rest of the devices and eliminate not supported formats
 	for (cl_uint ui=1; ui<m_mapDevices.Count(); ++ui)
 	{
-		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFortmats, &uiFormatCount);
+		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
 		if (CL_FAILED(clErr) || (0 == uiFormatCount))
 		{
+			delete []pFormats;
 			return 0;
 		}
 		tImageFormatList::iterator it=tmpList.begin();
@@ -1335,8 +1344,8 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 			// Check if we have format in device list
 			for (unsigned int i=0; i<uiFormatCount && !bFound; ++i)
 			{
-				if ( (pFortmats[i].image_channel_order == it->image_channel_order) &&
-					(pFortmats[i].image_channel_data_type == it->image_channel_data_type) )
+				if ( (pFormats[i].image_channel_order == it->image_channel_order) &&
+					(pFormats[i].image_channel_data_type == it->image_channel_data_type) )
 				{
 					bFound = true;
 				}
@@ -1351,6 +1360,7 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 		}
 	}
 
+	delete []pFormats;
 	m_mapSupportedFormats[key] = tmpList;
 	return tmpList.size();	
 }

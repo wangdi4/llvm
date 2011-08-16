@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Utils;
 
 MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints):
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
-	m_pHostPtr(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
+	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
 	m_mapCount(0), m_pLocation(NULL), m_stMemObjSize(0)
 {
 	assert ( NULL != m_pContext );

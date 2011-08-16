@@ -342,6 +342,12 @@ AtomicBitField::~AtomicBitField()
 	}
 }
 
+// Disable std::fill_n warning
+#if defined(_MSC_VER) && (_MSC_VER >= 1400)
+#pragma warning(push) 
+#pragma warning(disable:4996) 
+#endif 
+
 void AtomicBitField::init(unsigned int size, bool initVal)
 {
 	// test if already initialized (by other thread)
@@ -378,6 +384,9 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 	m_eventLock.Signal();
 }
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400)
+#pragma warning(pop) 
+#endif 
 
 long AtomicBitField::bitTestAndReset(unsigned int bitNum)
 {

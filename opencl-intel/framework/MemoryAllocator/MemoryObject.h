@@ -284,7 +284,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_mem_object_type						m_clMemObjectType;
 			cl_image_format							m_clImageFormat;
 			cl_mem_flags							m_clFlags;              // memory object's flags
-			void*									m_pHostPtr;             // memory object's host ptr
+			void*									m_pHostPtr;
+			Intel::OpenCL::Utils::AtomicPointer<IOCLDevBackingStore>		m_pBackingStore;        // memory object's backing store
 			cl_uint									m_uiNumDim;				// Number of dimension of the memory object
 			void*									m_pMemObjData;			// pointer to object memory allocated area
 

@@ -54,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class SingleUnifiedMemObject : public MemoryObject
+	class SingleUnifiedMemObject : public MemoryObject, public IOCLDevRTMemObjectService
 	{
 	public:
 		// MemoryObject methods
@@ -86,6 +86,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// IDeviceFissionObserver interface
 		cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
+		// IOCLDevRTMemObjectService Methods
+		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
+		cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS);
+		size_t GetDeviceAgentListSize() const;
+		const IOCLDeviceAgent* *GetDeviceAgentList() const;
+
     protected:
 		// Low level mapped region creation function
 		virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
@@ -115,5 +121,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		IOCLDevMemoryObject*	m_pDeviceObject;
 	};
 
+	class SingleUnifiedMemObjectBackingStore : public IOCLDevBackingStore
+	{
+	public:
+		SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, bool isHostMapped);
+		void* GetRawData() const {return m_ptr;}
+		cl_dev_bs_description GetRawDataDecription() const
+			{
+				if (m_isHostMapped)
+					return CL_DEV_BS_USER_ALLOCATED;
+				else
+					return CL_DEV_BS_USER_COPY;
+			}
+		size_t GetDimCount() const {return 0;}		// Not used
+		const size_t* GetDimentions() const {return NULL;}// Not used
+		bool IsDataValid() const {return m_dataAvail;}
+		const size_t* GetPitch() const {return m_pitch;}
+		int AddPendency();
+		int RemovePendency();
+	
+	protected:
+		virtual ~SingleUnifiedMemObjectBackingStore();
+
+		void*			m_ptr;
+		size_t			m_pitch[MAX_WORK_DIM-1];
+		bool			m_dataAvail;
+		bool			m_isHostMapped;
+		AtomicCounter	m_refCount;
+	};
 
 }}}

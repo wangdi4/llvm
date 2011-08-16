@@ -539,7 +539,8 @@ m_subdeviceSize(numThreads), m_received(false), m_numThreads(numThreads), m_affi
 }
 SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
 {
-    m_thread->Terminate(0);
+	SynchronousDispatchCommand(TASK_DISPATCHER_TERMINATE);
+	delete m_thread;	// Will Join And Close
     if (NULL != m_affinityMask)
     {
         delete m_affinityMask;
@@ -591,15 +592,12 @@ SubdeviceTaskDispatcherThread::SubdeviceTaskDispatcherThread(SubdeviceTaskDispat
 
 SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
 {
-    if (NULL != m_partitioner)
-    {
-        m_partitioner->Deactivate();
-        delete m_partitioner;
-    }
 }
 
 int SubdeviceTaskDispatcherThread::Run()
 {
+	volatile bool bTerminate = false;
+
     //Creation of this object must be in the thread routine
     m_partitioner = TaskExecutor::CreateThreadPartitioner(m_dispatcher->m_numThreads);
     m_partitioner->Activate();
@@ -625,12 +623,21 @@ int SubdeviceTaskDispatcherThread::Run()
         case SubdeviceTaskDispatcher::TASK_DISPATCHER_RELEASE_COMMAND_LIST:
             m_dispatcher->m_lastReturn = m_dispatcher->internalReleaseCommandList(m_dispatcher->m_lastList);
             break;
+
+		case SubdeviceTaskDispatcher::TASK_DISPATCHER_TERMINATE:
+			bTerminate = true;
+			break;
+
         default:
             assert(0);
             break;
         }
         m_dispatcher->m_received = true;
-    } while(true);
+    } while(!bTerminate);
+
+	m_partitioner->Deactivate();
+	delete m_partitioner;
+	m_partitioner = NULL;
 	return 0;
 }
 

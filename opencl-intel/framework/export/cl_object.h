@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		long Release();
+		virtual long Release();
 		
 		/******************************************************************************************
 		* Function: 	Retain    
@@ -91,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		cl_err_code Retain();
+		virtual cl_err_code Retain();
 		
 		/******************************************************************************************
 		* Function: 	GetInfo    

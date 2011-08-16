@@ -12,16 +12,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		InitClangDriver();
 		break;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-		if (NULL == lpReserved) //Detach due to FreeLibrary
-		{
-			CloseClangDriver();
-		}
 		//Else, either loading failed or process is terminating, do nothing and let OS reclaim resources
 		break;
 	}
