@@ -40,7 +40,7 @@ typedef int crt_err_code ;
 
 
 #define MAX_STRLEN                  (1024)
-#define INTEL_PLATFORM_NAME         "Intel(R) OpenCL HD Graphics"
+#define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
 #define INTEL_ICD_EXTENSIONS_STRING "INTC"
 #define PLATFORM_EXT_STRING         ""
 
