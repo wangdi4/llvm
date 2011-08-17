@@ -552,6 +552,7 @@ int ClangFECompilerBuildTask::Build()
 
 	IRStream->flush();
 
+  delete IRStream;
 	errStream.flush();
 	if ( !Log.empty() )
 	{
