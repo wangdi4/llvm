@@ -1261,10 +1261,10 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 #endif
     WGContext* pCtx = GetWGContext(uiWorkerId);
     int ret = pCtx->GetExecutable()->RestoreThreadState();
-    //For application threads, must invalidate their context's command ID
+    //For application threads, must signify the context is no longer valid
     if (0 == uiWorkerId)
     {
-        pCtx->SetCmdId((cl_dev_cmd_id) -1);
+        pCtx->InvalidateContext();
     }
     return ret;
 

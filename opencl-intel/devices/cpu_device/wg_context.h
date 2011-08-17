@@ -41,7 +41,9 @@ public:
     cl_dev_err_code             CreateContext(cl_dev_cmd_id cmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
     cl_dev_cmd_id               GetCmdId() const {return m_cmdId;}
     Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* GetExecutable() const {return m_pContext;}
-    void                        SetCmdId(cl_dev_cmd_id id) {m_cmdId = id;} 
+    // This function is used by master threads when they're done executing, to prevent a race condition where the library is next shut down and reloaded
+    // and invalid, seemingly-valid data is still present in the master thread's TLS
+    void                        InvalidateContext();
 
 protected:
     Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* m_pContext;

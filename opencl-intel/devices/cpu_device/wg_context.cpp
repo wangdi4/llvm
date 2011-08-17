@@ -107,3 +107,13 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	m_cmdId = cmdId;
 	return CL_DEV_SUCCESS;
 }
+
+void WGContext::InvalidateContext()
+{
+    if ( NULL != m_pContext )
+    {
+        m_pContext->Release();
+        m_pContext = NULL;
+    }
+    m_cmdId = (cl_dev_cmd_id)-1;
+}
