@@ -27,6 +27,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <common/COITypes_common.h>
+#include "cl_device_api.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -65,6 +67,130 @@ struct COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
 
 #define COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT_SIZE( number_of_kernels ) \
     ( sizeof(COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT) + sizeof(COPY_PROGRAM_TO_DEVICE_KERNEL_INFO)*((number_of_kernels) - 1))
+
+
+// Enum of directives
+enum DIRECTIVE_ID
+{
+	KERNEL = 0,
+	BUFFER,
+	BARRIER,
+	PRINTF,
+	PROFILING
+};
+
+struct kernel_directive
+{
+	uint64_t kernelAddress;
+};
+
+struct buffer_directive
+{
+	unsigned int bufferIndex;
+	uint64_t offset_in_blob;
+};
+
+struct barrier_directive
+{
+	COIEVENT end_barrier;
+};
+
+struct printf_directive
+{
+	unsigned int bufferIndex;
+	uint64_t size;
+};
+
+struct profiling_directive
+{
+	unsigned int bufferIndex;
+};
+
+struct directive_pack
+{
+	DIRECTIVE_ID id;
+	union
+	{
+		kernel_directive kernelDirective;
+		buffer_directive bufferDirective;
+		barrier_directive barrierDirective;
+		printf_directive printfDirective;
+		profiling_directive profilingDirective;
+	};
+};
+
+struct cl_mic_work_description_type
+{
+	unsigned int workDimension;
+	uint64_t globalWorkOffset[MAX_WORK_DIM];
+	uint64_t globalWorkSize[MAX_WORK_DIM];
+	uint64_t localWorkSize[MAX_WORK_DIM];
+
+	cl_mic_work_description_type() {}
+
+	cl_mic_work_description_type(const unsigned int workDim, const size_t* gWorkOffset, const size_t* gWorkSize, const size_t* lWorkSize)
+	{
+		setParams(workDim, gWorkOffset, gWorkSize, lWorkSize);
+	}
+
+	cl_mic_work_description_type& operator=(const cl_work_description_type& other)
+	{
+		setParams(other.workDimension, other.globalWorkOffset, other.globalWorkSize, other.localWorkSize);
+		return *this;
+	}
+
+	// Copy the input data to this object data, CANNOT use memcpy because the change in type (size_t to uint64_t)
+	void setParams(const unsigned int workDim, const size_t* gWorkOffset, const size_t* gWorkSize, const size_t* lWorkSize)
+	{
+		workDimension = workDim;
+		uint64_t* groupedDlobalWork[3] = {globalWorkOffset, globalWorkSize, localWorkSize};
+		const size_t* otherGroupedDlobalWork[3] = {gWorkOffset, gWorkSize, lWorkSize};
+		for (unsigned int i = 0; i < 3; i++)
+		{
+			for (unsigned int j = 0; j < MAX_WORK_DIM; j++)
+			{
+				groupedDlobalWork[i][j] = otherGroupedDlobalWork[i][j];
+			}
+		}
+	}
+
+};
+
+struct dispatcher_data
+{
+	// Dispatcher function arguments
+	kernel_directive kernelDirective;
+	bool isInOrderQueue;
+	cl_mic_work_description_type workDesc;
+	// Pre-execution directives count
+	unsigned int preExeDirectivesCount;
+	// Post-execution directives count
+	unsigned int postExeDirectivesCount;
+	// OpenCL kernel arguments size in bytes
+	uint64_t kernelArgSize;
+	// offset of pre execution directives array
+	uint64_t preExeDirectivesArrOffset;
+	// offset of post execution directives array
+	uint64_t postExeDirectivesArrOffset;
+	// offset of kernel arguments blob
+	uint64_t kernelArgBlobOffset;
+
+	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / 'kernelArgBlobOffset'.
+	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
+	void calcAndSetOffsets()
+	{
+		preExeDirectivesArrOffset = sizeof(dispatcher_data);
+		postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
+		kernelArgBlobOffset = postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
+	}
+};
+
+struct profiling_data
+{
+	cl_ulong invocationTime;
+	cl_ulong startRunningTime;
+	cl_ulong completionTime;
+};
 
 }}}
 

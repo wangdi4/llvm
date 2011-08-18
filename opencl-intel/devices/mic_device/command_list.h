@@ -23,10 +23,13 @@
 #include "cl_device_api.h"
 #include "notification_port.h"
 #include "device_service_communication.h"
-#include "commands.h"
+#include "program_service.h"
+#include "command.h"
 
 #include <source/COIPipeline_source.h>
 #include <common/COITypes_common.h>
+
+using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -46,8 +49,8 @@ public:
 	   outCommandList - out parameter which include the new CommandList object if succeeded.
 	   It can fail if COIPipelineCreate create fails.
 	   Return CL_DEV_SUCCESS if succeeded. */
-    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN props, NotificationPort* pNotificationPort,
-	                                                DeviceServiceCommunication* pDeviceServiceComm, CommandList** outCommandList);
+    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN props, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
+		                                            IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList);
 
     /* Do nothing because the COIPipeline send the command as it enter to it. (Flush is redundant) */
 	cl_dev_err_code flushCommandList() { return CL_DEV_SUCCESS; };
@@ -61,25 +64,63 @@ public:
 	   Return CL_DEV_SUCCESS if succeeded and CL_DEV_INVALID_OPERATION if failed.*/
 	cl_dev_err_code releaseCommandList(bool* outDelete);
 
-	/* Perform the commands or enque it to COIPipeline.
-	   It is not thread safe method. */
-	virtual cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count) = 0;
+	/* Perform the commands or enqueue it to COIPipeline.
+	   It is NOT thread safe method. */
+	cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 
-	void commandListWaitCompletion();
+	/* The operation is not supported by device. The runtime should handle wait by itself */
+	void commandListWaitCompletion() { return; };
 
+	/* Return this queue COIPIPLINE */
 	COIPIPELINE getPipelineHandle() const { return m_pipe; };
+
+	/* Return handle to COIFUNCTION according to the appripriate id */
     COIFUNCTION getDeviceFunction( DeviceServiceCommunication::DEVICE_SIDE_FUNCTION id ) const
                                         { return m_pDeviceServiceComm->getDeviceFunction( id ); };
 
+	/* Return device COIPROCESS handle */
+	COIPROCESS getDeviceProcess() const
+						{ return m_pDeviceServiceComm->getDeviceProcessHandle(); };
+
 	NotificationPort* getNotificationPort() { return m_pNotificationPort; };
 
-	virtual void getLastDependentBarrier(COIBARRIER** barrier, unsigned int* numDependencies, bool isExecutionTask) = 0;
+	ProgramService* getProgramService() { return m_pProgramService; };
 
-	virtual void setLastDependentBarrier(COIBARRIER barrier, bool lastCmdWasExecution) = 0;
+	/* In case of inOrder command list set:
+	       If threre is valid barrier and the previous command is not NDRange or 'isExecutionTask' == false than return the last barrier and set 'numDependencies' to 1.
+		   othrewise it means that the barrier is not valid or that the previous command was NDRange and the current command is NDRange in this case We return NULL as barrier 
+		   and set 'numDependencies' to 0 because the dependency betweem the commands enforced by COIPIPELINE.
+	   In case of outOfOrder command list set:
+	      Do nothing.
+	   It is NOT thread safe method because 'commandListExecute()' is NOT thread safe.
+	*/
+	virtual void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) = 0;
+
+	/* set last dependency barrier to be barrier and lastCommandWasExecution flag accordingly (In case of InOrder command list).
+	   Do nothing in case of out of order commandList. 
+	   It is NOT thread safe method because 'commandListExecute()' is NOT thread safe.
+	*/
+	virtual void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) = 0;
+
+	/* return true if the queue is InOrder command list */
+	virtual bool isInOrderCommandList() = 0;
 
 protected:
 
-	CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm);
+	/* It is protected constructor because We want that the client will create CommandList only by the factory method */
+	CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService);
+
+	// the last dependency barrier COIBarrier.
+	COIEVENT          m_lastDependentBarrier;
+	bool                m_validBarrier;
+
+private:
+
+	// definition of static function of Commands that create command object (factory)
+    typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+
+	/* Create new COIPIPELINE for this queue */
+	cl_dev_err_code createPipeline();
 
 	/* Factory for Command objects.
 	   The client responsability is to delete the return object.
@@ -88,25 +129,70 @@ protected:
 	   Return CL_DEV_SUCCESS if succeeded */
 	cl_dev_err_code createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject);
 
-	virtual bool isInOrderCommandList() = 0;
-
-private:
-
-    typedef cl_dev_err_code fnCommandCreate_t(bool isInOrder, Command** pOutCommand);
-
-	cl_dev_err_code createPipeline();
-
-
 	// pointer to device notification port object
 	NotificationPort*                 m_pNotificationPort;
 	// pointer to device service communication object
 	DeviceServiceCommunication*       m_pDeviceServiceComm;
+	// pointer to IOCLFrameworkCallbacks object in order to notify framework about completion of command
+	IOCLFrameworkCallbacks*           m_pFrameworkCallBacks;
+	// pointer to ProgramService object
+	ProgramService*                   m_pProgramService;
 	// reference counter for this object (must be greater than 0 during object lifetime)
 	volatile unsigned int             m_refCounter;
 	// the pipe line to MIC device
 	COIPIPELINE                       m_pipe;
 	// pointer to static function that create Command object
 	fnCommandCreate_t*                m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+
+};
+
+
+
+/* Class wich represent In order command list */
+class InOrderCommandList : public CommandList
+{
+
+public:
+
+    InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService);
+	
+	virtual ~InOrderCommandList();
+	
+	/* Get the current dependent barrier and its details according to 'isExecutionTask' flag and according to the value in m_lastCommandWasNDRange. */
+	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask);
+	
+	/* Set the current dependent barrier and its details */
+	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution);
+	
+	bool isInOrderCommandList() { return true; };
+	
+private:
+
+	// is the last command was NDRange
+	bool                m_lastCommandWasNDRange;
+
+};
+
+
+
+class OutOfOrderCommandList : public CommandList
+{
+
+public:
+
+    OutOfOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService)
+		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService) {};
+	
+	virtual ~OutOfOrderCommandList() {};
+	
+	/* In out of order command list there is no dependency between commands so return NULL as barrier and 0 as num dependencies. */
+	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) { *numDependencies = 0; *barrier = NULL; };
+	
+	/* Set the current dependent barrier and its details. Need it in out of order command list only for the implementation of 'commandListWaitCompletion()' */
+	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) { return; };
+	
+	bool isInOrderCommandList() { return false; };
+
 };
 
 }}}

@@ -274,7 +274,7 @@ cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     }
     pList->subdevice_id = subdevice_id;
     CommandList* tCommandList;
-    cl_dev_err_code ret = CommandList::commandListFactory(props, &m_notificationPort, m_pDeviceServiceComm, &tCommandList);
+    cl_dev_err_code ret = CommandList::commandListFactory(props, &m_notificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
     if (CL_DEV_FAILED(ret))
     {
         delete(pList);

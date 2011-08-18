@@ -1,7 +1,7 @@
 #include "notification_port.h"
 
-#include <common/COIBarrier_common.h>
-#include <source/COIBarrier_source.h>
+#include <common/COIEvent_common.h>
+#include <source/COIEvent_source.h>
 
 #include <malloc.h>
 #include <cstring>
@@ -55,7 +55,7 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 	m_barriers = NULL;
 	m_notificationsPackages = NULL;
 
-	m_barriers = (COIBARRIER*)malloc(m_maxBarriers * sizeof(COIBARRIER));
+	m_barriers = (COIEVENT*)malloc(m_maxBarriers * sizeof(COIEVENT));
 	if (!m_barriers)
 	{
 		releaseResources();
@@ -75,7 +75,7 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 	memset(m_operationMask, 0, sizeof(bool) * AVAILABLE_OPERATIONS_LEN);
 
 	// create the main thread barrier
-	COIRESULT result = COIBarrierRegisterUserBarrier(m_barriers);
+	COIRESULT result = COIEventRegisterUserEvent(m_barriers);
 
 	if (result != COI_SUCCESS)
 	{
@@ -114,7 +114,7 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 	return SUCCESS;
 }
 
-int NotificationPort::addBarrier(const COIBARRIER &barrier, NotificationPort::CallBack *callBack, void *arg)
+int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::CallBack *callBack, void *arg)
 {
 	assert(callBack && "Error - callBack must be non-NULL pointer");
 	pthread_mutex_lock(&m_mutex);
@@ -130,7 +130,7 @@ int NotificationPort::addBarrier(const COIBARRIER &barrier, NotificationPort::Ca
 	while (m_realSize >= m_maxBarriers)
 	{
 		m_operationMask[RESIZE] = true;
-		COIRESULT result = COIBarrierSignalUserBarrier(m_barriers[0]);
+		COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
 		assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 		// wait for the allocation
@@ -151,7 +151,7 @@ int NotificationPort::addBarrier(const COIBARRIER &barrier, NotificationPort::Ca
 
 	m_operationMask[ADD] = true;
 
-	COIRESULT result = COIBarrierSignalUserBarrier(m_barriers[0]);
+	COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
 	assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 	pthread_mutex_unlock(&m_mutex);
@@ -172,7 +172,7 @@ int NotificationPort::release()
 
 	m_operationMask[RELEASE] = true;
 
-	COIRESULT result = COIBarrierSignalUserBarrier(m_barriers[0]);
+	COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
 	assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 	// wait for the termination of worker thread
@@ -213,7 +213,7 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 		workerThreadSigaled = false;
 
 		// wait for barrier(s) signal(s)
-		result = COIBarrierWait(thisWorker->m_waitingSize, thisWorker->m_barriers, -1, false, &firedAmount, firedIndicesArr);
+		result = COIEventWait(thisWorker->m_waitingSize, thisWorker->m_barriers, -1, false, &firedAmount, firedIndicesArr);
 		assert(result == COI_SUCCESS && "COIBarrierWait failed for some reason");
 
 		pthread_mutex_lock(&(thisWorker->m_mutex));
@@ -224,9 +224,9 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 		// If the main thread signaled
 		if (workerThreadSigaled)
 		{
-		    result = COIBarrierUnregisterUserBarrier(thisWorker->m_barriers[0]);
+		    result = COIEventUnregisterUserEvent(thisWorker->m_barriers[0]);
 			assert(result == COI_SUCCESS && "UnRegister main barrier failed");
-			result = COIBarrierRegisterUserBarrier(&(thisWorker->m_barriers[0]));
+			result = COIEventRegisterUserEvent(&(thisWorker->m_barriers[0]));
 			assert(result == COI_SUCCESS && "Register main barrier failed");
 			firedAmount --;
 			// If Add barrier operation
@@ -323,7 +323,7 @@ void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, uns
 {
 	assert(m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT <= INT16_MAX && "Resize failed overflow max barriers size");
 	m_maxBarriers = m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT;
-	m_barriers = (COIBARRIER*)realloc(m_barriers, m_maxBarriers * sizeof(COIBARRIER));
+	m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
 	assert(m_barriers && "memory allocation failed for m_barriers");
 	m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
 	assert(m_notificationsPackages && "memory allocation failed for m_notificationsPackages");
@@ -343,7 +343,7 @@ void NotificationPort::releaseResources()
 	//release the worker barrier
 	if (m_barriers)
 	{
-		COIRESULT result = COIBarrierUnregisterUserBarrier(m_barriers[0]);
+		COIRESULT result = COIEventUnregisterUserEvent(m_barriers[0]);
 		assert(result == COI_SUCCESS && "Unregister main barrier failed");
 		free(m_barriers);
 		m_barriers = NULL;

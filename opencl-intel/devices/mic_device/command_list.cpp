@@ -1,43 +1,55 @@
 #include "command_list.h"
-#include "in_order_command_list.h"
+#include "execution_commands.h"
+#include "buffer_commands.h"
+#include "hw_utils.h"
+#include "memory_allocator.h"
+
+#include <source/COIEvent_source.h>
 
 #include <cstring>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
+using namespace Intel::OpenCL::Utils;
 
-CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm) : m_pNotificationPort(pNotificationPort),
-    m_pDeviceServiceComm(pDeviceServiceComm), m_refCounter(1), m_pipe(NULL)
+CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService) : 
+m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService),
+m_refCounter(1), m_pipe(NULL)
 {
 	// Init Commands array
 	memset(m_vCommands, 0, sizeof(m_vCommands));
-	m_vCommands[CL_DEV_CMD_READ] = NULL; //TODO &ReadWriteMemObject::Create;
-	m_vCommands[CL_DEV_CMD_WRITE] = NULL; //TODO &ReadWriteMemObject::Create;
-	m_vCommands[CL_DEV_CMD_EXEC_KERNEL] = &NDRange1::Create;
+	m_vCommands[CL_DEV_CMD_READ] = &ReadWriteMemObject::Create;
+	m_vCommands[CL_DEV_CMD_WRITE] = &ReadWriteMemObject::Create;
+	m_vCommands[CL_DEV_CMD_EXEC_KERNEL] = &NDRange::Create;
 	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = NULL; //TODO &NativeFunction::Create;
-	m_vCommands[CL_DEV_CMD_COPY] = NULL; //TODO &CopyMemObject::Create;
-	m_vCommands[CL_DEV_CMD_MAP] = NULL; //TODO &MapMemObject::Create;
-	m_vCommands[CL_DEV_CMD_UNMAP] = NULL; //TODO &UnmapMemObject::Create;
+	m_vCommands[CL_DEV_CMD_COPY] = &CopyMemObject::Create;
+	m_vCommands[CL_DEV_CMD_MAP] = &MapMemObject::Create;
+	m_vCommands[CL_DEV_CMD_UNMAP] = &UnmapMemObject::Create;
 }
 
 CommandList::~CommandList()
 {
     assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
+	if (m_pipe)
+	{
+	    COIRESULT result = COIPipelineDestroy(m_pipe);
+		assert(result == COI_SUCCESS && "COIPipelineDestroy failed");
+	}
 }
 
-cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, NotificationPort* pNotificationPort,
-	                                                DeviceServiceCommunication* pDeviceServiceComm, CommandList** outCommandList)
+cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, 
+												IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList)
 {
     cl_dev_err_code result = CL_DEV_SUCCESS;
     CommandList* tCommandList = NULL;
 	// If out of order command list
 	if (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) )
 	{
-	    //TODO tCommandList = new OutOfOrderCommnadList(pNotificationPort, pDeviceServiceComm);
+	    tCommandList = new OutOfOrderCommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService);
 	}
 	else  // In order command list
 	{
-	    tCommandList = new InOrderCommandList(pNotificationPort, pDeviceServiceComm);
+	    tCommandList = new InOrderCommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService);
 	}
 	if (NULL == tCommandList)
 	{
@@ -61,7 +73,7 @@ cl_dev_err_code CommandList::retainCommandList()
 	while ((m_refCounter > 0) && (false == __sync_bool_compare_and_swap(&m_refCounter, currVal, currVal + 1)))
 	{
 	    currVal = m_refCounter;
-		//TODO hwpause();
+		hw_pause();
 	}
 	if (m_refCounter == 0)
 	{
@@ -79,22 +91,38 @@ cl_dev_err_code CommandList::releaseCommandList(bool* outDelete)
 	}
 	while (false == __sync_bool_compare_and_swap(&m_refCounter, currVal, currVal - 1))
 	{
-		if (m_refCounter == 0)
+		currVal = m_refCounter;
+		if (currVal == 0)
 		{
 			return CL_DEV_INVALID_OPERATION;
 		}
-	    currVal = m_refCounter;
-		//TODO hwpause();
+		hw_pause();
 	}
 	*outDelete = (m_refCounter == 0);
 	return CL_DEV_SUCCESS;
 }
 
-
-
-void CommandList::commandListWaitCompletion()
+cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-    //TODO
+    Command* pCmdObject;
+	// run over all the cmds
+    for (unsigned int i = 0; i < count; i++)
+	{
+	    // Create appropriate Command object
+		cl_dev_err_code rc = createCommandObject(cmds[i], &pCmdObject);
+		// If there is no enough memory for allocating Command object
+		if (CL_DEV_FAILED(rc))
+		{
+			return rc;
+		}
+		// Send the command for execution.
+		rc = pCmdObject->execute();
+		if (CL_DEV_FAILED(rc))
+		{
+			return rc;
+		}
+	}
+	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject)
@@ -105,12 +133,12 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command**
 	fnCommandCreate_t* fnCreate = m_vCommands[cmd->type];
 	assert( (NULL != fnCreate) && "Not implemented");
 	Command* pCmdObject;
-	// create appropriate command object
-	cl_dev_err_code	rc = fnCreate(isInOrderCommandList(), &pCmdObject);
+	// create appropriate command object DO NOT delete this object, it will delete itself when it will finish
+	cl_dev_err_code	rc = fnCreate(this, m_pFrameworkCallBacks, cmd, &pCmdObject);
     // if failed create FailureNotification command object
 	if (CL_DEV_FAILED(rc))
 	{
-	    pCmdObject = new FailureNotification();
+	    pCmdObject = new FailureNotification(m_pFrameworkCallBacks, cmd);
 		if (NULL == pCmdObject)
 		{
 		    rc = CL_DEV_OUT_OF_MEMORY;
@@ -123,11 +151,48 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command**
 cl_dev_err_code CommandList::createPipeline()
 {
     COIRESULT result = COI_ERROR;
-    result = COIPipelineCreate(m_pDeviceServiceComm->getDeviceProcessHandle(), NULL, NULL, &m_pipe);
+	// Create COIPipeline for this queue.
+    result = COIPipelineCreate(m_pDeviceServiceComm->getDeviceProcessHandle(),        // A handle to an already existing process
+		                       NULL,                                                  // An optional mask of the set of hardware threads
+							   NULL,                                                  // StackSize
+							   &m_pipe);                                              // Handle returned to uniquely identify the pipeline
     if (result != COI_SUCCESS)
 	{
 	    return CL_DEV_ERROR_FAIL;
 	}
     return CL_DEV_SUCCESS;
+}
+
+
+
+
+InOrderCommandList::InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService) :
+    CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService), m_lastCommandWasNDRange(false)
+{
+}
+
+InOrderCommandList::~InOrderCommandList()
+{
+}
+
+void InOrderCommandList::getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
+{
+    *numDependencies = 1;
+    COIEVENT* tBarrier = &m_lastDependentBarrier;
+	/* if last command was ExecutionTask and the current command is ExecutionTask or it is NOT the first execution (validBarrier = true) than perform the operation without explicit barrier
+	   because the COIPIPELINE will enforce the order correctly. */
+	if (((isExecutionTask) && (m_lastCommandWasNDRange)) || (false == m_validBarrier))
+	{
+	    tBarrier = NULL;
+		*numDependencies = 0;
+	}
+	*barrier = tBarrier;
+}
+
+void InOrderCommandList::setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution)
+{
+	m_lastDependentBarrier = barrier;
+	m_validBarrier = true;
+	m_lastCommandWasNDRange = lastCmdWasExecution;
 }
 

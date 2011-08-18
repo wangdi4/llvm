@@ -6,7 +6,9 @@
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
-#include <source/COIBarrier_source.h>
+#include <source/COIEvent_source.h>
+
+#include <libgen.h>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
@@ -22,6 +24,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
 
     "hello_world"                           // EXECUTE_IN_ORDER
+	"execute_NDRange"						// EXECUTE_NDRANGE
 };
 
 DeviceServiceCommunication::device_service_communication_pack DeviceServiceCommunication::pDeviceServiceCommPack;
@@ -185,7 +188,7 @@ bool DeviceServiceCommunication::runServiceFunction(
                             unsigned int numBuffers, const COIBUFFER* buffers, const COI_ACCESS_FLAGS* bufferAccessFlags)
 {
     COIRESULT   result = COI_ERROR;
-    COIBARRIER  barrier;
+    COIEVENT  barrier;
 
     if (LAST_DEVICE_SIDE_FUNCTION <= func)
     {
@@ -226,8 +229,8 @@ bool DeviceServiceCommunication::runServiceFunction(
         return false;
     }
     // Wait until the function execution completed on the sink side.
-    result = COIBarrierWait(1, &barrier, -1, false, NULL, NULL);
-    if ((result != COI_SUCCESS) && (result != COI_BARRIER_CANCELED))
+    result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+    if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
     {
         return false;
     }
@@ -249,12 +252,15 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
     GetModuleDirectory( (char*)fileNameBuffer, sizeof(fileNameBuffer) );
     STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), MIC_NATIVE_SERVER_EXE );
 
+	char tBuff[PATH_MAX];
+    GetModulePathName((void*)(ptrdiff_t)initEntryPoint, tBuff, PATH_MAX-1);
     // create a process on device and run it's main() function
     result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
                                      0, NULL,                               // argc, argv
                                      false, NULL,                           // duplicate env, additional env vars
                                      MIC_DEV_IO_PROXY_TO_HOST, NULL,        // I/O proxy required + host root
                                      MIC_DEV_MAX_ALLOCATED_BUFFERS_SIZE,    // reserve buffer space
+									 dirname(tBuff),                        // a path to locate dynamic libraries dependencies for the sink application
                                      &pDevServiceComm->m_process);
     assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
 

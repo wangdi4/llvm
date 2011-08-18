@@ -47,7 +47,7 @@ public:
 	Do not call addBarrier() or quit() before init() function completed. */
 	int initialize(uint16_t maxBarriers);
 
-	int addBarrier(const COIBARRIER& barrier, NotificationPort::CallBack* callBack, void* arg);
+	int addBarrier(const COIEVENT& barrier, NotificationPort::CallBack* callBack, void* arg);
 
 	int release();
 
@@ -77,7 +77,7 @@ private:
 
 	bool m_operationMask[AVAILABLE_OPERATIONS_LEN];
 
-	COIBARRIER* m_barriers;
+	COIEVENT* m_barriers;
 	notificationPackage* m_notificationsPackages;
 
 	pthread_mutex_t m_mutex;

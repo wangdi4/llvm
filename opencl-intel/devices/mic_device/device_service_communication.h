@@ -43,7 +43,7 @@ public:
 
     virtual ~DeviceServiceCommunication();
 
-    /* Set the value of *process (out parameter) with the created process.
+    /* Return the created process.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work. */
     COIPROCESS getDeviceProcessHandle() const;
 
@@ -56,6 +56,7 @@ public:
         REMOVE_PROGRAM_FROM_DEVICE,
 
         EXECUTE_IN_ORDER,
+		EXECUTE_NDRANGE,
 
         // insert new function ids before this line
         LAST_DEVICE_SIDE_FUNCTION,
