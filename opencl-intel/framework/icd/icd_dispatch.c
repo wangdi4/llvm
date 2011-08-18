@@ -1653,21 +1653,3 @@ clEnqueueCopyBufferRect(
         event);
 }
 
-CL_API_ENTRY cl_mem CL_API_CALL
-clCreateImage2DArrayINTEL(cl_context				context,
-                     cl_mem_flags			flags,
-                     const cl_image_format *	image_format,
-                     cl_image_array_type		image_array_type,
-                     const size_t *			image_width,
-                     const size_t *			image_height,
-                     size_t					num_images,
-                     size_t					image_row_pitch,
-                     size_t					image_slice_pitch,
-                     void *					host_ptr,
-                     cl_int *				errcode_ret) CL_EXT_SUFFIX__VERSION_1_1
-{
-    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
-    return context->dispatch->clCreateImage2DArrayINTEL(context, flags, image_format, image_array_type,
-        image_width, image_height, num_images, image_row_pitch, image_slice_pitch, host_ptr,
-        errcode_ret);
-}

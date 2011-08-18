@@ -111,7 +111,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 		return CL_INVALID_VALUE;
 	}
 
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	return CL_SUCCESS;
 }

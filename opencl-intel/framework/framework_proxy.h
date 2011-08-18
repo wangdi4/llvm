@@ -112,7 +112,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/
 		virtual ~FrameworkProxy();
-
+            
 		void Initialize();
 		void Release();
 		
@@ -120,6 +120,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		static  FrameworkProxy * m_pInstance;
 
 		static ocl_entry_points	 OclEntryPoints;
+
+        static void InitOCLEntryPoints();
 
 		// handle to the platform module
 		PlatformModule * m_pPlatformModule;

@@ -168,7 +168,7 @@ cl_err_code SingleUnifiedBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer
 		clFlags = m_clFlags;
 	}
 	
-	MemoryObject* pSubBuffer = new SingleUnifiedSubBuffer( m_pContext, m_handle.dispatch );
+	MemoryObject* pSubBuffer = new SingleUnifiedSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch );
 	if ( NULL == pSubBuffer )
 	{
 		return CL_OUT_OF_HOST_MEMORY;

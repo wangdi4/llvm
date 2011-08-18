@@ -81,7 +81,7 @@ cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevice
 	{
 		return CL_ERR_FAILURE;
 	}
-	MemoryObject* pMemObj = it->second(pContext, pContext->GetHandle()->dispatch);
+	MemoryObject* pMemObj = it->second(pContext, (ocl_entry_points*)(pContext->GetHandle()->dispatch));
 	if (NULL == pMemObj)
 	{
 		return CL_OUT_OF_HOST_MEMORY;

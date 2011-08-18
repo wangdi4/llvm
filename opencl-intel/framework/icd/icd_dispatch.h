@@ -180,20 +180,7 @@ typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateImage3D)(
     size_t                  image_slice_pitch, 
     void *                  host_ptr,
     cl_int *                errcode_ret) CL_API_SUFFIX__VERSION_1_0;
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateImage2DArrayINTEL)(
-	cl_context				context,
-	cl_mem_flags			flags,
-	const cl_image_format *	image_format,
-	cl_image_array_type		image_array_type,
-	const size_t *			image_width,
-	const size_t *			image_height,
-	size_t					num_images,
-	size_t					image_row_pitch,
-	size_t					image_slice_pitch,
-	void *					host_ptr,
-	cl_int *				errcode_ret) CL_EXT_SUFFIX__VERSION_1_1;
-                        
+                       
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clReleaseMemObject)(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0;
@@ -893,7 +880,6 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clCreateSubDevicesEXT            clCreateSubDevicesEXT;
     KHRpfn_clRetainDeviceEXT                clRetainDeviceEXT;
     KHRpfn_clReleaseDeviceEXT               clReleaseDeviceEXT;
-    KHRpfn_clCreateImage2DArrayINTEL        clCreateImage2DArrayINTEL;
 };
 
 /*

@@ -168,7 +168,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_sz2dArraySize);
 
 	m_handle.object   = this;
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	*pclErr = CL_SUCCESS;
 }
@@ -492,7 +492,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 
 	// create program object
-	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet, (ocl_entry_points *)m_handle.dispatch);
+	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
 	delete[] ppDevices;
 
 	if (!pProgram)

@@ -64,7 +64,7 @@ cl_err_code SingleUnifiedImage2DArray::Initialize(
 
     for (size_t i = 0; i < m_szImageDepth; i++)
     {
-		MemoryObject* pImage2D = new SingleUnifiedImage2D(m_pContext, m_pContext->GetHandle()->dispatch);
+		MemoryObject* pImage2D = new SingleUnifiedImage2D(m_pContext, (ocl_entry_points*)(m_pContext->GetHandle()->dispatch));
 		if ( NULL == pImage2D )
 		{
 			return CL_OUT_OF_HOST_MEMORY;

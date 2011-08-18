@@ -30,17 +30,22 @@
 #include "cl_linux_utils.h"
 #include "cl_types.h"
 #include <icd_dispatch.h>
+#include <crt_dispatch_table.h>
 #include <string>
 #include <map>
 
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
+
+
 //// ------------------------------------
 //// vendor dispatch table structure
 //
-
-typedef KHRicdVendorDispatch ocl_entry_points;
+typedef struct: public CRT_ICD_DISPATCH::CrtKHRicdVendorDispatch
+{             
+    /// Add CPU specific Extra functions here
+} ocl_entry_points;
 
 struct _cl_object
 {
@@ -108,3 +113,34 @@ extern ExtensionFunctionAddressResolveMap g_extFuncResolveMap;
 extern void* RegisterExtensionFunctionAddress(const char* pFuncName, void* pFuncPtr);
 #define REGISTER_EXTENSION_FUNCTION(__NAME__,__ADDRESS__) \
         static void* UNUSED(func##__ADDRESS__) = RegisterExtensionFunctionAddress(#__NAME__, (void*)(ptrdiff_t)GET_ALIAS(__ADDRESS__))
+
+
+//----------------------------------------------------------------
+/// ToDo: Remove on move to 1.2
+//----------------------------------------------------------------
+
+// We need C linkage since we are defining alias in linux.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelArgInfo)(
+        cl_kernel            kernel,
+        cl_uint              arg_indx,
+        cl_kernel_arg_info   param_name,
+        size_t               param_value_size,
+        void *               param_value,
+        size_t *             param_value_size_ret);
+
+
+extern cl_int CL_API_CALL clGetKernelArgInfo(
+                                cl_kernel		kernel,
+								cl_uint				arg_indx,
+								cl_kernel_arg_info	param_name,
+								size_t				param_value_size,
+								void *				param_value,
+								size_t *			param_value_size_ret);
+#ifdef __cplusplus
+}
+#endif
+

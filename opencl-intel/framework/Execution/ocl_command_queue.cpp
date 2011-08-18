@@ -68,7 +68,7 @@ OclCommandQueue::OclCommandQueue(
 	LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
 
 	m_handle.object   = this;
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 }
 
 /******************************************************************

@@ -262,7 +262,8 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CheckDevices
-//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
 cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices)
 {
 	LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
@@ -843,6 +844,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
 
 	return pKernel->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetKernelWorkGroupInfo
 //////////////////////////////////////////////////////////////////////////
@@ -875,6 +877,8 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 	}
 	return pKernel->GetWorkGroupInfo(pDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
+
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateBuffer
 //////////////////////////////////////////////////////////////////////////
@@ -2128,3 +2132,33 @@ cl_mem ContextModule::CreateFromD3D9VolumeTexture(cl_context context, cl_mem_fla
     return CreateFromD3D9Resource(context, flags, pTextureResourceInfo, errcode_ret, CL_D3D9_OBJECT_VOLUME_TEXTURE, 3, desc.Format);
 }
 #endif
+
+/////////////////////////////////////////////////////////////////////
+// OpenCL 1.2 functions
+/////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelArgInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
+										cl_uint argIndx,
+										cl_kernel_arg_info paramName,
+										size_t      szParamValueSize,
+										void *      pParamValue,
+										size_t *    pszParamValueSizeRet)
+{
+	LOG_INFO(TEXT("Enter clKernel=%X, argIndx=%d, clParamName=%d, szParamValueSize=%d, pParamValue=%X, pszParamValueSizeRet=%X"), 
+		clKernel, argIndx, paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	cl_err_code clErr = CL_SUCCESS;
+	Kernel * pKernel = NULL;
+
+	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
+	if (CL_FAILED(clErr) || NULL == pKernel)
+	{
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		return CL_INVALID_KERNEL;
+	}
+
+	return pKernel->GetKernelArgInfo(argIndx, paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+}

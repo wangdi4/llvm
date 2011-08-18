@@ -45,7 +45,7 @@ using namespace Intel::OpenCL::Framework;
 Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
 	m_handle.object   = this;
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	m_pContext->AddPendency();
 }

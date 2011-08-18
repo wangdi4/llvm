@@ -169,7 +169,7 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 {
 	LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 	if (!m_dlModule.Load(psDeviceAgentDllPath))
@@ -536,7 +536,7 @@ m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_
     m_pRootDevice = m_pParentDevice->GetRootDevice();
     m_pParentDevice->AddPendency();
     m_handle.object   = this;
-    m_handle.dispatch = pOclEntryPoints;
+    m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
     CacheFissionProperties(props);
     //Todo: handle more intelligently
     m_pRootDevice->CreateInstance();

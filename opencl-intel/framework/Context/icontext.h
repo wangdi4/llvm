@@ -1097,6 +1097,35 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												size_t *					OUT pszParamValueSizeRet ) = 0;
 
 
+		/////////////////////////////////////////////////////////////////////
+		// OpenCL 1.2 functions
+		/////////////////////////////////////////////////////////////////////		
+
+		/******************************************************************************************
+		* Function: 	clGetKernelArgInfo    
+		* Description:	returns information about the arguments of a kernel.
+		* Arguments:	argIndx [in]				is the argument index
+		*				paramName [in]				specifies the argument information to query
+		*				szParamValueSize [inout]	parameter's value size (in bytes)
+		*				pParamValue [out]			parameter's value
+		*				pszParamValueSizeRet [out]	parameter's value return size
+		* Return value:	CL_INVALID_ARG_INDEX	- if arg_indx is not a valid argument index and param_name is
+		*											not CL_KERNEL_ATTRIBUTES.
+		*				CL_INVALID_VALUE		- if param_name is not valid, or if size in bytes specified by
+		*											param_value size is < size of return type as described in
+		*											table 5.17 and param_value is not NULL.
+		*				CL_KERNEL_ARG_INFO_NOT_AVAILABLE - if the argument information is not available
+		*											for kernel.
+		* Author:		Evgeny Fiksman
+		* Date:			August 2011
+		******************************************************************************************/
+		virtual cl_int GetKernelArgInfo(cl_kernel clKernel,
+												cl_uint argIndx,
+												cl_kernel_arg_info paramName,
+												size_t      szParamValueSize,
+												void *      pParamValue,
+												size_t *    pszParamValueSizeRet) = 0;
+
 	};
 
 }}}

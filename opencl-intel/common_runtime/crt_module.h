@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 #include <map>
-
+#include "export\crt_dispatch_table.h"
 
 namespace OCLCRT
 {
@@ -52,7 +52,7 @@ namespace OCLCRT
 	{
 	public:
 		IcdDispatchMgr();
-		KHRicdVendorDispatch m_crtDispatchTable;		
+        CRT_ICD_DISPATCH::CrtKHRicdVendorDispatch m_crtDispatchTable;		
 	};
 
 		/// Typedefs

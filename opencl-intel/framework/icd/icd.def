@@ -19,8 +19,7 @@ EXPORTS
 	clCreateSubBuffer
 	clSetMemObjectDestructorCallback
 	clCreateImage2D
-	clCreateImage3D
-	clCreateImage2DArrayINTEL
+	clCreateImage3D	
 	clRetainMemObject
 	clReleaseMemObject
 	clGetSupportedImageFormats

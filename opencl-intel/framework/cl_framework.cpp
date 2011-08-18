@@ -1104,3 +1104,17 @@ void CL_API_CALL clEnqueueAcquireD3D9ObjectsIntel() { }
 void CL_API_CALL clEnqueueReleaseD3D9ObjectsIntel() { }
 void CL_API_CALL clGetDeviceIDsFromD3D9Intel() { }
 #endif
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// OpenCL 1.2 functions
+///////////////////////////////////////////////////////////////////////////////////////////
+cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
+								cl_uint				arg_indx,
+								cl_kernel_arg_info	param_name,
+								size_t				param_value_size,
+								void *				param_value,
+								size_t *			param_value_size_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret));
+}
+SET_ALIAS(clGetKernelArgInfo);

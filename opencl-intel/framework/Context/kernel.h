@@ -34,6 +34,7 @@
 #include "Device.h"
 #include "cl_sys_defines.h"
 
+
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	class Program;
@@ -214,7 +215,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	GetWorkGroupInfo    
-		* Description:	greturns information about the kernel object that may be specific to a 
+		* Description:	returns information about the kernel object that may be specific to a 
 		*				device
 		* Arguments:	clDevice [in]				identifies a specific device in the list of 
 		*											devices associated with
@@ -230,8 +231,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code	GetWorkGroupInfo(	FissionableDevice*		pDevice,
 										cl_int      iParamName, 
-										size_t      szParamValueSize, 
-										void *      pParamValue, 
+										size_t      szParamValueSize,
+										void *      pParamValue,
 										size_t *    pszParamValueSizeRet);
 
 		// create device kernels
@@ -263,6 +264,34 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		const Context * GetContext() const;
 
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// OpenCL 1.2 functions
+		///////////////////////////////////////////////////////////////////////////////////////////
+
+		/******************************************************************************************
+		* Function: 	clGetKernelArgInfo    
+		* Description:	returns information about the arguments of a kernel.
+		* Arguments:	argIndx [in]				is the argument index
+		*				paramName [in]				specifies the argument information to query
+		*				szParamValueSize [inout]	parameter's value size (in bytes)
+		*				pParamValue [out]			parameter's value
+		*				pszParamValueSizeRet [out]	parameter's value return size
+		* Return value:	CL_INVALID_ARG_INDEX	- if arg_indx is not a valid argument index and param_name is
+		*											not CL_KERNEL_ATTRIBUTES.
+		*				CL_INVALID_VALUE		- if param_name is not valid, or if size in bytes specified by
+		*											param_value size is < size of return type as described in
+		*											table 5.17 and param_value is not NULL.
+		*				CL_KERNEL_ARG_INFO_NOT_AVAILABLE - if the argument information is not available
+		*											for kernel.
+		* Author:		Evgeny Fiksman
+		* Date:			August 2011
+		******************************************************************************************/		        
+		cl_err_code GetKernelArgInfo (	cl_uint argIndx,
+										cl_kernel_arg_info paramName,
+										size_t      szParamValueSize,
+										void *      pParamValue,
+										size_t *    pszParamValueSizeRet);
+
 	protected:
 		/******************************************************************************************
 		* Function: 	~Kernel
@@ -292,7 +321,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// To ensure all args have been set
 		Intel::OpenCL::Utils::AtomicCounter     m_numValidArgs;
 
-
+		// For OpenCL 1.2
+		static const char*						g_szArgTypeNames[];
 
 	};
 

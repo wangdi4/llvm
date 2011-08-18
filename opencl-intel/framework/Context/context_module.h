@@ -192,6 +192,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_mem CreateFromD3D9CubeTexture(cl_context context, cl_mem_flags flags, IDirect3DCubeTexture9 *resource, D3DCUBEMAP_FACES facetype, UINT miplevel, cl_int *errcode_ret);
         virtual cl_mem CreateFromD3D9VolumeTexture(cl_context context, cl_mem_flags flags, IDirect3DVolumeTexture9 *resource, UINT miplevel, cl_int *errcode_ret);
 #endif
+
+		/////////////////////////////////////////////////////////////////////
+		// OpenCL 1.2 functions
+		/////////////////////////////////////////////////////////////////////
+
+		virtual cl_int GetKernelArgInfo(cl_kernel clKernel,
+												cl_uint argIndx,
+												cl_kernel_arg_info paramName,
+												size_t      szParamValueSize,
+												void *      pParamValue,
+												size_t *    pszParamValueSizeRet);
+
 	private:
 
 		cl_err_code CheckImageParameters(cl_mem_flags clMemFlags,

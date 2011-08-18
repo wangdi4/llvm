@@ -54,7 +54,7 @@ OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue
 	}
 
 	m_handle.object = this;
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 }
 
 /******************************************************************

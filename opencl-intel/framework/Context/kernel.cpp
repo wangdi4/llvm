@@ -269,7 +269,7 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevice
 	//Todo: or here?
 
 	m_handle.object   = this;
-	m_handle.dispatch = pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor
@@ -434,6 +434,7 @@ cl_err_code	Kernel::GetWorkGroupInfo(FissionableDevice* pDevice, cl_int iParamNa
 
 	return clErr;
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -764,4 +765,86 @@ bool Kernel::IsValidExecutable(const FissionableDevice* pDevice) const
 {
 	DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
 	return NULL != pDeviceKernel;
+}
+
+/////////////////////////////////////////////////////////////////////
+// OpenCL 1.2 functions
+/////////////////////////////////////////////////////////////////////
+
+const char* Kernel::g_szArgTypeNames[] = 
+{
+	"int",
+	"uint",
+	"float",
+	"double",
+	"vector",
+	"sampler_t",
+	"composite", // Strucure
+	"local*",
+	"global*",
+	"constant*",
+	"__image_2d_t",
+	"__image_3d_t",
+	"__image_2d_array"
+};
+
+// TODO: Remove after 1.2 headers integration
+#ifdef CL_KERNEL_ARG_ADDRESS_QUALIFIER
+#pragma error
+#endif
+/* cl_kernel_arg_info */
+#define CL_KERNEL_ARG_ADDRESS_QUALIFIER             0x1300
+#define CL_KERNEL_ARG_ACCESS_QUALIFIER              0x1301
+#define CL_KERNEL_ARG_TYPE_NAME                     0x1302
+#define CL_KERNEL_ARG_NAME                          0x1303
+#define CL_KERNEL_ARG_ATTRIBUTES                    0x1304
+#define CL_KERNEL_ATTRIBUTES                        0x1305
+
+cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
+								cl_kernel_arg_info paramName,
+								size_t      szParamValueSize,
+								void *      pParamValue,
+								size_t *    pszParamValueSizeRet)
+{
+	size_t stParamSize;
+	const void* pValue;
+
+    if  (!pszParamValueSizeRet && !pParamValue)
+    {
+        return CL_INVALID_VALUE;
+    }
+	if ( argIndx > (GetKernelArgsCount()-1) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	// Initial implementation requried by the common runtime
+	switch ( paramName )
+	{
+	case CL_KERNEL_ARG_TYPE_NAME:
+		pValue = g_szArgTypeNames[m_sKernelPrototype.m_pArgs[argIndx].type];
+		stParamSize = strlen((const char*)pValue);      
+		break;
+	default:
+		return CL_INVALID_VALUE;        
+	}
+    
+    if (NULL != pParamValue)
+    {
+	    if (szParamValueSize >= (stParamSize+1))
+	    {
+		    MEMCPY_S(pParamValue, szParamValueSize, pValue, stParamSize);
+            ((char*)pParamValue)[stParamSize] = '\0';
+	    }
+        else
+        {
+            return CL_INVALID_VALUE;
+        }
+    }
+	
+    if ( NULL != pszParamValueSizeRet )
+	{
+		*pszParamValueSizeRet = stParamSize+1;
+	}
+	return CL_SUCCESS;
 }

@@ -31,101 +31,8 @@ cl_monitor_init
 
 char clFRAMEWORK_CFG_PATH[MAX_PATH];
 
-ocl_entry_points FrameworkProxy::OclEntryPoints = {
-    (KHRpfn_clGetPlatformIDs)GET_ALIAS(clGetPlatformIDs),
-    (KHRpfn_clGetPlatformInfo)GET_ALIAS(clGetPlatformInfo),
-    (KHRpfn_clGetDeviceIDs)GET_ALIAS(clGetDeviceIDs),
-    (KHRpfn_clGetDeviceInfo)GET_ALIAS(clGetDeviceInfo),
-    (KHRpfn_clCreateContext)GET_ALIAS(clCreateContext),
-    (KHRpfn_clCreateContextFromType)GET_ALIAS(clCreateContextFromType),
-    (KHRpfn_clRetainContext)GET_ALIAS(clRetainContext),
-    (KHRpfn_clReleaseContext)GET_ALIAS(clReleaseContext),
-    (KHRpfn_clGetContextInfo)GET_ALIAS(clGetContextInfo),
-    (KHRpfn_clCreateCommandQueue)GET_ALIAS(clCreateCommandQueue),
-    (KHRpfn_clRetainCommandQueue)GET_ALIAS(clRetainCommandQueue),
-    (KHRpfn_clReleaseCommandQueue)GET_ALIAS(clReleaseCommandQueue),
-    (KHRpfn_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo),
-    NULL/*(KHRpfn_clSetCommandQueueProperty)GET_ALIAS(clSetCommandQueueProperty)*/,
-    (KHRpfn_clCreateBuffer)GET_ALIAS(clCreateBuffer),
-    (KHRpfn_clCreateImage2D)GET_ALIAS(clCreateImage2D),
-    (KHRpfn_clCreateImage3D)GET_ALIAS(clCreateImage3D),	
-    (KHRpfn_clRetainMemObject)GET_ALIAS(clRetainMemObject),
-    (KHRpfn_clReleaseMemObject)GET_ALIAS(clReleaseMemObject),
-    (KHRpfn_clGetSupportedImageFormats)GET_ALIAS(clGetSupportedImageFormats),
-    (KHRpfn_clGetMemObjectInfo)GET_ALIAS(clGetMemObjectInfo),
-    (KHRpfn_clGetImageInfo)GET_ALIAS(clGetImageInfo),
-    (KHRpfn_clCreateSampler)GET_ALIAS(clCreateSampler),
-    (KHRpfn_clRetainSampler)GET_ALIAS(clRetainSampler),
-    (KHRpfn_clReleaseSampler)GET_ALIAS(clReleaseSampler),
-    (KHRpfn_clGetSamplerInfo)GET_ALIAS(clGetSamplerInfo),
-    (KHRpfn_clCreateProgramWithSource)GET_ALIAS(clCreateProgramWithSource),
-    (KHRpfn_clCreateProgramWithBinary)GET_ALIAS(clCreateProgramWithBinary),
-    (KHRpfn_clRetainProgram)GET_ALIAS(clRetainProgram),
-    (KHRpfn_clReleaseProgram)GET_ALIAS(clReleaseProgram),
-    (KHRpfn_clBuildProgram)GET_ALIAS(clBuildProgram),
-    (KHRpfn_clUnloadCompiler)GET_ALIAS(clUnloadCompiler),
-    (KHRpfn_clGetProgramInfo)GET_ALIAS(clGetProgramInfo),
-    (KHRpfn_clGetProgramBuildInfo)GET_ALIAS(clGetProgramBuildInfo),
-    (KHRpfn_clCreateKernel)GET_ALIAS(clCreateKernel),
-    (KHRpfn_clCreateKernelsInProgram)GET_ALIAS(clCreateKernelsInProgram),
-    (KHRpfn_clRetainKernel)GET_ALIAS(clRetainKernel),
-    (KHRpfn_clReleaseKernel)GET_ALIAS(clReleaseKernel),
-    (KHRpfn_clSetKernelArg)GET_ALIAS(clSetKernelArg),
-    (KHRpfn_clGetKernelInfo)GET_ALIAS(clGetKernelInfo),
-    (KHRpfn_clGetKernelWorkGroupInfo)GET_ALIAS(clGetKernelWorkGroupInfo),
-    (KHRpfn_clWaitForEvents)GET_ALIAS(clWaitForEvents),
-    (KHRpfn_clGetEventInfo)GET_ALIAS(clGetEventInfo),
-    (KHRpfn_clRetainEvent)GET_ALIAS(clRetainEvent),
-    (KHRpfn_clReleaseEvent)GET_ALIAS(clReleaseEvent),
-    (KHRpfn_clGetEventProfilingInfo)GET_ALIAS(clGetEventProfilingInfo),
-    (KHRpfn_clFlush)GET_ALIAS(clFlush),
-    (KHRpfn_clFinish)GET_ALIAS(clFinish),
-    (KHRpfn_clEnqueueReadBuffer)GET_ALIAS(clEnqueueReadBuffer),
-    (KHRpfn_clEnqueueWriteBuffer)GET_ALIAS(clEnqueueWriteBuffer),
-    (KHRpfn_clEnqueueCopyBuffer)GET_ALIAS(clEnqueueCopyBuffer),
-    (KHRpfn_clEnqueueReadImage)GET_ALIAS(clEnqueueReadImage),
-    (KHRpfn_clEnqueueWriteImage)GET_ALIAS(clEnqueueWriteImage),
-    (KHRpfn_clEnqueueCopyImage)GET_ALIAS(clEnqueueCopyImage),
-    (KHRpfn_clEnqueueCopyImageToBuffer)GET_ALIAS(clEnqueueCopyImageToBuffer),
-    (KHRpfn_clEnqueueCopyBufferToImage)GET_ALIAS(clEnqueueCopyBufferToImage),
-    (KHRpfn_clEnqueueMapBuffer)GET_ALIAS(clEnqueueMapBuffer),
-    (KHRpfn_clEnqueueMapImage)GET_ALIAS(clEnqueueMapImage),
-    (KHRpfn_clEnqueueUnmapMemObject)GET_ALIAS(clEnqueueUnmapMemObject),
-    (KHRpfn_clEnqueueNDRangeKernel)GET_ALIAS(clEnqueueNDRangeKernel),
-    (KHRpfn_clEnqueueTask)GET_ALIAS(clEnqueueTask),
-    (KHRpfn_clEnqueueNativeKernel)GET_ALIAS(clEnqueueNativeKernel),
-    (KHRpfn_clEnqueueMarker)GET_ALIAS(clEnqueueMarker),
-    (KHRpfn_clEnqueueWaitForEvents)GET_ALIAS(clEnqueueWaitForEvents),
-    (KHRpfn_clEnqueueBarrier)GET_ALIAS(clEnqueueBarrier),
-    (KHRpfn_clGetExtensionFunctionAddress)GET_ALIAS(clGetExtensionFunctionAddress),
-	(KHRpfn_clCreateFromGLBuffer)GET_ALIAS(clCreateFromGLBuffer),
-	(KHRpfn_clCreateFromGLTexture2D)GET_ALIAS(clCreateFromGLTexture2D),
-	(KHRpfn_clCreateFromGLTexture3D)GET_ALIAS(clCreateFromGLTexture3D),
-	(KHRpfn_clCreateFromGLRenderbuffer)GET_ALIAS(clCreateFromGLRenderbuffer),
-	(KHRpfn_clGetGLObjectInfo)GET_ALIAS(clGetGLObjectInfo),
-	(KHRpfn_clGetGLTextureInfo)GET_ALIAS(clGetGLTextureInfo),
-	(KHRpfn_clEnqueueAcquireGLObjects)GET_ALIAS(clEnqueueAcquireGLObjects),
-	(KHRpfn_clEnqueueReleaseGLObjects)GET_ALIAS(clEnqueueReleaseGLObjects),
-	(KHRpfn_clGetGLContextInfoKHR)GET_ALIAS(clGetGLContextInfoKHR),
-	NULL, // clGetDeviceIDsFromD3D10KHR
-	NULL, // clCreateFromD3D10BufferKHR
-	NULL, // clCreateFromD3D10Texture2DKHR
-	NULL, // clCreateFromD3D10Texture3DKHR
-	NULL, // clEnqueueAcquireD3D10ObjectsKHR
-	NULL, // clEnqueueReleaseD3D10ObjectsKHR
-	(KHRpfn_clSetEventCallback)GET_ALIAS(clSetEventCallback),
-	(KHRpfn_clCreateSubBuffer)GET_ALIAS(clCreateSubBuffer),
-	(KHRpfn_clSetMemObjectDestructorCallback)GET_ALIAS(clSetMemObjectDestructorCallback),
-	(KHRpfn_clCreateUserEvent)GET_ALIAS(clCreateUserEvent),
-	(KHRpfn_clSetUserEventStatus)GET_ALIAS(clSetUserEventStatus),
-	(KHRpfn_clEnqueueReadBufferRect)GET_ALIAS(clEnqueueReadBufferRect),
-	(KHRpfn_clEnqueueWriteBufferRect)GET_ALIAS(clEnqueueWriteBufferRect),
-	(KHRpfn_clEnqueueCopyBufferRect)GET_ALIAS(clEnqueueCopyBufferRect),
-	(KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT), 
-	(KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT),
-	(KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT),
-    (KHRpfn_clCreateImage2DArrayINTEL)GET_ALIAS(clCreateImage2DArrayINTEL)
-};
+ocl_entry_points FrameworkProxy::OclEntryPoints;
+
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
@@ -149,12 +56,120 @@ FrameworkProxy::FrameworkProxy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::~FrameworkProxy()
 {	  
-}	  
+}
+
+void FrameworkProxy::InitOCLEntryPoints()
+{
+    /// ICD functions
+    OclEntryPoints.clGetPlatformIDs = (KHRpfn_clGetPlatformIDs)GET_ALIAS(clGetPlatformIDs);
+    OclEntryPoints.clGetPlatformInfo = (KHRpfn_clGetPlatformInfo)GET_ALIAS(clGetPlatformInfo);
+    OclEntryPoints.clGetDeviceIDs = (KHRpfn_clGetDeviceIDs)GET_ALIAS(clGetDeviceIDs);
+    OclEntryPoints.clGetDeviceInfo = (KHRpfn_clGetDeviceInfo)GET_ALIAS(clGetDeviceInfo);
+    OclEntryPoints.clCreateContext = (KHRpfn_clCreateContext)GET_ALIAS(clCreateContext);
+    OclEntryPoints.clCreateContextFromType = (KHRpfn_clCreateContextFromType)GET_ALIAS(clCreateContextFromType);
+    OclEntryPoints.clRetainContext = (KHRpfn_clRetainContext)GET_ALIAS(clRetainContext);
+    OclEntryPoints.clReleaseContext = (KHRpfn_clReleaseContext)GET_ALIAS(clReleaseContext);
+    OclEntryPoints.clGetContextInfo = (KHRpfn_clGetContextInfo)GET_ALIAS(clGetContextInfo);
+    OclEntryPoints.clCreateCommandQueue = (KHRpfn_clCreateCommandQueue)GET_ALIAS(clCreateCommandQueue);
+    OclEntryPoints.clRetainCommandQueue = (KHRpfn_clRetainCommandQueue)GET_ALIAS(clRetainCommandQueue);
+    OclEntryPoints.clReleaseCommandQueue = (KHRpfn_clReleaseCommandQueue)GET_ALIAS(clReleaseCommandQueue);
+    OclEntryPoints.clGetCommandQueueInfo = (KHRpfn_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo);
+    OclEntryPoints.clSetCommandQueueProperty = NULL;
+    OclEntryPoints.clCreateBuffer = (KHRpfn_clCreateBuffer)GET_ALIAS(clCreateBuffer);
+    OclEntryPoints.clCreateImage2D = (KHRpfn_clCreateImage2D)GET_ALIAS(clCreateImage2D);
+    OclEntryPoints.clCreateImage3D = (KHRpfn_clCreateImage3D)GET_ALIAS(clCreateImage3D);
+    OclEntryPoints.clRetainMemObject = (KHRpfn_clRetainMemObject)GET_ALIAS(clRetainMemObject);
+    OclEntryPoints.clReleaseMemObject = (KHRpfn_clReleaseMemObject)GET_ALIAS(clReleaseMemObject);
+    OclEntryPoints.clGetSupportedImageFormats = (KHRpfn_clGetSupportedImageFormats)GET_ALIAS(clGetSupportedImageFormats);
+    OclEntryPoints.clGetMemObjectInfo = (KHRpfn_clGetMemObjectInfo)GET_ALIAS(clGetMemObjectInfo);
+    OclEntryPoints.clGetImageInfo = (KHRpfn_clGetImageInfo)GET_ALIAS(clGetImageInfo);
+    OclEntryPoints.clCreateSampler = (KHRpfn_clCreateSampler)GET_ALIAS(clCreateSampler);
+    OclEntryPoints.clRetainSampler = (KHRpfn_clRetainSampler)GET_ALIAS(clRetainSampler);
+    OclEntryPoints.clReleaseSampler = (KHRpfn_clReleaseSampler)GET_ALIAS(clReleaseSampler);
+    OclEntryPoints.clGetSamplerInfo = (KHRpfn_clGetSamplerInfo)GET_ALIAS(clGetSamplerInfo);
+    OclEntryPoints.clCreateProgramWithSource = (KHRpfn_clCreateProgramWithSource)GET_ALIAS(clCreateProgramWithSource);
+    OclEntryPoints.clCreateProgramWithBinary = (KHRpfn_clCreateProgramWithBinary)GET_ALIAS(clCreateProgramWithBinary);
+    OclEntryPoints.clRetainProgram = (KHRpfn_clRetainProgram)GET_ALIAS(clRetainProgram);
+    OclEntryPoints.clReleaseProgram = (KHRpfn_clReleaseProgram)GET_ALIAS(clReleaseProgram);
+    OclEntryPoints.clBuildProgram = (KHRpfn_clBuildProgram)GET_ALIAS(clBuildProgram);
+    OclEntryPoints.clUnloadCompiler = (KHRpfn_clUnloadCompiler)GET_ALIAS(clUnloadCompiler);
+    OclEntryPoints.clGetProgramInfo = (KHRpfn_clGetProgramInfo)GET_ALIAS(clGetProgramInfo);
+    OclEntryPoints.clGetProgramBuildInfo = (KHRpfn_clGetProgramBuildInfo)GET_ALIAS(clGetProgramBuildInfo);
+    OclEntryPoints.clCreateKernel = (KHRpfn_clCreateKernel)GET_ALIAS(clCreateKernel);
+    OclEntryPoints.clCreateKernelsInProgram = (KHRpfn_clCreateKernelsInProgram)GET_ALIAS(clCreateKernelsInProgram);
+    OclEntryPoints.clRetainKernel = (KHRpfn_clRetainKernel)GET_ALIAS(clRetainKernel);
+    OclEntryPoints.clReleaseKernel = (KHRpfn_clReleaseKernel)GET_ALIAS(clReleaseKernel);
+    OclEntryPoints.clSetKernelArg = (KHRpfn_clSetKernelArg)GET_ALIAS(clSetKernelArg);
+    OclEntryPoints.clGetKernelInfo = (KHRpfn_clGetKernelInfo)GET_ALIAS(clGetKernelInfo);
+    OclEntryPoints.clGetKernelWorkGroupInfo = (KHRpfn_clGetKernelWorkGroupInfo)GET_ALIAS(clGetKernelWorkGroupInfo);
+    OclEntryPoints.clWaitForEvents = (KHRpfn_clWaitForEvents)GET_ALIAS(clWaitForEvents);
+    OclEntryPoints.clGetEventInfo = (KHRpfn_clGetEventInfo)GET_ALIAS(clGetEventInfo);
+    OclEntryPoints.clRetainEvent = (KHRpfn_clRetainEvent)GET_ALIAS(clRetainEvent);
+    OclEntryPoints.clReleaseEvent = (KHRpfn_clReleaseEvent)GET_ALIAS(clReleaseEvent);
+    OclEntryPoints.clGetEventProfilingInfo = (KHRpfn_clGetEventProfilingInfo)GET_ALIAS(clGetEventProfilingInfo);
+    OclEntryPoints.clFlush = (KHRpfn_clFlush)GET_ALIAS(clFlush);
+    OclEntryPoints.clFinish = (KHRpfn_clFinish)GET_ALIAS(clFinish);
+    OclEntryPoints.clEnqueueReadBuffer = (KHRpfn_clEnqueueReadBuffer)GET_ALIAS(clEnqueueReadBuffer);
+    OclEntryPoints.clEnqueueWriteBuffer = (KHRpfn_clEnqueueWriteBuffer)GET_ALIAS(clEnqueueWriteBuffer);
+    OclEntryPoints.clEnqueueCopyBuffer = (KHRpfn_clEnqueueCopyBuffer)GET_ALIAS(clEnqueueCopyBuffer);
+    OclEntryPoints.clEnqueueReadImage = (KHRpfn_clEnqueueReadImage)GET_ALIAS(clEnqueueReadImage);
+    OclEntryPoints.clEnqueueWriteImage = (KHRpfn_clEnqueueWriteImage)GET_ALIAS(clEnqueueWriteImage);
+    OclEntryPoints.clEnqueueCopyImage = (KHRpfn_clEnqueueCopyImage)GET_ALIAS(clEnqueueCopyImage);
+    OclEntryPoints.clEnqueueCopyImageToBuffer = (KHRpfn_clEnqueueCopyImageToBuffer)GET_ALIAS(clEnqueueCopyImageToBuffer);
+    OclEntryPoints.clEnqueueCopyBufferToImage = (KHRpfn_clEnqueueCopyBufferToImage)GET_ALIAS(clEnqueueCopyBufferToImage);
+    OclEntryPoints.clEnqueueMapBuffer = (KHRpfn_clEnqueueMapBuffer)GET_ALIAS(clEnqueueMapBuffer);
+    OclEntryPoints.clEnqueueMapImage = (KHRpfn_clEnqueueMapImage)GET_ALIAS(clEnqueueMapImage);
+    OclEntryPoints.clEnqueueUnmapMemObject = (KHRpfn_clEnqueueUnmapMemObject)GET_ALIAS(clEnqueueUnmapMemObject);
+    OclEntryPoints.clEnqueueNDRangeKernel = (KHRpfn_clEnqueueNDRangeKernel)GET_ALIAS(clEnqueueNDRangeKernel);
+    OclEntryPoints.clEnqueueTask = (KHRpfn_clEnqueueTask)GET_ALIAS(clEnqueueTask);
+    OclEntryPoints.clEnqueueNativeKernel = (KHRpfn_clEnqueueNativeKernel)GET_ALIAS(clEnqueueNativeKernel);
+    OclEntryPoints.clEnqueueMarker = (KHRpfn_clEnqueueMarker)GET_ALIAS(clEnqueueMarker);
+    OclEntryPoints.clEnqueueWaitForEvents = (KHRpfn_clEnqueueWaitForEvents)GET_ALIAS(clEnqueueWaitForEvents);
+    OclEntryPoints.clEnqueueBarrier = (KHRpfn_clEnqueueBarrier)GET_ALIAS(clEnqueueBarrier);
+    OclEntryPoints.clGetExtensionFunctionAddress = (KHRpfn_clGetExtensionFunctionAddress)GET_ALIAS(clGetExtensionFunctionAddress);
+    OclEntryPoints.clCreateFromGLBuffer = (KHRpfn_clCreateFromGLBuffer)GET_ALIAS(clCreateFromGLBuffer);
+    OclEntryPoints.clCreateFromGLTexture2D = (KHRpfn_clCreateFromGLTexture2D)GET_ALIAS(clCreateFromGLTexture2D);
+    OclEntryPoints.clCreateFromGLTexture3D = (KHRpfn_clCreateFromGLTexture3D)GET_ALIAS(clCreateFromGLTexture3D);
+    OclEntryPoints.clCreateFromGLRenderbuffer = (KHRpfn_clCreateFromGLRenderbuffer)GET_ALIAS(clCreateFromGLRenderbuffer);
+    OclEntryPoints.clGetGLObjectInfo = (KHRpfn_clGetGLObjectInfo)GET_ALIAS(clGetGLObjectInfo);
+    OclEntryPoints.clGetGLTextureInfo = (KHRpfn_clGetGLTextureInfo)GET_ALIAS(clGetGLTextureInfo);
+    OclEntryPoints.clEnqueueAcquireGLObjects = (KHRpfn_clEnqueueAcquireGLObjects)GET_ALIAS(clEnqueueAcquireGLObjects);
+    OclEntryPoints.clEnqueueReleaseGLObjects = (KHRpfn_clEnqueueReleaseGLObjects)GET_ALIAS(clEnqueueReleaseGLObjects);
+    OclEntryPoints.clGetGLContextInfoKHR = (KHRpfn_clGetGLContextInfoKHR)GET_ALIAS(clGetGLContextInfoKHR);
+    OclEntryPoints.clGetDeviceIDsFromD3D10KHR = NULL;
+    OclEntryPoints.clCreateFromD3D10BufferKHR = NULL;
+    OclEntryPoints.clCreateFromD3D10Texture2DKHR = NULL;
+    OclEntryPoints.clCreateFromD3D10Texture3DKHR = NULL;
+    OclEntryPoints.clEnqueueAcquireD3D10ObjectsKHR = NULL;
+    OclEntryPoints.clEnqueueReleaseD3D10ObjectsKHR = NULL;
+    OclEntryPoints.clSetEventCallback = (KHRpfn_clSetEventCallback)GET_ALIAS(clSetEventCallback);
+    OclEntryPoints.clCreateSubBuffer = (KHRpfn_clCreateSubBuffer)GET_ALIAS(clCreateSubBuffer);
+    OclEntryPoints.clSetMemObjectDestructorCallback = (KHRpfn_clSetMemObjectDestructorCallback)GET_ALIAS(clSetMemObjectDestructorCallback);
+    OclEntryPoints.clCreateUserEvent = (KHRpfn_clCreateUserEvent)GET_ALIAS(clCreateUserEvent);
+    OclEntryPoints.clSetUserEventStatus = (KHRpfn_clSetUserEventStatus)GET_ALIAS(clSetUserEventStatus);
+    OclEntryPoints.clEnqueueReadBufferRect = (KHRpfn_clEnqueueReadBufferRect)GET_ALIAS(clEnqueueReadBufferRect);
+    OclEntryPoints.clEnqueueWriteBufferRect = (KHRpfn_clEnqueueWriteBufferRect)GET_ALIAS(clEnqueueWriteBufferRect);
+    OclEntryPoints.clEnqueueCopyBufferRect = (KHRpfn_clEnqueueCopyBufferRect)GET_ALIAS(clEnqueueCopyBufferRect);
+    OclEntryPoints.clCreateSubDevicesEXT = (KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT);
+    OclEntryPoints.clRetainDeviceEXT = (KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT);
+    OclEntryPoints.clReleaseDeviceEXT = (KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT);
+
+    /// Extra functions for Common Runtime
+    OclEntryPoints.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);    
+
+
+    /// Extra CPU specific functions
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Initialize()
 {
+   
+    // Initialize entry points table
+    InitOCLEntryPoints();
+
 #ifdef WIN32
 	// The loading on tbb.dll was delayed,
 	// Need to load manually before defualt dll is loaded
