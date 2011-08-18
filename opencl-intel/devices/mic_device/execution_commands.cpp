@@ -1,5 +1,5 @@
 #include "execution_commands.h"
-#include "ICLDevBackendKernel.h"
+#include "cl_dev_backend_api.h"
 #include "command_list.h"
 #include "memory_allocator.h"
 
@@ -8,7 +8,7 @@
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
-NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd), 
+NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd),
 m_dispatcherDataBuffer(NULL), m_printfBuffer(NULL), m_profilingBuffer(NULL)
 {
 }
@@ -344,7 +344,7 @@ cl_dev_err_code NDRange::execute()
 
 		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier when finish.
 		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier))' can return NULL, in case of Out of order CommandList */
-		COIRESULT result = COIPipelineRunFunction(pipe, func, numBuffersToDispatch, coiBuffsArr, accessFlagsArr, numDependecies, barrier, 
+		COIRESULT result = COIPipelineRunFunction(pipe, func, numBuffersToDispatch, coiBuffsArr, accessFlagsArr, numDependecies, barrier,
 														NULL, 0, NULL, 0, m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier));
 		if (result != COI_SUCCESS)
 		{

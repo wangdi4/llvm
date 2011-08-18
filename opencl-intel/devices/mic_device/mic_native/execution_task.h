@@ -29,7 +29,7 @@
 #include "mic_device_interface.h"
 #include "program_memory_manager.h"
 
-#include "ICLDevBackendKernel.h"
+#include "cl_dev_backend_api.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -48,9 +48,9 @@ public:
 	/* Initializing and performing the preExecution conditions */
 	bool init(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths);
 
-	/* Perform PostExecution conditions. 
-	   AND Delete this object as the last command. 
-	   In case of in order queue it will be call from 'runTask' method (as the last command), 
+	/* Perform PostExecution conditions.
+	   AND Delete this object as the last command.
+	   In case of in order queue it will be call from 'runTask' method (as the last command),
 	   In case of out of order queue, it will be call by the thread that complete the kernel execution. */
 	void finish();
 
@@ -80,7 +80,7 @@ protected:
 
 	ICLDevBackendKernel_* m_kernel;
 	ProgramMemoryManager* m_progamExecutableMemoryManager;
-	
+
 	// The kernel arguments blob
 	char* m_lockedParams;
 
