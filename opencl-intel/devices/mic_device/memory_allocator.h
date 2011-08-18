@@ -78,9 +78,10 @@ public:
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
     cl_dev_err_code GetAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp );
     // Create/Release functions
-    cl_dev_err_code    CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
-                            size_t    dim_count, const size_t* dim, void*    buffer_ptr, const size_t* pitch,
-                            cl_dev_host_ptr_flags host_flags,
+    cl_dev_err_code CreateObject( cl_dev_subdevice_id node_id,
+                            cl_mem_flags flags, const cl_image_format* format,
+                            size_t    dim_count, const size_t* dim,
+                            IOCLDevRTMemObjectService*    pRTMemObjService,
                             IOCLDevMemoryObject* *memObj );
 
     // Utility functions
@@ -120,12 +121,10 @@ public:
                        cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
                        const cl_image_format* pImgFormat, size_t elemSize,
                        size_t dimCount, const size_t* dim,
-                       void* pBuffer, const size_t* pPitches,
-                       cl_dev_host_ptr_flags hostFlags);
+                       IOCLDevRTMemObjectService*    pRTMemObjService);
 
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
-            m_nodeId(NULL), m_memFlags(0), m_hostPtrFlags(CL_DEV_HOST_PTR_NONE), m_pHostPtr(NULL),
-            m_coi_buffer(0), m_bAlocated(false) {}
+            m_nodeId(NULL), m_memFlags(0), m_pHostPtr(NULL), m_coi_buffer(0) {}
 
     cl_dev_err_code Init();
 
@@ -141,18 +140,25 @@ public:
                     const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
 protected:
-    MemoryAllocator&         m_Allocator;
+    MemoryAllocator&            m_Allocator;
 
     // Object Management
-    cl_dev_subdevice_id      m_nodeId;
+    cl_dev_subdevice_id         m_nodeId;
 
-    cl_mem_obj_descriptor    m_objDecr;
-    cl_mem_flags             m_memFlags;
-    cl_dev_host_ptr_flags    m_hostPtrFlags;
-    void*                    m_pHostPtr;            // A pointer provided by the framework
-    size_t                   m_hostPitch[MAX_WORK_DIM-1];
-    COIBUFFER                m_coi_buffer;
-    bool                     m_bAlocated;
+    cl_mem_obj_descriptor       m_objDecr;
+    cl_mem_flags                m_memFlags;
+    IOCLDevRTMemObjectService*  m_pRTMemObjService;
+    IOCLDevBackingStore*        m_pBackingStore;
+    size_t                      m_raw_size;
+
+    void*                       m_pHostPtr;     // A pointer provided by the framework
+
+    COIBUFFER                   m_coi_buffer;
+
+private:
+    ~MICDevMemoryObject() {};
+
+    IOCLDevBackingStore* createBackingStore() const;
 
 };
 
@@ -166,4 +172,44 @@ public:
 protected:
     MICDevMemoryObject& m_Parent;
 };
+
+class MICDevBackingStore : public IOCLDevBackingStore
+{
+public:
+    MICDevBackingStore(const cl_mem_obj_descriptor& desc, ClHeap heap );
+
+    cl_dev_bs_description GetRawDataDecription() const {return CL_DEV_BS_RT_ALLOCATED;}
+    bool IsDataValid() const { return true;}
+
+    void*            GetRawData()            const {return m_pData;}
+    size_t           GetRawDataSize()        const;
+    size_t           GetRawDataOffset( const size_t* origin ) const;
+
+    size_t           GetDimCount()           const {return m_dim_count;}
+    const size_t*    GetDimentions()         const {return m_dim; };
+    const size_t*    GetPitch()              const {return (1 == m_dim_count) ? NULL : m_pitch;};
+    cl_image_format  GetFormat()             const {return m_format; };
+    unsigned int     GetElemSize()           const {return m_uiElementSize; };
+
+    int AddPendency();
+    int RemovePendency();
+
+protected:
+    virtual ~MICDevBackingStore() {};
+
+    size_t           m_dim_count;             // A number of dimensions in the memory object. 1 means buffer.
+    size_t           m_dim[MAX_WORK_DIM];     // Multi-dimensional size of the object.
+    size_t           m_pitch[MAX_WORK_DIM-1]; // Multi-dimensional pitch of the object, valid only for images (2D/3D).
+    cl_image_format  m_format;                // Format of the memory object,valid only for images (2D/3D).
+    void*            m_pData;                 // A pointer to the object wherein the object data is stored.
+                                              // Could be a valid memory pointer or a handle to other object.
+    unsigned int     m_uiElementSize;         // assumed 1 for buffers
+
+    AtomicCounter    m_refCount;
+
+private:
+    ClHeap           m_clHeap;
+};
+
 }}}
+

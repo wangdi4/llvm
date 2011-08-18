@@ -49,7 +49,7 @@ class MemoryAllocator;
 class DeviceServiceCommunication;
 class CommandList;
 
-class MICDevice : public IOCLDeviceAgent
+class MICDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription
 {
 
 private:
@@ -80,6 +80,10 @@ protected:
 
 public:
 
+    //
+    // IOCLDeviceAgent
+    //
+
     MICDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
     cl_dev_err_code                     Init();
 
@@ -103,8 +107,8 @@ public:
                     cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
     cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp );
     cl_dev_err_code clDevCreateMemoryObject( cl_dev_subdevice_id IN node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
-                            size_t    IN dim_count, const size_t* IN dim_size, void*    IN buffer_ptr, const size_t* IN pitch,
-                            cl_dev_host_ptr_flags IN host_flags, IOCLDevMemoryObject* OUT *memObj);
+                    size_t IN dim_count, const size_t* IN dim_size,
+                    IOCLDevRTMemObjectService* IN pBSService, IOCLDevMemoryObject* OUT *pMemObj );
     cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
     cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
     cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData);
@@ -120,6 +124,7 @@ public:
                         void* OUT value, size_t* OUT valueSizeRet );
     cl_ulong    clDevGetPerformanceCounter();
     cl_dev_err_code    clDevSetLogger(IOCLDevLogDescriptor *);
+    const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const { return *this; };
     void        clDevCloseDevice(void);
 
     static void loadingInit();
@@ -130,6 +135,12 @@ public:
     static TMicsList FilterMicDevices( const list<IOCLDeviceAgent*>& devices );
     static TMicsList GetActiveMicDevices( void );
 
+    //
+    // IOCLDeviceFECompilerDescription
+    //
+	const char* clDevFEModuleName() const;
+	const void* clDevFEDeviceInfo() const;
+	size_t		clDevFEDeviceInfoSize() const;
 
 };
 

@@ -13,6 +13,7 @@
 #include "mic_sys_info.h"
 #include "mic_sys_info_internal.h"
 #include "mic_common_macros.h"
+#include <CL/cl_ext.h>
 
 #define __DOUBLE_ENABLED__
 

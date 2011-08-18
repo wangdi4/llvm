@@ -215,6 +215,29 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
 
 // Device Fission support
 /****************************************************************************************************************
+ clDevGetFECompilerDecription
+    Return front-end compiler description
+****************************************************************************************************************/
+const char* MICDevice::clDevFEModuleName() const
+{
+	static const char* sFEModuleName = "clang_compiler";
+	return sFEModuleName;
+}
+
+const void* MICDevice::clDevFEDeviceInfo() const
+{
+	return MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
+}
+
+size_t MICDevice::clDevFEDeviceInfoSize() const
+{
+    const char* supported_extensions = (const char*)clDevFEDeviceInfo();
+
+	return supported_extensions ? strlen(supported_extensions)+1 : 0;
+}
+
+// Device Fission support
+/****************************************************************************************************************
  clDevPartition
     Calculate appropriate affinity mask to support the partitioning mode and instantiate as many dedicated
     command lists objects as needed
@@ -371,12 +394,12 @@ cl_dev_err_code MICDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN 
  clDevCreateMemoryObject
     Call Memory Allocator to create memory object
 ********************************************************************************************************************/
-cl_dev_err_code MICDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
-                                    size_t    IN dim_count, const size_t* IN dim_size, void*    IN buffer_ptr, const size_t* IN pitch,
-                                    cl_dev_host_ptr_flags IN ptr_flags, IOCLDevMemoryObject* OUT *memObj)
+cl_dev_err_code MICDevice::clDevCreateMemoryObject( cl_dev_subdevice_id IN node_id, cl_mem_flags IN flags,
+                    const cl_image_format* IN format, size_t IN dim_count, const size_t* IN dim_size,
+                    IOCLDevRTMemObjectService* IN pBSService, IOCLDevMemoryObject* OUT *pMemObj )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateMemoryObject Function enter"));
-    return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, buffer_ptr, pitch, ptr_flags, memObj);
+    return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, pBSService, pMemObj);
 }
 
 /****************************************************************************************************************

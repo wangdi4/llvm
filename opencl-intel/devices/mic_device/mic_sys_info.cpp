@@ -364,6 +364,29 @@ unsigned long long MICSysInfo::TotalPhysicalMemSize(uint32_t deviceId)
     return 0;
 }
 
+const char* MICSysInfo::getSupportedOclExtensions(uint32_t deviceId)
+{
+    if (! initializedInfoStruct(deviceId))
+    {
+        return NULL;
+    }
+
+    const TInfoType2Data* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
+    assert( data && "MICDevice: SKU static data table is not initialized" );
+
+    TInfoType2Data::const_iterator it = data->find( CL_DEVICE_EXTENSIONS );
+    if (data->end() == it)
+    {
+        // info not found
+        return NULL;
+    }
+
+    const SYS_INFO_ENTRY* info_entry = it->second;
+    assert( VALUE_STRING == info_entry->si_value_type );
+
+    return (const char*)info_entry->const_value;
+}
+
 inline bool process_info_params( size_t required_size,
                                  size_t buf_size, void* buf,
                                  size_t* filled_buf_size )

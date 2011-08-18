@@ -62,6 +62,10 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
            If failed return 0 */
         unsigned long long TotalPhysicalMemSize(uint32_t deviceId);
 
+        /* Return space delimited string with OpenCL extension names
+           If failed return NULL */
+        const char* getSupportedOclExtensions(uint32_t deviceId);
+
         ///////////////////////////////////////////////////////////////////
         //
         // Info Data Base - internal
