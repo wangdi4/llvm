@@ -307,7 +307,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 	cl_char pcPlatformExtension[8192] = {0};
 	cl_char pcDeviceExtension[8192] = {0};
 	cl_char pcOtherDeviceExtension[8192] = {0};
-	cl_char pcPlatformICDSuffixKhr[8] = "Intel";
+	cl_char pcPlatformICDSuffixKhr[8] = "INTEL";
 
 	switch (clParamName)
 	{

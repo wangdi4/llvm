@@ -934,4 +934,3 @@ struct _cl_sampler
 };
 
 #endif // _ICD_DISPATCH_H_
-
