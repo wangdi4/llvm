@@ -3,25 +3,6 @@
 function usage
 {
 cat <<- _EOT_
-#
-# Build Unix Makefiles for OpenCL
-#
-# Usage:
-#    gen_linux_make [+cnf] [+java] [-e] [debug|release] [gcc|intel] [working_dir]
-#
-#  +cnf           - include conformance tests into build - ONLY FOR INITIAL SETTINGS!
-#                                use 'make edit_cache' to modify later!
-#  +java          - include java code
-#  -e             - create eclipse project
-#  debug|release  - create debug or release Makefiles version. Default - release
-#  gcc|intel      - use GCC or Intel compiler. Default - GCC.
-#  working_dir    - working directory. Default - "build" dir in parallel to "src"
-#
-#  Makefiles are created in the directory working_dir/Debug|Release parallel to top level src directory
-#  Compilation output during build is copied to the directory bin/Debug or bin/Release
-#  parallel to the top level src directory
-#
-
 Build Unix Makefiles for OpenCL
 
 Usage: $0 [+cnf] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ver>][-32] [--meego] [--help] <working_dir>
@@ -37,7 +18,7 @@ Usage: $0 [+cnf] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ver>][-32] 
 
     [gnu,intel]         - use GCC or Intel compiler. Default - gnu.
     
-    java                - build Java JARs
+    +java                - build Java JARs
     
     --icc_ver           - ICC version (default 11.1)
     
@@ -93,8 +74,8 @@ while [ "$1" != "" ]; do
     case $1 in
         +cnf )                  incl_cnf=ON
                                 ;;
-		--esrc )                eclipse_extra_args="${eclipse_extra_args} -D ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT=ON"
-								generator="Eclipse CDT4 - Unix Makefiles"
+        --esrc )                eclipse_extra_args="${eclipse_extra_args} -D ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT=ON"
+                                generator="Eclipse CDT4 - Unix Makefiles"
                                 eclipse_extra_args="${eclipse_extra_args} -D CMAKE_BUILD_TYPE=Debug"
                                 ;;
         -e | --eclipse )        generator="Eclipse CDT4 - Unix Makefiles"
@@ -106,12 +87,12 @@ while [ "$1" != "" ]; do
                                 ;;
         intel )                 compiler=intel
                                 compiler_nice_name=Intel
-				use_intc=ON
+                                use_intc=ON
                                 toolchain_file="${toolchain_dir}/Linux-Intel.cmake"
                                 ;;
         gnu )                   compiler=gnu
                                 compiler_nice_name=GNU
-				use_intc=OFF
+                                use_intc=OFF
                                 toolchain_file="${toolchain_dir}/Linux-GNU.cmake"
                                 ;;
         -h | --help )           usage
@@ -123,15 +104,15 @@ while [ "$1" != "" ]; do
         -m | --meego )          meego=ON
                                 ;;
         -32 | --32 )            trgt32=ON
-    							trgtBit=32
+                                trgtBit=32
                                 ;;
         -64 | --64 )            trgt32=OFF
-        						trgtBit=64
+                                trgtBit=64
                                 ;;
         -a | --atom )           trgt_cpu=Atom
                                 ;;
-		java )                  incl_java=ON
-								;;
+        +java )                 incl_java=ON
+                                ;;
         * )                     working_dir=$1
                                 ;;
     esac
@@ -211,8 +192,8 @@ cmake -G "$generator" \
 #     --debug-trycompile --debug-output --trace -D CMAKE_VERBOSE_MAKEFILE=true \
 
 if test $? = 0; then
-	echo .
-	echo . Make files have been generated for the $target target
-	echo . Please run make from the directory `pwd`
-	echo .
+    echo .
+    echo . Make files have been generated for the $target target
+    echo . Please run make from the directory `pwd`
+    echo .
 fi
