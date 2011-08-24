@@ -4,12 +4,16 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+InOrderCommandSynchHandler		CommandSynchHandler::m_singletonInOrderCommandSynchHandler;
+OutOfOrderCommandSynchHandler	CommandSynchHandler::m_singletonOuOfOrderCommandSynchHandler;
+
 Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
 m_pCommandList(pCommandList), m_pFrameworkCallBacks(pFrameworkCallBacks)
 {
 	m_pCommandSynchHandler = NULL;
-	// Create new CommandSynchHandler according to Queue type.
-	m_pCommandSynchHandler = ((pCommandList) && (pCommandList->isInOrderCommandList())) ? (CommandSynchHandler*)(new InOrderCommandSynchHandler(pCommandList)) : (CommandSynchHandler*)(new OutOfOrderCommandSynchHandler(pCommandList));
+	// Get CommandSynchHandler singleton according to Queue type.
+	m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
+	assert(m_pCommandSynchHandler);
 }
 
 Command::~Command()
@@ -19,19 +23,11 @@ Command::~Command()
 
 void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
 {
-	m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, uStatus, m_lastError, timer);
-}
-
-void Command::notifyCommandStatusChanged(unsigned uStatus)
-{
-	cl_ulong timer = 0;
-	// If the user ask for profiling time
-	if(m_pCmd->profiling)
+	if ((timer == 0) && (m_pCmd->profiling))
 	{
 		timer = HostTime();
 	}
-	// Notify runtime that  the command completed
-	notifyCommandStatusChanged(CL_COMPLETE, timer);
+	m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, uStatus, m_lastError, timer);
 }
 
 void Command::fireCallBack(void* arg)
@@ -45,13 +41,9 @@ void Command::fireCallBack(void* arg)
 void Command::releaseResources()
 {
 	// Delete Synchronization handler
-	if (m_pCommandSynchHandler)
-	{
-		// Unregister the completion barrier
-		m_pCommandSynchHandler->unregisterCompletionBarrier(m_completionBarrier);
-
-		delete(m_pCommandSynchHandler);
-	}
+	assert(m_pCommandSynchHandler);
+	// Unregister the completion barrier
+	m_pCommandSynchHandler->unregisterCompletionBarrier(m_completionBarrier);
 }
 
 
@@ -68,16 +60,12 @@ cl_dev_err_code FailureNotification::execute()
 
 
 
-InOrderCommandSynchHandler::InOrderCommandSynchHandler(CommandList* pCommandList)  : CommandSynchHandler(pCommandList) 
+void InOrderCommandSynchHandler::getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
 {
+	pCommandList->getLastDependentBarrier(barrier, numDependencies, isExecutionTask);
 }
 
-void InOrderCommandSynchHandler::getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
+void InOrderCommandSynchHandler::setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution)
 {
-	m_pCommandList->getLastDependentBarrier(barrier, numDependencies, isExecutionTask);
-}
-
-void InOrderCommandSynchHandler::setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution)
-{
-	m_pCommandList->setLastDependentBarrier(barrier, lastCmdWasExecution);
+	pCommandList->setLastDependentBarrier(barrier, lastCmdWasExecution);
 }

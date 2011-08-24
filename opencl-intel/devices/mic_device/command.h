@@ -26,8 +26,6 @@
 #include <source/COIEvent_source.h>
 #include <source/COIPipeline_source.h>
 
-using namespace Intel::OpenCL::Utils;
-
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
 class CommandList;
@@ -62,8 +60,7 @@ protected:
 	};
 
 	/* Notify runtime that the command status changed */
-	void notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer);
-	void notifyCommandStatusChanged(unsigned uStatus);
+	void notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer = 0);
 
 	// COIEVENT that will signal when the Command will finish.
     COIEVENT m_completionBarrier;
@@ -103,22 +100,27 @@ public:
 
 
 
+class InOrderCommandSynchHandler;
+class OutOfOrderCommandSynchHandler;
+
 class CommandSynchHandler
 {
 	
 public:
-
-	CommandSynchHandler(CommandList* pCommandList);
-
+	/* Return the appropriate singleton object */
+	static CommandSynchHandler* getCommandSyncHandler(bool isInOrder) 
+	{ 
+		return (isInOrder == true) ? (CommandSynchHandler*)(&m_singletonInOrderCommandSynchHandler) : (CommandSynchHandler*)(&m_singletonOuOfOrderCommandSynchHandler) ;
+	};
 	/* Return true if the CommandList is In order */
 	virtual bool isInOrderType() = 0;
 
 	/* In case of InOrder CommandList get the last dependent barrier and the amount of dependent barriers.
 	   In case of OutOfOrder CommandList set *barrier to NULL and the numDependencies to 0 because there is no dependency. */
-	virtual void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) = 0;
+	virtual void getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) = 0;
 
 	/* Set the last dependent barrier to be barrier and in case of InOrder CommandList set if it was NDRange command (For optimization) */
-	virtual void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) = 0;
+	virtual void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution) = 0;
 
 	/* In case of InOrder CommandList just return completionBarrier. (Because the COIPipelineRunFunction will register it).
 	   In case of OutOfOrder CommandList it will COIBarrierRegisterUserBarrier on completionBarrier and return NULL. 
@@ -129,11 +131,10 @@ public:
 	   In case of OutOfOrder CommandList unregister the COIEVENT. */
 	virtual void unregisterCompletionBarrier(COIEVENT& completionBarrier) = 0;
 
-protected:
+private:
 
-	// pointer to CommandList that was creating the command that use this object.
-	CommandList* m_pCommandList;
-
+	static InOrderCommandSynchHandler		m_singletonInOrderCommandSynchHandler;
+	static OutOfOrderCommandSynchHandler	m_singletonOuOfOrderCommandSynchHandler;
 };
 
 
@@ -142,13 +143,11 @@ class InOrderCommandSynchHandler : public CommandSynchHandler
 
 public:
 
-	InOrderCommandSynchHandler(CommandList* pCommandList);
-
 	bool isInOrderType() { return true; };
 
-	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask);
+	void getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask);
 
-	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution);
+	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution);
 
 	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) { return completionBarrier; };
 
@@ -162,13 +161,11 @@ class OutOfOrderCommandSynchHandler : public CommandSynchHandler
 
 public:
 
-	OutOfOrderCommandSynchHandler(CommandList* pCommandList)  : CommandSynchHandler(pCommandList) {};
-
 	bool isInOrderType() { return false; };
 
-	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) { *barrier = NULL, *numDependencies = 0; };
+	void getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) { *barrier = NULL, *numDependencies = 0; };
 
-	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) { return; };
+	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution) { return; };
 
 	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) { COIEventRegisterUserEvent(completionBarrier); return NULL; };
 
