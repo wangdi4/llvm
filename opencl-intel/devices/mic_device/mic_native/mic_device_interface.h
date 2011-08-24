@@ -30,7 +30,7 @@
 #include <common/COITypes_common.h>
 #include "cl_device_api.h"
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel { namespace OpenCL { namespace MICDevice {
 
 //
 // NOTE: please be carefull for alignments!

@@ -38,10 +38,9 @@
 #include "cl_dev_backend_api.h"
 #include "backend_wrapper.h"
 
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::DeviceBackend;
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel { namespace OpenCL { namespace MICDevice {
     // forward declaration
     struct COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT;
     struct COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT;

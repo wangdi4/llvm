@@ -23,6 +23,7 @@
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
 
+using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::MICDeviceNative;
 
 #define MIC_MAX_PARAMETER_SIZE            1024
@@ -142,7 +143,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 // Thus, main must live until there is no more work to be done.
 int main(int , char**)
 {
-    NATIVE_PRINTF("AAAAAAAAAAAAAAAAAAAAAAAAA main called on the  sink\n");
+    NATIVE_PRINTF("main called on the  sink\n");
 
     // init device
     TlsAccessor::tls_initialize();

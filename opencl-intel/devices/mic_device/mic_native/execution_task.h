@@ -31,7 +31,7 @@
 
 #include "cl_dev_backend_api.h"
 
-using namespace Intel::OpenCL::Utils;
+using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
