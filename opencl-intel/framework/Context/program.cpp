@@ -395,6 +395,10 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	{
 		return CL_SUCCESS;
 	}
+    if (uiNumKernels < szNumKernels)
+    {
+        return CL_INVALID_VALUE;
+    }
 
 	size_t* pszKernelNameLengths = new size_t[szNumKernels];
 	if (!pszKernelNameLengths)
@@ -442,17 +446,29 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 
 	for (size_t i = 0; i < szNumKernels; ++i)
 	{
-		clErrRet = CreateKernel(ppKernelNames[i], NULL);
-		if (CL_FAILED(clErrRet))
+        Kernel* pKernel;
+		clErrRet = CreateKernel(ppKernelNames[i], &pKernel);
+        
+		if (CL_FAILED(clErrRet) || NULL == pKernel)
 		{
-			for (size_t i = 0; i < szNumKernels; ++i)
+			for (size_t k = 0; k < szNumKernels; ++k)
 			{
-				delete[] ppKernelNames[i];
+				delete[] ppKernelNames[k];
+			}
+			for (size_t j = 0; j < i; ++j)
+			{
+		        m_pKernels.ReleaseObject((_cl_kernel_int*)pclKernels[j]);
+                pclKernels[j] = NULL;
 			}
 			delete[] ppKernelNames;
 			delete[] pszKernelNameLengths;
+            if (NULL != pKernel)
+            {
+                m_pKernels.ReleaseObject((_cl_kernel_int*)pKernel->GetHandle());
+            }
 			return clErrRet;
 		}
+        pclKernels[i] = pKernel->GetHandle();
 	}
 	for (size_t i = 0; i < szNumKernels; ++i)
 	{
@@ -461,25 +477,6 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	delete[] ppKernelNames;
 	delete[] pszKernelNameLengths;
 
-	if ( NULL != pclKernels )
-	{
-		// Check if passed buffer is big enough
-		if (uiNumKernels >= m_pKernels.Count())
-		{
-			// get the kernels Ids
-			clErrRet = m_pKernels.GetIDs(m_pKernels.Count(), (_cl_kernel_int**)pclKernels, puiNumKernelsRet);
-		}
-		else
-		{
-			clErrRet = CL_INVALID_VALUE;
-		}
-
-		if (CL_FAILED(clErrRet))
-		{
-			m_pKernels.ReleaseAllObjects();
-			return clErrRet;
-		}			
-	}
 	return CL_SUCCESS;
 }
 
