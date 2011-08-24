@@ -23,7 +23,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "copy_program_to_device",               // COPY_PROGRAM_TO_DEVICE
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
 
-    "hello_world"                           // EXECUTE_IN_ORDER
+    "hello_world",                          // EXECUTE_IN_ORDER
 	"execute_NDRange"						// EXECUTE_NDRANGE
 };
 
@@ -268,7 +268,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
     result = COIPipelineCreate(pDevServiceComm->m_process, NULL, NULL, &pDevServiceComm->m_pipe);
     assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
 
-    // Get list of entry points
+	// Get list of entry points
     result = COIProcessGetFunctionHandles(pDevServiceComm->m_process,
                                           DEVICE_SIDE_FUNCTION_COUNT,
                                           (const char**)m_device_function_names,

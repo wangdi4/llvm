@@ -326,7 +326,7 @@ cl_dev_err_code NDRange::execute()
 	{
 		COIEVENT* barrier = NULL;
 		unsigned int numDependecies = 0;
-		m_pCommandSynchHandler->getLastDependentBarrier(&barrier, &numDependecies, true);
+		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, true);
 
 		// Get this queue COIPIPELINE handle
 		COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
@@ -352,7 +352,7 @@ cl_dev_err_code NDRange::execute()
 			break;
 		}
 		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_completionBarrier, true);
+		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, true);
 		// Register m_completionBarrier to NotificationPort
 		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
 	}
@@ -390,6 +390,8 @@ void NDRange::fireCallBack(void* arg)
 		// TODO - read the COIBUFFER and send the data to framework
 	}
 
+	// Notify runtime that  the command completed
+	notifyCommandStatusChanged(CL_COMPLETE);
 	// Delete this Command object
 	delete this;
 }

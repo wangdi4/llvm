@@ -26,6 +26,8 @@
 #include "program_service.h"
 #include "command.h"
 
+#include "cl_synch_objects.h"
+
 #include <source/COIPipeline_source.h>
 #include <common/COITypes_common.h>
 
@@ -138,11 +140,11 @@ private:
 	// pointer to ProgramService object
 	ProgramService*                   m_pProgramService;
 	// reference counter for this object (must be greater than 0 during object lifetime)
-	volatile unsigned int             m_refCounter;
+	AtomicCounter		              m_refCounter;
 	// the pipe line to MIC device
 	COIPIPELINE                       m_pipe;
 	// pointer to static function that create Command object
-	fnCommandCreate_t*                m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+	static fnCommandCreate_t*         m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
 };
 

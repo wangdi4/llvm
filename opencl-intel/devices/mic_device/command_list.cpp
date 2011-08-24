@@ -10,21 +10,22 @@
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
-using namespace Intel::OpenCL::Utils;
+
+CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
+	/*CL_DEV_CMD_READ*/  &ReadWriteMemObject::Create,
+	/* CL_DEV_CMD_WRITE*/ &ReadWriteMemObject::Create,
+	/* CL_DEV_CMD_EXEC_KERNEL */ &NDRange::Create,
+	/* CL_DEV_CMD_EXEC_NATIVE */ NULL,
+	/* CL_DEV_CMD_COPY */ &CopyMemObject::Create,
+	/* CL_DEV_CMD_MAP */ &MapMemObject::Create,
+	/* CL_DEV_CMD_UNMAP */ &UnmapMemObject::Create
+};
+
 
 CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService) : 
-m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService),
-m_refCounter(1), m_pipe(NULL)
+m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService), m_pipe(NULL)
 {
-	// Init Commands array
-	memset(m_vCommands, 0, sizeof(m_vCommands));
-	m_vCommands[CL_DEV_CMD_READ] = &ReadWriteMemObject::Create;
-	m_vCommands[CL_DEV_CMD_WRITE] = &ReadWriteMemObject::Create;
-	m_vCommands[CL_DEV_CMD_EXEC_KERNEL] = &NDRange::Create;
-	m_vCommands[CL_DEV_CMD_EXEC_NATIVE] = NULL; //TODO &NativeFunction::Create;
-	m_vCommands[CL_DEV_CMD_COPY] = &CopyMemObject::Create;
-	m_vCommands[CL_DEV_CMD_MAP] = &MapMemObject::Create;
-	m_vCommands[CL_DEV_CMD_UNMAP] = &UnmapMemObject::Create;
+	m_refCounter.exchange(1);
 }
 
 CommandList::~CommandList()
@@ -69,36 +70,22 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, 
 
 cl_dev_err_code CommandList::retainCommandList()
 {
-    unsigned int currVal = m_refCounter;
-	while ((m_refCounter > 0) && (false == __sync_bool_compare_and_swap(&m_refCounter, currVal, currVal + 1)))
+	long prevVal = m_refCounter ++;
+	if (prevVal == 0)
 	{
-	    currVal = m_refCounter;
-		hw_pause();
-	}
-	if (m_refCounter == 0)
-	{
-	    return CL_DEV_INVALID_OPERATION;
+		return CL_DEV_INVALID_OPERATION;
 	}
 	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CommandList::releaseCommandList(bool* outDelete)
 {
-    unsigned int currVal = m_refCounter;
-	if (currVal == 0)
+	long newVal = -- m_refCounter;
+	if (newVal < 0)
 	{
-	    return CL_DEV_INVALID_OPERATION;
+		return CL_DEV_INVALID_OPERATION;
 	}
-	while (false == __sync_bool_compare_and_swap(&m_refCounter, currVal, currVal - 1))
-	{
-		currVal = m_refCounter;
-		if (currVal == 0)
-		{
-			return CL_DEV_INVALID_OPERATION;
-		}
-		hw_pause();
-	}
-	*outDelete = (m_refCounter == 0);
+	*outDelete = (newVal == 0);
 	return CL_DEV_SUCCESS;
 }
 
@@ -115,7 +102,7 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 		{
 			return rc;
 		}
-		// Send the command for execution.
+		// Send the command for execution. pCmdObject will delete itself.
 		rc = pCmdObject->execute();
 		if (CL_DEV_FAILED(rc))
 		{
