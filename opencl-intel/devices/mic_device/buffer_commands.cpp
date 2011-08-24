@@ -114,7 +114,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
 	COIEVENT* barrier = NULL;
 	unsigned int numDependecies = 0;
-	m_pCommandSynchHandler->getLastDependentBarrier(&barrier, &numDependecies, false);
+	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
 	COIRESULT result = COI_SUCCESS;
 
@@ -159,28 +159,21 @@ cl_dev_err_code ReadWriteMemObject::execute()
 		}
 	}
 
-	cl_dev_err_code err = CL_DEV_SUCCESS;
 	if (COI_SUCCESS == result)
 	{
 		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_completionBarrier, false);
+		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
 		// Register m_completionBarrier to NotificationPort
 		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
 	}
 	else
 	{
-		err = CL_DEV_ERROR_FAIL;
 		m_lastError = CL_DEV_ERROR_FAIL;
-	}
-
-	notifyCommandStatusChanged(CL_COMPLETE);
-
-	if (CL_DEV_SUCCESS != err)
-	{
+		notifyCommandStatusChanged(CL_COMPLETE);
 		delete this;
 	}
 
-	return err;
+	return CL_DEV_SUCCESS;
 }
 
 
@@ -203,7 +196,7 @@ cl_dev_err_code CopyMemObject::execute()
 	mem_copy_info_struct	sCpyParam;  // Assume in this case that the source is hostPtr and the destination is coiBuffer (Will convert later the results of the source)
 
 	pMicMemObjSrc->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pSrcMemObj);
-	pMicMemObjDst->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pDstMemObj);
+	pMicMemObjDst->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pDstMemObj);
 
 	size_t  uiSrcElementSize = pSrcMemObj->uiElementSize;
 	size_t	uiDstElementSize = pDstMemObj->uiElementSize;
@@ -290,7 +283,7 @@ cl_dev_err_code CopyMemObject::execute()
 
 		COIEVENT* barrier = NULL;
 		unsigned int numDependecies = 0;
-		m_pCommandSynchHandler->getLastDependentBarrier(&barrier, &numDependecies, false);
+		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
 		COIRESULT result = COI_SUCCESS;
 
@@ -318,11 +311,9 @@ cl_dev_err_code CopyMemObject::execute()
 		}
 
 		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_completionBarrier, false);
+		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
 		// Register m_completionBarrier to NotificationPort
 		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
-
-		notifyCommandStatusChanged(CL_COMPLETE);
 
 		return CL_DEV_SUCCESS;
 	}
@@ -347,7 +338,129 @@ cl_dev_err_code MapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCal
 
 cl_dev_err_code MapMemObject::execute()
 {
-	//TODO
+	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+	cl_mem_obj_descriptor*	pMemObj;
+	mem_copy_info_struct	sCpyParam;
+	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)cmdParams->memObj);
+
+	notifyCommandStatusChanged(CL_RUNNING);
+
+	// Request access on default device
+	pMicMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMemObj);
+	// TODO change it to function that return the offset as uint64_t instead of void* which means that also the argument pMemObj->pData is redandent
+	// Currently I send 0 in order to get this functionality (and cast pObjPtr to size_t)
+	sCpyParam.pCoiBuffOffset = (size_t)MemoryAllocator::CalculateOffsetPointer(0 /* pMemObj->pData */, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	memcpy(sCpyParam.vCoiBuffPitch, pMemObj->pitch, sizeof(sCpyParam.vCoiBuffPitch));
+
+	// Setup data for copying
+	// Set Source/Destination
+	sCpyParam.uiDimCount = cmdParams->dim_count;
+	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+
+	sCpyParam.pHostPtr = (cl_char*)cmdParams->ptr;
+	memcpy(sCpyParam.vHostPitch, cmdParams->pitch, sizeof(sCpyParam.vHostPitch));
+
+	// Get estimation for the amount of copy operations
+	const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
+
+	vector<void*> vHostPtr(initVecSize);
+	vector<uint64_t> vCoiBuffOffset(initVecSize);
+	vector<uint64_t> vSize(initVecSize);
+
+	calculateCopyRegion(&sCpyParam, &vHostPtr, &vCoiBuffOffset, &vSize);
+
+	assert(vHostPtr.size() >= 1);
+	assert((vHostPtr.size() == vCoiBuffOffset.size()) && (vCoiBuffOffset.size() == vSize.size()));
+
+	// Hold the size of the vectors returned (Must be >= 1) In case of == 1 it is regular read / write, otherwise it is rectangular read / write.
+	size_t retVecSize = vHostPtr.size();
+
+	// Get the COIBUFFER which represent this memory object
+	COIBUFFER coiBuffer = pMicMemObj->clDevMemObjGetCoiBufferHandler();
+
+	COIEVENT* barrier = NULL;
+	unsigned int numDependecies = 0;
+	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+
+	SMemMapParams* coiMapParam = MemoryAllocator::GetCoiMapParams(cmdParams);
+
+	COIRESULT result = COI_SUCCESS;
+
+	if (retVecSize > 1)
+	{
+		// Rectangular map operations
+		// allocate COIMAPINSTANCE instances
+		coiMapParam->rec_map_handles = (COIMAPINSTANCE*)malloc(sizeof(COIMAPINSTANCE) * retVecSize);
+		assert(coiMapParam->rec_map_handles);
+		memset(coiMapParam->rec_map_handles, 0, sizeof(COIMAPINSTANCE) * retVecSize);
+		// allocate (retVecSize - 1) COIEVENTs which the last map operation will depend on.
+		coiMapParam->map_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * retVecSize - 1);
+		assert(coiMapParam->map_barriers);
+		coiMapParam->num_of_rec_map_handles = retVecSize;
+		// Perform the first (retVecSize - 1) map operations. (asynchronous operations, only dependent on the previous command in the CommandList)
+		for (unsigned int i = 0; i < retVecSize - 1; i++)
+		{
+			result = COIBufferMap ( coiBuffer,				                // Handle for the buffer to map.
+									vCoiBuffOffset[i],                      // Offset into the buffer that a pointer should be returned for.
+									vSize[i],				                // Length of the buffer area to map.
+									COI_MAP_READ_WRITE,                     // The access type that is needed by the application.
+									numDependecies,							// The number of dependencies specified in the barrier array.
+									barrier,						        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+									&(coiMapParam->map_barriers[i]),        // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+									&(coiMapParam->rec_map_handles[i]),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+									&(vHostPtr[i])
+									);
+			
+			if (COI_SUCCESS != result)
+			{
+				break;
+			}
+		}
+
+		// Perform the last map operation that depend on the previous (retVecSize - 1) map operations
+		if (COI_SUCCESS == result)
+		{
+			result = COIBufferMap ( coiBuffer,											// Handle for the buffer to map.
+									vCoiBuffOffset[retVecSize - 1],						// Offset into the buffer that a pointer should be returned for.
+									vSize[retVecSize - 1],								// Length of the buffer area to map.
+									COI_MAP_READ_WRITE,									// The access type that is needed by the application.
+									retVecSize - 1,										// The number of dependencies specified in the barrier array.
+									coiMapParam->map_barriers,							// An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+									&m_completionBarrier,								// An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+									&(coiMapParam->rec_map_handles[retVecSize - 1]),    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+									&(vHostPtr[retVecSize - 1])
+									);
+		}
+	}
+	// Regular map operation
+	else
+	{
+		result = COIBufferMap ( coiBuffer,				        // Handle for the buffer to map.
+								vCoiBuffOffset[0],              // Offset into the buffer that a pointer should be returned for.
+								vSize[0],				        // Length of the buffer area to map.
+								COI_MAP_READ_WRITE,             // The access type that is needed by the application.
+								numDependecies,                 // The number of dependencies specified in the barrier array.
+								barrier,				        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+								&m_completionBarrier,           // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+								&(coiMapParam->map_handle),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+								&(vHostPtr[0])
+								);
+	}
+
+	if (COI_SUCCESS != result)
+	{
+		m_lastError = CL_DEV_ERROR_FAIL;
+		notifyCommandStatusChanged(CL_COMPLETE);
+		delete this;
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
+	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
+	// Register m_completionBarrier to NotificationPort
+	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
+
 	return CL_DEV_SUCCESS;
 }
 
@@ -362,6 +475,69 @@ cl_dev_err_code UnmapMemObject::Create(CommandList* pCommandList, IOCLFrameworkC
 
 cl_dev_err_code UnmapMemObject::execute()
 {
-	//TODO
+	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+
+	notifyCommandStatusChanged(CL_RUNNING);
+
+	COIEVENT* barrier = NULL;
+	unsigned int numDependecies = 0;
+	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+
+	SMemMapParams* coiMapParam = MemoryAllocator::GetCoiMapParams(cmdParams);
+
+	COIRESULT result = COI_SUCCESS;
+
+	// Rectangular unmap operation
+	if (NULL == coiMapParam->map_handle)
+	{
+		assert(coiMapParam->num_of_rec_map_handles > 1 && "In rectangular mapping must be more than one map handle");
+		assert(coiMapParam->rec_map_handles && "rec_map_handles must be non NULL pointer");
+		coiMapParam->unmap_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * (coiMapParam->num_of_rec_map_handles - 1));
+		assert(coiMapParam->unmap_barriers);
+		for (unsigned int i = 0; i < coiMapParam->num_of_rec_map_handles - 1; i++)
+		{
+			result = COIBufferUnmap ( coiMapParam->rec_map_handles[i],				 // Buffer map instance handle to unmap.
+										numDependecies,								 // The number of dependencies specified in the barrier array.
+										barrier,									 // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+										&(coiMapParam->unmap_barriers[i])            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+										);
+			if (COI_SUCCESS != result)
+			{
+				break;
+			}
+		}
+		if (COI_SUCCESS == result)
+		{
+			result = COIBufferUnmap ( coiMapParam->rec_map_handles[coiMapParam->num_of_rec_map_handles - 1],        // Buffer map instance handle to unmap.
+									  coiMapParam->num_of_rec_map_handles - 1,									    // The number of dependencies specified in the barrier array.
+									  coiMapParam->unmap_barriers,													// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+									  &m_completionBarrier															// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+									);
+		}
+	}
+	// Regular unmap
+	else
+	{
+		result = COIBufferUnmap ( coiMapParam->map_handle,        // Buffer map instance handle to unmap.
+								  numDependecies,                 // The number of dependencies specified in the barrier array.
+								  barrier,				          // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+								  &m_completionBarrier            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+								);
+	}
+
+	if (COI_SUCCESS != result)
+	{
+		m_lastError = CL_DEV_ERROR_FAIL;
+		notifyCommandStatusChanged(CL_COMPLETE);
+		delete this;
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
+	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
+	// Register m_completionBarrier to NotificationPort
+	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
+
 	return CL_DEV_SUCCESS;
+
 }

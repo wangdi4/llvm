@@ -53,10 +53,38 @@ struct SMemCpyParams
 // used by commands
 struct SMemMapParams
 {
-    COIBUFFER       coi_buffer;
+	SMemMapParams()
+	{
+		map_handle = NULL;
+		rec_map_handles = NULL;
+		num_of_rec_map_handles = 0;
+		map_barriers = NULL;
+		unmap_barriers = NULL;
+	}
+
+	~SMemMapParams()
+	{
+		if (rec_map_handles)
+		{
+			free(rec_map_handles);
+		}
+		if (map_barriers)
+		{
+			free(map_barriers);
+		}
+		if (unmap_barriers)
+		{
+			free(unmap_barriers);
+		}
+	}
+
+	// Regular map COIMAPINSTANCE
     COIMAPINSTANCE  map_handle;
-    size_t          offset;
-    size_t          size;
+	// Rectangular maps COIMAPINSTANCEs
+	COIMAPINSTANCE* rec_map_handles;
+	unsigned int    num_of_rec_map_handles;
+	COIEVENT*       map_barriers;				// In rectangular mapping will malloc COIEVENTs as (num_of_rec_map_handles - 1) and the last map will depend on those events
+	COIEVENT*       unmap_barriers;
 };
 
 class DeviceServiceCommunication;

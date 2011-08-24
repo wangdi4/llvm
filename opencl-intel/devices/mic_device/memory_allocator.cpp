@@ -622,26 +622,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
     pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(m_pHostPtr, m_objDecr.dim_count, pMapParams->origin, m_objDecr.pitch, m_objDecr.uiElementSize);
     MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_objDecr.pitch, sizeof(size_t)*(m_objDecr.dim_count-1));
 
-    // init coi_params
+    // set map handle
     pMapParams->map_handle = coi_params;
-
-    // calculate size of the mapped region
-    if ( 1 == pMapParams->dim_count )
-    {
-        coi_params->size = pMapParams->region[0];
-    }
-    else
-    {
-        coi_params->size = m_objDecr.uiElementSize;
-        for(unsigned int i=0; i<pMapParams->dim_count ; ++i)
-        {
-            coi_params->size *= pMapParams->region[i];
-        }
-    }
-
-    coi_params->coi_buffer = m_coi_buffer;
-    coi_params->offset     = (char*)pMapParams->ptr - (char*)m_pHostPtr;
-    coi_params->map_handle = NULL;
 
     return CL_DEV_SUCCESS;
 }
