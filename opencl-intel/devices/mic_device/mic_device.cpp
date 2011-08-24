@@ -549,7 +549,8 @@ void MICDevice::clDevCloseDevice(void)
     // remove Mic device from global set
     UnregisterMicDevice( this );
 
-    clDevReleaseCommandList(m_defaultCommandList);
+	/* TODO remove the comment from the next command when m_defaultCommandList will initialize in Init() method
+    clDevReleaseCommandList(m_defaultCommandList); */
     if( NULL != m_pMICDeviceConfig)
     {
         delete m_pMICDeviceConfig;
