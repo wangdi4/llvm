@@ -129,7 +129,9 @@ namespace Intel { namespace OpenCL { namespace Framework
          */
 
         GraphicsApiMemoryObject& GetMemoryObject(size_t Index) { return *m_pMemObjects[Index]; }
-
+	private:
+		SyncGraphicsApiObjects(const SyncGraphicsApiObjects& s);
+		SyncGraphicsApiObjects& operator=(const SyncGraphicsApiObjects& s);
     };
 
 }}}

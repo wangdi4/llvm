@@ -307,7 +307,7 @@ cl_dev_err_code CPUDevice::Init()
     m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE);
     m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
         m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
-    if ( (NULL == m_pProgramService) || (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
+    if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }

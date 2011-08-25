@@ -1417,6 +1417,10 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …. CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim – 1].
         cl_uint uiMaxWorkItemDim = 0;
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uiMaxWorkItemDim, NULL);
+		if (uiMaxWorkItemDim == 0)
+		{
+			return CL_INVALID_WORK_ITEM_SIZE;
+		}
         clLocalArray<size_t> pszMaxWorkItemSizes(uiMaxWorkItemDim);
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
 

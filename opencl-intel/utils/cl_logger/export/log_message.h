@@ -108,7 +108,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// construct formatted message from its fields and stores the result into m_formattedMsg
 		void CreateFormattedMessage();
 		void CreateFormattedMessageW();
-		LogMessage(const LogMessage&) {}
+		LogMessage(const LogMessage&);
+		LogMessage& operator=(const LogMessage& other);
 
 		bool			m_bUnicodeMessage;
 
