@@ -1645,7 +1645,7 @@ inline bool DimensionsOverlap(size_t d1_min, size_t d1_max, size_t d2_min, size_
 	{
 		return false;
 	}
-	return !((d1_min > d2_max) || (d2_min > d1_max));
+	return !((d1_min >= d2_max) || (d2_min >= d1_max));
 }
 
 /******************************************************************
