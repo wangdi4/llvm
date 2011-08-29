@@ -73,7 +73,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 	protected:
-		GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints);
+		GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
 
 		cl_err_code	SetGLMemFlags();
 		
@@ -106,8 +106,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 	protected:
-		GLTexture(Context * pContext, ocl_entry_points * pOclEntryPoints):
-		GLMemoryObject(pContext, pOclEntryPoints),  m_glFramebuffer(0), m_glPBO(0) {}
+		GLTexture(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
+		GLMemoryObject(pContext, pOclEntryPoints, clObjType),  m_glFramebuffer(0), m_glPBO(0) {}
 		~GLTexture();
 
 		cl_err_code CreateChildObject();

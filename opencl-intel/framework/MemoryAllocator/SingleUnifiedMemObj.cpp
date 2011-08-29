@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2010 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-SingleUnifiedMemObject::SingleUnifiedMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints) : 
+SingleUnifiedMemObject::SingleUnifiedMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) :
 	MemoryObject(pContext, pOclEntryPoints),
 	m_pDeviceObject(NULL)
 {
@@ -120,7 +120,7 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 	cl_uint numDev;
 	// Need too allocate object now
 	FissionableDevice* *pDevices = m_pContext->GetDevices(&numDev);
-	
+
 	assert(numDev > 0 && "Context should have atleast one device");
 	// We assume we have only single device, for fission it's first
 	cl_dev_err_code devErr = pDevices[0]->GetDeviceAgent()->clDevCreateMemoryObject(pDevices[0]->GetSubdeviceId(),
@@ -205,15 +205,18 @@ cl_err_code SingleUnifiedMemObject::GetDeviceDescriptor(FissionableDevice* pDevi
 }
 
 cl_err_code	SingleUnifiedMemObject::MemObjCreateDevMappedRegion(const FissionableDevice*,
-										cl_dev_cmd_param_map*	cmd_param_map)
+										cl_dev_cmd_param_map*	cmd_param_map,
+										void** pHostMapDataPtr )
 {
 	cl_dev_err_code err =  m_pDeviceObject->clDevMemObjCreateMappedRegion(cmd_param_map);
+    *pHostMapDataPtr = cmd_param_map->ptr;
 
 	return CL_DEV_SUCCEEDED(err) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 cl_err_code	SingleUnifiedMemObject::MemObjReleaseDevMappedRegion(const FissionableDevice*,
-																cl_dev_cmd_param_map*	cmd_param_map)
+																cl_dev_cmd_param_map*	cmd_param_map,
+																void* pHostMapDataPtr)
 {
 	cl_dev_err_code err =  m_pDeviceObject->clDevMemObjReleaseMappedRegion(cmd_param_map);
 
@@ -259,7 +262,7 @@ size_t SingleUnifiedMemObject::GetDeviceAgentListSize() const
 	return 0;
 }
 
-const IOCLDeviceAgent* *SingleUnifiedMemObject::GetDeviceAgentList() const
+const IOCLDeviceAgent* const *SingleUnifiedMemObject::GetDeviceAgentList() const
 {
 	// In this version we don't support this functionality
 	assert(0);

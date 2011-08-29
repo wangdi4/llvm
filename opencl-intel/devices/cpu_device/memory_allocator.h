@@ -1,9 +1,9 @@
 
 // Copyright (c) 2006-2008 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -15,7 +15,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -62,6 +62,7 @@ public:
 protected:
 	size_t GetElementSize(const cl_image_format* format);
 	cl_int					m_iDevId;
+    size_t                  m_maxAllocSize;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 	ClHeap					m_lclHeap;
@@ -87,13 +88,13 @@ public:
 	cl_dev_err_code clDevMemObjRelease();
 	cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
 
-	cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags, 
+	cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
 					const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
 protected:
 	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
 		m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
-			m_nodeId(NULL), m_memFlags(0), 
+			m_nodeId(NULL), m_memFlags(0),
 			m_pRTMemObjService(NULL), m_pBackingStore(NULL), m_pHostPtr(NULL) {}
 
 	ClHeap					m_lclHeap;

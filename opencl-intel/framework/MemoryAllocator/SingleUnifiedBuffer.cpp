@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -35,8 +35,8 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SingleUnifiedBuffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-SingleUnifiedBuffer::SingleUnifiedBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints):
-	SingleUnifiedMemObject(pContext, pOclEntryPoints)
+SingleUnifiedBuffer::SingleUnifiedBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
+	SingleUnifiedMemObject(pContext, pOclEntryPoints, clObjType)
 {
 	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
 }
@@ -118,7 +118,7 @@ void SingleUnifiedBuffer::GetLayout( OUT size_t* dimensions, OUT size_t* rowPitc
 			dimensions[i] = 1;
 		}
 	}
-	*rowPitch = *slicePitch = 0;	
+	*rowPitch = *slicePitch = 0;
 }
 
 
@@ -130,16 +130,16 @@ cl_err_code SingleUnifiedBuffer::CheckBounds( const size_t* pszOrigin, const siz
 
 cl_err_code SingleUnifiedBuffer::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
 {
-	
-	size_t totalSize = 
+
+	size_t totalSize =
 	// offset
-		pszOrigin[2] * szSlicePitch + pszOrigin[1] * szRowPitch + pszOrigin[0] + 
+		pszOrigin[2] * szSlicePitch + pszOrigin[1] * szRowPitch + pszOrigin[0] +
 	// data size
 		(pszRegion[2]-1)*szSlicePitch + (pszRegion[1]-1) * szRowPitch + pszRegion[0];
-	return (totalSize <= m_stMemObjSize)? CL_SUCCESS : CL_INVALID_VALUE;    
+	return (totalSize <= m_stMemObjSize)? CL_SUCCESS : CL_INVALID_VALUE;
 }
 
-void * SingleUnifiedBuffer::GetBackingStore( const size_t * pszOrigin ) const
+void * SingleUnifiedBuffer::GetBackingStoreData( const size_t * pszOrigin ) const
 {
     void* pData = NULL;
     if( NULL == pszOrigin )
@@ -148,7 +148,7 @@ void * SingleUnifiedBuffer::GetBackingStore( const size_t * pszOrigin ) const
     }
     else
     {
-        // Get with offset		
+        // Get with offset
         pData = (void*)((cl_uchar*)m_pMemObjData+pszOrigin[0]);
     }
 	return pData;
@@ -167,8 +167,8 @@ cl_err_code SingleUnifiedBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer
 	{
 		clFlags = m_clFlags;
 	}
-	
-	MemoryObject* pSubBuffer = new SingleUnifiedSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch );
+
+	MemoryObject* pSubBuffer = new SingleUnifiedSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch);
 	if ( NULL == pSubBuffer )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -192,7 +192,7 @@ cl_err_code SingleUnifiedBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 SingleUnifiedSubBuffer::SingleUnifiedSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints)
-	: SingleUnifiedBuffer(pContext, pOclEntryPoints)
+	: SingleUnifiedBuffer(pContext, pOclEntryPoints, CL_MEM_OBJECT_BUFFER)
 {
 }
 
@@ -244,6 +244,6 @@ bool SingleUnifiedSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
 
 	pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(align), &align, &rsize);
 
-	return ((m_stOrigin[0] % align) == 0);	
+	return ((m_stOrigin[0] % align) == 0);
 
 }

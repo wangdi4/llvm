@@ -1,8 +1,8 @@
 // Copyright (c) 2008-2009 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -76,7 +76,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code     Init() = 0;
 
         //
-        // This function is called when CL_COMPLETED is notified. 
+        // This function is called when CL_COMPLETED is notified.
         // The command use this function to update its data respectively such as the buffers.
         //
         virtual cl_err_code     CommandDone() = 0;
@@ -85,7 +85,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // The function that is called when the command is popped out from the queue and ready for the device
         // Each command implements its local logic within this function.
         //
-        virtual cl_err_code     Execute() = 0;    
+        virtual cl_err_code     Execute() = 0;
 
         //
         // Returns the command type for GetInfo requests and execution needs
@@ -111,7 +111,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
 
         // Command general functions
-        QueueEvent*     GetEvent    ()                                      { return &m_Event; }   
+        QueueEvent*     GetEvent    ()                                      { return &m_Event; }
         void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
         cl_dev_cmd_list	GetDevCmdListId    () const							{ return m_clDevCmdListId; }
 		void            SetDevice(FissionableDevice* pDevice)				{ m_pDevice = pDevice; }
@@ -139,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
 		FissionableDevice*          m_pDevice;                  // A pointer to the device executing the command
 		IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
-		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec. 
+		cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
 		cl_int                      m_iId;                      // The command's ID
 		cl_command_type				m_commandType;				// Command type
 
@@ -154,15 +154,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		MemoryCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
 #ifdef USE_PREPARE_ON_DEVICE
 		cl_err_code		PrepareOnDevice(
-			MemoryObject* pSrcMemObj, 						
-			const size_t* pSrcOrigin, 						
-			const size_t* pRegion,							
+			MemoryObject* pSrcMemObj,
+			const size_t* pSrcOrigin,
+			const size_t* pRegion,
 			QueueEvent**  pEvent);
 #endif
 	protected:
 		cl_err_code CopyFromHost(
 						void* pSrcData,
-						MemoryObject* pSrcMemObj, 
+						MemoryObject* pSrcMemObj,
 						const size_t* pSrcOrigin,
 						const size_t* pDstOrigin,
 						const size_t* pRegion,
@@ -173,7 +173,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 						QueueEvent**  pEvent);
 
 		cl_err_code CopyToHost(
-						MemoryObject*	pSrcMemObj, 												
+						MemoryObject*	pSrcMemObj,
 						QueueEvent**		pEvent);
 
 		cl_dev_cmd_param_rw m_rwParams;
@@ -187,13 +187,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadMemObjCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pMemObj,
 			const size_t*   pszOrigin,
 			const size_t*   pszRegion,
-			size_t          szRowPitch, 
-			size_t          szSlicePitch, 
+			size_t          szRowPitch,
+			size_t          szSlicePitch,
 			void*           pDst,
 			const size_t*	pszDstOrigin	= NULL,
 			const size_t    szDstRowPitch	= 0,
@@ -207,16 +207,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual const char*             GetCommandName() const  { return "CL_COMMAND_READ_MEM_OBJECT"; }
 
         virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();    
+        virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
-        
+
     protected:
 		MemoryObject*   m_pMemObj;
-        size_t          m_szOrigin[MAX_WORK_DIM]; 
+        size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szMemObjRowPitch;
-        size_t          m_szMemObjSlicePitch; 
-        void*           m_pDst;        
+        size_t          m_szMemObjSlicePitch;
+        void*           m_pDst;
 		size_t			m_szDstOrigin[MAX_WORK_DIM];
 		size_t			m_szDstRowPitch;
 		size_t			m_szDstSlicePitch;
@@ -229,13 +229,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         CopyToHostCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pMemObj,
 			const size_t*   pszOrigin,
 			const size_t*   pszRegion,
-			size_t          szMemObjRowPitch, 
-			size_t          szMemObjSlicePitch, 
+			size_t          szMemObjRowPitch,
+			size_t          szMemObjSlicePitch,
 			void*           pDst,
 			const size_t*	pszDstOrigin	= NULL,
 			const size_t    szDstRowPitch	= 0,
@@ -252,38 +252,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadBufferRectCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer, 
+            MemoryObject*     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
 			const size_t      szDstOrigin[MAX_WORK_DIM],
 			const size_t	  szRegion[MAX_WORK_DIM],
 			const size_t	  szBufferRowPitch,
 			const size_t	  szBufferSlicePitch,
 			const size_t	  szDstRowPitch,
-			const size_t	  szDstSlicePitch,			            
+			const size_t	  szDstSlicePitch,
             void*             pDst
             );
         virtual ~ReadBufferRectCommand();
-        
+
         cl_command_type         GetCommandType() const  { return m_commandType; }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER_RECT"; }
     };
-	
+
 
 	class ReadBufferCommand : public ReadMemObjCommand
     {
     public:
         ReadBufferCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer, 
+            MemoryObject*     pBuffer,
             const size_t      pszOffset[MAX_WORK_DIM],
-            const size_t      pszCb[MAX_WORK_DIM], 
+            const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
             );
         virtual ~ReadBufferCommand();
-        
+
         cl_command_type         GetCommandType() const  { return m_commandType; }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER"; }
     };
@@ -296,17 +296,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         ReadImageCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
-            size_t          szRowPitch, 
-            size_t          szSlicePitch, 
+            size_t          szRowPitch,
+            size_t          szSlicePitch,
             void*           pDst
             );
         virtual ~ReadImageCommand();
-     
+
         cl_command_type         GetCommandType() const  { return m_commandType; }
         const char*             GetCommandName() const  { return "CL_COMMAND_READ_IMAGE"; }
     };
@@ -319,10 +319,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         WriteMemObjCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
 			cl_bool			bBlocking,
-            MemoryObject*   pMemObj, 
+            MemoryObject*   pMemObj,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szMemObjRowPitch,
@@ -338,11 +338,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_MEM_OBJECT; }
         virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
 		virtual const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_MEM_OBJECT"; }
-		
+
 
         virtual cl_err_code   Init();
-        virtual cl_err_code   Execute();    
-        virtual cl_err_code   CommandDone();        
+        virtual cl_err_code   Execute();
+        virtual cl_err_code   CommandDone();
 
     private:
         MemoryObject*   m_pMemObj;
@@ -350,7 +350,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_szRegion[MAX_WORK_DIM];
 		cl_bool			m_bBlocking;
         size_t          m_szMemObjRowPitch;
-        size_t          m_szMemObjSlicePitch; 
+        size_t          m_szMemObjSlicePitch;
         const void*     m_cpSrc;
 		size_t			m_szSrcOrigin[MAX_WORK_DIM];
 		size_t			m_szSrcRowPitch;
@@ -366,11 +366,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         WriteBufferCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
 			cl_bool			bBlocking,
-            MemoryObject*   pBuffer, 
-            const size_t    pszOffset[MAX_WORK_DIM], 
+            MemoryObject*   pBuffer,
+            const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
             );
@@ -386,21 +386,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         WriteBufferRectCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
 			cl_bool			bBlocking,
-            MemoryObject*     pBuffer, 
+            MemoryObject*     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
 			const size_t      szSrcOrigin[MAX_WORK_DIM],
 			const size_t	  szRegion[MAX_WORK_DIM],
 			const size_t	  szBufferRowPitch,
 			const size_t	  szBufferSlicePitch,
 			const size_t	  szDstRowPitch,
-			const size_t	  szDstSlicePitch,			            
+			const size_t	  szDstSlicePitch,
             const void*       pDst
             );
         virtual ~WriteBufferRectCommand();
-        
+
         cl_command_type         GetCommandType() const  { return m_commandType; }
         const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_BUFFER_RECT"; }
     };
@@ -413,10 +413,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         WriteImageCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
 			cl_bool			bBlocking,
-            MemoryObject*   pImage, 
+            MemoryObject*   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -433,9 +433,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
         MemoryObject*   m_pImage;
         size_t          m_szOrigin[MAX_WORK_DIM];
-        size_t          m_szRegion[MAX_WORK_DIM]; 
+        size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szRowPitch;
-        size_t          m_szSlicePitch; 
+        size_t          m_szSlicePitch;
         const void*     m_cpSrc;
 	};
 
@@ -448,22 +448,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         CopyMemObjCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcMemObj, 
-            MemoryObject*   pDstMemObj, 
-            const size_t*   szSrcOrigin, 
+            MemoryObject*   pSrcMemObj,
+            MemoryObject*   pDstMemObj,
+            const size_t*   szSrcOrigin,
             const size_t*   szDstOrigin,
             const size_t*   szRegion,
 			const size_t	szSrcRowPitch,
 			const size_t	szSrcSlicePitch,
 			const size_t	szDstRowPitch,
 			const size_t	szDstSlicePitch
-            );        
+            );
         virtual ~CopyMemObjCommand();
 
         virtual cl_err_code Init();
-        virtual cl_err_code Execute();    
+        virtual cl_err_code Execute();
         virtual cl_err_code CommandDone();
 
         virtual ECommandExecutionType GetExecutionType() const
@@ -476,7 +476,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_szSrcOrigin[MAX_WORK_DIM];
         size_t          m_szDstOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
-        cl_uint         m_uiSrcNumDims;     // The dimensions represent the memory object type, 1,2,3 
+        cl_uint         m_uiSrcNumDims;     // The dimensions represent the memory object type, 1,2,3
                                             // respectively are BUFFER/2D/3D. The private member is used only for ease of use.
         cl_uint         m_uiDstNumDims;
 		cl_dev_cmd_param_copy m_copyParams;
@@ -486,8 +486,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t	m_szDstRowPitch;
 		size_t	m_szDstSlicePitch;
 
-        // Private functions        
-        cl_err_code CopyOnDevice    (FissionableDevice* pDevice);        
+        // Private functions
+        cl_err_code CopyOnDevice    (FissionableDevice* pDevice);
     };
 
     /******************************************************************
@@ -498,14 +498,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         CopyBufferCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer, 
-            MemoryObject*   pDstBuffer, 
+            MemoryObject*   pSrcBuffer,
+            MemoryObject*   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
-            );        
+            );
         virtual ~CopyBufferCommand();
 
         cl_command_type         GetCommandType() const  { return m_commandType; }
@@ -521,10 +521,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         CopyBufferRectCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer, 
-            MemoryObject*   pDstBuffer, 
+            MemoryObject*   pSrcBuffer,
+            MemoryObject*   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM],
@@ -532,7 +532,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			const size_t	szSrcSlicePitch,
 			const size_t	szDstRowPitch,
 			const size_t	szDstSlicePitch
-            );        
+            );
         virtual ~CopyBufferRectCommand();
 
         cl_command_type         GetCommandType() const  { return m_commandType; }
@@ -548,7 +548,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         CopyImageCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pSrcImage,
             MemoryObject*   pDstImage,
@@ -569,11 +569,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         CopyImageToBufferCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcImage, 
-            MemoryObject*   pDstBuffer, 
-            const size_t*   pszSrcOrigin, 
+            MemoryObject*   pSrcImage,
+            MemoryObject*   pDstBuffer,
+            const size_t*   pszSrcOrigin,
             const size_t*   pszSrcRegion,
             size_t          pszDstOffset[MAX_WORK_DIM]
         );
@@ -591,12 +591,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         CopyBufferToImageCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer, 
-            MemoryObject*   pDstImage, 
-            size_t          pszSrcOffset[MAX_WORK_DIM], 
-            const size_t*   pszDstOrigin, 
+            MemoryObject*   pSrcBuffer,
+            MemoryObject*   pDstImage,
+            size_t          pszSrcOffset[MAX_WORK_DIM],
+            const size_t*   pszDstOrigin,
             const size_t*   pszDstRegion
         );
 
@@ -615,11 +615,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MapMemObjCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pMemObj,
-            cl_map_flags    clMapFlags, 
-            const size_t*   pOrigin, 
+            cl_map_flags    clMapFlags,
+            const size_t*   pOrigin,
             const size_t*   pRegion,
             size_t*         pszImageRowPitch,
             size_t*         pszImageSlicePitch
@@ -627,20 +627,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~MapMemObjCommand();
 
         virtual cl_err_code Init();
-        virtual cl_err_code Execute();    
+        virtual cl_err_code Execute();
         virtual cl_err_code CommandDone();
 
         // Object only function
-		void*           GetMappedPtr() const { return m_pMappedRegion->ptr; }
+		void*           GetMappedPtr() const { return m_pHostDataPtr; }
 
-    protected: 
+    protected:
         MemoryObject*			m_pMemObj;
         cl_map_flags			m_clMapFlags;
 		size_t					m_szOrigin[MAX_WORK_DIM];
         size_t					m_szRegion[MAX_WORK_DIM];
         size_t*			        m_pszImageRowPitch;
         size_t*					m_pszImageSlicePitch;
-        cl_dev_cmd_param_map*   m_pMappedRegion;    
+        cl_dev_cmd_param_map*   m_pMappedRegion;
+        void*                   m_pHostDataPtr;
     };
 
     /******************************************************************
@@ -651,11 +652,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         MapBufferCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pBuffer, 
-            cl_map_flags    clMapFlags, 
-            size_t          szOffset, 
+            MemoryObject*   pBuffer,
+            cl_map_flags    clMapFlags,
+            size_t          szOffset,
             size_t          szCb
             );
         virtual ~MapBufferCommand();
@@ -673,17 +674,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MapImageCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pImage,
-            cl_map_flags    clMapFlags, 
-            const size_t*   pOrigin, 
+            cl_map_flags    clMapFlags,
+            const size_t*   pOrigin,
             const size_t*   pRegion,
             size_t*         pszImageRowPitch,
             size_t*         pszImageSlicePitch
             );
         virtual ~MapImageCommand();
- 
+
         cl_command_type         GetCommandType() const  { return CL_COMMAND_MAP_IMAGE; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_MAP_IMAGE"; }
@@ -696,7 +697,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         UnmapMemObjectCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
             MemoryObject*   pMemObject,
             void*             pMappedRegion
@@ -704,13 +705,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~UnmapMemObjectCommand();
 
         cl_err_code             Init();
-        cl_err_code             Execute();    
+        cl_err_code             Execute();
         cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;       }
         const char*             GetCommandName() const  { return "CL_COMMAND_UNMAP_MEM_OBJECT"; }
 
-    private: 
+        // override NotifyCmdStatusChanged to catch execution start (CL_RUNNING)
+        cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId,
+                                           cl_int iCmdStatus, cl_int iCompletionResult,
+                                           cl_ulong ulTimer);
+    private:
         MemoryObject*			m_pMemObject;
 		void*					m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;
@@ -726,7 +731,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~NDRangeKernelCommand();
 
         virtual cl_err_code     Init();
-        virtual cl_err_code     Execute();    
+        virtual cl_err_code     Execute();
         virtual cl_err_code     CommandDone();
         virtual cl_command_type GetCommandType() const  { return CL_COMMAND_NDRANGE_KERNEL; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
@@ -735,7 +740,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
         virtual void            GPA_InitCommand();
-    protected:         
+    protected:
 		cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
         Kernel*         m_pKernel;
@@ -764,7 +769,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_type         GetCommandType() const  { return CL_COMMAND_TASK;       }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_TASK"; }
-        
+
     private:
         size_t m_szStaticWorkSize; // Set to 1 to support NDRangeKernel execution with work_size=1
     };
@@ -778,10 +783,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 		typedef void (*pUserFnc_t)(void *);
         NativeKernelCommand(
-			IOclCommandQueueBase* cmdQueue, 
+			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            pUserFnc_t          pUserFnc, 
-            void*               pArgs, 
+            pUserFnc_t          pUserFnc,
+            void*               pArgs,
             size_t              szCbArgs,
             cl_uint             uNumMemObjects,
             MemoryObject**      ppMemObjList,
@@ -790,7 +795,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~NativeKernelCommand();
 
         cl_err_code             Init();
-        cl_err_code             Execute();    
+        cl_err_code             Execute();
         cl_err_code             CommandDone();
         cl_command_type         GetCommandType() const  { return CL_COMMAND_NATIVE_KERNEL;  }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
@@ -810,7 +815,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };
 
     /******************************************************************
-     * Runtime command is a command that was created by the runtime 
+     * Runtime command is a command that was created by the runtime
      * and is used for sync within the runtime.
      * The command does nothing but keep the event mechanism and therefore can be use for synch
      * Implementation may use it for Flush or Finish commands or marker/barrier etc.
@@ -821,7 +826,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		RuntimeCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
         virtual ~RuntimeCommand()                               {}
         virtual cl_err_code             Init()                  { return CL_SUCCESS; }
-        virtual cl_err_code             Execute();        
+        virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone()           { return CL_SUCCESS; }
         virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_RUNTIME; }
         virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }

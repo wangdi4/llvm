@@ -59,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/13/2011
          */
 
-        GraphicsApiMemoryObject(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+        GraphicsApiMemoryObject(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
           MemoryObject(pContext, pOclEntryPoints), m_pAcquireEvent(NULL),
 	  m_clAcquireState(CL_SUCCESS), m_pChildObject(NULL) { }
 
@@ -84,12 +84,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual bool IsSharedWith(FissionableDevice* pDevice);
 
-        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;        
+        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
 
         virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
             size_t szRowPitch, size_t szSlicePitch) const;
 
-        virtual void* GetBackingStore(const size_t* pszOrigin = NULL) const;
+        virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
 
         virtual cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
 
@@ -100,6 +100,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count,
             FissionableDevice** children);
+
+        // In the case when Backing Store region is different from Host Map pointer provided by user
+        // we need to synchronize user area with device area after/before each map/unmap command
+        //
+        virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
+        virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
     protected:
 
@@ -135,10 +141,10 @@ namespace Intel { namespace OpenCL { namespace Framework
         // inherited methods:
 
         virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
-            cl_dev_cmd_param_map* cmd_param_map);
+            cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
 
         virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
-            cl_dev_cmd_param_map* cmd_param_map);
+            cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr);
 
     };
 

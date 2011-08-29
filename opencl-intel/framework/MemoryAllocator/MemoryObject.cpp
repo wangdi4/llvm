@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2010 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -90,10 +90,10 @@ cl_err_code MemoryObject::registerDtorNotifierCallback(mem_dtor_fn pfn_notify, v
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	LOG_DEBUG(TEXT("Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"), 
+	LOG_DEBUG(TEXT("Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-	if ((NULL == pParamValue && NULL == pszParamValueSizeRet) || 
+	if ((NULL == pParamValue && NULL == pszParamValueSizeRet) ||
 		(NULL == pParamValue && iParamName != 0))
 	{
 		return CL_INVALID_VALUE;
@@ -146,7 +146,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		if ( NULL != m_pParentObject )
 		{
 			clMem = m_pParentObject->GetHandle();
-		}						
+		}
 		break;
 	case CL_MEM_OFFSET:
 		szSize = sizeof(size_t);
@@ -225,18 +225,19 @@ void MemoryObject::NotifyDestruction()
 }
 
 cl_err_code MemoryObject::CreateMappedRegion(
-	const FissionableDevice*    IN pDevice, 
-	cl_map_flags    IN clMapFlags, 
-	const size_t*   IN pOrigin, 
-	const size_t*   IN pRegion, 
+	const FissionableDevice*    IN pDevice,
+	cl_map_flags    IN clMapFlags,
+	const size_t*   IN pOrigin,
+	const size_t*   IN pRegion,
 	size_t*         OUT pImageRowPitch,
 	size_t*         OUT pImageSlicePitch,
-	cl_dev_cmd_param_map* OUT *mappedPtr
+	cl_dev_cmd_param_map* OUT *pMapInfo,
+	void*                 OUT *pHostMapDataPtr
 	)
 {
 	LOG_DEBUG(TEXT("Enter CreateMappedRegion(pDevice = %p)"), pDevice);
 
-	assert(NULL != mappedPtr);
+	assert(NULL != pMapInfo);
 
 	MapParamPerPtr * pclDevCmdParamMap = NULL;
 	void* pPrevMapping = NULL;
@@ -278,7 +279,8 @@ cl_err_code MemoryObject::CreateMappedRegion(
 			*pImageSlicePitch = pclDevCmdParamMap->cmd_param_map.pitch[1];
 		}
 
-		*mappedPtr = &pclDevCmdParamMap->cmd_param_map;
+		*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
+        *pHostMapDataPtr = pPrevMapping;
 		return CL_SUCCESS;
 	}
 
@@ -294,11 +296,12 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.origin, sizeof(size_t[MAX_WORK_DIM]), pOrigin, sizeof(size_t)*m_uiNumDim);
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.region, sizeof(size_t[MAX_WORK_DIM]), pRegion, sizeof(size_t)*m_uiNumDim);
 
-	cl_err_code err = MemObjCreateDevMappedRegion(pDevice, &pclDevCmdParamMap->cmd_param_map);
+	cl_err_code err = MemObjCreateDevMappedRegion(pDevice, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
 	if (CL_FAILED(err))
 	{
 		return err;
 	}
+
 	pclDevCmdParamMap->refCount = 1;
 	pclDevCmdParamMap->pDevice = pDevice;
 	if (NULL != pImageRowPitch)
@@ -310,10 +313,10 @@ cl_err_code MemoryObject::CreateMappedRegion(
 		*pImageSlicePitch = pclDevCmdParamMap->cmd_param_map.pitch[1];
 	}
 
-	m_mapMappedRegions[pclDevCmdParamMap->cmd_param_map.ptr] = pclDevCmdParamMap;
+	m_mapMappedRegions[*pHostMapDataPtr] = pclDevCmdParamMap;
 	m_mapCount++;
 
-	*mappedPtr = &pclDevCmdParamMap->cmd_param_map;
+	*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
 	return CL_SUCCESS;
 }
 
@@ -333,14 +336,14 @@ cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevic
 	*pMapInfo = &(it->second->cmd_param_map);
 	return CL_SUCCESS;
 }
-cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo )
+cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
 {
 	LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mapInfo=%P)"), pMapInfo);
 
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(pMapInfo->ptr);
+	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(pHostMapDataPtr);
 	if ( it == m_mapMappedRegions.end() )
 	{
 		return CL_INVALID_VALUE;
@@ -352,7 +355,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
 		return CL_SUCCESS;
 	}
 
-	cl_err_code err = MemObjReleaseDevMappedRegion(it->second->pDevice, &(it->second->cmd_param_map));
+	cl_err_code err = MemObjReleaseDevMappedRegion(it->second->pDevice, &(it->second->cmd_param_map), pHostMapDataPtr);
 
 	delete it->second;
 	m_mapMappedRegions.erase(it);

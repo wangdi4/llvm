@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -31,8 +31,8 @@ using namespace Intel::OpenCL::Framework;
 
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, TRUE, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_BUFFER, SingleUnifiedBuffer)
 
-SingleUnifiedImage2DArray::SingleUnifiedImage2DArray(Context* pContext, ocl_entry_points * pOclEntryPoints) :
-	SingleUnifiedImage3D(pContext, pOclEntryPoints)
+SingleUnifiedImage2DArray::SingleUnifiedImage2DArray(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) :
+	SingleUnifiedImage3D(pContext, pOclEntryPoints, clObjType)
 {
 	m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D_ARRAY;
 }
@@ -64,12 +64,12 @@ cl_err_code SingleUnifiedImage2DArray::Initialize(
 
     for (size_t i = 0; i < m_szImageDepth; i++)
     {
-		MemoryObject* pImage2D = new SingleUnifiedImage2D(m_pContext, (ocl_entry_points*)(m_pContext->GetHandle()->dispatch));
+		MemoryObject* pImage2D = new SingleUnifiedImage2D(m_pContext, (ocl_entry_points*)(m_pContext->GetHandle()->dispatch), CL_MEM_OBJECT_IMAGE2D);
 		if ( NULL == pImage2D )
 		{
 			return CL_OUT_OF_HOST_MEMORY;
 		}
-		
+
 		ret = pImage2D->Initialize(clMemFlags, pclImageFormat, 2, dimension, &m_szImageRowPitch, &((char*)m_pMemObjData)[m_szImageSlicePitch * i]);
         if (CL_FAILED(ret))
         {
@@ -87,7 +87,7 @@ cl_err_code SingleUnifiedImage2DArray::ReadData(void* pOutData, const size_t* ps
                                    const size_t* pszRegion, size_t szRowPitch,
                                    size_t szSlicePitch)
 {
-    const size_t imageIndex = pszOrigin[2];  
+    const size_t imageIndex = pszOrigin[2];
     MemoryObject* image = m_img2DArray[imageIndex];
     const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
     return image->ReadData(pOutData, origin, pszRegion, szRowPitch, szSlicePitch);
@@ -97,7 +97,7 @@ cl_err_code SingleUnifiedImage2DArray::WriteData(const void* pOutData, const siz
                                     const size_t* pszRegion, size_t szRowPitch,
                                     size_t szSlicePitch)
 {
-    const size_t imageIndex = pszOrigin[2];  
+    const size_t imageIndex = pszOrigin[2];
     MemoryObject* image = m_img2DArray[imageIndex];
     const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
     return image->WriteData(pOutData, origin, pszRegion, szRowPitch, szSlicePitch);
@@ -122,12 +122,12 @@ cl_err_code SingleUnifiedImage2DArray::CheckBounds(const size_t* pszOrigin, cons
     return m_img2DArray[pszOrigin[2]]->CheckBounds(origin, pszRegion);
 }
 
-void* SingleUnifiedImage2DArray::GetBackingStore(const size_t* pszOrigin)
+void* SingleUnifiedImage2DArray::GetBackingStoreData(const size_t* pszOrigin)
 {
     if (pszOrigin[2] >= m_szImageDepth)
         return NULL;
     const size_t origin[3] = { pszOrigin[0], pszOrigin[1], 0};
-    return m_img2DArray[pszOrigin[2]]->GetBackingStore(origin);
+    return m_img2DArray[pszOrigin[2]]->GetBackingStoreData(origin);
 }
 
 cl_err_code SingleUnifiedImage2DArray::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)

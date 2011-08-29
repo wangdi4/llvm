@@ -44,7 +44,7 @@
 using namespace Intel::OpenCL::CPUDevice;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize) :
-	m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
+	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
 {
 	if ( NULL != logDesc )
 	{
@@ -135,11 +135,14 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 {
 	assert( NULL == pAllocProp );
 
-	pAllocProp->sharingGroupId = 0;
-	pAllocProp->hostUnified = true;
-	pAllocProp->alignment = CPU_DEV_MAXIMUM_ALIGN;
-	pAllocProp->DXSharing = false;
-	pAllocProp->GLSharing = false;
+	pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
+	pAllocProp->imageSharingGroupId  = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
+	pAllocProp->hostUnified          = true;
+	pAllocProp->alignment            = CPU_DEV_MAXIMUM_ALIGN;
+	pAllocProp->maxBufferSize        = m_maxAllocSize;
+    pAllocProp->imagesSupported      = true;
+	pAllocProp->DXSharing            = false;
+	pAllocProp->GLSharing            = false;
 
 	return CL_DEV_SUCCESS;
 }
@@ -213,7 +216,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Device heap was not created"));
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
-	size_t uiElementSize = 1; 
+	size_t uiElementSize = 1;
 
 	assert(NULL != memObj);
 	assert(NULL != dim);
@@ -256,10 +259,10 @@ void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count,
 	char* lockedPtr = (char*)pBasePtr;
 	if ( NULL != origin )
 	{
-		lockedPtr += origin[0] * elemSize; //Origin is in Pixels		
+		lockedPtr += origin[0] * elemSize; //Origin is in Pixels
 		for(unsigned i=1; i<dim_count; ++i)
-		{			
-			lockedPtr += origin[i] * pitch[i-1]; //y * image width pitch 
+		{
+			lockedPtr += origin[i] * pitch[i-1]; //y * image width pitch
 		}
 	}
 
@@ -394,7 +397,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 
 		sCpyPrm.uiDimCount = m_objDecr.dim_count;
 		sCpyPrm.pSrc = (cl_char*)m_pHostPtr;
-		
+
 		sCpyPrm.pDst = (cl_char*)m_objDecr.pData;
 		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
 		{
@@ -424,7 +427,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 		m_pBackingStore = NULL;
 		m_pHostPtr = NULL;
 	}
-	
+
 	// Create local backing store if required
 	if ( NULL == m_pBackingStore )
 	{
@@ -552,7 +555,7 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
 	m_pBackingStore = m_pParent->m_pBackingStore;
 	m_pBackingStore->AddPendency();
-	
+
 	return CL_DEV_SUCCESS;
 }
 

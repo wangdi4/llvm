@@ -32,6 +32,7 @@
 #include "mic_device.h"
 #include "cl_sys_defines.h"
 #include "device_service_communication.h"
+#include "mic_sys_info.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -179,11 +180,14 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 {
     assert( NULL == pAllocProp );
 
-	pAllocProp->sharingGroupId = 0;
-    pAllocProp->hostUnified = false;
-    pAllocProp->alignment = MIC_DEV_MAXIMUM_ALIGN;
-    pAllocProp->DXSharing = false;
-    pAllocProp->GLSharing = false;
+	pAllocProp->bufferSharingGroupId = CL_DEV_MIC_BUFFER_SHARING_GROUP_ID;
+	pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
+    pAllocProp->hostUnified          = false;
+    pAllocProp->alignment            = MIC_DEV_MAXIMUM_ALIGN;
+    pAllocProp->maxBufferSize        = MIC_MAX_BUFFER_ALLOC_SIZE(m_iDevId);
+    pAllocProp->imagesSupported      = true;
+    pAllocProp->DXSharing            = false;
+    pAllocProp->GLSharing            = false;
 
     return CL_DEV_SUCCESS;
 }

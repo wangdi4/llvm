@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     class D3D9Resource : public GraphicsApiMemoryObject
     {
-    
+
         D3D9ResourceInfo* m_pResourceInfo;
         size_t m_szDimensions[3];
         bool m_bAcquired;
@@ -244,8 +244,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/6/2011
          */
 
-        D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-             GraphicsApiMemoryObject(pContext, pOclEntryPoints), m_pResourceInfo(NULL),
+        D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+             GraphicsApiMemoryObject(pContext, pOclEntryPoints, clObjType), m_pResourceInfo(NULL),
                  m_bAcquired(false) { }
 
         /**
@@ -345,7 +345,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     template<typename RESOURCE_TYPE, typename DESC_TYPE>
     class D3D9Buffer : public D3D9Resource
     {
-    
+
     public:
 
         /**
@@ -357,8 +357,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+          D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
 
         // inherited methods:
 
@@ -434,7 +434,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
 
         size_t m_szPitch;
-    
+
     public:
 
         /**
@@ -446,8 +446,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+          D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
 
         // inherited methods:
 
@@ -535,8 +535,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/19/2011
          */
 
-        D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
 
     protected:
 
@@ -560,7 +560,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      *
      * @sa  Intel::OpenCL::Framework::D3D9Resource
      */
-    
+
     class D3D9Texture : public D3D9Image2D
     {
 
@@ -575,8 +575,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
 
     protected:
 
@@ -590,7 +590,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
             void* pParamValue, const size_t szParamValueSize) const;
-    
+
     };
 
     /**
@@ -606,11 +606,11 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     class D3D9CubeTexture : public D3D9Image2D
     {
-    
+
     public:
 
-        D3D9CubeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9CubeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
 
     protected:
 
@@ -630,7 +630,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     /**
      * @class   D3D9VolumeTexture
      *
-     * @brief   This class represents a Direct3D 9 volume texture. 
+     * @brief   This class represents a Direct3D 9 volume texture.
      *
      * @author  Aharon
      * @date    7/24/2011
@@ -639,7 +639,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      */
 
     class D3D9VolumeTexture : public D3D9Resource
-    {    
+    {
         enum Pitches { ROW_PITCH , SLICE_PITCH };
 
         size_t m_szPitches[2];
@@ -655,8 +655,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/24/2011
          */
 
-        D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-            D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
+            D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
 
         // inherited methods:
 

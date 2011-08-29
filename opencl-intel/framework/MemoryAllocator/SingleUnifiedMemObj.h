@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2010 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Description:	Represents a memory object that operates with single device that has unified host memory
 	* Author:		Uri Levy
 	* Date:			December 2008
-	**********************************************************************************************/		
+	**********************************************************************************************/
 	class SingleUnifiedMemObject : public MemoryObject, public IOCLDevRTMemObjectService
 	{
 	public:
@@ -90,32 +90,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
 		cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS);
 		size_t GetDeviceAgentListSize() const;
-		const IOCLDeviceAgent* *GetDeviceAgentList() const;
+		const IOCLDeviceAgent* const *GetDeviceAgentList() const;
+
+        // In the case when Backing Store region is different from Host Map pointer provided by user
+        // we need to synchronize user area with device area after/before each map/unmap command
+        //
+        virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) { return CL_SUCCESS; };
+        virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) { return CL_SUCCESS; };
 
     protected:
 		// Low level mapped region creation function
 		virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
-			cl_dev_cmd_param_map*	cmd_param_map);
+			cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr);
 		// Low level mapped region release function
 		virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
-			cl_dev_cmd_param_map*	cmd_param_map);
+			cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr);
 
 		/******************************************************************************************
 		* Function: 	SingleUnifiedMemObject
 		* Description:	The MemoryObject class constructor
-		* Arguments:	
+		* Arguments:
 		* Author:		Uri Levy
 		* Date:			December 2008
-		******************************************************************************************/		
-		SingleUnifiedMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints);
+		******************************************************************************************/
+		SingleUnifiedMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
 
 		/******************************************************************************************
 		* Function: 	~MemoryObject
 		* Description:	The MemoryObject class destructor
-		* Arguments:		
+		* Arguments:
 		* Author:		Uri Levy
 		* Date:			December 2008
-		******************************************************************************************/			
+		******************************************************************************************/
 		virtual ~SingleUnifiedMemObject();
 
 		IOCLDevMemoryObject*	m_pDeviceObject;
@@ -139,7 +145,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const size_t* GetPitch() const {return m_pitch;}
 		int AddPendency();
 		int RemovePendency();
-	
+
 	protected:
 		virtual ~SingleUnifiedMemObjectBackingStore();
 

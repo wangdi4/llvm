@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         return true;
     }
 
-    /** 
+    /**
      * @fn  void GraphicsApiMemoryObject::GetLayout(size_t* dimensions, size_t* rowPitch,
      *      size_t* slicePitch) const
      */
@@ -97,13 +97,13 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  void* GraphicsApiMemoryObject::GetBackingStore(const size_t* pszOrigin) const
      */
 
-    void* GraphicsApiMemoryObject::GetBackingStore(const size_t* pszOrigin) const
+    void* GraphicsApiMemoryObject::GetBackingStoreData(const size_t* pszOrigin) const
     {
         if (NULL == m_pChildObject)
         {
             return NULL;
         }
-        return m_pChildObject->GetBackingStore(pszOrigin);
+        return m_pChildObject->GetBackingStoreData(pszOrigin);
     }
 
     /**
@@ -130,9 +130,9 @@ namespace Intel { namespace OpenCL { namespace Framework
      */
 
     cl_err_code	GraphicsApiMemoryObject::MemObjCreateDevMappedRegion(const FissionableDevice* pDevice,
-        cl_dev_cmd_param_map* cmd_param_map)
+        cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr)
     {
-        return m_pChildObject->MemObjCreateDevMappedRegion(pDevice, cmd_param_map);
+        return m_pChildObject->MemObjCreateDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
     }
 
     /**
@@ -141,10 +141,21 @@ namespace Intel { namespace OpenCL { namespace Framework
      */
 
     cl_err_code	GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(const FissionableDevice* pDevice,
-        cl_dev_cmd_param_map* cmd_param_map)
+        cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr)
     {
-        return m_pChildObject->MemObjReleaseDevMappedRegion(pDevice, cmd_param_map);
+        return m_pChildObject->MemObjReleaseDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
     }
+
+    cl_err_code GraphicsApiMemoryObject::SynchDataToHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
+    {
+        return m_pChildObject->SynchDataToHost( pMapInfo, pHostMapDataPtr );
+    }
+
+    cl_err_code GraphicsApiMemoryObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
+    {
+        return m_pChildObject->SynchDataFromHost( pMapInfo, pHostMapDataPtr );
+    }
+
 
     /**
      * @fn  cl_err_code GraphicsApiMemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count,

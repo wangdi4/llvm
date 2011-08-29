@@ -33,8 +33,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLRenderBuffer : public GLTexture
 	{
 	public:
-		GLRenderBuffer::GLRenderBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints):
-			GLTexture(pContext, pOclEntryPoints)
+		GLRenderBuffer::GLRenderBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
+			GLTexture(pContext, pOclEntryPoints, clObjType)
 			{
 			}
 		~GLRenderBuffer();

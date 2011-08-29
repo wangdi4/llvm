@@ -126,10 +126,12 @@ typedef int errno_t;
 #define WCSCPY_S                          wcscpy_s
 #define VSPRINTF_S                        vsprintf_s
 
-#define ALIGNED_MALLOC                   _aligned_malloc
-#define ALIGNED_FREE                     _aligned_free
-
 typedef unsigned long long               affinityMask_t;
+
+// aligned malloc
+#include <malloc.h>
+#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
+#define ALIGNED_FREE                      _aligned_free
 
 #else
 
@@ -146,13 +148,25 @@ typedef unsigned long long               affinityMask_t;
 #define WCSCPY_S                        Intel::OpenCL::Utils::safeWStrCpy
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
-#include <mm_malloc.h>
-#define ALIGNED_MALLOC                 _mm_malloc
-#define ALIGNED_FREE                   _mm_free
-
 #include <sched.h>
 typedef cpu_set_t                      affinityMask_t;
+
+// aligned malloc
+#include <stdlib.h>
+
+inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
+{
+    void* t = NULL;
+    posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
+    return t;
+}
+
+#define ALIGNED_FREE                      free
+
 #endif
 
 // Define compiler static assert
 #define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
+
+#define PAGE_4K_SIZE                    4096
+

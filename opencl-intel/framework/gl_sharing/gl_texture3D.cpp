@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -127,13 +127,13 @@ cl_err_code GLTexture3D::AcquireGLObject()
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	m_pMemObjData = pChild->GetBackingStore(NULL);
+	m_pMemObjData = pChild->GetBackingStoreData(NULL);
 
 	// Now read image data if requried
 	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_READ_ONLY) )
 	{
 		GLenum readBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
-		GLenum readBackType = GetGLType(m_clFormat.clType.image_channel_data_type); 
+		GLenum readBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
 
 		GLint	currTexture;
 		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
@@ -168,7 +168,7 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_WRITE_ONLY) )
 	{
 		GLenum readBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
-		GLenum readBackType = GetGLType(m_clFormat.clType.image_channel_data_type); 
+		GLenum readBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
 
 		GLint	currTexture;
 		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);

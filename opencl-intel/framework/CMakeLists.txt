@@ -2,7 +2,7 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export
         ${CMAKE_CURRENT_SOURCE_DIR}/icd
-        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing		
+        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
@@ -10,10 +10,10 @@ include_directories ( BEFORE
 	${CMAKE_HOME_DIRECTORY}/common_runtime/export
     )
 
-if (DEFINED ENV{DXSDK_DIR})	
+if (DEFINED ENV{DXSDK_DIR})
 	include_directories (BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/d3d9_sharing)
-endif (DEFINED ENV{DXSDK_DIR})	
-	
+endif (DEFINED ENV{DXSDK_DIR})
+
 if (DEFINED ENV{DXSDK_DIR})
 	if (${BUILD_X64} STREQUAL "ON")
 		link_directories($ENV{DXSDK_DIR}/Lib/x64)
@@ -22,17 +22,17 @@ if (DEFINED ENV{DXSDK_DIR})
 	endif(${BUILD_X64} STREQUAL "ON")
 add_definitions (-DDX9_SHARING)
 endif (DEFINED ENV{DXSDK_DIR})
-	
+
 add_subdirectory( icd )
 add_subdirectory( Platform )
 
 if(WIN32)
 	include_directories(
-						${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/include 
+						${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/include
 				    )
 	link_directories(
-					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 										
-				)							
+					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
+				)
     add_definitions( -DUSE_GPA )
 endif(WIN32)
 
@@ -92,7 +92,7 @@ if (WIN32)
 		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll /DELAYLOAD:task_executor.dll"
 	)
 
-	list( APPEND LINK_LIBS delayimp.lib )		
+	list( APPEND LINK_LIBS delayimp.lib )
 endif(WIN32)
 
 target_link_libraries( ${TARGET_NAME} Context

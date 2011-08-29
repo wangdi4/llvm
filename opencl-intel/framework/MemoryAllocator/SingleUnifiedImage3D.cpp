@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -36,8 +36,8 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Image3D C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-SingleUnifiedImage3D::SingleUnifiedImage3D(Context *pContext, ocl_entry_points * pOclEntryPoints):
-	SingleUnifiedImage2D(pContext, pOclEntryPoints)
+SingleUnifiedImage3D::SingleUnifiedImage3D(Context *pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
+	SingleUnifiedImage2D(pContext, pOclEntryPoints, clObjType)
 {
 	m_clMemObjectType = CL_MEM_OBJECT_IMAGE3D;
 }
@@ -128,7 +128,7 @@ cl_err_code SingleUnifiedImage3D::GetImageInfo(cl_image_info clParamName, size_t
 	{
 		MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
 	}
-	
+
 	return CL_SUCCESS;
 
 }
@@ -146,21 +146,21 @@ cl_err_code SingleUnifiedImage3D::ReadData(void * pData, const size_t * pszOrigi
 	sCpyParam.uiDimCount = 3;
 	memcpy(sCpyParam.vRegion, pszRegion, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] = pszRegion[0] * m_szElementSize;
-	
+
 	// set row Pitch for src and dst
 	size_t srcPitch[3] = { m_szImageRowPitch , m_szImageSlicePitch };
 	size_t dstPitch[3] = { szRowPitch , szSlicePitch };
-	
+
 	sCpyParam.pSrc = (cl_char*)m_pMemObjData;
 	memcpy(sCpyParam.vSrcPitch, srcPitch, sizeof(sCpyParam.vSrcPitch));
 	sCpyParam.pDst = (cl_char*)pData;
 	memcpy(sCpyParam.vDstPitch, dstPitch , sizeof(sCpyParam.vDstPitch));
-	
+
 	// origin
 	sCpyParam.pSrc += pszOrigin[0] * m_szElementSize; //Origin is in Pixels
-	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch 		
-	sCpyParam.pSrc += pszOrigin[2] * m_szImageSlicePitch; //y * image width pitch		
-	
+	sCpyParam.pSrc += pszOrigin[1] * m_szImageRowPitch; //y * image width pitch
+	sCpyParam.pSrc += pszOrigin[2] * m_szImageSlicePitch; //y * image width pitch
+
 	clCopyMemoryRegion(&sCpyParam);
 
 	return CL_SUCCESS;
@@ -172,7 +172,7 @@ void SingleUnifiedImage3D::GetLayout( OUT size_t* dimensions, OUT size_t* rowPit
 	{
 		dimensions[0] = m_szImageWidth;
 		dimensions[1] = m_szImageHeight;
-		dimensions[2] = m_szImageDepth;		
+		dimensions[2] = m_szImageDepth;
 	}
 	*rowPitch = GetRowPitchSize();
 	*slicePitch = GetSlicePitchSize();

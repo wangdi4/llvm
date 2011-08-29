@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -44,12 +44,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	*					and shared host memory
 	* Author:		Uri Levy
 	* Date:			April 2008
-	**********************************************************************************************/		
+	**********************************************************************************************/
 	class SingleUnifiedImage2D : public SingleUnifiedMemObject
 	{
 	public:
 
-		SingleUnifiedImage2D(Context * pContext, ocl_entry_points * pOclEntryPoints);
+		SingleUnifiedImage2D(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
 
 		cl_err_code Initialize(
 			cl_mem_flags		clMemFlags,
@@ -67,12 +67,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch = 0);
 		cl_err_code WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch, size_t szSlicePitch = 0);
         size_t GetRowPitchSize() const { return m_szImageRowPitch; }
-		
+
 		virtual size_t	CalcRowPitchSize(const size_t * pszRegion) { return pszRegion[0] * m_szElementSize; }
 		void			GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
         cl_err_code			CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		cl_err_code			CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
-		void*			GetBackingStore( const size_t * pszOrigin = NULL ) const;
+		void*			GetBackingStoreData( const size_t * pszOrigin = NULL ) const;
 		size_t			GetPixelSize() const;
 		size_t			GetSlicePitchSize(void) const;
 
@@ -83,10 +83,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/******************************************************************************************
 		* Function: 	~SingleUnifiedImage2D
 		* Description:	The SingleUnifiedImage2D class destructor
-		* Arguments:		
+		* Arguments:
 		* Author:		Uri Levy
 		* Date:			April 2008
-		******************************************************************************************/			
+		******************************************************************************************/
 		virtual ~SingleUnifiedImage2D();
 
 		// calculate the total image size

@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2010 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	/**********************************************************************************************
 	* Description:	Represents a base memory object interface.
-	**********************************************************************************************/		
+	**********************************************************************************************/
 	class MemoryObject;
 	class Context;
 	class FissionableDevice;
@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Description:	Declares a memory object interface
 	* Author:		Uri Levy
 	* Date:			December 2008
-	**********************************************************************************************/		
+	**********************************************************************************************/
 	class MemoryObject : public OCLObject<_cl_mem_int>, public IDeviceFissionObserver
 	{
 	public:
@@ -73,8 +73,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         friend class GraphicsApiMemoryObject;
 
 		/******************************************************************************************
-		* Function: 	GetInfo    
-		* Description:	get object specific information (inherited from OCLObject) the function 
+		* Function: 	GetInfo
+		* Description:	get object specific information (inherited from OCLObject) the function
 		*				query the desirable parameter value from the device
 		* Arguments:	param_name [in]				parameter's name
 		*				param_value_size [inout]	parameter's value size (in bytes)
@@ -87,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 		/******************************************************************************************
-		* Function: 	GetImageInfo    
+		* Function: 	GetImageInfo
 		* Description:	get image specific information. This function extends the GetInfo for memory objects
         *               that are images. Any Non-Image memory object do not implemented this API and return error
 		* Arguments:	param_name [in]				parameter's name
@@ -98,9 +98,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Arnon Peleg
 		* Date:			April 2009
 		******************************************************************************************/
-        virtual cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) 
+        virtual cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
             {return CL_INVALID_MEM_OBJECT; }
-        
+
 		// initialize the memory object
 		virtual cl_err_code Initialize(
 			cl_mem_flags		clMemFlags,
@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// reads the data from the memory object into pOutData
 		//
-        // pszOrigin - defines the (x, y, z) offset in pixels in the memory object from where to copy. 
+        // pszOrigin - defines the (x, y, z) offset in pixels in the memory object from where to copy.
         // If the memory object is a Buffer (1 dimension object), pszOrigin[0] refers to the offset
         // in bytes where to begin copying data into dst_buffer
         // If it is 2D image object, the z value given by pszOrigin[2] must be 0.
@@ -151,25 +151,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // If the memory object is a Buffer (1 dimension object) the pszRegion[0] is the buffer size in bytes.
         // If it is a 2D image object, the height value given by pszRegion[2] must be 1.
         // In addition to the above, if it is a buffer object, the y value given by pszRegion[1] must be 1.
-        // 
+        //
         // szRowPitch - is the length of each row in bytes in the pOutData.
         // If szRowPitch is set to 0, the appropriate row pitch is calculated by the object itself.
         // It must be 0 if object is a Buffer.
         //
         // szSlicePitch is the size in bytes of the 2D slice of the 3D region of a 3D image.
         // If szSlicePitch is set to 0, the appropriate slice pitch is calculated by the object itself.
-        // It must be 0 if object is a 2D image or a Buffer. 
-		// 
-		virtual cl_err_code ReadData(	void *          pOutData, 
-										const size_t *  pszOrigin, 
+        // It must be 0 if object is a 2D image or a Buffer.
+		//
+		virtual cl_err_code ReadData(	void *          pOutData,
+										const size_t *  pszOrigin,
 										const size_t *  pszRegion,
 										size_t          szRowPitch   = 0,
 										size_t          szSlicePitch = 0) = 0;
 
-		// writes the data from the pOutData into the memory object 
+		// writes the data from the pOutData into the memory object
 		//
-		virtual cl_err_code WriteData(	const void *    pOutData, 
-										const size_t *  pszOrigin, 
+		virtual cl_err_code WriteData(	const void *    pOutData,
+										const size_t *  pszOrigin,
 										const size_t *  pszRegion,
 										size_t          szRowPitch   = 0,
 										size_t          szSlicePitch = 0) = 0;
@@ -204,7 +204,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// it is on the caller responsibility to save the data.
 		// if no data available locally on the memory object the function returns NULL.
         // If pszOrigin != NULL, the pointer is set to the beginning point of the origin.
-		virtual void * GetBackingStore( const size_t * pszOrigin = NULL) const = 0;
+		virtual void * GetBackingStoreData( const size_t * pszOrigin = NULL) const = 0;
 
         // create resource of memory object for specific device.
 		// this pure virtual function need to be implemented in the buffer or image class
@@ -215,31 +215,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code GetDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, OclEvent* OUT *ppEvent) = 0;
 
 		// Maps a memory object region to the host space and returns a pointer to it.
-		// The function returns a pointer to the mapped region. 
+		// The function returns a pointer to the mapped region.
 		// If the object is 2D/3D image and pszImageRowPitch and/or pszImageSlicePitch are not NULL, those
 		// argument will include the relevant values from the device.
 		virtual cl_err_code CreateMappedRegion(
-			const FissionableDevice*    IN pDevice, 
-			cl_map_flags    IN clMapFlags, 
-			const size_t*   IN pOrigin, 
-			const size_t*   IN pRegion, 
+			const FissionableDevice*    IN pDevice,
+			cl_map_flags    IN clMapFlags,
+			const size_t*   IN pOrigin,
+			const size_t*   IN pRegion,
 			size_t*         OUT pImageRowPitch,
 			size_t*         OUT pImageSlicePitch,
-			cl_dev_cmd_param_map* OUT *mappedPtr
+			cl_dev_cmd_param_map* OUT *pMapInfo,
+			void*                 OUT *pHostMapDataPtr
 			);
 
 		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo);
 
 		// Release the region pointed by mappedPtr from clDeviceId.
-		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo);
+		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
+
+        // In the case when Backing Store region is different from Host Map pointer provided by user
+        // we need to synchronize user area with device area after/before each map/unmap command
+        //
+        virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) = 0;
+        virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) = 0;
 
 		/******************************************************************************************
-		* Function: 	CreateSubBuffer 
+		* Function: 	CreateSubBuffer
 		* Description:	Creates sub-buffer for specific buffer.
-		* Arguments:	
+		* Arguments:
 		* Author:		Evgeny Fiksman
 		* Date:			November 2010
-		******************************************************************************************/	
+		******************************************************************************************/
 		virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, MemoryObject** ppBuffer) = 0;
 
@@ -249,16 +256,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	None
 		* Author:		Rami Jioussy
 		* Date:			August 2010
-		******************************************************************************************/	
+		******************************************************************************************/
 		MemoryObject* GetParent() {return m_pParentObject;}
 
 		/******************************************************************************************
 		* Function: 	IsSupportedByDevice
 		* Description:	Performs logig test if memory object is supported by specific device
-		* Arguments:	pDevice - pointer to the device to be testeted.		
+		* Arguments:	pDevice - pointer to the device to be testeted.
 		* Author:		Rami Jioussy
 		* Date:			August 2010
-		******************************************************************************************/	
+		******************************************************************************************/
 		virtual bool IsSupportedByDevice(FissionableDevice* pDevice) = 0;
 
 		// Registers a callback to be called upon MemoryObject Destructor execution and before
@@ -274,10 +281,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 			// Low level mapped region creation function
 			virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
-							cl_dev_cmd_param_map*	cmd_param_map) = 0;
+							cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr) = 0;
 
 			virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
-				cl_dev_cmd_param_map*	cmd_param_map) = 0;
+				cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr) = 0;
 
 			Context*								m_pContext;	            // context to which the memory object belongs
 
