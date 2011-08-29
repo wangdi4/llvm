@@ -570,7 +570,7 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
 
         engineInfo* tEngineInfo = new engineInfo;
         assert(tEngineInfo && "COI_ENGINE_INFO allocation failed");
-        result = COIEngineGetInfo(engine, &(tEngineInfo->micDeviceInfoStruct));
+        result = COIEngineGetInfo(engine, sizeof(COI_ENGINE_INFO), &(tEngineInfo->micDeviceInfoStruct));
         if( result != COI_SUCCESS )
         {
             delete tEngineInfo;
