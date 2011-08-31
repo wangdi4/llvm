@@ -76,9 +76,10 @@ private:
 	/* Release resources. */
 	void releaseResources();
 
-	COIBUFFER m_dispatcherDataBuffer;
 	COIBUFFER m_printfBuffer;
-	COIBUFFER m_profilingBuffer;
+	COIBUFFER m_miscBuffer;
+
+	char*     m_extendedDispatcherData;
 
 };
 

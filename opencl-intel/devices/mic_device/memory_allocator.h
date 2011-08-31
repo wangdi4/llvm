@@ -167,7 +167,9 @@ public:
     cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
                     const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
-	COIBUFFER& clDevMemObjGetCoiBufferHandler() { return m_coi_buffer; };
+	const COIBUFFER& clDevMemObjGetCoiBufferHandler() const { return m_coi_buffer; };
+
+	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
 protected:
     MemoryAllocator&            m_Allocator;

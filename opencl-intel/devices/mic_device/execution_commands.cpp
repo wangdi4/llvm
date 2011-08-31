@@ -9,7 +9,7 @@ using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
 NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd),
-m_dispatcherDataBuffer(NULL), m_printfBuffer(NULL), m_profilingBuffer(NULL)
+m_printfBuffer(NULL), m_miscBuffer(NULL), m_extendedDispatcherData(NULL)
 {
 }
 
@@ -66,253 +66,304 @@ void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kern
 
 cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** ppAccessFlagArr, unsigned int* pOutNumBuffers)
 {
-	// Get command params
-	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-	// Get Kernel from params
-    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-	// Get kernel params
-	const char*	pKernelParams = (const char*)cmdParams->arg_values;
-
-	// Get the amount of kernel args
-	unsigned int uiNumArgs = pKernel->GetKernelParamsCount();
-	// Get kernel arguments
-    const cl_kernel_argument* pArgs = pKernel->GetKernelParams();
-
-	// Define the directives and function arguments to dispatch to the device side. (Will be store at the first COIBUFFER)
-	dispatcher_data dispatcherData;
-	// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
-	dispatcherData.kernelDirective.kernelAddress = m_pCommandList->getProgramService()->AcquireKernelOnDevice(cmdParams->kernel);
-	if (0 == dispatcherData.kernelDirective.kernelAddress)
-	{
-		m_lastError = CL_DEV_INVALID_VALUE;
-		return CL_DEV_INVALID_VALUE;
-	}
-	// set kernel args blob size in bytes for dispatcherData
-	dispatcherData.kernelArgSize = cmdParams->arg_size;
-	// set isInOrderQueue flag in dispatcherData
-	dispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
-	// Filling the workDesc structure in dispatcherData
-	dispatcherData.workDesc.setParams(cmdParams->work_dim, cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size);
-
-	// The amount of COIBUFFERS to dispatch (At least 1 for the 'dispatcher_data' structure)
-	unsigned int numOfDispatchingBuffers = 1;
-
-	// directives counter.
-	unsigned int numPreDirectives = 0;
-	unsigned int numPostDirectives = 0;
-
-	// Vector which save the kernel buffer arguments basic info in order to traverse on uiNumArgs only once
-	vector<NDRange::kernel_arg_buffer_info> buffsInfoVector;
-
-	// Get the amount of buffers in kernel args and info of their offset in blob and their index in pArgs
-	getKernelArgBuffersCount(uiNumArgs, pArgs, buffsInfoVector);
-	// The amount of buffers in kernel args
-	unsigned int numOfBuffersInKernelArgs = buffsInfoVector.size();
-
-	numOfDispatchingBuffers += numOfBuffersInKernelArgs;
-	numPreDirectives += numOfBuffersInKernelArgs;
-
-	// Get device side process in order to create COIBUFFERs for this process.
-	COIPROCESS tProcess = m_pCommandList->getDeviceProcess();
-
-	COIRESULT coi_err = COI_SUCCESS;
-	// If there is printf operation, add printf directive
-	if (pKernel->GetKernelProporties()->HasPrintOperation())
-	{
-		// Create coi buffer for printf
-    	coi_err = COIBufferCreate(
-                                MIC_PRINTF_BUFFER_SIZE,                          // The number of bytes to allocate for the buffer.
-								COI_BUFFER_NORMAL,                               // The type of the buffer to create
-								0,                                               // A bitmask of attributes for the newly created buffer.
-								NULL,                                            // If non-NULL the buffer will be initialized with the data pointed
-                                1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
-                                &m_printfBuffer);                                // Pointer to a buffer handle
-		// Is the COIBufferCreate succeeded?
-		if (COI_SUCCESS != coi_err)
-		{
-			m_lastError = CL_DEV_OBJECT_ALLOC_FAIL;
-		    return CL_DEV_OBJECT_ALLOC_FAIL;
-		}
-		numOfDispatchingBuffers ++;
-		numPreDirectives ++;
-		numPostDirectives ++;
-	}
-
-	if(m_pCmd->profiling)
-	{
-		// Create coi buffer for profiling
-    	coi_err = COIBufferCreate(
-                                sizeof(profiling_data),                          // The number of bytes to allocate for the buffer.
-								COI_BUFFER_NORMAL,                               // The type of the buffer to create
-								0,                                               // A bitmask of attributes for the newly created buffer.
-								NULL,                                            // If non-NULL the buffer will be initialized with the data pointed
-                                1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
-                                &m_profilingBuffer);                             // Pointer to a buffer handle
-		// Is the COIBufferCreate succeeded?
-		if (COI_SUCCESS != coi_err)
-		{
-			m_lastError = CL_DEV_OBJECT_ALLOC_FAIL;
-		    return CL_DEV_OBJECT_ALLOC_FAIL;
-		}
-
-		numOfDispatchingBuffers ++;
-		numPreDirectives ++;
-		numPostDirectives ++;
-	}
-
-	// If the CommandList is OOO
-	if (false == dispatcherData.isInOrderQueue)
-	{
-		// We should add additional directive for post execution (BARRIER directive)
-		numPostDirectives ++;
-	}
-
-	// The the amount of pre and post exe directives in 'dispatcherData'
-	dispatcherData.preExeDirectivesCount = numPreDirectives;
-    dispatcherData.postExeDirectivesCount = numPostDirectives;
-	// calculate and set the offset parameters in 'dispatcherData'
-	dispatcherData.calcAndSetOffsets();
-
-	// Array of COIBUFFERs that will sent to the process (The first location is for the dispatcher data structure)
-	// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
-	COIBUFFER* coiBuffsArr = (COIBUFFER*)malloc(sizeof(COIBUFFER) * numOfDispatchingBuffers);
-	assert(coiBuffsArr);
-	// Array of access flags that will sent to the process (The first location is for the dispatcher data structure permission)
-	// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
-	COI_ACCESS_FLAGS* accessFlagArr = (COI_ACCESS_FLAGS*)malloc(sizeof(COI_ACCESS_FLAGS) * numOfDispatchingBuffers);
-	assert(accessFlagArr);
-
+	cl_dev_err_code returnError = CL_DEV_SUCCESS;
 	// array of directive_pack for preExeDirectives
 	directive_pack* preExeDirectives = NULL;
-	if (numPreDirectives > 0)
-	{
-		preExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPreDirectives);
-		assert(preExeDirectives && "Allocation failed");
-	}
 	// array of directive_pack for preExeDirectives
 	directive_pack* postExeDirectives = NULL;
-	if (numPostDirectives > 0)
+	// Array of COIBUFFERs that will sent to the process (The first location is for the dispatcher data structure)
+	// IT IS CALLER RESPONSIBILITY TO FREE THIS BUFFER (IT WILL SET THE OUT PARAMETER)
+	COIBUFFER* coiBuffsArr = NULL;
+	// Array of access flags that will sent to the process (The first location is for the dispatcher data structure permission)
+	// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
+	COI_ACCESS_FLAGS* accessFlagArr = NULL;
+	do
 	{
-		postExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPostDirectives);
-		assert(postExeDirectives && "Allocation failed");
-	}
+		// Get command params
+		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+		// Get Kernel from params
+		const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+		// Get kernel params
+		const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
-	unsigned int currCoiBuffIndex = 1;
-	unsigned int currPreDirectiveIndex = 0;
-	unsigned int currPostDirectiveIndex = 0;
+		// Get the amount of kernel args
+		unsigned int uiNumArgs = pKernel->GetKernelParamsCount();
+		// Get kernel arguments
+		const cl_kernel_argument* pArgs = pKernel->GetKernelParams();
 
-	// Set the buffer arguments of the kernel as directives and COIBUFFERS
-	assert(numPreDirectives >= numOfBuffersInKernelArgs);
-	for (unsigned int i = 0; i < numOfBuffersInKernelArgs; i++)
-	{
-		size_t stOffset = buffsInfoVector[i].offsetInBlob;
-		MICDevMemoryObject *memObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)(pKernelParams+stOffset));
-		// Set the COIBUFFER of coiBuffsArr[currCoiBuffIndex] to be the COIBUFFER that hold the data of the buffer.
-		coiBuffsArr[currCoiBuffIndex] = memObj->clDevMemObjGetCoiBufferHandler();
-		// TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)
-		if ( CL_KRNL_ARG_PTR_CONST == pArgs[buffsInfoVector[i].index].type )
+		// Define the directives and function arguments to dispatch to the device side. (Will be store at the first COIBUFFER)
+		dispatcher_data dispatcherData;
+
+		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
+		dispatcherData.kernelDirective.kernelAddress = m_pCommandList->getProgramService()->AcquireKernelOnDevice(cmdParams->kernel);
+
+		if (0 == dispatcherData.kernelDirective.kernelAddress)
 		{
-			accessFlagArr[currCoiBuffIndex] = COI_SINK_READ;
+			returnError = CL_DEV_INVALID_KERNEL;
+			break;
 		}
-		else
+		// set kernel args blob size in bytes for dispatcherData
+		dispatcherData.kernelArgSize = cmdParams->arg_size;
+		// set isInOrderQueue flag in dispatcherData
+		dispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
+		// Filling the workDesc structure in dispatcherData
+		dispatcherData.workDesc.setParams(cmdParams->work_dim, cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size);
+
+		// The amount of COIBUFFERS to dispatch (At least AMOUNT_OF_CONSTANT_BUFFERS for the 'dispatcher_data' structure and misc_data structure)
+		unsigned int numOfDispatchingBuffers = AMOUNT_OF_CONSTANT_BUFFERS;
+
+		// Get device side process in order to create COIBUFFERs for this process.
+		COIPROCESS tProcess = m_pCommandList->getDeviceProcess();
+
+		COIRESULT coi_err = COI_SUCCESS;
+
+		// Create coi buffer for misc_data
+		coi_err = COIBufferCreate(
+								sizeof(misc_data),                               // The number of bytes to allocate for the buffer.
+								COI_BUFFER_NORMAL,                               // The type of the buffer to create
+								0,                                               // A bitmask of attributes for the newly created buffer.
+								NULL,                                            // If non-NULL the buffer will be initialized with the data pointed
+								1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
+								&m_miscBuffer);			                         // Pointer to a buffer handle
+		// Is the COIBufferCreate succeeded?
+		if (COI_SUCCESS != coi_err)
 		{
-			accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE;
+			returnError = CL_DEV_OBJECT_ALLOC_FAIL;
+			break;
 		}
-		// Set this directive settings
-		preExeDirectives[currPreDirectiveIndex].id = BUFFER;
-		preExeDirectives[currPreDirectiveIndex].bufferDirective.bufferIndex = currCoiBuffIndex;
-		preExeDirectives[currPreDirectiveIndex].bufferDirective.offset_in_blob = stOffset;
 
-		currCoiBuffIndex ++;
-		currPreDirectiveIndex ++;
-	}
+		// directives counter.
+		unsigned int numPreDirectives = 0;
+		unsigned int numPostDirectives = 0;
 
-	// If there is printf operation, add printf directive
-	if (m_printfBuffer)
-	{
-		// Set this directive settings
-		coiBuffsArr[currCoiBuffIndex] = m_printfBuffer;
+		// Vector which save the kernel buffer arguments basic info in order to traverse on uiNumArgs only once
+		vector<NDRange::kernel_arg_buffer_info> buffsInfoVector;
+
+		// Get the amount of buffers in kernel args and info of their offset in blob and their index in pArgs
+		getKernelArgBuffersCount(uiNumArgs, pArgs, buffsInfoVector);
+		// The amount of buffers in kernel args
+		unsigned int numOfBuffersInKernelArgs = buffsInfoVector.size();
+
+		numOfDispatchingBuffers += numOfBuffersInKernelArgs;
+		numPreDirectives += numOfBuffersInKernelArgs;
+
+		// If there is printf operation, add printf directive
+		if (pKernel->GetKernelProporties()->HasPrintOperation())
+		{
+			// Create coi buffer for printf
+    		coi_err = COIBufferCreate(
+									MIC_PRINTF_BUFFER_SIZE,                          // The number of bytes to allocate for the buffer.
+									COI_BUFFER_NORMAL,                               // The type of the buffer to create
+									0,                                               // A bitmask of attributes for the newly created buffer.
+									NULL,                                            // If non-NULL the buffer will be initialized with the data pointed
+									1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
+									&m_printfBuffer);                                // Pointer to a buffer handle
+			// Is the COIBufferCreate succeeded?
+			if (COI_SUCCESS != coi_err)
+			{
+				returnError = CL_DEV_OBJECT_ALLOC_FAIL;
+				break;
+			}
+			numOfDispatchingBuffers ++;
+			numPreDirectives ++;
+			numPostDirectives ++;
+		}
+
+		// If the CommandList is OOO
+		if (false == dispatcherData.isInOrderQueue)
+		{
+			// We should add additional directive for post execution (BARRIER directive)
+			numPostDirectives ++;
+		}
+
+		// The the amount of pre and post exe directives in 'dispatcherData'
+		dispatcherData.preExeDirectivesCount = numPreDirectives;
+		dispatcherData.postExeDirectivesCount = numPostDirectives;
+		// calculate and set the offset parameters in 'dispatcherData'
+		dispatcherData.calcAndSetOffsets();
+
+		// Array of COIBUFFERs that will sent to the process (The first location is for the dispatcher data structure)
+		// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
+		coiBuffsArr = (COIBUFFER*)malloc(sizeof(COIBUFFER) * numOfDispatchingBuffers);
+		if (NULL == coiBuffsArr)
+		{
+			returnError = CL_DEV_OUT_OF_MEMORY;
+			break;
+		}
+		// Array of access flags that will sent to the process (The first location is for the dispatcher data structure permission)
+		// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
+		accessFlagArr = (COI_ACCESS_FLAGS*)malloc(sizeof(COI_ACCESS_FLAGS) * numOfDispatchingBuffers);
+		if (NULL == accessFlagArr)
+		{
+			returnError = CL_DEV_OUT_OF_MEMORY;
+			break;
+		}
+
+		if (numPreDirectives > 0)
+		{
+			preExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPreDirectives);
+			if (NULL == preExeDirectives)
+			{
+				returnError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+		}
+		if (numPostDirectives > 0)
+		{
+			postExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPostDirectives);
+			if (NULL == postExeDirectives)
+			{
+				returnError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+		}
+
+		unsigned int currCoiBuffIndex = AMOUNT_OF_CONSTANT_BUFFERS;
+		unsigned int currPreDirectiveIndex = 0;
+		unsigned int currPostDirectiveIndex = 0;
+
+		// Set the buffer arguments of the kernel as directives and COIBUFFERS
+		assert(numPreDirectives >= numOfBuffersInKernelArgs);
+		for (unsigned int i = 0; i < numOfBuffersInKernelArgs; i++)
+		{
+			size_t stOffset = buffsInfoVector[i].offsetInBlob;
+			MICDevMemoryObject *memObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)(pKernelParams+stOffset));
+			// Set the COIBUFFER of coiBuffsArr[currCoiBuffIndex] to be the COIBUFFER that hold the data of the buffer.
+			coiBuffsArr[currCoiBuffIndex] = memObj->clDevMemObjGetCoiBufferHandler();
+			// TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)
+			if ( CL_KRNL_ARG_PTR_CONST == pArgs[buffsInfoVector[i].index].type )
+			{
+				accessFlagArr[currCoiBuffIndex] = COI_SINK_READ;
+			}
+			else
+			{
+				// Now check the memObj flags (The flags that the memObj created with)
+				switch ( memObj->clDevMemObjGetMemoryFlags() )
+				{
+				case CL_MEM_READ_ONLY:
+					{
+						accessFlagArr[currCoiBuffIndex] = COI_SINK_READ;
+						break;
+					}
+				case CL_MEM_WRITE_ONLY:
+					{
+						accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE_ENTIRE;
+						break;
+					}
+				default:
+					{
+						accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE;
+						break;
+					}
+				}
+			}
+			// Set this directive settings
+			preExeDirectives[currPreDirectiveIndex].id = BUFFER;
+			preExeDirectives[currPreDirectiveIndex].bufferDirective.bufferIndex = currCoiBuffIndex;
+			preExeDirectives[currPreDirectiveIndex].bufferDirective.offset_in_blob = stOffset;
+
+			currCoiBuffIndex ++;
+			currPreDirectiveIndex ++;
+		}
+
+		// If there is printf operation, add printf directive
+		if (m_printfBuffer)
+		{
+			// Set this directive settings
+			coiBuffsArr[currCoiBuffIndex] = m_printfBuffer;
+			// Set this COIBUFFER permission flag as write only on device side
+			accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE_ENTIRE;
+			// Set the directive for PRE and POST
+			preExeDirectives[currPreDirectiveIndex].id = PRINTF;
+			preExeDirectives[currPreDirectiveIndex].printfDirective.bufferIndex = currCoiBuffIndex;
+			preExeDirectives[currPreDirectiveIndex].printfDirective.size = MIC_PRINTF_BUFFER_SIZE;
+
+			postExeDirectives[currPostDirectiveIndex] = preExeDirectives[currPreDirectiveIndex];
+
+			currPreDirectiveIndex ++;
+			currPostDirectiveIndex ++;
+			currCoiBuffIndex ++;
+		}
+
+		// set misc coi buffer pointer
+		coiBuffsArr[MISC_DATA_INDEX] = m_miscBuffer;
 		// Set this COIBUFFER permission flag as write only on device side
 		accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE_ENTIRE;
-		// Set the directive for PRE and POST
-		preExeDirectives[currPreDirectiveIndex].id = PRINTF;
-		preExeDirectives[currPreDirectiveIndex].printfDirective.bufferIndex = currCoiBuffIndex;
-		preExeDirectives[currPreDirectiveIndex].printfDirective.size = MIC_PRINTF_BUFFER_SIZE;
 
-		postExeDirectives[currPostDirectiveIndex] = preExeDirectives[currPreDirectiveIndex];
+		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
+		if (false == dispatcherData.isInOrderQueue)
+		{
+			postExeDirectives[currPostDirectiveIndex].id = BARRIER;
+			postExeDirectives[currPostDirectiveIndex].barrierDirective.end_barrier = m_completionBarrier;
 
-		currPreDirectiveIndex ++;
-		currPostDirectiveIndex ++;
-		currCoiBuffIndex ++;
+			currPostDirectiveIndex ++;
+		}
+
+		// We going to send block of bytes as the first COIBUFFER wihch include the following:
+		//    * dispatcherData
+		//    * preExeDirectives
+		//    * postExeDirectives
+		//    * cmdParams->arg_values (kernel args blob)
+		// Going to collect all the data together
+		m_extendedDispatcherData = (char*)malloc(dispatcherData.getDispatcherDataSize());
+		if (NULL == m_extendedDispatcherData)
+		{
+			returnError = CL_DEV_OUT_OF_MEMORY;
+			break;
+		}
+		memcpy(m_extendedDispatcherData, &dispatcherData, sizeof(dispatcher_data));
+		memcpy(m_extendedDispatcherData + dispatcherData.preExeDirectivesArrOffset, preExeDirectives, sizeof(directive_pack) * numPreDirectives);
+		memcpy(m_extendedDispatcherData + dispatcherData.postExeDirectivesArrOffset, postExeDirectives, sizeof(directive_pack) * numPostDirectives);
+		memcpy(m_extendedDispatcherData + dispatcherData.kernelArgBlobOffset, cmdParams->arg_values, cmdParams->arg_size);
+
+		// Create coi buffer for dispatcher_data
+		coi_err = COIBufferCreateFromMemory(
+								dispatcherData.getDispatcherDataSize(),          // The number of bytes to allocate for the buffer.
+								COI_BUFFER_NORMAL,                               // The type of the buffer to create
+								0,                                               // A bitmask of attributes for the newly created buffer.
+								m_extendedDispatcherData,                        // A pointer to an already allocated memory region on the source that should be turned into a COIBUFFER
+								1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
+								&(coiBuffsArr[0]));                              // Pointer to a buffer handle
+
+		// Is the COIBufferCreate succeeded?
+		if (COI_SUCCESS != coi_err)
+		{
+			returnError = CL_DEV_INVALID_VALUE;
+			break;
+		}
+
+		accessFlagArr[0] = COI_SINK_READ;
 	}
-	// If there is profiling operation, add profiling directive
-	if (m_profilingBuffer)
+	while (0);
+
+	if (preExeDirectives)
 	{
-		// Set this directive settings
-		coiBuffsArr[currCoiBuffIndex] = m_profilingBuffer;
-		// Set this COIBUFFER permission flag as write only on device side
-		accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE_ENTIRE;
-		// Set the directive for PRE and POST
-		preExeDirectives[currPreDirectiveIndex].id = PROFILING;
-		preExeDirectives[currPreDirectiveIndex].profilingDirective.bufferIndex = currCoiBuffIndex;
-
-		postExeDirectives[currPostDirectiveIndex] = preExeDirectives[currPreDirectiveIndex];
-
-		currPreDirectiveIndex ++;
-		currPostDirectiveIndex ++;
-		currCoiBuffIndex ++;
+		free(preExeDirectives);
 	}
-	// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
-	if (false == dispatcherData.isInOrderQueue)
+	if (postExeDirectives)
 	{
-		postExeDirectives[currPostDirectiveIndex].id = BARRIER;
-		postExeDirectives[currPostDirectiveIndex].barrierDirective.end_barrier = m_completionBarrier;
-
-		currPostDirectiveIndex ++;
+		free(postExeDirectives);
 	}
 
-	// We going to send block of bytes as the first COIBUFFER wihch include the following:
-	//    * dispatcherData
-	//    * preExeDirectives
-	//    * postExeDirectives
-	//    * cmdParams->arg_values (kernel args blob)
-	// Going to collect all the data together
-	size_t groupedDataSize = sizeof(dispatcher_data) + (sizeof(directive_pack) * (numPreDirectives + numPostDirectives)) + cmdParams->arg_size;
-	char* groupedData = (char*)malloc(groupedDataSize);
-	memcpy(groupedData, &dispatcherData, sizeof(dispatcher_data));
-	size_t offset = sizeof(dispatcher_data);
-	memcpy(groupedData + offset, preExeDirectives, sizeof(directive_pack) * numPreDirectives);
-	offset += sizeof(directive_pack) * numPreDirectives;
-	memcpy(groupedData + offset, postExeDirectives, sizeof(directive_pack) * numPostDirectives);
-	offset += sizeof(directive_pack) * numPostDirectives;
-    memcpy(groupedData + offset, cmdParams->arg_values, cmdParams->arg_size);
-
-	// Create coi buffer for dispatcher_data
-	coi_err = COIBufferCreateFromMemory(
-                            groupedDataSize,                                 // The number of bytes to allocate for the buffer.
-							COI_BUFFER_NORMAL,                               // The type of the buffer to create
-							0,                                               // A bitmask of attributes for the newly created buffer.
-							groupedData,                                     // A pointer to an already allocated memory region on the source that should be turned into a COIBUFFER
-                            1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
-                            &(coiBuffsArr[0]));                              // Pointer to a buffer handle
-
-	free(preExeDirectives);
-	free(postExeDirectives);
-	free(groupedData);
-
-	// Is the COIBufferCreate succeeded?
-	if (COI_SUCCESS != coi_err)
+	if (CL_DEV_SUCCESS != returnError)
 	{
-		free(coiBuffsArr);
-		free(accessFlagArr);
-		m_lastError = CL_DEV_OBJECT_ALLOC_FAIL;
-	    return CL_DEV_OBJECT_ALLOC_FAIL;
+		if (coiBuffsArr)
+		{
+			free(coiBuffsArr);
+		}
+		if (accessFlagArr)
+		{
+			free(accessFlagArr);
+		}
 	}
+	else
+	{
+		*ppOutCoiBuffsArr = coiBuffsArr;
+		*ppAccessFlagArr = accessFlagArr;
+	}
+	m_lastError = returnError;
 
-	*ppOutCoiBuffsArr = coiBuffsArr;
-	*ppAccessFlagArr = accessFlagArr;
-
-	return CL_DEV_SUCCESS;
+	return returnError;
 }
 
 cl_dev_err_code NDRange::execute()
@@ -368,7 +419,6 @@ cl_dev_err_code NDRange::execute()
 	}
 	if (CL_DEV_SUCCESS != err)
 	{
-	    m_lastError = err;
 		delete this;
 	}
 
@@ -384,12 +434,28 @@ void NDRange::fireCallBack(void* arg)
 	{
 		// TODO - Read the COIBUFFER and print it
 	}
-	// if profiling available
-	if (m_profilingBuffer)
-	{
-		// TODO - read the COIBUFFER and send the data to framework
-	}
+	assert(m_miscBuffer);
+	misc_data miscData;
+	// read m_miscBuffer in order to get kernel execution result and profiling data (synchronous)
+	COIRESULT coiErr = COIBufferRead ( m_miscBuffer,
+										0,
+										&miscData,
+										sizeof(miscData),
+										COI_COPY_USE_CPU,
+										0,
+										NULL,
+										NULL );
 
+	assert(COI_SUCCESS == coiErr);
+	if (CL_DEV_SUCCESS == m_lastError)
+	{
+		m_lastError = miscData.errCode;
+	}
+	// if profiling available
+	if (m_pCmd->profiling)
+	{
+		// TODO - read the profiling data from miscData convert the data to host time profiling and send the data to framework
+	}
 	// Notify runtime that  the command completed
 	notifyCommandStatusChanged(CL_COMPLETE);
 	// Delete this Command object
@@ -399,19 +465,18 @@ void NDRange::fireCallBack(void* arg)
 void NDRange::releaseResources()
 {
 	COIRESULT coiErr = COI_SUCCESS;
-	if (m_dispatcherDataBuffer)
-	{
-		coiErr = COIBufferDestroy(m_dispatcherDataBuffer);
-		assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
-	}
 	if (m_printfBuffer)
 	{
 		coiErr = COIBufferDestroy(m_printfBuffer);
 		assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
 	}
-	if (m_profilingBuffer)
+	if (m_miscBuffer)
 	{
-		coiErr = COIBufferDestroy(m_profilingBuffer);
+		coiErr = COIBufferDestroy(m_miscBuffer);
 		assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
+	}
+	if (m_extendedDispatcherData)
+	{
+		free(m_extendedDispatcherData);
 	}
 }

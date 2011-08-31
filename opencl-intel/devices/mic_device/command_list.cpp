@@ -14,11 +14,12 @@ using namespace Intel::OpenCL::MICDevice;
 CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
 	/*CL_DEV_CMD_READ*/  &ReadWriteMemObject::Create,
 	/* CL_DEV_CMD_WRITE*/ &ReadWriteMemObject::Create,
-	/* CL_DEV_CMD_EXEC_KERNEL */ &NDRange::Create,
-	/* CL_DEV_CMD_EXEC_NATIVE */ NULL,
 	/* CL_DEV_CMD_COPY */ &CopyMemObject::Create,
 	/* CL_DEV_CMD_MAP */ &MapMemObject::Create,
-	/* CL_DEV_CMD_UNMAP */ &UnmapMemObject::Create
+	/* CL_DEV_CMD_UNMAP */ &UnmapMemObject::Create,
+	/* CL_DEV_CMD_EXEC_KERNEL */ &NDRange::Create,
+	/* CL_DEV_CMD_EXEC_TASK */ NULL,
+	/* CL_DEV_CMD_EXEC_NATIVE */ NULL
 };
 
 
@@ -114,8 +115,10 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 
 cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject)
 {
-    assert(cmd && "cmd is NULL object");
-	assert(cmd->type < CL_DEV_CMD_MAX_COMMAND_TYPE  && "INVALID CL_DEV_CMD_TYPE");
+	if ((NULL == cmd) || (cmd->type >= CL_DEV_CMD_MAX_COMMAND_TYPE))
+	{
+		return CL_DEV_INVALID_VALUE;
+	}
 	// get function pointer to cmd->type factory function
 	fnCommandCreate_t* fnCreate = m_vCommands[cmd->type];
 	assert( (NULL != fnCreate) && "Not implemented");

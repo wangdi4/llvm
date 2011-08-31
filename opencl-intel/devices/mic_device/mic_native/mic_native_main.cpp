@@ -116,26 +116,6 @@ void hello_world(uint32_t         in_BufferCount,
 
 }
 
-COINATIVELIBEXPORT
-void execute_NDRange(uint32_t         in_BufferCount,
-              void**           in_ppBufferPointers,
-              uint64_t*        in_pBufferLengths,
-              void*            in_pMiscData,
-              uint16_t         in_MiscDataLength,
-              void*            in_pReturnValue,
-              uint16_t         in_ReturnValueLength)
-{
-	NATIVE_PRINTF("Enter execute_NDRange\n");
-	assert(in_BufferCount >= 1 && "Should be at least One buffer");
-	assert(in_pBufferLengths[0] >= sizeof(dispatcher_data) && "in_pBufferLengths[0] should be at least as the size of dispatcher_data");
-	dispatcher_data* tDispatcherData = (dispatcher_data*)(in_ppBufferPointers[0]);
-	// DO NOT delete this object, It will delete itself after kernel execution
-	ExecutionTask* exeTask = ExecutionTask::ExecutionTaskFactory(tDispatcherData);
-	exeTask->init(in_BufferCount, in_ppBufferPointers, in_pBufferLengths);
-	exeTask->runTask();
-	NATIVE_PRINTF("Exit execute_NDRange\n");
-}
-
 // main is automatically called whenever the source creates a process.
 // In order for the source to create and use pipelines, the process must
 // still exist.

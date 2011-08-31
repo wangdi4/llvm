@@ -5,14 +5,47 @@
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
 
+#include <sink/COIPipeline_sink.h>
+#include <sink/COIProcess_sink.h>
+
 #include <malloc.h>
 #include <cstring>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
-ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData) : m_dispatcherData(dispatcherData), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL),
-m_kernel(NULL), m_progamExecutableMemoryManager(NULL), m_lockedParams(NULL), m_signalBarrierFlag(false)
+COINATIVELIBEXPORT
+void execute_NDRange(uint32_t         in_BufferCount,
+					 void**           in_ppBufferPointers,
+					 uint64_t*        in_pBufferLengths,
+					 void*            in_pMiscData,
+					 uint16_t         in_MiscDataLength,
+					 void*            in_pReturnValue,
+					 uint16_t         in_ReturnValueLength)
+{
+	NATIVE_PRINTF("Enter execute_NDRange\n");
+	assert(in_BufferCount >= AMOUNT_OF_CONSTANT_BUFFERS && "Should be at least AMOUNT_OF_CONSTANT_BUFFERS buffers (for dispatcher_data and for misc_data)");
+	assert(in_pBufferLengths[DISPATCHER_DATA_INDEX] >= sizeof(dispatcher_data) && "in_pBufferLengths[DISPATCHER_DATA_INDEX] should be at least as the size of dispatcher_data");
+	assert(in_pBufferLengths[MISC_DATA_INDEX] == sizeof(misc_data) && "in_pBufferLengths[MISC_DATA_INDEX] should be at least as the size of misc_data");
+	dispatcher_data* tDispatcherData = (dispatcher_data*)(in_ppBufferPointers[DISPATCHER_DATA_INDEX]);
+	misc_data* tMiscData = (misc_data*)(in_ppBufferPointers[MISC_DATA_INDEX]);
+	// DO NOT delete this object, It will delete itself after kernel execution
+	ExecutionTask* exeTask = ExecutionTask::ExecutionTaskFactory(tDispatcherData, tMiscData);
+	if (NULL == exeTask)
+	{
+		return;
+	}
+	bool result = exeTask->init(in_BufferCount, in_ppBufferPointers, in_pBufferLengths);
+	if (false == result)
+	{
+		return;
+	}
+	exeTask->runTask();
+	NATIVE_PRINTF("Exit execute_NDRange\n");
+}
+
+ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData) : m_dispatcherData(dispatcherData), m_miscData(miscData), 
+m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_kernel(NULL), m_progamExecutableMemoryManager(NULL), m_lockedParams(NULL), m_signalBarrierFlag(false)
 {
 }
 
@@ -20,11 +53,14 @@ ExecutionTask::~ExecutionTask()
 {
 }
 
-ExecutionTask* ExecutionTask::ExecutionTaskFactory(dispatcher_data* dispatcherData)
+ExecutionTask* ExecutionTask::ExecutionTaskFactory(dispatcher_data* dispatcherData, misc_data* miscData)
 {
 	ExecutionTask* exeTask = NULL;
-	exeTask = (dispatcherData->isInOrderQueue == true) ? (ExecutionTask*)new BlockingTask(dispatcherData) : (ExecutionTask*)new NonBlockingTask(dispatcherData);
-	assert(exeTask);
+	exeTask = (dispatcherData->isInOrderQueue == true) ? (ExecutionTask*)new BlockingTask(dispatcherData, miscData) : (ExecutionTask*)new NonBlockingTask(dispatcherData, miscData);
+	if (NULL == exeTask)
+	{
+		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+	}
 	return exeTask;
 }
 
@@ -34,6 +70,8 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 	bool result = lockInputBuffers(in_BufferCount, in_ppBufferPointers, in_pBufferLengths);
 	if (false == result)
 	{
+		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
+		m_miscData->errCode = CL_DEV_ERROR_FAIL;
 		delete this;
 		return false;
 	}
@@ -41,19 +79,21 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 	result = ProgramService::getInstance().get_kernel(m_dispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
 	if (false == result)
 	{
+		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
+		m_miscData->errCode = CL_DEV_INVALID_KERNEL;
 		delete this;
 		return false;
 	}
 	// Set kernel args blob (Still have to set the buffers pointer in the blob
 	if (m_dispatcherData->kernelArgSize > 0)
 	{
-		m_lockedParams = (char*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->kernelArgBlobOffset);
+		m_lockedParams = (char*)((char*)(m_lockBufferPointers[DISPATCHER_DATA_INDEX]) + m_dispatcherData->kernelArgBlobOffset);
 	}
 	unsigned int numOfPreExeDirectives = m_dispatcherData->preExeDirectivesCount;
 	if (numOfPreExeDirectives > 0)
 	{
-		// get teh pointer to preExeDirectivesArr
-		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->preExeDirectivesArrOffset);
+		// get the pointer to preExeDirectivesArr
+		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)(m_lockBufferPointers[DISPATCHER_DATA_INDEX]) + m_dispatcherData->preExeDirectivesArrOffset);
 		// traverse over the preExeDirectivesArr
 		for (unsigned int i = 0; i < numOfPreExeDirectives; i++)
 		{
@@ -69,12 +109,6 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 					break;
 				}
 			case PRINTF:
-				{
-					//TODO
-					assert(0);
-					break;
-				}
-			case PROFILING:
 				{
 					//TODO
 					assert(0);
@@ -117,12 +151,6 @@ void ExecutionTask::finish()
 					assert(0);
 					break;
 				}
-			case PROFILING:
-				{
-					//TODO
-					assert(0);
-					break;
-				}
 			default:
 				{
 					assert(0);
@@ -147,7 +175,7 @@ void ExecutionTask::signalUserBarrierForCompletion()
 
 
 
-BlockingTask::BlockingTask(dispatcher_data* dispatcherData) : ExecutionTask(dispatcherData)
+BlockingTask::BlockingTask(dispatcher_data* dispatcherData, misc_data* miscData) : ExecutionTask(dispatcherData, miscData)
 {
 }
 
@@ -195,12 +223,6 @@ void BlockingTask::runTask()
 					NATIVE_PRINTF("Printf Buffer index - %d, Printf buffer size - %ld, the local ptr - %p\n", directivesArr[j][i].printfDirective.bufferIndex, directivesArr[j][i].printfDirective.size, m_lockBufferPointers[directivesArr[j][i].printfDirective.bufferIndex]);
 					break;
 				}
-			case PROFILING:
-				{
-					NATIVE_PRINTF("Type Profiling\n");
-					NATIVE_PRINTF("Profiling Buffer index - %d, the local ptr - %p\n", directivesArr[j][i].profilingDirective.bufferIndex, m_lockBufferPointers[directivesArr[j][i].profilingDirective.bufferIndex]);
-					break;
-				}
 			default:
 				{
 					assert(0);
@@ -226,7 +248,7 @@ bool BlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferP
 
 
 
-NonBlockingTask::NonBlockingTask(dispatcher_data* dispatcherData) : ExecutionTask(dispatcherData)
+NonBlockingTask::NonBlockingTask(dispatcher_data* dispatcherData, misc_data* miscData) : ExecutionTask(dispatcherData, miscData)
 {
 }
 
@@ -247,9 +269,17 @@ bool NonBlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBuff
 {
 	m_lockBufferCount = in_BufferCount;
 	m_lockBufferPointers = (void**)malloc(sizeof(void*) * in_BufferCount);
-	assert(m_lockBufferPointers && "memory allocation failed");
+	if (NULL == m_lockBufferPointers)
+	{
+		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+		return false;
+	}
 	m_lockBufferLengths = (uint64_t*)malloc(sizeof(uint64_t) * in_BufferCount);
-	assert(m_lockBufferLengths && "memory allocation failed");
+	if (NULL == m_lockBufferLengths)
+	{
+		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+		return false;
+	}
 	COIRESULT result = COI_SUCCESS;
 	// In case of non blocking task, shall lock all input buffers.
 	for (unsigned int i = 0; i < in_BufferCount; i++)
@@ -258,6 +288,7 @@ bool NonBlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBuff
 		result = COIBufferAddRef(in_ppBufferPointers[i]);
 		if (result != COI_SUCCESS)
 		{
+			m_miscData->errCode = CL_DEV_ERROR_FAIL;
 			return false;
 		}
 		m_lockBufferPointers[i] = in_ppBufferPointers[i];

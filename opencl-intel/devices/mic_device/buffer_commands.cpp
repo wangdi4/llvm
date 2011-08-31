@@ -171,6 +171,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
 		m_lastError = CL_DEV_ERROR_FAIL;
 		notifyCommandStatusChanged(CL_COMPLETE);
 		delete this;
+		return CL_DEV_ERROR_FAIL;
 	}
 
 	return CL_DEV_SUCCESS;
@@ -385,75 +386,99 @@ cl_dev_err_code MapMemObject::execute()
 
 	SMemMapParams* coiMapParam = MemoryAllocator::GetCoiMapParams(cmdParams);
 
-	COIRESULT result = COI_SUCCESS;
-
-	if (retVecSize > 1)
+	do
 	{
-		// Rectangular map operations
-		// allocate COIMAPINSTANCE instances
-		coiMapParam->rec_map_handles = (COIMAPINSTANCE*)malloc(sizeof(COIMAPINSTANCE) * retVecSize);
-		assert(coiMapParam->rec_map_handles);
-		memset(coiMapParam->rec_map_handles, 0, sizeof(COIMAPINSTANCE) * retVecSize);
-		// allocate (retVecSize - 1) COIEVENTs which the last map operation will depend on.
-		coiMapParam->map_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * retVecSize - 1);
-		assert(coiMapParam->map_barriers);
-		coiMapParam->num_of_rec_map_handles = retVecSize;
-		// Perform the first (retVecSize - 1) map operations. (asynchronous operations, only dependent on the previous command in the CommandList)
-		for (unsigned int i = 0; i < retVecSize - 1; i++)
+		COIRESULT coiResult = COI_SUCCESS;
+
+		if (retVecSize > 1)
 		{
-			result = COIBufferMap ( coiBuffer,				                // Handle for the buffer to map.
-									vCoiBuffOffset[i],                      // Offset into the buffer that a pointer should be returned for.
-									vSize[i],				                // Length of the buffer area to map.
-									COI_MAP_READ_WRITE,                     // The access type that is needed by the application.
-									numDependecies,							// The number of dependencies specified in the barrier array.
-									barrier,						        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-									&(coiMapParam->map_barriers[i]),        // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-									&(coiMapParam->rec_map_handles[i]),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-									&(vHostPtr[i])
-									);
-			
-			if (COI_SUCCESS != result)
+			// Rectangular map operations
+			// allocate COIMAPINSTANCE instances
+			coiMapParam->rec_map_handles = (COIMAPINSTANCE*)malloc(sizeof(COIMAPINSTANCE) * retVecSize);
+			if (NULL == coiMapParam->rec_map_handles)
 			{
+				m_lastError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+			memset(coiMapParam->rec_map_handles, 0, sizeof(COIMAPINSTANCE) * retVecSize);
+			// allocate (retVecSize - 1) COIEVENTs which the last map operation will depend on.
+			coiMapParam->map_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * retVecSize - 1);
+			if (NULL == coiMapParam->map_barriers)
+			{
+				m_lastError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+			coiMapParam->num_of_rec_map_handles = retVecSize;
+			// Perform the first (retVecSize - 1) map operations. (asynchronous operations, only dependent on the previous command in the CommandList)
+			for (unsigned int i = 0; i < retVecSize - 1; i++)
+			{
+				coiResult = COIBufferMap ( coiBuffer,				            // Handle for the buffer to map.
+										vCoiBuffOffset[i],                      // Offset into the buffer that a pointer should be returned for.
+										vSize[i],				                // Length of the buffer area to map.
+										COI_MAP_READ_WRITE,                     // The access type that is needed by the application.
+										numDependecies,							// The number of dependencies specified in the barrier array.
+										barrier,						        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+										&(coiMapParam->map_barriers[i]),        // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+										&(coiMapParam->rec_map_handles[i]),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+										&(vHostPtr[i])
+										);
+				
+				if (COI_SUCCESS != coiResult)
+				{
+					m_lastError = CL_DEV_ERROR_FAIL;
+					break;
+				}
+			}
+
+			// Perform the last map operation that depend on the previous (retVecSize - 1) map operations
+			if (CL_DEV_SUCCESS == m_lastError)
+			{
+				coiResult = COIBufferMap ( coiBuffer,										// Handle for the buffer to map.
+										vCoiBuffOffset[retVecSize - 1],						// Offset into the buffer that a pointer should be returned for.
+										vSize[retVecSize - 1],								// Length of the buffer area to map.
+										COI_MAP_READ_WRITE,									// The access type that is needed by the application.
+										retVecSize - 1,										// The number of dependencies specified in the barrier array.
+										coiMapParam->map_barriers,							// An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+										&m_completionBarrier,								// An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+										&(coiMapParam->rec_map_handles[retVecSize - 1]),    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+										&(vHostPtr[retVecSize - 1])
+										);
+			}
+
+			if (COI_SUCCESS != coiResult)
+			{
+				m_lastError = CL_DEV_ERROR_FAIL;
 				break;
 			}
 		}
-
-		// Perform the last map operation that depend on the previous (retVecSize - 1) map operations
-		if (COI_SUCCESS == result)
+		// Regular map operation
+		else
 		{
-			result = COIBufferMap ( coiBuffer,											// Handle for the buffer to map.
-									vCoiBuffOffset[retVecSize - 1],						// Offset into the buffer that a pointer should be returned for.
-									vSize[retVecSize - 1],								// Length of the buffer area to map.
-									COI_MAP_READ_WRITE,									// The access type that is needed by the application.
-									retVecSize - 1,										// The number of dependencies specified in the barrier array.
-									coiMapParam->map_barriers,							// An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-									&m_completionBarrier,								// An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-									&(coiMapParam->rec_map_handles[retVecSize - 1]),    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-									&(vHostPtr[retVecSize - 1])
+			coiResult = COIBufferMap ( coiBuffer,				        // Handle for the buffer to map.
+									vCoiBuffOffset[0],              // Offset into the buffer that a pointer should be returned for.
+									vSize[0],				        // Length of the buffer area to map.
+									COI_MAP_READ_WRITE,             // The access type that is needed by the application.
+									numDependecies,                 // The number of dependencies specified in the barrier array.
+									barrier,				        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+									&m_completionBarrier,           // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+									&(coiMapParam->map_handle),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+									&(vHostPtr[0])
 									);
+			if (COI_SUCCESS != coiResult)
+			{
+				m_lastError = CL_DEV_ERROR_FAIL;
+				break;
+			}
 		}
 	}
-	// Regular map operation
-	else
-	{
-		result = COIBufferMap ( coiBuffer,				        // Handle for the buffer to map.
-								vCoiBuffOffset[0],              // Offset into the buffer that a pointer should be returned for.
-								vSize[0],				        // Length of the buffer area to map.
-								COI_MAP_READ_WRITE,             // The access type that is needed by the application.
-								numDependecies,                 // The number of dependencies specified in the barrier array.
-								barrier,				        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-								&m_completionBarrier,           // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-								&(coiMapParam->map_handle),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-								&(vHostPtr[0])
-								);
-	}
+	while (0);
 
-	if (COI_SUCCESS != result)
+	if (CL_DEV_SUCCESS != m_lastError)
 	{
-		m_lastError = CL_DEV_ERROR_FAIL;
+		cl_dev_err_code tErr = m_lastError;
 		notifyCommandStatusChanged(CL_COMPLETE);
 		delete this;
-		return CL_DEV_ERROR_FAIL;
+		return tErr;
 	}
 
 	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
@@ -485,52 +510,81 @@ cl_dev_err_code UnmapMemObject::execute()
 
 	SMemMapParams* coiMapParam = MemoryAllocator::GetCoiMapParams(cmdParams);
 
-	COIRESULT result = COI_SUCCESS;
-
-	// Rectangular unmap operation
-	if (NULL == coiMapParam->map_handle)
+	do
 	{
-		assert(coiMapParam->num_of_rec_map_handles > 1 && "In rectangular mapping must be more than one map handle");
-		assert(coiMapParam->rec_map_handles && "rec_map_handles must be non NULL pointer");
-		coiMapParam->unmap_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * (coiMapParam->num_of_rec_map_handles - 1));
-		assert(coiMapParam->unmap_barriers);
-		for (unsigned int i = 0; i < coiMapParam->num_of_rec_map_handles - 1; i++)
+		COIRESULT result = COI_SUCCESS;
+
+		// Rectangular unmap operation
+		if (NULL == coiMapParam->map_handle)
 		{
-			result = COIBufferUnmap ( coiMapParam->rec_map_handles[i],				 // Buffer map instance handle to unmap.
-										numDependecies,								 // The number of dependencies specified in the barrier array.
-										barrier,									 // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-										&(coiMapParam->unmap_barriers[i])            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+			// In rectangular mapping must be more than one map handle
+			if (coiMapParam->num_of_rec_map_handles <= 1)
+			{
+				m_lastError = CL_DEV_INVALID_VALUE;
+				break;
+			}
+			// rec_map_handles must be non NULL pointer
+			if (NULL == coiMapParam->rec_map_handles)
+			{
+				m_lastError = CL_DEV_INVALID_VALUE;
+				break;
+			}
+			coiMapParam->unmap_barriers = (COIEVENT*)malloc(sizeof(COIEVENT) * (coiMapParam->num_of_rec_map_handles - 1));
+			if (NULL == coiMapParam->unmap_barriers)
+			{
+				m_lastError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+			for (unsigned int i = 0; i < coiMapParam->num_of_rec_map_handles - 1; i++)
+			{
+				result = COIBufferUnmap ( coiMapParam->rec_map_handles[i],				 // Buffer map instance handle to unmap.
+											numDependecies,								 // The number of dependencies specified in the barrier array.
+											barrier,									 // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+											&(coiMapParam->unmap_barriers[i])            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+											);
+				if (COI_SUCCESS != result)
+				{
+					m_lastError = CL_DEV_ERROR_FAIL;
+					break;
+				}
+			}
+			if (CL_DEV_SUCCESS == m_lastError)
+			{
+				result = COIBufferUnmap ( coiMapParam->rec_map_handles[coiMapParam->num_of_rec_map_handles - 1],        // Buffer map instance handle to unmap.
+										  coiMapParam->num_of_rec_map_handles - 1,									    // The number of dependencies specified in the barrier array.
+										  coiMapParam->unmap_barriers,													// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+										  &m_completionBarrier															// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
 										);
+			}
 			if (COI_SUCCESS != result)
 			{
+				m_lastError = CL_DEV_ERROR_FAIL;
 				break;
 			}
 		}
-		if (COI_SUCCESS == result)
+		// Regular unmap
+		else
 		{
-			result = COIBufferUnmap ( coiMapParam->rec_map_handles[coiMapParam->num_of_rec_map_handles - 1],        // Buffer map instance handle to unmap.
-									  coiMapParam->num_of_rec_map_handles - 1,									    // The number of dependencies specified in the barrier array.
-									  coiMapParam->unmap_barriers,													// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-									  &m_completionBarrier															// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+			result = COIBufferUnmap ( coiMapParam->map_handle,        // Buffer map instance handle to unmap.
+									  numDependecies,                 // The number of dependencies specified in the barrier array.
+									  barrier,				          // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+									  &m_completionBarrier            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
 									);
+			if (COI_SUCCESS != result)
+			{
+				m_lastError = CL_DEV_ERROR_FAIL;
+				break;
+			}
 		}
 	}
-	// Regular unmap
-	else
-	{
-		result = COIBufferUnmap ( coiMapParam->map_handle,        // Buffer map instance handle to unmap.
-								  numDependecies,                 // The number of dependencies specified in the barrier array.
-								  barrier,				          // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-								  &m_completionBarrier            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
-								);
-	}
+	while (0);
 
-	if (COI_SUCCESS != result)
+	if (CL_DEV_SUCCESS != m_lastError)
 	{
-		m_lastError = CL_DEV_ERROR_FAIL;
+		cl_dev_err_code tErr = m_lastError;
 		notifyCommandStatusChanged(CL_COMPLETE);
 		delete this;
-		return CL_DEV_ERROR_FAIL;
+		return tErr;
 	}
 
 	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.

@@ -43,7 +43,7 @@ public:
 
 	/* Factory for ExecutionTask object (In order or Out of order).
 	   DO NOT delete this object, 'finish' metod will delete this object. */
-	static ExecutionTask* ExecutionTaskFactory(dispatcher_data* dispatcherData);
+	static ExecutionTask* ExecutionTaskFactory(dispatcher_data* dispatcherData, misc_data* miscData);
 
 	/* Initializing and performing the preExecution conditions */
 	bool init(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths);
@@ -59,7 +59,7 @@ public:
 
 protected:
 
-	ExecutionTask(dispatcher_data* dispatcherData);
+	ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData);
 
 	virtual ~ExecutionTask();
 
@@ -72,6 +72,8 @@ protected:
 
 	// The received dispatcher_data
 	dispatcher_data* m_dispatcherData;
+	// The received misc_data
+	misc_data* m_miscData;
 
 	// The input from the main function
 	uint32_t m_lockBufferCount;
@@ -95,7 +97,7 @@ class BlockingTask : public ExecutionTask
 
 public:
 
-	BlockingTask(dispatcher_data* dispatcherData);
+	BlockingTask(dispatcher_data* dispatcherData, misc_data* miscData);
 
 	void runTask();
 
@@ -112,7 +114,7 @@ class NonBlockingTask : public ExecutionTask
 
 public:
 
-	NonBlockingTask(dispatcher_data* dispatcherData);
+	NonBlockingTask(dispatcher_data* dispatcherData, misc_data* miscData);
 
 	void runTask();
 

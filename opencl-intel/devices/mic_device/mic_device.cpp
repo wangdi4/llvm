@@ -560,12 +560,12 @@ void MICDevice::clDevCloseDevice(void)
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
-
+    /* TODO Comment out the this comment when "ReleaseBackendServices()" will implemented - Comment it because it crash the test due to assertion
     if ( NULL != m_pProgramService )
     {
         delete m_pProgramService;
         m_pProgramService = NULL;
-    }
+    } */
     if ( NULL != m_pMemoryAllocator )
     {
         m_pMemoryAllocator->Release();

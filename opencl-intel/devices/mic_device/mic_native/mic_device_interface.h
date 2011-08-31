@@ -75,8 +75,7 @@ enum DIRECTIVE_ID
 	KERNEL = 0,
 	BUFFER,
 	BARRIER,
-	PRINTF,
-	PROFILING
+	PRINTF
 };
 
 struct kernel_directive
@@ -101,11 +100,6 @@ struct printf_directive
 	uint64_t size;
 };
 
-struct profiling_directive
-{
-	unsigned int bufferIndex;
-};
-
 struct directive_pack
 {
 	DIRECTIVE_ID id;
@@ -115,7 +109,6 @@ struct directive_pack
 		buffer_directive bufferDirective;
 		barrier_directive barrierDirective;
 		printf_directive printfDirective;
-		profiling_directive profilingDirective;
 	};
 };
 
@@ -183,13 +176,35 @@ struct dispatcher_data
 		postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
 		kernelArgBlobOffset = postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
 	}
+
+	/* Return the size of the "header meta data" (this struct) plus the size of "preExeDirectivesArr" + "postExeDirectivesArr" + kernelArgSize */
+	size_t getDispatcherDataSize()
+	{
+		return kernelArgBlobOffset + kernelArgSize;
+	}
 };
 
-struct profiling_data
+struct misc_data
 {
+	misc_data()
+	{
+		invocationTime = 0;
+		startRunningTime = 0;
+		completionTime = 0;
+		errCode = CL_DEV_SUCCESS;
+	}
 	cl_ulong invocationTime;
 	cl_ulong startRunningTime;
 	cl_ulong completionTime;
+	cl_dev_err_code errCode;
+};
+
+enum DISPATCH_BUFFERS_INDEXES
+{
+	DISPATCHER_DATA_INDEX = 0,
+	MISC_DATA_INDEX,	
+
+	AMOUNT_OF_CONSTANT_BUFFERS
 };
 
 }}}
