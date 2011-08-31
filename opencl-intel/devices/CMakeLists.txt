@@ -1,6 +1,5 @@
 add_subdirectory( cpu_device )
 
-option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device )
 endif( INCLUDE_MIC_DEVICE )

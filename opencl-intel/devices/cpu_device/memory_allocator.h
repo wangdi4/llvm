@@ -130,10 +130,15 @@ public:
 	CPUDevBackingStore(void* ptr, const size_t pitch[]);
 	void* GetRawData() const {return m_ptr;}
 	cl_dev_bs_description GetRawDataDecription() const {return CL_DEV_BS_RT_ALLOCATED;}
+    size_t GetRawDataSize() const {return 0;}
 	bool IsDataValid() const { return true;}
 	size_t GetDimCount() const {return 0;}
 	const size_t* GetDimentions() const {return NULL;}
 	const size_t* GetPitch() const {return m_pitch;}
+
+    size_t GetRawDataOffset(const size_t*) const { return 0; }
+    const cl_image_format& GetFormat() const { return *((cl_image_format*)0); }
+    size_t GetElementSize() const { return 0; }
 
 	int AddPendency();
 	int RemovePendency();

@@ -91,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // return TRUE is device can support this sub-buffer - as for alignment and other requirements.
         // assume that all devices do support all sub-buffer alignments.
-		bool IsSupportedByDevice(FissionableDevice* pDevice);
+		bool IsSupportedByDevice(FissionableDevice* pDevice) { return true; }
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
                                     cl_buffer_create_type buffer_create_type,
@@ -166,17 +166,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
             OclSpinMutex                    m_lock;
 
             DeviceDescriptor( FissionableDevice* dev, size_t group, size_t alignment ) :
-                    m_pDevice(dev), m_sharing_group_id(group), m_has_data(false), m_is_owner(false){};
+                    m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment),
+                    m_has_data(false), m_is_owner(false){};
 
             DeviceDescriptor( const DeviceDescriptor& o ) :
-                   m_pDevice(o.m_pDevice), m_sharing_group_id(o.m_sharing_group_id),
+                   m_pDevice(o.m_pDevice), m_sharing_group_id(o.m_sharing_group_id), m_alignment(o.m_alignment),
                    m_has_data(o.m_has_data), m_is_owner(o.m_is_owner) {};
 
         };
 
         typedef std::list<DeviceDescriptor>         TDeviceDescList;
         typedef std::list<DeviceDescriptor*>        TDeviceDescPtrList;
-        typedef std::vector<IOCLDevMemoryObject*>   TDevMemObjectVector;
+        typedef std::vector<const IOCLDeviceAgent*> TDevAgentsVector;
 
         struct SharingGroup
         {
@@ -186,9 +187,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             AtomicCounter                   m_num_of_data_containers;
             AtomicCounter                   m_num_of_data_owners;
 
-            unsigned int                    m_dev_mem_obj_idx;
+            IOCLDevMemoryObject*            m_dev_mem_obj;
 
-            SharingGroup() : m_dev_mem_obj_idx(0) {};
+            SharingGroup() : m_dev_mem_obj(NULL) {};
         };
 
         // Assumption: All devices are added at class initialization time so data may be modified at runtime only
@@ -196,9 +197,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //             m_global_lock may be taken only during sharing group lazy initialization.
         SharingGroup                        m_sharing_groups[MAX_DEVICE_SHARING_GROUP_ID];
 
-        // not parallel to groups! use only through device_object(). entry [0] must always be NULL!!!
-        TDevMemObjectVector                 m_device_mem_objects;
-        TDeviceDescList                     m_devices;
+        // parallel structures
+        TDevAgentsVector                    m_device_agents;
+        TDeviceDescList                     m_device_descriptors;
+
         GenericMemObjectBackingStore*       m_BS;
         unsigned int                        m_active_groups_count; // groups with allocated device objects
         OclSpinMutex                        m_global_lock;         // lock for control structures changes
@@ -207,10 +209,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const DeviceDescriptor* get_device( FissionableDevice* dev ) const;
 
         DeviceDescriptor* get_device( FissionableDevice* dev )
-                { return const_cast<DeviceDescriptor*>( get_device(dev) ); };
+                { return const_cast<DeviceDescriptor*>( static_cast<const GenericMemObject*>(this)->get_device(dev) ); };
 
         IOCLDevMemoryObject* device_object( const SharingGroup& group )
-            { return m_device_mem_objects[ group.m_dev_mem_obj_idx ]; };
+            { return group.m_dev_mem_obj; };
 
         const IOCLDevMemoryObject* device_object( const SharingGroup& group ) const
             { return const_cast<GenericMemObject*>(this)->device_object(group); };

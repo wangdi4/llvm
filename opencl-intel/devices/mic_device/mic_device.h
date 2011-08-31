@@ -35,7 +35,6 @@
 #include "cl_synch_objects.h"
 
 #include <set>
-#include <list>
 
 using namespace std;
 
@@ -57,7 +56,8 @@ private:
     MemoryAllocator*                m_pMemoryAllocator;
     MICDeviceConfig*                m_pMICDeviceConfig;
     IOCLFrameworkCallbacks*         m_pFrameworkCallBacks;
-    cl_uint                         m_uiMicId;
+    cl_uint                         m_uiMicId;      // internal MIC device ID
+    cl_uint                         m_uiOclDevId;   // Runtime device ID
     IOCLDevLogDescriptor*           m_pLogDescriptor;
     cl_int                          m_iLogHandle;
     OclDynamicLib                   m_dlRunTime;
@@ -84,7 +84,7 @@ public:
     // IOCLDeviceAgent
     //
 
-    MICDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
+    MICDevice(cl_uint devId, cl_uint micId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
     cl_dev_err_code                     Init();
 
     const DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
@@ -131,9 +131,9 @@ public:
     static void unloadRelease();
 
     // manage multiple DAs
-    typedef list<MICDevice*>  TMicsList;
-    static TMicsList FilterMicDevices( const list<IOCLDeviceAgent*>& devices );
-    static TMicsList GetActiveMicDevices( void );
+    typedef set<MICDevice*>  TMicsSet;
+    static TMicsSet FilterMicDevices( size_t count, const IOCLDeviceAgent* const *dev_arr );
+    static TMicsSet GetActiveMicDevices( void );
 
     //
     // IOCLDeviceFECompilerDescription

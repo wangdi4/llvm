@@ -132,6 +132,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, bool isHostMapped);
 		void* GetRawData() const {return m_ptr;}
+        size_t GetRawDataSize() const {return 0;}
 		cl_dev_bs_description GetRawDataDecription() const
 			{
 				if (m_isHostMapped)
@@ -145,6 +146,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const size_t* GetPitch() const {return m_pitch;}
 		int AddPendency();
 		int RemovePendency();
+
+        size_t GetRawDataOffset(const size_t*) const { return 0; }
+        const cl_image_format& GetFormat() const { return *((cl_image_format*)0); }
+        size_t GetElementSize() const { return 0; }
 
 	protected:
 		virtual ~SingleUnifiedMemObjectBackingStore();

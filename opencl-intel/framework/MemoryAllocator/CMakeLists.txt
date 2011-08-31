@@ -7,10 +7,9 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME MemoryAllocator )
 
-option(INCLUDE_GENERIC_MEMORY_OBJECT "Include generic memory object for MIC Into Build"  OFF)
-if ( NOT INCLUDE_GENERIC_MEMORY_OBJECT )
+if ( NOT INCLUDE_MIC_DEVICE )
     set( IGNORE_FILES GenericMemObj )
-endif( NOT INCLUDE_GENERIC_MEMORY_OBJECT )
+endif( NOT INCLUDE_MIC_DEVICE )
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()

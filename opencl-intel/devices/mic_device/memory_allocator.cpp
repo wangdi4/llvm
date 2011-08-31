@@ -32,7 +32,6 @@
 #include "mic_device.h"
 #include "cl_sys_defines.h"
 #include "device_service_communication.h"
-#include "mic_sys_info.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -91,7 +90,7 @@ void MemoryAllocator::Release( void )
 }
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
 {
     if ( NULL != logDesc )
     {
@@ -101,16 +100,12 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
             m_iLogHandle = 0;
         }
     }
-
-    clCreateHeap(0, (size_t)maxAllocSize, &m_lclHeap);
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Created"));
 }
 
 MemoryAllocator::~MemoryAllocator()
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Distructed"));
-
-    clDeleteHeap( m_lclHeap );
 
     if (0 != m_iLogHandle)
     {
@@ -178,76 +173,19 @@ cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags
 ********************************************************************************************************************/
 cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp )
 {
-    assert( NULL == pAllocProp );
+    assert( NULL != pAllocProp );
 
 	pAllocProp->bufferSharingGroupId = CL_DEV_MIC_BUFFER_SHARING_GROUP_ID;
 	pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
     pAllocProp->hostUnified          = false;
     pAllocProp->alignment            = MIC_DEV_MAXIMUM_ALIGN;
-    pAllocProp->maxBufferSize        = MIC_MAX_BUFFER_ALLOC_SIZE(m_iDevId);
+    pAllocProp->maxBufferSize        = m_maxAllocSize;
     pAllocProp->imagesSupported      = true;
     pAllocProp->DXSharing            = false;
     pAllocProp->GLSharing            = false;
 
     return CL_DEV_SUCCESS;
 }
-
-/****************************************************************************************************************
- ElementSize
-    Description
-        This function calculated the expected element size
-    Input
-        format                     Image format
-********************************************************************************************************************/
-size_t MemoryAllocator::GetElementSize(const cl_image_format* format)
-{
-    size_t stChannels = 0;
-    size_t stChSize = 0;
-    switch (format->image_channel_order)
-    {
-    case CL_R:case CL_A:case CL_LUMINANCE:case CL_INTENSITY:
-    case CL_RGB:    // Special case, must be used only with specific data type
-        stChannels = 1;
-        break;
-    case CL_RG:case CL_RA:
-        stChannels = 2;
-        break;
-    case CL_RGBA: case CL_ARGB: case CL_BGRA:
-        stChannels = 4;
-        break;
-    default:
-        assert(0);
-    }
-    switch (format->image_channel_data_type)
-    {
-        case (CL_SNORM_INT8):
-        case (CL_UNORM_INT8):
-        case (CL_SIGNED_INT8):
-        case (CL_UNSIGNED_INT8):
-                stChSize = 1;
-                break;
-        case (CL_SNORM_INT16):
-        case (CL_UNORM_INT16):
-        case (CL_UNSIGNED_INT16):
-        case (CL_SIGNED_INT16):
-        case (CL_HALF_FLOAT):
-        case CL_UNORM_SHORT_555:
-        case CL_UNORM_SHORT_565:
-                stChSize = 2;
-                break;
-        case (CL_SIGNED_INT32):
-        case (CL_UNSIGNED_INT32):
-        case (CL_FLOAT):
-        case CL_UNORM_INT_101010:
-                stChSize = 4;
-                break;
-        default:
-                assert(0);
-    }
-
-    return stChannels*stChSize;
-}
-
 
 cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
 					 size_t dim_count, const size_t* dim,
@@ -256,27 +194,13 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateObject enter"));
 
-    if ( NULL == m_lclHeap)
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Device heap was not created"));
-        return CL_DEV_OBJECT_ALLOC_FAIL;
-    }
-    size_t uiElementSize = 1;
-
     assert(NULL != memObj);
     assert(NULL != dim);
     assert(MAX_WORK_DIM >= dim_count);
 
-    if ( dim_count > 1)
-    {
-        uiElementSize = GetElementSize(format);
-    }
-
     // Allocate memory for memory object
     MICDevMemoryObject*    pMemObj = new MICDevMemoryObject(*this,
                                                             node_id, flags,
-                                                            format, uiElementSize,
-                                                            dim_count, dim,
 															pRTMemObjService);
     if ( NULL == pMemObj )
     {
@@ -299,163 +223,20 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private functions
-void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize)
+size_t MemoryAllocator::CalculateOffset(cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize)
 {
-    char* lockedPtr = (char*)pBasePtr;
+    size_t offset = 0;
+
     if ( NULL != origin )
     {
-        lockedPtr += origin[0] * elemSize; //Origin is in Pixels
+        offset += origin[0] * elemSize; //Origin is in Pixels
         for(unsigned i=1; i<dim_count; ++i)
         {
-            lockedPtr += origin[i] * pitch[i-1]; //y * image width pitch
+            offset += origin[i] * pitch[i-1]; //y * image width pitch
         }
     }
 
-    return lockedPtr;
-}
-void MemoryAllocator::CopyMemoryBuffer(SMemCpyParams* pCopyCmd)
-{
-    // Copy 1D array only
-    if ( 1 == pCopyCmd->uiDimCount )
-    {
-        memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
-        return;
-    }
-
-    SMemCpyParams sRecParam;
-
-    // Copy current parameters
-    memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
-    sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-    // Make recursion
-    for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
-    {
-        CopyMemoryBuffer(&sRecParam);
-        sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
-        sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
-    }
-}
-
-static size_t CalculateRawBufferSize( const cl_mem_obj_descriptor& objDecr )
-{
-    if (1 == objDecr.dim_count)
-    {
-        return objDecr.dimensions.buffer_size;
-    }
-
-    return objDecr.pitch[objDecr.dim_count - 2] * objDecr.dimensions.dim[objDecr.dim_count - 1];
-}
-
-IOCLDevBackingStore* MICDevMemoryObject::createBackingStore() const
-{
-    IOCLDevBackingStore*                       bs = NULL;
-    void*                                      user_buffer = NULL;
-    IOCLDevBackingStore::cl_dev_bs_description data_origin = IOCLDevBackingStore::CL_DEV_BS_RT_ALLOCATED;
-
-   	// Get only if there is available backing store.
-	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &bs);
-	if ( ! CL_DEV_SUCCEEDED(bsErr))
-	{
-        bs = NULL;
-	}
-    else
-    {
-        data_origin =  bs->GetRawDataDecription();
-    }
-
-    if (bs && IOCLDevBackingStore::CL_DEV_BS_RT_ALLOCATED == data_origin)
-    {
-        // Runtime already allocated a BS
-        bs->AddPendency();
-        return bs;
-    }
-
-    if (bs)
-    {
-        user_buffer = bs->GetRawData();
-    }
-
-    // user provided buffer memory for direct mapping to device, but it is not alinged
-  	bool bUserPtrNotAligned =
-		( IOCLDevBackingStore::CL_DEV_BS_USER_ALLOCATED == data_origin ) &&
-		( ((((size_t)user_buffer & (MIC_DEV_MAXIMUM_ALIGN-1)) != 0) && (1 == m_objDecr.dim_count)) ||
-		  ((((size_t)user_buffer & (m_objDecr.uiElementSize-1)) != 0) && (1 != m_objDecr.dim_count))
-        );
-
-
-    // Allocate memory internally
-    // 1. No host pointer provided
-    // 2. Pointer provided by RT is not alligned and it's working area
-    // 3. Host pointer contains user data (not working area)
-	bool bCopyData = IOCLDevBackingStore::CL_DEV_BS_USER_COPY == data_origin;
-
-    if ((NULL != user_buffer) && !bUserPtrNotAligned && !bCopyData)
-    {
-        bs->AddPendency();
-        return bs;
-    }
-
-    size_t allocSize = CalculateRawBufferSize( m_objDecr );
-
-    void* raw_buffer = clAllocateFromHeap(m_Allocator.GetHeap(), allocSize, MIC_DEV_MAXIMUM_ALIGN);
-    if ( NULL == raw_buffer )
-    {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object memory buffer Allocation failed"));
-        return NULL;
-    }
-
-    // Copy initial data if required:
-    if (NULL != user_buffer)
-    {
-        SMemCpyParams sCpyPrm;
-
-        sCpyPrm.uiDimCount = m_objDecr.dim_count;
-        sCpyPrm.pSrc = (cl_char*)user_buffer;
-
-        sCpyPrm.pDst = (cl_char*)raw_buffer;
-        for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
-        {
-            sCpyPrm.vDstPitch[i] = m_objDecr.pitch[i];
-            sCpyPrm.vSrcPitch[i] = m_objDecr.pitch[i];
-        }
-        if ( 1 == m_objDecr.dim_count )
-        {
-            sCpyPrm.vRegion[0] = m_objDecr.dimensions.buffer_size;
-        }
-        else
-        {
-            for(unsigned int i=0; i< m_objDecr.dim_count; i++)
-            {
-                sCpyPrm.vRegion[i] = m_objDecr.dimensions.dim[i];
-            }
-            sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * m_objDecr.uiElementSize;
-        }
-        // Copy original buffer to internal area
-        MemoryAllocator::CopyMemoryBuffer(&sCpyPrm);
-    }
-
-    cl_mem_obj_descriptor new_descr = m_objDecr;
-    new_descr.pData = raw_buffer;
-    IOCLDevBackingStore* new_bs = new MICDevBackingStore( new_descr, m_Allocator.GetHeap() );
-
-    if (NULL == new_bs)
-    {
-        clFreeHeapPointer(m_Allocator.GetHeap(), raw_buffer);
-        return NULL;
-    }
-    else
-    {
-        cl_dev_err_code rtErr = m_pRTMemObjService->SetBackingStore(new_bs);
-		if ( CL_DEV_FAILED(rtErr) )
-		{
-			MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("Failed to update Backing store 0x%X"), rtErr);
-			new_bs->RemovePendency();
-			return NULL;
-		}
-    }
-
-    return new_bs;
-
+    return offset;
 }
 
 //-----------------------------------------------------------------------------------------------------
@@ -464,95 +245,50 @@ IOCLDevBackingStore* MICDevMemoryObject::createBackingStore() const
 
 MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
                    cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
-                   const cl_image_format* pImgFormat, size_t elemSize,
-                   size_t dimCount, const size_t* dim,
                    IOCLDevRTMemObjectService* pRTMemObjService):
     m_Allocator(allocator), m_nodeId(nodeId), m_memFlags(memFlags),
     m_pRTMemObjService(pRTMemObjService), m_pBackingStore(NULL),
-    m_raw_size(0), m_pHostPtr(NULL),
-    m_coi_buffer(0)
+    m_raw_size(0), m_coi_buffer(0)
 {
 	assert( NULL != m_pRTMemObjService);
 
-	// Get only if there is available backing store.
-	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &m_pBackingStore);
-	if ( ! CL_DEV_SUCCEEDED(bsErr))
-	{
-		m_pBackingStore = NULL;
-	}
+	// Get backing store.
+	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
-    m_objDecr.dim_count = (cl_uint)dimCount;
+    m_pBackingStore->AddPendency();
 
-    if ( NULL != pImgFormat )
+    m_raw_size = m_pBackingStore->GetRawDataSize();
+
+    m_objDescr.dim_count = m_pBackingStore->GetDimCount();
+
+    if (1 == m_objDescr.dim_count)
     {
-        // Convert from User to Kernel format
-        m_objDecr.format.image_channel_data_type = pImgFormat->image_channel_data_type - CL_SNORM_INT8;
-        m_objDecr.format.image_channel_order = pImgFormat->image_channel_order - CL_R;
-    }
-
-    if ( 1 == dimCount )
-    {
-        m_objDecr.dimensions.buffer_size = dim[0];
+        m_objDescr.dimensions.buffer_size = m_raw_size;
     }
     else
     {
-        for (size_t i=0; i<MAX_WORK_DIM; ++i)
-        {
-            m_objDecr.dimensions.dim[i] = (unsigned int)dim[i];
-        }
+        memcpy( m_objDescr.dimensions.dim, m_pBackingStore->GetDimentions(), sizeof(m_objDescr.dimensions.dim) );
     }
 
-	if ( (NULL != m_pBackingStore) && ( IOCLDevBackingStore::CL_DEV_BS_RT_ALLOCATED != m_pBackingStore->GetRawDataDecription()) )
-	{
-		m_pHostPtr = m_pBackingStore->GetRawData();
+    memcpy( m_objDescr.pitch, m_pBackingStore->GetPitch(), sizeof(m_objDescr.pitch) );
 
-        size_t prev_pitch = m_objDecr.dimensions.dim[0] * elemSize;
+    m_objDescr.format        = m_pBackingStore->GetFormat();
+    m_objDescr.uiElementSize = m_pBackingStore->GetElementSize();
+    m_objDescr.pData         = m_pBackingStore->GetRawData();
 
-		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
-		{
-			m_objDecr.pitch[i] = MAX(m_pBackingStore->GetPitch()[i], m_objDecr.dimensions.dim[i+1] * prev_pitch);
-            prev_pitch = m_objDecr.pitch[i];
-        }
-    }
-    else
-    {
-        for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
-        {
-            m_objDecr.pitch[i] = 0;
-        }
-    }
-    m_objDecr.uiElementSize = (unsigned int)elemSize;
-    m_objDecr.pData = NULL;
-
-
-    IOCLDevBackingStore* new_bs = createBackingStore();
-
-    if (NULL == new_bs)
-    {
-        m_pBackingStore = new_bs;
-        m_pHostPtr = m_pBackingStore->GetRawData();
-        m_raw_size = CalculateRawBufferSize( m_objDecr );
-    }
-    else
-    {
-        m_pBackingStore = NULL;
-    }
-
+    assert( (NULL != m_objDescr.pData) && (0 != m_raw_size) && "Runtime did not allocated raw data for backing store");
 }
 
 cl_dev_err_code MICDevMemoryObject::Init()
 {
-    if (NULL == m_pBackingStore)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
     // create COI buffer on top of allocated memory
 
-    // BUGBUG: DK - Runtime should privide service that returns list of Device Agents for buffer
-    // we will need to filter MIC DAs from there
-    // temporaryget the full list of MIC DAs
-    MICDevice::TMicsList active_mics = MICDevice::GetActiveMicDevices();
+    // we will need to filter MIC DAs from all devices supported by current memory object
+    size_t rt_allocated_devices_count         = m_pRTMemObjService->GetDeviceAgentListSize();
+    const IOCLDeviceAgent* const * rt_devices = m_pRTMemObjService->GetDeviceAgentList();
+
+    MICDevice::TMicsSet  active_mics = MICDevice::FilterMicDevices(rt_allocated_devices_count, rt_devices);
     size_t               active_procs_count = active_mics.size();
     assert( active_procs_count > 0 && "Creating MIC buffer without active devices" );
 
@@ -560,8 +296,8 @@ cl_dev_err_code MICDevMemoryObject::Init()
     COIPROCESS*  coi_processes = (COIPROCESS*)alloca( active_procs_count * sizeof(COIPROCESS) );
     assert( NULL != coi_processes && "Cannot allocate small array on a stack" );
 
-    MICDevice::TMicsList::iterator mic_it  = active_mics.begin();
-    MICDevice::TMicsList::iterator mic_end = active_mics.end();
+    MICDevice::TMicsSet::iterator mic_it  = active_mics.begin();
+    MICDevice::TMicsSet::iterator mic_end = active_mics.end();
 
     for(unsigned int i = 0; mic_it != mic_end; ++mic_it, ++i)
     {
@@ -569,7 +305,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     }
 
     COIRESULT coi_err = COIBufferCreateFromMemory(
-                                m_raw_size, COI_BUFFER_NORMAL, 0, m_objDecr.pData,
+                                m_raw_size, COI_BUFFER_NORMAL, 0, m_objDescr.pData,
                                 active_procs_count, coi_processes,
                                 &m_coi_buffer);
 
@@ -579,7 +315,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
@@ -605,7 +341,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 {
     assert(NULL != handle);
 
-    *handle = (void*)(&m_objDecr);
+    *handle = (void*)(&m_objDescr);
     return CL_DEV_SUCCESS;
 }
 
@@ -622,9 +358,9 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
     pMapParams->memObj = this;
 
-    assert(pMapParams->dim_count == m_objDecr.dim_count);
-    pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(m_pHostPtr, m_objDecr.dim_count, pMapParams->origin, m_objDecr.pitch, m_objDecr.uiElementSize);
-    MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_objDecr.pitch, sizeof(size_t)*(m_objDecr.dim_count-1));
+    assert(pMapParams->dim_count == m_objDescr.dim_count);
+    pMapParams->ptr = (cl_uchar*)m_objDescr.pData + m_pBackingStore->GetRawDataOffset( pMapParams->origin );
+    MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_objDescr.pitch, sizeof(size_t)*(m_objDescr.dim_count-1));
 
     // set map handle
     pMapParams->map_handle = coi_params;
@@ -676,107 +412,62 @@ MICDevMemorySubObject::MICDevMemorySubObject(MemoryAllocator& allocator, MICDevM
 
 cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size)
 {
-    MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_Parent.m_objDecr, sizeof(cl_mem_obj_descriptor));
+    MEMCPY_S(&m_objDescr, sizeof(cl_mem_obj_descriptor), &m_Parent.m_objDescr, sizeof(cl_mem_obj_descriptor));
+
+    m_nodeId           = m_Parent.m_nodeId;
+    m_pRTMemObjService = m_Parent.m_pRTMemObjService;
+    m_pBackingStore    = m_Parent.m_pBackingStore;
+
+    m_pBackingStore->AddPendency();
+
+    m_objDescr.pData = (cl_uchar*)m_objDescr.pData + m_pBackingStore->GetRawDataOffset( origin );
 
     // Update dimensions
-    m_objDecr.pData = MemoryAllocator::CalculateOffsetPointer(m_objDecr.pData, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
-
-    if ( 1 == m_objDecr.dim_count )
+    if ( 1 == m_objDescr.dim_count )
     {
-        m_objDecr.dimensions.buffer_size = size[0];
+        m_objDescr.dimensions.buffer_size = size[0];
+        m_raw_size = size[0];
     }
     else
     {
         for(int i=0; i<MAX_WORK_DIM; ++i)
         {
-            m_objDecr.dimensions.dim[i] = (unsigned int)size[i];
+            m_objDescr.dimensions.dim[i] = (unsigned int)size[i];
         }
+
+        m_raw_size = m_objDescr.pitch[ m_objDescr.dim_count - 1 ] * m_objDescr.dimensions.dim[ m_objDescr.dim_count ];
     }
 
     m_memFlags = mem_flags;
 
-    if ( NULL != m_Parent.m_pHostPtr )
-    {
-        // Set appropriate host pointer values
-        m_pHostPtr = MemoryAllocator::CalculateOffsetPointer(m_Parent.m_pHostPtr, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
-    }
-
-	m_pBackingStore = m_Parent.m_pBackingStore;
-	m_pBackingStore->AddPendency();
-    // BUGBUG: DK - need to create COI sub-buffer
+     // BUGBUG: DK - need to create COI sub-buffer
 //    m_coi_buffer =
 
     return CL_DEV_SUCCESS;
 }
 
 //////////////////////////////////////////////////////////////////////////
-/// CPUDevBackingStore
+/// SMemMapParams
 //////////////////////////////////////////////////////////////////////////
-MICDevBackingStore::MICDevBackingStore(const cl_mem_obj_descriptor& desc, ClHeap heap ) :
-	m_refCount(1), m_clHeap( heap )
+
+SMemMapParams::SMemMapParams() :
+    map_handle(NULL),rec_map_handles(NULL),num_of_rec_map_handles(0), map_barriers(NULL), unmap_barriers(NULL)
 {
-    m_dim_count = desc.dim_count;
-
-    if (1 == desc.dim_count)
-    {
-        m_dim[0] = desc.dimensions.buffer_size;
-        m_uiElementSize = 1;
-    }
-    else
-    {
-        m_dim[0]            = desc.dimensions.dim[0];
-        m_uiElementSize     = desc.uiElementSize;
-
-        size_t prev_pitch   = m_dim[0] * m_uiElementSize;
-
-        for ( cl_uint i = 1; i < desc.dim_count; ++i)
-        {
-            m_dim[i]     = desc.dimensions.dim[i];
-            m_pitch[i-1] = MAX(desc.pitch[i-1], desc.dimensions.dim[i] * prev_pitch);
-            prev_pitch   = m_pitch[i-1];
-        }
-
-        m_format        = desc.format;
-    }
-
-    m_pData = desc.pData;
 }
 
-size_t MICDevBackingStore::GetRawDataSize() const
+SMemMapParams::~SMemMapParams()
 {
-    if (1 == m_dim_count)
-    {
-        return m_uiElementSize * m_dim[0];
-    }
-
-    return m_pitch[m_dim_count-2] * m_dim[m_dim_count-1];
-}
-
-size_t MICDevBackingStore::GetRawDataOffset( const size_t* origin ) const
-{
-    size_t offset = m_uiElementSize * m_dim[0];
-    for (size_t i = 1; i < m_dim_count; ++i)
-    {
-        offset += m_pitch[i-1]*m_dim[i];
-    }
-    return offset;
-}
-
-int MICDevBackingStore::AddPendency()
-{
-	return m_refCount++;
-}
-
-int MICDevBackingStore::RemovePendency()
-{
-	long oldVal = m_refCount--;
-	if ( 1 == oldVal )
+	if (rec_map_handles)
 	{
-        if (m_clHeap)
-        {
-            clFreeHeapPointer(m_clHeap, m_pData);
-        }
-		delete this;
+		free(rec_map_handles);
 	}
-	return oldVal;
+	if (map_barriers)
+	{
+		free(map_barriers);
+	}
+	if (unmap_barriers)
+	{
+		free(unmap_barriers);
+	}
 }
+

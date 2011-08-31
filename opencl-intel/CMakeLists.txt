@@ -114,6 +114,7 @@ add_subdirectory( cl_api )
 add_subdirectory( utils )
 
 #devices
+option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 add_subdirectory( devices )
 
 #FE compilers

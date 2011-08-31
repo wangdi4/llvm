@@ -67,14 +67,12 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
 	pMicMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMemObj);
 
-	void*	pObjPtr;
+	size_t offset;
 	size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
 
 	// copy the dimension value
 	sCpyParam.uiDimCount = cmdParams->dim_count;
-	// TODO change it to function that return the offset as uint64_t instead of void* which means that also the argument pMemObj->pData is redandent
-	// Currently I send 0 in order to get this functionality (and cast pObjPtr to size_t)
-	pObjPtr = MemoryAllocator::CalculateOffsetPointer(0 /*pMemObj->pData*/, sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
+	offset = MemoryAllocator::CalculateOffset(sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
 
 	// Set region
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
@@ -91,7 +89,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
 	memcpy(sCpyParam.vHostPitch, cmdParams->pitch, sizeof(sCpyParam.vHostPitch));
 
 	// set coiBuffer (objPtr) initial offset
-	sCpyParam.pCoiBuffOffset = (size_t)pObjPtr;
+	sCpyParam.pCoiBuffOffset = offset;
 	memcpy(sCpyParam.vCoiBuffPitch, pObjPitchPtr, sizeof(sCpyParam.vCoiBuffPitch));
 
 	// Get estimation for the amount of copy operations
@@ -202,7 +200,7 @@ cl_dev_err_code CopyMemObject::execute()
 	size_t  uiSrcElementSize = pSrcMemObj->uiElementSize;
 	size_t	uiDstElementSize = pDstMemObj->uiElementSize;
 
-	do 
+	do
 	{
 		// Objects has to have same element size or buffer<->image
 		if( (uiDstElementSize != uiSrcElementSize) &&
@@ -226,10 +224,8 @@ cl_dev_err_code CopyMemObject::execute()
 		memcpy(sCpyParam.vHostPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vHostPitch));
 		memcpy(sCpyParam.vCoiBuffPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vCoiBuffPitch));
 
-		// TODO change it to function that return the offset as uint64_t instead of void* which means that also the argument pMemObj->pData is redandent
-		// Currently I send 0 in order to get this functionality (and cast pObjPtr to size_t)
-		sCpyParam.pHostPtr = (cl_char*)MemoryAllocator::CalculateOffsetPointer(0 /*pSrcMemObj->pData*/, cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vHostPitch, pSrcMemObj->uiElementSize);
-		sCpyParam.pCoiBuffOffset = (uint64_t)((size_t)MemoryAllocator::CalculateOffsetPointer(0 /*pDstMemObj->pData*/, cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vCoiBuffPitch, pDstMemObj->uiElementSize));
+		sCpyParam.pHostPtr = (cl_char*)MemoryAllocator::CalculateOffset(cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vHostPitch, pSrcMemObj->uiElementSize);
+		sCpyParam.pCoiBuffOffset = (uint64_t)(MemoryAllocator::CalculateOffset(cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vCoiBuffPitch, pDstMemObj->uiElementSize));
 
 		sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
 		if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
@@ -321,7 +317,7 @@ cl_dev_err_code CopyMemObject::execute()
 	while (0);
 
 	notifyCommandStatusChanged(CL_COMPLETE);
-	
+
 	cl_dev_err_code err = m_lastError;
 
 	delete this;
@@ -348,9 +344,7 @@ cl_dev_err_code MapMemObject::execute()
 
 	// Request access on default device
 	pMicMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMemObj);
-	// TODO change it to function that return the offset as uint64_t instead of void* which means that also the argument pMemObj->pData is redandent
-	// Currently I send 0 in order to get this functionality (and cast pObjPtr to size_t)
-	sCpyParam.pCoiBuffOffset = (size_t)MemoryAllocator::CalculateOffsetPointer(0 /* pMemObj->pData */, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	sCpyParam.pCoiBuffOffset = MemoryAllocator::CalculateOffset(pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
 	memcpy(sCpyParam.vCoiBuffPitch, pMemObj->pitch, sizeof(sCpyParam.vCoiBuffPitch));
 
 	// Setup data for copying
@@ -422,7 +416,7 @@ cl_dev_err_code MapMemObject::execute()
 										&(coiMapParam->rec_map_handles[i]),     // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
 										&(vHostPtr[i])
 										);
-				
+
 				if (COI_SUCCESS != coiResult)
 				{
 					m_lastError = CL_DEV_ERROR_FAIL;

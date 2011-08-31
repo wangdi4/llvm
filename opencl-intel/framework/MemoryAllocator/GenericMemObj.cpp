@@ -39,16 +39,12 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_ACCELERATOR, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_BUFFER, GenericMemObject)
-//REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_ACCELERATOR, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_IMAGE2D, GenericMemObject)
-//REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_ACCELERATOR, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_IMAGE3D, GenericMemObject)
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 GenericMemObject::GenericMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) :
 	MemoryObject(pContext, pOclEntryPoints),
-    m_device_mem_objects(MAX_DEVICE_SHARING_GROUP_ID, NULL), m_BS(NULL), m_active_groups_count(0)
+    m_BS(NULL), m_active_groups_count(0)
 {
 	INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
@@ -80,15 +76,20 @@ GenericMemObject::~GenericMemObject()
 
 void GenericMemObject::remove_device_objects(void)
 {
-    for (unsigned int i = 0; i < m_device_mem_objects.size(); ++i)
+    if (m_active_groups_count > 0)
     {
-        IOCLDevMemoryObject* obj = m_device_mem_objects[i];
-
-        if (obj)
+        for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
         {
-            obj->clDevMemObjRelease();
-            m_device_mem_objects[i] = NULL;
+            SharingGroup& group = m_sharing_groups[i];
+
+            if (NULL != group.m_dev_mem_obj)
+            {
+                group.m_dev_mem_obj->clDevMemObjRelease();
+                group.m_dev_mem_obj = NULL;
+            }
         }
+
+        m_active_groups_count = 0;
     }
 }
 
@@ -205,14 +206,18 @@ cl_err_code GenericMemObject::Initialize(
         alignment = MAX( alignment, device_properties.alignment );
 
         // add device to the list
-        m_devices.push_back( DeviceDescriptor(dev, sharingGroupId,
+        m_device_descriptors.push_back( DeviceDescriptor(dev, sharingGroupId,
                                               device_properties.alignment) );
-        DeviceDescriptor& last_added = m_devices.back();
+        DeviceDescriptor& last_added = m_device_descriptors.back();
 
         m_sharing_groups[ sharingGroupId ].m_device_list.push_back( &last_added );
+
+        // add device agent to the list
+        m_device_agents.push_back( dev->GetDeviceAgent() );
+
     }
 
-    if (m_devices.empty())
+    if (m_device_descriptors.empty())
     {
         // all devices were filtered out
         return no_devices_error_code;
@@ -338,12 +343,14 @@ cl_err_code GenericMemObject::InitializeSubObject(
                 }
             }
 
-            m_devices.push_back( DeviceDescriptor( p_dev_desc->m_pDevice,
+            m_device_descriptors.push_back( DeviceDescriptor( p_dev_desc->m_pDevice,
                                                    group_idx,
                                                    p_dev_desc->m_alignment) );
-            DeviceDescriptor& last_added = m_devices.back();
+            DeviceDescriptor& last_added = m_device_descriptors.back();
 
             m_sharing_groups[group_idx].m_device_list.push_back( &last_added );
+
+            m_device_agents.push_back( p_dev_desc->m_pDevice->GetDeviceAgent() );
         }
 
         cl_err_code dev_err = allocate_object_for_sharing_group( group_idx );
@@ -355,7 +362,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
         }
     }
 
-    if (m_devices.empty())
+    if (m_device_descriptors.empty())
     {
         // all devices were filtered out
         return CL_MISALIGNED_SUB_BUFFER_OFFSET;
@@ -380,8 +387,8 @@ cl_err_code GenericMemObject::InitializeSubObject(
 
 const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( FissionableDevice* dev ) const
 {
-    TDeviceDescList::const_iterator it     = m_devices.begin();
-    TDeviceDescList::const_iterator it_end = m_devices.end();
+    TDeviceDescList::const_iterator it     = m_device_descriptors.begin();
+    TDeviceDescList::const_iterator it_end = m_device_descriptors.end();
 
     for(;it != it_end; ++it)
     {
@@ -442,11 +449,8 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
     }
 
     ++m_active_groups_count;
+    group.m_dev_mem_obj = obj;
 
-    group.m_dev_mem_obj_idx = m_active_groups_count;
-    m_device_mem_objects[m_active_groups_count] = obj;
-
-    assert( NULL == m_device_mem_objects[0] && "m_device_mem_objects[0] must always contain NULL" );
     return CL_SUCCESS;
 }
 
@@ -610,12 +614,12 @@ cl_dev_err_code GenericMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
 
 size_t GenericMemObject::GetDeviceAgentListSize() const
 {
-	return m_active_groups_count;
+	return m_device_agents.size();
 }
 
 const IOCLDeviceAgent* const *GenericMemObject::GetDeviceAgentList() const
 {
-	return (const IOCLDeviceAgent* const *)&(m_device_mem_objects[1]); // entry [0] is reserved for NULL
+	return &(m_device_agents[0]);
 }
 
 cl_err_code GenericMemObject::ReadData(void * pData,

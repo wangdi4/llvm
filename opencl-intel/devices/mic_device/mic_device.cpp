@@ -66,9 +66,9 @@ void MICDevice::UnregisterMicDevice( MICDevice* dev )
     m_mic_instancies.erase( dev );
 }
 
-MICDevice::TMicsList MICDevice::GetActiveMicDevices( void )
+MICDevice::TMicsSet MICDevice::GetActiveMicDevices( void )
 {
-    TMicsList ret_list;
+    TMicsSet ret_list;
 
     OclAutoMutex lock( &m_mic_instancies_mutex );
 
@@ -77,28 +77,27 @@ MICDevice::TMicsList MICDevice::GetActiveMicDevices( void )
 
     for(; it != end; ++it)
     {
-        ret_list.push_back( (MICDevice*)*it );
+        ret_list.insert( (MICDevice*)*it );
     }
 
     return ret_list;
 }
 
-MICDevice::TMicsList MICDevice::FilterMicDevices( const list<IOCLDeviceAgent*>& devices )
+MICDevice::TMicsSet MICDevice::FilterMicDevices( size_t count, const IOCLDeviceAgent* const *dev_arr )
 {
-    TMicsList ret_list;
-
-    list<IOCLDeviceAgent*>::const_iterator in_it = devices.begin();
-    list<IOCLDeviceAgent*>::const_iterator in_end = devices.end();
+    TMicsSet ret_list;
 
     OclAutoMutex lock( &m_mic_instancies_mutex );
 
     set<IOCLDeviceAgent*>::iterator found_end = m_mic_instancies.end();
 
-    for(; in_it != in_end; ++in_it)
+    for(size_t i = 0; i < count; ++i)
     {
-        if (m_mic_instancies.find( *in_it ) != found_end)
+        IOCLDeviceAgent* dev = const_cast<IOCLDeviceAgent*>(dev_arr[i]);
+
+        if (m_mic_instancies.find( dev ) != found_end)
         {
-            ret_list.push_back( (MICDevice*)*in_it );
+            ret_list.insert( (MICDevice*)dev );
         }
     }
 
@@ -111,8 +110,8 @@ MICDevice::TMicsList MICDevice::FilterMicDevices( const list<IOCLDeviceAgent*>& 
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-MICDevice::MICDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
-    : m_pMICDeviceConfig(NULL), m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiDevId),
+MICDevice::MICDevice(cl_uint uiDevId, cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
+    : m_pMICDeviceConfig(NULL), m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),m_uiOclDevId(uiDevId),
     m_pLogDescriptor(logDesc), m_iLogHandle (0), m_pDeviceServiceComm(NULL)
 {
 }
@@ -121,7 +120,7 @@ cl_dev_err_code MICDevice::Init()
 {
     if ( NULL != m_pLogDescriptor )
     {
-        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, L"MIC Device", &m_iLogHandle);
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiOclDevId, L"MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;
@@ -146,9 +145,9 @@ cl_dev_err_code MICDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pProgramService = new ProgramService(m_uiMicId, m_pFrameworkCallBacks, m_pLogDescriptor,
+    m_pProgramService = new ProgramService( m_uiOclDevId, m_pFrameworkCallBacks, m_pLogDescriptor,
                                            m_pMICDeviceConfig, *m_pDeviceServiceComm);
-    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiMicId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
+    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiOclDevId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
     if ( (NULL == m_pProgramService) ||    (NULL == m_pMemoryAllocator) )
     {
@@ -197,7 +196,7 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
-    MICDevice *pNewDevice = new MICDevice(dev_id, pDevCallBacks, pLogDesc);
+    MICDevice *pNewDevice = new MICDevice(dev_id, 0, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
@@ -530,7 +529,7 @@ cl_dev_err_code MICDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
     m_pLogDescriptor = pLogDescriptor;
     if ( NULL != m_pLogDescriptor )
     {
-        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, L"MIC Device", &m_iLogHandle);
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiOclDevId, L"MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;

@@ -40,43 +40,11 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-struct SMemCpyParams
-{
-    cl_uint         uiDimCount;
-    cl_char*        pSrc;
-    size_t          vSrcPitch[MAX_WORK_DIM-1];
-    cl_char*        pDst;
-    size_t          vDstPitch[MAX_WORK_DIM-1];
-    size_t          vRegion[MAX_WORK_DIM];
-};
-
 // used by commands
 struct SMemMapParams
 {
-	SMemMapParams()
-	{
-		map_handle = NULL;
-		rec_map_handles = NULL;
-		num_of_rec_map_handles = 0;
-		map_barriers = NULL;
-		unmap_barriers = NULL;
-	}
-
-	~SMemMapParams()
-	{
-		if (rec_map_handles)
-		{
-			free(rec_map_handles);
-		}
-		if (map_barriers)
-		{
-			free(map_barriers);
-		}
-		if (unmap_barriers)
-		{
-			free(unmap_barriers);
-		}
-	}
+	SMemMapParams();
+	~SMemMapParams();
 
 	// Regular map COIMAPINSTANCE
     COIMAPINSTANCE  map_handle;
@@ -113,8 +81,7 @@ public:
                             IOCLDevMemoryObject* *memObj );
 
     // Utility functions
-    static void CopyMemoryBuffer(SMemCpyParams* pCopyCmd);
-    static void* CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
+    static size_t CalculateOffset(cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
     static SMemMapParams* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParams*)pMapParams->map_handle; };
 
 private:
@@ -122,13 +89,13 @@ private:
 
     IOCLDevLogDescriptor*       GetLogDescriptor( void ) { return m_pLogDescriptor; };
     cl_int                      GetLogHandle( void ) { return m_iLogHandle; };
-    ClHeap                      GetHeap( void ) { return m_lclHeap; };
 
     size_t GetElementSize(const cl_image_format* format);
     cl_int                   m_iDevId;
     IOCLDevLogDescriptor*    m_pLogDescriptor;
     cl_int                   m_iLogHandle;
-    ClHeap                   m_lclHeap;
+
+    size_t                   m_maxAllocSize;
 
     // singleton
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
@@ -147,12 +114,7 @@ public:
 
     MICDevMemoryObject(MemoryAllocator& allocator,
                        cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
-                       const cl_image_format* pImgFormat, size_t elemSize,
-                       size_t dimCount, const size_t* dim,
                        IOCLDevRTMemObjectService*    pRTMemObjService);
-
-    MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
-            m_nodeId(NULL), m_memFlags(0), m_pHostPtr(NULL), m_coi_buffer(0) {}
 
     cl_dev_err_code Init();
 
@@ -172,26 +134,25 @@ public:
 	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
 protected:
+    MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
+            m_nodeId(NULL), m_memFlags(0), m_coi_buffer(0) {}
+
     MemoryAllocator&            m_Allocator;
 
     // Object Management
     cl_dev_subdevice_id         m_nodeId;
 
-    cl_mem_obj_descriptor       m_objDecr;
     cl_mem_flags                m_memFlags;
     IOCLDevRTMemObjectService*  m_pRTMemObjService;
     IOCLDevBackingStore*        m_pBackingStore;
-    size_t                      m_raw_size;
 
-    void*                       m_pHostPtr;     // A pointer provided by the framework
+    cl_mem_obj_descriptor       m_objDescr;
+    size_t                      m_raw_size;
 
     COIBUFFER                   m_coi_buffer;
 
 private:
     ~MICDevMemoryObject() {};
-
-    IOCLDevBackingStore* createBackingStore() const;
-
 };
 
 class MICDevMemorySubObject : public MICDevMemoryObject
@@ -203,44 +164,6 @@ public:
 
 protected:
     MICDevMemoryObject& m_Parent;
-};
-
-class MICDevBackingStore : public IOCLDevBackingStore
-{
-public:
-    MICDevBackingStore(const cl_mem_obj_descriptor& desc, ClHeap heap );
-
-    cl_dev_bs_description GetRawDataDecription() const {return CL_DEV_BS_RT_ALLOCATED;}
-    bool IsDataValid() const { return true;}
-
-    void*            GetRawData()            const {return m_pData;}
-    size_t           GetRawDataSize()        const;
-    size_t           GetRawDataOffset( const size_t* origin ) const;
-
-    size_t           GetDimCount()           const {return m_dim_count;}
-    const size_t*    GetDimentions()         const {return m_dim; };
-    const size_t*    GetPitch()              const {return (1 == m_dim_count) ? NULL : m_pitch;};
-    cl_image_format  GetFormat()             const {return m_format; };
-    unsigned int     GetElemSize()           const {return m_uiElementSize; };
-
-    int AddPendency();
-    int RemovePendency();
-
-protected:
-    virtual ~MICDevBackingStore() {};
-
-    size_t           m_dim_count;             // A number of dimensions in the memory object. 1 means buffer.
-    size_t           m_dim[MAX_WORK_DIM];     // Multi-dimensional size of the object.
-    size_t           m_pitch[MAX_WORK_DIM-1]; // Multi-dimensional pitch of the object, valid only for images (2D/3D).
-    cl_image_format  m_format;                // Format of the memory object,valid only for images (2D/3D).
-    void*            m_pData;                 // A pointer to the object wherein the object data is stored.
-                                              // Could be a valid memory pointer or a handle to other object.
-    unsigned int     m_uiElementSize;         // assumed 1 for buffers
-
-    AtomicCounter    m_refCount;
-
-private:
-    ClHeap           m_clHeap;
 };
 
 }}}

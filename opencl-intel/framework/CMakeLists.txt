@@ -23,6 +23,10 @@ if (DEFINED ENV{DXSDK_DIR})
 add_definitions (-DDX9_SHARING)
 endif (DEFINED ENV{DXSDK_DIR})
 
+if (INCLUDE_MIC_DEVICE)
+    add_definitions( -D INCLUDE_ACCELERATOR_SUPPORT )
+endif(INCLUDE_MIC_DEVICE)
+
 add_subdirectory( icd )
 add_subdirectory( Platform )
 
