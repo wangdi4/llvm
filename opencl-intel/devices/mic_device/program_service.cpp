@@ -187,14 +187,8 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     COIRESULT           coi_err;
     COIBUFFER           coi_buffer;
     COI_ACCESS_FLAGS    coi_access = COI_SINK_WRITE_ENTIRE;
-
-// TODO: DK - change to use FromMemory as unaligned memory access from FromMemory will be supported by COI
-#define USE_NORMAL_BUFFERS
-
-#ifndef USE_NORMAL_BUFFERS
     COIMAPINSTANCE      map_instance;
     void*               data_address;
-#endif
 
     bool                ok;
     uint64_t            filled_size = 0;
@@ -204,17 +198,9 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     //
     // Target description is going to filled into Value buffer directly and copied back using DMA
     //
-#ifdef USE_NORMAL_BUFFERS
-    coi_err = COIBufferCreate( original_size,                          // size of buffer to be filled
-#else
     coi_err = COIBufferCreateFromMemory( original_size,                // size of buffer to be filled
-#endif // USE_NORMAL_BUFFERS
                                          COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_READ|COI_OPTIMIZE_SINK_WRITE,
-#ifdef USE_NORMAL_BUFFERS
-                                         NULL, // no initial data
-#else
                                          Value,
-#endif // USE_NORMAL_BUFFERS
                                          ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
                                          &coi_buffer );
 
@@ -240,11 +226,6 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
 
     if (0 != filled_size)
     {
-#ifdef USE_NORMAL_BUFFERS
-        // read results
-        coi_err = COIBufferRead(coi_buffer, 0, Value, filled_size, COI_COPY_UNSPECIFIED, 0, NULL, NULL);
-        assert( (COI_SUCCESS == coi_err) && "COIBufferRead failed to read buffer with BE options" );
-#else
         // map buffer to get results
         coi_err = COIBufferMap(coi_buffer, 0, *pSize, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &data_address );
         assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with BE options" );
@@ -253,7 +234,6 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
         // unmap buffer back - data should remain in the original memory
         coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
         assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with BE options" );
-#endif // USE_NORMAL_BUFFERS
     }
 
     // remove COI Buffer structure - data should remain in the original buffer
@@ -323,9 +303,7 @@ bool ProgramService::LoadBackendServices(void)
 //                                      );
 //
 //        unsigned char bbb[100];
-////        unsigned char* bbb;
 //        size_t   bbb_size = 100;
-////        posix_memalign( (void**)&bbb, 4096, bbb_size );
 //
 //        int d_size = m_BE_Compiler.MICOptions.GetIntValue( CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE, 0 );
 //        printf("d_size=%d\n", d_size);
@@ -1403,17 +1381,9 @@ strcpy( (char*)blob, "this is a program" );
     }
 
     // 6. Create in-place COI buffer for output data
-#ifdef USE_NORMAL_BUFFERS
-    coi_err = COIBufferCreate( output_size,                          // size of buffer to be filled
-#else
     coi_err = COIBufferCreateFromMemory( output_size,                // size of buffer to be filled
-#endif // USE_NORMAL_BUFFERS
                                          COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_READ|COI_OPTIMIZE_SINK_WRITE,
-#ifdef USE_NORMAL_BUFFERS
-                                         NULL, // no initial data
-#else
                                          output,
-#endif // USE_NORMAL_BUFFERS
                                          ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
                                          &cio_buffer_output );
 
@@ -1442,24 +1412,6 @@ strcpy( (char*)blob, "this is a program" );
 
     assert( ok && "Cannot run Device Function to copy program to device" );
 
-#ifdef USE_NORMAL_BUFFERS
-    // read results
-    coi_err = COIBufferRead(cio_buffer_output, 0, output, output_size, COI_COPY_UNSPECIFIED, 0, NULL, NULL);
-    assert( (COI_SUCCESS == coi_err) && "COIBufferRead failed to read buffer device kernels" );
-
-    if (COI_SUCCESS != coi_err)
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to read COI buffer with device kernels list. Buffer size is %d bytes. COI returned %S"),
-            output_size,
-            COIResultGetName( coi_err ));
-
-        COIBufferDestroy( coi_buffer_prog );
-        COIBufferDestroy( cio_buffer_output );
-        return false;
-    }
-
-#else
     // map buffer to get results
     coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &blob );
     assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with device kernels list" );
@@ -1480,7 +1432,6 @@ strcpy( (char*)blob, "this is a program" );
     // unmap buffer back - data should remain in the original memory
     coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
     assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with device kernels list" );
-#endif // USE_NORMAL_BUFFERS
 
     // remove COI Buffer structure - data should remain in the original buffer
     coi_err = COIBufferDestroy( coi_buffer_prog );
