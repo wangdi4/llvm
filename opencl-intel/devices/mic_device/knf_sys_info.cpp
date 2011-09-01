@@ -143,6 +143,11 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
 
 };
 
+// additional DLLs required for device
+//static const char* const knf_device_dlls[] =
+//    {
+//    };
+
 void Intel::OpenCL::MICDevice::add_knf_info( void )
 {
     MICSysInfo::InfoKeyType sku;
@@ -150,5 +155,9 @@ void Intel::OpenCL::MICDevice::add_knf_info( void )
     sku.full_key = 0;
     sku.fields.device_type = COI_ISA_KNF;
 
-    MICSysInfo::add_sku_info( sku.full_key, ARRAY_ELEMENTS(knf_info), knf_info );
+    MICSysInfo::DeviceSKU_InternalAttributes attribs;
+    attribs.required_dlls_count = 0;    // ARRAY_ELEMENTS( knf_device_dlls );
+    attribs.required_dlls_array = NULL; // knf_device_dlls;
+
+    MICSysInfo::add_sku_info( sku.full_key, ARRAY_ELEMENTS(knf_info), knf_info, attribs );
 }

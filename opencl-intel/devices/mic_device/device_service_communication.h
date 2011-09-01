@@ -21,25 +21,10 @@ class DeviceServiceCommunication
 
 public:
 
-    struct device_service_communication_pack
-    {
-        volatile DeviceServiceCommunication* volatile * deviceServiceCommArr;
-        unsigned int numEngines;
-        volatile int numFreeEngines;
-        pthread_mutex_t lock;
-    };
-    static device_service_communication_pack pDeviceServiceCommPack;
-
-    // initialize class data when library load
-    static void loadingInit();
-
-    // release class data when library release
-    static void unloadRelease();
-
     /* Factory which create new DeviceServiceCommunication object and set it to *ppDeviceServiceCom
        The initialization of the device process and pipeline is performed on separate thread.
        return true if succeeded and false otherwise */
-    static bool devcieSeviceCommunicationFactory(DeviceServiceCommunication** ppDeviceServiceCom);
+    static bool deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom);
 
     virtual ~DeviceServiceCommunication();
 
@@ -55,7 +40,6 @@ public:
         COPY_PROGRAM_TO_DEVICE,
         REMOVE_PROGRAM_FROM_DEVICE,
 
-        EXECUTE_IN_ORDER,
 		EXECUTE_NDRANGE,
 
         // insert new function ids before this line
@@ -83,7 +67,7 @@ public:
 private:
 
     // private constructor in order to use factory only
-    DeviceServiceCommunication();
+    DeviceServiceCommunication(unsigned int uiMicId);
 
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
@@ -93,14 +77,11 @@ private:
     /* Entry point for the initializer thread. */
     static void* initEntryPoint(void* arg);
 
-    // set my engine ID
-    void setEngineId(unsigned int engineId);
-
     /* The calling thread will wait on this function until the initializer thread will finish it's work.
        Unless it already finished. */
     void waitForInitThread() const;
 
-    unsigned int m_engineId;
+    unsigned int m_uiMicId;
 
     COIPROCESS m_process;
     COIPIPELINE m_pipe;

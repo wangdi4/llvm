@@ -66,6 +66,14 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
            If failed return NULL */
         const char* getSupportedOclExtensions(uint32_t deviceId);
 
+        /* Return COI Engine Handle, NULL on error */
+        COIENGINE getCOIEngineHandle(uint32_t deviceId);
+
+        /* Return array of required device DLLs
+           Return value - count of strings
+           string_arr   - pointer to the array of string pointers */
+        unsigned int getRequiredDeviceDLLs(uint32_t deviceId, const char* const **string_arr);
+
         ///////////////////////////////////////////////////////////////////
         //
         // Info Data Base - internal
@@ -107,8 +115,19 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
                                 void* buf,
                                 size_t* filled_buf_size);
 
+        // device SKU implementation attributes, not defined by OpenCL standard
+        struct DeviceSKU_InternalAttributes
+        {
+            size_t              required_dlls_count;
+            const char* const*  required_dlls_array;
+
+            DeviceSKU_InternalAttributes() :
+                required_dlls_count(0), required_dlls_array(NULL) {};
+        };
+
         // this function must be called at constructor/destructor
-        static void add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_ENTRY* array );
+        static void add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_ENTRY* array,
+                                  const DeviceSKU_InternalAttributes& attribs );
         static void clear_sku_info( void );
 
         // map with all info - used as a key for TSku2DevData
@@ -127,8 +146,14 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         // map of cl_device_info -> data entry for specific device SKU
         typedef std::map< cl_device_info, const SYS_INFO_ENTRY*>    TInfoType2Data;
 
+        struct InfoType2DataEntry
+        {
+            TInfoType2Data                  data_map;
+            DeviceSKU_InternalAttributes    internal_attribs;
+        };
+
         // map of all supported SKUs by InfoKeyType
-        typedef std::map< uint64_t, TInfoType2Data*>                TSku2DevData;
+        typedef std::map< uint64_t, InfoType2DataEntry*>            TSku2DevData;
 
         // the whole data base
         static TSku2DevData                                         m_info_db;
@@ -140,8 +165,9 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         ///////////////////////////////////////////////////////////////////
 
         struct engineInfo {
-            const TInfoType2Data*   data_table;
-            COI_ENGINE_INFO         micDeviceInfoStruct;
+            const InfoType2DataEntry*   data_table;
+            COIENGINE                   engine_handle;
+            COI_ENGINE_INFO             micDeviceInfoStruct;
         };
 
         struct guardedInfo

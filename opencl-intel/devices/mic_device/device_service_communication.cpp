@@ -3,6 +3,7 @@
 #include "cl_sys_info.h"
 #include "mic_dev_limits.h"
 #include "mic_common_macros.h"
+#include "mic_sys_info.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
@@ -23,13 +24,10 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "copy_program_to_device",               // COPY_PROGRAM_TO_DEVICE
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
 
-    "hello_world",                          // EXECUTE_IN_ORDER
 	"execute_NDRange"						// EXECUTE_NDRANGE
 };
 
-DeviceServiceCommunication::device_service_communication_pack DeviceServiceCommunication::pDeviceServiceCommPack;
-
-DeviceServiceCommunication::DeviceServiceCommunication() : m_engineId(0), m_process(NULL), m_pipe(NULL), m_initDone(false)
+DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
 {
     pthread_mutex_init(&m_mutex, NULL);
     pthread_cond_init(&m_cond, NULL);
@@ -40,86 +38,11 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
     freeDevice();
 }
 
-void DeviceServiceCommunication::loadingInit()
+bool DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
 {
-    pDeviceServiceCommPack.deviceServiceCommArr = NULL;
-    pDeviceServiceCommPack.numEngines = 0;
-    pDeviceServiceCommPack.numFreeEngines = 0;
-    pthread_mutex_init(&pDeviceServiceCommPack.lock, NULL);
-}
-
-void DeviceServiceCommunication::unloadRelease()
-{
-    if (pDeviceServiceCommPack.deviceServiceCommArr)
-    {
-        volatile DeviceServiceCommunication* tDeviceServiceComm = NULL;
-        for (unsigned int i = 0; i < pDeviceServiceCommPack.numEngines; i++)
-        {
-            if (pDeviceServiceCommPack.deviceServiceCommArr[i])
-            {
-                tDeviceServiceComm = pDeviceServiceCommPack.deviceServiceCommArr[i];
-                delete(tDeviceServiceComm);
-            }
-        }
-        free((void*)pDeviceServiceCommPack.deviceServiceCommArr);
-    }
-    pthread_mutex_destroy(&pDeviceServiceCommPack.lock);
-}
-
-bool DeviceServiceCommunication::devcieSeviceCommunicationFactory(DeviceServiceCommunication** ppDeviceServiceCom)
-{
-    // If first call, shall initialte the data structure
-    if (pDeviceServiceCommPack.deviceServiceCommArr == NULL)
-    {
-        pthread_mutex_lock(&pDeviceServiceCommPack.lock);
-        if (pDeviceServiceCommPack.deviceServiceCommArr == NULL)
-        {
-            COIRESULT result = COI_ERROR;
-            // get amount of KNF devices available
-            result = COIEngineGetCount(COI_ISA_KNF, &pDeviceServiceCommPack.numEngines);
-            if (result != COI_SUCCESS)
-            {
-                pthread_mutex_unlock(&pDeviceServiceCommPack.lock);
-                return false;
-            }
-            // If numEngines is not greater than 0 there is a problem
-            if (pDeviceServiceCommPack.numEngines == 0)
-            {
-                pthread_mutex_unlock(&pDeviceServiceCommPack.lock);
-                return false;
-            }
-            pDeviceServiceCommPack.numFreeEngines = pDeviceServiceCommPack.numEngines;
-            // allocate memory and init by null pointers for DeviceServiceCommunication objects
-            volatile DeviceServiceCommunication* volatile * tDeviceServiceCommArr = (volatile DeviceServiceCommunication* volatile *)malloc(sizeof(DeviceServiceCommunication*) * pDeviceServiceCommPack.numEngines);
-            assert(tDeviceServiceCommArr && "Malloc operation failed");
-            memset((void*)tDeviceServiceCommArr, 0, sizeof(DeviceServiceCommunication*) * pDeviceServiceCommPack.numEngines);
-            ATOMIC_ASSIGN( pDeviceServiceCommPack.deviceServiceCommArr, tDeviceServiceCommArr );
-        }
-        pthread_mutex_unlock(&pDeviceServiceCommPack.lock);
-    }
-    int tCurrFreeEngines = __sync_fetch_and_sub(&pDeviceServiceCommPack.numFreeEngines, 1);
-    // If there is no available engine
-    if (tCurrFreeEngines <= 0)
-    {
-        __sync_fetch_and_add(&pDeviceServiceCommPack.numFreeEngines, 1);
-        return false;
-    }
     // find the first unused device index
-    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication();
-    assert(tDeviceServiceComm && "new operation failed");
-    int tEngineId = -1;
-    for (unsigned int i = 0; i < pDeviceServiceCommPack.numEngines; i++)
-    {
-        if ((pDeviceServiceCommPack.deviceServiceCommArr[i] == NULL) &&
-            (__sync_bool_compare_and_swap(&pDeviceServiceCommPack.deviceServiceCommArr[i], NULL, tDeviceServiceComm)))
-        {
-            tEngineId = i;
-            break;
-        }
-    }
-    assert(tEngineId >= 0);
-
-    tDeviceServiceComm->setEngineId(tEngineId);
+    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
+    assert( NULL != tDeviceServiceComm && "Cannot create DeviceServiceCommunication object");
 
     pthread_attr_t tattr;
     pthread_attr_init(&tattr);
@@ -132,7 +55,6 @@ bool DeviceServiceCommunication::devcieSeviceCommunicationFactory(DeviceServiceC
     pthread_attr_destroy(&tattr);
 
     *ppDeviceServiceCom = tDeviceServiceComm;
-
     return true;
 }
 
@@ -160,11 +82,6 @@ void DeviceServiceCommunication::freeDevice()
 
     pthread_cond_destroy(&m_cond);
     pthread_mutex_destroy(&m_mutex);
-
-    // set me as NULL pointer in deviceServiceCommArr
-    pDeviceServiceCommPack.deviceServiceCommArr[m_engineId] = NULL;
-
-    __sync_fetch_and_add(&pDeviceServiceCommPack.numFreeEngines, 1);
 }
 
 COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle() const
@@ -240,13 +157,13 @@ bool DeviceServiceCommunication::runServiceFunction(
 void* DeviceServiceCommunication::initEntryPoint(void* arg)
 {
     COIRESULT result = COI_ERROR;
-    COIENGINE engine;
     char fileNameBuffer[MAX_PATH] = {0};
     DeviceServiceCommunication* pDevServiceComm = (DeviceServiceCommunication*)arg;
 
+    MICSysInfo& info = MICSysInfo::getInstance();
+
     // Get a handle to KNF engine number m_engineId
-    result = COIEngineGetHandle(COI_ISA_KNF, pDevServiceComm->m_engineId, &engine);
-    assert(result == COI_SUCCESS && "COIEngineGetHandle failed");
+    COIENGINE engine = info.getCOIEngineHandle( pDevServiceComm->m_uiMicId );
 
     // The following call creates a process on the sink.
     GetModuleDirectory( (char*)fileNameBuffer, sizeof(fileNameBuffer) );
@@ -254,15 +171,41 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
 	char tBuff[PATH_MAX];
     GetModulePathName((void*)(ptrdiff_t)initEntryPoint, tBuff, PATH_MAX-1);
+    const char* device_dir = dirname(tBuff);
+
     // create a process on device and run it's main() function
     result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
                                      0, NULL,                               // argc, argv
                                      false, NULL,                           // duplicate env, additional env vars
                                      MIC_DEV_IO_PROXY_TO_HOST, NULL,        // I/O proxy required + host root
                                      MIC_DEV_MAX_ALLOCATED_BUFFERS_SIZE,    // reserve buffer space
-									 dirname(tBuff),                        // a path to locate dynamic libraries dependencies for the sink application
+									 device_dir,                            // a path to locate dynamic libraries dependencies for the sink application
                                      &pDevServiceComm->m_process);
     assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
+
+    // load additional DLLs required by this specific device
+    const char * const * string_arr = NULL;
+    unsigned int dlls_count = info.getRequiredDeviceDLLs(pDevServiceComm->m_uiMicId, &string_arr);
+
+    if ((0 < dlls_count) && (NULL != string_arr))
+    {
+        for (unsigned int i = 0; i < dlls_count; ++i)
+        {
+            if (NULL != string_arr[i])
+            {
+                COILIBRARY lib_handle;
+                result = COIProcessLoadLibraryFromFile(
+                                    pDevServiceComm->m_process,             // in_Process
+                                    string_arr[i],                          // in_FileName
+                                    NULL,                                   // in_so-name if not exists in file
+                                    device_dir,                             // in_LibrarySearchPath
+                                    &lib_handle );
+
+                assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
+                        && "Cannot load device DLL" );
+            }
+        }
+    }
 
     // We'll need a pipeline to run service functions
     result = COIPipelineCreate(pDevServiceComm->m_process, NULL, NULL, &pDevServiceComm->m_pipe);
@@ -296,10 +239,5 @@ inline void DeviceServiceCommunication::waitForInitThread() const
         }
         pthread_mutex_unlock(&m_mutex);
     }
-}
-
-void DeviceServiceCommunication::setEngineId(unsigned int engineId)
-{
-    m_engineId = engineId;
 }
 

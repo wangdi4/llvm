@@ -371,11 +371,11 @@ const char* MICSysInfo::getSupportedOclExtensions(uint32_t deviceId)
         return NULL;
     }
 
-    const TInfoType2Data* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
+    const InfoType2DataEntry* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
     assert( data && "MICDevice: SKU static data table is not initialized" );
 
-    TInfoType2Data::const_iterator it = data->find( CL_DEVICE_EXTENSIONS );
-    if (data->end() == it)
+    TInfoType2Data::const_iterator it = data->data_map.find( CL_DEVICE_EXTENSIONS );
+    if (data->data_map.end() == it)
     {
         // info not found
         return NULL;
@@ -385,6 +385,31 @@ const char* MICSysInfo::getSupportedOclExtensions(uint32_t deviceId)
     assert( VALUE_STRING == info_entry->si_value_type );
 
     return (const char*)info_entry->const_value;
+}
+
+COIENGINE MICSysInfo::getCOIEngineHandle(uint32_t deviceId)
+{
+    if (! initializedInfoStruct(deviceId))
+    {
+        return NULL;
+    }
+
+    return m_guardedInfoArr[deviceId].devInfoStruct->engine_handle;
+}
+
+unsigned int MICSysInfo::getRequiredDeviceDLLs(uint32_t deviceId, const char* const **string_arr)
+{
+    if (! initializedInfoStruct(deviceId))
+    {
+        return 0;
+    }
+
+    const InfoType2DataEntry* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
+    assert( data && "MICDevice: SKU static data table is not initialized" );
+
+    assert( NULL != string_arr );
+    *string_arr = data->internal_attribs.required_dlls_array;
+    return (unsigned int)(data->internal_attribs.required_dlls_count);
 }
 
 inline bool process_info_params( size_t required_size,
@@ -579,6 +604,8 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
             return false;
         }
 
+        tEngineInfo->engine_handle = engine;
+
         // find relevant static table
         InfoKeyType sku;
         sku.full_key = 0;
@@ -601,13 +628,15 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
     return true;
 }
 
-void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_ENTRY* array )
+void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_ENTRY* array, const DeviceSKU_InternalAttributes& attribs )
 {
     // add Device SKU info to the global info map
     assert( 0 != sku_key && 0 != entries && NULL != array );
 
-    TInfoType2Data* type2data = new TInfoType2Data;
+    InfoType2DataEntry* type2data = new InfoType2DataEntry;
     assert( type2data && "Cannot allocate std::map" );
+
+    type2data->internal_attribs = attribs;
 
     for (size_t i = 0; i < entries; ++i)
     {
@@ -647,10 +676,10 @@ void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_
                                        && "MICDevice: error in static info map - zero func pointer" );
 
         // insert
-        assert( type2data->find( entry.info_id ) == type2data->end()
+        assert( type2data->data_map.find( entry.info_id ) == type2data->data_map.end()
                                        && "MICDevice: error in static info map - repeated info ids" );
 
-        (*type2data)[ entry.info_id ] = &entry;
+        type2data->data_map[ entry.info_id ] = &entry;
     }
 
     assert( m_info_db.find( sku_key ) == m_info_db.end()
@@ -666,7 +695,7 @@ void MICSysInfo::clear_sku_info( void )
 
     for (; db_it != db_end; ++db_it)
     {
-        TInfoType2Data* type2data = db_it->second;
+        InfoType2DataEntry* type2data = db_it->second;
         delete type2data;
     }
 
@@ -730,11 +759,11 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
         return CL_DEV_ERROR_FAIL;
     }
 
-    const TInfoType2Data* data = object.m_guardedInfoArr[deviceId].devInfoStruct->data_table;
+    const InfoType2DataEntry* data = object.m_guardedInfoArr[deviceId].devInfoStruct->data_table;
     assert( data && "MICDevice: SKU static data table is not initialized" );
 
-    TInfoType2Data::const_iterator it = data->find( param );
-    if (data->end() == it)
+    TInfoType2Data::const_iterator it = data->data_map.find( param );
+    if (data->data_map.end() == it)
     {
         // info not found
         return CL_DEV_INVALID_VALUE;

@@ -133,7 +133,7 @@ cl_dev_err_code MICDevice::Init()
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateDevice function enter"));
 
     // trying to upload next free device.
-    bool result = DeviceServiceCommunication::devcieSeviceCommunicationFactory(&m_pDeviceServiceComm);
+    bool result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, &m_pDeviceServiceComm);
     if ((result == false) || (m_pDeviceServiceComm == NULL))
     {
         return CL_DEV_ERROR_FAIL;
@@ -173,12 +173,10 @@ MICDevice::~MICDevice()
 
 void MICDevice::loadingInit()
 {
-    DeviceServiceCommunication::loadingInit();
 }
 
 void MICDevice::unloadRelease()
 {
-    DeviceServiceCommunication::unloadRelease();
 }
 
 
