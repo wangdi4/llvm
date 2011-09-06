@@ -14,6 +14,34 @@
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
+///////////////////////////////////////////////////////
+// For testing only
+void foo(char* blob)
+{
+	char* tempBlob = blob;
+	unsigned int size = *(unsigned int*)tempBlob;
+	tempBlob += sizeof(unsigned int);
+	unsigned int* a = *((unsigned int**)tempBlob);
+	tempBlob += sizeof(unsigned int*);
+	unsigned int* b = *((unsigned int**)tempBlob);
+	tempBlob += sizeof(unsigned int*);
+	unsigned int* res = *((unsigned int**)tempBlob);
+	tempBlob += sizeof(unsigned int*);
+	unsigned int testFlag = *(unsigned int*)tempBlob;
+	if (55555 != testFlag)
+	{
+		NATIVE_PRINTF("ERROR\n");
+		fflush(0);
+		assert(0);
+	}
+	for (unsigned int i = 0; i < size; i++)
+	{
+		res[i] = a[i] + b[i];
+	}
+}
+// For testing only
+//////////////////////////////////////////////////////
+
 COINATIVELIBEXPORT
 void execute_NDRange(uint32_t         in_BufferCount,
 					 void**           in_ppBufferPointers,
@@ -33,11 +61,13 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	ExecutionTask* exeTask = ExecutionTask::ExecutionTaskFactory(tDispatcherData, tMiscData);
 	if (NULL == exeTask)
 	{
+		NATIVE_PRINTF("ExecutionTask::ExecutionTaskFactory() Failed\n");
 		return;
 	}
 	bool result = exeTask->init(in_BufferCount, in_ppBufferPointers, in_pBufferLengths);
 	if (false == result)
 	{
+		NATIVE_PRINTF("ExecutionTask::init() Failed\n");
 		return;
 	}
 	exeTask->runTask();
@@ -73,8 +103,10 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
 		m_miscData->errCode = CL_DEV_ERROR_FAIL;
 		delete this;
+		NATIVE_PRINTF("ExecutionTask::init - lockInputBuffers failed\n");
 		return false;
 	}
+#ifndef NDRANGE_UNIT_TEST
 	// Get kernel object
 	result = ProgramService::getInstance().get_kernel(m_dispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
 	if (false == result)
@@ -82,8 +114,10 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
 		m_miscData->errCode = CL_DEV_INVALID_KERNEL;
 		delete this;
+		NATIVE_PRINTF("ExecutionTask::init - ProgramService::getInstance().get_kernel failed\n");
 		return false;
 	}
+#endif
 	// Set kernel args blob (Still have to set the buffers pointer in the blob
 	if (m_dispatcherData->kernelArgSize > 0)
 	{
@@ -101,17 +135,17 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 			{
 			case BUFFER:
 				{
-					assert(in_pBufferLengths[preExeDirectivesArr[i].bufferDirective.bufferIndex] < in_BufferCount);
+					assert(preExeDirectivesArr[i].bufferDirective.bufferIndex < in_BufferCount);
 					void* memObj = m_lockBufferPointers[preExeDirectivesArr[i].bufferDirective.bufferIndex];
 					// Copy the address of the memory object to the kernel args blob
 					assert(preExeDirectivesArr[i].bufferDirective.offset_in_blob < m_dispatcherData->kernelArgSize);
-					*(void**)(m_lockedParams + preExeDirectivesArr[i].bufferDirective.offset_in_blob) = memObj;
+					void** pTempLockedParams = (void**)(m_lockedParams + preExeDirectivesArr[i].bufferDirective.offset_in_blob);
+					*pTempLockedParams = memObj;
 					break;
 				}
 			case PRINTF:
 				{
 					//TODO
-					assert(0);
 					break;
 				}
 			default:
@@ -187,6 +221,8 @@ void BlockingTask::runTask()
 {
 	//TODO
 	///////////////////////////////////////////////////////   TO DELETE
+	foo(m_lockedParams);
+	return;
 	NATIVE_PRINTF("Running task\n");
 	NATIVE_PRINTF("Kernel address - %ld\n", m_dispatcherData->kernelDirective.kernelAddress);
 	directive_pack* directivesArr[2] = {(directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->preExeDirectivesArrOffset)
@@ -262,6 +298,7 @@ NonBlockingTask::~NonBlockingTask()
 
 void NonBlockingTask::runTask()
 {
+		NATIVE_PRINTF("Entering NonBlockingTask::runTask()\n");
 	//TODO
 }
 

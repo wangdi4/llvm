@@ -51,7 +51,7 @@ public:
 	   outCommandList - out parameter which include the new CommandList object if succeeded.
 	   It can fail if COIPipelineCreate create fails.
 	   Return CL_DEV_SUCCESS if succeeded. */
-    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN props, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
+    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN props, cl_dev_subdevice_id subDeviceId, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
 		                                            IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList);
 
     /* Do nothing because the COIPipeline send the command as it enter to it. (Flush is redundant) */
@@ -110,7 +110,7 @@ public:
 protected:
 
 	/* It is protected constructor because We want that the client will create CommandList only by the factory method */
-	CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService);
+	CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId);
 
 	// the last dependency barrier COIBarrier.
 	COIEVENT          m_lastDependentBarrier;
@@ -145,6 +145,8 @@ private:
 	COIPIPELINE                       m_pipe;
 	// pointer to static function that create Command object
 	static fnCommandCreate_t*         m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+	// Sub device ID
+	cl_dev_subdevice_id				  m_subDeviceId;
 
 };
 
@@ -156,7 +158,7 @@ class InOrderCommandList : public CommandList
 
 public:
 
-    InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService);
+    InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId);
 	
 	virtual ~InOrderCommandList();
 	
@@ -182,8 +184,8 @@ class OutOfOrderCommandList : public CommandList
 
 public:
 
-    OutOfOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService)
-		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService) {};
+    OutOfOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId)
+		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, subDeviceId) {};
 	
 	virtual ~OutOfOrderCommandList() {};
 	

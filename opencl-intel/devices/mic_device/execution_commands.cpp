@@ -77,6 +77,8 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 	// Array of access flags that will sent to the process (The first location is for the dispatcher data structure permission)
 	// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
 	COI_ACCESS_FLAGS* accessFlagArr = NULL;
+	// The amount of COIBUFFERS to dispatch (At least AMOUNT_OF_CONSTANT_BUFFERS for the 'dispatcher_data' structure and misc_data structure)
+	unsigned int numOfDispatchingBuffers = AMOUNT_OF_CONSTANT_BUFFERS;
 	do
 	{
 		// Get command params
@@ -94,8 +96,13 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		// Define the directives and function arguments to dispatch to the device side. (Will be store at the first COIBUFFER)
 		dispatcher_data dispatcherData;
 
+#ifndef NDRANGE_UNIT_TEST
 		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
 		dispatcherData.kernelDirective.kernelAddress = m_pCommandList->getProgramService()->AcquireKernelOnDevice(cmdParams->kernel);
+#else
+		// Only for unit test
+		dispatcherData.kernelDirective.kernelAddress = pKernel->GetKernelID();
+#endif
 
 		if (0 == dispatcherData.kernelDirective.kernelAddress)
 		{
@@ -108,9 +115,6 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		dispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
 		// Filling the workDesc structure in dispatcherData
 		dispatcherData.workDesc.setParams(cmdParams->work_dim, cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size);
-
-		// The amount of COIBUFFERS to dispatch (At least AMOUNT_OF_CONSTANT_BUFFERS for the 'dispatcher_data' structure and misc_data structure)
-		unsigned int numOfDispatchingBuffers = AMOUNT_OF_CONSTANT_BUFFERS;
 
 		// Get device side process in order to create COIBUFFERs for this process.
 		COIPROCESS tProcess = m_pCommandList->getDeviceProcess();
@@ -288,7 +292,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		// set misc coi buffer pointer
 		coiBuffsArr[MISC_DATA_INDEX] = m_miscBuffer;
 		// Set this COIBUFFER permission flag as write only on device side
-		accessFlagArr[currCoiBuffIndex] = COI_SINK_WRITE_ENTIRE;
+		accessFlagArr[MISC_DATA_INDEX] = COI_SINK_WRITE_ENTIRE;
 
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
@@ -317,13 +321,23 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		memcpy(m_extendedDispatcherData + dispatcherData.kernelArgBlobOffset, cmdParams->arg_values, cmdParams->arg_size);
 
 		// Create coi buffer for dispatcher_data
-		coi_err = COIBufferCreateFromMemory(
+/*		coi_err = COIBufferCreateFromMemory(
 								dispatcherData.getDispatcherDataSize(),          // The number of bytes to allocate for the buffer.
 								COI_BUFFER_NORMAL,                               // The type of the buffer to create
 								0,                                               // A bitmask of attributes for the newly created buffer.
 								m_extendedDispatcherData,                        // A pointer to an already allocated memory region on the source that should be turned into a COIBUFFER
 								1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
-								&(coiBuffsArr[0]));                              // Pointer to a buffer handle
+								&(coiBuffsArr[DISPATCHER_DATA_INDEX]));          // Pointer to a buffer handle
+*/
+
+		// TODO - switch it with COIBufferCreateFromMemory
+		coi_err = COIBufferCreate(
+								dispatcherData.getDispatcherDataSize(),          // The number of bytes to allocate for the buffer.
+								COI_BUFFER_NORMAL,                               // The type of the buffer to create
+								0,                                               // A bitmask of attributes for the newly created buffer.
+								m_extendedDispatcherData,                        // A pointer to an already allocated memory region on the source that should be turned into a COIBUFFER
+								1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
+								&(coiBuffsArr[DISPATCHER_DATA_INDEX]));          // Pointer to a buffer handle
 
 		// Is the COIBufferCreate succeeded?
 		if (COI_SUCCESS != coi_err)
@@ -332,7 +346,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 			break;
 		}
 
-		accessFlagArr[0] = COI_SINK_READ;
+		accessFlagArr[DISPATCHER_DATA_INDEX] = COI_SINK_READ;
 	}
 	while (0);
 
@@ -360,6 +374,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 	{
 		*ppOutCoiBuffsArr = coiBuffsArr;
 		*ppAccessFlagArr = accessFlagArr;
+		*pOutNumBuffers = numOfDispatchingBuffers;
 	}
 	m_lastError = returnError;
 
@@ -427,8 +442,10 @@ cl_dev_err_code NDRange::execute()
 
 void NDRange::fireCallBack(void* arg)
 {
+#ifndef NDRANGE_UNIT_TEST
 	// Decrement the reference counter of this kernel program.
 	m_pCommandList->getProgramService()->releaseKernelOnDevice(((cl_dev_cmd_param_kernel*)m_pCmd->params)->kernel);
+#endif
 	// If printf available
 	if (m_printfBuffer)
 	{

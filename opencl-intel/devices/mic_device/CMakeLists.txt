@@ -5,7 +5,13 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME mic_device )
+option( MIC_TESTING_MODE OFF )
+if (NOT MIC_TESTING_MODE)
+	set( TARGET_NAME mic_device )
+else (NOT MIC_TESTING_MODE)
+    set( TARGET_NAME mic_device_testing_mode )
+	add_definitions( -DNDRANGE_UNIT_TEST )
+endif (NOT MIC_TESTING_MODE)
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
@@ -90,7 +96,9 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       ${LINK_LIBS} )
 
 if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} MicDefice_linux_exports.txt )
+    if (NOT MIC_TESTING_MODE)
+        SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} MicDefice_linux_exports.txt )
+	endif (NOT MIC_TESTING_MODE)
 endif (NOT WIN32)
 
 add_dependencies( ${TARGET_NAME} LLVM_copy_tools )
@@ -98,4 +106,6 @@ add_dependencies( ${TARGET_NAME} LLVM_copy_tools )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 add_subdirectory( mic_native )
+
+add_subdirectory( tests )
 

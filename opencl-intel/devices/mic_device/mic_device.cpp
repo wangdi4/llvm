@@ -264,22 +264,14 @@ cl_dev_err_code MICDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateCommandList Function enter"));
-    cl_dev_internal_cmd_list* pList = new cl_dev_internal_cmd_list();
-    if (NULL == pList)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-    pList->subdevice_id = subdevice_id;
     CommandList* tCommandList;
-    cl_dev_err_code ret = CommandList::commandListFactory(props, &m_notificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
+    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, &m_notificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
     if (CL_DEV_FAILED(ret))
     {
-        delete(pList);
         return ret;
     }
     m_commandListsSet.insert(tCommandList);
-    pList->cmd_list = tCommandList;
-    *list = pList;
+    *list = (void*)tCommandList;
     return ret;
 }
 /****************************************************************************************************************
@@ -289,12 +281,12 @@ cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 cl_dev_err_code MICDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevFlushCommandList Function enter"));
-    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    CommandList* pList = (CommandList*)list;
     if (NULL == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    return ((CommandList*)pList->cmd_list)->flushCommandList();
+    return pList->flushCommandList();
 }
 /****************************************************************************************************************
  clDevRetainCommandList
@@ -303,12 +295,12 @@ cl_dev_err_code MICDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 cl_dev_err_code MICDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevRetainCommandList Function enter"));
-    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    CommandList* pList = (CommandList*)list;
     if (NULL == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    return ((CommandList*)pList->cmd_list)->retainCommandList();
+    return pList->retainCommandList();
 }
 /****************************************************************************************************************
  clDevReleaseCommandList
@@ -317,18 +309,17 @@ cl_dev_err_code MICDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 cl_dev_err_code MICDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevReleaseCommandList Function enter"));
-    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    CommandList* pList = (CommandList*)list;
     if (NULL == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
     bool removeObject = false;
-    cl_dev_err_code res = ((CommandList*)pList->cmd_list)->releaseCommandList(&removeObject);
+    cl_dev_err_code res = pList->releaseCommandList(&removeObject);
     // If the reference counter = 0.
     if ((true == removeObject) && (CL_DEV_SUCCEEDED(res)))
     {
-        m_commandListsSet.erase((CommandList*)pList->cmd_list);
-        delete((CommandList*)pList->cmd_list);
+        m_commandListsSet.erase(pList);
         delete(pList);
     }
     return res;
@@ -342,12 +333,12 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCommandListExecute Function enter"));
     if (NULL != list)
     {
-        cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+        CommandList* pList = (CommandList*)list;
         if (NULL == pList)
         {
             return CL_DEV_INVALID_VALUE;
         }
-        return ((CommandList*)pList->cmd_list)->commandListExecute(cmds,count);
+        return pList->commandListExecute(cmds,count);
     }
     else
     {

@@ -60,7 +60,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
 	cl_mem_obj_descriptor*	pMemObj;
-	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)cmdParams->memObj);
+	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->memObj));
 	mem_copy_info_struct	sCpyParam;
 
 	notifyCommandStatusChanged(CL_RUNNING);
@@ -95,9 +95,12 @@ cl_dev_err_code ReadWriteMemObject::execute()
 	// Get estimation for the amount of copy operations
 	const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
 
-	vector<void*> vHostPtr(initVecSize);
-	vector<uint64_t> vCoiBuffOffset(initVecSize);
-	vector<uint64_t> vSize(initVecSize);
+	vector<void*> vHostPtr;
+	vector<uint64_t> vCoiBuffOffset;
+	vector<uint64_t> vSize;
+	vHostPtr.reserve(initVecSize);
+	vCoiBuffOffset.reserve(initVecSize);
+	vSize.reserve(initVecSize);
 
 	calculateCopyRegion(&sCpyParam, &vHostPtr, &vCoiBuffOffset, &vSize);
 
@@ -190,8 +193,8 @@ cl_dev_err_code CopyMemObject::execute()
 	cl_dev_cmd_param_copy*	cmdParams = (cl_dev_cmd_param_copy*)m_pCmd->params;
 	cl_mem_obj_descriptor*	pSrcMemObj;;
 	cl_mem_obj_descriptor*	pDstMemObj;
-	MICDevMemoryObject*     pMicMemObjSrc = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)cmdParams->srcMemObj);
-	MICDevMemoryObject*     pMicMemObjDst = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)cmdParams->dstMemObj);
+	MICDevMemoryObject*     pMicMemObjSrc = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->srcMemObj));
+	MICDevMemoryObject*     pMicMemObjDst = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->dstMemObj));
 	mem_copy_info_struct	sCpyParam;  // Assume in this case that the source is hostPtr and the destination is coiBuffer (Will convert later the results of the source)
 
 	pMicMemObjSrc->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pSrcMemObj);
@@ -255,10 +258,14 @@ cl_dev_err_code CopyMemObject::execute()
 		// Get estimation for the amount of copy operations
 		const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
 
-		vector<void*> vHostPtrSrc(initVecSize);
-		vector<uint64_t> vCoiBuffOffsetSrc(initVecSize);
-		vector<uint64_t> vCoiBuffOffsetDst(initVecSize);
-		vector<uint64_t> vSize(initVecSize);
+		vector<void*> vHostPtrSrc;
+		vector<uint64_t> vCoiBuffOffsetSrc;
+		vector<uint64_t> vCoiBuffOffsetDst;
+		vector<uint64_t> vSize;
+		vHostPtrSrc.reserve(initVecSize);
+		vCoiBuffOffsetSrc.reserve(initVecSize);
+		vCoiBuffOffsetDst.reserve(initVecSize);
+		vSize.reserve(initVecSize);
 
 		calculateCopyRegion(&sCpyParam, &vHostPtrSrc, &vCoiBuffOffsetDst, &vSize);
 
@@ -338,7 +345,7 @@ cl_dev_err_code MapMemObject::execute()
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
 	cl_mem_obj_descriptor*	pMemObj;
 	mem_copy_info_struct	sCpyParam;
-	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)cmdParams->memObj);
+	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->memObj));
 
 	notifyCommandStatusChanged(CL_RUNNING);
 
@@ -359,9 +366,12 @@ cl_dev_err_code MapMemObject::execute()
 	// Get estimation for the amount of copy operations
 	const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
 
-	vector<void*> vHostPtr(initVecSize);
-	vector<uint64_t> vCoiBuffOffset(initVecSize);
-	vector<uint64_t> vSize(initVecSize);
+	vector<void*> vHostPtr;
+	vector<uint64_t> vCoiBuffOffset;
+	vector<uint64_t> vSize;
+	vHostPtr.reserve(initVecSize);
+	vCoiBuffOffset.reserve(initVecSize);
+	vSize.reserve(initVecSize);
 
 	calculateCopyRegion(&sCpyParam, &vHostPtr, &vCoiBuffOffset, &vSize);
 

@@ -152,6 +152,12 @@ list( APPEND MIC_FLAGS
                 -I ${COI_SDK_PATH}/include
                 )
 
+if ( MIC_TESTING_MODE )				
+	list( APPEND MIC_FLAGS
+					-DNDRANGE_UNIT_TEST
+					)
+endif ( MIC_TESTING_MODE )
+
 # MIC linking flags
 set( MIC_LINK_FLAGS      )
 

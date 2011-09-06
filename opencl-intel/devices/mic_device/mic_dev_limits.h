@@ -70,7 +70,7 @@
 #define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4))
 
 //The most memory (in bytes) that will ever be allocated for buffers that will be used by pipelines associated with process
-#define MIC_DEV_MAX_ALLOCATED_BUFFERS_SIZE  32768
+#define MIC_DEV_MAX_ALLOCATED_BUFFERS_SIZE  (10*1024*1024)
 
 // redirect all I/O requests from device to host, includion files and std handles
 #define MIC_DEV_IO_PROXY_TO_HOST            true
