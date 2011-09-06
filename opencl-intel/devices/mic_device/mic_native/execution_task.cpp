@@ -16,6 +16,8 @@ using namespace Intel::OpenCL::MICDeviceNative;
 
 ///////////////////////////////////////////////////////
 // For testing only
+unsigned int commandNum = 0;
+
 void foo(char* blob)
 {
 	char* tempBlob = blob;
@@ -36,8 +38,9 @@ void foo(char* blob)
 	}
 	for (unsigned int i = 0; i < size; i++)
 	{
-		res[i] = a[i] + b[i];
+		res[i] = a[i] + b[i] + commandNum;
 	}
+	commandNum ++;
 }
 // For testing only
 //////////////////////////////////////////////////////
@@ -51,7 +54,6 @@ void execute_NDRange(uint32_t         in_BufferCount,
 					 void*            in_pReturnValue,
 					 uint16_t         in_ReturnValueLength)
 {
-	NATIVE_PRINTF("Enter execute_NDRange\n");
 	assert(in_BufferCount >= AMOUNT_OF_CONSTANT_BUFFERS && "Should be at least AMOUNT_OF_CONSTANT_BUFFERS buffers (for dispatcher_data and for misc_data)");
 	assert(in_pBufferLengths[DISPATCHER_DATA_INDEX] >= sizeof(dispatcher_data) && "in_pBufferLengths[DISPATCHER_DATA_INDEX] should be at least as the size of dispatcher_data");
 	assert(in_pBufferLengths[MISC_DATA_INDEX] == sizeof(misc_data) && "in_pBufferLengths[MISC_DATA_INDEX] should be at least as the size of misc_data");
@@ -71,7 +73,6 @@ void execute_NDRange(uint32_t         in_BufferCount,
 		return;
 	}
 	exeTask->runTask();
-	NATIVE_PRINTF("Exit execute_NDRange\n");
 }
 
 ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData) : m_dispatcherData(dispatcherData), m_miscData(miscData), 

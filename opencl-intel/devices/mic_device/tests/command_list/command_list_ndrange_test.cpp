@@ -365,55 +365,71 @@ cl_dev_err_code readBuffer(MICDevice* pMicDeviceAgent, cl_dev_cmd_list& pCmdList
 	return err;
 }
 
-bool runNDRangeUnitTest()
+bool runNDRangeUnitTest(unsigned int numOfNDRangeCommands, unsigned int numOfContinuousNDRanges)
 {
+	bool testResult = false;
+
 	cl_dev_err_code					err = CL_DEV_SUCCESS;
-	size_t							commandId = 0;
 	cl_uint							workDim = 1;
 	MICDevice*						pMicDeviceAgent;
 	IOCLFrameworkCallbacks*			pFrameworkCallback;
 	cl_dev_cmd_list					commandList = NULL;
-	cl_dev_cmd_desc					commandDescriptor;
-	memset(&commandDescriptor, 0, sizeof(cl_dev_cmd_desc));
-	cl_dev_cmd_param_kernel			commandParams;
-	memset(&commandParams, 0, sizeof(cl_dev_cmd_param_kernel));
+	cl_dev_cmd_desc*				commandDescriptor = NULL;
+	commandDescriptor = (cl_dev_cmd_desc*)malloc(sizeof(cl_dev_cmd_desc) * numOfNDRangeCommands);
+	assert(commandDescriptor);
+	cl_dev_cmd_param_kernel*		commandParams = NULL;
+	commandParams = (cl_dev_cmd_param_kernel*)malloc(sizeof(cl_dev_cmd_param_kernel) * numOfNDRangeCommands);
+	assert(commandParams);
 	ICLDevBackendKernel_*			pBackendKernel = NULL;
 
-	volatile bool completionFlag = false;
-	volatile bool readCompletionFlag = false;
+	volatile bool* completionFlag = NULL;
+	completionFlag = (volatile bool*)malloc(sizeof(bool) * numOfNDRangeCommands);
+	assert(completionFlag);
+	volatile bool* readCompletionFlag = NULL;
+	readCompletionFlag = (volatile bool*)malloc(sizeof(bool) * numOfNDRangeCommands);
+	assert(readCompletionFlag);
 
 	unsigned int* hostMemObj2 = NULL;
 	unsigned int* hostMemObj3 = NULL;
-	unsigned int* hostMemObj4 = NULL;
+	unsigned int** hostMemObj4 = NULL;
+	hostMemObj4 = (unsigned int**)malloc(sizeof(unsigned int*) * numOfNDRangeCommands);
+	assert(hostMemObj4);
+	memset(hostMemObj4, 0, sizeof(unsigned int*) * numOfNDRangeCommands);
 	// Decleration of kernel args
 	unsigned int					uiArg1 = 256;
 	IOCLDevMemoryObject*			memObj2 = NULL;
 	IOCLDevMemoryObject*			memObj3 = NULL;
-	IOCLDevMemoryObject*			memObj4 = NULL;
+	IOCLDevMemoryObject**			memObj4 = NULL;
+	memObj4 = (IOCLDevMemoryObject**)malloc(sizeof(IOCLDevMemoryObject*) * numOfNDRangeCommands);
+	assert(memObj4);
+	memset(memObj4, 0, sizeof(IOCLDevMemoryObject*) * numOfNDRangeCommands);
 	unsigned int					uiArg5 = 55555;
 	cl_dev_cmd_desc					writeCommandDesc1;
 	cl_dev_cmd_desc					writeCommandDesc2;
-	cl_dev_cmd_desc					readCommandDesc;
+	cl_dev_cmd_desc*				readCommandDesc = (cl_dev_cmd_desc*)malloc(sizeof(cl_dev_cmd_desc) * numOfNDRangeCommands);
+	assert(readCommandDesc);
 	hostMemObj2 = (unsigned int*)malloc(sizeof(unsigned int) * uiArg1);
 	IOCLDevBackingStore* MyIOCLDevBackingStoreOfMemObj2 = new MyIOCLDevBackingStore(hostMemObj2, sizeof(unsigned int) * uiArg1);
 	hostMemObj3 = (unsigned int*)malloc(sizeof(unsigned int) * uiArg1);
 	IOCLDevBackingStore* MyIOCLDevBackingStoreOfMemObj3 = new MyIOCLDevBackingStore(hostMemObj3, sizeof(unsigned int) * uiArg1);
-	hostMemObj4 = (unsigned int*)malloc(sizeof(unsigned int) * uiArg1);
-	IOCLDevBackingStore* MyIOCLDevBackingStoreOfMemObj4 = new MyIOCLDevBackingStore(hostMemObj4, sizeof(unsigned int) * uiArg1);
+	IOCLDevBackingStore** MyIOCLDevBackingStoreOfMemObj4 = (IOCLDevBackingStore**)malloc(sizeof(IOCLDevBackingStore*) * numOfNDRangeCommands);
+	assert(MyIOCLDevBackingStoreOfMemObj4);
 	for (unsigned int i = 0; i < uiArg1; i++)
 	{
 		hostMemObj2[i] = i;
 		hostMemObj3[i] = i * 2;
-		hostMemObj4[i] = 0;
 	}
 	// Set up kernel args blob
 	size_t							blobSize = sizeof(unsigned int) * 2 + sizeof(IOCLDevMemoryObject*) * 3;
-	char*							blob = (char*)malloc(blobSize);
+	char**							blob = (char**)malloc(sizeof(char*) * numOfNDRangeCommands);
 	assert(blob);
-	memset(blob, 0, blobSize);
+	memset(blob, 0, sizeof(char*) * numOfNDRangeCommands);
 	IOCLDevRTMemObjectService* rtMemObjService2 = NULL;
 	IOCLDevRTMemObjectService* rtMemObjService3 = NULL;
-	IOCLDevRTMemObjectService* rtMemObjService4 = NULL;
+	IOCLDevRTMemObjectService** rtMemObjService4 = NULL;
+	rtMemObjService4 = (IOCLDevRTMemObjectService**)malloc(sizeof(IOCLDevRTMemObjectService*) * numOfNDRangeCommands);
+	assert(rtMemObjService4);
+	memset(rtMemObjService4, 0, sizeof(IOCLDevRTMemObjectService*) * numOfNDRangeCommands);
 	do
 	{
 		pFrameworkCallback = new MyCallBackManager();
@@ -427,68 +443,133 @@ bool runNDRangeUnitTest()
 
 		rtMemObjService2 = new MyIOCLDevRTMemObjectService(MyIOCLDevBackingStoreOfMemObj2, pMicDeviceAgent);
 		rtMemObjService3 = new MyIOCLDevRTMemObjectService(MyIOCLDevBackingStoreOfMemObj3, pMicDeviceAgent);
-		rtMemObjService4 = new MyIOCLDevRTMemObjectService(MyIOCLDevBackingStoreOfMemObj4, pMicDeviceAgent);
 
 		err = pMicDeviceAgent->clDevCreateMemoryObject(NULL,CL_MEM_READ_ONLY, NULL, 1,(const size_t*)&uiArg1, rtMemObjService2, (IOCLDevMemoryObject**)&memObj2);
 		checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateMemoryObject() FAILED\n");
 		err = pMicDeviceAgent->clDevCreateMemoryObject(NULL,CL_MEM_READ_ONLY, NULL, 1,(const size_t*)&uiArg1, rtMemObjService3, (IOCLDevMemoryObject**)&memObj3);
 		checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateMemoryObject() FAILED\n");
-		err = pMicDeviceAgent->clDevCreateMemoryObject(NULL,CL_MEM_WRITE_ONLY, NULL, 1,(const size_t*)&uiArg1, rtMemObjService4, (IOCLDevMemoryObject**)&memObj4);
-		checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateMemoryObject() FAILED\n");
 
-		char*	tempBlob = blob;
-		*((unsigned int*)tempBlob) = uiArg1;
-		tempBlob += sizeof(unsigned int);
-		*((IOCLDevMemoryObject**)tempBlob) = memObj2;
-		tempBlob += sizeof(IOCLDevMemoryObject*);
-		*((IOCLDevMemoryObject**)tempBlob) = memObj3;
-		tempBlob += sizeof(IOCLDevMemoryObject*);
-		*((IOCLDevMemoryObject**)tempBlob) = memObj4;
-		tempBlob += sizeof(IOCLDevMemoryObject*);
-		*((unsigned int*)tempBlob) = uiArg5;
+
+		pBackendKernel = new ICLDevBackendKernelStub();
+		assert(pBackendKernel);
+
+		char*	tempBlob = NULL;
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			memset(&(commandDescriptor[i]), 0, sizeof(cl_dev_cmd_desc));
+			memset(&(commandParams[i]), 0, sizeof(cl_dev_cmd_param_kernel));
+			completionFlag[i] = false;
+			readCompletionFlag[i] = false;
+			hostMemObj4[i] = (unsigned int*)malloc(sizeof(unsigned int) * uiArg1);
+			assert(hostMemObj4[i]);
+			memset(hostMemObj4[i], 0, sizeof(unsigned int) * uiArg1);
+			MyIOCLDevBackingStoreOfMemObj4[i] = new MyIOCLDevBackingStore(hostMemObj4[i], sizeof(unsigned int) * uiArg1);
+			blob[i] = (char*)malloc(blobSize);
+			assert(blob[i]);
+			memset(blob[i], 0, blobSize);
+			rtMemObjService4[i] = new MyIOCLDevRTMemObjectService(MyIOCLDevBackingStoreOfMemObj4[i], pMicDeviceAgent);
+			err = pMicDeviceAgent->clDevCreateMemoryObject(NULL,CL_MEM_WRITE_ONLY, NULL, 1,(const size_t*)&uiArg1, rtMemObjService4[i], (IOCLDevMemoryObject**)&(memObj4[i]));
+			checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateMemoryObject() FAILED\n");
+
+			tempBlob = blob[i];
+			*((unsigned int*)tempBlob) = uiArg1;
+			tempBlob += sizeof(unsigned int);
+			*((IOCLDevMemoryObject**)tempBlob) = memObj2;
+			tempBlob += sizeof(IOCLDevMemoryObject*);
+			*((IOCLDevMemoryObject**)tempBlob) = memObj3;
+			tempBlob += sizeof(IOCLDevMemoryObject*);
+			*((IOCLDevMemoryObject**)tempBlob) = memObj4[i];
+			tempBlob += sizeof(IOCLDevMemoryObject*);
+			*((unsigned int*)tempBlob) = uiArg5;
+
+			// set up cl_dev_cmd_param_kernel
+			commandParams[i].kernel = pBackendKernel;
+			commandParams[i].work_dim = workDim;
+			memset(commandParams[i].glb_wrk_offs, 0, sizeof(size_t) * MAX_WORK_DIM);
+			memset(commandParams[i].glb_wrk_size, 0, sizeof(size_t) * MAX_WORK_DIM);
+			memset(commandParams[i].lcl_wrk_size, 0, sizeof(size_t) * MAX_WORK_DIM);
+			commandParams[i].glb_wrk_size[0] = 8;
+			commandParams[i].lcl_wrk_size[0] = 4;
+			commandParams[i].arg_values = blob[i];
+			commandParams[i].arg_size = blobSize;
+			// set up cl_dev_cmd_desc
+			commandDescriptor[i].type = CL_DEV_CMD_EXEC_KERNEL;
+			commandDescriptor[i].id = (void*)(size_t)i;
+			commandDescriptor[i].data = (void*)&(completionFlag[i]);
+			commandDescriptor[i].params = &(commandParams[i]);
+			commandDescriptor[i].param_size = sizeof(cl_dev_cmd_param_kernel);
+			commandDescriptor[i].profiling = true;
+		}
+		checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateMemoryObject() FAILED\n");
 
 		// create command list
 		err = pMicDeviceAgent->clDevCreateCommandList(CL_DEV_LIST_NONE, /* cl_dev_subdevice_id */ NULL, &commandList);
 		checkClDevErrCode(err, "pMicDeviceAgent->clDevCreateCommandList() FAILED\n");
 		assert(commandList);
-		// set up cl_dev_cmd_param_kernel
-		pBackendKernel = new ICLDevBackendKernelStub();
-		assert(pBackendKernel);
-		commandParams.kernel = pBackendKernel;
-		commandParams.work_dim = workDim;
-		memset(commandParams.glb_wrk_offs, 0, sizeof(size_t) * MAX_WORK_DIM);
-		memset(commandParams.glb_wrk_size, 0, sizeof(size_t) * MAX_WORK_DIM);
-		memset(commandParams.lcl_wrk_size, 0, sizeof(size_t) * MAX_WORK_DIM);
-		commandParams.glb_wrk_size[0] = 8;
-		commandParams.lcl_wrk_size[0] = 4;
-		commandParams.arg_values = blob;
-		commandParams.arg_size = blobSize;
-		// set up cl_dev_cmd_desc
-		commandDescriptor.type = CL_DEV_CMD_EXEC_KERNEL;
-		commandDescriptor.id = (void*)commandId;
-		commandDescriptor.data = (void*)&completionFlag;
-		commandDescriptor.params = &commandParams;
-		commandDescriptor.param_size = sizeof(cl_dev_cmd_param_kernel);
-		commandDescriptor.profiling = true;
 
 		err = writeBuffer(pMicDeviceAgent, commandList, false, memObj2, hostMemObj2, sizeof(unsigned int) * uiArg1, &writeCommandDesc1, NULL);
 		checkClDevErrCode(err, "writeBuffer1 FAILED\n");
 		err = writeBuffer(pMicDeviceAgent, commandList, false, memObj3, hostMemObj3, sizeof(unsigned int) * uiArg1, &writeCommandDesc2, NULL);
 		checkClDevErrCode(err, "writeBuffer2 FAILED\n");
-		cl_dev_cmd_desc* pTempCommandDesc = &commandDescriptor;
-		err = pMicDeviceAgent->clDevCommandListExecute(commandList, &pTempCommandDesc, 1);
-		checkClDevErrCode(err, "pMicDeviceAgent->clDevCommandListExecute() FAILED\n");
-		err = readBuffer(pMicDeviceAgent, commandList, false, memObj4, hostMemObj4, sizeof(unsigned int) * uiArg1, &readCommandDesc, &readCompletionFlag);
-		checkClDevErrCode(err, "writeBuffer2 FAILED\n");
-		while (false == completionFlag) {};
-		while (false == readCompletionFlag) {};
-		for (unsigned int i = 0; i < uiArg1; i++)
+		cl_dev_cmd_desc* pTempCommandDesc = NULL;
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
 		{
-			printf("hostMemObj4[%d] = %d\n", i, hostMemObj4[i]);
+			pTempCommandDesc = &(commandDescriptor[i]);
+			err = pMicDeviceAgent->clDevCommandListExecute(commandList, &pTempCommandDesc, 1);
+			checkClDevErrCode(err, "pMicDeviceAgent->clDevCommandListExecute() FAILED\n");
+			if ((i % numOfContinuousNDRanges == 0) && (i > 0))
+			{
+				err = readBuffer(pMicDeviceAgent, commandList, false, memObj4[i], hostMemObj4[i], sizeof(unsigned int) * uiArg1, &(readCommandDesc[i]), &(readCompletionFlag[i]));
+				checkClDevErrCode(err, "readBuffer FAILED\n");
+			}
+		}
+		checkClDevErrCode(err, "pMicDeviceAgent->clDevCommandListExecute() or readBuffer FAILED\n");
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			while (false == completionFlag[i]) 
+			{ 
+				sleep(1);
+			}
+		}
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if ((i % numOfContinuousNDRanges != 0) || (i == 0))
+			{
+				err = readBuffer(pMicDeviceAgent, commandList, false, memObj4[i], hostMemObj4[i], sizeof(unsigned int) * uiArg1, &(readCommandDesc[i]), &(readCompletionFlag[i]));
+				checkClDevErrCode(err, "readBuffer FAILED\n");
+			}
+		}
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			while (false == readCompletionFlag[i]) 
+			{ 
+				sleep(1);
+			}
+		}
+		checkClDevErrCode(err, "readBuffer FAILED\n");
+		testResult = true;
+		for (unsigned int i = 0; ((i < numOfNDRangeCommands) && (testResult)); i++)
+		{
+			for (unsigned int j = 0; j < uiArg1; j++)
+			{
+				if (hostMemObj4[i][j] != hostMemObj2[j] + hostMemObj3[j] + i)
+				{
+					testResult = false;
+					break;
+				}
+			}
 		}
 	}
 	while (0);
 
+	if (completionFlag)
+	{
+		free((void*)completionFlag);
+	}
+	if (readCompletionFlag)
+	{
+		free((void*)readCompletionFlag);
+	}
 	if (writeCommandDesc1.params)
 	{
 		free(writeCommandDesc1.params);
@@ -497,9 +578,16 @@ bool runNDRangeUnitTest()
 	{
 		free(writeCommandDesc2.params);
 	}
-	if (readCommandDesc.params)
+	if (readCommandDesc)
 	{
-		free(readCommandDesc.params);
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if (readCommandDesc[i].params)
+			{
+				free(readCommandDesc[i].params);
+			}
+		}
+		free(readCommandDesc);
 	}
 	if (memObj2)
 	{
@@ -511,7 +599,10 @@ bool runNDRangeUnitTest()
 	}
 	if (memObj4)
 	{
-		memObj4->clDevMemObjRelease();
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			memObj4[i]->clDevMemObjRelease();
+		}
 	}
 	if (hostMemObj2)
 	{
@@ -523,6 +614,13 @@ bool runNDRangeUnitTest()
 	}
 	if (hostMemObj4)
 	{
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if (hostMemObj4[i])
+			{
+				free(hostMemObj4[i]);
+			}
+		}
 		free(hostMemObj4);
 	}
 	if (MyIOCLDevBackingStoreOfMemObj2)
@@ -535,7 +633,14 @@ bool runNDRangeUnitTest()
 	}
 	if (MyIOCLDevBackingStoreOfMemObj4)
 	{
-		delete(MyIOCLDevBackingStoreOfMemObj4);
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if (MyIOCLDevBackingStoreOfMemObj4[i])
+			{
+				delete(MyIOCLDevBackingStoreOfMemObj4[i]);
+			}
+		}
+		free(MyIOCLDevBackingStoreOfMemObj4);
 	}
 	if (rtMemObjService2)
 	{
@@ -547,9 +652,34 @@ bool runNDRangeUnitTest()
 	}
 	if (rtMemObjService4)
 	{
-		delete(rtMemObjService4);
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if (rtMemObjService4[i])
+			{
+				delete(rtMemObjService4[i]);
+			}
+		}
+		free(rtMemObjService4);
 	}
-	free(blob);
+	if (commandDescriptor)
+	{
+		free(commandDescriptor);
+	}
+	if (commandParams)
+	{
+		free(commandParams);
+	}
+	if (blob)
+	{
+		for (unsigned int i = 0; i < numOfNDRangeCommands; i++)
+		{
+			if (blob[i])
+			{
+				free(blob[i]);
+			}
+		}
+		free(blob);
+	}
 	if (pBackendKernel)
 	{
 		delete (pBackendKernel);
@@ -560,7 +690,15 @@ bool runNDRangeUnitTest()
 	}
 	pMicDeviceAgent->clDevCloseDevice();
 	delete (pFrameworkCallback);
-	return true;
+	if (testResult)
+	{
+		printf("runNDRangeUnitTest - Pass\n");
+	}
+	else
+	{
+		printf("runNDRangeUnitTest - Fail\n");
+	}
+	return testResult;
 }
 
 
@@ -581,6 +719,6 @@ bool runNDRangeUnitTest()
 
 int main()
 {
-	runNDRangeUnitTest();
+	runNDRangeUnitTest(1000, 5);
 	return 0;
 }
