@@ -27,111 +27,107 @@
 using namespace OCLCRT::Utils;
 
 OclDynamicLib::OclDynamicLib() :
-	m_hLibrary(NULL)
+    m_hLibrary( NULL )
 {
 }
 
 OclDynamicLib::~OclDynamicLib()
 {
-	Close();
+    Close();
 }
 
-// ------------------------------------------------------------------------------
-// Checks for existance of a file with specified name
-crt_err_code OclDynamicLib::IsExists(const char* pLibName)
+crt_err_code OclDynamicLib::IsExists( const char* pLibName )
 {
-	DWORD rc;
+    DWORD rc;
 
-	rc = GetFileAttributesA(pLibName);
+    rc = GetFileAttributesA(pLibName);
 
-	return ((INVALID_FILE_ATTRIBUTES != rc)?CRT_SUCCESS:CRT_FAIL);
+    return( ( INVALID_FILE_ATTRIBUTES != rc ) ? CRT_SUCCESS : CRT_FAIL );
 }
 
-// ------------------------------------------------------------------------------
-// Loads a dynamically link library into process address space
-crt_err_code OclDynamicLib::Load(const char* pLibName)
+crt_err_code OclDynamicLib::Load( const char* pLibName )
 {
-	if ( NULL != m_hLibrary )
-	{
-		return CRT_FAIL;
-	}
+    if( NULL != m_hLibrary )
+    {
+        return CRT_FAIL;
+    }
 
-	// Load library
-	m_hLibrary = LoadLibraryA(pLibName);
+    // Load library
+    m_hLibrary = LoadLibraryA( pLibName );
 
-	if ( NULL == m_hLibrary )
-	{
-		return CRT_FAIL;
-	}
+    if ( NULL == m_hLibrary )
+    {
+        return CRT_FAIL;
+    }
 
-	// Library was succefully loaded
-	BYTE *hMod = (BYTE*)m_hLibrary;
-	IMAGE_NT_HEADERS *pnt = (IMAGE_NT_HEADERS*)&hMod[PIMAGE_DOS_HEADER(hMod)->e_lfanew];
-	IMAGE_EXPORT_DIRECTORY *exp = (IMAGE_EXPORT_DIRECTORY*)&hMod[pnt->OptionalHeader.DataDirectory->VirtualAddress];
+    // Library was succefully loaded
+    BYTE *hMod = (BYTE*)m_hLibrary;
+    IMAGE_NT_HEADERS *pnt = ( IMAGE_NT_HEADERS* )&hMod[ PIMAGE_DOS_HEADER( hMod )->e_lfanew ];
+    IMAGE_EXPORT_DIRECTORY *exp = ( IMAGE_EXPORT_DIRECTORY* )&hMod[ pnt->OptionalHeader.DataDirectory->VirtualAddress ];
 
-	m_uiFuncCount = exp->NumberOfNames;
-	m_pOffsetNames = (unsigned int*)&hMod[exp->AddressOfNames];
-	m_pOffsetFunc = (unsigned int*)&hMod[exp->AddressOfFunctions];
+    m_uiFuncCount = exp->NumberOfNames;
+    m_pOffsetNames = (unsigned int*)&hMod[ exp->AddressOfNames ];
+    m_pOffsetFunc = (unsigned int*)&hMod[ exp->AddressOfFunctions ];
 
-	return CRT_SUCCESS;
+    return CRT_SUCCESS;
 }
 
 // Loads a dynamically link library into process address space
 void OclDynamicLib::Close()
 {
-	if ( NULL == m_hLibrary )
-	{
-		return;
-	}
+    if( NULL == m_hLibrary )
+    {
+        return;
+    }
 
-	m_uiFuncCount = 0;
-	m_pOffsetNames = NULL;
-	m_pOffsetFunc = NULL;
+    m_uiFuncCount = 0;
+    m_pOffsetNames = NULL;
+    m_pOffsetFunc = NULL;
 
-	FreeLibrary((HMODULE)m_hLibrary);
+    FreeLibrary( (HMODULE)m_hLibrary );
 }
 
 // Returns a number of named functions found in the library
 unsigned int OclDynamicLib::GetNumberOfFunctions() const
 {
-	if ( NULL == m_hLibrary )
-	{
-		return 0;
-	}
-	return m_uiFuncCount;
+    if( NULL == m_hLibrary )
+    {
+        return 0;
+    }
+    return m_uiFuncCount;
 }
 
 // Returns a pointer to function name
-const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
+const char* OclDynamicLib::GetFunctionName( unsigned int uiFuncId ) const
 {
-	if ( (NULL == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
-	{
-		return NULL;
-	}
+    if( ( NULL == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
+    {
+        return NULL;
+    }
 
-	BYTE* hMod = (BYTE*)m_hLibrary;
-	return (const char*)&hMod[m_pOffsetNames[uiFuncId]];
+    BYTE* hMod = (BYTE*)m_hLibrary;
+    return (const char*)&hMod[ m_pOffsetNames[ uiFuncId ] ];
 }
 
 // Returns a function pointer
-const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
+const void* OclDynamicLib::GetFunctionPtr( unsigned int uiFuncId ) const
 {
-	if ( (NULL == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
-	{
-		return NULL;
-	}
+    if( ( NULL == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
+    {
+        return NULL;
+    }
 
-	BYTE* hMod = (BYTE*)m_hLibrary;
-	return (const void*)&hMod[m_pOffsetFunc[uiFuncId]];
+    BYTE* hMod = (BYTE*)m_hLibrary;
+    return (const void*)&hMod[ m_pOffsetFunc[ uiFuncId ] ];
 }
 
 // Returns a function pointer
-OclDynamicLib::func_t	 OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
+OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName( const char* szFuncName ) const
 {
-	if ( NULL == m_hLibrary )
-	{
-		return NULL;
-	}
+    if( NULL == m_hLibrary )
+    {
+        return NULL;
+    }
 
-	return (func_t)GetProcAddress((HMODULE)m_hLibrary, szFuncName);
+    return (func_t)GetProcAddress( (HMODULE)m_hLibrary, szFuncName );
 }

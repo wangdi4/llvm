@@ -29,63 +29,71 @@ using namespace std;
 #include <stdio.h>  // Todo: replace printf with log mechanisem
 #include <assert.h>
 
-void clSleep(int milliseconds)
+void clSleep( int milliseconds )
 {
-	SleepEx(milliseconds, TRUE);
+    SleepEx( milliseconds, TRUE );
 }
 
-/************************************************************************
- * This file is the Windows implementation of the cl_synch_objects interface
-/************************************************************************/
+// This file is the Windows implementation of the cl_synch_objects interface
 using namespace OCLCRT::Utils;
 
-/************************************************************************
- * Creates the mutex section object.
-/************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount)
+// Creates the mutex section object.
+OclMutex::OclMutex( unsigned int uiSpinCount )
 {
     m_mutexHndl = new CRITICAL_SECTION();
-    InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount);
+    InitializeCriticalSectionAndSpinCount( (LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount );
 }
 
-/************************************************************************
- * Destroys the critical section object.
-/************************************************************************/
+// Destroys the critical section object.
 OclMutex::~OclMutex()
 {
-    DeleteCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    DeleteCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
     delete m_mutexHndl;
     m_mutexHndl = NULL;
 }
 
-/************************************************************************
- * Take the lock on this critical section.
- * If lock is acquired, all other threads are blocked on this lock until
- * the current thread unlocked it.
-/************************************************************************/
+// Take the lock on this critical section.
+// If lock is acquired, all other threads are blocked on this lock until
+// the current thread unlocked it.
 void OclMutex::Lock()
 {
-    EnterCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    EnterCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
 }
-/************************************************************************
- * Release the lock
-/************************************************************************/
+// Release the lock
 void OclMutex::Unlock()
 {
-    LeaveCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    LeaveCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
 }
 
 
-OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
+OclAutoMutex::OclAutoMutex( IMutex* mutexObj, bool bAutoLock )
 {
     m_mutexObj = mutexObj;
-	if ( bAutoLock )
-	{
-		m_mutexObj->Lock();
-	}
+    if( bAutoLock )
+    {
+        m_mutexObj->Lock();
+    }
 }
 
 OclAutoMutex::~OclAutoMutex()
 {
     m_mutexObj->Unlock();
+}
+
+// OclBinarySemaphore
+OclBinarySemaphore::OclBinarySemaphore()
+{
+    m_semaphore = CreateEvent( NULL, false, false, NULL );
+}
+OclBinarySemaphore::~OclBinarySemaphore()
+{
+    CloseHandle( m_semaphore );
+}
+void OclBinarySemaphore::Signal()
+{
+    SetEvent( m_semaphore );
+}
+void OclBinarySemaphore::Wait()
+{
+    WaitForSingleObject( m_semaphore, INFINITE );
 }

@@ -7,7 +7,6 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
 	${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
-	${CMAKE_HOME_DIRECTORY}/common_runtime/export
     )
 
 if (DEFINED ENV{DXSDK_DIR})

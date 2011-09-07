@@ -30,22 +30,16 @@
 #include "cl_linux_utils.h"
 #include "cl_types.h"
 #include <icd_dispatch.h>
-#include <crt_dispatch_table.h>
 #include <string>
 #include <map>
+#if defined (DX9_SHARING)
+#include "CL/cl_d3d9.h"
+#endif
 
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
 
-
-//// ------------------------------------
-//// vendor dispatch table structure
-//
-typedef struct: public CRT_ICD_DISPATCH::CrtKHRicdVendorDispatch
-{             
-    /// Add CPU specific Extra functions here
-} ocl_entry_points;
 
 struct _cl_object
 {
@@ -144,3 +138,21 @@ extern cl_int CL_API_CALL clGetKernelArgInfo(
 }
 #endif
 
+
+
+
+//// ------------------------------------
+//// vendor dispatch table structure
+//
+typedef struct: public KHRicdVendorDispatch
+{             
+       KHRpfn_clGetKernelArgInfo                    clGetKernelArgInfo;
+        
+#ifdef DX9_SHARING
+       clGetDeviceIDsFromD3D9Intel_fn           clGetDeviceIDsFromD3D9INTEL;
+       clCreateFromD3D9SurfaceIntel_fn          clCreateFromD3D9SurfaceINTEL;
+       clEnqueueAcquireD3D9ObjectsIntel_fn      clEnqueueAcquireD3D9ObjectsINTEL;
+       clEnqueueReleaseD3D9ObjectsIntel_fn      clEnqueueReleaseD3D9ObjectsINTEL;
+#endif
+    /// Add CPU specific Extra functions here
+} ocl_entry_points;

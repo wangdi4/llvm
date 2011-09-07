@@ -29,102 +29,111 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "export\crt_dispatch_table.h"
+
+
+using namespace CRT_ICD_DISPATCH;
+
 
 namespace OCLCRT
 {
-	namespace SYNCH {
+    namespace SYNCH {
 
-		enum MEM_RESIDENCY
-		{
-			SYNC_BUFFER_WITH_HOST 	= 0x1,	// means device need synchronization when need to read/write to/from host
-			SYNC_IMAGE_WITH_HOST 	= 0x2	// means device need synchronization when need to read/write to/from host				
-		};
-		
-		enum DEVICE_SYNC_ATTRIBUTES
-		{
-			INTEL_GPU	=	0x2,	// For Images, means Intel GPU needs synchronization; For Buffer, it doesn't need to synchronize
-			INTEL_CPU	=	0x0		// For Images and Buffers, there is not need to synchronize
-		};
-	};
+        enum MEM_RESIDENCY
+        {
+            SYNC_BUFFER_WITH_HOST   = 0x1,  // means device need synchronization when need to read/write to/from host
+            SYNC_IMAGE_WITH_HOST    = 0x2   // means device need synchronization when need to read/write to/from host
+        };
+
+        enum DEVICE_SYNC_ATTRIBUTES
+        {
+            INTEL_GPU   =   0x2,    // For Images, means Intel GPU needs synchronization; For Buffer, it doesn't need to synchronize
+            INTEL_CPU   =   0x0     // For Images and Buffers, there is not need to synchronize
+        };
+    };
 
 	class IcdDispatchMgr
 	{
 	public:
 		IcdDispatchMgr();
-        CRT_ICD_DISPATCH::CrtKHRicdVendorDispatch m_crtDispatchTable;		
+		CrtKHRicdVendorDispatch m_crtDispatchTable;		
 	};
 
-		/// Typedefs
-	typedef std::map<cl_device_id,	CrtDeviceInfo*>		DEV_INFO_MAP;
-	typedef std::map<cl_context,	CrtContextInfo*>	CTX_INFO_MAP;	
+        /// Typedefs
+    typedef std::map<cl_device_id,  CrtDeviceInfo*>     DEV_INFO_MAP;
+    typedef std::map<cl_context,    CrtContextInfo*>    CTX_INFO_MAP;
 
-		/// axuiliary functions
-	bool isGLContext(const cl_context_properties*	properties, 
-					 cl_context_properties*			hGL, 
-					 cl_context_properties*			hDC);
-		
-		/// Fixes the properties flag passed from the app to match the underlying platform properties
-		/// Like cl_platform_id need to be fixed.
-	crt_err_code ReplacePlatformId(	const cl_context_properties*	src_properties, 
-									cl_platform_id&					pId, 
-									cl_context_properties**			dst_props, 
-									bool							duplicateProps = true);	
-		/// CrtModule
-	class CrtModule
-	{
-	public:
-		enum INIT_STATE {
-				/// Common Runtime has not been initialized yet
-			NOT_INITIALIZED,
-				/// Common Runtime initialization went OK
-			INITIALIZE_OK,
-				/// Common Runtime failed initializations.
-			INITIALIZE_ERROR			
-		};
+        /// axuiliary functions
+    bool isGLContext(const cl_context_properties*   properties);
 
-		CrtModule();
-		crt_err_code Initialize();
-		void		 Shutdown();
+        /// Fixes the properties flag passed from the app to match the underlying platform properties
+        /// Like cl_platform_id need to be fixed.
+    crt_err_code ReplacePlatformId( const cl_context_properties*    src_properties,
+                                    cl_platform_id&                 pId,
+                                    cl_context_properties**         dst_props,
+                                    bool                            duplicateProps = true);
 
-		cl_int		 isValidProperties(const cl_context_properties* properties);
-		~CrtModule();
 
-			/// Patches underlying device id allowing the CRT
-			/// to intercept some of the CL calls.
-		crt_err_code PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable);		
-		crt_err_code PatchClContextID(cl_context& inContextId, KHRicdVendorDispatch* origDispatchTable);
-		
-			/// Common Runtime platform id
-		cl_platform_id	m_crtPlatformId;
-			
-			/// Common runtime Dispatch table manager.
-		IcdDispatchMgr	m_icdDispatchMgr;
-			
-			/// all underlying managed platforms
-		std::vector<CrtPlatform*>				m_oclPlatforms;		
 
-			/// All underlying managed devices (including
-			/// any created sub devices)
-		DEV_INFO_MAP							m_deviceInfoMap;		
+        /// CrtModule
+    class CrtModule
+    {
+    public:
+        enum INIT_STATE {
+                /// Common Runtime has not been initialized yet
+            NOT_INITIALIZED,
+                /// Common Runtime initialization went OK
+            INITIALIZE_OK,
+                /// Common Runtime failed initializations.
+            INITIALIZE_ERROR
+        };
 
-			/// MAPs for each context (single/shared platform contexts)
-			/// an info data structure
-		CTX_INFO_MAP							m_contextInfo;				
-		
-		
-			/// mutex gaurding CRT data structure modifying
-		Utils::OclMutex							m_mutex;
+        CrtModule();
+        crt_err_code Initialize();
+        void         Shutdown();
 
-			/// default device type
-		cl_device_type							m_defaultDeviceType;
+        cl_int       isValidProperties(const cl_context_properties* properties);
+        ~CrtModule();
 
-	private:
-				
-		CrtConfig								m_crtConfig;
-		INIT_STATE								m_initializeState;		
-		
-	};
-	
+            /// Patches underlying device id allowing the CRT
+            /// to intercept some of the CL calls.
+        crt_err_code PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable);
+        crt_err_code PatchClContextID(cl_context& inContextId, KHRicdVendorDispatch* origDispatchTable);
+
+            /// Common Runtime platform id
+        cl_platform_id  m_crtPlatformId;
+
+            /// Common runtime Dispatch table manager.
+        IcdDispatchMgr  m_icdDispatchMgr;
+
+            /// all underlying managed platforms
+        std::vector<CrtPlatform*>               m_oclPlatforms;
+
+            /// All underlying managed devices (including
+            /// any created sub devices)
+
+
+        GuardedMap<cl_device_id,CrtDeviceInfo*> m_deviceInfoMapGuard;
+
+
+            /// MAPs for each context (single/shared platform contexts)
+            /// an info data structure
+        GuardedMap<cl_context,CrtContextInfo*>  m_contextInfoGuard;
+
+
+            /// mutex gaurding CRT data structure modifying
+        Utils::OclMutex                         m_mutex;
+
+            /// default device type
+        cl_device_type                          m_defaultDeviceType;
+
+        static char*                            m_common_extensions;
+    private:
+
+        CrtConfig                               m_crtConfig;
+        INIT_STATE                              m_initializeState;
+        DEV_INFO_MAP                            m_deviceInfoMap;
+        CTX_INFO_MAP                            m_contextInfo;
+    };
+
 
 };

@@ -23,46 +23,67 @@
 #pragma once
 #include <assert.h>
 
-namespace OCLCRT { namespace Utils {
+namespace OCLCRT
+{
 
-	void clSleep(int milliseconds);
+namespace Utils
+{
 
-
-    class IMutex
-    {
-    public:
-		IMutex() {}
-        virtual void Lock()=0;
-        virtual void Unlock()=0;
-        virtual ~IMutex(){}
-	private:
-		//Disallow copying
-		IMutex(const IMutex& im) {}
-    };
-
- 
-    class OclMutex: public IMutex
-    {
-    public:
-        OclMutex(unsigned int uiSpinCount = 4000);
-        virtual ~OclMutex ();
-        void Lock();
-        void Unlock();
-	protected:
-		void* m_mutexHndl;
-    private:	
-	unsigned int m_uiSpinCount;
-    };
+void clSleep( int milliseconds );
 
 
-	class OclAutoMutex
-    {
-    public:
-        OclAutoMutex(IMutex* mutexObj, bool bAutoLock = true);
-        ~OclAutoMutex();
+class IMutex
+{
+public:
+    IMutex() {}
+    virtual void Lock() = 0;
+    virtual void Unlock() = 0;
+    virtual ~IMutex(){}
+private:
+    //Disallow copying
+    IMutex( const IMutex& im ) {}
+};
 
-    private:
-        IMutex* m_mutexObj;
-    };	
 
-}};
+class OclMutex: public IMutex
+{
+public:
+    OclMutex( unsigned int uiSpinCount = 4000 );
+    virtual ~OclMutex ();
+    void Lock();
+    void Unlock();
+protected:
+    void* m_mutexHndl;
+private:    
+unsigned int m_uiSpinCount;
+};
+
+
+class OclAutoMutex
+{
+public:
+    OclAutoMutex( IMutex* mutexObj, bool bAutoLock = true );
+    ~OclAutoMutex();
+
+private:
+    IMutex* m_mutexObj;
+};  
+
+// Wait until being signaled
+class OclBinarySemaphore
+{
+public:
+    OclBinarySemaphore();
+    virtual ~OclBinarySemaphore();
+
+    // Signals the semaphore. 
+    void Signal();
+
+    // Consumes a signal
+    void Wait();
+protected:
+    void* m_semaphore;
+};
+
+} // namespace Utils
+}; // namespace OCLCRT

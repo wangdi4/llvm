@@ -30,11 +30,11 @@
 class CrtConfig
 {
 public:
-	CrtConfig();
-	crt_err_code Init();
-	cl_uint getNumPlatforms();
-	std::string& getPlatformLibName(cl_uint index);
-	~CrtConfig();
+    CrtConfig();
+    crt_err_code Init();
+    cl_uint getNumPlatforms();
+    std::string& getPlatformLibName(cl_uint index);
+    ~CrtConfig();
 private:
-	std::vector<std::string>	m_libraryNames;	
+    std::vector<std::string>    m_libraryNames; 
 };

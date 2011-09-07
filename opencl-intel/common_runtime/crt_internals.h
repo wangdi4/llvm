@@ -32,410 +32,497 @@
 
 using namespace OCLCRT::Utils;
 
-	/// Forward declarations and typedefs
+/// Forward declarations and typedefs
 class CrtContext;
 class CrtMemObject;
 class CrtBuffer;
 class CrtImage;
 class CrtObject;
-typedef std::map<cl_device_id, cl_context>	DEV_CTX_MAP;	
-typedef std::map<cl_context, KHRicdVendorDispatch*>	SHARED_CTX_DISPATCH;
-typedef std::map<cl_context, cl_mem>		CTX_MEM_MAP;
+struct CrtSampler;
+class SyncManager;
+typedef std::map<cl_device_id, cl_context>          DEV_CTX_MAP;
+typedef std::map<cl_context, KHRicdVendorDispatch*> SHARED_CTX_DISPATCH;
+typedef std::map<cl_context, cl_mem>                CTX_MEM_MAP;
+typedef std::map<cl_context, cl_program>            CTX_PGM_MAP;
+typedef std::map<cl_context, cl_kernel> CTX_KRN_MAP;
+typedef std::map<cl_context, cl_sampler>            CTX_SMP_MAP;
 
-	/// CRT handles definition
+bool operator==(const cl_image_format &rhs1, const cl_image_format &rhs2);
+bool operator<(const cl_image_format &rhs1, const cl_image_format &rhs2);
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+    /// All objects inheret from this, like Buffer/Image/Sampler
+class CrtObject
+{
+public:
+
+    CrtObject();
+    virtual ~CrtObject(){};
+
+    enum CrtObjectType
+    {
+        CL_BUFFER       = 0x1,
+        CL_SUB_BUFFER   = 0x2,
+        CL_IMAGE        = 0x4,
+        CL_SAMPLER      = 0x8,
+        CL_INVALID      = 0x10
+    };
+    virtual CrtObjectType getObjectType() const { return CL_INVALID; };
+
+    long IncRefCnt();
+    long DecRefCnt();
+    long IncPendencyCnt();
+    long DecPendencyCnt();
+
+    long         m_refCount;
+    long         m_pendencyCount;
+};
+/// CRT handles definition
 struct CrtPlatform
-{		
-	cl_platform_id 	m_platformIdDEV;
-	OclDynamicLib	m_lib;
+{
+    cl_platform_id  m_platformIdDEV;
+    char*           m_supportedExtensionsStr;
+    char*           m_icdSuffix;
+    cl_int          m_supportedExtensions;
+    OclDynamicLib   m_lib;
 };
 
 struct CrtDeviceInfo
-{	
-		/// platform id of the device	
-	cl_platform_id					m_platformIdDEV;	
+{
+    /// platform id of the device
+    cl_platform_id                  m_platformIdDEV;
 
-		///	device Id changed; some functions replaced with CRT functions	
-	KHRicdVendorDispatch			m_origDispatchTable;
-		
-		/// Singlas if this an original device
-		/// or created using device fission
-	bool							m_isRootDevice;
-		
-		/// Device capabilties as table 4.3 in spec 1.1	
-	cl_device_exec_capabilities		m_deviceCapabilities;
+    /// device Id changed; some functions replaced with CRT functions
+    KHRicdVendorDispatch            m_origDispatchTable;
 
-		/// refCount valid for Sub-Devices only
-	cl_uint							m_refCount;
+    /// Signals if this an original device
+    /// or created using device fission
+    bool                            m_isRootDevice;
 
-		///	Vector defining if we need to sync and what and which direction
-	unsigned int					m_syncAttribs;
+    /// Device capabilties as table 4.3 in spec 1.1
+    cl_device_exec_capabilities     m_deviceCapabilities;
+
+        /// refCount valid for Sub-Devices only
+    long                            m_refCount;
+
+    /// Vector defining if we need to sync and what and which direction
+    unsigned int                    m_syncAttribs;
 };
 
 struct CrtContextInfo
 {
-		/// Specifies the type of context, whether its
-	enum ContextType
-	{
-		SinglePlatformContext,
-		SharedPlatformContext
-	};
-	ContextType				m_contextType;
-	cl_context_properties	m_gLHGLRCHandle;
-    cl_context_properties	m_gLHDCHandle;
-	void*					m_object;
+        /// Specifies the type of context, whether its
+    enum ContextType
+    {
+        SinglePlatformContext,
+        SharedPlatformContext
+    };
+        /// Context Type
+    ContextType             m_contextType;
+
+        /// Used for single device context
+        /// Allows better vendor extensions
+        /// handling.
+    cl_platform_id          m_platformId;
+
+    /// For single device context: pointer to original dispatch table
+    /// For shared device context: poiter to CrtContext
+    void*                   m_object;
 };
 
-struct CrtProgram
+struct CrtProgram: public CrtObject
 {
-    typedef std::map<cl_context, cl_program> CTX_PGM_MAP;
+    CrtProgram(CrtContext* ctx);
+    virtual ~CrtProgram();
     CTX_PGM_MAP             m_ContextToProgram;
-	CrtContext*             m_contextCRT;
-		/// refCount for handling retain/release
-	cl_uint				    m_refCount;
+    CrtContext*             m_contextCRT;
+        /// refCount for handling retain/release
+    cl_int                  Release();
 };
 
-struct CrtKernel
+struct CrtKernel: public CrtObject
 {
-    typedef std::map<cl_context, cl_kernel> CTX_KER_MAP;
-    CTX_KER_MAP             m_ContextToKernel;
-	CrtProgram*             m_programCRT;
-		/// refCount for handling retain/release
-	cl_uint				    m_refCount;
+    CrtKernel(CrtProgram* program);
+    virtual ~CrtKernel();
+    CTX_KRN_MAP             m_ContextToKernel;
+    CrtProgram*             m_programCRT;
+
+    cl_int                  Release();
 };
-struct CrtQueue
-{	
-	CrtQueue(): m_refCount(1){}
-	cl_command_queue 	m_cmdQueueDEV;
-	cl_device_id 		m_device; 
-	CrtContext* 		m_contextCRT;		
-		/// refCount for handling retain/release
-	cl_uint				m_refCount;
+struct CrtQueue: public CrtObject
+{
+    CrtQueue(CrtContext* ctx);
+    virtual ~CrtQueue();
+    cl_command_queue    m_cmdQueueDEV;
+    cl_device_id        m_device;
+    CrtContext*         m_contextCRT;
+
+    cl_int              Release();
 };
 
 
 
-struct CrtEvent
-{	
-	CrtEvent(bool isUserEvent = false): m_refCount(1), m_isUserEvent(isUserEvent){}
-	CrtContext* getContext() { return m_queueCRT->m_contextCRT; }
-	virtual ~CrtEvent();
-	CrtQueue* 	m_queueCRT;
-	cl_event 	m_eventDEV;	
-	/// Underlying context identifer
-	cl_uint		m_refCount;
-	bool		m_isUserEvent;
+struct CrtEvent: public CrtObject
+{
+    CrtEvent(CrtQueue* queue, bool isUserEvent = false);
+    virtual     ~CrtEvent();
+
+    CrtQueue*   m_queueCRT;
+    cl_event    m_eventDEV;
+    bool        m_isUserEvent;
+
+    virtual cl_int      Release();
+    CrtContext* getContext() { return m_queueCRT->m_contextCRT; }
 };
 
 struct CrtUserEvent: public CrtEvent
 {
-	CrtUserEvent(): CrtEvent(true){}
-	CrtContext* getContext() { return m_pContext; }
-	virtual ~CrtUserEvent();
-	CrtContext*	m_pContext;
-	std::map<cl_context, cl_event> m_ContextToEvent;
+    CrtUserEvent(CrtContext* ctx);
+    virtual     ~CrtUserEvent();
+
+    CrtContext* m_pContext;
+    std::map<cl_context, cl_event> m_ContextToEvent;
+
+    virtual cl_int      Release();
+    CrtContext* getContext() { return m_pContext; }
 };
 
-
-
-/// ------------------------------------------------------------------------------
-///
-/// ------------------------------------------------------------------------------
-	/// All objects inheret from this, like Buffer/Image/Sampler
-class CrtObject
-{
-public:
-	enum MemObjType
-	{
-		CL_BUFFER 		= 0x1,
-		CL_SUB_BUFFER 	= 0x2,
-		CL_IMAGE  		= 0x4,
-		CL_SAMPLER		= 0x8,
-		CL_INVALID		= 0x10
-	};
-	virtual MemObjType getObjectType() const = 0;			
-};
 
 class CrtMemObject: public CrtObject
 {
 public:
-		/// Ctor
-	CrtMemObject(
-		cl_mem_flags		flags, 
-		void*				hostPtr, 
-		CrtContext*			ctx);
+        /// Ctor
+    CrtMemObject(
+        cl_mem_flags        flags,
+        void*               hostPtr,
+        CrtContext*         ctx);
 
-	virtual ~CrtMemObject();
-		// Get the memory object belong to the device in the input	
-	virtual cl_mem getDeviceMemObj(cl_device_id deviceId);
+    virtual ~CrtMemObject();
+        // Get the memory object belong to the device in the input
+    virtual cl_mem getDeviceMemObj(cl_device_id deviceId);
 
-		/// Get Type of memory object (CL_BUFFER, CL_IMAGE)
-	virtual MemObjType getObjectType() const  {  return CrtObject::CL_INVALID;  }
+        /// Some entries might be non-valid since the devices don't
+        /// support the image format param
+	virtual cl_mem getAnyValidDeviceMemObj();
 
-	virtual cl_int RegisterDestructorCallback(mem_dtor_fn memDtorFunc, void* user_data);
+        /// Get Type of memory object (CL_BUFFER, CL_IMAGE)
+    virtual CrtObjectType getObjectType() const  {  return CrtObject::CL_INVALID;  }
 
-		/// Used whenever the device cannot share memory with host
-	virtual cl_event SynchronizeFromDeviceToHost( 
-		CrtDeviceInfo*	sourceDevice, 
-		CrtContext*		context) {	return NULL; }
+    virtual cl_int RegisterDestructorCallback(mem_dtor_fn memDtorFunc, void* user_data);
 
-	virtual cl_event SynchronizeToDeviceFromHost( 
-		CrtDeviceInfo*	targetDevice, 
-		CrtContext*		context,  
-		cl_event* eventWaitList) {	return NULL; }
+        /// Used whenever the device cannot share memory with host
+    virtual cl_event SynchronizeFromDeviceToHost(
+        CrtDeviceInfo*  sourceDevice,
+        CrtContext*     context) {  return NULL; }
 
-	virtual cl_int Create(CrtMemObject** memObj) { return CL_SUCCESS; };
+    virtual cl_event SynchronizeToDeviceFromHost(
+        CrtDeviceInfo*  targetDevice,
+        CrtContext*     context,
+        cl_event* eventWaitList) {  return NULL; }
 
-	virtual cl_int Release();	
+    virtual cl_int Create(CrtMemObject** memObj) { return CL_SUCCESS; };
 
-		/// Map between underlying contexts and memory objects	
-	CTX_MEM_MAP 	m_ContextToMemObj;	
+    virtual cl_int Release();
 
-		/// Pointer to shared context
-	CrtContext*			m_pContext;	
+    bool HasPrivateCopy();
 
-		/// Internal reference counting
-	cl_uint				m_refCount;
+        /// Map between underlying contexts and memory objects
+    CTX_MEM_MAP     m_ContextToMemObj;
 
-protected:
-		/// memory creation flags as stated by the user
-	cl_mem_flags		m_flags;				
-		/// User provided pointer at creation time		
-	void*				m_pUsrPtr;				
-		/// Backing store pointer
-	void*				m_pBstPtr;					
-		
+        /// Pointer to shared context
+    CrtContext*         m_pContext;
+
+        /// Internal reference counting
+    long                m_refCount;
+
+        /// backing store memory size
+    size_t              m_size;
+
+        /// memory creation flags as stated by the user
+    cl_mem_flags        m_flags;
+
+        /// User provided pointer at creation time
+    void*               m_pUsrPtr;
+
+        /// Backing store pointer
+    void*               m_pBstPtr;
+
 };
 
 
 class CrtBuffer: public CrtMemObject
 {
-public:		
-		/// Buffer Ctor
-	CrtBuffer(
-		const size_t	size, 
-		cl_mem_flags	flags, 
-		void*			host_ptr, 
-		CrtContext*		ctx);	
-	
-		/// Sub-buffer Ctor
-	CrtBuffer(
-		CrtBuffer*		parent_buffer,
-		cl_mem_flags	flags,		
-		CrtContext*		ctx);	
+public:
+        /// Buffer Ctor
+    CrtBuffer(
+        const size_t    size,
+        cl_mem_flags    flags,
+        void*           host_ptr,
+        CrtContext*     ctx);
 
-	virtual ~CrtBuffer();
+        /// Sub-buffer Ctor
+    CrtBuffer(
+        _cl_mem_crt*    parent_buffer,
+        cl_mem_flags    flags,
+        CrtContext*     ctx);
 
-	MemObjType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
+    virtual ~CrtBuffer();
 
-		/// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
-	cl_int Create(CrtMemObject**			memObj);	
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
 
-		/// Used for creating sub-buffers
-	cl_int Create(
-		CrtMemObject**			memObj,
-		cl_buffer_create_type	buffer_create_type,
-		const void *            buffer_create_info);
+        /// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
+    cl_int Create(CrtMemObject**            memObj);
 
+        /// Used for creating sub-buffers
+    cl_int Create(
+        CrtMemObject**          memObj,
+        cl_buffer_create_type   buffer_create_type,
+        const void *            buffer_create_info);
 
-	
-private:
-	CrtBuffer*	m_parentBuffer;
-	size_t		m_size; // buffer size
+        /// Used by sub-buffers
+    _cl_mem_crt*    m_parentBuffer;
 };
 
+size_t  GetImageElementSize(const cl_image_format * format);
 
 class CrtImage: public CrtMemObject
 {
-public:		
-		/// Buffer Ctor
-	CrtImage(
-		cl_mem_object_type		image_type,
-		const cl_image_format * image_format,
-		size_t                  image_width,
-		size_t                  image_height,
-		size_t                  image_depth,
-		size_t                  image_row_pitch,
-		size_t                  image_slice_pitch, 
-		cl_mem_flags			flags, 
-		void*					host_ptr, 
-		CrtContext*				ctx);	
-		
+public:
+        /// Buffer Ctor
+    CrtImage(
+        cl_mem_object_type      image_type,
+        const cl_image_format * image_format,
+        size_t                  image_width,
+        size_t                  image_height,
+        size_t                  image_depth,
+        cl_mem_flags            flags,
+        void*                   host_ptr,
+        CrtContext*             ctx);
 
-	virtual ~CrtImage();
 
-	MemObjType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
+    virtual ~CrtImage();
 
-		/// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
-	cl_int Create(CrtMemObject**	memObj);	
-		
-private:
-		/// Inspects the image format and returns the corresponding
-		/// element size
-	size_t	GetElementSize() const;
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
 
-	cl_mem_object_type			m_imageType;
-	const cl_image_format *		m_imageFormat;
-	size_t						m_imageWidth;
-	size_t						m_imageHeight;
-	size_t						m_imageDepth;
-	size_t						m_imageRowPitch;
-	size_t						m_imageSlicePitch;
+        /// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
+    cl_int Create(size_t rowPitch, size_t slicePitch, CrtMemObject** memObj);
 
-	size_t						m_size;
+    const cl_image_format *     m_imageFormat;
+    size_t                      m_imageWidth;
+    size_t                      m_imageHeight;
+    size_t                      m_imageDepth;
+
+        /// Parameteres forwarded by the CRT to the
+        /// Underlying platforms
+    size_t                      m_imageRowPitch;
+    size_t                      m_imageSlicePitch;
+
+        /// Parameters provided by the user on image create
+    size_t                      m_hostPtrRowPitch;
+    size_t                      m_hostPtrSlicePitch;
+
+        /// Specifies Image type (Image2D/Image3D)
+    cl_mem_object_type          m_imageType;
+        /// For Image2D this will be =2
+        /// For Image3D this will be =3
+    cl_uint                     m_dimCount;
 };
 
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
 
-	/// Shared Platform Context
-	/// Manages a number of underlying contexts 
-	/// created on the different platforms
-class CrtContext
+    /// Shared Platform Context
+    /// Manages a number of underlying contexts
+    /// created on the different platforms
+class CrtContext: public CrtObject
 {
 public:
-	CrtContext(
-		cl_context 						context_handle,
-		const cl_context_properties *	properties,
-		cl_uint							num_devices,
-		const cl_device_id *			devices,
-		logging_fn						pfn_notify,
-		void *							user_data,
-		cl_int *						errcode_ret);
+    CrtContext(
+        cl_context                      context_handle,
+        const cl_context_properties *   properties,
+        cl_uint                         num_devices,
+        const cl_device_id *            devices,
+        logging_fn                      pfn_notify,
+        void *                          user_data,
+        cl_int *                        errcode_ret);
 
-	virtual ~CrtContext();
-		/// Memory APIs
-	cl_int CreateBuffer( 
-		cl_mem_flags			flags, 
-		size_t					size, 
-		void *					host_ptr,		
-		CrtMemObject**			memObj);
+    virtual ~CrtContext();
+        /// Memory APIs
+    cl_int CreateBuffer(
+        cl_mem_flags            flags,
+        size_t                  size,
+        void *                  host_ptr,
+        CrtMemObject**          memObj);
 
-	cl_int CreateSubBuffer( 
-		CrtBuffer*				parent_buffer,
-		cl_mem_flags			flags,		
-		cl_buffer_create_type	buffer_create_type,
-		const void *            buffer_create_info,
-		CrtMemObject**			memObj);
-		
-	cl_int CreateImage(
-		cl_mem_object_type		mem_obj_type,
-		cl_mem_flags            flags,
-		const cl_image_format * image_format,
-		size_t                  image_width,
-		size_t                  image_height,
-		size_t                  image_depth,
-		size_t                  image_row_pitch,
-		size_t                  image_slice_pitch,
-		void *                  host_ptr,
-		CrtMemObject**			memObj);
-	
-		/// Command Queue and Build
-	cl_int	CreateCommandQueue(	
-		cl_device_id					device, 
-		cl_command_queue_properties		properties, 
-		CrtQueue**						crtQueue);
-	
-    cl_int CreateProgramWithSource( cl_uint            count ,
-                                    const char **      strings ,
-                                    const size_t *     lengths ,
-                                    CrtProgram **      crtProgram );
+    cl_int CreateSubBuffer(
+        _cl_mem_crt*            parent_buffer,
+        cl_mem_flags            flags,
+        cl_buffer_create_type   buffer_create_type,
+        const void *            buffer_create_info,
+        CrtMemObject**          memObj);
 
-		/// Flush all command queues on all devices
-	cl_int FlushQueues();
+    cl_int CreateImage(
+        cl_mem_object_type      mem_obj_type,
+        cl_mem_flags            flags,
+        const cl_image_format * image_format,
+        size_t                  image_width,
+        size_t                  image_height,
+        size_t                  image_depth,
+        size_t                  image_row_pitch,
+        size_t                  image_slice_pitch,
+        void *                  host_ptr,
+        CrtMemObject**          memObj);
 
-		/// Used when some devices cannot share memory with Host
-	bool memObjectAlwaysInSync(CrtObject::MemObjType objType) const {	return true;  }
-	bool memObjectAlwaysNotInSync(CrtObject::MemObjType objType) const {	return false; }	
+    cl_int CreateSampler(
+        cl_bool                 normalized_coords,
+        cl_addressing_mode      addressing_mode,
+        cl_filter_mode          filter_mode,
+        CrtSampler**            sampler);
 
-		/// Get the alignment agreed by all moinitored devices
-		/// Returns value in bytes
-	cl_uint getAlignment() const { return (m_alignment >> 3); }
+        /// Command Queue and Build
+    cl_int  CreateCommandQueue(
+        cl_device_id                    device,
+        cl_command_queue_properties     properties,
+        CrtQueue**                      crtQueue);
+
+    cl_int CreateProgramWithSource(
+        cl_uint            count ,
+        const char **      strings ,
+        const size_t *     lengths ,
+        CrtProgram **      crtProgram );
+
+
+    cl_int CreateProgramWithBinary(
+        cl_uint                 num_devices,
+        const cl_device_id *    device_list,
+        const size_t *          lengths,
+        const unsigned char **  binaries,
+        cl_int *                binary_status,
+        CrtProgram **           crtProgram );
+
+
+    cl_device_id GetKernelReflectionDevice();
+
+        /// Flush all command queues on all devices
+    cl_int FlushQueues();
+
+        /// Used when some devices cannot share memory with Host
+    bool memObjectAlwaysInSync(CrtObject::CrtObjectType objType) const {    return true;  }
+    bool memObjectAlwaysNotInSync(CrtObject::CrtObjectType objType) const { return false; }
+
+        /// Get the alignment agreed by all moinitored devices
+        /// Returns value in bytes
+    cl_uint getAlignment() const { return (m_alignment >> 3); }
 
         /// Returns the Context to which the device belongs
     inline cl_context GetContextByDeviceID( cl_device_id devID ) { return m_DeviceToContext[devID]; }
-		
-		/// Returns in (outDevices, outNumDevices) the devices which belong
-		/// to the input platform id (pId)
-	void GetDevicesByPlatformId(
-		const cl_uint			inNumDevices, 
-		const cl_device_id*		inDevices, 
-		const cl_platform_id&	pId, 
-		cl_uint*				outNumDevices, 
-		cl_device_id*			outDevices);	
 
-		/// Get Context reference count
-	cl_int GetReferenceCount(cl_uint* refCountParam);
+        /// Returns in (outDevices, outNumDevices) the devices which belong
+        /// to the input platform id (pId)
+    void GetDevicesByPlatformId(
+        const cl_uint           inNumDevices,
+        const cl_device_id*     inDevices,
+        const cl_platform_id&   pId,
+        cl_uint*                outNumDevices,
+        cl_device_id*           outDevices);
 
-		/// Store for all underlying contexts	
-		/// for each it stores the original dispatch table
-		/// pointer too.
-	SHARED_CTX_DISPATCH		m_contexts;
-	
-		/// Map from device id to matching underlying context couplying that device id
-	DEV_CTX_MAP				m_DeviceToContext;
+    void GetDevsIndicesByPlatformId(
+        const cl_uint           inNumDevices,
+        const cl_device_id*     inDevices,
+        const cl_platform_id&   pId,
+        cl_uint*                outNumIndices,
+        cl_uint*                outIndices);
 
-		/// Release all underlying contexts
-	cl_int Release();
-				
-		/// Context reference counting
-	cl_uint					m_refCount;
-		/// We need to keep track of all command queue for flush/finish/WaitForEvents
-	std::list<cl_command_queue>	m_commandQueues;
+        /// Get Context reference count
+    cl_int GetReferenceCount(cl_uint* refCountParam);
 
-	cl_context				m_context_handle;
-private:	
-		
+        /// Store for all underlying contexts
+        /// for each it stores the original dispatch table
+        /// pointer too.
+    SHARED_CTX_DISPATCH     m_contexts;
 
-		/// Calculate the alignment agreed by all devices
-		/// In this context
-	cl_int GetDevicesPreferredAlignment(
-		const cl_uint			numDevices, 
-		const cl_device_id*		devices, 
-		cl_uint*				alignment);
+        /// Map from device id to matching underlying context couplying that device id
+    DEV_CTX_MAP             m_DeviceToContext;
 
-		
-		/// Common alignment agreed by all devices in the context
-	cl_uint m_alignment; 
-	
+        /// Release all underlying contexts
+    cl_int Release();
+
+        /// We need to keep track of all command queue for flush/finish/WaitForEvents
+    std::list<cl_command_queue> m_commandQueues;
+    
+    cl_context              m_context_handle;
+
+    cl_device_id            m_kernelReflectionDevice;
+private:
+
+
+        /// Calculate the alignment agreed by all devices
+        /// In this context
+    cl_int GetDevicesPreferredAlignment(
+        const cl_uint           numDevices,
+        const cl_device_id*     devices,
+        cl_uint*                alignment);
+
+
+        /// Common alignment agreed by all devices in the context
+    cl_uint m_alignment;
+
 };
 
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
 
-class CrtSampler: public CrtObject
+struct CrtSampler: public CrtObject
 {
-	MemObjType getObjectType() const {  return CrtObject::CL_SAMPLER; }
+    CTX_SMP_MAP             m_ContextToSampler;
+    cl_int Release();
+    CrtObjectType getObjectType() const {  return CrtObject::CL_SAMPLER; }
 };
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-	/// Mem destructor callback and user data
+    /// Mem destructor callback and user data
 struct CrtMemDtorCallBackData
 {
-	cl_uint			m_count;
+    long            m_count;
 
-	CrtMemObject**  m_clMemHandle;
+    CrtMemObject*  m_clMemHandle;
 
-} ;
+};
 
 void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData);
 
 
-typedef struct _CrtEventCallBackData
+struct CrtEventCallBackData
 {
-	cl_event	m_eventDEV;
-	cl_uint		numReqCalls;
-}CrtEventCallBackData;
+    cl_event    m_eventDEV;
+    long        numReqCalls;
+};
 
-typedef struct _CrtBuildCallBackData
+struct CrtBuildCallBackData
 {
-    prog_logging_fn     pfn_notify;
-    void *              user_data;
-    cl_uint             numBuild;
-}CrtBuildCallBackData;
+    prog_logging_fn                     m_pfnNotify;
+    void *                              m_userData;
+    long                                m_numBuild;
+    cl_program                          m_clProgramHandle;
+    OCLCRT::Utils::OclBinarySemaphore   m_lock;
+};
+
+void CL_CALLBACK buildCompleteFn( cl_program program, void *userData );
+
 void CL_CALLBACK CrtEventCallBack(cl_event e, cl_int status, void* user_data);
+
+struct CrtMapUnmapCallBackData
+{
+    CrtEvent*               m_userEvent;    // UserEvent to fire
+    cl_int                  m_syncWay;      // True -> Map ;  False -> Unmap
+    CrtMemObject*           m_memObj;
+    long                    m_numDepEvents;
+};
+void CL_CALLBACK CrtMapUnmapCallBack(cl_event e, cl_int status, void* user_data);
 
 
 /// ------------------------------------------------------------------------------
@@ -443,127 +530,118 @@ void CL_CALLBACK CrtEventCallBack(cl_event e, cl_int status, void* user_data);
 /// ------------------------------------------------------------------------------
 
 
-	/// Class SyncManager
-	///
-	/// 1. Responsible for triggering memory synchronization process
-	///		in case some devices aren't synched with host memory.
-	///
-	/// 2. Responsible for creating the common runtime user event which
-	///		connects between events belonging to different queues on different
-	///		underlying contexts.
-	///
-	/// This class needs to be used in the following manner:
-	///		1. Create EventsPartitioner object
-	///		2. Init() the created object
-	///		3. Destroy the created object
+/// Class SyncManager
+///
+/// 1. Responsible for triggering memory synchronization process
+///     in case some devices aren't synched with host memory.
+///
+/// 2. Responsible for creating the common runtime user event which
+///     connects between events belonging to different queues on different
+///     underlying contexts.
+///
+/// This class needs to be used in the following manner:
+///     1. Create EventsPartitioner object
+///     2. Init() the created object
+///     3. Destroy the created object
 
 class SyncManager
 {
 public:
-	SyncManager();
-	~SyncManager();
-	cl_int PrepareToExecute(
-		CrtQueue*		queue,
-		cl_uint			NumEventsInWaitList,
-		const cl_event*	inEventWaitList,
-		cl_uint*		numOutEvents,
-		cl_event**		OutEvents,
-		const cl_uint	numMemObjects,
-		CrtMemObject*	memObjects);
+
+    enum SYNC_WAY
+    {
+        SYNC_FROM_BACKING_STORE,
+        SYNC_TO_BACKING_STORE
+    };
+
+    SyncManager();
+    ~SyncManager();
+    cl_int PrepareToExecute(
+        CrtQueue*       queue,
+        cl_uint         NumEventsInWaitList,
+        const cl_event* inEventWaitList,
+        cl_uint*        numOutEvents,
+        cl_event**      OutEvents,
+        const cl_uint   numMemObjects,
+        CrtMemObject**  memObjects);
+
+    cl_int SyncManager::PreExecuteMemSync(
+        SYNC_WAY        syncWay,
+        CrtQueue*       queue,
+        CrtMemObject*   memObj,
+        cl_uint         numDepEvents,
+        cl_event*       depEvents,
+        CrtEvent**      outEvent);
+
+    cl_int PostExecuteMemSync(
+        SYNC_WAY        syncWay,
+        CrtQueue*       queue,
+        CrtMemObject*   memObj,
+        CrtEvent*       depEvent,
+        CrtEvent**      outEvent);
+
+    void Release(cl_int errCode);
+
 private:
-	CrtEventCallBackData*	m_callBackData;
-	cl_event*				m_outEventArray;
-	bool					m_eventRetained;
-	cl_event				m_userEvent;
+
+
+    CrtEventCallBackData*       m_callBackData;
+    cl_event*                   m_outEventArray;
+    bool                        m_eventRetained;
+    cl_event                    m_userEvent;
+    CrtMapUnmapCallBackData*    m_postCallBackData;
 };
 
-	
-
-class CrtBuildMgr 
+    /// This class is used to protect access to shared STL Map resource
+/// We need this since, on STL, its not thread-safe to call multiple functions
+/// on the same resource where one of them is write operation.
+template <class TKEY, class TVAL>
+class GuardedMap
 {
 public:
-	CrtBuildMgr()
-	{
-		m_buildData     = NULL;
-        m_CRTProgram    = NULL;
-        m_numBuild      = 0;
-    }
 
-    cl_uint Init(cl_program pgm)
+    GuardedMap(std::map<TKEY, TVAL>& map):m_map(map){};
+
+    std::map<TKEY, TVAL>& get()
     {
-		cl_int errCode = CL_SUCCESS;
-        m_CRTProgram   = pgm;
-
-		if (!m_buildData)
-		{
-				/// Initialize crt build callback data
-			m_buildData = new CrtBuildCallBackData;
-			if (!m_buildData)						
-			{
-				errCode = CL_OUT_OF_HOST_MEMORY;
-				return errCode;
-			}
-            m_buildData->pfn_notify = NULL;
-            m_buildData->user_data = NULL;
-        }
-        return errCode;
+        return m_map;
     }
-
-    void Cleanup()
+    void Lock()
     {
-        if(m_buildData)
-            delete m_buildData;
+        m_mutex.Lock();
     }
-
-    inline void incNumBuild()
+    void Release()
     {
-         atomic_increment(&(m_numBuild));
+        m_mutex.Unlock();
     }
-
-    inline void decNumBuild()
+    void Add(TKEY key, TVAL value)
     {
-         atomic_decrement(&(m_numBuild));
+        m_mutex.Lock();
+        m_map[key] = value;
+        m_mutex.Unlock();
     }
-
-    inline void setNumBuild(int build)
+    void Remove(TKEY key)
     {
-        m_numBuild = build;
+        m_mutex.Lock();
+        std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
+        m_map.erase(itr);
+        m_mutex.Unlock();
     }
-
-    inline cl_uint getNumBuild()
+    TVAL GetValue(TKEY key)
     {
-        return m_numBuild;
+        m_mutex.Lock();
+        TVAL val =  m_map[key];
+        m_mutex.Unlock();
+        return val;
     }
-
-    inline CrtBuildCallBackData* setBuildCallBackData(prog_logging_fn pfn, void * udata)
+    size_t size()
     {
-        m_buildData->pfn_notify = pfn;
-        m_buildData->user_data = udata;
-        return m_buildData;
+        m_mutex.Lock();
+        size_t retSize = m_map.size();
+        m_mutex.Unlock();
+        return retSize;
     }
-
-    prog_logging_fn buildCompleteFn( cl_program program, void *userData )
-    {
-        if (m_numBuild > 0)
-        {
-            decNumBuild();
-        }
-		    /// Check if this is the last build routine to finish
-        if (0 == m_numBuild)
-        {
-            CrtBuildCallBackData *data = ( CrtBuildCallBackData* ) userData;
-
-            if( data->pfn_notify )
-            {
-                data->pfn_notify( m_CRTProgram, data->user_data );
-            }
-	    }
-        return 0;
-    }
-
 private:
-    CrtBuildCallBackData            *m_buildData;
-    cl_program                       m_CRTProgram;
-    cl_uint                          m_numBuild;
-
+    std::map<TKEY, TVAL>& m_map;
+    OclMutex m_mutex;
 };

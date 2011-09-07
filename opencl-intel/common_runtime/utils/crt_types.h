@@ -35,41 +35,64 @@ typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 typedef void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *);
 typedef int crt_err_code ;
 
-#define CRT_FAIL		0x1
-#define CRT_SUCCESS		0x0
+#define CRT_FAIL        0x1
+#define CRT_SUCCESS     0x0
 
 
 #define MAX_STRLEN                  (1024)
+#define INTEL_PLATFORM_PROFILE      "FULL_PROFILE"
+#define INTEL_PLATFORM_VERSION      "OpenCL 1.1 "
 #define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
-#define INTEL_ICD_EXTENSIONS_STRING "INTC"
-#define PLATFORM_EXT_STRING         ""
+#define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
+#define INTEL_ICD_EXTENSIONS_STRING "INTEL"
 
-	/// default device type, which is gonna be picked by the
-	/// CRT in case of two underlying devices
+// default device type, which will be picked by the
+// CRT in case of two underlying devices
 #define CRT_DEFAULT_DEVICE_TYPE  CL_DEVICE_TYPE_CPU
 
-	/// Alignment
+// Alignment
 #define CRT_PAGE_ALIGNMENT           ( 4096 )
+#define CRT_IMAGE_PITCH_ALIGN        ( 64 )
 
-	/// Atomic Functions
-inline cl_uint atomic_increment(cl_uint* Addend)
+// Force linear images memory flag. This is an internal flag and needs
+// to be changed if Khronos defines another flag with the same value
+#define CL_MEM_LINEAR_IMAGE_INTEL ( 1 << 31 )
+
+// Atomic Functions
+inline cl_uint atomic_increment(long* Addend)
 {
-	return (cl_uint)_InterlockedIncrement( (volatile long*)Addend );
+    return (long)_InterlockedIncrement( (volatile long*)Addend );
 }
 
-inline cl_uint atomic_decrement(cl_uint* Addend)
+inline long atomic_decrement(long* Addend)
 {
-	return (cl_uint)_InterlockedDecrement( (volatile long*)Addend );
-}
-
-inline cl_uint atomic_increment_ret_prev(cl_uint* Addend)
-{
-	return (cl_uint)InterlockedExchangeAdd( (volatile long*)Addend, 1 );
+    return (long)_InterlockedDecrement( (volatile long*)Addend );
 }
 
 
-inline cl_uint atomic_decrement_ret_prev(cl_uint* Addend)
+inline cl_uint atomic_add_ret_prev(long* Addend, long num)
 {
-	return (cl_uint)InterlockedExchangeAdd( (volatile long*)Addend, -1);
+    return (long)InterlockedExchangeAdd( (volatile long*)Addend, num);
 }
 
+inline long test_and_set(long* Addend, long comparand, long exchange)
+{
+    return (long)InterlockedCompareExchange((volatile long*)Addend,exchange,comparand);
+}
+
+// Additional cl_context_properties
+#define CL_CONTEXT_D3D9_DEVICE_INTEL                  0xFFF6
+#define CL_CONTEXT_D3D9EX_DEVICE_INTEL                0xFFEB
+#define CL_CONTEXT_DXVA9_DEVICE_INTEL                 0xFFF2
+
+#define cl_intel_d3d9_media_sharing     1
+
+// Extensions support
+enum CrtExtension
+{
+    CRT_CL_D3D10_EXT    = 1<<0,
+    CRT_CL_D3D9_EXT     = 1<<1,
+    CRT_CL_GL_EXT       = 1<<2
+};
+
+cl_int GetCrtExtension(const char* str_extensions);
