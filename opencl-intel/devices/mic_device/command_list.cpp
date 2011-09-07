@@ -128,7 +128,7 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command**
     // if failed create FailureNotification command object
 	if (CL_DEV_FAILED(rc))
 	{
-	    pCmdObject = new FailureNotification(m_pFrameworkCallBacks, cmd);
+	    pCmdObject = new FailureNotification(m_pFrameworkCallBacks, cmd, rc);
 		if (NULL == pCmdObject)
 		{
 		    rc = CL_DEV_OUT_OF_MEMORY;

@@ -13,8 +13,11 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <vector>
 
 #include <common/COITypes_common.h>
+
+using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -71,6 +74,12 @@ private:
 	{
 		NotificationPort::CallBack* callBack;
 		void* arg;
+		uint64_t age;
+
+		static bool compare(const notificationPackage& first, const notificationPackage& second)
+		{
+			return (first.age < second.age);
+		}
 	};
 	
 	volatile size_t m_poc;
@@ -90,6 +99,9 @@ private:
 	uint16_t m_maxBarriers;
 	uint16_t m_waitingSize;
 	uint16_t m_realSize;
+
+	// Need it in order to enforce right order of callbacks
+	uint64_t m_lastCallBackAge;
 	
 	volatile WORKER_STATE m_workerState;
 
@@ -97,9 +109,9 @@ private:
 
 	void releaseResources();
 
-	void getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, notificationPackage* callBacksRet, bool* workerThreadSignaled);
+	void getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, vector<notificationPackage>& callBacksRet, bool* workerThreadSignaled);
 
-	void resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr);
+	void resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr);
 
 };
 

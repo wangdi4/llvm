@@ -48,13 +48,25 @@ void Command::releaseResources()
 
 
 
-FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(NULL, pFrameworkCallBacks, pCmd)
+FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode) : Command(NULL, pFrameworkCallBacks, pCmd)
 {
+	m_lastError = returnCode;
 }
 
 cl_dev_err_code FailureNotification::execute()
 {
-    //TODO
+	COIEVENT* barrier = NULL;
+	unsigned int numDependecies = 0;
+	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+	// If OOO or first command fireCallBack in order to complete, otherwise add the last dependent barrier as my callback.
+	if (0 == numDependecies)
+	{
+		fireCallBack(NULL);
+	}
+	else
+	{
+		m_pCommandList->getNotificationPort()->addBarrier(*barrier, this, NULL);
+	}
     return CL_DEV_SUCCESS;
 }
 

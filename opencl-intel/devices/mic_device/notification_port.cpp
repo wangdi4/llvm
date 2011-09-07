@@ -5,22 +5,15 @@
 
 #include <malloc.h>
 #include <cstring>
+#include <algorithm>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
 
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
 
-NotificationPort::NotificationPort(void)
+NotificationPort::NotificationPort(void) : m_poc(0), m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_realSize(0), m_lastCallBackAge(0), m_workerState(CREATED)
 {
-	m_barriers = NULL;
-	m_notificationsPackages = NULL;
-	m_maxBarriers = 0;
-	m_waitingSize = 0;
-	m_realSize = 0;
-	m_workerState = CREATED;
-	m_poc = 0;
-
 	// initialize client critical section object (mutex)
 	pthread_mutex_init(&m_mutex, NULL);
 	// initialize client condition variable
@@ -147,6 +140,8 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 	m_barriers[m_realSize] = barrier;
 	m_notificationsPackages[m_realSize].callBack = callBack;
 	m_notificationsPackages[m_realSize].arg = arg;
+	m_notificationsPackages[m_realSize].age = m_lastCallBackAge;
+	m_lastCallBackAge ++;
 	m_realSize ++;
 
 	m_operationMask[ADD] = true;
@@ -192,8 +187,8 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 	bool keepWork = true;
 	NotificationPort* thisWorker = (NotificationPort*)threadObject;
 
-	notificationPackage* fireCallBacksArr = (notificationPackage*)malloc(sizeof(notificationPackage) * thisWorker->m_maxBarriers);
-	assert(fireCallBacksArr && "memory allocation for fireCallBacksArr failed");
+	vector<notificationPackage> fireCallBacksArr;
+	fireCallBacksArr.reserve(thisWorker->m_maxBarriers);
 	unsigned int* firedIndicesArr = (unsigned int*)malloc(sizeof(unsigned int) * thisWorker->m_maxBarriers);
 	assert(firedIndicesArr && "memory allocation for firedIndicesArr failed");
 	unsigned int firedAmount;
@@ -250,6 +245,12 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 
 		pthread_mutex_unlock(&(thisWorker->m_mutex));
 
+		// If more than one element fired, sort the fired element according to their age
+		if (firedAmount > 1)
+		{
+			sort(fireCallBacksArr.begin(), fireCallBacksArr.begin() + firedAmount, notificationPackage::compare);
+		}
+
 		for (unsigned int i = 0; i < firedAmount; i++)
 		{
 			fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
@@ -260,12 +261,11 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 	thisWorker->releaseResources();
 
 	free(firedIndicesArr);
-	free(fireCallBacksArr);
 
 	return 0;
 }
 
-void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, notificationPackage* callBacksRet, bool* workerThreadSignaled)
+void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, vector<notificationPackage>& callBacksRet, bool* workerThreadSignaled)
 {
 	unsigned int initialWaitingSize = m_waitingSize;
 	unsigned int notSignaledIndex = m_realSize - 1;
@@ -319,7 +319,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 }
 
 
-void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr)
+void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr)
 {
 	assert(m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT <= INT16_MAX && "Resize failed overflow max barriers size");
 	m_maxBarriers = m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT;
@@ -327,8 +327,7 @@ void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, uns
 	assert(m_barriers && "memory allocation failed for m_barriers");
 	m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
 	assert(m_notificationsPackages && "memory allocation failed for m_notificationsPackages");
-	*fireCallBacksArr = (notificationPackage*)realloc(*fireCallBacksArr, sizeof(notificationPackage) * m_maxBarriers);
-	assert(*fireCallBacksArr && "memory allocation failed for *fireCallBacksArr");
+	fireCallBacksArr->reserve(m_maxBarriers);
 	*firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
 	assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
 	pthread_cond_broadcast(&m_resizeCond);

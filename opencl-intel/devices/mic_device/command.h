@@ -93,9 +93,10 @@ class FailureNotification : public Command
 
 public:
 
-    FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode);
 
 	cl_dev_err_code execute();
+
 };
 
 

@@ -719,6 +719,6 @@ bool runNDRangeUnitTest(unsigned int numOfNDRangeCommands, unsigned int numOfCon
 
 int main()
 {
-	runNDRangeUnitTest(1000, 5);
+	runNDRangeUnitTest(500, 5);
 	return 0;
 }
