@@ -174,14 +174,17 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code GraphicsApiMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
     {
-        OclEvent* pOldEvent = m_pAcquireEvent.test_and_set(NULL, pEvent);
-        if ( NULL == pOldEvent )
+		if ( NULL != pEvent )
+		{
+			pEvent->AddPendency();
+		}
+		OclEvent* pOldEvent = m_pAcquireEvent.exchange(pEvent);
+        if ( NULL != pOldEvent )
         {
-            pEvent->AddPendency();
-            return CL_SUCCESS;
+            pOldEvent->RemovePendency();
         }
 
-        return CL_INVALID_OPERATION;
+		return CL_SUCCESS;
     }
 
     /**

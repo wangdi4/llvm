@@ -71,6 +71,10 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         for (unsigned int i = 0; i < m_uiMemObjNum; i++)
         {
+			if (!m_bIsAcquireCmd)
+			{
+                m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
+			}
             m_pMemObjects[i]->RemovePendency();
         }
         return CL_SUCCESS;

@@ -226,6 +226,8 @@ cl_err_code	GLMemoryObject::SetGLMemFlags()
 		m_glMemFlags |= GL_READ_ONLY;
 	if ( m_clFlags & CL_MEM_WRITE_ONLY )
 		m_glMemFlags |= GL_WRITE_ONLY;
+	if ( m_clFlags & CL_MEM_READ_WRITE )
+		m_glMemFlags |= GL_READ_WRITE;
 
 	return CL_SUCCESS;
 }

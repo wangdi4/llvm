@@ -47,6 +47,7 @@ cl_err_code MemoryObjectEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCo
 	if ( returnCode == CL_SUCCESS )
 	{
 		returnCode = m_pMemObject->GetDeviceDescriptor(m_pDevice, m_ppDevMemObj, NULL);
+		assert(CL_SUCCESS == returnCode);
 	}
 
 	OclEvent::NotifyComplete(returnCode);

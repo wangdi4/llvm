@@ -266,6 +266,20 @@ cl_err_code GLTexture2D::ReleaseGLObject()
 		pGLContext->glBindBuffer(pboTarget, m_glPBO);
 		pGLContext->glUnmapBuffer(pboTarget);
 
+		// If texture is read/write we need to remap the PBO as an UNPACK buffer
+		if ( CL_MEM_READ_WRITE == m_clFlags )
+		{
+			// Bind old PACK buffer
+			pGLContext->glBindBuffer(pboTarget, pboCurrent);
+
+			pboBinding = GL_PIXEL_UNPACK_BUFFER_BINDING_ARB;
+			pboTarget = GL_PIXEL_UNPACK_BUFFER_ARB;
+			glGetIntegerv(pboBinding, &pboCurrent);
+
+			// now bind PBO as UNPACK to update texture source
+			pGLContext->glBindBuffer(pboTarget, m_glPBO);
+		}
+
 		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
 
 		GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
