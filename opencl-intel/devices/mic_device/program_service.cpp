@@ -371,7 +371,7 @@ bool ProgramService::LoadBackendServices(void)
 
         if (NULL != ser_temp)
         {
-            ser_temp->ReleaseSerializationService();
+            ser_temp->Release();
         }
 
         ReleaseBackendServices();
@@ -387,7 +387,7 @@ void ProgramService::ReleaseBackendServices(void)
 
     if (m_BE_Compiler.pSerializationService)
     {
-        m_BE_Compiler.pSerializationService->ReleaseSerializationService();
+        m_BE_Compiler.pSerializationService->Release();
         m_BE_Compiler.pSerializationService = NULL;
     }
 

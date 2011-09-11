@@ -246,7 +246,7 @@ void ProgramService::ReleaseBackendServices(void)
 {
     if (m_BE_Executor.pSerializationService)
     {
-        m_BE_Executor.pSerializationService->ReleaseSerializationService();
+        m_BE_Executor.pSerializationService->Release();
         m_BE_Executor.pSerializationService = NULL;
     }
 
