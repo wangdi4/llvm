@@ -62,23 +62,23 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,     cl_uint,                        MIC_MAX_WORK_ITEM_DIMENSIONS    ),
     SCAL_VALUE( CL_DEVICE_MAX_WORK_GROUP_SIZE,          size_t,                         MIC_MAX_WORK_GROUP_SIZE         ),
     ARRY_VALUE( CL_DEVICE_MAX_WORK_ITEM_SIZES,          size_t,                         MIC_MAX_WORK_ITEM_SIZES         ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,  cl_uint,                        16                              ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, cl_uint,                        8                               ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,   cl_uint,                        4                               ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,  cl_uint,                        2                               ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, cl_uint,                        4                               ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,  cl_uint,                        0                               ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,     cl_uint,                        16                              ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,    cl_uint,                        8                               ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,      cl_uint,                        4                               ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,     cl_uint,                        2                               ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,    cl_uint,                        4                               ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,     cl_uint,                        0                               ),
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,  cl_uint,                        16                              ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, cl_uint,                        8                               ),  // TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,   cl_uint,                        4                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,  cl_uint,                        2                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, cl_uint,                        4                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,  cl_uint,                        0                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,     cl_uint,                        16                              ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,    cl_uint,                        8                               ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,      cl_uint,                        4                               ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,     cl_uint,                        2                               ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,    cl_uint,                        4                               ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,     cl_uint,                        0                               ),	// TODO Should take this value from device SKU
     FUNC_VALUE( CL_DEVICE_MAX_CLOCK_FREQUENCY,                                          get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_ADDRESS_BITS,                 cl_uint,                        sizeof(uint64_t)*8              ),
     SCAL_VALUE( CL_DEVICE_MAX_READ_IMAGE_ARGS,          cl_uint,                        MIC_MAX_READ_IMAGE_ARGS         ),
     SCAL_VALUE( CL_DEVICE_MAX_WRITE_IMAGE_ARGS,         cl_uint,                        MIC_MAX_WRITE_IMAGE_ARGS        ),
-    FUNC_VALUE( CL_DEVICE_MAX_MEM_ALLOC_SIZE,                                           get_variable_info               ),
+	FUNC_VALUE( CL_DEVICE_MAX_MEM_ALLOC_SIZE,                                           get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_IMAGE2D_MAX_WIDTH,            size_t,                         MIC_IMAGE2D_MAX_DIM_SIZE        ),
     SCAL_VALUE( CL_DEVICE_IMAGE2D_MAX_HEIGHT,           size_t,                         MIC_IMAGE2D_MAX_DIM_SIZE        ),
     SCAL_VALUE( CL_DEVICE_IMAGE3D_MAX_WIDTH,            size_t,                         MIC_IMAGE3D_MAX_DIM_SIZE        ),
@@ -90,11 +90,11 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_MAX_PARAMETER_SIZE,           size_t,                         MIC_MAX_PARAMETER_SIZE          ),
     FUNC_VALUE( CL_DEVICE_MAX_SAMPLERS,                                                 get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_MEM_BASE_ADDR_ALIGN,          cl_uint,                        MIC_MEM_BASE_ADDR_ALIGN         ),
-    SCAL_VALUE( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE,     cl_uint,                        sizeof(cl_long16)               ),
+    SCAL_VALUE( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE,     cl_uint,                        MIC_DEV_MAXIMUM_ALIGN           ),
     SCAL_VALUE( CL_DEVICE_SINGLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM ),
     SCAL_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE,        cl_device_mem_cache_type,       CL_READ_WRITE_CACHE             ),
-    FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE,                                    get_variable_info               ),
-    FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,                                        get_variable_info               ),
+    FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE,                                    get_variable_info               ),	// TODO refill this function with the right info
+    FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,                                        get_variable_info               ),	// TODO refill this function with the right info
     FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_SIZE,                                              get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE,     cl_ulong,                       MIC_MAX_CONSTANT_BUFFER_SIZE    ),
     SCAL_VALUE( CL_DEVICE_MAX_CONSTANT_ARGS,            cl_uint,                        MIC_MAX_CONSTANT_ARGS           ),
@@ -115,23 +115,23 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     STRG_VALUE( CL_DEVICE_PROFILE,                                                      MIC_DEVICE_PROFILE_STRING       ),
     STRG_VALUE( CL_DEVICE_VERSION,                                                      MIC_DEVICE_VERSION_STRING       ),
     STRG_VALUE( CL_DEVICE_EXTENSIONS,                                                   OCL_SUPPORTED_EXTENSIONS        ),
-//    SCAL_VALUE( CL_DEVICE_PLATFORM,
+//    SCAL_VALUE( CL_DEVICE_PLATFORM,																					), returned by framework - platform_module
 //    SCAL_VALUE( CL_DEVICE_HALF_FP_CONFIG
     SCAL_VALUE( CL_DEVICE_HOST_UNIFIED_MEMORY,          cl_bool,                        CL_FALSE                        ),
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),
 
 #ifdef __DOUBLE_ENABLED__
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF ),
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),	// TODO Should take this value from BE
 #else
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            0                               ),
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        0                               ),
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        0                               ),
 #endif
 
-    STRG_VALUE( CL_DEVICE_PARTITION_TYPES_EXT,                                          MIC_SUPPORTED_FISSION_MODES     ),
-    STRG_VALUE( CL_DEVICE_AFFINITY_DOMAINS_EXT,                                         MIC_SUPPORTED_AFFINITY_DOMAINS  ),
+    STRG_VALUE( CL_DEVICE_PARTITION_TYPES_EXT,                                          MIC_SUPPORTED_FISSION_MODES     ),	// Undefined in HLD
+    STRG_VALUE( CL_DEVICE_AFFINITY_DOMAINS_EXT,                                         MIC_SUPPORTED_AFFINITY_DOMAINS[0]),	// Undefined in HLD
 
 //    SCAL_VALUE( CL_DEVICE_PRINTF_BUFFER_SIZE,           size_t,                         MIC_PRINTF_BUFFER_SIZE          ),
 

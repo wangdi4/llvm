@@ -29,7 +29,7 @@
 #define MIC_DEV_MAX_WI_SIZE              1024            // Maximum values that could be specified for WI in one dimension
 #define MIC_DEV_LCL_MEM_SIZE             (32*1024)
 #define MIC_DEV_DCU_LINE_SIZE            64
-#define MIC_DEV_MAXIMUM_ALIGN            128
+#define MIC_DEV_MAXIMUM_ALIGN            512
 
 #define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
 #define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)  (((X)+MIC_DEV_MAXIMUM_ALIGN-1) & (~(MIC_DEV_MAXIMUM_ALIGN-1)))
@@ -67,8 +67,9 @@
 #define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*MIC_MAX_WORK_GROUP_SIZE)
 
 //The muximum single buffer memory size (in bytes)
-#define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, ((MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)*3)/4) & ~4095))
-#define MIC_AVAILABLE_PROCESS_MEMORY(deviceId) (MIN(MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) + 4096 * 256 * 100, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId) & ~4095))
+#define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
+#define MIC_MAX_GLOBAL_MEM_SIZE(deviceId) (((MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)*3)/4) & ~4095)
+#define MIC_AVAILABLE_PROCESS_MEMORY(deviceId) (MIN(MIC_MAX_GLOBAL_MEM_SIZE(deviceId) + 1024 * 1024 * 100, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)) & ~4095)
 
 // redirect all I/O requests from device to host, includion files and std handles
 #define MIC_DEV_IO_PROXY_TO_HOST            true

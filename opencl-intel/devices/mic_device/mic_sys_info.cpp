@@ -320,8 +320,7 @@ cl_uint MICSysInfo::getGlobalMemCachelineSize(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        //TODO - return ...
-        assert(0 && "Not implemented yet");
+        //TODO - Currently return garbage, Statically encode (L2)
     }
     return 0;
 }
@@ -330,8 +329,7 @@ cl_ulong MICSysInfo::getGlobalMemCacheSize(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        //TODO - return ...
-        assert(0 && "Not implemented yet");
+        //TODO - Currently return garbage, Statically encode (L2)
     }
     return 0;
 }
@@ -349,8 +347,7 @@ unsigned long long MICSysInfo::getProfilingTimerResolution(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        //TODO - return ...
-        assert(0 && "Not implemented yet");
+        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.CoreMaxFrequency;
     }
     return 0;
 }
@@ -462,7 +459,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             //if OUT paramVal is NULL it should be ignored
             if(NULL != buf)
             {
-                *(cl_uint*)buf = MAX((cl_uint)16, getMaxSamplers(deviceId));
+                *(cl_uint*)buf = MAX(MIC_MAX_SAMPLERS, MAX((cl_uint)16, getMaxSamplers(deviceId)));
             }
             return CL_DEV_SUCCESS;
         }
@@ -532,7 +529,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             //if OUT paramVal is NULL it should be ignored
             if(NULL != buf)
             {
-                *(cl_ulong*)buf = TotalPhysicalMemSize(deviceId);
+                *(cl_ulong*)buf = MIC_MAX_GLOBAL_MEM_SIZE(deviceId);
             }
             return CL_DEV_SUCCESS;
         }

@@ -53,7 +53,7 @@ cl_uint          MemoryAllocator::m_instance_referencies = 0;
 MemoryAllocator* MemoryAllocator::getMemoryAllocator(
                                 cl_int devId,
                                 IOCLDevLogDescriptor *pLogDesc,
-                                unsigned long long maxAllocSize )
+                                unsigned long long maxBufferAllocSize )
 {
     MemoryAllocator* instance = NULL;
 
@@ -61,7 +61,7 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
 
     if (NULL == m_the_instance)
     {
-        m_the_instance = new MemoryAllocator( devId, pLogDesc, maxAllocSize );
+        m_the_instance = new MemoryAllocator( devId, pLogDesc, maxBufferAllocSize );
         assert( NULL != m_the_instance && "Creating MIC MemoryAllocator singleton" );
     }
 

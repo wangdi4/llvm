@@ -64,7 +64,7 @@ public:
     // singleton
     static MemoryAllocator* getMemoryAllocator( cl_int devId,
                                                 IOCLDevLogDescriptor *pLogDesc,
-                                                unsigned long long maxAllocSize );
+                                                unsigned long long maxBufferAllocSize );
 
     // delete singleton if required
     void Release(void);
