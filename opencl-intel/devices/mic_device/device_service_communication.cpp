@@ -175,11 +175,11 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
     // create a process on device and run it's main() function
     result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
-                                     0, NULL,                               // argc, argv
-                                     false, NULL,                           // duplicate env, additional env vars
-                                     MIC_DEV_IO_PROXY_TO_HOST, NULL,        // I/O proxy required + host root
-                                     MIC_DEV_MAX_ALLOCATED_BUFFERS_SIZE,    // reserve buffer space
-									 device_dir,                            // a path to locate dynamic libraries dependencies for the sink application
+                                     0, NULL,													// argc, argv
+                                     false, NULL,												// duplicate env, additional env vars
+                                     MIC_DEV_IO_PROXY_TO_HOST, NULL,							// I/O proxy required + host root
+                                     MIC_AVAILABLE_PROCESS_MEMORY(pDevServiceComm->m_uiMicId),  // reserve buffer space
+									 device_dir,												// a path to locate dynamic libraries dependencies for the sink application
                                      &pDevServiceComm->m_process);
     assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
 
