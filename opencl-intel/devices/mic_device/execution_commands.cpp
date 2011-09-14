@@ -321,17 +321,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		memcpy(m_extendedDispatcherData + dispatcherData.kernelArgBlobOffset, cmdParams->arg_values, cmdParams->arg_size);
 
 		// Create coi buffer for dispatcher_data
-/*		coi_err = COIBufferCreateFromMemory(
-								dispatcherData.getDispatcherDataSize(),          // The number of bytes to allocate for the buffer.
-								COI_BUFFER_NORMAL,                               // The type of the buffer to create
-								0,                                               // A bitmask of attributes for the newly created buffer.
-								m_extendedDispatcherData,                        // A pointer to an already allocated memory region on the source that should be turned into a COIBUFFER
-								1, &tProcess,                                    // The number of processes with which this buffer might be used, and The process
-								&(coiBuffsArr[DISPATCHER_DATA_INDEX]));          // Pointer to a buffer handle
-*/
-
-		// TODO - switch it with COIBufferCreateFromMemory
-		coi_err = COIBufferCreate(
+		coi_err = COIBufferCreateFromMemory(
 								dispatcherData.getDispatcherDataSize(),          // The number of bytes to allocate for the buffer.
 								COI_BUFFER_NORMAL,                               // The type of the buffer to create
 								0,                                               // A bitmask of attributes for the newly created buffer.
