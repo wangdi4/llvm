@@ -102,7 +102,7 @@ static inline bool is_buffer_ok_for_device(  size_t buffer_size,
 {
     bool ok = true;
 
-    ok &= (buffer_size < properies.maxBufferSize);
+    ok &= (buffer_size <= properies.maxBufferSize);
     return ok;
 }
 
@@ -274,6 +274,8 @@ cl_err_code GenericMemObject::Initialize(
 	// Now we should set backing store
 	// Get access to internal pointer
 	m_pMemObjData = m_BS->GetRawData();
+
+	m_stMemObjSize  = m_BS->GetRawDataSize();
 
 	return CL_SUCCESS;
 }
@@ -708,7 +710,7 @@ cl_err_code GenericMemObject::CheckBounds( const size_t* pszOrigin, const size_t
         past_last_end_offset[i] = pszOrigin[i] + pszRegion[i];
     }
 
-    return m_BS->GetRawDataOffset( past_last_end_offset ) >= m_BS->GetRawDataSize();
+	return (m_BS->GetRawDataOffset( past_last_end_offset ) <= m_BS->GetRawDataSize()) ? CL_SUCCESS : CL_INVALID_MEM_OBJECT;
 }
 
 cl_err_code GenericMemObject::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion,
@@ -728,7 +730,7 @@ cl_err_code GenericMemObject::CheckBoundsRect( const size_t* pszOrigin, const si
                                                          past_last_end_offset,
                                                          pitches );
 
-    return raw_past_end_offset >= m_BS->GetRawDataSize();
+    return (raw_past_end_offset <= m_BS->GetRawDataSize()) ? CL_SUCCESS : CL_INVALID_MEM_OBJECT;
 }
 
 void * GenericMemObject::GetBackingStoreData( const size_t * pszOrigin ) const
