@@ -75,7 +75,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	exeTask->runTask();
 }
 
-ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData) : m_dispatcherData(dispatcherData), m_miscData(miscData), 
+ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData) : m_dispatcherData(dispatcherData), m_miscData(miscData),
 m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_kernel(NULL), m_progamExecutableMemoryManager(NULL), m_lockedParams(NULL), m_signalBarrierFlag(false)
 {
 }
@@ -222,8 +222,10 @@ void BlockingTask::runTask()
 {
 	//TODO
 	///////////////////////////////////////////////////////   TO DELETE
+#ifdef NDRANGE_UNIT_TEST
 	foo(m_lockedParams);
 	return;
+#endif
 	NATIVE_PRINTF("Running task\n");
 	NATIVE_PRINTF("Kernel address - %ld\n", m_dispatcherData->kernelDirective.kernelAddress);
 	directive_pack* directivesArr[2] = {(directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->preExeDirectivesArrOffset)

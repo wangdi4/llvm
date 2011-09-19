@@ -121,6 +121,9 @@ public:
 
     // internal methods to be used for MIC DA
 
+    // get Backend kernel object
+    const ICLDevBackendKernel_* GetBackendKernel( cl_dev_kernel kernel ) const;
+
     // increment reference counter of program and return device pointer
     uint64_t AcquireKernelOnDevice( cl_dev_kernel kernel );
 

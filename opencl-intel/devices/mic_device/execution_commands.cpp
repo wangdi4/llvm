@@ -81,10 +81,12 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 	unsigned int numOfDispatchingBuffers = AMOUNT_OF_CONSTANT_BUFFERS;
 	do
 	{
+        ProgramService* program_service = m_pCommandList->getProgramService();
+
 		// Get command params
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 		// Get Kernel from params
-		const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+		const ICLDevBackendKernel_* pKernel = program_service->GetBackendKernel(cmdParams->kernel);
 		// Get kernel params
 		const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
@@ -98,7 +100,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 
 #ifndef NDRANGE_UNIT_TEST
 		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
-		dispatcherData.kernelDirective.kernelAddress = m_pCommandList->getProgramService()->AcquireKernelOnDevice(cmdParams->kernel);
+		dispatcherData.kernelDirective.kernelAddress = program_service->AcquireKernelOnDevice(cmdParams->kernel);
 #else
 		// Only for unit test
 		dispatcherData.kernelDirective.kernelAddress = pKernel->GetKernelID();

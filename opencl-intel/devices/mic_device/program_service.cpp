@@ -51,10 +51,6 @@ using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::DeviceBackend;
 
-//#define BACKEND_DLL_NAME "libOclDeviceBackEnd.so"
-// BUGBUG: DK test only
-#define BACKEND_DLL_NAME "libOclCpuBackEnd.so"
-
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] =
 {
@@ -67,7 +63,7 @@ ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallback
                                               IOCLDevLogDescriptor *logDesc,
                                               MICDeviceConfig *config,
                                               DeviceServiceCommunication& dev_service) :
-    m_DevService( dev_service), m_BE_Compiler( m_DevService, BACKEND_DLL_NAME ),
+    m_DevService( dev_service), m_BE_Compiler( m_DevService, MIC_BACKEND_DLL_NAME ),
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_progIdAlloc(1, UINT_MAX),
     m_pCallBacks(devCallbacks), m_pMICConfig(config)
 {
@@ -122,8 +118,8 @@ void MICBackendOptions::init( bool bUseVectorizer, bool bUseVtune )
 
 // ICLDevBackendOptions interface
 // BUGBUG: DK remove this!
-#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION 1
-#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE 1
+#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION 1000
+#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE 1000
 
 bool MICBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
 {
@@ -135,7 +131,9 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
     switch (optionId)
     {
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-            return !m_bUseVectorizer ? 1 : defaultValue;
+// BUGBUG: DK: Disable vectorizer
+//            return !m_bUseVectorizer ? 1 : defaultValue;
+            return TRANSPOSE_SIZE_1;
 
         case CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE:
             return getTargetDescriptionSize();
@@ -147,7 +145,14 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
 
 const char* MICBackendOptions::GetStringValue( int optionId, const char* defaultValue)const
 {
-    return defaultValue;
+    switch (optionId)
+    {
+        case CL_DEV_BACKEND_OPTION_CPU_ARCH:
+            return "auto-remote";
+
+        default:
+            return defaultValue;
+    }
 }
 
 bool MICBackendOptions::GetValue( int optionId, void* Value, size_t* pSize) const
@@ -342,16 +347,15 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
-// BUGBUG: DK temporary comment out
-//        err = be_factory->GetSerializationService( &m_BE_Compiler.MICOptions,
-//                                                  &ser_temp );
-//
-//        if (CL_DEV_FAILED( err ))
-//        {
-//            assert( false && "MIC Device Agent cannot create Backend Serialization Service" );
-//            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot create Backend Serialization Service"));
-//            break;
-//        }
+        err = be_factory->GetSerializationService( &m_BE_Compiler.MICOptions,
+                                                  &ser_temp );
+
+        if (CL_DEV_FAILED( err ))
+        {
+            assert( false && "MIC Device Agent cannot create Backend Serialization Service" );
+            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot create Backend Serialization Service"));
+            break;
+        }
 
         // set field visible to other threads
         m_BE_Compiler.pCompilationService   = comp_temp;
@@ -1092,7 +1096,10 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         break;
 
     case CL_DEV_KERNEL_MAX_WG_SIZE:
-        ullValue = MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE / pKernelProps->GetPrivateMemorySize()) );
+        {
+            size_t private_mem_size = pKernelProps->GetPrivateMemorySize();
+            ullValue = MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE /(private_mem_size ? private_mem_size : 1)) );
+        }
         ullValue = ((unsigned long long)1) << ((unsigned long long)(logf((float)ullValue)/logf(2.f)));
         stValSize = sizeof(size_t);
         break;
@@ -1147,6 +1154,19 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     return CL_DEV_SUCCESS;
 }
 
+const ICLDevBackendKernel_* ProgramService::GetBackendKernel( cl_dev_kernel kernel ) const
+{
+    TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry(kernel);
+
+    if (NULL == k_entry)
+    {
+        assert( NULL != k_entry && "MICDevice: Wrong kernel passed to device" );
+        return 0;
+    }
+
+    return k_entry->pKernel;
+}
+
 uint64_t ProgramService::AcquireKernelOnDevice( cl_dev_kernel kernel )
 {
     TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry(kernel);
@@ -1173,12 +1193,12 @@ void ProgramService::releaseKernelOnDevice( cl_dev_kernel kernel )
 
     TProgramEntry* p_entry = k_entry->pProgEntry;
 
-    long previous = --(p_entry->outanding_usages_count);
-    assert( previous > 0 && "MICDevice: Program usage counter overloaded" );
+    long new_value = --(p_entry->outanding_usages_count);
+    assert( new_value >= 0 && "MICDevice: Program usage counter underloaded" );
 
-    if (previous <= 0)
+    if (new_value <= 0)
     {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Program outstaning usage counter overloaded: %d"), previous);
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Program outstaning usage counter underloaded: %d"), new_value);
     }
 }
 
@@ -1223,8 +1243,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     // copy program to device and get back list of kernel structs on device
     COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT input;
 
-// BUGBUG: DK! ICLDevBackendProgram_ lacks GetProgramExecutableSize() that returns executable memodry size
-// BUGBUG:     Required on device.
+// TODO: DK Workaround
 #define GetProgramExecutableSize() GetProgramCodeContainer()->GetCodeSize()
     input.required_executable_size = program->GetProgramExecutableSize();
     input.number_of_kernels        = kernels_count;
@@ -1305,11 +1324,8 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
     COIPROCESS          in_pProcesses[] = { m_DevService.getDeviceProcessHandle() };
 
     // 1. get required serialization buffer size
-// BUGBUG: DK temp!!!
-//    be_err = GetSerializationService()->GetSerializationBlobSize(
-//                            SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
-be_err = CL_DEV_SUCCESS;
-prog_blob_size = 100;
+    be_err = GetSerializationService()->GetSerializationBlobSize(
+                            SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
 
     assert( CL_DEV_SUCCEEDED(be_err) && (prog_blob_size > 0) && "MIC BE GetSerializationBlobSize()" );
 
@@ -1356,11 +1372,8 @@ prog_blob_size = 100;
     }
 
     // 4. Serialize program
-// BUGBUG: DK temp!!!!
-//    be_err = GetSerializationService()->SerializeProgram(
-//                            SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
-be_err = CL_DEV_SUCCESS;
-strcpy( (char*)blob, "this is a program" );
+    be_err = GetSerializationService()->SerializeProgram(
+                            SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
 
     assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
 
