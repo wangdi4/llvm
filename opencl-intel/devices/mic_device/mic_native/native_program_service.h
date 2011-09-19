@@ -149,7 +149,7 @@ private:
         TKernelList             kernels;
     };
 
-    typedef std::map<unsigned long long int, TProgramEntry*> TProgId2Map;
+    typedef std::map<uint64_t, TProgramEntry*> TProgId2Map;
 
     BackendInterfaces              m_BE_Executor;
 

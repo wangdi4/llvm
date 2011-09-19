@@ -389,9 +389,7 @@ fill_kernel_info->device_kernel_info_pts[i].kernel_id        = i;
 
     // 4. Add program to the program map
     m_muProgMap.Lock();
-// BUGBUG: DK temp!!!!
-//    m_ProgId2Map[ prog_entry->pProgram->GetProgramID() ] = prog_entry;
-m_ProgId2Map[ 1000 ] = prog_entry;
+    m_ProgId2Map[ prog_info->uid_program_on_device ] = prog_entry;
     m_muProgMap.Unlock();
 
     // 5. Set number of filled kernels

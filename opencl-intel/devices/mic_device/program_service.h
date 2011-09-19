@@ -179,6 +179,7 @@ private:
     struct    TProgramEntry
     {
         ICLDevBackendProgram_*      pProgram;
+        uint64_t                    uid_program_on_device;
         volatile cl_build_status    clBuildStatus;
         bool                        copy_to_device_ok;
         TKernelName2Entry           mapName2Kernels;
@@ -216,7 +217,7 @@ private:
                 size_t input_size, COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT*  input,
                 size_t output_size,COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output );
 
-    bool    RemoveProgramFromDevice( const ICLDevBackendProgram_* pProgram );
+    bool    RemoveProgramFromDevice( const TProgramEntry* pEntry );
 };
 
 }}}

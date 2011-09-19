@@ -47,6 +47,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 //
 struct COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT
 {
+    uint64_t uid_program_on_device;
     uint64_t required_executable_size;
     uint64_t number_of_kernels;
 };
@@ -202,7 +203,7 @@ struct misc_data
 enum DISPATCH_BUFFERS_INDEXES
 {
 	DISPATCHER_DATA_INDEX = 0,
-	MISC_DATA_INDEX,	
+	MISC_DATA_INDEX,
 
 	AMOUNT_OF_CONSTANT_BUFFERS
 };

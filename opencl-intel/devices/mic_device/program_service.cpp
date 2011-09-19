@@ -549,6 +549,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_OUT_OF_MEMORY;
     }
     pEntry->pProgram = NULL;
+    pEntry->uid_program_on_device = (uint64_t)pEntry;
     pEntry->clBuildStatus = CL_BUILD_NONE;
 
     cl_dev_err_code ret;
@@ -764,7 +765,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
             TEXT("MICDevice: trying to remove program from device while %d kernels are still running"), (long)pEntry->outanding_usages_count);
     }
 
-    RemoveProgramFromDevice( pEntry->pProgram );
+    RemoveProgramFromDevice( pEntry );
 
     m_mapPrograms.erase(it);
     m_muProgMap.Unlock();
@@ -1245,6 +1246,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
 
 // TODO: DK Workaround
 #define GetProgramExecutableSize() GetProgramCodeContainer()->GetCodeSize()
+    input.uid_program_on_device    = pEntry->uid_program_on_device;
     input.required_executable_size = program->GetProgramExecutableSize();
     input.number_of_kernels        = kernels_count;
 
@@ -1459,10 +1461,9 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 //
 // Remove program from device
 //
-bool ProgramService::RemoveProgramFromDevice( const ICLDevBackendProgram_* pProgram )
+bool ProgramService::RemoveProgramFromDevice( const TProgramEntry* pEntry )
 {
-    unsigned long long int prog_id = pProgram->GetProgramID();
-    uint64_t            input = (uint64_t)prog_id;
+    uint64_t            input = pEntry->uid_program_on_device;
 
     // param:
     //  input misc   - uint64_t BE program id
