@@ -24,6 +24,17 @@ void BufferCommands::calculateCopyRegion(mem_copy_info_struct* pMemCopyInfo, vec
 	// Leaf case 1D array only
 	if ( 1 == pMemCopyInfo->uiDimCount )
 	{
+		unsigned int vectorSize = vHostPtr->size();
+		// Optimization - if it is continues memory, merge the last memory chunk with this memory chunk.
+		// TODO - There is option for one more optimization case (when pitch is different than raw size), currenntly it will not enter to the next optimization, while in some cases it
+		// is possible to perform similar optimization if the pitch is similar on both memory objects and it is not rectangular command, than it is possible to read / write continuously.
+		if ((vectorSize > 0) && 
+			((uint64_t)((size_t)(vHostPtr->at(vectorSize - 1))) +  vSize->at(vectorSize - 1) == (uint64_t)((size_t)(pMemCopyInfo->pHostPtr))) && 
+			(vCoiBuffOffset->at(vectorSize - 1) + vSize->at(vectorSize - 1) == pMemCopyInfo->pCoiBuffOffset))
+		{
+			vSize->at(vectorSize - 1) = vSize->at(vectorSize - 1) + pMemCopyInfo->vRegion[0];
+			return;
+		}
 		vHostPtr->push_back(pMemCopyInfo->pHostPtr);
 		vCoiBuffOffset->push_back(pMemCopyInfo->pCoiBuffOffset);
 		vSize->push_back(pMemCopyInfo->vRegion[0]);
