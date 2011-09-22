@@ -91,7 +91,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     FUNC_VALUE( CL_DEVICE_MAX_SAMPLERS,                                                 get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_MEM_BASE_ADDR_ALIGN,          cl_uint,                        MIC_MEM_BASE_ADDR_ALIGN         ),
     SCAL_VALUE( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE,     cl_uint,                        MIC_DEV_MAXIMUM_ALIGN           ),
-    SCAL_VALUE( CL_DEVICE_SINGLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM ),
+    SCAL_VALUE( CL_DEVICE_SINGLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA ),
     SCAL_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE,        cl_device_mem_cache_type,       CL_READ_WRITE_CACHE             ),
     FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE,                                    get_variable_info               ),	// TODO refill this function with the right info
     FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,                                        get_variable_info               ),	// TODO refill this function with the right info
@@ -121,7 +121,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),
 
 #ifdef __DOUBLE_ENABLED__
-    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF ),
+//    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF CL_FP_FMA | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT ), // new OpenCL 1.2
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),	// TODO Should take this value from BE
 #else
