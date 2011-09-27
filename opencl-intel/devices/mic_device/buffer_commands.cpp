@@ -70,24 +70,29 @@ cl_dev_err_code ReadWriteMemObject::execute()
 {
 
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
-	cl_mem_obj_descriptor*	pMemObj;
-	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->memObj));
+	MICDevMemoryObject*     pMicMemObj;
 	mem_copy_info_struct	sCpyParam;
+
+	cl_dev_err_code err = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObj);
+	if (CL_DEV_SUCCESS != err)
+	{
+		return err;
+	}
 
 	notifyCommandStatusChanged(CL_RUNNING);
 
-	pMicMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMemObj);
+	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
 	size_t offset;
-	size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
+	const size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj.pitch;
 
 	// copy the dimension value
 	sCpyParam.uiDimCount = cmdParams->dim_count;
-	offset = MemoryAllocator::CalculateOffset(sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
+	offset = MemoryAllocator::CalculateOffset(sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj.uiElementSize);
 
 	// Set region
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
 
 	// In case the pointer parameter (Host pointer) has pitch properties,
 	// we need to consider that too.
@@ -202,17 +207,26 @@ cl_dev_err_code CopyMemObject::Create(CommandList* pCommandList, IOCLFrameworkCa
 cl_dev_err_code CopyMemObject::execute()
 {
 	cl_dev_cmd_param_copy*	cmdParams = (cl_dev_cmd_param_copy*)m_pCmd->params;
-	cl_mem_obj_descriptor*	pSrcMemObj;;
-	cl_mem_obj_descriptor*	pDstMemObj;
-	MICDevMemoryObject*     pMicMemObjSrc = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->srcMemObj));
-	MICDevMemoryObject*     pMicMemObjDst = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->dstMemObj));
+	MICDevMemoryObject*     pMicMemObjSrc;
+	MICDevMemoryObject*     pMicMemObjDst;
 	mem_copy_info_struct	sCpyParam;  // Assume in this case that the source is hostPtr and the destination is coiBuffer (Will convert later the results of the source)
 
-	pMicMemObjSrc->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pSrcMemObj);
-	pMicMemObjDst->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pDstMemObj);
+	cl_dev_err_code err = cmdParams->srcMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObjSrc);
+	if (CL_DEV_SUCCESS != err)
+	{
+		return err;
+	}
+	err = cmdParams->dstMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObjDst);
+	if (CL_DEV_SUCCESS != err)
+	{
+		return err;
+	}
 
-	size_t  uiSrcElementSize = pSrcMemObj->uiElementSize;
-	size_t	uiDstElementSize = pDstMemObj->uiElementSize;
+	const cl_mem_obj_descriptor& pSrcMemObj = pMicMemObjSrc->clDevMemObjGetDescriptorRaw();
+	const cl_mem_obj_descriptor& pDstMemObj = pMicMemObjDst->clDevMemObjGetDescriptorRaw();
+
+	size_t  uiSrcElementSize = pSrcMemObj.uiElementSize;
+	size_t	uiDstElementSize = pDstMemObj.uiElementSize;
 
 	do
 	{
@@ -235,11 +249,11 @@ cl_dev_err_code CopyMemObject::execute()
 		//Copy 2D image to buffer
 		//Copy 3D image to buffer
 		//Buffer to image
-		memcpy(sCpyParam.vHostPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vHostPitch));
-		memcpy(sCpyParam.vCoiBuffPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vCoiBuffPitch));
+		memcpy(sCpyParam.vHostPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj.pitch, sizeof(sCpyParam.vHostPitch));
+		memcpy(sCpyParam.vCoiBuffPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj.pitch, sizeof(sCpyParam.vCoiBuffPitch));
 
-		sCpyParam.pHostPtr = (cl_char*)MemoryAllocator::CalculateOffset(cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vHostPitch, pSrcMemObj->uiElementSize);
-		sCpyParam.pCoiBuffOffset = (uint64_t)(MemoryAllocator::CalculateOffset(cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vCoiBuffPitch, pDstMemObj->uiElementSize));
+		sCpyParam.pHostPtr = (cl_char*)MemoryAllocator::CalculateOffset(cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vHostPitch, pSrcMemObj.uiElementSize);
+		sCpyParam.pCoiBuffOffset = (uint64_t)(MemoryAllocator::CalculateOffset(cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vCoiBuffPitch, pDstMemObj.uiElementSize));
 
 		sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
 		if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
@@ -336,7 +350,7 @@ cl_dev_err_code CopyMemObject::execute()
 
 	notifyCommandStatusChanged(CL_COMPLETE);
 
-	cl_dev_err_code err = m_lastError;
+	err = m_lastError;
 
 	delete this;
 	return err;
@@ -354,22 +368,28 @@ cl_dev_err_code MapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCal
 cl_dev_err_code MapMemObject::execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
-	cl_mem_obj_descriptor*	pMemObj;
 	mem_copy_info_struct	sCpyParam;
-	MICDevMemoryObject*     pMicMemObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)&(cmdParams->memObj));
+	MICDevMemoryObject*     pMicMemObj;
+
+	// Request access on default device
+	cl_dev_err_code err = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObj);
+	if (CL_DEV_SUCCESS != err)
+	{
+		return err;
+	}
 
 	notifyCommandStatusChanged(CL_RUNNING);
 
-	// Request access on default device
-	pMicMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMemObj);
-	sCpyParam.pCoiBuffOffset = MemoryAllocator::CalculateOffset(pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
-	memcpy(sCpyParam.vCoiBuffPitch, pMemObj->pitch, sizeof(sCpyParam.vCoiBuffPitch));
+	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
+
+	sCpyParam.pCoiBuffOffset = MemoryAllocator::CalculateOffset(pMemObj.dim_count, cmdParams->origin, pMemObj.pitch, pMemObj.uiElementSize);
+	memcpy(sCpyParam.vCoiBuffPitch, pMemObj.pitch, sizeof(sCpyParam.vCoiBuffPitch));
 
 	// Setup data for copying
 	// Set Source/Destination
 	sCpyParam.uiDimCount = cmdParams->dim_count;
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
 
 	sCpyParam.pHostPtr = (cl_char*)cmdParams->ptr;
 	memcpy(sCpyParam.vHostPitch, cmdParams->pitch, sizeof(sCpyParam.vHostPitch));

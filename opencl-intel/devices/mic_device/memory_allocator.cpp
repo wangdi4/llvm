@@ -341,7 +341,13 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 {
     assert(NULL != handle);
 
-    *handle = (void*)(&m_objDescr);
+	if (CL_DEVICE_TYPE_ACCELERATOR != dev_type)
+	{
+		*handle = NULL;
+		return CL_DEV_INVALID_PROPERTIES;
+	}
+
+    *handle = this;
     return CL_DEV_SUCCESS;
 }
 

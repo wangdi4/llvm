@@ -125,6 +125,7 @@ public:
 
     cl_dev_err_code clDevMemObjRelease();
     cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
+	const cl_mem_obj_descriptor& clDevMemObjGetDescriptorRaw() const { return m_objDescr; };
 
     cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
                     const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
