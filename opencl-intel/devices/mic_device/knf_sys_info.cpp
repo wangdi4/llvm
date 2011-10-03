@@ -19,6 +19,9 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+//TODO - Remove it when it will define by R.T. API.
+#define CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT 0
+
 // Update also in clang_driver.cpp (Guy)
 #ifdef __DOUBLE_ENABLED__
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\
@@ -121,7 +124,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),
 
 #ifdef __DOUBLE_ENABLED__
-//    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF CL_FP_FMA | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT ), // new OpenCL 1.2
+    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT ), // new OpenCL 1.2
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),	// TODO Should take this value from BE
 #else
