@@ -11,6 +11,8 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+extern bool gSafeReleaseOfCoiObjects;
+
 CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
 	/*CL_DEV_CMD_READ*/  &ReadWriteMemObject::Create,
 	/* CL_DEV_CMD_WRITE*/ &ReadWriteMemObject::Create,
@@ -27,12 +29,15 @@ CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommu
 m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId)
 {
 	m_refCounter.exchange(1);
+#ifdef _DEBUG
+	m_numOfConcurrentExecutions.exchange(0);
+#endif
 }
 
 CommandList::~CommandList()
 {
     assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
-	if (m_pipe)
+	if ((gSafeReleaseOfCoiObjects) && (m_pipe))
 	{
 	    COIRESULT result = COIPipelineDestroy(m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineDestroy failed");
@@ -92,6 +97,12 @@ cl_dev_err_code CommandList::releaseCommandList(bool* outDelete)
 
 cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
+#ifdef _DEBUG
+	long oldVal = m_numOfConcurrentExecutions++;
+	assert(oldVal == 0);
+#endif
+
+	cl_dev_err_code rc = CL_DEV_SUCCESS;
     Command* pCmdObject;
 	// run over all the cmds
     for (unsigned int i = 0; i < count; i++)
@@ -101,16 +112,20 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 		// If there is no enough memory for allocating Command object
 		if (CL_DEV_FAILED(rc))
 		{
-			return rc;
+			break;
 		}
 		// Send the command for execution. pCmdObject will delete itself.
 		rc = pCmdObject->execute();
 		if (CL_DEV_FAILED(rc))
 		{
-			return rc;
+			break;
 		}
 	}
-	return CL_DEV_SUCCESS;
+#ifdef _DEBUG
+	oldVal = m_numOfConcurrentExecutions--;
+	assert(oldVal == 1);
+#endif
+	return rc;
 }
 
 cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject)

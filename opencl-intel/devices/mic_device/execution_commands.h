@@ -74,7 +74,7 @@ private:
 	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo);
 
 	/* Release resources. */
-	void releaseResources();
+	void releaseResources(bool releaseCoiObjects = true);
 
 	COIBUFFER m_printfBuffer;
 	COIBUFFER m_miscBuffer;

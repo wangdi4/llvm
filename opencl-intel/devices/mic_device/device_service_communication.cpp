@@ -15,6 +15,8 @@
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::Utils;
 
+extern bool gSafeReleaseOfCoiObjects;
+
 // Device side functions used as entry points
 // MUST be parallel to the enum DEVICE_SIDE_FUNCTION !!!!
 const char* const DeviceServiceCommunication::m_device_function_names[DeviceServiceCommunication::DEVICE_SIDE_FUNCTION_COUNT] =
@@ -35,7 +37,7 @@ DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) : m
 
 DeviceServiceCommunication::~DeviceServiceCommunication()
 {
-    freeDevice();
+    freeDevice(gSafeReleaseOfCoiObjects);
 }
 
 bool DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
@@ -58,27 +60,30 @@ bool DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int u
     return true;
 }
 
-void DeviceServiceCommunication::freeDevice()
+void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 {
     COIRESULT result = COI_ERROR;
 
     waitForInitThread();
 
-    //close service pipeline
-    if (m_pipe)
-    {
-        result = COIPipelineDestroy(m_pipe);
-        assert(result == COI_SUCCESS && "COIPipelineDestroy failed for service pipeline");
-        m_pipe = NULL;
-    }
+	if (releaseCoiObjects)
+	{
+		//close service pipeline
+		if (m_pipe)
+		{
+			result = COIPipelineDestroy(m_pipe);
+//			assert(result == COI_SUCCESS && "COIPipelineDestroy failed for service pipeline");
+			m_pipe = NULL;
+		}
 
-    // close the process, wait for main function to finish indefinitely.
-    if (m_process)
-    {
-        result = COIProcessDestroy(m_process, -1, false, NULL, NULL);
-        assert(result == COI_SUCCESS && "COIProcessDestroy failed");
-        m_process = NULL;
-    }
+		// close the process, wait for main function to finish indefinitely.
+		if (m_process)
+		{
+			result = COIProcessDestroy(m_process, -1, false, NULL, NULL);
+//			assert(result == COI_SUCCESS && "COIProcessDestroy failed");
+			m_process = NULL;
+		}
+	}
 
     pthread_cond_destroy(&m_cond);
     pthread_mutex_destroy(&m_mutex);

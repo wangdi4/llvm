@@ -72,7 +72,7 @@ private:
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
        Called from destructor only*/
-    void freeDevice();
+    void freeDevice(bool releaseCoiObjects = true);
 
     /* Entry point for the initializer thread. */
     static void* initEntryPoint(void* arg);

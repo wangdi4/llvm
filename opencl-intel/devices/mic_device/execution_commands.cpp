@@ -8,6 +8,8 @@
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
+extern bool gSafeReleaseOfCoiObjects;
+
 NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd),
 m_printfBuffer(NULL), m_miscBuffer(NULL), m_extendedDispatcherData(NULL)
 {
@@ -15,7 +17,7 @@ m_printfBuffer(NULL), m_miscBuffer(NULL), m_extendedDispatcherData(NULL)
 
 NDRange::~NDRange()
 {
-	releaseResources();
+	releaseResources(gSafeReleaseOfCoiObjects);
 }
 
 cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
@@ -86,7 +88,12 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		// Get command params
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 		// Get Kernel from params
+#ifndef NDRANGE_UNIT_TEST
 		const ICLDevBackendKernel_* pKernel = program_service->GetBackendKernel(cmdParams->kernel);
+#else
+		program_service = NULL;
+		const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+#endif
 		// Get kernel params
 		const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
@@ -471,18 +478,21 @@ void NDRange::fireCallBack(void* arg)
 	delete this;
 }
 
-void NDRange::releaseResources()
+void NDRange::releaseResources(bool releaseCoiObjects)
 {
-	COIRESULT coiErr = COI_SUCCESS;
-	if (m_printfBuffer)
+	if (releaseCoiObjects)
 	{
-		coiErr = COIBufferDestroy(m_printfBuffer);
-		assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
-	}
-	if (m_miscBuffer)
-	{
-		coiErr = COIBufferDestroy(m_miscBuffer);
-		assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
+		COIRESULT coiErr = COI_SUCCESS;
+		if (m_printfBuffer)
+		{
+			coiErr = COIBufferDestroy(m_printfBuffer);
+			assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
+		}
+		if (m_miscBuffer)
+		{
+			coiErr = COIBufferDestroy(m_miscBuffer);
+			assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
+		}
 	}
 	if (m_extendedDispatcherData)
 	{

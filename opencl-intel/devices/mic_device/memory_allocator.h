@@ -43,16 +43,66 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 // used by commands
 struct SMemMapParams
 {
-	SMemMapParams();
-	~SMemMapParams();
+	SMemMapParams() : map_handle(NULL), num_of_rec_map_handles(0), rec_map_handles(NULL)
+	{
+	}
+
+	virtual ~SMemMapParams()
+	{
+		if (rec_map_handles)
+		{
+			free(rec_map_handles);
+		}
+	}
 
 	// Regular map COIMAPINSTANCE
     COIMAPINSTANCE  map_handle;
-	// Rectangular maps COIMAPINSTANCEs
-	COIMAPINSTANCE* rec_map_handles;
+	// Rectangular maps handler
 	unsigned int    num_of_rec_map_handles;
-	COIEVENT*       map_barriers;				// In rectangular mapping will malloc COIEVENTs as (num_of_rec_map_handles - 1) and the last map will depend on those events
-	COIEVENT*       unmap_barriers;
+	void*			rec_map_handles;
+
+	bool isRectangularOperation()
+	{
+		return (NULL == map_handle);
+	}
+
+	bool allocateMapHandlers(unsigned int numOfRegions)
+	{
+		if (numOfRegions > 1)
+		{
+			num_of_rec_map_handles = numOfRegions;
+			// allocate memory for numOfRegions of COIMAPINSTANCE and (numOfRegions - 1) of COIEVENT
+			// The first (numOfRegions * sizeof(COIMAPINSTANCE)) bytes will be the numOfRegions COIMAPINSTANCEs, the rest of the bytes will be (numOfRegions - 1) COIEVENTs.
+			size_t tAllocationSize = (sizeof(COIMAPINSTANCE) + sizeof(COIEVENT)) * numOfRegions - sizeof(COIEVENT);
+			rec_map_handles = malloc(tAllocationSize);
+			if (NULL == rec_map_handles)
+			{
+				return false;
+			}
+			memset(rec_map_handles, 0, tAllocationSize); 
+		}
+		return true;
+	}
+
+	COIMAPINSTANCE& getCoiMapInstance()
+	{
+		assert(rec_map_handles == NULL);
+		return map_handle;
+	}
+
+
+	COIMAPINSTANCE& getCoiMapInstance(unsigned int index)
+	{
+		assert ((map_handle == NULL) && (rec_map_handles) && (index < num_of_rec_map_handles));
+		return ((COIMAPINSTANCE*)rec_map_handles)[index];
+	}
+
+	COIEVENT* getRectangularMapCoiEventsArr()
+	{
+		assert((rec_map_handles) && (num_of_rec_map_handles > 1));
+		return (COIEVENT*)(((char*)rec_map_handles) + (sizeof(COIMAPINSTANCE) * num_of_rec_map_handles));
+	}
+
 };
 
 class DeviceServiceCommunication;

@@ -148,6 +148,10 @@ private:
 	// Sub device ID
 	cl_dev_subdevice_id				  m_subDeviceId;
 
+#ifdef _DEBUG
+	AtomicCounter					  m_numOfConcurrentExecutions;
+#endif
+
 };
 
 

@@ -451,29 +451,3 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     return CL_DEV_SUCCESS;
 }
-
-//////////////////////////////////////////////////////////////////////////
-/// SMemMapParams
-//////////////////////////////////////////////////////////////////////////
-
-SMemMapParams::SMemMapParams() :
-    map_handle(NULL),rec_map_handles(NULL),num_of_rec_map_handles(0), map_barriers(NULL), unmap_barriers(NULL)
-{
-}
-
-SMemMapParams::~SMemMapParams()
-{
-	if (rec_map_handles)
-	{
-		free(rec_map_handles);
-	}
-	if (map_barriers)
-	{
-		free(map_barriers);
-	}
-	if (unmap_barriers)
-	{
-		free(unmap_barriers);
-	}
-}
-

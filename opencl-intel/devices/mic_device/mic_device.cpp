@@ -37,6 +37,8 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+bool gSafeReleaseOfCoiObjects = true;
+
 set<IOCLDeviceAgent*> MICDevice::m_mic_instancies;
 OclMutex              MICDevice::m_mic_instancies_mutex;
 
@@ -62,8 +64,8 @@ void MICDevice::RegisterMicDevice( MICDevice* dev )
 
 void MICDevice::UnregisterMicDevice( MICDevice* dev )
 {
-    OclAutoMutex lock( &m_mic_instancies_mutex );
-    m_mic_instancies.erase( dev );
+		OclAutoMutex lock( &m_mic_instancies_mutex );
+		m_mic_instancies.erase( dev );
 }
 
 MICDevice::TMicsSet MICDevice::GetActiveMicDevices( void )
