@@ -197,7 +197,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 
 		// Array of COIBUFFERs that will sent to the process (The first location is for the dispatcher data structure)
 		// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
-		coiBuffsArr = (COIBUFFER*)malloc(sizeof(COIBUFFER) * numOfDispatchingBuffers);
+		coiBuffsArr = new COIBUFFER[numOfDispatchingBuffers];
 		if (NULL == coiBuffsArr)
 		{
 			returnError = CL_DEV_OUT_OF_MEMORY;
@@ -205,7 +205,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		}
 		// Array of access flags that will sent to the process (The first location is for the dispatcher data structure permission)
 		// IT IS CALLER RESPONSIBILITY TO FREE THIS ALLOCATION (IT WILL SET THE OUT PARAMETER)
-		accessFlagArr = (COI_ACCESS_FLAGS*)malloc(sizeof(COI_ACCESS_FLAGS) * numOfDispatchingBuffers);
+		accessFlagArr = new COI_ACCESS_FLAGS[numOfDispatchingBuffers];
 		if (NULL == accessFlagArr)
 		{
 			returnError = CL_DEV_OUT_OF_MEMORY;
@@ -214,7 +214,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 
 		if (numPreDirectives > 0)
 		{
-			preExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPreDirectives);
+			preExeDirectives = new directive_pack[numPreDirectives];
 			if (NULL == preExeDirectives)
 			{
 				returnError = CL_DEV_OUT_OF_MEMORY;
@@ -223,7 +223,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		}
 		if (numPostDirectives > 0)
 		{
-			postExeDirectives = (directive_pack*)malloc(sizeof(directive_pack) * numPostDirectives);
+			postExeDirectives = new directive_pack[numPostDirectives];
 			if (NULL == postExeDirectives)
 			{
 				returnError = CL_DEV_OUT_OF_MEMORY;
@@ -318,7 +318,7 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 		//    * postExeDirectives
 		//    * cmdParams->arg_values (kernel args blob)
 		// Going to collect all the data together
-		m_extendedDispatcherData = (char*)malloc(dispatcherData.getDispatcherDataSize());
+		m_extendedDispatcherData = new char[dispatcherData.getDispatcherDataSize()];
 		if (NULL == m_extendedDispatcherData)
 		{
 			returnError = CL_DEV_OUT_OF_MEMORY;
@@ -351,22 +351,22 @@ cl_dev_err_code NDRange::init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** p
 
 	if (preExeDirectives)
 	{
-		free(preExeDirectives);
+		delete [] preExeDirectives;
 	}
 	if (postExeDirectives)
 	{
-		free(postExeDirectives);
+		delete [] postExeDirectives;
 	}
 
 	if (CL_DEV_SUCCESS != returnError)
 	{
 		if (coiBuffsArr)
 		{
-			free(coiBuffsArr);
+			delete [] coiBuffsArr;
 		}
 		if (accessFlagArr)
 		{
-			free(accessFlagArr);
+			delete [] accessFlagArr;
 		}
 	}
 	else
@@ -425,11 +425,11 @@ cl_dev_err_code NDRange::execute()
 
 	if (coiBuffsArr)
 	{
-		free(coiBuffsArr);
+		delete [] coiBuffsArr;
 	}
 	if (accessFlagsArr)
 	{
-		free(accessFlagsArr);
+		delete [] accessFlagsArr;
 	}
 	if (CL_DEV_SUCCESS != err)
 	{
@@ -496,6 +496,6 @@ void NDRange::releaseResources(bool releaseCoiObjects)
 	}
 	if (m_extendedDispatcherData)
 	{
-		free(m_extendedDispatcherData);
+		delete [] m_extendedDispatcherData;
 	}
 }

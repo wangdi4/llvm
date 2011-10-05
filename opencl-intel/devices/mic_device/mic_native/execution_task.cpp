@@ -167,7 +167,7 @@ void ExecutionTask::finish()
 	if (numOfPostExeDirectives > 0)
 	{
 		// get teh pointer to postExeDirectivesArr
-		directive_pack* postExeDirectivesArr = (directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->postExeDirectivesArrOffset);
+		directive_pack* postExeDirectivesArr = (directive_pack*)((char*)(m_lockBufferPointers[DISPATCHER_DATA_INDEX]) + m_dispatcherData->postExeDirectivesArrOffset);
 		// traverse over the postExeDirectivesArr
 		for (unsigned int i = 0; i < numOfPostExeDirectives; i++)
 		{
@@ -228,8 +228,8 @@ void BlockingTask::runTask()
 #endif
 	NATIVE_PRINTF("Running task\n");
 	NATIVE_PRINTF("Kernel address - %ld\n", m_dispatcherData->kernelDirective.kernelAddress);
-	directive_pack* directivesArr[2] = {(directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->preExeDirectivesArrOffset)
-		, (directive_pack*)((char*)(m_lockBufferPointers[0]) + m_dispatcherData->postExeDirectivesArrOffset)};
+	directive_pack* directivesArr[2] = {(directive_pack*)((char*)(m_lockBufferPointers[DISPATCHER_DATA_INDEX]) + m_dispatcherData->preExeDirectivesArrOffset)
+		, (directive_pack*)((char*)(m_lockBufferPointers[DISPATCHER_DATA_INDEX]) + m_dispatcherData->postExeDirectivesArrOffset)};
 	unsigned int directivesCount[2] = {m_dispatcherData->preExeDirectivesCount, m_dispatcherData->postExeDirectivesCount};
 	char title[2][50] = {"The PreExeDirectives are:\n\0", "The PostExeDirectives are:\n\0"};
 	for (unsigned int j = 0; j < 2; j++)
@@ -308,13 +308,13 @@ void NonBlockingTask::runTask()
 bool NonBlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths)
 {
 	m_lockBufferCount = in_BufferCount;
-	m_lockBufferPointers = (void**)malloc(sizeof(void*) * in_BufferCount);
+	m_lockBufferPointers = new void*[in_BufferCount];
 	if (NULL == m_lockBufferPointers)
 	{
 		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
 		return false;
 	}
-	m_lockBufferLengths = (uint64_t*)malloc(sizeof(uint64_t) * in_BufferCount);
+	m_lockBufferLengths = new uint64_t[in_BufferCount];
 	if (NULL == m_lockBufferLengths)
 	{
 		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
@@ -346,7 +346,7 @@ void NonBlockingTask::releaseResources()
 		result = COIBufferReleaseRef(m_lockBufferPointers[i]);
 		assert(result == COI_SUCCESS);
 	}
-	free(m_lockBufferPointers);
-	free(m_lockBufferLengths);
+	delete [] m_lockBufferPointers;
+	delete [] m_lockBufferLengths;
 }
 
