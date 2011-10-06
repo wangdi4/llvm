@@ -53,7 +53,7 @@ set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/externals/llvm_wrap/clang_headers )
 
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}\n#define BUILDVERSIONSTR "\"(Build\ ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION})\")
-file(WRITE ${OCL_BINARY_DIR}/version.txt "1.5.${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
 
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
