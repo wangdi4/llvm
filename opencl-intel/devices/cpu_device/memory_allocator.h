@@ -43,7 +43,7 @@ class MemoryAllocator
 {
 
 public:
-	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize);
+	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, cl_ulong maxAllocSize);
 	virtual ~MemoryAllocator();
 
 	//Image Info Function
@@ -62,7 +62,7 @@ public:
 protected:
 	size_t GetElementSize(const cl_image_format* format);
 	cl_int					m_iDevId;
-    size_t                  m_maxAllocSize;
+    cl_ulong      m_maxAllocSize;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 	ClHeap					m_lclHeap;

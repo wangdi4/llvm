@@ -43,7 +43,7 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize) :
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize) :
 	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
 {
 	if ( NULL != logDesc )
@@ -331,8 +331,10 @@ m_pBackingStore(NULL), m_pHostPtr(NULL)
 
 CPUDevMemoryObject::~CPUDevMemoryObject()
 {
-	assert(NULL!=m_pBackingStore);
-	m_pBackingStore->RemovePendency();
+	if ( NULL != m_pBackingStore )
+	{
+		m_pBackingStore->RemovePendency();
+	}
 }
 
 cl_dev_err_code CPUDevMemoryObject::Init()
