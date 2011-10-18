@@ -63,7 +63,7 @@ WGContext::~WGContext()
 
 }
 
-cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary* pBinary, size_t* pBuffSizes, size_t count)
+cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{

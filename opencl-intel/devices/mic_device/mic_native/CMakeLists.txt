@@ -147,6 +147,8 @@ set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 # inlcude path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
+				-I ${CMAKE_CURRENT_SOURCE_DIR}/../
+				-I ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${OCL_SOURCE_DIR}/externals/tbb/include
                 -I ${COI_SDK_PATH}/include

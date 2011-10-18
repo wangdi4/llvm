@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <common/COITypes_common.h>
 #include "cl_device_api.h"
+#include "cl_types.h"
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -88,6 +89,7 @@ struct buffer_directive
 {
 	unsigned int bufferIndex;
 	uint64_t offset_in_blob;
+	cl_mem_obj_descriptor mem_obj_desc;
 };
 
 struct barrier_directive
@@ -148,6 +150,21 @@ struct cl_mic_work_description_type
 		}
 	}
 
+	// Copy this object data to cl_work_description_type object, CANNOT use memcpy because the change in type (uint64_t to size_t)
+	void convertToClWorkDescriptionType(cl_work_description_type* outWorkDescType)
+	{
+		outWorkDescType->workDimension = workDimension;
+		size_t* groupedGlobalWork[3] = {outWorkDescType->globalWorkOffset, outWorkDescType->globalWorkSize, outWorkDescType->localWorkSize};
+		uint64_t* otherGroupedGlobalWork[3] = {globalWorkOffset, globalWorkSize, localWorkSize};
+		for (unsigned int i = 0; i < 3; i++)
+		{
+			for (unsigned int j = 0; j < MAX_WORK_DIM; j++)
+			{
+				groupedGlobalWork[i][j] = otherGroupedGlobalWork[i][j];
+			}
+		}
+	}
+
 };
 
 struct dispatcher_data
@@ -155,6 +172,8 @@ struct dispatcher_data
 	// Dispatcher function arguments
 	kernel_directive kernelDirective;
 	bool isInOrderQueue;
+	// The buffer index of misc data
+	unsigned int miscDataBuffIndex;
 	cl_mic_work_description_type workDesc;
 	// Pre-execution directives count
 	unsigned int preExeDirectivesCount;
@@ -187,7 +206,7 @@ struct dispatcher_data
 
 struct misc_data
 {
-	misc_data()
+	void init()
 	{
 		invocationTime = 0;
 		startRunningTime = 0;
@@ -200,12 +219,13 @@ struct misc_data
 	cl_dev_err_code errCode;
 };
 
-enum DISPATCH_BUFFERS_INDEXES
+enum OPTIONAL_DISPATCH_BUFFERS
 {
-	DISPATCHER_DATA_INDEX = 0,
-	MISC_DATA_INDEX,
+	DISPATCHER_DATA = 0,
+	MISC_DATA,
+	PRINTF_BUFFER,
 
-	AMOUNT_OF_CONSTANT_BUFFERS
+	AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS
 };
 
 }}}

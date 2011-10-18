@@ -37,6 +37,7 @@
 #include "program_memory_manager.h"
 #include "mic_device_interface.h"
 #include "cl_dev_backend_api.h"
+#include "ICLDevBackendSerializationService.h"
 
 using namespace Intel::OpenCL::UtilsNative;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -45,11 +46,11 @@ using namespace Intel::OpenCL::MICDevice;
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 // execution memory allocator required by Device Backend
-class MICNativeBackendExecMemoryAllocator //: public ICLDevBackendMemAllocator
+class MICNativeBackendExecMemoryAllocator : public ICLDevBackendJITAllocator
 {
 public:
-    void* alloc( size_t size );
-    void  free( void* buf );
+    void* AllocateExecutable(size_t size, size_t alignment);
+    void FreeExecutable(void* ptr);
 };
 
 // kernel printf filler required by Device Backend
@@ -98,6 +99,14 @@ public:
     bool get_kernel( uint64_t device_info_ptr,
                      const ICLDevBackendKernel_** kernel,
                      ProgramMemoryManager**       program_exec_memory_manager ) const;
+
+
+	// create binary according to input parameters
+	cl_dev_err_code create_binary( const ICLDevBackendKernel_* pKernel, 
+		                           char* pLockedParams, 
+								   uint64_t argSize,
+								   cl_work_description_type* pWorkDesc,
+								   ICLDevBackendBinary_** ppOutBinary ) const;
 
     // singleton
     static ProgramService& getInstance( void )

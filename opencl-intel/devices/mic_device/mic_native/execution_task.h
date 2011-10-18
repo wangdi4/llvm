@@ -46,7 +46,7 @@ public:
 	static ExecutionTask* ExecutionTaskFactory(dispatcher_data* dispatcherData, misc_data* miscData);
 
 	/* Initializing and performing the preExecution conditions */
-	bool init(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths);
+	bool init(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 	/* Perform PostExecution conditions.
 	   AND Delete this object as the last command.
@@ -65,10 +65,12 @@ protected:
 
 	/* Save the input buffers.
 	   In case of OutOfOrder CommandList AddRefCounter for each buffer. (In order to lock it on the device) */
-	virtual bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths) = 0;
+	virtual bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
 
 	/* If m_signalBarrierFlag == true signal the completionBarrier. */
 	void signalUserBarrierForCompletion();
+
+	void getExecutionRegion(uint64_t region[]);
 
 	// The received dispatcher_data
 	dispatcher_data* m_dispatcherData;
@@ -81,7 +83,12 @@ protected:
 	uint64_t* m_lockBufferLengths;
 
 	ICLDevBackendKernel_* m_kernel;
+	ICLDevBackendBinary_* m_pBinary;
 	ProgramMemoryManager* m_progamExecutableMemoryManager;
+
+	// Executable information
+    size_t                      m_MemBuffCount;
+    size_t*                     m_pMemBuffSizes;
 
 	// The kernel arguments blob
 	char* m_lockedParams;
@@ -101,7 +108,7 @@ public:
 
 	void runTask();
 
-	bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths);
+	bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 protected:
 
@@ -118,7 +125,7 @@ public:
 
 	void runTask();
 
-	bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths);
+	bool lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 protected:
 

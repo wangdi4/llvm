@@ -1,5 +1,6 @@
 #include "pragmas.h"
 #include "memory_manager.h"
+#include "native_common_macros.h"
 
 #include <sys/mman.h>
 #include <assert.h>
@@ -89,6 +90,7 @@ bool MemoryManager::reserveMem(unsigned int numOfItems, unsigned int itemSize, v
             unsigned int numMemItems = (numOfItemsToAllocate > MINIMUM_MEM_ITEMS_IN_POOL) ? numOfItemsToAllocate : MINIMUM_MEM_ITEMS_IN_POOL;
 
             void* exeMemStartAddress = mmap(NULL, numMemItems * MEMORY_ITEM_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+			assert(IS_ALIGN(exeMemStartAddress, MEMORY_ITEM_SIZE));
             // the map operation failed
             if (exeMemStartAddress == MAP_FAILED)
             {
@@ -116,6 +118,7 @@ bool MemoryManager::reserveMem(unsigned int numOfItems, unsigned int itemSize, v
     assert(tAddress && "ERROR");
 
     *reserveMemAddress = tAddress;
+	assert(IS_ALIGN(*reserveMemAddress, MEMORY_ITEM_SIZE));
     return true;
 }
 

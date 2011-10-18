@@ -88,7 +88,7 @@ ProgramService::~ProgramService()
 /****************************************************************************************************************
  BEGIN MICNativeBackendExecMemoryAllocator
 ********************************************************************************************************************/
-void* MICNativeBackendExecMemoryAllocator::alloc( size_t size )
+void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_t alignment)
 {
     TlsAccessor tls;
     ProgramMemoryManager* mem = tls.get_program_memory_manager();
@@ -114,7 +114,7 @@ void* MICNativeBackendExecMemoryAllocator::alloc( size_t size )
     return buf;
 }
 
-void MICNativeBackendExecMemoryAllocator::free( void* buf )
+void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 {
     TlsAccessor tls;
     ProgramMemoryManager* mem = tls.get_program_memory_manager();
@@ -127,12 +127,12 @@ void MICNativeBackendExecMemoryAllocator::free( void* buf )
         return;
     }
 
-    bool ok = mem->free( buf );
+    bool ok = mem->free( ptr );
     assert( ok && "SINK: Try to free no-allocated executable memory for program" );
 
     if (!ok)
     {
-        NATIVE_PRINTF("SINK: Try to free no-allocated executable memory for program: %p\n", buf );
+        NATIVE_PRINTF("SINK: Try to free no-allocated executable memory for program: %p\n", ptr );
     }
 
 }
@@ -158,7 +158,6 @@ void MICNativeBackendPrintfFiller::print( const char* buf )
 
 // ICLDevBackendOptions interface
 // BUGBUG: DK remove this!
-#define CL_DEV_BACKEND_OPTION_MEM_ALLOC  1
 #define CL_DEV_BACKEND_OPTION_PRINTF     2
 
 bool MICNativeBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
@@ -185,8 +184,8 @@ bool MICNativeBackendOptions::GetValue( int optionId, void* Value, size_t* pSize
 
     switch (optionId)
     {
-        case CL_DEV_BACKEND_OPTION_MEM_ALLOC:
-            *(void**)Value = NULL;
+        case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
+            *(void**)Value = (void*)(&m_allocator);
             return false;
 
         case CL_DEV_BACKEND_OPTION_PRINTF:
@@ -208,36 +207,35 @@ bool ProgramService::LoadBackendServices(void)
 
     err = InitDeviceBackend( NULL );
 
-// BUGBUG: DK temporary disable
-//    assert( CL_DEV_SUCCEEDED(err) && "SINK: InitDeviceBackend(NULL)" );
-//
-//    // load Backend Compiler
-//    ICLDevBackendServiceFactory* be_factory = GetDeviceBackendFactory();
-//
-//    if (NULL == be_factory)
-//    {
-//        assert( false && "SINK: MIC Device cannot create BE Factory" );
-//        return false;
-//    }
-//
-//    err = be_factory->GetExecutionService( &m_BE_Executor.m_options, &m_BE_Executor.pExecutionService );
-//
-//    if (CL_DEV_FAILED( err ))
-//    {
-//        assert( false && "SINK: MIC Device cannot create Backend Execution Service" );
-//        return false;
-//    }
-//
-//    err = be_factory->GetSerializationService( &m_BE_Executor.m_options, &m_BE_Executor.pSerializationService );
-//
-//    if (CL_DEV_FAILED( err ))
-//    {
-//        assert( false && "SINK: MIC Device  cannot create Backend Serialization Service" );
-//
-//        m_BE_Executor.pExecutionService->Release();
-//        m_BE_Executor.pExecutionService = NULL;
-//        return false;
-//    }
+    assert( CL_DEV_SUCCEEDED(err) && "SINK: InitDeviceBackend(NULL)" );
+
+    // load Backend Compiler
+    ICLDevBackendServiceFactory* be_factory = GetDeviceBackendFactory();
+
+    if (NULL == be_factory)
+    {
+        assert( false && "SINK: MIC Device cannot create BE Factory" );
+        return false;
+    }
+
+    err = be_factory->GetExecutionService( &m_BE_Executor.m_options, &m_BE_Executor.pExecutionService );
+
+    if (CL_DEV_FAILED( err ))
+    {
+        assert( false && "SINK: MIC Device cannot create Backend Execution Service" );
+        return false;
+    }
+
+    err = be_factory->GetSerializationService( &m_BE_Executor.m_options, &m_BE_Executor.pSerializationService );
+
+    if (CL_DEV_FAILED( err ))
+    {
+        assert( false && "SINK: MIC Device  cannot create Backend Serialization Service" );
+
+        m_BE_Executor.pExecutionService->Release();
+        m_BE_Executor.pExecutionService = NULL;
+        return false;
+    }
 
     return true;
 }
@@ -264,39 +262,14 @@ void ProgramService::ReleaseBackendServices(void)
 //
 size_t ProgramService::getBackendTargetDescriptionSize( void ) const
 {
-// BUGBUG: DK temporary disable
-//    return GetExecutionService()->GetTargetMachineDescriptionSize();
-
-// BUGBUG: DK test only
-     return 10;
- }
+    return GetExecutionService()->GetTargetMachineDescriptionSize();
+}
 
 size_t ProgramService::getBackendTargetDescription( size_t buffer_size, void* buffer ) const
 {
     ICLDevBackendExecutionService* service = GetExecutionService();
 
-// BUGBUG: DK temporary disable
-//    size_t required_size = service->GetTargetMachineDescriptionSize();
-//
-//    if (required_size > buffer_size)
-//    {
-//        NATIVE_PRINTF( "TargetMachineDescriptionSize is %u bytes, while passed only %u bytes\n",
-//                        (unsigned int)required_size, (unsigned int)buffer_size );
-//
-//        return 0;
-//    }
-//
-//    cl_dev_err_code err = service->GetTargetMachineDescription( buffer, buffer_size );
-//
-//    if (CL_DEV_FAILED( err ))
-//    {
-//        NATIVE_PRINTF( "GetTargetMachineDescription() returned %u error\n", (unsigned int)err );
-//        return 0;
-//    }
-
-// BUGBUG: DK test only
-    const char* b = "0123456789";
-    size_t required_size = 10;
+    size_t required_size = service->GetTargetMachineDescriptionSize();
 
     if (required_size > buffer_size)
     {
@@ -306,7 +279,27 @@ size_t ProgramService::getBackendTargetDescription( size_t buffer_size, void* bu
         return 0;
     }
 
-    memcpy( buffer, b, required_size );
+    cl_dev_err_code err = service->GetTargetMachineDescription( buffer, buffer_size );
+
+    if (CL_DEV_FAILED( err ))
+    {
+        NATIVE_PRINTF( "GetTargetMachineDescription() returned %u error\n", (unsigned int)err );
+        return 0;
+    }
+
+// BUGBUG: DK test only
+//    const char* b = "0123456789";
+//    size_t required_size = 10;
+//
+//    if (required_size > buffer_size)
+//    {
+//        NATIVE_PRINTF( "TargetMachineDescriptionSize is %u bytes, while passed only %u bytes\n",
+//                        (unsigned int)required_size, (unsigned int)buffer_size );
+//
+//        return 0;
+//    }
+//
+//    memcpy( buffer, b, required_size );
     return required_size;
 }
 
@@ -345,9 +338,7 @@ void ProgramService::add_program(
     tls.set_program_memory_manager( prog_entry->exec_memory_manager );
 
     // 2. Deserialize program
-// BUGBUG: DK test!!!
-//    cl_dev_err_code be_err = GetSerializationService()->DeSerializeProgram( &(prog_entry->pProgram) , prog_blob, prog_blob_size );
-cl_dev_err_code be_err = CL_DEV_SUCCESS;
+    cl_dev_err_code be_err = GetSerializationService()->DeSerializeProgram( &(prog_entry->pProgram) , prog_blob, prog_blob_size );
 
     if (CL_DEV_FAILED(be_err))
     {
@@ -360,9 +351,7 @@ cl_dev_err_code be_err = CL_DEV_SUCCESS;
     }
 
     // 3. Create kernels list and fill output data
-// BUGBUG: DK temp!!!!
-//    int kernels_count = prog_entry->pProgram->GetKernelsCount();
-int kernels_count = prog_info->number_of_kernels;
+    int kernels_count = prog_entry->pProgram->GetKernelsCount();
     assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
     assert( kernels_count == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
 
@@ -372,18 +361,14 @@ int kernels_count = prog_info->number_of_kernels;
         assert( k_entry && "ProgramService::add_program: No memory to allocate kernel entry struct" );
 
         k_entry->program_entry = prog_entry;
-// BUGBUG: DK temp!!!!
-//        be_err = prog_entry->pProgram->GetKernel(i, &(k_entry->kernel) );
-be_err = CL_DEV_SUCCESS;
+        be_err = prog_entry->pProgram->GetKernel(i, &(k_entry->kernel) );
         assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from deserialized program" );
 
         // add kernel entry to the prog list
         prog_entry->kernels.push_back( k_entry );
 
         // add kernel info to the return struct
-// BUGBUG: DK temp!!!!
-//        fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)k_entry->kernel->GetKernelID();
-fill_kernel_info->device_kernel_info_pts[i].kernel_id        = i;
+        fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)k_entry->kernel->GetKernelID();
         fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)k_entry;
     }
 
@@ -483,6 +468,15 @@ bool ProgramService::get_kernel(
     }
 
     return true;
+}
+
+cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel, 
+		                           char* pLockedParams, 
+								   uint64_t argSize,
+								   cl_work_description_type* pWorkDesc,
+								   ICLDevBackendBinary_** ppOutBinary ) const
+{
+	return GetExecutionService()->CreateBinary(pKernel, pLockedParams, argSize, pWorkDesc, ppOutBinary);
 }
 
 

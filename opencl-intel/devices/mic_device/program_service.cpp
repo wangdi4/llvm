@@ -1244,10 +1244,8 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     // copy program to device and get back list of kernel structs on device
     COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT input;
 
-// TODO: DK Workaround
-#define GetProgramExecutableSize() GetProgramCodeContainer()->GetCodeSize()
     input.uid_program_on_device    = pEntry->uid_program_on_device;
-    input.required_executable_size = program->GetProgramExecutableSize();
+    input.required_executable_size = program->GetProgramCodeContainer()->GetCodeSize();
     input.number_of_kernels        = kernels_count;
 
     // allocate output strcut on my stack

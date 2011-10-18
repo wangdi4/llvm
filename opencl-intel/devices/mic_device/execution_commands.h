@@ -23,6 +23,7 @@
 #include "command.h"
 
 #include "mic_dev_limits.h"
+#include "exe_cmd_mem_handler.h"
 
 #include <vector>
 
@@ -66,10 +67,8 @@ private:
 	/* Private constructor because We like to create Commands only by the factory method */
     NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	/* Initialize NDRange command. 
-	   If the initialization process succeeded, memory will allocate for (*ppOutCoiBuffsArr) and (*ppAccessFlagArr)
-	   IT IS THE CALLER RESPONSABILITY TO FREE THIS MEMORY (In case that the initialization method return CL_DEV_SUCCESS). */
-	cl_dev_err_code init(COIBUFFER** ppOutCoiBuffsArr, COI_ACCESS_FLAGS** ppAccessFlagArr, unsigned int* pOutNumBuffers);
+	/* Initialize NDRange command. */
+	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 
 	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo);
 
@@ -77,10 +76,10 @@ private:
 	void releaseResources(bool releaseCoiObjects = true);
 
 	COIBUFFER m_printfBuffer;
-	COIBUFFER m_miscBuffer;
 
-	char*     m_extendedDispatcherData;
+	MiscDataHandler m_miscDatahandler;
 
+	DispatcherDataHandler m_dispatcherDatahandler;
 };
 
 }}}
