@@ -85,7 +85,6 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 		return CL_INVALID_VALUE;
 	}
-
 	size_t szParamValueSize = 0;
 
 	size_t uiParam = 0;
@@ -119,34 +118,6 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 				}
 			}
 			// get  size
-			if (NULL != param_value_size_ret)
-			{
-				*param_value_size_ret = szParamValueSize;
-			}
-			return CL_SUCCESS;
-		}
-
-	case CL_PROGRAM_BINARY_SIZES:
-		{
-            OclAutoReader CS(&m_deviceProgramLock);
-			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
-			if (NULL != param_value)
-			{
-				if (param_value_size < szParamValueSize)
-				{
-					return CL_INVALID_VALUE;
-				}
-				assert(param_value_size >= m_szNumAssociatedDevices * sizeof(size_t));
-				size_t * pParamValue = static_cast<size_t *>(param_value);
-				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-				{
-					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, pParamValue + i);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-				}
-			}
 			if (NULL != param_value_size_ret)
 			{
 				*param_value_size_ret = szParamValueSize;

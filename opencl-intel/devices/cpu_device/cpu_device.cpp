@@ -1029,7 +1029,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DEVICE_NAME):
         {
-            *pinternalRetunedValueSize = CPU_DEVICE_NAME_SIZE + 1;
+            *pinternalRetunedValueSize = CPU_DEVICE_NAME_SIZE; // Already counts for \0
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;

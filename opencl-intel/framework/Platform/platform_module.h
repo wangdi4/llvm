@@ -187,12 +187,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code ReleaseFECompilers();
 
-		bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform==m_clPlatformIds[0]) ||
+		bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
 																	   (clPlatform==NULL); }
 
         cl_err_code AddDevices(FissionableDevice** ppDevices, unsigned int count);
 
-		cl_platform_id	m_clPlatformIds[2];
+		_cl_platform_id_int	m_clPlatformId;
 		
 		// map list of all devices
 		OCLObjectsMap<_cl_device_id_int> m_mapDevices;

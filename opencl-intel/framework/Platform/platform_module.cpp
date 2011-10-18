@@ -82,9 +82,9 @@ PlatformModule::PlatformModule()
 {
     m_ppRootDevices        = NULL;
 	m_uiRootDevicesCount   = 0;
-	m_clPlatformIds[0]     = NULL;
-	m_clPlatformIds[1]     = NULL;
 	m_pOclEntryPoints      = NULL;
+	
+	memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
 	// initialize logger
 	INIT_LOGGER_CLIENT(L"PlatformModule", LL_DEBUG);
 }
@@ -191,8 +191,9 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	LOG_INFO(TEXT("%S"), TEXT("Platform module logger initialized"));
 
 	m_pOclEntryPoints = pOclEntryPoints;
-	m_clPlatformIds[0] = new _cl_platform_id_int;
-	m_clPlatformIds[0]->dispatch = m_pOclEntryPoints;
+
+	m_clPlatformId.object = &m_clPlatformId;
+	m_clPlatformId.dispatch = m_pOclEntryPoints;
 
 	// initialize devices
 	m_pDefaultDevice = NULL;
@@ -262,7 +263,7 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
 
 	if ( uiNumEntries > 0 )
 	{
-		*pclPlatforms = m_clPlatformIds[0];
+		*pclPlatforms = &m_clPlatformId;
 	}
 
 
@@ -528,7 +529,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 	{
 	case CL_DEVICE_PLATFORM:
 		szParamSize = sizeof(cl_platform_id);
-		pValue = &(m_clPlatformIds[0]);
+		pValue = &m_clPlatformId.object;
 		break;
 	default:
 		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice, (OCLObject<_cl_device_id_int>**)(&pDevice));

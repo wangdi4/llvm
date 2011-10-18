@@ -580,7 +580,7 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 
 	case DEVICE_PROGRAM_EXTERNAL_BIN:
 		//Return the user-supplied IR
-		if (!pBin)
+		if ( NULL == pBin)
 		{
 			assert(m_szBinaryBitsSize <= CL_MAX_UINT32);
 			*puiBinSizeRet = (cl_uint)m_szBinaryBitsSize;
@@ -594,6 +594,11 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 		return CL_SUCCESS;
 
 	default:
+		if ( NULL == pBin)	// When query for binary size and it's not available, we should return 0
+		{
+			*puiBinSizeRet = 0;
+			return CL_SUCCESS;
+		}
 		// In every other case, we have nothing intelligent to return
 		// Todo: see if it's reasonable to return IR if BE is still building in ProgramWithSource
 		// Todo: see what I should return here

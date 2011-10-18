@@ -244,11 +244,39 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		    break;
         }
 
-	case CL_PROGRAM_BINARIES:
 	case CL_PROGRAM_BINARY_SIZES:
+		{
+            OclAutoReader CS(&m_deviceProgramLock);
+			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
+			if (NULL != param_value)
+			{
+				if (param_value_size < szParamValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+				assert(param_value_size >= m_szNumAssociatedDevices * sizeof(size_t));
+				size_t * pParamValue = static_cast<size_t *>(param_value);
+				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+				{
+					cl_int clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, pParamValue + i);
+					if (CL_FAILED(clErrRet))
+					{
+						return clErrRet;
+					}
+				}
+			}
+			if (NULL != param_value_size_ret)
+			{
+				*param_value_size_ret = szParamValueSize;
+			}
+			return CL_SUCCESS;
+		}
+
+
+	case CL_PROGRAM_BINARIES:
 	case CL_PROGRAM_SOURCE:
 		//All should have been handled in implementing classes
-		assert(0);
+		assert(0 && "Invalid PROGRAM query case");
 		//Intentional fall through into default
 		
 	default:
