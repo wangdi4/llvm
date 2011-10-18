@@ -33,6 +33,7 @@
 #include "out_of_order_command_queue.h"
 #include "Device.h"
 
+#include <sstream>
 // Debug
 #include <assert.h>
 
@@ -66,6 +67,9 @@ OclCommandQueue::OclCommandQueue(
 	INIT_LOGGER_CLIENT(L"OclCommandQueue Logger Client",LL_DEBUG);
 
 	LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
+
+	// Set GPA data 
+	m_pGPAData = m_pContext->GetGPAData();
 
 	m_handle.object   = this;
 	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
@@ -205,26 +209,34 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 
  cl_err_code OclCommandQueue::GPA_InitializeQueue()
  {
-    m_pOclGpaQueue = new ocl_gpa_queue();
-    if (NULL == m_pOclGpaQueue)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-#if defined(USE_GPA_42)
-    m_pOclGpaQueue->m_pStrHndl = m_bOutOfOrderEnabled ?
-    __itt_string_handle_create(L"Out Of Order Queue (CPU)") :
-    __itt_string_handle_create(L"In Order Queue (CPU)");
+ #if defined(USE_GPA)
+	 if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
+	 {
+		 m_pOclGpaQueue = new ocl_gpa_queue();
+		 if (NULL == m_pOclGpaQueue)
+		 {
+			 return CL_OUT_OF_HOST_MEMORY;
+		 }
 
-    m_pOclGpaQueue->m_pTrackGroup = __itt_track_group_create(m_pOclGpaQueue->m_pStrHndl);
+		 std::stringstream ssQueueTrackName;
+		 ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)" : "In Order Queue (CPU)") << std::endl;
+		 ssQueueTrackName << "Queue id: " << m_iId << std::endl;
+		 ssQueueTrackName << "Queue handle: " << (int)&m_handle;
+	  
+  		 m_pOclGpaQueue->m_pStrHndl = __itt_string_handle_createA(ssQueueTrackName.str().c_str());
 
-    m_pOclGpaQueue->m_pTrack = __itt_track_create(m_pOclGpaQueue->m_pTrackGroup, m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
-
-    __itt_set_track(m_pOclGpaQueue->m_pTrack);
+		 m_pOclGpaQueue->m_pTrack = __itt_track_create(m_pGPAData->pContextTrackGroup, m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
+	 }
 #endif
-    return CL_SUCCESS;
+     return CL_SUCCESS;
  }
  cl_err_code OclCommandQueue::GPA_ReleaseQueue()
  {
-     delete m_pOclGpaQueue;
+#if defined(USE_GPA)
+	 if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
+	 {
+		delete m_pOclGpaQueue;
+	 }
+#endif
      return CL_SUCCESS;
  }

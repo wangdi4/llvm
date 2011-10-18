@@ -188,21 +188,6 @@ void Context::Cleanup( bool bTerminate )
     cl_uint uiNumDevices = m_mapDevices.Count();
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-#if defined(USE_GPA)
-		// Before the thread is closed, we need to flush the
-		// trace data into file in order not to lose trace data
-		
-		// This code was removed for the initial porting of TAL
-		// to GPA 4.0 and might be used in later stages
-//      TAL_TRACE* trace;
-//		if (m_bUseTaskalyzer)
-//		{
-//			trace = TAL_GetThreadTrace();
-//			assert(NULL != trace);
-//			
-//			TAL_Flush(trace);
-//		}
-#endif
 		// The pendency to the device implicitly removed by RemoveObject()
         m_ppAllDevices[ui]->UnregisterDeviceFissionObserver(this);
         if (m_ppAllDevices[ui]->IsRootLevelDevice())

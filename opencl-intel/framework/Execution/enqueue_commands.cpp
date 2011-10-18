@@ -134,6 +134,7 @@ Command::Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPo
 Command::~Command()
 {
 	m_pDevice = NULL;
+	GPA_DestroyCommand();
 	m_pCommandQueue->RemovePendency();
 	m_pCommandQueue = NULL;
 
@@ -158,44 +159,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		// Nothing to do, not expected to be here at all
 		break;
     case CL_SUBMITTED:
-		// Running marker
-#if defined(USE_GPA)
-		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
-		{
-			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
-			{
-				char pMarkerString[64] = "Submitted - ";
-				pCommandName = this->GetCommandName();
-				strcat_s(pMarkerString, 64,pCommandName);
-
-				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-				//Due to a bug in GPA 4.0 the marker is within a task
-				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
-
-				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
-
-				__itt_task_end(pGPAData->pDomain);
-			}
-		}
-
-#if defined (USE_GPA_42)
-        // This is the first time we need to create a task
-        if (pGPAData->bEnableContextView)
-        {
-            // Initizliae GPA command's parameters
-            if (NULL != m_pGpaCommand)
-            {
-                m_pGpaCommand->m_waitCmdId = __itt_id_make(0, 0);
-
-                __itt_id_create(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId);
-
-                __itt_task_begin_overlapped(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId, __itt_null, m_pGpaCommand->m_strCmdWaitName);
-            }
-        }
-#endif
-
-#endif
+		// Nothing to do, not expected to be here at all
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         m_Event.SetColor(EVENT_STATE_LIME);
         LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_iId);
@@ -208,6 +172,9 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		{
 			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_RUNNING_MARKER)
 			{
+				// Write this data to the thread track
+				__itt_set_track(NULL);
+
 				char pMarkerString[64] = "Running - ";
 				pCommandName = this->GetCommandName();
 				strcat_s(pMarkerString, 64,pCommandName);
@@ -216,27 +183,25 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
+				__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
+				
+				__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
 
-				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
-
-				__itt_task_end(pGPAData->pDomain);
+				__itt_task_end(pGPAData->pDeviceDomain);
 			}
-		}
 
-#if defined (USE_GPA_42)
-        if (pGPAData->bEnableContextView && NULL != m_pGpaCommand)
-        {
-            __itt_task_end_overlapped(pGPAData->pDomain, m_pGpaCommand->m_waitCmdId);
+			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
+			{
+				// Set custom track 
+				__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
 
-            m_pGpaCommand->m_runCmdId = __itt_id_make(0, 0);
+				__ittx_task_set_state(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId, pGPAData->pRunningTaskState);
+				
+				// This feature does not work now due to GPA bug, should be added in later stages.
+				//GPA_WriteCommandMetadata();
+			}
 
-            __itt_id_create(pGPAData->pDomain, m_pGpaCommand->m_runCmdId);
-
-            __itt_task_begin_overlapped(pGPAData->pDomain, m_pGpaCommand->m_runCmdId, __itt_null, m_pGpaCommand->m_strCmdRunName);
-        }
-#endif
-
+		}  
 #endif
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
         m_Event.SetColor(EVENT_STATE_GREEN);
@@ -265,6 +230,9 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		{
 			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_COMPLETED_MARKER)
 			{
+				// Write this data to the thread track
+				__itt_set_track(NULL);
+
 				char pMarkerString[64] = "Completed - ";
 				pCommandName = this->GetCommandName();
 				strcat_s(pMarkerString, 64,pCommandName);
@@ -273,21 +241,24 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
+				__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pMarker);
+				
+				__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
 
-				__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
+				__itt_task_end(pGPAData->pDeviceDomain);
+			}
 
-				__itt_task_end(pGPAData->pDomain);
+			// Complete the running task on the context view and destroy the id
+			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
+			{
+				// Set custom track 
+				__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
+
+				// Complete the running task on the context view and destroy the id
+				__itt_task_end_overlapped(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId);
+				__itt_id_destroy(pGPAData->pContextDomain,m_pGpaCommand->m_CmdId);
 			}
 		}
-
-#if defined (USE_GPA_42)
-         //complete the running task on the context view
-        if (pGPAData->bEnableContextView && (NULL != m_pGpaCommand))
-        {
-            __itt_task_end_overlapped(pGPAData->pDomain, m_pGpaCommand->m_runCmdId);
-        }
-#endif
 
 #endif
 		m_Event.RemovePendency();
@@ -315,6 +286,38 @@ cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemory
 	}
 
 	return CL_SUCCESS;
+}
+
+void Command::GPA_InitCommand()
+{
+#if defined (USE_GPA)
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+	{
+		m_pGpaCommand = NULL;
+		m_pGpaCommand = new ocl_gpa_command();
+		if (NULL != m_pGpaCommand)
+		{
+			// Create task name strings
+			const char* commandName = GPA_GetCommandName();
+			if (NULL != commandName)
+			{
+				m_pGpaCommand->m_strCmdName = __itt_string_handle_createA(commandName);
+			}
+		}
+	}
+#endif
+}
+
+void Command::GPA_DestroyCommand()
+{
+#if defined (USE_GPA)
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+	{
+		delete m_pGpaCommand;
+	}
+#endif
 }
 
 /******************************************************************
@@ -595,6 +598,9 @@ cl_err_code CopyMemObjCommand::Init()
     {
         return res;
     }
+
+	// Initialize GPA data
+	GPA_InitCommand();
 
     m_pSrcMemObj->AddPendency();
     m_pDstMemObj->AddPendency();
@@ -1018,6 +1024,10 @@ cl_err_code MapMemObjCommand::Init()
         // Case of error
         return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
+
+	// Initialize GPA data
+	GPA_InitCommand();
+
     return CL_SUCCESS;
 }
 
@@ -1105,6 +1115,10 @@ cl_err_code UnmapMemObjectCommand::Init()
 {
     // First check the the region has been mapped
     cl_err_code err = m_pMemObject->GetMappedRegionInfo(m_pDevice, m_pMappedPtr, &m_pMappedRegion);
+
+	// Initialize GPA data
+	GPA_InitCommand();
+
 	return err;
 }
 
@@ -1560,6 +1574,9 @@ cl_err_code NDRangeKernelCommand::Init()
     m_pDevCmd->param_size = sizeof(cl_dev_cmd_param_kernel);
     m_pDevCmd->type = CL_DEV_CMD_EXEC_KERNEL;
 
+	// Set GPA data
+	GPA_InitCommand();
+
     return CL_SUCCESS;
 }
 
@@ -1667,21 +1684,48 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-void NDRangeKernelCommand::GPA_InitCommand()
-{
-#if defined (USE_GPA_42)
+void NDRangeKernelCommand::GPA_WriteCommandMetadata()
+{ 
+#if defined (USE_GPA)
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+	
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+	{
+		// Set custom track 
+		__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
+		__itt_metadata_add(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId, pGPAData->pWorkDimensionHandle, __itt_metadata_u32, 1,&m_uiWorkDim);
 
-    m_pGpaCommand = NULL;
-    m_pGpaCommand = new ocl_gpa_command();
-
-    if (NULL != m_pGpaCommand)
-    {
-        // In NDRangeKernelCommand, the GPA command name will be the kernel name
-        m_pGpaCommand->m_strCmdWaitName = __itt_string_handle_createA(GetKernelName());
-        m_pGpaCommand->m_strCmdRunName = __itt_string_handle_createA(GetKernelName());
-    }
+		GPA_WriteWorkMetadata(m_cpszGlobalWorkSize, pGPAData->pGlobalWorkSizeHandle);
+		GPA_WriteWorkMetadata(m_cpszLocalWorkSize, pGPAData->pLocalWorkSizeHandle);
+		GPA_WriteWorkMetadata(m_cpszGlobalWorkOffset, pGPAData->pGlobalWorkOffsetHandle);
+	}
 #endif
 }
+/******************************************************************
+ *
+ ******************************************************************/
+#if defined (USE_GPA)
+void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* stringHandle) const
+{ 
+	if (pWorkMetadata != NULL)
+	{
+		ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+		std::stringstream ssWorkMetadata;
+
+		// Set custom track 
+		__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
+
+		ssWorkMetadata << pWorkMetadata[0];
+		for (unsigned int i = 1 ; i < m_uiWorkDim ; i++)
+		{
+			ssWorkMetadata << pWorkMetadata[i];
+		}
+
+		// Write Metadata to trace
+		__itt_metadata_str_addA(pGPAData->pContextDomain, __itt_null, stringHandle, ssWorkMetadata.str().c_str(), ssWorkMetadata.str().size() + 1);
+	}
+}
+#endif
 /******************************************************************
  * Command: ReadBufferCommand
  * The functions below implement the Read Buffer functinoality
@@ -1816,6 +1860,9 @@ ReadMemObjCommand::~ReadMemObjCommand()
 cl_err_code ReadMemObjCommand::Init()
 {
 	m_pMemObj->AddPendency();
+
+	// Initialize GPA data
+	GPA_InitCommand();
 
     return CL_SUCCESS;
 }
@@ -2128,6 +2175,9 @@ cl_err_code WriteMemObjCommand::Init()
     {
         return res;
     }
+
+	// Initialize GPA data
+	GPA_InitCommand();
 
     m_pMemObj->AddPendency();
     return CL_SUCCESS;

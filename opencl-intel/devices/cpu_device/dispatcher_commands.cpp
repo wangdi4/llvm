@@ -219,7 +219,10 @@ void ReadWriteMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
+
+		__itt_set_track(NULL);
+
+		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
 
 		TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"), 255, 0, 0);
 
@@ -227,29 +230,29 @@ void ReadWriteMemObject::Execute()
 		{
 #if defined(_M_X64)
 		case 1:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64, 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64, 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 			break;
 #else
 		case 1:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
 			break;
 #endif
 		}
@@ -261,7 +264,8 @@ void ReadWriteMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_end(m_pGPAData->pDomain);
+		__itt_set_track(NULL);
+		__itt_task_end(m_pGPAData->pDeviceDomain);
 	}
 #endif
 
@@ -388,8 +392,9 @@ void CopyMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, m_pGPAData->pCopyHandle);
 
+		__itt_set_track(NULL);
+		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pCopyHandle);
 		TAL_SetNamedTaskColor("Copy", 255, 0, 0);
 
 		switch(cmdParams->src_dim_count)
@@ -397,30 +402,30 @@ void CopyMemObject::Execute()
 #if defined(_M_X64)
 		case 1:
 			
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 			break;
 #else
 		case 1:
 			
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
 			break;
 		case 2:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
 			break;
 		case 3:
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
 			break;
 #endif
 		}
@@ -433,7 +438,8 @@ void CopyMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_end(m_pGPAData->pDomain);
+		__itt_set_track(NULL);
+		__itt_task_end(m_pGPAData->pDeviceDomain);
 	} 
 #endif
 
@@ -606,7 +612,8 @@ void MapMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, m_pGPAData->pMapHandle);
+		__itt_set_track(NULL);
+		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pMapHandle);
 		TAL_SetNamedTaskColor("Map", 255, 0, 0);
 	}
 #endif
@@ -627,33 +634,35 @@ void MapMemObject::Execute()
 		// In case of data copy during Map, add size/dimention parameters to the task
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
+			__itt_set_track(NULL);
+
 			switch(cmdParams->dim_count)
 			{
 #if defined(_M_X64)
 			case 1:		
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
 				break;
 			case 2:
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
 				break;
 			case 3:
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
 				break;
 #else
 			case 1:		
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
 				break;
 			case 2:
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
 				break;
 			case 3:
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-				__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
 				break;
 #endif
 			}
@@ -666,7 +675,8 @@ void MapMemObject::Execute()
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_end(m_pGPAData->pDomain);
+		__itt_set_track(NULL);
+		__itt_task_end(m_pGPAData->pDeviceDomain);
 	} 
 #endif
 
@@ -748,7 +758,8 @@ void UnmapMemObject::Execute()
 #if defined(USE_GPA)
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
-			__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, m_pGPAData->pUnmapHandle);
+			__itt_set_track(NULL);
+			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pUnmapHandle);
 			TAL_SetNamedTaskColor("Unmap", 255, 0, 0);
 		}
 #endif
@@ -757,7 +768,8 @@ void UnmapMemObject::Execute()
 #if defined(USE_GPA)
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
-			__itt_task_end(m_pGPAData->pDomain);
+			__itt_set_track(NULL);
+			__itt_task_end(m_pGPAData->pDeviceDomain);
 		}
 #endif
 	}
@@ -1135,6 +1147,8 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 #if defined(USE_GPA)
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
+			__itt_set_track(NULL);
+
 			char pWGRangeString[GPA_RANGE_STRING_SIZE];
 
 			size_t uiWorkGroupSize = 1;
@@ -1156,7 +1170,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			}
 			
             __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
-			__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, pKernelNameHandle);
+			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
 			// This coloring will be enabled in the future
 			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
 			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
@@ -1164,15 +1178,15 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 				uiWorkGroupSize *= pWGSize[i];
 			}
 			
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
 
 #if defined(_M_X64)
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
 #else
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
 #endif
 
-			__itt_metadata_str_addA(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
+			__itt_metadata_str_addA(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
 		}
 #endif
 #ifdef _DEBUG
@@ -1197,6 +1211,8 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 #if defined(USE_GPA)
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
+			__itt_set_track(NULL);
+
 			char pWGRangeString[GPA_RANGE_STRING_SIZE];
 		
 			unsigned int uiWorkGroupSize = 1;
@@ -1219,7 +1235,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			}
 			
             __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
-			__itt_task_begin(m_pGPAData->pDomain, __itt_null, __itt_null, pKernelNameHandle);
+			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
 			// This coloring will be enabled in the future
 			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
 			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
@@ -1227,15 +1243,15 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 				uiWorkGroupSize *= (unsigned int)pWGSize[i];
 			}
 			
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
 
 #if defined(_M_X64)
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
 #else
-			__itt_metadata_add(m_pGPAData->pDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
 #endif
 
-			__itt_metadata_str_addA(m_pGPAData->pDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
+			__itt_metadata_str_addA(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
 		}
 #endif
 
@@ -1256,7 +1272,8 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-		__itt_task_end(m_pGPAData->pDomain);
+		__itt_set_track(NULL);
+		__itt_task_end(m_pGPAData->pDeviceDomain);
 	}
 #endif
     WGContext* pCtx = GetWGContext(uiWorkerId);

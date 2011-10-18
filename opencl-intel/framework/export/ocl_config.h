@@ -36,12 +36,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define CL_CONFIG_DEFAULT_FE_COMPILER	"CL_CONFIG_DEFAULT_FE_COMPILER"	// string
 #define	CL_CONFIG_USE_GPA				"CL_CONFIG_USE_GPA"				// bool
 
+#define	CL_GPA_CONFIG_ENABLE_API_TRACING		"CL_GPA_CONFIG_ENABLE_API_TRACING"	    // bool
+#define CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING    "CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING"  // bool
+
 // Used to Enable/Disable task state Markers in GPA Platform Analyzer
-#define	CL_GPA_CONFIG_ENABLE_API_TRACING		"CL_GPA_CONFIG_ENABLE_API_TRACING"	// bool
-#define	CL_GPA_CONFIG_SHOW_QUEUED_MARKER		"CL_CONFIG_SHOW_QUEUED_MARKER"		// bool
-#define	CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER		"CL_CONFIG_SHOW_SUBMITTED_MARKER"	// bool
-#define	CL_GPA_CONFIG_SHOW_RUNNING_MARKER		"CL_CONFIG_SHOW_RUNNING_MARKER"		// bool
-#define	CL_GPA_CONFIG_SHOW_COMPLETED_MARKER		"CL_CONFIG_SHOW_COMPLETED_MARKER"	// bool
+#define	CL_GPA_CONFIG_SHOW_QUEUED_MARKER		"CL_GPA_CONFIG_SHOW_QUEUED_MARKER"		    // bool
+#define	CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER		"CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER"	    // bool
+#define	CL_GPA_CONFIG_SHOW_RUNNING_MARKER		"CL_GPA_CONFIG_SHOW_RUNNING_MARKER"		    // bool
+#define	CL_GPA_CONFIG_SHOW_COMPLETED_MARKER		"CL_GPA_CONFIG_SHOW_COMPLETED_MARKER"	    // bool
 	
 	/**********************************************************************************************
 	* Class name:	OCLConfig
@@ -68,6 +70,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
 
 		bool			EnableAPITracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_API_TRACING, false); }
+		bool			EnableContextTracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING, true); }
+		
 		bool			ShowQueuedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_QUEUED_MARKER, true); }
 		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER, false); }
 		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_RUNNING_MARKER, false); }

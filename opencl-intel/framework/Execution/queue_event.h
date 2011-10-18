@@ -32,6 +32,8 @@
 #include "queue_event.h"
 #include "ocl_event.h"
 
+struct ocl_gpa_data;
+
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	class Command;
@@ -75,6 +77,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
 		Command*                GetCommand() const                                  { return m_pCommand; }
 
+		OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
 
 
 	protected:
@@ -88,7 +91,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool					m_bProfilingEnabled;
 		Command*				m_pCommand;             // Pointer to the command represented by this event
 		IOclCommandQueueBase*   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
-
+	
+	private:
+		ocl_gpa_data*           m_pGPAData;
 	};
 
 }}}    // Intel::OpenCL::Framework

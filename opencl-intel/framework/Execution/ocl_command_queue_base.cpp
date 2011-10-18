@@ -39,6 +39,9 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	{
 		if (pGPAData->cStatusMarkerFlags & GPA_SHOW_QUEUED_MARKER)
 		{
+			// Write this data to the thread track
+			__itt_set_track(NULL);
+
 			char pMarkerString[64] = "Queued - ";
 			const char* pCommandName = pCommand->GetCommandName();
 			strcat_s(pMarkerString, 64,pCommandName);
@@ -47,11 +50,25 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
 			//Due to a bug in GPA 4.0 the marker is within a task
 			//Should be removed in GPA 4.1  
-			__itt_task_begin(pGPAData->pDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
+			__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pMarker);
 
-			__itt_marker(pGPAData->pDomain, __itt_null, pMarker, __itt_marker_scope_global);
+			__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
 			
-			__itt_task_end(pGPAData->pDomain);
+			__itt_task_end(pGPAData->pDeviceDomain);		
+		}
+
+		if ((pGPAData->bEnableContextTracing) && (NULL != pCommand->GPA_GetCommand()))
+		{
+			// Set custom track 
+			__itt_set_track(pCommand->GetCommandQueue()->GPA_GetQueue()->m_pTrack);
+
+			// Create id for the new task
+			pCommand->GPA_GetCommand()->m_CmdId = __itt_id_make(0, (unsigned long long)pCommand);
+			__itt_id_create(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId);
+        
+			// Begin waiting task
+			__itt_task_begin_overlapped(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, __itt_null, pCommand->GPA_GetCommand()->m_strCmdName);
+			__ittx_task_set_state(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, pGPAData->pWaitingTaskState);
 		}
 	}
 #endif

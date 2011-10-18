@@ -56,6 +56,10 @@ endif (WIN32)
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
+if(WIN32)
+	set_target_properties( ${TARGET_NAME}  PROPERTIES LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT" )
+endif(WIN32)
+
 add_dependencies( ${TARGET_NAME} clang )
 
 COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )

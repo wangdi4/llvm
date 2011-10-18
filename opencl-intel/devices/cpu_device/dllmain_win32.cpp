@@ -29,23 +29,11 @@
 #pragma comment(lib, "task_executor.lib")
 
 #if defined(USE_GPA)
-#if defined(USE_GPA_42)
-#ifdef _DEBUG
 #pragma comment(lib, "gpasdk_d.lib")
-#else
-#pragma comment(lib, "gpasdk_d.lib")
-#endif // _DEBUG
-#else
-#ifdef _DEBUG
-#pragma comment(lib, "gpasdk_dd_2008.lib")
-#else
-#pragma comment(lib, "gpasdk_dr_2008.lib")
-#endif // _DEBUG
-#endif // USE_GPA_42
-#endif // USE_GPA
+#endif
+
 #include "cpu_device.h"
 #include "backend_wrapper.h"
-
 #include<stdlib.h>
 
 using namespace Intel::OpenCL::CPUDevice;

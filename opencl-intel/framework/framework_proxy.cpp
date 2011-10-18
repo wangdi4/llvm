@@ -269,6 +269,7 @@ void FrameworkProxy::Initialize()
 	//}
 	m_GPAData.bUseGPA = m_pConfig->UseGPA();
 	m_GPAData.bEnableAPITracing = m_pConfig->EnableAPITracing();
+	m_GPAData.bEnableContextTracing = m_pConfig->EnableContextTracing();
 	m_GPAData.cStatusMarkerFlags = 0;
 	if (m_GPAData.bUseGPA)
 	{
@@ -281,8 +282,22 @@ void FrameworkProxy::Initialize()
 		if (m_pConfig->ShowCompletedMarker())
 			m_GPAData.cStatusMarkerFlags += GPA_SHOW_COMPLETED_MARKER;
 
-		m_GPAData.pDomain = __itt_domain_createA("OpenCL.Domain.Global");
-		m_GPAData.pAPIDomain = __itt_domain_createA("OpenCL.Domain.API");
+		// Create domains
+		m_GPAData.pDeviceDomain = __itt_domain_createA("com.intel.open_cl.device");
+		m_GPAData.pAPIDomain = __itt_domain_createA("com.intel.open_cl.api");
+		if (m_GPAData.bEnableContextTracing)
+		{
+			m_GPAData.pContextDomain = __itt_domain_createA("com.intel.open_cl.context");
+			
+			// Create Context task group
+			__itt_string_handle* pContextTrackGroupHandle = __itt_string_handle_createA("Context Track Group");
+			m_GPAData.pContextTrackGroup = __itt_track_group_create(pContextTrackGroupHandle, __itt_track_group_type_normal);
+
+			// Create task states
+			m_GPAData.pWaitingTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
+			m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
+		}
+
 		m_GPAData.pReadHandle = __itt_string_handle_createA("Read");
 		m_GPAData.pWriteHandle = __itt_string_handle_createA("Write");
 		m_GPAData.pCopyHandle = __itt_string_handle_createA("Copy");
@@ -296,6 +311,10 @@ void FrameworkProxy::Initialize()
 		m_GPAData.pNumberOfWorkGroupsHandle = __itt_string_handle_createA("Number of Work Groups");
 		m_GPAData.pWorkGroupRangeHandle = __itt_string_handle_createA("Work Group Range");
 		m_GPAData.pMarkerHandle = __itt_string_handle_createA("Marker");
+		m_GPAData.pWorkDimensionHandle = __itt_string_handle_createA("Work Dimension");
+		m_GPAData.pGlobalWorkSizeHandle = __itt_string_handle_createA("Global Work Size");
+		m_GPAData.pLocalWorkSizeHandle = __itt_string_handle_createA("Local Work Size");
+		m_GPAData.pGlobalWorkOffsetHandle = __itt_string_handle_createA("Global Work Offset");
 	}
 #endif
 	

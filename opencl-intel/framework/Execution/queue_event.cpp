@@ -34,6 +34,8 @@
 #include <assert.h>
 #include "cl_utils.h"
 
+#include "ocl_itt.h"
+
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
@@ -55,6 +57,8 @@ OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue
 
 	m_handle.object = this;
 	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
+
+	m_pGPAData = cmdQueue->GetGPAData();
 }
 
 /******************************************************************
@@ -246,6 +250,39 @@ long QueueEvent::RemovePendency()
 		delete m_pCommand;
 	}
 	return newVal;
+}
+
+OclEventStateColor QueueEvent::SetColor(OclEventStateColor newColor)
+{
+	OclEventStateColor retval = OclEvent::SetColor(newColor);
+#if defined(USE_GPA)
+	if (EVENT_STATE_YELLOW == newColor)
+	{	
+		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+		{
+			if (m_pGPAData->cStatusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
+			{
+				// Write this data to the thread track
+				__itt_set_track(NULL);
+
+				char pMarkerString[64] = "Submitted - ";
+				const char* pCommandName = m_pCommand->GetCommandName();
+				strcat_s(pMarkerString, 64,pCommandName);
+				
+				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
+				//Due to a bug in GPA 4.0 the marker is within a task
+				//Should be removed in GPA 4.1 
+				__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pMarkerHandle);
+				
+				__itt_marker(m_pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
+
+				__itt_task_end(m_pGPAData->pDeviceDomain);
+			}
+		}
+	}
+#endif
+
+	return retval;
 }
 
 void QueueEvent::NotifyReady(OclEvent* pEvent)

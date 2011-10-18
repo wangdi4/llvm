@@ -105,6 +105,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_dev_cmd_list     m_clDevCmdListId;
 
         ocl_gpa_queue*      m_pOclGpaQueue;
+		ocl_gpa_data*		m_pGPAData;
 
 	};
 }}}    // Intel::OpenCL::Framework
