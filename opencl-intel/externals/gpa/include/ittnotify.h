@@ -1700,29 +1700,18 @@ void ITTAPI __itt_task_begin_fn(const __itt_domain *domain, __itt_id taskid, __i
  */
 void ITTAPI __itt_task_end(const __itt_domain *domain);
 
-/**
- * @ingroup tasks
- * @brief End the current task instance.
- * @param[in] domain The domain for this task
- * @param[in] id Explisit ID of finished task
- */
-void ITTAPI __itt_task_end_overlapped(const __itt_domain *domain, __itt_id id);
-
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
 ITT_STUBV(ITTAPI, void, task_begin,          (const __itt_domain *domain, __itt_id id, __itt_id parentid, __itt_string_handle *name))
 ITT_STUBV(ITTAPI, void, task_begin_fn,       (const __itt_domain *domain, __itt_id id, __itt_id parentid, void* fn))
 ITT_STUBV(ITTAPI, void, task_end,            (const __itt_domain *domain))
-ITT_STUBV(ITTAPI, void, task_end_overlapped, (const __itt_domain *domain, __itt_id id))
 #define __itt_task_begin(d,x,y,z)      ITTNOTIFY_VOID_D3(task_begin,d,x,y,z)
 #define __itt_task_begin_ptr           ITTNOTIFY_NAME(task_begin)
 #define __itt_task_begin_fn(d,x,y,z)   ITTNOTIFY_VOID_D3(task_begin_fn,d,x,y,z)
 #define __itt_task_begin_fn_ptr        ITTNOTIFY_NAME(task_begin_fn)
 #define __itt_task_end(d)              ITTNOTIFY_VOID_D0(task_end,d)
 #define __itt_task_end_ptr             ITTNOTIFY_NAME(task_end)
-#define __itt_task_end_overlapped(d,x) ITTNOTIFY_VOID_D1(task_end_overlapped,d,x)
-#define __itt_task_end_overlapped_ptr  ITTNOTIFY_NAME(task_end_overlapped)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_task_begin(domain,id,parentid,name)
 #define __itt_task_begin_ptr          0
@@ -1730,14 +1719,11 @@ ITT_STUBV(ITTAPI, void, task_end_overlapped, (const __itt_domain *domain, __itt_
 #define __itt_task_begin_fn_ptr       0
 #define __itt_task_end(domain)
 #define __itt_task_end_ptr            0
-#define __itt_task_end_overlapped(domain,id)
-#define __itt_task_end_overlapped_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_task_begin_ptr          0
 #define __itt_task_begin_fn_ptr       0
 #define __itt_task_end_ptr            0
-#define __itt_task_end_overlapped_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
@@ -1751,7 +1737,7 @@ ITT_STUBV(ITTAPI, void, task_end_overlapped, (const __itt_domain *domain, __itt_
  * @param[in] parentid The parent instance to which this task instance belongs, or __itt_null
  * @param[in] name The name of this task
  */
-void ITTAPI __itt_task_begin_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_id parent_id, __itt_string_handle* name);
+void ITTAPI __itt_task_begin_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid, __itt_id parentid, __itt_string_handle* name);
 
 /**
  * @ingroup clockdomain
@@ -1763,7 +1749,7 @@ void ITTAPI __itt_task_begin_ex(const __itt_domain* domain, __itt_clock_domain* 
  * @param[in] parentid The parent of this task, or __itt_null
  * @param[in] fn The pointer to the function you are tracing
  */
-void ITTAPI __itt_task_begin_fn_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_id parent_id, void* fn);
+void ITTAPI __itt_task_begin_fn_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid, __itt_id parentid, void* fn);
 
 /**
  * @ingroup clockdomain
@@ -1774,31 +1760,18 @@ void ITTAPI __itt_task_begin_fn_ex(const __itt_domain* domain, __itt_clock_domai
  */
 void ITTAPI __itt_task_end_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp);
 
-/**
- * @ingroup clockdomain
- * @brief End the current task instance.
- * @param[in] domain The domain for this task
- * @param[in] clock_domain The clock domain controlling the execution of this call.
- * @param[in] timestamp The user defined timestamp.
- * @param[in] id Explisit ID of finished task
- */
-void ITTAPI __itt_task_end_overlapped_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id);
-
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
 ITT_STUBV(ITTAPI, void, task_begin_ex,          (const __itt_domain *domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_id parentid, __itt_string_handle *name))
 ITT_STUBV(ITTAPI, void, task_begin_fn_ex,       (const __itt_domain *domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_id parentid, void* fn))
 ITT_STUBV(ITTAPI, void, task_end_ex,            (const __itt_domain *domain, __itt_clock_domain* clock_domain, unsigned long long timestamp))
-ITT_STUBV(ITTAPI, void, task_end_overlapped_ex, (const __itt_domain *domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id))
 #define __itt_task_begin_ex(d,x,y,z,a,b)      ITTNOTIFY_VOID_D5(task_begin_ex,d,x,y,z,a,b)
 #define __itt_task_begin_ex_ptr               ITTNOTIFY_NAME(task_begin_ex)
 #define __itt_task_begin_fn_ex(d,x,y,z,a,b)   ITTNOTIFY_VOID_D5(task_begin_fn_ex,d,x,y,z,a,b)
 #define __itt_task_begin_fn_ex_ptr            ITTNOTIFY_NAME(task_begin_fn_ex)
 #define __itt_task_end_ex(d,x,y)              ITTNOTIFY_VOID_D2(task_end_ex,d,x,y)
 #define __itt_task_end_ex_ptr                 ITTNOTIFY_NAME(task_end_ex)
-#define __itt_task_end_overlapped_ex(d,x,y,z) ITTNOTIFY_VOID_D3(task_end_overlapped_ex,d,x,y,z)
-#define __itt_task_end_overlapped_ex_ptr      ITTNOTIFY_NAME(task_end_overlapped_ex)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_task_begin_ex(domain,clock_domain,timestamp,id,parentid,name)
 #define __itt_task_begin_ex_ptr          0
@@ -1806,15 +1779,87 @@ ITT_STUBV(ITTAPI, void, task_end_overlapped_ex, (const __itt_domain *domain, __i
 #define __itt_task_begin_fn_ex_ptr       0
 #define __itt_task_end_ex(domain,clock_domain,timestamp)
 #define __itt_task_end_ex_ptr            0
-#define __itt_task_end_overlapped_ex(domain,clock_domain,timestamp,id)
-#define __itt_task_end_overlapped_ex_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_task_begin_ex_ptr          0
 #define __itt_task_begin_fn_ex_ptr       0
 #define __itt_task_end_ex_ptr            0
-#define __itt_task_end_overlapped_ex_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+#ifdef INTEL_ITTNOTIFY_API_PRIVATE
+/**
+ * @ingroup tasks
+ * @brief Begin an overlapped task instance.
+ * @param[in] domain The domain for this task.
+ * @param[in] taskid The identifier for this task instance, *cannot* be __itt_null.
+ * @param[in] parentid The parent of this task, or __itt_null.
+ * @param[in] name The name of this task.
+ */
+void ITTAPI __itt_task_begin_overlapped(const __itt_domain* domain, __itt_id taskid, __itt_id parentid, __itt_string_handle* name);
+
+/**
+ * @ingroup clockdomain
+ * @brief Begin an overlapped task instance.
+ * @param[in] domain The domain for this task
+ * @param[in] clock_domain The clock domain controlling the execution of this call.
+ * @param[in] timestamp The user defined timestamp.
+ * @param[in] taskid The identifier for this task instance, *cannot* be __itt_null.
+ * @param[in] parentid The parent of this task, or __itt_null.
+ * @param[in] name The name of this task.
+ */
+void ITTAPI __itt_task_begin_overlapped_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid, __itt_id parentid, __itt_string_handle* name);
+
+/**
+ * @ingroup tasks
+ * @brief End an overlapped task instance.
+ * @param[in] domain The domain for this task
+ * @param[in] taskid Explicit ID of finished task
+ */
+void ITTAPI __itt_task_end_overlapped(const __itt_domain *domain, __itt_id taskid);
+
+/**
+ * @ingroup clockdomain
+ * @brief End an overlapped task instance.
+ * @param[in] domain The domain for this task
+ * @param[in] clock_domain The clock domain controlling the execution of this call.
+ * @param[in] timestamp The user defined timestamp.
+ * @param[in] taskid Explicit ID of finished task
+ */
+void ITTAPI __itt_task_end_overlapped_ex(const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, task_begin_overlapped,          (const __itt_domain *domain, __itt_id taskid, __itt_id parentid, __itt_string_handle *name))
+ITT_STUBV(ITTAPI, void, task_begin_overlapped_ex,       (const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid, __itt_id parentid, __itt_string_handle* name))
+ITT_STUBV(ITTAPI, void, task_end_overlapped,            (const __itt_domain *domain, __itt_id taskid))
+ITT_STUBV(ITTAPI, void, task_end_overlapped_ex,         (const __itt_domain* domain, __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id taskid))
+#define __itt_task_begin_overlapped(d,x,y,z)            ITTNOTIFY_VOID_D3(task_begin_overlapped,d,x,y,z)
+#define __itt_task_begin_overlapped_ptr                 ITTNOTIFY_NAME(task_begin_overlapped)
+#define __itt_task_begin_overlapped_ex(d,x,y,z,a,b)     ITTNOTIFY_VOID_D5(task_begin_overlapped_ex,d,x,y,z,a,b)
+#define __itt_task_begin_overlapped_ex_ptr              ITTNOTIFY_NAME(task_begin_overlapped_ex)
+#define __itt_task_end_overlapped(d,x)                  ITTNOTIFY_VOID_D1(task_end_overlapped,d,x)
+#define __itt_task_end_overlapped_ptr                   ITTNOTIFY_NAME(task_end_overlapped)
+#define __itt_task_end_overlapped_ex(d,x,y,z)           ITTNOTIFY_VOID_D3(task_end_overlapped_ex,d,x,y,z)
+#define __itt_task_end_overlapped_ex_ptr                ITTNOTIFY_NAME(task_end_overlapped_ex)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_task_begin_overlapped(domain,taskid,parentid,name)
+#define __itt_task_begin_overlapped_ptr         0
+#define __itt_task_begin_overlapped_ex(domain,clock_domain,timestamp,taskid,parentid,name)
+#define __itt_task_begin_overlapped_ex_ptr      0
+#define __itt_task_end_overlapped(domain,taskid)
+#define __itt_task_end_overlapped_ptr           0
+#define __itt_task_end_overlapped_ex(domain,clock_domain,timestamp,taskid)
+#define __itt_task_end_overlapped_ex_ptr        0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_task_begin_overlapped_ptr         0
+#define __itt_task_begin_overlapped_ex_ptr      0
+#define __itt_task_end_overlapped_ptr           0
+#define __itt_task_end_overlapped_ex_ptr        0
+#endif /* INTEL_NO_MACRO_BODY */
+#endif /* INTEL_ITTNOTIFY_API_PRIVATE */
 /** @endcond */
 
 /**
@@ -1856,17 +1901,26 @@ ITT_STUBV(ITTAPI, void, counter_inc_delta_v3, (const __itt_domain *domain, __itt
 /** @endcond */
 
 /**
- * @ingroup markers
+ * @ingroup scope
  * @brief Describes the scope of an event object in the trace.
  */
 typedef enum
 {
-    __itt_marker_scope_unknown = 0,
-    __itt_marker_scope_global,
-    __itt_marker_scope_process,
-    __itt_marker_scope_thread,
-    __itt_marker_scope_task
-} __itt_marker_scope;
+    __itt_scope_unknown = 0,
+    __itt_scope_global,
+    __itt_scope_track_group,
+    __itt_scope_track,
+    __itt_scope_task,
+    __itt_scope_marker,
+} __itt_scope;
+
+/** @cond exclude_from_documentation */
+#define __itt_marker_scope_unknown  __itt_scope_unknown
+#define __itt_marker_scope_global   __itt_scope_global
+#define __itt_marker_scope_process  __itt_scope_track_group
+#define __itt_marker_scope_thread   __itt_scope_track
+#define __itt_marker_scope_task     __itt_scope_task
+/** @endcond */
 
 /**
  * @ingroup markers
@@ -1876,12 +1930,12 @@ typedef enum
  * @param[in] name The name for this marker
  * @param[in] scope The scope for this marker
  */
-void ITTAPI __itt_marker(const __itt_domain *domain, __itt_id id, __itt_string_handle *name, __itt_marker_scope scope);
+void ITTAPI __itt_marker(const __itt_domain *domain, __itt_id id, __itt_string_handle *name, __itt_scope scope);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUBV(ITTAPI, void, marker, (const __itt_domain *domain, __itt_id id, __itt_string_handle *name, __itt_marker_scope scope))
+ITT_STUBV(ITTAPI, void, marker, (const __itt_domain *domain, __itt_id id, __itt_string_handle *name, __itt_scope scope))
 #define __itt_marker(d,x,y,z) ITTNOTIFY_VOID_D3(marker,d,x,y,z)
 #define __itt_marker_ptr      ITTNOTIFY_NAME(marker)
 #else  /* INTEL_NO_ITTNOTIFY_API */
@@ -1903,12 +1957,12 @@ ITT_STUBV(ITTAPI, void, marker, (const __itt_domain *domain, __itt_id id, __itt_
  * @param[in] name The name for this marker
  * @param[in] scope The scope for this marker
  */
-void ITTAPI __itt_marker_ex(const __itt_domain *domain,  __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_string_handle *name, __itt_marker_scope scope);
+void ITTAPI __itt_marker_ex(const __itt_domain *domain,  __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_string_handle *name, __itt_scope scope);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUBV(ITTAPI, void, marker_ex,    (const __itt_domain *domain,  __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_string_handle *name, __itt_marker_scope scope))
+ITT_STUBV(ITTAPI, void, marker_ex,    (const __itt_domain *domain,  __itt_clock_domain* clock_domain, unsigned long long timestamp, __itt_id id, __itt_string_handle *name, __itt_scope scope))
 #define __itt_marker_ex(d,x,y,z,a,b)    ITTNOTIFY_VOID_D5(marker_ex,d,x,y,z,a,b)
 #define __itt_marker_ex_ptr             ITTNOTIFY_NAME(marker_ex)
 #else  /* INTEL_NO_ITTNOTIFY_API */
@@ -1970,7 +2024,7 @@ ITT_STUBV(ITTAPI, void, metadata_add, (const __itt_domain *domain, __itt_id id, 
  * @param[in] id The identifier of the instance to which the metadata is to be added, or __itt_null to add to the current task
  * @param[in] key The name of the metadata
  * @param[in] data The metadata itself
- * @param[in] length The number of characters in the string, or -1 if the length is unknown but the string is null-terminated 
+ * @param[in] length The number of characters in the string, or 0 if the length is unknown but the string is null-terminated 
 */
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 void ITTAPI __itt_metadata_str_addA(const __itt_domain *domain, __itt_id id, __itt_string_handle *key, const char *data, size_t length);
@@ -2024,20 +2078,6 @@ ITT_STUBV(ITTAPI, void, metadata_str_add, (const __itt_domain *domain, __itt_id 
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
-
-/**
- * @ingroup scope
- * @brief Describes the scope of an event object in the trace.
- */
-typedef enum
-{
-    __itt_scope_unknown = 0,
-    __itt_scope_global,
-    __itt_scope_trackgroup,
-    __itt_scope_track,
-    __itt_scope_task,
-    __itt_scope_marker,
-} __itt_scope;
 
 /**
  * @ingroup parameters
@@ -2242,21 +2282,43 @@ ITT_STUBV(ITTAPI, void, relation_add_ex,            (const __itt_domain *domain,
 /** @endcond */
 
 /** @cond exclude_from_documentation */
+typedef enum
+{
+    __itt_track_group_type_normal = 0
+} __itt_track_group_type;
+/** @endcond */
+
+
+/** @cond exclude_from_documentation */
 typedef struct ___itt_track_group
 {
     __itt_string_handle* name; /*!< Name of the track group */
     struct ___itt_track* track; /*!< List of child tracks  */
+    __itt_track_group_type tgtype; /*!< Type of the track group */
     int   extra1; /*!< Reserved. Mast be zero   */
     void* extra2; /*!< Reserved. Mast be zero   */
     struct ___itt_track_group* next;
 } __itt_track_group;
 /** @endcond */
 
+/**
+ * @brief Placeholder for custom track types. Currently, "normal" custom track
+ * is the only available track type.
+ */
+typedef enum  
+{
+    __itt_track_type_normal = 0
+#ifdef INTEL_ITTNOTIFY_API_PRIVATE
+    , __itt_track_type_queue
+#endif
+} __itt_track_type;
+
 /** @cond exclude_from_documentation */
 typedef struct ___itt_track
 {
     __itt_string_handle* name; /*!< Name of the track group */
     __itt_track_group* group; /*!< Parent group to a track */
+    __itt_track_type ttype; /*!< Type of the track */
     int   extra1; /*!< Reserved. Mast be zero   */
     void* extra2; /*!< Reserved. Mast be zero   */
     struct ___itt_track* next;
@@ -2266,12 +2328,12 @@ typedef struct ___itt_track
 /**
  * @brief Create logical track group.
  */
-__itt_track_group* ITTAPI __itt_track_group_create(__itt_string_handle* name);
+__itt_track_group* ITTAPI __itt_track_group_create(__itt_string_handle* name, __itt_track_group_type track_group_type);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUB(ITTAPI, __itt_track_group*, track_group_create, (__itt_string_handle* name))
+ITT_STUB(ITTAPI, __itt_track_group*, track_group_create, (__itt_string_handle* name, __itt_track_group_type track_group_type))
 #define __itt_track_group_create     ITTNOTIFY_DATA(track_group_create)
 #define __itt_track_group_create_ptr ITTNOTIFY_NAME(track_group_create)
 #else  /* INTEL_NO_ITTNOTIFY_API */
@@ -2284,18 +2346,18 @@ ITT_STUB(ITTAPI, __itt_track_group*, track_group_create, (__itt_string_handle* n
 /** @endcond */
 
 /**
- * @brief Create logical track group.
+ * @brief Create logical track.
  */
-__itt_track* ITTAPI __itt_track_create(__itt_track_group* track_group, __itt_string_handle* name);
+__itt_track* ITTAPI __itt_track_create(__itt_track_group* track_group, __itt_string_handle* name, __itt_track_type track_type);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUB(ITTAPI, __itt_track*, track_create, (__itt_track_group* track_group,__itt_string_handle* name))
+ITT_STUB(ITTAPI, __itt_track*, track_create, (__itt_track_group* track_group,__itt_string_handle* name, __itt_track_type track_type))
 #define __itt_track_create     ITTNOTIFY_DATA(track_create)
 #define __itt_track_create_ptr ITTNOTIFY_NAME(track_create)
 #else  /* INTEL_NO_ITTNOTIFY_API */
-#define __itt_track_create(track_group,name)  (__itt_track*)0
+#define __itt_track_create(track_group,name,track_type)  (__itt_track*)0
 #define __itt_track_create_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
@@ -2304,22 +2366,22 @@ ITT_STUB(ITTAPI, __itt_track*, track_create, (__itt_track_group* track_group,__i
 /** @endcond */
 
 /**
- * @brief Create logical track.
+ * @brief Set the logical track.
  */
-void ITTAPI __itt_track_set(__itt_track* track);
+void ITTAPI __itt_set_track(__itt_track* track);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUBV(ITTAPI, void, track_set, (__itt_track *track))
-#define __itt_track_set     ITTNOTIFY_VOID(track_set)
-#define __itt_track_set_ptr ITTNOTIFY_NAME(track_set)
+ITT_STUBV(ITTAPI, void, set_track, (__itt_track *track))
+#define __itt_set_track     ITTNOTIFY_VOID(set_track)
+#define __itt_set_track_ptr ITTNOTIFY_NAME(set_track)
 #else  /* INTEL_NO_ITTNOTIFY_API */
-#define __itt_track_set(track)
-#define __itt_track_set_ptr 0
+#define __itt_set_track(track)
+#define __itt_set_track_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
-#define __itt_track_set_ptr 0
+#define __itt_set_track_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
