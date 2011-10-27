@@ -1,5 +1,5 @@
 import os.path, platform, re, shutil
-from Volcano_Common import VolcanoCmdTask, EnvironmentValue, TIMEOUT_HOUR 
+from Volcano_Common import VolcanoCmdTask, EnvironmentValue, TIMEOUT_HOUR, DEFAULT_OCL_SOLUTION
 
 vectorizerEnvName = "CL_CONFIG_USE_VECTORIZER"
 BINARIES_ARCH_NAME = 'Binaries.7z'
@@ -16,13 +16,13 @@ class SimpleTest(VolcanoCmdTask):
 
 class LitTest(VolcanoCmdTask):
     """ Runs the LIT test with the given name """
-    def __init__(self, name, lit_project, config):
+    def __init__(self, name, lit_project, config, solution_name = DEFAULT_OCL_SOLUTION):
         """name - must begin with check_"""
         VolcanoCmdTask.__init__(self, name)
         
         self.workdir = config.solution_dir
-        if platform.system() == 'Windows':
-            self.command = '"c:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\IDE\devenv.com" OCL.sln /build ' + config.build_type + ' /project ' + lit_project
+        if config.target_os == 'Windows':
+            self.command = '"c:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\IDE\devenv.com" ' + solution_name + ' /build ' + config.build_type + ' /project ' + lit_project
         else:
             self.command = 'make ' + lit_project
 

@@ -1,27 +1,30 @@
 import os, sys, platform
 import Volcano_CmdUtils
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestTask, VolcanoTestSuite, TIMEOUT_HALFHOUR
-from Volcano_Build import VolcanoBuilder
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestTask, VolcanoTestSuite, TIMEOUT_HALFHOUR, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
+from Volcano_Build import VolcanoBuilder, VolcanoBuilderConfig
 from Volcano_Tasks import LitTest 
 
 class VolcanoLIT(VolcanoTestSuite):
     """ Runs the Volcano LIT tests. Usually runs right after the VolcanoBuild task """
-    def __init__(self, name, config):
+    def __init__(self, name, config, solution_name = DEFAULT_OCL_SOLUTION):
         VolcanoTestSuite.__init__(self, name)
         self.config  = config
 
         # LLVM Regression suite
-        self.addTask(LitTest('Check', 'check', config))
+        self.addTask(LitTest('Check', 'check', config, solution_name))
 
         # Vectorizer suite
-        self.addTask(LitTest('Check_Vectorizer', 'check_vectorizer', config))
+        self.addTask(LitTest('Check_Vectorizer', 'check_vectorizer', config, solution_name))
 
         # Regression
-        self.addTask(LitTest('Check_Regression', 'check_regression', config))
+        self.addTask(LitTest('Check_Regression', 'check_regression', config, solution_name))
 
         # OCL Reference compiler checks
-        self.addTask(LitTest('Check_OCL_Reference', 'check_ocl_ref', config), skiplist=[['.*','.*64']])
+        self.addTask(LitTest('Check_OCL_Reference', 'check_ocl_ref', config, solution_name), skiplist=[['.*','.*64']])
+        
+        # Barriers tests
+        self.addTask(LitTest('Barriers', 'check_barrier', config, solution_name), skiplist=[['.*','.*64']])
 
     def startUp(self):
         os.environ['VOLCANO_ARCH'] = self.config.cpu
@@ -34,13 +37,13 @@ class VolcanoLIT(VolcanoTestSuite):
         
 def main():
     parser = OptionParser()
-    parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32/64,Linux64", default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: Debug,Release", default="Release")
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
-    parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features:+avx,-avx256", default="")
-    parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size: 0(auto),1,4,8,16", default="0")
-    parser.add_option("-s", "--skipbuild", action="store_true", dest="skip_build", help="skip the build", default=False)
+    parser.add_option("-r", "--root",      dest="root_dir",    help="project root directory. Default: Autodetect", default=None)
+    parser.add_option("-t", "--target",    dest="target_type",  help="Target type: " + str(SUPPORTED_TARGETS) + ". Default: Win32", default="Win32")
+    parser.add_option("-b", "--build_type",dest="build_type",   help="Build type: " + str(SUPPORTED_BUILDS) + ". Default: Release", default="Release")
+    parser.add_option("-s", "--skipbuild", dest="skip_build",   action="store_true",  help="skip the build", default=False)
+    parser.add_option("--norebuild",       dest="rebuild",      action="store_false", help="Perform only regular build.", default=True )
+    parser.add_option("--volcano",         dest="volcano_only", action="store_true",  help="Build the Volcano solution.", default=False)
+    parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
@@ -54,13 +57,17 @@ def main():
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
                               options.build_type,
-                              options.cpu,
-                              options.cpu_features,
-                              options.transpose_size)
-
+                              'auto',
+                              '',
+                              '0')
+                              
+    build_config = VolcanoBuilderConfig( options.volcano_only)
+    
+    config.sub_configs[VolcanoBuilderConfig.CFG_NAME]= build_config
+                              
     suite = VolcanoTestSuite('')
-    suite.addTask(VolcanoBuilder('Build', config), stop_on_failure = True, always_pass = False, skiplist=skiplist )
-    suite.addTask(VolcanoLIT("LitTests", config), stop_on_failure = True, always_pass = False)
+    suite.addTask(VolcanoBuilder('Build', config, rebuild = options.rebuild, skip_build = False), stop_on_failure = True, always_pass = False, skiplist=skiplist )
+    suite.addTask(VolcanoLIT("LitTests", config, build_config.solution_name), stop_on_failure = True, always_pass = False)
 
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)

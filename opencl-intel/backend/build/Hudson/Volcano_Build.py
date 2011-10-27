@@ -212,6 +212,7 @@ class VolcanoBuilderConfig:
                         include_dbg     = False, 
                         enable_warnings = False):
         self.volcano_only = volcano_only
+        self.solution_name= DEFAULT_VOLCANO_SOLUTION if volcano_only else DEFAULT_OCL_SOLUTION
         self.cmake_config = CMakeConfig(DEFAULT_VS_VERSION, include_cnf, include_crt, include_java, include_dbg, enable_warnings)
         
 class VolcanoBuilder(VolcanoTestSuite):
@@ -237,13 +238,11 @@ class VolcanoBuilder(VolcanoTestSuite):
 
         if( build_config.volcano_only ):
             self.addTask(VolcanoCMakeBuilder('CMake(Volcano)', config), stop_on_failure=True)
-            solution_name = DEFAULT_VOLCANO_SOLUTION
         else:
             self.addTask(OCLCMakeBuilder('CMake(OCL)', config), stop_on_failure=True)
-            solution_name = DEFAULT_OCL_SOLUTION
             
         if config.target_os == 'Windows':
-            self.addTask(VSProjectBuilder('VSBuild', config, solution_name, build_config.cmake_config.vc_version, rebuild), stop_on_failure=True, skiplist=skiplist)
+            self.addTask(VSProjectBuilder('VSBuild', config, build_config.solution_name, build_config.cmake_config.vc_version, rebuild), stop_on_failure=True, skiplist=skiplist)
         elif config.target_os == 'Linux':
             self.addTask(MakeBuilder('MKBuild', config), stop_on_failure=True, skiplist=skiplist)
 
@@ -259,7 +258,7 @@ def main():
     parser = OptionParser()
     parser.add_option("-r", "--root",      dest="root_dir",     help="Project root directory. Default:Autodetect", default=None)
     parser.add_option("-t", "--target",    dest="target_type",  help="Target type: " + str(SUPPORTED_TARGETS) + ". Default: Win32", default="Win32")
-    parser.add_option("-b", "--build",     dest="build_type",   help="Build type: " + str(SUPPORTED_BUILDS) + ". Default: Release", default="Release")
+    parser.add_option("-b", "--build_type",dest="build_type",   help="Build type: " + str(SUPPORTED_BUILDS) + ". Default: Release", default="Release")
     parser.add_option("-s", "--cmake_only",dest="cmake_only",   action="store_true",  help="Do not run the build, just generate the project files. Default: False", default=False)
     parser.add_option("--volcano",         dest="volcano_only", action="store_true",  help="Build the Volcano solution only.", default=False)
     parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")
