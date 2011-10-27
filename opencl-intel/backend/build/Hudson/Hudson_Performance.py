@@ -1,7 +1,7 @@
 import os.path, sys, platform
 import Volcano_CmdUtils
 from Hudson_Common import HudsonBuildEnvironment
-from Volcano_Common import VolcanoTestTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite
+from Volcano_Common import VolcanoCmdTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite
 from Volcano_Performance import VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
 from Volcano_Build import VolcanoBinaryCopy
 from Volcano_Tasks import SimpleTest, UnarchiverTask, BINARIES_ARCH_NAME
@@ -37,23 +37,31 @@ class HudsonPerformanceRunConfig(PerformanceRunConfig):
         self.db_server     = 'cvcc-w7-nhlm-01'
         self.db_path       = 'Volcano'
         
-class HudsonPerformanceTestRunner(PerformanceTestRunner):
+class HudsonPerformanceTestRunner(HudsonTestRunner):
     """
     We need this class to be able to switch the csv file names for each performance suite
     """
-    def __init__(self, csv_filename_base):
-        PerformanceTestRunner.__init__(self, csv_filename_base)
+    def __init__(self, config, csv_filename_base):
+        HudsonTestRunner.__init__(self, config, '')
         self.csv_filename_base = csv_filename_base
-        
+        self.csv_filename = csv_filename_base
+
+    def OnAfterTaskExecution(self, task, result, stdoutdata):
+        VolcanoTestRunner.OnAfterTaskExecution(self, task, result, stdoutdata)
+        if( isinstance(task,PerformanceTask)):
+            if  TestTaskResult.Passed == result:
+                with open(self.csv_filename, 'a') as csv_file:
+                    print >> csv_file, stdoutdata.rstrip()
+                            
     def OnBeforeSuiteExecution(self, suite):
-        PerformanceTestRunner.OnBeforeSuiteExecution(self, suite)
+        HudsonTestRunner.OnBeforeSuiteExecution(self, suite)
         if( isinstance(suite, VolcanoPerformanceSuite)):
             self.csv_filename = self.csv_filename_base + "_" + suite.suitename + ".csv"
 
-class PerformanceReportTask(VolcanoTestTask):
+class PerformanceReportTask(VolcanoCmdTask):
     def __init__(self, suitename, config):
-        VolcanoTestTask.__init__(self, 'save_to_db')
-        self.workdir  = os.path.join( config.build_dir, 'tools', config.target_type, 'reportgen' )
+        VolcanoCmdTask.__init__(self, 'save_to_db')
+        self.workdir  = os.path.join( config.scripts_dir, 'tools', config.target_type, 'reportgen' )
         csv_filename  = config.log_path  + "_" + suitename + ".csv"
         self.command  = 'reportgen.exe ' + ' '.join( [suitename, config.host_name, config.branch_name, config.target_type, config.cpu, config.svn_revision, config.vector_size, csv_filename, config.db_server, config.db_path]) 
 
@@ -61,7 +69,7 @@ class HudsonPerformanceSuite(VolcanoTestSuite):
     def __init__(self, name, config):
         VolcanoTestSuite.__init__(self, name)
 
-        self.addTask(SimpleTest('Cleanup', config.build_dir, 'python cleanup.py -r ' + config.root_dir + ' -t ' + config.target_type + ' -b ' + config.build_type), stop_on_failure=True)
+        self.addTask(SimpleTest('Cleanup', config.scripts_dir, 'python cleanup.py -r ' + config.root_dir + ' -t ' + config.target_type + ' -b ' + config.build_type), stop_on_failure=True)
         self.addTask(UnarchiverTask('Prepare_Binaries', os.path.join(config.root_dir,BINARIES_ARCH_NAME), config.bin_dir), stop_on_failure = True)
 
         suites = { "WOLF":      [VolcanoWOLFPerformanceSuite,      []],

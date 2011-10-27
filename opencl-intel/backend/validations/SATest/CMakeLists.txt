@@ -9,11 +9,11 @@ else(WIN32)
 endif(WIN32)
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 32 bit
-    set (PLATFORM 32)
+	# 32 bit
+	set (PLATFORM 32)
 else( CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 64 bit
-    set (PLATFORM 64)
+	# 64 bit
+	set (PLATFORM 64)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 #
@@ -64,21 +64,20 @@ set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${A
 endif (NOT WIN32)
 
 include_directories(
-    ${CMAKE_SOURCE_DIR}/../validations/SATest
-    ${CMAKE_SOURCE_DIR}/../validations/DataManager
-    ${CMAKE_SOURCE_DIR}/../validations/NEAT
-    ${CMAKE_SOURCE_DIR}/../validations/Comparator
-    ${CMAKE_SOURCE_DIR}/../validations/Common
-    ${CMAKE_SOURCE_DIR}/../validations/OCLBuiltins
-    ${CMAKE_SOURCE_DIR}/../build/${OS_PLATFORM}/include
-    ${CMAKE_SOURCE_DIR}/../external/tinyxml
-    ${CMAKE_SOURCE_DIR}/../cl_api
-    ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend
-    ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend/export
-    ${CMAKE_SOURCE_DIR}/../arch_headers
-    ${CMAKE_SOURCE_DIR}/lib/ExecutionEngine/Interpreter
-    ${CMAKE_SOURCE_DIR}/lib/ExecutionEngine/InterpreterPluggable
-    ${CMAKE_SOURCE_DIR}/lib/ExecutionEngine/PlugInNEAT
+	${VALIDATIONS_ROOT}/SATest
+	${VALIDATIONS_ROOT}/DataManager
+	${VALIDATIONS_ROOT}/NEAT
+	${VALIDATIONS_ROOT}/Comparator
+	${VALIDATIONS_ROOT}/Common
+	${VALIDATIONS_ROOT}/OCLBuiltins
+	${VALIDATIONS_ROOT}/../external/tinyxml
+	${BACKEND_ROOT_DIR}/../cl_api
+	${VALIDATIONS_ROOT}/../ocl_cpu_backend
+	${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
+        ${BACKEND_ROOT_DIR}/arch_headers
+	${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
+	${LLVM_ROOT}/lib/ExecutionEngine/InterpreterPluggable
+	${LLVM_ROOT}/lib/ExecutionEngine/PlugInNEAT
 )
 
 set (SATest_INCLUDE_FILES
@@ -208,3 +207,4 @@ add_dependencies(SATest
     OclCpuBackEnd
     )
 
+install(TARGETS SATest RUNTIME DESTINATION bin)

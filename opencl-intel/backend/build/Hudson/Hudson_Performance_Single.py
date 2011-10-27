@@ -9,7 +9,7 @@ class HudsonPerformanceSingleSuite(VolcanoTestSuite):
     def __init__(self, name, kernels, config):
         VolcanoTestSuite.__init__(self, name)
 
-        self.addTask(SimpleTest('Cleanup', config.build_dir, 'python cleanup.py -r ' + config.root_dir + ' -t ' + config.target_type + ' -b ' + config.build_type), stop_on_failure=True)
+        self.addTask(SimpleTest('Cleanup', config.scripts_dir, 'python cleanup.py -r ' + config.root_dir + ' -t ' + config.target_type + ' -b ' + config.build_type), stop_on_failure=True)
         self.addTask(UnarchiverTask('UnpackVolcanoBinaries', os.path.join(config.root_dir,BINARIES_ARCH_NAME), config.bin_dir), stop_on_failure = True)
         
         for kernel in kernels.split(' '):

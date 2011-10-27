@@ -6,8 +6,8 @@ if (MIC_TESTING_MODE)
 
 	include_directories( BEFORE
 							../../ 
-							../../../../externals/llvm_wrap/llvm/ocl_cpu_backend 
-							../../../../externals/llvm_wrap/llvm/llvm/include
+							../../../../backend/ocl_cpu_backend 
+							../../../../backend/llvm/include
 							)
 					
 	FIND_SOURCES()
@@ -19,8 +19,11 @@ if (MIC_TESTING_MODE)
 								mic_device_testing_mode 
 								task_executor
 						 )
+    install(TARGETS ${TARGET_NAME}
+			RUNTIME DESTINATION bin
+			ARCHIVE DESTINATION lib
+			LIBRARY DESTINATION lib)
 
-	COPY_GENERATED_FILES_POST_BUILD( ${TARGET} ${TARGET}${CMAKE_EXECUTABLE_SUFFIX} )
 
 	add_dependencies( ${TARGET} mic_device_testing_mode )
 	add_dependencies( ${TARGET} mic_native )	

@@ -68,16 +68,8 @@ message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
 
 # target directory for OCL .rtl, and .dll/.so of BI and SVML library
-if (NOT DEFINED OCL_INSTALL_DIR)
-	# adjustment of target directory to target platform
-	if (WIN32)
-		set (OCL_INSTALL_DIR ${LLVM_BINARY_DIR}/bin/${INSTALL_SUBDIR})
-	else ()
-		set (OCL_INSTALL_DIR ${LLVM_BINARY_DIR}/lib)
-	endif()
-endif (NOT DEFINED OCL_INSTALL_DIR)
 
-set (BUILTINS_INSTALL_DIR ${OCL_INSTALL_DIR})
+set (BUILTINS_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
 message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
@@ -94,7 +86,7 @@ message ("Clang headers are in: ${CLANG_HEADERS}")
 if (DEFINED OCL_GLOBAL_INCLUDE)
 	set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
 else ()
-	set (IMPORT_DIR ${CL_BUILTIN_SOURCE_DIR}/../../cl_api )
+	set (IMPORT_DIR ${BACKEND_ROOT_DIR}/../cl_api )
 endif ()
 if (NOT EXISTS ${IMPORT_DIR})
    message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
@@ -342,7 +334,7 @@ function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC OUTPUT_DIR)
         message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
     endif ()
 
-    set (OUTPUT_FILE ${BUILTINS_INSTALL_DIR}/${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+    set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
 
 	  # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 	  foreach (FILE ${ARGN})
@@ -351,10 +343,9 @@ function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC OUTPUT_DIR)
 	  endforeach (FILE)
 
     # link OpenCL library (adding also BI IR for vectorizer)
-    add_custom_command (OUTPUT ${OUTPUT_FILE}
-                        COMMAND ${CMAKE_COMMAND} -E make_directory ${BUILTINS_INSTALL_DIR}
+    add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                         COMMENT "OCL Linking ${TARGET_NAME}${OCL_OUTPUT_EXTENSION}"
-                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
+                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
                         DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
                         VERBATIM
                        )
@@ -382,7 +373,6 @@ function( compile_c OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE O
     set (OUTPUT_FILE ${OUTPUT_DIR}/${NAME}_${ARCH}${CMAKE_C_OUTPUT_EXTENSION} )
 	
     add_custom_command (OUTPUT ${OUTPUT_FILE}
-                        COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
                         COMMAND ${ICC_COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_FILE} ${CPP_DEFINE} ${AUX_COMPILE_OPT} 
                         MAIN_DEPENDENCY ${INPUT_FILE}
                         DEPENDS ${ICC_COMPILER_SCRIPT} ${HEADER_FILES}
@@ -416,13 +406,13 @@ function( add_c_library OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_
         message (FATAL_ERROR "add_c_library(${TARGET_NAME}) - no sources given")
     endif ()
 
-    set (OUTPUT_FILE ${BUILTINS_INSTALL_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set (OUTPUT_FILE ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 
     # SVML import library (for Win32 only - hence the presence check is delegated to Win32 link script)
     set (SVML_IMPORT_LIB ${SVML_NAME_PREFIX}${ARCH}${CMAKE_IMPORT_LIBRARY_SUFFIX})
 
     # PDB file will be generated for Win32
-    set (PDB_FILE ${BUILTINS_INSTALL_DIR}/${TARGET_NAME}.pdb)
+    set (PDB_FILE ${TARGET_NAME}.pdb)
 
 		# SVML binary
 	  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -438,17 +428,15 @@ function( add_c_library OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_
 	  endforeach (FILE)
 
     # link C library (together with SVML import lib - for Win32 only)
-    add_custom_command (OUTPUT ${OUTPUT_FILE}
-                        COMMAND ${CMAKE_COMMAND} -E make_directory   ${BUILTINS_INSTALL_DIR}
-                        COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}/
-                        COMMAND ${ICC_LINKER_SCRIPT} ${CL_BUILD_TYPE} ${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${PDB_FILE} ${TMP_FILES}
+    add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
+                        COMMAND ${ICC_LINKER_SCRIPT} ${CL_BUILD_TYPE} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${PDB_FILE} ${TMP_FILES}
                         DEPENDS ${ICC_LINKER_SCRIPT} ${TMP_FILES_DEPEND} ${RESOURCE_FILE}
                         COMMENT "C Linking ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                         VERBATIM
                        )
 
-		set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
-		
+	set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
+	install( FILES ${SVML_DLL} DESTINATION bin )
 endfunction( add_c_library )
 
 #
@@ -474,23 +462,23 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 	# note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
 	set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
 
-  # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
+	# build .rtl file out of OCL code (by clang) and copy it to install directory
+	add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
-  # build DLL/.so file out of C code (by ICC) and copy it to install directory
-  add_c_library( OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
+	# build DLL/.so file out of C code (by ICC) and copy it to install directory
+	add_c_library( OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
 
-  # top-level target for both OCL and C targets
-  add_custom_target (${TARGET_NAME} ALL
-                     DEPENDS ${OUTPUT_OCL_LIB} ${OUTPUT_C_LIB}
-                     COMMENT "Target ${TARGET_NAME} build completed"
-                     VERBATIM
-                     SOURCES ${OCL_SOURCE_FILES} ${C_SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILE}
-                    )
+	# top-level target for both OCL and C targets
+	add_custom_target (${TARGET_NAME} ALL
+					 DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_OCL_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_LIB}
+					 COMMENT "Target ${TARGET_NAME} build completed"
+					 VERBATIM
+					 SOURCES ${OCL_SOURCE_FILES} ${C_SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILE}
+					)
 
-	if (DEFINED OCL_SOURCE_DIR)
-		set_target_properties (${TARGET_NAME} PROPERTIES FOLDER "LLVM/cl_builtins")
-	endif ()
+	set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
+
+	install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_OCL_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
 
 endfunction( create_target)
 

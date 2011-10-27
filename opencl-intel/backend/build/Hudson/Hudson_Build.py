@@ -16,7 +16,7 @@ def main():
                                  'corei7', #not used
                                  '',  # not used
                                  '1') # not used
-    suite     = VolcanoBuilder(config)
+    suite     = VolcanoBuilder('Build', config)
     suite.addTask(ArchiverTask('Archive_Binaries', os.path.join(config.root_dir,BINARIES_ARCH_NAME), config.bin_dir), stop_on_failure = True, always_pass = False)
     runner    = HudsonTestRunner(config, 'Build')
     passed    = False

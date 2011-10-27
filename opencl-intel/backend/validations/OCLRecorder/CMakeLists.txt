@@ -8,22 +8,6 @@ project(${TARGET_NAME})
 
 cmake_minimum_required(VERSION 2.6.1)
 
-macro(configure_files srcDir destDir) 
-    message(STATUS "Configuring directory ${destDir}") 
- 
-    file(GLOB templateFiles RELATIVE ${srcDir} ${srcDir}/*) 
-    foreach(templateFile ${templateFiles}) 
-        set(srcTemplatePath ${srcDir}/${templateFile}) 
-        if(NOT IS_DIRECTORY ${srcTemplatePath}) 
-            configure_file( 
-                    ${srcTemplatePath} 
-                    ${destDir}/${templateFile} 
-                    @ONLY) 
-        endif(NOT IS_DIRECTORY ${srcTemplatePath}) 
-    endforeach(templateFile) 
-endmacro(configure_files) 
-
-
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
 	# 32 bit
 	set (PLATFORM 32)
@@ -33,7 +17,7 @@ else( CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_RECORDER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(OCL_RECORDER_IMPORT_DIR ${OCL_RECORDER_DIR}/../../cl_api)
+set(OCL_RECORDER_IMPORT_DIR ${BACKEND_ROOT_DIR}/../cl_api)
 set(OCL_RECORDER_EXPORT_DIR ${OCL_RECORDER_DIR}/export)
 set(OCL_RECORDER_LIB_DIR ${OCL_RECORDER_DIR}/lib/Win${PLATFORM})
 
@@ -127,6 +111,12 @@ target_link_libraries (${TARGET_NAME} ${OCL_RECORDER_DEPS})
 
 # Define the dependancy projects
 add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS})
+
+install(TARGETS ${TARGET_NAME} 
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)
+
 
 if(WIN32)
 # Define the additional link flags	

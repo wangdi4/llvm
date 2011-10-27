@@ -10,14 +10,14 @@ import Volcano_CmdUtils
 class HudsonPreCommit(VolcanoTestSuite):
     def __init__(self, name, config):
         VolcanoTestSuite.__init__(self, name)
-        self.addTask(VolcanoBuilder(config),stop_on_failure = True, always_pass = False)
+        self.addTask(VolcanoBuilder('Build', config),stop_on_failure = True, always_pass = False)
         self.addTask(VolcanoBAT("Tests", config), stop_on_failure = True, always_pass = False)
 
 def main():
     trunk_dir = os.path.join(os.getcwd(), 'trunk')
     config    = HudsonRunConfig(trunk_dir)
     suite     = HudsonPreCommit('', config)
-    runner    = HudsonTestRunner(config, '')
+    runner    = HudsonTestRunner(config, 'BAT')
     passed    = False
     
     try:

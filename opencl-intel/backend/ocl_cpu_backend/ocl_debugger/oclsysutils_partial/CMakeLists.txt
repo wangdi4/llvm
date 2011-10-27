@@ -18,7 +18,7 @@ endif(NOT WIN32)
 SET_UNICODE_OFF()
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../../cl_api 
+  ${BACKEND_ROOT_DIR}/../cl_api
 )
 
 # add a target named ${TARGET_NAME}

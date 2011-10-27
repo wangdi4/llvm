@@ -13,7 +13,7 @@
 #     $3 - object file
 #     $4 - cpp definition for target SIMD arch
 #     $5 - additional compilation option(s)
-
+#
 
 source @ICC_ENV_SCRIPT_NATIVE@ @ICC_PLATFORM@
 if [ "$1" == "Debug" ]

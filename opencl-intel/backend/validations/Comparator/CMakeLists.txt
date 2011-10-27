@@ -10,7 +10,7 @@ set (CMP_INCLUDE_FILES
 include_directories( 
     ${VALIDATIONS_ROOT}/DataManager
     ${VALIDATIONS_ROOT}/NEAT
-    ${CMAKE_SOURCE_DIR}/../cl_api
+    ${BACKEND_ROOT_DIR}/../cl_api
     ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend
     ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend/export
     )

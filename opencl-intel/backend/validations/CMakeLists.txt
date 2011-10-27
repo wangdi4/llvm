@@ -9,7 +9,7 @@ set (LLVM_INCLUDE_DIR ${LLVM_ROOT}/include)
 # TODO: it's not good solution to define the same variables into 2 CMakeLists.txt. FIX IT!
 set(LLVM_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build/Win32)
 
-set (VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../validations)
+set (VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 include_directories( ${LLVM_BINARY_DIR}/include )
 include_directories( ${LLVM_INCLUDE_DIR} )

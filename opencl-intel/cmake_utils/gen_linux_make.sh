@@ -64,7 +64,7 @@ else
 fi
 
 toolchain_file="${toolchain_dir}/Linux-GNU.cmake"
-
+trgtOS=Linux
 trgtBit=64
 trgt32=OFF
 
@@ -165,7 +165,7 @@ top_dir=`pwd`
 
 full_target_name="${compiler_nice_name}${trgtBit}${target}"
 # top_work_dir=$working_dir/$full_target_name
-top_work_dir=$working_dir/${target}
+top_work_dir=$working_dir/${trgtOS}${trgtBit}/${target}
 
 mkdir -p $top_work_dir
 cd $top_work_dir
@@ -185,6 +185,7 @@ cmake -G "$generator" \
     -D TARGET_CPU=$trgt_cpu \
     -D INTEL_COMPILER=$use_intc \
     -D BUILD_JAVA:BOOL=$incl_java \
+    -D CMAKE_INSTALL_PREFIX:PATH=$top_dir/install/${trgtOS}${trgtBit}/${target} \
     ${CROSS_COMPILATION_OPTIONS} \
     $top_dir/src 
 

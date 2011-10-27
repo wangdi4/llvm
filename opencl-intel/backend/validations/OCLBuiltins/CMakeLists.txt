@@ -41,9 +41,9 @@ add_llvm_library(OCLBuiltins
   )
 
 include_directories (
-  ${CMAKE_SOURCE_DIR}/../cl_api
-  ${CMAKE_SOURCE_DIR}/../validations/Common
-  ${CMAKE_SOURCE_DIR}/../validations/REFALU
+  ${BACKEND_ROOT_DIR}/../cl_api
+  ${VALIDATIONS_ROOT}/Common
+  ${VALIDATIONS_ROOT}/REFALU
   )
 
 target_link_libraries(OCLBuiltins

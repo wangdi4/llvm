@@ -52,7 +52,6 @@ CALCULATE_TARGET_SOURCES()
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
                     ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-                    ${OCL_INSTALL_DIR}
                     ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
                     ${BACKEND_SDK_PATH}/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}/
                 )
@@ -60,13 +59,13 @@ link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_
 if(WIN32)
 link_directories(
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/llvm/ocl_cpu_backend/lib/Win32
+                    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )
 else(WIN32)
 link_directories(
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/llvm/ocl_cpu_backend/lib/Linux64
+                    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )
 
@@ -85,9 +84,12 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd)
 
+install(TARGETS ${TARGET_NAME} 
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib)
 
-COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
-COPY_SOURCE_FILES_POST_BUILD( ${TARGET_NAME} ${COI_LIBS} ${MIC_BACKEND_LIBS_TO_COPY} )
+install(FILES ${COI_LIBS} ${MIC_BACKEND_LIBS_TO_COPY} DESTINATION bin)
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils

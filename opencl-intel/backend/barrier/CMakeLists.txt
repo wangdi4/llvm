@@ -1,6 +1,6 @@
 file(GLOB_RECURSE headers *.h)
 include_directories(BEFORE "include")
-include_directories( ../cl_api )
+include_directories(${BACKEND_ROOT_DIR}/../cl_api)
 
 add_llvm_library( LLVMBarrier
   BarrierInFunctionPass.cpp

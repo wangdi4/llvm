@@ -14,12 +14,17 @@ DX_10_SHADERS_ROOT          = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root'
 PERFORMANCE_LOG_ROOT        = '/nfs/iil/disks/cvcc/vdovleka/logs/Volcano/Performance'
 PERFORMANCE_TESTS_ROOT      = '/Volcano/Performance/Tests'
 OCL_CONFORMANCE_TESTS_ROOT  = '/nfs/iil/disks/cvcc/vdovleka/tests/Volcano/Conformance'
+DEFAULT_WORLOADS_ROOT       = '/nfs/iil/disks/cvcc/OclConformance_14756/trunk/ReleaseCriteria/'
+DEFAULT_VS_VERSION          = 9
+DEFAULT_VOLCANO_SOLUTION    = 'Backend.sln'
+DEFAULT_OCL_SOLUTION        = 'OCL.sln'
 
 if platform.system() == 'Windows':
     DX_PERFORMANCE_SHADERS_ROOT = SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
     DX_10_SHADERS_ROOT          = SAMBA_SERVER + DX_10_SHADERS_ROOT
     PERFORMANCE_LOG_ROOT        = SAMBA_SERVER + PERFORMANCE_LOG_ROOT
     OCL_CONFORMANCE_TESTS_ROOT  = SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
+    DEFAULT_WORLOADS_ROOT       = SAMBA_SERVER + DEFAULT_WORLOADS_ROOT
 
 TIMEOUT_DAY = 60*60*24
 TIMEOUT_HOUR= 60*60
@@ -30,6 +35,12 @@ SUPPORTED_CPUS = ['auto', 'corei7', 'sandybridge']
 SUPPORTED_TARGETS = ['Win32', 'Win64', 'Linux64']
 SUPPORTED_BUILDS = ['Release', 'Debug']
 SUPPORTED_VECTOR_SIZES = ['0', '1', '4', '8', '16']
+
+TARGETS_MAP = { 
+                'Win32'  : ['Windows', 32],
+                'Win64'  : ['Windows', 64],
+                'Linux64': ['Linux', 64] 
+              }
 
 class TimeOutException(Exception):
     "Custom timeout exception. Usually raised on task or suite timeouts"
@@ -83,18 +94,12 @@ class EnvironmentValue:
             os.environ[self.envname] = self.oldvalue
         else:
             os.environ.pop(self.envname)
-        
-
 
 class VolcanoTestTask:
     """Base task class. All Volcano tests must be inherited from VolcanoTestTask"""
     def __init__(self, name):
         self.name = name
-        self.workdir = ''
-        self.command = ''
         self.parent  = None
-        self.success_code = 0
-        self.return_code = self.success_code 
         self.timeout = -1
         self.generate_report = True
         self.elapsed = 0
@@ -111,26 +116,20 @@ class VolcanoTestTask:
     def tearDown(self):
         pass
 
+    def runTest(self, observer, config):
+        return (True, "")
+        
     def run(self, observer, config):
         passed = True
         started = time.time();
         
         try:
             self.startUp()
-            if not os.path.exists(self.workdir):
-                errmsg = "Command Execution Error: Working directory doesn't exist: '" + self.workdir + "' while executing command: " + self.command
-                return (1, errmsg)
-                
-            os.chdir(self.workdir)
-            
-            cmd = CommandLineTool()
-            (retcode, stdoutdata) = cmd.runCommand(self.command, self.timeout)
-            self.return_code = retcode
-            passed = self.return_code == self.success_code and passed
+            (passed, stdoutdata) = self.runTest(observer, config)
         except Exception as e:
             errmsg = '!!! Exception raised during task execution:' + str(e) + "\n" + traceback.format_exc()
             print errmsg
-            return (1, errmsg)
+            return (False, errmsg)
         finally:
             self.tearDown()
             ended  = time.time()
@@ -143,6 +142,31 @@ class VolcanoTestTask:
         
     def onAfterExecution(self, observer, result, output):
         observer.OnAfterTaskExecution(self, result, output) 
+            
+class VolcanoCmdTask(VolcanoTestTask):
+    """Base task class for executing the single command"""
+    def __init__(self, name):
+        VolcanoTestTask.__init__(self, name)
+        self.name = name
+        self.workdir = ''
+        self.command = ''
+        self.success_code = 0
+        self.return_code = self.success_code 
+
+    def runTest(self, observer, config):
+        passed = True
+        if not os.path.exists(self.workdir):
+            errmsg = "Command Execution Error: Working directory doesn't exist: '" + self.workdir + "' while executing command: " + self.command
+            return (False, errmsg)
+            
+        os.chdir(self.workdir)
+        
+        cmd = CommandLineTool()
+        (retcode, stdoutdata) = cmd.runCommand(self.command, self.timeout)
+        self.return_code = retcode
+        passed = self.return_code == self.success_code and passed
+            
+        return passed, stdoutdata
 
 class VolcanoTestTaskInfo:
     """Internal class. Used to provide task runtime options for the given task"""
@@ -163,7 +187,6 @@ class VolcanoTestTaskInfo:
                     print 'Ignored conf(' + confstr + '), pattern (' + pattern_str + ')'
                     return True
         return False;
-            
 
 class VolcanoTestSuite(VolcanoTestTask):
     """Base class for defining the test suite. Test suite is a collection of tasks and optional skip list"""
@@ -259,7 +282,6 @@ class VolcanoTestSuite(VolcanoTestTask):
     def onAfterExecution(self, observer, result, output):
         observer.OnAfterSuiteExecution(self, result, output) 
 
-
 class TestTaskResult:
     """Simple enumerator for task execution result"""
     Passed = 0
@@ -290,8 +312,9 @@ class VolcanoTestRunner:
 
     def OnBeforeTaskExecution(self, task):
         print 'Task:',    task.name
-        print 'Command:', task.command
-        print 'WorkDir:',  task.workdir
+        if isinstance(task, VolcanoCmdTask):
+            print 'Command:', task.command
+            print 'WorkDir:',  task.workdir
     
     def OnAfterTaskExecution(self, task, result, stdoutdata):
         t = timedelta(seconds=task.elapsed)
@@ -299,7 +322,8 @@ class VolcanoTestRunner:
         print 'Elapsed: ' + str(t) 
         
         if result == TestTaskResult.Failed:
-            print 'Return Code: ' + str(task.return_code) 
+            if isinstance(task, VolcanoCmdTask):
+                print 'Return Code: ' + str(task.return_code) 
         print'=-----------------------------------------------------------------------------'
         sys.stdout.flush()
             
@@ -314,7 +338,6 @@ class VolcanoTestRunner:
         print'Suite ' + self.resultMap[result] + ': ' + suite.name
         print'Elapsed: '  + str(t) 
         print'=============================================================================='
-    
 
 class VolcanoRunConfig:
     def __init__(self, root_dir, target_type, build_type, cpu, cpu_features, vec):
@@ -324,6 +347,7 @@ class VolcanoRunConfig:
         self.build_type     = build_type
         self.transpose_size = vec
         self.root_dir       = root_dir
+        self.sub_configs    = {}
         
         #Configuration validation
         if not self.cpu in SUPPORTED_CPUS:
@@ -338,20 +362,25 @@ class VolcanoRunConfig:
         if not self.transpose_size in SUPPORTED_VECTOR_SIZES:
             raise Exception("Configuration Error: Unsupported transpose size specified:" + self.transpose_size + ". Supported transpose sizes are:" + str(SUPPORTED_VECTOR_SIZES))
 
-        if self.root_dir == '' or self.root_dir == None:
-            self.root_dir = os.path.join(os.path.curdir, os.path.pardir, os.path.pardir)
-
-        self.root_dir = os.path.abspath(self.root_dir)
-
+        #
         # Calculating derived configuration
-        self.build_dir   = os.path.join(self.root_dir, 'build')
-        self.solution_dir  = os.path.join(self.build_dir, self.target_type)
+        #
+        self.target_os     = TARGETS_MAP[self.target_type][0]
+        self.target_os_bit = TARGETS_MAP[self.target_type][1]
+        
+        # Paths
+        if self.root_dir == '' or self.root_dir == None:
+            self.root_dir = os.path.join(os.path.curdir, os.path.pardir, os.path.pardir, os.path.pardir, os.path.pardir)
+        
+        self.root_dir     = os.path.abspath(self.root_dir)
+        self.src_dir      = os.path.join(self.root_dir, 'src')
+        self.besrc_dir    = os.path.join(self.src_dir,  'backend' )
+        self.scripts_dir  = os.path.join(self.besrc_dir, 'build')
+        self.install_dir  = os.path.join(self.root_dir, 'install',  self.target_type, self.build_type)
+        self.bin_dir      = os.path.join(self.install_dir, 'bin')
     
-        if platform.system() == 'Windows':
-            self.bin_dir = os.path.join(self.solution_dir, 'bin',  self.build_type)
+        if self.target_os == 'Windows':
+            self.solution_dir = os.path.join(self.root_dir, 'build', self.target_type)
         else:
-            self.solution_dir = os.path.join(self.solution_dir, self.build_type)
-            self.bin_dir = os.path.join(self.solution_dir, 'bin')
-        
-        
-
+            self.solution_dir = os.path.join(self.root_dir, 'build', self.target_type, self.build_type)
+    

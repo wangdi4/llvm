@@ -54,5 +54,5 @@ if(PYTHONINTERP_FOUND)
                 ${CMAKE_CURRENT_SOURCE_DIR}
                 DEPENDS
                 COMMENT "Running LLVM vectorizer tests")
-
+	set_target_properties( check_vectorizer PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )
 endif()

@@ -4,7 +4,7 @@ Reference conformance testing in Hudson
 '''
 
 from Hudson_Common import HudsonTestRunner, HudsonRunConfig
-from Volcano_Build import VolcanoBinaryCopy, VolcanoBuilder
+from Volcano_Build import VolcanoBinaryCopy
 from Volcano_Reference_Conformance_PostCommit import VolcanoReferenceConformancePostCommit
 from Volcano_Tasks import BINARIES_ARCH_NAME, UnarchiverTask
 import os

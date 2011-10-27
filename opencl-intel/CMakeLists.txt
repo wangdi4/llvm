@@ -34,7 +34,7 @@ project(OCL)
 
 # extract working copy information for all components into variables
 Subversion_WC_INFO(${OCL_SOURCE_DIR} SDKVER)
-Subversion_WC_INFO(${OCL_SOURCE_DIR}/externals/llvm_wrap/llvm/ocl_cpu_backend BEVER)
+Subversion_WC_INFO(${OCL_SOURCE_DIR}/backend/ocl_cpu_backend BEVER)
 
 message("Current build version is ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
 
@@ -47,9 +47,8 @@ else ()
     set( INSTALL_SUBDIR ${CMAKE_BUILD_TYPE} )
 endif (WIN32 AND ${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
 
-set( OCL_INSTALL_DIR      ${OCL_BINARY_DIR}/__bin/bin.${BIN_OUTPUT_DIR_SUFFIX}/${INSTALL_SUBDIR} )
 set( OCL_GLOBAL_INCLUDE   ${OCL_SOURCE_DIR}/cl_api )
-set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/externals/llvm_wrap/clang_headers )
+set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}\n#define BUILDVERSIONSTR "\"(Build\ ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION})\")
@@ -112,6 +111,9 @@ add_subdirectory(externals)
 
 add_subdirectory( cl_api )
 add_subdirectory( utils )
+
+# Backend + LLVM + Clang
+add_subdirectory( backend )
 
 #devices
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)

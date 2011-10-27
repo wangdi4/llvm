@@ -8,10 +8,10 @@
 set( TARGET_NAME clang_compiler )
 
 include_directories( AFTER
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/llvm/llvm/tools/clang/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/llvm/llvm/include
-            ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/llvm/llvm/tools/clang/include
-            ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/llvm/llvm/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/tools/clang/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/include
+            ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/tools/clang/include
+            ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/include
             )
 			
 if (NOT WIN32)
@@ -21,7 +21,7 @@ endif (NOT WIN32)
 
 link_directories( 
 			${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-			${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/llvm/llvm/lib/${INSTALL_SUBDIR}
+			${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/lib/${INSTALL_SUBDIR}
 			)
 
 set(FILES_TO_COPY 
@@ -34,7 +34,12 @@ CALCULATE_TARGET_SOURCES()
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
+install(TARGETS ${TARGET_NAME} 
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)
+
+#COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 
 add_dependencies( ${TARGET_NAME} clang)
 
@@ -104,16 +109,12 @@ add_custom_command( TARGET clang_compiler
 					PRE_BUILD
                     COMMAND clang ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                    COMMAND ${CMAKE_COMMAND} -E copy ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${OCL_INSTALL_DIR}
                     VERBATIM
                    )
 
-add_custom_command( TARGET clang_compiler
-					POST_BUILD
-   					COMMAND ${CMAKE_COMMAND} -E  make_directory ${OCL_INSTALL_DIR}/fe_include
-					COMMAND ${CMAKE_COMMAND} -E  copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/export/clang_include ${OCL_INSTALL_DIR}/fe_include
-                    VERBATIM
-                   )
+
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(DIRECTORY export/clang_include/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 

@@ -10,7 +10,7 @@ def main():
     config    = HudsonRunConfig(trunk_dir)
     suite     = VolcanoBAT("Tests", config, use_heuristics=False)
     suite.insertTask(0, VolcanoBinaryCopy("CopyVolcanoBinary", config),stop_on_failure = True)
-    runner    = HudsonTestRunner(config, '')
+    runner    = HudsonTestRunner(config, 'Tests')
     passed    = False
     
     try:

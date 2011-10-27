@@ -40,11 +40,11 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(convertionsTest)
    
         # WOLF benchmark
-        wolfNightly = VolcanoWolfNightly("WOLF_Benchmark", config, capture_data =  False)
-        self.addTask(wolfNightly, stop_on_failure = False, always_pass = False, skiplist=[['.*','Linux64']])
+        # wolfNightly = VolcanoWolfNightly("WOLF_Benchmark", config, capture_data =  False)
+        # self.addTask(wolfNightly, stop_on_failure = False, always_pass = False, skiplist=[['.*','Linux64']])
         
-        wolfPerf = VolcanoWolfPerformance("WOLF_Performance", config, capture_data =  False)
-        self.addTask(wolfPerf, stop_on_failure = False, always_pass = False, skiplist=[['.*','Linux64']])
+        # wolfPerf = VolcanoWolfPerformance("WOLF_Performance", config, capture_data =  False)
+        # self.addTask(wolfPerf, stop_on_failure = False, always_pass = False, skiplist=[['.*','Linux64']])
 
         #MathBruteForce
         mathTest = SimpleTest('MathBruteForce', self.conformance_dir, os.path.join('math_brute_force','bruteforce') +' -w')

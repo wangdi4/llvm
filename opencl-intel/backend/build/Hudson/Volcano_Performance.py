@@ -1,7 +1,6 @@
 from optparse import OptionParser
 import os.path, sys, platform, glob, fnmatch
-from Volcano_Common import EnvironmentValue, VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite,VolcanoTestTask, TestTaskResult, PERFORMANCE_TESTS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, TIMEOUT_HALFHOUR
-from Volcano_Build import VolcanoBuilder
+from Volcano_Common import EnvironmentValue, VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite,VolcanoCmdTask, TestTaskResult, PERFORMANCE_TESTS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, TIMEOUT_HALFHOUR
 from Volcano_Tasks import SimpleTest
 import Volcano_CmdUtils
 

@@ -1,9 +1,9 @@
 from optparse import OptionParser
 import os, sys, platform
 import Volcano_CmdUtils
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, DX_PERFORMANCE_SHADERS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
-from Volcano_Build import VolcanoBuilder
-from Volcano_Tasks import LitTest, SimpleTest, VectorizerTest
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestTask, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR,  DX_PERFORMANCE_SHADERS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Build import VolcanoBuilder, CopyWolfWorkloads
+from Volcano_Tasks import LitTest, SimpleTest, VectorizerTest 
 from Volcano_WOLF import VolcanoWolfPostCommit, VolcanoWolfPerformance
 from Volcano_Conformance_PostCommit import VolcanoConformancePostCommit
 
@@ -14,40 +14,25 @@ class VolcanoBAT(VolcanoTestSuite):
         self.config  = config
         self.use_heuristics = use_heuristics
 
-        self.addTask(SimpleTest('CopySDKBin', config.build_dir, 'python setup_ocl_bin.py -t ' + config.target_type + ' -c ' + config.build_type), stop_on_failure=True)
-        if platform.system() != 'Windows':
-            self.addTask(SimpleTest('ChMod',   config.bin_dir,   'chmod -R 777 .'), stop_on_failure=True)
-
-        # LLVM Regression suite
-        self.addTask(LitTest('Check', 'check', config))
-
-        # Vectorizer suite
-        self.addTask(LitTest('Check_Vectorizer', 'check_vectorizer', config))
+        # self.addTask( CopyWolfWorkloads( 'CopyWolfWL', config), stop_on_failure=True)
 
         # Vectorizer tests
         vectorizerTest = VectorizerTest('Vectorizer_Tests', config)
         vectorizerTest.timeout = TIMEOUT_HALFHOUR
         self.addTask(vectorizerTest , skiplist=[['.*', '.*']])
 
-        # Regression
-        self.addTask(LitTest('Check_Regression', 'check_regression', config))
-
-        # OCL Reference compiler checks
-        self.addTask(LitTest('Check_OCL_Reference', 'check_ocl_ref', config), skiplist=[['.*','.*64']])
-
         # Google tests
         self.addTask(SimpleTest('ValidationTests', config.bin_dir, 'ValidationTests'))
         self.addTask(SimpleTest('LLVMUnitTests', config.bin_dir, 'LLVMUnitTests' ))
 
         # WOLF Super Fast
-        wolfFast = VolcanoWolfPostCommit("WOLF_Fast", config, capture_data =  False)
-        self.addTask(wolfFast, skiplist=[['.*','Linux64']])
-        wolfPerf = VolcanoWolfPerformance("WOLF_Perf", config, capture_data =  False)
-        self.addTask(wolfPerf, skiplist=[['.*','Linux64']])
+        # wolfFast = VolcanoWolfPostCommit("WOLF_Fast", config, capture_data =  False)
+        # self.addTask(wolfFast, skiplist=[['.*','Linux64']])
+        # wolfPerf = VolcanoWolfPerformance("WOLF_Perf", config, capture_data =  False)
+        # self.addTask(wolfPerf, skiplist=[['.*','Linux64']])
 
         # OCL Conformance
         self.addTask(VolcanoConformancePostCommit("Conformance", config))
-
 
     def startUp(self):
         os.environ['VOLCANO_ARCH'] = self.config.cpu
@@ -70,9 +55,9 @@ class VolcanoPostCommit(VolcanoTestSuite):
 
         # Build
         if( skip_build ):
-            self.addTask(VolcanoBuilder(config), stop_on_failure = True, always_pass = False, skiplist=[['.*']] )
+            self.addTask(VolcanoBuilder('Build', config), stop_on_failure = True, always_pass = False, skiplist=[['.*']] )
         else:
-            self.addTask(VolcanoBuilder(config), stop_on_failure = True, always_pass = False )
+            self.addTask(VolcanoBuilder('Build', config), stop_on_failure = True, always_pass = False )
 
         self.addTask(VolcanoBAT("Acceptance", config), stop_on_failure = True, always_pass = False)
         

@@ -231,14 +231,13 @@ class ResultsFileManager:
         http://cvcc-w7-mrm-03/view/vdovleka/job/vdovleka_Volcano_Pre_Commit/Build_Type=Release,label=Volcano_SLES11/lastSuccessfulBuild/artifact/buildLogs/test_log_SNB_Linux64_Release_build.log
         http://cvcc-w7-mrm-03/view/vdovleka/job/vdovleka_Volcano_Pre_Commit/Build_Type=Release,label=Volcano_SLES11/36/artifact/buildLogs/test_log_SNB_Linux64_Release_build.log
     """
-    def __init__(self, config, logPath = defaultLogPath):
+    def __init__(self, config, name, logPath = defaultLogPath):
         suffix = self.GetReportSuffix(config)
         self.baseLogName = 'test_log_' + suffix
-        self.reportName  = 'test_report_' + suffix + '.xml'
+        self.reportName  = 'test_report_' + name + '_' + suffix + '.xml'
         self.logPath   = logPath
-        if( os.path.exists(logPath)):
-            shutil.rmtree(logPath)
-        os.makedirs(logPath)
+        if( not os.path.exists(logPath)):
+            os.makedirs(logPath)
     
     def GetReportSuffix(self, config):
         suffix= [config.cpu,
@@ -277,7 +276,7 @@ class ResultsFileManager:
     
     def UpdateLog(self, test_name, log):
         log_fname = self.GetTestLogName(test_name)
-        log_file = open(log_fname, 'a')
+        log_file = open(log_fname, 'w')
         log_file.write(log)
         log_file.close()
 
@@ -290,7 +289,7 @@ class HudsonTestRunner(VolcanoTestRunner):
     """
     def __init__(self, config, name):
         VolcanoTestRunner.__init__(self)
-        self.fm = ResultsFileManager(config, defaultLogPath)
+        self.fm = ResultsFileManager(config, name, defaultLogPath)
         self.formatter  = JUnitFormatter("JobName")
         self.config     = config
         self.fail_count = 0

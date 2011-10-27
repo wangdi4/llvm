@@ -10,7 +10,7 @@ import Volcano_CmdUtils
 class HudsonPreCommit(VolcanoTestSuite):
     def __init__(self, name, config):
         VolcanoTestSuite.__init__(self, name)
-        self.addTask(VolcanoBuilder(config),stop_on_failure = True, always_pass = False)
+        self.addTask(VolcanoBuilder('Build', config),stop_on_failure = True, always_pass = False)
         self.addTask(VolcanoNightlyBAT("Tests", config), stop_on_failure = True, always_pass = False)
 
 def main():
@@ -22,7 +22,7 @@ def main():
                                  env.getCPUType(),
                                  env.getTransposeSize())
     suite     = HudsonPreCommit('', config)
-    runner    = HudsonTestRunner(config, '')
+    runner    = HudsonTestRunner(config, 'Nightly_Tests')
     passed    = False
     
     try:

@@ -25,7 +25,7 @@ class CommandLineTool:
                     break;
             else:
                 self.out.write(line)
-                print '\t' + line.rstrip()
+                sys.stdout.write( '\t' + line.rstrip() + '\n')
 
     def runCommand(self, command, timeout=-1 ):
         """Returns errorcode, stdout"""
@@ -62,7 +62,7 @@ class CommandLineTool:
             if stdout_thread != None:
                 stdout_thread.join()
             if errstr != '':
-                print errstr
+                sys.stdout.write(errstr + '\n')
                 self.out.write(errstr)
             sys.stdout.flush()
         

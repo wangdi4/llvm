@@ -22,12 +22,12 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # The directory 'cl_api' below is used by OCL BE only when compiling outside of OCL SDK, otherwise OCL SDK overrides that setting
 set(OCL_CPU_BACKEND_IMPORT_DIRS 
-  ${OCL_CPU_BACKEND_DIR}/../cl_api 
+  ${BACKEND_ROOT_DIR}/../cl_api
   ${OCL_CPU_BACKEND_DIR}/import 
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger 
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger/protobuf/include
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger/oclsysutils_partial/export
-  ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
+  ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper)
   ${OCL_CPU_BACKEND_DIR}/../arch_headers)
 set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
 # the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
@@ -164,20 +164,6 @@ set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 
 endif (WIN32)
 
-macro(configure_files srcDir destDir) 
-    message(STATUS "Configuring directory ${destDir}") 
- 
-    file(GLOB templateFiles RELATIVE ${srcDir} ${srcDir}/*) 
-    foreach(templateFile ${templateFiles}) 
-        set(srcTemplatePath ${srcDir}/${templateFile}) 
-        if(NOT IS_DIRECTORY ${srcTemplatePath}) 
-            configure_file( 
-                    ${srcTemplatePath} 
-                    ${destDir}/${templateFile} 
-                    @ONLY) 
-        endif(NOT IS_DIRECTORY ${srcTemplatePath}) 
-    endforeach(templateFile) 
-endmacro(configure_files)
 
 #
 # Usage
@@ -392,7 +378,6 @@ include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
 # Add additional lib direcories
 link_directories (
 	${OCL_CPU_BACKEND_LIB_DIR} 
-    ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 ) 
 
 # Create DLL
@@ -513,3 +498,7 @@ if (ENABLE_DEBUG_TRACE)
     add_definitions( -DENABLE_SDE_DEBUG_TRACE )
 endif (ENABLE_DEBUG_TRACE)
 
+install( TARGETS ${TARGET_NAME} ${TARGET_UTILS_NAME} 
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)

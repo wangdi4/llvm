@@ -4,7 +4,7 @@ Runs conformance testing for specified conformance suite and provided captured d
 '''
 from Validation_Record import OclRefSuites
 from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, \
-    VolcanoTestTask, TestTaskResult, TIMEOUT_HOUR, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, EnvironmentValue
+    VolcanoCmdTask, TestTaskResult, TIMEOUT_HOUR, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, EnvironmentValue
 from Volcano_Tasks import LitTest, UnarchiverTask, SimpleTest
 from optparse import OptionParser
 from string import Template, atoi

@@ -1,4 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/../cl_api .)
+include_directories(${BACKEND_ROOT_DIR}/../cl_api .)
 
 set(REFALU_HEADERS
   ../Common/FloatOperations.h

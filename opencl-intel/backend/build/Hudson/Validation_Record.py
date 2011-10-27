@@ -6,7 +6,7 @@ it creates folder with captured data.
 List of subtests of conformance test is specified inside the script
 '''
 
-from Volcano_Common import VolcanoRunConfig, VolcanoTestTask, VolcanoTestSuite, \
+from Volcano_Common import VolcanoRunConfig, VolcanoCmdTask, VolcanoTestSuite, \
     VolcanoTestRunner, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, EnvironmentValue
 from optparse import OptionParser
 from subprocess import call
@@ -136,15 +136,15 @@ OclRefSuites = {"basic_common" : ConfTestDesc(BasicTestsNames, basic_common_to_s
                 "CPUDevice" : ConfTestDesc(CPUDevice, CPUDevice_to_skip, 1),
                 "images" : ConfTestDesc(images, [], 0)}
 
-class RecordTest(VolcanoTestTask):
+class RecordTest(VolcanoCmdTask):
     def __init__(self, name, cmdline, work_dir, output_dir):
-        VolcanoTestTask.__init__(self, name)
+        VolcanoCmdTask.__init__(self, name)
         self.workdir = work_dir 
         self.output_dir = output_dir
         self.command = cmdline
         
     def startUp(self):
-        VolcanoTestTask.startUp(self)
+        VolcanoCmdTask.startUp(self)
         if platform.system() != 'Windows':
             os.environ['OCLBACKEND_PLUGINS'] = os.path.join('libOclRecorder.so')
         else:
@@ -153,7 +153,7 @@ class RecordTest(VolcanoTestTask):
         os.environ['OCLRECORDER_LOGDIR'] = self.output_dir
         
     def tearDown(self):
-        VolcanoTestTask.tearDown(self)
+        VolcanoCmdTask.tearDown(self)
         print '---------------------------------------------------'
         os.environ['OCLBACKEND_PLUGINS'] = ''
         os.environ['OCLRECORDER_DUMPPREFIX'] = ''
