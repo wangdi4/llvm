@@ -52,7 +52,7 @@ class CMakeBuilder(VolcanoCmdTask):
         self.command = "cmake" \
                 + " -D LLVM_ENABLE_WERROR:BOOL=ON " \
                 + " -D PYTHON_EXECUTABLE:PATH=\"" + sys.executable + "\""
-		
+
         cmake_config = config.sub_configs[CMakeConfig.CFG_NAME]
         vsenv = VSEnvironment(cmake_config.vc_version)
 
@@ -63,7 +63,7 @@ class CMakeBuilder(VolcanoCmdTask):
             
         if config.target_os == 'Windows':
             self.command += " -D CMAKE_INSTALL_PREFIX:PATH=\"" + os.path.join(config.root_dir, 'install',  config.target_type) + "/\\${BUILD_TYPE}\""
-			self.command += " -D LLVM_TARGETS_TO_BUILD:STRING=\"X86\"" 
+            self.command += " -D LLVM_TARGETS_TO_BUILD:STRING=\"X86\"" 
 
             if config.target_os_bit == 32:
                 self.command += ' -G "' + vsenv.CMakeGenerator() + '"'
