@@ -27,7 +27,7 @@ set(OCL_CPU_BACKEND_IMPORT_DIRS
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger 
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger/protobuf/include
   ${OCL_CPU_BACKEND_DIR}/ocl_debugger/oclsysutils_partial/export
-  ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper)
+  ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
   ${OCL_CPU_BACKEND_DIR}/../arch_headers)
 set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
 # the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
