@@ -1,0 +1,1 @@
+; RUN: llc -mcpu=sandybridge < %p/../../llvm/CodeGen/X86/2008-05-28-LocalRegAllocBug.ll 

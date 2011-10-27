@@ -1,0 +1,596 @@
+<workspace>
+
+<!-- |1| Information about synchronization. -->
+
+<synchronization_volcano>
+
+<source_control>
+svn
+</source_control>
+
+<repository>
+$GLP[svn_root]
+</repository>
+
+<date>
+last
+</date>
+
+<additional_parameter_01>
+
+</additional_parameter_01>
+
+<out_dir>
+$GLP[svn_root_out_dir]\
+</out_dir>
+
+</synchronization_volcano>
+
+
+<!-- |2| Additional commands execution for build preparation. -->
+
+<additional_build_preparation_generate_make64debug>
+
+<execution_command>
+./setup-lin.sh Debug $[os_tmp_dir]/Linux_64_Debug
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_make64debug>
+
+<additional_build_preparation_generate_make64release>
+
+<execution_command>
+./setup-lin.sh Release $[os_tmp_dir]/Linux_64_Release
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_make64release>
+
+<!-- |3| Information about what must to be built and what log files contain results information. -->
+
+<build_volcano_debug_x64>
+
+<execution_command>
+make
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_BUILD_TYPE]
+</log_file_01>
+
+</build_volcano_debug_x64>
+
+<build_volcano_release_x64>
+
+<execution_command>
+make
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_BUILD_TYPE]
+</log_file_01>
+
+</build_volcano_release_x64>
+
+<build_check_volcano_debug_x64>
+
+<execution_command>
+make check
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_volcano_debug_x64>
+
+<build_check_volcano_release_x64>
+
+<execution_command>
+make check
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_volcano_release_x64>
+
+<build_check_vectorizer_release_x64>
+
+<execution_command>
+make check_vectorizer
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_vectorizer_release_x64>
+
+<build_check_vectorizer_debug_x64>
+
+<execution_command>
+make check_vectorizer
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_vectorizer_debug_x64>
+
+<build_check_regression_release_x64>
+
+<execution_command>
+make check_regression
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_regression_release_x64>
+
+<build_check_regression_debug_x64>
+
+<execution_command>
+make check_regression
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_regression_debug_x64>
+
+<build_check_gfx_release_x64>
+
+<execution_command>
+make check_gfx
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_gfx_release_x64>
+
+<build_check_gfx_debug_x64>
+
+<execution_command>
+make check_gfx
+</execution_command>
+
+<additional_build_parameters>
+</additional_build_parameters>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [MAKE_CHECK_BUILD_TYPE]
+</log_file_01>
+
+</build_check_gfx_debug_x64>
+
+<!-- |4| Process of building installation packages. -->
+
+<!-- |5| Information about what must to be copied, deleted, replicated and etc. -->
+
+<postbuild_procedure_execute_validationtests_debug_x64>
+
+<execution_command>
+./ValidationTests > $[os_add_log_dir]/ValidationTests_Debug_x64.log 2>&1
+</execution_command>
+
+<timeout>
+60
+</timeout>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug/bin
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_debug_x64>
+
+<postbuild_procedure_execute_validationtests_release_x64>
+
+<execution_command>
+./ValidationTests > $[os_add_log_dir]/ValidationTests_Release_x64.log 2>&1
+</execution_command>
+
+<timeout>
+60
+</timeout>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release/bin
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_release_x64>
+
+<postbuild_procedure_execute_llvmunittests_debug_x64>
+
+<execution_command>
+./LLVMUnitTests > $[os_add_log_dir]/LLVMUnitTests_Debug_x64.log 2>&1
+</execution_command>
+
+<timeout>
+60
+</timeout>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Debug/bin
+</execution_path>
+
+</postbuild_procedure_execute_llvmunittests_debug_x64>
+
+<postbuild_procedure_execute_llvmunittests_release_x64>
+
+<execution_command>
+./LLVMUnitTests > $[os_add_log_dir]/LLVMUnitTests_Releas_x64.log 2>&1
+</execution_command>
+
+<timeout>
+60
+</timeout>
+
+<execution_path>
+$[os_tmp_dir]/Linux_64_Release/bin
+</execution_path>
+
+</postbuild_procedure_execute_llvmunittests_release_x64>
+
+<postbuild_procedure_update_logs_dir>
+
+<execution_command>
+%UpdateFilesInDir% "$[log_dir]" "\.log$" "$[log_dir]#$GLP[main_logs_share]"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_update_logs_dir>
+
+<postbuild_procedure_del_shlogs>
+
+<execution_command>
+%DeleteFolder% "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_del_shlogs>
+
+<!-- |F| Final procedures (which not taken into account in summary generartion and so on) -->
+
+<final_procedure_copy_logs>
+
+<execution_command>
+%CopyFolder% "$[log_dir]" "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</final_procedure_copy_logs>
+
+<!-- |6| Mail notification structure. -->
+
+<notification_01>
+
+<notification_type>
+PASS
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+PASS: Volcano build based on revision "$[chlist]" was created successfully.
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]%
+
+Source Build Statuses:
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Volcano_Debug_x64: $[status:build_check_volcano_debug_x64]
+$[if_not_passed:build_check_volcano_debug_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_debug_x64]$[status_detail:    :build_check_volcano_debug_x64]
+  Build_Check_Volcano_Release_x64: $[status:build_check_volcano_release_x64]
+$[if_not_passed:build_check_volcano_release_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_release_x64]$[status_detail:    :build_check_volcano_release_x64]
+  Build_Check_GFX_Debug_x64: $[status:build_check_gfx_debug_x64]
+$[if_not_passed:build_check_gfx_debug_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_debug_x64]$[status_detail:    :build_check_gfx_debug_x64]
+  Build_Check_GFX_Release_x64: $[status:build_check_gfx_release_x64]
+$[if_not_passed:build_check_gfx_release_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_release_x64]$[status_detail:    :build_check_gfx_release_x64]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+$[if_not_passed:build_check_vectorizer_debug_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_debug_x64]$[status_detail:    :build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Release_x64: $[status:build_check_vectorizer_release_x64]
+$[if_not_passed:build_check_vectorizer_release_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_release_x64]$[status_detail:    :build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+$[if_not_passed:build_check_regression_debug_x64]  Status Detail:
+$[if_not_passed:build_check_regression_debug_x64]$[status_detail:    :build_check_regression_debug_x64]
+  Build_Check_Regression_Release_x64: $[status:build_check_regression_release_x64]
+$[if_not_passed:build_check_regression_release_x64]  Status Detail:
+$[if_not_passed:build_check_regression_release_x64]$[status_detail:    :build_check_regression_release_x64]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_llvmunittests_debug_x64]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_llvmunittests_release_x64]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_01>
+
+<notification_02>
+
+<notification_type>
+CRASH
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : FAIL)
+</notification_title>
+
+<notification_body>
+FAIL: Some Volcano build packages "$[chlist]" wasn't created.
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]%
+
+Source Build Statuses:
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Volcano_Debug_x64: $[status:build_check_volcano_debug_x64]
+$[if_not_passed:build_check_volcano_debug_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_debug_x64]$[status_detail:    :build_check_volcano_debug_x64]
+  Build_Check_Volcano_Release_x64: $[status:build_check_volcano_release_x64]
+$[if_not_passed:build_check_volcano_release_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_release_x64]$[status_detail:    :build_check_volcano_release_x64]
+  Build_Check_GFX_Debug_x64: $[status:build_check_gfx_debug_x64]
+$[if_not_passed:build_check_gfx_debug_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_debug_x64]$[status_detail:    :build_check_gfx_debug_x64]
+  Build_Check_GFX_Release_x64: $[status:build_check_gfx_release_x64]
+$[if_not_passed:build_check_gfx_release_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_release_x64]$[status_detail:    :build_check_gfx_release_x64]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+$[if_not_passed:build_check_vectorizer_debug_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_debug_x64]$[status_detail:    :build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Release_x64: $[status:build_check_vectorizer_release_x64]
+$[if_not_passed:build_check_vectorizer_release_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_release_x64]$[status_detail:    :build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+$[if_not_passed:build_check_regression_debug_x64]  Status Detail:
+$[if_not_passed:build_check_regression_debug_x64]$[status_detail:    :build_check_regression_debug_x64]
+  Build_Check_Regression_Release_x64: $[status:build_check_regression_release_x64]
+$[if_not_passed:build_check_regression_release_x64]  Status Detail:
+$[if_not_passed:build_check_regression_release_x64]$[status_detail:    :build_check_regression_release_x64]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_llvmunittests_debug_x64]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_llvmunittests_release_x64]
+
+$[if_passed:final_procedure_copy_logs]The summary log can be obtained from:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]\$[summary_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_02>
+
+<notification_03>
+
+<notification_type>
+FAIL
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+FAIL: Volcano build based on revision "$[chlist]" was created with failures.
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]%
+
+Source Build Statuses:
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Volcano_Debug_x64: $[status:build_check_volcano_debug_x64]
+$[if_not_passed:build_check_volcano_debug_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_debug_x64]$[status_detail:    :build_check_volcano_debug_x64]
+  Build_Check_Volcano_Release_x64: $[status:build_check_volcano_release_x64]
+$[if_not_passed:build_check_volcano_release_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_release_x64]$[status_detail:    :build_check_volcano_release_x64]
+  Build_Check_GFX_Debug_x64: $[status:build_check_gfx_debug_x64]
+$[if_not_passed:build_check_gfx_debug_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_debug_x64]$[status_detail:    :build_check_gfx_debug_x64]
+  Build_Check_GFX_Release_x64: $[status:build_check_gfx_release_x64]
+$[if_not_passed:build_check_gfx_release_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_release_x64]$[status_detail:    :build_check_gfx_release_x64]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+$[if_not_passed:build_check_vectorizer_debug_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_debug_x64]$[status_detail:    :build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Release_x64: $[status:build_check_vectorizer_release_x64]
+$[if_not_passed:build_check_vectorizer_release_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_release_x64]$[status_detail:    :build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+$[if_not_passed:build_check_regression_debug_x64]  Status Detail:
+$[if_not_passed:build_check_regression_debug_x64]$[status_detail:    :build_check_regression_debug_x64]
+  Build_Check_Regression_Release_x64: $[status:build_check_regression_release_x64]
+$[if_not_passed:build_check_regression_release_x64]  Status Detail:
+$[if_not_passed:build_check_regression_release_x64]$[status_detail:    :build_check_regression_release_x64]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_llvmunittests_debug_x64]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_llvmunittests_release_x64]
+
+$[if_passed:final_procedure_copy_logs]The summary log can be obtained from:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]\$[summary_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_03>
+
+<notification_04>
+
+<notification_type>
+WARNING
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+WARNING: Volcano build based on revision "$[chlist]" was created with warnings.
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]%
+
+Source Build Statuses:
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Volcano_Debug_x64: $[status:build_check_volcano_debug_x64]
+$[if_not_passed:build_check_volcano_debug_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_debug_x64]$[status_detail:    :build_check_volcano_debug_x64]
+  Build_Check_Volcano_Release_x64: $[status:build_check_volcano_release_x64]
+$[if_not_passed:build_check_volcano_release_x64]  Status Detail:
+$[if_not_passed:build_check_volcano_release_x64]$[status_detail:    :build_check_volcano_release_x64]
+  Build_Check_GFX_Debug_x64: $[status:build_check_gfx_debug_x64]
+$[if_not_passed:build_check_gfx_debug_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_debug_x64]$[status_detail:    :build_check_gfx_debug_x64]
+  Build_Check_GFX_Release_x64: $[status:build_check_gfx_release_x64]
+$[if_not_passed:build_check_gfx_release_x64]  Status Detail:
+$[if_not_passed:build_check_gfx_release_x64]$[status_detail:    :build_check_gfx_release_x64]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+$[if_not_passed:build_check_vectorizer_debug_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_debug_x64]$[status_detail:    :build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Release_x64: $[status:build_check_vectorizer_release_x64]
+$[if_not_passed:build_check_vectorizer_release_x64]  Status Detail:
+$[if_not_passed:build_check_vectorizer_release_x64]$[status_detail:    :build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+$[if_not_passed:build_check_regression_debug_x64]  Status Detail:
+$[if_not_passed:build_check_regression_debug_x64]$[status_detail:    :build_check_regression_debug_x64]
+  Build_Check_Regression_Release_x64: $[status:build_check_regression_release_x64]
+$[if_not_passed:build_check_regression_release_x64]  Status Detail:
+$[if_not_passed:build_check_regression_release_x64]$[status_detail:    :build_check_regression_release_x64]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_llvmunittests_debug_x64]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_llvmunittests_release_x64]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[r_main_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_04>
+
+</workspace>

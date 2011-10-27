@@ -1,0 +1,92 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2010).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  MICCompiler.h
+
+\*****************************************************************************/
+#pragma once
+
+#include <assert.h>
+#include <string>
+#include "CPUDetect.h"
+#include "exceptions.h"
+#include "CompilerConfig.h"
+#include "cl_dev_backend_api.h"
+#include "Kernel.h"
+#include "Optimizer.h"
+#include "Compiler.h"
+
+namespace llvm {
+    class Module;
+    class MICCodeGenerationEngine;
+}
+
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+class BuiltinModule;
+class CompilerConfig;
+class Program;
+class MICProgram;
+class MICKernel;
+class MICKernelJITProperties;
+
+
+//*****************************************************************************************
+// Provides the module optimization and code generation functionality. 
+// 
+class MICCompiler : public Compiler
+{
+
+public:
+    /**
+     * Ctor
+     */
+    MICCompiler(const CompilerConfig& pConfig);
+    ~MICCompiler();
+
+    /**
+     * Build the given program using the supplied build options
+     */
+    cl_dev_err_code BuildProgram(Program* pProgram, const CompilerBuildOptions* pOptions);
+
+    llvm::Module* GetRtlModule() const;
+
+    KernelSet* CreateKernels(const Program* pProgram,
+                             llvm::Module* pModule, 
+                             ProgramBuildResult& buildResult, 
+                             FunctionWidthVector& vectorizedFunctions, 
+                             KernelsInfoMap& kernelsInfo,
+                             size_t specialBufferStride);
+
+    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule);
+
+private:
+    void SelectMICConfiguration(const CompilerConfig& config);
+
+    MICKernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
+                                                   llvm::Function* pFunc,
+                                                   const TLLVMKernelInfo& info);
+
+    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps);
+
+    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps);
+
+    llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule );
+private:
+    BuiltinModule*           m_pBuiltinModule;
+    llvm::MICCodeGenerationEngine* m_pCGEngine;
+    std::string m_ErrorStr;
+};
+
+}}}

@@ -1,0 +1,201 @@
+//
+// Protobuf definition file for messages to and from the debug server
+//
+package debugservermessages;
+
+
+// Messages sent from the debug client to the debug server
+//
+message ClientToServerMessage {
+    enum Type {
+        START_SESSION = 1;
+        RUN = 2;
+        SINGLE_STEP_IN = 3;
+        SINGLE_STEP_OVER = 4;
+        SINGLE_STEP_OUT = 5;
+        GET_STACK_TRACE = 21;
+        GET_MEMORY_RANGE = 22;
+        BAD_MSG_TEST = 99;
+    }
+    required Type type = 1;
+
+    message StartSessionMsg {
+        required uint32 global_id_x = 1;
+        required uint32 global_id_y = 2;
+        required uint32 global_id_z = 3;
+    }
+    optional StartSessionMsg start_session_msg = 20;
+
+    message RunMsg {
+        // info is for debugging purposes
+        required string info = 1;
+        repeated LineInfo breakpoints = 2;
+    }
+    optional RunMsg run_msg = 21;
+    
+    message GetMemoryRangeMsg {
+        required uint64 start_addr = 1;
+        required uint64 end_addr = 2;
+    }
+    optional GetMemoryRangeMsg get_memory_range_msg = 31;
+}
+
+
+// Messages sent from the debug server to the debug client
+//
+message ServerToClientMessage {
+    enum Type {
+        CMD_ERROR = 1;
+        START_SESSION_ACK = 2;
+        BP_HIT = 3;
+        STACK_TRACE_INFO = 4;
+        MEMORY_RANGE_INFO = 5;
+    }
+    required Type type = 1;
+    
+    message CmdErrorMsg {
+        required string description = 1;
+    }
+    optional CmdErrorMsg cmd_error_msg = 21;
+ 
+    message StartSessionAckMsg {
+        required uint32 sizeof_size_t = 1;
+    }
+    optional StartSessionAckMsg start_session_ack_msg = 22;
+
+    message VarInfo {
+        required string name = 1;
+        required string value = 2;
+        required string type = 3;
+        required uint64 address = 4;
+        required VarTypeDescriptor type_descriptor = 5; 
+    }
+    
+    message StackFrameInfo {
+        required string func_name = 1;
+        required LineInfo call_line = 2;
+        repeated VarInfo vars = 3;
+    }
+    
+    message BPHitMsg {
+        required LineInfo breakpoint = 1;
+        repeated VarInfo vars = 2;
+    }
+    optional BPHitMsg bphit_msg = 31;
+    
+    message StackTraceInfoMsg {
+        repeated StackFrameInfo frames = 1;
+    }
+    optional StackTraceInfoMsg stack_trace_info_msg = 41;
+    
+    message MemoryRangeInfoMsg {
+        required bytes buf = 1;
+    }
+    optional MemoryRangeInfoMsg memory_range_info_msg = 51;
+}
+
+
+// Common sub-message type used by both client and server
+//
+message LineInfo {
+    required string file = 1;
+    required uint32 lineno = 2;
+}
+
+
+// Message types for variable type descriptors. 
+// VarTypeDescriptor is a hierarchical message, allowing arbitrary composition
+// of sub-messages via its optional fields - some of the VarType* messages can
+// contain other VarTypeDescriptor fields.
+//
+message VarTypeDescriptor {
+    enum Tag {
+        BASIC = 0;
+        POINTER = 1;
+        ARRAY = 2;
+        VECTOR = 3;
+        TYPEDEF = 4;
+        ENUM = 5;
+        STRUCT = 6;
+        UNKNOWN = 99;
+    }
+    required Tag tag = 1;
+    
+    optional VarTypeBasic type_basic = 11;
+    optional VarTypePointer type_pointer = 12;
+    optional VarTypeArray type_array = 13;
+    optional VarTypeVector type_vector = 14;
+    optional VarTypeTypedef type_typedef = 15;
+    optional VarTypeEnum type_enum = 16;
+    optional VarTypeStruct type_struct = 17;
+}
+
+
+message VarTypeBasic {
+    enum Tag {
+        BOOLEAN = 0;
+        FLOAT = 1;
+        SIGNED = 2;
+        SIGNED_CHAR = 3;
+        UNSIGNED = 4;
+        UNSIGNED_CHAR = 5;
+        UNKNOWN = 99;
+    }
+    required Tag tag = 1;
+    
+    // Size in bits
+    required uint64 size_nbits = 2;
+    
+    // Type name as taken from the debug info
+    required string name = 20;    
+}
+
+
+message VarTypePointer {
+    required VarTypeDescriptor pointee = 1;
+}
+
+
+message VarTypeArray {
+    required VarTypeDescriptor element = 1;
+    repeated uint64 dimensions = 2;
+}
+
+
+message VarTypeEnum {
+    message EnumEntry {
+        required string name = 1;
+        required uint64 value = 2;
+    }
+
+    required string name = 1;
+    repeated EnumEntry entries = 2;
+}
+
+
+message VarTypeStruct {
+    message StructMember {
+        required string name = 1;
+        required uint64 size_nbits = 2;
+        required uint64 align_nbits = 3;
+        required uint64 offset_nbits = 4;
+        required VarTypeDescriptor type = 20;
+    }
+    required string name = 1;
+    repeated StructMember members = 2;
+}
+
+
+message VarTypeVector {
+    required string name = 1;
+}
+
+
+message VarTypeTypedef {
+    required string name = 1;
+    required VarTypeDescriptor original_type = 2;
+}
+
+
+
+

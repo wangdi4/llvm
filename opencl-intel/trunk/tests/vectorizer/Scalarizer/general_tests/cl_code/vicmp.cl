@@ -1,0 +1,24 @@
+/*
+ * Part of the tests that check different LLVM instructions on different argument
+ * types and different argument sources.
+ *
+ * Tests the LLVM vicmp instruction when it recieves ulong2 constant.
+ * This instruction is vectorizable.
+ *
+ * @param in
+ * 		The input array.
+ * @param out
+ * 		The output array.
+ *
+ */
+#include "def.h"
+__kernel void
+vicmp (	__global const float *in,
+		__global float *out)
+{
+	int gid = get_global_id(0);
+	ulong2 tmp = (ulong2) (ARG0, ARG0);
+	long2 res = (ULONG2_VEC1 == tmp);
+	out[gid] = res.x + res.y;
+}
+

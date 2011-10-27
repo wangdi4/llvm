@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SelfExtractor", "SelfExtractor.vcproj", "{CBF6A887-73F4-438C-82B8-57318CBD456D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CBF6A887-73F4-438C-82B8-57318CBD456D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CBF6A887-73F4-438C-82B8-57318CBD456D}.Debug|Win32.Build.0 = Debug|Win32
+		{CBF6A887-73F4-438C-82B8-57318CBD456D}.Release|Win32.ActiveCfg = Release|Win32
+		{CBF6A887-73F4-438C-82B8-57318CBD456D}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

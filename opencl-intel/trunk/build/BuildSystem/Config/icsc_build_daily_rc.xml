@@ -1,0 +1,251 @@
+<workspace>
+
+<!-- |1| Information about synchronization. -->
+
+<synchronization_volcano>
+
+<source_control>
+svn
+</source_control>
+
+<repository>
+$GLP[svn_root]
+</repository>
+
+<date>
+last
+</date>
+
+<additional_parameter_01>
+
+</additional_parameter_01>
+
+<out_dir>
+$GLP[svn_root_out_dir]\
+</out_dir>
+
+</synchronization_volcano>
+
+
+<!-- |2| Additional commands execution for build preparation. -->
+
+<additional_build_preparation_get_ReleaseCriteria>
+
+<execution_command>
+python setup_ocl_bin.py -t Win64 -c Release -p \\nnefs01a.inn.intel.com\OCL\users\Volcano\cvcc\OclConformance_14173\trunk\ReleaseCriteria
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_get_ReleaseCriteria>
+
+<!-- |3| Information about what must to be built and what log files contain results information. -->
+
+<build_volcano_release_x64>
+
+<execution_command>
+python setup_win.py -t Win64 -b
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_volcano_release_x64>
+
+<!-- |4| Process of building installation packages. -->
+
+<package_build_volcano_zip>
+
+<package_name>
+$[tmp_dir]\$GLP[icsc_zip_bp_name]
+</package_name>
+
+<package_type>
+zip
+</package_type>
+
+<package_content_file>
+icsc_zip_content.cfg
+</package_content_file>
+
+</package_build_volcano_zip>
+
+<postbuild_procedure_update_logs_dir>
+
+<execution_command>
+%UpdateFilesInDir% "$[log_dir]" "\.log$" "$[log_dir]#$GLP[main_logs_share]"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_update_logs_dir>
+
+<postbuild_procedure_del_shlogs>
+
+<execution_command>
+%DeleteFolder% "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_del_shlogs>
+
+<postbuild_procedure_cp_volcano_zip>
+
+<execution_command>
+%CopyFile% "$[tmp_dir]\$GLP[icsc_zip_bp_name]" "$GLP[main_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+<condition>
+package_build_volcano_zip
+</condition>
+
+</postbuild_procedure_cp_volcano_zip>
+
+<!-- |F| Final procedures (which not taken into account in summary generartion and so on) -->
+
+<final_procedure_copy_logs>
+
+<execution_command>
+%CopyFolder% "$[log_dir]" "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</final_procedure_copy_logs>
+
+<!-- VOLCANO MAIL NOTIFICATION -->
+
+<notification_01>
+
+<notification_type>
+PASS
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+PASS: Volcano build based on revision "$[chlist]" was created successfully.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+
+Get Release Criteria: $[status:additional_build_preparation_get_ReleaseCriteria]
+
+Source Build Statuses:
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Package Build Statuses:
+  Build Volcano Zip: $[status:package_build_volcano_zip]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_01>
+
+<notification_02>
+
+<notification_type>
+FAIL
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+FAIL: Volcano build based on revision "$[chlist]" was created with failures.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+
+Get Release Criteria: $[status:additional_build_preparation_get_ReleaseCriteria]
+
+Source Build Statuses:
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Package Build Statuses:
+  Build Volcano Zip: $[status:package_build_volcano_zip]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_02>
+
+<notification_03>
+
+<notification_type>
+WARNING
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+WARNING: Volcano build based on revision "$[chlist]" was created with warnings.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+
+Get Release Criteria: $[status:additional_build_preparation_get_ReleaseCriteria]
+
+Source Build Statuses:
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+Package Build Statuses:
+  Build Volcano Zip: $[status:package_build_volcano_zip]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_03>
+
+</workspace>

@@ -1,0 +1,144 @@
+<workspace>
+
+<!-- |1| Information about synchronization. -->
+
+<synchronization_icsc>
+
+<source_control>
+svn
+</source_control>
+
+<repository>
+$GLP[svn_root]
+</repository>
+
+<date>
+last
+</date>
+
+<additional_parameter_01>
+
+</additional_parameter_01>
+
+<out_dir>
+$GLP[svn_root_out_dir]\
+</out_dir>
+
+</synchronization_icsc>
+
+
+<!-- |2| Additional commands execution for build preparation. -->
+
+<additional_build_preparation_generate_sln_x86>
+
+<execution_command>
+python setup_win.py -twin32
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_sln_x86>
+
+<additional_build_preparation_generate_sln_x64>
+
+<execution_command>
+python setup_win.py -twin64
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_sln_x64>
+
+<!-- |3| Information about what must to be built and what log files contain results information. -->
+
+<build_icsc_debug_x86>
+
+<execution_command>
+build_icsc_x86.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_icsc_debug_x86>
+
+<build_icsc_debug_x64>
+
+<execution_command>
+build_icsc_x64.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_icsc_debug_x64>
+
+<build_icsc_release_x86>
+
+<execution_command>
+build_icsc_x86.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_icsc_release_x86>
+
+<build_icsc_release_x64>
+
+<execution_command>
+build_icsc_x64.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_icsc_release_x64>
+
+<!-- |4| Process of building installation packages. -->
+
+<!-- |5| Information about what must to be copied, deleted, replicated and etc. -->
+
+<!-- |6| Mail notification structure. -->
+
+</workspace>

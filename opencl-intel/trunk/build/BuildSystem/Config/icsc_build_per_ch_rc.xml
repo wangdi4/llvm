@@ -1,0 +1,1150 @@
+<workspace>
+
+<!-- |1| Information about synchronization. -->
+
+<synchronization_volcano>
+
+<source_control>
+svn
+</source_control>
+
+<repository>
+$GLP[svn_root]
+</repository>
+
+<date>
+last
+</date>
+
+<additional_parameter_01>
+
+</additional_parameter_01>
+
+<out_dir>
+$GLP[svn_root_out_dir]\
+</out_dir>
+
+</synchronization_volcano>
+
+
+<!-- |2| Additional commands execution for build preparation. -->
+
+<additional_build_preparation_generate_sln_x86>
+
+<execution_command>
+python setup_win.py -twin32
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_sln_x86>
+
+<additional_build_preparation_generate_sln_x64>
+
+<execution_command>
+python setup_win.py -twin64
+</execution_command>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build
+</execution_path>
+
+</additional_build_preparation_generate_sln_x64>
+
+<!-- |3| Information about what must to be built and what log files contain results information. -->
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO BUILD--------------------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+<build_volcano_debug_x86>
+
+<execution_command>
+build_icsc_x86.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_volcano_debug_x86>
+
+<build_volcano_debug_x64>
+
+<execution_command>
+build_icsc_x64.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_volcano_debug_x64>
+
+<build_volcano_release_x86>
+
+<execution_command>
+build_icsc_x86.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_volcano_release_x86>
+
+<build_volcano_release_x64>
+
+<execution_command>
+build_icsc_x64.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_volcano_release_x64>
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO clbltfn BUILD------------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+<build_clbltfn_debug_x86>
+
+<execution_command>
+build_clbltfn_x86.bat  $GLP[svn_root_out_dir]\libraries\ocl_builtins
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_clbltfn_debug_x86>
+
+<build_clbltfn_debug_x64>
+
+<execution_command>
+build_clbltfn_x64.bat $GLP[svn_root_out_dir]\libraries\ocl_builtins
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_clbltfn_debug_x64>
+
+<build_clbltfn_release_x86>
+
+<execution_command>
+build_clbltfn_x86.bat $GLP[svn_root_out_dir]\libraries\ocl_builtins
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_clbltfn_release_x86>
+
+<build_clbltfn_release_x64>
+
+<execution_command>
+build_clbltfn_x64.bat $GLP[svn_root_out_dir]\libraries\ocl_builtins
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+</build_clbltfn_release_x64>
+
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO CHECKS-------------------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+
+<build_check_release_x86>
+
+<execution_command>
+build_check.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_release_x86>
+
+<build_check_debug_x86>
+
+<execution_command>
+build_check.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_debug_x86>
+
+<build_check_release_x64>
+
+<execution_command>
+build_check.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_release_x64>
+
+<build_check_debug_x64>
+
+<execution_command>
+build_check.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_debug_x64>
+
+<build_check_vectorizer_release_x86>
+
+<execution_command>
+build_check_vectorizer.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_vectorizer_release_x86>
+
+<build_check_vectorizer_debug_x86>
+
+<execution_command>
+build_check_vectorizer.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_vectorizer_debug_x86>
+
+<build_check_vectorizer_release_x64>
+
+<execution_command>
+build_check_vectorizer.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_vectorizer_release_x64>
+
+<build_check_vectorizer_debug_x64>
+
+<execution_command>
+build_check_vectorizer.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_vectorizer_debug_x64>
+
+<build_check_regression_release_x86>
+
+<execution_command>
+build_check_regression.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_regression_release_x86>
+
+<build_check_regression_debug_x86>
+
+<execution_command>
+build_check_regression.bat $GLP[svn_root_out_dir]\build\Win32
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_regression_debug_x86>
+
+<build_check_regression_release_x64>
+
+<execution_command>
+build_check_regression.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Release
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_regression_release_x64>
+
+<build_check_regression_debug_x64>
+
+<execution_command>
+build_check_regression.bat $GLP[svn_root_out_dir]\build\Win64
+</execution_command>
+
+<additional_build_parameters>
+Debug
+</additional_build_parameters>
+
+<execution_path>
+
+</execution_path>
+
+<log_file_01>
+%STD_OUT% [SLN_TYPE]
+</log_file_01>
+
+<error_level>
+IGNORE_WARNINGS
+</error_level>
+
+<timeout>
+600
+</timeout>
+
+</build_check_regression_debug_x64>
+
+<!-- |4| Process of building installation packages. -->
+
+<package_build_volcano_zip>
+
+<package_name>
+$[tmp_dir]\$GLP[icsc_zip_bp_name]
+</package_name>
+
+<package_type>
+zip
+</package_type>
+
+<package_content_file>
+icsc_zip_per_ch_content.cfg
+</package_content_file>
+
+</package_build_volcano_zip>
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO DXTests------------------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+
+
+<postbuild_procedure_execute_DXTest_V1_debug_x86>
+
+<execution_command>
+call DXTest.bat 32 Debug 1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+
+</postbuild_procedure_execute_DXTest_V1_debug_x86>
+
+<postbuild_procedure_execute_DXTest_V1_release_x86>
+
+<execution_command>
+call DXTest.bat 32 Release 1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+
+</postbuild_procedure_execute_DXTest_V1_release_x86>
+
+
+
+<postbuild_procedure_execute_DXTest_V4_debug_x86>
+
+<execution_command>
+call DXTest.bat 32 Debug 4
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+
+</postbuild_procedure_execute_DXTest_V4_debug_x86>
+
+<postbuild_procedure_execute_DXTest_V4_release_x86>
+
+<execution_command>
+call DXTest.bat 32 Release 4
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+
+</postbuild_procedure_execute_DXTest_V4_release_x86>
+
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO ValidationTests------------------------------------------------>
+<!------------------------------------------------------------------------------------------------->
+
+<postbuild_procedure_execute_validationtests_debug_x86>
+
+<execution_command>
+ValidationTests.exe > $[os_add_log_dir]\ValidationTests_Debug_x86.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win32\bin\Debug
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_debug_x86>
+
+<postbuild_procedure_execute_validationtests_release_x86>
+
+<execution_command>
+ValidationTests.exe > $[os_add_log_dir]\ValidationTests_Release_x86.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win32\bin\Release
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_release_x86>
+
+<postbuild_procedure_execute_validationtests_debug_x64>
+
+<execution_command>
+ValidationTests.exe > $[os_add_log_dir]\ValidationTests_Debug_x64.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win64\bin\Debug
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_debug_x64>
+
+<postbuild_procedure_execute_validationtests_release_x64>
+
+<execution_command>
+ValidationTests.exe > $[os_add_log_dir]\ValidationTests_Release_x64.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win64\bin\Release
+</execution_path>
+
+</postbuild_procedure_execute_validationtests_release_x64>
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO LLVMUnitTests------------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+
+<postbuild_procedure_execute_LLVMUnitTests_debug_x86>
+
+<execution_command>
+LLVMUnitTests.exe > $[os_add_log_dir]\LLVMUnitTests_Debug_x86.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win32\bin\Debug
+</execution_path>
+
+</postbuild_procedure_execute_LLVMUnitTests_debug_x86>
+
+<postbuild_procedure_execute_LLVMUnitTests_release_x86>
+
+<execution_command>
+LLVMUnitTests.exe > $[os_add_log_dir]\LLVMUnitTests_Release_x86.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win32\bin\Release
+</execution_path>
+
+</postbuild_procedure_execute_LLVMUnitTests_release_x86>
+
+<postbuild_procedure_execute_LLVMUnitTests_debug_x64>
+
+<execution_command>
+LLVMUnitTests.exe > $[os_add_log_dir]\LLVMUnitTests_Debug_x64.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win64\bin\Debug
+</execution_path>
+
+</postbuild_procedure_execute_LLVMUnitTests_debug_x64>
+
+<postbuild_procedure_execute_LLVMUnitTests_release_x64>
+
+<execution_command>
+LLVMUnitTests.exe > $[os_add_log_dir]\LLVMUnitTests_Release_x64.log 2>&1
+</execution_command>
+
+<timeout>
+600
+</timeout>
+
+<execution_path>
+$GLP[svn_root_out_dir]\build\Win64\bin\Release
+</execution_path>
+
+</postbuild_procedure_execute_LLVMUnitTests_release_x64>
+
+
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO ????????------------------------------------------------------>
+<!------------------------------------------------------------------------------------------------->
+
+<postbuild_procedure_update_logs_dir>
+
+<execution_command>
+%UpdateFilesInDir% "$[log_dir]" "\.log$" "$[log_dir]#$GLP[main_logs_share]"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_update_logs_dir>
+
+<postbuild_procedure_del_shlogs>
+
+<execution_command>
+%DeleteFolder% "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</postbuild_procedure_del_shlogs>
+
+<postbuild_procedure_cp_volcano_zip>
+
+<execution_command>
+%CopyFile% "$[tmp_dir]\$GLP[icsc_zip_bp_name]" "$GLP[main_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+<condition>
+package_build_volcano_zip
+</condition>
+
+</postbuild_procedure_cp_volcano_zip>
+
+<!-- |F| Final procedures (which not taken into account in summary generartion and so on) -->
+
+<final_procedure_copy_logs>
+
+<execution_command>
+%CopyFolder% "$[log_dir]" "$GLP[main_logs_share]\"
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</final_procedure_copy_logs>
+
+<final_procedure_rep_logs>
+
+<error_level>
+WARNING
+</error_level>
+
+<execution_command>
+%Replicate% "$GLP[main_logs_share]\" "$GLP[rep_logs_share]\" timeout:$GLP[rep_timeout]
+</execution_command>
+
+<execution_path>
+.
+</execution_path>
+
+</final_procedure_rep_logs>
+
+<!------------------------------------------------------------------------------------------------->
+<!---------------------------VOLCANO MAIL NOTIFICATION--------------------------------------------->
+<!------------------------------------------------------------------------------------------------->
+
+<notification_01>
+
+<notification_type>
+PASS
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+PASS: Volcano build based on revision "$[chlist]" was created successfully.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]%
+
+Generation Solution Files:
+  Generate_Sln_x86: $[status:additional_build_preparation_generate_sln_x86]
+  Generate_Sln_x64: $[status:additional_build_preparation_generate_sln_x64]
+
+Source Build Statuses:
+  Build_Volcano_Debug_x86: $[status:build_volcano_debug_x86]
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x86: $[status:build_volcano_release_x86]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+  Build_Clbltfn_Debug_x86: $[status:build_clbltfn_debug_x86]
+  Build_Clbltfn_Debug_x64: $[status:build_clbltfn_debug_x64]
+  Build_Clbltfn_Release_x86: $[status:build_clbltfn_release_x86]
+  Build_Clbltfn_Release_x64: $[status:build_clbltfn_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Debug_x86: $[status:build_check_debug_x86]
+  Build_Check_Debug_x64: $[status:build_check_debug_x64]
+  Build_Check_Relese_x86: $[status:build_check_release_x86]
+  Build_Check_Relese_x64: $[status:build_check_release_x64]
+  Build_Check_Vectorizer_Debug_x86: $[status:build_check_vectorizer_debug_x86]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Relese_x86: $[status:build_check_vectorizer_release_x86]
+  Build_Check_Vectorizer_Relese_x64: $[status:build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x86: $[status:build_check_regression_debug_x86]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+  Build_Check_Regression_Relese_x86: $[status:build_check_regression_release_x86]
+  Build_Check_Regression_Relese_x64: $[status:build_check_regression_release_x64]
+  ValidationTests_Debug_x86: $[status:postbuild_procedure_execute_validationtests_debug_x86]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x86: $[status:postbuild_procedure_execute_validationtests_release_x86]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x86]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x64]
+  LLVMUnitTests_Release_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x86]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x64]
+
+  DXTest_V1_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V1_debug_x86]
+  DXTest_V1_Release_x86: $[status:postbuild_procedure_execute_DXTest_V1_release_x86]
+  DXTest_V4_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V4_debug_x86]
+  DXTest_V4_Release_x86: $[status:postbuild_procedure_execute_DXTest_V4_release_x86]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[warnings_log_sub_path]%
+$[if_are_warnings]$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_01>
+
+<notification_02>
+
+<notification_type>
+CRASH
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : FAIL)
+</notification_title>
+
+<notification_body>
+FAIL: Some Volcano build packages "$[chlist]" wasn't created.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]%
+
+Generation Solution Files:
+  Generate_Sln_x86: $[status:additional_build_preparation_generate_sln_x86]
+  Generate_Sln_x64: $[status:additional_build_preparation_generate_sln_x64]
+
+
+Source Build Statuses:
+  Build_Volcano_Debug_x86: $[status:build_volcano_debug_x86]
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x86: $[status:build_volcano_release_x86]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+  Build_Clbltfn_Debug_x86: $[status:build_clbltfn_debug_x86]
+  Build_Clbltfn_Debug_x64: $[status:build_clbltfn_debug_x64]
+  Build_Clbltfn_Release_x86: $[status:build_clbltfn_release_x86]
+  Build_Clbltfn_Release_x64: $[status:build_clbltfn_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Debug_x86: $[status:build_check_debug_x86]
+  Build_Check_Debug_x64: $[status:build_check_debug_x64]
+  Build_Check_Relese_x86: $[status:build_check_release_x86]
+  Build_Check_Relese_x64: $[status:build_check_release_x64]
+  Build_Check_Vectorizer_Debug_x86: $[status:build_check_vectorizer_debug_x86]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Relese_x86: $[status:build_check_vectorizer_release_x86]
+  Build_Check_Vectorizer_Relese_x64: $[status:build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x86: $[status:build_check_regression_debug_x86]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+  Build_Check_Regression_Relese_x86: $[status:build_check_regression_release_x86]
+  Build_Check_Regression_Relese_x64: $[status:build_check_regression_release_x64]
+  ValidationTests_Debug_x86: $[status:postbuild_procedure_execute_validationtests_debug_x86]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x86: $[status:postbuild_procedure_execute_validationtests_release_x86]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x86]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x64]
+  LLVMUnitTests_Release_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x86]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x64]
+
+  DXTest_V1_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V1_debug_x86]
+  DXTest_V1_Release_x86: $[status:postbuild_procedure_execute_DXTest_V1_release_x86]
+  DXTest_V4_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V4_debug_x86]
+  DXTest_V4_Release_x86: $[status:postbuild_procedure_execute_DXTest_V4_release_x86]
+
+$[if_passed:final_procedure_copy_logs]The summary log can be obtained from:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[summary_log_sub_path]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]\$[summary_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_02>
+
+<notification_03>
+
+<notification_type>
+FAIL
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+FAIL: Volcano build based on revision "$[chlist]" was created with failures.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]%
+
+Generation Solution Files:
+  Generate_Sln_x86: $[status:additional_build_preparation_generate_sln_x86]
+  Generate_Sln_x64: $[status:additional_build_preparation_generate_sln_x64]
+
+Source Build Statuses:
+  Build_Volcano_Debug_x86: $[status:build_volcano_debug_x86]
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x86: $[status:build_volcano_release_x86]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+  Build_Clbltfn_Debug_x86: $[status:build_clbltfn_debug_x86]
+  Build_Clbltfn_Debug_x64: $[status:build_clbltfn_debug_x64]
+  Build_Clbltfn_Release_x86: $[status:build_clbltfn_release_x86]
+  Build_Clbltfn_Release_x64: $[status:build_clbltfn_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Debug_x86: $[status:build_check_debug_x86]
+  Build_Check_Debug_x64: $[status:build_check_debug_x64]
+  Build_Check_Relese_x86: $[status:build_check_release_x86]
+  Build_Check_Relese_x64: $[status:build_check_release_x64]
+  Build_Check_Vectorizer_Debug_x86: $[status:build_check_vectorizer_debug_x86]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Relese_x86: $[status:build_check_vectorizer_release_x86]
+  Build_Check_Vectorizer_Relese_x64: $[status:build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x86: $[status:build_check_regression_debug_x86]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+  Build_Check_Regression_Relese_x86: $[status:build_check_regression_release_x86]
+  Build_Check_Regression_Relese_x64: $[status:build_check_regression_release_x64]
+  ValidationTests_Debug_x86: $[status:postbuild_procedure_execute_validationtests_debug_x86]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x86: $[status:postbuild_procedure_execute_validationtests_release_x86]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x86]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x64]
+  LLVMUnitTests_Release_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x86]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x64]
+
+  DXTest_V1_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V1_debug_x86]
+  DXTest_V1_Release_x86: $[status:postbuild_procedure_execute_DXTest_V1_release_x86]
+  DXTest_V4_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V4_debug_x86]
+  DXTest_V4_Release_x86: $[status:postbuild_procedure_execute_DXTest_V4_release_x86]
+
+$[if_passed:final_procedure_copy_logs]The summary log can be obtained from:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[summary_log_sub_path]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]\$[summary_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_03>
+
+<notification_04>
+
+<notification_type>
+WARNING
+</notification_type>
+
+<notification_title>
+$GLP[mail_title] (Revision $[chlist] : $[build_status])
+</notification_title>
+
+<notification_body>
+WARNING: Volcano build based on revision "$[chlist]" was created with warnings.
+
+$[if_passed:postbuild_procedure_cp_volcano_zip]Please use one of the following links below to access the package.
+$[if_passed:postbuild_procedure_cp_volcano_zip]%$GLP[main_share]\$GLP[icsc_zip_bp_name]%
+
+$[if_passed:final_procedure_copy_logs]The log files contain detail information can be found in:
+$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]%
+$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]%
+
+Generation Solution Files:
+  Generate_Sln_x86: $[status:additional_build_preparation_generate_sln_x86]
+  Generate_Sln_x64: $[status:additional_build_preparation_generate_sln_x64]
+
+Source Build Statuses:
+  Build_Volcano_Debug_x86: $[status:build_volcano_debug_x86]
+  Build_Volcano_Debug_x64: $[status:build_volcano_debug_x64]
+  Build_Volcano_Release_x86: $[status:build_volcano_release_x86]
+  Build_Volcano_Release_x64: $[status:build_volcano_release_x64]
+
+  Build_Clbltfn_Debug_x86: $[status:build_clbltfn_debug_x86]
+  Build_Clbltfn_Debug_x64: $[status:build_clbltfn_debug_x64]
+  Build_Clbltfn_Release_x86: $[status:build_clbltfn_release_x86]
+  Build_Clbltfn_Release_x64: $[status:build_clbltfn_release_x64]
+
+Tests Execution Statuses:
+  Build_Check_Debug_x86: $[status:build_check_debug_x86]
+  Build_Check_Debug_x64: $[status:build_check_debug_x64]
+  Build_Check_Relese_x86: $[status:build_check_release_x86]
+  Build_Check_Relese_x64: $[status:build_check_release_x64]
+  Build_Check_Vectorizer_Debug_x86: $[status:build_check_vectorizer_debug_x86]
+  Build_Check_Vectorizer_Debug_x64: $[status:build_check_vectorizer_debug_x64]
+  Build_Check_Vectorizer_Relese_x86: $[status:build_check_vectorizer_release_x86]
+  Build_Check_Vectorizer_Relese_x64: $[status:build_check_vectorizer_release_x64]
+  Build_Check_Regression_Debug_x86: $[status:build_check_regression_debug_x86]
+  Build_Check_Regression_Debug_x64: $[status:build_check_regression_debug_x64]
+  Build_Check_Regression_Relese_x86: $[status:build_check_regression_release_x86]
+  Build_Check_Regression_Relese_x64: $[status:build_check_regression_release_x64]
+  ValidationTests_Debug_x86: $[status:postbuild_procedure_execute_validationtests_debug_x86]
+  ValidationTests_Debug_x64: $[status:postbuild_procedure_execute_validationtests_debug_x64]
+  ValidationTests_Release_x86: $[status:postbuild_procedure_execute_validationtests_release_x86]
+  ValidationTests_Release_x64: $[status:postbuild_procedure_execute_validationtests_release_x64]
+  LLVMUnitTests_Debug_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x86]
+  LLVMUnitTests_Debug_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_debug_x64]
+  LLVMUnitTests_Release_x86: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x86]
+  LLVMUnitTests_Release_x64: $[status:postbuild_procedure_execute_LLVMUnitTests_release_x64]
+
+  DXTest_V1_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V1_debug_x86]
+  DXTest_V1_Release_x86: $[status:postbuild_procedure_execute_DXTest_V1_release_x86]
+  DXTest_V4_Debug_x86: $[status:postbuild_procedure_execute_DXTest_V4_debug_x86]
+  DXTest_V4_Release_x86: $[status:postbuild_procedure_execute_DXTest_V4_release_x86]
+
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]The log with warnings can be obtained from:
+$[if_are_warnings]$[if_passed:final_procedure_copy_logs]%$GLP[main_logs_share]\$[warnings_log_sub_path]%
+$[if_are_warnings]$[if_passed:final_procedure_rep_logs]%$GLP[rep_logs_share]\$[warnings_log_sub_path]%
+</notification_body>
+
+<recipients>
+$GLP[mail_list]
+</recipients>
+
+</notification_04>
+
+</workspace>

@@ -1,0 +1,19 @@
+cd trunk\build
+python setup_win.py -t Win32 -b Release -v debug  || exit /b 1
+cd ..\..
+
+set VOLCANO_VECTORIZE=enabled
+cd trunk\performance || exit /b 1
+
+mkdir runtime_tests || exit /b 1
+xcopy \\ismblcr\nfs\iil\disks\cvcc\OclConformance\trunk\ReleaseCriteria\bin\Win32\Release_Intel runtime_tests\ /s /e || exit /b 1
+
+SET MODE=Release
+del /F runtime_tests\OclCpuBackEnd.dll
+copy ..\build\Win32\bin\%MODE%\OclCpuBackEnd.dll runtime_tests\OclCpuBackEnd.dll
+copy ..\libraries\ocl_builtins\Win32\%MODE%\*.rtl runtime_tests\
+copy ..\libraries\ocl_builtins\Win32\%MODE%\*.dll runtime_tests\
+
+cd runtime_tests
+python ../scripts/bench_wolf.py %OS% %VOLCANO_ARCH% || exit /b 1
+

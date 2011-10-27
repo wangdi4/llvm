@@ -1,0 +1,1 @@
+; RUN: llc -mcpu=sandybridge < %p/../../llvm/CodeGen/X86/vec_shuffle-17.ll 

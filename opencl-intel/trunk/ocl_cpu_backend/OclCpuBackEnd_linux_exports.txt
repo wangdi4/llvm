@@ -1,0 +1,11 @@
+Base { 
+    global: 
+             extern "C++" { 
+                  InitDeviceBackend*;
+                  GetDeviceBackendFactory*;
+                  TerminateDeviceBackend*;
+             };
+
+    local:
+        *; 
+};
