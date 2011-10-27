@@ -8,13 +8,21 @@ set( LLVM_BUILD_TESTS 			ON CACHE STRING "")
 set( LLVM_BUILD_GFX             OFF CACHE STRING "")
 set( LLVM_BUILD_VERIFICATION_LIB ON CACHE STRING "")
 set( OCL_BACKEND_STAND_ALONE ON CACHE STRING "")
-set( LLVM_TARGETS_TO_BUILD X86 CACHE STRING "")
+
+set_property( GLOBAL PROPERTY USE_FOLDERS ON )
+set_property( GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "__BUILD__")
+
+if( MSVC )
+  set(LLVM_TARGETS_TO_BUILD X86
+    CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
+else( MSVC )
+  set(LLVM_TARGETS_TO_BUILD "all"
+    CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
+endif( MSVC )
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
 
-set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
- 
 
 remove_definitions( -D_UNICODE -DUNICODE )
 
@@ -27,30 +35,6 @@ add_subdirectory(llvm )
 set (CL_BUILT_IN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/ocl_builtins)
 set	(CL_BUILT_IN_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/BI_BUILD)
 	
-# get_target_property(CLANG_PATH clang LOCATION)
-# get_target_property(LLC_PATH llc LOCATION)
-# get_target_property(BACKEND_PATH OclCpuBackEnd LOCATION)
-# message("CLANG_PATH = ${CLANG_PATH}")
-# message("llc_PATH = ${LLC_PATH}")
-# message("BACKEND_PATH = ${BACKEND_PATH}")
-
-#add_custom_target( COPY_BACKEND_CLANG ALL
-#	COMMAND ${CMAKE_COMMAND} -E copy ${CLANG_PATH} ${OCL_INSTALL_DIR}
-#	COMMAND ${CMAKE_COMMAND} -E copy ${LLC_PATH} ${OCL_INSTALL_DIR}
-#	COMMAND ${CMAKE_COMMAND} -E copy ${BACKEND_PATH} ${OCL_INSTALL_DIR}
-#	DEPENDS clang llc OclCpuBackEnd
-#	COMMENT "Copy backend and clang to ${OCL_INSTALL_DIR}"
-#	VERBATIM)
-
-###############################################################################################
-## Built-ins build
-# if (NOT WIN32)
-	# get_target_property(CLANG_PATH clang LOCATION)
-	# get_target_property(LLVM_LINK_PATH llvm-link LOCATION)
-	# get_target_property(LLVM_OPT_PATH  opt LOCATION)
-
-# endif(NOT WIN32)
-###############################################################################################
 
 set_target_properties( clang PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/clang )
 set_target_properties( clang-c++tests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/clang/tests )
@@ -213,6 +197,7 @@ set_target_properties( check_ocl_ref PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/te
 set_target_properties( check_ocl_ref_conf PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )
 set_target_properties( check_pre_commit PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )
 set_target_properties( check_regression PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )
+set_target_properties( check_barrier PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )
 
 set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
 set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
