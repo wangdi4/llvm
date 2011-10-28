@@ -46,6 +46,17 @@ add_dependencies( ${TARGET_NAME} clang)
 
 #COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 
+if (NOT WIN32) 
+  list(APPEND LINK_LIBS
+        LLVMCBackend
+        LLVMCBackendInfo
+        LLVMCppBackend
+        LLVMCppBackendInfo
+      )
+endif (NOT WIN32)
+
+
+
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
