@@ -125,7 +125,7 @@ add_custom_command( TARGET clang_compiler
 
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
-install(DIRECTORY export/clang_include/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
+install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 
