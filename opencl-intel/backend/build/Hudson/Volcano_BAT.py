@@ -1,7 +1,7 @@
 from optparse import OptionParser
 import os, sys, platform
 import Volcano_CmdUtils
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestTask, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR,  DX_PERFORMANCE_SHADERS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR,  DX_PERFORMANCE_SHADERS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Build import VolcanoBuilder, CopyWolfWorkloads
 from Volcano_Tasks import LitTest, SimpleTest, VectorizerTest 
 from Volcano_WOLF import VolcanoWolfPostCommit, VolcanoWolfPerformance

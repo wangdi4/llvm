@@ -112,9 +112,9 @@ set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1
 					  -x cl
 					  -emit-pch 
-					  -I ${CMAKE_CURRENT_SOURCE_DIR}/export/clang_include
+					  -I ${OCL_CLANG_HEADERS}
 					  )
-set( REDIRECTION_OPTION < ${CMAKE_CURRENT_SOURCE_DIR}/export/clang_include/opencl_.h )
+set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h )
 	
 add_custom_command( TARGET clang_compiler
 					PRE_BUILD

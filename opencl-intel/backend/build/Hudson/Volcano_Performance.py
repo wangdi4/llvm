@@ -1202,9 +1202,9 @@ class PerformanceTestRunner(VolcanoTestRunner):
                 with open(self.csv_filename, 'a') as csv_file:
                     print >> csv_file, stdoutdata.rstrip()
                     
-class PerformanceTask(VolcanoTestTask):
+class PerformanceTask(VolcanoCmdTask):
     def __init__(self, suite, kernel, build_iterations, execute_iterations, run_config):
-        VolcanoTestTask.__init__(self, kernel)
+        VolcanoCmdTask.__init__(self, kernel)
         config_file = os.path.join( run_config.tests_root_dir, suite, run_config.target_type, kernel + '.cfg')
         self.workdir =  run_config.bin_dir
         self.command =  'SATest -PERF -OCL -tsize=' + str(run_config.vector_size) + ' -cpuarch=' + run_config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)

@@ -1,7 +1,7 @@
 import os, sys, platform
 import Volcano_CmdUtils
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestTask, VolcanoTestSuite, TIMEOUT_HALFHOUR, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
 from Volcano_Build import VolcanoBuilder, VolcanoBuilderConfig
 from Volcano_Tasks import LitTest 
 

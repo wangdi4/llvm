@@ -1,7 +1,7 @@
 import os, sys, platform
 import Volcano_CmdUtils
 from optparse import OptionParser
-from Volcano_Common import VolcanoTestTaskInfo, VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, TIMEOUT_HOURANDHALF,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, TIMEOUT_HOURANDHALF,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Tasks import LitTest, SimpleTest
 from Volcano_WOLF import VolcanoWolf, WolfPostCommit
 from Volcano_Conformance_Framework import VolcanoConformanceFramework
