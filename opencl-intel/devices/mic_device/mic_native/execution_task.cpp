@@ -12,7 +12,7 @@
 #include <malloc.h>
 #include <cstring>
 #include <assert.h>
-
+ 
 using namespace Intel::OpenCL::MICDeviceNative;
 
 ///////////////////////////////////////////////////////
@@ -45,6 +45,9 @@ void foo(char* blob)
 }
 // For testing only
 //////////////////////////////////////////////////////
+
+
+
 
 COINATIVELIBEXPORT
 void execute_NDRange(uint32_t         in_BufferCount,
@@ -87,28 +90,222 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	}
 
 	// DO NOT delete this object, It will delete itself after kernel execution
-	ExecutionTask* exeTask = ExecutionTask::ExecutionTaskFactory(tDispatcherData, tMiscData);
-	if (NULL == exeTask)
+	TaskHandler* taskHandler = TaskHandler::TaskFactory(TaskHandler::NDRANGE_TASK_TYPE, tDispatcherData, tMiscData);
+	if (NULL == taskHandler)
 	{
-		NATIVE_PRINTF("ExecutionTask::ExecutionTaskFactory() Failed\n");
+		NATIVE_PRINTF("TaskHandler::TaskFactory() Failed\n");
 		return;
 	}
-	bool result = exeTask->init(in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
+	bool result = taskHandler->InitTask(tDispatcherData, tMiscData, in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
 	if (false == result)
 	{
-		NATIVE_PRINTF("ExecutionTask::init() Failed\n");
+		NATIVE_PRINTF("TaskHandler::init() Failed\n");
 		return;
 	}
-	exeTask->runTask();
+	taskHandler->RunTask();
 }
 
-ExecutionTask::ExecutionTask(dispatcher_data* dispatcherData, misc_data* miscData) : m_dispatcherData(dispatcherData), m_miscData(miscData),
-m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
-m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_lockedParams(NULL), m_signalBarrierFlag(false)
+
+
+TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_miscData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
 {
 }
 
-ExecutionTask::~ExecutionTask()
+
+TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* dispatcherData, misc_data* miscData)
+{
+	TaskContainerInterface* pTaskContainer = NULL;
+	if (dispatcherData->isInOrderQueue)
+	{
+		switch (taskType)
+		{
+		case NDRANGE_TASK_TYPE:
+			{
+			pTaskContainer = new BlockingNDRangeTask;
+			break;
+			}
+		default:
+			{
+				assert(0);
+			}
+		}
+	}
+	else
+	{
+		switch (taskType)
+		{
+		case NDRANGE_TASK_TYPE:
+			{
+			pTaskContainer = new NonBlockingNDRangeTask;
+			break;
+			}
+		default:
+			{
+				assert(0);
+			}
+		}
+	}
+	if (NULL == pTaskContainer)
+	{
+		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+		// Have to signal the COIEVENT for completion in case of NonBlockingTask (In other failures cases We will call the finish() method in order to do it - Currently We can't do it because there is no object).
+		if (false == dispatcherData->isInOrderQueue)
+		{
+			unsigned int numOfPostExeDirectives = dispatcherData->postExeDirectivesCount;
+			assert(numOfPostExeDirectives > 0);
+			// get teh pointer to postExeDirectivesArr
+			directive_pack* postExeDirectivesArr = (directive_pack*)((char*)dispatcherData + dispatcherData->postExeDirectivesArrOffset);
+			// traverse over the postExeDirectivesArr
+			for (unsigned int i = 0; i < numOfPostExeDirectives; i++)
+			{
+				if (BARRIER == postExeDirectivesArr[i].id)
+				{
+					// Signal user completion barrier
+					COIRESULT coiErr = COIEventSignalUserEvent(postExeDirectivesArr[i].barrierDirective.end_barrier);
+					assert(COI_SUCCESS == coiErr);
+					break;
+				}
+			}
+		}
+		return NULL;
+	}
+	TaskHandler* taskHandler = pTaskContainer->getMyTaskHandler();
+	assert(taskHandler);
+	assert(pTaskContainer->getMyTask());
+	taskHandler->setTaskInterface(pTaskContainer->getMyTask());
+
+	return taskHandler;
+}
+
+
+
+
+bool BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+{
+	m_dispatcherData = dispatcherData;
+	m_miscData = miscData;
+	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later.
+	m_lockBufferCount = in_BufferCount;
+	m_lockBufferPointers = in_ppBufferPointers;
+	m_lockBufferLengths = in_pBufferLengths;
+
+	return m_task->init(this);
+}
+
+void BlockingTaskHandler::RunTask()
+{
+	m_task->execute();
+}
+
+void BlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
+{
+	assert(NULL == completionBarrier);
+	delete this;
+}
+
+
+
+
+bool NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+{
+	m_dispatcherData = dispatcherData;
+	m_miscData = miscData;
+	m_lockBufferCount = in_BufferCount;
+	if (in_BufferCount > 0)
+	{
+		m_lockBufferPointers = new void*[in_BufferCount];
+		if (NULL == m_lockBufferPointers)
+		{
+			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+			m_task->finish(this);
+			return false;
+		}
+		m_lockBufferLengths = new uint64_t[in_BufferCount];
+		if (NULL == m_lockBufferLengths)
+		{
+			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+			m_task->finish(this);
+			return false;
+		}
+		COIRESULT result = COI_SUCCESS;
+		// In case of non blocking task, shall lock all input buffers.
+		for (unsigned int i = 0; i < in_BufferCount; i++)
+		{
+			// add ref in order to save the buffer on the device
+			result = COIBufferAddRef(in_ppBufferPointers[i]);
+			if (result != COI_SUCCESS)
+			{
+				m_miscData->errCode = CL_DEV_ERROR_FAIL;
+				m_task->finish(this);
+				return false;
+			}
+			m_lockBufferPointers[i] = in_ppBufferPointers[i];
+			m_lockBufferLengths[i] = in_pBufferLengths[i];
+		}
+	}
+
+	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" and Must allocate memory for it and copy it to there.
+	if (m_dispatcherData == in_pMiscData)
+	{
+		m_dispatcherData = NULL;
+		m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
+		if (NULL == m_dispatcherData)
+		{
+			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+			m_task->finish(this);
+			return false;
+		}
+		memcpy(m_dispatcherData, in_pMiscData, in_MiscDataLength);
+	}
+
+	return m_task->init(this);
+}
+
+void NonBlockingTaskHandler::RunTask()
+{
+	// TODO change it to non blocking call by TBB task queue
+	m_task->execute();
+}
+
+void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
+{
+	assert(completionBarrier);
+	COIEVENT tCompletionBarrier = *completionBarrier;
+	// Release resources.
+	if (m_lockBufferPointers)
+	{
+		// If Non blocking task and the dispatcher_data was delivered by in_pMiscData shall delete the allocation in "lockInputBuffers()"
+		if ((m_dispatcherData) && (m_lockBufferCount > 0) && (m_dispatcherData != m_lockBufferPointers[m_lockBufferCount - DISPATCHER_DATA - 1]))
+		{
+			delete [] ((char*)m_dispatcherData);
+		}
+		COIRESULT result = COI_SUCCESS;
+		for (unsigned int i = 0; i < m_lockBufferCount; i++)
+		{
+			// decrement ref in order to release the buffer
+			COIBufferReleaseRef(m_lockBufferPointers[i]);
+		}
+		delete [] m_lockBufferPointers;
+	}
+	if (m_lockBufferLengths)
+	{
+		delete [] m_lockBufferLengths;
+	}
+
+	// Signal user completion barrier
+	COIRESULT coiErr = COIEventSignalUserEvent(tCompletionBarrier);
+	assert(COI_SUCCESS == coiErr);
+
+	delete this;
+}
+
+
+
+NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_lockedParams(NULL)
+{
+}
+
+NDRangeTask::~NDRangeTask()
 {
 	if (m_pMemBuffSizes)
 	{
@@ -116,53 +313,36 @@ ExecutionTask::~ExecutionTask()
 	}
 }
 
-ExecutionTask* ExecutionTask::ExecutionTaskFactory(dispatcher_data* dispatcherData, misc_data* miscData)
+bool NDRangeTask::init(TaskHandler* pTaskHandler)
 {
-	ExecutionTask* exeTask = NULL;
-	exeTask = (dispatcherData->isInOrderQueue == true) ? (ExecutionTask*)new BlockingTask(dispatcherData, miscData) : (ExecutionTask*)new NonBlockingTask(dispatcherData, miscData);
-	if (NULL == exeTask)
-	{
-		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
-	}
-	return exeTask;
-}
-
-bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
-{
-	// First of all ask for buffers locking
-	bool result = lockInputBuffers(in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
-	if (false == result)
-	{
-		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
-		m_miscData->errCode = CL_DEV_ERROR_FAIL;
-		finish();
-		NATIVE_PRINTF("ExecutionTask::init - lockInputBuffers failed\n");
-		return false;
-	}
-
+	assert(pTaskHandler);
+	m_taskHandler = pTaskHandler;
+	dispatcher_data* pDispatcherData = m_taskHandler->m_dispatcherData;
+	assert(pDispatcherData);
+	misc_data* pMiscData = m_taskHandler->m_miscData;
 	ProgramService& tProgramService = ProgramService::getInstance();
 #ifndef NDRANGE_UNIT_TEST
 	// Get kernel object
-	result = tProgramService.get_kernel(m_dispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
+	bool result = tProgramService.get_kernel(pDispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
 	if (false == result)
 	{
 		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
-		m_miscData->errCode = CL_DEV_INVALID_KERNEL;
-		finish();
-		NATIVE_PRINTF("ExecutionTask::init - ProgramService::getInstance().get_kernel failed\n");
+		pMiscData->errCode = CL_DEV_INVALID_KERNEL;
+		finish(m_taskHandler);
+		NATIVE_PRINTF("NDRangeTask::Init - ProgramService::getInstance().get_kernel failed\n");
 		return false;
 	}
 #endif
 	// Set kernel args blob (Still have to set the buffers pointer in the blob
-	if (m_dispatcherData->kernelArgSize > 0)
+	if (pDispatcherData->kernelArgSize > 0)
 	{
-		m_lockedParams = (char*)((char*)m_dispatcherData + m_dispatcherData->kernelArgBlobOffset);
+		m_lockedParams = (char*)((char*)pDispatcherData + pDispatcherData->kernelArgBlobOffset);
 	}
-	unsigned int numOfPreExeDirectives = m_dispatcherData->preExeDirectivesCount;
+	unsigned int numOfPreExeDirectives = pDispatcherData->preExeDirectivesCount;
 	if (numOfPreExeDirectives > 0)
 	{
 		// get the pointer to preExeDirectivesArr
-		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)m_dispatcherData + m_dispatcherData->preExeDirectivesArrOffset);
+		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)pDispatcherData + pDispatcherData->preExeDirectivesArrOffset);
 		// traverse over the preExeDirectivesArr
 		for (unsigned int i = 0; i < numOfPreExeDirectives; i++)
 		{
@@ -170,14 +350,14 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 			{
 			case BUFFER:
 				{
-					assert(preExeDirectivesArr[i].bufferDirective.bufferIndex < in_BufferCount);
+					assert(preExeDirectivesArr[i].bufferDirective.bufferIndex < m_taskHandler->m_lockBufferCount);
 					// A pointer to memory data
-					void* memObj = m_lockBufferPointers[preExeDirectivesArr[i].bufferDirective.bufferIndex];
+					void* memObj = m_taskHandler->m_lockBufferPointers[preExeDirectivesArr[i].bufferDirective.bufferIndex];
 					// A pointer to mem object descriptor.
 					cl_mem_obj_descriptor* pMemObjDesc = &(preExeDirectivesArr[i].bufferDirective.mem_obj_desc);
 					pMemObjDesc->pData = memObj;
 					// Copy the address of the memory object to the kernel args blob
-					assert(preExeDirectivesArr[i].bufferDirective.offset_in_blob < m_dispatcherData->kernelArgSize);
+					assert(preExeDirectivesArr[i].bufferDirective.offset_in_blob < pDispatcherData->kernelArgSize);
 					void** pTempLockedParams = (void**)(m_lockedParams + preExeDirectivesArr[i].bufferDirective.offset_in_blob);
 					*pTempLockedParams = (void*)pMemObjDesc;
 					break;
@@ -197,14 +377,14 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 	}
 
 	cl_work_description_type tWorkDesc;
-	m_dispatcherData->workDesc.convertToClWorkDescriptionType(&tWorkDesc);
+	pDispatcherData->workDesc.convertToClWorkDescriptionType(&tWorkDesc);
 
-	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, m_dispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);
+	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, pDispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);
     if ( CL_DEV_FAILED(errCode) )
 	{
-		m_miscData->errCode = errCode;
-		finish();
-		NATIVE_PRINTF("ExecutionTask::init - ProgramService.create_binary() failed\n");
+		pMiscData->errCode = errCode;
+		finish(m_taskHandler);
+		NATIVE_PRINTF("NDRangeTask::Init - ProgramService.create_binary() failed\n");
 		return false;
 	}
 
@@ -213,9 +393,9 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
 	if ( NULL == m_pMemBuffSizes )
 	{
-		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
-		finish();
-		NATIVE_PRINTF("ExecutionTask::init - Allocation of m_pMemBuffSizes failed\n");
+		pMiscData->errCode = CL_DEV_OUT_OF_MEMORY;
+		finish(m_taskHandler);
+		NATIVE_PRINTF("NDRangeTask::Init - Allocation of m_pMemBuffSizes failed\n");
 		return false;
 	}
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
@@ -223,91 +403,26 @@ bool ExecutionTask::init(uint32_t in_BufferCount, void** in_ppBufferPointers, ui
 	return true;
 }
 
-void ExecutionTask::finish()
+void* NDRangeTask::execute()
 {
-	// Perform post exexution directives.
-	unsigned int numOfPostExeDirectives = m_dispatcherData->postExeDirectivesCount;
-	if (numOfPostExeDirectives > 0)
-	{
-		// get teh pointer to postExeDirectivesArr
-		directive_pack* postExeDirectivesArr = (directive_pack*)((char*)m_dispatcherData + m_dispatcherData->postExeDirectivesArrOffset);
-		// traverse over the postExeDirectivesArr
-		for (unsigned int i = 0; i < numOfPostExeDirectives; i++)
-		{
-			switch ( postExeDirectivesArr[i].id )
-			{
-			case BARRIER:
-				{
-					// set the signal user barrier (Will signal on destruction)
-					m_completionBarrier = postExeDirectivesArr[i].barrierDirective.end_barrier;
-					m_signalBarrierFlag = true;
-					break;
-				}
-			case PRINTF:
-				{
-					// TODO
-					break;
-				}
-			default:
-				{
-					assert(0);
-					break;
-				}
-			}
-		}
-	}
-	// Last command, Do NOT call any method of this object after it perform.
-	delete this;
-}
-
-void ExecutionTask::signalUserBarrierForCompletion()
-{
-	// If exist postExeDirective of Barrier
-	if (m_signalBarrierFlag)
-	{
-		COIRESULT result = COIEventSignalUserEvent(m_completionBarrier);
-		assert(result == COI_SUCCESS);
-	}
-}
-
-void ExecutionTask::getExecutionRegion(uint64_t region[])
-{
-	// copy execution parameters
-	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
-	cl_mic_work_description_type* pWorkDesc = &(m_dispatcherData->workDesc);
-	unsigned int i = 0;
-	for (i = 0; i < pWorkDesc->workDimension; ++i)
-	{
-		region[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
-	}
-	for (; i < MAX_WORK_DIM; ++i)
-	{
-		region[i] = 1;
-	}
-}
-
-
-
-BlockingTask::BlockingTask(dispatcher_data* dispatcherData, misc_data* miscData) : ExecutionTask(dispatcherData, miscData)
-{
-}
-
-BlockingTask::~BlockingTask()
-{
-}
-
-void BlockingTask::runTask()
-{
-	///////////////////////////////////////////////////////   TO DELETE
 #ifdef NDRANGE_UNIT_TEST
 	foo(m_lockedParams);
-	finish();
-	return;
+	return finish(m_taskHandler);
 #endif
 	NATIVE_PRINTF("Running task\n");
 
 	uint64_t dim[MAX_WORK_DIM];
-	getExecutionRegion(dim);
+	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
+	cl_mic_work_description_type* pWorkDesc = &(m_taskHandler->m_dispatcherData->workDesc);
+	unsigned int i = 0;
+	for (i = 0; i < pWorkDesc->workDimension; ++i)
+	{
+		dim[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
+	}
+	for (; i < MAX_WORK_DIM; ++i)
+	{
+		dim[i] = 1;
+	}
 
 	WGContext tCtx;
 	// TODO AdirD  - Change the first arg to cmdId
@@ -315,8 +430,9 @@ void BlockingTask::runTask()
 	if ( CL_DEV_FAILED(ret) )
 	{
 		NATIVE_PRINTF("Failed to create new WG context\n");
-		m_miscData->errCode = ret;
-		return;
+		m_taskHandler->m_miscData->errCode = ret;
+		finish(m_taskHandler);
+		return NULL;
 	}
 	tCtx.GetExecutable()->PrepareThread();
 
@@ -335,98 +451,46 @@ void BlockingTask::runTask()
     }
     tCtx.GetExecutable()->RestoreThreadState();
 
-	finish();
+	finish(m_taskHandler);
+	return NULL;
 }
 
-bool BlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+void NDRangeTask::finish(TaskHandler* pTaskHandler)
 {
-	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it in 'executePostExeConditions'
-	m_lockBufferCount = in_BufferCount;
-	m_lockBufferPointers = in_ppBufferPointers;
-	m_lockBufferLengths = in_pBufferLengths;
-	return true;
-}
-
-
-
-NonBlockingTask::NonBlockingTask(dispatcher_data* dispatcherData, misc_data* miscData) : ExecutionTask(dispatcherData, miscData)
-{
-}
-
-NonBlockingTask::~NonBlockingTask()
-{
-	// Unlock and Release the input COIBUFFERs
-	releaseResources();
-	// Signal user barrier for completion (if needed). MUST DO IT AFTER 'COIBufferReleaseRef' OPERATION in relax COIBUFFER type
-	signalUserBarrierForCompletion();
-}
-
-void NonBlockingTask::runTask()
-{
-		NATIVE_PRINTF("Entering NonBlockingTask::runTask()\n");
-	//TODO
-}
-
-bool NonBlockingTask::lockInputBuffers(uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
-{
-	m_lockBufferCount = in_BufferCount;
-	m_lockBufferPointers = new void*[in_BufferCount];
-	if (NULL == m_lockBufferPointers)
+	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
+	assert(pDispatcherData);
+	COIEVENT* completionBarrier = NULL;
+	// Perform post exexution directives.
+	unsigned int numOfPostExeDirectives = pDispatcherData->postExeDirectivesCount;
+	if (numOfPostExeDirectives > 0)
 	{
-		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
-		return false;
-	}
-	m_lockBufferLengths = new uint64_t[in_BufferCount];
-	if (NULL == m_lockBufferLengths)
-	{
-		m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
-		return false;
-	}
-	COIRESULT result = COI_SUCCESS;
-	// In case of non blocking task, shall lock all input buffers.
-	for (unsigned int i = 0; i < in_BufferCount; i++)
-	{
-		// add ref in order to save the buffer on the device
-		result = COIBufferAddRef(in_ppBufferPointers[i]);
-		if (result != COI_SUCCESS)
+		// get teh pointer to postExeDirectivesArr
+		directive_pack* postExeDirectivesArr = (directive_pack*)((char*)pDispatcherData + pDispatcherData->postExeDirectivesArrOffset);
+		// traverse over the postExeDirectivesArr
+		for (unsigned int i = 0; i < numOfPostExeDirectives; i++)
 		{
-			m_miscData->errCode = CL_DEV_ERROR_FAIL;
-			return false;
+			switch ( postExeDirectivesArr[i].id )
+			{
+			case BARRIER:
+				{
+					// set the signal user barrier (Will signal on destruction)
+					*completionBarrier = postExeDirectivesArr[i].barrierDirective.end_barrier;
+					break;
+				}
+			case PRINTF:
+				{
+					// TODO
+					break;
+				}
+			default:
+				{
+					assert(0);
+					break;
+				}
+			}
 		}
-		m_lockBufferPointers[i] = in_ppBufferPointers[i];
-		m_lockBufferLengths[i] = in_pBufferLengths[i];
 	}
-
-	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" and Must allocate memory for it and copy it to there.
-	if (m_dispatcherData == in_pMiscData)
-	{
-		m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
-		memcpy(m_dispatcherData, in_pMiscData, in_MiscDataLength);
-	}
-	return true;
-}
-
-void NonBlockingTask::releaseResources()
-{
-	if (m_lockBufferPointers)
-	{
-		// If Non blocking task and the dispatcher_data was delivered by in_pMiscData shall delete the allocation in "lockInputBuffers()"
-		if ((m_dispatcherData) && (m_lockBufferCount > 0) && (m_dispatcherData != m_lockBufferPointers[m_lockBufferCount - DISPATCHER_DATA - 1]))
-		{
-			delete [] ((char*)m_dispatcherData);
-		}
-		COIRESULT result = COI_SUCCESS;
-		for (unsigned int i = 0; i < m_lockBufferCount; i++)
-		{
-			// decrement ref in order to release the buffer
-			result = COIBufferReleaseRef(m_lockBufferPointers[i]);
-			assert(result == COI_SUCCESS);
-		}
-		delete [] m_lockBufferPointers;
-	}
-	if (m_lockBufferLengths)
-	{
-		delete [] m_lockBufferLengths;
-	}
+	// Last command, Do NOT call any method of this object after it perform.
+	pTaskHandler->FinishTask(completionBarrier);
 }
 
