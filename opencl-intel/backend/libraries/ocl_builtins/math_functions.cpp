@@ -52,7 +52,6 @@ const int   ALIGN16 mth_intMinStorage[4]	= {INT_MIN, INT_MIN, INT_MIN, INT_MIN};
 const int   ALIGN16 mth_intMaxStorage[4]	= {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
 const int   ALIGN16 mth_fractLimit[4]		= {0x3f7fffff, 0x3f7fffff, 0x3f7fffff, 0x3f7fffff};
 const float ALIGN16 mth_pzero[4]			= { 0.0f, 0.0f, 0.0f, 0.0f };
-
 const int   ALIGN32 mth_signMask8[8] = {    0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF,
                                             0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const float ALIGN32 mth_oneStorage8[8]	    = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
@@ -909,33 +908,31 @@ float  __attribute__((overloadable)) fract(float x, float *iptr)
 */
 float4 __attribute__((overloadable)) fract(float4 f4x, float4 *iptr)
 {
-    // check for NaN
-    int4 isNaN = _mm_cmpneq_ps(f4x, f4x);
-    // get absolute value
-    float4 xAbs = _mm_and_ps(*(__m128*)mth_signMask, f4x);
-    // check for +- Infinity
-    int4 isInf = _mm_cmpeq_epi32(xAbs, *((__m128i*)mth_expMask));
+    // check NaN or Inf
+    int4 isNaNOrInfTemp = _mm_and_si128(f4x, *(__m128*)mth_expMask);
+    int4 isNaNOrInf =  _mm_cmpeq_epi32(isNaNOrInfTemp, *(__m128*)mth_expMask);
     // check for zero
-    int4 isZero = _mm_cmpeq_ps(xAbs, *((__m128*)mth_pzero));
+    int4 isZero = _mm_cmpeq_ps(f4x, *((__m128*)mth_pzero));
     // obtain mask with elements zero or infinity. we need to keep sign
-    int4 mask =  _mm_or_si128(isNaN,  _mm_or_si128( isInf, isZero));
+    int4 mask =  _mm_or_si128(isNaNOrInf,  isZero);
+
     // floor(x)
     *iptr = _mm_floor_ps(f4x);
     // x - floor(x)
-    f4x = _mm_sub_ps(f4x, *iptr);
+    float4 f4x_1 = _mm_sub_ps(f4x, *iptr);
     // fmin( x – floor (x), 0x1.fffffep-1f )
-    float4 res = _mm_min_ps(f4x, *(__m128*)mth_fractLimit);
+    float4 res = _mm_min_ps(f4x_1, *(__m128*)mth_fractLimit);
 
     // approach with if() instead of unconditional blend
     // works better on SSE then on AVX. 
     // if any of elements of mask is 0 or infinity
     if( _mm_movemask_ps(mask))
     {
-        // obtain sign
-        int4 xSign = _mm_andnot_ps(*(__m128*)mth_signMask, f4x);
+        // check for NaN
+        int4 isNaN = _mm_cmpneq_ps(f4x, f4x);
+        int4 isInf = _mm_andnot_ps(isNaN, isNaNOrInf);
         // make zero with sign
-        float4 xSignedZero = _mm_or_ps(*(__m128*)mth_pzero, xSign);
-
+        float4 xSignedZero = _mm_andnot_ps(*(__m128*)mth_signMask, f4x);
         // NaN. Put NaN from f4x to res
         res = _mm_blendv_ps(res, f4x, isNaN);
         // +/- inf and zero. Put zero with proper sign
@@ -945,35 +942,37 @@ float4 __attribute__((overloadable)) fract(float4 f4x, float4 *iptr)
     return res;
 }
 #endif // __SSE4_1__
+
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) fract(float8 x, float8 *iptr)
 {
-    // check for NaN
-    float8 isNaN = _isnan8(x);
-    // get absolute value
-    float8 xAbs = _mm256_and_ps(*(__m256*)mth_signMask8, x);
-    // check for +- Infinity
-    int8 isInf =  _mm256_cmp_ps(xAbs, *((float8*)mth_expMask8), _CMP_EQ_OQ);
+    // check NaN or Inf
+    float8 isNaNOrInfTemp = _mm256_and_ps(x, *(__m256*)mth_expMask8);
+    float8 isNaNOrInf =  _mm256_cmp_ps(isNaNOrInfTemp, *(__m256*)mth_expMask8, _CMP_EQ_OQ);
     // check for zero
-    int8 isZero = _mm256_cmp_ps(xAbs,  *((__m256*)mth_pzero8), _CMP_EQ_OQ);
-    // obtain sign
-    int8 xSign = _mm256_andnot_ps(*(__m256*)mth_signMask8, x);
-    // make zero with sign
-    float8 xSignedZero = _mm256_or_ps(*(__m256*)mth_pzero8, xSign);
+    float8 isZero = _mm256_cmp_ps(x, *((__m256*)mth_pzero8), _CMP_EQ_OQ);
+    // obtain mask with elements zero or infinity. we need to keep sign
+    float8 mask =  _mm256_or_ps(isNaNOrInf,  isZero);
+
     // floor(x)
     *iptr = _mm256_floor_ps(x);
     // x - floor(x)
-    x = _mm256_sub_ps(x, *iptr);
+    float8 x_1 = _mm256_sub_ps(x, *iptr);
     // fmin( x – floor (x), 0x1.fffffep-1f )
-    float8 res = _mm256_min_ps(x, *(__m256*)mth_fractLimit8);
-
-    // approach with unconditional blend instead of if() 
-    // works better on AVX then on SSE
-    // NaN. Put NaN from f4x to res
-    res = _mm256_blendv_ps(res, x, isNaN);
-    // +/- inf and zero. Put zero with proper sign
-    res = _mm256_blendv_ps(res, xSignedZero, _mm256_or_ps(isInf, isZero));
-
+    float8 res = _mm256_min_ps(x_1, *(__m256*)mth_fractLimit8);
+    
+    if(_mm256_movemask_ps(mask))
+    {
+        // check for NaN
+        float8 isNaN = _isnan8(x);
+        float8 isInf = _mm256_andnot_ps(isNaN, isNaNOrInf);
+        // make zero with sign
+        float8 xSignedZero = _mm256_andnot_ps(*(__m256*)mth_signMask8, x);
+        // NaN. Put NaN from x to res
+        res = _mm256_blendv_ps(res, x, isNaN);
+        // +/- inf and zero. Put zero with proper sign
+        res = _mm256_blendv_ps(res, xSignedZero, _mm256_or_ps( isInf, isZero));
+    }
     return res;
 }
 #endif // defined(__AVX__)
