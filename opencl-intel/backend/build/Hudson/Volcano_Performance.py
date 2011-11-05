@@ -1174,21 +1174,12 @@ def FillBIMeterPerformanceTable(Path, Iterations, TargetType):
     return OutTable
 """
 
-class PerformanceRunConfig(VolcanoRunConfig):
-    def __init__(self, 
-                root_dir, 
-                target_type, 
-                build_type, 
-                cpu,
-                cpu_features,
-                vectorSize, 
-                tests_path):
-        VolcanoRunConfig.__init__(self, root_dir, target_type, build_type, cpu, cpu_features, str(vectorSize))
+class PerformanceRunConfig():
+    CFG_NAME = "PerformanceConfig"
+    def __init__(self, tests_path):
         if '' == tests_path:
             tests_path = PERFORMANCE_TESTS_ROOT
         self.tests_root_dir = tests_path
-        self.vector_size = vectorSize
-        #self.test_filter = test_filter
 
 class PerformanceTestRunner(VolcanoTestRunner):
     def __init__(self, csv_filename):
@@ -1203,12 +1194,13 @@ class PerformanceTestRunner(VolcanoTestRunner):
                     print >> csv_file, stdoutdata.rstrip()
                     
 class PerformanceTask(VolcanoCmdTask):
-    def __init__(self, suite, kernel, build_iterations, execute_iterations, run_config):
+    def __init__(self, suite, kernel, build_iterations, execute_iterations, config):
         VolcanoCmdTask.__init__(self, kernel)
-        config_file = os.path.join( run_config.tests_root_dir, suite, run_config.target_type, kernel + '.cfg')
-        self.workdir =  run_config.bin_dir
-        self.command =  'SATest -PERF -OCL -tsize=' + str(run_config.vector_size) + ' -cpuarch=' + run_config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
-        if run_config.cpu_features != '':
+        perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
+        config_file  = os.path.join( perf_config.tests_root_dir, suite, config.target_type, kernel + '.cfg')
+        self.workdir = config.bin_dir
+        self.command = 'SATest -PERF -OCL -tsize=' + config.transpose_size + ' -cpuarch=' + config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
+        if config.cpu_features != '':
             self.command = self.command + ' -cpufeatures=' + run_config.cpu_features
 
 class VolcanoPerformanceSuite(VolcanoTestSuite):
@@ -1335,14 +1327,15 @@ def main():
         print "Unsupported suite '""'. The suite must be one of: " + str(suites.keys())
         return 1
     
-    config = PerformanceRunConfig(options.root_dir,
-                                  options.target_type,
-                                  'Release',
-                                  options.cpu,
-                                  options.cpu_features,
-                                  options.vector_size, 
-                                  options.tests_path)
-
+    config = VolcanoRunConfig(options.root_dir,
+                              options.target_type,
+                              'Release',
+                              options.cpu,
+                              options.cpu_features,
+                              options.vector_size)
+    
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path)
+    
     suite  = suites[options.suite](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)
     passed = runner.runTask(suite, config)

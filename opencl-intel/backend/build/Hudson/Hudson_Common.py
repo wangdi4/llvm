@@ -93,8 +93,6 @@ class HudsonEnvironment:
     def getSvnUrlN(self, n):
         return self.getParam('SVN_URL_' + str(n))
     
-    
-    
 class HudsonBuildEnvironment(HudsonEnvironment):
     """
     Role: Volcano Hudson Job specific environment wrapper
@@ -118,7 +116,6 @@ class HudsonBuildEnvironment(HudsonEnvironment):
 
     def getBuildType(self):
         return self.getParam('Build_Type')
-    
 
 class JUnitFormatter:
     '''
@@ -220,7 +217,6 @@ class JUnitFormatter:
         report_file = open(name, 'w')
         print >> report_file, self.doc.toprettyxml(indent="  ")
         report_file.close()
-
 
 class ResultsFileManager:
     """

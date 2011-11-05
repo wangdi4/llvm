@@ -1,50 +1,33 @@
 import os.path, sys, platform
 import Volcano_CmdUtils
-from Hudson_Common import HudsonBuildEnvironment
-from Volcano_Common import VolcanoCmdTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite
-from Volcano_Performance import VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
+from Hudson_Common import HudsonBuildEnvironment, HudsonTestRunner, HudsonRunConfig
+from Volcano_Common import TestTaskResult, VolcanoCmdTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite, VolcanoTestRunner
+from Volcano_Performance import PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
 from Volcano_Build import VolcanoBinaryCopy
-from Volcano_Tasks import SimpleTest, UnarchiverTask, BINARIES_ARCH_NAME
 
 
  
 class HudsonPerformanceRunConfig(PerformanceRunConfig):
-    def __init__(self, root_dir, tests_path, log_path):
-        env = HudsonBuildEnvironment()
-        cpu = env.getCPUType()
-        cpu_features = ""
-        if( cpu == 'avx128'):
-            cpu = 'sandybridge'
-            cpu_features = '-avx256'
-        PerformanceRunConfig.__init__(self,
-                                  root_dir,
-                                  env.getParam('Target_Type'), 
-                                  'Release',
-                                  cpu,
-                                  cpu_features,
-                                  env.getTransposeSize(),
-                                  tests_path)
+    def __init__(self, tests_path, log_path):
+        PerformanceRunConfig.__init__(self, tests_path)
         
         if '' == log_path:
             log_path = PERFORMANCE_LOG_ROOT
 
+        env = HudsonBuildEnvironment()
         self.logs_root_dir = log_path
         self.svn_revision  = env.getParam('SVN_Requested_Revision')
-        self.host_name     = env.getParam('NODE_NAME')
-        self.branch_name   = env.getParam('SVN_Requested_URL')
         self.test_suite    = env.getParam('Test_Suite')
-        self.log_path      = os.path.join( self.logs_root_dir,  "volcano_wolf_perf_" + '_'.join([self.svn_revision, self.target_type, self.cpu, self.vector_size]))
-        self.db_server     = 'cvcc-w7-nhlm-01'
-        self.db_path       = 'Volcano'
         
 class HudsonPerformanceTestRunner(HudsonTestRunner):
     """
     We need this class to be able to switch the csv file names for each performance suite
     """
-    def __init__(self, config, csv_filename_base):
+    def __init__(self, config):
         HudsonTestRunner.__init__(self, config, '')
-        self.csv_filename_base = csv_filename_base
-        self.csv_filename = csv_filename_base
+        perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
+        self.csv_filename_base = os.path.join( perf_config.logs_root_dir,  "volcano_wolf_perf_" + '_'.join([perf_config.svn_revision, config.target_type, config.cpu, config.transpose_size]))
+        self.csv_filename = self.csv_filename_base
 
     def OnAfterTaskExecution(self, task, result, stdoutdata):
         VolcanoTestRunner.OnAfterTaskExecution(self, task, result, stdoutdata)
@@ -58,19 +41,12 @@ class HudsonPerformanceTestRunner(HudsonTestRunner):
         if( isinstance(suite, VolcanoPerformanceSuite)):
             self.csv_filename = self.csv_filename_base + "_" + suite.suitename + ".csv"
 
-class PerformanceReportTask(VolcanoCmdTask):
-    def __init__(self, suitename, config):
-        VolcanoCmdTask.__init__(self, 'save_to_db')
-        self.workdir  = os.path.join( config.scripts_dir, 'tools', config.target_type, 'reportgen' )
-        csv_filename  = config.log_path  + "_" + suitename + ".csv"
-        self.command  = 'reportgen.exe ' + ' '.join( [suitename, config.host_name, config.branch_name, config.target_type, config.cpu, config.svn_revision, config.vector_size, csv_filename, config.db_server, config.db_path]) 
 
 class HudsonPerformanceSuite(VolcanoTestSuite):
     def __init__(self, name, config):
         VolcanoTestSuite.__init__(self, name)
 
-        self.addTask(SimpleTest('Cleanup', config.scripts_dir, 'python cleanup.py -r ' + config.root_dir + ' -t ' + config.target_type + ' -b ' + config.build_type), stop_on_failure=True)
-        self.addTask(UnarchiverTask('Prepare_Binaries', os.path.join(config.root_dir,BINARIES_ARCH_NAME), config.bin_dir), stop_on_failure = True)
+        self.addTask(VolcanoBinaryCopy("CopyVolcanoBinary", config),stop_on_failure = True)
 
         suites = { "WOLF":      [VolcanoWOLFPerformanceSuite,      []],
                    "WOLFbench": [VolcanoWOLFBenchPerformanceSuite, []],
@@ -85,8 +61,10 @@ class HudsonPerformanceSuite(VolcanoTestSuite):
                    "SHOC":      [VolcanoSHOCPerformanceSuite,      [['.*','Win32']]]
                  }
     
-        suite  = suites[config.test_suite][0](config.test_suite, config)
-        filter = suites[config.test_suite][1]
+        perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
+        
+        suite  = suites[perf_config.test_suite][0](perf_config.test_suite, config)
+        filter = suites[perf_config.test_suite][1]
     
         self.addTask( suite, skiplist=filter)
 
@@ -95,14 +73,14 @@ def main():
     root_dir    = os.path.join(os.getcwd(),'trunk')
 
     # setup the configuration and test suite 
-    config = HudsonPerformanceRunConfig(root_dir, 
-                                        '', # use the default tests path settings 
-                                        '') # use the default logs path settings
+    config = HudsonRunConfig(root_dir)
+    perf_config = HudsonPerformanceRunConfig('','')
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=perf_config
 
     suite  = HudsonPerformanceSuite("PerformanceSuite", config) 
-    runner = HudsonPerformanceTestRunner(config.log_path)
+    runner = HudsonPerformanceTestRunner(config)
     passed = runner.runTask(suite, config)
-    
+
     if not passed:
         return 1
     

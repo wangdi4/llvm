@@ -3,8 +3,6 @@ from Hudson_Common import HudsonTestRunner, HudsonRunConfig
 from Volcano_Nightly import VolcanoNightlyBAT
 from Volcano_Build import VolcanoBinaryCopy
 
-# Initialize Globals
-
 def main():
     trunk_dir = os.path.join(os.getcwd(), 'trunk')
     config    = HudsonRunConfig(trunk_dir)
