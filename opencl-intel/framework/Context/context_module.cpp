@@ -27,6 +27,7 @@
 #include <cl_objects_map.h>
 #include <cl_utils.h>
 #include <assert.h>
+#include <set>
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -133,9 +134,9 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	cl_err_code clErrRet = GetDevices(uiNumDevices, pDevices, ppDevices);
 	if (CL_FAILED(clErrRet))
 	{
+        delete[] ppDevices;
 		if (NULL != pRrrcodeRet)
-		{	
-			delete[] ppDevices;
+		{				
 			*pRrrcodeRet = CL_INVALID_DEVICE;
 		}
 		return CL_INVALID_HANDLE;
@@ -151,6 +152,57 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
     }
 
 	Context *pContext = NULL;
+    // check properties
+    if (NULL != clProperties)
+    {
+        size_t i = 0;
+        std::set<cl_context_properties> propertySet;
+
+        while (0 != clProperties[i])
+        {
+            if (CL_CONTEXT_PLATFORM == clProperties[i] &&
+                !m_pPlatformModule->CheckPlatformId((cl_platform_id)clProperties[i + 1]))
+            {
+                LOG_ERROR(TEXT("%s"), TEXT("platform value specified in properties is not a valid platform"));
+                delete[] ppDevices;
+                if (NULL != pRrrcodeRet)
+                {
+                    *pRrrcodeRet = CL_INVALID_PLATFORM;
+                }
+                return CL_INVALID_HANDLE;
+            }
+            if (propertySet.find(clProperties[i]) != propertySet.end())
+            {
+                LOG_ERROR(TEXT("%s"), TEXT("the same property name is specified more than once"));
+                delete[] ppDevices;
+                if (NULL != pRrrcodeRet)
+                {
+                    *pRrrcodeRet = CL_INVALID_PROPERTY;
+                }
+                return CL_INVALID_HANDLE;
+            }
+            if (CL_CONTEXT_PLATFORM != clProperties[i]
+#if defined (_WIN32)
+                && CL_GL_CONTEXT_KHR != clProperties[i] && CL_WGL_HDC_KHR != clProperties[i]
+#if defined (DX9_SHARING)
+                && CL_CONTEXT_D3D9_DEVICE_INTEL != clProperties[i]
+#endif
+#endif
+                )
+            {
+                LOG_ERROR(TEXT("%s"), TEXT("context property name in properties is not a supported property name"));
+                delete[] ppDevices;
+                if (NULL != pRrrcodeRet)
+                {
+                    *pRrrcodeRet = CL_INVALID_PROPERTY;
+                }
+                return CL_INVALID_HANDLE;
+            }        
+            propertySet.insert(clProperties[i]);
+            i += 2;
+        }
+    }
+    
 #if defined (_WIN32)  //TODO GL support for Linux
 	cl_context_properties hGLCtx, hDC;
 	ParseGLContextOptions(clProperties, &hGLCtx, &hDC);

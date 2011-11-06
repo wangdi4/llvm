@@ -167,6 +167,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code InitFECompiler(Device* pRootDevice);
 
+        bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
+            (clPlatform==NULL); }
 
 	private:
 
@@ -186,9 +188,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code InitDevices(const std::vector<std::string>& devices, const std::string& defaultDevice);
 
 		cl_err_code ReleaseFECompilers();
-
-		bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
-																	   (clPlatform==NULL); }
 
         cl_err_code AddDevices(FissionableDevice** ppDevices, unsigned int count);
 
