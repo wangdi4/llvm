@@ -402,12 +402,3 @@ cl_err_code GLTexture::CreateChildObject()
 
 	return CL_SUCCESS;
 }
-
-cl_err_code GLMemoryObject::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-{
-    if (NULL == m_pChildObject)
-    {
-        return CL_INVALID_VALUE;
-    }
-    return m_pChildObject->CheckBounds(pszOrigin, pszRegion);
-}

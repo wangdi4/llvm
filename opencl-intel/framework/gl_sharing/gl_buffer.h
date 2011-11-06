@@ -52,6 +52,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetRowPitchSize() const { return 0;};
 		size_t GetSlicePitchSize() const  { return 0;};
 
+        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
 	protected:
 		cl_err_code CreateChildObject();
 

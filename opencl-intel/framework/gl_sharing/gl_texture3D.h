@@ -48,6 +48,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		size_t GetSlicePitchSize() const  { return m_szImageSlicePitch;}
 
+        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
 	protected:
 		size_t	m_szImageDepth;
 		size_t	m_szImageSlicePitch;

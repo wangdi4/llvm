@@ -70,8 +70,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			size_t          szSlicePitch = 0);
 		size_t GetSize() const {return m_stMemObjSize;}
 
-        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-
 	protected:
 		GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
 

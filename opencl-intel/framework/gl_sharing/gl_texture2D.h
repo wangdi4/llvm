@@ -46,6 +46,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		size_t GetSlicePitchSize() const  { return 0;}
 
+        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
 	protected:
 		// do not implement
         GLTexture2D(const GLTexture2D&);

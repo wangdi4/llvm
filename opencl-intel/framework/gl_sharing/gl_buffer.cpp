@@ -61,6 +61,8 @@ cl_err_code GLBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format*
 	m_stMemObjSize = buffSize;
 
 	m_clFlags = clMemFlags;
+
+    m_uiNumDim = 1;
 	SetGLMemFlags();
 
 	return CL_SUCCESS;
@@ -152,4 +154,13 @@ cl_err_code GLBuffer::CreateChildObject()
 {
 	assert(0);
 	return CL_INVALID_OPERATION;
+}
+
+cl_err_code GLBuffer::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (*pszOrigin + *pszRegion <= m_stMemObjSize)
+    {
+        return CL_SUCCESS;
+    }
+    return CL_INVALID_VALUE;
 }

@@ -191,3 +191,14 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 	return CL_SUCCESS;
 
 }
+
+cl_err_code GLTexture3D::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (pszOrigin[0] + pszRegion[0] > m_szImageWidth ||
+        pszOrigin[1] + pszRegion[1] > m_szImageHeight ||
+        pszOrigin[2] + pszRegion[2] > m_szImageDepth)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;
+}
