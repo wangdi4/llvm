@@ -26,6 +26,15 @@ set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
 
+#
+# Settings for Linux compilation
+#
+if (NOT WIN32)
+    # Warning level
+    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
+    add_definitions( ${WARNING_LEVEL} )
+endif (NOT WIN32)
+
 ###############################################################################################
 
 project(Backend)
