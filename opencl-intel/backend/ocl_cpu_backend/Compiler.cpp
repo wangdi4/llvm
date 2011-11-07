@@ -53,10 +53,32 @@ File Name:  Compiler.cpp
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
 #include "VTune/JITProfiling.h"
+
+#include <fstream>
+#include <iostream>
+#include <sstream>
+ 
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+void dumpModule(llvm::Module& m){
+#if !defined(__NDEBUG__)
+  static unsigned counter=0;
+  std::string buffer;
+  llvm::raw_string_ostream stream(buffer);
+  std::stringstream fileName;
+  fileName << "kernel" << counter++ << ".ll";
+  std::ofstream outf(fileName.str().c_str());
+  std::cout << "before" << std::endl;
+  stream << m;
+  std::cout << "after" << std::endl;
+  stream.flush();
+  outf << buffer;
+#endif
+}
+ 
 /*
  * Utility methods
  */
@@ -206,6 +228,8 @@ cl_dev_err_code Compiler::BuildProgram(Program* pProgram, const CompilerBuildOpt
         //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
 
         optimizer.GetVectorizedFunctions( vectorizedFunctions);
+        //dumpModule(*(spModule.get()));
+
         optimizer.GetKernelsInfo( kernelsMap);
         privateMemorySize = optimizer.getPrivateMemorySize();
 
