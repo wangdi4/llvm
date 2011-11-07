@@ -452,6 +452,13 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         //
         assert(gv_metadata->getNumOperands() == 12);
         Value* var_ref = cast<Value>(gv_metadata->getOperand(11));
+
+        // Some special globals are inserted by clang with a non-pointer value
+        // (for example samplers). We currently don't know how to handle them.
+        //
+        if (!var_ref->getType()->isPointerTy())
+            continue;
+
         BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr", 
             fContext.original_first_instr);
 

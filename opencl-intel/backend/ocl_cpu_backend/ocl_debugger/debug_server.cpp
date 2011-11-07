@@ -45,6 +45,70 @@ void LOG_RECEIVED_MESSAGE(const ClientToServerMessage& msg)
 }
 
 
+#ifdef _WIN32
+#include <windows.h>
+
+// Get a string value from the registry.
+//   top_hkey: one of standard the HKEY_* constants
+//   path: path to the key in the registry
+//   value_name: name for which to obtain the value from the key
+//
+// On success, return true and place the value in 'value'.
+// On failure, return false.
+//
+bool get_reg_value_string(HKEY top_hkey, 
+                          const string& path,
+                          const string& value_name,
+                          string& value)
+{
+    const DWORD DATABUF_SIZE = 2048;
+    CHAR databuf[DATABUF_SIZE] = {0};
+    DWORD databuf_size = DATABUF_SIZE;
+    HKEY hkey;
+
+    // Open the registry path. hkey will hold the entry
+    LONG rc = RegOpenKeyExA(
+        top_hkey,           // hkey
+        path.c_str(),       // lpSubKey
+        0,                  // ulOptions
+        KEY_READ,           // samDesired
+        &hkey               // phkResult
+        );
+
+    if (rc == ERROR_SUCCESS) {
+        // Get the value by name from the key
+        rc = RegQueryValueExA(
+            hkey,                   // hkey
+            value_name.c_str(),     // lpValueName
+            0,                      // lpReserved
+            NULL,                   // lpType
+            (LPBYTE)databuf,        // lpData
+            &databuf_size           // lpcbData
+            );
+
+        // Close the key - we don't need it any more
+        RegCloseKey(hkey);
+
+        if (rc == ERROR_SUCCESS && databuf_size < DATABUF_SIZE - 1) {
+            value = databuf;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+// Get the PID of the current process as a string
+//
+string get_my_pid_string()
+{
+    return stringify(GetCurrentProcessId());
+}
+
+#endif // _WIN32
+
+
 // Define the singleton instance
 //
 DebugServer DebugServer::instance;
@@ -355,13 +419,40 @@ static char safe_query_addr(uint64_t addr)
 }
 
 
-bool InitDebugServer()
+bool DebuggingIsEnabled()
 {
-    // Check if debugging is enabled at all
-    //
     string val;
     cl_err_code rc = Intel::OpenCL::Utils::GetEnvVar(val, "CL_CONFIG_DBG_ENABLE");
     if (rc != CL_SUCCESS || val != "1")
+        return false;
+
+#ifdef _WIN32
+    // On Windows only, we also check in the registry. Either a PID-specific
+    // or global key must exist, with value OCL_DBG_CFG_ENABLE=1.
+    // If the value is wrong or neither key exists, debugging is disabled.
+    //
+    static const char* REG_BASE = "Software\\Intel\\OpenCL\\Debugger\\";
+    static const char* REG_VAL_NAME = "CL_CONFIG_DBG_ENABLE";
+
+    string pid_path = string(REG_BASE) + get_my_pid_string();
+    string global_path = string(REG_BASE) + "__global";
+    if (get_reg_value_string(HKEY_CURRENT_USER, pid_path, REG_VAL_NAME, val)) {
+        return val == "1";
+    }
+    else if (get_reg_value_string(HKEY_CURRENT_USER, global_path, REG_VAL_NAME, val)) {
+        return val == "1";
+    }
+    else 
+        return false;
+#endif //_WIN32
+
+    return true;
+}
+
+
+bool InitDebugServer()
+{
+    if (!DebuggingIsEnabled())
         return true;
 
     // Debugging enabled: try to initialize the server.
@@ -390,7 +481,6 @@ void DebugServer::DebugServerImpl::SendMemoryRangeInfo(const ClientToServerMessa
         m_comm->sendMessage(error_msg);
     }
 
-    
     string buf = "";
     for (uint64_t addr = start_addr; addr <= end_addr; ++addr) {
         buf += safe_query_addr(addr);
@@ -668,14 +758,19 @@ void DebugServer::WaitForStartCommand()
         return;
     }
 
-    // Receive a RUN message and register the breakpoints
+    // Receive a RUN or STEP_IN message.
     //
     msg = d->m_comm->receiveMessage();
     LOG_RECEIVED_MESSAGE(msg);
 
-    if (msg.type() == ClientToServerMessage::RUN && msg.has_run_msg()) {
-        DEBUG_SERVER_LOG("RUN received");
+    if (msg.type() == ClientToServerMessage::RUN) {
+        DEBUG_SERVER_LOG("RUN received... starting");
+        d->m_runningmode = DebugServerImpl::RUNNING_NORMAL;
         d->RegisterBreakpoints(msg);
+    }
+    else if (msg.type() == ClientToServerMessage::SINGLE_STEP_IN) {
+        DEBUG_SERVER_LOG("SINGLE_STEP_IN received... starting");
+        d->m_runningmode = DebugServerImpl::RUNNING_STEP_IN;
     }
     else {
         DEBUG_SERVER_LOG("Invalid message received while waiting for RUN");

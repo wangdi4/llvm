@@ -476,7 +476,9 @@ int ClangFECompilerBuildTask::Build()
 
 	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
-	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(m_pSource->pInput, "input buffer");
+	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(
+        m_pSource->pInput, 
+        m_source_filename);
 	Clang->SetInputBuffer(SB);
 
 	//prepare output buffer

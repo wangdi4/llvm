@@ -160,9 +160,12 @@ Optimizer::Optimizer( Program* pProgram,
     m_modulePasses.add(llvm::createAggressiveDCEPass());          // Delete dead instructions
     m_modulePasses.add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
     m_modulePasses.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
-    
-    m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
-    
+  }
+
+  // PrepareKernelArgsPass must run in debugging mode as well
+  m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
+
+  if ( !isDBG ) {
     // TODO : uncomment these passes when code generation bug CSSD100007274 will be fixed
     m_modulePasses.add(llvm::createFunctionInliningPass());           // Inline
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
