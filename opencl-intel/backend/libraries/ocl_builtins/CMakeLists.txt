@@ -15,7 +15,7 @@
 #
 # Global and platform settings
 #
-cmake_minimum_required(VERSION 2.6.3)
+cmake_minimum_required(VERSION 2.8.4)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
@@ -68,8 +68,7 @@ message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
 
 # target directory for OCL .rtl, and .dll/.so of BI and SVML library
-
-set (BUILTINS_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
+set (BUILTINS_INSTALL_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
@@ -295,14 +294,14 @@ endforeach ()
 function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
 
     get_filename_component (NAME ${INPUT_FILE} NAME_WE )
-    set (OUTPUT_FILE ${OUTPUT_DIR}/${NAME}_${ARCH}${OCL_OUTPUT_EXTENSION} )
+    set (OUTPUT_FILE ${NAME}_${ARCH}${OCL_OUTPUT_EXTENSION} )
 	
 	  # -- BUGBUG -- ${LLVM_OPT} dependency is removed as it is changed most frequently during LLVM development and 
 	  #              in the context of BI Clang compilation these changes have least impact on generated IR
-    add_custom_command (OUTPUT ${OUTPUT_FILE}
+    add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
-                        COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_FILE} ${INPUT_FILE}
-					              COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_FILE} ${OUTPUT_FILE}
+                        COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
+					              COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
                         MAIN_DEPENDENCY ${INPUT_FILE}
                         DEPENDS ${CLANG} ${HEADER_FILES}
                         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
@@ -311,7 +310,7 @@ function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
                         VERBATIM
                        )
 
-    set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE )
+    set (${OUTPUT_FILE_VAR} ${OUTPUT_DIR}/${OUTPUT_FILE} PARENT_SCOPE )
 
 endfunction( compile_ocl )
 
@@ -330,27 +329,27 @@ endfunction( compile_ocl )
 
 function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC OUTPUT_DIR)
 
-    if (${ARGC} LESS 6)
-        message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
-    endif ()
+	if (${ARGC} LESS 6)
+		message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
+	endif ()
 
     set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
 
-	  # Compile all files and prepare a 'TMP_FILES' list of .rtl files
-	  foreach (FILE ${ARGN})
-		    compile_ocl( TMP_RTL ${ARCH} ${PROC} ${FILE} ${OUTPUT_DIR})
-		    list (APPEND TMP_FILES ${TMP_RTL})
-	  endforeach (FILE)
+	# Compile all files and prepare a 'TMP_FILES' list of .rtl files
+	foreach (FILE ${ARGN})
+		compile_ocl( TMP_RTL ${ARCH} ${PROC} ${FILE} ${OUTPUT_DIR})
+		list (APPEND TMP_FILES ${TMP_RTL})
+	endforeach (FILE)
 
     # link OpenCL library (adding also BI IR for vectorizer)
-    add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
+    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
                         COMMENT "OCL Linking ${TARGET_NAME}${OCL_OUTPUT_EXTENSION}"
-                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
+                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
                         DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
                         VERBATIM
                        )
 
- 		set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
+	set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
  
 endfunction( add_ocl_library )
 
@@ -370,10 +369,10 @@ endfunction( add_ocl_library )
 function( compile_c OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE OUTPUT_DIR )
 
     get_filename_component (NAME ${INPUT_FILE} NAME_WE )
-    set (OUTPUT_FILE ${OUTPUT_DIR}/${NAME}_${ARCH}${CMAKE_C_OUTPUT_EXTENSION} )
+    set (OUTPUT_FILE ${NAME}_${ARCH}${CMAKE_C_OUTPUT_EXTENSION} )
 	
-    add_custom_command (OUTPUT ${OUTPUT_FILE}
-                        COMMAND ${ICC_COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_FILE} ${CPP_DEFINE} ${AUX_COMPILE_OPT} 
+    add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
+                        COMMAND ${ICC_COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE} ${CPP_DEFINE} ${AUX_COMPILE_OPT} 
                         MAIN_DEPENDENCY ${INPUT_FILE}
                         DEPENDS ${ICC_COMPILER_SCRIPT} ${HEADER_FILES}
                         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
@@ -382,7 +381,7 @@ function( compile_c OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE O
                         VERBATIM
                        )
 
-    set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE )
+    set (${OUTPUT_FILE_VAR} ${OUTPUT_DIR}/${OUTPUT_FILE} PARENT_SCOPE )
 
 endfunction( compile_c )
 
@@ -414,23 +413,24 @@ function( add_c_library OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_
     # PDB file will be generated for Win32
     set (PDB_FILE ${TARGET_NAME}.pdb)
 
-		# SVML binary
-	  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX})
-		if (NOT EXISTS ${SVML_DLL})
-		   message( FATAL_ERROR "Cannot find ${SVML_DLL}!")
-		endif()
+	# SVML binary
+	set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX})
+	if (NOT EXISTS ${SVML_DLL})
+		message( FATAL_ERROR "Cannot find ${SVML_DLL}!")
+	endif()
 
-	  # Compile all files and prepare a 'TMP_FILES' list of object files
-	  foreach (FILE ${ARGN})
-		    compile_c( TMP_OBJ ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${FILE} ${OUTPUT_DIR})
-		    set (TMP_FILES "${TMP_FILES} ${TMP_OBJ}")
-		    list (APPEND TMP_FILES_DEPEND ${TMP_OBJ})
+	# Compile all files and prepare a 'TMP_FILES' list of object files
+	foreach (FILE ${ARGN})
+		compile_c( TMP_OBJ ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${FILE} ${OUTPUT_DIR})
+		set (TMP_FILES "${TMP_FILES} ${TMP_OBJ}")
+		list (APPEND TMP_FILES_DEPEND ${TMP_OBJ})
 	  endforeach (FILE)
 
     # link C library (together with SVML import lib - for Win32 only)
-    add_custom_command (OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
-                        COMMAND ${ICC_LINKER_SCRIPT} ${CL_BUILD_TYPE} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${PDB_FILE} ${TMP_FILES}
-                        DEPENDS ${ICC_LINKER_SCRIPT} ${TMP_FILES_DEPEND} ${RESOURCE_FILE}
+    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+						COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+                        COMMAND ${ICC_LINKER_SCRIPT} ${CL_BUILD_TYPE} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${BUILTINS_INSTALL_DIR}/${PDB_FILE} ${TMP_FILES}
+		                DEPENDS ${ICC_LINKER_SCRIPT} ${TMP_FILES_DEPEND} ${RESOURCE_FILE}
                         COMMENT "C Linking ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                         VERBATIM
                        )
@@ -470,7 +470,7 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 
 	# top-level target for both OCL and C targets
 	add_custom_target (${TARGET_NAME} ALL
-					 DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_OCL_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_LIB}
+					 DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_C_LIB}
 					 COMMENT "Target ${TARGET_NAME} build completed"
 					 VERBATIM
 					 SOURCES ${OCL_SOURCE_FILES} ${C_SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILE}
@@ -478,7 +478,11 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 
 	set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-	install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_OCL_LIB} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
+	if (WIN32)
+		install( FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_C_LIB} DESTINATION bin)
+	else(WIN32)
+		install( FILES ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
+	endif(WIN32)
 
 endfunction( create_target)
 

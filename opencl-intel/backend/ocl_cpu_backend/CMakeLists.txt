@@ -3,7 +3,7 @@ set(TARGET_UTILS_NAME OclUtils)
 
 project(${TARGET_NAME})
 
-cmake_minimum_required(VERSION 2.6.1)
+cmake_minimum_required(VERSION 2.8.4)
 
 add_subdirectory( ocl_debugger/protobuf )
 add_subdirectory( ocl_debugger/oclsysutils_partial )

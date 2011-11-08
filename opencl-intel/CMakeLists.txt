@@ -1,7 +1,7 @@
 #
 # Global setup file for OpenCL CMake
 #
-cmake_minimum_required(VERSION 2.6.3)
+cmake_minimum_required(VERSION 2.8.4)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 

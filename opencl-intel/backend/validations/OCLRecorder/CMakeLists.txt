@@ -6,7 +6,7 @@ set(TARGET_NAME OclRecorder)
 
 project(${TARGET_NAME})
 
-cmake_minimum_required(VERSION 2.6.1)
+cmake_minimum_required(VERSION 2.8.4)
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
 	# 32 bit

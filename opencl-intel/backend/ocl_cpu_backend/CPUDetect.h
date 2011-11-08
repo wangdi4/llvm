@@ -37,6 +37,7 @@ public:
   unsigned            GetLatestSupportedFeature() const { return 1 << m_CPU; }
   ECPU                GetCPUId() const { return m_CPU; }  
   bool                IsMICCPU(ECPU cpuId);
+  bool                IsValidCPUName(const char* pCPUName) const;
 
   static bool         HasAVX1(ECPU CPU) { return CPU >= CPU_SANDYBRIDGE; }
   static bool         HasAVX2(ECPU CPU) { return CPU >= CPU_HASWELL; }

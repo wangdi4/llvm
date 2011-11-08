@@ -212,6 +212,14 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 #endif
 }
 
+bool CPUDetect::IsValidCPUName(const char* pCPUName) const
+{
+    for (unsigned i = 0; i < CPU_LAST; ++i)
+        if (!strcmp(m_CPUNames[i], pCPUName))
+            return true;
+    return false;
+}
+
 Intel::ECPU CPUDetect::GetCPUByName(const char *CPUName) const
 {
 	for (unsigned i=0; i<CPU_LAST; ++i)

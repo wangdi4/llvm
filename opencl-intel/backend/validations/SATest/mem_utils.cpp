@@ -54,6 +54,7 @@ void * align_malloc(size_t size, size_t alignment)
     return ptr;
 }
 
+// This function implementation must ignore NULL ptr value.
 void   align_free(void * ptr)
 {
 #if defined(_WIN32) && defined(_MSC_VER)
@@ -63,7 +64,7 @@ void   align_free(void * ptr)
 #elif defined(__MINGW32__)
     return __mingw_aligned_free(ptr); 
 #else
-#error "Please add OS support for aligned free" 
+#error "Please add OS support for aligned free"
 #endif
 }
 

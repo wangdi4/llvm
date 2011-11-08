@@ -39,8 +39,13 @@ typedef auto_ptr_ex<char, AlignDP<char> > auto_ptr_aligned;
 //\brief auto_ptr_ex destruction policy. Uses Release method to free the pointers
 template<class T> struct ReleaseDP
 {
-    static void Delete(T* pT) { pT->Release(); }
+    static void Delete(T* pT)
+    {
+        if (NULL != pT)
+        {
+            pT->Release();
+        }
+    }
 };
-                  
 }
 #endif //MEM_UTILS

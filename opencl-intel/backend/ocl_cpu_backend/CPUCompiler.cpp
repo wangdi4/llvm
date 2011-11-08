@@ -132,8 +132,17 @@ bool IsKernel(llvm::Module* pModule, const char* szFuncName)
  */
 Intel::ECPU GetOrDetectCpuId(const std::string& cpuArch)
 {
-    Intel::ECPU cpuId = ( cpuArch == CPU_ARCH_AUTO ) ? Utils::CPUDetect::GetInstance()->GetCPUId()
-                                                     : Utils::CPUDetect::GetInstance()->GetCPUByName(cpuArch.c_str());
+    Intel::ECPU cpuId = Intel::CPU_LAST;
+    Utils::CPUDetect* pCpuDetect = Utils::CPUDetect::GetInstance();
+    
+    if ( CPU_ARCH_AUTO == cpuArch ) 
+    {
+        cpuId = pCpuDetect->GetCPUId();
+    }
+    else
+    {
+        cpuId = pCpuDetect->IsValidCPUName(cpuArch.c_str()) ? pCpuDetect->GetCPUByName(cpuArch.c_str()) : Intel::CPU_LAST;
+    }
 
     if( Intel::CPU_LAST == cpuId )
     {
