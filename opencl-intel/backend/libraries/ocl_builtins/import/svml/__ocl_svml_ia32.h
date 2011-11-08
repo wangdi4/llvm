@@ -17,6 +17,267 @@ extern "C"
 
 #include <ia32intrin.h>
 
+  typedef int int1_gen;
+  typedef struct
+  {
+    __int32 v1;
+    __int32 v2;
+  } int2_gen;
+  typedef struct
+  {
+    __int32 v1;
+    __int32 v2;
+    __int32 v3;
+  } int3_gen;
+  typedef struct
+  {
+    __int32 v1;
+    __int32 v2;
+    __int32 v3;
+    __int32 v4;
+  } int4_gen;
+  typedef struct
+  {
+    __int32 v1;
+    __int32 v2;
+    __int32 v3;
+    __int32 v4;
+    __int32 v5;
+    __int32 v6;
+    __int32 v7;
+    __int32 v8;
+  } int8_gen;
+  typedef struct
+  {
+    __int32 v1;
+    __int32 v2;
+    __int32 v3;
+    __int32 v4;
+    __int32 v5;
+    __int32 v6;
+    __int32 v7;
+    __int32 v8;
+    __int32 v9;
+    __int32 v10;
+    __int32 v11;
+    __int32 v12;
+    __int32 v13;
+    __int32 v14;
+    __int32 v15;
+    __int32 v16;
+  } int16_gen;
+  typedef __int64 long1_gen;
+  typedef struct
+  {
+    __int64 v1;
+    __int64 v2;
+  } long2_gen;
+  typedef struct
+  {
+    __int64 v1;
+    __int64 v2;
+    __int64 v3;
+  } long3_gen;
+  typedef struct
+  {
+    __int64 v1;
+    __int64 v2;
+    __int64 v3;
+    __int64 v4;
+  } long4_gen;
+  typedef struct
+  {
+    __int64 v1;
+    __int64 v2;
+    __int64 v3;
+    __int64 v4;
+    __int64 v5;
+    __int64 v6;
+    __int64 v7;
+    __int64 v8;
+  } long8_gen;
+  typedef struct
+  {
+    __int64 v1;
+    __int64 v2;
+    __int64 v3;
+    __int64 v4;
+    __int64 v5;
+    __int64 v6;
+    __int64 v7;
+    __int64 v8;
+    __int64 v9;
+    __int64 v10;
+    __int64 v11;
+    __int64 v12;
+    __int64 v13;
+    __int64 v14;
+    __int64 v15;
+    __int64 v16;
+  } long16_gen;
+
+  typedef float float1_gen;
+  typedef struct
+  {
+    float v1;
+    float v2;
+  } float2_gen;
+  typedef struct
+  {
+    float v1;
+    float v2;
+    float v3;
+  } float3_gen;
+  typedef struct
+  {
+    float v1;
+    float v2;
+    float v3;
+    float v4;
+  } float4_gen;
+  typedef struct
+  {
+    float v1;
+    float v2;
+    float v3;
+    float v4;
+    float v5;
+    float v6;
+    float v7;
+    float v8;
+  } float8_gen;
+  typedef struct
+  {
+    float v1;
+    float v2;
+    float v3;
+    float v4;
+    float v5;
+    float v6;
+    float v7;
+    float v8;
+    float v9;
+    float v10;
+    float v11;
+    float v12;
+    float v13;
+    float v14;
+    float v15;
+    float v16;
+  } float16_gen;
+
+  typedef double double1_gen;
+  typedef struct
+  {
+    double v1;
+    double v2;
+  } double2_gen;
+  typedef struct
+  {
+    double v1;
+    double v2;
+    double v3;
+  } double3_gen;
+  typedef struct
+  {
+    double v1;
+    double v2;
+    double v3;
+    double v4;
+  } double4_gen;
+  typedef struct
+  {
+    double v1;
+    double v2;
+    double v3;
+    double v4;
+    double v5;
+    double v6;
+    double v7;
+    double v8;
+  } double8_gen;
+  typedef struct
+  {
+    double v1;
+    double v2;
+    double v3;
+    double v4;
+    double v5;
+    double v6;
+    double v7;
+    double v8;
+    double v9;
+    double v10;
+    double v11;
+    double v12;
+    double v13;
+    double v14;
+    double v15;
+    double v16;
+  } double16_gen;
+
+  typedef struct
+  {
+    float1_gen r1;
+    float1_gen r2;
+  } float1x2_gen;
+  typedef struct
+  {
+    float2_gen r1;
+    float2_gen r2;
+  } float2x2_gen;
+  typedef struct
+  {
+    float3_gen r1;
+    float3_gen r2;
+  } float3x2_gen;
+  typedef struct
+  {
+    float4_gen r1;
+    float4_gen r2;
+  } float4x2_gen;
+  typedef struct
+  {
+    float8_gen r1;
+    float8_gen r2;
+  } float8x2_gen;
+  typedef struct
+  {
+    float16_gen r1;
+    float16_gen r2;
+  } float16x2_gen;
+
+  typedef struct
+  {
+    double1_gen r1;
+    double1_gen r2;
+  } double1x2_gen;
+  typedef struct
+  {
+    double2_gen r1;
+    double2_gen r2;
+  } double2x2_gen;
+  typedef struct
+  {
+    double3_gen r1;
+    double3_gen r2;
+  } double3x2_gen;
+  typedef struct
+  {
+    double4_gen r1;
+    double4_gen r2;
+  } double4x2_gen;
+  typedef struct
+  {
+    double8_gen r1;
+    double8_gen r2;
+  } double8x2_gen;
+  typedef struct
+  {
+    double16_gen r1;
+    double16_gen r2;
+  } double16x2_gen;
+
   typedef int int1_sse;
   typedef struct
   {
@@ -152,12 +413,15 @@ extern "C"
   } int4_avx;
   typedef struct
   {
-    __m256i v1;
+    __m128i v1;
+    __m128i v2;
   } int8_avx;
   typedef struct
   {
-    __m256i v1;
-    __m256i v2;
+    __m128i v1;
+    __m128i v2;
+    __m128i v3;
+    __m128i v4;
   } int16_avx;
 
   typedef __int64 long1_avx;
@@ -167,23 +431,31 @@ extern "C"
   } long2_avx;
   typedef struct
   {
-    __m256i v1;
+    __m128i v1;
+    __m128i v2;
   } long3_avx;
   typedef struct
   {
-    __m256i v1;
+    __m128i v1;
+    __m128i v2;
   } long4_avx;
   typedef struct
   {
-    __m256i v1;
-    __m256i v2;
+    __m128i v1;
+    __m128i v2;
+    __m128i v3;
+    __m128i v4;
   } long8_avx;
   typedef struct
   {
-    __m256i v1;
-    __m256i v2;
-    __m256i v3;
-    __m256i v4;
+    __m128i v1;
+    __m128i v2;
+    __m128i v3;
+    __m128i v4;
+    __m128i v5;
+    __m128i v6;
+    __m128i v7;
+    __m128i v8;
   } long16_avx;
 
   typedef float float1_avx;
@@ -402,6 +674,50 @@ extern "C"
   typedef double4x2_avx double4x2;
   typedef double8x2_avx double8x2;
   typedef double16x2_avx double16x2;
+
+#elif (defined  __OCL_SVML_GEN)
+
+  typedef int1_gen int1;
+  typedef int2_gen int2;
+  typedef int3_gen int3;
+  typedef int4_gen int4;
+  typedef int8_gen int8;
+  typedef int16_gen int16;
+
+  typedef long1_gen long1;
+  typedef long2_gen long2;
+  typedef long3_gen long3;
+  typedef long4_gen long4;
+  typedef long8_gen long8;
+  typedef long16_gen long16;
+
+  typedef float1_gen float1;
+  typedef float2_gen float2;
+  typedef float3_gen float3;
+  typedef float4_gen float4;
+  typedef float8_gen float8;
+  typedef float16_gen float16;
+
+  typedef double1_gen double1;
+  typedef double2_gen double2;
+  typedef double3_gen double3;
+  typedef double4_gen double4;
+  typedef double8_gen double8;
+  typedef double16_gen double16;
+
+  typedef float1x2_gen float1x2;
+  typedef float2x2_gen float2x2;
+  typedef float3x2_gen float3x2;
+  typedef float4x2_gen float4x2;
+  typedef float8x2_gen float8x2;
+  typedef float16x2_gen float16x2;
+
+  typedef double1x2_gen double1x2;
+  typedef double2x2_gen double2x2;
+  typedef double3x2_gen double3x2;
+  typedef double4x2_gen double4x2;
+  typedef double8x2_gen double8x2;
+  typedef double16x2_gen double16x2;
 
 #else
 
@@ -14294,67 +14610,67 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammarf3_linkage ( __ocl_svml_g9_lgammarf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtnnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosatf3_linkage ( __ocl_svml_g9_cvtfptou64rtnnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtnsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsatf3_linkage ( __ocl_svml_g9_cvtfptou64rtnsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64downnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosatf3_linkage ( __ocl_svml_g9_cvtfptou64downnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64downsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsatf3_linkage ( __ocl_svml_g9_cvtfptou64downsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64upnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosatf3_linkage ( __ocl_svml_g9_cvtfptou64upnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64upsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsatf3_linkage ( __ocl_svml_g9_cvtfptou64upsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtznosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosatf3_linkage ( __ocl_svml_g9_cvtfptou64rtznosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtzsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsatf3_linkage ( __ocl_svml_g9_cvtfptou64rtzsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtnnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosatf3_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtnsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsatf3_linkage ( __ocl_svml_g9_cvtfptoi64rtnsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64downnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosatf3_linkage ( __ocl_svml_g9_cvtfptoi64downnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64downsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsatf3_linkage ( __ocl_svml_g9_cvtfptoi64downsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64upnosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosatf3_linkage ( __ocl_svml_g9_cvtfptoi64upnosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64upsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsatf3_linkage ( __ocl_svml_g9_cvtfptoi64upsatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtznosatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosatf3_linkage ( __ocl_svml_g9_cvtfptoi64rtznosatf3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtzsatf3 (float3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf3_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsatf3_linkage ( __ocl_svml_g9_cvtfptoi64rtzsatf3 )
 
   int3_avx __ocl_svml_g9_cvtfptou32rtnnosatf3 (float3_avx a);
@@ -14422,35 +14738,35 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsatf3_linkage ( __ocl_svml_g9_cvtfptoi32rtzsatf3 )
 
   float3_avx __ocl_svml_g9_cvtu64tofprtnf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtnf3_linkage ( __ocl_svml_g9_cvtu64tofprtnf3 )
 
   float3_avx __ocl_svml_g9_cvtu64tofpdownf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdownf3_linkage ( __ocl_svml_g9_cvtu64tofpdownf3 )
 
   float3_avx __ocl_svml_g9_cvtu64tofpupf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpupf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpupf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpupf3_linkage ( __ocl_svml_g9_cvtu64tofpupf3 )
 
   float3_avx __ocl_svml_g9_cvtu64tofprtzf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtzf3_linkage ( __ocl_svml_g9_cvtu64tofprtzf3 )
 
   float3_avx __ocl_svml_g9_cvti64tofprtnf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtnf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtnf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtnf3_linkage ( __ocl_svml_g9_cvti64tofprtnf3 )
 
   float3_avx __ocl_svml_g9_cvti64tofpdownf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdownf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdownf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdownf3_linkage ( __ocl_svml_g9_cvti64tofpdownf3 )
 
   float3_avx __ocl_svml_g9_cvti64tofpupf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpupf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpupf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpupf3_linkage ( __ocl_svml_g9_cvti64tofpupf3 )
 
   float3_avx __ocl_svml_g9_cvti64tofprtzf3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtzf3_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtzf3_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtzf3_linkage ( __ocl_svml_g9_cvti64tofprtzf3 )
 
   float3_avx __ocl_svml_g9_cvtu32tofprtnf3 (int3_avx a);
@@ -17103,7 +17419,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_minmag3_linkage ( __ocl_svml_g9_minmag3 )
 
   double3_avx __ocl_svml_g9_nan3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_nan3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_nan3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_nan3_linkage ( __ocl_svml_g9_nan3 )
 
   double3_avx __ocl_svml_g9_ceil3 (double3_avx a);
@@ -17192,67 +17508,67 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammar3_linkage ( __ocl_svml_g9_lgammar3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtnnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosat3_linkage ( __ocl_svml_g9_cvtfptou64rtnnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtnsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsat3_linkage ( __ocl_svml_g9_cvtfptou64rtnsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64downnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosat3_linkage ( __ocl_svml_g9_cvtfptou64downnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64downsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsat3_linkage ( __ocl_svml_g9_cvtfptou64downsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64upnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosat3_linkage ( __ocl_svml_g9_cvtfptou64upnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64upsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsat3_linkage ( __ocl_svml_g9_cvtfptou64upsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtznosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosat3_linkage ( __ocl_svml_g9_cvtfptou64rtznosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptou64rtzsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsat3_linkage ( __ocl_svml_g9_cvtfptou64rtzsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtnnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosat3_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtnsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsat3_linkage ( __ocl_svml_g9_cvtfptoi64rtnsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64downnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosat3_linkage ( __ocl_svml_g9_cvtfptoi64downnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64downsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsat3_linkage ( __ocl_svml_g9_cvtfptoi64downsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64upnosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosat3_linkage ( __ocl_svml_g9_cvtfptoi64upnosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64upsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsat3_linkage ( __ocl_svml_g9_cvtfptoi64upsat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtznosat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosat3_linkage ( __ocl_svml_g9_cvtfptoi64rtznosat3 )
 
   long3_avx __ocl_svml_g9_cvtfptoi64rtzsat3 (double3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat3_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsat3_linkage ( __ocl_svml_g9_cvtfptoi64rtzsat3 )
 
   int3_avx __ocl_svml_g9_cvtfptou32rtnnosat3 (double3_avx a);
@@ -17320,35 +17636,35 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsat3_linkage ( __ocl_svml_g9_cvtfptoi32rtzsat3 )
 
   double3_avx __ocl_svml_g9_cvtu64tofprtn3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtn3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtn3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtn3_linkage ( __ocl_svml_g9_cvtu64tofprtn3 )
 
   double3_avx __ocl_svml_g9_cvtu64tofpdown3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdown3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdown3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdown3_linkage ( __ocl_svml_g9_cvtu64tofpdown3 )
 
   double3_avx __ocl_svml_g9_cvtu64tofpup3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpup3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpup3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpup3_linkage ( __ocl_svml_g9_cvtu64tofpup3 )
 
   double3_avx __ocl_svml_g9_cvtu64tofprtz3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtz3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtz3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtz3_linkage ( __ocl_svml_g9_cvtu64tofprtz3 )
 
   double3_avx __ocl_svml_g9_cvti64tofprtn3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtn3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtn3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtn3_linkage ( __ocl_svml_g9_cvti64tofprtn3 )
 
   double3_avx __ocl_svml_g9_cvti64tofpdown3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdown3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdown3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdown3_linkage ( __ocl_svml_g9_cvti64tofpdown3 )
 
   double3_avx __ocl_svml_g9_cvti64tofpup3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpup3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpup3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpup3_linkage ( __ocl_svml_g9_cvti64tofpup3 )
 
   double3_avx __ocl_svml_g9_cvti64tofprtz3 (long3_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtz3_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtz3_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtz3_linkage ( __ocl_svml_g9_cvti64tofprtz3 )
 
   double3_avx __ocl_svml_g9_cvtu32tofprtn3 (int3_avx a);
@@ -20078,67 +20394,67 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammarf4_linkage ( __ocl_svml_g9_lgammarf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtnnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosatf4_linkage ( __ocl_svml_g9_cvtfptou64rtnnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtnsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsatf4_linkage ( __ocl_svml_g9_cvtfptou64rtnsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64downnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosatf4_linkage ( __ocl_svml_g9_cvtfptou64downnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64downsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsatf4_linkage ( __ocl_svml_g9_cvtfptou64downsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64upnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosatf4_linkage ( __ocl_svml_g9_cvtfptou64upnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64upsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsatf4_linkage ( __ocl_svml_g9_cvtfptou64upsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtznosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosatf4_linkage ( __ocl_svml_g9_cvtfptou64rtznosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtzsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsatf4_linkage ( __ocl_svml_g9_cvtfptou64rtzsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtnnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosatf4_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtnsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsatf4_linkage ( __ocl_svml_g9_cvtfptoi64rtnsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64downnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosatf4_linkage ( __ocl_svml_g9_cvtfptoi64downnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64downsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsatf4_linkage ( __ocl_svml_g9_cvtfptoi64downsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64upnosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosatf4_linkage ( __ocl_svml_g9_cvtfptoi64upnosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64upsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsatf4_linkage ( __ocl_svml_g9_cvtfptoi64upsatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtznosatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosatf4_linkage ( __ocl_svml_g9_cvtfptoi64rtznosatf4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtzsatf4 (float4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf4_linkage   = ( result((ymm0)) parameters((xmm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsatf4_linkage ( __ocl_svml_g9_cvtfptoi64rtzsatf4 )
 
   int4_avx __ocl_svml_g9_cvtfptou32rtnnosatf4 (float4_avx a);
@@ -20206,35 +20522,35 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsatf4_linkage ( __ocl_svml_g9_cvtfptoi32rtzsatf4 )
 
   float4_avx __ocl_svml_g9_cvtu64tofprtnf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtnf4_linkage ( __ocl_svml_g9_cvtu64tofprtnf4 )
 
   float4_avx __ocl_svml_g9_cvtu64tofpdownf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdownf4_linkage ( __ocl_svml_g9_cvtu64tofpdownf4 )
 
   float4_avx __ocl_svml_g9_cvtu64tofpupf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpupf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpupf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpupf4_linkage ( __ocl_svml_g9_cvtu64tofpupf4 )
 
   float4_avx __ocl_svml_g9_cvtu64tofprtzf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtzf4_linkage ( __ocl_svml_g9_cvtu64tofprtzf4 )
 
   float4_avx __ocl_svml_g9_cvti64tofprtnf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtnf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtnf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtnf4_linkage ( __ocl_svml_g9_cvti64tofprtnf4 )
 
   float4_avx __ocl_svml_g9_cvti64tofpdownf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdownf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdownf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdownf4_linkage ( __ocl_svml_g9_cvti64tofpdownf4 )
 
   float4_avx __ocl_svml_g9_cvti64tofpupf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpupf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpupf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpupf4_linkage ( __ocl_svml_g9_cvti64tofpupf4 )
 
   float4_avx __ocl_svml_g9_cvti64tofprtzf4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtzf4_linkage   = ( result((xmm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtzf4_linkage   = ( result((xmm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtzf4_linkage ( __ocl_svml_g9_cvti64tofprtzf4 )
 
   float4_avx __ocl_svml_g9_cvtu32tofprtnf4 (int4_avx a);
@@ -22887,7 +23203,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_minmag4_linkage ( __ocl_svml_g9_minmag4 )
 
   double4_avx __ocl_svml_g9_nan4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_nan4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_nan4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_nan4_linkage ( __ocl_svml_g9_nan4 )
 
   double4_avx __ocl_svml_g9_ceil4 (double4_avx a);
@@ -22976,67 +23292,67 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammar4_linkage ( __ocl_svml_g9_lgammar4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtnnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosat4_linkage ( __ocl_svml_g9_cvtfptou64rtnnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtnsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsat4_linkage ( __ocl_svml_g9_cvtfptou64rtnsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64downnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosat4_linkage ( __ocl_svml_g9_cvtfptou64downnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64downsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsat4_linkage ( __ocl_svml_g9_cvtfptou64downsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64upnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosat4_linkage ( __ocl_svml_g9_cvtfptou64upnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64upsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsat4_linkage ( __ocl_svml_g9_cvtfptou64upsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtznosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosat4_linkage ( __ocl_svml_g9_cvtfptou64rtznosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptou64rtzsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsat4_linkage ( __ocl_svml_g9_cvtfptou64rtzsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtnnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosat4_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtnsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsat4_linkage ( __ocl_svml_g9_cvtfptoi64rtnsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64downnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosat4_linkage ( __ocl_svml_g9_cvtfptoi64downnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64downsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsat4_linkage ( __ocl_svml_g9_cvtfptoi64downsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64upnosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosat4_linkage ( __ocl_svml_g9_cvtfptoi64upnosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64upsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsat4_linkage ( __ocl_svml_g9_cvtfptoi64upsat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtznosat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosat4_linkage ( __ocl_svml_g9_cvtfptoi64rtznosat4 )
 
   long4_avx __ocl_svml_g9_cvtfptoi64rtzsat4 (double4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat4_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsat4_linkage ( __ocl_svml_g9_cvtfptoi64rtzsat4 )
 
   int4_avx __ocl_svml_g9_cvtfptou32rtnnosat4 (double4_avx a);
@@ -23104,35 +23420,35 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsat4_linkage ( __ocl_svml_g9_cvtfptoi32rtzsat4 )
 
   double4_avx __ocl_svml_g9_cvtu64tofprtn4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtn4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtn4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtn4_linkage ( __ocl_svml_g9_cvtu64tofprtn4 )
 
   double4_avx __ocl_svml_g9_cvtu64tofpdown4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdown4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdown4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdown4_linkage ( __ocl_svml_g9_cvtu64tofpdown4 )
 
   double4_avx __ocl_svml_g9_cvtu64tofpup4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpup4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpup4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpup4_linkage ( __ocl_svml_g9_cvtu64tofpup4 )
 
   double4_avx __ocl_svml_g9_cvtu64tofprtz4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtz4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtz4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtz4_linkage ( __ocl_svml_g9_cvtu64tofprtz4 )
 
   double4_avx __ocl_svml_g9_cvti64tofprtn4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtn4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtn4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtn4_linkage ( __ocl_svml_g9_cvti64tofprtn4 )
 
   double4_avx __ocl_svml_g9_cvti64tofpdown4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdown4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdown4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdown4_linkage ( __ocl_svml_g9_cvti64tofpdown4 )
 
   double4_avx __ocl_svml_g9_cvti64tofpup4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpup4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpup4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpup4_linkage ( __ocl_svml_g9_cvti64tofpup4 )
 
   double4_avx __ocl_svml_g9_cvti64tofprtz4 (long4_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtz4_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtz4_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtz4_linkage ( __ocl_svml_g9_cvti64tofprtz4 )
 
   double4_avx __ocl_svml_g9_cvtu32tofprtn4 (int4_avx a);
@@ -24064,11 +24380,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powrf8_linkage ( __ocl_svml_g9_powrf8 )
 
   float8_avx __ocl_svml_g9_pownf8 (float8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_pownf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1))  )
+#pragma linkage     __ocl_svml_g9_pownf8_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_pownf8_linkage ( __ocl_svml_g9_pownf8 )
 
   float8_avx __ocl_svml_g9_rootnf8 (float8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_rootnf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1))  )
+#pragma linkage     __ocl_svml_g9_rootnf8_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_rootnf8_linkage ( __ocl_svml_g9_rootnf8 )
 
   float8_avx __ocl_svml_g9_expf8 (float8_avx a);
@@ -25773,7 +26089,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_minmagf8_linkage ( __ocl_svml_g9_minmagf8 )
 
   float8_avx __ocl_svml_g9_nanf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_nanf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_nanf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_nanf8_linkage ( __ocl_svml_g9_nanf8 )
 
   float8_avx __ocl_svml_g9_ceilf8 (float8_avx a);
@@ -25834,7 +26150,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_logbf8_linkage ( __ocl_svml_g9_logbf8 )
 
   int8_avx __ocl_svml_g9_ilogbf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_ilogbf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_ilogbf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_ilogbf8_linkage ( __ocl_svml_g9_ilogbf8 )
 
   float8_avx __ocl_svml_g9_nextafterf8 (float8_avx a, float8_avx b);
@@ -25842,7 +26158,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_nextafterf8_linkage ( __ocl_svml_g9_nextafterf8 )
 
   float8_avx __ocl_svml_g9_ldexpf8 (float8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_ldexpf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1))  )
+#pragma linkage     __ocl_svml_g9_ldexpf8_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_ldexpf8_linkage ( __ocl_svml_g9_ldexpf8 )
 
   float8_avx __ocl_svml_g9_fractf8 (float8_avx a, float8_avx * c);
@@ -25862,195 +26178,195 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammarf8_linkage ( __ocl_svml_g9_lgammarf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtnnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosatf8_linkage ( __ocl_svml_g9_cvtfptou64rtnnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtnsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsatf8_linkage ( __ocl_svml_g9_cvtfptou64rtnsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64downnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosatf8_linkage ( __ocl_svml_g9_cvtfptou64downnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64downsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsatf8_linkage ( __ocl_svml_g9_cvtfptou64downsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64upnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosatf8_linkage ( __ocl_svml_g9_cvtfptou64upnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64upsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsatf8_linkage ( __ocl_svml_g9_cvtfptou64upsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtznosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosatf8_linkage ( __ocl_svml_g9_cvtfptou64rtznosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtzsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsatf8_linkage ( __ocl_svml_g9_cvtfptou64rtzsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtnnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosatf8_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtnsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsatf8_linkage ( __ocl_svml_g9_cvtfptoi64rtnsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64downnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosatf8_linkage ( __ocl_svml_g9_cvtfptoi64downnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64downsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsatf8_linkage ( __ocl_svml_g9_cvtfptoi64downsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64upnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosatf8_linkage ( __ocl_svml_g9_cvtfptoi64upnosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64upsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsatf8_linkage ( __ocl_svml_g9_cvtfptoi64upsatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtznosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosatf8_linkage ( __ocl_svml_g9_cvtfptoi64rtznosatf8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtzsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsatf8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsatf8_linkage ( __ocl_svml_g9_cvtfptoi64rtzsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtnnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnnosatf8_linkage ( __ocl_svml_g9_cvtfptou32rtnnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtnsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnsatf8_linkage ( __ocl_svml_g9_cvtfptou32rtnsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32downnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downnosatf8_linkage ( __ocl_svml_g9_cvtfptou32downnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32downsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downsatf8_linkage ( __ocl_svml_g9_cvtfptou32downsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32upnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upnosatf8_linkage ( __ocl_svml_g9_cvtfptou32upnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32upsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upsatf8_linkage ( __ocl_svml_g9_cvtfptou32upsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtznosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtznosatf8_linkage ( __ocl_svml_g9_cvtfptou32rtznosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtzsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtzsatf8_linkage ( __ocl_svml_g9_cvtfptou32rtzsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtnnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnnosatf8_linkage ( __ocl_svml_g9_cvtfptoi32rtnnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtnsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnsatf8_linkage ( __ocl_svml_g9_cvtfptoi32rtnsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32downnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downnosatf8_linkage ( __ocl_svml_g9_cvtfptoi32downnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32downsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downsatf8_linkage ( __ocl_svml_g9_cvtfptoi32downsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32upnosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upnosatf8_linkage ( __ocl_svml_g9_cvtfptoi32upnosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32upsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upsatf8_linkage ( __ocl_svml_g9_cvtfptoi32upsatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtznosatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtznosatf8_linkage ( __ocl_svml_g9_cvtfptoi32rtznosatf8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtzsatf8 (float8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsatf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsatf8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsatf8_linkage ( __ocl_svml_g9_cvtfptoi32rtzsatf8 )
 
   float8_avx __ocl_svml_g9_cvtu64tofprtnf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtnf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtnf8_linkage ( __ocl_svml_g9_cvtu64tofprtnf8 )
 
   float8_avx __ocl_svml_g9_cvtu64tofpdownf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdownf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdownf8_linkage ( __ocl_svml_g9_cvtu64tofpdownf8 )
 
   float8_avx __ocl_svml_g9_cvtu64tofpupf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpupf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpupf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpupf8_linkage ( __ocl_svml_g9_cvtu64tofpupf8 )
 
   float8_avx __ocl_svml_g9_cvtu64tofprtzf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtzf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtzf8_linkage ( __ocl_svml_g9_cvtu64tofprtzf8 )
 
   float8_avx __ocl_svml_g9_cvti64tofprtnf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtnf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtnf8_linkage ( __ocl_svml_g9_cvti64tofprtnf8 )
 
   float8_avx __ocl_svml_g9_cvti64tofpdownf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdownf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdownf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdownf8_linkage ( __ocl_svml_g9_cvti64tofpdownf8 )
 
   float8_avx __ocl_svml_g9_cvti64tofpupf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpupf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpupf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpupf8_linkage ( __ocl_svml_g9_cvti64tofpupf8 )
 
   float8_avx __ocl_svml_g9_cvti64tofprtzf8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtzf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtzf8_linkage ( __ocl_svml_g9_cvti64tofprtzf8 )
 
   float8_avx __ocl_svml_g9_cvtu32tofprtnf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtnf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtnf8_linkage ( __ocl_svml_g9_cvtu32tofprtnf8 )
 
   float8_avx __ocl_svml_g9_cvtu32tofpdownf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpdownf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpdownf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpdownf8_linkage ( __ocl_svml_g9_cvtu32tofpdownf8 )
 
   float8_avx __ocl_svml_g9_cvtu32tofpupf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpupf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpupf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpupf8_linkage ( __ocl_svml_g9_cvtu32tofpupf8 )
 
   float8_avx __ocl_svml_g9_cvtu32tofprtzf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtzf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtzf8_linkage ( __ocl_svml_g9_cvtu32tofprtzf8 )
 
   float8_avx __ocl_svml_g9_cvti32tofprtnf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtnf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtnf8_linkage ( __ocl_svml_g9_cvti32tofprtnf8 )
 
   float8_avx __ocl_svml_g9_cvti32tofpdownf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpdownf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpdownf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpdownf8_linkage ( __ocl_svml_g9_cvti32tofpdownf8 )
 
   float8_avx __ocl_svml_g9_cvti32tofpupf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpupf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpupf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpupf8_linkage ( __ocl_svml_g9_cvti32tofpupf8 )
 
   float8_avx __ocl_svml_g9_cvti32tofprtzf8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtzf8_linkage   = ( result((ymm0)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtzf8_linkage ( __ocl_svml_g9_cvti32tofprtzf8 )
 
   double8_sse __ocl_svml_w7_inv8 (double8_sse a);
@@ -26940,11 +27256,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powr8_linkage ( __ocl_svml_g9_powr8 )
 
   double8_avx __ocl_svml_g9_pown8 (double8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_pown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2))  )
+#pragma linkage     __ocl_svml_g9_pown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_pown8_linkage ( __ocl_svml_g9_pown8 )
 
   double8_avx __ocl_svml_g9_rootn8 (double8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_rootn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2))  )
+#pragma linkage     __ocl_svml_g9_rootn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_rootn8_linkage ( __ocl_svml_g9_rootn8 )
 
   double8_avx __ocl_svml_g9_exp8 (double8_avx a);
@@ -28661,7 +28977,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_minmag8_linkage ( __ocl_svml_g9_minmag8 )
 
   double8_avx __ocl_svml_g9_nan8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_nan8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_nan8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_nan8_linkage ( __ocl_svml_g9_nan8 )
 
   double8_avx __ocl_svml_g9_ceil8 (double8_avx a);
@@ -28722,7 +29038,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_logb8_linkage ( __ocl_svml_g9_logb8 )
 
   int8_avx __ocl_svml_g9_ilogb8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_ilogb8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_ilogb8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_ilogb8_linkage ( __ocl_svml_g9_ilogb8 )
 
   double8_avx __ocl_svml_g9_nextafter8 (double8_avx a, double8_avx b);
@@ -28730,7 +29046,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_nextafter8_linkage ( __ocl_svml_g9_nextafter8 )
 
   double8_avx __ocl_svml_g9_ldexp8 (double8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_ldexp8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2))  )
+#pragma linkage     __ocl_svml_g9_ldexp8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_ldexp8_linkage ( __ocl_svml_g9_ldexp8 )
 
   double8_avx __ocl_svml_g9_fract8 (double8_avx a, double8_avx * c);
@@ -28750,195 +29066,195 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_lgammar8_linkage ( __ocl_svml_g9_lgammar8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtnnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnnosat8_linkage ( __ocl_svml_g9_cvtfptou64rtnnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtnsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtnsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtnsat8_linkage ( __ocl_svml_g9_cvtfptou64rtnsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64downnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downnosat8_linkage ( __ocl_svml_g9_cvtfptou64downnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64downsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64downsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64downsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64downsat8_linkage ( __ocl_svml_g9_cvtfptou64downsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64upnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upnosat8_linkage ( __ocl_svml_g9_cvtfptou64upnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64upsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64upsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64upsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64upsat8_linkage ( __ocl_svml_g9_cvtfptou64upsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtznosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtznosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtznosat8_linkage ( __ocl_svml_g9_cvtfptou64rtznosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptou64rtzsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou64rtzsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou64rtzsat8_linkage ( __ocl_svml_g9_cvtfptou64rtzsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtnnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnnosat8_linkage ( __ocl_svml_g9_cvtfptoi64rtnnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtnsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtnsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtnsat8_linkage ( __ocl_svml_g9_cvtfptoi64rtnsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64downnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downnosat8_linkage ( __ocl_svml_g9_cvtfptoi64downnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64downsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64downsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64downsat8_linkage ( __ocl_svml_g9_cvtfptoi64downsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64upnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upnosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upnosat8_linkage ( __ocl_svml_g9_cvtfptoi64upnosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64upsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64upsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64upsat8_linkage ( __ocl_svml_g9_cvtfptoi64upsat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtznosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtznosat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtznosat8_linkage ( __ocl_svml_g9_cvtfptoi64rtznosat8 )
 
   long8_avx __ocl_svml_g9_cvtfptoi64rtzsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi64rtzsat8_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi64rtzsat8_linkage ( __ocl_svml_g9_cvtfptoi64rtzsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtnnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnnosat8_linkage ( __ocl_svml_g9_cvtfptou32rtnnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtnsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnsat8_linkage ( __ocl_svml_g9_cvtfptou32rtnsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32downnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downnosat8_linkage ( __ocl_svml_g9_cvtfptou32downnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32downsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downsat8_linkage ( __ocl_svml_g9_cvtfptou32downsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32upnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upnosat8_linkage ( __ocl_svml_g9_cvtfptou32upnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32upsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upsat8_linkage ( __ocl_svml_g9_cvtfptou32upsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtznosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtznosat8_linkage ( __ocl_svml_g9_cvtfptou32rtznosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptou32rtzsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtzsat8_linkage ( __ocl_svml_g9_cvtfptou32rtzsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtnnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnnosat8_linkage ( __ocl_svml_g9_cvtfptoi32rtnnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtnsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnsat8_linkage ( __ocl_svml_g9_cvtfptoi32rtnsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32downnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downnosat8_linkage ( __ocl_svml_g9_cvtfptoi32downnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32downsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downsat8_linkage ( __ocl_svml_g9_cvtfptoi32downsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32upnosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upnosat8_linkage ( __ocl_svml_g9_cvtfptoi32upnosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32upsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upsat8_linkage ( __ocl_svml_g9_cvtfptoi32upsat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtznosat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtznosat8_linkage ( __ocl_svml_g9_cvtfptoi32rtznosat8 )
 
   int8_avx __ocl_svml_g9_cvtfptoi32rtzsat8 (double8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsat8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsat8_linkage   = ( result((xmm0 xmm1)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsat8_linkage ( __ocl_svml_g9_cvtfptoi32rtzsat8 )
 
   double8_avx __ocl_svml_g9_cvtu64tofprtn8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtn8_linkage ( __ocl_svml_g9_cvtu64tofprtn8 )
 
   double8_avx __ocl_svml_g9_cvtu64tofpdown8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpdown8_linkage ( __ocl_svml_g9_cvtu64tofpdown8 )
 
   double8_avx __ocl_svml_g9_cvtu64tofpup8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofpup8_linkage ( __ocl_svml_g9_cvtu64tofpup8 )
 
   double8_avx __ocl_svml_g9_cvtu64tofprtz8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu64tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu64tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu64tofprtz8_linkage ( __ocl_svml_g9_cvtu64tofprtz8 )
 
   double8_avx __ocl_svml_g9_cvti64tofprtn8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtn8_linkage ( __ocl_svml_g9_cvti64tofprtn8 )
 
   double8_avx __ocl_svml_g9_cvti64tofpdown8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpdown8_linkage ( __ocl_svml_g9_cvti64tofpdown8 )
 
   double8_avx __ocl_svml_g9_cvti64tofpup8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofpup8_linkage ( __ocl_svml_g9_cvti64tofpup8 )
 
   double8_avx __ocl_svml_g9_cvti64tofprtz8 (long8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti64tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti64tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti64tofprtz8_linkage ( __ocl_svml_g9_cvti64tofprtz8 )
 
   double8_avx __ocl_svml_g9_cvtu32tofprtn8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtn8_linkage ( __ocl_svml_g9_cvtu32tofprtn8 )
 
   double8_avx __ocl_svml_g9_cvtu32tofpdown8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpdown8_linkage ( __ocl_svml_g9_cvtu32tofpdown8 )
 
   double8_avx __ocl_svml_g9_cvtu32tofpup8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpup8_linkage ( __ocl_svml_g9_cvtu32tofpup8 )
 
   double8_avx __ocl_svml_g9_cvtu32tofprtz8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtz8_linkage ( __ocl_svml_g9_cvtu32tofprtz8 )
 
   double8_avx __ocl_svml_g9_cvti32tofprtn8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtn8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtn8_linkage ( __ocl_svml_g9_cvti32tofprtn8 )
 
   double8_avx __ocl_svml_g9_cvti32tofpdown8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpdown8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpdown8_linkage ( __ocl_svml_g9_cvti32tofpdown8 )
 
   double8_avx __ocl_svml_g9_cvti32tofpup8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpup8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpup8_linkage ( __ocl_svml_g9_cvti32tofpup8 )
 
   double8_avx __ocl_svml_g9_cvti32tofprtz8 (int8_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtz8_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtz8_linkage ( __ocl_svml_g9_cvti32tofprtz8 )
 
   float16_sse __ocl_svml_w7_invf16 (float16_sse a);
@@ -29828,11 +30144,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powrf16_linkage ( __ocl_svml_g9_powrf16 )
 
   float16_avx __ocl_svml_g9_pownf16 (float16_avx a, int16_avx b);
-#pragma linkage     __ocl_svml_g9_pownf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_pownf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3 xmm4 xmm5))  )
 #pragma use_linkage __ocl_svml_g9_pownf16_linkage ( __ocl_svml_g9_pownf16 )
 
   float16_avx __ocl_svml_g9_rootnf16 (float16_avx a, int16_avx b);
-#pragma linkage     __ocl_svml_g9_rootnf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_rootnf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3 xmm4 xmm5))  )
 #pragma use_linkage __ocl_svml_g9_rootnf16_linkage ( __ocl_svml_g9_rootnf16 )
 
   float16_avx __ocl_svml_g9_expf16 (float16_avx a);
@@ -31309,7 +31625,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_minmagf16_linkage ( __ocl_svml_g9_minmagf16 )
 
   float16_avx __ocl_svml_g9_nanf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_nanf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_nanf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_nanf16_linkage ( __ocl_svml_g9_nanf16 )
 
   float16_avx __ocl_svml_g9_ceilf16 (float16_avx a);
@@ -31370,7 +31686,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_logbf16_linkage ( __ocl_svml_g9_logbf16 )
 
   int16_avx __ocl_svml_g9_ilogbf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_ilogbf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_ilogbf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_ilogbf16_linkage ( __ocl_svml_g9_ilogbf16 )
 
   float16_avx __ocl_svml_g9_nextafterf16 (float16_avx a, float16_avx b);
@@ -31378,7 +31694,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_nextafterf16_linkage ( __ocl_svml_g9_nextafterf16 )
 
   float16_avx __ocl_svml_g9_ldexpf16 (float16_avx a, int16_avx b);
-#pragma linkage     __ocl_svml_g9_ldexpf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_ldexpf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3 xmm4 xmm5))  )
 #pragma use_linkage __ocl_svml_g9_ldexpf16_linkage ( __ocl_svml_g9_ldexpf16 )
 
   float16_avx __ocl_svml_g9_fractf16 (float16_avx a, float16_avx * c);
@@ -31430,67 +31746,67 @@ extern "C"
   long16_avx __ocl_svml_g9_cvtfptoi64rtzsatf16 (float16_avx a);
 
   int16_avx __ocl_svml_g9_cvtfptou32rtnnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnnosatf16_linkage ( __ocl_svml_g9_cvtfptou32rtnnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtnsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnsatf16_linkage ( __ocl_svml_g9_cvtfptou32rtnsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32downnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downnosatf16_linkage ( __ocl_svml_g9_cvtfptou32downnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32downsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downsatf16_linkage ( __ocl_svml_g9_cvtfptou32downsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32upnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upnosatf16_linkage ( __ocl_svml_g9_cvtfptou32upnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32upsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upsatf16_linkage ( __ocl_svml_g9_cvtfptou32upsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtznosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtznosatf16_linkage ( __ocl_svml_g9_cvtfptou32rtznosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtzsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtzsatf16_linkage ( __ocl_svml_g9_cvtfptou32rtzsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtnnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnnosatf16_linkage ( __ocl_svml_g9_cvtfptoi32rtnnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtnsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnsatf16_linkage ( __ocl_svml_g9_cvtfptoi32rtnsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32downnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downnosatf16_linkage ( __ocl_svml_g9_cvtfptoi32downnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32downsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downsatf16_linkage ( __ocl_svml_g9_cvtfptoi32downsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32upnosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upnosatf16_linkage ( __ocl_svml_g9_cvtfptoi32upnosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32upsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upsatf16_linkage ( __ocl_svml_g9_cvtfptoi32upsatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtznosatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtznosatf16_linkage ( __ocl_svml_g9_cvtfptoi32rtznosatf16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtzsatf16 (float16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsatf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsatf16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsatf16_linkage ( __ocl_svml_g9_cvtfptoi32rtzsatf16 )
 
   float16_avx __ocl_svml_g9_cvtu64tofprtnf16 (long16_avx a);
@@ -31510,35 +31826,35 @@ extern "C"
   float16_avx __ocl_svml_g9_cvti64tofprtzf16 (long16_avx a);
 
   float16_avx __ocl_svml_g9_cvtu32tofprtnf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtnf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtnf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtnf16_linkage ( __ocl_svml_g9_cvtu32tofprtnf16 )
 
   float16_avx __ocl_svml_g9_cvtu32tofpdownf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpdownf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpdownf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpdownf16_linkage ( __ocl_svml_g9_cvtu32tofpdownf16 )
 
   float16_avx __ocl_svml_g9_cvtu32tofpupf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpupf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpupf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpupf16_linkage ( __ocl_svml_g9_cvtu32tofpupf16 )
 
   float16_avx __ocl_svml_g9_cvtu32tofprtzf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtzf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtzf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtzf16_linkage ( __ocl_svml_g9_cvtu32tofprtzf16 )
 
   float16_avx __ocl_svml_g9_cvti32tofprtnf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtnf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtnf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtnf16_linkage ( __ocl_svml_g9_cvti32tofprtnf16 )
 
   float16_avx __ocl_svml_g9_cvti32tofpdownf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpdownf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpdownf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpdownf16_linkage ( __ocl_svml_g9_cvti32tofpdownf16 )
 
   float16_avx __ocl_svml_g9_cvti32tofpupf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpupf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpupf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpupf16_linkage ( __ocl_svml_g9_cvti32tofpupf16 )
 
   float16_avx __ocl_svml_g9_cvti32tofprtzf16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtzf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtzf16_linkage   = ( result((ymm0 ymm1)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtzf16_linkage ( __ocl_svml_g9_cvti32tofprtzf16 )
 
   double16_sse __ocl_svml_w7_inv16 (double16_sse a);
@@ -33016,7 +33332,7 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_logb16_linkage ( __ocl_svml_g9_logb16 )
 
   int16_avx __ocl_svml_g9_ilogb16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_ilogb16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_ilogb16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_ilogb16_linkage ( __ocl_svml_g9_ilogb16 )
 
   double16_avx __ocl_svml_g9_nextafter16 (double16_avx a, double16_avx b);
@@ -33076,67 +33392,67 @@ extern "C"
   long16_avx __ocl_svml_g9_cvtfptoi64rtzsat16 (double16_avx a);
 
   int16_avx __ocl_svml_g9_cvtfptou32rtnnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnnosat16_linkage ( __ocl_svml_g9_cvtfptou32rtnnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtnsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtnsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtnsat16_linkage ( __ocl_svml_g9_cvtfptou32rtnsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32downnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downnosat16_linkage ( __ocl_svml_g9_cvtfptou32downnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32downsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32downsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32downsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32downsat16_linkage ( __ocl_svml_g9_cvtfptou32downsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32upnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upnosat16_linkage ( __ocl_svml_g9_cvtfptou32upnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32upsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32upsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32upsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32upsat16_linkage ( __ocl_svml_g9_cvtfptou32upsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtznosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtznosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtznosat16_linkage ( __ocl_svml_g9_cvtfptou32rtznosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptou32rtzsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptou32rtzsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptou32rtzsat16_linkage ( __ocl_svml_g9_cvtfptou32rtzsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtnnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnnosat16_linkage ( __ocl_svml_g9_cvtfptoi32rtnnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtnsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtnsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtnsat16_linkage ( __ocl_svml_g9_cvtfptoi32rtnsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32downnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downnosat16_linkage ( __ocl_svml_g9_cvtfptoi32downnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32downsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32downsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32downsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32downsat16_linkage ( __ocl_svml_g9_cvtfptoi32downsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32upnosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upnosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upnosat16_linkage ( __ocl_svml_g9_cvtfptoi32upnosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32upsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32upsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32upsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32upsat16_linkage ( __ocl_svml_g9_cvtfptoi32upsat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtznosat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtznosat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtznosat16_linkage ( __ocl_svml_g9_cvtfptoi32rtznosat16 )
 
   int16_avx __ocl_svml_g9_cvtfptoi32rtzsat16 (double16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsat16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1 ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_cvtfptoi32rtzsat16_linkage   = ( result((xmm0 xmm1 xmm2 xmm3)) parameters((ymm0 ymm1 ymm2 ymm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtfptoi32rtzsat16_linkage ( __ocl_svml_g9_cvtfptoi32rtzsat16 )
 
   double16_avx __ocl_svml_g9_cvtu64tofprtn16 (long16_avx a);
@@ -33156,35 +33472,35 @@ extern "C"
   double16_avx __ocl_svml_g9_cvti64tofprtz16 (long16_avx a);
 
   double16_avx __ocl_svml_g9_cvtu32tofprtn16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtn16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtn16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtn16_linkage ( __ocl_svml_g9_cvtu32tofprtn16 )
 
   double16_avx __ocl_svml_g9_cvtu32tofpdown16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpdown16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpdown16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpdown16_linkage ( __ocl_svml_g9_cvtu32tofpdown16 )
 
   double16_avx __ocl_svml_g9_cvtu32tofpup16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofpup16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofpup16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofpup16_linkage ( __ocl_svml_g9_cvtu32tofpup16 )
 
   double16_avx __ocl_svml_g9_cvtu32tofprtz16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvtu32tofprtz16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvtu32tofprtz16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvtu32tofprtz16_linkage ( __ocl_svml_g9_cvtu32tofprtz16 )
 
   double16_avx __ocl_svml_g9_cvti32tofprtn16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtn16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtn16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtn16_linkage ( __ocl_svml_g9_cvti32tofprtn16 )
 
   double16_avx __ocl_svml_g9_cvti32tofpdown16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpdown16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpdown16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpdown16_linkage ( __ocl_svml_g9_cvti32tofpdown16 )
 
   double16_avx __ocl_svml_g9_cvti32tofpup16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofpup16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofpup16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofpup16_linkage ( __ocl_svml_g9_cvti32tofpup16 )
 
   double16_avx __ocl_svml_g9_cvti32tofprtz16 (int16_avx a);
-#pragma linkage     __ocl_svml_g9_cvti32tofprtz16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((ymm0 ymm1))  )
+#pragma linkage     __ocl_svml_g9_cvti32tofprtz16_linkage   = ( result((ymm0 ymm1 ymm2 ymm3)) parameters((xmm0 xmm1 xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_cvti32tofprtz16_linkage ( __ocl_svml_g9_cvti32tofprtz16 )
 
   float1_sse __ocl_svml_w7_invf1_native (float1_sse a);
@@ -42340,11 +42656,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powrf8_native_linkage ( __ocl_svml_g9_powrf8_native )
 
   float8_avx __ocl_svml_g9_pownf8_native (float8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_pownf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1))  )
+#pragma linkage     __ocl_svml_g9_pownf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_pownf8_native_linkage ( __ocl_svml_g9_pownf8_native )
 
   float8_avx __ocl_svml_g9_rootnf8_native (float8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_rootnf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1))  )
+#pragma linkage     __ocl_svml_g9_rootnf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_rootnf8_native_linkage ( __ocl_svml_g9_rootnf8_native )
 
   float8_avx __ocl_svml_g9_expf8_native (float8_avx a);
@@ -43362,11 +43678,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powr8_native_linkage ( __ocl_svml_g9_powr8_native )
 
   double8_avx __ocl_svml_g9_pown8_native (double8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_pown8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2))  )
+#pragma linkage     __ocl_svml_g9_pown8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_pown8_native_linkage ( __ocl_svml_g9_pown8_native )
 
   double8_avx __ocl_svml_g9_rootn8_native (double8_avx a, int8_avx b);
-#pragma linkage     __ocl_svml_g9_rootn8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2))  )
+#pragma linkage     __ocl_svml_g9_rootn8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3))  )
 #pragma use_linkage __ocl_svml_g9_rootn8_native_linkage ( __ocl_svml_g9_rootn8_native )
 
   double8_avx __ocl_svml_g9_exp8_native (double8_avx a);
@@ -44384,11 +44700,11 @@ extern "C"
 #pragma use_linkage __ocl_svml_g9_powrf16_native_linkage ( __ocl_svml_g9_powrf16_native )
 
   float16_avx __ocl_svml_g9_pownf16_native (float16_avx a, int16_avx b);
-#pragma linkage     __ocl_svml_g9_pownf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_pownf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3 xmm4 xmm5))  )
 #pragma use_linkage __ocl_svml_g9_pownf16_native_linkage ( __ocl_svml_g9_pownf16_native )
 
   float16_avx __ocl_svml_g9_rootnf16_native (float16_avx a, int16_avx b);
-#pragma linkage     __ocl_svml_g9_rootnf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3))  )
+#pragma linkage     __ocl_svml_g9_rootnf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(xmm2 xmm3 xmm4 xmm5))  )
 #pragma use_linkage __ocl_svml_g9_rootnf16_native_linkage ( __ocl_svml_g9_rootnf16_native )
 
   float16_avx __ocl_svml_g9_expf16_native (float16_avx a);
