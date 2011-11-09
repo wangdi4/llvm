@@ -36,7 +36,8 @@ ConfigFile("config",
 
 llvm::cl::opt<std::string>
 BaseDirectory("basedir",
-           llvm::cl::desc("Base directory to use for data file lookup"),
+           llvm::cl::desc("Base directory to use for configuration and data files lookup. "
+                          "Default value - configuration file directory."),
            llvm::cl::value_desc("basedir"));
 
 

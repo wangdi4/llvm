@@ -1,7 +1,6 @@
-; RUN: python %S/../test_deploy.py %s.in .
-; RUN: llvm-as %s -o sitofp.ll.bin
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=1 -basedir=.
-; RUN: NEATChecker -r %s -a sitofp.ll.neat -t 0
+; RUN: llvm-as %s -o %s.bin
+; RUN: SATest -OCL -REF -config=%s.cfg -neat=1
+; RUN: NEATChecker -r %s -a %s.neat -t 0
 
 ;CHECKNEAT: ACCURATE -31 ACCURATE -30 ACCURATE -30 ACCURATE -4
 ;CHECKNEAT: ACCURATE 11 ACCURATE 12 ACCURATE 12 ACCURATE -4

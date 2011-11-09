@@ -1,7 +1,6 @@
-; RUN: python %S/../test_deploy.py %s.in .
-; RUN: llvm-as %s -o oclbuiltin.ll.bin
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=1 -basedir=.
-; RUN_XXX: NEATChecker -r %s -a oclbuiltin.ll.neat -t 0
+; RUN: llvm-as %s -o %s.bin
+; RUN: SATest -OCL -REF -config=%s.cfg -neat=1
+; RUN_XXX: NEATChecker -r %s -a %s.neat -t 0
 ; TODO: add NEATCHECKER instrumentation
 
 ; ModuleID = 'oclbuiltin.cl'

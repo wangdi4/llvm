@@ -12,7 +12,7 @@ Copyright (c) Intel Corporation (2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  IPerformence.h
+File Name:  IPerformance.h
 
 \*****************************************************************************/
 #ifndef I_PERFORMANCE_H
@@ -23,7 +23,7 @@ File Name:  IPerformence.h
 
 namespace Validation
 {
-  /// @brief This class enables test execution performence measurements.
+  /// @brief This class enables test execution performance measurements.
   /// The measurements consist of build time and execution time.
   class IPerformance
   {

@@ -1,7 +1,6 @@
-; RUN: python %S/../test_deploy.py %s.in .
-; RUN: llvm-as %s -o bitcast.ll.bin
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=1 -basedir=.
-; RUN: NEATChecker -r %s -a bitcast.ll.neat -t 0
+; RUN: llvm-as %s -o %s.bin
+; RUN: SATest -OCL -REF -config=%s.cfg -neat=1
+; RUN: NEATChecker -r %s -a %s.neat -t 0
 
 ;CHECKNEAT: UNKNOWN UNKNOWN UNKNOWN UNKNOWN
 ;CHECKNEAT: UNKNOWN UNKNOWN UNKNOWN UNKNOWN

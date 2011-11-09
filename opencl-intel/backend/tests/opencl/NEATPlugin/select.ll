@@ -1,7 +1,6 @@
-; RUN: python %S/../test_deploy.py %s.in .
-; RUN: llvm-as %s -o select.ll.bin
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=1 -basedir=.
-; TODO add NEATChecker -r %s -a select.ll.neat -t 0
+; RUN: llvm-as %s -o %s.bin
+; RUN: SATest -OCL -REF -config=%s.cfg -neat=1
+; TODO add NEATChecker -r %s -a %s.neat -t 0
 
 ;CHECKNEAT: ACCURATE 41 ACCURATE 41 ACCURATE 21 ACCURATE 41
 ;CHECKNEAT: ACCURATE 1 ACCURATE 41 ACCURATE 41 ACCURATE 61 

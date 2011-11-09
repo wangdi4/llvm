@@ -52,7 +52,7 @@ namespace Validation
     /// @brief Creates new DX reference runner
     virtual IProgramRunner * CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration);
 
-    /// @brief Creates new run results comparator 
+    /// @brief Creates new run results comparator
     virtual IRunResultComparator* CreateComparator(IProgramConfiguration* pProgramConfiguration,
                                                    IRunConfiguration* pRunConfiguration);
   };
