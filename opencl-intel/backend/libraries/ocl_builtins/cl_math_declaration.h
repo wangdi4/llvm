@@ -776,7 +776,7 @@ extern "C" {
 	{															\
     float4 val;																	\
     val.s01 = x;                  \
-    val.s23 =(1.0f,1.0f);\
+    val.s23 =(float2)(1.0f);\
 		val = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(val);						\
 		return val.s01;																\
 	}

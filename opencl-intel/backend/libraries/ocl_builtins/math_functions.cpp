@@ -1300,9 +1300,9 @@ float2  __attribute__((overloadable)) half_divide(float2 x, float2 y)
 {
   float4 valx, valy;
   valx.s01 = x;
-  valx.s23 = (1.0f,1.0f);
+  valx.s23 = (float2)(1.0f);
   valy.s01 = y;
-  valy.s23 = (1.0f,1.0f);
+  valy.s23 = (float2)(1.0f);
   valx = valx/valy;
 	return valx.s01;
 }
