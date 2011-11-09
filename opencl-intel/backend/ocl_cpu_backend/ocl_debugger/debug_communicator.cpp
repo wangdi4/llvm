@@ -35,7 +35,9 @@ DebugCommunicator::DebugCommunicator(unsigned short port)
 
 DebugCommunicator::~DebugCommunicator()
 {
-    // Nothing to do, all members have useful destructors
+    // Politely ask the thread to exit
+    m_cmd_queue.PushBack(EXIT);
+    Join();
 }
 
 

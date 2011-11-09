@@ -204,8 +204,11 @@ struct DebugServer::DebugServerImpl
     
     ~DebugServerImpl()
     {
-        if (m_comm) 
-            delete m_comm;
+        if (m_comm)  {
+           delete m_comm;
+           m_comm = 0;
+        }
+
     }
 
     // Build an error message for the client
@@ -456,13 +459,10 @@ bool InitDebugServer()
         return true;
 
     // Debugging enabled: try to initialize the server.
-    // Note: no Linux support for now.
     //
-#ifdef _WIN32
     if (!DebugServer::GetInstance().Init())
         return false;
     DebugServer::GetInstance().WaitForStartCommand();
-#endif // _WIN32
     return true;
 }
 

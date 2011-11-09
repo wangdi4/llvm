@@ -225,10 +225,7 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
     while (opt_i != opts.end()) {
         if (*opt_i == "-g") {
             list.push_back(*opt_i);
-            // Note: Linux debugging disabled for now
-#ifdef _WIN32
             OptDebugInfo = true;
-#endif // _WIN32
         } 
         else if (*opt_i == "-w") {
             list.push_back(*opt_i);

@@ -53,10 +53,7 @@ OclMutex::OclMutex(unsigned int uiSpinCount) : m_uiSpinCount(uiSpinCount)
  ************************************************************************/
 OclMutex::~OclMutex()
 {
-    if (0 != pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl))
-    {
-	assert(0 && "Failed destroy pthread mutex");
-    }
+	pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl);
     delete((pthread_mutex_t*)m_mutexHndl);
     m_mutexHndl = NULL;
 }
@@ -166,16 +163,12 @@ bool OclOsDependentEvent::Wait()
 		//event not initialized
 		return false;
 	}
-	// The condition variable already signaled.
-	if (((EVENT_STRUCTURE*)m_eventRepresentation)->isFired)
-	{
-		return true;
-	}
 	pthread_mutex_lock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
-	int err = 0;
-	if (((EVENT_STRUCTURE*)m_eventRepresentation)->isFired == false)
-	{
-		err = pthread_cond_wait(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition), &(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+	int err = pthread_cond_wait(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition), &(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+		
+    if (err == 0) {
+		// Always auto-reset
+		((EVENT_STRUCTURE*)m_eventRepresentation)->isFired = false;
 	}
 	pthread_mutex_unlock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
 	return (err == 0);
