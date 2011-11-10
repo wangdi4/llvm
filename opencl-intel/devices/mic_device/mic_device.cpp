@@ -135,11 +135,12 @@ cl_dev_err_code MICDevice::Init()
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateDevice function enter"));
 
     // trying to upload next free device.
-    bool result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, &m_pDeviceServiceComm);
-    if ((result == false) || (m_pDeviceServiceComm == NULL))
+    cl_dev_err_code result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, &m_pDeviceServiceComm);
+    if (CL_DEV_FAILED(result))
     {
-        return CL_DEV_ERROR_FAIL;
+        return result;
     }
+	assert(m_pDeviceServiceComm);
 
     // initialize the notificationPort mechanism.
     if (NotificationPort::SUCCESS != m_notificationPort.initialize(NOTIFICATION_PORT_MAX_BARRIERS))

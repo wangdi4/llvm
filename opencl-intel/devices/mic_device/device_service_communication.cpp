@@ -40,11 +40,14 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
     freeDevice(gSafeReleaseOfCoiObjects);
 }
 
-bool DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
+cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
 {
     // find the first unused device index
     DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
-    assert( NULL != tDeviceServiceComm && "Cannot create DeviceServiceCommunication object");
+	if (NULL == tDeviceServiceComm)
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
 
     pthread_attr_t tattr;
     pthread_attr_init(&tattr);
@@ -52,12 +55,16 @@ bool DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int u
 
     // create a thread that will initialize the device process and open a service pipeline.
     int err = pthread_create(&tDeviceServiceComm->m_initializerThread, &tattr, initEntryPoint, tDeviceServiceComm);
-    assert(err == 0 && "thread creation failed");
+	if (0 != err)
+	{
+		delete tDeviceServiceComm;
+		return CL_DEV_ERROR_FAIL;
+	}
 
     pthread_attr_destroy(&tattr);
 
     *ppDeviceServiceCom = tDeviceServiceComm;
-    return true;
+    return CL_DEV_SUCCESS;
 }
 
 void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
@@ -100,7 +107,7 @@ COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION 
     waitForInitThread();
     assert( id < LAST_DEVICE_SIDE_FUNCTION && "Too large Device Entry point Function ID" );
     assert( 0 != m_device_functions[id] && "Getting reference to Device Entry point that does not exists" );
-    return m_device_functions[id];
+	return (NULL == m_process) ? NULL :  m_device_functions[id];
 }
 
 bool DeviceServiceCommunication::runServiceFunction(
@@ -138,6 +145,11 @@ bool DeviceServiceCommunication::runServiceFunction(
     }
 
     waitForInitThread();
+
+	if (NULL == m_pipe)
+	{
+		return false;
+	}
 
     // Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
     result = COIPipelineRunFunction(m_pipe, getDeviceFunction(func),
@@ -178,51 +190,90 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
     GetModulePathName((void*)(ptrdiff_t)initEntryPoint, tBuff, PATH_MAX-1);
     const char* device_dir = dirname(tBuff);
 
-    // create a process on device and run it's main() function
-    result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
-                                     0, NULL,													// argc, argv
-                                     false, NULL,												// duplicate env, additional env vars
-                                     MIC_DEV_IO_PROXY_TO_HOST, NULL,							// I/O proxy required + host root
-                                     MIC_AVAILABLE_PROCESS_MEMORY(pDevServiceComm->m_uiMicId),  // reserve buffer space
-									 device_dir,												// a path to locate dynamic libraries dependencies for the sink application
-                                     &pDevServiceComm->m_process);
-    assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
+	do
+	{
 
-    // load additional DLLs required by this specific device
-    const char * const * string_arr = NULL;
-    unsigned int dlls_count = info.getRequiredDeviceDLLs(pDevServiceComm->m_uiMicId, &string_arr);
+		// create a process on device and run it's main() function
+		result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
+										 0, NULL,													// argc, argv
+										 false, NULL,												// duplicate env, additional env vars
+										 MIC_DEV_IO_PROXY_TO_HOST, NULL,							// I/O proxy required + host root
+                                         MIC_AVAILABLE_PROCESS_MEMORY(pDevServiceComm->m_uiMicId),  // reserve buffer space
+										 device_dir,												// a path to locate dynamic libraries dependencies for the sink application
+										 &pDevServiceComm->m_process);
+		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
+		if (COI_SUCCESS != result)
+		{
+			break;
+		}
 
-    if ((0 < dlls_count) && (NULL != string_arr))
-    {
-        for (unsigned int i = 0; i < dlls_count; ++i)
-        {
-            if (NULL != string_arr[i])
-            {
-                COILIBRARY lib_handle;
-                result = COIProcessLoadLibraryFromFile(
-                                    pDevServiceComm->m_process,             // in_Process
-                                    string_arr[i],                          // in_FileName
-                                    NULL,                                   // in_so-name if not exists in file
-                                    device_dir,                             // in_LibrarySearchPath
-                                    &lib_handle );
+		// load additional DLLs required by this specific device
+		const char * const * string_arr = NULL;
+		unsigned int dlls_count = info.getRequiredDeviceDLLs(pDevServiceComm->m_uiMicId, &string_arr);
 
-                assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
-                        && "Cannot load device DLL" );
-            }
-        }
-    }
+		if ((0 < dlls_count) && (NULL != string_arr))
+		{
+			for (unsigned int i = 0; i < dlls_count; ++i)
+			{
+				if (NULL != string_arr[i])
+				{
+					COILIBRARY lib_handle;
+					result = COIProcessLoadLibraryFromFile(
+										pDevServiceComm->m_process,             // in_Process
+										string_arr[i],                          // in_FileName
+										NULL,                                   // in_so-name if not exists in file
+										device_dir,                             // in_LibrarySearchPath
+										&lib_handle );
 
-    // We'll need a pipeline to run service functions
-    result = COIPipelineCreate(pDevServiceComm->m_process, NULL, NULL, &pDevServiceComm->m_pipe);
-    assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
+					assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
+							&& "Cannot load device DLL" );
+					if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+					{
+						break;
+					}
+				}
+			}
+		}
+		if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+		{
+			break;
+		}
+		result = COI_SUCCESS;
 
-	// Get list of entry points
-    result = COIProcessGetFunctionHandles(pDevServiceComm->m_process,
-                                          DEVICE_SIDE_FUNCTION_COUNT,
-                                          (const char**)m_device_function_names,
-                                          pDevServiceComm->m_device_functions );
-    assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
+		// We'll need a pipeline to run service functions
+		result = COIPipelineCreate(pDevServiceComm->m_process, NULL, NULL, &pDevServiceComm->m_pipe);
+		assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
+		if (COI_SUCCESS != result)
+		{
+			break;
+		}
 
+		// Get list of entry points
+		result = COIProcessGetFunctionHandles(pDevServiceComm->m_process,
+											  DEVICE_SIDE_FUNCTION_COUNT,
+											  (const char**)m_device_function_names,
+											  pDevServiceComm->m_device_functions );
+		assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
+		if (COI_SUCCESS != result)
+		{
+			break;
+		}
+	}
+	while (0);
+	if (COI_SUCCESS != result)
+	{
+		if (NULL != pDevServiceComm->m_pipe)
+		{
+			COIPipelineDestroy(pDevServiceComm->m_pipe);
+			ATOMIC_ASSIGN(pDevServiceComm->m_pipe, NULL);
+		}
+
+		if (NULL != pDevServiceComm->m_process)
+		{
+			COIProcessDestroy(pDevServiceComm->m_process, -1, false, NULL, NULL);
+			ATOMIC_ASSIGN(pDevServiceComm->m_process, NULL);
+		}
+	}
     // Release the blocked threads that are waiting for me
     pthread_mutex_lock(&pDevServiceComm->m_mutex);
     ATOMIC_ASSIGN( pDevServiceComm->m_initDone, true );

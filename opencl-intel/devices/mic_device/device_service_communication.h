@@ -10,6 +10,8 @@
 
 #include <pthread.h>
 
+#include "cl_device_api.h"
+
 #include <common/COITypes_common.h>
 #include <source/COIPipeline_source.h>
 
@@ -23,12 +25,12 @@ public:
 
     /* Factory which create new DeviceServiceCommunication object and set it to *ppDeviceServiceCom
        The initialization of the device process and pipeline is performed on separate thread.
-       return true if succeeded and false otherwise */
-    static bool deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom);
+       return CL_DEV_SUCCESS if succeeded. */
+    static cl_dev_err_code deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom);
 
     virtual ~DeviceServiceCommunication();
 
-    /* Return the created process.
+    /* Return the created process. (If the creation succeeded, otherwise return NULL)
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work. */
     COIPROCESS getDeviceProcessHandle() const;
 

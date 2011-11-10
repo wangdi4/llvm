@@ -1042,7 +1042,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     TKernelName2Entry::const_iterator kern_it = pEntry->mapName2Kernels.begin();
     TKernelName2Entry::const_iterator kern_it_end = pEntry->mapName2Kernels.end();
 
-    for(unsigned int i=0; kern_it != kern_it_end; ++i, ++it)
+    for(unsigned int i=0; kern_it != kern_it_end; ++i, ++kern_it)
     {
         assert( i < uiNumProgKernels && "TKernelName2Entry changed under the hood?");
         kernels[i] = kernel_entry_2_cl_dev_kernel(kern_it->second);
