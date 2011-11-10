@@ -154,6 +154,37 @@ UseVTune("vtune",
         llvm::cl::desc("Enable VTune support in Volcano."),
         llvm::cl::init(false));
 
+// turn on printing bytecode instructions after
+llvm::cl::list<IRDumpOptions>
+PrintIRAfter("dump-IR-after",
+         llvm::cl::CommaSeparated,
+         llvm::cl::desc("Print IR after specified optimization"),
+         llvm::cl::values(
+         clEnumValN(DUMP_IR_ALL,            "all",          "Print IR after each optimization"),
+         clEnumValN(DUMP_IR_TARGERT_DATA,   "target_data",  "Print IR after target data pass"),
+         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR after vectorizer pass"),
+         clEnumValEnd)
+         );
+
+// turn on printing bytecode instructions before
+llvm::cl::list<IRDumpOptions>
+PrintIRBefore("dump-IR-before",
+         llvm::cl::CommaSeparated,
+         llvm::cl::desc("Print IR before specified optimization"),
+         llvm::cl::values(
+         clEnumValN(DUMP_IR_ALL,            "all",          "Print IR before each optimization"),
+         clEnumValN(DUMP_IR_TARGERT_DATA,   "target_data",  "Print IR before target data pass"),
+         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR before vectorizer pass"),
+         clEnumValEnd)
+         );
+
+llvm::cl::opt<std::string>
+DumpIRDir("dump-IR-dir",
+           llvm::cl::ValueOptional,
+           llvm::cl::desc("The directory for dumping IR files (if dump-IR flags are up, this directory will be used). If '-' direname isn't set, the files will be dumped where SATests.exe is located"),
+           llvm::cl::value_desc("dirname"),
+           llvm::cl::init(""));
+
 // Command line example:
 // SATest.exe -OCL -config=test.cfg
 // WARNING! To run OCL_CPU_DEVICE_BACKEND successfully built-in DLLs and RTLs is needed!

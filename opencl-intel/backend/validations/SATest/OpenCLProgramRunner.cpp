@@ -55,6 +55,13 @@ public:
         m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
+
+        m_DumpIROptionAfter = runConfig.GetValue<const std::vector<IRDumpOptions> * >
+                                (RC_BR_DUMP_IR_AFTER, 0);
+        m_DumpIROptionBefore = runConfig.GetValue<const std::vector<IRDumpOptions> * >
+                                (RC_BR_DUMP_IR_BEFORE, 0);
+
+        m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
     }
 
     bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -82,6 +89,8 @@ public:
             return m_cpu.c_str();
         case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
             return m_cpuFeatures.c_str();
+        case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
+            return m_DumpIRDir.c_str();
         default:
             return defaultValue;
         }
@@ -89,7 +98,22 @@ public:
 
     virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
     {
-        return false;
+        if (Value == NULL)
+        {
+            throw Exception::InvalidArgument("Value is not initialized");
+        }
+        switch(optionId)
+        {
+        case OPTION_IR_DUMPTYPE_AFTER :
+            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionAfter;
+            return true;
+        case OPTION_IR_DUMPTYPE_BEFORE :
+            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionBefore;
+            return true;
+        default:
+            assert(false && "Unknown option");
+            return false;
+        }
     }
 
 private:
@@ -97,6 +121,9 @@ private:
     std::string    m_cpu;
     std::string    m_cpuFeatures;
     bool           m_useVTune;
+    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
+    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
+    std::string m_DumpIRDir;
 };
 
 /**

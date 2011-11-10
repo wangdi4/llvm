@@ -291,6 +291,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
 	Executable.h
 	CPUExecutable.h
 	TypeAlignment.h
+	PrintIRPass.h
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_communicator.h
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_server.h
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debuginfo_utils.h
@@ -339,6 +340,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
 	Executable.cpp
 	CPUExecutable.cpp
 	TypeAlignment.cpp
+	PrintIRPass.cpp
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/ocl_debug_builtins.cpp
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debuginfopass.cpp
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_communicator.cpp

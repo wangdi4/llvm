@@ -34,6 +34,7 @@ File Name:  Optimizer.cpp
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
+#include "PrintIRPass.h"
 
 extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule, const intel::OptimizerConfig* pConfig);
 extern "C" int getVectorizerWidths(llvm::Pass *V, llvm::SmallVectorImpl<int> &Widths);
@@ -68,9 +69,22 @@ Optimizer::Optimizer( Program* pProgram,
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
   bool isDBG = pProgram->GetDebugInfoFlag();
+  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
+  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
+
+  if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
+    m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
+               OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
+  }
+
   
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
+
+  if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
+    m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
+               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
+  }
 
   unsigned int uiOptLevel;
   if (pProgram->GetDisableOpt() || isDBG) {
@@ -99,8 +113,16 @@ Optimizer::Optimizer( Program* pProgram,
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
   
   if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG) {
+    if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
+        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
+               OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
+    }
     m_vectorizerPass = createVectorizerPass(pCompiler->GetRtlModule(), pConfig);
     m_modulePasses.add(m_vectorizerPass);
+    if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
+        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
+               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
+    }
   }
 #ifdef _DEBUG
   m_modulePasses.add(llvm::createVerifierPass());

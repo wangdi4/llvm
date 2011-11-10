@@ -69,6 +69,15 @@ DetailedStat;
 extern llvm::cl::opt<bool>
 UseVTune;
 
+extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
+PrintIRAfter;
+
+extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
+PrintIRBefore;
+
+extern llvm::cl::opt<std::string>
+DumpIRDir;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -83,7 +92,10 @@ namespace Validation
         m_cpuArch(::CPUArch),
         m_cpuFeatures(::CPUFeatures),
         m_optimizedLLVMIRDumpFile(::OptimizedLLVMIRDumpFile),
-        m_transposeSize(::TransposeSize)
+        m_transposeSize(::TransposeSize),
+        m_PrintIRAfter(::PrintIRAfter),
+        m_PrintIRBefore(::PrintIRBefore),
+        m_DumpIRDir(::DumpIRDir)
     {}
 
     template<>
@@ -133,6 +145,8 @@ namespace Validation
             return m_cpuFeatures;
         case RC_BR_DUMP_OPTIMIZED_LLVM_IR :
             return m_optimizedLLVMIRDumpFile;
+        case RC_BR_DUMP_IR_DIR :
+            return m_DumpIRDir;
         default:
             return defaultValue;
         }
@@ -148,6 +162,22 @@ namespace Validation
         default:
             return defaultValue;
         }
+    }
+
+    template<>
+    const std::vector<IRDumpOptions>* BERunOptions::GetValue<const std::vector<IRDumpOptions> * >
+                    (RunConfigurationOption rc, const std::vector<IRDumpOptions>* defaultValue) const
+    {
+        switch(rc)
+        {
+        case RC_BR_DUMP_IR_AFTER :
+            return &m_PrintIRAfter;
+        case RC_BR_DUMP_IR_BEFORE :
+            return &m_PrintIRBefore;
+        default:
+            return defaultValue;
+        }
+        return defaultValue;
     }
 
     void BERunOptions::InitFromCommandLine()
@@ -169,6 +199,9 @@ namespace Validation
         m_useVTune = ::UseVTune;
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
         m_optimizedLLVMIRDumpFile = ::OptimizedLLVMIRDumpFile;
+        m_PrintIRAfter = ::PrintIRAfter;
+        m_PrintIRBefore = ::PrintIRBefore;
+        m_DumpIRDir = ::DumpIRDir;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

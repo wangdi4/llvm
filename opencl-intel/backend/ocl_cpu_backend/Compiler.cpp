@@ -192,7 +192,10 @@ cl_dev_err_code Compiler::BuildProgram(Program* pProgram, const CompilerBuildOpt
         //
         intel::OptimizerConfig optimizerConfig( m_selectedCpuId, 
                                                 m_config.GetTransposeSize(), 
-                                                m_selectedCpuFeatures );
+                                                m_selectedCpuFeatures,
+                                                m_config.GetIRDumpOptionsAfter(),
+                                                m_config.GetIRDumpOptionsBefore(),
+                                                m_config.GetDumpIRDir());
         Optimizer optimizer( pProgram, this, spModule.get(), &optimizerConfig);
         optimizer.Optimize();
         if( optimizer.hasUndefinedExternals() )

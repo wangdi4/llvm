@@ -23,6 +23,7 @@ File Name:  OpenCLRunConfiguration.h
 #include "IRunConfiguration.h"
 #include "llvm/System/DataTypes.h"
 #include <string>
+#include <vector>
 
 namespace Validation
 {
@@ -42,6 +43,9 @@ namespace Validation
         RC_BR_USE_PIN_TRACE_MARKS,
         RC_BR_USE_VTUNE,
         RC_BR_BUILD_ONLY,
+        RC_BR_DUMP_IR_AFTER,
+        RC_BR_DUMP_IR_BEFORE,
+        RC_BR_DUMP_IR_DIR,
 
         // Reference runner specific options
         RC_REF_USE_NEAT,
@@ -77,6 +81,9 @@ namespace Validation
         std::string m_cpuFeatures;
         std::string m_optimizedLLVMIRDumpFile;
         Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
+        std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRAfter;
+        std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRBefore;
+        std::string m_DumpIRDir;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
@@ -85,6 +92,9 @@ namespace Validation
     template<> Intel::OpenCL::DeviceBackend::ETransposeSize 
         BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc, 
         Intel::OpenCL::DeviceBackend::ETransposeSize defaultValue) const;
+    template<> const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>*
+        BERunOptions::GetValue<const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> * >
+        (RunConfigurationOption rc, const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>* defaultValue) const;
 
     class ComparatorRunOptions : public IRunComponentConfiguration
     {
