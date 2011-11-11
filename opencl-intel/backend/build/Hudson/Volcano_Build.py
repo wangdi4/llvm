@@ -1,4 +1,4 @@
-import os,sys,platform,errno,shutil
+import os,sys,platform,errno,shutil,re
 from Volcano_Tasks import BINARIES_ARCH_NAME, UnarchiverTask
 from optparse import OptionParser
 from Volcano_CmdUtils import CommandLineTool
@@ -203,6 +203,35 @@ class DirCleanup(VolcanoTestTask):
         shutil.rmtree(self.dir_name, ignore_errors=True)
         return(True, "")
 
+class FixCSharpProject(VolcanoTestTask):
+    """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""
+    def __init__(self, name, config, sln_name, prj_name):
+        VolcanoTestTask.__init__(self, name)
+        self.config   = config
+        self.sln_name = sln_name
+        self.prj_name = prj_name
+    
+    def runTest(self, observer, config):
+        tmpfile_name = self.sln_name + '.tmp'
+        oldfile_name = self.sln_name + '.orig'
+        CXX_UUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
+        C_SHARP_UUID = '{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}'
+
+        with open(self.sln_name, 'r') as f:
+            with open(tmpfile_name, 'w') as tmpfile:
+                pattern = re.compile('^Project.+"' + self.prj_name + '".+')
+                for line in f:
+                    if pattern.search(line):
+                        line = re.sub(CXX_UUID,C_SHARP_UUID,line)
+                    tmpfile.write(line)
+
+        if os.path.isfile( oldfile_name ):
+            os.remove(oldfile_name)
+
+        os.rename( self.sln_name, oldfile_name )
+        os.rename( tmpfile_name, self.sln_name )
+        return(True, "")
+            
 class VolcanoBuilderConfig:
     CFG_NAME = "BuildConfig"
     def __init__(self,  volcano_only    = False, 
@@ -240,6 +269,13 @@ class VolcanoBuilder(VolcanoTestSuite):
             self.addTask(VolcanoCMakeBuilder('CMake(Volcano)', config), stop_on_failure=True)
         else:
             self.addTask(OCLCMakeBuilder('CMake(OCL)', config), stop_on_failure=True)
+            if config.target_os == 'Windows':
+                if( build_config.cmake_config.include_java ):
+                    self.addTask(FixCSharpProject('FixC#(Java)', config, os.path.join(config.solution_dir, DEFAULT_OCL_SOLUTION), 'iocgui'),stop_on_failure=True)
+
+                if( build_config.cmake_config.include_dbg ):
+                    self.addTask(FixCSharpProject('FixC#(DbgEng)', config, os.path.join(config.solution_dir, DEFAULT_OCL_SOLUTION), 'OCLDebugEngine'),stop_on_failure=True)
+                    self.addTask(FixCSharpProject('FixC#(DbgCfg)', config, os.path.join(config.solution_dir, DEFAULT_OCL_SOLUTION), 'OCLDebugConfigPackage'),stop_on_failure=True)
             
         if config.target_os == 'Windows':
             self.addTask(VSProjectBuilder('VSBuild', config, build_config.solution_name, build_config.cmake_config.vc_version, rebuild), stop_on_failure=True, skiplist=skiplist)
