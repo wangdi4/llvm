@@ -181,6 +181,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../cl_api
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../arch_headers
                 )
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
@@ -203,6 +204,7 @@ configure_file(${DEVICE_ARCHIVER_SCRIPT} ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT} @O
 
 set(TARGET_SOURCES
     MICDeviceServiceFactory.cpp
+    ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
     ../ocl_cpu_backend/ExecutionService.cpp
     ../ocl_cpu_backend/MICExecutionService.cpp
     ../ocl_cpu_backend/MICSerializationService.cpp
@@ -217,7 +219,6 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/MICJITContainer.cpp
     ../ocl_cpu_backend/TypeAlignment.cpp
     ../ocl_cpu_backend/Binary.cpp
-    ../ocl_cpu_backend/MICBinary.cpp
     ../ocl_cpu_backend/ImplicitArgsUtils.cpp
     ../ocl_cpu_backend/Executable.cpp
     ../ocl_cpu_backend/MICExecutable.cpp

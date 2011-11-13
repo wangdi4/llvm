@@ -18,6 +18,8 @@ File Name:  MICKernel.cpp
 
 #include "MICKernel.h"
 #include "MICJITContainer.h"
+#include "IAbstractBackendFactory.h"
+#include "MICSerializationService.h"
 #include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -87,7 +89,7 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
     if(NULL != m_pProps)
     {
-        m_pProps = new MICKernelProperties();
+        m_pProps = static_cast<MICKernelProperties*>(stats->GetBackendFactory()->CreateKernelProperties()); 
         static_cast<MICKernelProperties*>(m_pProps)->Deserialize(ist, stats);
     }
 

@@ -34,12 +34,6 @@ public:
     virtual cl_dev_err_code GetTargetMachineDescription(
         void* pTargetDescription, 
         size_t descriptionSize) const;
-    
-    virtual Binary* CreateBinaryImp(const Kernel* pKernelImpl,
-        const KernelProperties* pKernelProps,
-        cl_work_description_type* workSizes,
-        void* pContext,
-        size_t contextSize) const;
 };
 
 }}}

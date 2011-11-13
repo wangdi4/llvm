@@ -20,26 +20,13 @@ File Name:  CPUExecutionService.cpp
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "Binary.h"
-#include "CPUBinary.h"
+#include "CPUDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUExecutionService::CPUExecutionService()
-{}
-
-Binary* CPUExecutionService::CreateBinaryImp(const Kernel* pKernelImpl,
-    const KernelProperties* pKernelProps,
-    cl_work_description_type* workSizes,
-    void* pContext,
-    size_t contextSize) const
 {
-    return new CPUBinary( pKernelProps,
-                *pKernelImpl->GetKernelParamsVector(),
-                workSizes,
-                pKernelImpl->GetKernelJIT(0),
-                pKernelImpl->GetKernelJITCount() > 1 ? pKernelImpl->GetKernelJIT(1) : NULL,
-                (char*)pContext,
-                contextSize);
+    m_pBackendFactory = CPUDeviceBackendFactory::GetInstance(); 
 }
 
 }}}

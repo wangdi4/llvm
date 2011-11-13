@@ -220,8 +220,8 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 
 }
 
-CPUCompiler::CPUCompiler(const CompilerConfig& config):
-    Compiler(config),
+CPUCompiler::CPUCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
+    Compiler(pBackendFactory, config),
     m_pBuiltinModule(NULL),
     m_pExecEngine(NULL)
 {
@@ -316,8 +316,8 @@ Kernel* CPUCompiler::CreateKernel(llvm::Function* pFunc, const std::string& func
     // TODO : consider separating into a different analisys pass
     CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, args, arguments);
 
-    return new Kernel( funcName, arguments, pProps );
-        }
+    return m_pBackendFactory->CreateKernel( funcName, arguments, pProps ); 
+}
 
 size_t CPUCompiler::ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc)
 {
@@ -434,7 +434,7 @@ KernelJITProperties* CPUCompiler::CreateKernelJITProperties(llvm::Module* pModul
     }
 
 
-    KernelJITProperties* pProps = new KernelJITProperties();
+    KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
     pProps->SetUseVTune(m_config.GetUseVTune());
     pProps->SetVTuneId(uiVTuneId);
     pProps->SetStackSize(stackSize);

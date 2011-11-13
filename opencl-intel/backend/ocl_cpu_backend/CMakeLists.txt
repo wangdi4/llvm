@@ -252,6 +252,9 @@ set (OCL_UTILS_SOURCE_FILES
 # Create target project
 	
 set (OCL_CPU_BACKEND_INCLUDE_FILES
+	IAbstractBackendFactory.h
+	CPUDeviceBackendFactory.h
+	MICDeviceBackendFactory.h
 	${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
 	exceptions.h
 	Logger.h
@@ -287,9 +290,9 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
 	CPUJITContainer.h
 	MICJITContainer.h
 	Binary.h
-	CPUBinary.h
 	Executable.h
 	CPUExecutable.h
+	MICExecutable.h
 	TypeAlignment.h
 	PrintIRPass.h
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_communicator.h
@@ -300,6 +303,8 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
+	CPUDeviceBackendFactory.cpp
+	MICDeviceBackendFactory.cpp
 	builtin_functions.cpp
 	dllmain.cpp
 	InstToFuncCall.cpp
@@ -336,9 +341,9 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
 	MICJITContainer.cpp
 	ModuleJITHolder.cpp
 	Binary.cpp
-	CPUBinary.cpp
 	Executable.cpp
 	CPUExecutable.cpp
+	MICExecutable.cpp
 	TypeAlignment.cpp
 	PrintIRPass.cpp
     ${OCL_CPU_BACKEND_DIR}/ocl_debugger/ocl_debug_builtins.cpp

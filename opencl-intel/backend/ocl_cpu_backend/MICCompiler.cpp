@@ -103,8 +103,8 @@ void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
     m_selectedCpuFeatures = 0;
 }
 
-MICCompiler::MICCompiler(const CompilerConfig& config):
-    Compiler(config),
+MICCompiler::MICCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
+    Compiler(pBackendFactory, config),
     m_pBuiltinModule(NULL),
     m_pCGEngine(NULL)
 {
@@ -160,8 +160,8 @@ MICKernel* MICCompiler::CreateKernel(llvm::Function* pFunc, const std::string& f
     // TODO : consider separating into a different analisys pass
     CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, args, arguments);
 
-    return new MICKernel( funcName, arguments, pProps );
-        }
+    return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps )); 
+}
 
 MICKernelJITProperties* MICCompiler::CreateKernelJITProperties(llvm::Module* pModule, 
                                                          llvm::Function* pFunc,
@@ -237,7 +237,7 @@ MICKernelJITProperties* MICCompiler::CreateKernelJITProperties(llvm::Module* pMo
     }
 
 
-    MICKernelJITProperties* pProps = new MICKernelJITProperties();
+    MICKernelJITProperties* pProps = static_cast<MICKernelJITProperties*>(m_pBackendFactory->CreateKernelJITProperties());
     pProps->SetUseVTune(m_config.GetUseVTune());
     pProps->SetVTuneId(uiVTuneId);
     pProps->SetStackSize(stackSize);
@@ -283,16 +283,13 @@ KernelSet* MICCompiler::CreateKernels( const Program* pProgram,
         }
 
         // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram, elt, kernelsInfo[pFunc]));
+        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, elt, kernelsInfo[pFunc]));
         std::auto_ptr<MICKernelJITProperties> spKernelJITProps( CreateKernelJITProperties( pModule,
                                                                                         pWrapperFunc,
                                                                                         kernelsInfo[pFunc]));
 
         // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-        spKernelProps->SetPrivateMemorySize(ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize)));
-
-        std::auto_ptr<KernelProperties> spMICKernelProps(new MICKernelProperties(spKernelProps.get()));
-        spKernelProps.reset();
+        spMICKernelProps->SetPrivateMemorySize(ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize)));
 
         // Create a kernel 
         std::auto_ptr<MICKernel>           spKernel( CreateKernel( pFunc, 

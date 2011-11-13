@@ -25,6 +25,7 @@ File Name:  Binary.h
 #include "cpu_dev_limits.h"
 #include "ExplicitLocalMemArgument.h"
 #include "TypeAlignment.h"
+#include "IAbstractBackendFactory.h"
 
 namespace llvm {
     class Module;
@@ -50,7 +51,8 @@ struct sWorkInfo
 class Binary: public ICLDevBackendBinary_
 {
 public:
-    Binary( const KernelProperties* pKernelProperties,
+    Binary( IAbstractBackendFactory* pBackendFactory, 
+            const KernelProperties* pKernelProperties,
             const std::vector<cl_kernel_argument>& args,
             const cl_work_description_type* pWorkInfo,
             const IKernelJITContainer* pScalarJIT,
@@ -94,7 +96,8 @@ public:
     size_t GetImplicitLocalMemoryBufferSize() const {return m_totalImplSize;}
     
 protected:
-    virtual Executable* CreateExecutableImp(Binary* pBinary) const = 0;
+    // pointer to the Backend Factory, not owned by this class
+    IAbstractBackendFactory* m_pBackendFactory; 
 
 private:
     void InitWorkInfo(const cl_work_description_type* pWorkInfo);

@@ -32,7 +32,6 @@ public:
     virtual ~CPUCompileService() { }
 
     Compiler* GetCompiler() { return &m_compiler; }
-    Program*  CreateEmptyProgram();
 
 private:
     CPUCompiler m_compiler;

@@ -27,11 +27,6 @@ class CPUExecutionService: public ExecutionService
 {
 public:
     CPUExecutionService();
-    virtual Binary* CreateBinaryImp(const Kernel* pKernelImpl,
-        const KernelProperties* pKernelProps,
-        cl_work_description_type* workSizes,
-        void* pContext,
-        size_t contextSize) const;
 };
 
 }}}

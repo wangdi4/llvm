@@ -20,12 +20,14 @@ File Name:  MICExecutionService.cpp
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "Binary.h"
-#include "MICBinary.h"
+#include "MICDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICExecutionService::MICExecutionService()
-{}
+{
+    m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
+}
 
 size_t MICExecutionService::GetTargetMachineDescriptionSize() const
 {
@@ -43,21 +45,6 @@ cl_dev_err_code MICExecutionService::GetTargetMachineDescription(
     ((char*)pTargetDescription)[1] = 'N';
     ((char*)pTargetDescription)[2] = 'F';
     return CL_DEV_SUCCESS;
-}
-
-Binary* MICExecutionService::CreateBinaryImp(const Kernel* pKernelImpl,
-    const KernelProperties* pKernelProps,
-    cl_work_description_type* workSizes,
-    void* pContext,
-    size_t contextSize) const
-{
-    return new MICBinary( pKernelProps,
-                *pKernelImpl->GetKernelParamsVector(),
-                workSizes,
-                pKernelImpl->GetKernelJIT(0),
-                pKernelImpl->GetKernelJITCount() > 1 ? pKernelImpl->GetKernelJIT(1) : NULL,
-                (char*)pContext,
-                contextSize);
 }
 
 }}}

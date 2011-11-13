@@ -19,6 +19,7 @@ File Name:  MICSerializationService.h
 #define __SERIALIZATION_SERVICE
 
 #include "cl_dev_backend_api.h"
+#include "IAbstractBackendFactory.h"
 #include <map>
 #include <string>
 
@@ -34,9 +35,13 @@ public:
     
     void SetJITAllocator(ICLDevBackendJITAllocator* pJITAllocator);
     ICLDevBackendJITAllocator* GetJITAllocator();
+
+    void SetBackendFactory(IAbstractBackendFactory* pBackendFactory);
+    IAbstractBackendFactory* GetBackendFactory();
     
 private:
     ICLDevBackendJITAllocator* m_pJITAllocator;
+    IAbstractBackendFactory* m_pBackendFactory;
     
     std::map<std::string, void*> m_marksMap;
 };
@@ -83,6 +88,7 @@ public:
 private:
     // pointer to the JIT memory allocator\cleaner, not owned by this class
     ICLDevBackendJITAllocator* m_pJITAllocator;
+    IAbstractBackendFactory* m_pBackendFactory;
 };
 
 }}} // namespace

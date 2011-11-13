@@ -46,11 +46,14 @@ cl_dev_err_code ExecutionService::CreateBinary(
 
         pKernelImpl->CreateWorkDescription( pWorkDescription, workSizes);
         
-        *ppBinary = CreateBinaryImp(pKernelImpl,
-                                    pKernelProps,
-                                    &workSizes,
-                                    pContext,
-                                    contextSize);
+        *ppBinary = m_pBackendFactory->CreateBinary(
+                                        pKernelProps,
+                                        *pKernelImpl->GetKernelParamsVector(),
+                                        &workSizes,
+                                        pKernelImpl->GetKernelJIT(0),
+                                        pKernelImpl->GetKernelJITCount() > 1 ? pKernelImpl->GetKernelJIT(1) : NULL,
+                                        (char*)pContext,
+                                        contextSize);
             
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin manager

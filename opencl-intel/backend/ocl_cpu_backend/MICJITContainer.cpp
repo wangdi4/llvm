@@ -20,6 +20,7 @@ File Name:  MICJITContainer.cpp
 #include "MICKernelProperties.h"
 #include "Serializer.h"
 #include "MICSerializationService.h"
+#include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -64,7 +65,7 @@ void MICJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
     if(NULL != m_pProps)
     {
-        m_pProps = new MICKernelJITProperties();
+        m_pProps =  static_cast<MICKernelJITProperties*>(stats->GetBackendFactory()->CreateKernelJITProperties());
         static_cast<MICKernelJITProperties*>(m_pProps)->Deserialize(ist, stats);
     }
 

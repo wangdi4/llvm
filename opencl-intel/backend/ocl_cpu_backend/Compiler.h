@@ -27,6 +27,7 @@ File Name:  Compiler.h
 #include "Optimizer.h"
 #include "CompilationUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#include "IAbstractBackendFactory.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -92,7 +93,7 @@ public:
     /**
      * Ctor
      */
-    Compiler(const CompilerConfig& pConfig);
+    Compiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
     ~Compiler();
 
 public:
@@ -142,6 +143,9 @@ protected:
     Intel::ECPU            m_selectedCpuId;
     unsigned int           m_selectedCpuFeatures;
     std::vector<std::string> m_forcedCpuFeatures;
+
+    // pointer to the containers factory (not owned by this class)
+    IAbstractBackendFactory* m_pBackendFactory; 
 };
 
 }}}

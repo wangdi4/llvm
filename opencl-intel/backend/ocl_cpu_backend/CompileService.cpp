@@ -36,7 +36,7 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
 {
     try
     {
-        std::auto_ptr<Program> spProgram(CreateEmptyProgram());
+        std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
         BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
         spProgram->SetBitCodeContainer(bitCodeContainer);
         *ppProgram = spProgram.release();

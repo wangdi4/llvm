@@ -18,6 +18,8 @@ File Name:  MICProgram.cpp
 #include "MICProgram.h"
 #include "MICKernel.h"
 #include "MICSerializationService.h"
+#include "IAbstractBackendFactory.h"
+#include "MICSerializationService.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -102,7 +104,7 @@ void MICProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
         Serializer::DeserialPointerHint((void**)(&currentKernel), ist); 
         if(NULL != currentKernel)
         {
-            currentKernel = new MICKernel();
+            currentKernel = static_cast<MICKernel*>(stats->GetBackendFactory()->CreateKernel());
             currentKernel->Deserialize(ist, stats);
         }
         m_kernels->AddKernel(currentKernel);

@@ -58,7 +58,7 @@ public:
     /**
      * Ctor
      */
-    CPUCompiler(const CompilerConfig& pConfig);
+    CPUCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
     ~CPUCompiler();
 
     /**

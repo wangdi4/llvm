@@ -161,9 +161,10 @@ void Compiler::Terminate()
     llvm::llvm_shutdown();
 }
 
-Compiler::Compiler(const CompilerConfig& config):
+Compiler::Compiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
     m_pLLVMContext( new llvm::LLVMContext ),
-    m_config(config)
+    m_config(config),
+    m_pBackendFactory(pBackendFactory)
 {
 }
 
@@ -296,7 +297,7 @@ KernelProperties* Compiler::CreateKernelProperties(const Program* pProgram,
         }
     }
 
-    KernelProperties* pProps = new KernelProperties();
+    KernelProperties* pProps = m_pBackendFactory->CreateKernelProperties();
 
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);

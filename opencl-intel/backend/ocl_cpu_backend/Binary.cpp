@@ -51,13 +51,15 @@ size_t align_to<size_t>(size_t addr, size_t alignment)
 }
 
 
-Binary::Binary(const KernelProperties* pKernelProperties,
+Binary::Binary(IAbstractBackendFactory* pBackendFactory, 
+               const KernelProperties* pKernelProperties,
                const std::vector<cl_kernel_argument>& args,
                const cl_work_description_type* pWorkInfo,
                const IKernelJITContainer* pScalarJIT,
                const IKernelJITContainer* pVectorJIT,
                char* IN pArgsBuffer, 
                size_t IN ArgBuffSize):
+     m_pBackendFactory(pBackendFactory),
      m_pEntryPoint(pScalarJIT->GetJITCode()),
      m_stFormalParamSize(0),
      m_stKernelParamSize(0),
@@ -260,8 +262,8 @@ cl_dev_err_code Binary::CreateExecutable(void* IN *pMemoryBuffers,
     if ( m_bVectorized ) {
       uiWGSizeLocal = uiWGSizeLocal / m_uiVectorWidth;
     }
-    Executable* pExecutable = CreateExecutableImp(this);
-    
+    Executable* pExecutable =  m_pBackendFactory->CreateExecutable(this); 
+
     // Initial the context to be start of the stack frame
     if ( NULL == pExecutable )
     {

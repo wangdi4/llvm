@@ -25,16 +25,14 @@ File Name:  MICCompileService.cpp
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "BitCodeContainer.h"
+#include "MICDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICCompileService::MICCompileService(const CompilerConfig& config)
-:m_compiler(config)
-{}
-
-Program* MICCompileService::CreateEmptyProgram()
+:m_compiler(MICDeviceBackendFactory::GetInstance(), config) 
 {
-    return new MICProgram();
+    m_backendFactory = MICDeviceBackendFactory::GetInstance();
 }
 
 }}}

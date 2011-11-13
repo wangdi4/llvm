@@ -18,6 +18,7 @@ File Name:  main.cpp
 
 #include "cl_device_api.h"
 #include "ICLDevBackendServiceFactory.h"
+#include "MICDeviceBackendFactory.h"
 #include "ICLDevBackendOptions.h"
 #include "MICDeviceServiceFactory.h"
 #include "MICSerializationService.h"
@@ -30,6 +31,7 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
     try
     {
         MICDeviceServiceFactory::Init();
+        MICDeviceBackendFactory::Init();
         DefaultJITMemoryManager::Init();
     }
     catch( std::bad_alloc& )
@@ -41,8 +43,9 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
 
 extern "C" void TerminateDeviceBackend()
 {
-    MICDeviceServiceFactory::Terminate();
     DefaultJITMemoryManager::Terminate();
+    MICDeviceBackendFactory::Terminate();
+    MICDeviceServiceFactory::Terminate();
 }
 
 extern "C" ICLDevBackendServiceFactory* GetDeviceBackendFactory()

@@ -52,7 +52,7 @@ public:
     /**
      * Ctor
      */
-    MICCompiler(const CompilerConfig& pConfig);
+    MICCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
     ~MICCompiler();
 
     /**

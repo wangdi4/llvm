@@ -25,16 +25,14 @@ File Name:  CPUCompileService.cpp
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "BitCodeContainer.h"
+#include "CPUDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUCompileService::CPUCompileService(const CompilerConfig& config)
-:m_compiler(config)
-{}
-
-Program* CPUCompileService::CreateEmptyProgram()
+:m_compiler(CPUDeviceBackendFactory::GetInstance(), config) 
 {
-    return new Program();
+    m_backendFactory = CPUDeviceBackendFactory::GetInstance(); 
 }
 
 }}}

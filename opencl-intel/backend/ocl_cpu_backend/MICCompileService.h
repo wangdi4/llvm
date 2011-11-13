@@ -32,7 +32,6 @@ public:
     virtual ~MICCompileService() { }
 
     Compiler* GetCompiler() { return &m_compiler; }
-    Program*  CreateEmptyProgram();
 
 private:
     MICCompiler m_compiler;

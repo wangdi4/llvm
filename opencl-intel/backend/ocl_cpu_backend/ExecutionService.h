@@ -18,6 +18,7 @@ File Name:  ExecutionService.h
 #pragma once
 
 #include "cl_dev_backend_api.h"
+#include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -107,12 +108,8 @@ public:
     virtual void Release();
     
 protected:
-    virtual Binary* CreateBinaryImp(const Kernel* pKernelImpl,
-        const KernelProperties* pKernelProps,
-        cl_work_description_type* workSizes,
-        void* pContext,
-        size_t contextSize) const = 0;
-        
+    // pointer to the Backend Factory, not owned by this class
+    IAbstractBackendFactory* m_pBackendFactory; 
 };
 
 }}}

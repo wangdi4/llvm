@@ -75,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             const T* elemnt = (const T*)item;
             if (NULL == item)
             {
-                stream.Write((const char*)(length), sizeof(int));
+                stream.Write((const char*)(&length), sizeof(int));
                 return ;
             }
             
@@ -164,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         {
             bool isNullPointer = false;
             DeserialPrimitive<bool>(&isNullPointer, stream);
-            *item = (void*)(isNullPointer ? NULL : !NULL);
+            *item = (void*)(intptr_t)(isNullPointer ? 0 : !0);
         }
 
     };

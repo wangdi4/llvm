@@ -19,11 +19,14 @@ File Name:  MICSerializationService.cpp
 #include "MICSerializationService.h"
 #include "MICProgram.h"
 #include "Serializer.h"
+#include "MICDeviceBackendFactory.h"
 #include <assert.h>
 
 #if defined(__LP64__)
 #include <sys/mman.h>
 #endif
+
+#define PAGE_SIZE 4096 // move this
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -52,22 +55,24 @@ DefaultJITMemoryManager* DefaultJITMemoryManager::GetInstance()
 
 void* DefaultJITMemoryManager::AllocateExecutable(size_t size, size_t alignment)
 {
+    size_t required_size = (size % PAGE_SIZE == 0) ? size : ((size_t)(size/PAGE_SIZE) + 1)*PAGE_SIZE;
+    
     size_t aligned_size = 
-        size +             // required size
+        required_size +    // required size
         (alignment - 1) +  // for alignment 
         sizeof(void*) +    // for the free ptr
         sizeof(size_t);    // to save the original size (for mprotect)
     void* pMem = malloc(aligned_size);
     if(NULL == pMem) return NULL;
     
-    char* pAligned = ((char*)pMem) + aligned_size - size;
+    char* pAligned = ((char*)pMem) + aligned_size - required_size;
     pAligned = (char*)(((size_t)pAligned) & ~(alignment - 1));
     ((void**)pAligned)[-1] = pMem;
     void* pSize = (void*)(((char*)pAligned) - sizeof(void*));
-    ((size_t*)pSize)[-1] = size;
+    ((size_t*)pSize)[-1] = required_size;
     
 #if defined(__LP64__)
-    int ret = mprotect( (void*)pAligned, size, PROT_READ | PROT_WRITE | PROT_EXEC );
+    int ret = mprotect( (void*)pAligned, required_size, PROT_READ | PROT_WRITE | PROT_EXEC );
     if (0 != ret)
     {
         free(pMem);
@@ -177,7 +182,9 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
         m_pJITAllocator = pJITMemManager;
     }
     
+    m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
     assert(m_pJITAllocator && "JIT memory Allocator is null");
+    assert(m_pBackendFactory && "Backend Factory is null");
 }
 
 cl_dev_err_code MICSerializationService::GetSerializationBlobSize(
@@ -215,11 +222,12 @@ cl_dev_err_code MICSerializationService::DeSerializeProgram(
 {
     try
     {
-        InputBufferStream ibs((char*)pBlob, blobSize);
-        *ppProgram = new MICProgram();
-        
         SerializationStatus stats;
         stats.SetJITAllocator(m_pJITAllocator);
+        stats.SetBackendFactory(m_pBackendFactory);
+
+        InputBufferStream ibs((char*)pBlob, blobSize);
+        *ppProgram = stats.GetBackendFactory()->CreateProgram();
         
         static_cast<MICProgram*>(*ppProgram)->Deserialize(ibs, &stats);
 
@@ -240,7 +248,8 @@ void MICSerializationService::Release()
 }
 
 SerializationStatus::SerializationStatus():
-    m_pJITAllocator(NULL)
+    m_pJITAllocator(NULL),
+    m_pBackendFactory(NULL)
     {}
 
 void SerializationStatus::SetPointerMark(const std::string& mark, void* pointer)
@@ -275,6 +284,16 @@ void SerializationStatus::SetJITAllocator(ICLDevBackendJITAllocator* pJITAllocat
 ICLDevBackendJITAllocator* SerializationStatus::GetJITAllocator()
 {
     return m_pJITAllocator;
+}
+
+void SerializationStatus::SetBackendFactory(IAbstractBackendFactory* pBackendFactory)
+{
+    m_pBackendFactory = pBackendFactory;
+}
+
+IAbstractBackendFactory* SerializationStatus::GetBackendFactory()
+{
+    return m_pBackendFactory;
 }
 
 }}} // namespace
