@@ -14,14 +14,22 @@ if (WIN32)
     message( WARNING "MIC native server creation is not supported on Windows yet!")
 else ()
     # Linux
-#    set( TMP_ICC_INSTALL_DIR $ENV{ICC_INSTALL_DIR} )
-#    if (TMP_ICC_INSTALL_DIR)
-#        # if environment ICC_INSTALL_DIR is set
-#        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/bin/compilervars.sh" )
-#    else ()
-#        message( FATAL_ERROR "ICC is not found! Setenv ICC_INSTALL_DIR to point to the ICC with MIC support" )
-#    endif (TMP_ICC_INSTALL_DIR)
-#    unset( TMP_ICC_INSTALL_DIR )
+    set( TMP_ICC_INSTALL_DIR $ENV{ICC_INSTALL_DIR} )
+
+    if (NOT TMP_ICC_INSTALL_DIR)
+        if (EXISTS /opt/intel/composerxe_mic)
+            set( TMP_ICC_INSTALL_DIR /opt/intel/composerxe_mic )
+        endif ()
+    endif (NOT TMP_ICC_INSTALL_DIR)
+
+    if (TMP_ICC_INSTALL_DIR)
+        # if environment ICC_INSTALL_DIR is set
+        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/bin/compilervars.sh" )
+        message("MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
+    else ()
+        message( FATAL_ERROR "ICC is not found! Setenv ICC_INSTALL_DIR to point to the ICC with MIC support" )
+    endif (TMP_ICC_INSTALL_DIR)
+    unset( TMP_ICC_INSTALL_DIR )
 
     set( DEVICE_COMPILER_SCRIPT compile.sh )
     set( DEVICE_LINKER_SCRIPT   link.sh )
@@ -147,17 +155,17 @@ set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 # inlcude path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
-				-I ${CMAKE_CURRENT_SOURCE_DIR}/../
-				-I ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../
+                -I ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${OCL_SOURCE_DIR}/externals/tbb/include
                 -I ${COI_SDK_PATH}/include
                 )
 
-if ( MIC_TESTING_MODE )				
-	list( APPEND MIC_FLAGS
-					-DNDRANGE_UNIT_TEST
-					)
+if ( MIC_TESTING_MODE )
+    list( APPEND MIC_FLAGS
+                -DNDRANGE_UNIT_TEST
+                    )
 endif ( MIC_TESTING_MODE )
 
 # MIC linking flags
