@@ -160,6 +160,7 @@ list( APPEND MIC_FLAGS
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${OCL_SOURCE_DIR}/externals/tbb/include
                 -I ${COI_SDK_PATH}/include
+		-I ${MIC_TBB_HEADERS_PATH}
                 )
 
 if ( MIC_TESTING_MODE )
@@ -167,6 +168,12 @@ if ( MIC_TESTING_MODE )
                 -DNDRANGE_UNIT_TEST
                     )
 endif ( MIC_TESTING_MODE )
+
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    set( TBB_LIBS_TO_LINK tbb_debug )
+else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    set( TBB_LIBS_TO_LINK tbb )
+endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 
 # MIC linking flags
 set( MIC_LINK_FLAGS      )
@@ -176,10 +183,12 @@ list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
                 -L ${BACKEND_SDK_PATH}/lib/Lin64_${INSTALL_SUBDIR}
+		-L ${MIC_TBB_LIB_PATH}
 
                 # libs to link
                 -lcoi_device
                 -lOclDeviceExecutor
+		-l${TBB_LIBS_TO_LINK}
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic
@@ -234,6 +243,9 @@ FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
-install(PROGRAMS ${FILES_TO_COPY} DESTINATION bin)
+install(PROGRAMS ${FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+
+file( GLOB MIC_TBB_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${MIC_TBB_LIB_PATH}/*.so )
+install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 
 

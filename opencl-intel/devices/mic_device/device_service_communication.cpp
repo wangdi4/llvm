@@ -174,7 +174,8 @@ bool DeviceServiceCommunication::runServiceFunction(
 void* DeviceServiceCommunication::initEntryPoint(void* arg)
 {
     COIRESULT result = COI_ERROR;
-    char fileNameBuffer[MAX_PATH] = {0};
+	char nativeDirName[MAX_PATH] = {0};
+	char fileNameBuffer[MAX_PATH] = {0};
     DeviceServiceCommunication* pDevServiceComm = (DeviceServiceCommunication*)arg;
 
     MICSysInfo& info = MICSysInfo::getInstance();
@@ -183,12 +184,12 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
     COIENGINE engine = info.getCOIEngineHandle( pDevServiceComm->m_uiMicId );
 
     // The following call creates a process on the sink.
-    GetModuleDirectory( (char*)fileNameBuffer, sizeof(fileNameBuffer) );
-    STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), MIC_NATIVE_SERVER_EXE );
+    GetModuleDirectory( (char*)nativeDirName, sizeof(nativeDirName) );
+    STRCAT_S((char*)nativeDirName, sizeof(nativeDirName), MIC_NATIVE_SUBDIR_NAME );
 
-	char tBuff[PATH_MAX];
-    GetModulePathName((void*)(ptrdiff_t)initEntryPoint, tBuff, PATH_MAX-1);
-    const char* device_dir = dirname(tBuff);
+	STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), nativeDirName );
+	STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), "/" );
+	STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), MIC_NATIVE_SERVER_EXE );
 
 	do
 	{
@@ -199,7 +200,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 										 false, NULL,												// duplicate env, additional env vars
 										 MIC_DEV_IO_PROXY_TO_HOST, NULL,							// I/O proxy required + host root
                                          MIC_AVAILABLE_PROCESS_MEMORY(pDevServiceComm->m_uiMicId),  // reserve buffer space
-										 device_dir,												// a path to locate dynamic libraries dependencies for the sink application
+										 nativeDirName,												// a path to locate dynamic libraries dependencies for the sink application
 										 &pDevServiceComm->m_process);
 		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
 		if (COI_SUCCESS != result)
@@ -222,7 +223,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 										pDevServiceComm->m_process,             // in_Process
 										string_arr[i],                          // in_FileName
 										NULL,                                   // in_so-name if not exists in file
-										device_dir,                             // in_LibrarySearchPath
+										nativeDirName,                          // in_LibrarySearchPath
 										&lib_handle );
 
 					assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))

@@ -28,8 +28,12 @@
 
 #include "mic_device_interface.h"
 #include "program_memory_manager.h"
+#include "cl_sys_defines.h"
 
 #include "cl_dev_backend_api.h"
+
+#include <tbb/tbb.h>
+#include <tbb/task.h>
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -144,7 +148,7 @@ protected:
 
 
 
-class TaskInterface
+class TaskInterface : public tbb::task
 {
 public:
 
@@ -152,12 +156,83 @@ public:
 	virtual bool init(TaskHandler* pTaskHandler) = 0;
 
 	/* Run the task */
-	virtual void* execute() = 0;
+	virtual tbb::task* execute() = 0;
 
 	/* Finish the task and exexute post-exe operations.
 	   In regular mode will call from this object "RunTask" method only. 
 	   Call it from other object only in case of error. (In order to execute the post operations) */
 	virtual void finish(TaskHandler* pTaskHandler) = 0;
+
+protected:
+
+	// Is called when the task is going to be called for the first time
+	// within specific thread. uiWorkerId specifies the worker thread id.
+	// Returns CL_DEV_SUCCESS, if attach process succeeded.
+	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
+
+	// Is called when the task will not be executed by the specific thread
+	// uiWorkerId specifies the worker thread id.
+	// Returns CL_DEV_SUCCESS, if detach process succeeded.
+	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) = 0;
+
+	// The function is called with different 'inx' parameters for each iteration number
+	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
+
+
+	struct TaskLoopBody1D {
+		TaskInterface* task;
+		TaskLoopBody1D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range<int>& r) const {
+			size_t firstWGID[1] = {r.begin()}; 
+			size_t lastWGID[1] = {r.end()}; 
+			size_t uiNumberOfWorkGroups = r.size();
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
+					task->executeIteration(k, 0, 0, 0);
+			task->detachFromThread(0);
+		}
+	};
+
+	struct TaskLoopBody2D {
+		TaskInterface* task;
+		TaskLoopBody2D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range2d<int>& r) const {
+            size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
+			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
+				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
+					task->executeIteration(k, j, 0, 0);
+			task->detachFromThread(0);
+		}
+	};
+
+	struct TaskLoopBody3D {
+		TaskInterface* task;
+		TaskLoopBody3D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range3d<int>& r) const {
+            size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
+			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+            for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
+				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
+					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
+						task->executeIteration(k, j, i, 0);
+			task->detachFromThread(0);
+		}
+	};
+
 };
 
 class NDRangeTask : public TaskInterface
@@ -170,13 +245,19 @@ public:
 
 	bool init(TaskHandler* pTaskHandler);
 
-	void* execute();
+	tbb::task* execute();
 
 	void finish(TaskHandler* pTaskHandler);
 
+	cl_dev_err_code attachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+
+	cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
+
+	void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
+
 private:
 
-	// TaskHandler object (Need it as member only due to TBB execute() method signature
+	// TaskHandler object (Need it as member only due to TBB execute() method signature)
 	TaskHandler* m_taskHandler;
 
 	ICLDevBackendKernel_* m_kernel;

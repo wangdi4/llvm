@@ -403,13 +403,12 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 	return true;
 }
 
-void* NDRangeTask::execute()
+tbb::task* NDRangeTask::execute()
 {
 #ifdef NDRANGE_UNIT_TEST
 	foo(m_lockedParams);
 	return finish(m_taskHandler);
 #endif
-	NATIVE_PRINTF("Running task\n");
 
 	uint64_t dim[MAX_WORK_DIM];
 	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
@@ -424,32 +423,29 @@ void* NDRangeTask::execute()
 		dim[i] = 1;
 	}
 
-	WGContext tCtx;
-	// TODO AdirD  - Change the first arg to cmdId
-	cl_dev_err_code ret = tCtx.CreateContext(0, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
-	if ( CL_DEV_FAILED(ret) )
+	if (1 == pWorkDesc->workDimension)
 	{
-		NATIVE_PRINTF("Failed to create new WG context\n");
-		m_taskHandler->m_miscData->errCode = ret;
-		finish(m_taskHandler);
-		return NULL;
+		assert(dim[0] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskInterface::TaskLoopBody1D(this), tbb::auto_partitioner());
 	}
-	tCtx.GetExecutable()->PrepareThread();
-
-    ICLDevBackendExecutable_* pExec = tCtx.GetExecutable();
-    // Execute WG
-    size_t groupId[MAX_WORK_DIM] = {0, 0, 0};
-    for (; groupId[2] < dim[2]; ++groupId[2])
-    {
-        for (; groupId[1] < dim[1]; ++groupId[1])
-        {
-            for (; groupId[0] < dim[0]; ++groupId[0])
-            {
-                pExec->Execute(groupId, NULL, NULL);
-            }
-        }
-    }
-    tCtx.GetExecutable()->RestoreThreadState();
+	else if (2 == pWorkDesc->workDimension)
+	{
+		assert(dim[0] <= CL_MAX_INT32);
+		assert(dim[1] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
+													0, (int)dim[0]),
+													TaskInterface::TaskLoopBody2D(this), tbb::auto_partitioner());
+	}
+	else
+	{
+		assert(dim[0] <= CL_MAX_INT32);
+		assert(dim[1] <= CL_MAX_INT32);
+		assert(dim[2] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
+													0, (int)dim[1],
+													0, (int)dim[0]),
+													TaskInterface::TaskLoopBody3D(this), tbb::auto_partitioner());
+	}
 
 	finish(m_taskHandler);
 	return NULL;
@@ -492,5 +488,41 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 	}
 	// Last command, Do NOT call any method of this object after it perform.
 	pTaskHandler->FinishTask(completionBarrier);
+}
+
+
+cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+{
+	//TODO
+	return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
+{
+	//TODO
+	return CL_DEV_SUCCESS;
+}
+
+void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+{
+	WGContext tCtx;
+	// TODO AdirD  - Change the first arg to cmdId
+	cl_dev_err_code ret = tCtx.CreateContext(0, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+	if ( CL_DEV_FAILED(ret) )
+	{
+		NATIVE_PRINTF("Failed to create new WG context\n");
+		m_taskHandler->m_miscData->errCode = ret;
+		finish(m_taskHandler);
+		return;
+	}
+	tCtx.GetExecutable()->PrepareThread();
+
+    ICLDevBackendExecutable_* pExec = tCtx.GetExecutable();
+
+	// Execute WG
+	size_t groupId[MAX_WORK_DIM] = {x, y, z};
+	pExec->Execute(groupId, NULL, NULL);
+
+    tCtx.GetExecutable()->RestoreThreadState();
 }
 

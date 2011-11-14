@@ -36,7 +36,7 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId(0), m_stPrivMemAllocSize(MIC_DEFAULT_WG_SIZE*MIC_DEV_MIN_WI_PRIVATE_SIZE)
+WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMemAllocSize(MIC_DEV_MAX_WG_TOTAL_SIZE)
 {
 	// Create local memory
 	m_pLocalMem = (char*)ALIGNED_MALLOC(MIC_DEV_LCL_MEM_SIZE, MIC_DEV_MAXIMUM_ALIGN);
@@ -89,16 +89,9 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 		pCurrPtr += pBuffSizes[i];
 	}
 
-	// Check allocated size of the private memory, and allocate new if nessesary.
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
-		ALIGNED_FREE(m_pPrivateMem);
-		m_stPrivMemAllocSize = pBuffSizes[count];
-		m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN);
-		if (NULL == m_pPrivateMem)
-		{
 			return CL_DEV_OUT_OF_MEMORY;
-		}
 	}
 
 	pBuffPtr[count] = m_pPrivateMem;

@@ -23,8 +23,18 @@ set( BACKEND_SDK_PATH       ${CMAKE_CURRENT_SOURCE_DIR}/${BACKEND_SDK_PATH_RELAT
 set( MIC_BACKEND_DLL_NAME   OclMicBackEnd)
 set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
+set( MIC_NATIVE_SUBDIR_NAME mic_native )
 
-add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}" )
+set( MIC_TBB_HEADERS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/include )
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    set( MIC_TBB_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/bin/Mic_Debug )
+else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    set( MIC_TBB_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/bin/Mic_Release )
+endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+	
+
+add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}" 
+                 -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
 
 include_directories( BEFORE
                             ${HW_UTILS_HEADERS}

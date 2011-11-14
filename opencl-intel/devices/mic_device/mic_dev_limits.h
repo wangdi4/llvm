@@ -52,6 +52,8 @@
 #define MIC_MAX_LOCAL_ARGS               (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MEM_BASE_ADDR_ALIGN          (MIC_DEV_MAXIMUM_ALIGN*8) // In bits
 #define MIC_MAX_WORK_ITEM_DIMENSIONS     MAX_WORK_DIM
+// Assuming MAX_WORK_DIM == 3
+#define MIC_MAX_WI_DIM_POW_OF_2	(MAX_WORK_DIM+1)
 #define MIC_MAX_WORK_GROUP_SIZE          1024            // Must be power of 2, No API to get max number of fibers
 #define MIC_DEFAULT_WG_SIZE              32
 #define MIC_MIN_ACTUAL_PARAM_SIZE        sizeof(size_t)
@@ -65,6 +67,12 @@
 #define MIC_DEV_MIN_WI_PRIVATE_SIZE      (1024*sizeof(size_t))
 // Maximum memory size that could be allocated for WG execution
 #define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*MIC_MAX_WORK_GROUP_SIZE)
+// Maximum memory size that could be allocated for WG execution. This is the sum of
+// WG Private memory size +
+// Kernel parameters size (twice to cover the hidden parameters) +
+// Local IDs buffer
+#define MIC_DEV_MAX_WG_TOTAL_SIZE		  (MIC_DEV_MAX_WG_PRIVATE_SIZE + (2*MIC_MAX_PARAMETER_SIZE) + \
+  (MIC_MAX_PARAMETER_SIZE * MIC_MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
 
 //The muximum single buffer memory size (in bytes)
 #define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
