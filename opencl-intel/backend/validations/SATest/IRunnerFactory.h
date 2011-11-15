@@ -43,7 +43,7 @@ namespace Validation
     virtual IRunConfiguration* CreateRunConfiguration() = 0;
 
     /// @brief Creates new program runner
-    virtual IProgramRunner* CreateProgramRunner() = 0;
+    virtual IProgramRunner* CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration) = 0;
 
     /// @brief Creates new reference runner
     virtual IProgramRunner* CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration) = 0;

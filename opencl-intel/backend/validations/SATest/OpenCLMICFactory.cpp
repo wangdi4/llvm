@@ -36,9 +36,14 @@ OpenCLMICFactory::~OpenCLMICFactory(void)
 {
 }
 
-IProgram * OpenCLMICFactory::CreateProgram(const string& testFile)
+IProgram * OpenCLMICFactory::CreateProgram(IProgramConfiguration* programConfig,
+                                           IRunConfiguration* pRunConfiguration)
 {
-    return new OpenCLProgram(testFile);
+    OpenCLProgramConfiguration *openCLProgramConfig = static_cast<OpenCLProgramConfiguration*>(programConfig);
+    OpenCLRunConfiguration *runConfig = static_cast<OpenCLRunConfiguration*>(pRunConfiguration);
+    const BERunOptions *beConfig = static_cast<const BERunOptions*>(runConfig->GetBackendRunnerConfiguration());
+    std::string cpuArchitecture = beConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,"");
+    return new OpenCLProgram(openCLProgramConfig, cpuArchitecture);
 }
 
 IProgramConfiguration * OpenCLMICFactory::CreateProgramConfiguration(const string& configFile, const string& baseDir)
@@ -51,9 +56,9 @@ IRunConfiguration * OpenCLMICFactory::CreateRunConfiguration()
     return new OpenCLRunConfiguration();
 }
 
-IProgramRunner * OpenCLMICFactory::CreateProgramRunner()
+IProgramRunner * OpenCLMICFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-    return new OpenCLMICBackendRunner();
+    return new OpenCLMICBackendRunner(pRunConfiguration);
 }
 
 IProgramRunner * OpenCLMICFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)

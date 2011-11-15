@@ -116,6 +116,12 @@ namespace Validation
         /// @brief Set the build time
         void SetBuildTime(const Sample& sample);
 
+        /// @brief Set the program serialization time
+        void SetSerializationTime(const Sample& sample);
+
+        /// @brief Set the program de-serialization time
+        void SetDeserializationTime(const Sample& sample);
+
         /// @brief Add the sample to the sample vector for given kernel
         void SetExecutionTime(const std::string& name, const Sample& sample);
 
@@ -128,6 +134,8 @@ namespace Validation
 
         Samples m_executionSamples;
         SampleVector m_buildSample;
+        SampleVector m_serializationSample;
+        SampleVector m_deserializationSample;
     };
 }
 

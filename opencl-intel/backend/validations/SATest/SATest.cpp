@@ -77,7 +77,7 @@ void SATest::Run(TEST_MODE mode, IRunConfiguration* pRunConfiguration)
 
 void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner(m_factory.CreateProgramRunner());
+    std::auto_ptr<IProgramRunner> spRunner(m_factory.CreateProgramRunner(pRunConfiguration->GetBackendRunnerConfiguration()));
     std::auto_ptr<IRunResultComparator> spComparator(
         m_factory.CreateComparator(m_pProgramConfiguration, pRunConfiguration));
 
@@ -102,7 +102,7 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 
 void SATest::RunPerformance(const IRunComponentConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner());
+    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram,
@@ -121,7 +121,7 @@ void SATest::RunReference(const IRunComponentConfiguration* pRunConfiguration)
 
 void SATest::RunBuildOnly(const IRunComponentConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner());
+    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);

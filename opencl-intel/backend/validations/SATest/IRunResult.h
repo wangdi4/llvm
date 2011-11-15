@@ -39,7 +39,7 @@ namespace Validation
     };
 
     /// @brief Contains information about the execution of the test.
-    /// The information consists of output and performence measurements.
+    /// The information consists of output and performance measurements.
     class IRunResult
     {
     public:
@@ -60,7 +60,6 @@ namespace Validation
         virtual void SetComparatorIgnoreList(const char* kernelName, const std::vector<bool>&) = 0;
 
         /// @brief Returns the count of output buffers
-        /// @return Test output
         virtual size_t GetOutputsCount() const = 0;
 
         /// @brief Returns test execution performance measurements

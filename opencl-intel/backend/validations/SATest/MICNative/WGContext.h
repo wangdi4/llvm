@@ -12,32 +12,29 @@ Copyright (c) Intel Corporation (2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  SATestException.h
+File Name:  WGContext.h
 
 \*****************************************************************************/
-#ifndef SATest_EXCEPTION_H
-#define SATest_EXCEPTION_H
 
-#include "Exception.h"
+#pragma once
 
-namespace Validation { namespace Exception {
-    /// Exception for reporting test comparison failure
-    DEFINE_VALIDATION_EXCEPTION(TestFailException)
+#include <cl_device_api.h>
+#include <cl_dev_backend_api.h>
+using namespace Intel::OpenCL::DeviceBackend;
 
-    /// Exception for reporting test run process failure
-    DEFINE_VALIDATION_EXCEPTION(TestRunnerException)
+class WGContext
+{
+public:
+    WGContext();
+    virtual ~WGContext();
 
-    /// Exception for reporting reference run process failure
-    DEFINE_VALIDATION_EXCEPTION(TestReferenceRunnerException)
+    cl_dev_err_code CreateContext(ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
+    inline ICLDevBackendExecutable_*    GetExecutable() const {return m_pContext;}
 
-    /// Exception for reporting general failures
-    DEFINE_VALIDATION_EXCEPTION(GeneralException)
+protected:
+    ICLDevBackendExecutable_*   m_pContext;
+    char*                       m_pLocalMem;
+    void*                       m_pPrivateMem;
+    size_t                      m_stPrivMemAllocSize;
+};
 
-    /// Exception for reporting COI library failure
-    DEFINE_VALIDATION_EXCEPTION(COIUsageException)
-
-    /// Exception for reporting back-end failure
-    DEFINE_VALIDATION_EXCEPTION(BackendException)
-}}
-
-#endif // SATest_EXCEPTION_H

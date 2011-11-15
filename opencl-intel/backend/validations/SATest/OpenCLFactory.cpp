@@ -57,7 +57,7 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
     return new OpenCLRunConfiguration();
 }
 
-IProgramRunner * OpenCLFactory::CreateProgramRunner()
+IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
     return new OpenCLProgramRunner();
 }

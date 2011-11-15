@@ -35,11 +35,7 @@ File Name:  Performence.cpp
     #include <sched.h>
 #endif
 
-
-
 using namespace Validation;
-
-
 
 PriorityBooster::PriorityBooster(bool dummy):
     m_dummy(dummy)
@@ -247,6 +243,16 @@ void Performance::SetBuildTime(const Sample& sample)
     m_buildSample.AddSample(sample);
 }
 
+void Performance::SetSerializationTime(const Sample& sample)
+{
+    m_serializationSample.AddSample(sample);
+}
+
+void Performance::SetDeserializationTime(const Sample& sample)
+{
+    m_deserializationSample.AddSample(sample);
+}
+
 void Performance::SetExecutionTime(const std::string& name, const Sample& sample)
 {
     m_executionSamples[name].AddSample(sample);
@@ -272,6 +278,18 @@ void Performance::Print(const std::string& programName) const
     double  buildSD    = m_buildSample.StandardDeviation();
     double  buildSDMean= buildSD / buildMean;
 
+#ifdef MIC_ENABLE
+    cl_long serializationTicks = m_serializationSample.MinimalSample().TotalTicks();
+    double  serializationMean  = m_serializationSample.Mean();
+    double  serializationSD    = m_serializationSample.StandardDeviation();
+    double  serializationSDMean= serializationSD / serializationMean;
+
+    cl_long deserializationTicks = m_deserializationSample.MinimalSample().TotalTicks();
+    double  deserializationMean  = m_deserializationSample.Mean();
+    double  deserializationSD    = m_deserializationSample.StandardDeviation();
+    double  deserializationSDMean= deserializationSD / deserializationMean;
+#endif // MIC_ENABLE
+
     for( Samples::const_iterator it = m_executionSamples.begin();
          it != m_executionSamples.end();
          ++it)
@@ -286,6 +304,12 @@ void Performance::Print(const std::string& programName) const
                   << it->first << ","
                   << buildTicks << ","
                   << buildSDMean << ","
+#ifdef MIC_ENABLE
+                  << serializationTicks << ","
+                  << serializationSDMean << ","
+                  << deserializationTicks << ","
+                  << deserializationSDMean << ","
+#endif //MIC_ENABLE
                   << it->second.MinimalSample().TotalTicks() << ","
                   << sdmean
                   << std::endl;

@@ -20,6 +20,11 @@ File Name:  OpenCLMICBackendRunner.cpp
 #include "ICLDevBackendOptions.h"
 #include "SATestException.h"
 #include "Performance.h"
+#include "BinaryDataReader.h"
+#include "XMLDataReader.h"
+#include "OpenCLRunConfiguration.h"
+
+// TODO: FillIgnoreList and LoadInputBuffer functions must be shared between MICBackendRunner and ProgramRunner.
 
 namespace Validation {
 
@@ -152,22 +157,48 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
 
     /////////////// Execute program ////////////////
 
+    // We need set of COI Buffers for
+    // 1. Test program
+    // 2. Configurations: program configurations and run configurations
+    // 3. Kernel arguments
+
     OpenCLProgramConfiguration *pOCLProgramConfig = static_cast<OpenCLProgramConfiguration *>(programConfig);
 
     ICLDevBackendSerializationServicePtr spSerializationService(NULL);
-    ret = m_pServiceFactory->GetSerializationService(NULL, spSerializationService.getOutPtr());
+    ret = m_pServiceFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create serialization service failed");
     }
 
-    // TODO: Implement
+    m_pMICService->SerializeProgram(spSerializationService.get(), spProgram.get());
+
+    m_pMICService->RunKernels(pOCLRunConfig, pOCLProgramConfig, runResult, spProgram.get());
+
     }
 }
 
 void OpenCLMICBackendRunner::LoadInputBuffer( OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer )
 {
-    // TODO: implement
+    assert( NULL != pKernelConfig);
+
+    switch( pKernelConfig->GetInputFileType())
+    {
+    case Binary:
+        {
+            BinaryContainerListReader reader( pKernelConfig->GetInputFilePath() );
+            reader.Read(pContainer);
+            break;
+        }
+    case Xml:
+        {
+            XMLBufferContainerListReader reader( pKernelConfig->GetInputFilePath() );
+            reader.Read(pContainer);
+            break;
+        }
+    default:
+        throw Exception::TestRunnerException("Unsupported input file type");
+    }
 }
 
 ICLDevBackendProgram_* OpenCLMICBackendRunner::CreateProgram( OpenCLProgram * oclProgram, ICLDevBackendCompilationService* pCompileService )
@@ -213,29 +244,88 @@ void OpenCLMICBackendRunner::BuildProgram( ICLDevBackendProgram_* pProgram,
     }
 }
 
-void OpenCLMICBackendRunner::ExecuteKernel( IBufferContainerList& input,
-                                            IRunResult * runResult,
-                                            ICLDevBackendProgram_* program,
-                                            ICLDevBackendExecutionService* pExecutionService,
-                                            OpenCLKernelConfiguration * oclConfig,
-                                            const BERunOptions* runConfig )
-{
-    // TODO: implement
-}
-
 void OpenCLMICBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const cl_kernel_argument* pKernelArgs, int kernelNumArgs )
 {
-    // TODO: implement
+    ignoreList.resize(kernelNumArgs);
+    // perform pass OpenCL back-end kernel arguments and
+    // mark which arguments to ignore in comparator
+    for(int i=0; i<kernelNumArgs; ++i)
+    {
+
+        //// Defines possible values for kernel argument types
+        //typedef enum _cl_kernel_arg_type
+        //{
+        //    CL_KRNL_ARG_INT		= 0,	// Argument is a signed integer.
+        //    CL_KRNL_ARG_UINT,			// Argument is an unsigned integer.
+        //    CL_KRNL_ARG_FLOAT,			// Argument is a float.
+        //    CL_KRNL_ARG_DOUBLE,			// Argument is a double.
+        //    CL_KRNL_ARG_VECTOR,			// Argument is a vector of basic types, like int8, float4, etc.
+        //    CL_KRNL_ARG_SAMPLER,		// Argument is a sampler object
+        //    CL_KRNL_ARG_PTR_LOCAL,		// Argument is a pointer to array declared in local memory
+        //    //	Memory object types bellow this line
+        //    CL_KRNL_ARG_PTR_GLOBAL,		// Argument is a pointer to array in global memory of various types
+        //    // The array type could be char, short, int, float or double
+        //    // User must pass a handle to a memory buffer for this argument type
+        //    CL_KRNL_ARG_PTR_CONST,		// Argument is a pointer to buffer declared in constant(global) memory
+        //    CL_KRNL_ARG_PTR_IMG_2D,		// Argument is a pointer to 2D image
+        //    CL_KRNL_ARG_PTR_IMG_3D,		// Argument is a pointer to 3D image
+        //    CL_KRNL_ARG_COMPOSITE			// Argument is a user defined struct
+        //} cl_kernel_arg_type;
+
+        switch(pKernelArgs[i].type)
+        {
+        case CL_KRNL_ARG_INT:               // Argument is a signed integer.
+        case CL_KRNL_ARG_UINT:              // Argument is an unsigned integer.
+        case CL_KRNL_ARG_FLOAT:             // Argument is a float.
+        case CL_KRNL_ARG_DOUBLE:            // Argument is a double.
+        case CL_KRNL_ARG_VECTOR:            // Argument is a vector of basic types, like int8, float4, etc.
+            // ignore arguments passed by value
+            ignoreList[i] = true;
+            break;
+        case CL_KRNL_ARG_PTR_LOCAL:
+            // ignore ptr to __local memory
+            ignoreList[i] = true;
+            break;
+        case CL_KRNL_ARG_PTR_GLOBAL:
+            // ptr to __global memory. do not ignore it
+            ignoreList[i] = false;
+            break;
+        case CL_KRNL_ARG_PTR_CONST:        // Argument is a pointer to buffer declared in constant(global) memory
+            // ignore constant buffers
+            ignoreList[i] = true;
+            break;
+        case CL_KRNL_ARG_SAMPLER:
+            // ignore sampler object
+            ignoreList[i] = true;
+            break;
+        case CL_KRNL_ARG_PTR_IMG_2D:        // Argument is a pointer to 2D image
+        case CL_KRNL_ARG_PTR_IMG_3D:        // Argument is a pointer to 3D image
+            // TODO: disable read-only images  are ready
+            ignoreList[i] = false;
+            break;
+        case CL_KRNL_ARG_COMPOSITE:         // Argument is a user defined struct
+            // ignore arguments passed by value
+            ignoreList[i] = true;
+            break;
+        default:
+            throw Exception::InvalidArgument("FillIgnoreList "
+                "Unknown kernel argument type");
+        } // switch(pKernelArgs[i].type)
+    }
 }
 
-OpenCLMICBackendRunner::OpenCLMICBackendRunner()
+OpenCLMICBackendRunner::OpenCLMICBackendRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
+    m_pMICService = new DeviceCommunicationService();
+    m_pMICService->Init(static_cast<const BERunOptions*>(pRunConfiguration));
+
     OpenCLMICBackendWrapper::Init();
     m_pServiceFactory = OpenCLMICBackendWrapper::GetInstance().GetBackendServiceFactory();
 }
 
 OpenCLMICBackendRunner::~OpenCLMICBackendRunner()
 {
+    delete m_pMICService;
     OpenCLMICBackendWrapper::Terminate();
 }
 

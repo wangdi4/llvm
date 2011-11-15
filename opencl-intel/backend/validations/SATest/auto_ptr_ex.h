@@ -148,7 +148,7 @@ namespace Validation {
 
         void reset(_Ty* _Ptr = 0)
         {   // destroy designated object and store new pointer
-            if (_Ptr != _Myptr && NULL != _Myptr)
+            if (_Ptr != _Myptr)
                 _DP::Delete(_Myptr);
             _Myptr = _Ptr;
         }

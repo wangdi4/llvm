@@ -255,6 +255,12 @@ namespace Validation
             return m_includeDirs;
         }
 
+        /// @brief Return number of kernel configurations to run.
+        size_t numberOfKenelConfigurations() const
+        {
+            return m_kernels.size();
+        }
+
     private:
         bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
         ProgramFileType GetProgramFileType(const std::string& strFileType);
@@ -294,7 +300,7 @@ namespace Validation
   };
 
         // For 2 dimensions:
-        // If you devide a picture into smaller squares, say 1024 pixels each
+        // If you divide a picture into smaller squares, say 1024 pixels each
         //   ___________________________
         //  |                           |
         //  |                           |

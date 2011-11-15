@@ -42,7 +42,7 @@ namespace Validation
         virtual IRunConfiguration * CreateRunConfiguration();
 
         /// @brief Creates new OpenCL program runner
-        virtual IProgramRunner * CreateProgramRunner();
+        virtual IProgramRunner * CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration);
 
         /// @brief Creates new OpenCL reference runner
         virtual IProgramRunner * CreateReferenceRunner(const IRunComponentConfiguration*pRunConfiguration);

@@ -22,7 +22,7 @@ File Name:  OpenCLMICBackendWrapper.cpp
 #if defined(_WIN32)
 const char* szOclMICBackendDllName = "OclMICBackEnd.dll";
 #else
-const char* szOclMICBackendDllName = "libOclCpuBackEnd.so";
+const char* szOclMICBackendDllName = "libOclMicBackEnd.so";
 #endif
 
 namespace Validation

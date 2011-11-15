@@ -24,6 +24,7 @@ File Name:  OpenCLMICBackendRunner.h
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLProgram.h"
 #include "OpenCLRunConfiguration.h"
+#include "DeviceCommunicationService.h"
 
 #include "cl_dev_backend_api.h"
 using namespace Intel::OpenCL::DeviceBackend;
@@ -34,13 +35,11 @@ namespace Validation
     typedef auto_ptr_ex<ICLDevBackendCompilationService, ReleaseDP<ICLDevBackendCompilationService> > ICLDevBackendCompileServicePtr;
     typedef auto_ptr_ex<ICLDevBackendSerializationService, ReleaseDP<ICLDevBackendSerializationService> > ICLDevBackendSerializationServicePtr;
     typedef auto_ptr_ex<ICLDevBackendProgram_, ReleaseDP<ICLDevBackendProgram_> > ICLDevBackendProgramPtr;
-    typedef auto_ptr_ex<ICLDevBackendBinary_, ReleaseDP<ICLDevBackendBinary_> > ICLDevBackendBinaryPtr;
-    typedef auto_ptr_ex<ICLDevBackendExecutable_, ReleaseDP<ICLDevBackendExecutable_> > ICLDevBackendExecutablePtr;
 
     class OpenCLMICBackendRunner : public IProgramRunner
     {
     public:
-        OpenCLMICBackendRunner();
+        OpenCLMICBackendRunner(const IRunComponentConfiguration* pRunConfiguration);
         ~OpenCLMICBackendRunner();
 
         /// @brief Builds and executes a single test program
@@ -85,20 +84,6 @@ namespace Validation
                            IRunResult * runResult, 
                            const BERunOptions* runConfig);
 
-        /// @brief Executes OpenCL test kernel (actually executes all the kernels in the given program)
-        /// @param [IN] input  input buffers container
-        /// @param [OUT] runResult This method updates runResult execution time.
-        /// @param [IN] program  back-end program to run the kernels from
-        /// @param [IN] pExecutionService back-end execution service to use for execution
-        /// @param [IN] oclConfig OpenCL configuration of the test run.
-        /// @param [IN] runConfig OpenCL back-end configuration of the test run.
-        void ExecuteKernel(IBufferContainerList& input,
-                           IRunResult * runResult,  
-                           ICLDevBackendProgram_* program,
-                           ICLDevBackendExecutionService* pExecutionService,
-                           OpenCLKernelConfiguration * oclConfig,
-                           const BERunOptions* runConfig);
-
         /// @brief Fills list of marks which arguments to ignore in comparator.
         /// @param [OUT] ignoreList The list of marks which arguments to ignore in comparator.
         /// @param [IN] pKernelArgs Descriptions of kernel's arguments.
@@ -107,6 +92,7 @@ namespace Validation
 
     private:
         ICLDevBackendServiceFactory* m_pServiceFactory;
+        DeviceCommunicationService* m_pMICService;
     };
 }
 

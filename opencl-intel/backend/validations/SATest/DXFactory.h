@@ -47,7 +47,7 @@ namespace Validation
     virtual IRunConfiguration * CreateRunConfiguration();
 
     /// @brief Creates new DX program runner
-    virtual IProgramRunner * CreateProgramRunner();
+    virtual IProgramRunner * CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration);
 
     /// @brief Creates new DX reference runner
     virtual IProgramRunner * CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration);

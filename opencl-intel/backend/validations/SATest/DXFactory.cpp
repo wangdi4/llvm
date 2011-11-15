@@ -52,7 +52,7 @@ IRunConfiguration * DXFactory::CreateRunConfiguration()
   return new DXRunConfiguration();
 }
 
-IProgramRunner * DXFactory::CreateProgramRunner()
+IProgramRunner * DXFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
   return new DXProgramRunner();
 }
