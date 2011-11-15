@@ -147,6 +147,14 @@ double @_Z4acosDv2_f(double)
 
 #define CALL_NORMALIZE(_f) a_out = _f(a_in); a4_out = _f(a4_in);
 
+#define CALL_CROSS(_f) a4_out = _f(a4_in, b4_in);
+
+#define CALL_GEOM_ONEARG(_f) a_out = _f(a_in); a_out = _f(a2_in);\
+                           a_out = _f(a4_in);
+
+#define CALL_GEOM_TWOARG(_f) a_out = _f(a_in,b_in); a_out = _f(a2_in,b2_in);\
+                           a_out = _f(a4_in,b4_in);
+						   
 #define CALL_MIX(_f) a_out = _f(a_in, b_in, c_in); a4_out = _f(a4_in, b4_in, c4_in);\
                      a4_out = _f(a4_in, b4_in, c_in); a8_out = _f(a8_in, b8_in, c_in);\
                      a16_out = _f(a16_in, b16_in, c_in);  a8_out = _f(a8_in, b8_in, c8_in); \
@@ -393,6 +401,12 @@ will be resolved
     CALL_DOT(dot);
     CALL_MIX(mix);
     CALL_NORMALIZE(normalize);
+    CALL_NORMALIZE(fast_normalize);
+    CALL_CROSS(cross);
+    CALL_GEOM_ONEARG(length);
+    CALL_GEOM_ONEARG(fast_length);
+    CALL_GEOM_TWOARG(distance);
+    CALL_GEOM_TWOARG(fast_distance);
 
     CALL_CONVERT(convert_float,int);
     CALL_CONVERT(convert_float,uint);

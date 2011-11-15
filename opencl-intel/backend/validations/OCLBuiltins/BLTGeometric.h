@@ -72,6 +72,65 @@ namespace OCLBuiltins {
         return R;
     }
 
+    template<typename T, int n>
+    llvm::GenericValue lle_X_length(const llvm::FunctionType *FT,
+        const std::vector<llvm::GenericValue> &Args)
+    {
+        llvm::GenericValue R;
+        R.AggregateVal.resize(n);
+        llvm::GenericValue arg0 = Args[0];
+        T len = T(0);
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            len += RefALU::add(len, RefALU::mul(getVal<T,n>(arg0, i), getVal<T,n>(arg0, i)));
+        }
+        getRef<T>(R) = RefALU::sqrt(len);
+        return R;
+    }
+
+
+    template<typename T, int n>
+    llvm::GenericValue lle_X_distance(const llvm::FunctionType *FT,
+        const std::vector<llvm::GenericValue> &Args)
+    {
+        llvm::GenericValue R;
+        R.AggregateVal.resize(n);
+        llvm::GenericValue arg0 = Args[0];
+        llvm::GenericValue arg1 = Args[1];
+        T len = T(0);
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            T d = RefALU::sub(getVal<T,n>(arg0, i), getVal<T,n>(arg1, i));
+            len += RefALU::add(len, RefALU::mul(d,d));
+        }
+        getRef<T>(R) = RefALU::sqrt(len);
+        return R;
+    }
+
+
+    template<typename T, uint32_t n>
+    llvm::GenericValue lle_X_cross(const llvm::FunctionType *FT,
+        const std::vector<llvm::GenericValue> &Args)
+    {
+        llvm::GenericValue R;
+        R.AggregateVal.resize(n);
+        llvm::GenericValue arg0 = Args[0];
+        llvm::GenericValue arg1 = Args[1];
+
+        // outVector[ 0 ] = ( vecA[ 1 ] * vecB[ 2 ] ) - ( vecA[ 2 ] * vecB[ 1 ] );
+        // outVector[ 1 ] = ( vecA[ 2 ] * vecB[ 0 ] ) - ( vecA[ 0 ] * vecB[ 2 ] );
+		// outVector[ 2 ] = ( vecA[ 0 ] * vecB[ 1 ] ) - ( vecA[ 1 ] * vecB[ 0 ] );
+
+        getRef<T,n>(R,0) = ( getVal<T,n>(arg0, 1) * getVal<T,n>(arg1, 2) ) - ( getVal<T,n>(arg0, 2) * getVal<T,n>(arg1, 1) );
+		getRef<T,n>(R,1) = ( getVal<T,n>(arg0, 2) * getVal<T,n>(arg1, 0) ) - ( getVal<T,n>(arg0, 0) * getVal<T,n>(arg1, 2) );
+        getRef<T,n>(R,2) = ( getVal<T,n>(arg0, 0) * getVal<T,n>(arg1, 1) ) - ( getVal<T,n>(arg0, 1) * getVal<T,n>(arg1, 0) );
+
+        if( n == 4)
+            getRef<T,n>(R,2) = T(0);
+
+        return R;
+    }
+
 } // namespace OCLBuiltins
 } // namespace Validation
 

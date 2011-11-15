@@ -123,6 +123,7 @@ namespace Validation
         static const int RSQRT_ERROR = 2;
         static const double DIV_ERROR; // = 2.5f
         static const double NORMALIZE_ERROR; // 2f + 0.5f  error in rsqrt + error in multiply
+        static const int FAST_NORMALIZE_ERROR = 8192;
         static const double MIX_ERROR; // 1.5f
         static const int FABS_ERROR = 0;
         static const int FLOOR_ERROR = 0;
@@ -140,6 +141,7 @@ namespace Validation
         static const int CBRT_ERROR = 2;
         static const int COPYSIGN_ERROR = 0;
         static const int FDIM_ERROR = 0;
+        static const int CROSS_ERROR = 3;
 
         // These values are provided by SVML team and used by back-end compiler.
         static const int NATIVE_RECIP_ERROR = 4990;
@@ -726,7 +728,7 @@ public:
         
         if(maxS > resMax)
         {
-            T lowUlp = DownT(ComputeUlp(maxS));
+            T lowUlp = ComputeUlp(maxS);
             maxS -= lowUlp;
         }
         *maxInOut = maxS;
@@ -751,9 +753,74 @@ public:
             // if we are, reduce result by one ulp, calculated for
             // downcasted value
             T lowUlp = ComputeUlp(minS);
+            minS += lowUlp;        
+        }
+        *minInOut = minS;
+    }
+
+
+    // this function uses refMax and refMin different from maxInOut and minInOut
+    // examples of using: dot, mix
+    template<typename T>
+    static void ExpandFloatInterval(T * minInOut, T * maxInOut, T ref4Ulps, double ulps)
+    {
+        if (ulps <= 0.)
+            return;
+
+        typedef typename downT<T>::type DownT;
+        int n;
+
+        T refMax = *maxInOut;
+        T refMin = *minInOut;
+
+        T ulpMax = ComputeUlp(ref4Ulps); // calc ulp for ref value
+        T ulpMin = ComputeUlp(ref4Ulps); // calc ulp for ref value
+
+        // high limit expand
+        T result = ::frexp (refMax , &n);
+
+        // check if refMax on the boundary of higher exponent
+        if(::fabs(result) == 0.5)
+        {
+            //ulpMax = ComputeUlp(refMax+ulps*ulpMax); // calc ulp for ref value
+            ulpMax /= 2.;
+        }
         
-            minS += lowUlp;
+        T resMax = refMax+ulpMax*((T)ulps); // add ulps to ref
         
+        DownT maxD = (DownT)resMax; // downcast to lower precision
+        
+        T maxS = T(maxD); // conversion to higher precision
+        
+        if(maxS > resMax)
+        {
+            T lowUlp = ComputeUlp(maxS);
+            maxS -= lowUlp;
+        }
+
+        *maxInOut = maxS;
+       
+        // low limit expand
+        result = ::frexp (refMin , &n);
+
+        // check if refMin on the boundary of higher exponent
+        if(::fabs(result) == 0.5)
+        {
+             //ulpMin = ComputeUlp(refMin-ulps*ulpMin); // calc ulp for ref value
+             ulpMin /= 2.;
+        }
+        
+        T resMin = refMin-ulpMin*((T)(ulps)); // add ulps to ref
+        DownT minD = (DownT)resMin; // downcast to lower precision
+        
+        T minS = T(minD); // conversion to higher precision
+        
+        if(minS < resMin)
+        {
+            // if we are, reduce result by one ulp, calculated for
+            // downcasted value     
+            T lowUlp = ComputeUlp(minS);
+            minS += lowUlp;   
         }
         *minInOut = minS;
     }
@@ -4385,11 +4452,11 @@ public:
 
         return NEATALU::select(cond, b, a);
     }
+
     ///////////////////////////////////////////////////////////////////////////////
     ///////////////             Geometric functions            ////////////////////
     ///////////////////////////////////////////////////////////////////////////////
-    // dot, normalize
-
+    // dot
     ///////////////////////////////////////////////////////////////////////////////
     template<typename T>
     static NEATValue dot(const NEATValue& val1, const NEATValue& val2)
@@ -4407,11 +4474,13 @@ public:
 
         if (val1.IsFinite<T>() && val2.IsFinite<T>())
         {
+            NEATValue flushedX = flush<T>(val1);
+            NEATValue flushedY = flush<T>(val2);
             // calculating all the possible combinations for mul
-            vals[0] = RefALU::mul((SuperT)*val1.GetMin<T>(), (SuperT)*val2.GetMax<T>());
-            vals[1] = RefALU::mul((SuperT)*val1.GetMin<T>(), (SuperT)*val2.GetMin<T>());
-            vals[2] = RefALU::mul((SuperT)*val1.GetMax<T>(), (SuperT)*val2.GetMin<T>());
-            vals[3] = RefALU::mul((SuperT)*val1.GetMax<T>(), (SuperT)*val2.GetMax<T>());
+            vals[0] = RefALU::mul((SuperT)*flushedX.GetMin<T>(), (SuperT)*flushedY.GetMax<T>());
+            vals[1] = RefALU::mul((SuperT)*flushedX.GetMin<T>(), (SuperT)*flushedY.GetMin<T>());
+            vals[2] = RefALU::mul((SuperT)*flushedX.GetMax<T>(), (SuperT)*flushedY.GetMin<T>());
+            vals[3] = RefALU::mul((SuperT)*flushedX.GetMax<T>(), (SuperT)*flushedY.GetMax<T>());
 
             Combine(vals, 4, min, max);
 
@@ -4446,11 +4515,13 @@ public:
 
             if (vec1[i].IsFinite<T>() && vec2[i].IsFinite<T>())
             {
+                NEATValue flushedX = flush<T>(vec1[i]);
+                NEATValue flushedY = flush<T>(vec2[i]);
                 // find abs max for max ulp calculation
-                SuperT a0 = RefALU::abs((SuperT)*vec1[i].GetMin<T>());
-                SuperT a1 = RefALU::abs((SuperT)*vec1[i].GetMax<T>());
-                SuperT a2 = RefALU::abs((SuperT)*vec2[i].GetMin<T>());
-                SuperT a3 = RefALU::abs((SuperT)*vec2[i].GetMax<T>());
+                SuperT a0 = RefALU::abs((SuperT)*flushedX.GetMin<T>());
+                SuperT a1 = RefALU::abs((SuperT)*flushedX.GetMax<T>());
+                SuperT a2 = RefALU::abs((SuperT)*flushedY.GetMin<T>());
+                SuperT a3 = RefALU::abs((SuperT)*flushedY.GetMax<T>());
 
                 // TODO: implement RefALU::fmax here ?
                 a0 = (a0 > a1 ? a0 : a1);
@@ -4460,10 +4531,10 @@ public:
                     maxAbs = a0;
 
                 // calculating all the possible combinations for mul
-                vals[0] = RefALU::mul((SuperT)*vec1[i].GetMin<T>(), (SuperT)*vec2[i].GetMax<T>());
-                vals[1] = RefALU::mul((SuperT)*vec1[i].GetMin<T>(), (SuperT)*vec2[i].GetMin<T>());
-                vals[2] = RefALU::mul((SuperT)*vec1[i].GetMax<T>(), (SuperT)*vec2[i].GetMin<T>());
-                vals[3] = RefALU::mul((SuperT)*vec1[i].GetMax<T>(), (SuperT)*vec2[i].GetMax<T>());
+                vals[0] = RefALU::mul((SuperT)*flushedX.GetMin<T>(), (SuperT)*flushedY.GetMax<T>());
+                vals[1] = RefALU::mul((SuperT)*flushedX.GetMin<T>(), (SuperT)*flushedY.GetMin<T>());
+                vals[2] = RefALU::mul((SuperT)*flushedX.GetMax<T>(), (SuperT)*flushedY.GetMin<T>());
+                vals[3] = RefALU::mul((SuperT)*flushedX.GetMax<T>(), (SuperT)*flushedY.GetMax<T>());
 
                 SuperT localMin=SuperT(0), localMax=SuperT(0);
                 Combine(vals, 4, localMin, localMax);
@@ -4479,17 +4550,8 @@ public:
         //ulps is 2*vecSize - 1 (n + n-1 max # of errors)
         SuperT ulps = 2.*SuperT(vec1.GetSize())-1.;
 
-        SuperT result;
-        int n;
         maxAbs = maxAbs*maxAbs;
-        result = ::frexp (maxAbs , &n);
-        SuperT ulpMax = ComputeUlp(maxAbs); // calc ulp for ref value
-        // check if result on the boundary of higher exponent
-        if(::fabs(result) == 0.5)
-            ulpMax /= 2.;
-
-        min = min - ulpMax*ulps;
-        max = max + ulpMax*ulps;
+        ExpandFloatInterval<SuperT>(&min, &max, maxAbs, ulps);
 
         T minD = castDown(min);
         T maxD = castDown(max);
@@ -4501,6 +4563,380 @@ public:
     }
 
 
+    ///////////////////////////////////////////////////////////////////////////////
+    // cross
+    ///////////////////////////////////////////////////////////////////////////////
+    // Returns the cross product of p0.xyz and p1.xyz. float3 and float4 inputs are
+    // possible. The w component of float4 result returned will be 0.0
+    ///////////////////////////////////////////////////////////////////////////////
+    template<typename T>
+    static NEATValue crossOneItem(const NEATValue& in0, const NEATValue& in1, const NEATValue& in2, const NEATValue& in3)
+    {
+        typedef typename superT<T>::type sT;
+        NEATValue res;
+
+        // calculating ulps for each item of resulting vector as like as conformance test does
+        sT vS0 = RefALU::fmax( RefALU::fabs(sT(*in0.GetMax<T>())), RefALU::fabs(sT(*in0.GetMin<T>())));
+        sT vS1 = RefALU::fmax( RefALU::fabs(sT(*in1.GetMax<T>())), RefALU::fabs(sT(*in1.GetMin<T>())));
+        sT vS2 = RefALU::fmax( RefALU::fabs(sT(*in2.GetMax<T>())), RefALU::fabs(sT(*in2.GetMin<T>())));
+        sT vS3 = RefALU::fmax( RefALU::fabs(sT(*in3.GetMax<T>())), RefALU::fabs(sT(*in3.GetMin<T>())));
+
+        sT item4ulp = RefALU::fmax(vS0, RefALU::fmax(vS1, RefALU::fmax(vS2, vS3)));
+        sT ulpsCross = sT(NEATALU::CROSS_ERROR) * sT(ComputeUlp(1.0));
+        sT delta = item4ulp * item4ulp * ulpsCross;
+
+        sT vals[4];
+        sT min0=sT(0), max0=sT(0);
+        sT min1=sT(0), max1=sT(0);
+
+        // res[i] = (vecA[j] * vecB[k]) - (vecA[k] * vecB[j]);
+        NEATValue flushed0 = flush<T>(in0);
+        NEATValue flushed1 = flush<T>(in1);
+        NEATValue flushed2 = flush<T>(in2);
+        NEATValue flushed3 = flush<T>(in3);
+
+        sT minA = sT(*flushed0.GetMin<T>());
+        sT maxA = sT(*flushed0.GetMax<T>());
+        sT minB = sT(*flushed1.GetMin<T>());
+        sT maxB = sT(*flushed1.GetMax<T>());
+
+        // (vecA[j] * vecB[k])
+        vals[0] = RefALU::mul<sT>(minA, maxB);
+        vals[1] = RefALU::mul<sT>(minA, minB);
+        vals[2] = RefALU::mul<sT>(maxA, minB);
+        vals[3] = RefALU::mul<sT>(maxA, maxB);
+        
+        res.SetStatus(Combine(vals, 4, min0, max0));
+
+        if(res.GetStatus() != NEATValue::INTERVAL &&
+           res.GetStatus() != NEATValue::ACCURATE)
+        return res;
+
+        minA = sT(*flushed2.GetMin<T>());
+        maxA = sT(*flushed2.GetMax<T>());
+        minB = sT(*flushed3.GetMin<T>());
+        maxB = sT(*flushed3.GetMax<T>());
+
+        // (vecA[k] * vecB[j])
+        vals[0] = RefALU::mul<sT>(minA, maxB);
+        vals[1] = RefALU::mul<sT>(minA, minB);
+        vals[2] = RefALU::mul<sT>(maxA, minB);
+        vals[3] = RefALU::mul<sT>(maxA, maxB);
+
+        res.SetStatus(Combine(vals, 4, min1, max1));
+
+        if(res.GetStatus() != NEATValue::INTERVAL &&
+           res.GetStatus() != NEATValue::ACCURATE)
+        return res;
+
+        // (vecA[j] * vecB[k]) - (vecA[k] * vecB[j]);
+        sT a = RefALU::neg(max1);
+        max1 = RefALU::neg(min1);
+        min1 = a;
+        vals[0] = RefALU::add(min0, min1);
+        vals[1] = RefALU::add(max0, max1);
+
+        res.SetStatus(Combine(vals, 2, min0, max0));
+
+        if(res.GetStatus() != NEATValue::INTERVAL &&
+           res.GetStatus() != NEATValue::ACCURATE)
+        return res;
+
+        // expand interval
+        min0 -= delta;
+        max0 += delta;
+
+        T minD = castDown(min0);
+        if (min0 > sT(minD)) {
+            minD += ComputeUlp(minD);
+        }
+        T maxD = castDown(max0);
+        if (max0 < sT(maxD)) {
+            maxD -= ComputeUlp(maxD);
+        }
+
+        minD = RefALU::flush<T>(minD);
+        maxD = RefALU::flush<T>(maxD);
+
+        return NEATValue(minD, maxD);
+    }
+
+    template<typename T>
+    static NEATVector cross(const NEATVector& vec1, const NEATVector& vec2)
+    {
+        // float3 and float4 inputs are allowed, vector size is checked by plug-in
+        NEATVector res(vec1.GetWidth());
+
+        // res[0] = (vec1[1] * vec2[2]) - (vec1[2] * vec2[1]);
+        // res[1] = (vec1[2] * vec2[0]) - (vec1[0] * vec2[2]);
+        // res[2] = (vec1[0] * vec2[1]) - (vec1[1] * vec2[0]);
+        // "bad" value of vec1[0] makes res[1] and res[2] "bad",
+        // "bad" value of vec1[1] makes res[0] and res[2] "bad" and so on
+
+        if(CheckAUU(vec1[0]) || vec1[0].IsNaN<T>() || 
+           CheckAUU(vec2[0]) || vec2[0].IsNaN<T>() ) {
+            res[1] = NEATValue(NEATValue::UNKNOWN);
+            res[2] = NEATValue(NEATValue::UNKNOWN);
+        }
+        if(CheckAUU(vec1[1]) || vec1[1].IsNaN<T>() ||
+           CheckAUU(vec2[1]) || vec2[1].IsNaN<T>() ) {
+            res[0] = NEATValue(NEATValue::UNKNOWN);
+            res[2] = NEATValue(NEATValue::UNKNOWN);
+        }
+        if(CheckAUU(vec1[2]) || vec1[2].IsNaN<T>() ||
+           CheckAUU(vec2[2]) || vec2[2].IsNaN<T>() ) {
+            res[0] = NEATValue(NEATValue::UNKNOWN);
+            res[1] = NEATValue(NEATValue::UNKNOWN);
+        }
+        // initially each item of result vector is set to UNWRITTEN. Then it 
+        // can be set to UNKNOWN, but the others items should be calculated.
+        //  so we check if the item set to UNWRITTEN state.
+
+        // out[0] = (vec1[1] * vec2[2]) - (vec1[2] * vec2[1]);
+        if (res[0].IsUnwritten()) {
+            res[0] = crossOneItem<T>(vec1[1], vec2[2], vec1[2], vec2[1]);
+        }
+        // out[1] = (vec1[2] * vec2[0]) - (vec1[0] * vec2[2]);
+        if (res[1].IsUnwritten()) {
+            res[1] = crossOneItem<T>(vec1[2], vec2[0], vec1[0], vec2[2]);
+        }
+        // out[2] = (vec1[0] * vec2[1]) - (vec1[1] * vec2[0]);
+        if (res[2].IsUnwritten()) {
+            res[2] = crossOneItem<T>(vec1[0], vec2[1], vec1[1], vec2[0]);
+        }
+
+        // The w component of float4 result returned will be 0.0
+        if( res.GetWidth() == V4)
+            res[3] = NEATValue(T(0));
+
+        return res;
+    }
+    ///////////////////////////////////////////////////////////////////////////////
+    // length, fast_length
+    ///////////////////////////////////////////////////////////////////////////////
+    template<typename T> 
+    static NEATValue localLength(T inMin, T inMax, double ulps)
+    {
+        T min = RefALU::mul(inMin, inMin);
+        T max = RefALU::mul(inMax, inMax);
+
+        T val[2];
+        val[0] = RefALU::sqrt(min);
+        val[1] = RefALU::sqrt(max);
+
+        return ComputeResult(val, 2, ulps);
+    }
+
+    template<typename T>
+    static NEATValue length(const NEATValue& p)
+    {
+        typedef typename superT<T>::type SuperT;
+        if (p.IsNaN<T>())
+            return NEATValue(NEATValue::NaN<T>());
+
+        if(CheckAUU(p))
+            return NEATValue(NEATValue::UNKNOWN);
+
+        NEATValue flushed = flush<T>(p);
+
+        SuperT min = (SuperT)*flushed.GetMin<T>();
+        SuperT max = (SuperT)*flushed.GetMax<T>();
+
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
+                                         0.25;  // error for multiplications
+
+        return localLength<SuperT>(min, max, maxUlps);
+    }
+
+    template<typename T>
+    static NEATValue fast_length(const NEATValue& p)
+    {
+        typedef typename superT<T>::type SuperT;
+        if (p.IsNaN<T>())
+            return NEATValue(NEATValue::NaN<T>());
+
+        if(CheckAUU(p))
+            return NEATValue(NEATValue::UNKNOWN);
+
+        NEATValue flushed = flush<T>(p);
+
+        SuperT min = (SuperT)*flushed.GetMin<T>();
+        SuperT max = (SuperT)*flushed.GetMax<T>();
+
+        double maxUlps = NEATALU::HALF_SQRT_ERROR +  // error in sqrt
+                                         0.25;       // error for multiplications
+
+        return localLength<SuperT>(min, max, maxUlps);
+    }
+
+    template<typename T> static 
+    NEATValue localLengthVec(const NEATVector& vec1, double ulps)
+    {
+        typedef typename superT<T>::type SuperT;
+
+        for(size_t i=0; i<vec1.GetSize(); i++) {
+            if (vec1[i].IsNaN<T>()) 
+                return NEATValue(NEATValue::NaN<T>());
+
+            if(CheckAUU(vec1[i]))
+                return NEATValue(NEATValue::UNKNOWN);
+        }
+
+        SuperT totalMin=SuperT(0), totalMax=SuperT(0);
+        for(size_t i=0; i<vec1.GetSize(); i++)
+        {
+            NEATValue flushed = flush<T>(vec1[i]);
+
+            SuperT localMin = RefALU::mul<SuperT>((SuperT)*flushed.GetMin<T>(), (SuperT)*flushed.GetMin<T>());
+            SuperT localMax = RefALU::mul<SuperT>((SuperT)*flushed.GetMax<T>(), (SuperT)*flushed.GetMax<T>());
+
+            if(localMin > localMax) std::swap(localMin, localMax);
+
+            // accumulate result - the sum of squares
+            totalMin = RefALU::add<SuperT>(totalMin, localMin);
+            totalMax = RefALU::add<SuperT>(totalMax, localMax);
+        }
+
+        // square root of the sum of squares
+        SuperT val[2];
+        val[0] = RefALU::sqrt<SuperT>(totalMin);
+        val[1] = RefALU::sqrt<SuperT>(totalMax);
+
+        return ComputeResult(val, 2, ulps);
+    }
+
+    template<typename T>
+    static NEATValue length(const NEATVector& vec1)
+    {
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
+        0.5 *                                   // effect on e of taking sqrt( x + e )
+        ( 0.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
+          0.5 * (double) (vec1.GetSize()-1));   // cumulative error for additions
+
+        return localLengthVec<T>(vec1, maxUlps);
+    }
+
+    template<typename T>
+    static NEATValue fast_length(const NEATVector& vec1)
+    {
+        double maxUlps = NEATALU::HALF_SQRT_ERROR +   // error in sqrt
+        0.5 *                                   // effect on e of taking sqrt( x + e )
+        ( 0.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
+          0.5 * (double) (vec1.GetSize()-1));   // cumulative error for additions
+
+        return localLengthVec<T>(vec1, maxUlps);
+    }
+    ///////////////////////////////////////////////////////////////////////////////
+    // distance, fast_distance
+    ///////////////////////////////////////////////////////////////////////////////
+    template<typename T>
+    static NEATValue distance(const NEATValue& p0, const NEATValue& p1)
+    {
+        typedef typename superT<T>::type SuperT;
+        if (p0.IsNaN<T>() || p1.IsNaN<T>())
+            return NEATValue(NEATValue::NaN<T>());
+
+        if(CheckAUU(p0) || CheckAUU(p1))
+            return NEATValue(NEATValue::UNKNOWN);
+
+        NEATValue flushed0 = flush<T>(p0);
+        NEATValue flushed1 = flush<T>(p1);
+
+        SuperT min = RefALU::sub((SuperT)*flushed0.GetMin<T>(),(SuperT)*flushed1.GetMin<T>());
+        SuperT max = RefALU::sub((SuperT)*flushed0.GetMax<T>(),(SuperT)*flushed1.GetMax<T>());
+
+        double maxUlps = NEATALU::SQRT_ERROR + 1.5; // error in sqrt and
+                                                    // cumulative error for multiplication
+
+        return localLength<SuperT>(min, max, maxUlps);
+    }
+
+    template<typename T>
+    static NEATValue fast_distance(const NEATValue& p0, const NEATValue& p1)
+    {
+        typedef typename superT<T>::type SuperT;
+        if (p0.IsNaN<T>() || p1.IsNaN<T>())
+            return NEATValue(NEATValue::NaN<T>());
+
+        if(CheckAUU(p0) || CheckAUU(p1))
+            return NEATValue(NEATValue::UNKNOWN);
+
+        NEATValue flushedX = flush<T>(p0);
+        NEATValue flushedY = flush<T>(p1);
+
+        SuperT min = RefALU::sub((SuperT)*flushedX.GetMin<T>(),(SuperT)*flushedY.GetMin<T>());
+        SuperT max = RefALU::sub((SuperT)*flushedX.GetMax<T>(),(SuperT)*flushedY.GetMax<T>());
+
+        double maxUlps = NEATALU::HALF_SQRT_ERROR + 1.5; // error in sqrt and
+                                                         // cumulative error for multiplication
+
+        return localLength<SuperT>(min, max, maxUlps);
+    }
+
+    template<typename T>
+    static NEATValue localDistanceVec(const NEATVector& vec0, const NEATVector& vec1, double ulps)
+    {
+        typedef typename superT<T>::type SuperT;
+
+        for(size_t i=0; i<vec0.GetSize(); i++) {
+            if (vec0[i].IsNaN<T>() || vec1[i].IsNaN<T>())
+                return NEATValue(NEATValue::NaN<T>());
+
+            if(CheckAUU(vec0[i]) || CheckAUU(vec1[i]))
+                return NEATValue(NEATValue::UNKNOWN);
+        }
+
+        SuperT totalMin=SuperT(0), totalMax=SuperT(0);
+        for(size_t i=0; i<vec1.GetSize(); i++)
+        {
+            NEATValue flushed0 = flush<T>(vec0[i]);
+            NEATValue flushed1 = flush<T>(vec1[i]);
+
+            SuperT localMin = RefALU::sub((SuperT)*flushed0.GetMin<T>(), (SuperT)*flushed1.GetMin<T>());
+            SuperT localMax = RefALU::sub((SuperT)*flushed0.GetMax<T>(), (SuperT)*flushed1.GetMax<T>());
+
+            localMin = RefALU::mul(localMin, localMin);
+            localMax = RefALU::mul(localMax, localMax);
+
+            if(localMin > localMax) std::swap(localMin, localMax);
+
+            // accumulate result - the sum of squares
+            totalMin = RefALU::add(totalMin, localMin);
+            totalMax = RefALU::add(totalMax, localMax);
+        }
+
+        // square root of the sum of squares
+        SuperT val[2];
+        val[0] = RefALU::sqrt(totalMin);
+        val[1] = RefALU::sqrt(totalMax);
+
+        return ComputeResult(val, 2, ulps);
+    }
+
+    template<typename T>
+    static NEATValue distance(const NEATVector& vec0, const NEATVector& vec1)
+    {
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
+        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications  
+                                                // (a-b+0.5ulp)**2 = (a-b)**2 + a*0.5ulp + b*0.5 ulp + 0.5 ulp for multiplication
+         0.5 * (double) (vec1.GetSize()-1));    // cumulative error for additions
+
+        return localDistanceVec<T>(vec0, vec1, maxUlps);
+    }
+
+    template<typename T>
+    static NEATValue fast_distance(const NEATVector& vec0, const NEATVector& vec1)
+    {
+        double maxUlps = NEATALU::HALF_SQRT_ERROR +  // error in sqrt
+        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications  
+                                                // (a-b+0.5ulp)**2 = (a-b)**2 + a*0.5ulp + b*0.5 ulp + 0.5 ulp for multiplication
+         0.5 * (double) (vec1.GetSize()-1));    // cumulative error for additions
+
+        return localDistanceVec<T>(vec0, vec1, maxUlps);
+    }
+    ///////////////////////////////////////////////////////////////////////////////
+    // normalize
+    ///////////////////////////////////////////////////////////////////////////////
     template<typename T>
     static NEATValue normalize(const NEATValue& p)
     {
@@ -4679,6 +5115,158 @@ public:
     }
 
     ///////////////////////////////////////////////////////////////////////////////
+    // fast_normalize
+    ///////////////////////////////////////////////////////////////////////////////
+    template<typename T>
+    static NEATValue fast_normalize(const NEATValue& p)
+    {
+        typedef typename superT<T>::type SuperT;
+
+        NEATValue flushed = flush<T>(p);
+
+        if (flushed.IsNaN<T>())
+        {
+            // the behaviour for NaN is not defined in spec, so process as like as nomalize does
+            return NEATValue(NEATValue::NaN<T>());
+        }
+
+        if(CheckAUU(flushed))
+        {
+            return NEATValue(NEATValue::UNKNOWN);
+        }
+
+        // openCL spec Version: 1.1
+        // 7.5.1 Additional Requirements Beyond C99 TC2
+        // normalize (v) returns v if all elements of v are zero
+        if (*flushed.GetMax<T>() == 0 && *flushed.GetMin<T>() == 0)
+            return flushed;
+
+        SuperT val[4];
+
+        val[0] = RefALU::mul((SuperT)*flushed.GetMin<T>(), (SuperT)*flushed.GetMin<T>());
+        val[1] = RefALU::mul((SuperT)*flushed.GetMax<T>(), (SuperT)*flushed.GetMax<T>());
+
+        SuperT totalMin=SuperT(0), totalMax=SuperT(0);
+        if(flushed.IsInterval() && flushed.Includes<T>(T(0))) {
+            val[2] = SuperT(0);
+            Combine(val, 3, totalMin, totalMax);
+        } else {
+            Combine(val, 2, totalMin, totalMax);
+        }
+
+        // openCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
+        // then the value of the floating-point values in the result vector are undefined.
+        if(totalMin > std::numeric_limits<T>::max() || totalMax > std::numeric_limits<T>::max())
+            return NEATValue(NEATValue::ANY);
+
+        if(flushed.IsAcc()) {
+             val[0] = RefALU::copysign(SuperT(1.0),SuperT(*flushed.GetAcc<T>()));
+             return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
+        } else {
+            if(*flushed.GetMin<T>() > 0) {
+                val[0] = SuperT(1.0);
+                return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
+            }
+            else if(*flushed.GetMax<T>() < 0) {
+                val[0] = SuperT(-1.0);
+                return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
+            }
+            else
+                return NEATValue(NEATValue::UNKNOWN);
+       }
+    }
+
+    template<typename T>
+    static NEATVector fast_normalize(const NEATVector& p)
+    {
+        typedef typename superT<T>::type SuperT;
+
+        NEATVector vec1(p.GetWidth());
+
+        uint32_t cntZero = 0;
+        for(uint32_t i=0; i<vec1.GetSize(); i++) {
+            if (p[i].IsNaN<T>())
+            {
+                // the behaviour for NaN is not defined in spec, so process as like as nomalize does
+                for(uint32_t j=0; j<vec1.GetSize(); j++)
+                    vec1[j] = NEATValue(NEATValue::NaN<T>());
+                return vec1;
+            }
+
+            if(CheckAUU(p[i]))
+            {
+                for(uint32_t j=0; j<vec1.GetSize(); j++)
+                    vec1[j] = NEATValue(NEATValue::UNKNOWN);
+                return vec1;
+            }
+
+            vec1[i] = flush<T>(p[i]);
+            
+            if (*vec1[i].GetMax<T>() == 0 && *vec1[i].GetMin<T>() == 0)
+                cntZero++;
+        }
+
+        // fast_normalize (v) returns v if all elements of v are zero
+        if (cntZero == vec1.GetSize())
+            return vec1;
+
+
+        SuperT totalMin=SuperT(0), totalMax=SuperT(0);
+        // TODO: check what if all low limits or all high limit of vector all zero
+        for(uint32_t i=0; i<vec1.GetSize(); i++)
+        {
+            SuperT localMin=SuperT(0), localMax=SuperT(0);
+            SuperT val[3];
+
+            val[0] = RefALU::mul((SuperT)*vec1[i].GetMin<T>(), (SuperT)*vec1[i].GetMin<T>());
+            val[1] = RefALU::mul((SuperT)*vec1[i].GetMax<T>(), (SuperT)*vec1[i].GetMax<T>());
+
+            if(vec1[i].IsInterval() && vec1[i].Includes<T>(T(0))) {
+                val[2] = SuperT(0);
+                Combine(val, 3, localMin, localMax);
+            } else {
+                Combine(val, 2, localMin, localMax);
+            }
+
+            // accumulate result - the sum of squares
+            totalMin = RefALU::add(totalMin, localMin);
+            totalMax = RefALU::add(totalMax, localMax);
+        }
+
+        // openCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
+        // then the value of the floating-point values in the result vector are undefined.
+        if(totalMin > std::numeric_limits<T>::max() || totalMax > std::numeric_limits<T>::max()) {
+                for(uint32_t j=0; j<vec1.GetSize(); j++)
+                    vec1[j] = NEATValue(NEATValue::ANY);
+                return vec1;
+        }
+
+        // 1 / (square root of the sum of squares)
+        totalMin = RefALU::rsqrt(totalMin);
+        totalMax = RefALU::rsqrt(totalMax);
+
+        float maxUlps = NEATALU::FAST_NORMALIZE_ERROR +  // error in rsqrt + error in multiply
+        ( 0.5f * (float) vec1.GetSize() +      // cumulative error for multiplications
+         0.5f * (float) (vec1.GetSize()-1));   // cumulative error for additions
+
+        for(uint32_t i=0; i<vec1.GetSize(); i++)
+        {
+            SuperT localMin = (SuperT)*vec1[i].GetMin<T>();
+            SuperT localMax = (SuperT)*vec1[i].GetMax<T>();
+            SuperT val[4];
+
+            val[0] = RefALU::mul(localMin, totalMin);
+            val[1] = RefALU::mul(localMin, totalMax);
+            val[2] = RefALU::mul(localMax, totalMin);
+            val[3] = RefALU::mul(localMax, totalMax);
+
+            vec1[i] = ComputeResult(val, 4, maxUlps);
+        }
+
+        return vec1;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
     ///////////////             Common functions               ////////////////////
     ///////////////////////////////////////////////////////////////////////////////
     // Clamp, degrees, min, max, mix, radians, step, smoothstep and sign
@@ -4745,16 +5333,7 @@ public:
                 min = RefALU::add(min, SuperT(*x.GetMin<T>()));
                 max = RefALU::add(max, SuperT(*x.GetMax<T>()));
 
-                SuperT result;
-                int n;
-                result = ::frexp (maxAbs , &n);
-                double ulpMax = ComputeUlp(maxAbs); // calc ulp for ref value
-                // check if result on the boundary of higher exponent
-                if(::fabs(result) == 0.5)
-                    ulpMax /= 2.;
-
-                min = min - ulpMax*NEATALU::MIX_ERROR;
-                max = max + ulpMax*NEATALU::MIX_ERROR;
+                ExpandFloatInterval<SuperT>(&min, &max, maxAbs, NEATALU::MIX_ERROR);
 
                 T minD = castDown(min);
                 T maxD = castDown(max);
@@ -4762,7 +5341,7 @@ public:
                 minD = RefALU::flush<T>(minD);
                 maxD = RefALU::flush<T>(maxD);
 
-                res =  NEATValue(minD, maxD);
+                return NEATValue(minD, maxD);
             }
         }
         return res;
