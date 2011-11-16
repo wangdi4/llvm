@@ -22,7 +22,6 @@
 
 #include "sync_graphics_api_objects.h"
 #include "d3d9_resource.h"
-#include "CL\cl_d3d9.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
@@ -63,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             ocl_entry_points* const pOclEntryPoints, D3D9Resource** const pMemObjects,
             size_t szNumMemObjects, cl_command_type cmdType) :
         SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, pOclEntryPoints,
-            (GraphicsApiMemoryObject**)pMemObjects, cmdType == CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL)
+            (GraphicsApiMemoryObject**)pMemObjects, cmdType == CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL)
         { }
 
         // overridden methods:

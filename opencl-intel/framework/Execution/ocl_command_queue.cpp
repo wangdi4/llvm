@@ -49,7 +49,7 @@ OclCommandQueue::OclCommandQueue(
     cl_command_queue_properties clProperties,
     EventsManager*              pEventsManager,
 	ocl_entry_points *			pOclEntryPoints
-    ):
+    ): OCLObject<_cl_command_queue_int>("OclCommandQueue"),
     m_pContext(pContext),
     m_pEventsManager(pEventsManager),
     m_clDefaultDeviceHandle(clDefaultDeviceID),
@@ -61,7 +61,7 @@ OclCommandQueue::OclCommandQueue(
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
     m_bProfilingEnabled  = ((clProperties & CL_QUEUE_PROFILING_ENABLE) ? true : false );
 	// Add dependency to context
-	m_pContext->AddPendency();
+	m_pContext->AddPendency(this);
     // Set logger
 
 	INIT_LOGGER_CLIENT(L"OclCommandQueue Logger Client",LL_DEBUG);
@@ -86,7 +86,7 @@ OclCommandQueue::~OclCommandQueue()
 	{
 		m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
 	}
-	m_pContext->RemovePendency();
+	m_pContext->RemovePendency(this);
     m_pContext = NULL;
     m_pDefaultDevice = NULL;
 

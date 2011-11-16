@@ -31,7 +31,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-OclEvent::OclEvent() : m_complete(false), m_color(EVENT_STATE_WHITE)
+OclEvent::OclEvent() : OCLObject<_cl_event_int>("OclEvent"), m_complete(false), m_color(EVENT_STATE_WHITE)
 {
 }
 
@@ -47,7 +47,7 @@ void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
 	//Which will decrease the depListLength.
 
 	//BugFix: When command waits for queue event and user event, and user event is set with failure, the second notification will fail
-	AddPendency();	// There is an event that will notify us.
+	AddPendency(this);	// There is an event that will notify us.
 	++m_depListLength;
 	pDependsOnEvent->AddCompleteListener(this);
 }
@@ -62,7 +62,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyLis
 		OclEvent*& evt = pDependencyList[i];
 		if (evt != NULL)
 		{
-			AddPendency(); //BugFix: When command waits for queue event and user event, and user event is set with failure, the second notification will fail
+			AddPendency(this); //BugFix: When command waits for queue event and user event, and user event is set with failure, the second notification will fail
 			evt->AddCompleteListener(this);
 		}
 		else
@@ -123,7 +123,7 @@ cl_err_code OclEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
 		NotifyComplete(returnCode);
 	}
 
-	RemovePendency();
+	RemovePendency(this);
 
 	return CL_SUCCESS;
 }
@@ -191,6 +191,7 @@ void OclEvent::WaitOSEvent()
 	//Creating a manual reset event to prevent a race condition between event completion and waiting on OS event
 	if (m_osEvent.Init())
 	{
+		AddPendency(this);
 		// Adding myself as a listener to my own completion. 
 		// My notification routine (called from the informing thread) will wake up the waiting thread
 		AddCompleteListener(this);

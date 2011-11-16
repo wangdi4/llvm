@@ -32,7 +32,7 @@ namespace CRT_ICD_DISPATCH
     typedef cl_uint cl_d3d9_device_source_intel;
     typedef cl_uint cl_d3d9_device_set_intel;
     
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueAcquireD3D9ObjectsINTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)(
         cl_command_queue            /* command_queue */,
         cl_uint                     /* num_objects */,
         const cl_mem *              /* mem_objects */,
@@ -40,7 +40,7 @@ namespace CRT_ICD_DISPATCH
         const cl_event *            /* event_wait_list */,
         cl_event *                  /* ocl_event */ );
 
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueReleaseD3D9ObjectsINTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)(
         cl_command_queue            /* command_queue */,
         cl_uint                     /* num_objects */,
         const cl_mem *              /* mem_objects */,
@@ -48,7 +48,7 @@ namespace CRT_ICD_DISPATCH
         const cl_event *            /* event_wait_list */,
         cl_event *                  /* ocl_event */ );
 
-    typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateFromD3D9SurfaceINTEL)(
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromDX9MediaSurfaceINTEL)(
         cl_context                  /* context */,
         cl_mem_flags                /* flags */,
         IDirect3DSurface9 *         /* resource */,
@@ -56,7 +56,7 @@ namespace CRT_ICD_DISPATCH
         UINT                        /* plane */,
         cl_int *                    /* errcode_ret */ );
 
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetDeviceIDsFromD3D9INTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromDX9INTEL)(
         cl_platform_id              /* platform */,
         cl_d3d9_device_source_intel /* d3d_device_source */,
         void*                       /* d3d_object */,
@@ -67,10 +67,10 @@ namespace CRT_ICD_DISPATCH
 
     struct CrtKHRicdVendorDispatch: public KHRicdVendorDispatch
     {
-       KHRpfn_clGetKernelArgInfo                    clGetKernelArgInfo;
-       KHRpfn_clGetDeviceIDsFromD3D9INTEL           clGetDeviceIDsFromD3D9INTEL;
-       KHRpfn_clCreateFromD3D9SurfaceINTEL          clCreateFromD3D9SurfaceINTEL;
-       KHRpfn_clEnqueueAcquireD3D9ObjectsINTEL      clEnqueueAcquireD3D9ObjectsINTEL;
-       KHRpfn_clEnqueueReleaseD3D9ObjectsINTEL      clEnqueueReleaseD3D9ObjectsINTEL;
+       KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
+       INTELpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
+       INTELpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
+       INTELpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
+       INTELpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
     };
 };

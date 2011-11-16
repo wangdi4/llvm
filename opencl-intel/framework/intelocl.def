@@ -88,13 +88,8 @@ EXPORTS
 	clReleaseDeviceEXT
 	clRetainDeviceEXT
 	clCreateSubDevicesEXT	
-	clCreateFromD3D9VertexBufferINTEL
-	clCreateFromD3D9IndexBufferINTEL
-	clCreateFromD3D9SurfaceINTEL
-	clCreateFromD3D9TextureINTEL
-	clCreateFromD3D9CubeTextureINTEL
-	clCreateFromD3D9VolumeTextureINTEL
-	clEnqueueAcquireD3D9ObjectsINTEL
-	clEnqueueReleaseD3D9ObjectsINTEL
-	clGetDeviceIDsFromD3D9INTEL
+	clCreateFromDX9MediaSurfaceINTEL	
+	clEnqueueAcquireDX9ObjectsINTEL
+	clEnqueueReleaseDX9ObjectsINTEL
+	clGetDeviceIDsFromDX9INTEL
 	

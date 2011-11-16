@@ -396,6 +396,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_d3d10_device_khr_set = CL_TRUE;
                 break;
+#if defined DX9_MEDIA_SHARING
             case CL_CONTEXT_D3D9_DEVICE_INTEL:
             case CL_CONTEXT_D3D9EX_DEVICE_INTEL:
                 if( cl_d3d9_device_intel_set == CL_TRUE )
@@ -404,13 +405,14 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_d3d9_device_intel_set = CL_TRUE;
                 break;
-            case CL_CONTEXT_DXVA9_DEVICE_INTEL:
+            case CL_CONTEXT_DXVA_DEVICE_INTEL:
                 if( cl_dxva9_device_intel_set == CL_TRUE )
                 {
                     return CL_INVALID_PROPERTY;
                 }
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
+#endif
             default:
                 return CL_INVALID_PROPERTY;
             }
@@ -438,8 +440,8 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
     {
         while (NULL != *p)
         {
-            p++;
-            num_entries++;
+            p += 2;
+            num_entries += 2;
         }
         // We create a new props to be passed to the underlying
         // platform. this is deleted by the calling function.
@@ -464,15 +466,14 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
         case CL_CONTEXT_PLATFORM:
             *clProperties = CL_CONTEXT_PLATFORM;
             *(clProperties+1) = (cl_context_properties)pId;
-            properties+=1;
-            clProperties+=1;
             break;
         default:
             *clProperties = *properties;
+            *(clProperties + 1) = *(properties + 1);
             break;
         }
-        properties+=1;
-        clProperties+=1;
+        properties += 2;
+        clProperties += 2;
     }
     *clProperties = 0;
     return CRT_SUCCESS;

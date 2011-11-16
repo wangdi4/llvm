@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Sampler::Sampler()
+Sampler::Sampler() : OCLObject<_cl_sampler_int>("Sampler")
 {
 	INIT_LOGGER_CLIENT(L"Sampler",LL_DEBUG);
 	
@@ -49,7 +49,7 @@ Sampler::Sampler()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Sampler::~Sampler()
 {
-    m_pContext->RemovePendency();
+    m_pContext->RemovePendency(this);
 	LOG_DEBUG(TEXT("%S"), TEXT("Enter Sampler D'tor"));
 
 	RELEASE_LOGGER_CLIENT;
@@ -63,7 +63,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 	m_pContext = pContext;
 
     // Sign to be dependent on the context, ensure the context will be delated only after the object was
-    m_pContext->AddPendency();
+    m_pContext->AddPendency(this);
 
 
 	// Combine sampler properties

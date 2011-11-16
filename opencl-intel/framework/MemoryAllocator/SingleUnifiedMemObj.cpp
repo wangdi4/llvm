@@ -148,7 +148,7 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 
 	// We assume that the pointer is valid for whole object lifecycle
 	m_pMemObjData = mapRegion.ptr;
-	m_pDeviceObject->clDevMemObjCreateMappedRegion(&mapRegion);
+	m_pDeviceObject->clDevMemObjReleaseMappedRegion(&mapRegion);
 
 	return CL_SUCCESS;
 }

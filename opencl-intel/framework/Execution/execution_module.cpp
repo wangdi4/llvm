@@ -46,8 +46,7 @@
 #include "cl_sys_defines.h"
 
 #include <CL/cl_ext.h>
-#if defined (DX9_SHARING)
-#include <CL/cl_d3d9.h>
+#if defined (DX9_MEDIA_SHARING)
 #include "d3d9_sharing/d3d9_context.h"
 #include "d3d9_sharing/d3d9_resource.h"
 #include "d3d9_sharing/d3d9_sync_d3d9_resources.h"
@@ -2336,7 +2335,6 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		if(CL_FAILED(errVal))
 		{
 			// Enqueue failed, free resources
-			pAcquireCmd->CommandDone();
 			delete pAcquireCmd;
 		}
 	}else
@@ -2375,7 +2373,7 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 	return errVal;
 }
 
-#if defined (DX9_SHARING)
+#if defined (DX9_MEDIA_SHARING)
 cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
                                                  cl_command_type cmdType, cl_uint uiNumObjects,
                                                  const cl_mem *pclMemObjects,
@@ -2423,15 +2421,15 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
         // Check if it's a Direct3D 9 object
         if (NULL != pD3d9Resource)
         {
-            if (CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL == cmdType && pD3d9Resource->IsAcquired())
+            if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == cmdType && pD3d9Resource->IsAcquired())
             {
-                delete[] pclMemObjects;
-                return CL_D3D9_RESOURCE_ALREADY_ACQUIRED_INTEL;
+                delete[] pMemObjects;
+                return CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL;
             }
-            if (CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL == cmdType && !pD3d9Resource->IsAcquired())
+            if (CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType && !pD3d9Resource->IsAcquired())
             {
-                delete[] pclMemObjects;
-                return CL_D3D9_RESOURCE_NOT_ACQUIRED_INTEL;
+                delete[] pMemObjects;
+                return CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL;
             }
             continue;
         }
@@ -2450,12 +2448,20 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
     errVal = pAcquireCmd->Init();
     if (CL_SUCCEEDED(errVal))
     {
-        errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, false, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
         if (CL_FAILED(errVal))
         {
-            // Enqueue failed, free resources
-            pAcquireCmd->CommandDone();
+            // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            
             delete pAcquireCmd;
+        }
+        else
+        {
+            /* set the acquired state here already, so that if clEnqueuAcquire/Release is called
+                after this and the command itself has been executed yet, we still return an error */
+            for (size_t i = 0; i < uiNumObjects; i++)   
+            {
+                pMemObjects[i]->SetAcquired(CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == cmdType);
+            }
         }
     } else
     {

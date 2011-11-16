@@ -9,18 +9,20 @@ include_directories ( BEFORE
 	${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
     )
 
-if (DEFINED ENV{DXSDK_DIR})
+if (WIN32)	
 	include_directories (BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/d3d9_sharing)
-endif (DEFINED ENV{DXSDK_DIR})
 
-if (DEFINED ENV{DXSDK_DIR})
+
+	if( NOT DEFINED ENV{DXSDK_DIR} )
+		message( FATAL_ERROR "DXSDK_DIR environment variable is not set")
+	endif( NOT DEFINED ENV{DXSDK_DIR} )
+
 	if (${BUILD_X64} STREQUAL "ON")
 		link_directories($ENV{DXSDK_DIR}/Lib/x64)
 	else (${BUILD_X64} STREQUAL "ON")
 		link_directories($ENV{DXSDK_DIR}/Lib/x86)
 	endif(${BUILD_X64} STREQUAL "ON")
-add_definitions (-DDX9_SHARING)
-endif (DEFINED ENV{DXSDK_DIR})
+endif (WIN32)
 
 if (INCLUDE_MIC_DEVICE)
     add_definitions( -D INCLUDE_ACCELERATOR_SUPPORT )
@@ -47,10 +49,8 @@ add_subdirectory( MemoryAllocator )
 if (WIN32)
     add_subdirectory( gl_sharing )
     list( APPEND LINK_LIBS gl_sharing )
-	if (DEFINED ENV{DXSDK_DIR})
-		add_subdirectory( d3d9_sharing )
-		list( APPEND LINK_LIBS d3d9_sharing )
-	endif (DEFINED ENV{DXSDK_DIR})
+    add_subdirectory( d3d9_sharing )
+    list( APPEND LINK_LIBS d3d9_sharing )
 else()
     message( WARNING " ERROR: OpenGL Sharing is not ported to Linux!")
 endif(WIN32)

@@ -5319,15 +5319,20 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D9INTEL(
+CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_platform_id              platform,
-    cl_d3d9_device_source_intel d3d_device_source,
+    cl_dx9_device_source_intel d3d_device_source,
     void *                      d3d_object,
-    cl_d3d9_device_set_intel    d3d_device_set,
+    cl_dx9_device_set_intel    d3d_device_set,
     cl_uint                     num_entries,
     cl_device_id                *devices,
     cl_uint                     *num_devices)
 {
+    if (NULL == platform)
+    {
+        return CL_INVALID_PLATFORM;
+    }
+
     cl_int errCode = CL_SUCCESS;
 
     // We don't support DX for shared context
@@ -5338,7 +5343,7 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D9INTEL(
 
         if (crtPlatform->m_supportedExtensions & CRT_CL_D3D9_EXT)
         {
-            errCode = ( (CrtKHRicdVendorDispatch*)(crtPlatform->m_platformIdDEV->dispatch) )->clGetDeviceIDsFromD3D9INTEL(
+            errCode = ( (CrtKHRicdVendorDispatch*)(crtPlatform->m_platformIdDEV->dispatch) )->clGetDeviceIDsFromDX9INTEL(
                                         crtPlatform->m_platformIdDEV,
                                         d3d_device_source,
                                         d3d_object,
@@ -5360,18 +5365,24 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-CL_API_ENTRY cl_mem CL_API_CALL clCreateFromD3D9SurfaceINTEL( 
+CL_API_ENTRY cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(
     cl_context          context,
     cl_mem_flags        flags,
     IDirect3DSurface9 * resource,
     HANDLE              sharedHandle,
     UINT                plane,
     cl_int *            errcode_ret)
-{
+{   
     cl_int errCode = CL_SUCCESS;
-
     cl_mem memObj = NULL;
-    memObj = ( (CrtKHRicdVendorDispatch*)(context->dispatch) )->clCreateFromD3D9SurfaceINTEL(
+
+    if (NULL == context)
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    memObj = ( (CrtKHRicdVendorDispatch*)(context->dispatch) )->clCreateFromDX9MediaSurfaceINTEL(
                                         context,
                                         flags,
                                         resource,
@@ -5396,17 +5407,22 @@ FINISH:
 ///
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_int CL_API_CALL
-clEnqueueAcquireD3D9ObjectsINTEL( cl_command_queue command_queue,
+clEnqueueAcquireDX9ObjectsINTEL( cl_command_queue command_queue,
                                   cl_uint          num_objects,
                                   const cl_mem     *mem_objects,
                                   cl_uint          num_events_in_wait_list,
                                   const cl_event   *event_wait_list,
                                   cl_event         *ocl_event )
 {
+    if (NULL == command_queue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
     cl_int errCode = CL_SUCCESS;
 
         /// We don't support DX for shared context
-    errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueAcquireD3D9ObjectsINTEL(
+    errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueAcquireDX9ObjectsINTEL(
                                         command_queue,
                                         num_objects,
                                         mem_objects,
@@ -5427,16 +5443,21 @@ FINISH:
 ///
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_int CL_API_CALL
-clEnqueueReleaseD3D9ObjectsINTEL( cl_command_queue command_queue,
+clEnqueueReleaseDX9ObjectsINTEL( cl_command_queue command_queue,
                                   cl_uint          num_objects,
                                   const cl_mem *   mem_objects,
                                   cl_uint          num_events_in_wait_list,
                                   const cl_event * event_wait_list,
                                   cl_event *       ocl_event )
 {
+    if (NULL == command_queue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
     cl_int errCode = CL_SUCCESS;
 
-    errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueReleaseD3D9ObjectsINTEL(
+    errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueReleaseDX9ObjectsINTEL(
                                         command_queue,
                                         num_objects,
                                         mem_objects,
@@ -5470,21 +5491,21 @@ void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
     }
 
     /// GPU specific extensions
-    if ( !strcmp(funcname, "clGetDeviceIDsFromD3D9INTEL" ) )
+    if ( !strcmp(funcname, "clGetDeviceIDsFromDX9INTEL" ) )
     {
-        return ((void*)clGetDeviceIDsFromD3D9INTEL);
+        return ((void*)clGetDeviceIDsFromDX9INTEL);
     }
-    if ( !strcmp(funcname, "clCreateFromD3D9SurfaceINTEL" ) )
+    if ( !strcmp(funcname, "clCreateFromDX9MediaSurfaceINTEL" ) )
     {
-        return ((void*)clCreateFromD3D9SurfaceINTEL);
+        return ((void*)clCreateFromDX9MediaSurfaceINTEL);
     }
-    if ( !strcmp(funcname, "clEnqueueAcquireD3D9ObjectsINTEL" ) )
+    if ( !strcmp(funcname, "clEnqueueAcquireDX9ObjectsINTEL" ) )
     {
-        return ((void*)clEnqueueAcquireD3D9ObjectsINTEL);
+        return ((void*)clEnqueueAcquireDX9ObjectsINTEL);
     }
-    if ( !strcmp(funcname, "clEnqueueReleaseD3D9ObjectsINTEL" ) )
+    if ( !strcmp(funcname, "clEnqueueReleaseDX9ObjectsINTEL" ) )
     {
-        return ((void*)clEnqueueReleaseD3D9ObjectsINTEL);
+        return ((void*)clEnqueueReleaseDX9ObjectsINTEL);
     }
     return NULL;
 };

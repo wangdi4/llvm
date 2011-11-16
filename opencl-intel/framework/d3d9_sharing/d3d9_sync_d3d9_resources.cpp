@@ -20,7 +20,6 @@
 
 #include <cassert>
 #include "d3d9_sync_d3d9_resources.h"
-#include "CL\cl_d3d9.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
@@ -30,12 +29,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     const char* SyncD3D9Resources::GetCommandName() const
     {
-        if (CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL == GetCommandType())
+        if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == GetCommandType())
         {
-            return "CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL";
+            return "CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL";
         }
-        assert(CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL == GetCommandType());
-        return "CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL";
+        assert(CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == GetCommandType());
+        return "CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL";
     }
 
     /**
@@ -44,7 +43,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code SyncD3D9Resources::Execute()
     {
-        if (CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL == GetCommandType())
+        if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == GetCommandType())
         {
             for (unsigned int i = 0; i < GetNumMemObjs(); i++)
             {

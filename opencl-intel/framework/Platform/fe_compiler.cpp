@@ -67,7 +67,7 @@ struct FECompileTask : public ITask
 	}
 };
 
-FrontEndCompiler::FrontEndCompiler() : m_pszModuleName(NULL), m_pFECompiler(NULL), m_pLoggerClient(NULL)
+FrontEndCompiler::FrontEndCompiler() : OCLObject<_cl_object>("FrontEndCompiler"), m_pszModuleName(NULL), m_pFECompiler(NULL), m_pLoggerClient(NULL)
 {
 }
 

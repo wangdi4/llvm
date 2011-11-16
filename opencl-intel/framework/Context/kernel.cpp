@@ -49,7 +49,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 						   const char *    psKernelName, 
 						   LoggerClient *  pLoggerClient,
 						   cl_err_code *   pErr) 
-:m_clDevKernel(CL_INVALID_HANDLE), m_pKernel(pKernel), m_pDevice(pDevice)
+: OCLObjectBase("DeviceKernel"), m_clDevKernel(CL_INVALID_HANDLE), m_pKernel(pKernel), m_pDevice(pDevice)
 {
 	assert ( pErr != NULL );
 
@@ -66,7 +66,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 		return;
 	}
 
-	m_pDevice->AddPendency();
+	m_pDevice->AddPendency(this);
 
 	// update kernel prototype
 	size_t szNameLength = strlen(psKernelName) + 1;
@@ -135,7 +135,7 @@ DeviceKernel::~DeviceKernel()
 		delete[] m_sKernelPrototype.m_pArgs;
 		m_sKernelPrototype.m_pArgs = NULL;
 	}
-	m_pDevice->RemovePendency();
+	m_pDevice->RemovePendency(this);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceKernel D'tor
@@ -248,10 +248,10 @@ bool KernelArg::IsLocalPtr() const
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices, ocl_entry_points * pOclEntryPoints)
-: m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
+: OCLObject<_cl_kernel_int>("Kernel"), m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
 {
     // Sign to be dependent on the program, ensure the program will be deleted only after the object is
-    m_pProgram->AddPendency();
+    m_pProgram->AddPendency(this);
 
 	size_t szNameLength = strlen(psKernelName) + 1;
 	m_sKernelPrototype.m_psKernelName = new char[szNameLength];
@@ -288,7 +288,7 @@ Kernel::~Kernel()
 		delete[] m_sKernelPrototype.m_pArgs;
 	}
 
-    m_pProgram->RemovePendency();
+    m_pProgram->RemovePendency(this);
 
 	if (m_ppDeviceKernels)
 	{

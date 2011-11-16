@@ -534,7 +534,7 @@ SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_
 m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
-    m_pParentDevice->AddPendency();
+    m_pParentDevice->AddPendency(this);
     m_handle.object   = this;
     m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
     CacheFissionProperties(props);
@@ -553,7 +553,7 @@ SubDevice::~SubDevice()
     {
         pRoot->clDevReleaseSubdevice(m_deviceId);
     }
-    m_pParentDevice->RemovePendency();
+    m_pParentDevice->RemovePendency(this);
     //Todo: handle more intelligently
     m_pRootDevice->CloseDeviceInstance();
 }

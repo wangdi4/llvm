@@ -200,7 +200,7 @@ SingleUnifiedSubBuffer::~SingleUnifiedSubBuffer()
 {
 	if ( NULL != m_pParentObject )
 	{
-		m_pParentObject->RemovePendency();
+		m_pParentObject->RemovePendency(this);
 	}
 }
 
@@ -231,7 +231,7 @@ cl_err_code SingleUnifiedSubBuffer::Initialize(
 	UpdateLocation(pParentObject->m_pLocation);
 
 	m_pParentObject = pParentObject;
-	m_pParentObject->AddPendency();
+	m_pParentObject->AddPendency(this);
 
 	return CL_SUCCESS;
 }

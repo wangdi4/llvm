@@ -69,6 +69,21 @@ namespace Intel { namespace OpenCL { namespace Framework
         static cl_image_format MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat, unsigned int uiPlane = 0);
 
         /**
+         * @brief   Gets the Direct3D 9 flags.
+         *
+         * @param   clFlags the cl_mem_flags
+         * 
+         * @return  The Direct3D 9 flags.
+         */
+
+        static DWORD GetD3D9Flags(cl_mem_flags clFlags)
+        {
+            if (clFlags & CL_MEM_READ_ONLY)
+                return D3DLOCK_READONLY;
+            return 0;
+        }
+
+        /**
          * @fn  virtual D3D9Resource::~D3D9Resource()
          *
          * @brief   Finaliser.
@@ -201,6 +216,13 @@ namespace Intel { namespace OpenCL { namespace Framework
         bool IsAcquired() const { return m_bAcquired; }
 
         /**
+         * @brief   Set whether this object is acquired
+         * 			
+         * @param   bAcquired   whether this object is acquired			
+         */
+        void SetAcquired(bool bAcquired) { m_bAcquired = bAcquired; }
+
+        /**
          * @fn  D3D9ResourceInfo& D3D9Resource::GetResourceInfo()
          *
          * @brief   Gets the resource information.
@@ -211,7 +233,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @return  The resource information.
          */
 
-        const D3D9ResourceInfo& GetResourceInfo() const { return *m_pResourceInfo; }
+        const D3D9ResourceInfo* GetResourceInfo() const { return m_pResourceInfo; }
 
         // inherited methods:
 
@@ -244,8 +266,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/6/2011
          */
 
-        D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-             GraphicsApiMemoryObject(pContext, pOclEntryPoints, clObjType), m_pResourceInfo(NULL),
+        D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+             GraphicsApiMemoryObject(pContext, pOclEntryPoints), m_pResourceInfo(NULL),
                  m_bAcquired(false) { }
 
         /**
@@ -306,9 +328,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         DWORD GetD3D9Flags() const
         {
-            if (m_clFlags & CL_MEM_READ_ONLY)
-                return D3DLOCK_READONLY;
-            return 0;
+            return GetD3D9Flags(m_clFlags);
         }
 
         // inherited methods:
@@ -357,8 +377,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-          D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
+        D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+          D3D9Resource(pContext, pOclEntryPoints) { }
 
         // inherited methods:
 
@@ -446,8 +466,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-          D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
+        D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+          D3D9Resource(pContext, pOclEntryPoints) { }
 
         // inherited methods:
 
@@ -493,6 +513,14 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const = 0;
 
+        /**
+         * @fn size_t GetPitch() const
+         * 	   
+         * @return the pitch	   
+         */
+
+        size_t GetPitch() const { return m_szPitch; }
+
         // inherited methods:
 
         virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
@@ -535,8 +563,12 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/19/2011
          */
 
-        D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
+        D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) : D3D9Image2D(pContext, pOclEntryPoints) { }
+
+        /**
+         * @brief   Destructor
+         */
+        ~D3D9Surface();
 
     protected:
 
@@ -547,6 +579,17 @@ namespace Intel { namespace OpenCL { namespace Framework
         void Unlock();
 
         D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const;
+
+        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+            void* pParamValue, const size_t szParamValueSize) const;
+
+        virtual size_t GetPixelSize() const;
+
+        size_t GetMemObjSize() const;
+
+        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
+        void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const;
 
     };
 
@@ -575,8 +618,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
+        D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+          D3D9Image2D(pContext, pOclEntryPoints) { }
 
     protected:
 
@@ -609,8 +652,8 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     public:
 
-        D3D9CubeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-          D3D9Image2D(pContext, pOclEntryPoints, clObjType) { }
+        D3D9CubeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+          D3D9Image2D(pContext, pOclEntryPoints) { }
 
     protected:
 
@@ -655,8 +698,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/24/2011
          */
 
-        D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-            D3D9Resource(pContext, pOclEntryPoints, clObjType) { }
+        D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
+            D3D9Resource(pContext, pOclEntryPoints) { }
 
         // inherited methods:
 
