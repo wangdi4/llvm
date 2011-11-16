@@ -609,6 +609,10 @@ namespace Validation
             {
                 // Read first xml element
                 memObjElem = pXml->FirstChildElement();
+                if (!memObjElem)
+                {
+                    throw Exception::InvalidArgument("BufferContainer must cointain at least one buffer or image!");
+                }
             }
             else
             {
@@ -644,6 +648,11 @@ namespace Validation
                 {
                     // Read first xml element
                     memObjElem = memObjElem->NextSiblingElement();
+                    if (!memObjElem)
+                    {
+                        throw Exception::InvalidArgument("BufferContainer size doesn't correlate with the "
+                            "actual number of memory objects. Not enough buffers!");
+                    }
                 }
                 else
                 {

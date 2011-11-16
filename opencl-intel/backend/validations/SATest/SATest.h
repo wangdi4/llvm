@@ -40,7 +40,7 @@ namespace Validation
         /// @param [IN] configFileName Name of file that contains run configurations
         /// @param [IN] baseDirectory Directory to use in data file lookup
         /// @param [IN] pRunConfiguration Run configuration file
-        SATest(RunnerFactory::PROGRAM_TYPE programType, 
+        SATest( RunnerFactory::PROGRAM_TYPE programType,
                 const std::string& configFileName,
                 const std::string& baseDirectory,
                 IRunConfiguration* pRunConfiguration);

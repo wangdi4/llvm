@@ -34,6 +34,10 @@ namespace Utils
     {
         if(0 == strcmp(cpuArch, "auto")) return CPU_MODE;
         if(0 == strcmp(cpuArch, "auto-remote")) return MIC_MODE;
+        if (!Utils::CPUDetect::GetInstance()->IsValidCPUName(cpuArch))
+        {
+            throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
+        }
         return (Utils::CPUDetect::GetInstance()->IsMICCPU(Utils::CPUDetect::GetInstance()->GetCPUByName(cpuArch))) 
             ? MIC_MODE : CPU_MODE;
     }
@@ -74,7 +78,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
 {
     try
     {
-        // TODO: (later) need to remove these lines select opteration mode should get the operation from the options
+        // TODO: (later) need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
         OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
@@ -108,7 +112,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
 {
     try
     {
-        // TODO: maybe need to remove these lines select opteration mode should get the operation from the options
+        // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
         OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
@@ -139,7 +143,7 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
 {
     try
     {
-        // TODO: maybe need to remove these lines select opteration mode should get the operation from the options
+        // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
         OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());

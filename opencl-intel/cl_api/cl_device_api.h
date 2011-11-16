@@ -238,6 +238,7 @@ enum cl_dev_err_code
 	CL_DEV_BUILD_ERROR,							//!< Error occurred during back-end build process
 	CL_DEV_INVALID_KERNEL_NAME,					//!< Kernel name is not found in the program
 	CL_DEV_OBJECT_ALREADY_LOCKED,				//!< Memory object is already locked
+	CL_DEV_INVALID_OPERATION_MODE,				//!< Invalid operation mode
 	CL_DEV_NOT_SUPPORTED						//!< The operation is not supported by the device
 };
 

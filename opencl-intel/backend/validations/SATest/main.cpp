@@ -212,12 +212,12 @@ int main(int argc, char *argv[])
     {
         // Test does not match reference
         std::cerr << "Test Failed: " << e.what() << endl;
-        return -1;
+        return int(e.GetErrorCode());
     }
     catch (Exception::ValidationExceptionBase e)
     {
         // Exception occurred during test run process
         std::cerr << "Validation exception occurred: " << e.what() << endl;
-        return -1;
+        return int(e.GetErrorCode());
     }
 }

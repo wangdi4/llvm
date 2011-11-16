@@ -20,6 +20,7 @@ File Name:  Exception.h
 
 #include <string>
 #include <stdexcept>
+#include "ValidationErrorCode.h"
 
 namespace Validation { namespace Exception {
 
@@ -29,11 +30,15 @@ namespace Validation { namespace Exception {
         public std::runtime_error
     {
     public:
-        ValidationExceptionBase(const std::string& str)
-            : std::runtime_error(str)
+        ValidationExceptionBase(const std::string& str, VALIDATION_ERROR_CODE errCode = VALIDATION_ERROR_FAIL)
+            : std::runtime_error(str), m_errCode(errCode)
         {}
 
         virtual ~ValidationExceptionBase() throw() {}
+
+        VALIDATION_ERROR_CODE GetErrorCode() const { return m_errCode; }
+    private:
+        VALIDATION_ERROR_CODE m_errCode;
     };
 
 /// macro for convenient definition of validation exceptions derived from
@@ -41,7 +46,7 @@ namespace Validation { namespace Exception {
 #define DEFINE_VALIDATION_EXCEPTION(__name)\
     class __name : public ValidationExceptionBase{\
     public:\
-    __name(const std::string& str) : ValidationExceptionBase(std::string(#__name)+' '+str){}\
+    __name(const std::string& str, VALIDATION_ERROR_CODE errCode = VALIDATION_ERROR_FAIL) : ValidationExceptionBase(std::string(#__name)+' '+str, errCode){}\
     };
 
     /// Exception for reporting file input/output errors
@@ -65,6 +70,6 @@ namespace Validation { namespace Exception {
     /// Exception for illegal command line parameters
     DEFINE_VALIDATION_EXCEPTION(CmdLineException)
 
-}}
+}} // namespace Validation { namespace Exception {
 
 #endif // __EXCEPTION_H__

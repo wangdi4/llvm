@@ -410,6 +410,10 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
     cl_dev_err_code ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
+        if (ret == CL_DEV_INVALID_OPERATION_MODE)
+        {
+            throw Exception::TestRunnerException("Invalid CPU architecture was set.", VALIDATION_INVALID_OPERATION_MODE);
+        }
         throw Exception::TestRunnerException("Create compilation service failed");
     }
 
@@ -457,7 +461,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-                ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), *it, pOCLRunConfig);
+            ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), *it, pOCLRunConfig);
         }
     }
     }

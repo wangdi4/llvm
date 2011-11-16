@@ -116,6 +116,11 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 {
     size_t stLocMemSize = 0;
     size_t offset = 0;
+    if (m_kernelNumArgs != input->GetBufferContainer(0)->GetMemoryObjectCount())
+    {
+        throw Exception::InvalidArgument(std::string("Number of buffers in input data file "
+            "do not match to actual number of kernel arguments!"));
+    }
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
         IMemoryObject* pMemObj = input->GetBufferContainer(0)->GetMemoryObject(i);
