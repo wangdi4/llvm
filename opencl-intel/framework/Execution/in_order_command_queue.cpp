@@ -125,12 +125,12 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 							break; // Need to wait all executing commands to complete
 						}
 						m_commandsInExecution++;
-						cmd->GetEvent()->AddPendency(this);
+						cmd->GetEvent()->AddPendency();
 						res = cmd->Execute();
 						if ( CL_SUCCEEDED(res) )
 						{
 							m_submittedQueue.PopFront();
-							cmd->GetEvent()->RemovePendency(this);
+							cmd->GetEvent()->RemovePendency();
 							continue;
 						}
 						if (res != CL_NOT_READY)
@@ -138,7 +138,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 							assert(0);
 							// keep in the queue
 							m_submittedQueue.PopFront();
-							cmd->GetEvent()->RemovePendency(this);
+							cmd->GetEvent()->RemovePendency();
 							m_commandsInExecution--;
 							continue;
 						}					
@@ -191,7 +191,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					// We have completed command in the queue
 					// There is two reasons: 1. runtime command, 2. failed command(one of the dependencies failed)
 					m_submittedQueue.PopFront();
-					cmd->GetEvent()->RemovePendency(this);
+					cmd->GetEvent()->RemovePendency();
 					continue;
 				}
 				else

@@ -33,6 +33,9 @@
 #include "cl_objects_map.h"
 #include <Logger.h>
 #include <vector>
+#if defined (DX9_SHARING)
+#include "CL\cl_d3d9.h"
+#endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -53,7 +56,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class PlatformModule : public OCLObjectBase, public IPlatform
+	class PlatformModule : public IPlatform
 	{
 	
 	public:
@@ -138,8 +141,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
 		virtual cl_int UnloadCompiler(void);
 		virtual cl_int GetGLContextInfo(const cl_context_properties * properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
-#if defined (DX9_MEDIA_SHARING)
-        virtual cl_int GetDeviceIDsFromD3D9(cl_platform_id clPlatform, cl_dx9_device_source_intel clD3dDeviceSource, void *pD3dObject, cl_dx9_device_set_intel clD3dDeviceSet, cl_uint uiNumEntries, cl_device_id *pclDevices, cl_uint *puiNumDevices);
+#if defined (DX9_SHARING)
+        virtual cl_int GetDeviceIDsFromD3D9(cl_platform_id clPlatform, cl_d3d9_device_source_intel clD3dDeviceSource, void *pD3dObject, cl_d3d9_device_set_intel clD3dDeviceSet, cl_uint uiNumEntries, cl_device_id *pclDevices, cl_uint *puiNumDevices);
 #endif
 
         // Device Fission support

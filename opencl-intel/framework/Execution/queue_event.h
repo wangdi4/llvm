@@ -72,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
 
 		//Must override RemovePendency to prevent this aggregated object from being deleted
-		virtual long RemovePendency(OCLObjectBase* obj);
+		virtual long RemovePendency();
 
 		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
 		Command*                GetCommand() const                                  { return m_pCommand; }

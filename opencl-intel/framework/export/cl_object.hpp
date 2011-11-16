@@ -6,7 +6,7 @@
 ///////////////////////////////////////////////////////////
 
 template <class HandleType>
-OCLObject<HandleType>::OCLObject(const std::string& typeName) :  OCLObjectBase(typeName), m_iId(0), m_uiRefCount(1), m_uiPendency(1) , m_pLoggerClient(NULL)
+OCLObject<HandleType>::OCLObject() :  m_iId(0), m_uiRefCount(1), m_uiPendency(1) , m_pLoggerClient(NULL)
 {
 	memset(&m_handle, 0, sizeof(HandleType));
 }
@@ -27,7 +27,7 @@ long OCLObject<HandleType>::Release()
 	else if (0 == newVal)
 	{
 		//This may have the side effect of deleting the object
-		RemovePendency(NULL);
+		RemovePendency();
 	}
 	return newVal;
 }
@@ -40,22 +40,14 @@ cl_err_code OCLObject<HandleType>::Retain()
 }
 
 template <class HandleType>
-long OCLObject<HandleType>::AddPendency(OCLObjectBase* pObj)
+long OCLObject<HandleType>::AddPendency()
 {
-    if (NULL != pObj)
-    {
-        InsertToDependencySet(pObj);
-    }
-    return ++m_uiPendency;
+	return ++m_uiPendency;
 }
 
 template <class HandleType>
-long OCLObject<HandleType>::RemovePendency(OCLObjectBase* pObj)
+long OCLObject<HandleType>::RemovePendency()
 {
-    if (NULL != pObj)
-    {
-        EraseFromDependecySet(pObj);
-    }    
 	long newVal = --m_uiPendency;
 	if (0 == newVal)
 	{

@@ -177,8 +177,8 @@ GLenum Intel::OpenCL::Framework::GetGLFormat(cl_channel_type clType, bool isExt)
 	return 0;
 }
 
-GLMemoryObject::GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints) : 
-GraphicsApiMemoryObject(pContext, pOclEntryPoints), m_glObjHandle(NULL), m_glMemFlags(0)
+GLMemoryObject::GLMemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) : 
+GraphicsApiMemoryObject(pContext, pOclEntryPoints, clObjType), m_glObjHandle(NULL), m_glMemFlags(0)
 {
 }
 

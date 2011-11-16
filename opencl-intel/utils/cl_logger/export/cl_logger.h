@@ -101,18 +101,18 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 #ifdef _DEBUG
 #define LogDebugW(DBG_PRINT, ...)		\
-    if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_DEBUG		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->LogW(LL_DEBUG		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #else
 #define LogDebugW(DBG_PRINT, ...)
 #endif
 #define LogInfoW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_INFO		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->LogW(LL_INFO		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogErrorW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_ERROR		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->LogW(LL_ERROR		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogCriticalW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_CRITICAL	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->LogW(LL_CRITICAL	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogStatisticW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_STATISTIC	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->LogW(LL_STATISTIC	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
 
 #ifdef _DEBUG
 #define LogDebugA(DBG_PRINT, ...)		\

@@ -32,7 +32,6 @@
 #include <cl_device_api.h>
 #include <observer.h>
 #include <build_event.h>
-#include "ocl_object_base.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -52,7 +51,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DEVICE_PROGRAM_MACHINE_CODE // Build complete, executable code ready
 	};
 
-	class DeviceProgram : public OCLObjectBase, IFrontendBuildDoneObserver, IBuildDoneObserver
+	class DeviceProgram : public IFrontendBuildDoneObserver, IBuildDoneObserver
 	{
 	public:
 		DeviceProgram();

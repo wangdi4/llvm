@@ -30,7 +30,6 @@
 #include "cl_types.h"
 #include "Logger.h"
 #include "cl_synch_objects.h"
-#include "ocl_object_base.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -49,7 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* so it represents that the object is still "alive" and visible to the user.
 	**********************************************************************************************/
 	template <class HandleType> 
-    class OCLObject : public OCLObjectBase
+	class OCLObject
 	{
 	public:
 
@@ -60,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-        explicit OCLObject(const std::string& typeName);
+		OCLObject();
 		
         /******************************************************************************************
         * Function: 	Cleanup    
@@ -115,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-		virtual long AddPendency(OCLObjectBase* clObj);
+		virtual long AddPendency();
 
 		/******************************************************************************************
 		* Function: 	RemovePendency    
@@ -125,7 +124,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			February 2008
 		******************************************************************************************/
-        virtual long RemovePendency(OCLObjectBase* clObj);
+		virtual long RemovePendency();
 
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
@@ -139,7 +138,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			July 2009
 		******************************************************************************************/
-		void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }        
+		void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }
 
 	protected:
 		
@@ -160,7 +159,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											                    // used in order to ensure that current object is ready 
 											                    // for deletion
 
-		HandleType	m_handle;			// the OpenCL handle of the object        
+		HandleType	m_handle;			// the OpenCL handle of the object
 
 		DECLARE_LOGGER_CLIENT;
 

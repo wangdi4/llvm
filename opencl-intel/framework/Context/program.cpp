@@ -42,18 +42,18 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : OCLObject<_cl_program_int>("Program"), m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
+Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
 	m_handle.object   = this;
 	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
-	m_pContext->AddPendency(this);
+	m_pContext->AddPendency();
 }
 
 Program::~Program()
 {
 	assert (0 == m_pKernels.Count());
-	m_pContext->RemovePendency(this);
+	m_pContext->RemovePendency();
 }
 
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)

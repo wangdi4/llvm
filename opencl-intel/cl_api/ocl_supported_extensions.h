@@ -22,7 +22,7 @@
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
     "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store "\
     "cl_intel_printf cl_ext_device_fission"
-#define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing cl_intel_dx9_media_sharing"
+#define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing cl_intel_d3d9_media_sharing"
 #define OCL_DOUBLE "cl_khr_fp64"
 
 static const char OCL_SUPPORTED_EXTENSIONS[] = 

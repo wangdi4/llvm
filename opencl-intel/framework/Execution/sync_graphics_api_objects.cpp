@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             {
                 m_pMemObjects[i]->SetAcquireCmdEvent(&m_Event);
             }
-            m_pMemObjects[i]->AddPendency(this);            
+            m_pMemObjects[i]->AddPendency();            
         }
         return CL_SUCCESS;
     }
@@ -71,11 +71,11 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         for (unsigned int i = 0; i < m_uiMemObjNum; i++)
         {
-			if (!m_bIsAcquireCmd || GetReturnCode() != CL_SUCCESS)  // if it m_bIsAcquireCmd and we have a failure, we need to undo what we did in Init
+			if (!m_bIsAcquireCmd)
 			{
                 m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
 			}
-            m_pMemObjects[i]->RemovePendency(this);
+            m_pMemObjects[i]->RemovePendency();
         }
         return CL_SUCCESS;
     }

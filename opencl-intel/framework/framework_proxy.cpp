@@ -155,13 +155,9 @@ void FrameworkProxy::InitOCLEntryPoints()
     OclEntryPoints.clReleaseDeviceEXT = (KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT);
 
     /// Extra functions for Common Runtime
-    OclEntryPoints.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
-#if defined DX9_MEDIA_SHARING
-    OclEntryPoints.clGetDeviceIDsFromDX9INTEL = (KHRpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
-    OclEntryPoints.clCreateFromDX9MediaSurfaceINTEL = (KHRpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
-    OclEntryPoints.clEnqueueAcquireDX9ObjectsINTEL = (KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
-    OclEntryPoints.clEnqueueReleaseDX9ObjectsINTEL = (KHRpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
-#endif
+    OclEntryPoints.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);    
+
+
     /// Extra CPU specific functions
 }
 

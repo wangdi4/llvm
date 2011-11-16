@@ -126,7 +126,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code EnqueueSyncGLObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem * pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event * pclEventWaitList, cl_event * pclEvent);
 
         // Direct3D 9
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
         cl_int EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent);
 #endif
 

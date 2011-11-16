@@ -16,9 +16,10 @@
 #include "gl_context.h"
 #include "gl_shr_utils.h"
 #include "gl_mem_objects.h"
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
 #include "d3d9_sharing.h"
 #include "d3d9_context.h"
+#include "CL/cl_d3d9.h"
 #endif
 #endif
 #include <platform_module.h>
@@ -34,7 +35,7 @@ using namespace Intel::OpenCL::Framework;
 //////////////////////////////////////////////////////////////////////////
 // ContextModule C'tor
 //////////////////////////////////////////////////////////////////////////
-ContextModule::ContextModule(PlatformModule *pPlatformModule) : OCLObjectBase("ContextModule")
+ContextModule::ContextModule(PlatformModule *pPlatformModule)
 {
 	INIT_LOGGER_CLIENT(L"ContextModule",LL_DEBUG);
 
@@ -183,10 +184,8 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
             if (CL_CONTEXT_PLATFORM != clProperties[i]
 #if defined (_WIN32)
                 && CL_GL_CONTEXT_KHR != clProperties[i] && CL_WGL_HDC_KHR != clProperties[i]
-#if defined (DX9_MEDIA_SHARING)
-                && CL_CONTEXT_D3D9_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_D3D9EX_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_DXVA_DEVICE_INTEL != clProperties[i]
+#if defined (DX9_SHARING)
+                && CL_CONTEXT_D3D9_DEVICE_INTEL != clProperties[i]
 #endif
 #endif
                 )
@@ -207,20 +206,8 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (_WIN32)  //TODO GL support for Linux
 	cl_context_properties hGLCtx, hDC;
 	ParseGLContextOptions(clProperties, &hGLCtx, &hDC);
-#if defined (DX9_MEDIA_SHARING)
-    IUnknown* pD3D9Device;
-    int iDevType;
-    clErrRet = ParseD3D9ContextOptions(clProperties, pD3D9Device, &iDevType);
-    if (CL_SUCCESS != clErrRet)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("more than one Direct3D 9 device is specified in properties"));
-        if (NULL != pRrrcodeRet)
-        {
-            *pRrrcodeRet = clErrRet;
-        }
-        delete[] ppDevices;
-        return CL_INVALID_HANDLE;
-    }
+#if defined (DX9_SHARING)
+    IDirect3DDevice9* const pD3D9Device = ParseD3D9ContextOptions(clProperties);
     if (NULL != pD3D9Device && (NULL != hGLCtx || NULL != hDC))
     {
         LOG_ERROR(TEXT("%S"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
@@ -241,13 +228,11 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 		pContext = 	new GLContext(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData);
 	} else
 #endif
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
     if (NULL != pD3D9Device)
     {
-        pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices,
-            pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device, iDevType);
-    }
-    else
+        pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device);
+    } else
 #endif
 	{
 		pContext = 	new Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData);
@@ -406,7 +391,7 @@ cl_err_code ContextModule::RetainContext(cl_context context)
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::ReleaseContext(cl_context context)
 {
-	LOG_INFO(TEXT("ContextModule::ReleaseContext enter. context=%d"), context);    
+	LOG_INFO(TEXT("ContextModule::ReleaseContext enter. context=%d"), context);
 
 	cl_err_code err = m_mapContexts.ReleaseObject((_cl_context_int*)context);
 	return ((CL_ERR_KEY_NOT_FOUND == err) ? CL_INVALID_CONTEXT : err);
@@ -592,7 +577,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 		return CL_INVALID_PROGRAM;
 	}
 	//Prevent deletion of context by program release before we're ready
-	pContext->AddPendency(this);
+	pContext->AddPendency();
 
 	long newRef = pProgram->Release();
 	if (newRef < 0)
@@ -613,7 +598,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 			return CL_ERR_OUT(clErrRet);
 		}
 	}
-	pContext->RemovePendency(this);
+	pContext->RemovePendency();
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -838,7 +823,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 		return CL_INVALID_KERNEL;
 	}
 	//Prevent deletion of program by kernel release until we're ready
-	pProgram->AddPendency(this);
+	pProgram->AddPendency();
 
 	long newRef = pKernel->Release();
 	cl_int err = CL_SUCCESS;
@@ -861,7 +846,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 			return CL_ERR_OUT(clErr);
 		}
 	}
-	pProgram->RemovePendency(this);
+	pProgram->RemovePendency();
 	return err;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1308,7 +1293,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	}
 
 	//Prevent deletion of context by program release before we're ready
-	pContext->AddPendency(this);
+	pContext->AddPendency();
 
 	long newRef = pMemObj->Release();
 
@@ -1325,6 +1310,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 		{
 			res = CL_ERR_OUT(clErr);
 		}
+
 		clErr = m_mapMemObjects.RemoveObject((_cl_mem_int*)clMemObj);
 		if (CL_FAILED(clErr))
 		{
@@ -1332,7 +1318,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 		}
 	}
 
-	pContext->RemovePendency(this);
+	pContext->RemovePendency();
 	return res;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1521,7 +1507,7 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 		return CL_INVALID_SAMPLER;
 	}
 	//Prevent deletion of context by program release before we're ready
-	pContext->AddPendency(this);
+	pContext->AddPendency();
 
 	long newRef = pSampler->Release();
 	cl_int res = CL_SUCCESS;
@@ -1543,7 +1529,7 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 		}
 	}
 
-	pContext->RemovePendency(this);
+	pContext->RemovePendency();
 	return res;
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1981,11 +1967,11 @@ cl_err_code ContextModule::CheckImageParameters(cl_mem_flags clMemFlags,
 	return CL_SUCCESS;
 }
 
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
 cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags clMemFlags,
                                              D3D9ResourceInfo* const pResourceInfo,
                                              cl_int *pErrcodeRet, cl_mem_object_type clObjType,
-                                             cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
+                                             cl_uint uiDimCnt, const D3DFORMAT d3dFormat)
 {
     Context* pContext = NULL;
     MemoryObject* pMemObj = NULL;
@@ -2014,7 +2000,7 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
     {
         if (NULL != pErrcodeRet)
         {
-            *pErrcodeRet = CL_INVALID_DX9_RESOURCE_INTEL;
+            *pErrcodeRet = CL_INVALID_D3D9_RESOURCE_INTEL;
         }
         return CL_INVALID_HANDLE;
     }
@@ -2030,14 +2016,11 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
         }
         return CL_INVALID_HANDLE;
     }
-    pResourceDevice->Release();
-    // Matt is aware that there is a hole in the spec regarding checking this device type
-    if (CL_CONTEXT_DXVA_DEVICE_INTEL != pD3D9Context->m_iDeviceType &&
-        pResourceDevice != pD3D9Context->GetD3D9Device())
+    if (pResourceDevice != pD3D9Context->GetD3D9Device())
     {
         if (NULL != pErrcodeRet)
         {
-            *pErrcodeRet = CL_INVALID_DX9_RESOURCE_INTEL;
+            *pErrcodeRet = CL_INVALID_D3D9_RESOURCE_INTEL;
         }
         return CL_INVALID_HANDLE;
     }
@@ -2053,7 +2036,7 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
         }
         return CL_INVALID_HANDLE;
     }
-    clErr = pD3D9Context->CreateD3D9Resource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, d3dFormat, plane);
+    clErr = pD3D9Context->CreateD3D9Resource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, d3dFormat);
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("pD3D9Context->CreateD3D9Resource(%d, %d, %d, %d) = %S"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
@@ -2080,76 +2063,6 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
     return pMemObj->GetHandle();
 }
 
-cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, HANDLE sharehandle,
-                                            UINT plane, cl_int *errcode_ret)
-{
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9Surface(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
-        context, flags, resource, errcode_ret);
-    if (NULL == resource)
-    {
-        LOG_ERROR(TEXT("resource is NULL"));
-        if (NULL != errcode_ret)
-        {
-            *errcode_ret = CL_INVALID_DX9_RESOURCE_INTEL;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    D3D9ResourceInfo* const pResourceInfo = new D3D9SurfaceResourceInfo(resource, sharehandle, plane);
-    if (NULL == pResourceInfo)
-    {
-        LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
-        if (NULL != errcode_ret)
-        {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    D3DSURFACE_DESC desc;
-    HRESULT res = resource->GetDesc(&desc);
-    assert(D3D_OK == res);
-    // planar surfaces
-    if (MAKEFOURCC('N', 'V', '1', '2') == desc.Format)
-    {
-        if (plane > 1)
-        {
-            LOG_ERROR(TEXT("invalid plane for format"));
-            if (NULL != errcode_ret)
-            {
-                *errcode_ret = CL_INVALID_VALUE;
-            }
-            return CL_INVALID_HANDLE;
-        }
-        return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, plane);
-    }
-    if (MAKEFOURCC('Y', 'V', '1', '2') == desc.Format)
-    {
-        if (plane > 2)
-        {
-            LOG_ERROR(TEXT("invalid plane for format"));
-            if (NULL != errcode_ret)
-            {
-                *errcode_ret = CL_INVALID_VALUE;
-            }
-            return CL_INVALID_HANDLE;
-        }
-        return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, plane);
-    }
-    // non-planar surface
-    if (0 != plane)
-    {
-        LOG_ERROR(TEXT("invalid plane"));
-        if (NULL != errcode_ret)
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, MAXUINT);
-}
-#endif
-
-#if defined DX9_SHARING
-
 cl_mem ContextModule::CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flags flags, IDirect3DVertexBuffer9* resource, cl_int *errcode_ret)
 {
     LOG_DEBUG(TEXT("Enter CreateFromD3D9VertexBuffer(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
@@ -2164,7 +2077,7 @@ cl_mem ContextModule::CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flag
         }
         return CL_INVALID_HANDLE;
     }
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_VERTEX_BUFFER, 1, D3DFMT_UNKNOWN);
+    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_D3D9_OBJECT_VERTEX_BUFFER, 1, D3DFMT_UNKNOWN);
 }
 
 cl_mem ContextModule::CreateFromD3D9IndexBuffer(cl_context context, cl_mem_flags flags, IDirect3DIndexBuffer9* resource, cl_int* errcode_ret)
@@ -2182,6 +2095,26 @@ cl_mem ContextModule::CreateFromD3D9IndexBuffer(cl_context context, cl_mem_flags
         return CL_INVALID_HANDLE;
     }
     return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_D3D9_OBJECT_INDEX_BUFFER, 1, D3DFMT_UNKNOWN);
+}
+
+cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, cl_int *errcode_ret)
+{
+    LOG_DEBUG(TEXT("Enter CreateFromD3D9Surface(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
+        context, flags, resource, errcode_ret);
+    D3D9ResourceInfo* const pResourceInfo = new D3D9ResourceInfo(resource);
+    if (NULL == pResourceInfo)
+    {
+        LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
+        if (NULL != errcode_ret)
+        {
+            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    D3DSURFACE_DESC desc;
+    HRESULT res = resource->GetDesc(&desc);
+    assert(D3D_OK == res);
+    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_D3D9_OBJECT_SURFACE, 2, desc.Format);
 }
 
 cl_mem ContextModule::CreateFromD3D9Texture(cl_context context, cl_mem_flags flags,

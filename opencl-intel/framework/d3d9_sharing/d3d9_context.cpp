@@ -20,6 +20,7 @@
 
 #include <cstdlib>
 #include "d3d9_context.h"
+#include "CL/cl_d3d9.h"
 #include "Device.h"
 #include "cl_logger.h"
 #include "d3d9_resource.h"
@@ -32,54 +33,39 @@ using namespace Intel::OpenCL::Utils;
 namespace Intel { namespace OpenCL { namespace Framework
 {
     /**
-     * @fn  cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-     * 		IUnknown*& device, int* iDevType)
+     * @fn  IDirect3DDevice9* ParseD3D9ContextOptions(const cl_context_properties* const pProperties)
      */
 
-    cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-        IUnknown*& device, int* iDevType)
+    IDirect3DDevice9* ParseD3D9ContextOptions(const cl_context_properties* const pProperties)
     {
-        device = NULL;
-        *iDevType = NULL;
         if (NULL == pProperties)
         {
-            return CL_SUCCESS;
+            return NULL;
         }
         const cl_context_properties* pProprty = pProperties;
         while (0 != *pProprty)
         {
-            if (CL_CONTEXT_D3D9_DEVICE_INTEL == *pProprty ||
-                CL_CONTEXT_D3D9EX_DEVICE_INTEL == *pProprty ||
-                CL_CONTEXT_DXVA_DEVICE_INTEL == *pProprty)
-            {
-                if (NULL != device)
-                {
-                    device = NULL;
-                    *iDevType = NULL;
-                    return CL_INVALID_DX9_DEVICE_INTEL;
-                }
-                *iDevType = *pProprty;
-                device = (IUnknown*)(pProprty[1]);
-            }
+            if (CL_CONTEXT_D3D9_DEVICE_INTEL == *pProprty)
+                return (IDirect3DDevice9*)(pProprty[1]);
             pProprty += 2;
         }
-        return CL_SUCCESS;
+        return NULL;
     }
 
     /**
      * @fn  D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
      *      cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
      *      void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-     *      ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, bool bIsInteropUserSync)
+     *      ocl_gpa_data* pGPAData, IDirect3DDevice9* const pD3D9Device)
      */
 
     D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, bool bIsInteropUserSync) :
+        ocl_gpa_data* pGPAData, IDirect3DDevice9* const pD3D9Device) :
     Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
         pclErr, pOclEntryPoints, pGPAData),
-        m_pD3D9Device(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync)
+        m_pD3D9Device(pD3D9Device)
     {        
         /* The spec states that we should return "CL_INVALID_D3D9_DEVICE_Intel if the value of the
         property CL_CONTEXT_D3D9_DEVICE_Intel is non-NULL and does not specify a valid Direct3D 9
@@ -91,7 +77,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         m_pD3D9Device->AddRef();
         for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
         {
-            m_ppAllDevices[i]->SetD3D9Device(pD3D9Device, iDevType);
+            m_ppAllDevices[i]->SetD3D9Device(pD3D9Device);
         }
     }
 
@@ -104,27 +90,28 @@ namespace Intel { namespace OpenCL { namespace Framework
         m_pD3D9Device->Release();
         for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
         {
-            m_ppAllDevices[i]->SetD3D9Device(NULL, 0);
+            m_ppAllDevices[i]->SetD3D9Device(NULL);
         }
     }
 
     /**
      * @fn  cl_err_code D3D9Context::CreateD3D9Resource(cl_mem_flags clFlags,
      *      D3D9ResourceInfo* const pResourceInfo, MemoryObject** const ppMemObj,
-     *      cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
+     *      cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat)
      */
 
     cl_err_code D3D9Context::CreateD3D9Resource(cl_mem_flags clFlags,
         D3D9ResourceInfo* const pResourceInfo, MemoryObject** const ppMemObj,
-        cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
+        cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat)
     {
-        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, true);
+        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+        m_muAcquireRelease.Lock();
 
         if (m_resourceInfoSet.find(pResourceInfo) != m_resourceInfoSet.end())
         {
             LOG_ERROR(TEXT("%s"), "A cl_mem from this D3D9ResourceInfo has already been created");
             delete pResourceInfo;
-            return CL_INVALID_DX9_RESOURCE_INTEL;
+            return CL_INVALID_D3D9_RESOURCE_INTEL;
         }
         assert(NULL != ppMemObj);
         MemoryObject* pMemObj;
@@ -144,20 +131,11 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             LOG_ERROR(TEXT("%s"), "resource is not a Direct3D 9 resource created in D3DPOOL_DEFAULT");
             d3d9Resource.Release();
-            return CL_INVALID_DX9_RESOURCE_INTEL;
-        }
-        if (CL_DX9_OBJECT_SURFACE == clObjType && MAXUINT != plane)
-        {
-            clErr = HandlePlanarSurface(pResourceInfo, clFlags);
-            if (CL_SUCCESS != clErr)
-            {
-                d3d9Resource.Release();
-                return clErr;
-            }
-        }
+            return CL_INVALID_D3D9_RESOURCE_INTEL;
+        }        
         size_t dims[3];
         d3d9Resource.FillDimensions(*pResourceInfo, dims);
-        const cl_image_format clFormat = D3D9Resource::MapD3DFormat2OclFormat(d3dFormat, plane);
+        const cl_image_format clFormat = D3D9Resource::MapD3DFormat2OclFormat(d3dFormat);
         clErr = d3d9Resource.Initialize(clFlags, D3DFMT_UNKNOWN != d3dFormat ? &clFormat : NULL,
             uiDimCnt, dims, NULL, pResourceInfo);
         if (CL_FAILED(clErr))
@@ -170,52 +148,6 @@ namespace Intel { namespace OpenCL { namespace Framework
         m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pMemObj);
         *ppMemObj = pMemObj;
         return CL_SUCCESS;
-    }
-
-    /**
-     * @fn cl_err_code D3D9Context::HandlePlanarSurface(const D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags)
-     */
-    cl_err_code D3D9Context::HandlePlanarSurface(D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags)
-    {
-        IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(pResourceInfo->m_pResource);
-        map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
-        SurfaceLocker* pSurfaceLocker;
-        if (m_surfaceLockers.end() != iter)
-        {
-            pSurfaceLocker = iter->second;
-            if (pSurfaceLocker->GetFlags() != D3D9Resource::GetD3D9Flags(clFlags))
-            {
-                LOG_ERROR(TEXT("%s"), "New D3D9Surface is to be created for an IDirect3DSurface9 for which a D3D9Surface for another plane has already been created, but the flags differ.");
-                return CL_INVALID_VALUE;
-            }
-        }
-        else
-        {
-            pSurfaceLocker = new SurfaceLocker(pSurface, D3D9Resource::GetD3D9Flags(clFlags));
-            if (NULL == pSurfaceLocker)
-            {                
-                return CL_OUT_OF_HOST_MEMORY;
-            }
-            m_surfaceLockers[pSurface] = pSurfaceLocker;
-        }
-        pSurfaceLocker->AddObject();
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn void D3D9Context::ReleaseSurfaceLocker(const IDirect3DSurface9* pSurface)
-     */
-    void D3D9Context::ReleaseSurfaceLocker(const IDirect3DSurface9* pSurface)
-    {
-        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
-        map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
-        assert(iter != m_surfaceLockers.end());
-        iter->second->RemoveObject();
-        if (0 == iter->second->GetNumObjects())
-        {
-            delete iter->second;
-            m_surfaceLockers.erase(pSurface);            
-        }
     }
 
     /**

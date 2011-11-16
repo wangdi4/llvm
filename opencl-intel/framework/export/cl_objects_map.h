@@ -35,7 +35,6 @@
 #include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
 #include <map>
-#include "ocl_object_base.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -47,7 +46,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Date:			December 2008
 	**********************************************************************************************/
 	template <class HandleType>
-    class OCLObjectsMap : public OCLObjectBase
+	class OCLObjectsMap
 	{
 	protected:
 
@@ -69,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-        OCLObjectsMap() : OCLObjectBase("OCLObjectsMap") {}
+		OCLObjectsMap() {}
 		
 		/******************************************************************************************
 		* Function: 	~OCLObjectsMap

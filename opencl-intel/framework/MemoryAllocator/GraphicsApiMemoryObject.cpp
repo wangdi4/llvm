@@ -33,7 +33,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         OclEvent* pOldEvent = m_pAcquireEvent.exchange(NULL);
         if ( NULL != pOldEvent )
         {
-            pOldEvent->RemovePendency(this);
+            pOldEvent->RemovePendency();
         }
     }
 
@@ -176,13 +176,14 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
 		if ( NULL != pEvent )
 		{
-			pEvent->AddPendency(this);
+			pEvent->AddPendency();
 		}
-		OclEvent* pOldEvent = m_pAcquireEvent.exchange(pEvent);        
+		OclEvent* pOldEvent = m_pAcquireEvent.exchange(pEvent);
         if ( NULL != pOldEvent )
         {
-            pOldEvent->RemovePendency(this);            
+            pOldEvent->RemovePendency();
         }
+
 		return CL_SUCCESS;
     }
 

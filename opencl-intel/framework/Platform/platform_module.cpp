@@ -39,6 +39,9 @@
 #include "cl_sys_defines.h"
 #include <assert.h>
 #include <malloc.h>
+#if defined (DX9_SHARING)
+#include "CL\cl_d3d9.h"
+#endif
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -75,7 +78,7 @@ const unsigned int PlatformModule::m_uiPlatformExtensionsStrSize = sizeof(m_vPla
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::PlatformModule
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
+PlatformModule::PlatformModule()
 {
     m_ppRootDevices        = NULL;
 	m_uiRootDevicesCount   = 0;
@@ -122,7 +125,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		if (CL_FAILED(clErrRet))
 		{
 			// We should use RemovePendency because Release() in not effect ref count
-			pDevice->RemovePendency(this);
+			pDevice->RemovePendency();
 			LOG_ERROR(TEXT("InitDevice() failed with %d"), clErrRet);
 			return clErrRet;
 		}
@@ -133,7 +136,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
 		// The Root device was created with floating pendency. For root level devices we need
 		// to remove the floating pendency.
-		pDevice->RemovePendency(this);
+		pDevice->RemovePendency();
 
 		if (defaultDevice != "" && defaultDevice == devices[ui])
 		{
@@ -859,19 +862,14 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
 }
 
 
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
 cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
-                                              cl_dx9_device_source_intel clD3dDeviceSource,
+                                              cl_d3d9_device_source_intel clD3dDeviceSource,
                                               void *pD3dObject,
-                                              cl_dx9_device_set_intel clD3dDeviceSet,
+                                              cl_d3d9_device_set_intel clD3dDeviceSet,
                                               cl_uint uiNumEntries, cl_device_id *pclDevices,
                                               cl_uint *puiNumDevices)
 {
-    if (NULL == clPlatform)
-    {
-        LOG_ERROR(TEXT("clPlatform is NULL"));
-        return CL_INVALID_PLATFORM;
-    }
     LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D9NV(clPlatform=%p, clD3dDeviceSource=%d, pD3dObject=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
         clPlatform, clD3dDeviceSource, pD3dObject, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
     if (NULL != pclDevices && 0 == uiNumEntries)
@@ -889,7 +887,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         LOG_ERROR(TEXT("clPlatform is not a valid platform."));
         return CL_INVALID_PLATFORM;
     }
-    if (CL_PREFERRED_DEVICES_FOR_DX9_INTEL != clD3dDeviceSet && CL_ALL_DEVICES_FOR_DX9_INTEL != clD3dDeviceSet)
+    if (CL_PREFERRED_DEVICES_FOR_D3D9_INTEL != clD3dDeviceSet && CL_ALL_DEVICES_FOR_D3D9_INTEL != clD3dDeviceSet)
     {
         LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
         return CL_INVALID_VALUE;
@@ -897,7 +895,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
     if (NULL == pD3dObject)
     {
         LOG_ERROR(TEXT("pD3dObject is NULL."));
-        return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
+        return CL_INVALID_VALUE;
     }
     size_t szDevIndex = 0;
     if (NULL != puiNumDevices)
@@ -911,18 +909,8 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         switch (clD3dDeviceSource)
         {
         case CL_D3D9_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_D3D9_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType() &&
-                m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
+            bDeviceMatch = m_ppRootDevices[i]->GetD3D9Device() == (IDirect3DDevice9*)pD3dObject;
             break;
-        case CL_D3D9EX_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_D3D9EX_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType()
-                && m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
-            break;
-        case CL_DXVA_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_DXVA_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType()
-                && m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
-            break;
-#ifdef DX9_SHARING
         case CL_D3D9_ADAPTER_NAME_INTEL:
             if (IDirect3DDevice9* const d3d9Dev = m_ppRootDevices[i]->GetD3D9Device())
             {
@@ -938,7 +926,6 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
                 bDeviceMatch = strcmp(id.DeviceName, (char*)pD3dObject) == 0;
             }
             break;
-#endif
         default:
             LOG_ERROR(TEXT("clD3dDeviceSource is not a valid value"));
             return CL_INVALID_VALUE;

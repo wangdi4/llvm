@@ -94,7 +94,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	{
 		pQueueEvent->RemoveFloatingDependence();
 		pCommand->CommandDone();
-		pQueueEvent->RemovePendency(NULL); //implicitly added by Command->SetEvent
+		pQueueEvent->RemovePendency(); //implicitly added by Command->SetEvent
 		if (NULL == pUserEvent)
 		{
 			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
@@ -112,7 +112,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	if (CL_FAILED(errVal))
 	{
 		pCommand->CommandDone();
-		pQueueEvent->RemovePendency(NULL); //implicitly added by Command->SetEvent
+		pQueueEvent->RemovePendency(); //implicitly added by Command->SetEvent
 		if (NULL == pUserEvent)
 		{
 			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
@@ -163,7 +163,7 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 	{
 		pQueueEvent->RemoveFloatingDependence();
 		m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-		pQueueEvent->RemovePendency(NULL); //Added by Command->SetEvent()
+		pQueueEvent->RemovePendency(); //Added by Command->SetEvent()
 		return errVal;
 	}
 
@@ -175,7 +175,7 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEv
 
 bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 {
-	pEvent->AddPendency(this);
+	pEvent->AddPendency();
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);
 
@@ -186,7 +186,7 @@ bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 	{
 		pEvent->Wait();
 	}
-	pEvent->RemovePendency(this);
+	pEvent->RemovePendency();
 	return true;
 }
 

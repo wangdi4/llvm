@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-DeviceProgram::DeviceProgram() : OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), 
+DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), 
 m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
 m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
 m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
@@ -47,7 +47,7 @@ m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 	m_pBuildLog  = &m_emptyString;
 }
 
-DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
+DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
 m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
 m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
 m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
@@ -95,7 +95,7 @@ DeviceProgram::~DeviceProgram()
 		{
 			m_pDevice->GetDeviceAgent()->clDevReleaseProgram(m_programHandle);
 		}
-		m_pDevice->RemovePendency(this);
+		m_pDevice->RemovePendency();
 	}
 }
 
@@ -104,7 +104,7 @@ void DeviceProgram::SetDevice(FissionableDevice* pDevice)
 	m_pDevice = pDevice;
 	//Must not give NULL ptr
 	assert(m_pDevice);
-	m_pDevice->AddPendency(this);
+	m_pDevice->AddPendency();
 	m_deviceHandle = m_pDevice->GetHandle();
 }
 
@@ -210,7 +210,7 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 	if (!m_pfn)
 	{
 		//Ensure no race between BE build finishing and our wait
-		m_pBeBuildEvent->AddPendency(this);
+		m_pBeBuildEvent->AddPendency();
 	}
 
 	//Build from sources
@@ -229,7 +229,7 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 				m_pBeBuildEvent->Wait();
 				clErrRet = m_pBeBuildEvent->GetReturnCode();
 			}
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBeBuildEvent->RemovePendency();
 		}
 	}
 	return clErrRet;
@@ -252,12 +252,12 @@ cl_err_code DeviceProgram::FeBuild()
 		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
 		if (!m_pfn)
 		{
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBeBuildEvent->RemovePendency();
 		}
 		return CL_COMPILER_NOT_AVAILABLE;
 	}
 
-	//Todo: why not? pFeCompiler->AddPendency(this);
+	//Todo: why not? pFeCompiler->AddPendency();
 
 	m_pFeBuildEvent = FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->CreateBuildEvent(m_parentProgramContext);
 	if (!m_pFeBuildEvent)
@@ -265,7 +265,7 @@ cl_err_code DeviceProgram::FeBuild()
 		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
 		if (!m_pfn)
 		{
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBeBuildEvent->RemovePendency();
 		}
 		return CL_OUT_OF_HOST_MEMORY;
 	}
@@ -279,7 +279,7 @@ cl_err_code DeviceProgram::FeBuild()
 		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pFeBuildEvent->GetHandle());
 		if (!m_pfn)
 		{
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBeBuildEvent->RemovePendency();
 		}
 		return CL_BUILD_PROGRAM_FAILURE;
 	}
@@ -288,7 +288,7 @@ cl_err_code DeviceProgram::FeBuild()
 	{
 		m_pBeBuildEvent->Wait();
 		clErr = m_pBeBuildEvent->GetReturnCode();
-		m_pBeBuildEvent->RemovePendency(this);
+		m_pBeBuildEvent->RemovePendency();
 	}
 	return clErr;
 }

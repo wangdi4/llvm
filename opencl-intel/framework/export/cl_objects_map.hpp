@@ -31,7 +31,7 @@ HandleType* OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject
 	}
 	*/
 	m_mapObjects[hObjectHandle] = pObject;
-	pObject->AddPendency(this);
+	pObject->AddPendency();
 
 	return hObjectHandle;
 }
@@ -57,7 +57,7 @@ cl_err_code OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject
 	}
 	m_mapObjects[hObjectHandle] = pObject;
 	//This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
-	pObject->AddPendency(this);
+	pObject->AddPendency();
 	return CL_SUCCESS;
 }
 
@@ -108,7 +108,7 @@ cl_err_code OCLObjectsMap<HandleType>::RemoveObject(HandleType* hObjectHandle)
 	//This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
 	OCLObject<HandleType>* obj = it->second;
 	m_mapObjects.erase(it);
-	obj->RemovePendency(this);
+	obj->RemovePendency();
 	return CL_SUCCESS;
 }
 
@@ -208,7 +208,7 @@ cl_err_code OCLObjectsMap<HandleType>::ReleaseObject(HandleType* hObject)
 	{
 		OCLObject<HandleType>* obj = it->second;
 		m_mapObjects.erase(it);
-		obj->RemovePendency(this);
+		obj->RemovePendency();
 	}
 	return CL_SUCCESS;
 }
@@ -221,7 +221,7 @@ void OCLObjectsMap<HandleType>::ReleaseAllObjects()
 	while (it != m_mapObjects.end())
 	{
 		it->second->Release();
-		it->second->RemovePendency(this);
+		it->second->RemovePendency();
 		++it;
 	}
 	m_mapObjects.clear();

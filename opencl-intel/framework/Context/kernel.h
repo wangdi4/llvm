@@ -66,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			January 2008
 	**********************************************************************************************/	
-    class DeviceKernel : public OCLObjectBase
+	class DeviceKernel
 	{
 	public:
 		

@@ -32,6 +32,9 @@
 #include <icd_dispatch.h>
 #include <string>
 #include <map>
+#if defined (DX9_SHARING)
+#include "CL/cl_d3d9.h"
+#endif
 
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
@@ -131,112 +134,6 @@ extern cl_int CL_API_CALL clGetKernelArgInfo(
 								size_t				param_value_size,
 								void *				param_value,
 								size_t *			param_value_size_ret);
-
-#if defined DX9_SHARING
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9VertexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVertexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9IndexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DIndexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9TextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9CubeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DCubeTexture9* /*resource*/,
-    D3DCUBEMAP_FACES /*facetype*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9VolumeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVolumeTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-#endif
-
-#if defined DX9_MEDIA_SHARING
-
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)(
-    cl_command_queue            /* command_queue */,
-    cl_uint                     /* num_objects */,
-    const cl_mem *              /* mem_objects */,
-    cl_uint                     /* num_events_in_wait_list */,
-    const cl_event *            /* event_wait_list */,
-    cl_event *                  /* ocl_event */ );
-
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueReleaseDX9ObjectsINTEL)(
-    cl_command_queue            /* command_queue */,
-    cl_uint                     /* num_objects */,
-    const cl_mem *              /* mem_objects */,
-    cl_uint                     /* num_events_in_wait_list */,
-    const cl_event *            /* event_wait_list */,
-    cl_event *                  /* ocl_event */ );
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateFromDX9MediaSurfaceINTEL)(
-    cl_context                  /* context */,
-    cl_mem_flags                /* flags */,
-    IDirect3DSurface9 *         /* resource */,
-    HANDLE                      /* sharedHandle */,
-    UINT                        /* plane */,
-    cl_int *                    /* errcode_ret */ );
-
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetDeviceIDsFromDX9INTEL)(
-    cl_platform_id              /* platform */,
-    cl_dx9_device_source_intel /* d3d_device_source */,
-    void*                       /* d3d_object */,
-    cl_dx9_device_set_intel    /* d3d_device_set */,
-    cl_uint                     /* num_entries */, 
-    cl_device_id *              /* devices */, 
-    cl_uint *                   /* num_devices */ );
-
-extern CL_API_ENTRY cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DSurface9* /*resource*/,
-    HANDLE /*sharehandle*/,
-    UINT /*plane*/,
-    cl_int* /*errcode_ret*/);
-
-extern CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(
-    cl_command_queue /*command_queue*/,
-    cl_uint /*num_objects*/,
-    const cl_mem * /*mem_objects*/,
-    cl_uint /*num_events_in_wait_list*/,
-    const cl_event * /*event_wait_list*/,
-    cl_event * /*event*/);
-
-extern CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(
-    cl_command_queue /*command_queue*/,
-    cl_uint /*num_objects*/,
-    cl_mem * /*mem_objects*/,
-    cl_uint /*num_events_in_wait_list*/,
-    const cl_event * /*event_wait_list*/,
-    cl_event * /*event*/);
-
-extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
-    cl_platform_id /*platform*/,
-    cl_dx9_device_source_intel /*d3d_device_source*/,
-    void* /*d3d_object*/,
-    cl_dx9_device_set_intel /*d3d_device_set*/,
-    cl_uint /*num_entries*/, 
-    cl_device_id* /*devices*/, 
-    cl_uint* /*num_devices*/);
-
-#endif
 #ifdef __cplusplus
 }
 #endif
@@ -251,11 +148,11 @@ typedef struct: public KHRicdVendorDispatch
 {             
        KHRpfn_clGetKernelArgInfo                    clGetKernelArgInfo;
         
-#ifdef DX9_MEDIA_SHARING
-       KHRpfn_clGetDeviceIDsFromDX9INTEL           clGetDeviceIDsFromDX9INTEL;
-       KHRpfn_clCreateFromDX9MediaSurfaceINTEL          clCreateFromDX9MediaSurfaceINTEL;
-       KHRpfn_clEnqueueAcquireDX9ObjectsINTEL      clEnqueueAcquireDX9ObjectsINTEL;
-       KHRpfn_clEnqueueReleaseDX9ObjectsINTEL      clEnqueueReleaseDX9ObjectsINTEL;
+#ifdef DX9_SHARING
+       clGetDeviceIDsFromD3D9Intel_fn           clGetDeviceIDsFromD3D9INTEL;
+       clCreateFromD3D9SurfaceIntel_fn          clCreateFromD3D9SurfaceINTEL;
+       clEnqueueAcquireD3D9ObjectsIntel_fn      clEnqueueAcquireD3D9ObjectsINTEL;
+       clEnqueueReleaseD3D9ObjectsIntel_fn      clEnqueueReleaseD3D9ObjectsINTEL;
 #endif
     /// Add CPU specific Extra functions here
 } ocl_entry_points;

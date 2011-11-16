@@ -33,10 +33,8 @@
 #include "cl_objects_map.h"
 
 #include <Logger.h>
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
 #include <d3d9.h>
-#include <basetsd.h>
-#include "ocl_object_base.h"
 #endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -57,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class ContextModule : public OCLObjectBase, IContext, IContextGL
+	class ContextModule : IContext, IContextGL
 	{
 	
 	public:
@@ -186,12 +184,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int GetGLTextureInfo(cl_mem clMemObj, cl_gl_texture_info clglPramName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
         // Direct3D 9 Sharing methods
-#if defined (DX9_MEDIA_SHARING)
-        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, HANDLE sharehandle, UINT plane, cl_int *errcode_ret);
-#endif
 #if defined (DX9_SHARING)
         virtual cl_mem CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flags flags, IDirect3DVertexBuffer9* resource, cl_int* errcode_ret);
         virtual cl_mem CreateFromD3D9IndexBuffer(cl_context context, cl_mem_flags flags, IDirect3DIndexBuffer9* resource, cl_int* errcode_ret);
+        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, cl_int *errcode_ret);
         virtual cl_mem CreateFromD3D9Texture(cl_context context, cl_mem_flags flags, IDirect3DTexture9 *resource, UINT miplevel, cl_int *errcode_ret);
         virtual cl_mem CreateFromD3D9CubeTexture(cl_context context, cl_mem_flags flags, IDirect3DCubeTexture9 *resource, D3DCUBEMAP_FACES facetype, UINT miplevel, cl_int *errcode_ret);
         virtual cl_mem CreateFromD3D9VolumeTexture(cl_context context, cl_mem_flags flags, IDirect3DVolumeTexture9 *resource, UINT miplevel, cl_int *errcode_ret);
@@ -223,10 +219,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
         cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
 
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX9_SHARING)
         cl_mem CreateFromD3D9Resource(cl_context clContext, cl_mem_flags flags,
             D3D9ResourceInfo* const pResourceInfo, cl_int *pErrcodeRet,
-            cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane = MAXUINT);
+            cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat);
 #endif
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module

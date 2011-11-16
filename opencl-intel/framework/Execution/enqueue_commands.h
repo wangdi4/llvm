@@ -37,7 +37,6 @@
 #include "kernel.h"
 #include <ocl_itt.h>
 #include <list>
-#include "ocl_object_base.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -64,7 +63,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
-    class Command : public OCLObjectBase, public ICmdStatusChangedObserver
+    class Command : public ICmdStatusChangedObserver
     {
 
     public:
@@ -131,7 +130,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual const char*      GPA_GetCommandName() const { return NULL; }
 
     protected:
-		Command(const Command& O) : OCLObjectBase("Command"), ICmdStatusChangedObserver(), m_Event(NULL, NULL) {}
+		Command(const Command& O) : ICmdStatusChangedObserver(), m_Event(NULL, NULL) {}
 
 		// retrieve device specific descriptor of the memory object.
 		// If descriptor is not ready on a device:

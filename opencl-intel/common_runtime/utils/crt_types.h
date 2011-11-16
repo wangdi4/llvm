@@ -81,6 +81,9 @@ inline long test_and_set(long* Addend, long comparand, long exchange)
 }
 
 // Additional cl_context_properties
+#define CL_CONTEXT_D3D9_DEVICE_INTEL                  0xFFF6
+#define CL_CONTEXT_D3D9EX_DEVICE_INTEL                0xFFEB
+#define CL_CONTEXT_DXVA9_DEVICE_INTEL                 0xFFF2
 
 #define cl_intel_d3d9_media_sharing     1
 

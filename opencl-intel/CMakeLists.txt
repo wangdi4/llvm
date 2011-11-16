@@ -66,10 +66,6 @@ include_directories( BEFORE
         ${OCL_GLOBAL_INCLUDE}
     )
 
-if (WIN32)
-	add_definitions (-DDX9_MEDIA_SHARING)
-endif (WIN32)
-
 # set OS-dependent source tree elements
 if (WIN32)
     set(OS            Win)
