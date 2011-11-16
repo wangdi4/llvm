@@ -34,7 +34,7 @@
 #include <cl_dynamic_lib.h>
 #include <map>
 #include <list>
-#if defined (DX9_SHARING)
+#if defined (DX9_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
 
@@ -56,11 +56,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class FissionableDevice : public OCLObject<_cl_device_id_int>
     {
     public:
-        FissionableDevice()
-#if defined (DX9_SHARING)
-	  :  m_pD3D9Device(NULL)
-#endif
-	  {}
+        FissionableDevice() : OCLObject<_cl_device_id_int>("FissionableDevice"), m_pD3D9Device(NULL) {}
 
         cl_err_code RegisterDeviceFissionObserver(IDeviceFissionObserver* ob); 
         void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
@@ -84,8 +80,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
+#if defined (DX9_MEDIA_SHARING)
         /**
-         * @fn  void FissionableDevice::setD3D9Device(IDirect3DDevice9* const pD3D9Device)
+         * @fn  void FissionableDevice::setD3D9Device(IUnknown* const pD3D9Device)
          *
          * @brief   Sets a IDirect3DDevice9*
          *
@@ -93,16 +90,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @date    7/5/2011
          *
          * @param   the IDirect3DDevice9* to set (may be NULL)
+         * @param   the Direct3D 9 device type: CL_CONTEXT_D3D9_DEVICE_INTEL,
+         * 		   CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL				
          */
 
-#if defined (DX9_SHARING)
-        void SetD3D9Device(IDirect3DDevice9* const pD3D9Device)
+        void SetD3D9Device(IUnknown* const pD3D9Device, int iDevType)
         {
             m_pD3D9Device = pD3D9Device;
+            m_iD3D9DevType = iDevType;
         }
 
         /**
-         * @fn  IDirect3DDevice9* FissionableDevice::GetD3D9Device() const
+         * @fn  IUnknown* FissionableDevice::GetD3D9Device() const
          *
          * @brief   Gets the IDirect3DDevice9*.
          *
@@ -112,7 +111,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @return  the IDirect3DDevice9*.
          */
 
-        IDirect3DDevice9* GetD3D9Device() const { return m_pD3D9Device; }
+        IUnknown* GetD3D9Device() const { return m_pD3D9Device; }
+
+        /**
+         * @fn  int GetD3D9DevType() const { return m_iD3D9DevType; }
+         * 		
+         * @return the Direct3D 9 device type: CL_CONTEXT_D3D9_DEVICE_INTEL,
+         * 		   CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL
+         */
+
+        int GetD3D9DevType() const { return m_iD3D9DevType; }
 #endif
 
     protected:
@@ -124,14 +132,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 
-#if ! defined (DX9_SHARING)
-        struct IDirect3DDevice9;
+#if ! defined (DX9_MEDIA_SHARING)
+        struct IUnknown;
 #endif
-        /* I define this attribute even if DX9_SHARING is not defined, since it is too dangerous to
+        /* I define this attribute even if DX9_MEDIA_SHARING is not defined, since it is too dangerous to
         make the size of the FissionableDevice object dependent on a macro definition, which may
         differ from one project to another. This might cause bugs that wouldn't be caught by the
         compiler, but appear in runtime and would be very hard to detect. */
-        IDirect3DDevice9* m_pD3D9Device;
+        IUnknown* m_pD3D9Device;
+        int m_iD3D9DevType;
 
     };
 

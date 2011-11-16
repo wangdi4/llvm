@@ -69,6 +69,45 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     };
 
+    
+    /**
+     * @struct D3D9SurfaceResourceInfo
+     * 
+     *  @brief  Information about the Direct3D 9 surface resource
+     *  		
+     *  @author Aharon
+     *  @date   9/13/2011
+     */
+    struct D3D9SurfaceResourceInfo : public D3D9ResourceInfo
+    {
+        HANDLE m_sharehandle;
+        UINT m_plane;
+
+        /**
+         * @fn D3D9SurfaceResourceInfo(IDirect3DResource9* const pResource, HANDLE sharehandle, UINT plane)
+         * 	   
+         * @brief   Constructor.
+         *
+         * @author  Aharon
+         * @date    9/13/2011
+         * 			
+         * @param   pResource   The resource
+         * @param   sharehandle The shared handle of the pResource used to share the surface between devices
+         * @param   plane       The plane of pResource to share, for planar surface formats
+         */
+        D3D9SurfaceResourceInfo(IDirect3DResource9* const pResource, HANDLE sharehandle, UINT plane) :
+            D3D9ResourceInfo(pResource), m_sharehandle(sharehandle), m_plane(plane) { }
+
+        // inherited methods:
+
+        virtual bool operator<(const D3D9ResourceInfo& other) const
+        {
+            if (m_pResource == other.m_pResource)
+                return m_plane < dynamic_cast<const D3D9SurfaceResourceInfo&>(other).m_plane;
+            return D3D9ResourceInfo::operator <(other);
+        }
+    };
+
     /**
      * @struct  D3D9TextureResourceInfo
      *
@@ -152,20 +191,21 @@ namespace Intel { namespace OpenCL { namespace Framework
         }
     };
 
-     /**
-      * @fn IDirect3DDevice9* ParseD3D9ContextOptions(const cl_context_properties* const pProperties);
-      *
-      * @brief  This function parses an array of cl_context_properties elements and tries to find in
-      *         them a CL_CONTEXT_D3D9_DEVICE_Intel property and if it finds such, it returns it.
-      *
-      * @author Aharon
-      * @date   6/30/2011
-      *
-      * @param  pProperties the array of cl_context_properties elements.
-      *
-      * @return value found or NULL if no such property is found.
-      */
+    /**
+     * @fn  cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
+     * 		IUnknown* device, int* iDevType)
+     * 		
+     * @param pProperties   the list of properties
+     * @param device        a reference to IUnknown* in which the pointer to the Direct3D 9 device is
+     * 						to be stored if such is found in pProperties, otherwise it is set to
+     * 						NULL
+     * @param iDevType      a pointer to int in which the type of the device is to be stored in
+     * 						such is found in pProperties, otherwise it is set to NULL
+     * @return CL_INVALID_D3D9_DEVICE_INTEL in case more than one device is found, CL_SUCCESS
+     * 		   otherwise						
+     */
 
-     IDirect3DDevice9* ParseD3D9ContextOptions(const cl_context_properties* const pProperties);
+    cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
+        IUnknown*& device, int* iDevType);
 
 }}}

@@ -241,8 +241,12 @@ cl_err_code QueueEvent::NotifyEventDone(Intel::OpenCL::Framework::OclEvent *pEve
 	return OclEvent::NotifyEventDone(pEvent, returnCode);
 }
 
-long QueueEvent::RemovePendency()
+long QueueEvent::RemovePendency(OCLObjectBase* pObj)
 {
+    if (NULL != pObj)
+    {
+        EraseFromDependecySet(pObj);
+    }
 	long newVal = --m_uiPendency;
 	if (0 == newVal)
 	{

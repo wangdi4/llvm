@@ -28,16 +28,15 @@
 #include "Context.h"
 
 #include <cl_synch_objects.h>
-#if defined (DX9_SHARING)
+#if defined (DX9_MEDIA_SHARING)
 #include "d3d9_resource.h"
-#include "CL/cl_d3d9.h"
 #endif
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints):
+MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints): OCLObject<_cl_mem_int>("MemoryObject"),
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
 	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
 	m_mapCount(0), m_pLocation(NULL), m_stMemObjSize(0)
@@ -46,7 +45,7 @@ MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoint
 
 	memset(m_stOrigin, 0, sizeof(m_stOrigin));
 
-	m_pContext->AddPendency();
+	m_pContext->AddPendency(this);
 
 	m_mapMappedRegions.clear();
 
@@ -56,7 +55,7 @@ MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoint
 
 MemoryObject::~MemoryObject()
 {
-	m_pContext->RemovePendency();
+	m_pContext->RemovePendency(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -165,16 +164,27 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
         }
         pValue = &szParam;
         break;
-#if defined (DX9_SHARING)
-    case CL_MEM_D3D9_RESOURCE_INTEL:
+#if defined (DX9_MEDIA_SHARING)
+    case CL_MEM_DX9_RESOURCE_INTEL:
         {
             const D3D9Resource* const pD3d9Resource = dynamic_cast<D3D9Resource*>(this);
             if (NULL == pD3d9Resource)
             {
-                return CL_INVALID_D3D9_RESOURCE_INTEL;
+                return CL_INVALID_DX9_RESOURCE_INTEL;
             }
             szSize = sizeof(IDirect3DResource9*);
-            pValue = &pD3d9Resource->GetResourceInfo().m_pResource;
+            pValue = &pD3d9Resource->GetResourceInfo()->m_pResource;
+            break;
+        }
+    case CL_MEM_DX9_SHARED_HANDLE_INTEL:
+        {
+            const D3D9Surface* const pD3d9Surface = dynamic_cast<D3D9Surface*>(this);
+            if (NULL == pD3d9Surface)
+            {
+                return CL_INVALID_DX9_RESOURCE_INTEL;                
+            }
+            szSize = sizeof(HANDLE);
+            pValue = &static_cast<const D3D9SurfaceResourceInfo*>(pD3d9Surface->GetResourceInfo())->m_sharehandle;
             break;
         }
 #else

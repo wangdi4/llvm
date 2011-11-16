@@ -52,7 +52,7 @@ using namespace Intel::OpenCL::Framework;
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
-	: m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0)
+	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0)
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);

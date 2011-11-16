@@ -7,9 +7,6 @@
 #include "framework_proxy.h"
 #include "cl_cpu_detect.h"
 #include "cl_linux_utils.h"
-#if defined (DX9_SHARING)
-#include "CL/cl_d3d9.h"
-#endif
 #include "ocl_itt.h"
 
 #ifndef _WIN32
@@ -997,64 +994,69 @@ REGISTER_EXTENSION_FUNCTION(clCreateSubDevicesEXT, clCreateSubDevicesEXT);
 
 #if defined (DX9_SHARING)
 cl_mem CL_API_CALL clCreateFromD3D9VertexBufferINTEL(cl_context context,
-                                                  cl_mem_flags flags,
-                                                  IDirect3DVertexBuffer9 *resource,
-                                                  cl_int *errcode_ret)
+                                                     cl_mem_flags flags,
+                                                     IDirect3DVertexBuffer9 *resource,
+                                                     cl_int *errcode_ret)
 {
     return CONTEXT_MODULE->CreateFromD3D9VertexBuffer(context, flags, resource, errcode_ret);
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9VertexBufferINTEL, clCreateFromD3D9VertexBufferINTEL);
 
 cl_mem CL_API_CALL clCreateFromD3D9IndexBufferINTEL(cl_context context,
-                                                 cl_mem_flags flags,
-                                                 IDirect3DIndexBuffer9 *resource,
-                                                 cl_int *errcode_ret)
+                                                    cl_mem_flags flags,
+                                                    IDirect3DIndexBuffer9 *resource,
+                                                    cl_int *errcode_ret)
 {
     return CONTEXT_MODULE->CreateFromD3D9IndexBuffer(context, flags, resource, errcode_ret);
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9IndexBufferINTEL, clCreateFromD3D9IndexBufferINTEL);
 
-cl_mem CL_API_CALL clCreateFromD3D9SurfaceINTEL(cl_context context,
-                                             cl_mem_flags flags,
-                                             IDirect3DSurface9 *resource,
-                                             cl_int *errcode_ret)
-{
-    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, resource, errcode_ret);
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9SurfaceINTEL, clCreateFromD3D9SurfaceINTEL);
-
 cl_mem CL_API_CALL clCreateFromD3D9TextureINTEL(cl_context context,
-                                             cl_mem_flags flags,
-                                             IDirect3DTexture9 *resource,
-                                             UINT miplevel,
-                                             cl_int *errcode_ret)
+                                                cl_mem_flags flags,
+                                                IDirect3DTexture9 *resource,
+                                                UINT miplevel,
+                                                cl_int *errcode_ret)
 {
     return CONTEXT_MODULE->CreateFromD3D9Texture(context, flags, resource, miplevel, errcode_ret);
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9TextureINTEL, clCreateFromD3D9TextureINTEL);
 
 cl_mem CL_API_CALL clCreateFromD3D9CubeTextureINTEL(cl_context context,
-                                                 cl_mem_flags flags,
-                                                 IDirect3DCubeTexture9 *resource,
-                                                 D3DCUBEMAP_FACES facetype,
-                                                 UINT miplevel,
-                                                 cl_int *errcode_ret)
+                                                    cl_mem_flags flags,
+                                                    IDirect3DCubeTexture9 *resource,
+                                                    D3DCUBEMAP_FACES facetype,
+                                                    UINT miplevel,
+                                                    cl_int *errcode_ret)
 {
     return CONTEXT_MODULE->CreateFromD3D9CubeTexture(context, flags, resource, facetype, miplevel, errcode_ret);
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9CubeTextureINTEL, clCreateFromD3D9CubeTextureINTEL);
 
 cl_mem CL_API_CALL clCreateFromD3D9VolumeTextureINTEL(cl_context context,
-                                                   cl_mem_flags flags,
-                                                   IDirect3DVolumeTexture9 *resource,
-                                                   UINT miplevel,
-                                                   cl_int *errcode_ret)
+                                                      cl_mem_flags flags,
+                                                      IDirect3DVolumeTexture9 *resource,
+                                                      UINT miplevel,
+                                                      cl_int *errcode_ret)
 {
     return CONTEXT_MODULE->CreateFromD3D9VolumeTexture(context, flags, resource, miplevel, errcode_ret);
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9VolumeTextureINTEL, clCreateFromD3D9VolumeTextureINTEL);
+#endif
 
-cl_int CL_API_CALL clEnqueueAcquireD3D9ObjectsINTEL(cl_command_queue command_queue,
+#if defined (DX9_MEDIA_SHARING)
+
+cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(cl_context context,
+                                                cl_mem_flags flags,
+                                                IDirect3DSurface9 *resource,
+                                                HANDLE sharehandle,
+                                                UINT plane,
+                                                cl_int *errcode_ret)
+{
+    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, resource, sharehandle, plane, errcode_ret);
+}
+REGISTER_EXTENSION_FUNCTION(clCreateFromDX9MediaSurfaceINTEL, clCreateFromDX9MediaSurfaceINTEL);
+
+cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
                                                  const cl_mem *mem_objects,
                                                  cl_uint num_events_in_wait_list,
@@ -1062,12 +1064,12 @@ cl_int CL_API_CALL clEnqueueAcquireD3D9ObjectsINTEL(cl_command_queue command_que
                                                  cl_event *event)
 {
     return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue,
-        CL_COMMAND_ACQUIRE_D3D9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
+        CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
         event_wait_list, event);
 }
-REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireD3D9ObjectsINTEL, clEnqueueAcquireD3D9ObjectsINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9ObjectsINTEL, clEnqueueAcquireDX9ObjectsINTEL);
 
-cl_int CL_API_CALL clEnqueueReleaseD3D9ObjectsINTEL(cl_command_queue command_queue,
+cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
                                                  cl_mem *mem_objects,
                                                  cl_uint num_events_in_wait_list,
@@ -1075,34 +1077,36 @@ cl_int CL_API_CALL clEnqueueReleaseD3D9ObjectsINTEL(cl_command_queue command_que
                                                  cl_event *event)
 {
     return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue,
-        CL_COMMAND_RELEASE_D3D9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
+        CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL, num_objects, mem_objects, num_events_in_wait_list,
         event_wait_list, event);
 }
-REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseD3D9ObjectsINTEL, clEnqueueReleaseD3D9ObjectsINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9ObjectsINTEL, clEnqueueReleaseDX9ObjectsINTEL);
 
-cl_int CL_API_CALL clGetDeviceIDsFromD3D9INTEL(cl_platform_id platform,
-                                            cl_d3d9_device_source_intel d3d_device_source,
+cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(cl_platform_id platform,
+                                            cl_dx9_device_source_intel d3d_device_source,
                                             void *d3d_object,
-                                            cl_d3d9_device_set_intel d3d_device_set,
+                                            cl_dx9_device_set_intel d3d_device_set,
                                             cl_uint num_entries, 
                                             cl_device_id *devices, 
                                             cl_uint *num_devices)
 {
     return PLATFORM_MODULE->GetDeviceIDsFromD3D9(platform, d3d_device_source, d3d_object, d3d_device_set, num_entries, devices, num_devices);
 }
-REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromD3D9INTEL, clGetDeviceIDsFromD3D9INTEL);
+REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromDX9INTEL, clGetDeviceIDsFromDX9INTEL);
 
 #else
 // dummy definitions
+#ifdef DX9_SHARING
 void CL_API_CALL clCreateFromD3D9VertexBufferINTEL() { }
 void CL_API_CALL clCreateFromD3D9IndexBufferINTEL() { }
-void CL_API_CALL clCreateFromD3D9SurfaceINTEL() { }
 void CL_API_CALL clCreateFromD3D9TextureINTEL() { }
 void CL_API_CALL clCreateFromD3D9CubeTextureINTEL() { }
 void CL_API_CALL clCreateFromD3D9VolumeTextureINTEL() { }
-void CL_API_CALL clEnqueueAcquireD3D9ObjectsINTEL() { }
-void CL_API_CALL clEnqueueReleaseD3D9ObjectsINTEL() { }
-void CL_API_CALL clGetDeviceIDsFromD3D9INTEL() { }
+#endif
+void CL_API_CALL clCreateFromDX9MediaSurfaceINTEL() { }
+void CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL() { }
+void CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL() { }
+void CL_API_CALL clGetDeviceIDsFromDX9INTEL() { }
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////

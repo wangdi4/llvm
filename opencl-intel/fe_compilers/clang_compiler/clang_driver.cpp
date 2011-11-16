@@ -482,6 +482,8 @@ int ClangFECompilerBuildTask::Build()
 	SmallVector<char, 4096>	IRbinary;
 	llvm::raw_svector_ostream *IRStream = new llvm::raw_svector_ostream(IRbinary);
 	Clang->SetOutputStream(IRStream);
+    
+    bool Success = true;
 
 #ifdef WIN32
 	//prepare pch buffer
@@ -503,44 +505,76 @@ int ClangFECompilerBuildTask::Build()
 	{
 		hRes = FindResource(hMod, L"#101", L"PCH");
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "hMod is NULL");
+        Success = false;
+    }
 
 	// Load the resource
 	if( NULL != hRes )
 	{
 		hBytes = LoadResource(hMod, hRes);
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "hRes is NULL");
+        Success = false;
+    }
 	
 	// Get the base address to the resource. This call doesn't really lock it
 	if( NULL != hBytes )
 	{
 		pData = (char *)LockResource(hBytes);
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "hBytes is NULL");
+        Success = false;
+    }
 	
 	// Get the buffer size
 	if( NULL != pData )
 	{
 		dResSize = SizeofResource(hMod, hRes);
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "pData is NULL");
+        Success = false;
+    }
 
 	if( dResSize > 0 )
 	{	
 		pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "dResSize <= 0");
+        Success = false;
+    }
 
 	if( NULL != pchBuff )
 	{
 		Clang->SetPchBuffer(pchBuff);
 	}
+    else
+    {
+        LOG_ERROR(TEXT("%s"), "pchBuff is NULL");
+        Success = false;
+    }
 #endif
-
-	// Execute the frontend actions.
-	bool Success;
-	try {
-		Success = ExecuteCompilerInvocation(Clang.get());
-	} catch (const std::exception& e) {
-		Success = false;
-		LOG_ERROR(TEXT("Caught an exception during compilation %s"), e.what());
-	}
+    
+    // Execute the frontend actions.
+    if (Success)
+    {
+        try {
+            Success = ExecuteCompilerInvocation(Clang.get());
+        } catch (const std::exception&) {
+            Success = false;
+            LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
+        }
+    }    
 
 	// Our error handler depends on the Diagnostics object, which we're
 	// potentially about to delete. Uninstall the handler now so that any

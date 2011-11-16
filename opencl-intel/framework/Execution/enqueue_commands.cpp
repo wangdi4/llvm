@@ -108,6 +108,7 @@ static void create_dev_cmd_rw(
  *
  ******************************************************************/
 Command::Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ):
+    OCLObjectBase("Command"),
     m_Event(cmdQueue, pOclEntryPoints),
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
@@ -117,11 +118,11 @@ Command::Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPo
 	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
 
 	m_iId = m_Event.GetId();
-	m_Event.AddPendency();
+	m_Event.AddPendency(NULL);  // NULL because dependency is released in case of failure by IOclCommandQueueBase
 	m_Event.SetCommand(this);
 
 	assert(m_pCommandQueue);
-	m_pCommandQueue->AddPendency();
+	m_pCommandQueue->AddPendency(this);
 	m_pDevice = m_pCommandQueue->GetDefaultDevice();
 
     m_pGpaCommand = NULL;
@@ -135,7 +136,7 @@ Command::~Command()
 {
 	m_pDevice = NULL;
 	GPA_DestroyCommand();
-	m_pCommandQueue->RemovePendency();
+	m_pCommandQueue->RemovePendency(this);
 	m_pCommandQueue = NULL;
 
 	RELEASE_LOGGER_CLIENT;
@@ -261,7 +262,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		}
 
 #endif
-		m_Event.RemovePendency();
+		m_Event.RemovePendency(NULL);
 		break;
     default:
         break;
@@ -602,8 +603,8 @@ cl_err_code CopyMemObjCommand::Init()
 	// Initialize GPA data
 	GPA_InitCommand();
 
-    m_pSrcMemObj->AddPendency();
-    m_pDstMemObj->AddPendency();
+    m_pSrcMemObj->AddPendency(this);
+    m_pDstMemObj->AddPendency(this);
     return CL_SUCCESS;
 }
 
@@ -625,7 +626,7 @@ cl_err_code CopyMemObjCommand::Execute()
 	{
 		m_returnCode = CL_SUCCESS;
 		m_Event.SetColor(EVENT_STATE_BLACK);
-		m_Event.RemovePendency();
+		m_Event.RemovePendency(NULL);
 		return CL_SUCCESS;
 	}
 
@@ -784,8 +785,8 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(FissionableDevice* pDevice)
  ******************************************************************/
 cl_err_code CopyMemObjCommand::CommandDone()
 {
-    m_pSrcMemObj->RemovePendency();
-    m_pDstMemObj->RemovePendency();
+    m_pSrcMemObj->RemovePendency(this);
+    m_pDstMemObj->RemovePendency(this);
 
     return CL_SUCCESS;
 }
@@ -1005,12 +1006,12 @@ MapMemObjCommand::~MapMemObjCommand()
 cl_err_code MapMemObjCommand::Init()
 {
     cl_err_code res;
-    m_pMemObj->AddPendency();
+    m_pMemObj->AddPendency(NULL);   // NULL because this command won't be the one that will remove the dependency - the unmap command will
 
     res = m_pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(res))
     {
-		m_pMemObj->RemovePendency();
+		m_pMemObj->RemovePendency(this);
 		assert(0);
 		return res;
 	}
@@ -1181,7 +1182,7 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
     // Here we do the actual operation off releasing the mapped region.
     errVal = m_pMemObject->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr);
 
-    m_pMemObject->RemovePendency();
+    m_pMemObject->RemovePendency(NULL); // NULL because this command wasn't the one that added the dependency in the first place - it was the map command
     return errVal;
 }
 
@@ -1254,7 +1255,7 @@ cl_err_code NativeKernelCommand::Init()
 		// Check that mem object is allocated on device, if not allocate resource
 		MemoryObject* pMemObj = m_ppMemObjList[i];
 		// Set buffers pendencies
-		pMemObj->AddPendency();
+		pMemObj->AddPendency(this);  
 		// Check that mem object is allocated on device, if not allocate resource
 		res = pMemObj->CreateDeviceResource(m_pDevice);
 		if( CL_FAILED(res))
@@ -1283,7 +1284,7 @@ cl_err_code NativeKernelCommand::Init()
 		for( cl_uint j=0; j<i; ++j)
 		{
 			MemoryObject* pMemObj = m_ppMemObjList[j];
-			pMemObj->RemovePendency();
+			pMemObj->RemovePendency(this);
 		}
 
 		delete []pNewArgs;
@@ -1387,7 +1388,7 @@ cl_err_code NativeKernelCommand::CommandDone()
     {
         // Check that mem object is allocated on device, if not allocate resource
         MemoryObject* pMemObj = m_ppMemObjList[i];
-        pMemObj->RemovePendency();
+        pMemObj->RemovePendency(this);
     }
 	delete []m_ppMemObjList;
 
@@ -1432,7 +1433,7 @@ cl_err_code NDRangeKernelCommand::Init()
     // Thus, we also create and set the device command appropriately as much as we can.
 
 	// Add ownership on the object
-	m_pKernel->AddPendency();
+	m_pKernel->AddPendency(this);
 
     // Create args snapshot
     size_t szArgCount = m_pKernel->GetKernelArgsCount();
@@ -1455,7 +1456,7 @@ cl_err_code NDRangeKernelCommand::Init()
             // Create buffer resources here if not available.
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
             // Mark as used
-            pMemObj->AddPendency();
+            pMemObj->AddPendency(this);
             res = pMemObj->CreateDeviceResource(m_pDevice);
             if( CL_FAILED(res))
             {
@@ -1469,7 +1470,7 @@ cl_err_code NDRangeKernelCommand::Init()
 		{
             szSize   = sizeof(cl_uint);
 			OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
-			pSampler->AddPendency();
+			pSampler->AddPendency(this);
             szCurrentLocation += szSize;
             m_NonMemOclObjects.push_back(reinterpret_cast<OCLObject<_cl_mem_int> *>(pSampler));
 		}
@@ -1506,14 +1507,14 @@ cl_err_code NDRangeKernelCommand::Init()
 		    if(pArg->IsMemObject())
 			{
 	            MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
-			    pMemObj->RemovePendency();
+			    pMemObj->RemovePendency(this);
 			} else if( pArg->IsSampler() )
 			{
 				OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
-				pSampler->RemovePendency();
+				pSampler->RemovePendency(this);
 			}
 		}
-		m_pKernel->RemovePendency();
+		m_pKernel->RemovePendency(this);
 
 		return res;
 	}
@@ -1657,14 +1658,14 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     for( it = m_MemOclObjects.begin(); it != m_MemOclObjects.end(); it++)
     {
         OCLObject<_cl_mem_int>* obj = *it;
-        obj->RemovePendency();
+        obj->RemovePendency(this);
     }
     m_MemOclObjects.clear();
 
     for( it = m_NonMemOclObjects.begin(); it != m_NonMemOclObjects.end(); it++)
     {
         OCLObject<_cl_mem_int>* obj = *it;
-        obj->RemovePendency();
+        obj->RemovePendency(this);
     }
     m_NonMemOclObjects.clear();
 
@@ -1675,7 +1676,7 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     delete[] temp;
 
 	// Remove ownership from the object
-	m_pKernel->RemovePendency();
+	m_pKernel->RemovePendency(this);
 
     return CL_SUCCESS;
 }
@@ -1836,13 +1837,11 @@ ReadMemObjCommand::ReadMemObjCommand(
 	{
 		if( 0 == szDstRowPitch  )
 		{
-			// Get original image pitch
-			m_szDstRowPitch = pMemObj->GetRowPitchSize();
+			m_szDstRowPitch = pszRegion[0] * pMemObj->GetPixelSize();
 		}
 		if( 0 == szDstSlicePitch )
 		{
-			// Get original image pitch
-			m_szDstSlicePitch = pMemObj->GetSlicePitchSize();
+			m_szDstSlicePitch = m_szDstRowPitch * pszRegion[1];
 		}
 	}
 }
@@ -1859,7 +1858,7 @@ ReadMemObjCommand::~ReadMemObjCommand()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::Init()
 {
-	m_pMemObj->AddPendency();
+	m_pMemObj->AddPendency(this);
 
 	// Initialize GPA data
 	GPA_InitCommand();
@@ -1885,7 +1884,7 @@ cl_err_code ReadMemObjCommand::Execute()
 	{
 		m_returnCode = CL_SUCCESS;
 		m_Event.SetColor(EVENT_STATE_BLACK);
-		m_Event.RemovePendency();
+		m_Event.RemovePendency(NULL);
 		return CL_SUCCESS;
 	}
 
@@ -1946,7 +1945,7 @@ cl_err_code ReadMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::CommandDone()
 {
-    m_pMemObj->RemovePendency();
+    m_pMemObj->RemovePendency(this);
     return CL_SUCCESS;
 }
 
@@ -2179,7 +2178,7 @@ cl_err_code WriteMemObjCommand::Init()
 	// Initialize GPA data
 	GPA_InitCommand();
 
-    m_pMemObj->AddPendency();
+    m_pMemObj->AddPendency(this);
     return CL_SUCCESS;
 }
 
@@ -2250,7 +2249,7 @@ cl_err_code WriteMemObjCommand::CommandDone()
 		m_pTempBuffer = NULL;
 	}
 
-    m_pMemObj->RemovePendency();
+    m_pMemObj->RemovePendency(this);
 
     return CL_SUCCESS;
 }
@@ -2264,6 +2263,6 @@ cl_err_code RuntimeCommand::Execute()
     LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_iId);
     CommandDone();
 	m_Event.SetColor(EVENT_STATE_BLACK);
-	m_Event.RemovePendency();
+	m_Event.RemovePendency(NULL);
     return CL_SUCCESS;
 }

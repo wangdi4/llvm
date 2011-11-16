@@ -66,6 +66,11 @@ include_directories( BEFORE
         ${OCL_GLOBAL_INCLUDE}
     )
 
+if (WIN32 AND NOT( "$ENV{DXSDK_DIR}" STREQUAL "") )
+	message ("Compiling with DX sharing")
+	add_definitions (-DDX9_MEDIA_SHARING)
+endif ()
+
 # set OS-dependent source tree elements
 if (WIN32)
     set(OS            Win)
