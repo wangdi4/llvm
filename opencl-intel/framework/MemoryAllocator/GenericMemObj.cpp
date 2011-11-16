@@ -288,7 +288,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 {
     // sub-buffer related - used by internal functions call later in this function
 	m_pParentObject = &parent;
-   	m_pParentObject->AddPendency();
+   	m_pParentObject->AddPendency(this);
 
     memcpy( m_stOrigin, origin, sizeof(m_stOrigin) );
 
@@ -1018,7 +1018,7 @@ GenericMemObjectSubBuffer::~GenericMemObjectSubBuffer()
 {
 	if ( NULL != m_pParentObject )
 	{
-		m_pParentObject->RemovePendency();
+		m_pParentObject->RemovePendency(this);
 	}
 }
 
