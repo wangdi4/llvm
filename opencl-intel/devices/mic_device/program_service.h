@@ -83,6 +83,8 @@ public:
                     DeviceServiceCommunication& dev_service );
     virtual ~ProgramService();
 
+    bool Init( void );
+
     cl_dev_err_code CheckProgramBinary (size_t IN bin_size, const void* IN bin);
     cl_dev_err_code CreateProgram( size_t IN binSize,
                                         const void* IN bin,
@@ -178,6 +180,9 @@ private:
     // program info struct
     struct    TProgramEntry
     {
+        static const uint64_t       marker_value = 0xF00DBEAF;
+        uint64_t                    marker; // set it to the marker_value at contructor
+
         ICLDevBackendProgram_*      pProgram;
         uint64_t                    uid_program_on_device;
         volatile cl_build_status    clBuildStatus;
@@ -185,16 +190,19 @@ private:
         TKernelName2Entry           mapName2Kernels;
         TKernelId2Entry             mapId2Kernels;
         AtomicCounter               outanding_usages_count;
+        cl_int                      m_iDevId;   // created for current device
+
+        // constructor
+        TProgramEntry( cl_int dev_id ) : marker( marker_value ), m_iDevId(dev_id)  {};
     };
 
-    typedef std::map<cl_dev_program, TProgramEntry*>    TProgramMap;
+    typedef std::list<TProgramEntry*>    TProgramList;
 
     cl_int                         m_iDevId;
     IOCLDevLogDescriptor*          m_pLogDescriptor;
     cl_int                         m_iLogHandle;
-    HandleAllocator<unsigned int>  m_progIdAlloc;
-    TProgramMap                    m_mapPrograms;
-    OclMutex                       m_muProgMap;
+    TProgramList                   m_Programs;
+    OclMutex                       m_muPrograms;
     IOCLFrameworkCallbacks*        m_pCallBacks;
 
     MICDeviceConfig               *m_pMICConfig;
@@ -211,6 +219,9 @@ private:
 
     cl_dev_kernel kernel_entry_2_cl_dev_kernel( const TKernelEntry* e ) const;
     TKernelEntry* cl_dev_kernel_2_kernel_entry( cl_dev_kernel k ) const;
+
+    cl_dev_program program_entry_2_cl_dev_program( const TProgramEntry* e ) const;
+    TProgramEntry* cl_dev_program_2_program_entry( cl_dev_program p ) const;
 
     bool    CopyProgramToDevice(
                 const ICLDevBackendProgram_* pProgram,

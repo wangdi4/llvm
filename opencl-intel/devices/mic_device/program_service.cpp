@@ -64,7 +64,7 @@ ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallback
                                               MICDeviceConfig *config,
                                               DeviceServiceCommunication& dev_service) :
     m_DevService( dev_service), m_BE_Compiler( m_DevService, MIC_BACKEND_DLL_NAME ),
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_progIdAlloc(1, UINT_MAX),
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
     m_pCallBacks(devCallbacks), m_pMICConfig(config)
 {
     if ( NULL != logDesc )
@@ -79,18 +79,38 @@ ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallback
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MICDevice: Program Service - Created"));
 }
 
-ProgramService::~ProgramService()
+bool ProgramService::Init( void )
 {
-    TProgramMap::iterator    it;
+    cl_dev_err_code err;
 
-    // Go thought the map and remove all allocated programs
-    for(it = m_mapPrograms.begin(); it != m_mapPrograms.end(); ++it)
     {
-        DeleteProgramEntry(it->second);
+        // acquire creation lock
+        OclAutoMutex lock(&m_BE_Compiler.creationLock);
+        err = m_BE_Compiler.be_wrapper.Init();
     }
 
-    m_progIdAlloc.Clear();
-    m_mapPrograms.clear();
+    if (! CL_DEV_SUCCEEDED(err))
+    {
+        assert( false && "MIC Device Agent cannot initialize BE" );
+        MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot initialize BE"));
+
+        return false;
+    }
+
+    return true;
+}
+
+ProgramService::~ProgramService()
+{
+    TProgramList::iterator    it;
+
+    // Go thought the map and remove all allocated programs
+    for(it = m_Programs.begin(); it != m_Programs.end(); ++it)
+    {
+        DeleteProgramEntry(*it);
+    }
+
+    m_Programs.clear();
 
     ReleaseBackendServices();
 
@@ -136,7 +156,10 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
             return TRANSPOSE_SIZE_1;
 
         case CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE:
-            return getTargetDescriptionSize();
+            {
+                int size = getTargetDescriptionSize();
+                return (size <= 0) ? defaultValue : size;
+            }
 
         default:
             return defaultValue;
@@ -200,6 +223,13 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     uint64_t            original_size = *pSize;
     COIPROCESS          in_pProcesses[] = { m_dev_service.getDeviceProcessHandle() };
 
+    assert( (NULL != in_pProcesses[0]) && "Device process disappeared" );
+
+    if (NULL == in_pProcesses[0])
+    {
+         return false;
+    }
+
     //
     // Target description is going to filled into Value buffer directly and copied back using DMA
     //
@@ -229,12 +259,17 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     assert( filled_size > 0 && "GET_BACKEND_OPTIONS in device filled 0 length!" );
     assert( filled_size <= original_size && "GET_BACKEND_TARGET_DESCRIPTION in device filled more than buffer size!" );
 
-    if (0 != filled_size)
+    if (ok && (0 != filled_size))
     {
         // map buffer to get results
         coi_err = COIBufferMap(coi_buffer, 0, *pSize, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &data_address );
         assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with BE options" );
         assert( ((size_t)Value == (size_t)data_address) && "COIBufferMap did not return original data pointer for buffer from memory" );
+
+        if (COI_SUCCESS != coi_err)
+        {
+            ok = false;
+        }
 
         // unmap buffer back - data should remain in the original memory
         coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
@@ -302,26 +337,6 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
-// BUGBUG: DK test only
-//        m_BE_Compiler.MICOptions.init( m_pMICConfig->UseVectorizer(),
-//                                       m_pMICConfig->UseVTune()
-//                                      );
-//
-//        unsigned char bbb[100];
-//        size_t   bbb_size = 100;
-//
-//        int d_size = m_BE_Compiler.MICOptions.GetIntValue( CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE, 0 );
-//        printf("d_size=%d\n", d_size);
-//
-//        bool ee = m_BE_Compiler.MICOptions.GetValue( CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION, bbb, &bbb_size);
-//        bbb[bbb_size] = '\0';
-//
-//        printf("ee=%s bbb=|%s| bbb_size=%u\n", ee ? "TRUE" : "FALSE", (char*)bbb, (unsigned)bbb_size);
-
-        err = m_BE_Compiler.be_wrapper.Init();
-
-        assert( CL_DEV_SUCCEEDED(err) && "MIC Device Agent cannot initialize BE" );
-
         // load Backend Compiler
         ICLDevBackendServiceFactory* be_factory = m_BE_Compiler.be_wrapper.GetBackendFactory();
 
@@ -377,8 +392,6 @@ bool ProgramService::LoadBackendServices(void)
         {
             ser_temp->Release();
         }
-
-        ReleaseBackendServices();
     }
 
     return ok;
@@ -418,8 +431,11 @@ ProgramService::TKernelEntry* ProgramService::cl_dev_kernel_2_kernel_entry( cl_d
     TKernelEntry* e = (TKernelEntry*)k;
 
     assert( TKernelEntry::marker_value == e->marker && "MICDevice: Wrong cl_dev_kernel passed!" );
+    assert( (NULL != e->pProgEntry) && (e->pProgEntry->m_iDevId == m_iDevId) && "MICDevice: Kernel from wrong device passed!" );
 
-    if (TKernelEntry::marker_value != e->marker)
+    if ((TKernelEntry::marker_value != e->marker) ||
+        (NULL == e->pProgEntry)                   ||
+        (e->pProgEntry->m_iDevId != m_iDevId))
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Wrong cl_dev_kernel passed: 0x%lx"), k );
         e = NULL;
@@ -427,6 +443,31 @@ ProgramService::TKernelEntry* ProgramService::cl_dev_kernel_2_kernel_entry( cl_d
 
     return e;
 }
+
+inline
+cl_dev_program ProgramService::program_entry_2_cl_dev_program( const TProgramEntry* e ) const
+{
+    return (cl_dev_program)e;
+}
+
+inline
+ProgramService::TProgramEntry* ProgramService::cl_dev_program_2_program_entry( cl_dev_program k ) const
+{
+    TProgramEntry* e = (TProgramEntry*)k;
+
+    assert( TProgramEntry::marker_value == e->marker && "MICDevice: Wrong cl_dev_program passed!" );
+    assert( (e->m_iDevId == m_iDevId) && "MICDevice: Program from wrong device passed!" );
+
+    if ((TProgramEntry::marker_value != e->marker) ||
+        (e->m_iDevId != m_iDevId))
+    {
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Wrong cl_dev_program passed: 0x%lx"), k );
+        e = NULL;
+    }
+
+    return e;
+}
+
 
 /****************************************************************************************************************
  CheckProgramBinary
@@ -542,7 +583,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     // Create new program
     const cl_prog_container_header*    pProgCont = (cl_prog_container_header*)bin;
-    TProgramEntry*    pEntry        = new TProgramEntry;
+    TProgramEntry*    pEntry        = new TProgramEntry(m_iDevId);
     if ( NULL == pEntry )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Cann't allocate program entry"));
@@ -556,7 +597,15 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     switch(pProgCont->description.bin_type)
     {
     case CL_PROG_BIN_LLVM:
-        ret = GetCompilationService()->CreateProgram(pProgCont, (ICLDevBackendProgram_**)&pEntry->pProgram);
+        {
+            ICLDevBackendCompilationService* compiler = GetCompilationService();
+            if (NULL == compiler)
+            {
+                MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Cannot load compilation service"), "");
+                return CL_DEV_OUT_OF_MEMORY;
+            }
+            ret = compiler->CreateProgram(pProgCont, (ICLDevBackendProgram_**)&pEntry->pProgram);
+        }
         break;
     default:
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to find approproiate program for type<%d>"), pProgCont->description.bin_type);
@@ -571,20 +620,13 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_INVALID_BINARY;
     }
 
-    // Allocate new program id
-    unsigned int newProgId;
-    if ( !m_progIdAlloc.AllocateHandle(&newProgId) )
-    {
-        delete pEntry;
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to allocate new handle"));
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+    cl_dev_program newProgId = program_entry_2_cl_dev_program(pEntry);
 
-    m_muProgMap.Lock();
-    m_mapPrograms[(cl_dev_program)newProgId] = pEntry;
-    m_muProgMap.Unlock();
+    m_muPrograms.Lock();
+    m_Programs.push_back(pEntry);
+    m_muPrograms.Unlock();
 
-    *prog = (cl_dev_program)newProgId;
+    *prog = newProgId;
 
     return CL_DEV_SUCCESS;
 }
@@ -626,11 +668,16 @@ public:
     {
         MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 
-        cl_dev_err_code ret = m_ProgramService.GetCompilationService()->BuildProgram(m_pProgEntry->pProgram, NULL);
-
-        MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("Build Done (%d)"), ret);
+        ICLDevBackendCompilationService* compiler = m_ProgramService.GetCompilationService();
 
         cl_build_status status = CL_BUILD_ERROR;
+        cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
+
+        if (NULL != compiler)
+        {
+            ret = compiler->BuildProgram(m_pProgEntry->pProgram, NULL);
+            MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("Build Done (%d)"), ret);
+        }
 
         if (CL_DEV_SUCCEEDED(ret))
         {
@@ -667,19 +714,13 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram enter"));
 
-    TProgramMap::iterator    it;
+    TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
 
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( m_mapPrograms.end() == it )
+    if (NULL == pEntry)
     {
-        m_muProgMap.Unlock();
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-
-    TProgramEntry* pEntry = it->second;
-    m_muProgMap.Unlock();
 
     // Program already built?
     if (CL_BUILD_SUCCESS == pEntry->clBuildStatus)
@@ -721,6 +762,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Submission failed (%0X)"), iRet);
         pEntry->clBuildStatus = CL_BUILD_ERROR;
+        delete pBuildTask;
         return CL_DEV_ERROR_FAIL;
     }
 
@@ -744,19 +786,34 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseProgram enter"));
 
-    TProgramMap::iterator    it;
+    TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
 
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( m_mapPrograms.end() == it )
+    if (NULL == pEntry)
     {
-        m_muProgMap.Unlock();
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
 
-    TProgramEntry* pEntry = it->second;
+    // Here we are sure that program exists and belongs to this device. Unregister it first!
+    TProgramList::iterator    it;
 
+    m_muPrograms.Lock();
+
+    for( it = m_Programs.begin(); it != m_Programs.end(); ++it)
+    {
+        if (*it == prog)
+        {
+            break;
+        }
+    }
+
+    // conversion cl_dev_program_2_program_entry() checks that program belongs to this device - it MUST be registered!
+    assert( (m_Programs.end() != it) && "MICDevice: Program not found in owner's device!");
+
+    m_Programs.erase(it);
+    m_muPrograms.Unlock();
+
+    // Now we unregistered the program - remove it
     assert( 0 == pEntry->outanding_usages_count && "MICDevice: trying to remove program from device while kernels are still running" );
 
     if (0 != pEntry->outanding_usages_count)
@@ -766,13 +823,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     }
 
     RemoveProgramFromDevice( pEntry );
-
-    m_mapPrograms.erase(it);
-    m_muProgMap.Unlock();
-
     DeleteProgramEntry(pEntry);
-
-    m_progIdAlloc.FreeHandle((unsigned int)(size_t)prog);
 
     return CL_DEV_SUCCESS;
 }
@@ -819,19 +870,15 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramBinary enter"));
 
-    TProgramMap::iterator    it;
+    TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
 
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
+    if( NULL == entry )
     {
-        m_muProgMap.Unlock();
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-    ICLDevBackendProgram_ *pProg = it->second->pProgram;
-    m_muProgMap.Unlock();
+
+    ICLDevBackendProgram_ *pProg = entry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
     if ( NULL == pCodeContainer )
@@ -867,19 +914,15 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetBuildLog enter"));
 
-    TProgramMap::iterator    it;
+    TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
 
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
+    if( NULL == entry )
     {
-        m_muProgMap.Unlock();
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-    ICLDevBackendProgram_ *pProg = it->second->pProgram;
-    m_muProgMap.Unlock();
+
+    ICLDevBackendProgram_ *pProg = entry->pProgram;
 
     const char* pLog = pProg->GetBuildLog();
 
@@ -962,20 +1005,13 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramMap::const_iterator    it;
+    TProgramEntry* pEntry = cl_dev_program_2_program_entry( prog );
 
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
+    if( NULL == pEntry )
     {
-        m_muProgMap.Unlock();
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-
-    TProgramEntry *pEntry = it->second;
-    m_muProgMap.Unlock();
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -1000,19 +1036,13 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramKernels enter"));
 
-    TProgramMap::const_iterator    it;
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
+    TProgramEntry* pEntry = cl_dev_program_2_program_entry( prog );
+
+    if( NULL == pEntry )
     {
-        m_muProgMap.Unlock();
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-
-    const TProgramEntry *pEntry = it->second;
-    m_muProgMap.Unlock();
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -1252,6 +1282,13 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     size_t required_output_struct_size = COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT_SIZE( kernels_count );
     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)alloca( required_output_struct_size );
 
+    assert( output && "Cannot allocate space using alloca()" );
+    if (NULL == output)
+    {
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Program Service failed to allocate space on stack."), "");
+        return false;
+    }
+
     if (! CopyProgramToDevice( program, sizeof(input), &input, required_output_struct_size, output ))
     {
         // problem copying to device
@@ -1315,145 +1352,188 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 {
     size_t              prog_blob_size = 0;
     void*               blob;
+    bool                ok = false;
 
     cl_dev_err_code     be_err;
     COIRESULT           coi_err;
-    COIBUFFER           coi_buffer_prog, cio_buffer_output;
-    COIMAPINSTANCE      map_instance;
+    COIBUFFER           coi_buffer_prog = NULL, cio_buffer_output = NULL;
+    COIMAPINSTANCE      map_instance = NULL;
 
-    COIPROCESS          in_pProcesses[] = { m_DevService.getDeviceProcessHandle() };
+    do {
+        COIPROCESS          in_pProcesses[] = { m_DevService.getDeviceProcessHandle() };
 
-    // 1. get required serialization buffer size
-    be_err = GetSerializationService()->GetSerializationBlobSize(
-                            SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
+        assert( (NULL != in_pProcesses[0]) && "Device process disappeared" );
 
-    assert( CL_DEV_SUCCEEDED(be_err) && (prog_blob_size > 0) && "MIC BE GetSerializationBlobSize()" );
+        if (NULL == in_pProcesses[0])
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Device process disappeared"), "");
+            break;
+        }
 
-    // 2. Create COI buffer for program serialization
-    coi_err = COIBufferCreate( prog_blob_size,
-                               COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_WRITE|COI_OPTIMIZE_SINK_READ,
-                               NULL,    // no init data
-                               ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
-                               &coi_buffer_prog );
+        // 1. get required serialization buffer size
+        ICLDevBackendSerializationService* serializer = GetSerializationService();
 
-    assert( COI_SUCCESS == coi_err  && "Create buffer for program serialization" );
+        if (NULL == serializer)
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Cannot load Serialization Service"), "");
+            break;
+        }
 
-    if ( COI_SUCCESS != coi_err )
-    {
+        be_err = serializer->GetSerializationBlobSize( SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
 
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to create COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
-            prog_blob_size,
-            COIResultGetName( coi_err ));
+        assert( CL_DEV_SUCCEEDED(be_err) && (prog_blob_size > 0) && "MIC BE GetSerializationBlobSize()" );
 
-        return false;
-    }
+        if (CL_DEV_FAILED(be_err))
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Serialization Service failed to calculate blob size"), "");
+            break;
+        }
 
-    // 3. Map COI buffer for program serialization
-    coi_err = COIBufferMap( coi_buffer_prog,
-                            0, prog_blob_size, COI_MAP_WRITE_ENTIRE_BUFFER,
-                            0, NULL,            // no dependencies
-                            NULL,               // execute immediately
-                            &map_instance,
-                            &blob );
+        // 2. Create COI buffer for program serialization
+        coi_err = COIBufferCreate( prog_blob_size,
+                                   COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_WRITE|COI_OPTIMIZE_SINK_READ,
+                                   NULL,    // no init data
+                                   ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
+                                   &coi_buffer_prog );
 
-    assert( COI_SUCCESS == coi_err  && "Map buffer for program serialization" );
+        assert( COI_SUCCESS == coi_err  && "Create buffer for program serialization" );
 
-    if ( COI_SUCCESS != coi_err )
-    {
+        if ( COI_SUCCESS != coi_err )
+        {
 
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to map COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
-            prog_blob_size,
-            COIResultGetName( coi_err ));
+            MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                TEXT("MICDevice: Program Service failed to create COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
+                prog_blob_size,
+                COIResultGetName( coi_err ));
 
-        COIBufferDestroy( coi_buffer_prog );
-        return false;
-    }
+            break;
+        }
 
-    // 4. Serialize program
-    be_err = GetSerializationService()->SerializeProgram(
-                            SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
+        // 3. Map COI buffer for program serialization
+        coi_err = COIBufferMap( coi_buffer_prog,
+                                0, prog_blob_size, COI_MAP_WRITE_ENTIRE_BUFFER,
+                                0, NULL,            // no dependencies
+                                NULL,               // execute immediately
+                                &map_instance,
+                                &blob );
 
-    assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
+        assert( COI_SUCCESS == coi_err  && "Map buffer for program serialization" );
 
-    // 5. Unmap serialization buffer
-    coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL ); // execute immediately
+        if ( COI_SUCCESS != coi_err )
+        {
 
-    assert( COI_SUCCESS == coi_err  && "Unmap buffer for program serialization after it was filled" );
+            MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                TEXT("MICDevice: Program Service failed to map COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
+                prog_blob_size,
+                COIResultGetName( coi_err ));
 
-    if ( COI_SUCCESS != coi_err )
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to unmap COI buffer for program serialization after it was filled. Buffer size is %d bytes. COI returned %S"),
-            prog_blob_size,
-            COIResultGetName( coi_err ));
+            break;
+        }
 
-        COIBufferDestroy( coi_buffer_prog );
-        return false;
-    }
+        // 4. Serialize program
+        be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
 
-    // 6. Create in-place COI buffer for output data
-    coi_err = COIBufferCreateFromMemory( output_size,                // size of buffer to be filled
-                                         COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_READ|COI_OPTIMIZE_SINK_WRITE,
-                                         output,
-                                         ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
-                                         &cio_buffer_output );
+        assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
 
-    assert( COI_SUCCESS == coi_err && "COIBufferCreateFromMemory failed to create buffer from memory for device kernels list" );
+        if (CL_DEV_FAILED(be_err))
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Serialization Service failed to calculate blob size"), "");
+            break;
+        }
 
-    if (COI_SUCCESS != coi_err)
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to create COI buffer from memory for device kernels list. Buffer size is %d bytes. COI returned %S"),
-            output_size,
-            COIResultGetName( coi_err ));
 
-        COIBufferDestroy( coi_buffer_prog );
-        return false;
-    }
+        // 5. Unmap serialization buffer
+        coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL ); // execute immediately
 
-    // 7. Call MIC device
-    COIBUFFER           buffers[]    = { coi_buffer_prog,   cio_buffer_output };
-    COI_ACCESS_FLAGS    buf_access[] = { COI_SINK_READ,     COI_SINK_WRITE_ENTIRE };
+        assert( COI_SUCCESS == coi_err  && "Unmap buffer for program serialization after it was filled" );
 
-    bool ok = m_DevService.runServiceFunction(
-                                DeviceServiceCommunication::COPY_PROGRAM_TO_DEVICE,
-                                input_size, input,                   // input_data
-                                0, NULL,                             // ouput_data
-                                ARRAY_ELEMENTS(buffers), buffers, buf_access); // buffers passed
+        if ( COI_SUCCESS != coi_err )
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                TEXT("MICDevice: Program Service failed to unmap COI buffer for program serialization after it was filled. Buffer size is %d bytes. COI returned %S"),
+                prog_blob_size,
+                COIResultGetName( coi_err ));
 
-    assert( ok && "Cannot run Device Function to copy program to device" );
+            break;
+        }
 
-    // map buffer to get results
-    coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &blob );
-    assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with device kernels list" );
-    assert( ((size_t)output == (size_t)blob) && "COIBufferMap did not return original data pointer for buffer from memory" );
+        // 6. Create in-place COI buffer for output data
+        coi_err = COIBufferCreateFromMemory( output_size,                // size of buffer to be filled
+                                             COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_READ|COI_OPTIMIZE_SINK_WRITE,
+                                             output,
+                                             ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
+                                             &cio_buffer_output );
 
-    if (COI_SUCCESS != coi_err)
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            TEXT("MICDevice: Program Service failed to map COI buffer with device kernels list. Buffer size is %d bytes. COI returned %S"),
-            output_size,
-            COIResultGetName( coi_err ));
+        assert( COI_SUCCESS == coi_err && "COIBufferCreateFromMemory failed to create buffer from memory for device kernels list" );
 
-        COIBufferDestroy( coi_buffer_prog );
-        COIBufferDestroy( cio_buffer_output );
-        return false;
-    }
+        if (COI_SUCCESS != coi_err)
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                TEXT("MICDevice: Program Service failed to create COI buffer from memory for device kernels list. Buffer size is %d bytes. COI returned %S"),
+                output_size,
+                COIResultGetName( coi_err ));
+
+            break;
+        }
+
+        // 7. Call MIC device
+        COIBUFFER           buffers[]    = { coi_buffer_prog,   cio_buffer_output };
+        COI_ACCESS_FLAGS    buf_access[] = { COI_SINK_READ,     COI_SINK_WRITE_ENTIRE };
+
+        bool done = m_DevService.runServiceFunction(
+                                    DeviceServiceCommunication::COPY_PROGRAM_TO_DEVICE,
+                                    input_size, input,                   // input_data
+                                    0, NULL,                             // ouput_data
+                                    ARRAY_ELEMENTS(buffers), buffers, buf_access); // buffers passed
+
+        assert( done && "Cannot run Device Function to copy program to device" );
+
+        if (!done)
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Cannot run Device Function to copy program to device"), "");
+
+            break;
+        }
+
+        // map buffer to get results
+        coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &blob );
+        assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with device kernels list" );
+        assert( ((size_t)output == (size_t)blob) && "COIBufferMap did not return original data pointer for buffer from memory" );
+
+        if (COI_SUCCESS != coi_err)
+        {
+            MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                TEXT("MICDevice: Program Service failed to map COI buffer with device kernels list. Buffer size is %d bytes. COI returned %S"),
+                output_size,
+                COIResultGetName( coi_err ));
+
+            break;
+        }
+
+        ok = true;
+    } while (false);
 
     // unmap buffer back - data should remain in the original memory
-    coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
-    assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with device kernels list" );
+    if (NULL != map_instance)
+    {
+        coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
+        assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with device kernels list" );
+    }
 
     // remove COI Buffer structure - data should remain in the original buffer
-    coi_err = COIBufferDestroy( coi_buffer_prog );
-    assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with serialized program" );
+    if (NULL != coi_buffer_prog)
+    {
+        coi_err = COIBufferDestroy( coi_buffer_prog );
+        assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with serialized program" );
+    }
 
-    coi_err = COIBufferDestroy( cio_buffer_output );
-    assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with device kernels list" );
+    if (NULL != cio_buffer_output)
+    {
+        coi_err = COIBufferDestroy( cio_buffer_output );
+        assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with device kernels list" );
+    }
 
-    return true;
+    return ok;
 }
 
 //

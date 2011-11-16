@@ -150,9 +150,22 @@ cl_dev_err_code MICDevice::Init()
 
     m_pProgramService = new ProgramService( m_uiOclDevId, m_pFrameworkCallBacks, m_pLogDescriptor,
                                            m_pMICDeviceConfig, *m_pDeviceServiceComm);
+
+    if (NULL == m_pProgramService)
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
+    if (!m_pProgramService->Init())
+    {
+        delete m_pProgramService;
+        m_pProgramService = NULL;
+        return CL_DEV_ERROR_FAIL;
+    }
+
     m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiOclDevId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
-    if ( (NULL == m_pProgramService) ||    (NULL == m_pMemoryAllocator) )
+    if (NULL == m_pMemoryAllocator)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }

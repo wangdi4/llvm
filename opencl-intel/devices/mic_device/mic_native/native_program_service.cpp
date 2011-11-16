@@ -287,19 +287,6 @@ size_t ProgramService::getBackendTargetDescription( size_t buffer_size, void* bu
         return 0;
     }
 
-// BUGBUG: DK test only
-//    const char* b = "0123456789";
-//    size_t required_size = 10;
-//
-//    if (required_size > buffer_size)
-//    {
-//        NATIVE_PRINTF( "TargetMachineDescriptionSize is %u bytes, while passed only %u bytes\n",
-//                        (unsigned int)required_size, (unsigned int)buffer_size );
-//
-//        return 0;
-//    }
-//
-//    memcpy( buffer, b, required_size );
     return required_size;
 }
 
@@ -315,6 +302,12 @@ void ProgramService::add_program(
     fill_kernel_info->filled_kernels = 0;
 
     TProgramEntry* prog_entry = new TProgramEntry;
+
+    if (NULL == prog_entry)
+    {
+        NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
+        return;
+    }
 
     // 1. Reserve execution memory
     if (prog_info->required_executable_size)
@@ -355,10 +348,19 @@ void ProgramService::add_program(
     assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
     assert( kernels_count == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
 
+    bool error_found = false;
+
     for (int i = 0; i < kernels_count; ++i)
     {
         TKernelEntry* k_entry = new TKernelEntry;
         assert( k_entry && "ProgramService::add_program: No memory to allocate kernel entry struct" );
+
+        if (NULL == k_entry)
+        {
+            NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry" );
+            error_found = true;
+            break;
+        }
 
         k_entry->program_entry = prog_entry;
         be_err = prog_entry->pProgram->GetKernel(i, &(k_entry->kernel) );
@@ -370,6 +372,12 @@ void ProgramService::add_program(
         // add kernel info to the return struct
         fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)k_entry->kernel->GetKernelID();
         fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)k_entry;
+    }
+
+    if (error_found)
+    {
+        RemoveProgramEntry( prog_entry );
+        return;
     }
 
     // 4. Add program to the program map
@@ -470,8 +478,8 @@ bool ProgramService::get_kernel(
     return true;
 }
 
-cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel, 
-		                           char* pLockedParams, 
+cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel,
+		                           char* pLockedParams,
 								   uint64_t argSize,
 								   cl_work_description_type* pWorkDesc,
 								   ICLDevBackendBinary_** ppOutBinary ) const
