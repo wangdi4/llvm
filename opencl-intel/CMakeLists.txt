@@ -66,7 +66,7 @@ include_directories( BEFORE
         ${OCL_GLOBAL_INCLUDE}
     )
 
-if (WIN32 AND NOT( "$ENV{DXSDK_DIR}" STREQUAL "") )
+if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
 	message ("Compiling with DX sharing")
 	add_definitions (-DDX9_MEDIA_SHARING)
 endif ()
