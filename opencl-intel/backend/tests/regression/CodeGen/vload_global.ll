@@ -48,7 +48,7 @@ declare i64 @get_iter_count.()
 
 declare i64 @get_new_global_id.(i32, i64)
 
-define  x86_ocl_kernelcc void @test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* nocapture %offsets, i32 addrspace(1)* nocapture %alignmentOffsets, i16 addrspace(1)* nocapture %results, i8 addrspace(3)* %pLocalMem, %struct.WorkDim* %pWorkDim, i64* %pWGId, %struct.PaddedDimId* byval %BaseGlbId, %struct.PaddedDimId* %pLocalIds, i64* %contextpointer, i64 %iterCount, i8* %pSpecialBuf, i64* %pCurrWI) nounwind {
+define  void @test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* nocapture %offsets, i32 addrspace(1)* nocapture %alignmentOffsets, i16 addrspace(1)* nocapture %results, i8 addrspace(3)* %pLocalMem, %struct.WorkDim* %pWorkDim, i64* %pWGId, %struct.PaddedDimId* byval %BaseGlbId, %struct.PaddedDimId* %pLocalIds, i64* %contextpointer, i64 %iterCount, i8* %pSpecialBuf, i64* %pCurrWI) nounwind {
 ; <label>:0
   %res.i = alloca <3 x i16>, align 8
   br label %SyncBB4
@@ -103,7 +103,7 @@ SyncBB:                                           ; preds = %SyncBB4
   ret void
 }
 
-define  x86_ocl_kernelcc void @__Vectorized_.test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* nocapture %offsets, i32 addrspace(1)* nocapture %alignmentOffsets, i16 addrspace(1)* nocapture %results, i8 addrspace(3)* %pLocalMem, %struct.WorkDim* %pWorkDim, i64* %pWGId, %struct.PaddedDimId* byval %BaseGlbId, %struct.PaddedDimId* %pLocalIds, i64* %contextpointer, i64 %iterCount, i8* %pSpecialBuf, i64* %pCurrWI) nounwind {
+define  void @__Vectorized_.test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* nocapture %offsets, i32 addrspace(1)* nocapture %alignmentOffsets, i16 addrspace(1)* nocapture %results, i8 addrspace(3)* %pLocalMem, %struct.WorkDim* %pWorkDim, i64* %pWGId, %struct.PaddedDimId* byval %BaseGlbId, %struct.PaddedDimId* %pLocalIds, i64* %contextpointer, i64 %iterCount, i8* %pSpecialBuf, i64* %pCurrWI) nounwind {
 ; <label>:0
   %res.i16 = alloca <3 x i16>, align 8
   %res.i9 = alloca <3 x i16>, align 8

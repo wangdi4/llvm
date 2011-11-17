@@ -26,15 +26,6 @@ extern "C" {
 
 #include "cl_types2.h"
 
-/////////// Comment about the svmlcc_p2_f8_f8_f8 calling convention /////////////////////////////////////
-// We use this CC for cases where the SVML function accepts it second parameter in XMM2 or YMM2 (instead of
-// XMM1 or YMM1). This happens only in the some of "g9" flavors, and was probably employed as a workaround for a 
-// bug in Intel Compiler.
-// Here are examples for when we use this CC :
-// #pragma linkage     __ocl_svml_g9_divf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm2))  )
-// #pragma linkage     __ocl_svml_g9_ldexpf8_linkage   = ( result((ymm0)) parameters((ymm0),(xmm2 xmm3))  )
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 #if defined ( __AVX__ ) /// Platform supports SNB
 
  /*
@@ -1481,7 +1472,10 @@ extern "C" {
 	double16 OCL_SVML_FUNCTION(_##func##16)(_16##sign##64);						\
 	__attribute__((overloadable)) double16 func(_16##sign##64 x)				\
 	{																			\
-		return OCL_SVML_FUNCTION(_##func##16)(x);								\
+    double16 res;                                               \
+		res.lo = OCL_SVML_FUNCTION(_##func##8)(x.lo);								\
+		res.hi = OCL_SVML_FUNCTION(_##func##8)(x.hi);								\
+    return res;                                                 \
 	}																			
 
 
@@ -1587,14 +1581,14 @@ extern "C" {
 	}																			
 	
 #define OCL_SVML_P2_F8_F8_F8(func,svmlfunc)										\
-	__attribute__((svmlcc_p2_f8_f8_f8)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##svmlfunc##f8)(float8, float8);					\
+	__attribute__((svmlcc)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##svmlfunc##f8)(float8, float8);					\
 	__attribute__((overloadable)) float8 func(float8 x, float8 y)				\
 	{																			\
 		return OCL_SVML_FUNCTION(_##svmlfunc##f8)(x,y);							\
 	}																			
 
 #define OCL_SVML_P2_F16_F16_F16(func,svmlfunc)									\
-	__attribute__((svmlcc_p2_f8_f8_f8)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##svmlfunc##f8)(float8, float8);				\
+	__attribute__((svmlcc)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##svmlfunc##f8)(float8, float8);				\
 	__attribute__((overloadable)) float16 func(float16 x, float16 y)			\
 	{																			\
 		float16 res;                                                            \
@@ -2011,7 +2005,7 @@ extern "C" {
 	}																
 
 #define OCL_SVML_P2_F8_F8_I8(func, sign)									\
-	__attribute__((svmlcc_p2_f8_f8_f8)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##func##f8)(float8,_8##sign##32);				\
+	__attribute__((svmlcc)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##func##f8)(float8,_8##sign##32);				\
 	__attribute__((overloadable)) float8 func(float8 x, _8##sign##32 y)		\
 	{																		\
 		return OCL_SVML_FUNCTION(_##func##f8)(x,y);							\
@@ -2028,7 +2022,7 @@ extern "C" {
 	}																
 
 #define OCL_SVML_P2_F16_F16_I16(func, sign)									\
-	__attribute__((svmlcc_p2_f8_f8_f8)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##func##f8)(float8,_8##sign##32);			\
+	__attribute__((svmlcc)) __attribute__((const)) float8 OCL_SVML_FUNCTION(_##func##f8)(float8,_8##sign##32);			\
 	__attribute__((overloadable)) float16 func(float16 x, _16##sign##32 y)	\
 	{																		\
         float16 res;                                                        \
