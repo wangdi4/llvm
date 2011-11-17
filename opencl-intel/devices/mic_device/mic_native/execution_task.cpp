@@ -194,7 +194,7 @@ bool BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* m
 
 void BlockingTaskHandler::RunTask()
 {
-	m_task->execute();
+	m_task->run();
 }
 
 void BlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
@@ -261,11 +261,6 @@ bool NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data
 	return m_task->init(this);
 }
 
-void NonBlockingTaskHandler::RunTask()
-{
-	// TODO change it to non blocking call by TBB task queue
-	m_task->execute();
-}
 
 void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 {
@@ -301,7 +296,74 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 
 
 
-NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_lockedParams(NULL)
+void TBBNonBlockingTaskHandler::RunTask()
+{
+	// TODO change it to non blocking call by TBB task queue
+	m_task->run();
+}
+
+
+
+
+namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+
+	struct TaskLoopBody1D {
+		TaskInterface* task;
+		TaskLoopBody1D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range<int>& r) const {
+			size_t firstWGID[1] = {r.begin()}; 
+			size_t lastWGID[1] = {r.end()}; 
+			size_t uiNumberOfWorkGroups = r.size();
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
+					task->executeIteration(k, 0, 0, 0);
+			task->detachFromThread(0);
+		}
+	};
+
+	struct TaskLoopBody2D {
+		TaskInterface* task;
+		TaskLoopBody2D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range2d<int>& r) const {
+            size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
+			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
+				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
+					task->executeIteration(k, j, 0, 0);
+			task->detachFromThread(0);
+		}
+	};
+
+	struct TaskLoopBody3D {
+		TaskInterface* task;
+		TaskLoopBody3D(TaskInterface* t) : task(t) {}
+		void operator()(const tbb::blocked_range3d<int>& r) const {
+            size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
+			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
+			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
+            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+				return;
+            for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
+				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
+					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
+						task->executeIteration(k, j, i, 0);
+			task->detachFromThread(0);
+		}
+	};
+}}};
+
+
+NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
 {
 }
 
@@ -400,55 +462,21 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 	}
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
 
-	return true;
-}
-
-tbb::task* NDRangeTask::execute()
-{
-#ifdef NDRANGE_UNIT_TEST
-	foo(m_lockedParams);
-	return finish(m_taskHandler);
-#endif
-
-	uint64_t dim[MAX_WORK_DIM];
 	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
 	cl_mic_work_description_type* pWorkDesc = &(m_taskHandler->m_dispatcherData->workDesc);
+	m_dim = pWorkDesc->workDimension;
+	assert((m_dim >= 1) && (m_dim <= MAX_WORK_DIM));
 	unsigned int i = 0;
-	for (i = 0; i < pWorkDesc->workDimension; ++i)
+	for (i = 0; i < m_dim; ++i)
 	{
-		dim[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
+		m_region[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
 	}
 	for (; i < MAX_WORK_DIM; ++i)
 	{
-		dim[i] = 1;
+		m_region[i] = 1;
 	}
 
-	if (1 == pWorkDesc->workDimension)
-	{
-		assert(dim[0] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskInterface::TaskLoopBody1D(this), tbb::auto_partitioner());
-	}
-	else if (2 == pWorkDesc->workDimension)
-	{
-		assert(dim[0] <= CL_MAX_INT32);
-		assert(dim[1] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
-													0, (int)dim[0]),
-													TaskInterface::TaskLoopBody2D(this), tbb::auto_partitioner());
-	}
-	else
-	{
-		assert(dim[0] <= CL_MAX_INT32);
-		assert(dim[1] <= CL_MAX_INT32);
-		assert(dim[2] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
-													0, (int)dim[1],
-													0, (int)dim[0]),
-													TaskInterface::TaskLoopBody3D(this), tbb::auto_partitioner());
-	}
-
-	finish(m_taskHandler);
-	return NULL;
+	return true;
 }
 
 void NDRangeTask::finish(TaskHandler* pTaskHandler)
@@ -526,3 +554,45 @@ void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int ui
     tCtx.GetExecutable()->RestoreThreadState();
 }
 
+
+
+
+TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask()
+{
+}
+
+tbb::task* TBBNDRangeTask::execute()
+{
+#ifdef NDRANGE_UNIT_TEST
+	foo(m_lockedParams);
+	finish(m_taskHandler);
+	return NULL;
+#endif
+
+	if (1 == m_dim)
+	{
+		assert(m_region[0] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0]), TaskLoopBody1D(this), tbb::auto_partitioner());
+	}
+	else if (2 == m_dim)
+	{
+		assert(m_region[0] <= CL_MAX_INT32);
+		assert(m_region[1] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1],
+													0, (int)m_region[0]),
+													TaskLoopBody2D(this), tbb::auto_partitioner());
+	}
+	else
+	{
+		assert(m_region[0] <= CL_MAX_INT32);
+		assert(m_region[1] <= CL_MAX_INT32);
+		assert(m_region[2] <= CL_MAX_INT32);
+		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2],
+													0, (int)m_region[1],
+													0, (int)m_region[0]),
+													TaskLoopBody3D(this), tbb::auto_partitioner());
+	}
+
+	finish(m_taskHandler);
+	return NULL;
+}

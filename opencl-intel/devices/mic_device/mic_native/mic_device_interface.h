@@ -171,6 +171,9 @@ struct dispatcher_data
 {
 	// Dispatcher function arguments
 	kernel_directive kernelDirective;
+	// Command identifier provided by the Framework (Unique for each NDRange execution)
+	cl_dev_cmd_id commandIdentifier;
+	// Flag that inform if it is inOrder execution
 	bool isInOrderQueue;
 	// The buffer index of misc data
 	unsigned int miscDataBuffIndex;

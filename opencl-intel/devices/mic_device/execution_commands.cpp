@@ -110,6 +110,8 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			returnError = CL_DEV_INVALID_KERNEL;
 			break;
 		}
+		// set unique command identifier
+		dispatcherData.commandIdentifier = m_pCmd->id;
 		// set kernel args blob size in bytes for dispatcherData
 		dispatcherData.kernelArgSize = cmdParams->arg_size;
 		// set isInOrderQueue flag in dispatcherData
