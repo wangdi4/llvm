@@ -709,12 +709,13 @@ public:
         T refMin = *minInOut;
         T ulpMax = ComputeUlp(refMax); // calc ulp for ref value
         T ulpMin = ComputeUlp(refMin); // calc ulp for ref value
-
+       
         // high limit expand
         T result = ::frexp (refMax , &n);
 
         // check if refMax on the boundary of higher exponent
-        if(::fabs(result) == 0.5)
+        // and if refMax is normal number
+        if((!Utils::IsDenorm<DownT>(refMax)) && ::fabs(result) == 0.5)
         {
             //ulpMax = ComputeUlp(refMax+ulps*ulpMax); // calc ulp for ref value
             ulpMax /= 2.;
@@ -737,7 +738,8 @@ public:
         result = ::frexp (refMin , &n);
 
         // check if refMin on the boundary of higher exponent
-        if(::fabs(result) == 0.5)
+        // and if result is normal number
+        if((!Utils::IsDenorm<DownT>(refMin)) && ::fabs(result) == 0.5)
         {
              //ulpMin = ComputeUlp(refMin-ulps*ulpMin); // calc ulp for ref value
              ulpMin /= 2.;
