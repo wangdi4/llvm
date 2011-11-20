@@ -89,6 +89,8 @@ void execute_NDRange(uint32_t         in_BufferCount,
 		tMiscData = (misc_data*)in_ppBufferPointers[tMiscDataBufferIndex];
 	}
 
+	tMiscData->init();
+
 	// DO NOT delete this object, It will delete itself after kernel execution
 	TaskHandler* taskHandler = TaskHandler::TaskFactory(TaskHandler::NDRANGE_TASK_TYPE, tDispatcherData, tMiscData);
 	if (NULL == taskHandler)

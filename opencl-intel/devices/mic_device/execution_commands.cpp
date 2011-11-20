@@ -336,6 +336,9 @@ cl_dev_err_code NDRange::execute()
 			break;
 		}
 
+		// TODO - Call it only when realy starting the command.
+		notifyCommandStatusChanged(CL_RUNNING);
+
 		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier when finish.
 		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier))' can return NULL, in case of Out of order CommandList */
 		COIRESULT result = COIPipelineRunFunction(pipe,
