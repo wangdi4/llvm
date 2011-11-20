@@ -218,7 +218,7 @@ cl_dev_err_code TaskDispatcher::init()
     // master thread(s) get their context from their TLS
     // WorkerIds are not realocated for Sub-Device,
     // Therefore, need allocate full size array, even for SubDevices.
-	m_pWGContexts = new WGContext[uiNumThreads - 1];
+	m_pWGContexts = new WGContext[uiNumThreads];
 	if ( NULL == m_pWGContexts )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -233,7 +233,7 @@ cl_dev_err_code TaskDispatcher::init()
 		// Otherwise, init on Affinize threads
 		if ( NULL != m_pWGContexts )
 		{
-			for(cl_uint i =0; i < m_uiNumThreads - 1; ++i)
+			for(cl_uint i =0; i < m_uiNumThreads; ++i)
 			{
 				m_pWGContexts[i].Init();
 			}
