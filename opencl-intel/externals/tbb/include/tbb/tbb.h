@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -57,6 +57,9 @@
 #include "queuing_mutex.h"
 #include "queuing_rw_mutex.h"
 #include "reader_writer_lock.h"
+#if TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE
+#include "concurrent_priority_queue.h"
+#endif
 #include "recursive_mutex.h"
 #include "spin_mutex.h"
 #include "spin_rw_mutex.h"

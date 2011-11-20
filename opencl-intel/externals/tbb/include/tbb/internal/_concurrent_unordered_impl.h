@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,10 +21,13 @@
 /* Container implementations in this header are based on PPL implementations 
    provided by Microsoft. */
 
-#ifndef __TBB_concurrent_unordered_internal_H
-#define __TBB_concurrent_unordered_internal_H
+#ifndef __TBB__concurrent_unordered_impl_H
+#define __TBB__concurrent_unordered_impl_H
+#if !defined(__TBB_concurrent_unordered_map_H) && !defined(__TBB_concurrent_unordered_set_H) && !defined(__TBB_concurrent_hash_map_H)
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
-#include "tbb_stddef.h"
+#include "../tbb_stddef.h"
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -42,9 +45,9 @@
     #pragma warning (pop)
 #endif
 
-#include "tbb_machine.h"
-#include "tbb_exception.h"
-#include "tbb_allocator.h"
+#include "../atomic.h"
+#include "../tbb_exception.h"
+#include "../tbb_allocator.h"
 
 namespace tbb {
 namespace interface5 {
@@ -682,15 +685,18 @@ protected:
     // Constructors/Destructors
     concurrent_unordered_base(size_type n_of_buckets = initial_bucket_number,
         const hash_compare& hc = hash_compare(), const allocator_type& a = allocator_type())
-        : Traits(hc), my_number_of_buckets(n_of_buckets), my_solist(a),
+        : Traits(hc), my_solist(a),
           my_allocator(a), my_maximum_bucket_size((float) initial_bucket_load)
     {
+        if( n_of_buckets == 0) ++n_of_buckets;
+        my_number_of_buckets = 1<<__TBB_Log2((uintptr_t)n_of_buckets*2-1); // round up to power of 2
         internal_init();
     }
 
     concurrent_unordered_base(const concurrent_unordered_base& right, const allocator_type& a)
         : Traits(right.my_hash_compare), my_solist(a), my_allocator(a)
     {
+        internal_init();
         internal_copy(right);
     }
 
@@ -891,6 +897,11 @@ public:
 
         // Clear buckets
         internal_clear();
+
+        // Initialize bucket 0
+        __TBB_ASSERT(my_buckets[0] == NULL, NULL);
+        raw_iterator dummy_node = my_solist.raw_begin();
+        set_bucket(0, dummy_node);
     }
 
     // Lookup
@@ -903,9 +914,13 @@ public:
     }
 
     size_type count(const key_type& key) const {
-        paircc_t answer = equal_range(key);
-        size_type item_count = internal_distance(answer.first, answer.second);
-        return item_count;
+        if(allow_multimapping) {
+            paircc_t answer = equal_range(key);
+            size_type item_count = internal_distance(answer.first, answer.second);
+            return item_count;
+        } else {
+            return const_cast<self_type*>(this)->internal_find(key) == end()?0:1;
+        }
     }
 
     std::pair<iterator, iterator> equal_range(const key_type& key) {
@@ -913,7 +928,7 @@ public:
     }
 
     std::pair<const_iterator, const_iterator> equal_range(const key_type& key) const {
-        return internal_equal_range(key);
+        return const_cast<self_type*>(this)->internal_equal_range(key);
     }
 
     // Bucket interface - for debugging 
@@ -1023,12 +1038,9 @@ public:
     // reflected next time this bucket is touched.
     void rehash(size_type buckets) {
         size_type current_buckets = my_number_of_buckets;
-
-        if (current_buckets > buckets)
+        if (current_buckets >= buckets)
             return;
-        else if ( (buckets & (buckets-1)) != 0 )
-            tbb::internal::throw_exception(tbb::internal::eid_invalid_buckets_number);
-        my_number_of_buckets = buckets;
+        my_number_of_buckets = 1<<__TBB_Log2((uintptr_t)buckets*2-1); // round up to power of 2
     }
 
 private:
@@ -1038,7 +1050,7 @@ private:
         // Allocate an array of segment pointers
         memset(my_buckets, 0, pointers_per_table * sizeof(void *));
 
-        // Insert the first element in the split-ordered list
+        // Initialize bucket 0
         raw_iterator dummy_node = my_solist.raw_begin();
         set_bucket(0, dummy_node);
     }
@@ -1243,9 +1255,7 @@ private:
             {
                 iterator first = my_solist.get_iterator(it);
                 iterator last = first;
-
-                while( last != end() && !my_hash_compare(get_key(*last), key) )
-                    ++last;
+                do ++last; while( allow_multimapping && last != end() && !my_hash_compare(get_key(*last), key) );
                 return pairii_t(first, last);
             }
         }
@@ -1253,49 +1263,11 @@ private:
         return pairii_t(end(), end());
     }
 
-    // Return the [begin, end) pair of const iterators with the same key values.
-    // This operation makes sense only if mapping is many-to-one.
-    paircc_t internal_equal_range(const key_type& key) const
-    {
-        sokey_t order_key = (sokey_t) my_hash_compare(key);
-        size_type bucket = order_key % my_number_of_buckets;
-
-        // If bucket is empty, initialize it first
-        if (!is_initialized(bucket))
-            return paircc_t(end(), end());
-
-        order_key = split_order_key_regular(order_key);
-        raw_const_iterator end_it = my_solist.raw_end();
-
-        for (raw_const_iterator it = get_bucket(bucket); it != end_it; ++it)
-        {
-            if (solist_t::get_order_key(it) > order_key)
-            {
-                // There is no element with the given key
-                return paircc_t(end(), end());
-            }
-            else if (solist_t::get_order_key(it) == order_key && !my_hash_compare(get_key(*it), key))
-            {
-                const_iterator first = my_solist.get_iterator(it);
-                const_iterator last = first;
-
-                while( last != end() && !my_hash_compare(get_key(*last), key ) )
-                    ++last;
-                return paircc_t(first, last);
-            }
-        }
-
-        return paircc_t(end(), end());
-    }
-
     // Bucket APIs
     void init_bucket(size_type bucket)
     {
-        // Bucket 0 has no parent. Initialize it and return.
-        if (bucket == 0) {
-            internal_init();
-            return;
-        }
+        // Bucket 0 has no parent.
+        __TBB_ASSERT( bucket != 0, "The first bucket must always be initialized");
 
         size_type parent_bucket = get_parent(bucket);
 
@@ -1315,8 +1287,10 @@ private:
         // Grow the table by a factor of 2 if possible and needed
         if ( ((float) total_elements / (float) current_size) > my_maximum_bucket_size )
         {
-             // Double the size of the hash only if size has not changed inbetween loads
-            __TBB_CompareAndSwapW((uintptr_t*)&my_number_of_buckets, 2 * current_size, current_size );
+            // Double the size of the hash only if size has not changed inbetween loads
+            __TBB_CompareAndSwapW((uintptr_t*)&my_number_of_buckets, uintptr_t(2u*current_size), uintptr_t(current_size) );
+            //Simple "my_number_of_buckets.compare_and_swap( current_size<<1, current_size );" does not work for VC8
+            //due to overzealous compiler warnings in /Wp64 mode
         }
     }
 
@@ -1331,7 +1305,7 @@ private:
     // Dynamic sized array (segments)
     //! @return segment index of given index in the array
     static size_type segment_index_of( size_type index ) {
-        return size_type( __TBB_Log2( index|1 ) );
+        return size_type( __TBB_Log2( uintptr_t(index|1) ) );
     }
 
     //! @return the first array index of given segment
@@ -1391,11 +1365,11 @@ private:
     }
 
     // Shared variables
-    size_type                                                     my_number_of_buckets;       // Current table size
+    atomic<size_type>                                             my_number_of_buckets;       // Current table size
     solist_t                                                      my_solist;                  // List where all the elements are kept
     typename allocator_type::template rebind<raw_iterator>::other my_allocator;               // Allocator object for segments
     float                                                         my_maximum_bucket_size;     // Maximum size of the bucket
-    raw_iterator                                                 *my_buckets[pointers_per_table]; // The segment table
+    atomic<raw_iterator*>                                         my_buckets[pointers_per_table]; // The segment table
 };
 #if _MSC_VER
 #pragma warning(pop) // warning 4127 -- while (true) has a constant expression in it
@@ -1428,5 +1402,20 @@ inline size_t tbb_hasher( const std::pair<F,S>& p ) {
 }
 } // namespace interface5
 using interface5::tbb_hasher;
+
+
+// Template class for hash compare
+template<typename Key>
+class tbb_hash
+{
+public:
+    tbb_hash() {}
+
+    size_t operator()(const Key& key) const
+    {
+        return tbb_hasher(key);
+    }
+};
+
 } // namespace tbb
-#endif// __TBB_concurrent_unordered_internal_H
+#endif// __TBB__concurrent_unordered_impl_H

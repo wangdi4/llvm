@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -32,6 +32,7 @@
 
 namespace Concurrency {
 
+#if __TBB_TASK_GROUP_CONTEXT
     using tbb::task_handle;
     using tbb::task_group_status;
     using tbb::task_group;
@@ -45,6 +46,7 @@ namespace Concurrency {
     using tbb::canceled;
 
     using tbb::is_current_task_group_canceling;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
     using tbb::parallel_invoke;
     using tbb::strict_ppl::parallel_for;

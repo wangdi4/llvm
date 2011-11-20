@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,11 +22,11 @@
 #define __TBB_tbb_stddef_H
 
 // Marketing-driven product version
-#define TBB_VERSION_MAJOR 3
+#define TBB_VERSION_MAJOR 4
 #define TBB_VERSION_MINOR 0
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 5000
+#define TBB_INTERFACE_VERSION 6000
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -93,7 +93,7 @@
 
 // Define preprocessor symbols used to determine architecture
 #if _WIN32||_WIN64
-#   if defined(_M_AMD64)
+#   if defined(_M_X64)||defined(__x86_64__)  // the latter for MinGW support
 #       define __TBB_x86_64 1
 #   elif defined(_M_IA64)
 #       define __TBB_ipf 1
@@ -115,55 +115,68 @@
 #   endif
 #endif
 
-#if _MSC_VER
-// define the parts of stdint.h that are needed, but put them inside tbb::internal
-namespace tbb {
-namespace internal {
-    typedef __int8 int8_t;
-    typedef __int16 int16_t;
-    typedef __int32 int32_t;
-    typedef __int64 int64_t;
-    typedef unsigned __int8 uint8_t;
-    typedef unsigned __int16 uint16_t;
-    typedef unsigned __int32 uint32_t;
-    typedef unsigned __int64 uint64_t;
-} // namespace internal
-} // namespace tbb
-#else
-#include <stdint.h>
-#endif /* _MSC_VER */
+// tbb_config.h should be included the first since it contains macro definitions used in other headers
+#include "tbb_config.h"
 
 #if _MSC_VER >=1400
-#define __TBB_EXPORTED_FUNC   __cdecl
-#define __TBB_EXPORTED_METHOD __thiscall
+    #define __TBB_EXPORTED_FUNC   __cdecl
+    #define __TBB_EXPORTED_METHOD __thiscall
 #else
-#define __TBB_EXPORTED_FUNC
-#define __TBB_EXPORTED_METHOD
+    #define __TBB_EXPORTED_FUNC
+    #define __TBB_EXPORTED_METHOD
 #endif
 
-#include <cstddef>      /* Need size_t and ptrdiff_t (the latter on Windows only) from here. */
+#include <cstddef>      /* Need size_t and ptrdiff_t */
 
 #if _MSC_VER
-#define __TBB_tbb_windef_H
-#include "_tbb_windef.h"
-#undef __TBB_tbb_windef_H
+    #define __TBB_tbb_windef_H
+    #include "internal/_tbb_windef.h"
+    #undef __TBB_tbb_windef_H
+#else
+    #include <stdint.h>
 #endif
-
-#include "tbb_config.h"
 
 //! The namespace tbb contains all components of the library.
 namespace tbb {
+
+#if _MSC_VER
+    namespace internal {
+        typedef __int8 int8_t;
+        typedef __int16 int16_t;
+        typedef __int32 int32_t;
+        typedef __int64 int64_t;
+        typedef unsigned __int8 uint8_t;
+        typedef unsigned __int16 uint16_t;
+        typedef unsigned __int32 uint32_t;
+        typedef unsigned __int64 uint64_t;
+    } // namespace internal
+#else /* Posix */
+    namespace internal {
+        using ::int8_t;
+        using ::int16_t;
+        using ::int32_t;
+        using ::int64_t;
+        using ::uint8_t;
+        using ::uint16_t;
+        using ::uint32_t;
+        using ::uint64_t;
+    } // namespace internal
+#endif /* Posix */
+
+    using std::size_t;
+    using std::ptrdiff_t;
+
     //! Type for an assertion handler
     typedef void(*assertion_handler_type)( const char* filename, int line, const char* expression, const char * comment );
 
 #if TBB_USE_ASSERT
 
-//! Assert that x is true.
-/** If x is false, print assertion failure message.  
-    If the comment argument is not NULL, it is printed as part of the failure message.  
-    The comment argument has no other effect. */
-#define __TBB_ASSERT(predicate,message) ((predicate)?((void)0):tbb::assertion_failure(__FILE__,__LINE__,#predicate,message))
-#define __TBB_ASSERT_EX __TBB_ASSERT
+    //! Assert that x is true.
+    /** If x is false, print assertion failure message.  
+        If the comment argument is not NULL, it is printed as part of the failure message.  
+        The comment argument has no other effect. */
+    #define __TBB_ASSERT(predicate,message) ((predicate)?((void)0):tbb::assertion_failure(__FILE__,__LINE__,#predicate,message))
+    #define __TBB_ASSERT_EX __TBB_ASSERT
 
     //! Set assertion handler and return previous value of it.
     assertion_handler_type __TBB_EXPORTED_FUNC set_assertion_handler( assertion_handler_type new_handler );
@@ -174,14 +187,14 @@ namespace tbb {
         Otherwise call the assertion handler. */
     void __TBB_EXPORTED_FUNC assertion_failure( const char* filename, int line, const char* expression, const char* comment );
 
-#else
+#else /* !TBB_USE_ASSERT */
 
-//! No-op version of __TBB_ASSERT.
-#define __TBB_ASSERT(predicate,comment) ((void)0)
-//! "Extended" version is useful to suppress warnings if a variable is only used with an assert
-#define __TBB_ASSERT_EX(predicate,comment) ((void)(1 && (predicate)))
+    //! No-op version of __TBB_ASSERT.
+    #define __TBB_ASSERT(predicate,comment) ((void)0)
+    //! "Extended" version is useful to suppress warnings if a variable is only used with an assert
+    #define __TBB_ASSERT_EX(predicate,comment) ((void)(1 && (predicate)))
 
-#endif /* TBB_USE_ASSERT */
+#endif /* !TBB_USE_ASSERT */
 
 //! The function returns the interface version of the TBB shared library being used.
 /**
@@ -204,13 +217,32 @@ class split {
  */
 namespace internal {
 
-using std::size_t;
-
 //! Compile-time constant that is upper bound on cache line/sector size.
 /** It should be used only in situations where having a compile-time upper 
     bound is more useful than a run-time exact answer.
     @ingroup memory_allocation */
 const size_t NFS_MaxLineSize = 128;
+
+/** Label for data that may be accessed from different threads, and that may eventually become wrapped
+    in a formal atomic type.
+    
+    Note that no problems have yet been observed relating to the definition currently being empty,
+    even if at least "volatile" would seem to be in order to avoid data sometimes temporarily hiding
+    in a register (although "volatile" as a "poor man's atomic" lacks several other features of a proper
+    atomic, some of which are now provided instead through specialized functions).
+
+    Note that usage is intentionally compatible with a definition as qualifier "volatile",
+    both as a way to have the compiler help enforce use of the label and to quickly rule out
+    one potential issue.
+
+    Note however that, with some architecture/compiler combinations, e.g. on Itanium, "volatile" 
+    also has non-portable memory semantics that are needlessly expensive for "relaxed" operations.
+
+    Note that this must only be applied to data that will not change bit patterns when cast to/from
+    an integral type of the same length; tbb::atomic must be used instead for, e.g., floating-point types.
+
+    TODO: apply wherever relevant **/
+#define __TBB_atomic // intentionally empty, see above
 
 template<class T, int S>
 struct padded_base : T {
@@ -252,15 +284,28 @@ void __TBB_EXPORTED_FUNC handle_perror( int error_code, const char* aux_info );
 void __TBB_EXPORTED_FUNC runtime_warning( const char* format, ... );
 
 #if TBB_USE_ASSERT
+static void* const poisoned_ptr = reinterpret_cast<void*>(-1);
+
 //! Set p to invalid pointer value.
 template<typename T>
-inline void poison_pointer( T* & p ) {
-    p = reinterpret_cast<T*>(-1);
-}
+inline void poison_pointer( T*& p ) { p = reinterpret_cast<T*>(poisoned_ptr); }
+
+/** Expected to be used in assertions only, thus no empty form is defined. **/
+template<typename T>
+inline bool is_poisoned( T* p ) { return p == reinterpret_cast<T*>(poisoned_ptr); }
 #else
 template<typename T>
 inline void poison_pointer( T* ) {/*do nothing*/}
-#endif /* TBB_USE_ASSERT */
+#endif /* !TBB_USE_ASSERT */
+
+//! Cast pointer from U* to T.
+/** This method should be used sparingly as a last resort for dealing with 
+    situations that inherently break strict ISO C++ aliasing rules. */
+template<typename T, typename U> 
+inline T punned_cast( U* ptr ) {
+    uintptr_t x = reinterpret_cast<uintptr_t>(ptr);
+    return reinterpret_cast<T>(x);
+}
 
 //! Base class for types that should not be assigned.
 class no_assign {

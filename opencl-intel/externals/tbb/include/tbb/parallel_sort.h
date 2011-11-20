@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -103,6 +103,7 @@ partition:
     }
 };
 
+#if __TBB_TASK_GROUP_CONTEXT
 //! Body class used to test if elements in a range are presorted
 /** @ingroup algorithms */
 template<typename RandomAccessIterator, typename Compare>
@@ -129,6 +130,7 @@ public:
     }
 
 };
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 //! Body class used to sort elements in a range that is smaller than the grainsize.
 /** @ingroup algorithms */
@@ -144,6 +146,7 @@ struct quick_sort_body {
 /** @ingroup algorithms */
 template<typename RandomAccessIterator, typename Compare>
 void parallel_quick_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp ) {
+#if __TBB_TASK_GROUP_CONTEXT
     task_group_context my_context;
     const int serial_cutoff = 9;
 
@@ -162,6 +165,7 @@ void parallel_quick_sort( RandomAccessIterator begin, RandomAccessIterator end, 
 
     if (my_context.is_group_execution_cancelled())
 do_parallel_quick_sort:
+#endif /* __TBB_TASK_GROUP_CONTEXT */
         parallel_for( quick_sort_range<RandomAccessIterator,Compare>(begin, end-begin, comp ), 
                       quick_sort_body<RandomAccessIterator,Compare>(),
                       auto_partitioner() );

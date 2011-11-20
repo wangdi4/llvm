@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -36,7 +36,7 @@ private:
     element_type array[(sizeof(T)*N+sizeof(element_type)-1)/sizeof(element_type)];
 public:
     //! Pointer to beginning of array
-    T* begin() {return reinterpret_cast<T*>(this);}
+    T* begin() {return internal::punned_cast<T*>(this);}
 
     //! Pointer to one past last element in array.
     T* end() {return begin()+N;}

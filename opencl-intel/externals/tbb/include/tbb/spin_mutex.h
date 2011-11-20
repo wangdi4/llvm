@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -33,12 +33,12 @@ namespace tbb {
 //! A lock that occupies a single byte.
 /** A spin_mutex is a spin mutex that fits in a single byte.  
     It should be used only for locking short critical sections 
-    (typically &lt;20 instructions) when fairness is not an issue.  
+    (typically less than 20 instructions) when fairness is not an issue.  
     If zero-initialized, the mutex is considered unheld.
     @ingroup synchronization */
 class spin_mutex {
     //! 0 if lock is released, 1 if lock is acquired.
-    unsigned char flag;
+    __TBB_atomic_flag flag;
 
 public:
     //! Construct unacquired lock.
@@ -56,7 +56,7 @@ public:
         spin_mutex* my_mutex; 
 
         //! Value to store into spin_mutex::flag to unlock the mutex.
-        uintptr_t my_unlock_value;
+        __TBB_Flag my_unlock_value;
 
         //! Like acquire, but with ITT instrumentation.
         void __TBB_EXPORTED_METHOD internal_acquire( spin_mutex& m );
@@ -114,7 +114,7 @@ public:
 #if TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT
             internal_release();
 #else
-            __TBB_store_with_release(my_mutex->flag, static_cast<unsigned char>(my_unlock_value));
+            __TBB_UnlockByte(my_mutex->flag, my_unlock_value);
             my_mutex = NULL;
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
         }
@@ -125,7 +125,7 @@ public:
 #if TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT
                 internal_release();
 #else
-                __TBB_store_with_release(my_mutex->flag, static_cast<unsigned char>(my_unlock_value));
+                __TBB_UnlockByte(my_mutex->flag, my_unlock_value);
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
             }
         }

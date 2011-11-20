@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -31,7 +31,7 @@ namespace tbb {
 template<typename PageValue, typename RowValue=PageValue, typename ColValue=RowValue>
 class blocked_range3d {
 public:
-    //! Type for size of an iteation range
+    //! Type for size of an iteration range
     typedef blocked_range<PageValue> page_range_type;
     typedef blocked_range<RowValue>  row_range_type;
     typedef blocked_range<ColValue>  col_range_type;

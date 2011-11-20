@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,7 +22,7 @@
 #define _TBB_CRITICAL_SECTION_H_
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "machine/windows_api.h"
 #else
 #include <pthread.h>
 #include <errno.h>

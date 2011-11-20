@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -87,7 +87,6 @@ public:
         scoped_lock() : mutex(NULL), is_writer(false) {}
 
         //! Acquire lock on given mutex.
-        /** Upon entry, *this should not be in the "have acquired a mutex" state. */
         scoped_lock( spin_rw_mutex& m, bool write = true ) : mutex(NULL) {
             acquire(m, write);
         }
@@ -155,7 +154,7 @@ public:
             return result;
         }
 
-    private:
+    protected:
         //! The pointer to the current mutex that is held, or NULL if no mutex is held.
         spin_rw_mutex* mutex;
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -27,7 +27,9 @@
 #include "cache_aligned_allocator.h"
 #include "blocked_range.h"
 #include "tbb_machine.h"
+#include "tbb_profiling.h"
 #include <new>
+#include <cstring>   // for memset()
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -68,9 +70,6 @@ namespace internal {
 
     //! Bad allocation marker
     static void *const vector_allocation_error_flag = reinterpret_cast<void*>(size_t(63));
-
-    //! Routine that loads pointer from location pointed to by src without any fence, without causing ITT to report a race.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
 
     //! Base class of concurrent vector implementation.
     /** @ingroup containers */
@@ -699,7 +698,7 @@ public:
         return cp < sz ? cp : sz;
     }
 
-    //! Return true if vector is not empty or has elements under construction at least.
+    //! Return false if vector is not empty or has elements under construction at least.
     bool empty() const {return !my_early_size;}
 
     //! Maximum size to which array can grow without allocating more memory. Concurrent allocations are not included in the value.
@@ -890,6 +889,10 @@ private:
     };
 };
 
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) 
+#pragma warning (push)
+#pragma warning (disable: 4701) // potentially uninitialized local variable "old"
+#endif
 template<typename T, class A>
 void concurrent_vector<T, A>::shrink_to_fit() {
     internal_segments_table old;
@@ -902,6 +905,9 @@ void concurrent_vector<T, A>::shrink_to_fit() {
         __TBB_RETHROW();
     }
 }
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) 
+#pragma warning (pop)
+#endif // warning 4701 is back 
 
 template<typename T, class A>
 void concurrent_vector<T, A>::internal_free_segments(void *table[], segment_index_t k, segment_index_t first_block) {
@@ -928,11 +934,7 @@ T& concurrent_vector<T, A>::internal_subscript( size_type index ) const {
     segment_index_t k = segment_base_index_of( j );
     __TBB_ASSERT( (segment_t*)my_segment != my_storage || k < pointers_per_short_table, "index is being allocated" );
     // no need in __TBB_load_with_acquire since thread works in own space or gets 
-#if TBB_USE_THREADING_TOOLS
-    T* array = static_cast<T*>( tbb::internal::itt_load_pointer_v3(&my_segment[k].array));
-#else
-    T* array = static_cast<T*>(my_segment[k].array);
-#endif /* TBB_USE_THREADING_TOOLS */
+    T* array = static_cast<T*>( tbb::internal::itt_hide_load_word(my_segment[k].array));
     __TBB_ASSERT( array != internal::vector_allocation_error_flag, "the instance is broken by bad allocation. Use at() instead" );
     __TBB_ASSERT( array, "index is being allocated" );
     return array[j];

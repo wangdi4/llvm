@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -85,7 +85,7 @@ namespace interface5 {
 
     //! The scoped lock pattern for write locks
     /** Scoped locks help avoid the common problem of forgetting to release the lock.
-        This type is also serves as the node for queuing locks. */
+        This type also serves as the node for queuing locks. */
     class scoped_lock : tbb::internal::no_copy {
     public:
         friend class reader_writer_lock;

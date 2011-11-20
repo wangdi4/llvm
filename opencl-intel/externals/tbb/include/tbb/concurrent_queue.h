@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,7 +21,7 @@
 #ifndef __TBB_concurrent_queue_H
 #define __TBB_concurrent_queue_H
 
-#include "_concurrent_queue_internal.h"
+#include "internal/_concurrent_queue_impl.h"
 
 namespace tbb {
 
@@ -40,7 +40,7 @@ class concurrent_queue: public internal::concurrent_queue_base_v3<T> {
     page_allocator_type my_allocator;
 
     //! Allocates a block of size n (bytes)
-    /*overide*/ virtual void *allocate_block( size_t n ) {
+    /*override*/ virtual void *allocate_block( size_t n ) {
         void *b = reinterpret_cast<void*>(my_allocator.allocate( n ));
         if( !b )
             internal::throw_exception(internal::eid_bad_alloc); 
@@ -83,14 +83,14 @@ public:
         my_allocator( a )
     {
         for( ; begin != end; ++begin )
-            internal_push(&*begin);
+            this->internal_push(&*begin);
     }
     
     //! Copy constructor
     concurrent_queue( const concurrent_queue& src, const allocator_type& a = allocator_type()) : 
         internal::concurrent_queue_base_v3<T>(), my_allocator( a )
     {
-        assign( src );
+        this->assign( src );
     }
     
     //! Destroy queue
@@ -98,14 +98,14 @@ public:
 
     //! Enqueue an item at tail of queue.
     void push( const T& source ) {
-        internal_push( &source );
+        this->internal_push( &source );
     }
 
     //! Attempt to dequeue an item from head of queue.
     /** Does not wait for item to become available.
         Returns true if successful; false otherwise. */
     bool try_pop( T& result ) {
-        return internal_try_pop( &result );
+        return this->internal_try_pop( &result );
     }
 
     //! Return the number of items in the queue; thread unsafe
@@ -191,7 +191,7 @@ class concurrent_bounded_queue: public internal::concurrent_queue_base_v3 {
         *static_cast<T*>(dst) = from;
     }
 
-    /*overide*/ virtual page *allocate_page() {
+    /*override*/ virtual page *allocate_page() {
         size_t n = sizeof(padded_page) + (items_per_page-1)*sizeof(T);
         page *p = reinterpret_cast<page*>(my_allocator.allocate( n ));
         if( !p )
@@ -200,7 +200,7 @@ class concurrent_bounded_queue: public internal::concurrent_queue_base_v3 {
     }
 
     /*override*/ virtual void deallocate_page( page *p ) {
-        size_t n = sizeof(padded_page) + items_per_page*sizeof(T);
+        size_t n = sizeof(padded_page) + (items_per_page-1)*sizeof(T);
         my_allocator.deallocate( reinterpret_cast<char*>(p), n );
     }
 
@@ -218,7 +218,7 @@ public:
     typedef const T& const_reference;
 
     //! Integral type for representing size of the queue.
-    /** Notice that the size_type is a signed integral type.
+    /** Note that the size_type is a signed integral type.
         This is because the size can be negative if there are pending pops without corresponding pushes. */
     typedef std::ptrdiff_t size_type;
 
@@ -367,7 +367,7 @@ public:
     /** Does not wait for queue to become not full.
         Returns true if item is pushed; false if queue was already full. */
     bool push_if_not_full( const T& source ) {
-        return try_push( source );
+        return this->try_push( source );
     }
 
     //! Attempt to dequeue an item from head of queue.
@@ -376,7 +376,7 @@ public:
         @deprecated Use try_pop()
         */
     bool pop_if_present( T& destination ) {
-        return try_pop( destination );
+        return this->try_pop( destination );
     }
 
     typedef typename concurrent_bounded_queue<T,A>::iterator iterator;

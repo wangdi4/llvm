@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -18,9 +18,13 @@
     writing.
 */
 
-#ifndef __TBB_machine_H
-#error Do not include this file directly; include tbb_machine.h instead
+// TODO: revise by comparing with mac_ppc.h
+
+#if !defined(__TBB_machine_H) || defined(__TBB_machine_xbox360_ppc_H)
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif
+
+#define __TBB_machine_xbox360_ppc_H
 
 #define NONET
 #define NOD3D
@@ -28,36 +32,41 @@
 #include "ppcintrinsics.h"
 
 #if _MSC_VER >= 1300
-extern "C" void _ReadWriteBarrier();
-#pragma intrinsic(_ReadWriteBarrier)
-#define __TBB_release_consistency_helper() _ReadWriteBarrier()
+extern "C" void _MemoryBarrier();
+#pragma intrinsic(_MemoryBarrier)
+#define __TBB_control_consistency_helper() __isync()
+#define __TBB_acquire_consistency_helper() _MemoryBarrier()
+#define __TBB_release_consistency_helper() _MemoryBarrier()
 #endif
 
-inline void __TBB_rel_acq_fence() { __lwsync(); }
+#define __TBB_full_memory_fence() __sync()
 
 #define __TBB_WORDSIZE 4
 #define __TBB_BIG_ENDIAN 1
 
-//todo: define __TBB_DECL_FENCED_ATOMICS and define acquire/release primitives to maximize performance
+//todo: define __TBB_USE_FENCED_ATOMICS and define acquire/release primitives to maximize performance
 
-typedef __int64 int64_t;  //required for definition of Store8/Load8 in atomic.h
-typedef unsigned char uint8_t;  //same reason
-
-inline __int32 __TBB_machine_cmpswp4(volatile void *ptr, __int32 value, __int32 comparand )
-{                               
- __lwsync();
+inline __int32 __TBB_machine_cmpswp4(volatile void *ptr, __int32 value, __int32 comparand ) {                               
+ __sync();
  __int32 result = InterlockedCompareExchange((volatile LONG*)ptr, value, comparand);
- __lwsync();
+ __isync();
  return result;
 }
 
 inline __int64 __TBB_machine_cmpswp8(volatile void *ptr, __int64 value, __int64 comparand )
 {
- __lwsync();
+ __sync();
  __int64 result = InterlockedCompareExchange64((volatile LONG64*)ptr, value, comparand);
- __lwsync();
+ __isync();
  return result;
 }
+
+#define __TBB_USE_GENERIC_PART_WORD_CAS             1
+#define __TBB_USE_GENERIC_FETCH_ADD                 1
+#define __TBB_USE_GENERIC_FETCH_STORE               1
+#define __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE    1
+#define __TBB_USE_GENERIC_RELAXED_LOAD_STORE        1
+#define __TBB_USE_GENERIC_DWORD_LOAD_STORE          1
 
 #pragma optimize( "", off )
 inline void __TBB_machine_pause (__int32 delay ) 
@@ -66,12 +75,44 @@ inline void __TBB_machine_pause (__int32 delay )
 }
 #pragma optimize( "", on ) 
 
-
-#define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
-#define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
-#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_Yield()  Sleep(0)
 #define __TBB_Pause(V) __TBB_machine_pause(V)
-#define __TBB_fence_for_acquire() __lwsync()
-#define __TBB_fence_for_release() __lwsync()
 
+// This port uses only 2 hardware threads for TBB on XBOX 360. 
+// Others are left to sound etc.
+// Change the following mask to allow TBB use more HW threads.
+static const int __TBB_XBOX360_HARDWARE_THREAD_MASK = 0x0C;
+
+static inline int __TBB_XBOX360_DetectNumberOfWorkers() 
+{
+     char a[__TBB_XBOX360_HARDWARE_THREAD_MASK];  //compile time assert - at least one bit should be set always
+     a[0]=0;
+
+     return ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 0) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 1) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 2) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 3) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 4) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 5) & 1) + 1;  // +1 accomodates for the master thread
+}
+
+static inline int __TBB_XBOX360_GetHardwareThreadIndex(int workerThreadIndex)
+{
+    workerThreadIndex %= __TBB_XBOX360_DetectNumberOfWorkers()-1;
+    int m = __TBB_XBOX360_HARDWARE_THREAD_MASK;
+    int index = 0;
+    int skipcount = workerThreadIndex;
+    while (true)
+    {
+        if ((m & 1)!=0) 
+        {
+            if (skipcount==0) break;
+            skipcount--;
+        }
+        m >>= 1;
+       index++;
+    }
+    return index; 
+}
+
+#define __TBB_HardwareConcurrency() __TBB_XBOX360_DetectNumberOfWorkers()

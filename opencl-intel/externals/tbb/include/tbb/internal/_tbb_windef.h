@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -19,7 +19,7 @@
 */
 
 #ifndef __TBB_tbb_windef_H
-#error Do not #include this file directly.  Use "#include tbb/tbb_stddef.h" instead.
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif /* __TBB_tbb_windef_H */
 
 // Check that the target Windows version has all API calls requried for TBB.
@@ -52,11 +52,7 @@ namespace std {
 #            pragma message(__FILE__ "(" __TBB_STRING(__LINE__) ") : Warning: Recommend using /MD if compiling with TBB_USE_DEBUG==0")
 #        endif
 #    endif
-#else
-#    ifdef _DEBUG
-#        define TBB_USE_DEBUG 1
-#    endif
-#endif 
+#endif
 
 #if __TBB_BUILD && !defined(__TBB_NO_IMPLICIT_LINKAGE)
 #define __TBB_NO_IMPLICIT_LINKAGE 1
@@ -64,10 +60,14 @@ namespace std {
 
 #if _MSC_VER
     #if !__TBB_NO_IMPLICIT_LINKAGE
-        #ifdef _DEBUG
-            #pragma comment(lib, "tbb_debug.lib")
+        #ifdef __TBB_LIB_NAME
+	        #pragma comment(lib, __TBB_STRING(__TBB_LIB_NAME))
         #else
-            #pragma comment(lib, "tbb.lib")
+			#ifdef _DEBUG
+				#pragma comment(lib, "tbb_debug.lib")
+			#else
+				#pragma comment(lib, "tbb.lib")
+			#endif
         #endif
     #endif
 #endif

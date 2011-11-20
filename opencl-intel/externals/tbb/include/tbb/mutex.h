@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,14 +22,9 @@
 #define __TBB_mutex_H
 
 #if _WIN32||_WIN64
-    #include <windows.h>
-    #if !defined(_WIN32_WINNT)
-    // The following Windows API function is declared explicitly;
-    // otherwise any user would have to specify /D_WIN32_WINNT=0x0400
-    extern "C" BOOL WINAPI TryEnterCriticalSection( LPCRITICAL_SECTION );
-    #endif
-#else /* if not _WIN32||_WIN64 */
-    #include <pthread.h>
+#include "machine/windows_api.h"
+#else
+#include <pthread.h>
 #endif /* _WIN32||_WIN64 */
 
 #include <new>

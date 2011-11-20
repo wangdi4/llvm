@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -24,7 +24,7 @@
 #include "tbb_stddef.h"
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "machine/windows_api.h"
 #elif __linux__
 #include <ctime>
 #else /* generic Unix */

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,6 +23,8 @@
 
 #include "task.h"
 #include "tbb_exception.h"
+
+#if __TBB_TASK_GROUP_CONTEXT
 
 namespace tbb {
 
@@ -115,6 +117,28 @@ public:
         my_root->set_ref_count(1);
     }
 
+    ~task_group_base() {
+        if( my_root->ref_count() > 1 ) {
+            bool stack_unwinding_in_progress = std::uncaught_exception();
+            // Always attempt to do proper cleanup to avoid inevitable memory corruption 
+            // in case of missing wait (for the sake of better testability & debuggability)
+            if ( !is_canceling() )
+                cancel();
+            __TBB_TRY {
+                my_root->wait_for_all();
+            } __TBB_CATCH (...) {
+                task::destroy(*my_root);
+                __TBB_RETHROW();
+            }
+            task::destroy(*my_root);
+            if ( !stack_unwinding_in_progress )
+                internal::throw_exception( internal::eid_missing_wait );
+        }
+        else {
+            task::destroy(*my_root);
+        }
+    }
+
     template<typename F>
     void run( task_handle<F>& h ) {
         internal_run< task_handle<F>, internal::task_handle_task<F> >( h );
@@ -149,18 +173,20 @@ class task_group : public internal::task_group_base {
 public:
     task_group () : task_group_base( task_group_context::concurrent_wait ) {}
 
+#if TBB_DEPRECATED
     ~task_group() __TBB_TRY {
         __TBB_ASSERT( my_root->ref_count() != 0, NULL );
         if( my_root->ref_count() > 1 )
             my_root->wait_for_all();
-        owner().destroy(*my_root);
     }
 #if TBB_USE_EXCEPTIONS
     catch (...) {
-        owner().destroy(*my_root);
+        // Have to destroy my_root here as the base class destructor won't be called
+        task::destroy(*my_root);
         throw;
     }
 #endif /* TBB_USE_EXCEPTIONS */
+#endif /* TBB_DEPRECATED */
 
 #if __SUNPRO_CC
     template<typename F>
@@ -189,25 +215,6 @@ public:
 
 class structured_task_group : public internal::task_group_base {
 public:
-    ~structured_task_group() {
-        if( my_root->ref_count() > 1 ) {
-            bool stack_unwinding_in_progress = std::uncaught_exception();
-            // Always attempt to do proper cleanup to avoid inevitable memory corruption 
-            // in case of missing wait (for the sake of better testability & debuggability)
-            if ( !is_canceling() )
-                cancel();
-            my_root->wait_for_all();
-            owner().destroy(*my_root);
-            if ( !stack_unwinding_in_progress )
-                internal::throw_exception( internal::eid_missing_wait );
-        }
-        else {
-            if( my_root->ref_count() == 1 )
-                my_root->set_ref_count(0);
-            owner().destroy(*my_root);
-        }
-    }
-
     template<typename F>
     task_group_status run_and_wait ( task_handle<F>& h ) {
         return internal_run_and_wait< task_handle<F> >( h );
@@ -231,5 +238,7 @@ task_handle<F> make_task( const F& f ) {
 }
 
 } // namespace tbb
+
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #endif /* __TBB_task_group_H */

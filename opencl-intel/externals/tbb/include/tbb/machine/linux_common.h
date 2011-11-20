@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -19,17 +19,11 @@
 */
 
 #ifndef __TBB_machine_H
-#error Do not include this file directly; include tbb_machine.h instead
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
 #include <sched.h>
-
-// Definition of __TBB_Yield()
-#ifndef __TBB_Yield
 #define __TBB_Yield()  sched_yield()
-#endif
 
 /* Futex definitions */
 #include <sys/syscall.h>

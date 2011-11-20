@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,13 +23,13 @@
 
 #include "concurrent_vector.h"
 #include "tbb_thread.h"
+#include "tbb_allocator.h"
 #include "cache_aligned_allocator.h"
-#if __SUNPRO_CC
+#include "aligned_space.h"
 #include <string.h>  // for memcpy
-#endif
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "machine/windows_api.h"
 #else
 #include <pthread.h>
 #endif
@@ -39,10 +39,10 @@ namespace tbb {
 //! enum for selecting between single key and key-per-instance versions
 enum ets_key_usage_type { ets_key_per_instance, ets_no_key };
 
-namespace interface5 {
-
+namespace interface6 {
+ 
     //! @cond
-    namespace internal {
+    namespace internal { 
 
         template<ets_key_usage_type ETS_key_type>
         class ets_base: tbb::internal::no_copy {
@@ -76,16 +76,13 @@ namespace interface5 {
                 bool match( key_type k ) const {return key==k;}
                 bool claim( key_type k ) {
                     __TBB_ASSERT(sizeof(tbb::atomic<key_type>)==sizeof(key_type), NULL);
-                    __TBB_ASSERT(sizeof(void*)==sizeof(tbb::atomic<key_type>*), NULL);
-                    union { void* space; tbb::atomic<key_type>* key_atomic; } helper;
-                    helper.space = &key;
-                    return helper.key_atomic->compare_and_swap(k,0)==0;
+                    return tbb::internal::punned_cast<tbb::atomic<key_type>*>(&key)->compare_and_swap(k,0)==0;
                 }
             };
 #if __TBB_GCC_3_3_PROTECTED_BROKEN
         protected:
 #endif
-
+        
             static key_type key_of_current_thread() {
                tbb::tbb_thread::id id = tbb::this_tbb_thread::get_id();
                key_type k;
@@ -94,7 +91,7 @@ namespace interface5 {
             }
 
             //! Root of linked list of arrays of decreasing size.
-            /** NULL if and only if my_count==0.
+            /** NULL if and only if my_count==0.  
                 Each array in the list is half the size of its predecessor. */
             atomic<array*> my_root;
             atomic<size_t> my_count;
@@ -102,14 +99,14 @@ namespace interface5 {
             virtual void* create_array(size_t _size) = 0;  // _size in bytes
             virtual void free_array(void* ptr, size_t _size) = 0; // _size in bytes
             array* allocate( size_t lg_size ) {
-                size_t n = 1<<lg_size;
+                size_t n = 1<<lg_size;  
                 array* a = static_cast<array*>(create_array( sizeof(array)+n*sizeof(slot) ));
                 a->lg_size = lg_size;
                 std::memset( a+1, 0, n*sizeof(slot) );
                 return a;
             }
             void free(array* a) {
-                size_t n = 1<<(a->lg_size);
+                size_t n = 1<<(a->lg_size);  
                 free_array( (void *)a, size_t(sizeof(array)+n*sizeof(slot)) );
             }
             static size_t hash( key_type k ) {
@@ -119,9 +116,9 @@ namespace interface5 {
                 return uintptr_t(k)*0x9E3779B9;
 #else
                 return uintptr_t(k)*0x9E3779B97F4A7C15;
-#endif
-            }
-
+#endif 
+            } 
+        
             ets_base() {my_root=NULL; my_count=0;}
             virtual ~ets_base();  // g++ complains if this is not virtual...
             void* table_lookup( bool& exists );
@@ -161,10 +158,10 @@ namespace interface5 {
             }
             my_count = 0;
         }
-
+                
         template<ets_key_usage_type ETS_key_type>
         void* ets_base<ETS_key_type>::table_lookup( bool& exists ) {
-            const key_type k = key_of_current_thread();
+            const key_type k = key_of_current_thread(); 
 
             __TBB_ASSERT(k!=0,NULL);
             void* found;
@@ -226,7 +223,7 @@ namespace interface5 {
             }
         }
 
-        //! Specialization that exploits native TLS
+        //! Specialization that exploits native TLS 
         template <>
         class ets_base<ets_key_per_instance>: protected ets_base<ets_no_key> {
             typedef ets_base<ets_no_key> super;
@@ -258,79 +255,79 @@ namespace interface5 {
                     found = super::table_lookup(exists);
                     set_tls(found);
                 }
-                return found;
+                return found; 
             }
             void table_clear() {
                 destroy_key();
-                create_key();
+                create_key(); 
                 super::table_clear();
             }
         };
 
         //! Random access iterator for traversing the thread local copies.
         template< typename Container, typename Value >
-        class enumerable_thread_specific_iterator
-#if defined(_WIN64) && defined(_MSC_VER)
+        class enumerable_thread_specific_iterator 
+#if defined(_WIN64) && defined(_MSC_VER) 
             // Ensure that Microsoft's internal template function _Val_type works correctly.
             : public std::iterator<std::random_access_iterator_tag,Value>
 #endif /* defined(_WIN64) && defined(_MSC_VER) */
         {
-            //! current position in the concurrent_vector
-
+            //! current position in the concurrent_vector 
+        
             Container *my_container;
             typename Container::size_type my_index;
             mutable Value *my_value;
-
+        
             template<typename C, typename T>
-            friend enumerable_thread_specific_iterator<C,T> operator+( ptrdiff_t offset,
+            friend enumerable_thread_specific_iterator<C,T> operator+( ptrdiff_t offset, 
                                                                        const enumerable_thread_specific_iterator<C,T>& v );
-
+        
             template<typename C, typename T, typename U>
-            friend bool operator==( const enumerable_thread_specific_iterator<C,T>& i,
+            friend bool operator==( const enumerable_thread_specific_iterator<C,T>& i, 
                                     const enumerable_thread_specific_iterator<C,U>& j );
-
+        
             template<typename C, typename T, typename U>
-            friend bool operator<( const enumerable_thread_specific_iterator<C,T>& i,
+            friend bool operator<( const enumerable_thread_specific_iterator<C,T>& i, 
                                    const enumerable_thread_specific_iterator<C,U>& j );
-
+        
             template<typename C, typename T, typename U>
             friend ptrdiff_t operator-( const enumerable_thread_specific_iterator<C,T>& i, const enumerable_thread_specific_iterator<C,U>& j );
-
-            template<typename C, typename U>
+            
+            template<typename C, typename U> 
             friend class enumerable_thread_specific_iterator;
-
+        
             public:
-
-            enumerable_thread_specific_iterator( const Container &container, typename Container::size_type index ) :
+        
+            enumerable_thread_specific_iterator( const Container &container, typename Container::size_type index ) : 
                 my_container(&const_cast<Container &>(container)), my_index(index), my_value(NULL) {}
-
+        
             //! Default constructor
             enumerable_thread_specific_iterator() : my_container(NULL), my_index(0), my_value(NULL) {}
-
+        
             template<typename U>
             enumerable_thread_specific_iterator( const enumerable_thread_specific_iterator<Container, U>& other ) :
                     my_container( other.my_container ), my_index( other.my_index), my_value( const_cast<Value *>(other.my_value) ) {}
-
+        
             enumerable_thread_specific_iterator operator+( ptrdiff_t offset ) const {
                 return enumerable_thread_specific_iterator(*my_container, my_index + offset);
             }
-
+        
             enumerable_thread_specific_iterator &operator+=( ptrdiff_t offset ) {
                 my_index += offset;
                 my_value = NULL;
                 return *this;
             }
-
+        
             enumerable_thread_specific_iterator operator-( ptrdiff_t offset ) const {
                 return enumerable_thread_specific_iterator( *my_container, my_index-offset );
             }
-
+        
             enumerable_thread_specific_iterator &operator-=( ptrdiff_t offset ) {
                 my_index -= offset;
                 my_value = NULL;
                 return *this;
             }
-
+        
             Value& operator*() const {
                 Value* value = my_value;
                 if( !value ) {
@@ -339,25 +336,25 @@ namespace interface5 {
                 __TBB_ASSERT( value==reinterpret_cast<Value *>(&(*my_container)[my_index].value), "corrupt cache" );
                 return *value;
             }
-
+        
             Value& operator[]( ptrdiff_t k ) const {
                return (*my_container)[my_index + k].value;
             }
-
+        
             Value* operator->() const {return &operator*();}
-
+        
             enumerable_thread_specific_iterator& operator++() {
                 ++my_index;
                 my_value = NULL;
                 return *this;
             }
-
+        
             enumerable_thread_specific_iterator& operator--() {
                 --my_index;
                 my_value = NULL;
                 return *this;
             }
-
+        
             //! Post increment
             enumerable_thread_specific_iterator operator++(int) {
                 enumerable_thread_specific_iterator result = *this;
@@ -365,7 +362,7 @@ namespace interface5 {
                 my_value = NULL;
                 return result;
             }
-
+        
             //! Post decrement
             enumerable_thread_specific_iterator operator--(int) {
                 enumerable_thread_specific_iterator result = *this;
@@ -373,7 +370,7 @@ namespace interface5 {
                 my_value = NULL;
                 return result;
             }
-
+        
             // STL support
             typedef ptrdiff_t difference_type;
             typedef Value value_type;
@@ -381,51 +378,51 @@ namespace interface5 {
             typedef Value& reference;
             typedef std::random_access_iterator_tag iterator_category;
         };
-
+        
         template<typename Container, typename T>
-        enumerable_thread_specific_iterator<Container,T> operator+( ptrdiff_t offset,
+        enumerable_thread_specific_iterator<Container,T> operator+( ptrdiff_t offset, 
                                                                     const enumerable_thread_specific_iterator<Container,T>& v ) {
             return enumerable_thread_specific_iterator<Container,T>( v.my_container, v.my_index + offset );
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator==( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator==( const enumerable_thread_specific_iterator<Container,T>& i, 
                          const enumerable_thread_specific_iterator<Container,U>& j ) {
             return i.my_index==j.my_index && i.my_container == j.my_container;
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator!=( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator!=( const enumerable_thread_specific_iterator<Container,T>& i, 
                          const enumerable_thread_specific_iterator<Container,U>& j ) {
             return !(i==j);
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator<( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator<( const enumerable_thread_specific_iterator<Container,T>& i, 
                         const enumerable_thread_specific_iterator<Container,U>& j ) {
             return i.my_index<j.my_index;
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator>( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator>( const enumerable_thread_specific_iterator<Container,T>& i, 
                         const enumerable_thread_specific_iterator<Container,U>& j ) {
             return j<i;
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator>=( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator>=( const enumerable_thread_specific_iterator<Container,T>& i, 
                          const enumerable_thread_specific_iterator<Container,U>& j ) {
             return !(i<j);
         }
-
+        
         template<typename Container, typename T, typename U>
-        bool operator<=( const enumerable_thread_specific_iterator<Container,T>& i,
+        bool operator<=( const enumerable_thread_specific_iterator<Container,T>& i, 
                          const enumerable_thread_specific_iterator<Container,U>& j ) {
             return !(j<i);
         }
-
+        
         template<typename Container, typename T, typename U>
-        ptrdiff_t operator-( const enumerable_thread_specific_iterator<Container,T>& i,
+        ptrdiff_t operator-( const enumerable_thread_specific_iterator<Container,T>& i, 
                              const enumerable_thread_specific_iterator<Container,U>& j ) {
             return i.my_index-j.my_index;
         }
@@ -441,15 +438,15 @@ namespace interface5 {
 
             template<typename C, typename T, typename U>
             friend bool operator!=(const segmented_iterator<C,T>& i, const segmented_iterator<C,U>& j);
-
-            template<typename C, typename U>
+            
+            template<typename C, typename U> 
             friend class segmented_iterator;
 
             public:
 
                 segmented_iterator() {my_segcont = NULL;}
 
-                segmented_iterator( const SegmentedContainer& _segmented_container ) :
+                segmented_iterator( const SegmentedContainer& _segmented_container ) : 
                     my_segcont(const_cast<SegmentedContainer*>(&_segmented_container)),
                     outer_iter(my_segcont->end()) { }
 
@@ -554,7 +551,7 @@ namespace interface5 {
         };    // segmented_iterator
 
         template<typename SegmentedContainer, typename T, typename U>
-        bool operator==( const segmented_iterator<SegmentedContainer,T>& i,
+        bool operator==( const segmented_iterator<SegmentedContainer,T>& i, 
                          const segmented_iterator<SegmentedContainer,U>& j ) {
             if(i.my_segcont != j.my_segcont) return false;
             if(i.my_segcont == NULL) return true;
@@ -565,50 +562,77 @@ namespace interface5 {
 
         // !=
         template<typename SegmentedContainer, typename T, typename U>
-        bool operator!=( const segmented_iterator<SegmentedContainer,T>& i,
+        bool operator!=( const segmented_iterator<SegmentedContainer,T>& i, 
                          const segmented_iterator<SegmentedContainer,U>& j ) {
             return !(i==j);
         }
 
+        template<typename T>
+        struct destruct_only: tbb::internal::no_copy {
+            tbb::aligned_space<T,1> value;
+            ~destruct_only() {value.begin()[0].~T();}
+        };
+
+        template<typename T>
+        struct construct_by_default: tbb::internal::no_assign {
+            void construct(void*where) {new(where) T();} // C++ note: the () in T() ensure zero initialization.
+            construct_by_default( int ) {}
+        };
+
+        template<typename T>
+        struct construct_by_exemplar: tbb::internal::no_assign {
+            const T exemplar;
+            void construct(void*where) {new(where) T(exemplar);}
+            construct_by_exemplar( const T& t ) : exemplar(t) {}
+        };
+
+        template<typename T, typename Finit>
+        struct construct_by_finit: tbb::internal::no_assign {
+            Finit f;
+            void construct(void* where) {new(where) T(f());}
+            construct_by_finit( const Finit& f_ ) : f(f_) {}
+        };
+
         // storage for initialization function pointer
         template<typename T>
-        struct callback_base {
-            virtual T apply( ) = 0;
-            virtual void destroy( ) = 0;
-            // need to be able to create copies of callback_base for copy constructor
-            virtual callback_base* make_copy() = 0;
-            // need virtual destructor to satisfy GCC compiler warning
+        class callback_base {
+        public:
+            // Clone *this
+            virtual callback_base* clone() = 0;
+            // Destruct and free *this
+            virtual void destroy() = 0;
+            // Need virtual destructor to satisfy GCC compiler warning
             virtual ~callback_base() { }
+            // Construct T at where
+            virtual void construct(void* where) = 0;
         };
 
-        template <typename T, typename Functor>
-        struct callback_leaf : public callback_base<T>, public tbb::internal::no_copy {
-            typedef Functor my_callback_type;
-            typedef callback_leaf<T,Functor> my_type;
-            typedef my_type* callback_pointer;
-            typedef typename tbb::tbb_allocator<my_type> my_allocator_type;
-            Functor f;
-            callback_leaf( const Functor& f_) : f(f_) {
+        template <typename T, typename Constructor>
+        class callback_leaf: public callback_base<T>, Constructor {
+            template<typename X> callback_leaf( const X& x ) : Constructor(x) {}
+
+            typedef typename tbb::tbb_allocator<callback_leaf> my_allocator_type;
+
+            /*override*/ callback_base<T>* clone() {
+                void* where = my_allocator_type().allocate(1);
+                return new(where) callback_leaf(*this);
             }
 
-            static callback_pointer new_callback(const Functor& f_ ) {
-                void* new_void = my_allocator_type().allocate(1);
-                callback_pointer new_cb = new (new_void) callback_leaf<T,Functor>(f_); // placement new
-                return new_cb;
+            /*override*/ void destroy() {
+                my_allocator_type().destroy(this);
+                my_allocator_type().deallocate(this,1);
             }
 
-            /* override */ callback_pointer make_copy() {
-                return new_callback( f );
+            /*override*/ void construct(void* where) {
+                Constructor::construct(where);
+            }  
+        public:
+            template<typename X>
+            static callback_base<T>* make( const X& x ) {
+                void* where = my_allocator_type().allocate(1);
+                return new(where) callback_leaf(x);
             }
-
-             /* override */ void destroy( ) {
-                 callback_pointer my_ptr = this;
-                 my_allocator_type().destroy(my_ptr);
-                 my_allocator_type().deallocate(my_ptr,1);
-             }
-            /* override */ T apply() { return f(); }  // does copy construction of returned value.
         };
-
 
         //! Template for adding padding in order to avoid false sharing
         /** ModularSize should be sizeof(U) modulo the cache line size.
@@ -618,27 +642,9 @@ namespace interface5 {
         */
         template<typename U, size_t ModularSize>
         struct ets_element {
-            char value[sizeof(U) + tbb::internal::NFS_MaxLineSize-ModularSize];
+            char value[ModularSize==0 ? sizeof(U) : sizeof(U)+(tbb::internal::NFS_MaxLineSize-ModularSize)];
             void unconstruct() {
-                // "reinterpret_cast<U*>(&value)->~U();" causes type-punning warning with gcc 4.4,
-                // "U* u = reinterpret_cast<U*>(&value); u->~U();" causes unused variable warning with VS2010.
-                // Thus another "casting via union" hack.
-                __TBB_ASSERT(sizeof(void*)==sizeof(U*),NULL);
-                union { void* space; U* val; } helper;
-                helper.space = &value;
-                helper.val->~U();
-            }
-        };
-
-        //! Partial specialization for case where no padding is needed.
-        template<typename U>
-        struct ets_element<U,0> {
-            char value[sizeof(U)];
-            void unconstruct() { // Same implementation as in general case
-                __TBB_ASSERT(sizeof(void*)==sizeof(U*),NULL);
-                union { void* space; U* val; } helper;
-                helper.space = &value;
-                helper.val->~U();
+                tbb::internal::punned_cast<U*>(&value)->~U();
             }
         };
 
@@ -653,25 +659,25 @@ namespace interface5 {
         - enumerable_thread_specific containers may be copy-constructed or assigned.
         - thread-local copies can be managed by hash-table, or can be accessed via TLS storage for speed.
         - outside of parallel contexts, the contents of all thread-local copies are accessible by iterator or using combine or combine_each methods
-
+        
     @par Segmented iterator
         When the thread-local objects are containers with input_iterators defined, a segmented iterator may
         be used to iterate over all the elements of all thread-local copies.
 
     @par combine and combine_each
-        - Both methods are defined for enumerable_thread_specific.
-        - combine() requires the the type T have operator=() defined.
-        - neither method modifies the contents of the object (though there is no guarantee that the applied methods do not modify the object.)
+        - Both methods are defined for enumerable_thread_specific. 
+        - combine() requires the the type T have operator=() defined.  
+        - neither method modifies the contents of the object (though there is no guarantee that the applied methods do not modify the object.)  
         - Both are evaluated in serial context (the methods are assumed to be non-benign.)
-
+        
     @ingroup containers */
-    template <typename T,
-              typename Allocator=cache_aligned_allocator<T>,
-              ets_key_usage_type ETS_key_type=ets_no_key >
-    class enumerable_thread_specific: internal::ets_base<ETS_key_type> {
+    template <typename T, 
+              typename Allocator=cache_aligned_allocator<T>, 
+              ets_key_usage_type ETS_key_type=ets_no_key > 
+    class enumerable_thread_specific: internal::ets_base<ETS_key_type> { 
 
         template<typename U, typename A, ets_key_usage_type C> friend class enumerable_thread_specific;
-
+    
         typedef internal::ets_element<T,sizeof(T)%tbb::internal::NFS_MaxLineSize> padded_element;
 
         //! A generic range, used to create range objects from the iterators
@@ -683,60 +689,28 @@ namespace interface5 {
             typedef const T& const_reference;
             typedef I iterator;
             typedef ptrdiff_t difference_type;
-            generic_range_type( I begin_, I end_, size_t grainsize_ = 1) : blocked_range<I>(begin_,end_,grainsize_) {}
+            generic_range_type( I begin_, I end_, size_t grainsize_ = 1) : blocked_range<I>(begin_,end_,grainsize_) {} 
             template<typename U>
-            generic_range_type( const generic_range_type<U>& r) : blocked_range<I>(r.begin(),r.end(),r.grainsize()) {}
+            generic_range_type( const generic_range_type<U>& r) : blocked_range<I>(r.begin(),r.end(),r.grainsize()) {} 
             generic_range_type( generic_range_type& r, split ) : blocked_range<I>(r,split()) {}
         };
-
+    
         typedef typename Allocator::template rebind< padded_element >::other padded_allocator_type;
         typedef tbb::concurrent_vector< padded_element, padded_allocator_type > internal_collection_type;
-
-        internal::callback_base<T> *my_finit_callback;
-
-        // need to use a pointed-to exemplar because T may not be assignable.
-        // using tbb_allocator instead of padded_element_allocator because we may be
-        // copying an exemplar from one instantiation of ETS to another with a different
-        // allocator.
-        typedef typename tbb::tbb_allocator<padded_element > exemplar_allocator_type;
-        static padded_element * create_exemplar(const T& my_value) {
-            padded_element *new_exemplar = reinterpret_cast<padded_element *>(exemplar_allocator_type().allocate(1));
-            new(new_exemplar->value) T(my_value);
-            return new_exemplar;
-        }
-
-        static padded_element *create_exemplar( ) {
-            padded_element *new_exemplar = reinterpret_cast<padded_element *>(exemplar_allocator_type().allocate(1));
-            new(new_exemplar->value) T( );
-            return new_exemplar;
-        }
-
-        static void free_exemplar(padded_element *my_ptr) {
-            my_ptr->unconstruct();
-            exemplar_allocator_type().destroy(my_ptr);
-            exemplar_allocator_type().deallocate(my_ptr,1);
-        }
-
-        padded_element* my_exemplar_ptr;
+        
+        internal::callback_base<T> *my_construct_callback;
 
         internal_collection_type my_locals;
-
+   
         /*override*/ void* create_local() {
 #if TBB_DEPRECATED
             void* lref = &my_locals[my_locals.push_back(padded_element())];
 #else
             void* lref = &*my_locals.push_back(padded_element());
 #endif
-            if(my_finit_callback) {
-                new(lref) T(my_finit_callback->apply());
-            } else if(my_exemplar_ptr) {
-                pointer t_exemp = reinterpret_cast<T *>(&(my_exemplar_ptr->value));
-                new(lref) T(*t_exemp);
-            } else {
-                new(lref) T();
-            }
+            my_construct_callback->construct(lref);
             return lref;
-        }
+        } 
 
         void unconstruct_locals() {
             for(typename internal_collection_type::iterator cvi = my_locals.begin(); cvi != my_locals.end(); ++cvi) {
@@ -756,9 +730,9 @@ namespace interface5 {
             size_t nelements = (_size + sizeof(uintptr_t) -1) / sizeof(uintptr_t);
             array_allocator_type().deallocate( reinterpret_cast<uintptr_t *>(_ptr),nelements);
         }
-
+   
     public:
-
+    
         //! Basic types
         typedef Allocator allocator_type;
         typedef T value_type;
@@ -768,7 +742,7 @@ namespace interface5 {
         typedef const T* const_pointer;
         typedef typename internal_collection_type::size_type size_type;
         typedef typename internal_collection_type::difference_type difference_type;
-
+    
         // Iterator types
         typedef typename internal::enumerable_thread_specific_iterator< internal_collection_type, value_type > iterator;
         typedef typename internal::enumerable_thread_specific_iterator< internal_collection_type, const value_type > const_iterator;
@@ -776,38 +750,30 @@ namespace interface5 {
         // Parallel range types
         typedef generic_range_type< iterator > range_type;
         typedef generic_range_type< const_iterator > const_range_type;
+    
+        //! Default constructor.  Each local instance of T is default constructed.
+        enumerable_thread_specific() : 
+            my_construct_callback( internal::callback_leaf<T,internal::construct_by_default<T> >::make(/*dummy argument*/0) ) 
+        {}
 
-        //! Default constructor, which leads to default construction of local copies
-        enumerable_thread_specific() : my_finit_callback(0) {
-            my_exemplar_ptr = 0;
-        }
-
-        //! construction with initializer method
-        // Finit should be a function taking 0 parameters and returning a T
+        //! Constructor with initializer functor.  Each local instance of T is constructed by T(finit()).
         template <typename Finit>
-        enumerable_thread_specific( Finit _finit )
-        {
-            my_finit_callback = internal::callback_leaf<T,Finit>::new_callback( _finit );
-            my_exemplar_ptr = 0; // don't need exemplar if function is provided
-        }
-
-        //! Constuction with exemplar, which leads to copy construction of local copies
-        enumerable_thread_specific(const T &_exemplar) : my_finit_callback(0) {
-            my_exemplar_ptr = create_exemplar(_exemplar);
-        }
-
+        enumerable_thread_specific( Finit finit ) : 
+            my_construct_callback( internal::callback_leaf<T,internal::construct_by_finit<T,Finit> >::make( finit ) ) 
+        {}
+    
+        //! Constuctor with exemplar.  Each local instance of T is copied-constructed from the exemplar.
+        enumerable_thread_specific(const T& exemplar) : 
+            my_construct_callback( internal::callback_leaf<T,internal::construct_by_exemplar<T> >::make( exemplar ) )
+        {}
+    
         //! Destructor
-        ~enumerable_thread_specific() {
-            if(my_finit_callback) {
-                my_finit_callback->destroy();
-            }
-            if(my_exemplar_ptr) {
-                free_exemplar(my_exemplar_ptr);
-            }
+        ~enumerable_thread_specific() { 
+            my_construct_callback->destroy();
             this->clear();  // deallocation before the derived class is finished destructing
             // So free(array *) is still accessible
         }
-
+      
         //! returns reference to local, discarding exists
         reference local() {
             bool exists;
@@ -816,31 +782,30 @@ namespace interface5 {
 
         //! Returns reference to calling thread's local copy, creating one if necessary
         reference local(bool& exists)  {
-            __TBB_ASSERT(ETS_key_type==ets_no_key,"ets_key_per_instance not yet implemented");
             void* ptr = this->table_lookup(exists);
             return *(T*)ptr;
         }
 
         //! Get the number of local copies
         size_type size() const { return my_locals.size(); }
-
+    
         //! true if there have been no local copies created
         bool empty() const { return my_locals.empty(); }
-
+    
         //! begin iterator
         iterator begin() { return iterator( my_locals, 0 ); }
         //! end iterator
         iterator end() { return iterator(my_locals, my_locals.size() ); }
-
+    
         //! begin const iterator
         const_iterator begin() const { return const_iterator(my_locals, 0); }
-
+    
         //! end const iterator
         const_iterator end() const { return const_iterator(my_locals, my_locals.size()); }
 
         //! Get range for parallel algorithms
-        range_type range( size_t grainsize=1 ) { return range_type( begin(), end(), grainsize ); }
-
+        range_type range( size_t grainsize=1 ) { return range_type( begin(), end(), grainsize ); } 
+        
         //! Get const range for parallel algorithms
         const_range_type range( size_t grainsize=1 ) const { return const_range_type( begin(), end(), grainsize ); }
 
@@ -877,15 +842,9 @@ namespace interface5 {
         enumerable_thread_specific &
         internal_assign(const enumerable_thread_specific<U, A2, C2>& other) {
             if(static_cast<void *>( this ) != static_cast<const void *>( &other )) {
-                this->clear();
-                if(my_finit_callback) {
-                    my_finit_callback->destroy();
-                    my_finit_callback = 0;
-                }
-                if(my_exemplar_ptr) {
-                    free_exemplar(my_exemplar_ptr);
-                    my_exemplar_ptr = 0;
-                }
+                this->clear(); 
+                my_construct_callback->destroy();
+                my_construct_callback = 0;
                 internal_copy( other );
             }
             return *this;
@@ -908,15 +867,13 @@ namespace interface5 {
         template <typename combine_func_t>
         T combine(combine_func_t f_combine) {
             if(begin() == end()) {
-                if(my_finit_callback) {
-                    return my_finit_callback->apply();
-                }
-                pointer local_ref = reinterpret_cast<T*>((my_exemplar_ptr->value));
-                return T(*local_ref);
+                internal::destruct_only<T> location;
+                my_construct_callback->construct(location.value.begin());
+                return *location.value.begin();
             }
             const_iterator ci = begin();
             T my_result = *ci;
-            while(++ci != end())
+            while(++ci != end()) 
                 my_result = f_combine( my_result, *ci );
             return my_result;
         }
@@ -931,10 +888,12 @@ namespace interface5 {
 
     }; // enumerable_thread_specific
 
-
-    template <typename T, typename Allocator, ets_key_usage_type ETS_key_type>
+    template <typename T, typename Allocator, ets_key_usage_type ETS_key_type> 
     template<typename U, typename A2, ets_key_usage_type C2>
     void enumerable_thread_specific<T,Allocator,ETS_key_type>::internal_copy( const enumerable_thread_specific<U, A2, C2>& other) {
+        // Initialize my_construct_callback first, so that it is valid even if rest of this routine throws an exception.
+        my_construct_callback = other.my_construct_callback->clone();
+
         typedef internal::ets_base<ets_no_key> base;
         __TBB_ASSERT(my_locals.size()==0,NULL);
         this->table_reserve_for_copy( other );
@@ -943,7 +902,7 @@ namespace interface5 {
                 base::slot& s1 = r->at(i);
                 if( !s1.empty() ) {
                     base::slot& s2 = this->table_find(s1.key);
-                    if( s2.empty() ) {
+                    if( s2.empty() ) { 
 #if TBB_DEPRECATED
                         void* lref = &my_locals[my_locals.push_back(padded_element())];
 #else
@@ -953,20 +912,9 @@ namespace interface5 {
                         s2.key = s1.key;
                     } else {
                         // Skip the duplicate
-                    }
+                    } 
                 }
             }
-        }
-        if(other.my_finit_callback) {
-            my_finit_callback = other.my_finit_callback->make_copy();
-        } else {
-            my_finit_callback = 0;
-        }
-        if(other.my_exemplar_ptr) {
-            pointer local_ref = reinterpret_cast<U*>(other.my_exemplar_ptr->value);
-            my_exemplar_ptr = create_exemplar(*local_ref);
-        } else {
-            my_exemplar_ptr = 0;
         }
     }
 
@@ -991,10 +939,10 @@ namespace interface5 {
         typedef typename internal::segmented_iterator<Container, value_type> iterator;
         typedef typename internal::segmented_iterator<Container, const value_type> const_iterator;
 
-        flattened2d( const Container &c, typename Container::const_iterator b, typename Container::const_iterator e ) :
+        flattened2d( const Container &c, typename Container::const_iterator b, typename Container::const_iterator e ) : 
             my_container(const_cast<Container*>(&c)), my_begin(b), my_end(e) { }
 
-        flattened2d( const Container &c ) :
+        flattened2d( const Container &c ) : 
             my_container(const_cast<Container*>(&c)), my_begin(c.begin()), my_end(c.end()) { }
 
         iterator begin() { return iterator(*my_container) = my_begin; }
@@ -1028,15 +976,15 @@ namespace interface5 {
         return flattened2d<Container>(c);
     }
 
-} // interface5
+} // interface6
 
 namespace internal {
-using interface5::internal::segmented_iterator;
+using interface6::internal::segmented_iterator;
 }
 
-using interface5::enumerable_thread_specific;
-using interface5::flattened2d;
-using interface5::flatten2d;
+using interface6::enumerable_thread_specific;
+using interface6::flattened2d;
+using interface6::flatten2d;
 
 } // namespace tbb
 

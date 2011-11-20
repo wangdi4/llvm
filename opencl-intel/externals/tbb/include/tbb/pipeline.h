@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,6 +23,7 @@
 
 #include "atomic.h"
 #include "task.h"
+#include "tbb_allocator.h"
 #include <cstddef>
 
 namespace tbb {
@@ -45,7 +46,7 @@ class pipeline_cleaner;
 
 } // namespace internal
 
-namespace interface5 {
+namespace interface6 {
     template<typename T, typename U> class filter_t;
 
     namespace internal {
@@ -61,7 +62,7 @@ class filter: internal::no_copy {
 private:
     //! Value used to mark "not in pipeline"
     static filter* not_in_pipeline() {return reinterpret_cast<filter*>(intptr_t(-1));}
-    
+protected:    
     //! The lowest bit 0 is for parallel vs. serial
     static const unsigned char filter_is_serial = 0x1; 
 
@@ -72,6 +73,9 @@ private:
 
     //! 5th bit distinguishes thread-bound and regular filters.
     static const unsigned char filter_is_bound = 0x1<<5;  
+
+    //! 6th bit marks input filters emitting small objects
+    static const unsigned char filter_may_emit_null = 0x1<<6;
 
     //! 7th bit defines exception propagation mode expected by the application.
     static const unsigned char exact_exception_propagation =
@@ -113,6 +117,9 @@ protected:
         next_segment(NULL)
     {}
 
+    // signal end-of-input for concrete_filters
+    void __TBB_EXPORTED_METHOD set_end_of_input();
+
 public:
     //! True if filter is serial.
     bool is_serial() const {
@@ -127,6 +134,11 @@ public:
     //! True if filter is thread-bound.
     bool is_bound() const {
         return ( my_filter_mode & filter_is_bound )==filter_is_bound;
+    }
+
+    //! true if an input filter can emit null
+    bool object_may_be_null() { 
+        return ( my_filter_mode & filter_may_emit_null ) == filter_may_emit_null;
     }
 
     //! Operate on an item from the input stream, and return item for output stream.
@@ -147,6 +159,11 @@ public:
 private:
     //! Pointer to next filter in the pipeline.
     filter* next_filter_in_pipeline;
+
+    //! has the filter not yet processed all the tokens it will ever see?  
+    //  (pipeline has not yet reached end_of_input or this filter has not yet
+    //  seen the last token produced by input_filter)
+    bool has_more_work();
 
     //! Buffer for incoming tokens, or NULL if not required.
     /** The buffer is required if the filter is serial or follows a thread-bound one. */
@@ -185,7 +202,7 @@ public:
     };
 protected:
     thread_bound_filter(mode filter_mode): 
-         filter(static_cast<mode>(filter_mode | filter::filter_is_bound | filter::exact_exception_propagation))
+         filter(static_cast<mode>(filter_mode | filter::filter_is_bound))
     {}
 public:
     //! If a data item is available, invoke operator() on that item.  
@@ -208,7 +225,7 @@ private:
     result_type internal_process_item(bool is_blocking);
 };
 
-//! A processing pipeling that applies filters to items.
+//! A processing pipeline that applies filters to items.
 /** @ingroup algorithms */
 class pipeline {
 public:
@@ -239,7 +256,7 @@ private:
     friend class filter;
     friend class thread_bound_filter;
     friend class internal::pipeline_cleaner;
-    friend class tbb::interface5::internal::pipeline_proxy;
+    friend class tbb::interface6::internal::pipeline_proxy;
 
     //! Pointer to first filter in the pipeline.
     filter* filter_list;
@@ -278,12 +295,13 @@ private:
 // Support for lambda-friendly parallel_pipeline interface
 //------------------------------------------------------------------------
 
-namespace interface5 {
+namespace interface6 {
 
 namespace internal {
     template<typename T, typename U, typename Body> class concrete_filter;
 }
 
+//! input_filter control to signal end-of-input for parallel_pipeline
 class flow_control {
     bool is_pipeline_stopped;
     flow_control() { is_pipeline_stopped = false; }
@@ -295,44 +313,124 @@ public:
 //! @cond INTERNAL
 namespace internal {
 
+template<typename T> struct is_large_object { enum { r = sizeof(T) > sizeof(void *) }; };
+
+template<typename T, bool> class token_helper;
+
+// large object helper (uses tbb_allocator)
+template<typename T>
+class token_helper<T, true> {
+    public:
+    typedef typename tbb::tbb_allocator<T> allocator;
+    typedef T* pointer;
+    typedef T value_type;
+    static pointer create_token(const value_type & source) {
+        pointer output_t = allocator().allocate(1);
+        return new (output_t) T(source);
+    }
+    static value_type & token(pointer & t) { return *t;}
+    static void * cast_to_void_ptr(pointer ref) { return (void *) ref; }
+    static pointer cast_from_void_ptr(void * ref) { return (pointer)ref; }
+    static void destroy_token(pointer token) {
+        allocator().destroy(token);
+        allocator().deallocate(token,1);
+    }
+};
+
+// pointer specialization
+template<typename T>
+class token_helper<T*, false > {
+    public:
+    typedef T* pointer;
+    typedef T* value_type;
+    static pointer create_token(const value_type & source) { return source; }
+    static value_type & token(pointer & t) { return t;}
+    static void * cast_to_void_ptr(pointer ref) { return (void *)ref; }
+    static pointer cast_from_void_ptr(void * ref) { return (pointer)ref; }
+    static void destroy_token( pointer /*token*/) {}
+};
+
+// small object specialization (converts void* to the correct type, passes objects directly.)
+template<typename T>
+class token_helper<T, false> {
+    typedef union {
+        T actual_value;
+        void * void_overlay;
+    } type_to_void_ptr_map;
+    public:
+    typedef T pointer;  // not really a pointer in this case.
+    typedef T value_type;
+    static pointer create_token(const value_type & source) {
+        return source; }
+    static value_type & token(pointer & t) { return t;}
+    static void * cast_to_void_ptr(pointer ref) { 
+        type_to_void_ptr_map mymap; 
+        mymap.void_overlay = NULL;
+        mymap.actual_value = ref; 
+        return mymap.void_overlay; 
+    }
+    static pointer cast_from_void_ptr(void * ref) { 
+        type_to_void_ptr_map mymap;
+        mymap.void_overlay = ref;
+        return mymap.actual_value;
+    }
+    static void destroy_token( pointer /*token*/) {}
+};
+
 template<typename T, typename U, typename Body>
 class concrete_filter: public tbb::filter {
-    Body my_body;
+    const Body& my_body;
+    typedef token_helper<T,is_large_object<T>::r > t_helper;
+    typedef typename t_helper::pointer t_pointer;
+    typedef token_helper<U,is_large_object<U>::r > u_helper;
+    typedef typename u_helper::pointer u_pointer;
 
     /*override*/ void* operator()(void* input) {
-        T* temp_input = (T*)input;
-        // Call user's operator()() here
-        void* output = (void*) new U(my_body(*temp_input)); 
-        delete temp_input;
-        return output;
+        t_pointer temp_input = t_helper::cast_from_void_ptr(input);
+        u_pointer output_u = u_helper::create_token(my_body(t_helper::token(temp_input)));
+        t_helper::destroy_token(temp_input);
+        return u_helper::cast_to_void_ptr(output_u);
     }
 
 public:
     concrete_filter(tbb::filter::mode filter_mode, const Body& body) : filter(filter_mode), my_body(body) {}
 };
 
+// input 
 template<typename U, typename Body>
 class concrete_filter<void,U,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
+    typedef token_helper<U, is_large_object<U>::r > u_helper;
+    typedef typename u_helper::pointer u_pointer;
 
     /*override*/void* operator()(void*) {
         flow_control control;
-        U temp_output = my_body(control);
-        void* output = control.is_pipeline_stopped ? NULL : (void*) new U(temp_output); 
-        return output;
+        u_pointer output_u = u_helper::create_token(my_body(control));
+        if(control.is_pipeline_stopped) {
+            u_helper::destroy_token(output_u);
+            set_end_of_input();
+            return NULL;
+        }
+        return u_helper::cast_to_void_ptr(output_u);
     }
+
 public:
-    concrete_filter(tbb::filter::mode filter_mode, const Body& body) : filter(filter_mode), my_body(body) {}
+    concrete_filter(tbb::filter::mode filter_mode, const Body& body) : 
+        filter(static_cast<tbb::filter::mode>(filter_mode | filter_may_emit_null)),
+        my_body(body)
+    {}
 };
 
 template<typename T, typename Body>
 class concrete_filter<T,void,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
+    typedef token_helper<T, is_large_object<T>::r > t_helper;
+    typedef typename t_helper::pointer t_pointer;
    
     /*override*/ void* operator()(void* input) {
-        T* temp_input = (T*)input;
-        my_body(*temp_input);
-        delete temp_input;
+        t_pointer temp_input = t_helper::cast_from_void_ptr(input);
+        my_body(t_helper::token(temp_input));
+        t_helper::destroy_token(temp_input);
         return NULL;
     }
 public:
@@ -341,7 +439,7 @@ public:
 
 template<typename Body>
 class concrete_filter<void,void,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
     
     /** Override privately because it is always called virtually */
     /*override*/ void* operator()(void*) {
@@ -401,7 +499,7 @@ public:
 template<typename T, typename U, typename Body>
 class filter_node_leaf: public filter_node  {
     const tbb::filter::mode mode;
-    const Body& body;
+    const Body body;
     /*override*/void add_to( pipeline& p ) {
         concrete_filter<T,U,Body>* f = new concrete_filter<T,U,Body>(mode,body);
         p.add_filter( *f );
@@ -433,6 +531,7 @@ public:
 } // namespace internal
 //! @endcond
 
+//! Create a filter to participate in parallel_pipeline
 template<typename T, typename U, typename Body>
 filter_t<T,U> make_filter(tbb::filter::mode mode, const Body& body) {
     return new internal::filter_node_leaf<T,U,Body>(mode, body);
@@ -516,12 +615,12 @@ inline void parallel_pipeline(size_t max_number_of_live_tokens, const filter_t<v
 }
 #endif // __TBB_TASK_GROUP_CONTEXT
 
-} // interface5
+} // interface6
 
-using interface5::flow_control;
-using interface5::filter_t;
-using interface5::make_filter;
-using interface5::parallel_pipeline;
+using interface6::flow_control;
+using interface6::filter_t;
+using interface6::make_filter;
+using interface6::parallel_pipeline;
 
 } // tbb
 

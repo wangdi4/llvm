@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,7 +22,7 @@
 #define __TBB_tbb_thread_H
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "machine/windows_api.h"
 #define __TBB_NATIVE_THREAD_ROUTINE unsigned WINAPI
 #define __TBB_NATIVE_THREAD_ROUTINE_PTR(r) unsigned (WINAPI* r)( void* )
 #else
@@ -33,7 +33,6 @@
 
 #include "tbb_stddef.h"
 #include "tick_count.h"
-#include <exception>             // Need std::terminate from here.
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -56,7 +55,7 @@ namespace internal {
 
 } // namespace internal
 
-void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
+inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
 
 namespace internal {
 
@@ -75,11 +74,7 @@ namespace internal {
 
         static __TBB_NATIVE_THREAD_ROUTINE start_routine( void* c ) {
             thread_closure_0 *self = static_cast<thread_closure_0*>(c);
-            __TBB_TRY {
-                self->function();
-            } __TBB_CATCH( ... ) {
-                std::terminate();
-            }
+            self->function();
             delete self;
             return 0;
         }
@@ -92,11 +87,7 @@ namespace internal {
         //! Routine passed to Windows's _beginthreadex by thread::internal_start() inside tbb.dll
         static __TBB_NATIVE_THREAD_ROUTINE start_routine( void* c ) {
             thread_closure_1 *self = static_cast<thread_closure_1*>(c);
-            __TBB_TRY {
-                self->function(self->arg1);
-            } __TBB_CATCH( ... ) {
-                std::terminate();
-            }
+            self->function(self->arg1);
             delete self;
             return 0;
         }
@@ -109,11 +100,7 @@ namespace internal {
         //! Routine passed to Windows's _beginthreadex by thread::internal_start() inside tbb.dll
         static __TBB_NATIVE_THREAD_ROUTINE start_routine( void* c ) {
             thread_closure_2 *self = static_cast<thread_closure_2*>(c);
-            __TBB_TRY {
-                self->function(self->arg1, self->arg2);
-            } __TBB_CATCH( ... ) {
-                std::terminate();
-            }
+            self->function(self->arg1, self->arg2);
             delete self;
             return 0;
         }
@@ -175,6 +162,15 @@ namespace internal {
         native_handle_type native_handle() { return my_handle; }
     
         //! The number of hardware thread contexts.
+        /** Before TBB 3.0 U4 this methods returned the number of logical CPU in
+            the system. Currently on Windows, Linux and FreeBSD it returns the
+            number of logical CPUs available to the current process in accordance
+            with its affinity mask.
+            
+            NOTE: The return value of this method never changes after its first
+            invocation. This means that changes in the process affinity mask that
+            took place after this method was first invoked will not affect the
+            number of worker threads in the TBB worker threads pool. **/
         static unsigned __TBB_EXPORTED_FUNC hardware_concurrency();
     private:
         native_handle_type my_handle; 
