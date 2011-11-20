@@ -357,7 +357,7 @@ public:
     }
 
     // ITask interface
-    void Execute()
+    bool Execute()
     {
         CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 
@@ -379,6 +379,7 @@ public:
 
 		m_pCallBack->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
         CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+		return true;
     }
 
     void        Release() {delete this;}

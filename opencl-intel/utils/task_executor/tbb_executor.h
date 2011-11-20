@@ -31,9 +31,27 @@
 
 #include "cl_synch_objects.h"
 
-class ThreadIDAssigner;
-
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
+	class ThreadIDAssigner : public tbb::task_scheduler_observer
+	{
+	private:
+		static tbb::enumerable_thread_specific<unsigned int>              *t_uiWorkerId;
+		static tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *t_pScheduler;
+
+	public:
+		bool m_bUseTaskalyzer;
+
+		ThreadIDAssigner();
+		~ThreadIDAssigner();
+		static unsigned int GetWorkerID();
+		static void SetWorkerID(unsigned int id);
+		static tbb::task_scheduler_init* GetScheduler();
+		static void SetScheduler(tbb::task_scheduler_init* init);
+		static bool IsWorkerScheduler();
+		virtual void on_scheduler_entry( bool is_worker );
+		virtual void on_scheduler_exit( bool is_worker );
+	};
 
 	class TBBTaskExecutor : public ITaskExecutor
 	{
@@ -44,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(CommandListCreationParam* param);
 		unsigned int	Execute(ITaskBase * pTask);
-		bool			WaitForCompletion();
+		te_wait_result	WaitForCompletion();
 
 		void Close(bool bCancel);
 
@@ -69,14 +87,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class TBBThreadPoolPartitioner : public IThreadPoolPartitioner
     {
     public:
-        TBBThreadPoolPartitioner(int numThreads);
+		TBBThreadPoolPartitioner(int numThreads, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver);
         virtual ~TBBThreadPoolPartitioner();
-        void Activate();
+        bool Activate();
         void Deactivate();
 
     protected:
         MyObserver* m_observer;
     };
-
-
 }}}

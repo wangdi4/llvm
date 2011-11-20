@@ -199,8 +199,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	protected:
 		void* m_mutexHndl;
     private:
-	void spinCountMutexLock();
-	unsigned int m_uiSpinCount;
+		OclMutex(const OclMutex& o);
+		OclMutex& operator=(const OclMutex& o);
+		void spinCountMutexLock();
+		unsigned int m_uiSpinCount;
     };
 
 	class OclSpinMutex: public IMutex

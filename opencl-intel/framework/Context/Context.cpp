@@ -150,21 +150,40 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     //
     // For each device in this context, "create" it (either really create or increment its ref count)
     //
-    for(cl_uint idx = 0; idx < uiNumDevices; idx++)
+	cl_err_code ret = CL_SUCCESS;
+	cl_uint idx = 0;
+	for(; idx < uiNumDevices && CL_SUCCEEDED(ret); idx++)
     {
 		// Need to make insure that instance of DeviceAgent exists
-		cl_err_code err = CL_SUCCESS;
         if (ppDevices[idx]->IsRootLevelDevice())
         {
-             err = ppDevices[idx]->GetRootDevice()->CreateInstance();		    
+            ret = ppDevices[idx]->GetRootDevice()->CreateInstance();		    
         }
-		if ( CL_SUCCEEDED(err) )
+        else
 		{
-			// This context uses device, no need add pendency explicitly, it was added during inserting to device map
+            ppDevices[idx]->AddPendency(this);
+        }
 			ppDevices[idx]->RegisterDeviceFissionObserver(this);
 		}
+	if ( CL_FAILED(ret) )
+	{
+		for(cl_uint ui=0; ui<idx; ++ui)
+		{
+			ppDevices[ui]->UnregisterDeviceFissionObserver(this);
+			if (m_ppAllDevices[ui]->IsRootLevelDevice())
+			{
+				m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
     }
+			else
+			{
+				m_ppAllDevices[ui]->RemovePendency(this);
+			}
 
+	        m_mapDevices.RemoveObject(ppDevices[ui]->GetHandle());
+		}
+		*pclErr = ret;
+		return;
+	}
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_sz2dArraySize);
 
 	m_handle.object   = this;
@@ -193,6 +212,10 @@ void Context::Cleanup( bool bTerminate )
         if (m_ppAllDevices[ui]->IsRootLevelDevice())
         {
             m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
+        }
+		else
+		{
+			m_ppAllDevices[ui]->RemovePendency(this);
         }
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
 	}
@@ -1156,6 +1179,7 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
 
     for (size_t i = 0; i < count; ++i)
     {
+		children[i]->AddPendency(this);
         pNewDeviceIds[prevNumDevices + i] = children[i]->GetHandle();
         pNewDevices[prevNumDevices + i]   = children[i];
         m_mapDevices.AddObject(children[i], false);

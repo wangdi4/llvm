@@ -34,16 +34,16 @@
 #include <windows.h>
 #endif
 #include <malloc.h>
+#include <assert.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE)
+WGContext::WGContext():
+	m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
+	m_pLocalMem(NULL), m_pPrivateMem(NULL)
 {
-	// Create local memory
-	m_pLocalMem = (char*)ALIGNED_MALLOC(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN);
-	m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN);
 }
 
 WGContext::~WGContext()
@@ -65,10 +65,35 @@ WGContext::~WGContext()
 
 }
 
+cl_dev_err_code	WGContext::Init()
+{
+	// Create local memory
+	m_pLocalMem = (char*)ALIGNED_MALLOC(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN);
+	if ( NULL == m_pLocalMem )
+	{
+		assert(0 && "Local memory allocation failed");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	// Go in revers order
+	//for(long long i=(long long)CPU_DEV_LCL_MEM_SIZE-1;i>=0;i-=4096) ((char*)m_pLocalMem)[i]=0;
+
+	m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN);
+	if ( NULL == m_pPrivateMem )
+	{
+		assert(0 && "Private memory allocation failed");
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	//for(long long i=(long long)m_stPrivMemAllocSize-1;i>=0;i-=4096) ((char*)m_pPrivateMem)[i]=0;
+
+	return CL_DEV_SUCCESS;	
+}
+
 cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
+		assert(0 && "Execution context memory is not initialized");
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 

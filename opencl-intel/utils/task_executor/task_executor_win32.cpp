@@ -183,11 +183,11 @@ TASK_EXECUTOR_API ITaskExecutor* Intel::OpenCL::TaskExecutor::GetTaskExecutor()
 	return g_pTaskExecutor;
 }
 
-TASK_EXECUTOR_API IThreadPoolPartitioner* Intel::OpenCL::TaskExecutor::CreateThreadPartitioner(int numThreads)
+TASK_EXECUTOR_API IThreadPoolPartitioner* Intel::OpenCL::TaskExecutor::CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs)
 {
     //Todo: implement for non-TBB
 #ifdef __TBB_EXECUTOR__
-  return new TBBThreadPoolPartitioner(numThreads);
+  return new TBBThreadPoolPartitioner(numThreads, legalCoreIDs, pObserver);
 #else
   return NULL;
 #endif

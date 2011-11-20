@@ -26,47 +26,167 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_utils.h"
-
-//using namespace Intel::OpenCL::Utils;
-
+#include <cassert>
 
 #ifdef WIN32
-	#include <windows.h>
-	void clSleep(int milliseconds)
-	{
-		SleepEx(milliseconds, TRUE);
-	}
+#include <windows.h>
 
-    void clSetThreadAffinityMask(affinityMask_t* mask)
-    {
-        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)*mask);
-    }
-    void clResetThreadAffinityMask()
-    {
-        static const unsigned long long allMask = (const unsigned long long)-1;
-        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)allMask);
-    }
+bool clIsNumaAvailable()
+{
+	return false;
+}
+
+void clNUMASetLocalNodeAlloc()
+{
+}
+
+void clSleep(int milliseconds)
+{
+	SleepEx(milliseconds, TRUE);
+}
+
+void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
+{
+	if (0 == tid)
+	{
+	    SetThreadAffinityMask(GetCurrentThread(), *mask);
+	}
+	else
+	{
+	    HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+	    SetThreadAffinityMask(tid_handle, *mask);
+    	CloseHandle(tid_handle);
+	}
+}
+
+void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
+{
+	DWORD_PTR mask = 1 << core;
+	if (0 == tid)
+	{
+    	SetThreadAffinityMask(GetCurrentThread(), mask);
+	}
+	else
+	{
+	    HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+    	SetThreadAffinityMask(tid_handle, mask);
+	    CloseHandle(tid_handle);
+	}
+	//printf("Thread %d is running on processor %d (expected %d)\n", GetCurrentThreadId(), GetCurrentProcessorNumber(), core);
+}
+
+void clResetThreadAffinityMask(threadid_t tid)
+{
+	static const unsigned long long allMask = (const unsigned long long)-1;
+	if (0 == tid)
+	{
+		SetThreadAffinityMask(GetCurrentThread(), allMask);
+	}
+	else
+	{
+	    HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+	    SetThreadAffinityMask(tid_handle, allMask);
+    	CloseHandle(tid_handle);
+	}
+}
+
+bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
+{
+	assert(mask);
+	assert(IDs);
+	DWORD_PTR localMask = *mask;;
+	size_t i = 0;
+	size_t set_bits = 0;
+	while ((0 != localMask) && (set_bits < len))
+	{
+		if (localMask & 0x1)
+		{
+			IDs[set_bits++] = i;
+		}
+		++i;
+		localMask >>= 1;
+	}
+	return (len == set_bits) && (0 == localMask);
+}
+
+threadid_t clMyThreadId()
+{
+	return GetCurrentThreadId();
+}
+
 #else
-	#include <unistd.h>
-	void clSleep(int milliseconds)
+#include <unistd.h>
+#include <numa.h>
+#include <sys/syscall.h>
+
+bool clIsNumaAvailable()
+{
+	static int iNuma = -1;
+	
+	if ( -1 == iNuma )
 	{
-		usleep(1000 * milliseconds);
+		iNuma = numa_available();
 	}
+	return (-1 != iNuma);
+}
 
-    void clSetThreadAffinityMask(affinityMask_t* mask)
-    {
-        sched_setaffinity(0, sizeof(cpu_set_t), mask);
-    }
-    void clResetThreadAffinityMask()
-    {
-        // Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
-        // cpu_set_t is a bitmask and I'm going to abuse that knowledge
+void clNUMASetLocalNodeAlloc()
+{
+	numa_set_localalloc();
+}
 
-        // This should be long enough
-        static const unsigned long long allOnes[] = {-1, -1, -1, -1};
-        static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
-        sched_setaffinity(0, sizeof(cpu_set_t), allMask);
-    }
+void clSleep(int milliseconds)
+{
+	usleep(1000 * milliseconds);
+}
+
+void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
+{
+	sched_setaffinity(tid, sizeof(cpu_set_t), mask);
+}
+
+void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
+{
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+	CPU_SET(core ,&mask);
+sched_setaffinity(tid, sizeof(cpu_set_t), &mask);
+}
+void clResetThreadAffinityMask(threadid_t tid)
+{
+// Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
+// cpu_set_t is a bitmask and I'm going to abuse that knowledge
+
+// This should be long enough
+static const unsigned long long allOnes[] = {-1, -1, -1, -1};
+static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
+sched_setaffinity(tid, sizeof(cpu_set_t), allMask);
+}
+bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
+{
+	assert(mask);
+	assert(IDs);
+	size_t set_bits = 0;
+	//Todo: assumes no more than 1024 HW threads
+	for (size_t i = 0; i < 1024; ++i)
+	{
+		if (CPU_ISSET(i, mask))
+		{
+			IDs[set_bits++] = i;
+		}
+		if (set_bits > len)
+		{
+			break;
+		}
+	}
+	return (len == set_bits);
+}
+
+threadid_t clMyThreadId()
+{
+    return (pid_t)syscall(SYS_gettid);
+}
+
 #endif
 
 const wchar_t* ClErrTxt(cl_err_code error_code)

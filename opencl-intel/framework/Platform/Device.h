@@ -62,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
 
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
-        virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes) = 0;
+        virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
 
         virtual void NotifyDeviceFissioned(cl_uint numChildren, FissionableDevice** children);
 
@@ -244,7 +244,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_ulong GetMaxLocalMemorySize() const {return m_stMaxLocalMemorySize;}
 
         // Inherited from FissionableDevice
-        cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
         
 		Device* GetRootDevice() { return this; }
 
@@ -339,7 +338,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
                             size_t *	param_value_size_ret);
 
         // Inherited from FissionableDevice
-        cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
         Device* GetRootDevice() { return m_pRootDevice; }
         bool    IsRootLevelDevice() { return false; }
 

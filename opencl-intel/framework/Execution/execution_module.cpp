@@ -125,14 +125,13 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 {
     cl_command_queue iQueueID   = CL_INVALID_HANDLE;
     Context*    pContext   = NULL;
-    //clQueueProperties |= CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT;
     cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
 		IOclCommandQueueBase* pCommandQueue;
-        if (clQueueProperties & CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT)
+        if (clQueueProperties & CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
         {
             pCommandQueue = new ImmediateCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
         }
@@ -195,7 +194,7 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
     }
     else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | 
                                                    CL_QUEUE_PROFILING_ENABLE              |
-                                                   CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT ) ) 
+                                                   CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL ) ) 
     {
         errVal = CL_INVALID_VALUE;
     }

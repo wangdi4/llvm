@@ -252,11 +252,41 @@ extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
     }
 }
 
+typedef struct _cl_dev_internal_subdevice_id
+{
+	//Arch. data
+	cl_uint  num_compute_units;
+	cl_uint  numa_id;
+	bool     is_numa;
+	bool     is_by_names;
+	cl_uint* legal_core_ids;
+
+	//Task dispatcher for this sub-device
+	TaskDispatcher*                     task_dispatcher;
+	Intel::OpenCL::Utils::AtomicCounter task_dispatcher_ref_count;
+	volatile bool                       task_dispatcher_init_complete;
+} cl_dev_internal_subdevice_id;
+
 typedef struct _cl_dev_internal_cmd_list
 {
-    void*               cmd_list;     
-    cl_dev_subdevice_id subdevice_id;
+    void*                         cmd_list;     
+    cl_dev_internal_subdevice_id* subdevice_id;
+	TaskDispatcher*               task_dispatcher;
 } cl_dev_internal_cmd_list;
+
+//A data structure keeping track of which thread ID is which OS-dependent ID and which core it's mapped to
+struct Intel::OpenCL::CPUDevice::ThreadMapping
+{
+	// Int so -1 means no affinity for this thread yet
+	int core;
+
+	// The OS-dependent per-thread ID
+	threadid_t os_tid;
+
+	// A flag indicating whether this core is a part of a sub-device (and thus has a thread pinned to it)
+	bool core_in_use;
+};
+
 
 CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc): 
     m_pProgramService(NULL),
@@ -266,7 +296,10 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_pFrameworkCallBacks(devCallbacks), 
     m_uiCpuId(uiDevId),
     m_pLogDescriptor(logDesc), 
-    m_iLogHandle (0)
+    m_iLogHandle (0),
+	m_pComputeUnitMap(NULL),
+	m_pComputeUnitScoreboard(NULL),
+	m_pCoreToThread(NULL)
 {
 }
 
@@ -304,21 +337,130 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE);
-    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
-        m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
-    if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-    
-    ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
+	ret = QueryHWInfo();
     if (CL_DEV_SUCCESS != ret)
     {
         return CL_DEV_ERROR_FAIL;
     }
 
+    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE);
+    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
+    m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
+    if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+    
+    ret = m_pTaskDispatcher->init();
+    if ( CL_DEV_FAILED(ret) )
+    {
+    	return ret;
+    }
+    ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
+
     return ret;
+}
+
+cl_dev_err_code CPUDevice::QueryHWInfo()
+{
+	m_numCores        = GetNumberOfProcessors();
+	m_numNumaNodes    = GetMaxNumaNode() + 1;
+	m_numCoresPerL1   = 2; //Todo: calculate
+	m_pComputeUnitMap = new unsigned int[m_numCores];
+	if (NULL == m_pComputeUnitMap)
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	m_pComputeUnitScoreboard = new ThreadMapping[m_numCores];
+	if (NULL == m_pComputeUnitScoreboard)
+	{
+		delete[] m_pComputeUnitMap;
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	m_pCoreToThread = new unsigned int[m_numCores];
+	if (NULL == m_pCoreToThread)
+	{
+		delete[] m_pComputeUnitScoreboard;
+		delete[] m_pComputeUnitMap;
+	}
+
+	//Todo: calculate the real map here
+	for (unsigned long i = 0; i < m_numCores; ++i)
+	{
+		m_pComputeUnitMap[i]                    = i;
+		m_pCoreToThread[i]                      = i;
+		m_pComputeUnitScoreboard[i].os_tid      = 0;
+		m_pComputeUnitScoreboard[i].core_in_use = false;
+		m_pComputeUnitScoreboard[i].core        = -1;
+	}
+	return CL_DEV_SUCCESS;
+}
+
+bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
+{
+	if ((NULL == which) || (0 == how_many))
+	{
+		return false;
+	}
+	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+	for (unsigned int i = 0; i < how_many; ++i)
+	{
+		if (m_pComputeUnitScoreboard[which[i]].core_in_use)
+		{
+			//Failed, roll back
+			for (unsigned int j = 0; j < i; ++j)
+			{
+				m_pComputeUnitScoreboard[which[j]].core_in_use = false;
+			}
+			return false;
+		}
+		else
+		{
+			m_pComputeUnitScoreboard[which[i]].core_in_use = true;
+		}
+	}
+	return true;
+}
+
+void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
+{
+	if (NULL == which)
+	{
+		return;
+	}
+	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+	for (unsigned int i = 0; i < how_many; ++i)
+	{
+		m_pComputeUnitScoreboard[which[i]].core_in_use = false;
+	}
+}
+
+void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
+{
+	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+	unsigned int other_tid    = m_pCoreToThread[core];
+	int          my_prev_core = m_pComputeUnitScoreboard[tid].core;
+	bool         other_valid  = (other_tid != tid) && (-1 != m_pComputeUnitScoreboard[other_tid].core);
+
+	if (0 == m_pComputeUnitScoreboard[tid].os_tid)
+	{
+	    m_pComputeUnitScoreboard[tid].os_tid = clMyThreadId();
+	}
+
+	//Update map with regard to myself
+	m_pComputeUnitScoreboard[tid].core   = core;
+	m_pCoreToThread[core]                = tid;
+
+        //Set the caller's affinity as requested
+        clSetThreadAffinityToCore(core, m_pComputeUnitScoreboard[tid].os_tid);
+
+	if (other_valid)
+	{
+		//Need to relocate the other thread to my previous core
+		m_pComputeUnitScoreboard[other_tid].core = my_prev_core;
+		m_pCoreToThread[my_prev_core]            = other_tid;
+		clSetThreadAffinityToCore(my_prev_core, m_pComputeUnitScoreboard[other_tid].os_tid);
+	}
 }
 
 CPUDevice::~CPUDevice()
@@ -978,7 +1120,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL | CL_EXEC_KERNEL;  //changed from CL_EXEC_NATIVE_FN_AS_KERNEL
+                cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL | CL_EXEC_KERNEL | CL_EXEC_BY_THREAD_LOCAL_INTEL;  //changed from CL_EXEC_NATIVE_FN_AS_KERNEL
                 *(cl_device_exec_capabilities*)paramVal = execCapabilities;
             }
             return CL_DEV_SUCCESS;
@@ -1144,8 +1286,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 
         case CL_DEVICE_AFFINITY_DOMAINS_EXT:
             {
-                //No NUMA -> return a 0 sizes array
+#ifndef _WIN32 //Numa support disabled for windows machines
+                //No NUMA -> return a 0 sized array
                 if (0 == GetMaxNumaNode())
+#endif
                 {
                     *pinternalRetunedValueSize = 0;
                     return CL_DEV_SUCCESS;
@@ -1185,16 +1329,42 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 
 }
 // Device Fission support
+
+static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, cl_uint num_successfully_allocated)
+{
+        for (cl_uint j = 0; j < num_successfully_allocated; ++j)
+        {
+			cl_dev_internal_subdevice_id* pSubdeviceId = static_cast<cl_dev_internal_subdevice_id*>(subdevice_ids[j]);
+			delete[] pSubdeviceId->legal_core_ids;
+            delete pSubdeviceId;
+        }
+}
 /****************************************************************************************************************
  clDevPartition
     Calculate appropriate affinity mask to support the partitioning mode and instantiate as many SubdeviceTaskDispatcher objects as needed
 ********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
+cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_id, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
 {
     if (NULL == num_subdevices)
     {
         return CL_DEV_INVALID_VALUE;
     }
+
+	cl_dev_internal_subdevice_id* pParent = static_cast<cl_dev_internal_subdevice_id*>(parent_id);
+	size_t availableComputeUnits;
+	unsigned int* pParentComputeUnits;
+	unsigned long numNumaNodes = m_numNumaNodes;
+
+	if (NULL == pParent)
+	{
+		availableComputeUnits = m_numCores;
+		pParentComputeUnits   = m_pComputeUnitMap;
+	}
+	else
+	{
+		availableComputeUnits = pParent->num_compute_units;
+		pParentComputeUnits   = pParent->legal_core_ids;
+	}
 
     switch (props)
     {
@@ -1205,12 +1375,12 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 return CL_DEV_INVALID_VALUE;
             }
             size_t partitionSize = *((size_t *)param);
-            size_t numProcessors = GetNumberOfProcessors();
-            if (partitionSize > numProcessors)
+			//Todo: at the moment disallowing a partition that's equal to the parent device
+            if (partitionSize >= availableComputeUnits)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            size_t numPartitions = numProcessors / partitionSize;
+            size_t numPartitions = availableComputeUnits / partitionSize;
             if (NULL == subdevice_ids)
             {
                 *num_subdevices = (cl_uint)numPartitions;
@@ -1225,17 +1395,46 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 numPartitions = num_requested_subdevices;
             }
-            for (size_t i = 0; i < numPartitions; ++i)
+            for (cl_uint i = 0; i < (cl_uint)numPartitions; ++i)
             {
-                subdevice_ids[i] = new SubdeviceTaskDispatcher((int)partitionSize, NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
-                if (NULL == subdevice_ids[i])
+				cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
+				if (NULL != pNewsubdeviceId)
+				{
+					pNewsubdeviceId->legal_core_ids = new unsigned int[partitionSize];
+				}
+			
+                if ((NULL == pNewsubdeviceId) || (NULL == pNewsubdeviceId->legal_core_ids))
                 {
-                    for (size_t j = 0; j < i; ++j)
-                    {
-                        delete static_cast<SubdeviceTaskDispatcher*>(subdevice_ids[j]);
-                    }
+					if (NULL != pNewsubdeviceId) delete pNewsubdeviceId;
+					rollBackSubdeviceAllocation(subdevice_ids, i);
                     return CL_DEV_OUT_OF_MEMORY;
                 }
+				if (NULL == pParent)
+				{
+    				pNewsubdeviceId->is_numa     = false;
+	    			pNewsubdeviceId->numa_id     = 0;
+				}
+				else
+				{
+					//Disallow re-partitioning devices BY_NAMES
+					if (pParent->is_by_names)
+					{
+						return CL_DEV_NOT_SUPPORTED;
+					}
+					pNewsubdeviceId->is_numa     = pParent->is_numa;
+					pNewsubdeviceId->numa_id     = pParent->numa_id;
+				}
+				pNewsubdeviceId->is_by_names       = false;
+				pNewsubdeviceId->num_compute_units = (cl_uint)partitionSize;
+				pNewsubdeviceId->task_dispatcher_init_complete = false;
+				pNewsubdeviceId->task_dispatcher_ref_count      = 0;
+				pNewsubdeviceId->task_dispatcher                = NULL;
+				//Todo: add affinity mapper query here
+				for (cl_uint core = 0; core < partitionSize; ++core)
+				{
+				    pNewsubdeviceId->legal_core_ids[core] = (cl_uint)(i * partitionSize + core);
+				}
+				subdevice_ids[i] = pNewsubdeviceId;
             }
             return CL_DEV_SUCCESS;
         }
@@ -1256,7 +1455,8 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 }
                 totalNumUnits += partitionSizes[i];
             }
-            if (totalNumUnits > GetNumberOfProcessors())
+			//Disallow partitions that equal the sub-device
+            if (totalNumUnits >= availableComputeUnits)
             {
                 return CL_DEV_INVALID_VALUE;
             }
@@ -1270,39 +1470,76 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 num_subdevices_to_create = num_requested_subdevices;
             }
 
-            for (size_t i = 0; i < num_subdevices_to_create; ++i)
+			//Todo: remove
+			int tempCoreId = 0;
+            for (cl_uint i = 0; i < num_subdevices_to_create; ++i)
             {
-                subdevice_ids[i] = new SubdeviceTaskDispatcher((int)partitionSizes[i], NULL, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
-                if (NULL == subdevice_ids[i])
+				cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
+				if (NULL != pNewsubdeviceId)
+				{
+					pNewsubdeviceId->legal_core_ids = new unsigned int[partitionSizes[i]];
+				}
+			
+                if ((NULL == pNewsubdeviceId) || (NULL == pNewsubdeviceId->legal_core_ids))
                 {
-                    for (size_t j = 0; j < i; ++j)
-                    {
-                        delete static_cast<SubdeviceTaskDispatcher*>(subdevice_ids[j]);
-                    }
+					if (NULL != pNewsubdeviceId) delete pNewsubdeviceId;
+					rollBackSubdeviceAllocation(subdevice_ids, i);
                     return CL_DEV_OUT_OF_MEMORY;
                 }
+				if (NULL == pParent)
+				{
+    				pNewsubdeviceId->is_numa     = false;
+	    			pNewsubdeviceId->numa_id     = 0;
+				}
+				else
+				{
+					//Disallow re-partitioning devices BY_NAMES
+					if (pParent->is_by_names)
+					{
+						return CL_DEV_NOT_SUPPORTED;
+					}
+					pNewsubdeviceId->is_numa     = pParent->is_numa;
+					pNewsubdeviceId->numa_id     = pParent->numa_id;
+				}
+				pNewsubdeviceId->is_by_names       = false;
+				pNewsubdeviceId->num_compute_units = (cl_uint)partitionSizes[i];
+				pNewsubdeviceId->task_dispatcher_init_complete = false;
+				pNewsubdeviceId->task_dispatcher_ref_count      = 0;
+				pNewsubdeviceId->task_dispatcher                = NULL;
+				//Todo: add affinity mapper query here
+				for (cl_uint core = 0; core < partitionSizes[i]; ++core)
+				{
+				    pNewsubdeviceId->legal_core_ids[core] = tempCoreId++;
+				}
+				subdevice_ids[i] = pNewsubdeviceId;
             }
             return CL_DEV_SUCCESS;
         }
 
     case CL_DEV_PARTITION_AFFINITY_NUMA:
         {
-            cl_dev_err_code ret = CL_DEV_SUCCESS;
-            unsigned long maxNumaNode = GetMaxNumaNode();
-            if (0 == maxNumaNode)
+            if (numNumaNodes <= 1)
             {
                 return CL_DEV_INVALID_VALUE;
             }
+			if (NULL != pParent)
+			{
+				//Disallow a partition that equals the entire device
+				if (pParent->is_numa || pParent->is_by_names)
+				{
+					return CL_DEV_INVALID_VALUE;
+				}
+			}
             if (NULL == subdevice_ids)
             {
-                *num_subdevices = (maxNumaNode + 1);
+                *num_subdevices = numNumaNodes;
                 return CL_DEV_SUCCESS;
             }
-            if (*num_subdevices < (cl_uint)(maxNumaNode + 1))
+            if (*num_subdevices < numNumaNodes)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            *num_subdevices = maxNumaNode + 1;
+            *num_subdevices = numNumaNodes;
             cl_uint num_subdevices_to_create = *num_subdevices;
             if (num_subdevices_to_create > num_requested_subdevices)
             {
@@ -1310,42 +1547,95 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             }
 
             //Todo: currently I assume NUMA systems are symmetric rather than counting bits
-            size_t processorSize = GetNumberOfProcessors() / (maxNumaNode + 1);
-            cl_uint i, j;
+            //size_t processorSize = GetNumberOfProcessors() / (maxNumaNode + 1);
+			size_t processorsPerNode  = availableComputeUnits / numNumaNodes;
+			size_t leftoverProcessors = availableComputeUnits % numNumaNodes;
+            cl_uint i;
+			cl_uint lastUsedIdx = 0;
             for (i = 0; i < num_subdevices_to_create; ++i)
             {
-                affinityMask_t* processorMask = new affinityMask_t;
-                if (NULL == processorMask)
-                {
-                    return CL_DEV_OUT_OF_MEMORY;
-                }
-                if (!GetProcessorMaskFromNumaNode((unsigned char)i, processorMask))
-                {
-                    //No clue why this would happen
-                    ret = CL_DEV_ERROR_FAIL;
-                }
-                if (CL_DEV_SUCCESS == ret)
-                {
-                    subdevice_ids[i] = new SubdeviceTaskDispatcher((int)processorSize, processorMask, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig);
-                }
-                if (NULL == subdevice_ids[i])
-                {
-                    ret = CL_DEV_OUT_OF_MEMORY;
-                }
-                if (CL_DEV_SUCCESS != ret)
-                {
-                    for (j = 0; j < i; ++j)
-                    {
-                        delete static_cast<SubdeviceTaskDispatcher*>(subdevice_ids[j]);
-                    }
-                    return ret;
-                }
-            }
+				size_t extraProcessors = i < leftoverProcessors ? 1 : 0;
+				cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
+				if (NULL == pNewsubdeviceId)
+				{
+					rollBackSubdeviceAllocation(subdevice_ids, i);
+					return CL_DEV_OUT_OF_MEMORY;
+				}
+
+				pNewsubdeviceId->num_compute_units = (cl_uint)(processorsPerNode + extraProcessors);
+			    pNewsubdeviceId->is_numa           = true;
+			    pNewsubdeviceId->numa_id           = i;
+				pNewsubdeviceId->is_by_names       = false;
+				pNewsubdeviceId->legal_core_ids    = new unsigned int[pNewsubdeviceId->num_compute_units];
+				pNewsubdeviceId->task_dispatcher_init_complete = false;
+				pNewsubdeviceId->task_dispatcher_ref_count      = 0;
+				pNewsubdeviceId->task_dispatcher                = NULL;
+				if (NULL == pNewsubdeviceId->legal_core_ids)
+				{
+					delete pNewsubdeviceId;
+					rollBackSubdeviceAllocation(subdevice_ids, i);
+				}
+				for (unsigned int k = 0; k < pNewsubdeviceId->num_compute_units; ++k)
+				{
+					pNewsubdeviceId->legal_core_ids[k] = pParentComputeUnits[k + lastUsedIdx];
+				}
+				lastUsedIdx += pNewsubdeviceId->num_compute_units;
+
+				subdevice_ids[i] = pNewsubdeviceId;
+
+			}
             return CL_DEV_SUCCESS;
         }
 
-        //Non-supported modes
     case CL_DEV_PARTITION_BY_NAMES:
+        {
+            if (NULL == param)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            std::vector<size_t> requestedUnits = *((std::vector<size_t>*)(param));
+            size_t  totalNumUnits  = requestedUnits.size();
+
+			//Disallow partitions that equal the sub-device
+            if (totalNumUnits >= availableComputeUnits)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL == subdevice_ids)
+            {
+                return CL_DEV_SUCCESS;
+            }
+			if (NULL != pParent)
+			{
+				//Disallow mixing BY_NAMES with other modes
+				return CL_DEV_NOT_SUPPORTED;
+			}
+
+			cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
+			if (NULL == pNewsubdeviceId)
+			{
+				return CL_DEV_OUT_OF_MEMORY;
+			}
+			pNewsubdeviceId->legal_core_ids = new unsigned int[totalNumUnits];
+            if (NULL == pNewsubdeviceId->legal_core_ids)
+            {
+				delete pNewsubdeviceId;
+                return CL_DEV_OUT_OF_MEMORY;
+            }
+
+			pNewsubdeviceId->is_numa           = false;
+   			pNewsubdeviceId->numa_id           = 0;
+			pNewsubdeviceId->is_by_names       = true;
+			pNewsubdeviceId->num_compute_units = (cl_uint)totalNumUnits;
+			for (cl_uint core = 0; core < totalNumUnits; ++core)
+			{
+			    pNewsubdeviceId->legal_core_ids[core] = (cl_uint)requestedUnits[core];
+			}
+			*subdevice_ids = pNewsubdeviceId;
+
+            return CL_DEV_SUCCESS;
+        }
+    //Non-supported modes
     case CL_DEV_PARTITION_AFFINITY_L1:
     case CL_DEV_PARTITION_AFFINITY_L2:
     case CL_DEV_PARTITION_AFFINITY_L3:
@@ -1368,20 +1658,16 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
     {
         return CL_DEV_INVALID_VALUE;
     }
-    delete static_cast<TaskDispatcher*>(subdevice_id);
+	cl_dev_internal_subdevice_id* pSubdeviceData = static_cast<cl_dev_internal_subdevice_id*>(subdevice_id);
+	if (NULL != pSubdeviceData)
+	{
+		delete pSubdeviceData->legal_core_ids;
+		delete pSubdeviceData;
+	}
     return CL_DEV_SUCCESS;
 }
 
 // Execution commands
-
-TaskDispatcher* CPUDevice::GetTaskDispatcher(cl_dev_subdevice_id subdevice_id)
-{
-    if (0 == subdevice_id)
-    {
-        return m_pTaskDispatcher;
-    }
-    return static_cast<TaskDispatcher*>(subdevice_id);
-}
 /****************************************************************************************************************
  clDevCreateCommandList
     Call TaskDispatcher to create command list
@@ -1394,9 +1680,59 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-    pList->subdevice_id = subdevice_id;
-    TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-    cl_dev_err_code ret = pTaskDispatcher->createCommandList(props,&pList->cmd_list);
+	cl_dev_internal_subdevice_id* pSubdeviceData = static_cast<cl_dev_internal_subdevice_id*>(subdevice_id);
+    pList->subdevice_id    = pSubdeviceData;
+	pList->task_dispatcher = m_pTaskDispatcher;
+
+	if (NULL != pSubdeviceData)
+	{
+		long prev = pSubdeviceData->task_dispatcher_ref_count++;
+		if (0 == prev)
+		{
+			//Need to create a new sub-device task dispatcher
+			if (!AcquireComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units))
+			{
+				delete pList;
+				pSubdeviceData->task_dispatcher_init_complete = true;
+				return CL_DEV_ERROR_FAIL;
+			}
+
+			TaskDispatcher* pNewTaskDispatcher = new SubdeviceTaskDispatcher(pSubdeviceData->num_compute_units, pSubdeviceData->legal_core_ids, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
+			if (NULL == pNewTaskDispatcher)
+			{
+				delete pList;
+				pSubdeviceData->task_dispatcher_init_complete = true;
+				return CL_DEV_OUT_OF_MEMORY;
+			}
+			cl_dev_err_code ret = pNewTaskDispatcher->init();
+			if (CL_DEV_FAILED(ret))
+			{
+				delete pNewTaskDispatcher;
+				delete pList;
+				pSubdeviceData->task_dispatcher_init_complete = true;
+				return CL_DEV_OUT_OF_MEMORY;
+			}
+			pSubdeviceData->task_dispatcher = pNewTaskDispatcher;
+			pList->task_dispatcher          = pNewTaskDispatcher;
+			pSubdeviceData->task_dispatcher_init_complete = true;
+		}
+		else 
+		{
+			while (!pSubdeviceData->task_dispatcher_init_complete)
+			{
+				//Todo: not a good spin loop methodology
+				clSleep(0);
+			}
+			if (NULL == pSubdeviceData->task_dispatcher)
+			{
+				//Can happen if init failed on the other thread
+				return CL_DEV_OUT_OF_MEMORY;
+			}
+			pList->task_dispatcher = pList->subdevice_id->task_dispatcher;
+		}
+	}
+
+    cl_dev_err_code ret  = pList->task_dispatcher->createCommandList(props,&pList->cmd_list);
     *list = pList;
     return ret;
 }
@@ -1412,8 +1748,7 @@ cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-    return pTaskDispatcher->flushCommandList(pList->cmd_list);
+	return pList->task_dispatcher->flushCommandList(pList->cmd_list);
 }
 /****************************************************************************************************************
  clDevRetainCommandList
@@ -1427,8 +1762,7 @@ cl_dev_err_code CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-    return pTaskDispatcher->retainCommandList(pList->cmd_list);
+    return pList->task_dispatcher->retainCommandList(pList->cmd_list);
 }
 /****************************************************************************************************************
  clDevReleaseCommandList
@@ -1442,12 +1776,24 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
     {
         return CL_DEV_INVALID_VALUE;
     }
-    TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-
-	void* pCmdList = pList->cmd_list;
+	cl_dev_err_code ret = pList->task_dispatcher->releaseCommandList(pList->cmd_list);
+	if (CL_DEV_FAILED(ret))
+	{
+		return ret;
+	}
+	if (NULL != pList->subdevice_id)
+	{
+		long prev = pList->subdevice_id->task_dispatcher_ref_count--;
+		if (1 == prev)
+		{
+			//Need to also delete the corresponding subdevice task dispatcher
+			delete pList->task_dispatcher;
+			ReleaseComputeUnits(pList->subdevice_id->legal_core_ids, pList->subdevice_id->num_compute_units);
+			pList->subdevice_id->task_dispatcher = NULL;
+		}
+	}
 	delete pList;
-
-    return pTaskDispatcher->releaseCommandList(pCmdList);
+	return CL_DEV_SUCCESS;
 }
 /****************************************************************************************************************
  clDevCommandListExecute
@@ -1459,8 +1805,7 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     if (NULL != list)
     {
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-        TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-        return pTaskDispatcher->commandListExecute(pList->cmd_list,cmds,count);
+        return pList->task_dispatcher->commandListExecute(pList->cmd_list,cmds,count);
     }
     else
     {
@@ -1486,8 +1831,7 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     {
         return CL_DEV_INVALID_VALUE;
     }
-    TaskDispatcher* pTaskDispatcher = GetTaskDispatcher(pList->subdevice_id);
-    return pTaskDispatcher->commandListWaitCompletion(pList->cmd_list);
+    return pList->task_dispatcher->commandListWaitCompletion(pList->cmd_list);
 }
 
 //Memory API's
@@ -1664,7 +2008,10 @@ void CPUDevice::clDevCloseDevice(void)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clCloseDevice Function enter"));
 
-    clDevReleaseCommandList(m_defaultCommandList);
+	if ( NULL != m_defaultCommandList )
+	{
+		clDevReleaseCommandList(m_defaultCommandList);
+	}
     if( NULL != m_pCPUDeviceConfig)
     {
         delete m_pCPUDeviceConfig;
@@ -1690,6 +2037,17 @@ void CPUDevice::clDevCloseDevice(void)
         delete m_pTaskDispatcher;
         m_pTaskDispatcher = NULL;
     }
+
+	if ( NULL != m_pComputeUnitMap)
+	{
+		delete[] m_pComputeUnitMap;
+		m_pComputeUnitMap = NULL;
+	}
+	if ( NULL != m_pComputeUnitScoreboard)
+	{
+		delete[] m_pComputeUnitScoreboard;
+		m_pComputeUnitScoreboard = NULL;
+	}
     
     m_backendWrapper.Terminate();
 

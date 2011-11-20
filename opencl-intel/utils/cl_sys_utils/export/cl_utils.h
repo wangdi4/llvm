@@ -31,6 +31,13 @@
 #include <cl_device_api.h>
 #include <cl_monitor.h>
 
+#ifdef WIN32
+typedef int threadid_t;
+#else
+#include <sched.h>
+typedef pid_t  threadid_t;
+#endif
+
 
 /**************************************************************************************************
 * Function: 	ClErrTxt
@@ -41,6 +48,24 @@
 * Date:			December 2008
 **************************************************************************************************/
 const wchar_t* ClErrTxt(cl_err_code error_code);
+
+/**************************************************************************************************
+* Function: 	clIsNumaAvailable
+* Description:	Checks if machine supports NUMA
+* Return value:	bool
+* Author:		Evgeny Fiksman
+* Date:			November 2011
+**************************************************************************************************/
+bool clIsNumaAvailable();
+
+/**************************************************************************************************
+* Function: 	clNUMASetLocalNodeAlloc
+* Description:	Set prefered node for memory allocation for the calling thread
+* Return value:	void
+* Author:		Evgeny Fiksman
+* Date:			November 2011
+**************************************************************************************************/
+void clNUMASetLocalNodeAlloc();
 
 /**************************************************************************************************
 * Function: 	clSleep
@@ -61,7 +86,29 @@ void clSleep(int milliseconds);
 * Author:		Doron Singer
 * Date:			March 2011
 **************************************************************************************************/
-void clSetThreadAffinityMask(affinityMask_t* mask);
+void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid = 0);
+
+/**************************************************************************************************
+* Function: 	clTranslateAffinityMask
+* Description:	fills the given array of unsigned ints with the values corresponding to set bits in the mask
+* Arguments:	mask [ affinityMask_t* ] - a pointer to the mask to use
+*               IDs  [ unsigned int*   ] - the array to fill
+*               len  [ size_t          ] - the size of the array
+* Return value:	bool
+* Author:		Doron Singer
+* Date:			March 2011
+**************************************************************************************************/
+bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* arr, size_t len);
+
+/**************************************************************************************************
+* Function: 	clSetThreadAffinityToCore
+* Description:	affinitizes the calling thread to the requested core
+* Arguments:	core [ unsigned int ] - the index of the core
+* Return value:	void
+* Author:		Doron Singer
+* Date:			August 2011
+**************************************************************************************************/
+void clSetThreadAffinityToCore(unsigned int core, threadid_t tid = 0);
 
 /**************************************************************************************************
 * Function: 	clResetThreadAffinityMask
@@ -70,7 +117,16 @@ void clSetThreadAffinityMask(affinityMask_t* mask);
 * Author:		Doron Singer
 * Date:			March 2011
 **************************************************************************************************/
-void clResetThreadAffinityMask();
+void clResetThreadAffinityMask(threadid_t tid = 0);
+
+/**************************************************************************************************
+* Function: 	clMyThreadId
+* Description:	returns the caller's OS-specific tid
+* Return value:	threadid_t
+* Author:		Doron Singer
+* Date:			October 2011
+**************************************************************************************************/
+threadid_t clMyThreadId();
 
 /**************************************************************************************************
 * Function: 	clCopyMemoryRegion

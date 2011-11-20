@@ -47,12 +47,16 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 class TaskDispatcher
 {
 	friend class DispatcherCommand;
+	friend class AffinitizeThreads;
 
 public:
 	TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
 		ProgramService	*programService, MemoryAllocator *memAlloc,
-		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
+		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObsserver);
 	virtual ~TaskDispatcher();
+
+	virtual cl_dev_err_code init();
+
 	virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void** OUT list);
 	virtual cl_dev_err_code retainCommandList( cl_dev_cmd_list IN list);
 	virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
@@ -60,28 +64,30 @@ public:
 	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
 
-    virtual affinityMask_t* getAffinityMask() { return NULL; }
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
- 
+	virtual bool            isDestributedAllocationRequried();
+	virtual bool			isThreadAffinityRequried();
+	
 protected:
-	cl_int							m_iDevId;
-	IOCLDevLogDescriptor*           m_pLogDescriptor;
-	cl_int							m_iLogHandle;
-	ocl_gpa_data*					m_pGPAData;
-	IOCLFrameworkCallbacks*			m_pFrameworkCallBacks;
-	ProgramService*					m_pProgramService;
-	MemoryAllocator*				m_pMemoryAllocator;
-	CPUDeviceConfig*				m_pCPUDeviceConfig;
-	ITaskExecutor*					m_pTaskExecutor;
+	cl_int						m_iDevId;
+	IOCLDevLogDescriptor*		m_pLogDescriptor;
+	cl_int						m_iLogHandle;
+	ocl_gpa_data*				m_pGPAData;
+	IOCLFrameworkCallbacks*		m_pFrameworkCallBacks;
+	ProgramService*				m_pProgramService;
+	MemoryAllocator*			m_pMemoryAllocator;
+	CPUDeviceConfig*			m_pCPUDeviceConfig;
+	ITaskExecutor*				m_pTaskExecutor;
+    unsigned int				m_uiNumThreads;
 
 	// Contexts required for execution of NDRange
 	WGContext*						m_pWGContexts;
 	WGContext*						GetWGContext(unsigned int id);
 
-
+	IAffinityChangeObserver*        m_pObserver;
 	// Internal implementation of functions
-	fnDispatcherCommandCreate_t*		m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
 	cl_dev_err_code	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
@@ -95,7 +101,7 @@ protected:
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
 
 		// ITask interface
-		void	Execute();
+		bool	Execute();
 		void	Release() {delete this;}
 	protected:
 		TaskDispatcher*			m_pTaskDispatcher;
@@ -111,53 +117,31 @@ class SubdeviceTaskDispatcher : public TaskDispatcher
 {
     friend class SubdeviceTaskDispatcherThread;
 public:
-    SubdeviceTaskDispatcher(int numThreads, affinityMask_t* affinityMask, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
+    SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
         ProgramService	*programService, MemoryAllocator *memAlloc,
-        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig);
+        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver);
     virtual ~SubdeviceTaskDispatcher();
+    
     virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-    //virtual cl_int retainCommandList( cl_dev_cmd_list IN list);
-    virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
     virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-    virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-    virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
 
-    virtual affinityMask_t* getAffinityMask(); 
+  	virtual cl_dev_err_code init();
 
-    enum CommandType
-    {
-        TASK_DISPATCHER_CREATE_COMMAND_LIST, 
-        TASK_DISPATCHER_RELEASE_COMMAND_LIST, 
-        TASK_DISPATCHER_FLUSH_COMMAND_LIST, 
-        TASK_DISPATCHER_EXECUTE_COMMAND_LIST,
-		TASK_DISPATCHER_TERMINATE
-    };
+	virtual bool isThreadAffinityRequried();
+	virtual bool isDestributedAllocationRequried();
+	
 protected:
-    SubdeviceTaskDispatcherThread*           m_thread;
-    int						m_subdeviceSize;
+    SubdeviceTaskDispatcherThread*          m_thread;
 
-    cl_dev_cmd_list       m_lastList;
-    cl_dev_cmd_desc*      m_lastDesc;
-    cl_uint               m_lastCount;
-    cl_dev_cmd_list_props m_lastProps;
-    cl_dev_err_code       m_lastReturn;
-    CommandType           m_lastCommandType;
-    OclBinarySemaphore    m_sent;
-    volatile bool         m_received;
+	OclBinarySemaphore      				m_threadInitComplete;
+	volatile bool        					m_threadInitSuccessful;
 
-    OclSpinMutex          m_commandMutex;
+	unsigned int*       					m_legalCoreIDs;
 
-    int		              m_numThreads;
-    affinityMask_t*       m_affinityMask;
+	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<cl_dev_cmd_list> m_commandListsForFlushing;
 
-    void SynchronousDispatchCommand(CommandType type);
-
-    virtual cl_dev_err_code internalCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-    //virtual cl_dev_err_code internalRetainCommandList( cl_dev_cmd_list IN list);
-    virtual cl_dev_err_code internalReleaseCommandList( cl_dev_cmd_list IN list );
     virtual cl_dev_err_code internalFlushCommandList( cl_dev_cmd_list IN list);
-    virtual cl_dev_err_code internalCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-    //virtual cl_dev_err_code internalCommandListWaitCompletion(cl_dev_cmd_list IN list);
 };
 
 class SubdeviceTaskDispatcherThread : public OclThread
@@ -171,6 +155,30 @@ public:
 protected:
     SubdeviceTaskDispatcher* m_dispatcher;
     IThreadPoolPartitioner*  m_partitioner;
+};
+
+class AffinitizeThreads : public ITaskSet
+{
+public:
+	AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD);
+	virtual ~AffinitizeThreads();
+
+	// ITaskSet interface
+	int	Init(size_t region[], unsigned int &regCount);
+	int	AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	int	DetachFromThread(unsigned int uiWorkerId);
+	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
+	void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId) {}
+	void	Finish(FINISH_REASON reason) {};
+	void    Release() { delete this;}
+
+protected:
+	unsigned int						m_numThreads;
+	cl_ulong      						m_timeOut;
+	Intel::OpenCL::Utils::AtomicCounter	m_barrier;
+	IAffinityChangeObserver* 			m_pObserver;
+	TaskDispatcher* 					m_pTD;
+	volatile bool 						m_failed;
 };
 
 }}}

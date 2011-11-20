@@ -37,7 +37,8 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-Device::Device() : m_iNextClientId(1), m_pDevice(NULL)
+
+Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 {
 	// initialize logger client
 	INIT_LOGGER_CLIENT(L"Device", LL_DEBUG);
@@ -51,11 +52,6 @@ Device::Device() : m_iNextClientId(1), m_pDevice(NULL)
 
 	m_hGLContext = 0;
 	m_hHDC = 0;
-
-	// We forbidden reference counting on the root device objects
-	// The Release() always return 1.
-	// So, no reference count on user side
-	m_uiRefCount = 0;
 }
 
 Device::~Device()
@@ -379,7 +375,7 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 	return;
 }
 
-cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
+cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
 {
     cl_err_code ret = CL_SUCCESS;
     cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
@@ -395,7 +391,7 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
         partitionMode = CL_DEV_PARTITION_BY_COUNTS;
         break;
 
-    case CL_DEVICE_PARTITION_BY_NAMES_EXT:
+    case CL_DEVICE_PARTITION_BY_NAMES_INTEL:
         partitionMode = CL_DEV_PARTITION_BY_NAMES;
         break;
 
@@ -435,13 +431,14 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
         return CL_INVALID_PROPERTY;
     }
 
-    // prepare additional info for the CPU device, for counts / equally
+    // prepare additional info for the CPU device, for counts / equally / names
     if (CL_DEV_PARTITION_BY_COUNTS == partitionMode)
     {
         std::vector<size_t> partitionSizes;
         size_t partitionIndex = 1;
         while (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex])
         {
+            assert((size_t)~0 >= props[partitionIndex]);
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
         if (NULL != sizes)
@@ -457,17 +454,18 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
             *num_devices = (cl_uint)partitionSizes.size();
             return CL_SUCCESS;
         }
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, &partitionSizes, out_devices);
+		dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &partitionSizes, out_devices);
     }
     else if (CL_DEV_PARTITION_EQUALLY == partitionMode)
     {
+        assert((size_t)~0 >= props[1]);
         size_t partitionSize = (size_t)props[1];
         if (CL_PROPERTIES_LIST_END_EXT != props[2])
         {
             return CL_INVALID_PROPERTY;
         }
 
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, &partitionSize, out_devices);
+        dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &partitionSize, out_devices);
         if (NULL != sizes)
         {
             if (CL_DEV_SUCCESS == dev_ret)
@@ -479,9 +477,33 @@ cl_err_code Device::FissionDevice(const cl_device_partition_property_ext* props,
             }
         }
     }
+	else if (CL_DEV_PARTITION_BY_NAMES == partitionMode)
+    {
+        std::vector<size_t> requestedUnits;
+        size_t partitionIndex = 1;
+        while (CL_PARTITION_BY_NAMES_LIST_END_INTEL != props[partitionIndex])
+        {
+            requestedUnits.push_back(props[partitionIndex++]);
+        }
+		if (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex + 1])
+		{
+			return CL_INVALID_VALUE;
+		}
+        if (NULL != sizes)
+        {
+            *sizes = partitionIndex - 1;
+        }
+        //If the user doesn't actually want fission, no reason to send it to the device, just return the size
+        if (NULL == out_devices)
+        {
+            *num_devices = (cl_uint)partitionIndex - 1;
+            return CL_SUCCESS;
+        }
+		dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &requestedUnits, out_devices);
+    }
     else // no other mode today requires an additional param
     {
-        dev_ret = m_pDevice->clDevPartition(partitionMode, num_entries, num_devices, NULL, out_devices);
+        dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, NULL, out_devices);
     }
     if (CL_SUCCESS != ret)
     {
@@ -557,10 +579,7 @@ SubDevice::~SubDevice()
     //Todo: handle more intelligently
     m_pRootDevice->CloseDeviceInstance();
 }
-cl_err_code SubDevice::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
-{
-    return m_pRootDevice->FissionDevice(props, num_entries, out_devices, num_devices, sizes);
-}
+
 cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
 {
     if (NULL == param_value && NULL == param_value_size_ret)

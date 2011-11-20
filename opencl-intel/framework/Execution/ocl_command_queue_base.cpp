@@ -179,13 +179,26 @@ bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);
 
-	cl_int ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
+	cl_dev_err_code ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
 
-	OclEventStateColor color = pEvent->GetColor();
-	if ( CL_DEV_FAILED(ret) || (EVENT_STATE_BLACK != color) )
+	// If device doesn't support wait for completion, we should wait for event
+	if ( CL_DEV_FAILED(ret) )
 	{
 		pEvent->Wait();
 	}
+	else
+	{
+		OclEventStateColor color = pEvent->GetColor();
+
+		// If another master thread is running, need to wait for the thread slot
+		while ( EVENT_STATE_BLACK != color )
+		{
+			clSleep(0);
+			ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
+			color = pEvent->GetColor();
+		}
+	}
+
 	pEvent->RemovePendency(this);
 	return true;
 }

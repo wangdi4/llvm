@@ -48,7 +48,7 @@ struct FECompileTask : public ITask
 	LoggerClient *					m_pLoggerClient;
 	IOCLFECompiler*					pFECompiler;
 
-	void	Execute()
+	bool	Execute()
 	{
 		IOCLFEBuildProgramResult*	pResult;
 		int err = pFECompiler->BuildProgram(&BuildDesc, &pResult);
@@ -58,6 +58,7 @@ struct FECompileTask : public ITask
 		}
 		pFEObserver->NotifyFEBuildDone(devId, pResult->GetIRSize(), pResult->GetIR(), pResult->GetErrorLog());
 		pResult->Release();
+		return true;
 	};
 
 	void	Release()

@@ -93,23 +93,6 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 }
 
 ///////////////////////////////////////////////////////////////////////////
-// Affinitizable command
-AffinitizableCommand::AffinitizableCommand(TaskDispatcher *pTD) : DispatcherCommand(pTD)
-{
-    assert(pTD);
-    m_affinityMask = pTD->getAffinityMask();
-}
-
-void AffinitizableCommand::AffinitizeToTask()
-{
-    if (NULL != m_affinityMask)
-    {
-        clSetThreadAffinityMask(m_affinityMask);
-    }
-}
-
-
-///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
 cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
@@ -137,7 +120,7 @@ cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc*
 }
 
 ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD) :
-	AffinitizableCommand(pTD)
+	DispatcherCommand(pTD)
 {
 }
 
@@ -167,7 +150,7 @@ cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-void ReadWriteMemObject::Execute()
+bool ReadWriteMemObject::Execute()
 {
 	cl_dev_cmd_param_rw*	cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
 	cl_mem_obj_descriptor*	pMemObj;
@@ -273,6 +256,7 @@ void ReadWriteMemObject::Execute()
 	printf("--> ReadWriteMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -302,7 +286,7 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 }
 
 CopyMemObject::CopyMemObject(TaskDispatcher* pTD) :
-	AffinitizableCommand(pTD)
+	DispatcherCommand(pTD)
 {
 }
 
@@ -321,7 +305,7 @@ cl_dev_err_code CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-void CopyMemObject::Execute()
+bool CopyMemObject::Execute()
 {
 	cl_dev_cmd_param_copy*	cmdParams = (cl_dev_cmd_param_copy*)m_pCmd->params;
 	cl_mem_obj_descriptor*	pSrcMemObj;;
@@ -342,7 +326,7 @@ void CopyMemObject::Execute()
 		printf("--> CopyMemObject(fail,3), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_INVALID_COMMAND_PARAM);
 #endif
 		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
-		return;
+		return true;
 	}
 
 	// No we can notify that we are running
@@ -447,6 +431,7 @@ void CopyMemObject::Execute()
 	printf("--> CopyMemObject(end), cmd_id:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -490,7 +475,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 }
 
 NativeFunction::NativeFunction(TaskDispatcher* pTD) :
-	AffinitizableCommand(pTD)
+	DispatcherCommand(pTD)
 {
 }
 
@@ -516,7 +501,7 @@ cl_dev_err_code	NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-void NativeFunction::Execute()
+bool NativeFunction::Execute()
 {
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)m_pCmd->params;
 
@@ -545,6 +530,7 @@ void NativeFunction::Execute()
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -575,7 +561,7 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd,
 }
 
 MapMemObject::MapMemObject(TaskDispatcher* pTD) :
-	AffinitizableCommand(pTD)
+	DispatcherCommand(pTD)
 {
 }
 
@@ -594,13 +580,17 @@ cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-void MapMemObject::Execute()
+bool MapMemObject::Execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
 	cl_mem_obj_descriptor*	pMemObj;
 	SMemCpyParams			sCpyParam;
 
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+#ifdef _DEBUG_PRINT
+	printf("--> MapMemObject(start), cmdid:%d\n", m_pCmd->id);
+#endif
 
 	// Request access on default device
 	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
@@ -621,6 +611,9 @@ void MapMemObject::Execute()
 	// Different pointer to map, need copy data
 	if (sCpyParam.pSrc != cmdParams->ptr)
 	{
+#ifdef _DEBUG_PRINT
+	printf("--> MapMemObject(copying), cmdid:%d\n", m_pCmd->id);
+#endif
 		// Setup data for copying
 		// Set Source/Destination
 		sCpyParam.uiDimCount = cmdParams->dim_count;
@@ -680,7 +673,12 @@ void MapMemObject::Execute()
 	} 
 #endif
 
+#ifdef _DEBUG_PRINT
+	printf("--> MapMemObject(end), cmdid:%d\n", m_pCmd->id);
+#endif
+
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -711,7 +709,7 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 }
 
 UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD) :
-	AffinitizableCommand(pTD)
+	DispatcherCommand(pTD)
 {
 }
 
@@ -730,7 +728,7 @@ cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 	return CL_DEV_SUCCESS;
 }
 
-void UnmapMemObject::Execute()
+bool UnmapMemObject::Execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
 	cl_mem_obj_descriptor*	pMemObj = NULL;
@@ -740,12 +738,19 @@ void UnmapMemObject::Execute()
 
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
+#ifdef _DEBUG_PRINT
+	printf("--> UnmapMemObject(start), cmdid:%d\n", m_pCmd->id);
+#endif
+
 	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
 	memcpy(sCpyParam.vDstPitch, pMemObj->pitch, sizeof(sCpyParam.vDstPitch));
 
 	// Different pointer to map, need copy data
 	if (sCpyParam.pDst != cmdParams->ptr)
 	{
+#ifdef _DEBUG_PRINT
+	printf("--> UnmapMemObject(copying), cmdid:%d\n", m_pCmd->id);
+#endif
 		// Setup data for copying
 		// Set Source/Destination
 		sCpyParam.uiDimCount = cmdParams->dim_count;
@@ -774,7 +779,12 @@ void UnmapMemObject::Execute()
 #endif
 	}
 
+#ifdef _DEBUG_PRINT
+	printf("--> UnmapMemObject(end), cmdid:%d\n", m_pCmd->id);
+#endif
+
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -818,7 +828,6 @@ m_pMemBuffSizes(NULL)
 	m_lExecuting.exchange(0);
 #endif
 //	QueryPerformanceFrequency(&freq);
-    m_affinityMask = pTD->getAffinityMask();
 }
 
 void NDRange::Release()
@@ -965,7 +974,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
 #ifdef _DEBUG_PRINT
-	printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), m_pCmd->id);
+	printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), (int)m_pCmd->id);
 #endif
 
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
@@ -1107,7 +1116,7 @@ void NDRange::Finish(FINISH_REASON reason)
 int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 #ifdef _DEBUG_PRINT
-	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", GetCurrentThreadId(), uiWorkerId, m_pCmd->id);
+	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", (int)GetCurrentThreadId(), (int)uiWorkerId, (int)m_pCmd->id);
 #endif
 	assert(uiWorkerId != (unsigned int)-1);
 
@@ -1120,11 +1129,6 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	++m_lAttaching ;
 #endif
 
-    if (NULL != m_affinityMask)
-    {
-        clSetThreadAffinityMask(m_affinityMask);
-    }
-
 	WGContext* pCtx = GetWGContext(uiWorkerId);
 	if ( NULL == pCtx )
 	{
@@ -1133,10 +1137,6 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 #ifdef _DEBUG
 	--m_lAttaching ;
 #endif	
-        if (NULL != m_affinityMask)
-        {
-            clResetThreadAffinityMask();
-        }
 		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
 	else if (m_pCmd->id == pCtx->GetCmdId() )
@@ -1264,10 +1264,6 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 
 int NDRange::DetachFromThread(unsigned int uiWorkerId)
 {
-    if (NULL != m_affinityMask)
-    {
-        clResetThreadAffinityMask();
-    }
 	// End execution task
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -1346,9 +1342,9 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
     size_t groupId[MAX_WORK_DIM] = {0, 0, 0};
     for (; groupId[2] < dims[2]; ++groupId[2])
     {
-        for (; groupId[1] < dims[1]; ++groupId[1])
+        for (groupId[1] = 0; groupId[1] < dims[1]; ++groupId[1])
         {
-            for (; groupId[0] < dims[0]; ++groupId[0])
+            for (groupId[0] = 0; groupId[0] < dims[0]; ++groupId[0])
             {
                 pExec->Execute(groupId, NULL, NULL);
             }
@@ -1360,3 +1356,4 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
 #endif
 
 }
+

@@ -210,6 +210,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
     #define CL_DEVICE_PARTITION_EQUALLY_EXT             0x4050
     #define CL_DEVICE_PARTITION_BY_COUNTS_EXT           0x4051
     #define CL_DEVICE_PARTITION_BY_NAMES_EXT            0x4052
+    #define CL_DEVICE_PARTITION_BY_NAMES_INTEL          0x4052
     #define CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT  0x4053
     
     /* clDeviceGetInfo selectors */
@@ -236,12 +237,13 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
     #define CL_PROPERTIES_LIST_END_EXT                  ((cl_device_partition_property_ext) 0)
     #define CL_PARTITION_BY_COUNTS_LIST_END_EXT         ((cl_device_partition_property_ext) 0)
     #define CL_PARTITION_BY_NAMES_LIST_END_EXT          ((cl_device_partition_property_ext) 0 - 1)
+    #define CL_PARTITION_BY_NAMES_LIST_END_INTEL        ((cl_device_partition_property_ext) 0 - 1)
 
     /* cl_command_queue_properties - bitfield */
-    #define CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT    (1 << 2)
+    #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL    (1 << 2)
 
     /* cl_device_exec_capabilities - bitfield */
-    #define CL_EXEC_IMMEDIATE_EXECUTION_EXT            (1 << 2)
+    #define CL_EXEC_BY_THREAD_LOCAL_INTEL            (1 << 2)
 
 #endif /* CL_VERSION_1_1 */
 

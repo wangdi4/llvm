@@ -31,6 +31,9 @@
 #include "cpu_dev_limits.h"
 #include "cpu_config.h"
 #include "backend_wrapper.h"
+#include "task_executor.h"
+
+#include <cl_synch_objects.h>
 
 
 
@@ -44,8 +47,10 @@ extern const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS;
 class ProgramService;
 class MemoryAllocator;
 class TaskDispatcher;
+struct ThreadMapping;
 
-class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription
+class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public TaskExecutor::IAffinityChangeObserver
+
 {
 private:
 	ProgramService*			m_pProgramService;
@@ -62,7 +67,29 @@ private:
 protected:
 	~CPUDevice();
 
-    TaskDispatcher* GetTaskDispatcher(cl_dev_subdevice_id subdevice_id); 
+  // Called once on init to cache information about the underlying architecture
+	cl_dev_err_code QueryHWInfo();
+	// The functions below are called when a set of cores is about to be "trapped" into a sub-device, or released from such
+	// The acquire fails if one of the compute units requested is a part of another sub-device.
+	// These are currently called on create/release command list (= command queue)
+	bool            AcquireComputeUnits(unsigned int* which, unsigned int how_many);
+	void            ReleaseComputeUnits(unsigned int* which, unsigned int how_many);
+	
+	//Affinity observer interface
+	void            NotifyAffinity(unsigned int tid, unsigned int core);
+
+	// A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
+	unsigned int*    m_pComputeUnitMap;
+	// Indexed by thread ID, contains data on which core the thread is pinned to and whether it's a part of a sub-device
+	ThreadMapping*   m_pComputeUnitScoreboard;
+	// Maps OpenCL core ID to thread id which is pinned to the core, which can then be used access the scoreboard above
+	unsigned int*    m_pCoreToThread;
+	// Architectural data on the underlying HW
+	unsigned long    m_numNumaNodes;
+	unsigned long    m_numCoresPerL1;
+	unsigned long    m_numCores;
+
+	Intel::OpenCL::Utils::OclSpinMutex m_ComputeUnitScoreboardMutex;
 
 public:
 	CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
@@ -72,7 +99,7 @@ public:
 
     //Device Fission support
 
-    cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_uint* INOUT num_subdevices, void* IN param, cl_dev_subdevice_id* OUT subdevice_ids);
+	cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_device_id, cl_uint* INOUT num_subdevices, void* IN param, cl_dev_subdevice_id* OUT subdevice_ids);
     cl_dev_err_code clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id);
 
 	// Device entry points

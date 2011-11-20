@@ -66,28 +66,14 @@ protected:
     ocl_gpa_data*               m_pGPAData;
 };
 
-// A parent class for dispatcher commands to have a single implementation of ITask::AffinitizeToTask
-class AffinitizableCommand : public DispatcherCommand, public ITask
-{
-public:
-    AffinitizableCommand(TaskDispatcher* pTD);
-    virtual ~AffinitizableCommand() {}
-
-    // ITask interface
-    virtual void AffinitizeToTask(); 
-
-protected:
-    affinityMask_t* m_affinityMask;
-};
-
 // OCL Read/Write buffer execution
-class ReadWriteMemObject : public AffinitizableCommand
+class ReadWriteMemObject : public DispatcherCommand, public ITask
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
-    void    Execute();
+    bool    Execute();
     void    Release() {delete this;}
 
 protected:
@@ -96,7 +82,7 @@ protected:
 };
 
 //OCL Copy Mem Obj Command
-class CopyMemObject : public AffinitizableCommand
+class CopyMemObject : public DispatcherCommand, public ITask
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -105,7 +91,7 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    void    Execute();
+    bool    Execute();
     void    Release() {delete this;}
 
 protected:
@@ -113,7 +99,7 @@ protected:
 };
 
 // OCL Native function execution
-class NativeFunction : public AffinitizableCommand
+class NativeFunction : public DispatcherCommand, public ITask
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -122,7 +108,7 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    void    Execute();
+    bool    Execute();
     void    Release() {delete this;}
 
 protected:
@@ -132,7 +118,7 @@ protected:
 };
 
 // OCL Map function execution
-class MapMemObject : public AffinitizableCommand
+class MapMemObject : public DispatcherCommand, public ITask
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -141,7 +127,7 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    void    Execute();
+    bool    Execute();
     void    Release() {delete this;}
 
 protected:
@@ -149,7 +135,7 @@ protected:
 };
 
 // OCL UnMap function execution
-class UnmapMemObject : public AffinitizableCommand
+class UnmapMemObject : public DispatcherCommand, public ITask
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -158,7 +144,7 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    void    Execute();
+    bool    Execute();
     void    Release() {delete this;}
 
 protected:
@@ -178,13 +164,13 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
 	// ITaskSet interface
-	int		Init(size_t region[], unsigned int &regCount);
-	int		AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int		DetachFromThread(unsigned int uiWorkerId);
-	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
-        void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId);
-	void	Finish(FINISH_REASON reason);
-	void	Release();
+	int	    Init(size_t region[], unsigned int &regCount);
+	int	    AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	int	    DetachFromThread(unsigned int uiWorkerId);
+	void    ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
+    void    ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId);
+	void    Finish(FINISH_REASON reason);
+	void    Release();
 
 protected:
     NDRange(TaskDispatcher* pTD);
@@ -197,8 +183,6 @@ protected:
     size_t                      m_MemBuffCount;
     size_t*                     m_pMemBuffSizes;
 
-
-    affinityMask_t*             m_affinityMask;
 
 //  LARGE_INTEGER start, stop, freq;
 

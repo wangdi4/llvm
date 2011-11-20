@@ -213,6 +213,7 @@ typedef void* cl_dev_memobj_handle;
 enum cl_dev_err_code
 {
 	CL_DEV_SUCCESS				= 0,			//!< Function call or query call succeeded
+	CL_DEV_BUSY,								//!< Device is busy during function execution
 	CL_DEV_ERROR_FAIL			= 0x80000000,	//!< Internal unspecified error
 	CL_DEV_INVALID_VALUE,						//!< Invalid value was passed to the function.
 	CL_DEV_INVALID_PROPERTIES,					//!< Properties might be valid but not supported
@@ -841,6 +842,7 @@ public:
 			props						The desired partitioning criterion
             num_requested_subdevices    An upper bound on the amount of sub-devices to be created
             num_subdevices              The number of sub-devices to be generated if using CL_DEV_PARTITION_BY_COUNTS or BY_NAMES
+            parent_device_id            The ID of the parent device. NULL if the parent device is the root device. 
             param                       An optional param: the partition size in case of PARTITION_EQUALLY, the count list if BY_COUNTS, the name list if BY_NAMES etc
 		Output
             num_subdevices              The number of sub-devices to be generated if partitioning equally or by affinity
@@ -851,8 +853,9 @@ public:
 			CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 			CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 	*/
-    virtual cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN     props,
+    virtual cl_dev_err_code clDevPartition(  cl_dev_partition_prop   IN     props,
                                                cl_uint               IN     num_requested_subdevices,
+											   cl_dev_subdevice_id   IN     parent_device_id,
                                                cl_uint*              INOUT  num_subdevices,
                                                void*                 IN     param,
                                                cl_dev_subdevice_id*  OUT    subdevice_ids

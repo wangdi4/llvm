@@ -39,11 +39,11 @@ using namespace Intel::OpenCL::TaskExecutor;
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
-}}}
+
 
 ITaskExecutor* g_pTaskExecutor = NULL;
 
-void Intel::OpenCL::TaskExecutor::dll_init(void)
+void dll_init(void)
 {
 #ifdef __TBB_EXECUTOR__
 	g_pTaskExecutor = new TBBTaskExecutor;
@@ -53,7 +53,7 @@ void Intel::OpenCL::TaskExecutor::dll_init(void)
 #endif
 }
 
-void Intel::OpenCL::TaskExecutor::dll_fini(void)
+void dll_fini(void)
 {
 	if (g_pTaskExecutor)
 	{
@@ -62,17 +62,19 @@ void Intel::OpenCL::TaskExecutor::dll_fini(void)
 	}
 }
 
-TASK_EXECUTOR_API ITaskExecutor* Intel::OpenCL::TaskExecutor::GetTaskExecutor()
+TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor()
 {
 	return g_pTaskExecutor;
 }
 
-TASK_EXECUTOR_API IThreadPoolPartitioner* Intel::OpenCL::TaskExecutor::CreateThreadPartitioner(int numThreads)
+TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs)
 {
     //Todo: implement for non-TBB
 #ifdef __TBB_EXECUTOR__
-    return new TBBThreadPoolPartitioner(numThreads);
+    return new TBBThreadPoolPartitioner(numThreads, legalCoreIDs, pObserver);
 #else
     return NULL;
 #endif
 }
+}}}
+

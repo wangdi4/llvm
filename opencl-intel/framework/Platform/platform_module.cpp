@@ -711,7 +711,8 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 
         }
     }
-    if (NULL == pParentDevice->GetDeviceAgent())
+	bool bNeedToCreateDevice = (NULL == pParentDevice->GetDeviceAgent());
+    if (bNeedToCreateDevice)
     {
         ret = pParentDevice->GetRootDevice()->CreateInstance();
         if (CL_SUCCESS != ret)
@@ -724,6 +725,10 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     ret = pParentDevice->FissionDevice(properties, 0, NULL, &numOutputDevices, NULL);
     if (ret != CL_SUCCESS)
     {
+		if (bNeedToCreateDevice)
+		{
+    		pParentDevice->GetRootDevice()->CloseDeviceInstance();
+		}
         return ret;
     }
 
@@ -758,6 +763,10 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numSubdevicesToCreate];
     if (NULL == subdevice_ids)
     {
+		if (bNeedToCreateDevice)
+		{
+    		pParentDevice->GetRootDevice()->CloseDeviceInstance();
+		}
         return CL_OUT_OF_HOST_MEMORY;
     }
     size_t* sizes = new size_t[numSubdevicesToCreate];
@@ -770,12 +779,20 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, num_devices, sizes);
     if (ret != CL_SUCCESS)
     {
+		if (bNeedToCreateDevice)
+		{
+    		pParentDevice->GetRootDevice()->CloseDeviceInstance();
+		}
         return ret;
     }
     //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
     FissionableDevice** pNewDevices = new FissionableDevice*[numSubdevicesToCreate];
     if (NULL == pNewDevices)
     {
+		if (bNeedToCreateDevice)
+		{
+    		pParentDevice->GetRootDevice()->CloseDeviceInstance();
+		}
         delete[] subdevice_ids;
         delete[] sizes;
         return CL_OUT_OF_HOST_MEMORY;
@@ -795,6 +812,10 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
             {
                 pNewDevices[j]->Release();
             }
+    		if (bNeedToCreateDevice)
+	    	{
+    	    	pParentDevice->GetRootDevice()->CloseDeviceInstance();
+		    }
             delete[] pNewDevices;
             delete[] sizes;
             delete[] subdevice_ids;
@@ -802,6 +823,11 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         }
         out_devices[i] = pNewDevices[i]->GetHandle();
     }
+	//Can close the device instance as the sub-devices now hold references on the device agent
+	if (bNeedToCreateDevice)
+	{
+   		pParentDevice->GetRootDevice()->CloseDeviceInstance();
+	}
     delete[] sizes;
     delete[] subdevice_ids;
 
@@ -821,21 +847,23 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     pParentDevice->NotifyDeviceFissioned(numSubdevicesToCreate, pNewDevices);
     delete[] pNewDevices;
     
-	// No we can close Root device instance
-	pParentDevice->GetRootDevice()->CloseDeviceInstance();
-
     return CL_SUCCESS;
 }
 
 cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 {
+    FissionableDevice* pDevice;
     cl_err_code ret = CL_SUCCESS;
-    ret = m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
+    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
     if (CL_ERR_KEY_NOT_FOUND == ret)
     {
         return CL_INVALID_DEVICE;
     }
-    return ret;
+    if (pDevice->IsRootLevelDevice())
+    {
+        return CL_SUCCESS;
+    }
+    return m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
 }
 cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
@@ -845,6 +873,10 @@ cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
     if (CL_ERR_KEY_NOT_FOUND == ret)
     {
         return CL_INVALID_DEVICE;
+    }
+    if (pDevice->IsRootLevelDevice())
+    {
+        return CL_SUCCESS;
     }
     return pDevice->Retain();
 }

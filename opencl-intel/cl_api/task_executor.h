@@ -70,6 +70,14 @@ typedef enum
 	FINISH_EXECUTION_FAILED
 } FINISH_REASON;
 
+// The following result define WaitForCompletion states
+typedef enum 
+{
+	TE_WAIT_COMPLETED				= 0,// All processing tasks were completed
+	TE_WAIT_MASTER_THREAD_BLOCKING,		// WaitForCompletion was blocked by another master thread
+	TE_WAIT_NOT_SUPPORTED				// Wait for completion doesn't supported
+} te_wait_result;
+
 struct CommandListCreationParam
 {
     bool  isOOO;
@@ -96,7 +104,8 @@ class ITask : public ITaskBase
 public:
 	bool	IsTaskSet() {return false;}
 	// Task execution routine, will be called by task executor
-	virtual void	Execute() = 0;
+	// return false when task execution fails
+	virtual bool	Execute() = 0;
     // Affinitizes the calling thread to this task's affinity mask if applicable
     virtual void    AffinitizeToTask() {}
 };
@@ -147,12 +156,11 @@ public:
 	virtual unsigned int	Enqueue(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
 
 	// Ensures that all task were send to execution, non-blocking function
-    virtual void			Flush() = 0;
+    virtual bool			Flush() = 0;
 
 	// Add the calling thread to execution pool
 	// Function blocks, until all tasks belonging to the list are completed.
-	// Return false, if the calling thread was not joined the execution
-	virtual bool WaitForCompletion() = 0;
+	virtual te_wait_result WaitForCompletion() = 0;
 
     // Releases task object, shall be called instead of delete operator.
     virtual void			Release() = 0;
@@ -178,7 +186,7 @@ public:
 	// Add the calling thread to execution pool
 	// Function blocks, until all independent tasks are completed.
 	// Return false, if the calling thread was not joined the execution
-	virtual bool WaitForCompletion() = 0;
+	virtual te_wait_result WaitForCompletion() = 0;
 
 	// Cancels execution of uncompleted tasks and and then release task executor resources
 	virtual void Close(bool bCancel) = 0;
@@ -198,11 +206,19 @@ TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor();
 class IThreadPoolPartitioner
 {
 public:
-    virtual void Activate()   = 0;
-    virtual void Deactivate() = 0; 
+	virtual ~IThreadPoolPartitioner() {}
+    virtual bool Activate()   = 0;
+    virtual void Deactivate() = 0;
+};
+
+// IAffinityChangeObserver - recieves notification on change of thread affinity
+class IAffinityChangeObserver
+{
+public:
+	virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
 };
 
 // Factory function to instantiate the appropriate partitioner object
-TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(int numThreads);
+TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs = 0);
 
 }}}

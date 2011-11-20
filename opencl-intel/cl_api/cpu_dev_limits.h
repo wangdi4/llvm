@@ -36,7 +36,7 @@
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
 // Maximum number of arguments to be passed to the kernel
-#define CPU_MAX_PARAMETER_SIZE			1024
+#define CPU_MAX_PARAMETER_SIZE			(4096-256)
 #define CPU_MAX_PARAM_COUNT				(CPU_MAX_PARAMETER_SIZE/8)
 #define CPU_KERNEL_MAX_ARG_COUNT		(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MAX_SAMPLERS				(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
