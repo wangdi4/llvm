@@ -222,9 +222,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		static const char m_vPlatformVendorStr[];
 		static const unsigned int m_uiPlatformVendorStrSize;
 
-		static const char m_vPlatformExtensionsStr[];
-		static const unsigned int m_uiPlatformExtensionsStrSize;
-
 		ocl_entry_points * m_pOclEntryPoints;
 
 		ocl_gpa_data * m_pGPAData;

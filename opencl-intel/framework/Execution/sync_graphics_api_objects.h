@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         const bool m_bIsAcquireCmd;
         const cl_command_type m_cmdType;
-        const unsigned int m_uiMemObjNum;
+        const size_t m_uiMemObjNum;
         GraphicsApiMemoryObject** m_pMemObjects;
 
     protected:
@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/13/2011
          */
 
-        SyncGraphicsApiObjects(cl_command_type cmdType, unsigned int uiMemObjNum,
+        SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
             IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints,
             GraphicsApiMemoryObject** pMemObjects, bool bIsAcquireCmd);
 
@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @return  The number of memory objects.
          */
 
-        unsigned int GetNumMemObjs() const { return m_uiMemObjNum; }
+        size_t GetNumMemObjs() const { return m_uiMemObjNum; }
 
         // inherited methods:
 

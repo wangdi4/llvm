@@ -27,16 +27,18 @@
 
 
 #include "platform_module.h"
+#include "Device.h"
+#include "fe_compiler.h"
+
 #include <ocl_config.h>
-#if defined (_WIN32)
-#include "gl_shr_utils.h"
+#ifdef WIN32
+#include <gl_shr_utils.h>
 #endif
 #include <cl_object_info.h>
 #include <cl_objects_map.h>
 #include <cl_device_api.h>
-#include "Device.h"
-#include "fe_compiler.h"
-#include "cl_sys_defines.h"
+#include <cl_sys_defines.h>
+
 #include <assert.h>
 #include <malloc.h>
 
@@ -67,10 +69,6 @@ const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformN
 #endif
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
-
-const char PlatformModule::m_vPlatformExtensionsStr[] = "cl_khr_icd";
-const unsigned int PlatformModule::m_uiPlatformExtensionsStrSize = sizeof(m_vPlatformExtensionsStr) / sizeof(char);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::PlatformModule
@@ -358,8 +356,6 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 			pch = STRTOK_S(NULL, " ", &pNextToken);
 		}
 
-		STRCAT_S((char*)pcPlatformExtension, 8192, m_vPlatformExtensionsStr);
-
 		pValue = pcPlatformExtension;
 		szParamSize = strlen((char*)pcPlatformExtension) + 1;
 		break;
@@ -565,7 +561,7 @@ cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppD
     FissionableDevice* temp = NULL;
     cl_err_code ret;
 	// get the device from the devices list
-	ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)temp);
+	ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)&temp);
     if (CL_SUCCESS != ret)
     {
         return CL_INVALID_DEVICE;

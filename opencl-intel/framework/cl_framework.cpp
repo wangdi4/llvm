@@ -52,9 +52,16 @@ void* RegisterExtensionFunctionAddress(const char* pFuncName, void* pFuncPtr)
 
 void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
 {
-	ExtensionFunctionAddressResolveMap::const_iterator ptr = g_extFuncResolveMap.find(funcname);
-	if ( ptr == g_extFuncResolveMap.end() )
+	if ( NULL == funcname )
+	{
 		return NULL;
+	}
+	ExtensionFunctionAddressResolveMap::const_iterator ptr = g_extFuncResolveMap.find(funcname);
+	if ( g_extFuncResolveMap.end() == ptr)
+	{
+		return NULL;
+	}
+
 	return ptr->second;
 }
 SET_ALIAS(clGetExtensionFunctionAddress);

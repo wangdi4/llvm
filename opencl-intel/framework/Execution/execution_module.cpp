@@ -411,19 +411,25 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
+	errVal = pMarkerCommand->Init();
+	if ( CL_FAILED(errVal) )
+	{
+		delete pMarkerCommand;
+		return errVal;
+	}
+
 	QueueEvent* pMarkerEvent = pMarkerCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
 
-	errVal = pMarkerCommand->Init();
-	if(CL_SUCCEEDED(errVal))
-	{
-		errVal = pCommandQueue->EnqueueMarker(pMarkerCommand);
-	}
-	else
+	errVal = pCommandQueue->EnqueueMarker(pMarkerCommand);
+	if(CL_FAILED(errVal))
 	{
 		m_pEventsManager->ReleaseEvent(pMarkerEvent->GetHandle());
+		pMarkerCommand->CommandDone();
 		delete pMarkerCommand;
+		return errVal;
 	}
+
 	return errVal;
 }
 
@@ -452,14 +458,20 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 	}
 
 	errVal = pWaitForEventsCommand->Init();
-	if(CL_SUCCEEDED(errVal))
-	{
-		errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
-	}
-	else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pWaitForEventsCommand;
+		return errVal;
 	}
+
+	errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
+	if ( CL_FAILED(errVal) )
+	{
+		pWaitForEventsCommand->CommandDone();
+		delete pWaitForEventsCommand;
+		return errVal;
+	}
+
 	return errVal;
 }
 
@@ -483,17 +495,24 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	}
 
 	errVal = pBarrierCommand->Init();
+	if(CL_FAILED(errVal))
+	{
+		delete pBarrierCommand;
+		return errVal;
+	}
+
 	QueueEvent* pBarrierEvent = pBarrierCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
-	if(CL_SUCCEEDED(errVal))
-	{
-		errVal = pCommandQueue->EnqueueBarrier(pBarrierCommand);
-	}
-	else
+
+	errVal = pCommandQueue->EnqueueBarrier(pBarrierCommand);
+	if(CL_FAILED(errVal))
 	{
 		m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());
+		pBarrierCommand->CommandDone();
 		delete pBarrierCommand;
+		return errVal;
 	}
+
 	return errVal;
 }
 
@@ -683,19 +702,19 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 	}
 
     errVal = pEnqueueReadBufferCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pEnqueueReadBufferCmd->CommandDone();
-            delete pEnqueueReadBufferCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pEnqueueReadBufferCmd;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pEnqueueReadBufferCmd->CommandDone();
+        delete pEnqueueReadBufferCmd;
+    }
     return  errVal;
 }
 
@@ -781,19 +800,19 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 	}
 
     errVal = pEnqueueReadBufferRectCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferRectCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pEnqueueReadBufferRectCmd->CommandDone();
-            delete pEnqueueReadBufferRectCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pEnqueueReadBufferRectCmd;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pEnqueueReadBufferRectCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pEnqueueReadBufferRectCmd->CommandDone();
+        delete pEnqueueReadBufferRectCmd;
+    }
     return  errVal;
 }
 /******************************************************************
@@ -846,18 +865,20 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 	}
 
     errVal = pWriteBufferCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-			return errVal;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pWriteBufferCmd;
+	    return  errVal;
 	}
-    cl_return  errVal;
+
+    errVal = pCommandQueue->EnqueueCommand(pWriteBufferCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+		pWriteBufferCmd->CommandDone();
+		delete pWriteBufferCmd;
+    }
+
+    return  errVal;
 }
 
 /******************************************************************
@@ -944,17 +965,18 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	}
 
     errVal = pWriteBufferRectCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pWriteBufferRectCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-			return errVal;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pWriteBufferRectCmd;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pWriteBufferRectCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+		pWriteBufferRectCmd->CommandDone();
+		delete pWriteBufferRectCmd;
+    }
     cl_return  errVal;
 }
 
@@ -1023,21 +1045,22 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 	}
 
     errVal = pCopyBufferCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        // Enqueue copy command, never blocking
-        errVal = pCommandQueue->EnqueueCommand(pCopyBufferCommand, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pCopyBufferCommand->CommandDone();
-            delete pCopyBufferCommand;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pCopyBufferCommand;
+	    return  errVal;
 	}
-    return  errVal;
+
+    // Enqueue copy command, never blocking
+    errVal = pCommandQueue->EnqueueCommand(pCopyBufferCommand, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pCopyBufferCommand->CommandDone();
+        delete pCopyBufferCommand;
+    }
+
+	return  errVal;
 }
 
 /******************************************************************
@@ -1132,7 +1155,6 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
             return CL_MEM_COPY_OVERLAP;
         }
     }
-
 	
     Command* pCopyBufferRectCommand = new CopyBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin, szDstOrigin, region,
 		src_buffer_row_pitch, src_buffer_slice_pitch, dst_buffer_row_pitch, dst_buffer_slice_pitch);
@@ -1142,20 +1164,20 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 	}
 
     errVal = pCopyBufferRectCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        // Enqueue copy command, never blocking
-        errVal = pCommandQueue->EnqueueCommand(pCopyBufferRectCommand, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pCopyBufferRectCommand->CommandDone();
-            delete pCopyBufferRectCommand;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pCopyBufferRectCommand;
+	    return  errVal;
 	}
+
+    // Enqueue copy command, never blocking
+    errVal = pCommandQueue->EnqueueCommand(pCopyBufferRectCommand, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pCopyBufferRectCommand->CommandDone();
+        delete pCopyBufferRectCommand;
+    }
 
     return  errVal;
 }
@@ -1265,19 +1287,19 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
 	}
 
     errVal = pUnmapMemObjectCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pUnmapMemObjectCommand, CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pUnmapMemObjectCommand->CommandDone();
-            delete pUnmapMemObjectCommand;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pUnmapMemObjectCommand;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pUnmapMemObjectCommand, CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pUnmapMemObjectCommand->CommandDone();
+        delete pUnmapMemObjectCommand;
+    }
     
     return  errVal;
 }
@@ -1443,20 +1465,19 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     // Must set device Id before init for buffer resource allocation.
 	pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
-    if( CL_SUCCEEDED (errVal) )
-    {
-        errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pNDRangeKernelCmd->CommandDone();
-            delete pNDRangeKernelCmd;
-        }
-    } 
-	else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pNDRangeKernelCmd;	
+		delete pNDRangeKernelCmd;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pNDRangeKernelCmd, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pNDRangeKernelCmd->CommandDone();
+        delete pNDRangeKernelCmd;
+    }
 
     return  errVal;
 }
@@ -1510,20 +1531,21 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 	}
 
     errVal = pTaskCommand->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pTaskCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pTaskCommand->CommandDone();
-            delete pTaskCommand;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
 		delete pTaskCommand;
+	    return  errVal;
 	}
-    return  errVal;
+
+    errVal = pCommandQueue->EnqueueCommand(pTaskCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pTaskCommand->CommandDone();
+        delete pTaskCommand;
+    }
+
+	return  errVal;
 }
 
 /******************************************************************
@@ -1585,26 +1607,30 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 	}
 
     errVal = pNativeKernelCommand->Init();
-    if( CL_SUCCEEDED (errVal) )
-    {
-        errVal = pCommandQueue->EnqueueCommand(pNativeKernelCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-			// pMemObjectsList is released in CommandDone()
-            pNativeKernelCommand->CommandDone();
-            delete pNativeKernelCommand;
-        }
-    }
-	else
+	if ( CL_FAILED(errVal) )
 	{
 		if ( NULL != pMemObjectsList )
 		{
 			delete []pMemObjectsList;
 		}
         delete pNativeKernelCommand;
+	    return  errVal;
 	}
-    return  errVal;
+
+    errVal = pCommandQueue->EnqueueCommand(pNativeKernelCommand, false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+		// pMemObjectsList is released in CommandDone()
+        pNativeKernelCommand->CommandDone();
+		if ( NULL != pMemObjectsList )
+		{
+			delete []pMemObjectsList;
+		}
+        delete pNativeKernelCommand;
+    }
+
+	return  errVal;
 }
 
 /******************************************************************
@@ -1803,19 +1829,20 @@ cl_err_code ExecutionModule::EnqueueReadImage(
 	}
 
     errVal = pReadImageCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pReadImageCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pReadImageCmd->CommandDone();
-            delete pReadImageCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pReadImageCmd;
+        delete pReadImageCmd;
+	    return  errVal;
 	}
+
+    errVal = pCommandQueue->EnqueueCommand(pReadImageCmd, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pReadImageCmd->CommandDone();
+        delete pReadImageCmd;
+    }
+
     return  errVal;
 }
 
@@ -1878,20 +1905,21 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	}
 
 	errVal = pWriteImageCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        errVal = pCommandQueue->EnqueueCommand(pWriteImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pWriteImageCmd->CommandDone();
-            delete pWriteImageCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pWriteImageCmd;
+        delete pWriteImageCmd;
+	    return  errVal;
 	}
-    return  errVal;
+
+    errVal = pCommandQueue->EnqueueCommand(pWriteImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pWriteImageCmd->CommandDone();
+        delete pWriteImageCmd;
+    }
+
+	return  errVal;
 }
 
 
@@ -1970,21 +1998,22 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
 	}
 
     errVal = pCopyImageCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        // Enqueue copy command, never blocking
-        errVal = pCommandQueue->EnqueueCommand(pCopyImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pCopyImageCmd->CommandDone();
-            delete pCopyImageCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pCopyImageCmd;
+        delete pCopyImageCmd;
+	    return  errVal;
 	}
-    return  errVal;
+
+    // Enqueue copy command, never blocking
+    errVal = pCommandQueue->EnqueueCommand(pCopyImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pCopyImageCmd->CommandDone();
+        delete pCopyImageCmd;
+    }
+
+	return  errVal;
 }
 
 
@@ -2049,21 +2078,22 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
 	}
 
 	errVal = pCopyImageToBufferCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        // Enqueue copy command, never blocking
-        errVal = pCommandQueue->EnqueueCommand(pCopyImageToBufferCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pCopyImageToBufferCmd->CommandDone();
-            delete pCopyImageToBufferCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pCopyImageToBufferCmd;
+        delete pCopyImageToBufferCmd;
+	    return  errVal;
 	}
-    return  errVal;
+
+    // Enqueue copy command, never blocking
+    errVal = pCommandQueue->EnqueueCommand(pCopyImageToBufferCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pCopyImageToBufferCmd->CommandDone();
+        delete pCopyImageToBufferCmd;
+    }
+
+	return  errVal;
 }
 
 
@@ -2129,21 +2159,22 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 	}
 
 	errVal = pCopyBufferToImageCmd->Init();
-    if(CL_SUCCEEDED(errVal))
-    {
-        // Enqueue copy command, never blocking
-        errVal = pCommandQueue->EnqueueCommand(pCopyBufferToImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
-        if(CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources
-            pCopyBufferToImageCmd->CommandDone();
-            delete pCopyBufferToImageCmd;
-        }
-    }else
+	if ( CL_FAILED(errVal) )
 	{
-		delete pCopyBufferToImageCmd;
+        delete pCopyBufferToImageCmd;
+	    return  errVal;
 	}
-    return  errVal;
+
+    // Enqueue copy command, never blocking
+    errVal = pCommandQueue->EnqueueCommand(pCopyBufferToImageCmd, CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    if(CL_FAILED(errVal))
+    {
+        // Enqueue failed, free resources
+        pCopyBufferToImageCmd->CommandDone();
+        delete pCopyBufferToImageCmd;
+    }
+
+	return  errVal;
 }
 
 /******************************************************************
@@ -2221,7 +2252,7 @@ void * ExecutionModule::EnqueueMapImage(
     // Must set device Id before init for image resource allocation.
 	if (NULL == pMapImageCmd)
 	{
-		*pErrcodeRet = CL_INVALID_VALUE;
+		*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
 		return NULL;
 	}
 
@@ -2328,16 +2359,18 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 	}
 
 	errVal = pAcquireCmd->Init();
-	if(CL_SUCCEEDED(errVal))
+	if ( CL_FAILED(errVal) )
 	{
-		errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
-		if(CL_FAILED(errVal))
-		{
-			// Enqueue failed, free resources
-			delete pAcquireCmd;
-		}
-	}else
+        delete pAcquireCmd;
+		delete []pMemObjects;
+	    return  errVal;
+	}
+
+	errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+	if(CL_FAILED(errVal))
 	{
+		// Enqueue failed, free resources
+		pAcquireCmd->CommandDone();
 		delete pAcquireCmd;
 	}
 
