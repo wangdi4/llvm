@@ -28,6 +28,10 @@ File Name:  XMLDataReadWrite.cpp
 #include "NEATValue.h"
 #include "FloatOperations.h"
 
+#include "llvm/Support/raw_ostream.h"
+#define DEBUG_TYPE "OpenCLProgramConfiguration"
+#include "llvm/Support/Debug.h"
+
 using namespace std;
 
 namespace Validation
@@ -36,7 +40,7 @@ namespace Validation
     const std::string XMLBufferContainerListReadWrite::XMLFileFormatVersion = "0.1";
 
     /// set number precision for the reading stream
-    const int32_t XMLBufferContainerListReadWrite::StreamPrecision = 17;  
+    const int32_t XMLBufferContainerListReadWrite::StreamPrecision = 17;
 
     /// @brief Reads/writes typed value from string stream.
     template<typename T>
@@ -44,7 +48,7 @@ namespace Validation
     {
         if(IXMLReadWriteBase::READ == rwtype)
         {
-            isrt >> *data ;
+            isrt >> *data;
         }
         else
         {
@@ -296,13 +300,35 @@ namespace Validation
             // set stream precision
             VecStr.precision(XMLBufferContainerListReadWrite::StreamPrecision);
 
-            if (IXMLReadWriteBase::READ == rwtype)  VecStr.str(xmlVec->GetText());
+            if (IXMLReadWriteBase::READ == rwtype)
+            {
+                if (0 != xmlVec->GetText())
+                {
+                    VecStr.str(xmlVec->GetText());
+                }
+                else
+                {
+                    throw Exception::IOError("There is no data in Vector node.");
+                }
+            }
 
             if (desc.GetElementDescription().IsAggregate() && !desc.GetElementDescription().IsStruct()) {
                 for(int32_t cntElem = 0; cntElem < (int32_t) desc.SizeOfVector(); ++cntElem)
                 {
+                    if (IXMLReadWriteBase::READ == rwtype && VecStr.eof())
+                    {
+                        throw Exception::IOError("It's not enough data for aggregate (vector) data type.");
+                    }
                     ReadWriteValueToStr<T>(VecStr, &ba.GetElem(cntVec, cntElem), rwtype);
                 }
+                DEBUG(
+                {
+                    if (IXMLReadWriteBase::READ == rwtype && !VecStr.eof())
+                    {
+                        llvm::dbgs() << "Too many data for aggregate (vector) data type.\n";
+                    }
+                }
+                );
             } else {
                 ReadWriteValueToStr<T>(VecStr, &ba.GetElem(cntVec, 0), rwtype);
             }

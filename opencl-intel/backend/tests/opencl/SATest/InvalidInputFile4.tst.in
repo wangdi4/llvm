@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="3">
+      <Buffer length="1" type="vector" type_size_in_bytes="16" vectorWidth="4" vector_number_of_subtypes="1" vector0type="i32" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">43202656 35671985 27667198</Vector>
+      </Buffer>
+      <Buffer length="1" type="vector" type_size_in_bytes="16" vectorWidth="4" vector_number_of_subtypes="1" vector0type="f32" vector0type_size_in_bytes="4" neat="0">
+          <Vector id="0">0.0 41.0 41.0 41.0</Vector>
+      </Buffer>
+      <Buffer length="1" type="u32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">5</Vector>
+      </Buffer>
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>
