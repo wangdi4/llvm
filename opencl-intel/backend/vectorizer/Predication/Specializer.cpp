@@ -91,7 +91,7 @@ void FunctionSpecializer::CollectDominanceInfo() {
     if (reg->getExit() && reg->getEntry() && reg->isSimple()) {
 
     // Register region once
-    if (m_regions.find(reg) != m_regions.end()) continue;
+    if (m_region_lookup.find(reg) != m_region_lookup.end()) continue;
 
     // Region must have a single exit (exit block not part of region)
     if (!reg->getExit()->getSinglePredecessor()) continue;
@@ -118,10 +118,12 @@ void FunctionSpecializer::CollectDominanceInfo() {
     // Only specialize after condition
     if (SpecOnlyAfterBranch && (! br->isConditional())) continue;
 
-  // Register the region
-    m_regions.insert(reg);
+    // Register the region
+    m_region_lookup.insert(reg);
+    m_region_list.push_back(reg);
     m_heads[reg] = head;
-    BBSet skipped = findSkippedBlocks(reg);
+    BBVector skipped;
+    findSkippedBlocks(reg, skipped);
     m_skipped[reg] = skipped;
     }// simple reg
   }
@@ -129,8 +131,8 @@ void FunctionSpecializer::CollectDominanceInfo() {
 
 void FunctionSpecializer::specializeFunction() {
 
-  for (std::set<Region*>::iterator it = m_regions.begin(),
-      e = m_regions.end(); it != e; ++it) {
+  for (std::vector<Region*>::iterator it = m_region_list.begin(),
+      e = m_region_list.end(); it != e; ++it) {
       if (shouldSpecialize(*it)) {
         specializeEdge(*it);
         V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
@@ -141,17 +143,17 @@ void FunctionSpecializer::specializeFunction() {
 
 void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
   // for all regions
-  for (std::set<Region*>::iterator rit = m_regions.begin(),
-      re = m_regions.end(); rit != re; ++rit) {
+  for (std::vector<Region*>::iterator rit = m_region_list.begin(),
+      re = m_region_list.end(); rit != re; ++rit) {
     Region* reg = *rit;
     // if we specialze this region
     if (! shouldSpecialize(reg)) continue;
     // create a new region
     V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-    BBSet skipped = m_skipped[reg];
+    BBVector skipped = m_skipped[reg];
     SchedulingScope *scp = new SchedulingScope(NULL);
     // insert all basic blocks
-    for(BBSet::iterator bit = skipped.begin(), 
+    for(BBVector::iterator bit = skipped.begin(), 
         be = skipped.end(); bit != be; ++bit) {
       scp->addBasicBlock(*bit);
     }
@@ -164,9 +166,11 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
 
 void FunctionSpecializer::addNewToRegion(BasicBlock* old, BasicBlock* fresh) {
   V_ASSERT(old && fresh);
-  for (std::map<Region*, BBSet>::iterator it=m_skipped.begin(), e=m_skipped.end();it!=e;++it) {
+  for (std::map<Region*, BBVector>::iterator it=m_skipped.begin(), e=m_skipped.end();it!=e;++it) {
     // if has old, add the new
-    if (it->second.find(old)!=it->second.end()) { it->second.insert(fresh); }
+    if (std::find(it->second.begin(), it->second.end(), old) != it->second.end()) {
+      it->second.push_back(fresh); 
+    }
   }
 }
 
@@ -216,10 +220,10 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   V_ASSERT(exitBlock);
   BasicBlock* footer = createIntermediateBlock(exitBlock, reg->getExit(), "footer");
 
-  BBSet skipped = m_skipped[reg];
+  BBVector skipped = m_skipped[reg];
   
   // Get the list of PHINodes which we need to insert (for skipped instructions)
-  std::map<Instruction*, std::set<Instruction*> > vals;
+  std::vector<std::pair<Instruction* , std::set<Instruction*> > > vals;
   findValuesToPhi(reg,  vals);
   
   // Create the function call to 'is zero' to test if we need
@@ -236,7 +240,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   branch->eraseFromParent();
 
   // Create the PHINodes for the split values
-  for (std::map<Instruction*, std::set<Instruction*> >::iterator it =
+  for (std::vector<std::pair<Instruction* , std::set<Instruction*> > >::iterator it =
        vals.begin(), e = vals.end(); e != it ; ++it) {
     Instruction* inst = it->first;
     // create phi node
@@ -261,7 +265,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   // the mask from the skipped blocks. We need to zero this mask because
   // it is skipped (and known to be zero). We will use a phinode.
   V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-  for(BBSet::iterator bit = skipped.begin(), 
+  for(BBVector::iterator bit = skipped.begin(), 
       be = skipped.end(); bit != be; ++bit) { 
 
     // If this is a 'masked block' (not a new block)
@@ -289,26 +293,24 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
 }
   
-FunctionSpecializer::BBSet FunctionSpecializer::findSkippedBlocks(Region* reg) {
+void FunctionSpecializer::findSkippedBlocks(Region* reg, BBVector& skipped) {
   
   V_ASSERT(reg && "bad region");
-  BBSet skipped;
   
   for (Function::iterator it = m_func->begin(), e = m_func->end(); it != e ; ++it) {
-    if (reg->contains(it)) { skipped.insert(it); }
+    if (reg->contains(it)) { skipped.push_back(it); }
   } 
-  skipped.insert(reg->getEntry());
-  return skipped;
+  skipped.push_back(reg->getEntry());
 }
 
 void FunctionSpecializer::findValuesToPhi(
-  Region* reg, std::map<Instruction* , std::set<Instruction*> > &to_add_phi) {
+  Region* reg, std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi) {
 
   V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-  BBSet skipped = m_skipped[reg];
+  BBVector skipped = m_skipped[reg];
   // Find values to protect behind a PHI
   // For each skipped BB
-  for (BBSet::iterator BB = skipped.begin(), BBe = skipped.end(); BB != BBe; ++BB) {
+  for (BBVector::iterator BB = skipped.begin(), BBe = skipped.end(); BB != BBe; ++BB) {
     // for each inst
     for (BasicBlock::iterator inst = (*BB)->begin(), inst_e = (*BB)->end(); inst != inst_e; ++inst) {
       // For each skipped instruction
@@ -321,11 +323,11 @@ void FunctionSpecializer::findValuesToPhi(
         if (Instruction* iii = dyn_cast<Instruction>(*us)) {
           // if the user of this instruction is not in skipped region
           // if this is a new BB
-          if (skipped.find(iii->getParent()) == skipped.end())  { deps.insert(iii);  }
+          if (std::find(skipped.begin(), skipped.end(), iii->getParent()) == skipped.end())  { deps.insert(iii);  }
         }
       }
       if (!deps.empty()) {
-        to_add_phi[inst] = deps;
+        to_add_phi.push_back(std::pair<Instruction* , std::set<Instruction*> >(inst,deps));
       }
     } // for each bb
   } // for each bb

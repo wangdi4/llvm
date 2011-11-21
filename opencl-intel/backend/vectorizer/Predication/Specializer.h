@@ -27,7 +27,7 @@ class Predicator;
 class FunctionSpecializer {
 public:
   /// Short term BB collection
-  typedef std::set<BasicBlock*> BBSet;
+  typedef std::vector<BasicBlock*> BBVector;
 
   /// @brief C'tor
   /// @param pass Predication pass
@@ -97,8 +97,8 @@ private:
   /// @brief Collects the list of blocks which are skipped in the
   // specialization
   /// @param Region to consider
-  /// @return list of BB which are skipped
-  BBSet findSkippedBlocks(Region* reg);
+  /// @param List of BB which are skipped
+  void findSkippedBlocks(Region* reg, BBVector& skipped);
   /// @brief Collects the list of instructions for which we need to
   ///  add a PHINode
   /// @param src Edge source
@@ -107,7 +107,7 @@ private:
   /// @param to_add_phi saves the list of instructions to this map
   void findValuesToPhi(
     Region* reg,
-    std::map< Instruction* , std::set<Instruction*> > &to_add_phi);
+    std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi);
 
 private:
   /// Predicator pass
@@ -127,9 +127,10 @@ private:
   /// Region preheader
   std::map<Region*, BasicBlock*> m_heads;
   /// specialization regions
-  std::set<Region*> m_regions;
+  std::set<Region*>    m_region_lookup;
+  std::vector<Region*> m_region_list;
   /// All skipped blocks
-  std::map<Region*, BBSet> m_skipped;
+  std::map<Region*, BBVector> m_skipped;
 };
 
 
