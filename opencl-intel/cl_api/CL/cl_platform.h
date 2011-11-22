@@ -21,7 +21,7 @@
  * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
  **********************************************************************************/
 
-/* $Revision: 11803 $ on $Date: 2010-06-25 20:02:12 +0300 (Fri, 25 Jun 2010) $ */
+/* $Revision: 11803 $ on $Date: 2010-06-25 10:02:12 -0700 (Fri, 25 Jun 2010) $ */
 
 #ifndef __CL_PLATFORM_H
 #define __CL_PLATFORM_H
@@ -58,7 +58,9 @@ extern "C" {
     #define CL_EXT_SUFFIX__VERSION_1_0
     #define CL_API_SUFFIX__VERSION_1_1
     #define CL_EXT_SUFFIX__VERSION_1_1
+    #define CL_API_SUFFIX__VERSION_1_2
     #define CL_EXT_SUFFIX__VERSION_1_0_DEPRECATED
+    #define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
 #endif
 
 #if (defined (_WIN32) && defined(_MSC_VER))

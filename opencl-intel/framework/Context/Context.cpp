@@ -799,6 +799,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 
 // Context::clCreateImage2DArray
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
 cl_err_code Context::clCreateImage2DArray(
     cl_mem_flags		    clFlags,
     const cl_image_format *	pclImageFormat,
@@ -865,6 +866,7 @@ cl_err_code Context::clCreateImage2DArray(
 
     return CL_SUCCESS;
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::GetSupportedImageFormats
@@ -968,7 +970,9 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 
 	size_t sz2dWith = 0, sz2dHeight = 0, szMax2dWith = 0, szMax2dHeight = 0;
 	size_t sz3dWith = 0, sz3dHeight = 0, szMax3dWith = 0, szMax3dHeight = 0, sz3dDepth = 0, szMax3dDepth = 0;
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
     size_t sz2dArraySize = 0, szMax2dArraySize = 0;
+#endif
 	cl_err_code clErr = CL_SUCCESS;
 	Device * pDevice = NULL;
 	
@@ -1019,6 +1023,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 				szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
 			}
 		}
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
         if (NULL != psz2dArraySize)
         {
             clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_ARRAY_MAX_SIZE, sizeof(size_t), &sz2dArraySize, NULL);
@@ -1027,6 +1032,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
                 szMax2dArraySize = ((0 == ui) || (sz2dArraySize < szMax2dArraySize)) ? sz2dArraySize : szMax2dArraySize;
             }
         }
+#endif
 	}
 
 	if (NULL != psz2dWidth)
@@ -1049,11 +1055,12 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	{
 		*psz3dDepth = szMax3dDepth;
 	}
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
     if (NULL != psz2dArraySize)
     {
         *psz2dArraySize = szMax2dArraySize;
     }
-
+#endif
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

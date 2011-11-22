@@ -1308,7 +1308,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
                 return CL_DEV_SUCCESS;
             }
             break;
-
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
 		case CL_DEVICE_IMAGE_ARRAY_MAX_SIZE:
 			*pinternalRetunedValueSize = sizeof(size_t);
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1321,7 +1321,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 				*(size_t*)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
 			}
 			return CL_DEV_SUCCESS;
-
+#endif
         default:
             return CL_DEV_INVALID_VALUE;
     };

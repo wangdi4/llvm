@@ -1055,7 +1055,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * Date:        February 2009
          ******************************************************************************************/            
         virtual cl_err_code EnqueueNativeKernel (   cl_command_queue    IN  clCommandQueue,
-                                                    void                IN  (*pUserFnc)(void *),
+                                                    void                IN  (CL_CALLBACK*pUserFnc)(void *),
                                                     void*               IN  pArgs,
                                                     size_t              IN  szCbArgs,
                                                     cl_uint             IN  uNumMemObjects,

@@ -162,7 +162,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
 		virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
 		virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
         virtual cl_mem CreateImage2DArray(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, cl_image_array_type clImageArrayType, const size_t * pszImageWidth, const size_t * pszImageHeight, size_t clNumImages, size_t clImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int *	pErrcodeRet);
+#endif
 		virtual cl_int RetainMemObject(cl_mem clMemObj);
 		virtual cl_int ReleaseMemObject(cl_mem clMemObj);
 		virtual cl_int GetSupportedImageFormats(cl_context clContext, cl_mem_flags clFlags, cl_mem_object_type clImageType, cl_uint uiNumEntries, cl_image_format * pclImageFormats, cl_uint * puiNumImageFormats);

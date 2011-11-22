@@ -10,7 +10,6 @@ namespace CRT_ICD_DISPATCH
     typedef cl_uint             cl_kernel_arg_info;
     #define CL_API_SUFFIX__VERSION_1_2
     #define CL_EXT_SUFFIX__VERSION_1_2
-    #define CL_KERNEL_ARG_TYPE_NAME                     0x1302
 
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelArgInfo)(

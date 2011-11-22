@@ -788,17 +788,7 @@ const char* Kernel::g_szArgTypeNames[] =
 	"__image_2d_array"
 };
 
-// TODO: Remove after 1.2 headers integration
-#ifdef CL_KERNEL_ARG_ADDRESS_QUALIFIER
-#pragma error
-#endif
 /* cl_kernel_arg_info */
-#define CL_KERNEL_ARG_ADDRESS_QUALIFIER             0x1300
-#define CL_KERNEL_ARG_ACCESS_QUALIFIER              0x1301
-#define CL_KERNEL_ARG_TYPE_NAME                     0x1302
-#define CL_KERNEL_ARG_NAME                          0x1303
-#define CL_KERNEL_ARG_ATTRIBUTES                    0x1304
-#define CL_KERNEL_ATTRIBUTES                        0x1305
 
 cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 								cl_kernel_arg_info paramName,

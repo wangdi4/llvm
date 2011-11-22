@@ -1192,7 +1192,7 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 NativeKernelCommand::NativeKernelCommand(
 	IOclCommandQueueBase* cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
-	void              (*pUserFnc)(void *),
+	void              (CL_CALLBACK*pUserFnc)(void *),
            void*               pArgs,
            size_t              szCbArgs,
            cl_uint             uNumMemObjects,

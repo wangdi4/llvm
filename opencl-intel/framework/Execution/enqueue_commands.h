@@ -42,7 +42,6 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	#define CL_COMMAND_RUNTIME			0
-	#define CL_COMMAND_BARRIER			1
 	#define CL_COMMAND_WAIT_FOR_EVENTS	2
     // Forward declarations
     class QueueEvent;
@@ -832,7 +831,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
 
     public:
-		typedef void (*pUserFnc_t)(void *);
+		typedef void (CL_CALLBACK*pUserFnc_t)(void *);
         NativeKernelCommand(
 			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,

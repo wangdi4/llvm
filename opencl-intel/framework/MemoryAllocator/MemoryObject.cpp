@@ -152,6 +152,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		szParam = m_stOrigin[0];
 		pValue = &szParam;
 		break;
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
     case CL_MEM_ARRAY_SIZE:
         szSize = sizeof(size_t);
         if (CL_MEM_OBJECT_IMAGE2D_ARRAY == GetType())
@@ -164,6 +165,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
         }
         pValue = &szParam;
         break;
+#endif
 #if defined (DX9_MEDIA_SHARING)
     case CL_MEM_DX9_RESOURCE_INTEL:
         {

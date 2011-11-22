@@ -503,7 +503,7 @@ struct	cl_dev_cmd_param_kernel
 * \typedef fn_clNativeKernel
 * native function prototype
 */
-typedef void (fn_clNativeKernel)(void* INOUT param);
+typedef void (CL_CALLBACK fn_clNativeKernel)(void* INOUT param);
 
 /*! \struct cl_dev_cmd_param_native
  * \brief Description of Native Function command

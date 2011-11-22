@@ -130,14 +130,14 @@ unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
 
 	QueryPerformanceFrequency(&freq);
 
-	return (1e9/freq.QuadPart);
+	return (unsigned long long)(1e9/freq.QuadPart);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // HostTime - Return host time in nano second
 /////////////////////////////////////////////////////////////////////////////////////////
 #pragma data_seg(".MYSEC_FREQ")
-static double timerRes = ProfilingTimerResolution();
+static double timerRes = (double)ProfilingTimerResolution();
 #pragma data_seg()
 #pragma comment(linker, "/SECTION:.MYSEC_FREQ,RWS")
 

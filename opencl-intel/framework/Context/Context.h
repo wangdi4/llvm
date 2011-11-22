@@ -191,6 +191,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									size_t                  szImageSlicePitch,
 									MemoryObject **		        ppImage3d);
 
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
         // create new array of 2 dimensional image objects
         cl_err_code clCreateImage2DArray(
                                     cl_mem_flags		    clflags,
@@ -203,6 +204,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     size_t					szImageRowPitch,
                                     size_t					szImageSlicePitch,                                    
                                     MemoryObject**          ppImage2dArr);
+#endif
 
 		// get the supported image formats for this context
 		cl_err_code GetSupportedImageFormats(	cl_mem_flags		clFlags,

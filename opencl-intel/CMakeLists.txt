@@ -19,6 +19,8 @@ else ()
     include( cmake_utils/CMake_linux_tools.cmake )
 endif (WIN32)
 
+add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
+
 #PRINT_TOOLS()
 
 #

@@ -21,7 +21,7 @@
  * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
  ******************************************************************************/
 
-/* $Revision: 11928 $ on $Date: 2010-07-13 19:04:56 +0300 (Tue, 13 Jul 2010) $ */
+/* $Revision: 11928 $ on $Date: 2010-07-13 09:04:56 -0700 (Tue, 13 Jul 2010) $ */
 
 /* cl_ext.h contains OpenCL extensions which don't have external */
 /* (OpenGL, D3D) dependencies.                                   */
@@ -45,42 +45,6 @@ extern "C" {
 
 /* cl_khr_fp16 extension - no extension #define since it has no functions  */
 #define CL_DEVICE_HALF_FP_CONFIG                    0x1033
-
-/* array of images */
-typedef int cl_image_array_type;
-
-#define CL_IMAGE_ARRAY_SAME_DIMENSIONS 1
-#define CL_INVALID_IMAGE_ARRAY_INDEX                -65
-#define CL_DEVICE_IMAGE_ARRAY_MAX_SIZE              0x103E
-#define CL_MEM_OBJECT_IMAGE2D_ARRAY                 0x10F3
-#define CL_MEM_ARRAY_SIZE                           0x1109
-#define CL_IMAGE_ARRAY_TYPE                         0x1117
-
-extern CL_API_ENTRY cl_mem CL_API_CALL
-clCreateImage2DArrayINTEL(cl_context				/* context */,
-                          cl_mem_flags				/* flags */,
-                          const cl_image_format *	/* image_format */,
-                          cl_image_array_type		/* image_array_type */,
-                          const size_t *			/* image_width */,
-                          const size_t *			/* image_height */,
-                          size_t					/* num_images */,
-                          size_t					/* image_row_pitch */,
-                          size_t					/* image_slice_pitch */,
-                          void *					/* host_ptr */,
-                          cl_int *					/* errcode_ret */) CL_EXT_SUFFIX__VERSION_1_1;
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateImage2DArrayINTEL_fn)(
-						   cl_context				/* context */,
-                           cl_mem_flags				/* flags */,
-                           const cl_image_format *	/* image_format */,
-                           cl_image_array_type		/* image_array_type */,
-                           const size_t *			/* image_width */,
-                           const size_t *			/* image_height */,
-                           size_t					/* num_images */,
-                           size_t					/* image_row_pitch */,
-                           size_t					/* image_slice_pitch */,
-                           void *					/* host_ptr */,
-                           cl_int *					/* errcode_ret */);   
 
 /* Memory object destruction
  *
@@ -239,11 +203,9 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
     #define CL_PARTITION_BY_NAMES_LIST_END_EXT          ((cl_device_partition_property_ext) 0 - 1)
     #define CL_PARTITION_BY_NAMES_LIST_END_INTEL        ((cl_device_partition_property_ext) 0 - 1)
 
-    /* cl_command_queue_properties - bitfield */
-    #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL    (1 << 2)
+    #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL      (1 << 2)
 
-    /* cl_device_exec_capabilities - bitfield */
-    #define CL_EXEC_BY_THREAD_LOCAL_INTEL            (1 << 2)
+    #define CL_EXEC_BY_THREAD_LOCAL_INTEL                (1 << 2)
 
 #endif /* CL_VERSION_1_1 */
 

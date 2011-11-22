@@ -256,24 +256,7 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret));
 }
 SET_ALIAS(clCreateImage3D);
-
-SET_ALIAS(clCreateImage2DArrayINTEL);
-REGISTER_EXTENSION_FUNCTION(clCreateImage2DArrayINTEL, clCreateImage2DArrayINTEL);
-cl_mem CL_API_CALL clCreateImage2DArrayINTEL(cl_context				context,
-					 cl_mem_flags				flags,
-					 const cl_image_format *	image_format,
-					 cl_image_array_type		image_array_type,
-					 const size_t *				image_width,
-					 const size_t *				image_height,
-					 size_t						num_images,
-					 size_t						image_row_pitch,
-					 size_t						image_slice_pitch,
-					 void *						host_ptr,
-					 cl_int *					errcode_ret) CL_EXT_SUFFIX__VERSION_1_1
-{
-	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage2DArray(context, flags, image_format, image_array_type, image_width, image_height, num_images, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret));
-}
-                        
+                       
 cl_int CL_API_CALL clRetainMemObject(cl_mem memobj)
 {
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainMemObject(memobj));
@@ -786,7 +769,7 @@ cl_int CL_API_CALL clEnqueueTask(cl_command_queue	command_queue,
 SET_ALIAS(clEnqueueTask);
 
 cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
-							 void (*user_func)(void *), 
+							 void (CL_CALLBACK *user_func)(void *), 
 							 void *				args,
 							 size_t				cb_args, 
 							 cl_uint			num_mem_objects,

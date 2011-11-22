@@ -130,6 +130,7 @@ void* SingleUnifiedImage2DArray::GetBackingStoreData(const size_t* pszOrigin)
     return m_img2DArray[pszOrigin[2]]->GetBackingStoreData(origin);
 }
 
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
 cl_err_code SingleUnifiedImage2DArray::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
     LOG_DEBUG(TEXT("Enter(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
@@ -169,3 +170,4 @@ cl_err_code SingleUnifiedImage2DArray::GetImageInfo(cl_image_info clParamName, s
 
     return CL_SUCCESS;
 }
+#endif

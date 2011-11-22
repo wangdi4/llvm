@@ -85,8 +85,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 		void* GetBackingStoreData(const size_t* pszOrigin);
-
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
         cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+#endif
 
     protected:
 		std::vector<MemoryObject*>	m_img2DArray;

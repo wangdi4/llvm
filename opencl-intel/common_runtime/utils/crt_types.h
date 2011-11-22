@@ -28,7 +28,7 @@
 #include <windows.h>
 #pragma intrinsic( _InterlockedCompareExchange )
 
-typedef void (*user_func)(void *);
+typedef void (CL_CALLBACK *user_func)(void *);
 typedef void (CL_CALLBACK *logging_fn)(const char *, const void *, size_t, void *);
 typedef void (CL_CALLBACK *prog_logging_fn)(cl_program, void *) ;
 typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);

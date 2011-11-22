@@ -390,6 +390,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *                  IN  pHostPtr,
 										cl_int *                OUT pErrcodeRet ) = 0;
 
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
         virtual cl_mem CreateImage2DArray(  cl_context              IN clContext,
                                             cl_mem_flags            IN clFlags,
                                             const cl_image_format * IN clImageFormat,
@@ -401,6 +402,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             size_t                  IN szImageSlicePitch,
                                             void *                  IN pHostPtr,
                                             cl_int *	            OUT pErrcodeRet) = 0;
+#endif
 
 		/******************************************************************************************
 		* Function: 	RetainMemObject    

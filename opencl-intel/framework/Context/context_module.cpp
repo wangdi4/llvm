@@ -1134,6 +1134,7 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
 	return pImage2d->GetHandle();
 }
 
+#if 0   // disabled until changes in the spec regarding 2D image arrays are made
 cl_mem ContextModule::CreateImage2DArray(cl_context clContext,
                                          cl_mem_flags clFlags,
                                          const cl_image_format * clImageFormat,
@@ -1198,6 +1199,7 @@ cl_mem ContextModule::CreateImage2DArray(cl_context clContext,
     }
     return pImage2dArr->GetHandle();
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateImage3D
