@@ -1,8 +1,9 @@
 from optparse import OptionParser
-import os.path, sys, platform, glob, fnmatch
+import os.path, sys, platform, glob, fnmatch, re
 from Volcano_Common import EnvironmentValue, VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite,VolcanoCmdTask, TestTaskResult, PERFORMANCE_TESTS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, TIMEOUT_HALFHOUR
 from Volcano_Tasks import SimpleTest
 import Volcano_CmdUtils
+from BIMeterFullWW35 import BIMeterFullWW35
 
 # Note that the iteration count is modified to 3 for the stable cases (STD < 0.005).
 # 16 remains the iteration count for all the rest. BIMeter need to be analyzed once 
@@ -1288,21 +1289,18 @@ class PerformanceTask(VolcanoCmdTask):
             self.command = self.command + ' -cpufeatures=' + run_config.cpu_features
 
 class VolcanoPerformanceSuite(VolcanoTestSuite):
-    def __init__(self, name, suite, config, tests):
+    def __init__(self, name, suite, config, tests, mask = r".*"):
         VolcanoTestSuite.__init__(self, name)
-        #test_filter = config.test_filter
         self.config  = config
         self.suitename = suite
+        pattern = re.compile(mask)
+        
         for test in tests:
-            task = PerformanceTask(suite, test[0], 1, test[1], config)
-            task.timeout = TIMEOUT_HALFHOUR
-            self.addTask(task)
-            #test_name = test[0]
-            #test_iterations = test[1]
-
-            # check if test name matches filter
-            #if fnmatch.fnmatch(test_name, test_filter):
-            #    self.addTask(PerformanceTask(suite, test_name , test_iterations, config))
+            if pattern.match(test[0]):        
+                task = PerformanceTask(suite, test[0], 1, test[1], config)
+                task.timeout = TIMEOUT_HALFHOUR
+                self.addTask(task)
+                
     def startUp(self):
         if platform.system() != 'Windows':
             self.path_env = EnvironmentValue('LD_LIBRARY_PATH')
@@ -1368,8 +1366,78 @@ class VolcanoSHOCPerformanceSuite(VolcanoPerformanceSuite):
 
 class VolcanoBIMeterPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-#BIMeterPerformance = FillBIMeterPerformanceTable(config.tests_root_dir, BIMeterPerformanceIterations, config.target_type)
         VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', config, BIMeterPerformance)
+
+# math
+class VolcanoBIMeterMathSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
+# atomics
+class VolcanoBIMeterAtomicsSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', config, BIMeterFullWW35, r"atomics_*")
+        
+# common and common_double
+class VolcanoBIMeterCommonSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', config, BIMeterFullWW35, r"common_*")
+# geometric and geometric double
+class VolcanoBIMeterGeometricSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', config, BIMeterFullWW35, r"geometric_*")
+# math double
+class VolcanoBIMeterMathDoubleSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
+# math half precision
+class VolcanoBIMeterMathHalfSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', config, BIMeterFullWW35, r"math_half_[a-z]+[.]?[0-9]*$")
+# integer
+class VolcanoBIMeterIntegerSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
+# math native precision
+class VolcanoBIMeterMathNativeSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
+# relational and relational double
+class VolcanoBIMeterRelationalSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', config, BIMeterFullWW35, r"relational_*")
+# misc
+class VolcanoBIMeterMiscellaneousSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', config, BIMeterFullWW35, r"miscellaneous_*")
+# conversions
+class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', config, BIMeterFullWW35, r"conversions_*")
+
+
+perf_suites = { "WOLF": VolcanoWOLFPerformanceSuite,
+           "WOLFbench": VolcanoWOLFBenchPerformanceSuite,
+           "CyberLink": VolcanoCyberLinkPerformanceSuite,
+           "VCSD": VolcanoVCSDPerformanceSuite,
+           "Sandra": VolcanoSandraPerformanceSuite,
+           "LuxMark": VolcanoLuxMarkPerformanceSuite,
+           "BIMeter": VolcanoBIMeterPerformanceSuite,
+           "AVX256_P1": VolcanoAVX256_P1_PerformanceSuite,
+           "Phoronix": VolcanoPhoronixPerformanceSuite,
+           "GEHC": VolcanoGEHCPerformanceSuite,
+           "SHOC": VolcanoSHOCPerformanceSuite,
+           "BIMeterMath": VolcanoBIMeterMathSuite,
+           "BIMeterAtomics": VolcanoBIMeterAtomicsSuite,
+           "BIMeterCommon": VolcanoBIMeterCommonSuite,
+           "BIMeterGeometric": VolcanoBIMeterGeometricSuite,
+           "BIMeterMathDouble": VolcanoBIMeterMathDoubleSuite,
+           "BIMeterMathHalf": VolcanoBIMeterMathHalfSuite,
+           "BIMeterInteger": VolcanoBIMeterIntegerSuite,
+           "BIMeterMathNative": VolcanoBIMeterMathNativeSuite,
+           "BIMeterRelational": VolcanoBIMeterRelationalSuite,
+           "BIMeterMiscellaneous": VolcanoBIMeterMiscellaneousSuite,
+           "BIMeterConversions": VolcanoBIMeterConversionsSuite           
+         }
 
 def main():
     parser = OptionParser()
@@ -1382,7 +1450,7 @@ def main():
     parser.add_option("-o", "--output",  dest="output_file", help="output file name")
     parser.add_option("-k", "--kernels", dest="tests_path", help="root path of the performance tests", default='')
     parser.add_option("-d", "--demo",    action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
-    parser.add_option("-s", "--suite",   dest="suite", help="Suite to run: WOLF, WOLFBench, CyberLink, VCSD, Sandra, LuxMark, BIMeter", default=None)
+    parser.add_option("-s", "--suite",   dest="suite", help="Suite to run:" + str(perf_suites.keys()), default=None)
     #parser.add_option("", "--filter",   dest="filter", help="test names filter with wildcards", default="*")
     
     (options, args) = parser.parse_args()
@@ -1394,21 +1462,9 @@ def main():
     # Run the performance suite for the current configuration
     Volcano_CmdUtils.demo_mode = options.demo_mode 
     
-    suites = { "WOLF": VolcanoWOLFPerformanceSuite,
-               "WOLFbench": VolcanoWOLFBenchPerformanceSuite,
-               "CyberLink": VolcanoCyberLinkPerformanceSuite,
-               "VCSD": VolcanoVCSDPerformanceSuite,
-               "Sandra": VolcanoSandraPerformanceSuite,
-               "LuxMark": VolcanoLuxMarkPerformanceSuite,
-               "BIMeter": VolcanoBIMeterPerformanceSuite,
-               "AVX256_P1": VolcanoAVX256_P1_PerformanceSuite,
-               "Phoronix": VolcanoPhoronixPerformanceSuite,
-               "GEHC": VolcanoGEHCPerformanceSuite,
-               "SHOC": VolcanoSHOCPerformanceSuite
-             }
 
-    if (options.suite not in suites):
-        print "Unsupported suite '""'. The suite must be one of: " + str(suites.keys())
+    if (options.suite not in perf_suites):
+        print "Unsupported suite '""'. The suite must be one of: " + str(perf_suites.keys())
         return 1
     
     config = VolcanoRunConfig(options.root_dir,
@@ -1420,7 +1476,7 @@ def main():
     
     config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path)
     
-    suite  = suites[options.suite](options.suite, config)
+    suite  = perf_suites[options.suite](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)
     passed = runner.runTask(suite, config)
     
