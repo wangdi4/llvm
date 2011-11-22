@@ -93,7 +93,8 @@ public:
 
     //Device Fission support
 
-    cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_uint* INOUT num_subdevices, void* IN param, cl_dev_subdevice_id* OUT subdevice_ids);
+    cl_dev_err_code clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_id,
+                                     cl_uint* INOUT num_subdevices, void* IN param, cl_dev_subdevice_id* OUT subdevice_ids);
     cl_dev_err_code clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id);
 
     // Device entry points

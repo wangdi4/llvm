@@ -664,7 +664,7 @@ public:
     }
 
     // ITask interface
-    void Execute()
+    bool Execute()
     {
         MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 
@@ -691,6 +691,7 @@ public:
         m_pProgEntry->clBuildStatus = status;
         m_ProgramService.m_pCallBacks->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
         MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+        return true;
     }
 
     void        Release() {delete this;}

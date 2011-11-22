@@ -255,7 +255,8 @@ size_t MICDevice::clDevFEDeviceInfoSize() const
     Calculate appropriate affinity mask to support the partitioning mode and instantiate as many dedicated
     command lists objects as needed
 ********************************************************************************************************************/
-cl_dev_err_code MICDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
+cl_dev_err_code MICDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_id,
+                                            cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
 {
     // TODO: Not implemented yet
     assert( false && "MIC clDevPartition not implemented yet" );
