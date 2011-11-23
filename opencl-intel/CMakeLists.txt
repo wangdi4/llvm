@@ -38,7 +38,7 @@ project(OCL)
 Subversion_WC_INFO(${OCL_SOURCE_DIR} SDKVER)
 Subversion_WC_INFO(${OCL_SOURCE_DIR}/backend/ocl_cpu_backend BEVER)
 
-message("Current build version is ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
+message("Current build version is ${SDKVER_WC_LAST_CHANGED_REV}.${BEVER_WC_LAST_CHANGED_REV}")
 
 # vars
 set( OCL_MAKE_UTILS_DIR ${OCL_SOURCE_DIR}/cmake_utils )
