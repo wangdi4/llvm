@@ -169,9 +169,10 @@ cl_err_code GenericMemObject::Initialize(
         assert( dev );
 
         cl_dev_alloc_prop device_properties;
-        cl_dev_err_code   err = dev->GetDeviceAgent()->clDevGetMemoryAllocProperties(
-                                        m_clMemObjectType,
-                                        &device_properties );
+        cl_dev_err_code   err;
+
+        err = dev->GetDeviceAgent()->clDevGetMemoryAllocProperties( m_clMemObjectType, &device_properties );
+
         assert( CL_DEV_SUCCEEDED( err ) );
         assert( (unsigned int)device_properties.imageSharingGroupId  < MAX_DEVICE_SHARING_GROUP_ID );
         assert( (unsigned int)device_properties.bufferSharingGroupId < MAX_DEVICE_SHARING_GROUP_ID );
@@ -1072,7 +1073,9 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
 	// Need to check only for sub-buffers
 
     cl_dev_alloc_prop device_properties;
-    cl_dev_err_code   err = pDevice->GetDeviceAgent()->clDevGetMemoryAllocProperties(
+    cl_dev_err_code   err;
+
+    err = pDevice->GetDeviceAgent()->clDevGetMemoryAllocProperties(
                                     m_clMemObjectType,
                                     &device_properties );
 
