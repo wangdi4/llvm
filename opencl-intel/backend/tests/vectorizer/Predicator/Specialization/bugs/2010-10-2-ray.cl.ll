@@ -26,7 +26,18 @@ declare float @_Z3dotU8__vector4fS_(<4 x float>, <4 x float>)
 
 declare float @_Z4sqrtf(float)
 
+; CHECK: @evaluatePixel
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
 ; CHECK: ret
+
 define <4 x float> @evaluatePixel(float addrspace(1)* %pSphereArray, <2 x i32> %pixel, i32 %numberOfSpheres, i32 %numberOfSphereParameters, i32 %maxRayShots, i32 %renderWidth, i32 %renderHeight, float %viewPlaneDistance, <4 x float> %lightPos) nounwind {
 BB0:
   %scalar200 = extractelement <4 x float> %lightPos, i32 0 ; <float> [#uses=1]

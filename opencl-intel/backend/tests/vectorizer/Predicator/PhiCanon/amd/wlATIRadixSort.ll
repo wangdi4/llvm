@@ -16,6 +16,11 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @histogram
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
+; CHECK: ret
+; CHECK: @permute
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
 
 define void @histogram(i32 addrspace(1)* %unsortedData, i32 addrspace(1)* %buckets, i32 %shiftCount, i16 addrspace(3)* %sharedArray, ...) nounwind {

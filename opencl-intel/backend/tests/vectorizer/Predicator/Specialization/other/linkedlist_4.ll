@@ -12,7 +12,20 @@ target triple = "x86_64-linux-gnu"
 @.str1 = private constant [16 x i8] c"print %p %p %d\0A\00", align 1 ; <[16 x i8]*> [#uses=1]
 
 ; CHECK: @main
-; CHECK: footer
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: ret
+
 define i32 @main() nounwind {
 bb1.i:
   %n = alloca %struct.LLIST*, align 8             ; <%struct.LLIST**> [#uses=16]

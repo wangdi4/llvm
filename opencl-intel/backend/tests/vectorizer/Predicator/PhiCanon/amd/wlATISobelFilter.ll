@@ -13,6 +13,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @sobel_filter
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %land.lhs.true10, %land.lhs.true
 ; CHECK: ret
 define void @sobel_filter(i8 addrspace(2)* %inputImage, i8 addrspace(1)* %outputImage, ...) nounwind {
 entry:

@@ -127,8 +127,7 @@ private:
   /// Region preheader
   std::map<Region*, BasicBlock*> m_heads;
   /// specialization regions
-  std::set<Region*>    m_region_lookup;
-  std::vector<Region*> m_region_list;
+  std::vector<Region*> m_region_vector;
   /// All skipped blocks
   std::map<Region*, BBVector> m_skipped;
 };

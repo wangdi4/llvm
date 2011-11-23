@@ -13,6 +13,12 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @ckMedian
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %if.else58, %if.then46
+; CHECK: phi-split-bb27:                                   ; preds = %if.else134, %if.then117
+; CHECK: phi-split-bb28:                                   ; preds = %if.end100, %phi-split-bb27
+; CHECK: phi-split-bb29:                                   ; preds = %if.then202, %if.else219
+; CHECK: phi-split-bb30:                                   ; preds = %if.end181, %phi-split-bb29
+; CHECK: phi-split-bb31:                                   ; preds = %if.else140, %phi-split-bb30
 ; CHECK: ret
 define void @ckMedian(<4 x i8> addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, <4 x i8> addrspace(3)* %uc4LocalData, i32 %iLocalPixPitch, i32 %uiImageWidth, i32 %uiDevImageHeight, ...) nounwind {
 entry:

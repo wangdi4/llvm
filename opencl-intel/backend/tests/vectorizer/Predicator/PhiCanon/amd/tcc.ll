@@ -46,6 +46,12 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @tcc_vector8_third_optimization
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
+; CHECK: ret
+
+; CHECK: @tcc_scalar_unroll2
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
 
 define void @tcc_vector8_third_optimization(<8 x i16> addrspace(1)* %Uin, <8 x i16> addrspace(1)* %Vin, <8 x i16> addrspace(1)* %Uout, <8 x i16> addrspace(1)* %Vout, i32 %bufferSize, i8 addrspace(2)* %SatLUTEntry, i32 addrspace(1)* %timeStamps, ...) nounwind {

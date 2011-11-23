@@ -7,6 +7,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Module.h"
 
 #include <vector>
@@ -34,6 +36,13 @@ public:
   /// Create a new BasicBlock with incoming edges
   /// @param toFix BasicBlock to fix
   void fixBlock(BasicBlock* toFix);
+  /// @brief Make new intermediate Basic Block so that it will become PHI block
+  /// for 'prev0' and 'prev1' instead of old one
+  /// @param toFix old block to be replaced as PHI block for 'prev0' and 'prev1'
+  /// @param prev0 first block to be retargeted to the intermediate block
+  /// @param prev1 second block to be retargeted to the intermediate block
+  /// @return pointer to the created Basic Block
+  BasicBlock* makeNewPhiBB(BasicBlock* toFix, BasicBlock* prev0, BasicBlock* prev1);
   /// @brief After creating a new intermediate BasicBlock,
   /// predecessors must jump to the new BB and not to the old one.
   /// @param to_fix The Pointer
@@ -42,9 +51,11 @@ public:
   void fixBasicBlockSucessor(BasicBlock* to_fix,
                              BasicBlock* old_target,
                              BasicBlock* new_target);
-
-  // Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
+  // Need Dominator Tree and PostDominator tree prior to Phi Canonization
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+        AU.addRequired<DominatorTree>();
+        AU.addRequired<PostDominatorTree>();
+  }
 
 };
 

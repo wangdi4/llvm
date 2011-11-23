@@ -12,7 +12,14 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(3)*, i32, ...)* @prefixSum to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
 ; CHECK: @prefixSum
-; CHECK: footer
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
+
+
 define void @prefixSum(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(3)* %block, i32 %length, ...) nounwind {
 entry:
 	%output.addr = alloca float addrspace(1)*		; <float addrspace(1)**> [#uses=3]

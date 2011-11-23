@@ -13,6 +13,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @mandelbrot
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
 
 define void @mandelbrot(i32 addrspace(1)* %mandelbrotImage, float %scale, i32 %maxIterations, i32 %width, ...) nounwind {

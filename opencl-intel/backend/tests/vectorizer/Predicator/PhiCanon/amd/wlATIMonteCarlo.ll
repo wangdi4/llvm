@@ -13,6 +13,20 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @lshift128
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %LeafBlock28, %LeafBlock30
+; CHECK: phi-split-bb36:                                   ; preds = %LeafBlock26, %phi-split-bb
+; CHECK: phi-split-bb37:                                   ; preds = %sw.bb87, %sw.bb94
+; CHECK: phi-split-bb41:                                   ; preds = %sw.bb, %sw.bb82
+; CHECK: phi-split-bb46:                                   ; preds = %phi-split-bb37, %phi-split-bb41
+; CHECK: ret
+
+; CHECK: @calPriceVega
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %LeafBlock21, %LeafBlock23
+; CHECK: phi-split-bb29:                                   ; preds = %LeafBlock19, %phi-split-bb
+; CHECK: phi-split-bb30:                                   ; preds = %sw.bb87.i, %sw.bb94.i
+; CHECK: phi-split-bb34:                                   ; preds = %sw.bb.i, %sw.bb82.i
+; CHECK: phi-split-bb39:                                   ; preds = %phi-split-bb30, %phi-split-bb34
 ; CHECK: ret
 
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {

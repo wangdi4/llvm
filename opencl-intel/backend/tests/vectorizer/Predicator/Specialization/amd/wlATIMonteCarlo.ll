@@ -11,8 +11,11 @@ target triple = "i686-pc-win32"
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 @llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (<4 x float> addrspace(1)*, i32, i32, <4 x i32> addrspace(1)*, <4 x float> addrspace(1)*, <4 x float> addrspace(1)*, ...)* @calPriceVega to i8*), i8* getelementptr ([7 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
-; CHECK: @lshift128
-; CHECK: footer
+; CHECK: @calPriceVega
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                           ; preds = %header{{[0-9]*}}
+
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {
 entry:
 	%input.addr = alloca <4 x i32>		; <<4 x i32>*> [#uses=8]

@@ -4,6 +4,7 @@
 
 ; This is bug CSSD100005417
 
+; CHECK-NOT: footer
 ; CHECK: ret
 
 ; ModuleID = 'ray.bc'

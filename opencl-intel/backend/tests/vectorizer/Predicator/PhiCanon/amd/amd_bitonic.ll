@@ -13,6 +13,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @bitonicSort
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
 
 define void @bitonicSort(i32 addrspace(1)* %theArray, i32 %stage, i32 %passOfStage, i32 %width, i32 %direction, ...) nounwind {

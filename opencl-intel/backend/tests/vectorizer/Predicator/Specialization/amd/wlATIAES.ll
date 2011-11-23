@@ -15,6 +15,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (<4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, i8 addrspace(1)*, <4 x i8> addrspace(3)*, <4 x i8> addrspace(3)*, i32, i32, ...)* @AESEncrypt to i8*), i8* getelementptr ([9 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (<4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, i8 addrspace(1)*, <4 x i8> addrspace(3)*, <4 x i8> addrspace(3)*, i32, i32, ...)* @AESDecrypt to i8*), i8* getelementptr ([9 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
 ; CHECK: @shiftRows
+; CHECK-NOT: footer
+; CHECK: ret
+
 define <4 x i8> @shiftRows(<4 x i8> %row, i32 %j) nounwind {
 entry:
 	%retval = alloca <4 x i8>		; <<4 x i8>*> [#uses=2]

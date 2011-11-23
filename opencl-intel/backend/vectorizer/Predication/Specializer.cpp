@@ -40,9 +40,19 @@ bool FunctionSpecializer::shouldSpecialize(Region *reg) {
   V_ASSERT(m_skipped[reg].size() > 0);
   if (m_skipped[reg].size() < 2) {
     CodeMetrics Metrics;
-    Metrics.analyzeBasicBlock(reg->getEntry());
-    // Check if we are within the threashold
-    if (Metrics.NumInsts < SpecializeThreshold) return false;
+    // Collect instruction amount metrics
+    BasicBlock *entryBB = reg->getEntry();
+    Metrics.analyzeBasicBlock(entryBB);
+    // Check whether there is a function call
+    bool funcCallFound = false;
+    for (BasicBlock::const_iterator it = entryBB->begin(); it != entryBB->end(); it++) {
+      if (dyn_cast<CallInst>(it) || dyn_cast<InvokeInst>(it)) {
+        funcCallFound = true;
+        break;
+      }
+    }
+    // Check if we are within the threshold of instructions or 
+    if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound) return false;
   }
 
   return true;
@@ -63,7 +73,9 @@ BasicBlock* FunctionSpecializer::getAnyReturnBlock() {
 bool FunctionSpecializer::CanSpecialize() {
 
   BasicBlock* ret = getAnyReturnBlock();
-  V_ASSERT(ret && "unable to find return block");
+  if (!ret) {
+    return false;
+  }
 
   for (Function::iterator y = m_func->begin(),
        ye = m_func->end(); y != ye ; ++y) {
@@ -87,52 +99,79 @@ void FunctionSpecializer::CollectDominanceInfo() {
 
   for (Function::iterator bb = m_func->begin(), bbe = m_func->end(); bb != bbe ; ++bb) {
     Region *reg = m_RI->getRegionFor(bb);
-    V_ASSERT(reg && "getRegionFor faile!");    
-    if (reg->getExit() && reg->getEntry() && reg->isSimple()) {
+    V_ASSERT(reg && "getRegionFor failed!");
+    // Look for every region only once - upon its entry BB
+    if (reg->getEntry() != bb) continue;
+    // Accounting for the case of nested regions, starting from this BB: select the outmost one
+    Region *cur_reg = reg;
+    while (cur_reg && cur_reg->getEntry() == bb) {
+      reg = cur_reg;
+      cur_reg = cur_reg->getParent();
+    }
 
-    // Register region once
-    if (m_region_lookup.find(reg) != m_region_lookup.end()) continue;
+    // As we ignore nested regions and BBs which are not an entry to a region -
+    // a region can be encountered only once
+    V_ASSERT(std::find(m_region_vector.begin(), m_region_vector.end(), reg) == 
+             m_region_vector.end() && "Nested region or non-entry block!");
 
-    // Region must have a single exit (exit block not part of region)
-    if (!reg->getExit()->getSinglePredecessor()) continue;
-
-    // Has single pred ? (yes, it is a simple region)
+    // Has single pred ?
     BasicBlock *entry = reg->getEntry();
+    V_ASSERT(entry == bb && "This BB should be the entry one!");
     // Loop over all preds to the first block in entry.
     // Some of the preds may be backedges. Look for edges from outside
     // the region. We need to have one.
-    llvm::pred_iterator it = pred_begin(entry);
-    llvm::pred_iterator e  = pred_end(entry);
+    llvm::pred_iterator predIt = pred_begin(entry);
+    llvm::pred_iterator predE  = pred_end(entry);
     BasicBlock* head = NULL;     
-    for (; it!=e; ++it) {
-      if (reg->contains(*it)) continue;
-      if (head) { V_ASSERT(false && "Multiple outside entries ? must have only two preds!"); }
-      head = *it;
+    for (; predIt!=predE; ++predIt) {
+      if (reg->contains(*predIt)) continue;
+      if (head) { 
+        // Region's entry has two incoming edges - discard it for specialization
+        head = NULL;
+        break;
+      }       
+      head = *predIt;
     }
-    
-    V_ASSERT(head && "no head!");
     if (!head) continue;
 
+    // Region must have single successor. However the last block of a region may
+    // yet have an outgoing back edge to the region's entry block.
+    BasicBlock *exit = reg->getExit();
+    // If a region has an incoming edge to entry block - it should have exit block
+    V_ASSERT(exit && "Broken region - has incoming edge, but no exit block!");
+    llvm::succ_iterator succIt = succ_begin(exit);
+    llvm::succ_iterator succE  = succ_end(exit);
+    BasicBlock* foot = NULL;     
+    for (; succIt!=succE; ++succIt) {
+      if (reg->contains(*succIt)) continue;
+      if (foot) { 
+        // Region's exit has two outgoing edges - discard it for specialization
+        foot = NULL;
+        break;
+      }       
+      foot = *succIt;
+    }
+    if (!foot) continue;
+
+    // Register the region for specialization
     BranchInst *br = dyn_cast<BranchInst>(head->getTerminator());
     V_ASSERT(br && "Must have branch inst");
     // Only specialize after condition
     if (SpecOnlyAfterBranch && (! br->isConditional())) continue;
 
     // Register the region
-    m_region_lookup.insert(reg);
-    m_region_list.push_back(reg);
+    m_region_vector.push_back(reg);
     m_heads[reg] = head;
     BBVector skipped;
     findSkippedBlocks(reg, skipped);
     m_skipped[reg] = skipped;
-    }// simple reg
   }
 }
 
 void FunctionSpecializer::specializeFunction() {
 
-  for (std::vector<Region*>::iterator it = m_region_list.begin(),
-      e = m_region_list.end(); it != e; ++it) {
+  for (std::vector<Region*>::iterator it = m_region_vector.begin(),
+      e = m_region_vector.end(); it != e; ++it) {
       if (shouldSpecialize(*it)) {
         specializeEdge(*it);
         V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
@@ -143,8 +182,8 @@ void FunctionSpecializer::specializeFunction() {
 
 void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
   // for all regions
-  for (std::vector<Region*>::iterator rit = m_region_list.begin(),
-      re = m_region_list.end(); rit != re; ++rit) {
+  for (std::vector<Region*>::iterator rit = m_region_vector.begin(),
+      re = m_region_vector.end(); rit != re; ++rit) {
     Region* reg = *rit;
     // if we specialze this region
     if (! shouldSpecialize(reg)) continue;
@@ -157,8 +196,6 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
         be = skipped.end(); bit != be; ++bit) {
       scp->addBasicBlock(*bit);
     }
-    // Make sure exit location is scheduled right after
-    scp->addBasicBlock(reg->getExit());
     // register region with parent
     parent.addSubSchedulingScope(scp);
   }// regions
@@ -176,7 +213,7 @@ void FunctionSpecializer::addNewToRegion(BasicBlock* old, BasicBlock* fresh) {
 
 BasicBlock* FunctionSpecializer::createIntermediateBlock(
   BasicBlock* before, BasicBlock* after, const std::string& name) {
-  V_ASSERT(std::find(pred_begin(after),pred_end(after), before) != pred_end(after) && "right order");
+
   // new block
   BasicBlock* new_block = BasicBlock::Create(before->getContext(), name, after->getParent(), after);
   // fix before
@@ -188,8 +225,8 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
   for (unsigned i=0; i<br->getNumSuccessors(); ++i) {
     if (br->getSuccessor(i) == after) { changed = true; br->setSuccessor(i, new_block); }
   }
-
   V_ASSERT(changed);
+
   // Fix after block
   for (BasicBlock::iterator it = after->begin(),e=after->end(); it != e; ++it) {
     if (PHINode* phi = dyn_cast<PHINode>(it)) {
@@ -210,18 +247,65 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
   
   V_ASSERT(m_heads.find(reg) != m_heads.end() && "no head!");
+
+  V_ASSERT(m_skipped.find(reg) != m_skipped.end());
+  BBVector skipped = m_skipped[reg];
+
+  std::set<BasicBlock*> skipped_lookup; 
+  for (BBVector::iterator it = skipped.begin(); it != skipped.end(); it++) {
+    skipped_lookup.insert(*it);
+  }
+
+  // Refining the incoming edge
   BasicBlock* head = m_heads[reg];
-  BasicBlock* src = createIntermediateBlock(head, reg->getEntry(), "header");
+  BasicBlock* entry = reg->getEntry();
+  BasicBlock* before = entry->getSinglePredecessor();
+  // if there are two edges entering the region ('loop' case) - take edge coming
+  // from outside
+  if (!before) {
+    for (llvm::pred_iterator it = pred_begin(entry); it != pred_end(entry); ++it) {
+      if (skipped_lookup.find(*it) != skipped_lookup.end()) continue;
+      if (before) {
+        // BUGBUG: sometimes linearizer's change of CFG leads to situation
+        // when dominance info collected earlier is no valid anymore (e.g., some
+        // region is being extended, or new dominance produced). In that case
+        // edge analysis vs. region containment info doesn't hold
+        before = NULL;
+        break;
+      }
+      before = *it;
+    }
+  }
+  if (!before) return;
+
+  // Refining the outgoing edge
+  BasicBlock* exitBlock = reg->getExit();
+  BasicBlock* after = NULL;
+  // if there are two edges leaving the region ('loop' case) - take edge going
+  // outside of the loop
+  for (llvm::succ_iterator it = succ_begin(exitBlock); it != succ_end(exitBlock); ++it) {
+    if (skipped_lookup.find(*it) != skipped_lookup.end()) continue;
+    if (after) {
+      // BUGBUG: sometimes linearizer's change of CFG leads to situation
+      // when dominance info collected earlier is no valid anymore (e.g., some
+      // region is being extended, or new dominance produced). In that case
+      // edge analysis vs. region containment info doesn't hold
+      after = NULL;
+      break;
+    }
+    after = *it;
+  }
+
+  if (!after) return;
+
+  // Creating launching and landing pads for bypass
+  BasicBlock* src = createIntermediateBlock(before, entry, "header");
 
   Value* mask = m_pred->getEdgeMask(head ,reg->getEntry());
   V_ASSERT(mask && "unable to find mask");
 
-  BasicBlock* exitBlock = reg->getExit()->getSinglePredecessor();
-  V_ASSERT(exitBlock);
-  BasicBlock* footer = createIntermediateBlock(exitBlock, reg->getExit(), "footer");
+  BasicBlock* footer = createIntermediateBlock(exitBlock, after, "footer");
 
-  BBVector skipped = m_skipped[reg];
-  
   // Get the list of PHINodes which we need to insert (for skipped instructions)
   std::vector<std::pair<Instruction* , std::set<Instruction*> > > vals;
   findValuesToPhi(reg,  vals);
@@ -291,6 +375,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   addNewToRegion(reg->getEntry(), footer);
 
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
+
 }
   
 void FunctionSpecializer::findSkippedBlocks(Region* reg, BBVector& skipped) {
@@ -300,7 +385,7 @@ void FunctionSpecializer::findSkippedBlocks(Region* reg, BBVector& skipped) {
   for (Function::iterator it = m_func->begin(), e = m_func->end(); it != e ; ++it) {
     if (reg->contains(it)) { skipped.push_back(it); }
   } 
-  skipped.push_back(reg->getEntry());
+  skipped.push_back(reg->getExit());
 }
 
 void FunctionSpecializer::findValuesToPhi(
@@ -333,4 +418,4 @@ void FunctionSpecializer::findValuesToPhi(
   } // for each bb
 }
 
-} // namesapce
+} // namespace

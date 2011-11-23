@@ -13,6 +13,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @histogram
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %for.end88.loopexit, %for.end88.loopexit44
 ; CHECK: ret
 
 define void @histogram(i32 addrspace(1)* %data, i8 addrspace(3)* %sharedArray, i32 addrspace(1)* %binResult, i32 %BIN_SIZE, ...) nounwind {

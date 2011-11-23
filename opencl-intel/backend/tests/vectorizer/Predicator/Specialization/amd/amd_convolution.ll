@@ -12,7 +12,15 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (float addrspace(1)*, i32 addrspace(1)*, float addrspace(1)*, <2 x i32>, <2 x i32>, ...)* @simpleConvolution to i8*), i8* getelementptr ([6 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
 ; CHECK: simpleConvolution
-; CHECK: footer
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 
 define void @simpleConvolution(float addrspace(1)* %output, i32 addrspace(1)* %input, float addrspace(1)* %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions, ...) nounwind {
 entry:

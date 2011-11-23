@@ -16,6 +16,15 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @shiftRows
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
+; CHECK: ret
+; CHECK: @AESEncrypt
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
+; CHECK: ret
+; CHECK: @AESDecrypt
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
 
 define <4 x i8> @shiftRows(<4 x i8> %row, i32 %j) nounwind {

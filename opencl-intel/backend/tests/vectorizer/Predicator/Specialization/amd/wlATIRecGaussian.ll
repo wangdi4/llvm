@@ -14,8 +14,15 @@ target triple = "i686-pc-win32"
 @lvgv3 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 @llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (<4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, <4 x i8> addrspace(3)*, i32, i32, i32, ...)* @transpose_kernel to i8*), i8* getelementptr ([7 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (<4 x i8> addrspace(1)*, <4 x i8> addrspace(1)*, i32, i32, float, float, float, float, float, float, float, float, ...)* @RecursiveGaussian_kernel to i8*), i8* getelementptr ([13 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
-; CHECK: @transpose_kernel
-; CHECK: footer
+; CHECK: @RecursiveGaussian_kernel
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
+; CHECK: ret
+
 define void @transpose_kernel(<4 x i8> addrspace(1)* %output, <4 x i8> addrspace(1)* %input, <4 x i8> addrspace(3)* %block, i32 %width, i32 %height, i32 %blockSize, ...) nounwind {
 entry:
 	%output.addr = alloca <4 x i8> addrspace(1)*		; <<4 x i8> addrspace(1)**> [#uses=2]

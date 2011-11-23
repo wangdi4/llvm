@@ -13,6 +13,8 @@ target triple = "i686-pc-win32"
 
 ; CHECK: getIdx
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %for.end.loopexit, %for.end.loopexit52
+; CHECK: phi-split-bb54:                                   ; preds = %for.end92.loopexit, %for.end92.loopexit53
 ; CHECK: ret
 
 define i32 @getIdx(i32 %blockIdx, i32 %blockIdy, i32 %localIdx, i32 %localIdy, i32 %blockWidth, i32 %globalWidth) nounwind {

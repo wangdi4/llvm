@@ -15,6 +15,13 @@ target triple = "i686-pc-win32"
 @opencl_Sobel_Kernel_AutoVec_parameters = appending global [173 x i8] c"float __attribute__((address_space(1))) *, int, int, int, int, int, float __attribute__((address_space(1))) *, int, float __attribute__((address_space(1))) *, int, int, int\00", section "llvm.metadata" ; <[173 x i8]*> [#uses=1]
 @opencl_metadata = appending global [3 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32, i32, i32, i32, i32, float addrspace(1)*, i32, float addrspace(1)*, i32, i32, i32)* @Sobel_Kernel to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_Sobel_Kernel_locals to i8*), i8* getelementptr inbounds ([173 x i8]* @opencl_Sobel_Kernel_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32, i32, i32, i32, i32, float addrspace(1)*, i32, float addrspace(1)*, i32, i32, i32)* @Sobel_Kernel_Vec to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_Sobel_Kernel_Vec_locals to i8*), i8* getelementptr inbounds ([173 x i8]* @opencl_Sobel_Kernel_Vec_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32, i32, i32, i32, i32, float addrspace(1)*, i32, float addrspace(1)*, i32, i32, i32)* @Sobel_Kernel_AutoVec to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_Sobel_Kernel_AutoVec_locals to i8*), i8* getelementptr inbounds ([173 x i8]* @opencl_Sobel_Kernel_AutoVec_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[3 x %opencl_metadata_type]*> [#uses=0]
 
+; CHECK: @Sobel_Kernel
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 define void @Sobel_Kernel(float addrspace(1)* %Image, i32 %Image_PitchInFloat, i32 %Image_W, i32 %Image_H, i32 %Image_BW, i32 %Image_BH, float addrspace(1)* %OutX, i32 %OutX_PitchInFloat, float addrspace(1)* %OutY, i32 %OutY_PitchInFloat, i32 %ROIWidth, i32 %ROIHeight) nounwind {
 entry:
@@ -287,7 +294,6 @@ declare i32 @get_global_id(i32)
 
 declare i32 @get_global_size(i32)
 
-; CHECK: ret
 define void @Sobel_Kernel_Vec(float addrspace(1)* %Image, i32 %Image_PitchInFloat, i32 %Image_W, i32 %Image_H, i32 %Image_BW, i32 %Image_BH, float addrspace(1)* %OutX, i32 %OutX_PitchInFloat, float addrspace(1)* %OutY, i32 %OutY_PitchInFloat, i32 %ROIWidth, i32 %ROIHeight) nounwind {
 entry:
   %Image.addr = alloca float addrspace(1)*, align 4 ; <float addrspace(1)**> [#uses=2]
@@ -663,7 +669,6 @@ for.end259:                                       ; preds = %for.cond
 
 declare <4 x float> @_Z6vload4jPKo1f(i32, float addrspace(1)*)
 
-; CHECK: ret
 define void @Sobel_Kernel_AutoVec(float addrspace(1)* %Image, i32 %Image_PitchInFloat, i32 %Image_W, i32 %Image_H, i32 %Image_BW, i32 %Image_BH, float addrspace(1)* %OutX, i32 %OutX_PitchInFloat, float addrspace(1)* %OutY, i32 %OutY_PitchInFloat, i32 %ROIWidth, i32 %ROIHeight) nounwind {
 entry:
   %Image.addr = alloca float addrspace(1)*, align 4 ; <float addrspace(1)**> [#uses=2]

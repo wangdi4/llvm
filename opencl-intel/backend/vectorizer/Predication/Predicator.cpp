@@ -366,60 +366,60 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
   // is this the only condition ?
   if (loop && loop->getHeader() == BB) return;
 
-  bool changed = true;
-  // in here we loop over all instructions in a while
-  // because the iterator does not allow us to change
-  // the instruction while iterating
-  while (changed) {
-    changed = false;
+  // Cache all PHI entries which can be converted to select
+  SmallInstVector PhiInstrVector;
+  for (BasicBlock::iterator it = BB->begin(); it != BB->end(); it++) {
     // for each instruction
-    for(BasicBlock::iterator it = BB->begin(), e=BB->end(); it != e ; ++it) {
-      // If it is a PHI node which we need to eliminate
-      PHINode *phi = dyn_cast<PHINode>(it);
-      // If we have reached the first non-phi, we can bail out
-      if (!phi) return;
+    // If it is a PHI node which we need to eliminate
+    PHINode *phi = dyn_cast<PHINode>(it);
+    // If we have reached the first non-phi, the caching is over
+    if (!phi) break;
 
-      V_ASSERT(phi->getNumIncomingValues() < 3
-               && "Phi node must have only two or less incoming edges");
-      // And we don't handle 1-entry phi node.
-      if (phi->getNumIncomingValues() != 2) continue;
+    V_ASSERT(phi->getNumIncomingValues() < 3
+             && "Phi node must have only two or less incoming edges");
+    // Collect only 2-entry phi nodes.
+    if (phi->getNumIncomingValues() == 2) {
+      PhiInstrVector.push_back(it);
+    }
+  }
 
-      V_ASSERT(
-        m_outMask.find(std::make_pair(phi->getIncomingBlock(0), BB)) !=
-        m_outMask.end());
+  // Convert all PHI nodes collected
+  for (SmallInstVector::iterator it = PhiInstrVector.begin(); 
+                                 it != PhiInstrVector.end(); it++) {
+    PHINode *phi = dyn_cast<PHINode>(*it); 
+    V_ASSERT(
+      m_outMask.find(std::make_pair(phi->getIncomingBlock(0), BB)) !=
+      m_outMask.end());
 
-      V_ASSERT(m_inInst.find(BB) != m_inInst.end() && "No in-mask");
-      Instruction* place = m_inInst[BB];
+    V_ASSERT(m_inInst.find(BB) != m_inInst.end() && "No in-mask");
+    Instruction* place = m_inInst[BB];
 
-      Value* edge_mask_p =
-        m_outMask[std::make_pair(phi->getIncomingBlock(0), BB)];
+    Value* edge_mask_p =
+      m_outMask[std::make_pair(phi->getIncomingBlock(0), BB)];
 
-      Instruction* edge_mask = new LoadInst(
-        edge_mask_p, "emask", place);
+    Instruction* edge_mask = new LoadInst(
+      edge_mask_p, "emask", place);
 
-      place->moveBefore(edge_mask);
+    place->moveBefore(edge_mask);
 
-      // create select instruction
-      SelectInst* select =
-        SelectInst::Create(edge_mask, phi->getIncomingValue(0),
-                           phi->getIncomingValue(1), "merge", edge_mask);
+    // create select instruction
+    SelectInst* select =
+      SelectInst::Create(edge_mask, phi->getIncomingValue(0),
+                         phi->getIncomingValue(1), "merge", edge_mask);
 
-      // Put in a place which satisfies data dependencies
-      moveAfterLastDependant(select);
+    // Put in a place which satisfies data dependencies
+    moveAfterLastDependant(select);
 
-      phi->replaceAllUsesWith(select);
-      phi->eraseFromParent();
-      // We may change instructions which we planned on prev-select-ing
-      // in here we update the value which we want to prev-select
-      std::replace(m_outsideUsers.begin(), m_outsideUsers.end(),
-                   static_cast<Instruction*>(phi),
-                   static_cast<Instruction*>(select));
-
-      changed = true;
-      break;
-    } // for
-  } // while
+    phi->replaceAllUsesWith(select);
+    phi->eraseFromParent();
+    // We may change instructions which we planned on prev-select-ing
+    // in here we update the value which we want to prev-select
+    std::replace(m_outsideUsers.begin(), m_outsideUsers.end(),
+                 static_cast<Instruction*>(phi),
+                 static_cast<Instruction*>(select));
+  }
 }
+
 Function* Predicator::createPredicatedFunction(Instruction *inst,
                                                Value* pred,
                                                const std::string& name) {

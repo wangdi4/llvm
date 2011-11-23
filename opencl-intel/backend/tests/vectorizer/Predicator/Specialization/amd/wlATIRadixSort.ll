@@ -15,6 +15,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i16 addrspace(3)*, ...)* @histogram to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i16 addrspace(3)*, i32 addrspace(1)*, ...)* @permute to i8*), i8* getelementptr ([6 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
 ; CHECK: @histogram
+; CHECK-NOT: footer
+; CHECK: ret
+
 define void @histogram(i32 addrspace(1)* %unsortedData, i32 addrspace(1)* %buckets, i32 %shiftCount, i16 addrspace(3)* %sharedArray, ...) nounwind {
 entry:
 	%unsortedData.addr = alloca i32 addrspace(1)*		; <i32 addrspace(1)**> [#uses=2]

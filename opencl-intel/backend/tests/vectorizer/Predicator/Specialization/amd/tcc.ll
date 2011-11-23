@@ -45,6 +45,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (<8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, i32, i8 addrspace(2)*, i32 addrspace(1)*, ...)* @tcc_vector8_third_optimization to i8*), i8* getelementptr ([8 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i32, i8 addrspace(2)*, ...)* @tcc_scalar_unroll2 to i8*), i8* getelementptr ([7 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
 ; CHECK: @tcc_vector8_third_optimization
+; CHECK-NOT: footer
+; CHECK: ret
+
 define void @tcc_vector8_third_optimization(<8 x i16> addrspace(1)* %Uin, <8 x i16> addrspace(1)* %Vin, <8 x i16> addrspace(1)* %Uout, <8 x i16> addrspace(1)* %Vout, i32 %bufferSize, i8 addrspace(2)* %SatLUTEntry, i32 addrspace(1)* %timeStamps, ...) nounwind {
 entry:
 	%Uin.addr = alloca <8 x i16> addrspace(1)*		; <<8 x i16> addrspace(1)**> [#uses=2]

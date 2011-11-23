@@ -13,6 +13,20 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @lshift128
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %LeafBlock55, %LeafBlock57
+; CHECK: phi-split-bb65:                                   ; preds = %LeafBlock51, %phi-split-bb
+; CHECK: phi-split-bb66:                                   ; preds = %LeafBlock49, %phi-split-bb65
+; CHECK: phi-split-bb67:                                   ; preds = %LeafBlock43, %phi-split-bb66
+; CHECK: phi-split-bb68:                                   ; preds = %LeafBlock41, %phi-split-bb67
+; CHECK: phi-split-bb69:                                   ; preds = %LeafBlock39, %phi-split-bb68
+; CHECK: phi-split-bb70:                                   ; preds = %sw.bb128, %sw.bb139
+; CHECK: phi-split-bb74:                                   ; preds = %sw.bb110, %sw.bb117
+; CHECK: phi-split-bb79:                                   ; preds = %phi-split-bb70, %phi-split-bb74
+; CHECK: phi-split-bb84:                                   ; preds = %sw.bb96, %sw.bb103
+; CHECK: phi-split-bb89:                                   ; preds = %sw.bb, %sw.bb90
+; CHECK: phi-split-bb94:                                   ; preds = %phi-split-bb84, %phi-split-bb89
+; CHECK: phi-split-bb99:                                   ; preds = %phi-split-bb79, %phi-split-bb94
+; CHECK: phi-split-bb104:                                  ; preds = %for.end, %for.end328.loopexit
 ; CHECK: ret
 
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {

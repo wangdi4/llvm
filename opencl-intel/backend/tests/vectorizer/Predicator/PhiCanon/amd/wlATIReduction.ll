@@ -13,7 +13,9 @@ target triple = "i686-pc-win32"
 
 ; CHECK: @reduce
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK-NOT: phi-split-bb
 ; CHECK: ret
+
 define void @reduce(<4 x i32> addrspace(1)* %input, <4 x i32> addrspace(1)* %output, <4 x i32> addrspace(3)* %sdata, ...) nounwind {
 entry:
 	%input.addr = alloca <4 x i32> addrspace(1)*		; <<4 x i32> addrspace(1)**> [#uses=2]

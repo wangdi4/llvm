@@ -32,8 +32,29 @@ target triple = "i686-pc-win32"
 @lvgv21 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 @llvm.global.annotations = appending global [8 x %0] [%0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, ...)* @histogramScalar to i8*), i8* getelementptr ([4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, i32, ...)* @histogramGrouped to i8*), i8* getelementptr ([7 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, ...)* @histogramStep1 to i8*), i8* getelementptr ([5 x i8]* @sgv4, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv5, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv6 to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int to i8*), i8* getelementptr ([6 x i8]* @sgv7, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv8, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv9 to i8*), i32 0 }, %0 { i8* bitcast (void (<2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int2 to i8*), i8* getelementptr ([6 x i8]* @sgv10, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv11, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv12 to i8*), i32 0 }, %0 { i8* bitcast (void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int4 to i8*), i8* getelementptr ([6 x i8]* @sgv13, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv14, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv15 to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x i32> addrspace(1)*, <8 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int8 to i8*), i8* getelementptr ([6 x i8]* @sgv16, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv17, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv18 to i8*), i32 0 }, %0 { i8* bitcast (void (<16 x i32> addrspace(1)*, <16 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int16 to i8*), i8* getelementptr ([6 x i8]* @sgv19, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv20, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv21 to i8*), i32 0 }], section "llvm.metadata"		; <[8 x %0]*> [#uses=0]
 
-; CHECK: @histogramScalar
+; CHECK: @histogramGrouped
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph8, %for.end83.loopexit
+; CHECK: ret
+; CHECK: @histogramStep2int
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph6, %for.end31.loopexit
+; CHECK: ret
+; CHECK: @histogramStep2int2
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph6, %for.end31.loopexit
+; CHECK: ret
+; CHECK: @histogramStep2int4
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph6, %for.end31.loopexit
+; CHECK: ret
+; CHECK: @histogramStep2int8
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph6, %for.end31.loopexit
+; CHECK: ret
+; CHECK: @histogramStep2int16
+; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %bb.nph6, %for.end31.loopexit
 ; CHECK: ret
 
 define void @histogramScalar(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiOutputArray, i32 %szMatrix, ...) nounwind {

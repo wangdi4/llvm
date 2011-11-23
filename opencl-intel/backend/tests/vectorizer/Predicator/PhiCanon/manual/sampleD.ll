@@ -8,6 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @func
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %for.end26.loopexit, %for.end26.loopexit13
 ; CHECK: ret
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:

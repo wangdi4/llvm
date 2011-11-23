@@ -13,6 +13,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: simpleConvolution
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %for.end119.loopexit, %for.end119.loopexit75
 ; CHECK: ret
 
 define void @simpleConvolution(float addrspace(1)* %output, i32 addrspace(1)* %input, float addrspace(1)* %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions, ...) nounwind {

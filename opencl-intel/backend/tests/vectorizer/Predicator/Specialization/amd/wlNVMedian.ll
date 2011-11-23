@@ -12,7 +12,19 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (<4 x i8> addrspace(1)*, i32 addrspace(1)*, <4 x i8> addrspace(3)*, i32, i32, i32, ...)* @ckMedian to i8*), i8* getelementptr ([7 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
 ; CHECK: @ckMedian
-; CHECK: footer
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+
 define void @ckMedian(<4 x i8> addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, <4 x i8> addrspace(3)* %uc4LocalData, i32 %iLocalPixPitch, i32 %uiImageWidth, i32 %uiDevImageHeight, ...) nounwind {
 entry:
 	%uc4Source.addr = alloca <4 x i8> addrspace(1)*		; <<4 x i8> addrspace(1)**> [#uses=7]

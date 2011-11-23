@@ -27,6 +27,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [5 x %0] [%0 { i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32, ...)* @DCT to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_VECTOR to i8*), i8* getelementptr ([5 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv3 to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_VECTOR_DOT to i8*), i8* getelementptr ([5 x i8]* @sgv4, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv5, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv6 to i8*), i32 0 }, %0 { i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32, ...)* @DCT_CPU to i8*), i8* getelementptr ([5 x i8]* @sgv7, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv8, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv9 to i8*), i32 0 }, %0 { i8* bitcast (void (float addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_CPU_VECTOR to i8*), i8* getelementptr ([5 x i8]* @sgv10, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv11, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv12 to i8*), i32 0 }], section "llvm.metadata"		; <[5 x %0]*> [#uses=0]
 
 ; CHECK: @DCT
+; CHECK-NOT: footer
+; CHECK: ret
+
 define void @DCT(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(1)* %dct, i32 %width, ...) nounwind {
 entry:
 	%output.addr = alloca float addrspace(1)*		; <float addrspace(1)**> [#uses=9]

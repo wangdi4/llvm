@@ -12,7 +12,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (i8 addrspace(2)*, i8 addrspace(1)*, ...)* @sobel_filter to i8*), i8* getelementptr ([3 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
 ; CHECK: @sobel_filter
+; CHECK-NOT: footer
 ; CHECK: ret
+
 define void @sobel_filter(i8 addrspace(2)* %inputImage, i8 addrspace(1)* %outputImage, ...) nounwind {
 entry:
 	%inputImage.addr = alloca i8 addrspace(2)*		; <i8 addrspace(2)**> [#uses=16]

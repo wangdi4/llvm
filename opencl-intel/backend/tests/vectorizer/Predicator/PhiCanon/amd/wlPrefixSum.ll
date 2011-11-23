@@ -16,6 +16,7 @@ target triple = "i686-pc-win32"
 
 ;CHECK: @prefixSumStep1 
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; CHECK: phi-split-bb:                                     ; preds = %for.cond23.preheader, %for.end57.loopexit
 ; CHECK: ret
 
 define void @prefixSumStep1(i32 addrspace(1)* %puiInputArray, i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)* %puiTmpArray, i32 %szElementsPerItem, ...) nounwind {

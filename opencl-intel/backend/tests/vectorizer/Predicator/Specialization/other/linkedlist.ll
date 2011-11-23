@@ -11,8 +11,20 @@ target triple = "x86_64-linux-gnu"
 @.str = private constant [14 x i8] c"list is empty\00", align 1 ; <[14 x i8]*> [#uses=1]
 @.str1 = private constant [16 x i8] c"print %p %p %d\0A\00", align 1 ; <[16 x i8]*> [#uses=1]
 
-; CHECK: @list_add
-; CHECK: footer
+; CHECK: @main
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: ret
+
 define %struct.LLIST* @list_add(%struct.LLIST** %p, i32 %i) nounwind {
 entry:
   %0 = icmp eq %struct.LLIST** %p, null           ; <i1> [#uses=1]

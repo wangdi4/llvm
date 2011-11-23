@@ -15,6 +15,9 @@ target triple = "i686-pc-win32"
 @llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, ...)* @prefixSumStep1 to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, ...)* @prefixSumStep2 to i8*), i8* getelementptr ([4 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
 ;CHECK: @prefixSumStep1 
+;CHECK-NOT: footer
+;CHECK: ret
+
 define void @prefixSumStep1(i32 addrspace(1)* %puiInputArray, i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)* %puiTmpArray, i32 %szElementsPerItem, ...) nounwind {
 entry:
 	%puiInputArray.addr = alloca i32 addrspace(1)*		; <i32 addrspace(1)**> [#uses=2]
