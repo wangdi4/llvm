@@ -160,7 +160,7 @@ list( APPEND MIC_FLAGS
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${OCL_SOURCE_DIR}/externals/tbb/include
                 -I ${COI_SDK_PATH}/include
-		-I ${MIC_TBB_HEADERS_PATH}
+                -I ${MIC_TBB_HEADERS_PATH}
                 )
 
 if ( MIC_TESTING_MODE )
@@ -183,12 +183,12 @@ list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
                 -L ${BACKEND_SDK_PATH}/lib/Lin64_${INSTALL_SUBDIR}
-		-L ${MIC_TBB_LIB_PATH}
+                -L ${MIC_TBB_LIB_PATH}
 
                 # libs to link
                 -lcoi_device
                 -lOclDeviceExecutor
-		-l${TBB_LIBS_TO_LINK}
+                -l${TBB_LIBS_TO_LINK}
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic

@@ -7,10 +7,10 @@
 # set that name of the main output file as a target name
 option( MIC_TESTING_MODE OFF )
 if (NOT MIC_TESTING_MODE)
-	set( TARGET_NAME mic_device )
+    set( TARGET_NAME mic_device )
 else (NOT MIC_TESTING_MODE)
     set( TARGET_NAME mic_device_testing_mode )
-	add_definitions( -DNDRANGE_UNIT_TEST )
+    add_definitions( -DNDRANGE_UNIT_TEST )
 endif (NOT MIC_TESTING_MODE)
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
@@ -31,9 +31,9 @@ if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     set( MIC_TBB_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/bin/Mic_Release )
 endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-	
 
-add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}" 
+
+add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}"
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
 
 include_directories( BEFORE
@@ -94,7 +94,7 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd)
 
-install(TARGETS ${TARGET_NAME} 
+install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
@@ -111,7 +111,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 if (NOT WIN32)
     if (NOT MIC_TESTING_MODE)
         SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} MicDefice_linux_exports.txt )
-	endif (NOT MIC_TESTING_MODE)
+    endif (NOT MIC_TESTING_MODE)
 endif (NOT WIN32)
 
 add_dependencies( ${TARGET_NAME} LLVM_copy_tools )

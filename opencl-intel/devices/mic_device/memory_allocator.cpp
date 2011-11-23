@@ -256,6 +256,13 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
 	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
 	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
+    if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
+    {
+        // error - nothing can be done
+        m_pBackingStore = NULL;
+        return;
+    }
+
     m_pBackingStore->AddPendency();
 
     m_raw_size = m_pBackingStore->GetRawDataSize();
@@ -282,6 +289,11 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
 
 cl_dev_err_code MICDevMemoryObject::Init()
 {
+    if (NULL == m_pBackingStore)
+    {
+        return CL_DEV_OBJECT_ALLOC_FAIL;
+    }
+
     // create COI buffer on top of allocated memory
 
     // we will need to filter MIC DAs from all devices supported by current memory object
@@ -320,11 +332,13 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 {
+    COIRESULT coi_err = COI_SUCCESS;
+
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseObject enter"));
 
     if (0 != m_coi_buffer)
     {
-        COIRESULT coi_err = COIBufferDestroy( m_coi_buffer );
+        coi_err = COIBufferDestroy( m_coi_buffer );
         assert( COI_SUCCESS == coi_err && "Cannot destroy COI Buffer" );
     }
 

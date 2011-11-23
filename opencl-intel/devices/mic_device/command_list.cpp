@@ -25,7 +25,7 @@ CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_
 };
 
 
-CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId) : 
+CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId) :
 m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId)
 {
 	m_refCounter.exchange(1);
@@ -36,15 +36,17 @@ m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceC
 
 CommandList::~CommandList()
 {
+    COIRESULT result = COI_SUCCESS;
+
     assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
 	if ((gSafeReleaseOfCoiObjects) && (m_pipe))
 	{
-	    COIRESULT result = COIPipelineDestroy(m_pipe);
+	    result = COIPipelineDestroy(m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineDestroy failed");
 	}
 }
 
-cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, cl_dev_subdevice_id subDeviceId, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, 
+cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, cl_dev_subdevice_id subDeviceId, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
 												IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList)
 {
     cl_dev_err_code result = CL_DEV_SUCCESS;

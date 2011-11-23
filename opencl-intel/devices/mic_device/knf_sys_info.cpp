@@ -19,9 +19,6 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-//TODO - Remove it when it will define by R.T. API.
-#define CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT 0
-
 // Update also in clang_driver.cpp (Guy)
 #ifdef __DOUBLE_ENABLED__
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\

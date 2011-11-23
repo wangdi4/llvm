@@ -48,6 +48,7 @@
 //
 #define ATOMIC_ASSIGN( var_name, value )                                                      \
     {                                                                                         \
-        bool ok = __sync_bool_compare_and_swap( &(var_name), (var_name), (value) );           \
+        bool ok;                                                                              \
+        ok = __sync_bool_compare_and_swap( &(var_name), (var_name), (value) );                \
         assert( ok && ("ATOMIC_ASSIGN of value " # value " to the " # var_name " failed") );  \
     }

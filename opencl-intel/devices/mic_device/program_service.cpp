@@ -1317,13 +1317,16 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         cl_dev_err_code err_code = program->GetKernel( i, &(kernel_entry->pKernel) );
         assert( CL_DEV_SUCCEEDED(err_code) && kernel_entry->pKernel );
 
-        kernel_entry->uDevKernelEntry = 0; // to be asserted later
+        if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
+        {
+            kernel_entry->uDevKernelEntry = 0; // to be asserted later
 
-        // insert entry to the TKernelName2Entry map
-        pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
+            // insert entry to the TKernelName2Entry map
+            pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
 
-        // insert entry to the TKernelId2Entry map
-        pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
+            // insert entry to the TKernelId2Entry map
+            pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
+        }
     }
 
     // now parse the COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT and update maps with device info

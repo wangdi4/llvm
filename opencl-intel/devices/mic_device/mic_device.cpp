@@ -361,6 +361,7 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     {
         // TODO: Execute command without Command List? Immediately? NOT Implemented yet
         assert( false && "MIC: Execute command without Command List? Immediately? NOT Implemented yet" );
+        return CL_DEV_NOT_SUPPORTED;
     }
 }
 

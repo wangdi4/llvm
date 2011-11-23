@@ -79,11 +79,11 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 
 	m_waitingSize = 1;
 	m_realSize = 1;
-	
+
 	pthread_attr_t tattr;
 	pthread_attr_init(&tattr);
 	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-	
+
 	m_poc ++;
 
 	m_workerState = BEGINNING;
@@ -109,6 +109,8 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 
 int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::CallBack *callBack, void *arg)
 {
+    COIRESULT result = COI_SUCCESS;
+
 	assert(callBack && "Error - callBack must be non-NULL pointer");
 	pthread_mutex_lock(&m_mutex);
 
@@ -123,7 +125,7 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 	while (m_realSize >= m_maxBarriers)
 	{
 		m_operationMask[RESIZE] = true;
-		COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
+		result = COIEventSignalUserEvent(m_barriers[0]);
 		assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 		// wait for the allocation
@@ -146,7 +148,7 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 
 	m_operationMask[ADD] = true;
 
-	COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
+	result = COIEventSignalUserEvent(m_barriers[0]);
 	assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 	pthread_mutex_unlock(&m_mutex);
@@ -156,7 +158,9 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 
 int NotificationPort::release()
 {
-	pthread_mutex_lock(&m_mutex);
+	COIRESULT result = COI_SUCCESS;
+
+    pthread_mutex_lock(&m_mutex);
 
 	// The object does not initialize
 	if (m_maxBarriers == 0)
@@ -167,7 +171,7 @@ int NotificationPort::release()
 
 	m_operationMask[RELEASE] = true;
 
-	COIRESULT result = COIEventSignalUserEvent(m_barriers[0]);
+	result = COIEventSignalUserEvent(m_barriers[0]);
 	assert(result == COI_SUCCESS && "Signal main barrier failed");
 
 	// wait for the termination of worker thread
@@ -304,7 +308,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 			// switch between the current barrier and the last not signaled barrier.
 			m_barriers[signaledIndices[i]] = m_barriers[notSignaledIndex];
 			m_notificationsPackages[signaledIndices[i]] = m_notificationsPackages[notSignaledIndex];
-			
+
 			// if swap with index larger than initialWaitingSize increasing m_waitingSize by one because it will decrease by one at the end of the loop
 			if (notSignaledIndex >= initialWaitingSize)
 			{
@@ -312,7 +316,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 			}
 			notSignaledIndex --;
 		}
-		
+
 		m_realSize --;
 		m_waitingSize --;
 	}
@@ -336,13 +340,15 @@ void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksA
 
 void NotificationPort::releaseResources()
 {
+    COIRESULT result = COI_SUCCESS;
+
 	pthread_mutex_lock(&m_mutex);
 
 	m_maxBarriers = 0;
 	//release the worker barrier
 	if (m_barriers)
 	{
-		COIRESULT result = COIEventUnregisterUserEvent(m_barriers[0]);
+		result = COIEventUnregisterUserEvent(m_barriers[0]);
 		assert(result == COI_SUCCESS && "Unregister main barrier failed");
 		free(m_barriers);
 		m_barriers = NULL;
