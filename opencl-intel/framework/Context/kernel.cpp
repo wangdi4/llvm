@@ -392,12 +392,24 @@ cl_err_code	Kernel::GetWorkGroupInfo(FissionableDevice* pDevice, cl_int iParamNa
 #endif
 
 	// check input parameters
-	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+	if ( (NULL == pParamValue) && (NULL == pszParamValueSizeRet) )
 	{
 		return CL_INVALID_VALUE;
 	}
 
+	if ( (NULL == pDevice) && (m_szAssociatedDevices > 1) )
+	{
+		return CL_INVALID_DEVICE;
+	}
 	//get device
+	assert (NULL != m_ppDeviceKernels);
+
+	if ( NULL == pDevice )
+	{
+		pDevice = m_ppDeviceKernels[0]->GetDevice();
+	}
+	assert(NULL!=pDevice);
+
 	cl_dev_kernel clDevKernel = GetDeviceKernelId(pDevice);
 
 	cl_err_code clErr = CL_SUCCESS;

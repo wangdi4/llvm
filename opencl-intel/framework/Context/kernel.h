@@ -87,6 +87,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Get device ID
 		cl_int        GetDeviceId() const { return m_pDevice->GetId(); }
 
+		FissionableDevice* GetDevice() const {return m_pDevice;}
+
 		// get kernel prototype
 		const SKernelPrototype GetPrototype(){ return m_sKernelPrototype; }
 

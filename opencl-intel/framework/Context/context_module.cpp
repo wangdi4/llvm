@@ -935,12 +935,16 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 		return CL_INVALID_KERNEL;
 	}
 
-	FissionableDevice* pDevice;
-	clErr = m_pPlatformModule->GetDevice(deviceId, &pDevice);
-	if (CL_FAILED(clErr) || NULL == pDevice)
+	FissionableDevice* pDevice = NULL;
+	if ( NULL != deviceId )	// When deviceId is NULL, we should pass this paramter to kernel.
+							// In case of single device, it's data should be returned
 	{
-		LOG_ERROR(TEXT("GetDevice(%d, %d) returned %S"), deviceId, &pDevice, ClErrTxt(clErr));
-		return CL_INVALID_KERNEL;
+		clErr = m_pPlatformModule->GetDevice(deviceId, &pDevice);
+		if (CL_FAILED(clErr) || NULL == pDevice)
+		{
+			LOG_ERROR(TEXT("GetDevice(%d, %d) returned %S"), deviceId, &pDevice, ClErrTxt(clErr));
+			return CL_INVALID_DEVICE;
+		}
 	}
 	return pKernel->GetWorkGroupInfo(pDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
