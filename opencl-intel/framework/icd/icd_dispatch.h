@@ -59,7 +59,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <rpcsal.h>
+#ifdef __D3D10__
 #include <d3d10.h>
+#endif
 #include <CL/cl_d3d10.h>
 #endif
 #include <GL/gl.h>
