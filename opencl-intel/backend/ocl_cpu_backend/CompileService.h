@@ -90,6 +90,17 @@ public:
      */
     virtual void Release();
 
+     /**
+     * Prints the JIT code in assembly x86
+     *
+     * @param pCodeContainer Code container
+     * @param dumpJIT The filename for dumping the JIT code
+     * @param baseDirectory The base directory
+     */
+    virtual void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+            const std::string dumpJIT,
+            const std::string baseDirectory) const;
+
 protected:
     virtual Compiler* GetCompiler() = 0;
 

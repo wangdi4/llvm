@@ -3,6 +3,7 @@
 
 #include "ICLDevBackendProgram.h"
 #include "cl_device_api.h"
+#include <string>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -75,6 +76,17 @@ public:
      * Releases the Compilation Service
      */
     virtual void Release() = 0;
+
+     /**
+     * Prints the JIT code in assembly x86
+     *
+     * @param pCodeContainer Code container
+     * @param dumpJIT The filename for dumping the JIT code
+     * @param baseDirectory The base directory
+     */
+    virtual void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+            const std::string dumpJIT,
+            const std::string baseDirectory) const = 0;
 };
 
 }}} // namespace

@@ -46,6 +46,7 @@ namespace Validation
         RC_BR_DUMP_IR_AFTER,
         RC_BR_DUMP_IR_BEFORE,
         RC_BR_DUMP_IR_DIR,
+        RC_BR_DUMP_JIT,
 
         // Reference runner specific options
         RC_REF_USE_NEAT,
@@ -84,6 +85,7 @@ namespace Validation
         std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRAfter;
         std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRBefore;
         std::string m_DumpIRDir;
+        std::string m_DumpJIT;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

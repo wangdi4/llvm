@@ -261,6 +261,12 @@ namespace Validation
             return m_kernels.size();
         }
 
+        /// @brief Returns the base directory
+        std::string GetBaseDirectory() const
+        {
+            return m_baseDirectory;
+        }
+
     private:
         bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
         ProgramFileType GetProgramFileType(const std::string& strFileType);

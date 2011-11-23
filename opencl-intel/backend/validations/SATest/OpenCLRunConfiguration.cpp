@@ -78,6 +78,9 @@ PrintIRBefore;
 extern llvm::cl::opt<std::string>
 DumpIRDir;
 
+extern llvm::cl::opt<std::string>
+DumpJIT;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -95,8 +98,10 @@ namespace Validation
         m_transposeSize(::TransposeSize),
         m_PrintIRAfter(::PrintIRAfter),
         m_PrintIRBefore(::PrintIRBefore),
-        m_DumpIRDir(::DumpIRDir)
-    {}
+        m_DumpIRDir(::DumpIRDir),
+        m_DumpJIT(::DumpJIT)
+    {
+    }
 
     template<>
     bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const
@@ -147,6 +152,8 @@ namespace Validation
             return m_optimizedLLVMIRDumpFile;
         case RC_BR_DUMP_IR_DIR :
             return m_DumpIRDir;
+        case RC_BR_DUMP_JIT :
+            return m_DumpJIT;
         default:
             return defaultValue;
         }
@@ -202,6 +209,7 @@ namespace Validation
         m_PrintIRAfter = ::PrintIRAfter;
         m_PrintIRBefore = ::PrintIRBefore;
         m_DumpIRDir = ::DumpIRDir;
+        m_DumpJIT = ::DumpJIT;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

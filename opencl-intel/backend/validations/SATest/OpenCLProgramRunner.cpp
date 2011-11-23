@@ -446,6 +446,14 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         spCompileService->DumpCodeContainer( pCodeContainer, &dumpOptions);
     }
 
+    if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty() &&
+        !pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false))
+    {
+        spCompileService->DumpJITCodeContainer(spProgram->GetProgramCodeContainer(),
+                pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
+                pOCLProgramConfig->GetBaseDirectory());
+    }
+
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))
     {
         return;
