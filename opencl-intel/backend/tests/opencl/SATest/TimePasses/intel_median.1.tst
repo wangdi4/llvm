@@ -1,0 +1,3 @@
+; RUN: SATest -OCL -BUILD -dump-time-passes=%t2 -config=%s.cfg
+; RUN: FileCheck %s --input-file=%t2
+; CHECK:                      ... Pass execution timing report ...

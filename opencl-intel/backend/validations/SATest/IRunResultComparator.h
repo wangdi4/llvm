@@ -27,6 +27,8 @@ namespace Validation
     class IRunResultComparator
     {
     public:
+        virtual ~IRunResultComparator(void) {}
+
         /// @brief Compares the result of two runs
         virtual IRunResultComparison* Compare( IRunResult* lhs, IRunResult* rhs ) const = 0;
     };

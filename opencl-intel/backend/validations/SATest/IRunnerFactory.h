@@ -32,6 +32,8 @@ namespace Validation
   class IRunnerFactory
   {
   public:
+    virtual ~IRunnerFactory(void) {}
+
     /// @brief Creates new program
     virtual IProgram* CreateProgram(IProgramConfiguration* programConfig,
                                     IRunConfiguration* pRunConfiguration) = 0;

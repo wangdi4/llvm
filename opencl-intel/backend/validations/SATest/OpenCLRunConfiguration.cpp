@@ -81,6 +81,9 @@ DumpIRDir;
 extern llvm::cl::opt<std::string>
 DumpJIT;
 
+extern llvm::cl::opt<std::string>
+TimePasses;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -99,7 +102,8 @@ namespace Validation
         m_PrintIRAfter(::PrintIRAfter),
         m_PrintIRBefore(::PrintIRBefore),
         m_DumpIRDir(::DumpIRDir),
-        m_DumpJIT(::DumpJIT)
+        m_DumpJIT(::DumpJIT),
+        m_TimePasses(::TimePasses)
     {
     }
 
@@ -154,6 +158,8 @@ namespace Validation
             return m_DumpIRDir;
         case RC_BR_DUMP_JIT :
             return m_DumpJIT;
+        case RC_BR_TIME_PASSES :
+            return m_TimePasses;
         default:
             return defaultValue;
         }
@@ -210,6 +216,7 @@ namespace Validation
         m_PrintIRBefore = ::PrintIRBefore;
         m_DumpIRDir = ::DumpIRDir;
         m_DumpJIT = ::DumpJIT;
+        m_TimePasses = ::TimePasses;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

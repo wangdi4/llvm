@@ -62,6 +62,7 @@ public:
                                 (RC_BR_DUMP_IR_BEFORE, 0);
 
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
+        m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
     }
 
     bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -91,6 +92,8 @@ public:
             return m_cpuFeatures.c_str();
         case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
             return m_DumpIRDir.c_str();
+        case CL_DEV_BACKEND_OPTION_TIME_PASSES:
+            return m_TimePasses.c_str();
         default:
             return defaultValue;
         }
@@ -124,6 +127,7 @@ private:
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;
+    std::string m_TimePasses;
 };
 
 /**

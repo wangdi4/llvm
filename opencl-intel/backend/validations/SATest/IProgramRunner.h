@@ -31,6 +31,8 @@ namespace Validation
     {
     public:
 
+        virtual ~IProgramRunner(void) {}
+
         /// @brief Executes a single test program
         /// @param [OUT] runResult Result of test program execution
         /// @param [IN] program Test program to execute

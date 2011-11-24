@@ -192,6 +192,13 @@ DumpJIT("dump-JIT",
            llvm::cl::desc("Prints JIT code to the file <filename> after the build is complete. The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
 
+// Enable -time-passes in Volcano
+llvm::cl::opt<std::string>
+TimePasses("dump-time-passes",
+           llvm::cl::ValueOptional,
+           llvm::cl::desc("Generates compilation time detailed report for all the passes and print it to the file <filename>. The <filename> could be an absolute path or relative to the base directory."),
+           llvm::cl::value_desc("filename"));
+
 // Command line example:
 // SATest.exe -OCL -config=test.cfg
 // WARNING! To run OCL_CPU_DEVICE_BACKEND successfully built-in DLLs and RTLs is needed!

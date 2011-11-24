@@ -28,6 +28,8 @@ namespace Validation
   class IPerformance
   {
   public:
+    virtual ~IPerformance(void) {}
+
     /// @brief Returns build time
     /// @return Build time 
     /// returns -1 otherwise

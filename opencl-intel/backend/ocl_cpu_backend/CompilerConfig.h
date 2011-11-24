@@ -66,6 +66,7 @@ public:
         return optionsVector;
     }
     const std::string& GetDumpIRDir() const { return m_dumpIRDir; }
+    const std::string& GetTimePasses() const { return m_TimePasses; }
 
 protected:
 	std::string m_backendMode;
@@ -76,6 +77,7 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_dumpIRDir;
+    std::string m_TimePasses;
 };
 
 }}}

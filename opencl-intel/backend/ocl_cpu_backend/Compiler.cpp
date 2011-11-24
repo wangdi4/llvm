@@ -188,6 +188,21 @@ Compiler::Compiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfi
     m_config(config),
     m_pBackendFactory(pBackendFactory)
 {
+   if (!m_config.GetTimePasses().empty())
+   {
+        std::vector<char *> args;
+        char arg1[] = "timepasses";
+        args.push_back(arg1);
+        char arg2[] = "-time-passes";
+        args.push_back(arg2);
+        std::stringstream fileName;
+        fileName << "-info-output-file=" << m_config.GetTimePasses().c_str() << std::ends;
+        char* arg3 = new char[fileName.str().size()];
+        for(unsigned int i=0; i< fileName.str().size(); i++)
+            arg3[i] = (fileName.str().c_str())[i];
+        args.push_back(arg3);
+        llvm::cl::ParseCommandLineOptions(args.size(), &args[0]);
+   }
 }
 
 Compiler::~Compiler()
