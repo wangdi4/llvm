@@ -2,7 +2,7 @@ import os.path, sys, platform
 import Volcano_CmdUtils
 from Hudson_Common import HudsonBuildEnvironment, HudsonTestRunner, HudsonRunConfig
 from Volcano_Common import TestTaskResult, VolcanoCmdTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite, VolcanoTestRunner
-from Volcano_Performance import PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
+from Volcano_Performance import perf_suites, PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
 from Volcano_Build import VolcanoBinaryCopy
 
 
@@ -47,24 +47,11 @@ class HudsonPerformanceSuite(VolcanoTestSuite):
         VolcanoTestSuite.__init__(self, name)
 
         self.addTask(VolcanoBinaryCopy("CopyVolcanoBinary", config),stop_on_failure = True)
-
-        suites = { "WOLF":      [VolcanoWOLFPerformanceSuite,      []],
-                   "WOLFbench": [VolcanoWOLFBenchPerformanceSuite, []],
-                   "CyberLink": [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]],
-                   "VCSD":      [VolcanoVCSDPerformanceSuite,      [['.*','*64']]],
-                   "Sandra":    [VolcanoSandraPerformanceSuite,    [['.*','Win32']]],
-                   "LuxMark":   [VolcanoLuxMarkPerformanceSuite,   []],
-                   "BIMeter":   [VolcanoBIMeterPerformanceSuite,   [['.*','*64']]],
-                   "AVX256_P1": [VolcanoAVX256_P1_PerformanceSuite,[]],
-                   "Phoronix":  [VolcanoPhoronixPerformanceSuite,  [['.*','Win32']]],
-                   "GEHC":      [VolcanoGEHCPerformanceSuite,      [['.*','Win32']]],
-                   "SHOC":      [VolcanoSHOCPerformanceSuite,      [['.*','Win32']]]
-                 }
     
         perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
         
-        suite  = suites[perf_config.test_suite][0](perf_config.test_suite, config)
-        filter = suites[perf_config.test_suite][1]
+        suite  = perf_suites[perf_config.test_suite][0](perf_config.test_suite, config)
+        filter = perf_suites[perf_config.test_suite][1]
     
         self.addTask( suite, skiplist=filter)
 

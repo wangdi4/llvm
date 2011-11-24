@@ -1414,30 +1414,29 @@ class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', config, BIMeterFullWW35, r"conversions_*")
 
-
-perf_suites = { "WOLF": VolcanoWOLFPerformanceSuite,
-           "WOLFbench": VolcanoWOLFBenchPerformanceSuite,
-           "CyberLink": VolcanoCyberLinkPerformanceSuite,
-           "VCSD": VolcanoVCSDPerformanceSuite,
-           "Sandra": VolcanoSandraPerformanceSuite,
-           "LuxMark": VolcanoLuxMarkPerformanceSuite,
-           "BIMeter": VolcanoBIMeterPerformanceSuite,
-           "AVX256_P1": VolcanoAVX256_P1_PerformanceSuite,
-           "Phoronix": VolcanoPhoronixPerformanceSuite,
-           "GEHC": VolcanoGEHCPerformanceSuite,
-           "SHOC": VolcanoSHOCPerformanceSuite,
-           "BIMeterMath": VolcanoBIMeterMathSuite,
-           "BIMeterAtomics": VolcanoBIMeterAtomicsSuite,
-           "BIMeterCommon": VolcanoBIMeterCommonSuite,
-           "BIMeterGeometric": VolcanoBIMeterGeometricSuite,
-           "BIMeterMathDouble": VolcanoBIMeterMathDoubleSuite,
-           "BIMeterMathHalf": VolcanoBIMeterMathHalfSuite,
-           "BIMeterInteger": VolcanoBIMeterIntegerSuite,
-           "BIMeterMathNative": VolcanoBIMeterMathNativeSuite,
-           "BIMeterRelational": VolcanoBIMeterRelationalSuite,
-           "BIMeterMiscellaneous": VolcanoBIMeterMiscellaneousSuite,
-           "BIMeterConversions": VolcanoBIMeterConversionsSuite           
-         }
+perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
+               "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
+               "CyberLink":             [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]   ],
+               "VCSD":                  [VolcanoVCSDPerformanceSuite,      [['.*','*64']]   ], 
+               "Sandra":                [VolcanoSandraPerformanceSuite,    [['.*','Win32']] ],
+               "LuxMark":               [VolcanoLuxMarkPerformanceSuite,   []               ],
+               "BIMeter":               [VolcanoBIMeterPerformanceSuite,   [['.*','*64']]   ],
+               "AVX256_P1":             [VolcanoAVX256_P1_PerformanceSuite,[]               ],
+               "Phoronix":              [VolcanoPhoronixPerformanceSuite,  [['.*','Win32']] ],
+               "GEHC":                  [VolcanoGEHCPerformanceSuite,      [['.*','Win32']] ], 
+               "SHOC":                  [VolcanoSHOCPerformanceSuite,      [['.*','Win32']] ], 
+               "BIMeterMath":           [VolcanoBIMeterMathSuite,          [['.*','.*64']]  ],
+               "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,       [['.*','.*64']]  ],
+               "BIMeterCommon":         [VolcanoBIMeterCommonSuite,        [['.*','.*64']]  ],
+               "BIMeterGeometric":      [VolcanoBIMeterGeometricSuite,     [['.*','.*64']]  ],
+               "BIMeterMathDouble":     [VolcanoBIMeterMathDoubleSuite,    [['.*','.*64']]  ],
+               "BIMeterMathHalf":       [VolcanoBIMeterMathHalfSuite,      [['.*','.*64']]  ],
+               "BIMeterInteger":        [VolcanoBIMeterIntegerSuite,       [['.*','.*64']]  ],
+               "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,    [['.*','.*64']]  ],
+               "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,    [['.*','.*64']]  ],
+               "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite, [['.*','.*64']]  ], 
+               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','.*64']]  ]           
+             }
 
 def main():
     parser = OptionParser()
@@ -1451,7 +1450,6 @@ def main():
     parser.add_option("-k", "--kernels", dest="tests_path", help="root path of the performance tests", default='')
     parser.add_option("-d", "--demo",    action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     parser.add_option("-s", "--suite",   dest="suite", help="Suite to run:" + str(perf_suites.keys()), default=None)
-    #parser.add_option("", "--filter",   dest="filter", help="test names filter with wildcards", default="*")
     
     (options, args) = parser.parse_args()
 
@@ -1476,7 +1474,7 @@ def main():
     
     config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path)
     
-    suite  = perf_suites[options.suite](options.suite, config)
+    suite  = perf_suites[options.suite][0](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)
     passed = runner.runTask(suite, config)
     
