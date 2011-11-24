@@ -1293,7 +1293,7 @@ class VolcanoPerformanceSuite(VolcanoTestSuite):
         VolcanoTestSuite.__init__(self, name)
         self.config  = config
         self.suitename = suite_name
-        self.suitepath = suite_name if suite_path is None else suite_name 
+        self.suitepath = suite_name if suite_path is None else suite_path 
         
         pattern = re.compile(mask)
         
