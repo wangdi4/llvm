@@ -1279,25 +1279,27 @@ class PerformanceTestRunner(VolcanoTestRunner):
                     print >> csv_file, stdoutdata.rstrip()
                     
 class PerformanceTask(VolcanoCmdTask):
-    def __init__(self, suite, kernel, build_iterations, execute_iterations, config):
-        VolcanoCmdTask.__init__(self, kernel)
+    def __init__(self, suite_path, wl_name, build_iterations, execute_iterations, config):
+        VolcanoCmdTask.__init__(self, wl_name)
         perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
-        config_file  = os.path.join( perf_config.tests_root_dir, suite, config.target_type, kernel + '.cfg')
+        config_file  = os.path.join( perf_config.tests_root_dir, suite_path, config.target_type, wl_name + '.cfg')
         self.workdir = config.bin_dir
         self.command = 'SATest -PERF -OCL -tsize=' + config.transpose_size + ' -cpuarch=' + config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
         if config.cpu_features != '':
             self.command = self.command + ' -cpufeatures=' + run_config.cpu_features
 
 class VolcanoPerformanceSuite(VolcanoTestSuite):
-    def __init__(self, name, suite, config, tests, mask = r".*"):
+    def __init__(self, name, suite_name, suite_path, config, tests, mask = r".*"):
         VolcanoTestSuite.__init__(self, name)
         self.config  = config
-        self.suitename = suite
+        self.suitename = suite_name
+        self.suitepath = suite_name if suite_path is None else suite_name 
+        
         pattern = re.compile(mask)
         
         for test in tests:
             if pattern.match(test[0]):        
-                task = PerformanceTask(suite, test[0], 1, test[1], config)
+                task = PerformanceTask(self.suitepath, test[0], 1, test[1], config)
                 task.timeout = TIMEOUT_HALFHOUR
                 self.addTask(task)
                 
@@ -1321,7 +1323,7 @@ class VolcanoPerformanceSuite(VolcanoTestSuite):
 
 class VolcanoWOLFPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'WOLF', config, WOLFPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'WOLF', None, config, WOLFPerformance)
         self.updateTask('wlHistogram', skiplist=[['.*','Win32']])
         self.updateTask('wlHistogram_1', skiplist=[['.*','Win32']])
         self.updateTask('wlPrefixSum', skiplist=[['.*','Win32']])
@@ -1329,90 +1331,90 @@ class VolcanoWOLFPerformanceSuite(VolcanoPerformanceSuite):
 
 class VolcanoWOLFBenchPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'WOLFbench', config, WOLFBenchPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'WOLFbench', None, config, WOLFBenchPerformance)
 
 class VolcanoCyberLinkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink', config, CyberLinkPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink', None, config, CyberLinkPerformance)
 
 class VolcanoLuxMarkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'LuxMark', config, LuxMarkPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'LuxMark', None, config, LuxMarkPerformance)
 
 class VolcanoSandraPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'Sandra', config, SandraPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'Sandra', None, config, SandraPerformance)
 
 class VolcanoVCSDPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'VCSD', config, VCSDPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'VCSD', None, config, VCSDPerformance)
         self.updateTask('Subdivision', skiplist=[[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]])
 
 class VolcanoAVX256_P1_PerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'AVX256_P1', config, AVX256_P1)
+        VolcanoPerformanceSuite.__init__(self, name, 'AVX256_P1', None, config, AVX256_P1)
         
 class VolcanoPhoronixPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'Phoronix', config, PhoronixPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'Phoronix', None, config, PhoronixPerformance)
 
 class VolcanoGEHCPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'GEHC', config, GEHCPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'GEHC', None, config, GEHCPerformance)
 
 class VolcanoSHOCPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'SHOC', config, SHOCPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'SHOC', None, config, SHOCPerformance)
 
 class VolcanoBIMeterPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', config, BIMeterPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeterFullWW35", config, BIMeterPerformance)
 
 # math
 class VolcanoBIMeterMathSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
 # atomics
 class VolcanoBIMeterAtomicsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', config, BIMeterFullWW35, r"atomics_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', "BIMeterFullWW35", config, BIMeterFullWW35, r"atomics_*")
         
 # common and common_double
 class VolcanoBIMeterCommonSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', config, BIMeterFullWW35, r"common_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', "BIMeterFullWW35", config, BIMeterFullWW35, r"common_*")
 # geometric and geometric double
 class VolcanoBIMeterGeometricSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', config, BIMeterFullWW35, r"geometric_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', "BIMeterFullWW35", config, BIMeterFullWW35, r"geometric_*")
 # math double
 class VolcanoBIMeterMathDoubleSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
 # math half precision
 class VolcanoBIMeterMathHalfSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', config, BIMeterFullWW35, r"math_half_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_half_[a-z]+[.]?[0-9]*$")
 # integer
 class VolcanoBIMeterIntegerSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
 # math native precision
 class VolcanoBIMeterMathNativeSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', "BIMeterFullWW35", config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
 # relational and relational double
 class VolcanoBIMeterRelationalSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', config, BIMeterFullWW35, r"relational_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', "BIMeterFullWW35", config, BIMeterFullWW35, r"relational_*")
 # misc
 class VolcanoBIMeterMiscellaneousSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', config, BIMeterFullWW35, r"miscellaneous_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', "BIMeterFullWW35", config, BIMeterFullWW35, r"miscellaneous_*")
 # conversions
 class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', config, BIMeterFullWW35, r"conversions_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeterFullWW35", config, BIMeterFullWW35, r"conversions_*")
 
 perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
                "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
