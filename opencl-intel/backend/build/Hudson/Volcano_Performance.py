@@ -1394,7 +1394,7 @@ class VolcanoBIMeterMathDoubleSuite(VolcanoPerformanceSuite):
 # math half precision
 class VolcanoBIMeterMathHalfSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_half_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_half_half_[a-z]+[.]?[0-9]*$")
 # integer
 class VolcanoBIMeterIntegerSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
