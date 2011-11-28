@@ -43,6 +43,10 @@ public:
         REMOVE_PROGRAM_FROM_DEVICE,
 
 		EXECUTE_NDRANGE,
+		INIT_DEVICE,
+		RELEASE_DEVICE,
+		INIT_COMMANDS_QUEUE,
+		RELEASE_COMMANDS_QUEUE,
 
         // insert new function ids before this line
         LAST_DEVICE_SIDE_FUNCTION,

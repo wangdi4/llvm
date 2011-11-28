@@ -46,9 +46,81 @@ void foo(char* blob)
 // For testing only
 //////////////////////////////////////////////////////
 
+// Init the device thread pool. Call it immediately after process creation.
+COINATIVELIBEXPORT
+void init_device(uint32_t         in_BufferCount,
+			     void**           in_ppBufferPointers,
+				 uint64_t*        in_pBufferLengths,
+				 void*            in_pMiscData,
+				 uint16_t         in_MiscDataLength,
+				 void*            in_pReturnValue,
+				 uint16_t         in_ReturnValueLength)
+{
+	assert(in_MiscDataLength == sizeof(unsigned int));
+	assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
+	// The amount of worker threads.
+	unsigned int* numOfWorkers = (unsigned int*)in_pMiscData;
+	assert((*numOfWorkers > 0) && (*numOfWorkers < MIC_NATIVE_MAX_WORKER_THREADS));
+	cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
+	*pErr = CL_DEV_SUCCESS;
+	// Create thread pool singleton instance.
+	ThreadPool* pThreadPool = ThreadPool::getInstance();
+	if (NULL == pThreadPool)
+	{
+		*pErr = CL_DEV_OUT_OF_MEMORY;
+		return;
+	}
+	// Init the thread pool with "numOfWorkers" workers.
+	if (false == pThreadPool->init(*numOfWorkers))
+	{
+		ThreadPool::releaseSingletonInstance();
+		*pErr = CL_DEV_ERROR_FAIL;
+		return;
+	}
+}
+
+// release the device thread pool. Call it before process destruction.
+COINATIVELIBEXPORT
+void release_device(uint32_t         in_BufferCount,
+					 void**           in_ppBufferPointers,
+					 uint64_t*        in_pBufferLengths,
+					 void*            in_pMiscData,
+					 uint16_t         in_MiscDataLength,
+					 void*            in_pReturnValue,
+					 uint16_t         in_ReturnValueLength)
+{
+	// Release the thread pool singleton.
+	ThreadPool::releaseSingletonInstance();
+}
+
+// Init current pipeline command queue. Call it after Pipeline creation of Command list.
+COINATIVELIBEXPORT
+void init_commands_queue(uint32_t         in_BufferCount,
+				         void**           in_ppBufferPointers,
+				         uint64_t*        in_pBufferLengths,
+				         void*            in_pMiscData,
+				         uint16_t         in_MiscDataLength,
+				         void*            in_pReturnValue,
+				         uint16_t         in_ReturnValueLength)
+{
+	ThreadPool::getInstance()->registerMasterThread();
+}
+
+// release current pipeline command queue. Call it before Pipeline destruction of Command list.
+COINATIVELIBEXPORT
+void release_commands_queue(uint32_t         in_BufferCount,
+					        void**           in_ppBufferPointers,
+					        uint64_t*        in_pBufferLengths,
+					        void*            in_pMiscData,
+					        uint16_t         in_MiscDataLength,
+					        void*            in_pReturnValue,
+					        uint16_t         in_ReturnValueLength)
+{
+	ThreadPool::getInstance()->unregisterMasterThread();
+}
 
 
-
+// Execute NDRange task.
 COINATIVELIBEXPORT
 void execute_NDRange(uint32_t         in_BufferCount,
 					 void**           in_ppBufferPointers,
@@ -88,8 +160,8 @@ void execute_NDRange(uint32_t         in_BufferCount,
 		assert(in_pBufferLengths[tMiscDataBufferIndex] == sizeof(misc_data) && "in_pBufferLengths[tMiscDataBufferIndex] should be as the size of misc_data");
 		tMiscData = (misc_data*)in_ppBufferPointers[tMiscDataBufferIndex];
 	}
-
-	tMiscData->init();
+	
+	tMiscData->init();	
 
 	// DO NOT delete this object, It will delete itself after kernel execution
 	TaskHandler* taskHandler = TaskHandler::TaskFactory(TaskHandler::NDRANGE_TASK_TYPE, tDispatcherData, tMiscData);
@@ -171,9 +243,11 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 		}
 		return NULL;
 	}
+	// Get "TaskHandler" representation from "TaskContainerInterface"
 	TaskHandler* taskHandler = pTaskContainer->getMyTaskHandler();
 	assert(taskHandler);
 	assert(pTaskContainer->getMyTask());
+	// Set "TaskInterface" in this "TaskHandler" object.
 	taskHandler->setTaskInterface(pTaskContainer->getMyTask());
 
 	return taskHandler;
@@ -186,7 +260,7 @@ bool BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* m
 {
 	m_dispatcherData = dispatcherData;
 	m_miscData = miscData;
-	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later.
+	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later).
 	m_lockBufferCount = in_BufferCount;
 	m_lockBufferPointers = in_ppBufferPointers;
 	m_lockBufferLengths = in_pBufferLengths;
@@ -300,8 +374,8 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 
 void TBBNonBlockingTaskHandler::RunTask()
 {
-	// TODO change it to non blocking call by TBB task queue
-	m_task->run();
+	// Enqueue the task to tbb task queue, will execute it asynchronous,
+	tbb::task::enqueue(*((TBBNDRangeTask*)m_task));
 }
 
 
@@ -313,16 +387,15 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		TaskInterface* task;
 		TaskLoopBody1D(TaskInterface* t) : task(t) {}
 		void operator()(const tbb::blocked_range<int>& r) const {
-			size_t firstWGID[1] = {r.begin()}; 
-			size_t lastWGID[1] = {r.end()}; 
+			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
-			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 				return;
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
-					task->executeIteration(k, 0, 0, 0);
-			task->detachFromThread(0);
+					task->executeIteration(k, 0, 0, uiWorkerId);
+			task->detachFromThread(uiWorkerId);
 		}
 	};
 
@@ -330,17 +403,16 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		TaskInterface* task;
 		TaskLoopBody2D(TaskInterface* t) : task(t) {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
-            size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
-			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
+			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
-			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 				return;
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-					task->executeIteration(k, j, 0, 0);
-			task->detachFromThread(0);
+					task->executeIteration(k, j, 0, uiWorkerId);
+			task->detachFromThread(uiWorkerId);
 		}
 	};
 
@@ -348,25 +420,26 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		TaskInterface* task;
 		TaskLoopBody3D(TaskInterface* t) : task(t) {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
-            size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
-			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
+			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
-			if (CL_DEV_FAILED(task->attachToThread(0, uiNumberOfWorkGroups, firstWGID, lastWGID)))
+			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 				return;
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-						task->executeIteration(k, j, i, 0);
-			task->detachFromThread(0);
+						task->executeIteration(k, j, i, uiWorkerId);
+			task->detachFromThread(uiWorkerId);
 		}
 	};
 }}};
 
 
-NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
+NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
+m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
 {
+	memset((ICLDevBackendExecutable_**)m_contextExecutableArr, 0, sizeof(ICLDevBackendExecutable_*) * MIC_NATIVE_MAX_WORKER_THREADS);
 }
 
 NDRangeTask::~NDRangeTask()
@@ -397,6 +470,9 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 		return false;
 	}
 #endif
+	// Set command identifier
+	m_commandIdentifier = pDispatcherData->commandIdentifier;
+
 	// Set kernel args blob (Still have to set the buffers pointer in the blob
 	if (pDispatcherData->kernelArgSize > 0)
 	{
@@ -483,6 +559,17 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 
 void NDRangeTask::finish(TaskHandler* pTaskHandler)
 {
+	// First of all release all BE execution contexts (Of each worker thread)
+	for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; i++)
+	{
+		if (m_contextExecutableArr[i])
+		{
+			// Release BE executable context
+			((ICLDevBackendExecutable_*)m_contextExecutableArr[i])->Release();
+			m_contextExecutableArr[i] = NULL;
+		}
+	}
+
 	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
 	assert(pDispatcherData);
 	COIEVENT* completionBarrier = NULL;
@@ -521,45 +608,107 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 }
 
 
-cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 {
-	//TODO
+	ThreadPool* pThreadPool = ThreadPool::getInstance();
+	// Get the WGContext object of this thread
+	WGContext* pCtx = (WGContext*)(pThreadPool->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	// If didn't created yet for this thread, create it and store it in its tls.
+	if (NULL == pCtx)
+	{
+		// This object will destruct before thread termination
+		pCtx = new WGContext();
+		if (NULL == pCtx)
+		{
+			return CL_DEV_OUT_OF_MEMORY;
+		}
+		pThreadPool->setGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY, pCtx);
+	}
+	// Can NOT recycle the current context - This is the case when my current context is not suppose to be the context of the next execution
+	if (m_commandIdentifier != pCtx->GetCmdId())
+	{
+		// if it is not worker thread, Invalidate the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1]
+		if (uiWorkerId > 0)
+		{
+			// Need to invalidate the context in order to release the old BE executable
+			pCtx->InvalidateContext();
+			m_contextExecutableArr[uiWorkerId-1] = NULL;
+		}
+		cl_dev_err_code ret = pCtx->CreateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+		if (CL_DEV_FAILED(ret))
+		{
+			pCtx->InvalidateContext();
+			return ret;
+		}
+		// Register the new BE executable context to m_contextExecutableArr[uiWorkerId-1] in order to release it when this task completes
+		if (uiWorkerId > 0)
+		{
+			m_contextExecutableArr[uiWorkerId-1] = pCtx->GetExecutable();
+			assert(m_contextExecutableArr[uiWorkerId-1]);
+		}
+	}
+	pCtx->GetExecutable()->PrepareThread();
+
 	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
 {
-	//TODO
-	return CL_DEV_SUCCESS;
+	ThreadPool* pThreadPool = ThreadPool::getInstance();
+	// Get the WGContext object of this thread
+	WGContext* pCtx = (WGContext*)(pThreadPool->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	assert(pCtx);
+	cl_dev_err_code ret = pCtx->GetExecutable()->RestoreThreadState();
+    
+	//For application threads, must signify the context is no longer valid
+    if (0 == uiWorkerId)
+    {
+        pCtx->InvalidateContext();
+    }
+	
+	return ret;
 }
 
 void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
 {
-	WGContext tCtx;
-	// TODO AdirD  - Change the first arg to cmdId
-	cl_dev_err_code ret = tCtx.CreateContext(0, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		NATIVE_PRINTF("Failed to create new WG context\n");
-		m_taskHandler->m_miscData->errCode = ret;
-		finish(m_taskHandler);
-		return;
-	}
-	tCtx.GetExecutable()->PrepareThread();
+	// Get the WGContext object of this thread
+	WGContext* pCtx = (WGContext*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	assert(pCtx);
 
-    ICLDevBackendExecutable_* pExec = tCtx.GetExecutable();
+    ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
+	assert(pExec);
 
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
 	pExec->Execute(groupId, NULL, NULL);
+}
 
-    tCtx.GetExecutable()->RestoreThreadState();
+bool NDRangeTask::constructTlsEntry(void** outEntry)
+{
+	if (NULL == *outEntry)
+	{
+		WGContext* pContext = new WGContext();
+		if (NULL == pContext)
+		{
+			return false;
+		}
+		*outEntry = pContext;
+	}
+	return true;
+}
+
+void NDRangeTask::destructTlsEntry(void* pEntry)
+{
+	if (pEntry)
+	{
+		delete(((WGContext*)pEntry));
+	}
 }
 
 
 
 
-TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask()
+TBBNDRangeTask::TBBNDRangeTask() : tbb::task(), NDRangeTask()
 {
 }
 
@@ -598,3 +747,203 @@ tbb::task* TBBNDRangeTask::execute()
 	finish(m_taskHandler);
 	return NULL;
 }
+
+
+
+
+GENERIC_TLS_STRUCT::fnConstructorTls* GENERIC_TLS_STRUCT::constructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
+	&NDRangeTask::constructTlsEntry
+};
+
+GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
+	&NDRangeTask::destructTlsEntry
+};
+
+
+ThreadPool* ThreadPool::m_singleThreadPool = NULL;
+
+ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1)
+{
+}
+
+ThreadPool::~ThreadPool()
+{
+}
+
+ThreadPool* ThreadPool::getInstance()
+{
+	if (NULL == m_singleThreadPool)
+	{
+		m_singleThreadPool = new TBBThreadPool();
+		assert(m_singleThreadPool);
+	}
+	return m_singleThreadPool;
+}
+
+void ThreadPool::releaseSingletonInstance()
+{
+	if (m_singleThreadPool)
+	{
+		delete m_singleThreadPool;
+		m_singleThreadPool = NULL;
+	}
+}
+	
+
+
+
+tbb::enumerable_thread_specific<unsigned int>*                          TBBThreadPool::t_uiWorkerId = NULL;
+tbb::enumerable_thread_specific<tbb::task_scheduler_init*>*             TBBThreadPool::t_pScheduler = NULL;
+tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>*	TBBThreadPool::t_generic = NULL;
+
+bool TBBThreadPool::init(unsigned int numOfWorkers)
+{
+	assert(m_numOfWorkers == 0);
+	assert(numOfWorkers > 0);
+
+	assert(NULL == t_uiWorkerId);
+	assert(NULL == t_pScheduler);
+	assert(NULL == t_generic);
+
+	if (NULL == t_uiWorkerId)
+	{
+		t_uiWorkerId = new tbb::enumerable_thread_specific<unsigned int>;
+	}
+	
+	if (NULL == t_pScheduler)
+	{
+		t_pScheduler = new tbb::enumerable_thread_specific<tbb::task_scheduler_init*>;
+	}
+
+	if (NULL == t_generic)
+	{
+		t_generic = new tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>;
+	}
+
+	assert(t_uiWorkerId);
+	assert(t_pScheduler);
+	assert(t_generic);
+
+	if ((NULL == t_uiWorkerId) || (NULL == t_pScheduler) || (NULL == t_generic))
+	{
+		if (t_uiWorkerId)
+		{
+			delete t_uiWorkerId;
+		}
+		if (t_pScheduler)
+		{
+			delete t_pScheduler;
+		}
+		if (t_generic)
+		{
+			delete t_generic;
+		}
+		return false;
+	}
+
+	m_numOfWorkers = numOfWorkers;
+	observe(true);
+	return true;
+}
+
+void TBBThreadPool::release()
+{
+	//TODO
+}
+
+unsigned int TBBThreadPool::getWorkerID()
+{
+	bool alreadyHad = false;
+	unsigned int& ret = t_uiWorkerId->local(alreadyHad);
+	return alreadyHad ? ret : INVALID_WORKER_ID;
+}
+
+void TBBThreadPool::registerMasterThread()
+{
+	tbb::task_scheduler_init* pScheduler = getScheduler();
+	// If the scheduler didn't set yet and I'm not a worker
+	if ( (NULL == pScheduler) && (!isWorkerScheduler()) )
+	{
+		setScheduler(new tbb::task_scheduler_init(m_numOfWorkers));
+	}
+}
+
+void TBBThreadPool::unregisterMasterThread()
+{
+	tbb::task_scheduler_init* pScheduler = getScheduler();
+	if (pScheduler)
+	{
+		delete pScheduler;
+		setScheduler(NULL);
+	}
+	releaseGeneralTls();
+}
+
+void* TBBThreadPool::getGeneralTls(unsigned int index)
+{
+	assert(index < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES);
+	GENERIC_TLS_STRUCT::GENERIC_TLS_DATA& ret = t_generic->local();
+	return ret.getElementAt(index);
+}
+
+void TBBThreadPool::setGeneralTls(unsigned int index, void* pGeneralTlsObj)
+{
+	assert(index < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES);
+	GENERIC_TLS_STRUCT::GENERIC_TLS_DATA& ret = t_generic->local();
+	ret.setElementAt(index, pGeneralTlsObj);
+}
+
+void TBBThreadPool::on_scheduler_entry(bool is_worker)
+{
+	unsigned int uiWorkerId = 0;
+	// If worker thread and didn't set ID for it yet
+	if ((is_worker) && (INVALID_WORKER_ID == getWorkerID()))
+	{
+		uiWorkerId = getNextWorkerID();
+		setScheduler((tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
+	}
+	setWorkerID(uiWorkerId);
+	
+	// Run over all the general Tls constructors
+	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
+	{
+		void* tlsData = NULL;
+		bool result = GENERIC_TLS_STRUCT::constructorTlsArr[i](&tlsData);
+		assert(result);
+		assert(NULL == getGeneralTls(i));
+		setGeneralTls(i, tlsData);
+	}
+}
+	
+void TBBThreadPool::on_scheduler_exit(bool is_worker)
+{
+	if (is_worker)
+	{
+		setWorkerID(INVALID_WORKER_ID);
+		setScheduler(NULL);
+		releaseGeneralTls();
+	}
+}
+
+tbb::task_scheduler_init* TBBThreadPool::getScheduler()
+{
+	bool alreadyHad = false;
+	tbb::task_scheduler_init*& ret = t_pScheduler->local(alreadyHad);
+	return alreadyHad ? ret : NULL;
+}
+
+void TBBThreadPool::releaseGeneralTls()
+{
+	// Run over all the general Tls destructors
+	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
+	{
+		void* tlsData = getGeneralTls(i);
+		if (tlsData)
+		{
+			GENERIC_TLS_STRUCT::destructorTlsArr[i](tlsData);
+		}
+		setGeneralTls(i, NULL);
+	}
+}
+
+

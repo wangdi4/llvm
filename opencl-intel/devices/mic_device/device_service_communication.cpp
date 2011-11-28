@@ -26,7 +26,11 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "copy_program_to_device",               // COPY_PROGRAM_TO_DEVICE
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
 
-	"execute_NDRange"						// EXECUTE_NDRANGE
+	"execute_NDRange",						// EXECUTE_NDRANGE
+	"init_device",							// INIT THE NATIVE PROCESS (Call it only once, after process creation)
+	"release_device",						// CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
+	"init_commands_queue",					// INIT COMMANDS QUEUE ON DEVICE
+	"release_commands_queue"				// RELEASE COMMANDS QUEUE ON DEVICE
 };
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
@@ -75,6 +79,9 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 
 	if (releaseCoiObjects)
 	{
+		// Run release device function on device side
+		runServiceFunction(RELEASE_DEVICE, 0, NULL, 0, NULL, 0, NULL, NULL);
+
 		//close service pipeline
 		if (m_pipe)
 		{
@@ -174,6 +181,7 @@ bool DeviceServiceCommunication::runServiceFunction(
 void* DeviceServiceCommunication::initEntryPoint(void* arg)
 {
     COIRESULT result = COI_ERROR;
+	cl_dev_err_code err = CL_DEV_SUCCESS;
 	char nativeDirName[MAX_PATH] = {0};
 	char fileNameBuffer[MAX_PATH] = {0};
     DeviceServiceCommunication* pDevServiceComm = (DeviceServiceCommunication*)arg;
@@ -259,9 +267,38 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		{
 			break;
 		}
+
+		// Run init device function on device side
+		// Get the amount of compute units in the device
+		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
+		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
+		COIEVENT barrier;
+		result = COIPipelineRunFunction(pDevServiceComm->m_pipe, pDevServiceComm->m_device_functions[INIT_DEVICE],
+										0, NULL, NULL,
+										0, NULL,                    // dependecies
+										&numOfWorkers, sizeof(numOfWorkers),
+										&err, sizeof(err),
+										&barrier);
+		assert(result == COI_SUCCESS);
+		if (result != COI_SUCCESS)
+		{
+			break;
+		}
+		// Wait until the function execution completed on the sink side.
+		result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+		assert(result == COI_SUCCESS);
+		if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
+		{
+			break;
+		}
+		assert(CL_DEV_SUCCESS == err);
+		if (CL_DEV_FAILED(err))
+		{
+			break;
+		}
 	}
 	while (0);
-	if (COI_SUCCESS != result)
+	if ((COI_SUCCESS != result) || (CL_DEV_FAILED(err)))
 	{
 		if (NULL != pDevServiceComm->m_pipe)
 		{

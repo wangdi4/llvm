@@ -124,6 +124,17 @@ private:
 	/* Create new COIPIPELINE for this queue */
 	cl_dev_err_code createPipeline();
 
+	/* Call init_commands_queue() on device side. Call it after pipeline creation. */
+	cl_dev_err_code initCommandListOnDevice();
+
+	/* Call release_commands_queue() on device side. Call it before pipeline destruction. */
+	cl_dev_err_code releaseCommandListOnDevice();
+
+	/* Run function on device and wait for completion.
+	   Run it without buffers or misc data.
+	   Run "func" on device side. */
+	cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func);
+
 	/* Factory for Command objects.
 	   The client responsability is to delete the return object.
 	   cmd - cl_dev_cmd_desc input data structure.

@@ -1,6 +1,10 @@
 Base {
     global:
         execute_NDRange;
+        init_device;
+        release_device;
+        init_commands_queue;
+        release_commands_queue;
         get_backend_target_description;
         get_backend_target_description_size;
         copy_program_to_device;

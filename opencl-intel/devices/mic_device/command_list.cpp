@@ -36,12 +36,12 @@ m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceC
 
 CommandList::~CommandList()
 {
-    COIRESULT result = COI_SUCCESS;
-
     assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
 	if ((gSafeReleaseOfCoiObjects) && (m_pipe))
 	{
-	    result = COIPipelineDestroy(m_pipe);
+		cl_dev_err_code err = releaseCommandListOnDevice();
+		assert(CL_DEV_SUCCESS == err);
+	    COIRESULT result = COIPipelineDestroy(m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineDestroy failed");
 	}
 }
@@ -69,6 +69,13 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, 
 	if (result != CL_DEV_SUCCESS)
 	{
 	    delete(tCommandList);
+		return result;
+	}
+	// init command list on device side.
+	result = tCommandList->initCommandListOnDevice();
+	if (result != CL_DEV_SUCCESS)
+	{
+		delete(tCommandList);
 		return result;
 	}
 
@@ -167,6 +174,43 @@ cl_dev_err_code CommandList::createPipeline()
 	{
 	    return CL_DEV_ERROR_FAIL;
 	}
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code CommandList::initCommandListOnDevice()
+{
+	return runBlockingFuncOnDevice(DeviceServiceCommunication::INIT_COMMANDS_QUEUE);
+}
+
+cl_dev_err_code CommandList::releaseCommandListOnDevice()
+{
+	return runBlockingFuncOnDevice(DeviceServiceCommunication::RELEASE_COMMANDS_QUEUE);
+}
+
+cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func)
+{
+	COIRESULT   result = COI_SUCCESS;
+    COIEVENT  barrier;
+	assert(m_pipe);
+	// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
+	result = COIPipelineRunFunction(m_pipe, m_pDeviceServiceComm->getDeviceFunction(func),
+                                    0, NULL, NULL,
+                                    0, NULL,                    // dependecies
+                                    NULL, 0,
+                                    NULL, 0,
+                                    &barrier);
+	assert(COI_SUCCESS == result);
+    if (result != COI_SUCCESS)
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    // Wait until the function execution completed on the sink side.
+    result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+	assert(COI_SUCCESS == result);
+    if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
     return CL_DEV_SUCCESS;
 }
 

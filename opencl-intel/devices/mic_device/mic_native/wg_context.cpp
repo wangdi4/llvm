@@ -33,6 +33,7 @@
 #include <windows.h>
 #endif
 #include <malloc.h>
+#include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
 
@@ -46,11 +47,6 @@ WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMe
 
 WGContext::~WGContext()
 {
-	if ( NULL != m_pContext )
-	{
-		m_pContext->Release();
-	}
-
 	if ( NULL != m_pLocalMem )
 	{
 		ALIGNED_FREE(m_pLocalMem);
@@ -60,21 +56,14 @@ WGContext::~WGContext()
 	{
 		ALIGNED_FREE(m_pPrivateMem);
 	}
-
 }
 
 cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
+		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	if ( NULL != m_pContext )
-	{
-		m_pContext->Release();
-		m_pContext = NULL;
-		m_cmdId = 0;
 	}
 
 	void*	pBuffPtr[MIC_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
@@ -103,4 +92,14 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	}
 	m_cmdId = cmdId;
 	return CL_DEV_SUCCESS;
+}
+
+void WGContext::InvalidateContext()
+{
+    if ( NULL != m_pContext )
+    {
+        m_pContext->Release();
+        m_pContext = NULL;
+    }
+    m_cmdId = (cl_dev_cmd_id)-1;
 }
