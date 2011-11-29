@@ -50,9 +50,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	class class_name : public task_handler_class, public task_interface_class, public TaskContainerInterface \
 	{ \
 	public: \
-		TaskHandler* getMyTaskHandler() { return this; } \
+		virtual TaskHandler* getMyTaskHandler() { return this; } \
 		\
-		TaskInterface* getMyTask() { return this; } \
+		virtual TaskInterface* getMyTask() { return this; } \
 	}
 
 class TaskInterface;
@@ -70,11 +70,11 @@ public:
 	};
 
 	/* Factory for TaskHandler object (In order or Out of order).
-	   DO NOT delete this object, 'finish' metod will delete this object. */
+	   DO NOT delete this object, 'FinishTask' metod will delete this object. */
 	static TaskHandler* TaskFactory(TASK_TYPES type, dispatcher_data* dispatcherData, misc_data* miscData);
 
 	/* Initializing the task */
-	virtual bool InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
+	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
 
 	/* Run the task */
 	virtual void RunTask() = 0;
@@ -85,7 +85,7 @@ protected:
 
 	virtual ~TaskHandler() {};
 
-	/* It will be call from 'runTask' method (of m_task) as the last command,
+	/* It will be call from 'run()' method (of m_task) as the last command,
 	   It will release the resources and singal the user barrier if needed. 
 	   It also delete this object as the last command. 
 	   The FinishTask is not public because We don't want the user to release the resource. (It will release itself when completed)*/
@@ -93,8 +93,6 @@ protected:
 
 	// The received dispatcher_data
 	dispatcher_data* m_dispatcherData;
-	// The received misc_data
-	misc_data* m_miscData;
 
 	// The input from the main function
 	uint32_t m_lockBufferCount;
@@ -106,43 +104,43 @@ protected:
 
 private:
 
-	// Setter for this object TaskInterface.
+	// Setter for the TaskInterface pointer.
 	void setTaskInterface(TaskInterface* task) { m_task = task; }
 };
 
 
-/* BlockingTaskHandler inherits from "TaskHandler" and implement the functionality for Blocking task managment. */
+/* BlockingTaskHandler inherits from "TaskHandler" and implements the functionality for Blocking task managment. */
 class BlockingTaskHandler : public TaskHandler
 {
 
 public:
 
-	bool InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
+	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
-	void RunTask();
+	virtual void RunTask();
 
 protected:
 
 	virtual ~BlockingTaskHandler() {};
 
-	void FinishTask(COIEVENT* completionBarrier = NULL);
+	virtual void FinishTask(COIEVENT* completionBarrier = NULL);
 };
 
 
 /* NonBlockingTaskHandler inherits from "TaskHandler" and implement the functionality for Non-Blocking task management.
-   It is an abstract class becuase it doesn't implement the method "RunTask()" which is thread specific implementation. */
+   It is an abstract class becuase it doesn't implement the method "RunTask()" because its implementation is thread specific. */
 class NonBlockingTaskHandler : public TaskHandler
 {
 
 public:
 
-	bool InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
+	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 protected:
 
 	virtual ~NonBlockingTaskHandler() {};
 
-	void FinishTask(COIEVENT* completionBarrier = NULL);
+	virtual void FinishTask(COIEVENT* completionBarrier = NULL);
 };
 
 
@@ -152,7 +150,7 @@ class TBBNonBlockingTaskHandler : public NonBlockingTaskHandler
 
 public:
 
-	void RunTask();
+	virtual void RunTask();
 
 protected:
 
@@ -167,25 +165,24 @@ class TaskInterface
 {
 public:
 
-	/* Initialize the task and execute pre-exe operations. */
-	virtual bool init(TaskHandler* pTaskHandler) = 0;
+	/* Initialize the task and execute pre-exe operations.
+	   Return CL_DEV_SUCCESS if succeeded. */
+	virtual cl_dev_err_code init(TaskHandler* pTaskHandler) = 0;
 
 	/* Run the task */
 	virtual void run() = 0;
 
 	/* Finish the task and exexute post-exe operations.
-	   In regular mode will call from this object "RunTask" method only. 
-	   Call it from other object only in case of error. (In order to execute the post-exe operations) */
+	   In regular mode - it will call from "run()" method of this object only. 
+	   Call it from other object only in case of error. (In order to execute the post-exe operations). */
 	virtual void finish(TaskHandler* pTaskHandler) = 0;
 
-	// Is called when the task is going to be called for the first time
-	// within specific thread. uiWorkerId specifies the worker thread id.
-	// Returns CL_DEV_SUCCESS, if attach process succeeded.
+	/* Is called when the task is going to be called for the first time within specific thread. uiWorkerId specifies the worker thread id.
+	   Returns CL_DEV_SUCCESS, if attach process succeeded. */
 	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId) = 0;
 
-	// Is called when the task will not be executed by the specific thread
-	// uiWorkerId specifies the worker thread id.
-	// Returns CL_DEV_SUCCESS, if detach process succeeded.
+	/* Is called when the task will not be executed by the specific thread uiWorkerId specifies the worker thread id.
+	   Returns CL_DEV_SUCCESS, if detach process succeeded. */
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) = 0;
 
 	// The function is called with different 'inx' parameters for each iteration number
@@ -199,15 +196,15 @@ class NDRangeTask : public TaskInterface
 {
 public:
 
-	bool init(TaskHandler* pTaskHandler);
+	virtual cl_dev_err_code init(TaskHandler* pTaskHandler);
 
-	void finish(TaskHandler* pTaskHandler);
+	virtual void finish(TaskHandler* pTaskHandler);
 
-	cl_dev_err_code attachToThread(unsigned int uiWorkerId);
+	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId);
 
-	cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
+	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
 
-	void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
+	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
 
 	/* Static function which create and init the NDRange TLS object. */
 	static bool constructTlsEntry(void** outEntry);
@@ -221,10 +218,7 @@ protected:
 
 	virtual ~NDRangeTask();
 
-
-	// TaskHandler object (Need it as member only due to TBB execute() method signature)
-	TaskHandler* m_taskHandler;
-
+	// uniqueue identifier for this task (command)
 	cl_dev_cmd_id m_commandIdentifier;
 
 	ICLDevBackendKernel_* m_kernel;
@@ -245,34 +239,64 @@ protected:
 
 private:
 
-	// Array of ICLDevBackendExecutable_ for each worker thread.
+	// Array of ICLDevBackendExecutable_ for each worker thread. When task completes, traversing over this array and calling "Relase()" method for each object that is not NULL.
 	volatile ICLDevBackendExecutable_* volatile m_contextExecutableArr[MIC_NATIVE_MAX_WORKER_THREADS];
 };
 
 
 
-/* TBBNDRangeTask inherit from NDRangeTask and from tbb::task.
-   It impelement the missing functionality of NDRangeTask that is depenedent on specific threading model. (Using TBB in this case).
-   Inherit from tbb::task in order to be able to enqueue this object to TBB task queue. */
-class TBBNDRangeTask : public tbb::task, public NDRangeTask
+/* TBBNDRangeTask inherit from NDRangeTask
+   It impelement the missing functionality of NDRangeTask that is depenedent on specific threading model. (Using TBB in this case). */
+class TBBNDRangeTask : public NDRangeTask
 {
 public:
+
+	/* TBBNDRangeExecutor class Inherit from tbb::task in order to be able to enqueue this object to TBB task queue. */
+	class TBBNDRangeExecutor : public tbb::task
+	{
+	public:
+
+		TBBNDRangeExecutor(TBBNDRangeTask* pTbbNDRangeTask, TaskHandler* pTaskHandler, const unsigned int& dim, uint64_t* region);
+
+		// This method is an abstract method of tbb:task, have to implement it in order to be tbb:task object.
+		// This method execute the NDRange task and call finish at the end of it (In order to release resources and to signal the completion barrier if needed).
+		tbb::task* execute();
+
+	private:
+
+		TBBNDRangeTask* m_pTbbNDRangeTask;
+
+		TaskHandler* m_taskHandler;
+
+		// The task dimension.
+		unsigned int m_dim;
+
+		// The task region.
+		uint64_t* m_region;
+	};
+
+
 
 	TBBNDRangeTask();
 
 	virtual ~TBBNDRangeTask() {};
 
-	// It is only delegation method to "execute()".
-	void run() { execute(); };
+	virtual cl_dev_err_code init(TaskHandler* pTaskHandler);
 
-	// This method is an abstract method of tbb:task, have to implement it in order to be tbb:task object.
-	// This method execute the NDRange task and call finish at the end of it (In order to release resources and to signal the completion barrier if needed).
-	tbb::task* execute();
+	// It is only delegation method to "execute()" of TBBNDRangeExecutor.
+	virtual void run() { m_pTaskExecutor->execute(); };
 
+	/* Return the instance of TBBNDRangeExecutor in order to enqueue it to TBB::task::queue. */
+	TBBNDRangeExecutor* getTaskExecutor() {   assert(m_pTaskExecutor);
+		                                      return m_pTaskExecutor; }
+
+private:
+
+	TBBNDRangeExecutor* m_pTaskExecutor;
 };
 
 
-/* Interface that define to methods that must be implement for each Task class. */
+/* Interface that define two methods that must be implement for each Task class. */
 class TaskContainerInterface
 {
 public:
@@ -290,13 +314,15 @@ TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(BlockingNDRangeTask, BlockingTa
 TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(NonBlockingNDRangeTask, TBBNonBlockingTaskHandler, TBBNDRangeTask);
 
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 /* GENERIC_TLS_STRUCT define the following:
     - Enumeration of general TLS entries types.
 	- Struct that include array of general TLS data.
 	- Array of constructor and destructor functions for each type. */
 struct GENERIC_TLS_STRUCT
 {
-	/* Each thread include generic void*[NUM_OF_GENERIC_TLS_ENTRIES] TLS, this enum define the index if specific data in the array. */
+	/* Each thread include generic void*[NUM_OF_GENERIC_TLS_ENTRIES] TLS. the following enum define the index of specific data in the array. */
 	enum GENERIC_TLS_ENTRIES_INDEXES
 	{
 		NDRANGE_TLS_ENTRY = 0,
@@ -312,6 +338,7 @@ struct GENERIC_TLS_STRUCT
 
 		GENERIC_TLS_DATA()
 		{
+			// Nullify the data content
 			memset(data, 0, sizeof(void*) * NUM_OF_GENERIC_TLS_ENTRIES);
 		}
 
@@ -335,11 +362,14 @@ struct GENERIC_TLS_STRUCT
 	typedef bool fnConstructorTls(void** outEntry);
 	typedef void fnDestructorTls(void* pEntry);
 	
-	// Array to func pointer that create each general Tls data
+	// Array to func pointer that create each general Tls data. (According to the index)
 	static fnConstructorTls* constructorTlsArr[NUM_OF_GENERIC_TLS_ENTRIES];
-	// Array to func pointer that destroy each general Tls data
+	// Array to func pointer that destroy each general Tls data. (According to the index)
 	static fnDestructorTls* destructorTlsArr[NUM_OF_GENERIC_TLS_ENTRIES];
 };
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 /* A singleton class that provide API for thread pool services */
@@ -348,20 +378,21 @@ class ThreadPool
 public:
 
 	/* Return the singleton instance of ThreadPool.
-	   Assume that it calls first when process creates - with single thread so it is not thread safe function. */
+	   Assume that it calls first when process creates - with single thread so it is NOT thread safe function. */
 	static ThreadPool* getInstance();
 
 	/* Release the singleton instance if not NULL. 
-	   Assume that it calls before closing the process - it is not thread safe function. */
+	   Assume that it calls before closing the process - it is NOT thread safe function. */
 	static void releaseSingletonInstance();
 
-	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers), and create the TLS structs.
+	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).
+	   Create the TLS structs.
 	   Do not delete those TLS structs - Because a worker thread can use its TLS data after this object destructor. - Memory leak. */
 	virtual bool init(unsigned int numOfWorkers) = 0;
 
 	virtual void release() = 0;
 
-	/* Return current thread worker ID (worker ID of muster thread is 0 and of worker thread >= 1). */
+	/* Return current thread worker ID (worker ID of muster thread is always 0 and for worker thread >= 1). */
 	virtual unsigned int getWorkerID() = 0;
 
 	/* Register muster thread to thread pool. */
@@ -382,15 +413,15 @@ protected:
 
 	virtual ~ThreadPool();
 
+	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
+	unsigned int getNextWorkerID() { assert(((long)m_NextWorkerID <= MIC_NATIVE_MAX_WORKER_THREADS) && ((long)m_NextWorkerID <= m_numOfWorkers));
+	                                 return m_NextWorkerID++; };
+
 	// The amount of worker threads.
 	unsigned int m_numOfWorkers;
 	
 	// Atomic counter that define the worker ID of each worker thread. In case of Muster thread the ID is 0.
 	AtomicCounterNative m_NextWorkerID;
-
-	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
-	unsigned int getNextWorkerID() { assert(((long)m_NextWorkerID <= MIC_NATIVE_MAX_WORKER_THREADS) && ((long)m_NextWorkerID <= m_numOfWorkers));
-	                                 return m_NextWorkerID++; };
 
 private:
 
@@ -402,6 +433,7 @@ private:
 #define INVALID_WORKER_ID 0xFFFFFFFF
 #define INVALID_SCHEDULER_ID 0xFFFFFFFF
 
+/* Class TBBThreadPool inherits from ThreadPool and from tbb::task_scheduler_observer. */ 
 class TBBThreadPool : public ThreadPool, public tbb::task_scheduler_observer
 {
 public:

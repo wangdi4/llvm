@@ -46,7 +46,7 @@ void foo(char* blob)
 // For testing only
 //////////////////////////////////////////////////////
 
-// Init the device thread pool. Call it immediately after process creation.
+// Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
 void init_device(uint32_t         in_BufferCount,
 			     void**           in_ppBufferPointers,
@@ -70,7 +70,7 @@ void init_device(uint32_t         in_BufferCount,
 		*pErr = CL_DEV_OUT_OF_MEMORY;
 		return;
 	}
-	// Init the thread pool with "numOfWorkers" workers.
+	// Initialize the thread pool with "numOfWorkers" workers.
 	if (false == pThreadPool->init(*numOfWorkers))
 	{
 		ThreadPool::releaseSingletonInstance();
@@ -93,7 +93,7 @@ void release_device(uint32_t         in_BufferCount,
 	ThreadPool::releaseSingletonInstance();
 }
 
-// Init current pipeline command queue. Call it after Pipeline creation of Command list.
+// Initialize current pipeline command queue. Call it after Pipeline creation of Command list.
 COINATIVELIBEXPORT
 void init_commands_queue(uint32_t         in_BufferCount,
 				         void**           in_ppBufferPointers,
@@ -134,7 +134,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	misc_data* tMiscData = NULL;
 	// the buffer index of misc_data in case of it is not in "in_pReturnValue"
 	uint32_t tMiscDataBufferIndex = in_BufferCount - 1;
-	// If the dispatcher_data is not in in_pMiscData than it suppose to be at in_ppBufferPointers[in_BufferCount - 1] (The last buffer)
+	// If the dispatcher_data is not in in_pMiscData than it suppose to be at in_ppBufferPointers[in_BufferCount - DISPATCHER_DATA - 1] (The last buffer)
 	if (0 == in_MiscDataLength)
 	{
 		assert(in_BufferCount > 0);
@@ -155,12 +155,13 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	}
 	else
 	{
-		// The misc_data is in in_ppBufferPointers[in_BufferCount - 1] in case of dispatcher_data is in in_pMiscData and in in_ppBufferPointers[in_BufferCount - 2] in case of dispatcher_data is in in_ppBufferPointers[in_BufferCount - 1].
+		// The misc_data is in in_ppBufferPointers[in_BufferCount - 1] in case of dispatcher_data is in in_pMiscData and in in_ppBufferPointers[in_BufferCount - 2] in case of dispatcher_data is in in_ppBufferPointers[in_BufferCount - DISPATCHER_DATA -1].
 		assert(in_BufferCount > tMiscDataBufferIndex);
 		assert(in_pBufferLengths[tMiscDataBufferIndex] == sizeof(misc_data) && "in_pBufferLengths[tMiscDataBufferIndex] should be as the size of misc_data");
 		tMiscData = (misc_data*)in_ppBufferPointers[tMiscDataBufferIndex];
 	}
 	
+	// Set init value of misc_data.
 	tMiscData->init();	
 
 	// DO NOT delete this object, It will delete itself after kernel execution
@@ -170,18 +171,20 @@ void execute_NDRange(uint32_t         in_BufferCount,
 		NATIVE_PRINTF("TaskHandler::TaskFactory() Failed\n");
 		return;
 	}
-	bool result = taskHandler->InitTask(tDispatcherData, tMiscData, in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
-	if (false == result)
+	// Initialize the task brefore sending for execution.
+	tMiscData->errCode = taskHandler->InitTask(tDispatcherData, in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
+	if (CL_DEV_FAILED(tMiscData->errCode))
 	{
 		NATIVE_PRINTF("TaskHandler::init() Failed\n");
 		return;
 	}
+	// Send the task for execution.
 	taskHandler->RunTask();
 }
 
 
 
-TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_miscData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
+TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
 {
 }
 
@@ -189,6 +192,7 @@ TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_miscData(NULL), m_lockBuf
 TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* dispatcherData, misc_data* miscData)
 {
 	TaskContainerInterface* pTaskContainer = NULL;
+	// If In order
 	if (dispatcherData->isInOrderQueue)
 	{
 		switch (taskType)
@@ -204,6 +208,7 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 			}
 		}
 	}
+	// out of order
 	else
 	{
 		switch (taskType)
@@ -219,6 +224,7 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 			}
 		}
 	}
+	// if task creation failed.
 	if (NULL == pTaskContainer)
 	{
 		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
@@ -232,6 +238,7 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 			// traverse over the postExeDirectivesArr
 			for (unsigned int i = 0; i < numOfPostExeDirectives; i++)
 			{
+				// We like to find only the BARRIER directive in this case.
 				if (BARRIER == postExeDirectivesArr[i].id)
 				{
 					// Signal user completion barrier
@@ -256,10 +263,9 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 
 
 
-bool BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+cl_dev_err_code BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
 	m_dispatcherData = dispatcherData;
-	m_miscData = miscData;
 	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later).
 	m_lockBufferCount = in_BufferCount;
 	m_lockBufferPointers = in_ppBufferPointers;
@@ -276,32 +282,31 @@ void BlockingTaskHandler::RunTask()
 void BlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 {
 	assert(NULL == completionBarrier);
+	// Delete this object as the last operation on it.
 	delete this;
 }
 
 
 
 
-bool NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+cl_dev_err_code NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
 	m_dispatcherData = dispatcherData;
-	m_miscData = miscData;
 	m_lockBufferCount = in_BufferCount;
+	// If the client sent buffers, than We should copy their content and lock them. (In case of OOO)
 	if (in_BufferCount > 0)
 	{
 		m_lockBufferPointers = new void*[in_BufferCount];
 		if (NULL == m_lockBufferPointers)
 		{
-			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
 			m_task->finish(this);
-			return false;
+			return CL_DEV_OUT_OF_MEMORY;
 		}
 		m_lockBufferLengths = new uint64_t[in_BufferCount];
 		if (NULL == m_lockBufferLengths)
 		{
-			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
 			m_task->finish(this);
-			return false;
+			return CL_DEV_OUT_OF_MEMORY;
 		}
 		COIRESULT result = COI_SUCCESS;
 		// In case of non blocking task, shall lock all input buffers.
@@ -311,25 +316,23 @@ bool NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data
 			result = COIBufferAddRef(in_ppBufferPointers[i]);
 			if (result != COI_SUCCESS)
 			{
-				m_miscData->errCode = CL_DEV_ERROR_FAIL;
 				m_task->finish(this);
-				return false;
+				return CL_DEV_ERROR_FAIL;
 			}
 			m_lockBufferPointers[i] = in_ppBufferPointers[i];
 			m_lockBufferLengths[i] = in_pBufferLengths[i];
 		}
 	}
 
-	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" and Must allocate memory for it and copy it to there.
+	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" - We have to allocate memory for it and copy its content.
 	if (m_dispatcherData == in_pMiscData)
 	{
 		m_dispatcherData = NULL;
 		m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
 		if (NULL == m_dispatcherData)
 		{
-			m_miscData->errCode = CL_DEV_OUT_OF_MEMORY;
 			m_task->finish(this);
-			return false;
+			return CL_DEV_OUT_OF_MEMORY;
 		}
 		memcpy(m_dispatcherData, in_pMiscData, in_MiscDataLength);
 	}
@@ -340,6 +343,7 @@ bool NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data
 
 void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 {
+	// For asynch task We must have legal COIEVENT to signal.
 	assert(completionBarrier);
 	COIEVENT tCompletionBarrier = *completionBarrier;
 	// Release resources.
@@ -367,6 +371,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 	COIRESULT coiErr = COIEventSignalUserEvent(tCompletionBarrier);
 	assert(COI_SUCCESS == coiErr);
 
+	// Delete this object as the last operation on it.
 	delete this;
 }
 
@@ -375,7 +380,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 void TBBNonBlockingTaskHandler::RunTask()
 {
 	// Enqueue the task to tbb task queue, will execute it asynchronous,
-	tbb::task::enqueue(*((TBBNDRangeTask*)m_task));
+	tbb::task::enqueue(*(((TBBNDRangeTask*)m_task)->getTaskExecutor()));
 }
 
 
@@ -392,7 +397,10 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			{
+				assert(0);
 				return;
+			}
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task->executeIteration(k, 0, 0, uiWorkerId);
 			task->detachFromThread(uiWorkerId);
@@ -408,7 +416,10 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			{
+				assert(0);
 				return;
+			}
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 					task->executeIteration(k, j, 0, uiWorkerId);
@@ -425,7 +436,10 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			{
+				assert(0);
 				return;
+			}
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
@@ -436,9 +450,10 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 }}};
 
 
-NDRangeTask::NDRangeTask() : m_taskHandler(NULL), m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
+NDRangeTask::NDRangeTask() : m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
 m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
 {
+	// Nullify the ICLDevBackendExecutable_* array.
 	memset((ICLDevBackendExecutable_**)m_contextExecutableArr, 0, sizeof(ICLDevBackendExecutable_*) * MIC_NATIVE_MAX_WORKER_THREADS);
 }
 
@@ -450,35 +465,32 @@ NDRangeTask::~NDRangeTask()
 	}
 }
 
-bool NDRangeTask::init(TaskHandler* pTaskHandler)
+cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 {
 	assert(pTaskHandler);
-	m_taskHandler = pTaskHandler;
-	dispatcher_data* pDispatcherData = m_taskHandler->m_dispatcherData;
+	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
 	assert(pDispatcherData);
-	misc_data* pMiscData = m_taskHandler->m_miscData;
 	ProgramService& tProgramService = ProgramService::getInstance();
 #ifndef NDRANGE_UNIT_TEST
 	// Get kernel object
 	bool result = tProgramService.get_kernel(pDispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
 	if (false == result)
 	{
-		// the setting of member m_miscData before deleting this object is o.k. because it is pointer of COIBUFFER
-		pMiscData->errCode = CL_DEV_INVALID_KERNEL;
-		finish(m_taskHandler);
+		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - ProgramService::getInstance().get_kernel failed\n");
-		return false;
+		return CL_DEV_INVALID_KERNEL;
 	}
 #endif
 	// Set command identifier
 	m_commandIdentifier = pDispatcherData->commandIdentifier;
 
-	// Set kernel args blob (Still have to set the buffers pointer in the blob
+	// Set kernel args blob (Still have to set the buffers pointer in the blob)
 	if (pDispatcherData->kernelArgSize > 0)
 	{
 		m_lockedParams = (char*)((char*)pDispatcherData + pDispatcherData->kernelArgBlobOffset);
 	}
 	unsigned int numOfPreExeDirectives = pDispatcherData->preExeDirectivesCount;
+	// If there are pre executable directives to execute
 	if (numOfPreExeDirectives > 0)
 	{
 		// get the pointer to preExeDirectivesArr
@@ -490,9 +502,9 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 			{
 			case BUFFER:
 				{
-					assert(preExeDirectivesArr[i].bufferDirective.bufferIndex < m_taskHandler->m_lockBufferCount);
+					assert(preExeDirectivesArr[i].bufferDirective.bufferIndex < pTaskHandler->m_lockBufferCount);
 					// A pointer to memory data
-					void* memObj = m_taskHandler->m_lockBufferPointers[preExeDirectivesArr[i].bufferDirective.bufferIndex];
+					void* memObj = pTaskHandler->m_lockBufferPointers[preExeDirectivesArr[i].bufferDirective.bufferIndex];
 					// A pointer to mem object descriptor.
 					cl_mem_obj_descriptor* pMemObjDesc = &(preExeDirectivesArr[i].bufferDirective.mem_obj_desc);
 					pMemObjDesc->pData = memObj;
@@ -519,31 +531,31 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 	cl_work_description_type tWorkDesc;
 	pDispatcherData->workDesc.convertToClWorkDescriptionType(&tWorkDesc);
 
+	// Create the binary.
 	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, pDispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);
     if ( CL_DEV_FAILED(errCode) )
 	{
-		pMiscData->errCode = errCode;
-		finish(m_taskHandler);
+		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - ProgramService.create_binary() failed\n");
-		return false;
+		return errCode;
 	}
 
 	// Update buffer parameters
     m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
-	if ( NULL == m_pMemBuffSizes )
+	if (NULL == m_pMemBuffSizes)
 	{
-		pMiscData->errCode = CL_DEV_OUT_OF_MEMORY;
-		finish(m_taskHandler);
+		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - Allocation of m_pMemBuffSizes failed\n");
-		return false;
+		return CL_DEV_OUT_OF_MEMORY;
 	}
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
 
 	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
-	cl_mic_work_description_type* pWorkDesc = &(m_taskHandler->m_dispatcherData->workDesc);
+	cl_mic_work_description_type* pWorkDesc = &(pTaskHandler->m_dispatcherData->workDesc);
 	m_dim = pWorkDesc->workDimension;
 	assert((m_dim >= 1) && (m_dim <= MAX_WORK_DIM));
+	// Calculate the region of each dimention in the task.
 	unsigned int i = 0;
 	for (i = 0; i < m_dim; ++i)
 	{
@@ -554,14 +566,17 @@ bool NDRangeTask::init(TaskHandler* pTaskHandler)
 		m_region[i] = 1;
 	}
 
-	return true;
+	return CL_DEV_SUCCESS;
 }
 
 void NDRangeTask::finish(TaskHandler* pTaskHandler)
 {
-	// First of all release all BE execution contexts (Of each worker thread)
+	// First of all release all BE execution contexts (For each worker thread).
+	// It is safe to do it now because now the execution of this task was compeleted.
+	// We must do it now because, after this point there is option to delete the BE Program that create the resources for this execution object.
 	for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; i++)
 	{
+		// In case that worker thread with ID (i + 1) join the execution of this task.
 		if (m_contextExecutableArr[i])
 		{
 			// Release BE executable context
@@ -611,9 +626,9 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 {
 	ThreadPool* pThreadPool = ThreadPool::getInstance();
-	// Get the WGContext object of this thread
+	// Get the WGContext instance of this thread
 	WGContext* pCtx = (WGContext*)(pThreadPool->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
-	// If didn't created yet for this thread, create it and store it in its tls.
+	// If didn't created yet for this thread, create it and store it in its TLS.
 	if (NULL == pCtx)
 	{
 		// This object will destruct before thread termination
@@ -624,16 +639,17 @@ cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 		}
 		pThreadPool->setGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY, pCtx);
 	}
-	// Can NOT recycle the current context - This is the case when my current context is not suppose to be the context of the next execution
+	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pCtx->GetCmdId())
 	{
-		// if it is not worker thread, Invalidate the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1]
+		// if it is worker thread, Invalidate the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1]
 		if (uiWorkerId > 0)
 		{
 			// Need to invalidate the context in order to release the old BE executable
 			pCtx->InvalidateContext();
 			m_contextExecutableArr[uiWorkerId-1] = NULL;
 		}
+		// Set a new Context.
 		cl_dev_err_code ret = pCtx->CreateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 		if (CL_DEV_FAILED(ret))
 		{
@@ -660,7 +676,7 @@ cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
 	assert(pCtx);
 	cl_dev_err_code ret = pCtx->GetExecutable()->RestoreThreadState();
     
-	//For application threads, must signify the context is no longer valid
+	//For muster threads, must invalidate the context.
     if (0 == uiWorkerId)
     {
         pCtx->InvalidateContext();
@@ -685,15 +701,12 @@ void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int ui
 
 bool NDRangeTask::constructTlsEntry(void** outEntry)
 {
-	if (NULL == *outEntry)
+	WGContext* pContext = new WGContext();
+	if (NULL == pContext)
 	{
-		WGContext* pContext = new WGContext();
-		if (NULL == pContext)
-		{
-			return false;
-		}
-		*outEntry = pContext;
+		return false;
 	}
+	*outEntry = pContext;
 	return true;
 }
 
@@ -708,22 +721,54 @@ void NDRangeTask::destructTlsEntry(void* pEntry)
 
 
 
-TBBNDRangeTask::TBBNDRangeTask() : tbb::task(), NDRangeTask()
+TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask(), m_pTaskExecutor(NULL)
 {
 }
 
-tbb::task* TBBNDRangeTask::execute()
+cl_dev_err_code TBBNDRangeTask::init(TaskHandler* pTaskHandler)
 {
+	// According to TBB documentation "Always allocate memory for task objects using special overloaded new operators (11.3.2) provided by the library, otherwise the results are undefined.
+	// Destruction of a task is normally implicit. (When "execute()" method completes)
+	m_pTaskExecutor = new (tbb::task::allocate_root()) TBBNDRangeExecutor(this, pTaskHandler, m_dim, m_region);
+	assert(m_pTaskExecutor);
+	if (NULL == m_pTaskExecutor)
+	{
+		finish(pTaskHandler);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	// Call my parent (NDRangeTask init() method)
+	cl_dev_err_code result = NDRangeTask::init(pTaskHandler);
+	if (CL_DEV_FAILED(result))
+	{
+		tbb::task::destroy(*m_pTaskExecutor);
+		m_pTaskExecutor = NULL;
+		return result;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+
+TBBNDRangeTask::TBBNDRangeExecutor::TBBNDRangeExecutor(TBBNDRangeTask* pTbbNDRangeTask, TaskHandler* pTaskHandler, const unsigned int& dim, uint64_t* region) : m_pTbbNDRangeTask(pTbbNDRangeTask), 
+m_taskHandler(pTaskHandler), m_dim(dim), m_region(region)
+{
+}
+
+tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
+{
+	assert(m_pTbbNDRangeTask);
+	assert(m_taskHandler);
 #ifdef NDRANGE_UNIT_TEST
 	foo(m_lockedParams);
-	finish(m_taskHandler);
+	m_pTaskExecutor->finish(m_taskHandler);
 	return NULL;
 #endif
 
 	if (1 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0]), TaskLoopBody1D(this), tbb::auto_partitioner());
+		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0]), TaskLoopBody1D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 	else if (2 == m_dim)
 	{
@@ -731,7 +776,7 @@ tbb::task* TBBNDRangeTask::execute()
 		assert(m_region[1] <= CL_MAX_INT32);
 		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1],
 													0, (int)m_region[0]),
-													TaskLoopBody2D(this), tbb::auto_partitioner());
+													TaskLoopBody2D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 	else
 	{
@@ -741,10 +786,11 @@ tbb::task* TBBNDRangeTask::execute()
 		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2],
 													0, (int)m_region[1],
 													0, (int)m_region[0]),
-													TaskLoopBody3D(this), tbb::auto_partitioner());
+													TaskLoopBody3D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 
-	finish(m_taskHandler);
+	// Call to "finish()" as the last command in order to release resources and notify for completion (in case of OOO).
+	m_pTbbNDRangeTask->finish(m_taskHandler);
 	return NULL;
 }
 
@@ -752,11 +798,11 @@ tbb::task* TBBNDRangeTask::execute()
 
 
 GENERIC_TLS_STRUCT::fnConstructorTls* GENERIC_TLS_STRUCT::constructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::constructTlsEntry
+	&NDRangeTask::constructTlsEntry		// NDRange task general TLS creator.
 };
 
 GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::destructTlsEntry
+	&NDRangeTask::destructTlsEntry		// NDRange task general TLS destructor.
 };
 
 
@@ -791,7 +837,7 @@ void ThreadPool::releaseSingletonInstance()
 	
 
 
-
+// TLS objects:
 tbb::enumerable_thread_specific<unsigned int>*                          TBBThreadPool::t_uiWorkerId = NULL;
 tbb::enumerable_thread_specific<tbb::task_scheduler_init*>*             TBBThreadPool::t_pScheduler = NULL;
 tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>*	TBBThreadPool::t_generic = NULL;
@@ -805,6 +851,7 @@ bool TBBThreadPool::init(unsigned int numOfWorkers)
 	assert(NULL == t_pScheduler);
 	assert(NULL == t_generic);
 
+	// initialize the TLS objects.
 	if (NULL == t_uiWorkerId)
 	{
 		t_uiWorkerId = new tbb::enumerable_thread_specific<unsigned int>;
@@ -824,6 +871,7 @@ bool TBBThreadPool::init(unsigned int numOfWorkers)
 	assert(t_pScheduler);
 	assert(t_generic);
 
+	// In case of allocation failure.
 	if ((NULL == t_uiWorkerId) || (NULL == t_pScheduler) || (NULL == t_generic))
 	{
 		if (t_uiWorkerId)
@@ -842,13 +890,14 @@ bool TBBThreadPool::init(unsigned int numOfWorkers)
 	}
 
 	m_numOfWorkers = numOfWorkers;
+	// Set tbb observe - true
 	observe(true);
 	return true;
 }
 
 void TBBThreadPool::release()
 {
-	//TODO
+	// DO NOTHING.
 }
 
 unsigned int TBBThreadPool::getWorkerID()
@@ -861,7 +910,7 @@ unsigned int TBBThreadPool::getWorkerID()
 void TBBThreadPool::registerMasterThread()
 {
 	tbb::task_scheduler_init* pScheduler = getScheduler();
-	// If the scheduler didn't set yet and I'm not a worker
+	// If the scheduler didn't set yet and I'm not a worker (I'm muster thread)
 	if ( (NULL == pScheduler) && (!isWorkerScheduler()) )
 	{
 		setScheduler(new tbb::task_scheduler_init(m_numOfWorkers));
@@ -876,6 +925,7 @@ void TBBThreadPool::unregisterMasterThread()
 		delete pScheduler;
 		setScheduler(NULL);
 	}
+	// Release my general TLS pointers.
 	releaseGeneralTls();
 }
 
@@ -895,6 +945,7 @@ void TBBThreadPool::setGeneralTls(unsigned int index, void* pGeneralTlsObj)
 
 void TBBThreadPool::on_scheduler_entry(bool is_worker)
 {
+	// uiWorkerId initiate with muster thread ID.
 	unsigned int uiWorkerId = 0;
 	// If worker thread and didn't set ID for it yet
 	if ((is_worker) && (INVALID_WORKER_ID == getWorkerID()))
@@ -904,7 +955,7 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 	}
 	setWorkerID(uiWorkerId);
 	
-	// Run over all the general Tls constructors
+	// Run over all the general Tls constructors, call them and set them on this thread general TLS.
 	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
 	{
 		void* tlsData = NULL;
@@ -917,6 +968,7 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 	
 void TBBThreadPool::on_scheduler_exit(bool is_worker)
 {
+	// In this point We do it only for worker threads. (Muster threads do the same in "unregisterMasterThread()" method).
 	if (is_worker)
 	{
 		setWorkerID(INVALID_WORKER_ID);
@@ -934,7 +986,7 @@ tbb::task_scheduler_init* TBBThreadPool::getScheduler()
 
 void TBBThreadPool::releaseGeneralTls()
 {
-	// Run over all the general Tls destructors
+	// Run over all the general Tls destructors, call them and set the appropriate general TLS to NULL
 	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
 	{
 		void* tlsData = getGeneralTls(i);
@@ -945,5 +997,3 @@ void TBBThreadPool::releaseGeneralTls()
 		setGeneralTls(i, NULL);
 	}
 }
-
-
