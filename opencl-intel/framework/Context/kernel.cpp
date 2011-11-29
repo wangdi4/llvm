@@ -603,11 +603,17 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		}
 		bIsSampler = true;
 	}
-
-	// memory object
+	// Buffers
 	else if ((clArgType == CL_KRNL_ARG_PTR_GLOBAL)	||
-	    (clArgType == CL_KRNL_ARG_PTR_CONST)	||
-		(clArgType == CL_KRNL_ARG_PTR_IMG_2D)	||
+	    (clArgType == CL_KRNL_ARG_PTR_CONST) )
+	{
+		if (sizeof(cl_mem) != szSize)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+		bIsMemObj = true;
+	} // Images
+	else if ( (clArgType == CL_KRNL_ARG_PTR_IMG_2D)	||
 		(clArgType == CL_KRNL_ARG_PTR_IMG_3D)   ||
         (clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR))
 	{
@@ -615,9 +621,13 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		{
 			return CL_INVALID_ARG_SIZE;
 		}
+		if (NULL == pValue)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}
 		bIsMemObj = true;
 	}
-
+	// Local buffer
 	else if (clArgType == CL_KRNL_ARG_PTR_LOCAL)
 	{
 		if (0 == szSize)

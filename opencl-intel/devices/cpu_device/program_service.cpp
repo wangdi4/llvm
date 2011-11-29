@@ -900,20 +900,18 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         return CL_DEV_INVALID_VALUE;
     }
 
-    if ( NULL != valueSizeRet )
-    {
-        *valueSizeRet = stValSize;
-    }
-
     if ( (0 == value_size) && (NULL == value) )
     {
         if ( NULL == valueSizeRet )
         {
             return CL_DEV_INVALID_VALUE;
         }
+
+		*valueSizeRet = stValSize;
         return CL_DEV_SUCCESS;
     }
 
+	// BugFix: CSSD100011902, need first to check the error condition
     if ( (NULL == value) || (value_size < stValSize) )
     {
             return CL_DEV_INVALID_VALUE;
@@ -926,6 +924,11 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     else
     {
         memset(value, 0, stValSize);
+    }
+
+	if ( NULL != valueSizeRet )
+    {
+        *valueSizeRet = stValSize;
     }
 
     return CL_DEV_SUCCESS;

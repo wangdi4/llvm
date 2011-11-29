@@ -261,7 +261,9 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 		}
         delete[] ppDevices;
 		if ( NULL != pContext )
+		{
 			pContext->Release();
+		}
 		return CL_INVALID_HANDLE;
 	}
 
