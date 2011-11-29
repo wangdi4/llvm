@@ -146,7 +146,7 @@ private:
 class InputBufferStream : public IInputStream
 {
 public:
-    InputBufferStream(char* pBuffer, size_t size) 
+    InputBufferStream(const char* pBuffer, size_t size) 
         : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { };
         
     InputBufferStream& Read(char* s, size_t count)
@@ -162,7 +162,7 @@ public:
     }
     
 private:
-    char* m_pBuffer;
+    const char* m_pBuffer;
     size_t m_Size;
     size_t m_Pos;
 };
@@ -217,7 +217,7 @@ cl_dev_err_code MICSerializationService::SerializeProgram(
 
 cl_dev_err_code MICSerializationService::DeSerializeProgram(
         ICLDevBackendProgram_** ppProgram, 
-        void* pBlob,
+        const void* pBlob,
         size_t blobSize) const
 {
     try

@@ -65,5 +65,11 @@ private:
     //ODOT
     llvm::ExecutionEngine* m_pExecEngine; //not owned by the class
     KernelJITProperties*   m_pProps;
+
+    // Klockwork Issue
+    CPUJITContainer ( const CPUJITContainer& x );
+
+    // Klockwork Issue
+    CPUJITContainer& operator= ( const CPUJITContainer& x );
 };
 }}} // namespace

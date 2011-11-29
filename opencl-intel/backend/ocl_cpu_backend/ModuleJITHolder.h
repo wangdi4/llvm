@@ -22,6 +22,8 @@ File Name:  ModuleJITHolder.h
 #include <map>
 #include "Serializer.h"
 
+#include "assert.h"
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class ICLDevBackendJITAllocator;
@@ -122,6 +124,12 @@ private:
     std::map<KernelID, KernelInfo> m_KernelsMap;
     
     ICLDevBackendJITAllocator* m_pJITAllocator; 
+
+    // Klockwork Issue
+    ModuleJITHolder ( const ModuleJITHolder& x );
+
+    // Klockwork Issue
+    ModuleJITHolder& operator= ( const ModuleJITHolder& x );
 };
 
 }}} // namespace

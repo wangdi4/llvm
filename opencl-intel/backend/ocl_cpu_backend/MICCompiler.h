@@ -83,6 +83,12 @@ private:
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps);
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule );
+
+    // Klockwork Issue
+    MICCompiler ( const MICCompiler& x );
+
+    // Klockwork Issue
+    MICCompiler& operator= ( const MICCompiler& x );
 private:
     BuiltinModule*           m_pBuiltinModule;
     llvm::MICCodeGenerationEngine* m_pCGEngine;

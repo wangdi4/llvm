@@ -68,6 +68,12 @@ private:
     unsigned long long int  m_funcID;
 
     MICKernelJITProperties*   m_pProps;
+
+    // Klockwork Issue
+    MICJITContainer ( const MICJITContainer& x );
+
+    // Klockwork Issue
+    MICJITContainer& operator= ( const MICJITContainer& x );
 };
 
 }}} // namespace

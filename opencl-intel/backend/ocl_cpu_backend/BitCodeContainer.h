@@ -73,6 +73,13 @@ public:
 private:
     void*  m_pModule;
     ProgramContainerMemoryBuffer* m_pBuffer;
+
+    // Klockwork Issue
+    BitCodeContainer ( const BitCodeContainer& x );
+
+    // Klockwork Issue
+    BitCodeContainer& operator= ( const BitCodeContainer& x );
+
 };
 
 }}} // namespace

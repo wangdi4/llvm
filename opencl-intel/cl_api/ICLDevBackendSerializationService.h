@@ -85,7 +85,7 @@ public:
      */
     virtual cl_dev_err_code DeSerializeProgram(
         ICLDevBackendProgram_** ppProgram, 
-        void* pBlob,
+        const void* pBlob,
         size_t blobSize) const = 0;
 
     /**

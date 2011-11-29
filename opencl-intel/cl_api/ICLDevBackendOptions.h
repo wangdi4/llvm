@@ -16,6 +16,8 @@ enum cl_dev_backend_options                // Description                       
     CL_DEV_BACKEND_OPTION_LOGGER_CALLBACK, //!< Pointer to the logger callback      |pointer      |  
     CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR,   //!< Pointer to the JIT mem. allocator   |pointer      | (Used in serialization)
     CL_DEV_BACKEND_OPTION_DUMP_IR_DIR,     //!< Directory for dumping the IR files  |string       |
+    CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB,//!< Target Description Blob             |buffer       |
+    CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE,//!< Target Description Blob Size        |int          |
     CL_DEV_BACKEND_OPTION_TIME_PASSES      //!< Filename for dumping time passes    |string       |
 };
 

@@ -92,6 +92,12 @@ private:
 
     void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps);
 
+    // Klockwork Issue
+    CPUCompiler ( const CPUCompiler& x );
+
+    // Klockwork Issue
+    CPUCompiler& operator= ( const CPUCompiler& x );
+
 private:
     BuiltinModule*         m_pBuiltinModule;
     llvm::ExecutionEngine* m_pExecEngine;
