@@ -1418,7 +1418,7 @@ class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
 
 class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeterFullWW35", config, BIMeterFullWW35, r"*_image*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeterFullWW35", config, BIMeterFullWW35, r".*_image.*")
 
 perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
                "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
