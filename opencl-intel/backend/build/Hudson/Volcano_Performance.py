@@ -1416,6 +1416,10 @@ class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeterFullWW35", config, BIMeterFullWW35, r"conversions_*")
 
+class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeterFullWW35", config, BIMeterFullWW35, r"*_image*")
+
 perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
                "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
                "CyberLink":             [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]   ],
@@ -1437,7 +1441,8 @@ perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []   
                "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,    [['.*','.*64']]  ],
                "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,    [['.*','.*64']]  ],
                "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite, [['.*','.*64']]  ], 
-               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','.*64']]  ]           
+               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','.*64']]  ],
+               "BIMeterImages":         [VolcanoBIMeterImagesSuite,        [['.*','.*64']]  ]
              }
 
 def main():
