@@ -414,7 +414,8 @@ protected:
 	virtual ~ThreadPool();
 
 	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
-	unsigned int getNextWorkerID() { assert(((long)m_NextWorkerID <= MIC_NATIVE_MAX_WORKER_THREADS) && ((long)m_NextWorkerID <= m_numOfWorkers));
+	unsigned int getNextWorkerID() { assert((long)m_NextWorkerID <= MIC_NATIVE_MAX_WORKER_THREADS);
+	                                 assert((long)m_NextWorkerID <= m_numOfWorkers);
 	                                 return m_NextWorkerID++; };
 
 	// The amount of worker threads.

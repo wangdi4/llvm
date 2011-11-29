@@ -60,6 +60,8 @@ WGContext::~WGContext()
 
 cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
+	// Nullify m_pContext in order to be able to use InvalidateContext() in case of failure
+	m_pContext = NULL;
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
 		assert(0);

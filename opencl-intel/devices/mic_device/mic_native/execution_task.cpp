@@ -642,11 +642,14 @@ cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pCtx->GetCmdId())
 	{
-		// if it is worker thread, Invalidate the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1]
-		if (uiWorkerId > 0)
+
+		// if it is worker thread and m_contextExecutableArr[uiWorkerId-1] != NULL Release the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1].
+		// It can occur in case that this thread already run in this context and move to different contect (task) and back again.
+		if ((uiWorkerId > 0) && (m_contextExecutableArr[uiWorkerId-1]))
 		{
-			// Need to invalidate the context in order to release the old BE executable
-			pCtx->InvalidateContext();
+			// Need to release the old BE executable
+
+			((ICLDevBackendExecutable_*)m_contextExecutableArr[uiWorkerId-1])->Release();
 			m_contextExecutableArr[uiWorkerId-1] = NULL;
 		}
 		// Set a new Context.
@@ -727,6 +730,14 @@ TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask(), m_pTaskExecutor(NULL)
 
 cl_dev_err_code TBBNDRangeTask::init(TaskHandler* pTaskHandler)
 {
+	// Call my parent (NDRangeTask init() method)
+	cl_dev_err_code result = NDRangeTask::init(pTaskHandler);
+	if (CL_DEV_FAILED(result))
+	{
+		m_pTaskExecutor = NULL;
+		return result;
+	}
+
 	// According to TBB documentation "Always allocate memory for task objects using special overloaded new operators (11.3.2) provided by the library, otherwise the results are undefined.
 	// Destruction of a task is normally implicit. (When "execute()" method completes)
 	m_pTaskExecutor = new (tbb::task::allocate_root()) TBBNDRangeExecutor(this, pTaskHandler, m_dim, m_region);
@@ -735,15 +746,6 @@ cl_dev_err_code TBBNDRangeTask::init(TaskHandler* pTaskHandler)
 	{
 		finish(pTaskHandler);
 		return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	// Call my parent (NDRangeTask init() method)
-	cl_dev_err_code result = NDRangeTask::init(pTaskHandler);
-	if (CL_DEV_FAILED(result))
-	{
-		tbb::task::destroy(*m_pTaskExecutor);
-		m_pTaskExecutor = NULL;
-		return result;
 	}
 
 	return CL_DEV_SUCCESS;
