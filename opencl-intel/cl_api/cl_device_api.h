@@ -628,7 +628,8 @@ public:
 	{
 		CL_DEV_BS_RT_ALLOCATED = 0,		//!<	The backing store is allocated by the runtime or by a device
 		CL_DEV_BS_USER_ALLOCATED,		//!<	The backing store is based on a pointer provided by CL_USE_HOST_PTR
-		CL_DEV_BS_USER_COPY				//!<	The backing store contains data to be copied by the runtime (CL_COPY_HOST_PTR)
+		CL_DEV_BS_USER_COPY,			//!<	The backing store contains data to be copied by the runtime (CL_COPY_HOST_PTR)
+        CL_DEV_BS_RT_MAPPED             //!<    The backing store contains data that is mapped by the runtime from other object (such as GL object)
 	};
 
 	//!	Returns pointer to a backing store data

@@ -95,7 +95,7 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 	// Need to create Backing store
 	if (m_clFlags & CL_MEM_COPY_HOST_PTR)
 	{
-		m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, true, false);
+        m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, true, IOCLDevBackingStore::CL_DEV_BS_USER_COPY);
 		if ( NULL == m_pBackingStore )
 		{
 			LOG_ERROR(TEXT("%S"), TEXT("Allocation of Backing Store failed"));
@@ -106,7 +106,8 @@ cl_err_code SingleUnifiedMemObject::Initialize(
 	{
 		// in case that we're using host ptr we don't need to allocated memory for the buffer
 		// just use the host ptr instead
-		m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, 0 == (clMemFlags & CL_MEM_WRITE_ONLY), true);
+        const IOCLDevBackingStore::cl_dev_bs_description clDevBsDesc = m_clFlags & CL_MEM_USE_HOST_PTR ? IOCLDevBackingStore::CL_DEV_BS_USER_ALLOCATED : IOCLDevBackingStore::CL_DEV_BS_RT_MAPPED;
+        m_pBackingStore = new SingleUnifiedMemObjectBackingStore(pHostPtr, pitches, 0 == (clMemFlags & CL_MEM_WRITE_ONLY), clDevBsDesc);
 		if ( NULL == m_pBackingStore )
 		{
 			LOG_ERROR(TEXT("%S"), TEXT("Allocation of Backing Store failed"));
@@ -272,8 +273,8 @@ const IOCLDeviceAgent* const *SingleUnifiedMemObject::GetDeviceAgentList() const
 //////////////////////////////////////////////////////////////////////////
 /// SingleUnifiedMemObjectBackingStore
 //////////////////////////////////////////////////////////////////////////
-SingleUnifiedMemObjectBackingStore::SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, bool isHostMapped) :
-	m_ptr(ptr), m_dataAvail(dataAvail), m_isHostMapped(isHostMapped)
+SingleUnifiedMemObjectBackingStore::SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, cl_dev_bs_description clDevBsDesc) :
+	m_ptr(ptr), m_dataAvail(dataAvail), m_clDevBsDesc(clDevBsDesc)
 {
 	if ( NULL != pitch )
 	{

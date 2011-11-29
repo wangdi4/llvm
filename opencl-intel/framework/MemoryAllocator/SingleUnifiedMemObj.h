@@ -130,16 +130,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class SingleUnifiedMemObjectBackingStore : public IOCLDevBackingStore
 	{
 	public:
-		SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, bool isHostMapped);
+		SingleUnifiedMemObjectBackingStore(void* ptr, const size_t pitch[], bool dataAvail, cl_dev_bs_description clDevBsDesc);
 		void* GetRawData() const {return m_ptr;}
         size_t GetRawDataSize() const {return 0;}
 		cl_dev_bs_description GetRawDataDecription() const
-			{
-				if (m_isHostMapped)
-					return CL_DEV_BS_USER_ALLOCATED;
-				else
-					return CL_DEV_BS_USER_COPY;
-			}
+		{
+		    return m_clDevBsDesc;
+		}
 		size_t GetDimCount() const {return 0;}		// Not used
 		const size_t* GetDimentions() const {return NULL;}// Not used
 		bool IsDataValid() const {return m_dataAvail;}
@@ -157,7 +154,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void*			m_ptr;
 		size_t			m_pitch[MAX_WORK_DIM-1];
 		bool			m_dataAvail;
-		bool			m_isHostMapped;
+		cl_dev_bs_description m_clDevBsDesc;
 		AtomicCounter	m_refCount;
 	};
 
