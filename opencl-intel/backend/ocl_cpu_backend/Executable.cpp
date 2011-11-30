@@ -18,7 +18,6 @@ File Name:  Executable.cpp
 
 #include "Binary.h"
 #include "Executable.h"
-#include "CPUDetect.h"
 #include "ImplicitArgsUtils.h"
 #include "cl_device_api.h"
 #include "cl_types.h"
@@ -48,36 +47,12 @@ void AfterExecution() { }
 }
 #endif // ENABLE_SDE_DEBUG_TRACE
 
-#if defined(_M_X64) || defined(__LP64__)
-// defined in kernel_execute[att].asm
-extern "C" void Emit_VZeroUpper(void);
-#else
-
-#ifdef _WIN32
-static void Emit_VZeroUpper(void) {
-  __asm
-  {
-    //vzeroupper
-#if _MSC_VER < 1600
-    _emit 197
-    _emit 248
-    _emit 119
-#else
-	vzeroupper
-#endif
-  }
-}
-#else //_WIN32
-#error Unsupported target
-#endif
-#endif
-
 Executable::Executable(const Binary* pBin) :
   m_pBinary(pBin), m_pParameters(NULL), m_stParamSize(0),
   m_uiCSRMask(0), m_uiCSRFlags(0) {    
   
   m_DAZ    = pBin->GetDAZ();
-  }
+}
 
 Executable::~Executable() {
 }

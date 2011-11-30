@@ -30,44 +30,44 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
   {
   case CL_KRNL_ARG_INT:
     return arg.size_in_bytes;
-	
-	case CL_KRNL_ARG_UINT:
-	  return arg.size_in_bytes;
-	
-	case CL_KRNL_ARG_FLOAT:
-	  return arg.size_in_bytes;
-	
-	case CL_KRNL_ARG_DOUBLE:
-	  return arg.size_in_bytes;
-	
-	case CL_KRNL_ARG_VECTOR:
-	  {
-	    // Extract the vector element size and the number of vector elements
-	    unsigned int elemSize = arg.size_in_bytes >> 16;
+
+  case CL_KRNL_ARG_UINT:
+    return arg.size_in_bytes;
+
+  case CL_KRNL_ARG_FLOAT:
+    return arg.size_in_bytes;
+
+  case CL_KRNL_ARG_DOUBLE:
+    return arg.size_in_bytes;
+
+  case CL_KRNL_ARG_VECTOR:
+    {
+      // Extract the vector element size and the number of vector elements
+      unsigned int elemSize = arg.size_in_bytes >> 16;
       unsigned int numElements = (arg.size_in_bytes) & 0xFFFF;
       return elemSize * numElements;
     }
-	
-	case CL_KRNL_ARG_SAMPLER:
-	  return sizeof(cl_int);
-	
-	case CL_KRNL_ARG_COMPOSITE:
-	  return arg.size_in_bytes;
-	
-	case CL_KRNL_ARG_PTR_LOCAL:
-	  return sizeof(void*);
-	
-	case CL_KRNL_ARG_PTR_GLOBAL:
-	  return sizeof(void*);
-	
-	case CL_KRNL_ARG_PTR_CONST:
-	  return sizeof(void*);
-	
-	case CL_KRNL_ARG_PTR_IMG_2D:
-	  return sizeof(void*);
-	
-	case CL_KRNL_ARG_PTR_IMG_3D:
-	  return sizeof(void*);
+
+  case CL_KRNL_ARG_SAMPLER:
+    return sizeof(cl_int);
+
+  case CL_KRNL_ARG_COMPOSITE:
+    return arg.size_in_bytes;
+
+  case CL_KRNL_ARG_PTR_LOCAL:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_GLOBAL:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_CONST:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_IMG_2D:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_IMG_3D:
+    return sizeof(void*);
   
   case CL_KRNL_ARG_PTR_IMG_2D_ARR:
     return sizeof(void*);
@@ -85,33 +85,34 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
   switch(arg.type)
   {
   case CL_KRNL_ARG_VECTOR:
-	  {
-	    size_t vectorAlignment = getSize(arg);
-	    
-	    unsigned int numElements = (arg.size_in_bytes) & 0xFFFF;
-	    
-	    // Vectors of 3 elements need to be aligned to a 4-elements vector
-	    if (numElements == 3) {
-	      // Align num elems to 4 elements by adding elemSize
-	      unsigned int elemSize = arg.size_in_bytes >> 16;
-	      vectorAlignment += elemSize;
-	    }
-	    
-	    alignment = vectorAlignment;
+    {
+      size_t vectorAlignment = getSize(arg);
+    
+      unsigned int numElements = (arg.size_in_bytes) & 0xFFFF;
+    
+      // Vectors of 3 elements need to be aligned to a 4-elements vector
+      if (numElements == 3) {
+        // Align num elems to 4 elements by adding elemSize
+        unsigned int elemSize = arg.size_in_bytes >> 16;
+        vectorAlignment += elemSize;
+      }
+    
+      alignment = vectorAlignment;
       // Adding assert to check we are following the OpenCL spec:
       // A built-in data type that is not a power of two bytes in size must be
       // aligned to the next larger power of two
       assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
     }
-    
+    break;
   case CL_KRNL_ARG_COMPOSITE:
     {
       // No alignment for structures
-	    alignment = 0;
-	  }
-	  
-	default:
+      alignment = 0;
+    }
+    break;
+  default:
     alignment = getSize(arg);
+    break;
   }
   
   return alignment;
