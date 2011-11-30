@@ -89,6 +89,8 @@ void release_device(uint32_t         in_BufferCount,
 					 void*            in_pReturnValue,
 					 uint16_t         in_ReturnValueLength)
 {
+	// Release the extra arena allocated on init_device() by pThreadPool->init()
+	ThreadPool::getInstance()->unregisterMasterThread();
 	// Release the thread pool singleton.
 	ThreadPool::releaseSingletonInstance();
 }
@@ -894,6 +896,8 @@ bool TBBThreadPool::init(unsigned int numOfWorkers)
 	m_numOfWorkers = numOfWorkers;
 	// Set tbb observe - true
 	observe(true);
+	// Create extra arena in order to avoid worker threads termination when the last command queue terminates
+	registerMasterThread();
 	return true;
 }
 
