@@ -30,7 +30,6 @@
 #include <Windows.h>
 #endif
 #include <cl_sys_defines.h>
-#include <cl_sys_info.h>
 #include <tbb/blocked_range.h>
 #include <tbb/atomic.h>
 #include <tbb/tbb.h>
@@ -967,7 +966,7 @@ TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0)
 #endif
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
 
-	gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
+	gWorker_threads = tbb::task_scheduler_init::default_num_threads();
 
 	ThreadIDAssigner::SetScheduler(NULL);
 }
