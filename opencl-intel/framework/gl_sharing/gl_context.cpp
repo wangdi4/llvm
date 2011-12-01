@@ -43,12 +43,11 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData) :
 	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData)
 {
-	if ( (NULL == hGLCtx) || (NULL == hDC) )
-	{
-		*pclErr = CL_INVALID_VALUE;
-		return;
-	}
-
+    if (NULL == hGLCtx)
+    {
+        *pclErr = CL_INVALID_VALUE;
+        return;
+    }
 	// Check if any device is attached to context
 	for(cl_uint idx = 0; idx < uiNumDevices; idx++)
 	{
@@ -58,13 +57,13 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
         }
 		cl_context_properties devProp;
 		ppDevices[idx]->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &devProp, NULL);
-		if ( (NULL != devProp) && (devProp != hGLCtx) )
-		{
-			*pclErr = CL_INVALID_OPERATION;
-			return;
-		}
+        if ( (NULL != devProp) && (devProp != hGLCtx) )
+        {
+            *pclErr = CL_INVALID_OPERATION;
+            return;
+        }
 		ppDevices[idx]->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &devProp, NULL);
-		if ( (NULL != devProp) && (devProp != hDC) )
+		if (devProp != hDC)
 		{
 			*pclErr = CL_INVALID_OPERATION;
 				return;

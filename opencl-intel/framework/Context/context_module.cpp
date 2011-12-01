@@ -206,7 +206,8 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
     
 #if defined (_WIN32)  //TODO GL support for Linux
 	cl_context_properties hGLCtx, hDC;
-	ParseGLContextOptions(clProperties, &hGLCtx, &hDC);
+    bool bGLSharingSupported = false;
+	ParseGLContextOptions(clProperties, &hGLCtx, &hDC, &bGLSharingSupported);
 #if defined (DX9_MEDIA_SHARING)
     IUnknown* pD3D9Device;
     int iDevType;
@@ -221,7 +222,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
         delete[] ppDevices;
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pD3D9Device && (NULL != hGLCtx || NULL != hDC))
+    if (NULL != pD3D9Device && bGLSharingSupported)
     {
         LOG_ERROR(TEXT("%S"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
         if (NULL != pRrrcodeRet)
@@ -236,7 +237,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	// Default error in case new() will fail
 	clErrRet = CL_OUT_OF_HOST_MEMORY;
 #if defined (_WIN32)  //TODO GL support for Linux
-	if ( (NULL != hGLCtx) || (NULL != hDC) )
+	if (bGLSharingSupported)
 	{
 		pContext = 	new GLContext(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData);
 	} else

@@ -26,5 +26,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-cl_int ParseGLContextOptions(const cl_context_properties * properties, cl_context_properties *hGL,  cl_context_properties *hDC);
+cl_int ParseGLContextOptions(const cl_context_properties * properties, cl_context_properties *hGL,  cl_context_properties *hDC,
+                             bool* pbGLSharingSupported = NULL);
 }}}
