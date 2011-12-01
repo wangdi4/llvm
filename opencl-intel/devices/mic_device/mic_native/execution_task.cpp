@@ -135,7 +135,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	dispatcher_data* tDispatcherData = NULL;
 	misc_data* tMiscData = NULL;
 	// the buffer index of misc_data in case of it is not in "in_pReturnValue"
-	uint32_t tMiscDataBufferIndex = in_BufferCount - 1;
+	uint32_t tMiscDataBufferIndex = in_BufferCount - DISPATCHER_DATA - 1;
 	// If the dispatcher_data is not in in_pMiscData than it suppose to be at in_ppBufferPointers[in_BufferCount - DISPATCHER_DATA - 1] (The last buffer)
 	if (0 == in_MiscDataLength)
 	{
