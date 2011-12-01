@@ -450,8 +450,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         spCompileService->DumpCodeContainer( pCodeContainer, &dumpOptions);
     }
 
-    if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty() &&
-        !pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false))
+    if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty())
     {
         spCompileService->DumpJITCodeContainer(spProgram->GetProgramCodeContainer(),
                 pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
