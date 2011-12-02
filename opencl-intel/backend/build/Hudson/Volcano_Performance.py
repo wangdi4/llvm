@@ -1244,6 +1244,9 @@ SHOCPerformance = [
 ['Triad',16]
 ]
 
+SonyVegas425Performance = [['vegas', 16]]
+SonyVegas425Performance.extend([['vegas.'+str(i), 16] for i in range(2,19)])
+
 """
 def FillBIMeterPerformanceTable(Path, Iterations, TargetType):
     #get list of configs
@@ -1366,6 +1369,10 @@ class VolcanoSHOCPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'SHOC', None, config, SHOCPerformance)
 
+class VolcanoSonyVegas425PerformanceSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'SonyVegas425', None, config, SonyVegas425Performance)
+
 class VolcanoBIMeterPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeterFullWW35", config, BIMeterPerformance)
@@ -1431,6 +1438,7 @@ perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []   
                "Phoronix":              [VolcanoPhoronixPerformanceSuite,  [['.*','Win32']] ],
                "GEHC":                  [VolcanoGEHCPerformanceSuite,      [['.*','Win32']] ], 
                "SHOC":                  [VolcanoSHOCPerformanceSuite,      [['.*','Win32']] ], 
+               "SonyVegas425":          [VolcanoSonyVegas425PerformanceSuite,[['.*','Win32']] ], 
                "BIMeterMath":           [VolcanoBIMeterMathSuite,          [['.*','.*64']]  ],
                "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,       [['.*','.*64']]  ],
                "BIMeterCommon":         [VolcanoBIMeterCommonSuite,        [['.*','.*64']]  ],
