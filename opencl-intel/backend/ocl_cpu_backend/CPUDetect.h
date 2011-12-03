@@ -19,8 +19,6 @@ File Name:  CPUDetect.h
 #pragma once
 #include "TargetArch.h"
 
-#include "TargetArch.h"
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
 class CPUDetect

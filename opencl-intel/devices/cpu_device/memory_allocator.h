@@ -32,6 +32,7 @@
 #include <cl_types.h>
 #include <cl_heap.h>
 #include <cl_synch_objects.h>
+#include "cl_dev_backend_api.h"
 #include <map>
 
 using namespace Intel::OpenCL::Utils;
@@ -43,7 +44,7 @@ class MemoryAllocator
 {
 
 public:
-	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, cl_ulong maxAllocSize);
+	MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, cl_ulong maxAllocSize, ICLDevBackendImageService* pImageService);
 	virtual ~MemoryAllocator();
 
 	//Image Info Function
@@ -54,7 +55,7 @@ public:
 	cl_dev_err_code	CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
 							size_t	dim_count, const size_t* dim,
 							IOCLDevRTMemObjectService*	pRTMemObjService,
-							IOCLDevMemoryObject* *memObj );
+							IOCLDevMemoryObject* *memObj);
 
 
 	// Utility functions
@@ -62,10 +63,11 @@ public:
 protected:
 	size_t GetElementSize(const cl_image_format* format);
 	cl_int					m_iDevId;
-    cl_ulong      m_maxAllocSize;
+	cl_ulong				m_maxAllocSize;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
 	cl_int					m_iLogHandle;
 	ClHeap					m_lclHeap;
+	ICLDevBackendImageService* m_pImageService;
 };
 
 class CPUDevMemoryObject : public IOCLDevMemoryObject
@@ -77,7 +79,8 @@ public:
 		cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
 		const cl_image_format* pImgFormat, size_t elemSize,
 		size_t dimCount, const size_t* dim,
-		IOCLDevRTMemObjectService*	pRTMemObjService);
+		IOCLDevRTMemObjectService*	pRTMemObjService,
+		ICLDevBackendImageService* pImageService);
 
 	~CPUDevMemoryObject();
 
@@ -93,9 +96,9 @@ public:
 
 protected:
 	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
-		m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
+			m_lclHeap(NULL), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
 			m_nodeId(NULL), m_memFlags(0),
-			m_pRTMemObjService(NULL), m_pBackingStore(NULL), m_pHostPtr(NULL) {}
+			m_pRTMemObjService(NULL), m_pBackingStore(NULL), m_pImageService(NULL), m_pHostPtr(NULL){}
 
 	ClHeap					m_lclHeap;
 	IOCLDevLogDescriptor*	m_pLogDescriptor;
@@ -108,6 +111,7 @@ protected:
 	cl_mem_flags				m_memFlags;
 	IOCLDevRTMemObjectService*	m_pRTMemObjService;
 	IOCLDevBackingStore*		m_pBackingStore;
+	ICLDevBackendImageService* m_pImageService;
 	void*						m_pHostPtr;			// A pointer provided by the framework
 	size_t						m_hostPitch[MAX_WORK_DIM-1];
 

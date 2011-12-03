@@ -137,7 +137,10 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
       std::auto_ptr<IArgument> pArg;
       
       if ((arg.type == CL_KRNL_ARG_PTR_GLOBAL)
-        || (arg.type == CL_KRNL_ARG_PTR_CONST)) {
+            || (arg.type == CL_KRNL_ARG_PTR_CONST) 
+            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D) 
+            || (arg.type == CL_KRNL_ARG_PTR_IMG_3D)) {
+
         pArg = std::auto_ptr<ExplicitGlobalMemArgument>(new ExplicitGlobalMemArgument(pArgValueDest, arg));
       } 
       else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {

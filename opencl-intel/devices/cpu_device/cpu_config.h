@@ -40,7 +40,7 @@ using namespace Intel::OpenCL::Utils;
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 	extern const char* CPU_STRING;
-	extern const cl_image_format suportedImageFormats[];
+	extern const cl_image_format supportedImageFormats[];
 	extern const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS;
 
 	class CPUDeviceConfig

@@ -39,7 +39,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pValueSrc       The src from which to copy the value 
     virtual void setValue(char* pValue) {
       // The src is a mem descriptor and we need to extract the pointer to memory
-      void* pGlobalData = (*(cl_mem_obj_descriptor**)pValue)->pData;
+      //if it is an image, we suppose the imageAuxData instead
+      void* pGlobalData;
+      if ((*(cl_mem_obj_descriptor**)pValue)->dim_count > 1)
+        pGlobalData = (*(cl_mem_obj_descriptor**)pValue)->imageAuxData;
+      else
+        pGlobalData = (*(cl_mem_obj_descriptor**)pValue)->pData;
   
       ExplicitArgument::setValue(reinterpret_cast<char *>(&pGlobalData));
     }

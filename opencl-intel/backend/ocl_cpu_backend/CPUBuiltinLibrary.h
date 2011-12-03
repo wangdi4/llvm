@@ -27,7 +27,7 @@ class CPUBuiltinLibrary : public BuiltinLibrary
 {
 public:
     CPUBuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures) :
-      BuiltinLibrary(cpuId, cpuFeatures) { }
+    BuiltinLibrary(cpuId, cpuFeatures) { }
     ~CPUBuiltinLibrary() { }
 
     void Load();

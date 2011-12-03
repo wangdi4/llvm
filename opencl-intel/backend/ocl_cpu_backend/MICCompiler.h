@@ -12,87 +12,79 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICCompiler.h
+File Name: MICCompiler.h
 
 \*****************************************************************************/
 #pragma once
 
 #include <assert.h>
 #include <string>
+#include "Compiler.h"
 #include "CPUDetect.h"
 #include "exceptions.h"
 #include "CompilerConfig.h"
-#include "cl_dev_backend_api.h"
-#include "Kernel.h"
+#include "MICKernel.h"
 #include "Optimizer.h"
-#include "Compiler.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
+    class ExecutionEngine;
     class Module;
+    class MemoryBuffer;
+    class Type;
     class MICCodeGenerationEngine;
+    class ModuleJITHolder;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+class BuiltinLibrary;
 class BuiltinModule;
 class CompilerConfig;
-class Program;
-class MICProgram;
-class MICKernel;
-class MICKernelJITProperties;
 
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
 // 
-class MICCompiler : public Compiler
+class MICCompiler: public Compiler
 {
-
 public:
     /**
      * Ctor
      */
-    MICCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
-    ~MICCompiler();
+    MICCompiler(const CompilerConfig& pConfig);
+    virtual ~MICCompiler();
 
+    unsigned int GetTypeAllocSize(const llvm::Type* pType);
+
+    const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module);
+
+protected:
     /**
-     * Build the given program using the supplied build options
+     * Returns pointer to the RTL library module
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const CompilerBuildOptions* pOptions);
-
     llvm::Module* GetRtlModule() const;
 
-    KernelSet* CreateKernels(const Program* pProgram,
-                             llvm::Module* pModule, 
-                             ProgramBuildResult& buildResult, 
-                             FunctionWidthVector& vectorizedFunctions, 
-                             KernelsInfoMap& kernelsInfo,
-                             size_t specialBufferStride);
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule);
+    // !! WORKAROUND !!
+    // Execution engine can be created with Built-ins module or images module.
+    // By default execution engine is created in constructor for built-ins module
+    // In order to skip built-ins module creation in images we need
+    // to expose that interface and createExecution engine after constuctor is called.
+    virtual void CreateExecutionEngine( llvm::Module* pModule );
+
 
 private:
     void SelectMICConfiguration(const CompilerConfig& config);
 
-    MICKernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
-                                                   llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info);
-
-    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps);
-
-    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps);
-
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule );
 
-    // Klockwork Issue
-    MICCompiler ( const MICCompiler& x );
-
-    // Klockwork Issue
-    MICCompiler& operator= ( const MICCompiler& x );
 private:
     BuiltinModule*           m_pBuiltinModule;
     llvm::MICCodeGenerationEngine* m_pCGEngine;
-    std::string m_ErrorStr;
+    CompilerConfig           m_config;
+    std::string              m_ErrorStr;
 };
 
 }}}

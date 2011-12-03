@@ -168,7 +168,9 @@ bool DebugInfoPass::runOnModule(Module& M)
     for (; func_iter != m_pModule->end(); ++func_iter) {
         // Ignore declarations and builtins placed from the RT module.
         //
-        if (func_iter->isDeclaration() || m_pRTModule->getFunction(func_iter->getName()))
+        if(m_pRTModule != NULL && m_pRTModule->getFunction(func_iter->getName()))
+            continue;
+        if (func_iter->isDeclaration())
             continue;
         
         runOnUserFunction(&(*func_iter));
@@ -180,8 +182,9 @@ bool DebugInfoPass::runOnModule(Module& M)
 
 void DebugInfoPass::addGlobalIdDeclaration()
 {
-    if (m_pRTModule->getFunction("get_global_id"))
-        return;
+    if (m_pRTModule != NULL)
+        if (m_pRTModule->getFunction("get_global_id"))
+            return;
 
     // No such declaration; let's add it
     //

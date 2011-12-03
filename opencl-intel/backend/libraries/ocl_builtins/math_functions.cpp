@@ -223,6 +223,8 @@ float  __attribute__((overloadable)) fabs(float x)
     return res;
 }
 
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be done in image_callback_functions.cpp
 float4  __attribute__((overloadable)) fabs(float4 p)
 {
 	p = _mm_and_ps(p, *(__m128*)mth_signMask);
@@ -269,6 +271,8 @@ float  __attribute__((overloadable)) floor(float x)
 	return res;
 }
 
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be done in image_callback_functions.cpp
 float4  __attribute__((overloadable)) floor(float4 x)
 {
 	return _mm_floor_ps(x);
@@ -357,6 +361,8 @@ float  __attribute__((overloadable)) rint(float x)
 	return res;
 }
 
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be done in image_callback_functions.cpp
 float4  __attribute__((overloadable)) rint(float4 x)
 {
 	return _mm_round_ps(x, 0);

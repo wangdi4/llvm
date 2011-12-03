@@ -12,93 +12,81 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  CPUCompiler.h
+File Name: CPUCompiler.h
 
 \*****************************************************************************/
 #pragma once
 
 #include <assert.h>
 #include <string>
+#include "Compiler.h"
 #include "CPUDetect.h"
 #include "exceptions.h"
 #include "CompilerConfig.h"
-#include "cl_dev_backend_api.h"
 #include "Kernel.h"
 #include "Optimizer.h"
-#include "Compiler.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
     class ExecutionEngine;
-    class LLVMContext;
     class Module;
-    class Program;
-    class Function;
     class MemoryBuffer;
-    class MDNode;
+    class Type;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+class BuiltinLibrary;
 class BuiltinModule;
 class CompilerConfig;
-class Program;
-class Kernel;
-class KernelProperties;
-class KernelGroupSet;
-class ProgramBuildResult;
-
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
-class CPUCompiler : public Compiler
+// Provides the module optimization and code generation functionality.
+//
+class CPUCompiler: public Compiler
 {
-
 public:
     /**
      * Ctor
      */
-    CPUCompiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
-    ~CPUCompiler();
+    CPUCompiler(const CompilerConfig& pConfig);
+    virtual ~CPUCompiler();
+
+    unsigned int GetTypeAllocSize(const llvm::Type* pType);
+
+    // Returns pointer to jitted function if function hasn't been compiled
+    // Otherwise function is jitted and pointer is returned
+    void *GetPointerToFunction(llvm::Function *pf);
+
+    // TODO: Hack. Need redesign.
+    // Execution engine can be created with Built-ins module or images module.
+    // By default execution engine is created in constructor for built-ins module
+    // In order to skip built-ins module creation in images we need
+    // to expose that interface and createExecution engine after constuctor is called.
+    virtual void CreateExecutionEngine( llvm::Module* pModule );
+
+    uint64_t GetJitFunctionStackSize(const llvm::Function* pf);
+
+    unsigned int GetJitFunctionSize(const llvm::Function* pf);
+
+    virtual void freeMachineCodeForFunction(llvm::Function* pf);
+
+protected:
 
     /**
-     * Build the given program using the supplied build options
+     * Returns pointer to the RTL library module
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const CompilerBuildOptions* pOptions);
-
     llvm::Module* GetRtlModule() const;
 
-    KernelSet* CreateKernels(const Program* pProgram,
-                             llvm::Module* pModule, 
-                             ProgramBuildResult& buildResult, 
-                             FunctionWidthVector& vectorizedFunctions, 
-                             KernelsInfoMap& kernelsInfo,
-                             size_t specialBufferStride);
-
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) { }
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
 
-    llvm::ExecutionEngine* CreateExecutionEngine( llvm::Module* pModule );
-
-    KernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
-                                                   llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info);
-
-    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps);
-
-    size_t ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc);
-
-    void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps);
-
-    // Klockwork Issue
-    CPUCompiler ( const CPUCompiler& x );
-
-    // Klockwork Issue
-    CPUCompiler& operator= ( const CPUCompiler& x );
+    llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule );
 
 private:
+    CompilerConfig         m_config;
     BuiltinModule*         m_pBuiltinModule;
     llvm::ExecutionEngine* m_pExecEngine;
 };

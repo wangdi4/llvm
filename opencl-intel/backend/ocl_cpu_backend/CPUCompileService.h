@@ -19,9 +19,9 @@ File Name:  CPUCompileService.h
 
 #include "cl_dev_backend_api.h"
 #include "CompilerConfig.h"
-#include "Compiler.h"
+#include "ProgramBuilder.h"
 #include "CompileService.h"
-#include "CPUCompiler.h"
+#include "CPUProgramBuilder.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -31,10 +31,10 @@ public:
     CPUCompileService(const CompilerConfig& config);
     virtual ~CPUCompileService() { }
 
-    Compiler* GetCompiler() { return &m_compiler; }
+    ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
 private:
-    CPUCompiler m_compiler;
+    CPUProgramBuilder m_programBuilder;
 };
 
 }}}

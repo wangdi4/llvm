@@ -391,7 +391,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                 // Kernel execution assumes all buffer arguments are aligned
                 // If we do not align the buffer the execution crashes
                 auto_ptr_ex<cl_mem_obj_descriptor> spMemDesc((cl_mem_obj_descriptor*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
-                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr());
+                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL);
                 currArg.PointerVal = spMemDesc.get();
                 // push pointer to scratch memory
                 m_ClMemObjScratchMemList.push_back(spMemDesc.release());

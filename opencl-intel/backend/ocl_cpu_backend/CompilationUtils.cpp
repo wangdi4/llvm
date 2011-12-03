@@ -362,7 +362,7 @@ void CompilationUtils::getKernelsMetadata( Module* pModule,
 
   NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
 
-  int vecIndex = 0;
+  unsigned int vecIndex = 0;
   for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i)
   {
     // Obtain kernel function from annotation

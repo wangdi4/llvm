@@ -46,7 +46,7 @@ void CPUBuiltinLibrary::Load()
 
     if( Intel::CPU_SANDYBRIDGE == m_cpuId && ((m_cpuFeatures & Intel::CFS_AVX1) == 0))
     {
-        // For now we use SSE4 built-ins for AVX128
+        // Use SSE4 if AVX1 is not supported
         pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(Intel::CPU_COREI7);
     }
 

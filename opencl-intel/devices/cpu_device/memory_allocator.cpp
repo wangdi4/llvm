@@ -43,8 +43,8 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize) :
-	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL)
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize, ICLDevBackendImageService* pImageService) :
+	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL), m_pImageService(pImageService)
 {
 	if ( NULL != logDesc )
 	{
@@ -115,7 +115,7 @@ cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags
 	if(NULL != formats)
 	{
 		uiNumEntries = min(uiNumEntries, numEntries);
-		memcpy(formats, suportedImageFormats, uiNumEntries * sizeof(suportedImageFormats[0]));
+		memcpy(formats, supportedImageFormats, uiNumEntries * sizeof(supportedImageFormats[0]));
 	}
 	if(NULL != numEntriesRet)
 	{
@@ -207,7 +207,7 @@ size_t MemoryAllocator::GetElementSize(const cl_image_format* format)
 cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
 					 size_t dim_count, const size_t* dim,
 					 IOCLDevRTMemObjectService* pRTMemObjService,
-					 IOCLDevMemoryObject*  *memObj )
+					 IOCLDevMemoryObject*  *memObj)
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateObject enter"));
 
@@ -232,7 +232,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 															node_id, flags,
 															format, uiElementSize,
 															dim_count, dim,
-															pRTMemObjService);
+															pRTMemObjService, m_pImageService);
 	if ( NULL == pMemObj )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object allocation failed"));
@@ -277,10 +277,11 @@ CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* 
 				   cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
 				   const cl_image_format* pImgFormat, size_t elemSize,
 				   size_t dimCount, const size_t* dim,
-				   IOCLDevRTMemObjectService* pRTMemObjService):
+				   IOCLDevRTMemObjectService* pRTMemObjService,
+				   ICLDevBackendImageService* pImageService):
 m_lclHeap(lclHeap), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
 m_nodeId(nodeId), m_memFlags(memFlags), m_pRTMemObjService(pRTMemObjService),
-m_pBackingStore(NULL), m_pHostPtr(NULL)
+m_pBackingStore(NULL),  m_pImageService(pImageService), m_pHostPtr(NULL)
 {
 	assert( NULL != m_pRTMemObjService);
 
@@ -449,12 +450,35 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 		}
 	}
 
+	//allocating the memory on the device by querying the backend for the size
+	void* auxObject = NULL;
+	if (m_objDecr.dim_count > 1)  //image - should be correctly established in another way!
+	{
+		size_t auxObjectSize=m_pImageService->GetAuxilarySize();
+		auxObject = clAllocateFromHeap(m_lclHeap, auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
+		cl_dev_err_code rtErr = m_pImageService->CreateImageObject(&m_objDecr, (image_aux_data*)auxObject);
+		if( CL_DEV_FAILED(rtErr) )
+		{
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Create image failed"));
+			return CL_DEV_ERROR_FAIL;
+		}
+	}
+	else
+		m_objDecr.imageAuxData = NULL;
+
 	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseObject enter"));
+
+	void* auxObject; 
+	m_pImageService->DeleteImageObject(&m_objDecr, &auxObject);
+	if ( (NULL != auxObject) && (NULL != m_lclHeap) )
+	{
+		clFreeHeapPointer(m_lclHeap, auxObject);
+	}
 
 	// Did we allocate the buffer and not sub-object
 	if ( (m_pHostPtr != m_objDecr.pData) && (NULL != m_lclHeap) )

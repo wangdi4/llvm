@@ -18,7 +18,7 @@ File Name:  CompileService.cpp
 
 #include "exceptions.h"
 #include "CompileService.h"
-#include "Compiler.h"
+#include "ProgramBuilder.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "plugin_manager.h"
@@ -38,6 +38,7 @@ File Name:  CompileService.cpp
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/System/Path.h"
+#include "llvm/PassManager.h"
 
 #include <sstream>
 
@@ -79,7 +80,7 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
     try
     {
         //TODO: build the CompilerBuildOptions from the supplied pOptions
-        return GetCompiler()->BuildProgram(static_cast<Program*>(pProgram), NULL);
+        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), NULL);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {

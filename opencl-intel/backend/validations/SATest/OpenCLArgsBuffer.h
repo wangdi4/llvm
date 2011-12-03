@@ -43,7 +43,7 @@ namespace Validation
     /// @param [IN] image_desc DataManager's image descriptor
     /// @param [IN] pData pointer to data stored in image
     void FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, 
-        const ImageDesc& image_desc, void* pData);
+        const ImageDesc& image_desc, void* pData, const ICLDevBackendImageService* pImageService);
 
   /// @brief This class is responsible for handling the arguments buffer need for creation of kernel binary
   class OpenCLArgsBuffer
@@ -55,7 +55,10 @@ namespace Validation
     /// @param [IN] pKernelArgs Kernel arguments description
     /// @param [IN] kernelNumArgs Number of kernel arguments
     /// @param [IN] input Input buffers for the test program
-    OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs, cl_uint kernelNumArgs, IBufferContainerList * input);
+    OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs,
+                     cl_uint kernelNumArgs,
+                     IBufferContainerList * input,
+                     const ICLDevBackendImageService* pImageService);
 
     /// @brief Destructor
     ~OpenCLArgsBuffer(void);
@@ -99,6 +102,8 @@ namespace Validation
     const cl_kernel_argument * m_pKernelArgs;
     // Number of kernel arguments
     cl_uint m_kernelNumArgs;
+    // Image service to use for image aux data initialization
+    const ICLDevBackendImageService* m_pImageService;
   };
 }
 

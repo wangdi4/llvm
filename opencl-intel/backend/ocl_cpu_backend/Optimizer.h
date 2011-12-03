@@ -19,8 +19,7 @@ File Name:  Optimizer.h
 
 #include <assert.h>
 #include <string>
-#include "cl_dev_backend_api.h"
-#include "KernelProperties.h" //TODO: Consider to remove this dependency
+#include "TLLVMKernelInfo.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -33,14 +32,10 @@ namespace llvm {
     class Module;
     class Function;
     class ModulePass;
+    class LLVMContext;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-class Program;
-class Compiler;
-class CompilerConfig;
-
 
 typedef std::pair<llvm::Function *, int> FunctionWidthPair;
 typedef std::vector<FunctionWidthPair> FunctionWidthVector;
@@ -53,9 +48,8 @@ typedef std::map<const llvm::Function*, TLLVMKernelInfo> KernelsInfoMap;
 class Optimizer
 {
 public:
-    Optimizer( Program* pProgram,
-               Compiler* pCompiler,
-               llvm::Module* pModule,
+    Optimizer( llvm::Module* pModule,
+               llvm::Module* pRtlModule,
                const intel::OptimizerConfig* pConfig);
 
     void Optimize();

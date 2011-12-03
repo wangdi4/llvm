@@ -23,12 +23,28 @@ File Name:  BackendConfiguration.cpp
 
 #include <assert.h>
 #include <string>
+#include <cstring>
 #include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
 const char* CPU_ARCH_AUTO = "auto";
+
+namespace Utils
+{
+    OPERATION_MODE SelectOperationMode(const char* cpuArch)
+    {
+        if(0 == strcmp(cpuArch, "auto")) return CPU_MODE;
+        if(0 == strcmp(cpuArch, "auto-remote")) return MIC_MODE;
+        if (!Utils::CPUDetect::GetInstance()->IsValidCPUName(cpuArch))
+        {
+            throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
+        }
+        return (Utils::CPUDetect::GetInstance()->IsMICCPU(Utils::CPUDetect::GetInstance()->GetCPUByName(cpuArch))) 
+            ? MIC_MODE : CPU_MODE;
+    }
+}
 
 DEFINE_EXCEPTION(BadConfigException)
 
@@ -83,12 +99,22 @@ void BackendConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     //TODO: Apply runtime options to the logger config too
 }
 
+OPERATION_MODE CompilerConfiguration::GetOperationMode()
+{
+     return Utils::SelectOperationMode(GetCpuArch().c_str());
+}
+
 void CompilerConfiguration::LoadDefaults()
 {
     m_cpuArch = CPU_ARCH_AUTO;
     m_transposeSize = TRANSPOSE_SIZE_AUTO;
     m_cpuFeatures = "";
     m_useVTune = true;
+}
+
+void CompilerConfiguration::SkipBuiltins()
+{
+    m_loadBuiltins = false;
 }
 
 void CompilerConfiguration::LoadConfig()
