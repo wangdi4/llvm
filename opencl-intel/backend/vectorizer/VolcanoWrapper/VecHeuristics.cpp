@@ -661,14 +661,6 @@ bool VectorizationHeuristics::isHeavyScatterGather(Function &F) {
 }
 
 
-
-bool VectorizationHeuristics::postVectorizationValidation(
-  Function &FScalar, Function &FVector, bool hasBarrier) {
-  // No need for the post-vectorization phase
-  return true;
-}
-
-
 // Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {

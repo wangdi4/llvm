@@ -150,6 +150,9 @@ bool Vectorizer::runOnModule(Module &M)
                 // Keep empty entry for non-vectorized functions, to align with kernels list
                 m_targetFunctionsList.push_back(NULL);
             }
+            // Note the vector is initialized with zeroes. Later if we that the kernel will
+            // be packetized this vector will be updated with the packet-width.
+            // In the end we will erase all the kernels with 0 width in this vector.
             m_targetFunctionsWidth.push_back(0);
         }
 
@@ -215,57 +218,45 @@ bool Vectorizer::runOnModule(Module &M)
             mpm.add(createLoopSimplifyPass());
             mpm.run(M);
         }
+
         VectorizationHeuristics* vhe = new VectorizationHeuristics(
             (Intel::ECPU)m_pConfig->GetCpuId(), 
             (Intel::ECPUFeatureSupport)m_pConfig->GetCpuFeatures());
-        SmallVector<bool, ESTIMATED_NUM_OF_FUNCTIONS> hasBarrier;
         FunctionPassManager fpm(&M);
         fpm.add(createDeadCodeEliminationPass());
         fpm.add(vhe);
         for (unsigned i = 0; i < m_numOfKernels; i++)    
         {
           Function *funcToProcess = m_targetFunctionsList[i];
-          if (funcToProcess) 
-          {
-            fpm.run(*funcToProcess);
-            int VW = vhe->getVectorSize();
-            bool mayv = vhe->mayVectorize();
-            bool shouldV = VW != 0;
+          if (!funcToProcess) {
+            // note that targetFunctionsWidth is initialized with 0
+            continue;
+          }
 
-            hasBarrier.push_back(vhe->hasBarrier());
-            
-            // When finally choosing the vectorization width, the following rules apply by order:
-            // 1. If it is not safe to vectorize (mayv==false), do not vectorize at all.
-            // 2. If the configuration specifies a vectorization width, use that width.
-            // 3. Use the recommended vectorization width by the Hueristics.
-            if (!mayv)
+          fpm.run(*funcToProcess);
+
+          // When finally choosing the vectorization width, the following rules apply by order:
+          // 1. If it is not safe to vectorize (mayv==false), just leave m_targetFunctionsWidth[i] 
+          //     with 0 so it will not be vectorize at all.
+          // 2. If the configuration specifies a vectorization width, use that width.
+          // 3. Otherwise, Use the recommended vectorization width by the Hueristics.
+          if (vhe->mayVectorize())
+          {
+            if( 0 == m_pConfig->GetTransposeSize())
             {
-              // Do not vectorize this function
-              m_targetFunctionsList[i] = NULL;
-            }
-            else if( 0 == m_pConfig->GetTransposeSize())
-            {
-              // transpose size 0 (zero) - means automatic selection of transpose size
-              if (!shouldV)
-                // Hueristics says no profit
-                m_targetFunctionsList[i] = NULL;
-              else
-                // Hueristics recommended width
-                m_targetFunctionsWidth[i] = VW;
+              m_targetFunctionsWidth[i] = vhe->getVectorSize();
             }
             else
             {
               // Disregard Hueristics and use enforced width
               m_targetFunctionsWidth[i] = m_pConfig->GetTransposeSize();
             }
+          }
 
-            vhe->reset();
-          }
-          else
-          {
-            hasBarrier.push_back(false);
-          }
+          vhe->reset();
         }
+          
+        
 
         V_PRINT(wrapper, "\nBefore vectorization passes!\n");
         // Function-wide (vectorization)
@@ -315,21 +306,12 @@ bool Vectorizer::runOnModule(Module &M)
             for (unsigned i = 0; i < m_numOfKernels; i++)
             {
               Function *funcToProcess = m_targetFunctionsList[i];
-              if (funcToProcess)
+              if (m_targetFunctionsWidth[i])
               {
                 // Update the RTS with the selected packet size
                 RTS->setPacketizationWidth(m_targetFunctionsWidth[i]);
                 fpm2.doInitialization();
                 fpm2.run(*(funcToProcess));
-
-                // post-vectorization heuristic
-                bool isUseful = VectorizationHeuristics::postVectorizationValidation(
-                  *m_scalarFuncsList[i], *m_targetFunctionsList[i], hasBarrier[i]);
-                if (!isUseful)
-                {
-                  // Abort vectorizing this function
-                  m_targetFunctionsWidth[i] = 0;
-                }
               }
             }
         }

@@ -58,17 +58,6 @@ namespace intel {
       return m_mayVectorize; 
     }
 
-    /// @brief Heuristic check post-vectorization: continue or abort vectorization
-    /// @param FScalar function before vectorization
-    /// @param FVector function after vectorization
-    /// @param hasBarrier true if function contains barrier
-    /// @return False if vectorization should be aborted
-    static bool postVectorizationValidation(
-      Function &FScalar, Function &FVector, bool hasBarrier);
-
-    
-
-
   private:
     typedef std::vector< std::pair<BasicBlock*, BasicBlock*> > ControlList;
     void getMaxNestLevel(ControlList& control, std::map<BasicBlock*, unsigned>& MaxNest);
