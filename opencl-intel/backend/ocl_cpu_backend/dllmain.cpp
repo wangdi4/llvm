@@ -27,7 +27,6 @@ File Name:  dllmain.cpp
 #include "CPUDeviceBackendFactory.h"
 #include "MICDeviceBackendFactory.h"
 #include "BuiltinModuleManager.h"
-#include "ImageCallbackManager.h"
 #include "Compiler.h"
 #include "MICSerializationService.h"
 #include "plugin_manager.h"
@@ -127,7 +126,6 @@ extern "C"
             CPUDeviceBackendFactory::Init();
             MICDeviceBackendFactory::Init();
             BuiltinModuleManager::Init();
-            ImageCallbackManager::Init();
 #ifdef OCL_DEV_BACKEND_PLUGINS
             PluginManager::Init();
 #endif
@@ -171,7 +169,6 @@ extern "C"
         PluginManager::Terminate();
 #endif
         BuiltinModuleManager::Terminate();
-        ImageCallbackManager::Terminate();
         MICDeviceBackendFactory::Terminate();
         CPUDeviceBackendFactory::Terminate();
         ServiceFactory::Terminate();

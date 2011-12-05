@@ -18,7 +18,6 @@ File Name:  BackendConfiguration.h
 #pragma once
 #include "CPUDetect.h"
 #include "CompilerConfig.h"
-#include "ServiceFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -35,12 +34,7 @@ public:
     // CompilerConfiguration methods
     void LoadDefaults();
     void LoadConfig();
-    void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-    /**
-     * Return operation mode for current architecture
-     */
-    OPERATION_MODE GetOperationMode();
 };
 
 

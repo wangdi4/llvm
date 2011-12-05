@@ -24,31 +24,6 @@
 extern "C" {
 #endif
 
-// !!!IMPORTANT!!! These defines should be the same as in ImageCallbackLibrary.h
-#define NONE_FALSE_NEAREST 0x00
-#define CLAMP_FALSE_NEAREST 0x01
-#define CLAMPTOEDGE_FALSE_NEAREST 0x02
-#define REPEAT_FALSE_NEAREST 0x03
-#define MIRRORED_FALSE_NEAREST 0x04
-
-#define NONE_TRUE_NEAREST 0x08
-#define CLAMP_TRUE_NEAREST 0x09
-#define CLAMPTOEDGE_TRUE_NEAREST 0x0a
-#define REPEAT_TRUE_NEAREST 0x0b
-#define MIRRORED_TRUE_NEAREST 0x0c
-
-#define NONE_FALSE_LINEAR 0x10
-#define CLAMP_FALSE_LINEAR 0x11
-#define CLAMPTOEDGE_FALSE_LINEAR 0x12
-#define REPEAT_FALSE_LINEAR 0x13
-#define MIRRORED_FALSE_LINEAR 0x14
-
-#define NONE_TRUE_LINEAR 0x18
-#define CLAMP_TRUE_LINEAR 0x19
-#define CLAMPTOEDGE_TRUE_LINEAR 0x1a
-#define REPEAT_TRUE_LINEAR 0x1b
-#define MIRRORED_TRUE_LINEAR 0x1c
-
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 #include "cl_types.h"
 #if defined(_MSC_VER)
@@ -62,66 +37,21 @@ extern "C" {
 #define IMG_FUNC_EXPORT
 #define MAX_WORK_DIM 3
 
-// calback functions types definitions
-
-// Coordinate callback typedefs
-// coordinates callback for integer input
-typedef int4 (*Image_I_COORD_CBK) (void*, int4);
-// coordinates callback for float input
-typedef int4 (*Image_F_COORD_CBK) (void*, float4);
-/// coordinates callback should return coordinates of pixel and
-/// i0,j0,k0,i1,k1,j1 components for interpolation
-typedef float4 (*Image_FF_COORD_CBK) (void*, float4, int4*, int4*);
-
-// Image reading callback typedefs
-// Reading from uint32_t image
-typedef uint4 (*Image_UI_READ_CBK) (void*, int4);
-// Raeding from signed int image
-typedef int4 (*Image_I_READ_CBK) (void*, int4);
-// read callback for float images and float coordinates takes
-// translated coordinates and i0,j0,k0,i1,j1,k1 components for interpolation
-typedef float4 (*Image_F_READ_CBK) (void*, int4, int4, float4);
-// read callback for float images and integer coordinates
-typedef float4 (*Image_FI_READ_CBK) (void*, int4);
-
-// Write image callback typedefs
-typedef void (*Image_UI_WRITE_CBK) (void*, uint4);
-typedef void (*Image_I_WRITE_CBK) (void*, int4);
-typedef void (*Image_F_WRITE_CBK) (void*, float4);
-
-#define ALIGN16 __attribute__ ((aligned(16)))
-// Image description. Contains all data about image and required callback functions
-// !!!DUPLICATE!!! Has duplicate function in cl_api/cl_types.h
-typedef struct _image_aux_data
+// Explicitly define image types
+typedef struct _cl_mem_obj_descriptor
 {
 	uint			dim_count;				// A number of dimensions in the memory object.
+	union _dim_t
+	{
+		unsigned int	dim[MAX_WORK_DIM];		// Multi-dimensional size of the object.
+		size_t			buffer_size;
+	} dimensions;
 	size_t			pitch[MAX_WORK_DIM-1];	// Multi-dimensional pitch of the object, valid only for images (2D/3D).
-	cl_image_format_t	format;			// Format of the memory object,valid only for images (2D/3D).
-										/* cl_image_format fields:
-											unsigned int image_channel_order;
-											unsigned int image_channel_data_type; */
+	cl_image_format_t	format;					// Format of the memory object,valid only for images (2D/3D).
 	void*			pData;					// A pointer to the object wherein the object data is stored.
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
-	
-	void*			coord_translate_i_callback[32];    //the list of integer coordinate translation callback
-	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
-	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
-	void*			write_img_callback;    // the write image sampler callback
-
-	int dimSub1[MAX_WORK_DIM+1] ALIGN16;	// Image size for each dimension subtracted by one
-											// Used in coordinates computation
-	int dim[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension
-	int offset[MAX_WORK_DIM+1] ALIGN16;		// the offset to extract pixels
-	float dimf[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension
-											// used in coordinates computation
-	int dimmask;		// Mask for dimensions in images
-						// Contains ones at dim_count first bytes. Other bytes are zeros.
-						// Used for coordinates clamping
-
-} image_aux_data;
-
-
+} cl_mem_obj_descriptor;
 #endif
 
 // Other functions are built into DLL
@@ -134,6 +64,120 @@ typedef double floatVecOf2;
 #else
 typedef _2i32  intVecOf2;
 typedef float2 floatVecOf2;
+#endif
+
+#ifdef _M_X64
+#pragma linkage _lnk_read_img_2d_i_ = ( result (xmm0) parameters (rcx edx xmm2) preserved (xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15))
+#pragma linkage _lnk_read_img_2d_f_ = ( result (xmm0) parameters (rcx edx xmm2) preserved (xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15))
+#elif __LP64__
+#pragma linkage _lnk_read_img_2d_i_ = ( result (xmm0) parameters (rdi esi xmm0) preserved (xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15))
+#pragma linkage _lnk_read_img_2d_f_ = ( result (xmm0) parameters (rdi esi xmm0) preserved (xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15))
+#else
+#pragma linkage _lnk_read_img_2d_i_ = ( result (xmm0) parameters (memory memory xmm0) )
+#pragma linkage _lnk_read_img_2d_f_ = ( result (xmm0) parameters (memory memory xmm0) )
+#endif
+IMG_FUNC_EXPORT float4 _Z11read_imagefP10_image2d_tjDv2_i(image2d_t image, cl_dev_sampler_prop sampler, intVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_i_ ( _Z11read_imagefP10_image2d_tjDv2_i )
+IMG_FUNC_EXPORT float4 _Z11read_imagefP10_image2d_tjDv2_f(image2d_t image, cl_dev_sampler_prop sampler, floatVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_f_ ( _Z11read_imagefP10_image2d_tjDv2_f )
+IMG_FUNC_EXPORT _4i32  _Z11read_imageiP10_image2d_tjDv2_i(image2d_t image, cl_dev_sampler_prop sampler, intVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_i_ ( _Z11read_imageiP10_image2d_tjDv2_i )
+IMG_FUNC_EXPORT _4i32  _Z11read_imageiP10_image2d_tjDv2_f(image2d_t image, cl_dev_sampler_prop sampler, floatVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_f_ ( _Z11read_imageiP10_image2d_tjDv2_f )
+IMG_FUNC_EXPORT _4u32  _Z12read_imageuiP10_image2d_tjDv2_i(image2d_t image, cl_dev_sampler_prop sampler, intVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_i_ ( _Z12read_imageuiP10_image2d_tjDv2_i )
+IMG_FUNC_EXPORT _4u32  _Z12read_imageuiP10_image2d_tjDv2_f(image2d_t image, cl_dev_sampler_prop sampler, floatVecOf2 coord);
+#pragma use_linkage _lnk_read_img_2d_f_ ( _Z12read_imageuiP10_image2d_tjDv2_f )
+
+//#pragma linkage _lnk_read_img_3d_ = ( result (xmm0) parameters (memory memory xmm0) )
+IMG_FUNC_EXPORT float4 _Z11read_imagefP10_image3d_tjDv4_i(image3d_t image, cl_dev_sampler_prop sampler, _4i32 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z11read_imagefP10_image3d_tjDv4_i )
+IMG_FUNC_EXPORT float4 _Z11read_imagefP10_image3d_tjDv4_f(image3d_t image, cl_dev_sampler_prop sampler, float4 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z11read_imagefP10_image3d_tjDv4_f )
+IMG_FUNC_EXPORT _4i32  _Z11read_imageiP10_image3d_tjDv4_i(image3d_t image, cl_dev_sampler_prop sampler, _4i32 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z11read_imageiP10_image3d_tjDv4_i )
+IMG_FUNC_EXPORT _4i32  _Z11read_imageiP10_image3d_tjDv4_f(image3d_t image, cl_dev_sampler_prop sampler, float4 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z11read_imageiP10_image3d_tjDv4_f )
+IMG_FUNC_EXPORT _4u32  _Z12read_imageuiP10_image3d_tjDv4_i(image3d_t image, cl_dev_sampler_prop sampler, _4i32 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z12read_imageuiP10_image3d_tjDv4_i )
+IMG_FUNC_EXPORT _4u32  _Z12read_imageuiP10_image3d_tjDv4_f(image3d_t image, cl_dev_sampler_prop sampler, float4 coord);
+//#pragma use_linkage _lnk_read_img_3d_ ( _Z12read_imageuiP10_image3d_tjDv4_f )
+
+#ifdef _M_X64
+#pragma linkage _lnk_write_img_2d_ = ( parameters (rcx xmm1 r8 ) )
+IMG_FUNC_EXPORT void _Z12write_imagefP10_image2d_tDv2_iDv4_f(image2d_t image, intVecOf2 coord, float4 &val);
+IMG_FUNC_EXPORT void _Z12write_imageiP10_image2d_tDv2_iDv4_i(image2d_t image, intVecOf2 coord, _4i32 &val);
+IMG_FUNC_EXPORT void _Z13write_imageuiP10_image2d_tDv2_iDv4_j(image2d_t image, intVecOf2 coord, _4u32 &val);
+#elif __LP64__
+#pragma linkage _lnk_write_img_2d_ = ( parameters (rdi xmm0 xmm1 ) ) 
+IMG_FUNC_EXPORT void _Z12write_imagefP10_image2d_tDv2_iDv4_f(image2d_t image, intVecOf2 coord, float4 val);
+IMG_FUNC_EXPORT void _Z12write_imageiP10_image2d_tDv2_iDv4_i(image2d_t image, intVecOf2 coord, _4i32 val); 
+IMG_FUNC_EXPORT void _Z13write_imageuiP10_image2d_tDv2_iDv4_j(image2d_t image, intVecOf2 coord, _4u32 val);
+#else
+#pragma linkage _lnk_write_img_2d_ = ( parameters (memory xmm0 xmm1 ) )
+IMG_FUNC_EXPORT void _Z12write_imagefP10_image2d_tDv2_iDv4_f(image2d_t image, intVecOf2 coord, float4 val);
+IMG_FUNC_EXPORT void _Z12write_imageiP10_image2d_tDv2_iDv4_i(image2d_t image, intVecOf2 coord, _4i32 val);
+IMG_FUNC_EXPORT void _Z13write_imageuiP10_image2d_tDv2_iDv4_j(image2d_t image, intVecOf2 coord, _4u32 val);
+#endif
+
+#pragma use_linkage _lnk_write_img_2d_ ( _Z13write_imageuiP10_image2d_tDv2_iDv4_j )
+#pragma use_linkage _lnk_write_img_2d_ ( _Z12write_imageiP10_image2d_tDv2_iDv4_i )
+#pragma use_linkage _lnk_write_img_2d_ ( _Z12write_imagefP10_image2d_tDv2_iDv4_f )
+
+// Internal functions
+__forceinline __m128 AddressRepeatCorrectNorm(__m128 coor);
+__forceinline __m128i AddressRepeatCorrectUnorm(__m128i coor, __m128i dim);
+__forceinline __m128 AddressMirrorRepeatCorrectNorm(__m128 coor, __m128 dim);
+__forceinline __m128i AddressMirrorRepeatCorrectUnorm(__m128i coor, __m128i dim);
+
+/*
+#pragma linkage _lnk_addr_rep_norm_ = ( result(xmm0) parameters (xmm0) )
+#pragma use_linkage _lnk_addr_rep_norm_ ( AddressRepeatCorrectNorm )
+#pragma linkage _lnk_addr_rep_unorm_ = ( result(xmm0) parameters (xmm0 xmm1) )
+#pragma use_linkage _lnk_addr_rep_unorm_ ( AddressRepeatCorrectUnorm )
+*/
+__forceinline bool ApplyAddressModeI(__m128i& coor, cl_mem_obj_descriptor* image, cl_dev_sampler_prop addrMode);
+
+// Apply linear filter when loading image, alway return float
+__forceinline float4 read_2d_linear_f(image2d_t image, cl_dev_sampler_prop sampler, float4 f4coor);
+__forceinline _4i32 read_2d_linear_i(image2d_t image, cl_dev_sampler_prop sampler, float4 f4coor);
+__forceinline float4 read_3d_linear_f(image3d_t image, cl_dev_sampler_prop sampler, float4 f4coor);
+__forceinline _4i32 read_3d_linear_i(image3d_t image, cl_dev_sampler_prop sampler, float4 f4coor);
+/*
+#pragma linkage _lnk_read_ = ( result(xmm0) parameters (memory memory xmm0) )
+#pragma use_linkage _lnk_read_ ( read_2d_linear_f )
+#pragma use_linkage _lnk_read_ ( read_2d_linear_i )
+#pragma use_linkage _lnk_read_ ( read_3d_linear_f )
+#pragma use_linkage _lnk_read_ ( read_3d_linear_i )
+*/
+// Retrive a pointer to specific pixel
+__forceinline void* ExtractPixel2D(__m128i coor, image2d_t image);
+__forceinline void* ExtractPixel3D(__m128i coor, image2d_t image);
+
+// Load pixel depend on its format, always as integer
+// Convertion to float will be performed when required
+__forceinline _4i32 LoadPixel(void* pPxl, cl_image_format fmt);
+__forceinline _4i32 LoadSingleChannel(void *pPxl, cl_channel_type type);
+__forceinline _4i32 LoadDualChannel(void *pPxl, cl_channel_type type);
+__forceinline _4i32 LoadTripleChannel(void *pPxl, cl_channel_type type);
+__forceinline _4i32 LoadQuadChannel(void *pPxl, cl_channel_type type);
+
+// Store pixel depend on its format, always as integer
+// Convertion to float will be performed when required
+__forceinline void StorePixel(void* pPxl, _4i32 i4Val, cl_image_format fmt);
+__forceinline void StoreSingleChannel(void *pPxl, _4i32 i4Val, cl_channel_type type);
+__forceinline void StoreDualChannel(void *pPxl, _4i32 i4Val, cl_channel_type type);
+__forceinline void StoreTripleChannel(void *pPxl, _4i32 i4Val, cl_channel_type type);
+__forceinline void StoreQuadChannel(void *pPxl, _4i32 i4Val, cl_channel_type type);
+
+// Retruns border color as integer/float
+__forceinline _4i32 BoorderColorI(cl_image_format fmt);
+__forceinline float4 BoorderColorF(cl_image_format fmt);
+
+// SVML used functions
+#ifndef __SSE4_1__
+float4 __svml_floorf4(float4);
+float4 __svml_roundf4(float4, int mode);
 #endif
 
 #endif // _MSC_DEV

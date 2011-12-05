@@ -25,19 +25,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 CPUJITContainer::CPUJITContainer(const void* pFuncCode,
                                  llvm::Function* pFunction,
                                  llvm::Module* pModule,
-                                 CPUCompiler* pCompiler,
+                                 llvm::ExecutionEngine* pExecEngine,
                                  KernelJITProperties* pProps):
     m_pFuncCode(pFuncCode),
     m_pFunction(pFunction),
     m_pModule(pModule),
-    m_pCompiler(pCompiler),
+    m_pExecEngine(pExecEngine),
     m_pProps(pProps) // get ownership of the pProps pointer
 {}
 
 CPUJITContainer::~CPUJITContainer()
 {
-    assert(m_pCompiler && "ExecEngine must be initialized");
-    m_pCompiler->freeMachineCodeForFunction(m_pFunction);
+    assert(m_pExecEngine && "ExecEngine must be initialized");
+    m_pExecEngine->freeMachineCodeForFunction(m_pFunction);
     delete m_pProps;
 }
 

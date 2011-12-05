@@ -33,7 +33,6 @@ class CompilerConfig
 {
 public:
     CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),m_useVTune(false),
-                    m_loadBuiltins(true),
                     m_DumpIROptionAfter(NULL), m_DumpIROptionBefore(NULL) {}
     ~CompilerConfig(){}
 
@@ -43,7 +42,6 @@ public:
     const std::string& GetCpuFeatures() const { return m_cpuFeatures; }
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
     bool  GetUseVTune() const                 { return m_useVTune; }
-    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
 
     std::vector<int> GetIRDumpOptionsAfter() const
     {
@@ -76,9 +74,6 @@ protected:
     std::string m_cpuFeatures;
     ETransposeSize m_transposeSize;
     bool        m_useVTune;
-    // sets whether we need built-in module to be loaded
-    // for current compiler
-    bool        m_loadBuiltins;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_dumpIRDir;

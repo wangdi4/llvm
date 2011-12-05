@@ -29,7 +29,6 @@
 
 #include "ICLDevBackendServiceFactory.h"
 #include "ICLDevBackendCompilationService.h"
-#include "ICLDevBackendImageService.h"
 #include "ICLDevBackendSerializationService.h"
 #include "ICLDevBackendExecutionService.h"
 #include "ICLDevBackendProgram.h"

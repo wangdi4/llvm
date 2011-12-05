@@ -412,8 +412,6 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		return res;
 	}
 
-	/// !!! This function is copy-pasted to images module.
-	/// In case of any changes they should also be applied to image_callback_functions.cpp
 	CONVERSIONS_FUNC_DECL float4 float2half_rte(float4 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();

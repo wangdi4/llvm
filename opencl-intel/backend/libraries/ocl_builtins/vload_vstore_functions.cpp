@@ -155,8 +155,7 @@ float HalfToFloat( half param )
 	return res;	
 }
 
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
+
 float4 Half4ToFloat4(_8i16 xmm0)
 {
 	_4i32 xmm7 = (_4i32)_mm_setzero_si128();
@@ -209,8 +208,6 @@ float4 float2half_rtz(float4 param);
 float4 float2half_rtn(float4 param);
 float4 float2half_rtp(float4 param);
 
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 float2half(float4 param)
 {
 	return float2half_rte(param);
@@ -395,8 +392,6 @@ float4 double2ToHalf2(double2 param)
 			ptr[2] = (half)_mm_extract_epi16( (__m128i)f4, 2);\
 		}\
 	}\
-	/* !!! This function is copy-pasted to images module
-	In case of any changes they should also be done in image_callback_functions.cpp */\
 	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*4);\

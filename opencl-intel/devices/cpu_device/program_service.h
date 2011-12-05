@@ -20,7 +20,7 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  program_service.h
+//  ProgramService.h
 //  Implementation of the Class ProgramService
 //  Class Object is responsible on programs and kernels binaries
 //  Intercats with the compiler backend
@@ -90,37 +90,9 @@ public:
     cl_dev_err_code GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                     void* OUT value, size_t* OUT valueSizeRet ) const;
 
-/****************************************************************************************************************
- GetSupportedImageFormats
-    Description
-        This function returns the list of image formats supported by an OCL implementation when the information about
-        an image memory object is specified and device supports image objects. This information is retrieved from the
-    backend through the ICLDevBackendImageService interface
-    Input
-        flags                    A bit-field that is used to specify allocation and usage information such as the memory arena
-                                that should be used to allocate the image object and how it will be used.
-        imageType                Describes the image type as described in (cl_dev_mem_object_type).Only image formats are supported.
-        numEntries                Specifies the number of entries that can be returned in the memory location given by formats.
-                                If value is 0 and formats is NULL, the num_entries_ret returns actual number of supported formats.
-    Output
-        formats                    A pointer to array of structures that describes format properties of the image to be allocated.
-                                Refer to OCL spec section 5.2.4.1 for a detailed description of the image format descriptor.
-        numEntriesRet            The actual number of supported image formats for a specific context and values specified by flags.
-                                If the value is NULL, it is ignored.
-        Description
-                                Return the minimum number of image formats that should be supported according to Spec
-     Returns
-        CL_DEV_SUCCESS            The function is executed successfully.
-        CL_DEV_INVALID_VALUE    If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
-********************************************************************************************************************/
-    cl_dev_err_code GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-                    cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
-
     ICLDevBackendCompilationService* GetCompilationService(){ return m_pBackendCompiler; }
 
     ICLDevBackendExecutionService*   GetExecutionService(){ return m_pBackendExecutor; }
-
-    ICLDevBackendImageService*   GetImageService(){ return m_pBackendImageService; }
 
 protected:
     friend class ProgramBuildTask;
@@ -146,7 +118,6 @@ protected:
     ICLDevBackendServiceFactory*     m_pBackendFactory;
     ICLDevBackendCompilationService* m_pBackendCompiler;
     ICLDevBackendExecutionService*   m_pBackendExecutor;
-    ICLDevBackendImageService*       m_pBackendImageService;
     CPUDeviceConfig*                 m_pCPUConfig;
 };
 

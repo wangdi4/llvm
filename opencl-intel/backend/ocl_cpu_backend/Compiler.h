@@ -22,24 +22,33 @@ File Name:  Compiler.h
 #include "CPUDetect.h"
 #include "exceptions.h"
 #include "CompilerConfig.h"
+#include "cl_dev_backend_api.h"
+#include "Kernel.h"
 #include "Optimizer.h"
+#include "CompilationUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#include "IAbstractBackendFactory.h"
 
 namespace llvm {
     class ExecutionEngine;
     class LLVMContext;
     class Module;
+    class Program;
     class Function;
     class MemoryBuffer;
-    class Type;
+    class MDNode;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class BuiltinLibrary;
 class BuiltinModule;
 class CompilerConfig;
+class Program;
+class Kernel;
+class KernelProperties;
+class KernelGroupSet;
 class ProgramBuildResult;
+class BuiltinLibrary;
 
 
 //*****************************************************************************************
@@ -47,29 +56,6 @@ class ProgramBuildResult;
 // 
 class CompilerBuildOptions
 {
-public:
-    CompilerBuildOptions( bool debugInfo,
-                          bool disableOpt,
-                          bool relaxedMath,
-                          bool libraryModule):
-      m_debugInfo(debugInfo),
-      m_disableOpt(disableOpt),
-      m_relaxedMath(relaxedMath),
-      m_libraryModule(libraryModule)
-    {}
-
-    bool GetDisableOpt()    const { return m_debugInfo; }
-    bool GetDebugInfoFlag() const { return m_disableOpt; }
-    bool GetRelaxedMath()   const { return m_relaxedMath; }
-    bool GetlibraryModule()   const { return m_libraryModule; }
-
-private:
-    bool m_debugInfo; 
-    bool m_disableOpt;
-    bool m_relaxedMath;
-    // Sets whether optimized code is library module or a set of kernels
-    // If this options is set to true then some optimization passes will be skipped
-    bool m_libraryModule;
 };
 
 //*****************************************************************************************
@@ -92,29 +78,10 @@ public:
     
     cl_dev_err_code GetBuildResult();
 
-    // Set the functions width vector. 
-    // The passed pointer will be owned by the ProgramBuildResult
-    void SetFunctionsWidths( FunctionWidthVector* pv);
-
-    const FunctionWidthVector& GetFunctionsWidths() const;
-
-    // Set the kernel information map. 
-    // The passed pointer will be owned by the ProgramBuildResult
-    void SetKernelsInfo( KernelsInfoMap* pKernelsInfo);
-
-    KernelsInfoMap& GetKernelsInfo();
-
-    void SetPrivateMemorySize( size_t size);
-
-    size_t GetPrivateMemorySize() const;
-
 private:
     cl_dev_err_code m_result;
     std::string m_buildLog;
     mutable llvm::raw_string_ostream m_logStream;
-    FunctionWidthVector* m_pFunctionWidths; 
-    KernelsInfoMap*      m_pKernelsInfo;
-    size_t               m_privateMemorySize;
 };
 
 //*****************************************************************************************
@@ -126,9 +93,10 @@ public:
     /**
      * Ctor
      */
-    Compiler(const CompilerConfig& pConfig);
-    virtual ~Compiler();
+    Compiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
+    ~Compiler();
 
+public:
     /**
      * Initializes the LLVM environment. 
      * Must be called from single threaded environment, before any 
@@ -145,41 +113,39 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
-                      const CompilerBuildOptions* pOptions,
-                      ProgramBuildResult* pResult);
+    cl_dev_err_code BuildProgram(Program* pProgram, const CompilerBuildOptions* pOptions);
 
-    ECPU GetSelectedCPU() const
-    {
-        return m_selectedCpuId;
-    }
-
-    unsigned int GetSelectedCPUFeatures() const
-    {
-        return m_selectedCpuFeatures;
-    }
-
-    virtual void CreateExecutionEngine(llvm::Module* m) = 0;
-
-    virtual unsigned int GetTypeAllocSize(const llvm::Type* pType) = 0;
-
-protected:
-    /**
-     * Returns pointer to the RTL library module
-     */
     virtual llvm::Module* GetRtlModule() const = 0;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+    llvm::LLVMContext*     GetLLVMContext() const { return m_pLLVMContext; }
+
+protected:
+
+    llvm::Module* ParseModuleIR(Program* pProgram);
 
     llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary);
 
+    KernelProperties* CreateKernelProperties(const Program* pProgram, llvm::MDNode *elt, const TLLVMKernelInfo& info);
+
+    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) = 0;
+
+    virtual KernelSet* CreateKernels(const Program* pProgram,
+                             llvm::Module* pModule, 
+                             ProgramBuildResult& buildResult, 
+                             FunctionWidthVector& vectorizedFunctions, 
+                             KernelsInfoMap& kernelsInfo,
+                             size_t specialBufferStride) = 0;
+
 protected:
+    llvm::LLVMContext*     m_pLLVMContext;
     CompilerConfig         m_config;
     
-    llvm::LLVMContext*     m_pLLVMContext;
     Intel::ECPU            m_selectedCpuId;
     unsigned int           m_selectedCpuFeatures;
     std::vector<std::string> m_forcedCpuFeatures;
+
+    // pointer to the containers factory (not owned by this class)
+    IAbstractBackendFactory* m_pBackendFactory; 
 };
 
 }}}

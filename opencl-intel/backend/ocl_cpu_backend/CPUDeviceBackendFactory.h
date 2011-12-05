@@ -47,7 +47,7 @@ public:
     virtual KernelProperties* CreateKernelProperties();
     virtual KernelJITProperties* CreateKernelJITProperties();
 
-    virtual Binary* CreateBinary(
+    virtual Binary* CreateBinary( 
         const KernelProperties* pKernelProperties,
         const std::vector<cl_kernel_argument>& args,
         const cl_work_description_type* pWorkInfo,

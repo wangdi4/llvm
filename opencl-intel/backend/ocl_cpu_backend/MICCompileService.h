@@ -20,8 +20,8 @@ File Name:  MICCompileService.h
 #include "cl_dev_backend_api.h"
 #include "CompilerConfig.h"
 #include "CompileService.h"
-#include "ProgramBuilder.h"
-#include "MICProgramBuilder.h"
+#include "Compiler.h"
+#include "MICCompiler.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -31,10 +31,10 @@ public:
     MICCompileService(const CompilerConfig& config);
     virtual ~MICCompileService() { }
 
-    ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
+    Compiler* GetCompiler() { return &m_compiler; }
 
 private:
-    MICProgramBuilder m_programBuilder;
+    MICCompiler m_compiler;
 };
 
 }}}

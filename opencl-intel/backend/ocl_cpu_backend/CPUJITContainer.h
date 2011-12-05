@@ -20,7 +20,6 @@ File Name:  CPUJITContainer.h
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "Kernel.h"
-#include "CPUCompiler.h"
 
 namespace llvm {
     class Module;
@@ -36,7 +35,7 @@ public:
     CPUJITContainer(const void* pFuncCode,
                  llvm::Function* pFunction,
                  llvm::Module* pModule,
-                 CPUCompiler* pCompiler,
+                 llvm::ExecutionEngine* pExecEngine,
                  KernelJITProperties* pProps);
     ~CPUJITContainer();
 
@@ -60,10 +59,11 @@ public:
 */
 private:
     const void*            m_pFuncCode;
+    //TODO: Consider removing the below members
     llvm::Function*        m_pFunction;
     llvm::Module*          m_pModule; // not owned by the class 
-
-    CPUCompiler*              m_pCompiler; //not owned by the class
+    //ODOT
+    llvm::ExecutionEngine* m_pExecEngine; //not owned by the class
     KernelJITProperties*   m_pProps;
 
     // Klockwork Issue

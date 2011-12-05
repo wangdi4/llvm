@@ -22,7 +22,7 @@ File Name:  Optimizer.cpp
 #include "cl_device_api.h"
 #include "cl_types.h"
 #include "Program.h"
-#include "ProgramBuilder.h"
+#include "Compiler.h"
 #include "CompilerConfig.h"
 #include "CPUDetect.h"
 #include "InstToFuncCall.h"
@@ -56,8 +56,9 @@ llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Functi
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
 
 
-Optimizer::Optimizer( llvm::Module* pModule,
-                      llvm::Module* pRtlModule,
+Optimizer::Optimizer( Program* pProgram,
+                      Compiler* pCompiler,
+                      llvm::Module* pModule,
                       const intel::OptimizerConfig* pConfig):
     m_funcPasses(pModule),
     m_vectorizerPass(NULL),
@@ -67,7 +68,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 {
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
-  bool isDBG = pConfig->GetDebugInfoFlag();
+  bool isDBG = pProgram->GetDebugInfoFlag();
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
@@ -86,7 +87,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   unsigned int uiOptLevel;
-  if (pConfig->GetDisableOpt() || isDBG) {
+  if (pProgram->GetDisableOpt() || isDBG) {
     uiOptLevel = 0;
   } else {
     uiOptLevel = 3;
@@ -94,9 +95,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   llvm::createStandardFunctionPasses(&m_funcPasses, uiOptLevel);
 
-  bool has_bar = false;
-  if (!pConfig->GetLibraryModule())
-    has_bar = hasBarriers(pModule);
+  bool has_bar = hasBarriers(pModule);
 
   // When running the standard optimization passes, do not change the loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for barriers.
@@ -118,11 +117,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
-    if(pRtlModule != NULL)
-    {
-        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig);
-        m_modulePasses.add(m_vectorizerPass);
-    }
+    m_vectorizerPass = createVectorizerPass(pCompiler->GetRtlModule(), pConfig);
+    m_modulePasses.add(m_vectorizerPass);
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
@@ -134,15 +130,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   if ( isDBG ) {
     // DebugInfo pass must run before Barrier pass!
-    m_modulePasses.add(createDebugInfoPass(&pModule->getContext(), pRtlModule));
+    m_modulePasses.add(createDebugInfoPass(pCompiler->GetLLVMContext(), pCompiler->GetRtlModule()));
   }
 
-  if (!pConfig->GetLibraryModule()){
-    m_barrierPass = createBarrierMainPass(isDBG);
-    m_modulePasses.add(m_barrierPass);
-  }
+  m_barrierPass = createBarrierMainPass(isDBG);
+  m_modulePasses.add(m_barrierPass);
 
-  if( pConfig->GetRelaxedMath() ) {
+  if( pProgram->GetFastRelaxedMath() ) {
       m_modulePasses.add(createRelaxedPass());
   }
 
@@ -150,16 +144,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
   // must run before createBuiltInImportPass!
-  if(!pConfig->GetLibraryModule())
-  {
-    m_modulePasses.add(createAddImplicitArgsPass(m_vectorizerPass, m_vectFunctions));
-    m_modulePasses.add(createResolveWICallPass());
-    m_localBuffersPass = createLocalBuffersPass();
-    m_modulePasses.add(m_localBuffersPass);
-  }
+  m_modulePasses.add(createAddImplicitArgsPass(m_vectorizerPass, m_vectFunctions));
+  m_modulePasses.add(createResolveWICallPass());
+  
+  m_localBuffersPass = createLocalBuffersPass();
+  m_modulePasses.add(m_localBuffersPass);
 
-  if(pRtlModule != NULL)
-    m_modulePasses.add(createBuiltInImportPass(pRtlModule)); // Inline BI function
+  m_modulePasses.add(createBuiltInImportPass(pCompiler->GetRtlModule())); // Inline BI function
 
   // This pass should come after resolving all special functions,
   // i.e. WI-Info functions, Builtins, OpenCL special functions, etc.
@@ -177,7 +168,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 #ifdef _M_X64
   // TODO: remove the pass below once SVML will be aligned with Win64 ABI
-  m_modulePasses.add(createSvmlWrapperPass( &m_pModule->getContext()));
+  m_modulePasses.add(createSvmlWrapperPass( pCompiler->GetLLVMContext()));
 #endif
 
   if ( !isDBG ) {
@@ -194,8 +185,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
-  if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
+  m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
 
   if ( !isDBG ) {
     // TODO : uncomment these passes when code generation bug CSSD100007274 will be fixed
@@ -213,7 +203,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
-    for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
+    for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i)
+    {
         m_funcPasses.run(*i);
     }
     m_modulePasses.run(*m_pModule);
@@ -221,11 +212,13 @@ void Optimizer::Optimize()
 
 bool Optimizer::hasBarriers(llvm::Module *pModule) 
 {
-    for (llvm::Module::iterator it = pModule->begin(),e=pModule->end();it!=e;++it) {
+    for (llvm::Module::iterator it = pModule->begin(),e=pModule->end();it!=e;++it) 
+    {
         llvm::Function* f = it;
         // If name of function contain the word 'barrier', assume that
         // the module calls a 'barrier' function.
-        if (f->getNameStr().find("barrier") != std::string::npos) {
+        if (f->getNameStr().find("barrier") != std::string::npos) 
+        {
             return true;
         }
     }
@@ -260,7 +253,8 @@ void Optimizer::GetVectorizedFunctions(FunctionWidthVector& vector)
     getVectorizerWidths(m_vectorizerPass, vectWidths);
     assert(m_vectFunctions.size() == vectWidths.size());
 
-    for(unsigned int i=0; i < m_vectFunctions.size(); i++) {
+    for(unsigned int i=0; i < m_vectFunctions.size(); i++)
+    {
         vector.push_back(FunctionWidthPair(m_vectFunctions[i], vectWidths[i]));
     }
 }

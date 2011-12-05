@@ -227,9 +227,6 @@ set (CLANG_COMPILER_PARAMS
 # llvm-opt
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
-# images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -O3)
-
 # llvm-link
 set (LLVM_LINK_PARAMS -f)
 
@@ -304,7 +301,7 @@ function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
     add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
                         COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
-                        COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
+					              COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
                         MAIN_DEPENDENCY ${INPUT_FILE}
                         DEPENDS ${CLANG} ${HEADER_FILES}
                         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
@@ -320,20 +317,19 @@ endfunction( compile_ocl )
 #
 # add OpenCL library built from set of OpenCL source files
 #
-# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR ...FILES... )
+# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC OUTPUT_DIR ...FILES... )
 #
 #   OUTPUT_FILE_VAR - output, contains generated library
-#   TARGET_NAME     - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
+#		TARGET_NAME     - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
 #   ARCH            - target SIMD arch type
 #   PROC            - target CPU
-#   USE_OPT         - Optimize output library with llvm opt tool
 #   OUTPUT_DIR      - output directory for the intermediate files
 #   FILES           - input files list
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR)
+function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC OUTPUT_DIR)
 
-	if (${ARGC} LESS 7)
+	if (${ARGC} LESS 6)
 		message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
 	endif ()
 
@@ -348,18 +344,10 @@ function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_D
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
                         COMMENT "OCL Linking ${TARGET_NAME}${OCL_OUTPUT_EXTENSION}"
-                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.bc
-                        DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.bc
+                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
+                        DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_NAME}_vectorizer.bc
                         VERBATIM
                        )
-    if(${USE_OPT})
-        add_custom_command(OUTPUT ${TARGET_NAME}
-                           COMMENT "Opt optimizing ${TARGET_NAME}"
-                           COMMAND ${LLVM_OPT} ${TARGET_NAME} ${LLVM_IMAGES_OPT_PARAMS} -o ${TARGET_NAME}
-                           DEPENDS ${LLVM_OPT} ${TARGET_NAME}
-                           VERBATIM
-                           )
-    endif(${USE_OPT})
 
 	set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
  
@@ -475,28 +463,25 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 	set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
 
 	# build .rtl file out of OCL code (by clang) and copy it to install directory
-	add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC}  FALSE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
-
-	# build .rtl file out of OCL image callbacks (by clang) and copy it to install directory
-	add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+	add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
 	# build DLL/.so file out of C code (by ICC) and copy it to install directory
 	add_c_library( OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
 
 	# top-level target for both OCL and C targets
 	add_custom_target (${TARGET_NAME} ALL
-					 DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_C_LIB}
+					 DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_C_LIB}
 					 COMMENT "Target ${TARGET_NAME} build completed"
 					 VERBATIM
-					 SOURCES ${OCL_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${C_SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILE}
+					 SOURCES ${OCL_SOURCE_FILES} ${C_SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILE}
 					)
 
 	set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
 	if (WIN32)
-		install( FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_C_LIB} DESTINATION bin)
+		install( FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_C_LIB} DESTINATION bin)
 	else(WIN32)
-		install( FILES ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
+		install( FILES ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
 	endif(WIN32)
 
 endfunction( create_target)
@@ -516,10 +501,6 @@ list (APPEND OCL_SOURCE_FILES
         relational_functions.cpp
         vload_vstore_functions.cpp
      )
-
-list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
-		${CL_BUILTIN_SOURCE_DIR}/image_callback_functions.cpp
-	 )
 
 # C source code
 list (APPEND C_SOURCE_FILES

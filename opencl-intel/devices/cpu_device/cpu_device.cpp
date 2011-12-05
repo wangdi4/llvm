@@ -58,7 +58,7 @@ char clCPUDEVICE_CFG_PATH[MAX_PATH];
 
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
-const cl_image_format Intel::OpenCL::CPUDevice::supportedImageFormats[] = {
+const cl_image_format Intel::OpenCL::CPUDevice::suportedImageFormats[] = {
 #ifndef __TEST__
 
     // Minimum supported image formats
@@ -194,7 +194,7 @@ const cl_image_format Intel::OpenCL::CPUDevice::supportedImageFormats[] = {
 #define CPU_DEVICE_NAME_SIZE    48
 
 const unsigned int Intel::OpenCL::CPUDevice::NUM_OF_SUPPORTED_IMAGE_FORMATS =
-sizeof(Intel::OpenCL::CPUDevice::supportedImageFormats)/sizeof(cl_image_format);
+sizeof(Intel::OpenCL::CPUDevice::suportedImageFormats)/sizeof(cl_image_format);
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -343,7 +343,7 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE, m_pProgramService->GetImageService());
+    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE);
     m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
     m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
     if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
@@ -1843,7 +1843,8 @@ cl_dev_err_code CPUDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags,
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedImageFormats Function enter"));
-    return (cl_dev_err_code)m_pProgramService->GetSupportedImageFormats(flags, imageType, numEntries, formats, numEntriesRet);
+    return (cl_dev_err_code)m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
+
 }
 
 cl_dev_err_code CPUDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType, cl_dev_alloc_prop* OUT pAllocProp )

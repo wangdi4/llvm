@@ -18,7 +18,7 @@ File Name:  MICCompileService.cpp
 
 #include "exceptions.h"
 #include "MICCompileService.h"
-#include "ProgramBuilder.h"
+#include "Compiler.h"
 #include "MICProgram.h"
 #include "BitCodeContainer.h"
 #include "plugin_manager.h"
@@ -30,7 +30,7 @@ File Name:  MICCompileService.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICCompileService::MICCompileService(const CompilerConfig& config)
-:m_programBuilder(MICDeviceBackendFactory::GetInstance(), config) 
+:m_compiler(MICDeviceBackendFactory::GetInstance(), config) 
 {
     m_backendFactory = MICDeviceBackendFactory::GetInstance();
 }

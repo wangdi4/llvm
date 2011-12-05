@@ -18,7 +18,7 @@ File Name:  CPUCompileService.cpp
 
 #include "exceptions.h"
 #include "CPUCompileService.h"
-#include "ProgramBuilder.h"
+#include "Compiler.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "plugin_manager.h"
@@ -30,7 +30,7 @@ File Name:  CPUCompileService.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUCompileService::CPUCompileService(const CompilerConfig& config)
-:m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config) 
+:m_compiler(CPUDeviceBackendFactory::GetInstance(), config) 
 {
     m_backendFactory = CPUDeviceBackendFactory::GetInstance(); 
 }
