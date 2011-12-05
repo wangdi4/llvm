@@ -204,11 +204,7 @@ struct DebugServer::DebugServerImpl
     
     ~DebugServerImpl()
     {
-        if (m_comm)  {
-           delete m_comm;
-           m_comm = 0;
-        }
-
+        TerminateCommunicator();
     }
 
     // Build an error message for the client
@@ -255,6 +251,8 @@ struct DebugServer::DebugServerImpl
         const FunctionStackFrame::VarDeclInfo& var_info);
 
     void DumpFunctionVars();
+
+    void TerminateCommunicator();
 
     enum RunningMode {
         RUNNING_STEP_IN,
@@ -679,6 +677,14 @@ VarDescription DebugServer::DebugServerImpl::CreateVarDescription(const Function
 }
 
 
+void DebugServer::DebugServerImpl::TerminateCommunicator()
+{
+    if (m_comm)  {
+        delete m_comm;
+        m_comm = 0;
+    }
+}
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
@@ -696,7 +702,7 @@ DebugServer::~DebugServer()
 
 bool DebugServer::Init()
 {
-    if (d->m_initialized)
+    if (d->m_initialized || !DebuggingIsEnabled())
         return true;
     
     unsigned port_num = DEBUG_SERVER_PORT_DEFAULT;
@@ -712,6 +718,18 @@ bool DebugServer::Init()
     }
 
     d->m_comm = new DebugCommunicator(port_num);
+#ifdef _WIN32
+    // On Windows, as part of the handshake with the MSVC plugin, we send a 
+    // Windows event when the server starts listening on the port.
+    //
+    static const char* EVENT_NAME_PREFIX = "icldbgevent_";
+
+    d->m_comm->waitForListen();
+    string eventName = EVENT_NAME_PREFIX + get_my_pid_string();
+    HANDLE e = CreateEvent(0, false, false, eventName.c_str());
+    SetEvent(e);
+#endif
+
     DEBUG_SERVER_LOG("Server waiting for connection on port " + stringify(port_num));
     d->m_comm->waitForConnection();
     DEBUG_SERVER_LOG("Initialized successfully");
@@ -915,3 +933,26 @@ void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
     d->m_stack.front().vars.push_back(varinfo);
 }
 
+
+void DebugServer::TerminateConnection()
+{
+    d->TerminateCommunicator();
+}
+
+
+DEBUG_SERVICE_API bool InitDebuggingService()
+{
+    return InitDebugServer();
+}
+
+
+DEBUG_SERVICE_API ICLDebuggingService* DebuggingServiceInstance()
+{
+    return &DebugServer::GetInstance();   
+}
+
+
+DEBUG_SERVICE_API void TerminateDebuggingService()
+{
+    DebugServer::GetInstance().TerminateConnection();
+}

@@ -24,9 +24,6 @@ void sleep_ms(int ms)
 DebugCommunicator::DebugCommunicator(unsigned short port)
     : m_state(NO_CLIENT), m_port(port)
 {
-    m_recv_event.Init(true);  // autoreset event
-    m_connect_event.Init(true);
-
     // Start the internal thread (executed in the Run method)
     //
     Start();
@@ -52,6 +49,7 @@ int DebugCommunicator::Run()
         // 
         m_server_socket.bind(m_port);
         m_server_socket.listen();
+        m_listen_event.Signal();
         m_connected_socket = auto_ptr<OclSocket>(m_server_socket.accept());
         set_state(CLIENT_CONNECTED);
         m_connect_event.Signal();
@@ -181,4 +179,10 @@ ClientToServerMessage DebugCommunicator::receiveMessage()
 void DebugCommunicator::waitForConnection()
 {
     m_connect_event.Wait();
+}
+
+
+void DebugCommunicator::waitForListen()
+{
+    m_listen_event.Wait();
 }

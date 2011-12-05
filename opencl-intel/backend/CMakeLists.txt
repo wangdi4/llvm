@@ -195,9 +195,8 @@ set_target_properties( LLVMUnitTests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ll
 set_target_properties( UnitTestMain PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 
 set_target_properties( OclCpuBackEnd PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
+set_target_properties( OclCpuDebugging PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 set_target_properties( OclUtils PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-set_target_properties( oclsysutils_partial PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-set_target_properties( protobuf PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 set_target_properties( OclRecorder PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 
 set_target_properties( check PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/tests )

@@ -25,6 +25,7 @@ File Name:  ServiceFactory.cpp
 #include "CPUExecutionService.h"
 #include "exceptions.h"
 #include "CPUDetect.h"
+#include "debuggingservicewrapper.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -67,6 +68,12 @@ void ServiceFactory::Terminate()
 }
 
 ICLDevBackendServiceFactory* ServiceFactory::GetInstance()
+{
+    assert(s_pInstance);
+    return s_pInstance;
+}
+
+ICLDevBackendServiceFactoryInternal* ServiceFactory::GetInstanceInternal()
 {
     assert(s_pInstance);
     return s_pInstance;
@@ -165,6 +172,15 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
     {
         return CL_DEV_OUT_OF_MEMORY; 
     }
+}
+
+cl_dev_err_code ServiceFactory::GetDebuggingService(
+    ICLDebuggingService** pDebuggingService)
+{
+    ICLDebuggingService* instance = 
+        DebuggingServiceWrapper::GetInstance().GetDebuggingService();
+    *pDebuggingService = instance;
+    return instance == NULL ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
 }
 
 }}}

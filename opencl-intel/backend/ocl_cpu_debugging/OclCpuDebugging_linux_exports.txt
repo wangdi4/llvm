@@ -1,0 +1,12 @@
+Base { 
+    global: 
+             extern "C++" { 
+                  InitDebuggingService*;
+                  DebuggingServiceInstance*;
+                  TerminateDebuggingService*;
+             };
+
+    local:
+        *; 
+};
+

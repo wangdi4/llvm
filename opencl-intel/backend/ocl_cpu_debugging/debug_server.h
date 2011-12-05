@@ -1,7 +1,13 @@
 #ifndef DEBUG_SERVER_H
 #define DEBUG_SERVER_H
 
+#ifndef OclCpuDebugging_EXPORTS
+#define OclCpuDebugging_EXPORTS
+#endif // OclCpuDebugging_EXPORTS
+
+#include "export/icldebuggingservice.h"
 #include <memory>
+
 
 #pragma warning (disable : 4985 ) /* disable ceil warnings */ 
 
@@ -21,7 +27,7 @@ bool InitDebugServer();
 
 // Interface of the debug server.
 //
-class DebugServer
+class DebugServer : public ICLDebuggingService
 {
 public:
     // The debug server is a singleton. Access it via this method
@@ -36,6 +42,10 @@ public:
     //
     bool Init();
 
+    // Explicitly terminate the server connection
+    //
+    void TerminateConnection();
+
     // These methods are called by the corresponding debug builtins
     //
     void Stoppoint(const llvm::MDNode* line_metadata);
@@ -44,7 +54,7 @@ public:
     void DeclareLocal(void* addr, const llvm::MDNode* description);
     void DeclareGlobal(void* addr, const llvm::MDNode* description);
 
-    // Check if the global id passed in as a triple of numbres matches the
+    // Check if the global id passed in as a triple of numbers matches the
     // debugged global id
     //
     bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z);

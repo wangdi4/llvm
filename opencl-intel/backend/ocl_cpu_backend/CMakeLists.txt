@@ -5,9 +5,6 @@ project(${TARGET_NAME})
 
 cmake_minimum_required(VERSION 2.8.4)
 
-add_subdirectory( ocl_debugger/protobuf )
-add_subdirectory( ocl_debugger/oclsysutils_partial )
-
 # provides an option for supporting SDE Debug Tracing
 set(ENABLE_DEBUG_TRACE OFF)
 
@@ -24,9 +21,7 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_CPU_BACKEND_IMPORT_DIRS 
   ${BACKEND_ROOT_DIR}/../cl_api
   ${OCL_CPU_BACKEND_DIR}/import 
-  ${OCL_CPU_BACKEND_DIR}/ocl_debugger 
-  ${OCL_CPU_BACKEND_DIR}/ocl_debugger/protobuf/include
-  ${OCL_CPU_BACKEND_DIR}/ocl_debugger/oclsysutils_partial/export
+  ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
   ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
   ${OCL_CPU_BACKEND_DIR}/../arch_headers)
 set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
@@ -250,109 +245,102 @@ set (OCL_UTILS_SOURCE_FILES
   )
 
 # Create target project
-	
+    
 set (OCL_CPU_BACKEND_INCLUDE_FILES
-	IAbstractBackendFactory.h
-	CPUDeviceBackendFactory.h
-	MICDeviceBackendFactory.h
-	${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
-	exceptions.h
-	Logger.h
-	plugin_manager.h
-	ServiceFactory.h
-	CompileService.h
-	CPUCompileService.h
-	MICCompileService.h
-	MICSerializationService.h
-	Serializer.h
-	ExecutionService.h
-	CPUExecutionService.h
-	BackendConfiguration.h
-	CompilerConfig.h
-	Compiler.h
-	CompilationUtils.h
-	CPUCompiler.h
-	MICCompiler.h
-	Optimizer.h
-	BuiltinModuleManager.h
-	BuiltinModule.h
-	CPUBuiltinLibrary.h
-	MICBuiltinLibrary.h
-	Program.h
-	MICProgram.h
-	BitCodeContainer.h
-	ProgramContainerMemoryBuffer.h
-	ModuleJITHolder.h
-	Kernel.h
-	MICKernel.h
-	KernelProperties.h
-	MICKernelProperties.h
-	CPUJITContainer.h
-	MICJITContainer.h
-	Binary.h
-	Executable.h
-	CPUExecutable.h
-	MICExecutable.h
-	TypeAlignment.h
-	PrintIRPass.h
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_communicator.h
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_server.h
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debuginfo_utils.h
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debugservermessages.pb.h
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/protobufpackedmessage.h
+    IAbstractBackendFactory.h
+    CPUDeviceBackendFactory.h
+    MICDeviceBackendFactory.h
+    ${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
+    exceptions.h
+    Logger.h
+    Compiler.h
+    CPUCompiler.h
+    MICCompiler.h
+    plugin_manager.h
+    ServiceFactory.h
+    CompileService.h
+    CPUCompileService.h
+    MICCompileService.h
+    MICSerializationService.h
+    Serializer.h
+    ExecutionService.h
+    CPUExecutionService.h
+    BackendConfiguration.h
+    CompilerConfig.h
+    CompilationUtils.h
+    Optimizer.h
+    BuiltinModuleManager.h
+    BuiltinModule.h
+    CPUBuiltinLibrary.h
+    MICBuiltinLibrary.h
+    Program.h
+    MICProgram.h
+    BitCodeContainer.h
+    ProgramContainerMemoryBuffer.h
+    ModuleJITHolder.h
+    Kernel.h
+    MICKernel.h
+    KernelProperties.h
+    MICKernelProperties.h
+    CPUJITContainer.h
+    MICJITContainer.h
+    Binary.h
+    Executable.h
+    CPUExecutable.h
+    MICExecutable.h
+    TypeAlignment.h
+    PrintIRPass.h
+    debuggingservicewrapper.h
+    ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
-	CPUDeviceBackendFactory.cpp
-	MICDeviceBackendFactory.cpp
-	builtin_functions.cpp
-	dllmain.cpp
-	InstToFuncCall.cpp
-	opencl_printf_ext.cpp
-	RelaxedPass.cpp
-	Logger.cpp
-	plugin_manager.cpp
-	ServiceFactory.cpp
-	CompileService.cpp
-	CPUCompileService.cpp
-	MICCompileService.cpp
-	ExecutionService.cpp
-	CPUExecutionService.cpp
-	MICSerializationService.cpp
-	BackendConfiguration.cpp
-	Compiler.cpp
-	CompilationUtils.cpp
-	CPUCompiler.cpp
-	MICCompiler.cpp
-	Optimizer.cpp
-	BuiltinModuleManager.cpp
-	BuiltinModule.cpp
-	CPUBuiltinLibrary.cpp
-	MICBuiltinLibrary.cpp
-	Program.cpp
-	MICProgram.cpp
-	BitCodeContainer.cpp
-	ProgramContainerMemoryBuffer.cpp
-	Kernel.cpp
-	MICKernel.cpp
-	KernelProperties.cpp
-	MICKernelProperties.cpp
-	CPUJITContainer.cpp
-	MICJITContainer.cpp
-	ModuleJITHolder.cpp
-	Binary.cpp
-	Executable.cpp
-	CPUExecutable.cpp
-	MICExecutable.cpp
-	TypeAlignment.cpp
-	PrintIRPass.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/ocl_debug_builtins.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debuginfopass.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_communicator.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debug_server.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debuginfo_utils.cpp
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/debugservermessages.pb.cc
-    ${OCL_CPU_BACKEND_DIR}/ocl_debugger/protobufpackedmessage.cpp
+    CPUDeviceBackendFactory.cpp
+    MICDeviceBackendFactory.cpp
+    builtin_functions.cpp
+    dllmain.cpp
+    InstToFuncCall.cpp
+    opencl_printf_ext.cpp
+    RelaxedPass.cpp
+    Logger.cpp
+    plugin_manager.cpp
+    ServiceFactory.cpp
+    CompileService.cpp
+    CPUCompileService.cpp
+    MICCompileService.cpp
+    ExecutionService.cpp
+    CPUExecutionService.cpp
+    MICSerializationService.cpp
+    BackendConfiguration.cpp
+    CompilationUtils.cpp
+    Compiler.cpp
+    CPUCompiler.cpp
+    MICCompiler.cpp
+    Optimizer.cpp
+    BuiltinModuleManager.cpp
+    BuiltinModule.cpp
+    CPUBuiltinLibrary.cpp
+    MICBuiltinLibrary.cpp
+    Program.cpp
+    MICProgram.cpp
+    BitCodeContainer.cpp
+    ProgramContainerMemoryBuffer.cpp
+    Kernel.cpp
+    MICKernel.cpp
+    KernelProperties.cpp
+    MICKernelProperties.cpp
+    CPUJITContainer.cpp
+    MICJITContainer.cpp
+    ModuleJITHolder.cpp
+    Binary.cpp
+    Executable.cpp
+    CPUExecutable.cpp
+    MICExecutable.cpp
+    TypeAlignment.cpp
+    PrintIRPass.cpp
+    debuggingservicewrapper.cpp
+    ocl_debug_builtins.cpp
+    debuginfopass.cpp
   )
  if (WIN32)	
  set (OCL_CPU_BACKEND_RESOURCE_FILES
@@ -476,18 +464,11 @@ target_link_libraries (${TARGET_NAME}
 	
 	# Utils lib
 	${TARGET_UTILS_NAME}
-    ${SOCKETLIB}
-    oclsysutils_partial
 	
 	# LLVM LIBS
 	${LLVM_LIBS}
 	) 
 
-if (WIN32)
-    target_link_libraries( ${TARGET_NAME} protobuf )
-else (WIN32)
-    target_link_libraries( ${TARGET_NAME} protobuf pthread )
-endif (WIN32)
 
 add_dependencies(${TARGET_NAME} 
 	# Utils lib

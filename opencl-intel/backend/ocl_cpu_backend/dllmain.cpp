@@ -20,7 +20,6 @@ File Name:  dllmain.cpp
 
 #define DEVICE_BACKEND_EXPORTS
 
-#include "cl_env.h"
 #include "cl_dev_backend_api.h"
 #include "BackendConfiguration.h"
 #include "ServiceFactory.h"
@@ -30,8 +29,9 @@ File Name:  dllmain.cpp
 #include "Compiler.h"
 #include "MICSerializationService.h"
 #include "plugin_manager.h"
-#include "debug_server.h"
 #include "llvm/System/Mutex.h"
+#include "debuggingservicewrapper.h"
+
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -130,13 +130,13 @@ extern "C"
             PluginManager::Init();
 #endif
             DefaultJITMemoryManager::Init();
-            // Attempt to initialize the debug server. If debugging is 
-            // disabled this is a NOP returning true.
+            // Attempt to initialize the debug service. If debugging is 
+            // disabled this is a no-op returning success.
             //
-            if (InitDebugServer() == false)
+            if (CL_DEV_FAILED(DebuggingServiceWrapper::GetInstance().Init()))
                 s_init_result = CL_DEV_ERROR_FAIL;
             else
-            s_init_result = CL_DEV_SUCCESS;
+                s_init_result = CL_DEV_SUCCESS;
         }
         catch( std::runtime_error& )
         {
@@ -171,6 +171,7 @@ extern "C"
         BuiltinModuleManager::Terminate();
         MICDeviceBackendFactory::Terminate();
         CPUDeviceBackendFactory::Terminate();
+        DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();
         BackendConfiguration::Terminate();
     }

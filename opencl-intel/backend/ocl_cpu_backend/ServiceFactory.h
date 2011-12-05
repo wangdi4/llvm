@@ -29,7 +29,23 @@ enum OPERATION_MODE
     MIC_MODE
 };
 
-class ServiceFactory: public ICLDevBackendServiceFactory
+
+class ICLDebuggingService;
+
+
+// Internal backend service factory interface. Adds another method on top of
+// the backend service factory interface - to get a debugging service.
+// This interface is separated because it's only being used internally in the
+// backend.
+//
+class ICLDevBackendServiceFactoryInternal : public ICLDevBackendServiceFactory {
+public:
+    virtual cl_dev_err_code GetDebuggingService(
+        ICLDebuggingService** pDebuggingService) = 0;
+};
+
+
+class ServiceFactory: public ICLDevBackendServiceFactoryInternal
 {
 private:
     ServiceFactory();
@@ -39,6 +55,12 @@ public:
     static void Init();
     static void Terminate();
     static ICLDevBackendServiceFactory* GetInstance();
+
+    /**
+     * Get an instance as a pointer to the internal service factory interface.
+     * Required to be able to access methods added in the internal interface.
+    */
+    static ICLDevBackendServiceFactoryInternal* GetInstanceInternal();
 
     /**
      * Creates Compilation Service object
@@ -88,6 +110,19 @@ public:
         const ICLDevBackendOptions* pBackendOptions, 
         ICLDevBackendSerializationService** pBackendSerializationService);
     
+    /**
+     * Creates a Debugging Service object
+     *
+     * @ param pDebuggingService will be modified to contain the generated 
+     *         object.
+     *
+     * @returns 
+     *  CL_DEV_SUCCESS in case of success, otherwise:
+     *  CL_DEV_ERROR_FAIL in case of failure
+     */
+    virtual cl_dev_err_code GetDebuggingService(
+        ICLDebuggingService** pDebuggingService);
+
 private:
     static ServiceFactory* s_pInstance;
 };

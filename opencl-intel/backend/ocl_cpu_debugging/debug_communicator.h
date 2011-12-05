@@ -35,6 +35,10 @@ public:
         TERMINATED
     };
 
+    // Wait until the communicator starts listening on the port
+    //
+    void waitForListen();
+
     // Wait for client connection
     //
     void waitForConnection();
@@ -90,11 +94,15 @@ private:
 
     // Event used to signal that a message was received
     //
-    OclOsDependentEvent m_recv_event;
+    OclBinarySemaphore m_recv_event;
+
+    // Event used to signal that the communicator started listening on the port
+    //
+    OclBinarySemaphore m_listen_event;
 
     // Event used to signal that a client has connected
     //
-    OclOsDependentEvent m_connect_event;
+    OclBinarySemaphore m_connect_event;
 
     // Disallow copying
     //

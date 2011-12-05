@@ -214,14 +214,14 @@ void OclSocket::connect(const string& host, unsigned short port)
         throw OclSocketError("failed getaddrinfo() in connect(): " + gai_error_str);
     }
 
-    if (::connect(d->sock, res->ai_addr, res->ai_addrlen) != 0)
+    if (::connect(d->sock, res->ai_addr, static_cast<int>(res->ai_addrlen)) != 0)
         d->system_error("failed connect()");
 }
 
 
 size_t OclSocket::send(const vector<char>& buf)
 {
-    int ret = ::send(d->sock, &buf[0], buf.size(), MSG_NOSIGNAL);
+    int ret = ::send(d->sock, &buf[0], static_cast<int>(buf.size()), MSG_NOSIGNAL);
     if (ret == SOCKET_ERROR)
         d->system_error("failed send()");
     return static_cast<size_t>(ret);
@@ -230,7 +230,7 @@ size_t OclSocket::send(const vector<char>& buf)
 
 vector<char> OclSocket::recv()
 {
-    int ret = ::recv(d->sock, &d->recv_buf[0], d->recv_buf.size(), 0);
+    int ret = ::recv(d->sock, &d->recv_buf[0], static_cast<int>(d->recv_buf.size()), 0);
     if (ret == 0) {
         // Connection closed
         return vector<char>();
@@ -251,7 +251,7 @@ vector<char> OclSocket::recv_n_bytes(size_t n)
     size_t buf_ptr = 0;
 
     while (buf_ptr < n) {
-        int ret = ::recv(d->sock, &d->recv_buf[buf_ptr], n - buf_ptr, 0);
+        int ret = ::recv(d->sock, &d->recv_buf[buf_ptr], static_cast<int>(n - buf_ptr), 0);
         if (ret == 0) {
             // Connection closed - return what we have so far.
             d->recv_buf.resize(buf_ptr);
