@@ -162,15 +162,37 @@ class OutOfOrderCommandSynchHandler : public CommandSynchHandler
 
 public:
 
+	OutOfOrderCommandSynchHandler() : CommandSynchHandler(), m_isRegistered(false) {};
+
 	bool isInOrderType() { return false; };
 
 	void getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) { *barrier = NULL, *numDependencies = 0; };
 
 	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution) { return; };
 
-	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) { COIEventRegisterUserEvent(completionBarrier); return NULL; };
+	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) 
+	{ 
+		// If not register yet
+		if (false == m_isRegistered)
+		{
+			COIEventRegisterUserEvent(completionBarrier);
+			m_isRegistered = true;
+		}
+		return NULL;
+	};
 
-	void unregisterCompletionBarrier(COIEVENT& completionBarrier) { COIEventUnregisterUserEvent(completionBarrier); };
+	void unregisterCompletionBarrier(COIEVENT& completionBarrier) 
+	{ 
+		// If already registered
+		if (m_isRegistered)
+		{
+			COIEventUnregisterUserEvent(completionBarrier);
+		}
+	};
+
+private:
+
+	bool m_isRegistered;
 
 };
 

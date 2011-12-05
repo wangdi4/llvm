@@ -89,7 +89,7 @@ protected:
 	   It will release the resources and singal the user barrier if needed. 
 	   It also delete this object as the last command. 
 	   The FinishTask is not public because We don't want the user to release the resource. (It will release itself when completed)*/
-	virtual void FinishTask(COIEVENT* completionBarrier = NULL) = 0;
+	virtual void FinishTask(COIEVENT& completionBarrier, bool isLegalBarrier) = 0;
 
 	// The received dispatcher_data
 	dispatcher_data* m_dispatcherData;
@@ -123,7 +123,7 @@ protected:
 
 	virtual ~BlockingTaskHandler() {};
 
-	virtual void FinishTask(COIEVENT* completionBarrier = NULL);
+	virtual void FinishTask(COIEVENT& completionBarrier, bool isLegalBarrier);
 };
 
 
@@ -140,7 +140,7 @@ protected:
 
 	virtual ~NonBlockingTaskHandler() {};
 
-	virtual void FinishTask(COIEVENT* completionBarrier = NULL);
+	virtual void FinishTask(COIEVENT& completionBarrier, bool isLegalBarrier);
 };
 
 

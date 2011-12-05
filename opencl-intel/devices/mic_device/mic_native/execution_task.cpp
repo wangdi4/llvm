@@ -149,18 +149,18 @@ void execute_NDRange(uint32_t         in_BufferCount,
 		assert(in_MiscDataLength >= sizeof(dispatcher_data));
 		tDispatcherData = (dispatcher_data*)in_pMiscData;
 	}
-	// If the misc_data is in in_pReturnValue
-	if (in_pReturnValue)
-	{
-		assert(in_ReturnValueLength == sizeof(misc_data));
-		tMiscData = (misc_data*)in_pReturnValue;
-	}
-	else
+	// If the misc_data is NOT in in_pReturnValue
+	if (0 == in_ReturnValueLength)
 	{
 		// The misc_data is in in_ppBufferPointers[in_BufferCount - 1] in case of dispatcher_data is in in_pMiscData and in in_ppBufferPointers[in_BufferCount - 2] in case of dispatcher_data is in in_ppBufferPointers[in_BufferCount - DISPATCHER_DATA -1].
 		assert(in_BufferCount > tMiscDataBufferIndex);
 		assert(in_pBufferLengths[tMiscDataBufferIndex] == sizeof(misc_data) && "in_pBufferLengths[tMiscDataBufferIndex] should be as the size of misc_data");
 		tMiscData = (misc_data*)in_ppBufferPointers[tMiscDataBufferIndex];
+	}
+	else
+	{
+		assert(in_ReturnValueLength == sizeof(misc_data));
+		tMiscData = (misc_data*)in_pReturnValue;
 	}
 	
 	// Set init value of misc_data.
@@ -281,9 +281,9 @@ void BlockingTaskHandler::RunTask()
 	m_task->run();
 }
 
-void BlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
+void BlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLegalBarrier)
 {
-	assert(NULL == completionBarrier);
+	assert(false == isLegalBarrier);
 	// Delete this object as the last operation on it.
 	delete this;
 }
@@ -343,11 +343,10 @@ cl_dev_err_code NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData
 }
 
 
-void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
+void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLegalBarrier)
 {
 	// For asynch task We must have legal COIEVENT to signal.
-	assert(completionBarrier);
-	COIEVENT tCompletionBarrier = *completionBarrier;
+	assert(isLegalBarrier);
 	// Release resources.
 	if (m_lockBufferPointers)
 	{
@@ -370,7 +369,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT* completionBarrier)
 	}
 
 	// Signal user completion barrier
-	COIRESULT coiErr = COIEventSignalUserEvent(tCompletionBarrier);
+	COIRESULT coiErr = COIEventSignalUserEvent(completionBarrier);
 	assert(COI_SUCCESS == coiErr);
 
 	// Delete this object as the last operation on it.
@@ -589,7 +588,8 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 
 	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
 	assert(pDispatcherData);
-	COIEVENT* completionBarrier = NULL;
+	COIEVENT completionBarrier;
+	bool findBarrier = false;
 	// Perform post exexution directives.
 	unsigned int numOfPostExeDirectives = pDispatcherData->postExeDirectivesCount;
 	if (numOfPostExeDirectives > 0)
@@ -603,8 +603,9 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 			{
 			case BARRIER:
 				{
+					findBarrier = true;
 					// set the signal user barrier (Will signal on destruction)
-					*completionBarrier = postExeDirectivesArr[i].barrierDirective.end_barrier;
+					completionBarrier = postExeDirectivesArr[i].barrierDirective.end_barrier;
 					break;
 				}
 			case PRINTF:
@@ -621,7 +622,7 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 		}
 	}
 	// Last command, Do NOT call any method of this object after it perform.
-	pTaskHandler->FinishTask(completionBarrier);
+	pTaskHandler->FinishTask(completionBarrier, findBarrier);
 }
 
 

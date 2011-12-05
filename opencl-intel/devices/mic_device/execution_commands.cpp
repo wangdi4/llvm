@@ -263,6 +263,8 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			currPostDirectiveIndex ++;
 		}
 
+		// Register completion barrier
+		 m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
 		{
