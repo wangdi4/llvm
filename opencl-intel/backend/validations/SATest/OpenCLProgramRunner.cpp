@@ -518,7 +518,7 @@ void OpenCLProgramRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
 
     if ( CL_DEV_FAILED(ret) )
     {
-        throw Exception::TestRunnerException("Build program failed");
+        throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
     }
 }
 

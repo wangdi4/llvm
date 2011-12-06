@@ -429,13 +429,13 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                                                                buffDsc.GetElementDescription().TypeToString()+". \
                                                                                                               Expected data type: f64");
                         }
-                        if (buffDsc.NumOfElements() != 1) // one float value.
+                        if (buffDsc.NumOfElements() != 1) // one double value.
                         {
                             throw TestReferenceRunnerException("Unexpected buffer length. \
                                                                Expected buffer length: 1");
                         }
                         ((double*)outputBuffer->GetDataPtr())[0] = ((double*)currBuffer->GetDataPtr())[0];
-                        currArg.FloatVal = ((double*)currBuffer->GetDataPtr())[0];
+                        currArg.DoubleVal = ((double*)currBuffer->GetDataPtr())[0];
                         break;
                     }
                 case Type::PointerTyID:
