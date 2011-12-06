@@ -267,7 +267,10 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CPUExecutionService.h
     BackendConfiguration.h
     CompilerConfig.h
+    ProgramBuilder.h
     CompilationUtils.h
+    CPUProgramBuilder.h
+    MICProgramBuilder.h
     Optimizer.h
     BuiltinModuleManager.h
     BuiltinModule.h
@@ -290,6 +293,9 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     MICExecutable.h
     TypeAlignment.h
     PrintIRPass.h
+    ImageCallbackLibrary.h
+    ImageCallbackManager.h
+    ImageCallbackServices.h
     debuggingservicewrapper.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
   )
@@ -312,10 +318,13 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUExecutionService.cpp
     MICSerializationService.cpp
     BackendConfiguration.cpp
+    ProgramBuilder.cpp
     CompilationUtils.cpp
     Compiler.cpp
     CPUCompiler.cpp
     MICCompiler.cpp
+    CPUProgramBuilder.cpp
+    MICProgramBuilder.cpp
     Optimizer.cpp
     BuiltinModuleManager.cpp
     BuiltinModule.cpp
@@ -338,6 +347,9 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     MICExecutable.cpp
     TypeAlignment.cpp
     PrintIRPass.cpp
+    ImageCallbackLibrary.cpp
+    ImageCallbackManager.cpp
+    ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
     debuginfopass.cpp

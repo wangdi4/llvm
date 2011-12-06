@@ -128,10 +128,44 @@ typedef struct _cl_mem_obj_descriptor
 	void*			pData;					// A pointer to the object wherein the object data is stored.
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
+	void*			imageAuxData;			//auxilary data kept for the image purposes
 } cl_mem_obj_descriptor;
 
-typedef _cl_mem_obj_descriptor* image2d_t;
-typedef _cl_mem_obj_descriptor* image3d_t;
+#ifdef WIN32
+#define ALIGN16 __declspec(align(16))
+#else
+#define ALIGN16 __attribute__((aligned(16)))
+#endif
+// Explicitly define image types
+typedef ALIGN16 struct _image_aux_data
+{
+    cl_uint			dim_count;				// A number of dimensions in the memory object.
+	size_t			pitch[MAX_WORK_DIM-1];	// Multi-dimensional pitch of the object, valid only for images (2D/3D).
+	cl_image_format	format;					// Format of the memory object,valid only for images (2D/3D).
+	void*			pData;					// A pointer to the object wherein the object data is stored.
+											// Could be a valid memory pointer or a handle to other object.
+	unsigned		uiElementSize;			// Size of image pixel element.
+	
+	void*			coord_translate_i_callback[32];    //the list of integer coordinate translation callback
+	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
+	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
+	void*			write_img_callback;    // the write image sampler callback
+
+	ALIGN16 int dimSub1[MAX_WORK_DIM+1];	// Image size for each dimension subtracted by one
+											// Used to optimize coordinates computation not to subtract by one for each read
+	ALIGN16 int dim[MAX_WORK_DIM+1];		// Image size for each dimension
+	ALIGN16 int offset[MAX_WORK_DIM+1];		// the offset to extract pixels
+	ALIGN16 float dimf[MAX_WORK_DIM+1];		// Float image size for each dimension.
+											// Used in coordinates computation to avoid
+											// int->float type conversion for each read call
+	int dimmask;		// Mask for dimensions in images
+						// Contains ones at dim_count first bytes. Other bytes are zeros.
+						// Used for coordinates clamping
+
+} image_aux_data;
+
+typedef image_aux_data* image2d_t;
+typedef image_aux_data* image3d_t;
 
 typedef struct _cl_llvm_prog_header
 {

@@ -6,6 +6,7 @@
 #include "ICLDevBackendCompilationService.h"
 #include "ICLDevBackendSerializationService.h"
 #include "ICLDevBackendExecutionService.h"
+#include "ICLDevBackendImageService.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -74,6 +75,22 @@ public:
     virtual cl_dev_err_code GetSerializationService(
         const ICLDevBackendOptions* pBackendOptions, 
         ICLDevBackendSerializationService** pBackendSerializationService) = 0;
+
+    /**
+     * Creates Image Service object
+     *
+     * @param pBackendOptions pointer to class which will contain the backend compilation
+     *  options (alloc\dealloc program JIT handler address, etc ..)
+     * @param pBackendImageService [OUT] will be modified to contain the generated object
+     *
+     * @returns 
+     *  CL_DEV_SUCCESS in case of success, otherwise:
+     *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+     *  CL_DEV_ERROR_FAIL in any other failure
+     */
+    virtual cl_dev_err_code GetImageService(
+      const ICLDevBackendOptions* pBackendOptions, 
+      ICLDevBackendImageService** ppBackendImageService) = 0;
 };
 
 }}} // namespace

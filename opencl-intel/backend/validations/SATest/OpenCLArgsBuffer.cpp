@@ -29,8 +29,9 @@ using namespace Validation;
 
 OpenCLArgsBuffer::OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs, 
                                    cl_uint kernelNumArgs, 
-                                   IBufferContainerList * input):
-m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs)
+                                   IBufferContainerList * input,
+                                   const ICLDevBackendImageService* pImageService):
+m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_pImageService(pImageService)
 {
     m_argsBufferSize = CalcArgsBufferSize();
 
@@ -61,8 +62,12 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const Bu
     mem_desc.pData = pData;
 }
 
-void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const ImageDesc& image_desc, void* pData)
+void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
+                                       const ImageDesc& image_desc,
+                                       void* pData,
+                                       const ICLDevBackendImageService* pImageService)
 {
+    assert(pImageService);
     mem_desc.dim_count = image_desc.GetNumOfDimensions();
     ImageSizes imSizes = image_desc.GetSizes();
     mem_desc.dimensions.dim[0] = imSizes.width;
@@ -110,6 +115,16 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const Im
     }
     mem_desc.uiElementSize = image_desc.GetElementSize();
     mem_desc.pData = pData;
+
+    if(pImageService != NULL)
+    {
+        /// Allocate data for auxiliary image structures
+        _image_aux_data* auxObject = NULL;
+        size_t auxObjectSize=pImageService->GetAuxilarySize();
+        auxObject = (_image_aux_data*)Validation::align_malloc(auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
+        /// Create auxiliary image structures
+        pImageService->CreateImageObject(&mem_desc, auxObject);
+    }
 }
 
 void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
@@ -139,7 +154,8 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             auto_ptr_aligned spMemDesc((char*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
 
             memcpy(spNewBuffer.get(), (char*)pData, imageSize);
-            FillMemObjDescriptor( *((cl_mem_obj_descriptor*)spMemDesc.get()), imageDesc, spNewBuffer.get());
+            assert(m_pImageService);
+            FillMemObjDescriptor( *((cl_mem_obj_descriptor*)spMemDesc.get()), imageDesc, spNewBuffer.get(), m_pImageService);
 
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             *pBufferArg = spMemDesc.release();

@@ -59,8 +59,8 @@ ProgramService::ProgramService(cl_int devId,
                                CPUDeviceConfig *config,
                                ICLDevBackendServiceFactory* pBackendFactory) :
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_progIdAlloc(1, UINT_MAX),
-    m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(NULL), m_pBackendExecutor(NULL), 
-    m_pCPUConfig(config)
+    m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(NULL),
+    m_pBackendExecutor(NULL), m_pBackendImageService(NULL), m_pCPUConfig(config)
 {
     assert(m_pBackendFactory && "getting backend factory assumed to allways succeed if initialization has succeeded");
 
@@ -106,6 +106,11 @@ ProgramService::~ProgramService()
     {
         m_pBackendExecutor->Release();
     }
+
+    if( m_pBackendImageService )
+    {
+        m_pBackendImageService->Release();
+    }
 }
 
 /****************************************************************************************************************
@@ -132,18 +137,28 @@ cl_dev_err_code ProgramService::Init()
     {
         return ret;
     }
-    
+
+    ICLDevBackendImageService* pImageService = NULL;
+    ret = m_pBackendFactory->GetImageService(&programConfig, &pImageService);
+    if( CL_DEV_FAILED(ret) )
+    {
+        pCompiler->Release();
+        return ret;
+    }
+
     ICLDevBackendExecutionService* pExecutor = NULL;
     ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor);
     if( CL_DEV_FAILED(ret) )
     {
         //Oh, where is my auto_ptr_ex :-( ?
+        pImageService->Release();
         pCompiler->Release();
         return ret;
     }
 
     m_pBackendCompiler = pCompiler;
     m_pBackendExecutor = pExecutor;
+    m_pBackendImageService = pImageService;
     return CL_DEV_SUCCESS;
 
 }
@@ -933,6 +948,39 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     return CL_DEV_SUCCESS;
 }
+
+cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
+                cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
+{
+    //image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
+    //CL_MEM_OBJECT_IMAGE3D
+    if((imageType != CL_MEM_OBJECT_IMAGE2D) && (imageType != CL_MEM_OBJECT_IMAGE3D))
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    if(0 == numEntries && NULL != formats)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    unsigned int uiNumEntries;
+
+    m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries);
+
+      if(NULL != formats)
+    {
+        uiNumEntries = min(uiNumEntries, numEntries);
+        memcpy(formats, supportedImageFormats, uiNumEntries * sizeof(cl_image_format));
+    }
+    if(NULL != numEntriesRet)
+    {
+        *numEntriesRet = uiNumEntries;
+    }
+
+    return CL_DEV_SUCCESS;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 //  Private methods

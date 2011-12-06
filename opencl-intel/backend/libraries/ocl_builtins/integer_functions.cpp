@@ -1771,6 +1771,8 @@ _4u32	__attribute__((overloadable)) max(_4u32 x, _4u32 y)
 #endif
 }
 
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be done in image_callback_functions.cpp
 _4i32	__attribute__((overloadable)) max(_4i32 x, _4i32 y)
 {
 #ifdef __SSE4_1__
@@ -1918,7 +1920,8 @@ _4u32	__attribute__((overloadable)) min(_4u32 x, _4u32 y)
 	return (_4u32) _mm_xor_si128( *((__m128i *)dwordMsbMask), res );
 #endif
 }
-
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be done in image_callback_functions.cpp
 _4i32	__attribute__((overloadable)) min(_4i32 x, _4i32 y)
 {
 #ifdef __SSE4_1__

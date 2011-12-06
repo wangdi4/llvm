@@ -48,6 +48,39 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void UndefExternalFunctions::runOnFunction(Function *pFunc) {
 
+
+    //if the function is read\write image, ignore the function pointer calls
+    std::string calledFuncName = pFunc->getNameStr();
+
+    const unsigned int NumImageFunctions = 16;
+
+    std::string ImageFunctions[NumImageFunctions] = {
+      "_Z12read_imageuiP10_image2d_tjDv2_i",
+      "_Z12read_imageuiP10_image3d_tjDv4_i",
+      "_Z12read_imageuiP10_image2d_tjDv2_f",
+      "_Z12read_imageuiP10_image3d_tjDv4_f",
+      "_Z13write_imageuiP10_image2d_tDv2_iDv4_j",
+      "_Z11read_imageiP10_image2d_tjDv2_i",
+      "_Z11read_imageiP10_image3d_tjDv4_i",
+      "_Z11read_imageiP10_image2d_tjDv2_f",
+      "_Z11read_imageiP10_image3d_tjDv4_f",
+      "_Z12write_imagefP10_image2d_tDv2_iDv4_f",
+      "_Z12write_imageiP10_image2d_tDv2_iDv4_i",
+      "_Z11read_imagefP10_image2d_tjDv2_f",
+      "_Z11read_imagefP10_image2d_tjDv2_i",
+      "_Z11read_imagefP10_image3d_tjDv4_i",
+      "_Z11read_imagefP10_image3d_tjDv4_i",
+      "_Z11read_imagefP10_image3d_tjDv4_f"
+    };
+
+    bool FoundImageName = false;
+    for( unsigned int i=0; i < NumImageFunctions ; i++ ) {
+      if ( !calledFuncName.compare(ImageFunctions[i]) ) {
+        FoundImageName = true;
+        return;
+      }
+    }
+
     // Go through function instructions and search calls
     for ( inst_iterator ii = inst_begin(pFunc), ie = inst_end(pFunc); ii != ie; ++ii ) {
 
@@ -57,7 +90,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       // Call instruction
 
-      std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
 
       //TODO: rewrite this check!
       // Check call for not inlined functions/ kernels

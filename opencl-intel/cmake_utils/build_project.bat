@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set VS_exe=%VS90COMNTOOLS%\..\IDE\devenv.exe
+set VS_exe="C:\Program Files (x86)\Microsoft Visual Studio 9.0\Common7\IDE\devenv.exe"
 
 rem
 rem Build MinGW makefiles to compile OpenCL on Windows and run make
@@ -37,4 +37,4 @@ echo .
 echo . Starting build %target%
 echo . Log file: %CD%\build_%target%.log
 echo .
-"%VS_exe%" OCL.sln /build %target% /Out %CD%\build_%target%.log
+%VS_exe% OCL.sln /build %target% /Out %CD%\build_%target%.log

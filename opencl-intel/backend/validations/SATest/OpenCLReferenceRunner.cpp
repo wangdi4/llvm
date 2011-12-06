@@ -391,7 +391,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                 // Kernel execution assumes all buffer arguments are aligned
                 // If we do not align the buffer the execution crashes
                 auto_ptr_ex<cl_mem_obj_descriptor> spMemDesc((cl_mem_obj_descriptor*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
-                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr());
+                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL);
                 currArg.PointerVal = spMemDesc.get();
                 // push pointer to scratch memory
                 m_ClMemObjScratchMemList.push_back(spMemDesc.release());
@@ -429,13 +429,13 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                                                                buffDsc.GetElementDescription().TypeToString()+". \
                                                                                                               Expected data type: f64");
                         }
-                        if (buffDsc.NumOfElements() != 1) // one double value.
+                        if (buffDsc.NumOfElements() != 1) // one float value.
                         {
                             throw TestReferenceRunnerException("Unexpected buffer length. \
                                                                Expected buffer length: 1");
                         }
                         ((double*)outputBuffer->GetDataPtr())[0] = ((double*)currBuffer->GetDataPtr())[0];
-                        currArg.DoubleVal = ((double*)currBuffer->GetDataPtr())[0];
+                        currArg.FloatVal = ((double*)currBuffer->GetDataPtr())[0];
                         break;
                     }
                 case Type::PointerTyID:

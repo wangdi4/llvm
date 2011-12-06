@@ -19,7 +19,7 @@ File Name:  CompileService.h
 
 #include "cl_dev_backend_api.h"
 #include "CompilerConfig.h"
-#include "Compiler.h"
+#include "ProgramBuilder.h"
 #include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -102,7 +102,7 @@ public:
             const std::string baseDirectory) const;
 
 protected:
-    virtual Compiler* GetCompiler() = 0;
+    virtual ProgramBuilder* GetProgramBuilder() = 0;
 
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_backendFactory;

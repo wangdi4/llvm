@@ -22,27 +22,13 @@ File Name:  ServiceFactory.cpp
 #include "MICCompileService.h"
 #include "MICSerializationService.h"
 #include "ExecutionService.h"
-#include "CPUExecutionService.h"
+#include "ImageCallbackServices.h"
 #include "exceptions.h"
 #include "CPUDetect.h"
+#include "CPUExecutionService.h"
 #include "debuggingservicewrapper.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-namespace Utils
-{
-    OPERATION_MODE SelectOperationMode(const char* cpuArch)
-    {
-        if(0 == strcmp(cpuArch, "auto")) return CPU_MODE;
-        if(0 == strcmp(cpuArch, "auto-remote")) return MIC_MODE;
-        if (!Utils::CPUDetect::GetInstance()->IsValidCPUName(cpuArch))
-        {
-            throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
-        }
-        return (Utils::CPUDetect::GetInstance()->IsMICCPU(Utils::CPUDetect::GetInstance()->GetCPUByName(cpuArch))) 
-            ? MIC_MODE : CPU_MODE;
-    }
-}
 
 ServiceFactory* ServiceFactory::s_pInstance = NULL;
 
@@ -88,7 +74,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
-        OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
+        OPERATION_MODE mode = config.GetOperationMode();
 
         if(MIC_MODE == mode)
         {
@@ -122,7 +108,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
-        OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
+        OPERATION_MODE mode = config.GetOperationMode();
 
         if(MIC_MODE == mode)
         {
@@ -153,7 +139,7 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
-        OPERATION_MODE mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
+        OPERATION_MODE mode = config.GetOperationMode();
 
         if(MIC_MODE == mode)
         {
@@ -181,6 +167,30 @@ cl_dev_err_code ServiceFactory::GetDebuggingService(
         DebuggingServiceWrapper::GetInstance().GetDebuggingService();
     *pDebuggingService = instance;
     return instance == NULL ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
+}
+cl_dev_err_code ServiceFactory::GetImageService(
+    const ICLDevBackendOptions* pBackendOptions, 
+    ICLDevBackendImageService** ppBackendImageService)
+{
+    try
+    {
+        CompilerConfiguration config(*BackendConfiguration::GetInstance()->GetCompilerConfig());
+        config.ApplyRuntimeOptions(pBackendOptions);
+        /// WORKAROUND!! Wee need to skip built-in module load for
+        /// Image compiler instance
+        config.SkipBuiltins();
+        OPERATION_MODE mode = config.GetOperationMode();
+        *ppBackendImageService = new ImageCallbackService(config, mode == CPU_MODE);
+        return CL_DEV_SUCCESS;
+    }
+    catch( Exceptions::DeviceBackendExceptionBase& e )
+    {
+        return e.GetErrorCode();
+    }
+    catch( std::bad_alloc& )
+    {
+        return CL_DEV_OUT_OF_MEMORY; 
+    }
 }
 
 }}}

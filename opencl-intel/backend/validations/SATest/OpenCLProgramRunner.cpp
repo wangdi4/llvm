@@ -410,6 +410,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
 
     ICLDevBackendExecutionServicePtr spExecutionService(NULL);
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
+    ICLDevBackendImageServicePtr        spImageService(NULL);
 
     cl_dev_err_code ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
@@ -425,6 +426,11 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create execution service failed");
+    }
+    ret = m_pServiceFactory->GetImageService(NULL, spImageService.getOutPtr());
+    if ( CL_DEV_FAILED(ret) )
+    {
+        throw Exception::TestRunnerException("Create image service failed");
     }
 
     {
@@ -472,7 +478,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-            ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), *it, pOCLRunConfig);
+                ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
         }
     }
     }
@@ -518,7 +524,7 @@ void OpenCLProgramRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
 
     if ( CL_DEV_FAILED(ret) )
     {
-        throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
+        throw Exception::TestRunnerException("Build program failed");
     }
 }
 
@@ -527,10 +533,12 @@ void OpenCLProgramRunner::ExecuteKernel(IBufferContainerList& input,
                                         IRunResult * runResult,
                                         ICLDevBackendProgram_* pProgram,
                                         ICLDevBackendExecutionService* pExecutionService,
+                                        ICLDevBackendImageService* pImageService,
                                         OpenCLKernelConfiguration * pKernelConfig,
                                         const BERunOptions* pRunConfig)
 {
     assert( NULL != pProgram);
+    assert(pImageService);
 
     // Get kernel to run
     std::string kernelName = pKernelConfig->GetKernelName();
@@ -545,7 +553,7 @@ void OpenCLProgramRunner::ExecuteKernel(IBufferContainerList& input,
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
 
     // Create the argument buffer
-    OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input);
+    OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService);
 
     OpenCLBinaryContext binary( pKernel,
                                 pExecutionService,

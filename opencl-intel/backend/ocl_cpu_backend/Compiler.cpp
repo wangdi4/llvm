@@ -16,7 +16,7 @@ File Name:  Compiler.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
-
+#include <memory>
 #include <vector>
 #include <string>
 #include "cl_types.h"
@@ -24,14 +24,12 @@ File Name:  Compiler.cpp
 #include "Compiler.h"
 #include "Optimizer.h"
 #include "VecConfig.h"
-#include "Program.h"
-#include "Kernel.h"
 #include "CPUDetect.h"
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "plugin_manager.h"
-#include "BitCodeContainer.h"
+#include "CompilationUtils.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -53,16 +51,13 @@ File Name:  Compiler.cpp
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
 #include "VTune/JITProfiling.h"
+using std::string;
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
- 
-
-using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 void dumpModule(llvm::Module& m){
 #if !defined(__NDEBUG__)
   static unsigned counter=0;
@@ -78,22 +73,13 @@ void dumpModule(llvm::Module& m){
   outf << buffer;
 #endif
 }
- 
+
+
 /*
  * Utility methods
  */
 namespace Utils 
 {
-
-/**
- * Returns the memory buffer of the Program object bytecode
- */
-llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
-{
-    const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramCodeContainer());
-    return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
-}
-
 /**
  * Generates the log record (to the given stream) enumerating the given external function names
  */
@@ -147,6 +133,38 @@ cl_dev_err_code ProgramBuildResult::GetBuildResult()
     return m_result; 
 }
 
+void ProgramBuildResult::SetFunctionsWidths( FunctionWidthVector* pv)
+{
+    m_pFunctionWidths = pv;
+}
+
+const FunctionWidthVector& ProgramBuildResult::GetFunctionsWidths() const
+{
+    assert(m_pFunctionWidths);
+    return *m_pFunctionWidths;
+}
+
+void ProgramBuildResult::SetKernelsInfo( KernelsInfoMap* pKernelsInfo)
+{
+    m_pKernelsInfo = pKernelsInfo;
+}
+
+KernelsInfoMap& ProgramBuildResult::GetKernelsInfo()
+{
+    assert(m_pKernelsInfo);
+    return *m_pKernelsInfo;
+}
+
+void ProgramBuildResult::SetPrivateMemorySize( size_t size)
+{
+    m_privateMemorySize = size;
+}
+
+size_t ProgramBuildResult::GetPrivateMemorySize() const
+{
+    return m_privateMemorySize;    
+}
+
 /*
  * This is a static method which must be called from the 
  * single threaded environment before any instance of Compiler
@@ -183,10 +201,9 @@ void Compiler::Terminate()
     llvm::llvm_shutdown();
 }
 
-Compiler::Compiler(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
-    m_pLLVMContext( new llvm::LLVMContext ),
+Compiler::Compiler(const CompilerConfig& config):
     m_config(config),
-    m_pBackendFactory(pBackendFactory)
+    m_pLLVMContext( new llvm::LLVMContext )
 {
    if (!m_config.GetTimePasses().empty())
    {
@@ -210,20 +227,19 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
-cl_dev_err_code Compiler::BuildProgram(Program* pProgram, const CompilerBuildOptions* pOptions)
+llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
+                                           const CompilerBuildOptions* pOptions,
+                                           ProgramBuildResult* pResult)
 {
-    assert(pProgram && "Program parameter must not be NULL");
-    ProgramBuildResult buildResult;
+    assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
+    assert(pResult && "Build results pointer must not be NULL");
+    assert(pOptions && "Build options pointer must not be NULL");
 
     try
     { 
         //TODO: Add log
-        std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pProgram)); 
+        std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer)); 
         assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
-
-        FunctionWidthVector vectorizedFunctions;
-        KernelsInfoMap kernelsMap;
-        size_t privateMemorySize = 0;
 
         //
         // Apply IR=>IR optimizations
@@ -233,120 +249,67 @@ cl_dev_err_code Compiler::BuildProgram(Program* pProgram, const CompilerBuildOpt
                                                 m_selectedCpuFeatures,
                                                 m_config.GetIRDumpOptionsAfter(),
                                                 m_config.GetIRDumpOptionsBefore(),
-                                                m_config.GetDumpIRDir());
-        Optimizer optimizer( pProgram, this, spModule.get(), &optimizerConfig);
+                                                m_config.GetDumpIRDir(),
+                                                pOptions->GetDebugInfoFlag(),
+                                                pOptions->GetDisableOpt(),
+                                                pOptions->GetRelaxedMath(),
+                                                pOptions->GetlibraryModule());
+        Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
         optimizer.Optimize();
-        if( optimizer.hasUndefinedExternals() )
+        
+        if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
         {
-            Utils::LogUndefinedExternals( buildResult.LogS(), optimizer.GetUndefinedExternals());
+            Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
             throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
         }
-        //
-        // Scan the module for kernels
-        //
-        //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
 
-        optimizer.GetVectorizedFunctions( vectorizedFunctions);
+        //
+        // Populate the build results
+        //
+        std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
+        std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
+
+
+        optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
         //dumpModule(*(spModule.get()));
 
-        optimizer.GetKernelsInfo( kernelsMap);
-        privateMemorySize = optimizer.getPrivateMemorySize();
+        optimizer.GetKernelsInfo( *kernelsMap.get());
 
-        PostOptimizationProcessing(pProgram, spModule.get());
+        if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
+          pResult->SetPrivateMemorySize(optimizer.getPrivateMemorySize());
+          pResult->SetFunctionsWidths( vectorizedFunctions.release() );
+          pResult->SetKernelsInfo( kernelsMap.release());
+        }
+        pResult->SetBuildResult( CL_DEV_SUCCESS );
 
-        KernelSet* pKernels = CreateKernels( pProgram,
-                                             spModule.get(), 
-                                             buildResult,
-                                             vectorizedFunctions, 
-                                             kernelsMap,
-                                             privateMemorySize);
-        //
-        // Update the program with build log, kernels and module
-        //
-        pProgram->SetKernelSet( pKernels);
-        pProgram->SetModule( spModule.release()); 
-        buildResult.SetBuildResult( CL_DEV_SUCCESS);
+        // !!!WORKAROUND!!! if module wasn't built previously than we use
+        // optimizer output to create execution engine in compiler
+        // spModule is now owned by the execution engine
+        if(!m_config.GetLoadBuiltins())
+            this->CreateExecutionEngine(spModule.get());
+        return spModule.release();
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
-        buildResult.LogS() << e.what() << "\n";
-        buildResult.SetBuildResult( e.GetErrorCode());
+        pResult->LogS() << e.what() << "\n";
+        pResult->SetBuildResult( e.GetErrorCode());
     }
 
-    pProgram->SetBuildLog( buildResult.GetBuildLog());
-    return buildResult.GetBuildResult();
+    return NULL;
 }
 
-llvm::Module* Compiler::ParseModuleIR(Program* pProgram)
+llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     //
     // Parse the module IR 
     //
     std::string strErr;
-    llvm::MemoryBuffer* pIRBuffer = Utils::GetProgramMemoryBuffer(pProgram);
     llvm::Module* pModule = llvm::ParseBitcodeFile( pIRBuffer, *m_pLLVMContext, &strErr);
     if ( NULL == pModule || !strErr.empty())
     {
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + strErr, CL_DEV_INVALID_BINARY);
     }
     return pModule;
-}
-
-
-KernelProperties* Compiler::CreateKernelProperties(const Program* pProgram,
-                                                   llvm::MDNode *elt, 
-                                                   const TLLVMKernelInfo& info)
-{
-    // Set optimal WG size
-    unsigned int optWGSize = 0;
-
-    optWGSize = 128; // TODO: to be checked
-
-    size_t hintWGSize[MAX_WORK_DIM] = {0,0,0};
-    size_t reqdWGSize[MAX_WORK_DIM] = {0,0,0};
-
-    if( NULL != elt )
-    {
-
-        llvm::MDNode *wgsh = llvm::dyn_cast<llvm::MDNode>(elt->getOperand(2));
-        hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(0))->getValue().getZExtValue();
-        hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(1))->getValue().getZExtValue();
-        hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(2))->getValue().getZExtValue();
-        if(hintWGSize[0])
-        {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(hintWGSize[i]) optWGSize*=hintWGSize[i];
-            }
-        }
-
-        // Set required WG size
-        llvm::MDNode *rwgs = llvm::dyn_cast<llvm::MDNode>(elt->getOperand(1));
-        reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(0))->getValue().getZExtValue();
-        reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(1))->getValue().getZExtValue();
-        reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(2))->getValue().getZExtValue();
-        if(reqdWGSize[0])
-        {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(reqdWGSize[i]) optWGSize*=reqdWGSize[i];
-            }
-        }
-    }
-
-    KernelProperties* pProps = m_pBackendFactory->CreateKernelProperties();
-
-    pProps->SetOptWGSize(optWGSize);
-    pProps->SetReqdWGSize(reqdWGSize);
-    pProps->SetHintWGSize(hintWGSize);
-    pProps->SetTotalImplSize(info.stTotalImplSize);
-    pProps->SetDAZ( pProgram->GetDAZ());
-    pProps->SetCpuId( m_selectedCpuId );
-    pProps->SetCpuFeatures( m_selectedCpuFeatures );
-
-    return pProps;
 }
 
 llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary)
@@ -378,6 +341,5 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary)
 #endif 
     return spModule.release();
 }
-
 
 }}}
