@@ -225,20 +225,23 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
 void FuncResolver::resolveLoad(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getNameStr();
+  unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
-  if (isa<VectorType>(caller->getArgOperand(0)->getType())) return resolveLoadVector(caller);
-  return resolveLoadScalar(caller);
+  if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
+    return resolveLoadVector(caller, align);
+  return resolveLoadScalar(caller, align);
 }
 
-void FuncResolver::resolveLoadScalar(CallInst* caller) {
+void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
   V_PRINT(DEBUG_TYPE, "Inspecting scl load\n" <<*caller<<"\n");
   // Operands: pred, ptr
   V_ASSERT(caller->getNumArgOperands() == 2 && "Bad number of operands");
   V_ASSERT(!isa<VectorType>(caller->getArgOperand(0)->getType()) && "Bad op type");
 
   // Create the new load
-  LoadInst* loader = new LoadInst(caller->getArgOperand(1), "masked_load", caller);
+  LoadInst* loader = new LoadInst(caller->getArgOperand(1), "masked_load",
+      false, align, caller);
   caller->replaceAllUsesWith(loader);
   // Replace predicate with control flow
 
@@ -247,7 +250,7 @@ void FuncResolver::resolveLoadScalar(CallInst* caller) {
   caller->eraseFromParent();
 }
 
-void FuncResolver::resolveLoadVector(CallInst* caller) {
+void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Ptr = caller->getArgOperand(1);
   assert(caller->getNumArgOperands() == 2 && "Bad number of operands");
@@ -259,7 +262,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller) {
   // Uniform mask for vector load.
   // Perform a single wide load and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *loader = new LoadInst(Ptr, "vload", false, caller);
+    Instruction *loader = new LoadInst(Ptr, "vload", false, align, caller);
     toPredicate(loader, Mask);
     caller->replaceAllUsesWith(loader);
     caller->eraseFromParent();
@@ -281,7 +284,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller) {
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
     Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Instruction *loader = new LoadInst(GEP, "vload", false, caller);    
+    Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);    
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
     Ret = inserter;
@@ -294,14 +297,16 @@ void FuncResolver::resolveLoadVector(CallInst* caller) {
 
 void FuncResolver::resolveStore(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getNameStr();
+  unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
 
-  if (isa<VectorType>(caller->getArgOperand(0)->getType())) return resolveStoreVector(caller);
-  return resolveStoreScalar(caller);
+  if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
+    return resolveStoreVector(caller, align);
+  return resolveStoreScalar(caller, align);
 }
 
-void FuncResolver::resolveStoreScalar(CallInst* caller) {
+void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
   V_PRINT(DEBUG_TYPE, "Inspecting scl store\n" <<*caller<<"\n");
   //Operands pred, val,  ptr
   V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
@@ -310,7 +315,7 @@ void FuncResolver::resolveStoreScalar(CallInst* caller) {
 
   // Create new store
   StoreInst* st = new StoreInst(
-    caller->getArgOperand(1), caller->getArgOperand(2), false, caller);
+    caller->getArgOperand(1), caller->getArgOperand(2), false, align, caller);
   // Replace predicator with contol flow
   toPredicate(st, caller->getArgOperand(0));
   // Remove original call
@@ -318,7 +323,7 @@ void FuncResolver::resolveStoreScalar(CallInst* caller) {
 }
 
 
-void FuncResolver::resolveStoreVector(CallInst* caller) {
+void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Data = caller->getArgOperand(1);
   Value *Ptr = caller->getArgOperand(2);
@@ -335,7 +340,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller) {
   // Uniform mask for vector store.
   // Perform a single wide store and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *storer = new StoreInst(Data, Ptr, caller);
+    Instruction *storer = new StoreInst(Data, Ptr, false, align, caller);
     toPredicate(storer, Mask);
     caller->replaceAllUsesWith(storer);
     caller->eraseFromParent();
@@ -352,7 +357,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller) {
     Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
     Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
-    Instruction *storer = new StoreInst(DataElem, GEP, caller);
+    Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);
     toPredicate(DataElem, MaskBit);
     toPredicate(storer, MaskBit);
   }

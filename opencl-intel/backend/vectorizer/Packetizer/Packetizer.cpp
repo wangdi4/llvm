@@ -467,7 +467,8 @@ Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
 
 Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
 
-  std::string name = (MO.Data? Mangler::getStoreName(): Mangler::getLoadName());
+  std::string name = (MO.Data? Mangler::getStoreName(MO.Alignment): 
+                               Mangler::getLoadName(MO.Alignment));
 
   WIAnalysis::WIDependancy RetDep = m_depAnalysis->whichDepend(MO.Orig);
   V_ASSERT(RetDep != WIAnalysis::UNIFORM && "No need to packetize this instr");
@@ -645,11 +646,13 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     if (Mangler::isMangledStore(scalarFuncName)) {
       MO.Ptr = CI->getArgOperand(2);
       MO.Data = CI->getArgOperand(1);
+      MO.Alignment = Mangler::getMangledStoreAlignment(scalarFuncName);
     } else {
       MO.Ptr = CI->getArgOperand(1);
       MO.Data = 0;
+      MO.Alignment = Mangler::getMangledLoadAlignment(scalarFuncName);
     }
-    MO.Alignment = 0;
+    
     MO.Base = 0;
     MO.Index = 0;
     MO.Orig = CI;

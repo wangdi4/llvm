@@ -5,17 +5,17 @@
 ; CHECK: @main
 define <4 x float> @main(<4 x float>* %ptr0, <4 x float>* %ptr1, <4 x i1> %pred) {
 ; CHECK-NOT: @masked
-  %f0 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f1 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f2 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f3 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f4 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f5 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
-  %f6 = call <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f0 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f1 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f2 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f3 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f4 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f5 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
+  %f6 = call <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
 ; CHECK: ret
   ret <4 x float> %f0
 }
 
-declare <4 x float> @masked_load(<4 x i1> %pred, <4 x float>* %ptr0)
+declare <4 x float> @masked_load_align0(<4 x i1> %pred, <4 x float>* %ptr0)
 
 

@@ -5,11 +5,11 @@
 ; CHECK: @main
 define <32 x float> @main(<32 x float>* %ptr0, <32 x float>* %ptr1, <32 x i1> %pred) {
 ; CHECK-NOT: @masked
-  %f0 = call <32 x float> @masked_load(<32 x i1> %pred, <32 x float>* %ptr0)
+  %f0 = call <32 x float> @masked_load_align0(<32 x i1> %pred, <32 x float>* %ptr0)
 ; CHECK: ret
   ret <32 x float> %f0
 }
 
-declare <32 x float> @masked_load(<32 x i1> %pred, <32 x float>* %ptr0)
+declare <32 x float> @masked_load_align0(<32 x i1> %pred, <32 x float>* %ptr0)
 
 

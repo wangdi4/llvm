@@ -70,11 +70,11 @@ private:
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define <V x T> @masked_load(<V x i1> %pred, <V x T>* %ptr)
   /// @param caller Instruction to resolve
-  void resolveLoadVector(CallInst* caller);
+  void resolveLoadVector(CallInst* caller, unsigned align);
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define T @masked_loat(i1 %pred, T* %ptr)
   /// @param caller Instruction to resolve
-  void resolveLoadScalar(CallInst* caller);
+  void resolveLoadScalar(CallInst* caller, unsigned align);
   /*! \} */
 
   /*! \name Store Resolvers
@@ -85,11 +85,11 @@ private:
   /// @brief Resolve a call to 'masked_store' of the following signature:
   ///   define void @masked_store(<V x i1> %prd, <V x T>, %vl, <V x T>* %ptr)
   /// @param caller Instruction to resolve
-  void resolveStoreVector(CallInst* caller);
+  void resolveStoreVector(CallInst* caller, unsigned align);
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define @masked_loat(i1 %pred, T %val, T* %ptr)
   /// @param caller Instruction to resolve
-  void resolveStoreScalar(CallInst* caller);
+  void resolveStoreScalar(CallInst* caller, unsigned align);
   /*! \} */
 
   /*! \name GP Function Resolver

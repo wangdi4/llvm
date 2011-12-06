@@ -1,13 +1,14 @@
 #include "Mangler.h"
 #include "Logger.h"
+#include <stdlib.h>
 
 #include <cassert>
 #include <sstream>
 
 const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
-const std::string Mangler::mask_prefix_load     = "masked_load";
-const std::string Mangler::mask_prefix_store    = "masked_store";
+const std::string Mangler::mask_prefix_load     = "masked_load_align";
+const std::string Mangler::mask_prefix_store    = "masked_store_align";
 const std::string Mangler::name_allOne          = "allOne";
 const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
@@ -26,16 +27,18 @@ std::string Mangler::mangle(const std::string& name) {
   return mask_prefix_func+suffix+mask_delim+name;
 }
 
-std::string Mangler::getLoadName() {
+std::string Mangler::getLoadName(unsigned align) {
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
-  return mask_prefix_load+suffix;
+  std::string alignStr = toString(align);
+  return mask_prefix_load + alignStr + "_" + suffix;  
 }
 
-std::string Mangler::getStoreName() {
+std::string Mangler::getStoreName(unsigned align) {
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
-  return mask_prefix_store+suffix;
+  std::string alignStr = toString(align);
+  return mask_prefix_store + alignStr + "_" + suffix;  
 }
 
 std::string Mangler::demangle(const std::string& name) {
@@ -68,6 +71,22 @@ bool Mangler::isFakeBuiltin(const std::string& name) {
 
 std::string Mangler::getFakeBuiltinName(const std::string& name) {
   return fake_builtin_prefix+name;
+}
+
+unsigned Mangler::getMangledStoreAlignment(const std::string& name) {
+  V_ASSERT(isMangledStore(name) && "not a mangled store");
+  unsigned alignStart = name.find(mask_prefix_store) + mask_prefix_store.length();
+  unsigned alignLen = name.find("_", alignStart) - alignStart;
+  unsigned value = atoi(name.substr(alignStart, alignLen).c_str());
+  return value;
+}
+
+unsigned Mangler::getMangledLoadAlignment(const std::string& name) {
+  V_ASSERT(isMangledLoad(name) && "not a mangled store");
+  unsigned alignStart = name.find(mask_prefix_load) + mask_prefix_load.length();
+  unsigned alignLen = name.find("_", alignStart) - alignStart;
+  unsigned value = atoi(name.substr(alignStart, alignLen).c_str());
+  return value;
 }
 
 std::string Mangler::demangle_fake_builtin(const std::string& name) {

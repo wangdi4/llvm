@@ -5,11 +5,11 @@
 ; CHECK: @main
 define void @main(i1 %pred, float %val, float* %ptr) {
 ; CHECK-NOT: @masked
-  call void @masked_store_1234_x_1(i1 %pred, float %val, float* %ptr)
+  call void @masked_store_align0_1234_x_1(i1 %pred, float %val, float* %ptr)
 ; CHECK: ret
   ret void
 }
 
-declare void @masked_store_1234_x_1(i1 %pred, float %val, float* %ptr)
+declare void @masked_store_align0_1234_x_1(i1 %pred, float %val, float* %ptr)
 
 

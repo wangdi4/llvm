@@ -5,11 +5,11 @@
 ; CHECK: @main
 define <32 x i1> @main(<32 x i1> %pred, <32 x float> %val, <32 x float>* %ptr) {
 ; CHECK-NOT: @masked
-  call void @masked_store(<32 x i1> %pred, <32 x float> %val, <32 x float>* %ptr)
+  call void @masked_store_align0(<32 x i1> %pred, <32 x float> %val, <32 x float>* %ptr)
 ; CHECK: ret
   ret <32 x i1> %pred
 }
 
-declare void @masked_store(<32 x i1> %pred, <32 x float> %val, <32 x float>* %ptr)
+declare void @masked_store_align0(<32 x i1> %pred, <32 x float> %val, <32 x float>* %ptr)
 
 

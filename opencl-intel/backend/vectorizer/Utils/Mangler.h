@@ -19,10 +19,10 @@ public:
   static std::string mangle(const std::string& name);
   /// @brief Get mangled name for load instruction
   /// @return new name
-  static std::string getLoadName();
+  static std::string getLoadName(unsigned align);
   /// @brief Get mangled name for store instruction
   /// @return name
-  static std::string getStoreName();
+  static std::string getStoreName(unsigned align);
   /// @brief Is this a mangled load instruction
   /// @param name Name of function
   /// @return True if load
@@ -45,6 +45,16 @@ public:
   /// @param name - original builtin name
   /// @return the builtin name with a fake builtin name
   static std::string getFakeBuiltinName(const std::string& name);
+
+  /// @brief returns the alignment of mangled store function by it's name
+  /// @param name Name of function
+  /// @return the alignment of the store
+  static unsigned getMangledStoreAlignment(const std::string& name);
+
+  /// @brief returns the alignment of mangled load function by it's name
+  /// @param name Name of function
+  /// @return the alignment of the load
+  static unsigned getMangledLoadAlignment(const std::string& name);
 
   /// @brief recovers origianl builtin name from the mangled fake builtin name
   /// @param name - fake builtin name

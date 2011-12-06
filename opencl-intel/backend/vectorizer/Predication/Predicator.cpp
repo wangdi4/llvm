@@ -471,7 +471,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   // Preplace Load with call to function
   if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
     Function* func =
-      createPredicatedFunction(load, pred, Mangler::getLoadName());
+      createPredicatedFunction(load, pred, Mangler::getLoadName(load->getAlignment()));
 
     // A single parameter (pointer)
     std::vector<Value*> params;
@@ -489,7 +489,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   if (StoreInst* store = dyn_cast<StoreInst>(inst)) {
     //Get type name
     Function* func =
-      createPredicatedFunction(store, pred, Mangler::getStoreName());
+        createPredicatedFunction(store, pred, Mangler::getStoreName(store->getAlignment()));
 
     // Parameters (value to store, address)
     std::vector<Value*> params;

@@ -26,11 +26,11 @@
 ; CHECK: @main
 define void @main(float* %ptr0, float* %ptr1, i1 %pred) {
 ; CHECK-NOT: @masked
-  %f = call float @masked_load(i1 %pred, float* %ptr0)
+  %f = call float @masked_load_align0(i1 %pred, float* %ptr0)
   ret void
 ; CHECK: ret
 }
 
-declare float @masked_load(i1 %pred, float* %ptr0)
+declare float @masked_load_align0(i1 %pred, float* %ptr0)
 
 
