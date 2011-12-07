@@ -63,6 +63,12 @@ using namespace Intel::OpenCL::Utils;
 #define SetIfZero(X,VALUE) {if ((X)==0) (X)=(VALUE);}
 #define CheckIfAnyDimIsZero(X) (((X)[0] == 0) || ((X)[1] == 0) || ((X)[2] == 0))
 
+/**
+ * Check mutex of map flags.
+ * @return CL_SUCCESS if OK.
+ */
+inline cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags);
+
 /******************************************************************
  * Constructor. Only assign pointers, for objects initilaztion use
  * Initialize function immediately. otherwise, the class behaviour
@@ -681,6 +687,11 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_CONTEXT;
     }
 
+    if (pBuffer->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb)))
     {
         // Out of bounds check.
@@ -759,6 +770,11 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
+    }
+
+    if (pBuffer->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
     }
 
 	if (CheckIfAnyDimIsZero(region)														||
@@ -844,6 +860,11 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_CONTEXT;
     }
 
+    if (pBuffer->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb)))
     {
         // Out of bounds check.
@@ -924,6 +945,11 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     {
         return CL_INVALID_CONTEXT;
     }  
+
+    if (pBuffer->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
+    }
 
 	if (CheckIfAnyDimIsZero(region)														||
 		(buffer_row_pitch	!=0 && buffer_row_pitch		<region[0])						|| 
@@ -1199,7 +1225,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     }
 
     // Check that flags CL_MAP_READ or CL_MAP_WRITE only
-    if (  (CL_MAP_READ | CL_MAP_WRITE | clMapFlags) != (CL_MAP_READ | CL_MAP_WRITE) )
+    if ( CL_SUCCESS != checkMapFlagsMutex(clMapFlags) )
     {
         *pErrcodeRet = CL_INVALID_VALUE;
         return NULL;
@@ -1218,7 +1244,13 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
         *pErrcodeRet = CL_INVALID_CONTEXT;
         return NULL;
     }
-    
+
+    if (CL_SUCCESS != pBuffer->ValidateMapFlags(clMapFlags))
+    {
+        *pErrcodeRet = CL_INVALID_VALUE;
+        return NULL;
+    }
+
     if (pBuffer->GetSize() < (szOffset+szCb))
     {
         // Out of bounds check.
@@ -1415,10 +1447,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             }
         }
     }
-        
-    // CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items in the work-group
-    // computed as local_work_size[0] * …local_work_size[work_dim – 1] is greater than the value specified by 
-    // CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
+
     if( NULL != cpszLocalWorkSize )
     {
         size_t szDeviceMaxWorkGroupSize = 0;
@@ -1430,15 +1459,20 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         }
         if( szWorkGroupSize > szDeviceMaxWorkGroupSize )
         {
+            /* CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items
+             * in the work-group computed as local_work_size[0] * local_work_size[work_dim - 1] is greater than
+             * the value specified by CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
+             */
             return CL_INVALID_WORK_GROUP_SIZE;
         }
-        // CL_INVALID_WORK_ITEM_SIZE if the number of work-items specified in any of
-        // local_work_size[0], … local_work_size[work_dim – 1] is greater than the corresponding
-        // values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …. CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim – 1].
         cl_uint uiMaxWorkItemDim = 0;
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uiMaxWorkItemDim, NULL);
 		if (uiMaxWorkItemDim == 0)
 		{
+            /* CL_INVALID_WORK_ITEM_SIZE if the number of work-items specified in any of
+             * local_work_size[0], local_work_size[work_dim - 1] is greater than the corresponding
+             * values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
+             */
 			return CL_INVALID_WORK_ITEM_SIZE;
 		}
         clLocalArray<size_t> pszMaxWorkItemSizes(uiMaxWorkItemDim);
@@ -1811,6 +1845,11 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_CONTEXT;
     }
 
+    if (pImage->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (CL_SUCCESS != (errVal = pImage->CheckBounds(szOrigin, szRegion)))
     {
         return errVal;
@@ -1885,6 +1924,11 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
+    }
+
+    if (pImage->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) )
+    {
+        return CL_INVALID_OPERATION;
     }
 
     if (CL_SUCCESS != (errVal = pImage->CheckBounds(szOrigin, szRegion)))
@@ -2215,9 +2259,13 @@ void * ExecutionModule::EnqueueMapImage(
     {
         *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
     }
-    else if (  (CL_MAP_READ | CL_MAP_WRITE | clMapFlags) != (CL_MAP_READ | CL_MAP_WRITE) )
+    else if ( CL_SUCCESS != checkMapFlagsMutex(clMapFlags) )
     {
         // Check that flags CL_MAP_READ or CL_MAP_WRITE only
+        *pErrcodeRet = CL_INVALID_VALUE;
+    }
+    else if (CL_SUCCESS != pImage->ValidateMapFlags(clMapFlags))
+    {
         *pErrcodeRet = CL_INVALID_VALUE;
     }
     else if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2503,4 +2551,22 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
     delete[] pMemObjects;
     return errVal;
 }
-#endif
+
+#endif //  defined (DX9_MEDIA_SHARING)
+
+/**
+ * internal util function.
+ */
+cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
+{
+    if (0 == ( clMapFlags & (CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION) ) )
+        return CL_SUCCESS;
+    
+    if ( (clMapFlags & CL_MAP_WRITE_INVALIDATE_REGION) & (CL_MAP_READ | CL_MAP_WRITE) )
+    {
+    	return CL_INVALID_VALUE;
+    }
+    
+    return CL_SUCCESS;
+}
+

@@ -622,26 +622,22 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 		return CL_INVALID_VALUE;
 	}
 
-	if ( CL_MEM_WRITE_ONLY & pBuffer->GetFlags() ) 
-	{
-		if ( (CL_MEM_READ_ONLY & clFlags) || (CL_MEM_READ_WRITE & clFlags) )
-		{
-			return CL_INVALID_VALUE;
-		}
-	}
-	else if ( CL_MEM_READ_ONLY & pBuffer->GetFlags() )
-	{
-		cl_mem_flags nonReadOnlyFlag = CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_ALLOC_HOST_PTR;			
-		if ( clFlags & nonReadOnlyFlag )
-		{
-			return CL_INVALID_VALUE;
-		}
-	}
-
-	if ( (CL_MEM_USE_HOST_PTR & clFlags) && !(CL_MEM_USE_HOST_PTR & pBuffer->GetFlags()) )
+	if (CL_SUCCESS != pBuffer->ValidateChildFlags(clFlags))
 	{
 		return CL_INVALID_VALUE;
-	}							
+	}
+
+	// Copy access flags from parent, if none supplied.
+	cl_mem_flags pflags = pBuffer->GetFlags();
+	if ( !(clFlags & (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)) )
+	{
+		clFlags |= (pflags & (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE));
+	}
+	if ( !(clFlags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY)) )
+	{
+		clFlags |= (pflags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY));
+	}
+
 
 	cl_err_code clErr;		
 	clErr = pBuffer->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
@@ -649,8 +645,9 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 	{
 		LOG_ERROR(TEXT("Error initializing sub buffer, returned: %S"), ClErrTxt(clErr));
 		return clErr;
-	}		
-		
+	}
+
+
 	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppBuffer);
 
 	return clErr;
@@ -710,6 +707,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 	}
 
 	size_t dim[2] = {szImageWidth, szImageHeight};
+	// clFlags should be already sanitized by the context module.
 	clErr = (*ppImage2d)->Initialize(clFlags, pclImageFormat, 2, dim, &szImageRowPitch, pHostPtr);
 	if (CL_FAILED(clErr))
 	{

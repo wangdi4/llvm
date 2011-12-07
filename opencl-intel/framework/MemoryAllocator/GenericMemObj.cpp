@@ -225,7 +225,7 @@ cl_err_code GenericMemObject::Initialize(
     }
 
     // Create Backing Store
-    m_BS = new GenericMemObjectBackingStore(   clMemFlags,
+    m_BS = new GenericMemObjectBackingStore(   m_clFlags,
                 							   pclImageFormat,
                 							   dim_count,
                 							   dimension,
@@ -817,7 +817,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     for ( cl_uint i = 1; i < dim_count; ++i)
     {
         m_dimensions[i]     = dimensions[i];
-        size_t next_pitch   = dimensions[i] * prev_pitch;
+        size_t next_pitch   = m_dimensions[i] * prev_pitch;
 
         if ((NULL != pitches) && (pitches[i-1] > next_pitch))
         {

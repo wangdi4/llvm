@@ -374,3 +374,62 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
 
 	return err;
 }
+
+
+int MemoryObject::ValidateChildFlags( const cl_mem_flags childFlags)
+{
+	cl_mem_flags parentFlags = GetFlags();
+
+	// Read/Write only
+	if ( (parentFlags & CL_MEM_READ_ONLY) &&
+			(childFlags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)) )
+	{
+		return CL_INVALID_VALUE;
+	}
+	if ( (parentFlags & CL_MEM_WRITE_ONLY) &&
+			(childFlags & (CL_MEM_READ_ONLY | CL_MEM_READ_WRITE)) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	// host read/write access
+	if ( (parentFlags & CL_MEM_HOST_NO_ACCESS) &&
+			( childFlags & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_READ_ONLY) ) )
+	{
+		return CL_INVALID_VALUE;
+	}
+	if ( (parentFlags & CL_MEM_HOST_WRITE_ONLY) && (childFlags & CL_MEM_HOST_READ_ONLY) )
+	{
+		return CL_INVALID_VALUE;
+	}
+	if ( (parentFlags & CL_MEM_HOST_READ_ONLY) && (childFlags & CL_MEM_HOST_WRITE_ONLY) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	// host ptr
+	if ( childFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return CL_SUCCESS;
+}
+
+int MemoryObject::ValidateMapFlags( const cl_mem_flags mapFlags)
+{
+	cl_mem_flags pflags = GetFlags();
+
+	if ( (mapFlags & CL_MAP_READ) && (pflags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY)) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if ( (mapFlags & (CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION)) &&
+			(pflags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY)) )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return CL_SUCCESS;
+}

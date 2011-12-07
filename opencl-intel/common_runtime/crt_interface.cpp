@@ -1209,6 +1209,21 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
         goto FINISH;
     }
 
+	if (read_command)
+	{
+		if ( crtBuffer->m_flags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) )
+		{
+	        errCode = CL_INVALID_OPERATION;
+			goto FINISH;
+		}
+	} else {
+		if ( crtBuffer->m_flags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) )
+		{
+	        errCode = CL_INVALID_OPERATION;
+			goto FINISH;
+		}
+	}
+
     if (blocking_cmd)
     {
         errCode = queue->m_contextCRT->FlushQueues();

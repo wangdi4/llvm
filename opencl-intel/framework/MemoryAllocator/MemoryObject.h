@@ -139,6 +139,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get memory object's flags
 		cl_mem_flags GetFlags() const { return m_clFlags; }
 
+		// Return CL_SUCCSS if flags are adequate for child buffer, or
+		// CL_INVALID_OPERATION if not OK.
+		int ValidateChildFlags( const cl_mem_flags childFlags);
+
+		// Return CL_SUCCSS if flags are adequate for mapping buffer, or
+		// CL_INVALID_OPERATION if not OK.
+		int ValidateMapFlags( const cl_mem_flags mapFlags);
+
 		// reads the data from the memory object into pOutData
 		//
         // pszOrigin - defines the (x, y, z) offset in pixels in the memory object from where to copy.

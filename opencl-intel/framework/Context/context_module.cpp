@@ -1947,8 +1947,11 @@ cl_err_code ContextModule::CheckImageParameters(cl_mem_flags clMemFlags,
 	if ( ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & CL_MEM_WRITE_ONLY)) ||
 		((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & CL_MEM_READ_WRITE)) ||
 		((clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & CL_MEM_READ_WRITE))||
-		((clMemFlags & CL_MEM_USE_HOST_PTR) && (clMemFlags & CL_MEM_ALLOC_HOST_PTR))
-		)          
+		((clMemFlags & CL_MEM_USE_HOST_PTR) && (clMemFlags & CL_MEM_ALLOC_HOST_PTR)) ||
+		((clMemFlags & CL_MEM_HOST_WRITE_ONLY) && (clMemFlags & CL_MEM_HOST_READ_ONLY)) ||
+		((clMemFlags & CL_MEM_HOST_WRITE_ONLY) && (clMemFlags & CL_MEM_HOST_NO_ACCESS)) ||
+		((clMemFlags & CL_MEM_HOST_READ_ONLY) && (clMemFlags & CL_MEM_HOST_NO_ACCESS))
+		)
 	{
 		return CL_INVALID_VALUE;
 	}
@@ -1974,7 +1977,7 @@ cl_err_code ContextModule::CheckImageParameters(cl_mem_flags clMemFlags,
         return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
     }
 
-	// Check minumum row pitch size
+	// Check minimum row pitch size
 	size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
 	if ( (NULL != pHostPtr) && (0 != szImageRowPitch) && ((szImageRowPitch<szMinRowPitchSize)||(szImageRowPitch % pixelBytesCnt)) )
 	{

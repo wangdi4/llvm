@@ -11,27 +11,27 @@ Usage: $0 [+cnf] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ver>][-32] 
                                use 'make edit_cache' to modify later!
 
     --eclipse | -e      - create eclipse project
-    
+
     --esrc              - create eclipse project + sources project (for SVN use)
 
     [debug,release]     - create debug or release Makefiles version. Default - release
 
     [gnu,intel]         - use GCC or Intel compiler. Default - gnu.
-    
+
     +java                - build Java JARs
-    
+
     --icc_ver           - ICC version (default 11.1)
-    
+
     --meego | -m        - target Meego, not Linux
 
     -32 | --32          - build 32 bit version
-    
-    --atom              - cross-compile for ATOM CPU  
+
+    --atom              - cross-compile for ATOM CPU
 
     --help              - show this help message and exit.
 
     working_dir         - working directory. Default - "build" dir in parallel to "src"
-    
+
 
 Makefiles are created in the directory working_dir/$${target}$${compiler}$${trgtBit}bit parallel to top level src directory
 where: target=Debug/Release ; trgtBit=32/64 ; compiler=GNU/Intel
@@ -46,7 +46,6 @@ generator="Unix Makefiles"
 eclipse_extra_args=""
 incl_cnf=OFF
 target=Release
-working_dir=build
 icc_ver=11.1
 meego=OFF
 incl_java=OFF
@@ -62,6 +61,9 @@ then
 else
 	toolchain_dir="${PWD}/${gen_dir}"
 fi
+
+working_dir=${toolchain_dir}/../../build
+src_dir=${toolchain_dir}/../../src
 
 toolchain_file="${toolchain_dir}/Linux-GNU.cmake"
 trgtOS=Linux
@@ -145,7 +147,7 @@ if test $meego = ON; then
     echo
     echo CMake configured for Meego OS
     echo
-    
+
     CROSS_COMPILATION_OPTIONS="${CROSS_COMPILATION_OPTIONS} -D OCL_MEEGO=ON"
 fi
 
@@ -156,21 +158,23 @@ if test $trgt_cpu = Atom; then
     echo
 fi
 
+full_target_name=${compiler_nice_name}${trgtBit}${target}
 
-my_dir=`dirname $0`
-top_dir=`dirname $my_dir/../../../`
+build_directory=${working_dir}/build/${trgtOS}${trgtBit}/${target}
 
-cd $top_dir
-top_dir=`pwd`
+install_prefix=${working_dir}/install/${trgtOS}${trgtBit}/${target}
 
-full_target_name="${compiler_nice_name}${trgtBit}${target}"
-# top_work_dir=$working_dir/$full_target_name
-top_work_dir=$working_dir/${trgtOS}${trgtBit}/${target}
+echo
+echo Going to generate project at ${build_directory}
+echo Going to install project at ${install_prefix}
+echo
+mkdir -p ${build_directory}
+pushd ${build_directory}
+echo
+echo Starting to work at: `pwd -P`
+echo
 
-mkdir -p $top_work_dir
-cd $top_work_dir
-
-conformance_list="test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep" 
+conformance_list="test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep"
 
 cmake -G "$generator" \
     ${eclipse_extra_args} \
@@ -185,9 +189,9 @@ cmake -G "$generator" \
     -D TARGET_CPU=$trgt_cpu \
     -D INTEL_COMPILER=$use_intc \
     -D BUILD_JAVA:BOOL=$incl_java \
-    -D CMAKE_INSTALL_PREFIX:PATH=$top_dir/install/${trgtOS}${trgtBit}/${target} \
+    -D CMAKE_INSTALL_PREFIX:PATH=${install_prefix} \
     ${CROSS_COMPILATION_OPTIONS} \
-    $top_dir/src 
+    ${src_dir}
 
 # extra debug flags for cmake:
 #     --debug-trycompile --debug-output --trace -D CMAKE_VERBOSE_MAKEFILE=true \
@@ -198,3 +202,5 @@ if test $? = 0; then
     echo . Please run make from the directory `pwd`
     echo .
 fi
+
+popd
