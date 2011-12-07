@@ -26,7 +26,7 @@ class VolcanoConformancePostCommit(VolcanoTestSuite):
 
         # Basic
         basicTest = VolcanoConformanceBasic(config)
-        basicTest.timeout = TIMEOUT_HOUR
+        basicTest.timeout = TIMEOUT_HOURANDHALF
         self.addTask(basicTest)
         
         # Half

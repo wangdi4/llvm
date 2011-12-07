@@ -22,8 +22,8 @@ File Name:  Executable.h
 #include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
 #include "ImplicitArgument.h"
-#include "llvm/ADT/SmallSet.h"
 #include <cassert>
+#include <set>
 #include <vector>
 #include <algorithm>
 
@@ -108,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // set stores event numbers (unsigned int) produced by async_wg_copy functions
     // if event is present in this set it means coping has already been done and
     // no need to perform copying within executed workgroup
-    llvm::SmallSet<unsigned int, 16> m_bIsFirst;
+    std::set<unsigned int> m_bIsFirst;
   };
 
 }}}

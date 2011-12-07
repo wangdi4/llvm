@@ -1,9 +1,9 @@
 @echo off
 rem Built-ins DLL build (out of BI object files) by ICC linker
 rem All variables in the form of CMake vars will be replaced by CMake:
-rem   ICC_ENV_SCRIPT_NATIVE - script setting the ICC environment
+rem   ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment
 rem   ICC_PLATFORM          - parameter to the script above
-rem 	ICC_LD_NATIVE         - executable of ICC linker
+rem 	ICC_CPU_LD_NATIVE         - executable of ICC linker
 rem 	ICC_LINKER_PARAMS     - flags for linkage
 rem   SVML_LIB_DIR_NATIVE   - directory with SVML import libraries
 rem   RESOURCE_FILE_NATIVE  - resource file to be used for embedding of version info into DLL
@@ -21,18 +21,18 @@ if exist @SVML_LIB_DIR_NATIVE@\%3 goto cont
  	exit /b 1
 
 :cont
-call "@ICC_ENV_SCRIPT_NATIVE@" @ICC_PLATFORM@ >NUL
+call "@ICC_CPU_ENV_SCRIPT_NATIVE@" @ICC_PLATFORM@ >NUL
 if "%1" == "Debug" goto debug
 
 :release
 if not "%1" == "Release" goto fail
 rc /r /fo%1/clbltfn.res @RESOURCE_FILE_NATIVE@ >nul
-"@ICC_LD_NATIVE@" @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /LIBPATH:@SVML_LIB_DIR_NATIVE@ /OUT:%2 %3 /PDB:%4 %~5 %1/clbltfn.res >nul
+"@ICC_CPU_LD_NATIVE@" @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /LIBPATH:@SVML_LIB_DIR_NATIVE@ /OUT:%2 %3 /PDB:%4 %~5 %1/clbltfn.res >nul
 goto fin
 
 :debug
 rc /r /fo%1/clbltfn.res @RESOURCE_FILE_NATIVE@ >nul
-"@ICC_LD_NATIVE@" @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /LIBPATH:@SVML_LIB_DIR_NATIVE@ /OUT:%2 %3 /PDB:%4 %~5 %1/clbltfn.res >nul
+"@ICC_CPU_LD_NATIVE@" @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /LIBPATH:@SVML_LIB_DIR_NATIVE@ /OUT:%2 %3 /PDB:%4 %~5 %1/clbltfn.res >nul
 
 :fin
 exit /b 0

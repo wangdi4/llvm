@@ -14,8 +14,8 @@ if (WIN32)
     message( WARNING "MIC executor creation is not supported on Windows yet!")
 else ()
     # Linux    
-    set( DEVICE_COMPILER_SCRIPT compile.sh )
-    set( DEVICE_ARCHIVER_SCRIPT archive.sh )
+    set( DEVICE_COMPILER_SCRIPT compile_linux_mic.sh )
+    set( DEVICE_ARCHIVER_SCRIPT archive_linux_mic.sh )
 
     set( DEVICE_COMPILER ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
     set( DEVICE_ARCHIVER ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT} )
@@ -29,45 +29,39 @@ endif (WIN32)
 
 if (WIN32)
     # Windows
-    message( WARNING "MIC executor creation is not supported on Windows yet!")
+    message( WARNING "MIC executor build is not supported on Windows yet!")
 else (WIN32)
-    # ICC for MIC don't have the iccvars.sh script, need to recheck
-    
-    #set (ICC_ENV_SCRIPT iccvars.sh)
-    #find_program (ICC_FOUND ${ICC_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-    #if (${ICC_FOUND} STREQUAL "ICC_FOUND-NOTFOUND")
-    #    set (ICC_ENV_SCRIPT iccvars_${ICC_PLATFORM}.sh)
-    #endif()
-    set (ICC_CL icpc)
-    # check that all executables are indeed in path
-    #find_program (ICC_SCRIPT_FOUND ${ICC_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-    #if (${ICC_SCRIPT_FOUND} STREQUAL "ICC_SCRIPT_FOUND-NOTFOUND")
-    #    message (FATAL_ERROR "ICC (${ICC_ENV_SCRIPT}) is not installed in the system")
-    #endif()
-    #set (ICC_ENV_SCRIPT ${ICC_SCRIPT_FOUND})
-    
-    # applay this when the icpc can be found in the PATH
-    find_program (ICC_CL_FOUND ${ICC_CL} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-    
-    if (${ICC_CL_FOUND} STREQUAL "ICC_CL_FOUND-NOTFOUND")
-        set(ICC_CL "/opt/intel/mic/Compiler/bin/icpc")
-        message ("Using MIC-ICC Default Location: ${ICC_CL}")
+  # linux-mic target
+  set (ICC_MIC_CL icpc)
+  set (ICC_MIC_AR ar)
+  # check env. variable for the icc mic compiler
+  set(ICC_MIC_COMPILER $ENV{ICC_MIC_COMPILER_PATH})
+  if(NOT ICC_MIC_COMPILER)
+    if (EXISTS /opt/intel/composerxe_mic/bin)
+      set( ICC_MIC_COMPILER /opt/intel/composerxe_mic/bin/ )
+	  message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
+	  set(MIC_TARGET "ON")
     else()
-        #need to check if we found ICC for MIC (not regular ICC)
-        #This may done by checking "mic" on the found path
+      message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
+      set(MIC_TARGET "OFF")
+	endif()
+  else()
+    message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
+	set(MIC_TARGET "ON")
+  endif()
+  
+  if(MIC_TARGET)
+    # search for the compilervars script
+    set (ICC_MIC_ENV_SCRIPT compilervars.sh)
     
-        set(REG_EXP "(.*mic.*)")
-        string(REGEX MATCH ${REG_EXP} MATCHING ${ICC_CL_FOUND})
-        message("Checking if the found ICC is for MIC ..")
-        
-        if(${MATCHING} STREQUAL "")
-            set(ICC_CL "/opt/intel/mic/Compiler/bin/icpc")
-            message ("Using MIC-ICC Default Location: ${ICC_CL}")
-        else()
-            set (ICC_CL ${ICC_CL_FOUND})
-            message ("Using MIC-ICC Location: ${ICC_CL}")
-        endif()
+    # check if the script exists
+    if (NOT EXISTS "${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT}")
+	  message (FATAL_ERROR "ICC MIC Compiler Script do not exist, please set the enviroment variable ICC_MIC_COMPILER_PATH")
+    else()
+      set(ICC_MIC_ENV_SCRIPT ${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT})
     endif()
+	message("ICC MIC Compiler Script: ${ICC_MIC_ENV_SCRIPT}")
+  endif()
 endif (WIN32)
 
 #
@@ -172,14 +166,14 @@ set( MIC_FLAGS  -Werror
                 -use-msasm
                 -wd279
             )
-
+			
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 
 # inlcude path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
-                -I ${CMAKE_CURRENT_SOURCE_DIR}/../cl_api
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../../cl_api
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../arch_headers
                 )
@@ -199,8 +193,10 @@ endforeach( FLAG )
 
 
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
+if(MIC_TARGET)
 configure_file(${DEVICE_COMPILER_SCRIPT} ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} @ONLY)
 configure_file(${DEVICE_ARCHIVER_SCRIPT} ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT} @ONLY) 
+endif()
 
 set(TARGET_SOURCES
     MICDeviceServiceFactory.cpp
@@ -225,4 +221,6 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/FunctionArgument.cpp
     main.cpp)
 
+if(MIC_TARGET) 
 add_device_library(${TARGET_NAME} ${TARGET_SOURCES})
+endif()
