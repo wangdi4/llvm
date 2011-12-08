@@ -155,7 +155,7 @@ namespace intel {
         OS << *ci->first << "\n";
         OS << "\tOffsets in special buffer: (";
         for ( unsigned int i = 0; i < ci->second.m_argsOffsets.size() ; ++i ) {
-          int offset = ci->second.m_argsOffsets[i];
+          unsigned int offset = ci->second.m_argsOffsets[i];
           OS << ((i == 0)?" ": ", ");
           if ( offset == m_badOffset ) {
             OS << "BAD_OFFSET";
