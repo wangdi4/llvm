@@ -1,6 +1,19 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -b-i-f  -print-module -verify %t.bc -S -o %t1.ll
+; RUN: opt -B-BarrierInFunction -print-module -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
+
+;;*****************************************************************************
+;; This test checks the BarrierInFunction pass
+;; The case: kernel "main" with no barrier instruction,
+;;    which is calling function "foo" that contains barrier instruction
+;; The expected result:
+;;      1. A call to @dummybarrier.() at the begining of the kernel "main"
+;;      2. A call to @barrier(LOCAL_MEM_FENCE) just before calling the function "foo"
+;;      3. A call to @dummybarrier.() just after calling the function "foo"
+;;      4. A call to @barrier(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;      5. A call to @dummybarrier.() at the begining of the function "foo"
+;;      6. A call to @barrier(LOCAL_MEM_FENCE) at the end of the function "foo"
+;;*****************************************************************************
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
@@ -14,7 +27,9 @@ define void @main(i32 %x) nounwind {
   ret void
 ; CHECK: @dummybarrier.
 ; CHECK: %y = xor i32 %x, %x
+; CHECK: @barrier(i32 1)
 ; CHECK: call void @foo(i32 %x)
+; CHECK: @dummybarrier.
 ; CHECK: @barrier(i32 1)
 ; CHECK: ret
 }

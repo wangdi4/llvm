@@ -116,8 +116,8 @@ namespace intel {
   }
 
   //Register this pass...
-  static RegisterPass<RemoveDuplicationBarrier> SBBB("r-d-b",
-        "Remove duplication Barrier instructions", false, true);
+  static RegisterPass<RemoveDuplicationBarrier> SBBB("B-RemoveDuplication",
+        "Barrier Pass - Remove duplication Barrier instructions", false, true);
 
 } // namespace intel
 

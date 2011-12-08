@@ -170,77 +170,83 @@ namespace intel {
     OS << *M;
 
     //Run on all barrier basic blocks
-    OS << "\nbarrier basic blocks\n";
+    OS << "\nsynchronize basic blocks\n";
     TInstructionSetPerFunctionMap::const_iterator fi = m_syncsPerFuncMap.begin();
     TInstructionSetPerFunctionMap::const_iterator fe = m_syncsPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(fi->first);
       //Print function name
-      OS << pFunc->getNameStr() << "\n";
+      OS << "+" <<pFunc->getNameStr() << "\n";
       const TInstructionSet &iiSet = fi->second;
       for ( TInstructionSet::const_iterator ii = iiSet.begin(), ie = iiSet.end();  ii != ie; ++ii ) {
         Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
         BasicBlock *pBB = pSyncInst->getParent();
         //Print basic block name
-        OS  << "\t" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getNameStr() << "\n";
       }
+      OS << "*" << "\n";
     }
 
     //Run on all Predecessors
-    OS << "\nbarrier basic blocks predecessors\n";
+    OS << "\nbasic blocks predecessors\n";
     TBasicBlock2BasicBlocksSetMap::const_iterator bbi = m_predecessorsMap.begin();
     TBasicBlock2BasicBlocksSetMap::const_iterator bbe = m_predecessorsMap.end();
     for ( ; bbi != bbe; ++bbi ) {
       BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
       //Print barrier basic block name
-      OS << pBBB->getNameStr() << "\n";
+      OS << "+" << pBBB->getNameStr() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
         //Print predecessor basic block name
-        OS  << "\t" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getNameStr() << "\n";
       }
+      OS << "*" << "\n";
     }
 
     //Run on all Successors
-    OS << "\nbarrier basic blocks successors\n";
+    OS << "\nsynchronize basic blocks successors\n";
     bbi = m_successorsMap.begin();
     bbe = m_successorsMap.end();
     for ( ; bbi != bbe; ++bbi ) {
       BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
       //Print barrier basic block name
-      OS << pBBB->getNameStr() << "\n";
+      OS<< "+" << pBBB->getNameStr() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
         //Print successor basic block name
-        OS  << "\t" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getNameStr() << "\n";
       }
+      OS << "*" << "\n";
     }
 
     //Run on all Barrier Predecessors
-    OS << "\nbarrier basic blocks barrier predecessors\n";
+    OS << "\nsynchronize basic blocks barrier predecessors\n";
     TBarrier2BarriersSetMap::const_iterator iii = m_barrierPredecessorsMap.begin();
     TBarrier2BarriersSetMap::const_iterator iie = m_barrierPredecessorsMap.end();
     for ( ; iii != iie; ++iii ) {
       Instruction *pInst = dyn_cast<Instruction>(iii->first);
       BasicBlock *pBBB = pInst->getParent();
       //Print barrier basic block name
-      OS << pBBB->getNameStr() << "\n";
+      OS << "+" << pBBB->getNameStr() << "\n";
       OS << "has fiber instruction as predecessors: " << iii->second.m_hasFiberRelated << "\n";
       const TInstructionVector &iiVec = iii->second.m_relatedBarriers;
       for ( TInstructionVector::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
         Instruction *pInstPred = dyn_cast<Instruction>(*ii);
         BasicBlock *pBB = pInstPred->getParent();
         //Print barrier predecessor basic block name
-        OS  << "\t" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getNameStr() << "\n";
       }
+      OS << "*" << "\n";
     }
+
+    OS << "DONE";
   }
 
   //Register this pass...
-  static RegisterPass<DataPerBarrier> DPB("d-p-b",
-    "Collect Data per Barrier", false, true);
+  static RegisterPass<DataPerBarrier> DPB("B-BarrierAnalysis",
+    "Barrier Pass - Collect Data per Barrier", false, true);
 
 
 } // namespace intel

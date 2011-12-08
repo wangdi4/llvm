@@ -1,6 +1,19 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -r-d-b -verify %t.bc -S -o %t1.ll
+; RUN: opt -B-RemoveDuplication -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
+
+;;*****************************************************************************
+;; This test checks the RemoveDuplicationBarrier pass
+;; The case: function "main" with the following synchronize instruction sequence
+;;           dummybarrier
+;;           fiber
+;;           barrier(GLOBAL_MEM_FENCE)
+;; The expected result:
+;;      1. The following synchronize instruction sequence
+;;         a. dummybarrier
+;;         b. barrier(GLOBAL_MEM_FENCE)
+;;         c. [but no fiber]
+;;*****************************************************************************
 
 ; CHECK: @main
 define void @main() {

@@ -1,6 +1,19 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -b-p  -print-module -verify %t.bc -S -o %t1.ll
+; RUN: opt -B-Barrier -print-module -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
+
+;;*****************************************************************************
+; This test checks the Barrier pass
+;; The case: kernel "main" with barrier instruction and the non-uniform value "%y"
+;;           that crosses the barrier instruction and is an input to function "foo",
+;;           which contains barrier itself and returns void.
+;; The expected result:
+;;      1. Kernel "main" contains no more barrier/dummybarrier instructions
+;;      2. Kernel "main" replaced the call to function "foo" with a call to "foo_New"
+;;      3. function "foo" contains no more barrier/dummybarrier instructions
+;;      4. function "foo_New" receives these parameters (i32 %x, i32 %offset)
+;;      5. function "foo_New" contains no more barrier/dummybarrier instructions
+;;*****************************************************************************
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3

@@ -138,8 +138,8 @@ namespace intel {
   }
 
   // Register this pass...
-  static RegisterPass<BarrierInFunction> DPB("b-i-f",
-    "Handle barier instructions called from functions", false, true);
+  static RegisterPass<BarrierInFunction> DPB("B-BarrierInFunction",
+    "Barrier Pass - Handle barrier instructions called from functions", false, true);
 
 } // namespace intel
 

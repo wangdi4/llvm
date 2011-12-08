@@ -280,14 +280,19 @@ namespace intel {
     TValuesPerFunctionMap::const_iterator fe = m_allocaValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(fi->first);
-      //Print function name
-      OS << pFunc->getNameStr() << "\n";
       const TValueVector &vv = fi->second;
+      if ( vv.empty() ) {
+        // Function has no values of Group-A
+        continue;
+      }
+      //Print function name
+      OS << "+" << pFunc->getNameStr() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print alloca value name
-        OS  << "\t" << pValue->getNameStr() << "\n";
+        OS << "\t-" << pValue->getNameStr() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
+      OS << "*" << "\n";
     }
 
     //Run on all special values
@@ -296,14 +301,19 @@ namespace intel {
     fe = m_specialValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(fi->first);
-      //Print function name
-      OS << pFunc->getNameStr() << "\n";
       const TValueVector &vv = fi->second;
+      if ( vv.empty() ) {
+        // Function has no values of Group-B.1
+        continue;
+      }
+      //Print function name
+      OS << "+" << pFunc->getNameStr() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print special value name
-        OS  << "\t" << pValue->getNameStr() << "\n";
+        OS << "\t-" << pValue->getNameStr() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
+      OS << "*" << "\n";
     }
 
     //Run on all cross barrier unifrom values
@@ -312,20 +322,26 @@ namespace intel {
     fe = m_crossBarrierValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(fi->first);
-      //Print function name
-      OS << pFunc->getNameStr() << "\n";
       const TValueVector &vv = fi->second;
+      if ( vv.empty() ) {
+        // Function has no values of Group-B.2
+        continue;
+      }
+      //Print function name
+      OS << "+" << pFunc->getNameStr() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print cross barrier uniform value name
-        OS  << "\t" << pValue->getNameStr() << "\n";
+        OS << "\t-" << pValue->getNameStr() << "\n";
       }
+      OS << "*" << "\n";
     }
+    OS << "Buffer Total Size: " << m_bufferTotalSize << "\n";
   }
 
   //Register this pass...
-  static RegisterPass<DataPerValue> DPV("d-p-v",
-    "Collect Data per Value", false, true);
+  static RegisterPass<DataPerValue> DPV("B-ValueAnalysis",
+    "Barrier Pass - Collect Data per Value", false, true);
 
 
 } // namespace intel

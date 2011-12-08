@@ -155,7 +155,13 @@ namespace intel {
         OS << *ci->first << "\n";
         OS << "\tOffsets in special buffer: (";
         for ( unsigned int i = 0; i < ci->second.m_argsOffsets.size() ; ++i ) {
-          OS << ((i == 0)?" ": ", ") << ci->second.m_argsOffsets[i];
+          int offset = ci->second.m_argsOffsets[i];
+          OS << ((i == 0)?" ": ", ");
+          if ( offset == m_badOffset ) {
+            OS << "BAD_OFFSET";
+          } else {
+            OS << offset;
+          }
         }
         OS << " )\n";
     }
@@ -167,11 +173,13 @@ namespace intel {
         Function *pFunc = dyn_cast<Function>(*fi);
         OS << "\t" << pFunc->getNameStr() << "\n";
     }
+
+    OS << "DONE\n";
   }
 
   //Register this pass...
-  static RegisterPass<DataPerInternalFunction> DPV("d-p-f",
-    "Collect Data per Internal Function", false, true);
+  static RegisterPass<DataPerInternalFunction> DPV("B-FunctionAnalysis",
+    "Barrier Pass - Collect Data per Internal Function", false, true);
 
 
 } // namespace intel

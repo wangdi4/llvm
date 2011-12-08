@@ -341,8 +341,8 @@ namespace intel {
   }
 
   //Register this pass...
-  static RegisterPass<WIRelatedValue> WIRV("wi-r-v",
-    "Calculate WI relation per Value", false, true);
+  static RegisterPass<WIRelatedValue> WIRV("B-WIAnalysis",
+    "Barrier Pass - Calculate WI relation per Value", false, true);
 
 
 } // namespace intel

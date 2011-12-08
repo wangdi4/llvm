@@ -40,8 +40,8 @@ namespace intel {
   }
 
   //Register this pass...
-  static RegisterPass<SplitBBonBarrier> SBBB("s-bb-b",
-        "Split Basic Block on Barrier", false, true);
+  static RegisterPass<SplitBBonBarrier> SBBB("B-SplitOnBarrier",
+        "Barrier Pass - Split Basic Block on Barrier", false, true);
 
 } // namespace intel
 

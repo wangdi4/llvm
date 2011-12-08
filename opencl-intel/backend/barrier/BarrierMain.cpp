@@ -69,8 +69,8 @@ namespace intel {
   }
 
   // Register this pass...
-  //static RegisterPass<BarrierMain> BM("bmain",
-  //  "Barrier Main pass",
+  //static RegisterPass<BarrierMain> BM("B-Main",
+  //  "Barrier Pass - Main pass",
   //  false, true);
 
 } // namespace intel

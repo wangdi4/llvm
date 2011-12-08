@@ -1,6 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -b-i-f  -print-module -verify %t.bc -S -o %t1.ll
+; RUN: opt -B-BarrierInFunction -print-module -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
+
+;;*****************************************************************************
+;; This test checks the BarrierInFunction pass
+;; The case: kernel "main" with no barrier instruction
+;; The expected result:
+;;      1. A call to @dummybarrier.() at the begining of the kernel "main"
+;;      2. A call to @barrier(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;*****************************************************************************
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3

@@ -822,8 +822,8 @@ namespace intel {
   }
 
   //Register this pass...
-  static RegisterPass<Barrier> BP("b-p",
-    "Handle special values & replace barrier/fiber with internal loop over WIs",
+  static RegisterPass<Barrier> BP("B-Barrier",
+    "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs",
     false, true);
 
 } // namespace intel

@@ -49,8 +49,8 @@ namespace intel {
   }
 
   // Register this pass...
-  static RegisterPass<RedundantPhiNode> DPB("rr-pn",
-    "Handle barier instructions called from functions", false, true);
+  static RegisterPass<RedundantPhiNode> DPB("B-RedundantPhiNode",
+    "Barrier Pass - Handle barier instructions called from functions", false, true);
 
 } // namespace intel
 
