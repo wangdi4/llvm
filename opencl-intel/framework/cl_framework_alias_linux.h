@@ -42,6 +42,7 @@ DECLARE_ALIAS(clGetCommandQueueInfo);
 	ECLARE_ALIAS(clSetCommandQueueProperty);
 #endif
 DECLARE_ALIAS(clCreateBuffer);
+DECLARE_ALIAS(clCreateImage);
 DECLARE_ALIAS(clCreateImage2D);
 DECLARE_ALIAS(clCreateImage3D);
 DECLARE_ALIAS(clRetainMemObject);

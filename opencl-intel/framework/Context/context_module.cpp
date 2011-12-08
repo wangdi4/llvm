@@ -1078,6 +1078,57 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 
 	return pBuffer->GetHandle();	
 }
+
+/************************************************************************/
+/* ContextModule::CreateImage                                              */
+/************************************************************************/
+cl_mem ContextModule::CreateImage(cl_context context,
+                                  cl_mem_flags flags,
+                                  const cl_image_format *image_format,
+                                  const cl_image_desc *image_desc,
+                                  void *host_ptr,
+                                  cl_int *errcode_ret)
+{
+    LOG_DEBUG(TEXT("Enter CreateImage(context=%p, flags=%d, image_format=%p, image_desc=%p, host_ptr=%p, errcode_ret=%p"),
+        context, flags, image_format, image_desc, host_ptr, errcode_ret);
+
+    cl_mem clMemObj = CL_INVALID_HANDLE;
+
+    if (!image_desc)
+    {
+        LOG_ERROR(TEXT("image_desc is NULL"), "");
+        if (errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    switch (image_desc->image_type)
+    {
+    case CL_MEM_OBJECT_IMAGE2D:
+        clMemObj = CreateImage2D(context, flags, image_format, image_desc->image_width,
+            image_desc->image_height, image_desc->image_row_pitch, host_ptr, errcode_ret);
+        break;
+    case CL_MEM_OBJECT_IMAGE3D:
+        clMemObj = CreateImage3D(context, flags, image_format, image_desc->image_width,
+            image_desc->image_height, image_desc->image_depth, image_desc->image_row_pitch,
+            image_desc->image_slice_pitch, host_ptr, errcode_ret);
+        break;
+    default:
+        LOG_ERROR(TEXT("unsupported image type (%d)"), image_desc->image_type);
+        if (errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+    }
+    if (errcode_ret && CL_INVALID_IMAGE_SIZE == *errcode_ret)
+    {
+        // in OpenCL 1.2 we return CL_INVALID_IMAGE_DESCRIPTOR if values specified in image_desc are not valid
+        *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+    }
+    return clMemObj;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateImage2D
 //////////////////////////////////////////////////////////////////////////

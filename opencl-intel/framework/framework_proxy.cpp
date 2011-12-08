@@ -76,6 +76,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     OclEntryPoints.clGetCommandQueueInfo = (KHRpfn_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo);
     OclEntryPoints.clSetCommandQueueProperty = NULL;
     OclEntryPoints.clCreateBuffer = (KHRpfn_clCreateBuffer)GET_ALIAS(clCreateBuffer);
+    OclEntryPoints.clCreateImage = (KHRpfn_clCreateImage)GET_ALIAS(clCreateImage);
     OclEntryPoints.clCreateImage2D = (KHRpfn_clCreateImage2D)GET_ALIAS(clCreateImage2D);
     OclEntryPoints.clCreateImage3D = (KHRpfn_clCreateImage3D)GET_ALIAS(clCreateImage3D);
     OclEntryPoints.clRetainMemObject = (KHRpfn_clRetainMemObject)GET_ALIAS(clRetainMemObject);

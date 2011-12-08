@@ -241,6 +241,7 @@ const wchar_t* ClErrTxt(cl_err_code error_code)
 	case (CL_INVALID_BUFFER_SIZE): return L"CL_INVALID_BUFFER_SIZE";
 	case (CL_INVALID_MIP_LEVEL): return L"CL_INVALID_MIP_LEVEL";
     case (CL_INVALID_PROPERTY) : return L"CL_INVALID_PROPERTY";
+    case (CL_INVALID_IMAGE_DESCRIPTOR) : return L"CL_INVALID_IMAGE_DESCRIPTOR";
 
 		// OpenCL framework error codes
 

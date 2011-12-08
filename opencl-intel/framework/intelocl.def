@@ -18,6 +18,7 @@ EXPORTS
 	clCreateBuffer
 	clCreateSubBuffer
 	clSetMemObjectDestructorCallback
+	clCreateImage
 	clCreateImage2D
 	clCreateImage3D
 	clRetainMemObject

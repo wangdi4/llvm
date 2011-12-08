@@ -229,6 +229,18 @@ clSetMemObjectDestructorCallback(cl_mem			memObj,
 }
 SET_ALIAS(clSetMemObjectDestructorCallback);
 
+cl_mem CL_API_CALL clCreateImage(
+               cl_context context,
+               cl_mem_flags flags,
+               const cl_image_format *image_format,
+               const cl_image_desc *image_desc,
+               void *host_ptr,
+               cl_int *errcode_ret)
+{
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret));
+}
+SET_ALIAS(clCreateImage);
+
 cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
 					   cl_mem_flags            flags,
 					   const cl_image_format * image_format,
