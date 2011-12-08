@@ -18,6 +18,8 @@ File Name:  OpenCLProgramConfiguration.h
 #pragma once
 
 #include "IProgramConfiguration.h"
+#include "mem_utils.h"
+
 #include "CL/cl.h"
 #define TIXML_USE_STL
 #include "tinyxml.h"
@@ -210,6 +212,7 @@ namespace Validation
         /// @param [IN] configFile Name of OpenCL test run configuration file
         /// @param [IN] baseDir. Base directory used for input/output file lookup
         OpenCLProgramConfiguration(const std::string& configFile, const std::string& baseDir);
+        ~OpenCLProgramConfiguration();
 
         /// @brief Returns the program file path
         std::string GetProgramFilePath() const
@@ -252,7 +255,7 @@ namespace Validation
         /// @brief Returns OpenCLIncludeDirs
         OpenCLIncludeDirs* GetIncludeDirs() const
         {
-            return m_includeDirs;
+            return m_includeDirs.get();
         }
 
         /// @brief Return number of kernel configurations to run.
@@ -285,7 +288,7 @@ namespace Validation
         KernelConfigList m_kernels;
 
         // Include directories for generating IR from a CL file
-        OpenCLIncludeDirs* m_includeDirs;
+        auto_ptr_ex<OpenCLIncludeDirs> m_includeDirs;
 
         // configuration file absolute path
         std::string m_configFile;

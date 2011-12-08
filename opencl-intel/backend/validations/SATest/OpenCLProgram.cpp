@@ -64,6 +64,10 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
         case CL:
             {
                 OpenCLIncludeDirs* includeDirs(oclProgramConfig->GetIncludeDirs());
+                if (!includeDirs)
+                {
+                    throw Exception::IOError("Include directories for CLang aren't set in configuration file.");
+                }
                 std::stringstream cmd;
                 cmd << "clang -cc1 -x cl -S -emit-llvm-bc -target-cpu "
                     << cpuArch ;

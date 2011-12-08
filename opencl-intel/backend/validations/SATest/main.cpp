@@ -146,7 +146,7 @@ OptimizedLLVMIRDumpFile("dump-llvm-file",
 llvm::cl::opt<bool>
 DetailedStat("detailed_stat",
                  llvm::cl::desc("Print detailed statistics."),
-                 llvm::cl::init(false));
+                 llvm::cl::init(true));
 
 // Enable VTune support in Volcano.
 llvm::cl::opt<bool>

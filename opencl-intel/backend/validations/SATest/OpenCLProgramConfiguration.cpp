@@ -174,6 +174,7 @@ bool OpenCLIncludeDirs::VisitEnter( const TiXmlElement& element, const TiXmlAttr
 OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile, const string& baseDir):
         m_useVectorizer(false),
         m_programFileType(BC),
+        m_includeDirs(NULL),
         m_format(UNKNOWN)
 {
     llvm::sys::Path configFilePath(configFile.c_str(), configFile.size());
@@ -205,6 +206,14 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
     }
 }
 
+OpenCLProgramConfiguration::~OpenCLProgramConfiguration()
+{
+    for (KernelConfigList::iterator it = m_kernels.begin(); it != m_kernels.end(); ++it)
+    {
+        delete *it;
+    }
+}
+
 ProgramFileType OpenCLProgramConfiguration::GetProgramFileType(const string& strFileType)
 {
     if( strFileType == "CL" )
@@ -227,7 +236,7 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
     }
     else if( element.ValueStr() == "IncludeDirs" )
     {
-        m_includeDirs = new OpenCLIncludeDirs( element, m_baseDirectory );
+        m_includeDirs.reset( new OpenCLIncludeDirs( element, m_baseDirectory ) );
     }
 
     // This code added to support old format of configuration file which supported only LLVM byte code test programs.
