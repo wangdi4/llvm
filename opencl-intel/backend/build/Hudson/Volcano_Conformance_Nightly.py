@@ -53,7 +53,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
 
         # Conformance
         runTest = SimpleTest('RunConformance', self.conformance_dir, 'python run_conformance.py opencl_conformance_tests_nightly.csv CL_DEVICE_TYPE_CPU')
-        runTest.timeout = 12 * TIMEOUT_HOUR
+        runTest.timeout = 14 * TIMEOUT_HOUR
         self.addTask(runTest)
     
     def startUp(self):
