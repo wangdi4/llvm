@@ -82,6 +82,20 @@ public:
     virtual cl_dev_err_code GetSerializationService(
         const ICLDevBackendOptions* pBackendOptions, 
         ICLDevBackendSerializationService** ppBackendSerializationService);
+
+    /**
+     * Creates Image Service object
+     *
+     * @param pBackendOptions pointer to class which will contain the backend compilation
+     *  options (alloc\dealloc program JIT handler address, etc ..)
+     * @param pBackendImageService [OUT] will be modified to contain the generated object
+     *
+     * @returns 
+     *  CL_DEV_ERROR_FAIL (not supported yet in MIC)
+     */
+    virtual cl_dev_err_code GetImageService(
+      const ICLDevBackendOptions* pBackendOptions, 
+      ICLDevBackendImageService** ppBackendImageService) { return CL_DEV_ERROR_FAIL; }
     
 private:
     static MICDeviceServiceFactory* s_pInstance;
