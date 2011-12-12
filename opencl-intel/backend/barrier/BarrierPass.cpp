@@ -259,7 +259,8 @@ namespace intel {
         unsigned int id = m_pDataPerBarrier->getUniqueID(pInst);
         SYNC_TYPE type = m_pDataPerBarrier->getSyncType(pInst);
         BasicBlock *pSyncBB = pInst->getParent();
-        BasicBlock *pPreSyncBB = pSyncBB->getPrevNode();
+        BasicBlock *pPreSyncBB = pSyncBB->getSinglePredecessor();
+        assert( pPreSyncBB && "pSyncBB assumed to have single predecessor by this point!" );
         if ( SYNC_TYPE_DUMMY_BARRIER == type ) {
           //This is a dummy barrier replace with the following
           // currWI = 0
