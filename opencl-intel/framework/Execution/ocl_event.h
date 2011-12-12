@@ -54,9 +54,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define OCL_EVENT_WAIT_YIELD        1
 #define OCL_EVENT_WAIT_OS_DEPENDENT 2
 
-	//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
-#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
-	//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
+//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
+#ifdef WIN32
+  #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
+#else //For Linux, the CFS performs much better without active wait
+  #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
+#endif
 
 
 

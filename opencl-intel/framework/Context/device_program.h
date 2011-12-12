@@ -131,8 +131,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		pfnNotifyBuildDone  m_pfn;
 		char*               m_pBuildOptions;
 		// Events used for waiting on builds
-		BuildEvent*         m_pFeBuildEvent;
-		BuildEvent*         m_pBeBuildEvent;
+		BuildEvent*         m_pBuildEvent;
 
 		// Source-related members
 		// Will be zeros and NULLs for programs created from binaries

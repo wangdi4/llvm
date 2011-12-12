@@ -297,7 +297,7 @@ typedef struct event_Structure
 {
 	pthread_mutex_t mutex;
 	pthread_cond_t condition;
-	bool isFired;
+	volatile bool isFired;
 } EVENT_STRUCTURE;
 
 OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
@@ -306,11 +306,12 @@ OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
 
 OclOsDependentEvent::~OclOsDependentEvent()
 {
-	if (m_eventRepresentation)
+	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
+	if (pEvent != NULL)
 	{
-		pthread_mutex_destroy(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
-		pthread_cond_destroy(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition));
-		delete((EVENT_STRUCTURE*)m_eventRepresentation);
+		pthread_cond_destroy(&(pEvent->condition));
+		pthread_mutex_destroy(&(pEvent->mutex));
+		delete pEvent;
 	}
 	m_eventRepresentation = NULL;
 }
@@ -322,60 +323,62 @@ bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
 		//Todo: raise error?
 		return true;
 	}
-	m_eventRepresentation = new EVENT_STRUCTURE;
-	if (! m_eventRepresentation)
+	EVENT_STRUCTURE* pEvent = new EVENT_STRUCTURE;
+	if (! pEvent)
 	{
 		return false;
 	}
-	((EVENT_STRUCTURE*)m_eventRepresentation)->isFired = false;
-    if (0 != pthread_mutex_init(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex), NULL))
+	pEvent->isFired = false;
+  if (0 != pthread_mutex_init(&(pEvent->mutex), NULL))
 	{
-		delete((EVENT_STRUCTURE*)m_eventRepresentation);
-		m_eventRepresentation = NULL;
+		delete pEvent;
 		return false;
 	}
-	if (0 != pthread_cond_init(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition), NULL))
+	if (0 != pthread_cond_init(&(pEvent->condition), NULL))
 	{
-        pthread_mutex_destroy(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
-		delete((EVENT_STRUCTURE*)m_eventRepresentation);
-		m_eventRepresentation = NULL;
+    pthread_mutex_destroy(&(pEvent->mutex));
+		delete pEvent;
 		return false;
 	}
+	m_eventRepresentation = pEvent;
 	return true;
 }
 
 bool OclOsDependentEvent::Wait()
 {
-	if (NULL == m_eventRepresentation)
+	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
+	if (NULL == pEvent)
 	{
 		//event not initialized
 		return false;
 	}
 	// The condition variable already signaled.
-	if (((EVENT_STRUCTURE*)m_eventRepresentation)->isFired)
+	// Todo: assumes no reset
+	if (pEvent->isFired)
 	{
 		return true;
 	}
-	pthread_mutex_lock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+	pthread_mutex_lock(&(pEvent->mutex));
 	int err = 0;
-	if (((EVENT_STRUCTURE*)m_eventRepresentation)->isFired == false)
+	while (!pEvent->isFired) //Todo: maybe && err == 0?
 	{
-		err = pthread_cond_wait(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition), &(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+		err = pthread_cond_wait(&(pEvent->condition), &(pEvent->mutex));
 	}
-	pthread_mutex_unlock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+	pthread_mutex_unlock(&(pEvent->mutex));
 	return (err == 0);
 }
 
 void OclOsDependentEvent::Signal()
 {
-	if (m_eventRepresentation != NULL)
+	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
+	if (pEvent != NULL)
 	{
-		assert(((EVENT_STRUCTURE*)m_eventRepresentation)->isFired == false && "Event already signaled");
+		assert((!pEvent->isFired) && "Event already signaled");
 
-		pthread_mutex_lock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
-		((EVENT_STRUCTURE*)m_eventRepresentation)->isFired = true;
-		pthread_cond_broadcast(&(((EVENT_STRUCTURE*)m_eventRepresentation)->condition));
-		pthread_mutex_unlock(&(((EVENT_STRUCTURE*)m_eventRepresentation)->mutex));
+		pthread_mutex_lock(&(pEvent->mutex));
+		pEvent->isFired = true;
+		pthread_cond_broadcast(&(pEvent->condition));
+		pthread_mutex_unlock(&(pEvent->mutex));
 	}
 	else
 	{
@@ -383,6 +386,9 @@ void OclOsDependentEvent::Signal()
 	}
 }
 
+/************************************************************************
+* AtomicCounter implementation
+ ************************************************************************/
 AtomicCounter::operator long() const
 {
 	return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);

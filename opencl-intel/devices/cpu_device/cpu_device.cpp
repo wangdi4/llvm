@@ -1120,8 +1120,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL | CL_EXEC_KERNEL | CL_EXEC_BY_THREAD_LOCAL_INTEL;  //changed from CL_EXEC_NATIVE_FN_AS_KERNEL
-                *(cl_device_exec_capabilities*)paramVal = execCapabilities;
+				cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL | CL_EXEC_KERNEL;  //changed from CL_EXEC_NATIVE_FN_AS_KERNEL
+				*(cl_device_exec_capabilities*)paramVal = execCapabilities;
             }
             return CL_DEV_SUCCESS;
 

@@ -162,16 +162,14 @@ int OclThread::Join()
  ************************************************************************/
 int OclThread::WaitForCompletion()
 {
-    if(!m_running)
+    if( NULL == m_threadHandle)
     {
         return THREAD_RESULT_FAIL;
     }
-    else
-    {
+
 	pthread_join((*(pthread_t*)m_threadHandle), NULL);
-        Clean();
-        return THREAD_RESULT_SUCCESS;
-    }
+    Clean();
+    return THREAD_RESULT_SUCCESS;
 }
 
 /************************************************************************

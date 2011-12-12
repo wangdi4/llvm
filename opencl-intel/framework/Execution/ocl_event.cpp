@@ -33,6 +33,9 @@ using namespace Intel::OpenCL::Framework;
 
 OclEvent::OclEvent() : OCLObject<_cl_event_int>("OclEvent"), m_complete(false), m_color(EVENT_STATE_WHITE)
 {
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	m_osEvent.Init();
+#endif
 }
 
 OclEvent::~OclEvent()
@@ -103,14 +106,6 @@ OclEventStateColor OclEvent::SetColor(OclEventStateColor color)
 cl_err_code OclEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
 {
 	// Should remove pendency once was notified
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	//Check for notifications from myself
-	if (pEvent == this)
-	{
-		m_osEvent.Signal();
-	}
-	//And from here continue as usual
-#endif
 	if (CL_SUCCEEDED(returnCode))
 	{
 		if (0 == --m_depListLength)
@@ -142,6 +137,9 @@ void OclEvent::NotifyComplete(cl_int returnCode)
 		assert(listener);
 		listener->NotifyEventDone(this, returnCode);
 	}
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	m_osEvent.Signal();
+#endif
 }
 
 void OclEvent::NotifyReady(OclEvent* pEvent)
@@ -185,24 +183,7 @@ void OclEvent::WaitYield()
 void OclEvent::WaitOSEvent()
 {
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	//This is a heavy routine, if I can early exit, all the better
-	if (EVENT_STATE_BLACK == m_color) return;
-
-	//Creating a manual reset event to prevent a race condition between event completion and waiting on OS event
-	if (m_osEvent.Init())
-	{
-		AddPendency(this);
-		// Adding myself as a listener to my own completion. 
-		// My notification routine (called from the informing thread) will wake up the waiting thread
-		AddCompleteListener(this);
-		m_osEvent.Wait();
-		//Disallow inconsistent results. Let the event completion routine (from another thread) finish before returning.
-		WaitSpin(); 
-	}
-	else
-	{
-		WaitYield();
-	}
+	m_osEvent.Wait();
 #else
 	WaitYield();
 #endif

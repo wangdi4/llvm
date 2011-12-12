@@ -38,7 +38,7 @@ using namespace Intel::OpenCL::Framework;
 
 DeviceProgram::DeviceProgram() : OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), 
 m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
-m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
+m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pBuildEvent(NULL),
 m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
 m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 {
@@ -49,7 +49,7 @@ m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 
 DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
 m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
-m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pFeBuildEvent(NULL), m_pBeBuildEvent(NULL),
+m_pUserData(NULL), m_pfn(NULL), m_pBuildOptions(NULL), m_pBuildEvent(NULL),
 m_uiNumStrings(0), m_pszStringLengths(NULL), m_pSourceStrings(NULL), m_emptyString('\0'), 
 m_pBinaryBits(NULL), m_szBinaryBitsSize(0), m_currentAccesses(0)
 {
@@ -202,15 +202,15 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 	m_pfn       = pfn;
 	m_pUserData = pUserData;
 
-	m_pBeBuildEvent = FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->CreateBuildEvent(m_parentProgramContext);
-	if (!m_pBeBuildEvent)
+	m_pBuildEvent = FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->CreateBuildEvent(m_parentProgramContext);
+	if (!m_pBuildEvent)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	if (!m_pfn)
 	{
 		//Ensure no race between BE build finishing and our wait
-		m_pBeBuildEvent->AddPendency(this);
+		m_pBuildEvent->AddPendency(this);
 	}
 
 	//Build from sources
@@ -226,10 +226,10 @@ cl_err_code DeviceProgram::Build(const char * pcOptions, pfnNotifyBuildDone pfn,
 		{
 			if (CL_SUCCEEDED(clErrRet))
 			{
-				m_pBeBuildEvent->Wait();
-				clErrRet = m_pBeBuildEvent->GetReturnCode();
+				m_pBuildEvent->Wait();
+				clErrRet = m_pBuildEvent->GetReturnCode();
 			}
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBuildEvent->RemovePendency(this);
 		}
 	}
 	return clErrRet;
@@ -249,46 +249,32 @@ cl_err_code DeviceProgram::FeBuild()
 
 	if (NULL == pFeCompiler)
 	{
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
+		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBuildEvent->GetHandle());
 		if (!m_pfn)
 		{
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBuildEvent->RemovePendency(this);
 		}
 		return CL_COMPILER_NOT_AVAILABLE;
 	}
 
 	//Todo: why not? pFeCompiler->AddPendency(this);
 
-	m_pFeBuildEvent = FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->CreateBuildEvent(m_parentProgramContext);
-	if (!m_pFeBuildEvent)
-	{
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
-		if (!m_pfn)
-		{
-			m_pBeBuildEvent->RemovePendency(this);
-		}
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-	m_pBeBuildEvent->AddDependentOn(m_pFeBuildEvent);
-
 	cl_err_code clErr = pFeCompiler->BuildProgram(m_deviceHandle, m_uiNumStrings, m_pSourceStrings, m_pszStringLengths, m_pBuildOptions, static_cast<IFrontendBuildDoneObserver *>(this));
 	if (CL_FAILED(clErr))
 	{
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pFeBuildEvent->GetHandle());
+		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBuildEvent->GetHandle());
 		if (!m_pfn)
 		{
-			m_pBeBuildEvent->RemovePendency(this);
+			m_pBuildEvent->RemovePendency(this);
 		}
 		return CL_BUILD_PROGRAM_FAILURE;
 	}
 
 	if (!m_pfn) //blocking build
 	{
-		m_pBeBuildEvent->Wait();
-		clErr = m_pBeBuildEvent->GetReturnCode();
-		m_pBeBuildEvent->RemovePendency(this);
+		m_pBuildEvent->Wait();
+		clErr = m_pBuildEvent->GetReturnCode();
+		m_pBuildEvent->RemovePendency(this);
 	}
 	return clErr;
 }
@@ -300,7 +286,7 @@ cl_err_code DeviceProgram::BeBuild()
 	cl_int iRet = m_pDevice->GetDeviceAgent()->clDevBuildProgram(m_programHandle, m_pBuildOptions, dynamic_cast<IBuildDoneObserver *>(this));
 	if (CL_FAILED(iRet))
 	{
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
+		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBuildEvent->GetHandle());
 	}
 	return (cl_err_code)iRet;
 }
@@ -324,8 +310,6 @@ cl_err_code DeviceProgram::NotifyFEBuildDone(cl_device_id device, size_t szBinSi
 	{
 		//Build failed
 		m_bFECompilerSuccess = false;
-		m_pFeBuildEvent->SetComplete(CL_BUILD_PROGRAM_FAILURE);
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pFeBuildEvent->GetHandle());
 		NotifyBuildDone(m_deviceHandle, CL_BUILD_ERROR);
 		return CL_BUILD_PROGRAM_FAILURE;
 	}
@@ -334,15 +318,12 @@ cl_err_code DeviceProgram::NotifyFEBuildDone(cl_device_id device, size_t szBinSi
 	m_bFECompilerSuccess = true;
 	CopyBinary(szBinSize, static_cast<const unsigned char*>(pBinData));
 	m_state = DEVICE_PROGRAM_INTERNAL_IR;
-	m_pFeBuildEvent->SetComplete(CL_SUCCESS);
-	FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pFeBuildEvent->GetHandle());
-	m_pFeBuildEvent = NULL;
 
 	cl_err_code clErrRet = m_pDevice->GetDeviceAgent()->clDevCreateProgram(m_szBinaryBitsSize, m_pBinaryBits, CL_DEV_BINARY_COMPILER, &m_programHandle);
 	if (CL_FAILED(clErrRet))
 	{
-		m_pBeBuildEvent->SetComplete(CL_BUILD_PROGRAM_FAILURE);
-		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
+		m_pBuildEvent->SetComplete(CL_BUILD_PROGRAM_FAILURE);
+		FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBuildEvent->GetHandle());
 		return clErrRet;
 	}
 	//Todo: do we want this action to drive the BE build or not?
@@ -353,22 +334,29 @@ cl_err_code DeviceProgram::NotifyBuildDone(cl_device_id device, cl_build_status 
 {
 	assert(CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status);
 
+	cl_int iRetCode;
+
+	FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBuildEvent->GetHandle());
+
 	if (CL_BUILD_ERROR == build_status)
 	{
 		m_state = DEVICE_PROGRAM_INVALID;
-		m_pBeBuildEvent->SetComplete(CL_BUILD_PROGRAM_FAILURE);
+		iRetCode = CL_BUILD_PROGRAM_FAILURE;
 	}
 	else
 	{
 		m_state = DEVICE_PROGRAM_MACHINE_CODE;
-		m_pBeBuildEvent->SetComplete(CL_SUCCESS);
+		iRetCode = CL_SUCCESS;
 	}
 
 	if (m_pfn)
 	{
 		m_pfn(m_parentProgramHandle, m_pUserData);
+	} else
+	{
+		m_pBuildEvent->SetComplete(iRetCode);
 	}
-	FrameworkProxy::Instance()->GetExecutionModule()->GetEventsManager()->ReleaseEvent(m_pBeBuildEvent->GetHandle());
+
 	return CL_SUCCESS;
 }
 

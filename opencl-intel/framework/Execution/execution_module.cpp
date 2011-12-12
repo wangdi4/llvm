@@ -198,9 +198,8 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
     {
         errVal = CL_INVALID_DEVICE;        
     }
-    else if ( (clQueueProperties & 0xFFFFFFFF) > ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | 
-                                                   CL_QUEUE_PROFILING_ENABLE              |
-                                                   CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL ) ) 
+    else if ( clQueueProperties & 
+		~(CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL) ) 
     {
         errVal = CL_INVALID_VALUE;
     }
