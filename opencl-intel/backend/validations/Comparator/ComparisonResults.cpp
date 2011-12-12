@@ -108,9 +108,9 @@ void ComparisonResults::Report()
                 std::cout << 
                     "     Datatype  " << pImgDesc->DataTypeToString() <<
                     " " << "Channel order " << pImgDesc->OrderToString() << std::endl << 
-                    "     Sizes[WxHxD]: " << pImgDesc->GetSizes().width << 
-                    " " << pImgDesc->GetSizes().height << 
-                    " " << pImgDesc->GetSizes().depth << std::endl;
+                    "     Sizes[WxHxD]: " << pImgDesc->GetSizesDesc().width << 
+                    " " << pImgDesc->GetSizesDesc().height << 
+                    " " << pImgDesc->GetSizesDesc().depth << std::endl;
                 std::cout << "     Maximal mismatch deviation: " << (it->second).maxDiff << std::endl;
             }
             else 

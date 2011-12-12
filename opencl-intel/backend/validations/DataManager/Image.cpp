@@ -61,5 +61,16 @@ namespace Validation
             throw Exception::InvalidArgument("ImageDesc is expected");
     }
 
+    // function to get ImageTypeVal for OpenCL 1.2 from dimension count of OpenCL 1.1
+    ImageTypeVal GetImageTypeFromDimCount(uint32_t dim_count) {
+        ImageTypeVal imageType = UNSPECIFIED_MEM_OBJECT_IMAGE;
+        if (dim_count == 2)
+            imageType = OpenCL_MEM_OBJECT_IMAGE2D;
+        else if (dim_count == 3)
+            imageType = OpenCL_MEM_OBJECT_IMAGE3D;
+
+        return imageType;
+    }
+
 } // End of Validation namespace
 

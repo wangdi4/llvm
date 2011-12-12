@@ -24,7 +24,40 @@ File Name:  ImageDesc.h
 
 namespace Validation
 {
-    struct ImageSizes {
+
+    enum ImageTypeVal
+    {
+        OpenCL_MEM_OBJECT_IMAGE1D = 0,
+        OpenCL_MEM_OBJECT_IMAGE1D_BUFFER, 
+        OpenCL_MEM_OBJECT_IMAGE1D_ARRAY,
+        OpenCL_MEM_OBJECT_IMAGE2D, 
+        OpenCL_MEM_OBJECT_IMAGE2D_ARRAY,
+        OpenCL_MEM_OBJECT_IMAGE3D,
+
+        UNSPECIFIED_MEM_OBJECT_IMAGE,
+        INVALID_MEM_OBJECT_IMAGE
+    };
+
+    // this struct is used to support binary reading from 1.1 images
+    struct ImageSizeDesc_1_1 {
+        // sizes
+        uint64_t width;
+        uint64_t height;
+        uint64_t depth;
+        // size of lines in bytes (AKA pitch, widthStep)
+        uint64_t row;
+        uint64_t slice;
+
+        ImageSizeDesc_1_1()
+            : width(0),
+            height(0),
+            depth(0),
+            row(0),
+            slice(0)
+        {}
+    };
+
+    struct ImageSizeDesc {
 
         // sizes
         uint64_t width;
@@ -34,44 +67,76 @@ namespace Validation
         // size of lines in bytes (AKA pitch, widthStep)
         uint64_t row;
         uint64_t slice;
+        uint64_t array_size;
 
-        ImageSizes()
+        ImageSizeDesc()
             : width(0),
             height(0),
             depth(0),
             row(0),
-            slice(0)
-        {}
-        // 2D size constructor
-        ImageSizes(const uint64_t& in_width, const uint64_t& in_height, const uint64_t& in_row)
-            : width(in_width), height(in_height), depth(0), row(in_row), slice(0)
+            slice(0),
+            array_size(0)
         {}
 
-        // 3D size constructor
-        ImageSizes(const uint64_t& in_width, const uint64_t& in_height, const uint64_t& in_depth, 
-            const uint64_t& in_row, const uint64_t& in_slice)
-            : width(in_width), height(in_height), depth(in_depth), row(in_row), slice(in_slice)
-        {}
+        void Init(ImageTypeVal imageType, const uint64_t& in_width, const uint64_t& in_height, const uint64_t& in_depth, 
+            const uint64_t& in_row, const uint64_t& in_slice, const uint64_t& in_array_size)
+        {
+            switch(imageType) {
+                case OpenCL_MEM_OBJECT_IMAGE1D :
+                case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
+                    width = in_width;
+                    row = in_row;
+                    break;
+                case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY :
+                    width = in_width;
+                    row = in_row;
+                    array_size = in_array_size;
+                    break;                    
+                case OpenCL_MEM_OBJECT_IMAGE2D :
+                    width = in_width;
+                    height = in_height;
+                    row = in_row;
+                    break;
+                case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY :
+                    width = in_width;
+                    height = in_height;
+                    row = in_row;
+                    array_size = in_array_size;
+                    break;
+                case OpenCL_MEM_OBJECT_IMAGE3D :
+                    width = in_width;
+                    height = in_height;
+                    depth = in_depth;
+                    row = in_row;
+                    slice = in_slice;
+                    break;
+                default :
+                    throw Exception::OutOfRange("Incorrect image type.");
+             }
+        }
 
         /// comparison
         /// !!! Compares only sizes,  row and slice are ignored
-        inline bool operator == (const ImageSizes& a) const
+        inline bool operator == (const ImageSizeDesc& a) const
         {
             bool res = true;
             res &= (a.width == width);
             res &= (a.height == height);
             res &= (a.depth == depth);
+            res &= (a.array_size == array_size);
             //res &= (a.row == row);
             //res &= (a.slice == slice);
             return res;
         }
         
-        inline bool operator != (const ImageSizes& a) const
+        inline bool operator != (const ImageSizeDesc& a) const
         {
-            return (*this != a);
+            return !(*this == a);
         }
 
     };
+
+    ImageTypeVal GetImageTypeFromDimCount(uint32_t dim_count);
 
     /// @brief Image description structure.
     /// Describes the data which is stored into an image.
@@ -84,7 +149,7 @@ namespace Validation
         ImageDesc()
             : m_order(),
             m_dataType(),
-            m_numOfDimensions(0),
+            m_imageType(),
             m_size(),
             m_isNEAT(false)
         {}
@@ -95,48 +160,106 @@ namespace Validation
         ///                from enum VectorWidth. V1, ... V16
         /// @param in_dt - data type of elements in image
         /// @param in_isNEAT - this image contains NEAT intervals
-        explicit ImageDesc(const size_t in_numOfDimensions,
-            const ImageSizes in_sizes,
+        explicit ImageDesc(const ImageTypeVal in_imageType,
+            const ImageSizeDesc in_sizes,
             const ImageChannelDataTypeVal in_dt,
             const ImageChannelOrderVal in_order,
             const bool in_isNEAT = false)
             : m_order(in_order),
             m_dataType(in_dt),
-            m_numOfDimensions(in_numOfDimensions),
-            m_size(in_sizes)
+            m_imageType(in_imageType),
+            m_size(in_sizes),
+            m_num_mip_levels(0),
+            m_num_samples(0)
         {
             SetNeat(in_isNEAT);
+
+            // fixup row
+            if( m_size.row == 0)
+                m_size.row = m_size.width * GetElementSize();
+
+            // fixup slice
+            if(m_size.slice == 0) {
+                if (m_imageType == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY ||
+                    m_imageType == OpenCL_MEM_OBJECT_IMAGE3D ) {
+                    m_size.slice = m_size.row * m_size.height;
+                }
+                else if (m_imageType == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY) {
+                    m_size.slice = m_size.row;
+                }
+            }
         }
 
-        /// get number of dimensions of image
-        size_t GetNumOfDimensions() const {return m_numOfDimensions;}
-
-        /// get size of image
-        ImageSizes GetSizes() const {return m_size;}
+        /// get size description structure
+        ImageSizeDesc GetSizesDesc() const {return m_size;}
 
         /// get channel order
         ImageChannelOrderVal GetImageChannelOrder() const {return m_order.GetValue();}
         
         /// get channel data type. in case of NEAT returns underlying data type
         ImageChannelDataTypeVal GetImageChannelDataType() const {return m_dataType.GetValue();}
-        
+
+        ImageTypeVal GetImageType() const {return m_imageType;}
+
+        // function to get dimension count (OpenCL 1.1) from ImageTypeVal (OpenCL 1.2)
+        uint32_t GetDimensionCount() const {
+            if (m_imageType == OpenCL_MEM_OBJECT_IMAGE2D)
+                return 2;
+            else if (m_imageType == OpenCL_MEM_OBJECT_IMAGE3D)
+                return 3;
+            else
+                return 0;
+        }
+
         /// get image data size in bytes
         /// in case of NEAT returns correct number of bytes occupied by NEAT image
         inline size_t GetImageSizeInBytes() const {
             size_t res = 0;
             if(m_isNEAT)
             {
-                assert( 2 == m_numOfDimensions);
-                res = GetElementSize() * m_size.width * m_size.height;
+                switch(m_imageType) {
+                    case OpenCL_MEM_OBJECT_IMAGE1D :
+                    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
+                        res = GetElementSize() * m_size.width;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY :
+                        res = GetElementSize() * m_size.width * m_size.array_size;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE2D :
+                        res = GetElementSize() * m_size.width * m_size.height;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY :
+                        res =  GetElementSize() * m_size.width * m_size.height * m_size.array_size;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE3D :
+                        res =  GetElementSize() * m_size.width * m_size.height * m_size.depth;
+                        break;
+                    default :
+                        throw Exception::OutOfRange("Incorrect image type.");
+                }               
             }
             else
             {
-                if (2 == m_numOfDimensions)
-                    res = m_size.row * m_size.height;
-                else if (3 == m_numOfDimensions)
-                    res =  m_size.slice * m_size.depth;
-                else
-                    throw Exception::OutOfRange("Incorrect number of image dimensions.");
+                switch(m_imageType) {
+                    case OpenCL_MEM_OBJECT_IMAGE1D :
+                    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
+                        res = m_size.row;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY :
+                        res = m_size.slice * m_size.array_size;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE2D :
+                        res = m_size.row * m_size.height;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY :
+                        res =  m_size.slice * m_size.array_size;
+                        break;
+                    case OpenCL_MEM_OBJECT_IMAGE3D :
+                        res =  m_size.slice * m_size.depth;
+                        break;
+                    default :
+                        throw Exception::OutOfRange("Incorrect image type.");
+                }
             }
             return res;
         }
@@ -169,9 +292,8 @@ namespace Validation
             // and obtains them from Interpreter Context
             if(in_IsNeat)
             {
-                assert((m_numOfDimensions == 2) && "ImageDesc with NEAT supports only 2D images");
                 assert((m_dataType.GetValue() == OpenCL_FLOAT) && "ImageDesc with NEAT supports only FLOAT images");
-                m_size = CalcSizeNEAT_2D(m_size, GetChannelCount(m_order.GetValue()));
+                m_size = GetNEATImageSizeDesc(m_size, GetChannelCount(m_order.GetValue()));
             }
             m_isNEAT = in_IsNeat; 
         }
@@ -181,9 +303,11 @@ namespace Validation
         {
             m_order =           a.m_order;
             m_dataType =        a.m_dataType;
-            m_numOfDimensions = a.m_numOfDimensions;
+            m_imageType =       a.m_imageType;
             m_size =            a.m_size;
             m_isNEAT =          a.m_isNEAT;
+            m_num_mip_levels =    a.m_num_mip_levels;
+            m_num_samples =       a.m_num_samples;
             return *this;
         }
 
@@ -224,9 +348,11 @@ namespace Validation
             bool res = true;
             res &= (a.m_order == m_order);
             res &= (a.m_dataType == m_dataType);
-            res &= (a.m_numOfDimensions == m_numOfDimensions);
+            res &= (a.m_imageType == m_imageType);
             res &= (a.m_size == m_size);
             res &= (a.m_isNEAT == m_isNEAT);
+            res &= (a.m_num_mip_levels == m_num_mip_levels);
+            res &= (a.m_num_samples == m_num_samples);
             return res;
         }
         /// is image descriptors not equal
@@ -296,16 +422,23 @@ namespace Validation
 
     protected:
         // image size in bytes for NEAT
-        inline ImageSizes CalcSizeNEAT_2D(const ImageSizes& in, const uint32_t &nchannels) const
+        inline ImageSizeDesc GetNEATImageSizeDesc(const ImageSizeDesc& in, const uint32_t &nchannels) const
         {
-            const uint64_t pitchNEAT = in.width * nchannels * sizeof(NEATValue);
-            return ImageSizes(in.width, in.height, pitchNEAT);
+            ImageSizeDesc res;
+            const uint64_t pitchNEAT = nchannels * sizeof(NEATValue) * in.width;
+            const uint64_t sliceNEAT = pitchNEAT * in.height;
+
+            res.Init(m_imageType, in.width, in.height, in.depth, pitchNEAT, sliceNEAT, in.array_size);
+
+            return res;
         }
     private:
         ImageChannelOrderValWrapper m_order; ///< channels
-        ImageChannelDataTypeValWrapper m_dataType; ///< data type 
-        size_t m_numOfDimensions;               ///< 2D or 3D image
-        ImageSizes m_size;                      ///< size of image including pitch
+        ImageChannelDataTypeValWrapper m_dataType; ///< data type
+        ImageTypeVal m_imageType;
+        ImageSizeDesc m_size;                   ///< size of image including pitch
+        uint64_t m_num_mip_levels;              // reserved for future use
+        uint64_t m_num_samples;                 // reserved for future use
         bool    m_isNEAT;                       ///< Is image contains NEAT structures
     };
 

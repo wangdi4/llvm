@@ -165,20 +165,43 @@ namespace Validation
                 }
                 else if (marker == Image::GetImageName())
                 {
-                    uint32_t numOfDimentions;
-                    ImageSizes sizes;
+                    uint32_t signature; // it could be 2 or 3 for old version and it is ffffffff for other
+                    uint32_t imageType2Read;
+                    ImageTypeVal imageType;
+                    ImageSizeDesc sizes;
                     ImageChannelOrderVal imageOrder;
                     ImageChannelDataTypeVal imageDataType;
                     uint32_t pixelSize;
                     bool isNEAT;
-                    read_value(numOfDimentions);
-                    read_value(sizes);
+                    read_value(signature);
+                    if(signature == 0xffffffff) {
+                        // OpenCl 1.2 and higher
+                        uint32_t versionHigh;
+                        uint32_t versionLow;
+                        read_value(versionHigh);
+                        read_value(versionLow);
+                        read_value(imageType2Read);
+                        imageType = (ImageTypeVal)imageType2Read;
+                        read_value(sizes); 
+                    } else {
+                        // OpenCl 1.1 read
+                        ImageSizeDesc_1_1 oldSizes;
+                        // here signature actually is num of dimensions
+                        imageType = GetImageTypeFromDimCount(signature);
+                        read_value(oldSizes);
+
+                        sizes.width = oldSizes.width;
+                        sizes.height = oldSizes.height;
+                        sizes.depth = oldSizes.depth;
+                        sizes.row = oldSizes.row;
+                        sizes.slice = oldSizes.slice;
+                    }                   
                     read_value(imageOrder);
                     read_value(imageDataType);
                     read_value(pixelSize);
                     read_value(isNEAT);
-
-                    ImageDesc imd((size_t)numOfDimentions, sizes, imageDataType, imageOrder, isNEAT);
+                    
+                    ImageDesc imd(imageType, sizes, imageDataType, imageOrder, isNEAT);
                     assert((size_t)pixelSize == imd.GetElementSize() );
 
                     IMemoryObject* pImage = pContainer->CreateImage(imd);

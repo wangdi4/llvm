@@ -71,6 +71,10 @@ namespace Validation
         }
     private:
 
+        static const uint32_t imageSignature = 0xffffffff; // signature to be written as a starting point of image
+        static const uint32_t imageVersionHigh = 1; // OpencL 1.2
+        static const uint32_t imageVersionLow = 2;
+
         template<class T> void write_value( T value)
         {
             m_stream.write((const char*)&value, sizeof(T));
@@ -135,8 +139,11 @@ namespace Validation
 
             // first we write down the descriptor
             ImageDesc imDesc = GetImageDescription(pImage->GetMemoryObjectDesc());
-            write_value((uint32_t)imDesc.GetNumOfDimensions());
-            write_value(imDesc.GetSizes());
+            write_value(imageSignature);
+            write_value(imageVersionHigh);
+            write_value(imageVersionLow);
+            write_value((uint32_t)imDesc.GetImageType());
+            write_value(imDesc.GetSizesDesc());
             write_value(imDesc.GetImageChannelOrder());
             write_value(imDesc.GetImageChannelDataType());
             write_value((uint32_t)imDesc.GetElementSize());

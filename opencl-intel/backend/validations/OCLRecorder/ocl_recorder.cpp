@@ -246,17 +246,21 @@ namespace Validation
         return res;
     }
 
+
     const ImageDesc GetImageDesc(cl_mem_obj_descriptor* pmem_obj, const llvm::Argument& func_arg)
     {
         assert(NULL != pmem_obj);
-        ImageSizes imSizes;
+        ImageSizeDesc imSizes;
         imSizes.width = pmem_obj->dimensions.dim[0];
         imSizes.height = pmem_obj->dimensions.dim[1];
         imSizes.depth = pmem_obj->dimensions.dim[2];
         imSizes.row = pmem_obj->pitch[0];
         imSizes.slice = pmem_obj->pitch[1];
+
+        ImageTypeVal imageType = GetImageTypeFromDimCount(pmem_obj->dim_count);
+
         return ImageDesc (
-            pmem_obj->dim_count,
+            imageType,
             imSizes,
             GetImageChannelDataTypeVal(pmem_obj->format.image_channel_data_type),
             GetImageChannelOrderVal(pmem_obj->format.image_channel_order));

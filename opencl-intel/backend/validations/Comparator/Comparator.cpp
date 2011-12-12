@@ -446,12 +446,11 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
     }
 
     // is image 3D
-    const bool Is3D = (pActDesc->GetNumOfDimensions() == 3);
-
-    // check NEAT is 2D image
-    if(m_IsNEATSupportedMemObj && Is3D)
-        throw Validation::Exception::InvalidArgument("CompareImages::3D NEAT images are not supported");
-
+    const bool Is3D = (pActDesc->GetImageType() == OpenCL_MEM_OBJECT_IMAGE3D);
+    // is image 2D
+    const bool Is2D = (pActDesc->GetImageType() == OpenCL_MEM_OBJECT_IMAGE2D);
+    const bool IsArr2D = (pActDesc->GetImageType() == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY);
+    const bool IsArr1D = (pActDesc->GetImageType() == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY);
 
     const int8_t *ptrBaseAct = (const int8_t *)pImgAct-> GetDataPtr();
     const int8_t *ptrBaseRef = (m_haveReference) ?
@@ -460,21 +459,22 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
         (const int8_t *)pImgNEAT-> GetDataPtr() : NULL;
 
     const size_t pixelSize = pActDesc->GetElementSize();
-    const uint64_t Depth = Is3D ? pActDesc->GetSizes().depth : 1;
-    const uint64_t slicePitch = Is3D ? pActDesc->GetSizes().slice : 0;
-    const uint64_t Height = pActDesc->GetSizes().height;
-    const uint64_t rowPitch = pActDesc->GetSizes().row;
-    const uint64_t Width = pActDesc->GetSizes().width;
+    const uint64_t Depth = Is3D ? pActDesc->GetSizesDesc().depth : (IsArr2D ? pActDesc->GetSizesDesc().array_size : 1);
+    const uint64_t slicePitch = (Is3D || IsArr2D) ? pActDesc->GetSizesDesc().slice : (IsArr2D ? pActDesc->GetSizesDesc().row : 0);
+    const uint64_t Height = (Is2D || IsArr2D) ? pActDesc->GetSizesDesc().height : (IsArr1D ? pActDesc->GetSizesDesc().array_size : 1);
+    const uint64_t rowPitch = pActDesc->GetSizesDesc().row;
+    const uint64_t Width = pActDesc->GetSizesDesc().width;
+
     const size_t channelCount = GetChannelCount(pActDesc->GetImageChannelOrder());
     const ImageChannelDataTypeVal ImageChannelDataType = pActDesc->GetImageChannelDataType();
     const size_t pixelSizeNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetElementSize() : 0;
-    const uint64_t rowPitchNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetSizes().row : 0;
-    const uint64_t slicePitchNEAT = (m_IsNEATSupportedMemObj) ? 0: 0; // do not support 3D at the moment
-
+    const uint64_t rowPitchNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetSizesDesc().row : 0;
+    const uint64_t slicePitchNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetSizesDesc().slice : 0;
+    
     // loop over pixels in image
     for(uint64_t z = 0; z < Depth; ++z)
     {
-        if(Is3D) m_indexStack.pushIdx(z);
+        if(Is3D || IsArr2D) m_indexStack.pushIdx(z);
 
         for(uint64_t y = 0; y < Height; ++y)
         {
@@ -542,7 +542,7 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
                 toReturn = (res == NOT_PASSED) ? NOT_PASSED : toReturn;
             } // for(uint64_t x = 0; x < Width; ++x)
         } // for(uint64_t y = 0; y < Height; ++y){
-        if(Is3D) m_indexStack.popIdx(); // z
+        if(Is3D || IsArr2D) m_indexStack.popIdx(); // z
     } // for(uint64_t z = 0; z < Depth; ++z)
     return toReturn;
 }

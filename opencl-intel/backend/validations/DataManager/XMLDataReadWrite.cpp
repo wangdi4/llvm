@@ -246,13 +246,17 @@ namespace Validation
     template<>
     inline void XMLReadWriteAttr<ImageDesc>(ImageDesc* el, TiXmlElement * xml, const std::string&, const IXMLReadWriteBase::RWOperationType rwtype)
     {
-        size_t numOfDimensions = (IXMLReadWriteBase::READ == rwtype) ? 0 : el->GetNumOfDimensions();
-        ImageSizes imageSizes = (IXMLReadWriteBase::READ == rwtype) ? ImageSizes() : el->GetSizes();
+        ImageTypeVal imageType = el->GetImageType();
+        ImageSizeDesc imageSizes = (IXMLReadWriteBase::READ == rwtype) ? ImageSizeDesc() : el->GetSizesDesc();
         string dataTypeStr = (IXMLReadWriteBase::READ == rwtype) ? "" : el->DataTypeToString();
         string orderStr = (IXMLReadWriteBase::READ == rwtype) ? "" : el->OrderToString();
         size_t pixelSize = (IXMLReadWriteBase::READ == rwtype) ? 0 : el->GetElementSize();
         bool isNEAT = (IXMLReadWriteBase::READ == rwtype) ? false : el->IsNEAT();
-        XMLReadWriteAttr((size_t*)&numOfDimensions, xml, "dimensions", rwtype);
+        uint32_t versionHigh = 1;
+        uint32_t versionLow = 2;
+        XMLReadWriteAttr((uint32_t*)&versionHigh, xml, "versionHigh", rwtype);
+        XMLReadWriteAttr((uint32_t*)&versionLow, xml, "versionLow", rwtype);
+        XMLReadWriteAttr((size_t*)&imageType, xml, "imageType", rwtype);
         XMLReadWriteAttr((int64_t*)&imageSizes.width, xml, "width", rwtype);
         XMLReadWriteAttr((int64_t*)&imageSizes.height, xml, "height", rwtype);
         XMLReadWriteAttr((int64_t*)&imageSizes.depth, xml, "depth", rwtype);
@@ -265,7 +269,7 @@ namespace Validation
 
         if(IXMLReadWriteBase::READ == rwtype)
         {
-            *el = ImageDesc(numOfDimensions, 
+            *el = ImageDesc(imageType, 
                             imageSizes, 
                             ImageChannelDataTypeValWrapper::ValueOf(dataTypeStr),
                             ImageChannelOrderValWrapper::ValueOf(orderStr),
