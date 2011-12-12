@@ -283,8 +283,9 @@ namespace intel {
   }
 
   bool WIRelatedValue::calculate_dep(AllocaInst *pInst) {
-    //No need to handle alloca instruction, it is handled separately
-    return false;
+    //Alloca instruction is assumed to be non-uniform.
+    //In fact, It is stored in special buffer always in the current design!
+    return true;
   }
 
   bool WIRelatedValue::calculate_dep(CastInst *pInst) {
@@ -327,16 +328,18 @@ namespace intel {
 
     //Run on all WI related values
     OS << "\nWI related Values\n";
-    TValuesMap::const_iterator vi = m_specialValues.begin();
-    TValuesMap::const_iterator ve = m_specialValues.end();
-    for ( ; vi != ve; ++vi ) {
-      Value *pVal = dyn_cast<Value>(vi->first);
-      if ( isa<StoreInst>(pVal) ) continue;
-      bool isWIRelated = vi->second;
-      //Print vale name is (not) WI related!
-      OS << pVal->getNameStr();
-      OS << ( (isWIRelated) ? " is WI related" : " is not WI related" );
-      OS << "\n";
+    for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
+      for ( const_inst_iterator it = inst_begin(fi), e = inst_end(fi); it != e; ++it ) {
+        const Instruction* pInst = dyn_cast<Instruction>(&*it);
+        //Store and Return instructions has no value (i.e. no name) don't print them!
+        if ( isa<StoreInst>(pInst) || isa<ReturnInst>(pInst) ) continue;
+        Value* pVal = (Value*)pInst;
+        bool isWIRelated = m_specialValues.find(pVal)->second;
+        //Print vale name is (not) WI related!
+        OS << pVal->getNameStr();
+        OS << ( (isWIRelated) ? " is WI related" : " is not WI related" );
+        OS << "\n";
+      }
     }
   }
 
