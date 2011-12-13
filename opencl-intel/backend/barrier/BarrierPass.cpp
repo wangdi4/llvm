@@ -61,6 +61,7 @@ namespace intel {
 
     //Clear container for new iteration on new function
     m_toRemoveInstructions.clear();
+    m_preSyncLoopHeader.clear();
 
     if ( m_pDataPerBarrier->hasFiberInstruction(&F) ) {
       //TODO: handle this case
@@ -249,7 +250,10 @@ namespace intel {
       ie = m_pSyncInstructions->end(); ii != ie; ++ii ) {
         Instruction *pInst = dyn_cast<Instruction>(*ii);
         assert( pInst && "sync instruction container contains non instruction!" );
-        pInst->getParent()->splitBasicBlock(BasicBlock::iterator(pInst), "SyncBB");
+        BasicBlock* pLoopHeaderBB = pInst->getParent();
+        BasicBlock* pLoopEntryBB = 
+          pInst->getParent()->splitBasicBlock(BasicBlock::iterator(pInst), "SyncBB");
+        m_preSyncLoopHeader[pLoopEntryBB] = pLoopHeaderBB;
         m_toRemoveInstructions.push_back(pInst);
     }
     for ( TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
@@ -259,8 +263,8 @@ namespace intel {
         unsigned int id = m_pDataPerBarrier->getUniqueID(pInst);
         SYNC_TYPE type = m_pDataPerBarrier->getSyncType(pInst);
         BasicBlock *pSyncBB = pInst->getParent();
-        BasicBlock *pPreSyncBB = pSyncBB->getSinglePredecessor();
-        assert( pPreSyncBB && "pSyncBB assumed to have single predecessor by this point!" );
+        BasicBlock *pPreSyncBB = m_preSyncLoopHeader[pSyncBB];
+        assert( pPreSyncBB && "pSyncBB assumed to have sync loop header basic block!" );
         if ( SYNC_TYPE_DUMMY_BARRIER == type ) {
           //This is a dummy barrier replace with the following
           // currWI = 0

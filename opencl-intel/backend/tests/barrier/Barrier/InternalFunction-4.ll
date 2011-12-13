@@ -34,6 +34,8 @@ L2:
 L3:
   call void @dummybarrier.()
   %w = and i32 %z, %z
+  br label %L4
+L4:
   call void @barrier(i32 1)
   ret void
 ; CHECK-NOT: @dummybarrier.
