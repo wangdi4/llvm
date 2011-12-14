@@ -10,6 +10,8 @@ else:
     TIMEOUT_RETCODE = -9
 
 demo_mode = False
+print_output = True
+print_cmd = False
 
 class CommandLineTool:
     def __init__(self):
@@ -25,15 +27,13 @@ class CommandLineTool:
                     break;
             else:
                 self.out.write(line)
-                sys.stdout.write( '\t' + line.rstrip() + '\n')
+                if( print_output ):
+                    sys.stdout.write( '\t' + line.rstrip() + '\n')
 
     def runCommand(self, command, timeout=-1 ):
         """Returns errorcode, stdout"""
         retcode = 0
         errstr  = ''
-
-        if( demo_mode ):
-            return (retcode, 'Demo mode')    
 
         useShell=True
         if platform.system() == 'Windows':
@@ -42,6 +42,9 @@ class CommandLineTool:
         stdout_thread = None
         
         try:
+            if( print_cmd):
+                sys.stdout.write('Running:' + command + '\n')
+        
             proc = killableprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=useShell)
             self.stdout = proc.stdout
             stdout_thread = threading.Thread(target=self._readerthread)
@@ -62,9 +65,11 @@ class CommandLineTool:
             if stdout_thread != None:
                 stdout_thread.join()
             if errstr != '':
-                sys.stdout.write(errstr + '\n')
+                if( print_output):
+                    sys.stdout.write(errstr + '\n')
                 self.out.write(errstr)
-            sys.stdout.flush()
+            if( print_output):    
+                sys.stdout.flush()
         
         self.out.seek(0)
         return (retcode, self.out.read())

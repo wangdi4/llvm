@@ -1,15 +1,38 @@
 """
 Hudson specific utility classes
 """
-import urllib,os,time
+import urllib, urllib2, os, time
+
+BUILD_JOB    = 'job/%(name)s/build'
+BUILD_WITH_PARAMS_JOB = 'job/%(name)s/buildWithParameters'
+
+"""
+Start the given job with the given parameters
+"""
+def startJob( root_url, jobname, jobparams = None ):
+    joburl = ''
+    if jobparams:
+        joburl = root_url + '/' + BUILD_WITH_PARAMS_JOB%{'name':jobname} + '?' + urllib.urlencode(jobparams)
+    else:
+        joburl = root_url + '/' + BUILD_JOB%{'name':jobname}
+
+    req = urllib2.Request(joburl)
+    
+    try:
+        urllib2.urlopen(req).read()
+    except urllib2.HTTPError, e:
+        # Jenkins's funky authentication means its nigh impossible to distinguish errors.
+        if e.code in [401, 403, 500]:
+            raise Exception('Error in request. Possibly authentication failed [%s]'%(e.code))
+        # right now I'm getting 302 infinites on a successful delete
 
 """
 Retrieves Hudson Job information
 """
-def getDownstreamJobNumber(self, upstream_project, downstream_project, upstream_build_number = ''):
+def getDownstreamJobNumber(upstream_project, downstream_project, upstream_build_number = ''):
     count = 1
     max_count = 5
-    time_out = 5
+    time_out = 30
     s = 0
     jenkins_url = os.environ["JENKINS_URL"]
     

@@ -1,11 +1,9 @@
 import os.path, sys, platform, traceback
+from framework.hudson.core import HudsonTestRunner
 from Volcano_Common import VolcanoRunConfig
-from Hudson_Common import HudsonTestRunner, HudsonBuildEnvironment
+from Hudson_Common import HudsonBuildEnvironment
 from Volcano_Build import VolcanoBuilder
 from Volcano_Tasks import ArchiverTask, BINARIES_ARCH_NAME
-import Volcano_CmdUtils
-
-# Initialize Globals
 
 def main():
     env       = HudsonBuildEnvironment()

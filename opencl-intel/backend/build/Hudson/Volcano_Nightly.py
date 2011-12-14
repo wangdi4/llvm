@@ -1,9 +1,12 @@
 from optparse import OptionParser
 import os, sys, platform
-import Volcano_CmdUtils
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, DX_10_SHADERS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+import framework.cmdtool
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR 
+from framework.utils import EnvironmentValue
+from framework.tasks import SimpleTest
+from Volcano_Common import VolcanoRunConfig, DX_10_SHADERS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Build import VolcanoBuilder, CopyWolfWorkloads
-from Volcano_Tasks import LitTest, SimpleTest, VectorizerTest
+from Volcano_Tasks import LitTest, VectorizerTest
 from Volcano_Conformance_Nightly import VolcanoConformanceNightly
 
 class VolcanoNightlyBAT(VolcanoTestSuite):
@@ -64,7 +67,7 @@ def main():
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 

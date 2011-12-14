@@ -1,8 +1,11 @@
+import os.path, sys, platform, glob, fnmatch
 from optparse import OptionParser
-import os.path, sys, platform, glob, fnmatch, re
-from Volcano_Common import EnvironmentValue, VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite,VolcanoCmdTask, TestTaskResult, PERFORMANCE_TESTS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, TIMEOUT_HALFHOUR
-from Volcano_Tasks import SimpleTest
-import Volcano_CmdUtils
+import re
+import framework.cmdtool
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, TestTaskResult, TIMEOUT_HALFHOUR
+from framework.tasks import SimpleTest 
+from framework.utils import EnvironmentValue 
+from Volcano_Common import VolcanoRunConfig, PERFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES 
 from BIMeterFullWW35 import BIMeterFullWW35
 
 # Note that the iteration count is modified to 3 for the stable cases (STD < 0.005).
@@ -1264,32 +1267,49 @@ def FillBIMeterPerformanceTable(Path, Iterations, TargetType):
 
 class PerformanceRunConfig():
     CFG_NAME = "PerformanceConfig"
-    def __init__(self, tests_path):
+    def __init__(self, tests_path, logs_path, dump_ir, dump_jit):
         if '' == tests_path:
             tests_path = PERFORMANCE_TESTS_ROOT
+            
+        if '' == logs_path:
+            logs_path = PERFORMANCE_LOG_ROOT
+            
         self.tests_root_dir = tests_path
+        self.logs_root_dir = logs_path
+        self.dump_ir  = dump_ir
+        self.dump_jit = dump_jit
 
 class PerformanceTestRunner(VolcanoTestRunner):
     def __init__(self, csv_filename):
         VolcanoTestRunner.__init__(self)
         self.csv_filename = csv_filename
 
-    def OnAfterTaskExecution(self, task, result, stdoutdata):
-        VolcanoTestRunner.OnAfterTaskExecution(self, task, result, stdoutdata)
+    def OnAfterTaskExecution(self, task):
+        VolcanoTestRunner.OnAfterTaskExecution(self, task)
         if( isinstance(task,PerformanceTask)):
-            if  TestTaskResult.Passed == result:
+            if  TestTaskResult.Passed == task.result:
                 with open(self.csv_filename, 'a') as csv_file:
-                    print >> csv_file, stdoutdata.rstrip()
+                    print >> csv_file, task.stdout.rstrip()
                     
 class PerformanceTask(VolcanoCmdTask):
-    def __init__(self, suite_path, wl_name, build_iterations, execute_iterations, config):
+    def __init__(self, suite_name, suite_path, wl_name, build_iterations, execute_iterations, config):
         VolcanoCmdTask.__init__(self, wl_name)
         perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
         config_file  = os.path.join( perf_config.tests_root_dir, suite_path, config.target_type, wl_name + '.cfg')
         self.workdir = config.bin_dir
         self.command = 'SATest -PERF -OCL -tsize=' + config.transpose_size + ' -cpuarch=' + config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
+        
         if config.cpu_features != '':
             self.command = self.command + ' -cpufeatures=' + run_config.cpu_features
+        
+        if True == perf_config.dump_ir:
+            ir_filename = '_'.join([suite_name, wl_name, config.cpu, config.transpose_size]) + '.ll'
+            self.command = self.command + ' -dump-llvm-file=' + os.path.join(perf_config.logs_root_dir, ir_filename)
+            
+        if True == perf_config.dump_jit:
+            jit_filename = '_'.join([suite_name, wl_name, config.cpu, config.transpose_size]) + '.asm'
+            self.command = self.command + ' -dump-JIT=' + os.path.join(perf_config.logs_root_dir, jit_filename)
+            
 
 class VolcanoPerformanceSuite(VolcanoTestSuite):
     def __init__(self, name, suite_name, suite_path, config, tests, mask = r".*"):
@@ -1302,7 +1322,7 @@ class VolcanoPerformanceSuite(VolcanoTestSuite):
         
         for test in tests:
             if pattern.match(test[0]):        
-                task = PerformanceTask(self.suitepath, test[0], 1, test[1], config)
+                task = PerformanceTask(suite_name, self.suitepath, test[0], 1, test[1], config)
                 task.timeout = TIMEOUT_HALFHOUR
                 self.addTask(task)
                 
@@ -1327,9 +1347,9 @@ class VolcanoPerformanceSuite(VolcanoTestSuite):
 class VolcanoWOLFPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'WOLF', None, config, WOLFPerformance)
-        self.updateTask('wlHistogram', skiplist=[['.*','Win32']])
+        self.updateTask('wlHistogram',   skiplist=[['.*','Win32']])
         self.updateTask('wlHistogram_1', skiplist=[['.*','Win32']])
-        self.updateTask('wlPrefixSum', skiplist=[['.*','Win32']])
+        self.updateTask('wlPrefixSum',   skiplist=[['.*','Win32']])
         self.updateTask('wlSubdivision', skiplist=[[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]])
 
 class VolcanoWOLFBenchPerformanceSuite(VolcanoPerformanceSuite):
@@ -1473,7 +1493,7 @@ def main():
         return 1
     
     # Run the performance suite for the current configuration
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
     
 
     if (options.suite not in perf_suites):
@@ -1487,7 +1507,7 @@ def main():
                               options.cpu_features,
                               options.vector_size)
     
-    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path, 'c:/temp', True, True)
     
     suite  = perf_suites[options.suite][0](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)

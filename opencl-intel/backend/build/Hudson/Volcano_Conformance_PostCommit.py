@@ -1,8 +1,11 @@
 import os, sys, platform
-import Volcano_CmdUtils
+import framework.cmdtool
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, TIMEOUT_HOURANDHALF,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
-from Volcano_Tasks import LitTest, SimpleTest
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, TIMEOUT_HOURANDHALF
+from framework.utils import EnvironmentValue
+from framework.tasks import SimpleTest
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Tasks import LitTest
 from Volcano_WOLF import VolcanoWolf, WolfPostCommit
 from Volcano_Conformance_Framework import VolcanoConformanceFramework
 from Volcano_Conformance_Basic import VolcanoConformanceBasic
@@ -59,7 +62,7 @@ def main():
     
     (options, args) = parser.parse_args()
 
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 

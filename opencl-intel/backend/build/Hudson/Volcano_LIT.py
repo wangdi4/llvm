@@ -1,7 +1,8 @@
 import os, sys, platform
-import Volcano_CmdUtils
+import framework.cmdtool
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
 from Volcano_Build import VolcanoBuilder, VolcanoBuilderConfig
 from Volcano_Tasks import LitTest 
 
@@ -30,10 +31,6 @@ class VolcanoLIT(VolcanoTestSuite):
         os.environ['VOLCANO_ARCH'] = self.config.cpu
         os.environ['VOLCANO_CPU_FEATURES'] = self.config.cpu_features
         os.environ['VOLCANO_TRANSPOSE_SIZE'] = self.config.transpose_size
-
-            
-        
-        
         
 def main():
     parser = OptionParser()
@@ -52,7 +49,7 @@ def main():
     if True == options.skip_build:
         skiplist=[['.*']]
     
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 

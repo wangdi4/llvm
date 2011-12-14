@@ -107,7 +107,7 @@ inline cl_long RDTSC()
 #else
     if (sizeof(void *) < 8)
     {
-        //	32 bits
+        //    32 bits
         uint32_t lo, hi;
         __asm__ __volatile__("rdtsc":"=a"(lo), "=d"(hi));
         return (cl_long) ((uint64_t)hi << 32 | lo);
@@ -270,8 +270,8 @@ cl_long Performance::GetExecutionTime(const std::string& name) const
     
     return sample->second.MinimalSample().TotalTicks();
 }
-
-void Performance::Print(const std::string& programName) const
+    
+void Performance::Visit(IPerformanceVisitor* pVisitor) const
 {
     cl_long buildTicks = m_buildSample.MinimalSample().TotalTicks();
     double  buildMean  = m_buildSample.Mean();
@@ -298,20 +298,16 @@ void Performance::Print(const std::string& programName) const
         double sd     = it->second.StandardDeviation();
         double sdmean = sd / mean;
 
-        //it->second.Print();
-
-        std::cout << programName << "."
-                  << it->first << ","
-                  << buildTicks << ","
-                  << buildSDMean << ","
-#ifdef MIC_ENABLE
-                  << serializationTicks << ","
-                  << serializationSDMean << ","
-                  << deserializationTicks << ","
-                  << deserializationSDMean << ","
-#endif //MIC_ENABLE
-                  << it->second.MinimalSample().TotalTicks() << ","
-                  << sdmean
-                  << std::endl;
+        pVisitor->OnKernelSample(it->first,  
+                                 buildTicks, 
+                                 buildSDMean,
+            #ifdef MIC_ENABLE
+                                 serializationTicks,
+                                 serializationSDMean,
+                                 deserializationTicks,
+                                 deserializationSDMean,
+            #endif //MIC_ENABLE
+                                 it->second.MinimalSample().TotalTicks(),
+                                 sdmean);
     }
 }

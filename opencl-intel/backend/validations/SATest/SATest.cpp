@@ -26,6 +26,7 @@ File Name:  SATest.cpp
 
 #include "IComparisonResults.h"
 #include "ComparisonResults.h"
+#include "PerformancePrinter.h" 
 
 #include <memory>
 #include <string>
@@ -100,14 +101,16 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
     std::cout << "Test Passed." << endl;
 }
 
+
 void SATest::RunPerformance(const IRunComponentConfiguration* pRunConfiguration)
 {
     std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
-    spRunner->Run(&runResult, m_pProgram,
-        m_pProgramConfiguration, pRunConfiguration);
-    ((Performance&)runResult.GetPerformance()).Print(m_pProgramConfiguration->GetProgramName());
+    spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);
+	
+    PerformancePrinter printer(m_pProgramConfiguration, pRunConfiguration);
+	runResult.GetPerformance().Visit(&printer);
 }
 
 void SATest::RunReference(const IRunComponentConfiguration* pRunConfiguration)

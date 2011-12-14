@@ -1,5 +1,5 @@
 import os.path, sys, platform
-from Volcano_Common import PERFORMANCE_LOG_ROOT, VolcanoTestSuite, VolcanoRunConfig
+from Volcano_Common import VolcanoTestSuite, VolcanoRunConfig
 from Volcano_Performance import VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, PerformanceTask
 from Volcano_Build import VolcanoBinaryCopy
 from Volcano_Tasks import SimpleTest, UnarchiverTask, BINARIES_ARCH_NAME

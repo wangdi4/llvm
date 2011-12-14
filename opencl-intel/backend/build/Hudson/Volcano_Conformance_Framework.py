@@ -1,6 +1,6 @@
 import os
-from Volcano_Common import VolcanoTestSuite
-from Volcano_Tasks import SimpleTest
+from framework.core import VolcanoTestSuite
+from framework.tasks import SimpleTest
 
 FrameworkTestsNames = [
 'Test_clGetDeviceIDsTest',

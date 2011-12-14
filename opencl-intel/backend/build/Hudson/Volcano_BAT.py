@@ -1,9 +1,13 @@
 from optparse import OptionParser
 import os, sys, platform
-import Volcano_CmdUtils
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR,  DX_PERFORMANCE_SHADERS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+import framework.cmdtool
+import framework.resultPrinter
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
+from framework.utils import EnvironmentValue
+from framework.tasks import SimpleTest
+from Volcano_Common import VolcanoRunConfig,  SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Build import VolcanoBuilder, CopyWolfWorkloads
-from Volcano_Tasks import LitTest, SimpleTest, VectorizerTest 
+from Volcano_Tasks import VectorizerTest 
 from Volcano_WOLF import VolcanoWolfPostCommit, VolcanoWolfPerformance
 from Volcano_Conformance_PostCommit import VolcanoConformancePostCommit
 
@@ -64,18 +68,18 @@ class VolcanoPostCommit(VolcanoTestSuite):
         
 def main():
     parser = OptionParser()
-    parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32/64,Linux64", default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: Debug,Release", default="Release")
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
-    parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features:+avx,-avx256", default="")
-    parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size: 0(auto),1,4,8,16", default="0")
-    parser.add_option("-s", "--skipbuild", action="store_true", dest="skip_build", help="skip the build", default=False)
-    parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
+    parser.add_option("-r", "--root",         dest="root_dir",       help="project root directory", default=None)
+    parser.add_option("-t", "--target",       dest="target_type",    help="Target type: " + str(SUPPORTED_TARGETS), default="Win32")
+    parser.add_option("-b", "--build",        dest="build_type",     help="Build type: " + str(SUPPORTED_BUILDS), default="Release")
+    parser.add_option("-c", "--cpu",          dest="cpu",            help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-f", "--cpu-features", dest="cpu_features",   help="CPU features:+avx,-avx256", default="")
+    parser.add_option("-v", "--vec",          dest="transpose_size", help="Tranpose Size: " + str(SUPPORTED_VECTOR_SIZES), default="0")
+    parser.add_option("-s", "--skipbuild",    action="store_true",   dest="skip_build", help="skip the build", default=False)
+    parser.add_option("-d", "--demo",         action="store_true",   dest="demo_mode",  help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
 
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
@@ -86,6 +90,8 @@ def main():
     suite  = VolcanoPostCommit('PostCommit', config, options.skip_build)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
+    printer= framework.resultPrinter.ResultPrinter()
+    suite.visit(printer)
     
     if not passed:
         return 1
@@ -93,13 +99,13 @@ def main():
     
 
 if __name__ == "__main__":
-        if platform.platform().startswith("CYGWIN"):
-            print "Cygwin Python is not supported. Please use ActiveState Python."
-            sys.exit(1);
-        if sys.version_info < (2, 6):
-            print "Python version 2.6 or later required"
-            sys,exit(1)
-        main_result = main()
-        sys.exit(main_result)
+    if platform.platform().startswith("CYGWIN"):
+        print "Cygwin Python is not supported. Please use ActiveState Python."
+        sys.exit(1);
+    if sys.version_info < (2, 6):
+        print "Python version 2.6 or later required"
+        sys,exit(1)
+    main_result = main()
+    sys.exit(main_result)
 
 

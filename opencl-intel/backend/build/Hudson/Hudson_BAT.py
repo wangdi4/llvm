@@ -1,10 +1,9 @@
 import os.path, sys, platform, traceback
-from Volcano_Common import VolcanoTestSuite
-from Hudson_Common import HudsonTestRunner, HudsonRunConfig
+from framework.core import VolcanoTestSuite
+from framework.hudson.core import HudsonTestRunner
+from Hudson_Common import HudsonRunConfig
 from Volcano_BAT import VolcanoBAT
 from Volcano_Build import VolcanoBuilder
-import Volcano_CmdUtils
-
 
 
 class HudsonPreCommit(VolcanoTestSuite):

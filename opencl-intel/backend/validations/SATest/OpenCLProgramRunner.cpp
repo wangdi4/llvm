@@ -447,8 +447,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         BuildProgram(spProgram.get(), spCompileService.get(), runResult, pOCLRunConfig);
     }
 
-    if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() &&
-        !pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false))
+    if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() )
     {
         //currently dumping to the file is temporary unsupported
         const ICLDevBackendCodeContainer* pCodeContainer = spProgram->GetProgramCodeContainer();
@@ -459,8 +458,8 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty())
     {
         spCompileService->DumpJITCodeContainer(spProgram->GetProgramCodeContainer(),
-                pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
-                pOCLProgramConfig->GetBaseDirectory());
+											   pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
+											   pOCLProgramConfig->GetBaseDirectory());
     }
 
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))

@@ -99,7 +99,7 @@ namespace Validation
         std::vector<Sample> m_samples;
     };
 
-
+	
     /// @brief This class enables test execution performence measurements.
     /// The measurements consist of build time and execution time.
     class Performance : public IPerformance
@@ -125,9 +125,8 @@ namespace Validation
         /// @brief Add the sample to the sample vector for given kernel
         void SetExecutionTime(const std::string& name, const Sample& sample);
 
-        /// @brief Prints the results
-        /// TODO: temporary solution - find more elegant one
-        void Print(const std::string& programName) const;
+        /// @brief Visits the performance data
+        void Visit(IPerformanceVisitor* pVisitor) const;
 
     private:
         typedef std::map<std::string, SampleVector > Samples;

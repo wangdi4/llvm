@@ -23,6 +23,27 @@ File Name:  IPerformance.h
 
 namespace Validation
 {
+    // @brief This is a base interface for the performance class visitor
+    class IPerformanceVisitor
+    {
+    public:
+        virtual ~IPerformanceVisitor() {}
+        
+        virtual void OnKernelSample(const std::string& kernel,  
+                                    cl_long buildTicks, 
+                                    double buildSDMean,
+#ifdef MIC_ENABLE
+                                    cl_long serializationTicks,
+                                    double serializationSDMean,
+                                    cl_long deserializationTicks,
+                                    double deserializationSDMean,
+#endif //MIC_ENABLE
+                                    cl_long executionTicks,
+                                    double executionSDMean
+                            ) = 0;
+    };
+
+
   /// @brief This class enables test execution performance measurements.
   /// The measurements consist of build time and execution time.
   class IPerformance
@@ -39,6 +60,11 @@ namespace Validation
     /// @return Execution time for specified kernel
     /// returns -1 otherwise
     virtual cl_long GetExecutionTime(const std::string& name) const = 0;
+    
+    
+    /// @brief Visits the performance data
+    virtual void Visit(IPerformanceVisitor* pVisitor) const = 0;
+    
   };
 }
 

@@ -1,5 +1,8 @@
 import os.path, platform, re, shutil
-from Volcano_Common import VolcanoCmdTask, EnvironmentValue, TIMEOUT_HOUR, DEFAULT_OCL_SOLUTION
+from framework.core import TIMEOUT_HOUR 
+from framework.tasks import VolcanoCmdTask
+from framework.utils import EnvironmentValue
+from Volcano_Common import DEFAULT_OCL_SOLUTION
 
 vectorizerEnvName = "CL_CONFIG_USE_VECTORIZER"
 BINARIES_ARCH_NAME = 'Binaries.7z'
@@ -7,12 +10,6 @@ z7_cmd = "/usr/intel/bin/7z -y"
 if platform.system() == 'Windows':
     z7_cmd = "\"C:/Program Files/7-Zip/7z.exe\" -y"
 
-class SimpleTest(VolcanoCmdTask):
-    """ This a simple test that just run the given command with given working directory """
-    def __init__(self, name, workdir, command):
-        VolcanoCmdTask.__init__(self, name)
-        self.workdir = workdir
-        self.command = command
 
 class LitTest(VolcanoCmdTask):
     """ Runs the LIT test with the given name """

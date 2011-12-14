@@ -1,21 +1,18 @@
-import os.path, sys, platform
-import Volcano_CmdUtils
-from Hudson_Common import HudsonBuildEnvironment, HudsonTestRunner, HudsonRunConfig
-from Volcano_Common import TestTaskResult, VolcanoCmdTask, PERFORMANCE_LOG_ROOT, VolcanoTestSuite, VolcanoTestRunner
+import os.path, sys, platform, datetime
+from framework.core import TestTaskResult,VolcanoCmdTask, VolcanoTestSuite, VolcanoTestRunner 
+from framework.hudson.core import HudsonTestRunner
+from Hudson_Common import HudsonBuildEnvironment, HudsonRunConfig
+from Volcano_Common import PERFORMANCE_LOG_ROOT 
 from Volcano_Performance import perf_suites, PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
 from Volcano_Build import VolcanoBinaryCopy
 
 
  
 class HudsonPerformanceRunConfig(PerformanceRunConfig):
-    def __init__(self, tests_path, log_path):
-        PerformanceRunConfig.__init__(self, tests_path)
-        
-        if '' == log_path:
-            log_path = PERFORMANCE_LOG_ROOT
+    def __init__(self, tests_path, logs_path, dump_ir, dump_jit):
+        PerformanceRunConfig.__init__(self, tests_path, logs_path, dump_ir, dump_jit)
 
         env = HudsonBuildEnvironment()
-        self.logs_root_dir = log_path
         self.svn_revision  = env.getParam('SVN_Requested_Revision')
         self.test_suite    = env.getParam('Test_Suite')
         
@@ -25,22 +22,21 @@ class HudsonPerformanceTestRunner(HudsonTestRunner):
     """
     def __init__(self, config):
         HudsonTestRunner.__init__(self, config, '')
-        perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
+        perf_config = config.sub_configs[PerformanceRunConfig.CFG_NAME]
         self.csv_filename_base = os.path.join( perf_config.logs_root_dir,  "volcano_wolf_perf_" + '_'.join([perf_config.svn_revision, config.target_type, config.cpu, config.transpose_size]))
         self.csv_filename = self.csv_filename_base
 
-    def OnAfterTaskExecution(self, task, result, stdoutdata):
-        VolcanoTestRunner.OnAfterTaskExecution(self, task, result, stdoutdata)
+    def OnAfterTaskExecution(self, task):
+        VolcanoTestRunner.OnAfterTaskExecution(self, task)
         if( isinstance(task,PerformanceTask)):
-            if  TestTaskResult.Passed == result:
+            if  TestTaskResult.Passed == task.result:
                 with open(self.csv_filename, 'a') as csv_file:
-                    print >> csv_file, stdoutdata.rstrip()
+                    print >> csv_file, task.stdout_raw.rstrip()
                             
     def OnBeforeSuiteExecution(self, suite):
         HudsonTestRunner.OnBeforeSuiteExecution(self, suite)
         if( isinstance(suite, VolcanoPerformanceSuite)):
             self.csv_filename = self.csv_filename_base + "_" + suite.suitename + ".csv"
-
 
 class HudsonPerformanceSuite(VolcanoTestSuite):
     def __init__(self, name, config):
@@ -59,9 +55,16 @@ def main():
     # get the configuration parameters from the environment
     root_dir    = os.path.join(os.getcwd(),'trunk')
 
+    # create the log directory
+    env         = HudsonBuildEnvironment()
+    cur_revision= env.getParam('SVN_Requested_Revision')
+    log_dir     = os.path.join(PERFORMANCE_LOG_ROOT, cur_revision)
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    
     # setup the configuration and test suite 
     config = HudsonRunConfig(root_dir)
-    perf_config = HudsonPerformanceRunConfig('','')
+    perf_config = HudsonPerformanceRunConfig('',log_dir, True, True)
     config.sub_configs[PerformanceRunConfig.CFG_NAME]=perf_config
 
     suite  = HudsonPerformanceSuite("PerformanceSuite", config) 

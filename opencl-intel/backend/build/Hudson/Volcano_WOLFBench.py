@@ -1,6 +1,6 @@
 from optparse import OptionParser
 import  sys, platform
-import Volcano_CmdUtils
+import framework.cmdtool
 from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Tasks import WOLFBenchTest
 
@@ -74,7 +74,7 @@ def main():
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
-    Volcano_CmdUtils.demo_mode = options.demo_mode
+    framework.cmdtool.demo_mode = options.demo_mode
 
     suites = {"Wolfbench": Wolfbench}
 

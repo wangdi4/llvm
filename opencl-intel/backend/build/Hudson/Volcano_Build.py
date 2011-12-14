@@ -1,33 +1,14 @@
 import os,sys,platform,errno,shutil,re
-from Volcano_Tasks import BINARIES_ARCH_NAME, UnarchiverTask
+import framework.cmdtool
+import framework.resultPrinter
+
 from optparse import OptionParser
-from Volcano_CmdUtils import CommandLineTool
-import Volcano_CmdUtils
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, VolcanoTestTask, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_WORLOADS_ROOT, DEFAULT_VS_VERSION, DEFAULT_VOLCANO_SOLUTION, DEFAULT_OCL_SOLUTION
-from Volcano_Tasks import SimpleTest
+from framework.tasks import SimpleTest, DirCleanup
+from framework.utils import VSEnvironment
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, VolcanoTestTask, TestTaskResult
+from Volcano_Tasks import BINARIES_ARCH_NAME, UnarchiverTask
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_WORLOADS_ROOT, DEFAULT_VS_VERSION, DEFAULT_VOLCANO_SOLUTION, DEFAULT_OCL_SOLUTION
 
-class VSVersion:
-    def __init__(self, version, programFiles_relpath, cmake_builder_name):
-        self.version              = version
-        self.programFiles_relpath = programFiles_relpath
-        self.cmake_builder_name   = cmake_builder_name
-
-VSVersion_List = { 9  : VSVersion(9,  "Microsoft Visual Studio 9.0",  "Visual Studio 9 2008"),
-                   10 : VSVersion(10, "Microsoft Visual Studio 10.0", "Visual Studio 10") }
-                   
-class VSEnvironment:
-    def __init__(self, version):
-        self.vc_version = VSVersion_List[version]
-
-    def DevEnvPath(self):
-        return os.path.join(os.environ['ProgramFiles(x86)'] , self.vc_version.programFiles_relpath ,'Common7', 'IDE', 'devenv.com' )
-    
-    def CMakeGenerator(self):
-        return self.vc_version.cmake_builder_name
-
-    def Asm64Path(self):
-        path = os.getenv("ProgramFiles(x86)").replace('\\','/')
-        return path + '/' + self.vc_version.programFiles_relpath + '/VC/bin/x86_amd64/ml64.exe'
     
 class CMakeConfig:
     """CMake specific configuration"""
@@ -164,22 +145,22 @@ class FixWolfWorkloads(VolcanoTestTask):
     
     def runTest(self, observer, config):
         if not os.path.exists(self.workdir):
-            return (True, "Working directore not exists. Nothing to fix")
+            self.logAndPrint("Working directore not exists. Nothing to fix")
+            return TestTaskResult.Passed
             
         os.chdir(self.workdir)
         
         cmd = CommandLineTool()
-        outdata = ''
         
         for root, dirs, files in os.walk(self.workdir):
             for name in files:
                 if name.endswith('.cfg'):
                     fname = os.path.realpath(os.path.join(root,name))
                     (retcode, stdoutdata) = cmd.runCommand("sed -i -e s#\.\.\/\.\.\/\.\.\/Workloads#Workloads# " + fname)
-                    outdata += stdoutdata
+                    self.log(stdoutdata)
                     if retcode != 0:
-                        return (False, outdata)
-        return(True, outdata)
+                        return TestTaskResult.Failed
+        return TestTaskResult.Passed
 
 class CopyWolfWorkloads(VolcanoTestSuite):
     def __init__(self, name, config):
@@ -193,15 +174,6 @@ class CopyWolfWorkloads(VolcanoTestSuite):
             
         self.addTask( FixWolfWorkloads( 'FixWolfWLs', config), stop_on_failure=True)
 
-class DirCleanup(VolcanoTestTask):
-    """ Cleans both the install and build directories """
-    def __init__(self, name, config, dir_name):
-        VolcanoTestTask.__init__(self, name)
-        self.dir_name = dir_name
-        
-    def runTest(self, observer, config):
-        shutil.rmtree(self.dir_name, ignore_errors=True)
-        return(True, "")
 
 class FixCSharpProject(VolcanoTestTask):
     """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""
@@ -312,7 +284,7 @@ def main():
    
     (options, args) = parser.parse_args()
 
-    Volcano_CmdUtils.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
@@ -332,6 +304,8 @@ def main():
                             skip_build= options.cmake_only)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
+    printer= framework.resultPrinter.ResultPrinter()
+    suite.visit(printer)
     
     if not passed:
         return 1

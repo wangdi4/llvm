@@ -1,8 +1,8 @@
 import os.path, sys, platform, traceback
-from Hudson_Common import HudsonTestRunner, HudsonBuildEnvironment
+from framework.hudson.core import HudsonTestRunner
+from Hudson_Common import HudsonBuildEnvironment
 from Volcano_Common import VolcanoRunConfig
 from Volcano_LIT import VolcanoLIT
-
 
 def main():
     env       = HudsonBuildEnvironment()

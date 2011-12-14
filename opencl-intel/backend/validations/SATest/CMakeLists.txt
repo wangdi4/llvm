@@ -103,6 +103,7 @@ set (SATest_INCLUDE_FILES
     OCLUpdatePass.h
     RunResult.h
     Performance.h
+    PerformancePrinter.h
     RunnerFactoryGenerator.h
     SATest.h
     SATestException.h
@@ -120,6 +121,7 @@ set (SATest_SOURCE_FILES
     main.cpp
     RunResult.cpp
     Performance.cpp
+    PerformancePrinter.cpp
     RunnerFactoryGenerator.cpp
     SATest.cpp
     DXReferenceRunner.cpp

@@ -1,9 +1,8 @@
 import os.path, sys, platform, traceback
-from Hudson_Common import HudsonTestRunner, HudsonRunConfig
+from framework.hudson.core import HudsonTestRunner
+from Hudson_Common import HudsonRunConfig
 from Volcano_BAT import VolcanoBAT
 from Volcano_Build import VolcanoBinaryCopy
-import Volcano_CmdUtils
-
 
 def main():
     trunk_dir = os.path.join(os.getcwd(), 'trunk')
