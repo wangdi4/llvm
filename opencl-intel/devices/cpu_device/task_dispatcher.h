@@ -132,6 +132,9 @@ public:
 	virtual bool isDestributedAllocationRequried();
 	
 protected:
+#ifndef WIN32
+	OclOsDependentEvent						m_evWaitForCompletion;
+#endif
     SubdeviceTaskDispatcherThread*          m_thread;
 
 	OclBinarySemaphore      				m_threadInitComplete;

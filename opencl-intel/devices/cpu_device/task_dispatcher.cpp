@@ -558,6 +558,9 @@ SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, unsigned int* l
 	m_thread(NULL),	m_legalCoreIDs(legalCoreIDs)
 {
 	m_uiNumThreads = numThreads;
+#ifndef WIN32
+	m_evWaitForCompletion.Init(true); // Auto-reset event
+#endif
 }
 
 SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
@@ -607,7 +610,13 @@ cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN lis
 
 cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
 {
+#ifndef WIN32
+	m_commandListsForFlushing.PushBack((void*)0x1);
+	m_evWaitForCompletion.Wait();
+	return CL_DEV_SUCCESS;
+#else
 	return CL_DEV_NOT_SUPPORTED;
+#endif
 }
 
 cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
@@ -702,6 +711,13 @@ int SubdeviceTaskDispatcherThread::Run()
 		{
 			break;
 		}
+#ifndef WIN32
+		if ( (cl_dev_cmd_list*)(0x1) == list )
+		{
+			m_dispatcher->m_evWaitForCompletion.Signal();
+			continue;
+		}
+#endif
 		m_dispatcher->internalFlushCommandList(list);
 	} while(true);
 

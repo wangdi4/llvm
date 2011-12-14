@@ -295,6 +295,7 @@ COND_RESULT OclCondition::Broadcast()
  ************************************************************************/
 typedef struct event_Structure
 {
+	bool	bAutoReset;
 	pthread_mutex_t mutex;
 	pthread_cond_t condition;
 	volatile bool isFired;
@@ -328,6 +329,7 @@ bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
 	{
 		return false;
 	}
+	pEvent->bAutoReset = bAutoReset;
 	pEvent->isFired = false;
   if (0 != pthread_mutex_init(&(pEvent->mutex), NULL))
 	{
@@ -352,17 +354,15 @@ bool OclOsDependentEvent::Wait()
 		//event not initialized
 		return false;
 	}
-	// The condition variable already signaled.
-	// Todo: assumes no reset
-	if (pEvent->isFired)
-	{
-		return true;
-	}
 	pthread_mutex_lock(&(pEvent->mutex));
 	int err = 0;
 	while (!pEvent->isFired) //Todo: maybe && err == 0?
 	{
 		err = pthread_cond_wait(&(pEvent->condition), &(pEvent->mutex));
+	}
+	if ( pEvent->bAutoReset )
+	{
+		pEvent->isFired = false;
 	}
 	pthread_mutex_unlock(&(pEvent->mutex));
 	return (err == 0);
