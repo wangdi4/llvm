@@ -14,13 +14,11 @@ Copyright (c) Intel Corporation (2011).
 
 File Name:  NEATValue.cpp
 
-
 \*****************************************************************************/
 #include "NEATValue.h"
 
 namespace Validation 
 {
-
     /// assignment o-r
     NEATValue& NEATValue::operator=(const NEATValue& p)
     {
@@ -60,11 +58,12 @@ namespace Validation
     {
         return (m_Status == ACCURATE);
     }
+
     bool NEATValue::IsUnwritten() const
     {
         return (m_Status == UNWRITTEN);
     }
-    
+
     std::istream& operator >> (std::istream& is,  NEATValue& k)
     {
         std::string StatusStr;

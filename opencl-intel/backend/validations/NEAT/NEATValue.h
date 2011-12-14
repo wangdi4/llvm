@@ -14,7 +14,6 @@ Copyright (c) Intel Corporation (2011).
 
 File Name:  NEATValue.h
 
-
 \*****************************************************************************/
 #ifndef __NEATDATATYPES_H__
 #define __NEATDATATYPES_H__
@@ -319,6 +318,11 @@ namespace Validation
 
     }
 
+        /// @return true if NEATValue status is valid i.e. one of expected values.
+        bool IsValid() const
+        {
+            return IsAny() || IsInterval() || IsAcc() || IsUnknown() || IsUnwritten();
+        }
     private:
         static const uint32_t MaxBytes = sizeof(long double);
         Status m_Status;
