@@ -30,7 +30,6 @@ using namespace OCLCRT;
 #define REGISTER_DISPATCH_ENTRYPOINT(__NAME__,__ADDRESS__) \
     m_crtDispatchTable.##__NAME__ = (__ADDRESS__);
 
-
 namespace OCLCRT
 {
     extern CrtModule crt_ocl_module;
@@ -87,6 +86,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT(clRetainContext,clRetainContext);
     REGISTER_DISPATCH_ENTRYPOINT(clReleaseMemObject,clReleaseMemObject);
     REGISTER_DISPATCH_ENTRYPOINT(clRetainMemObject,clRetainMemObject);
+    REGISTER_DISPATCH_ENTRYPOINT(clGetMemObjectInfo,clGetMemObjectInfo);
     REGISTER_DISPATCH_ENTRYPOINT(clSetMemObjectDestructorCallback,clSetMemObjectDestructorCallback);
     REGISTER_DISPATCH_ENTRYPOINT(clCreateSubDevicesEXT,clCreateSubDevicesEXT);
     REGISTER_DISPATCH_ENTRYPOINT(clReleaseDeviceEXT,clReleaseDeviceEXT);
@@ -112,9 +112,10 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT(clGetSamplerInfo,clGetSamplerInfo);
     REGISTER_DISPATCH_ENTRYPOINT(clGetEventProfilingInfo,clGetEventProfilingInfo);
     REGISTER_DISPATCH_ENTRYPOINT(clGetKernelWorkGroupInfo,clGetKernelWorkGroupInfo);
-    REGISTER_DISPATCH_ENTRYPOINT(clGetSupportedImageFormats,clGetSupportedImageFormats);    
+    REGISTER_DISPATCH_ENTRYPOINT(clGetSupportedImageFormats,clGetSupportedImageFormats);
+    REGISTER_DISPATCH_ENTRYPOINT(clUnloadCompiler,clUnloadCompiler);
 
-        /// Extensions
+    // Extensions
     REGISTER_DISPATCH_ENTRYPOINT(clGetGLContextInfoKHR,clGetGLContextInfoKHR);
     REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D10KHR,clGetDeviceIDsFromD3D10KHR);
 };
@@ -128,7 +129,7 @@ m_contextInfoGuard(m_contextInfo)
 
 crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable)
 {
-        /// Store original device dispatch table entries
+    // Store original device dispatch table entries
     if (origDispatchTable)
         *(origDispatchTable) = *(inDeviceId->dispatch);
 
@@ -203,14 +204,20 @@ crt_err_code CrtModule::Initialize()
 
             m_oclPlatforms.push_back(pCrtPlatform);
 
-            KHRpfn_clGetExtensionFunctionAddress pfn_clGetExtFuncAddr = (KHRpfn_clGetExtensionFunctionAddress)pCrtPlatform->m_lib.GetFunctionPtrByName("clGetExtensionFunctionAddress");
-            KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)pfn_clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
+            KHRpfn_clGetExtensionFunctionAddress clGetExtFuncAddr = (KHRpfn_clGetExtensionFunctionAddress)pCrtPlatform->m_lib.GetFunctionPtrByName("clGetExtensionFunctionAddress");
+            if( NULL == clGetExtFuncAddr )
+            {
+                res = CRT_FAIL;
+                break;
+            }            
+            KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
             if (NULL == pfn_clGetPlatformIDs || !(CL_SUCCESS == pfn_clGetPlatformIDs(1, &pCrtPlatform->m_platformIdDEV, NULL)))
             {
                 res = CRT_FAIL;
                 break;
             }
-                /// Query the Platform extensions for each platform
+            
+            // Query the Platform extensions for each platform
             size_t extSize = 0;
             if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
@@ -242,7 +249,7 @@ crt_err_code CrtModule::Initialize()
             }
             pCrtPlatform->m_supportedExtensions = GetCrtExtension(pCrtPlatform->m_supportedExtensionsStr);
 
-                /// Query the ICD Suffix for each platform
+            // Query the ICD Suffix for each platform
             if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_ICD_SUFFIX_KHR,
@@ -316,9 +323,19 @@ crt_err_code CrtModule::Initialize()
                     break;
                 }
 
-                    /// This is not a sub-device
+                if( CL_SUCCESS != pDevices[j]->dispatch->clGetDeviceInfo( pDevices[j],
+                                    CL_DEVICE_TYPE,
+                                    sizeof (cl_device_type ),
+                                    &pDevInfo->m_devType,
+                                    NULL ) )
+                {
+                    res = CRT_FAIL;
+                    break;
+                }
+
+                // This is not a sub-device
                 pDevInfo->m_isRootDevice = true;
-                pDevInfo->m_platformIdDEV = pCrtPlatform->m_platformIdDEV;
+                pDevInfo->m_crtPlatform = pCrtPlatform;
                 crt_ocl_module.PatchClDeviceID(pDevices[j], &pDevInfo->m_origDispatchTable);
 
                 m_deviceInfoMap[pDevices[j]] = pDevInfo;
@@ -370,7 +387,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                     return CL_INVALID_PROPERTY;
                 }
                 cl_context_platform_set = CL_TRUE;
-                if( (cl_platform_id)(properties[ 1 ]) != crt_ocl_module.m_crtPlatformId )
+                if( ( cl_platform_id )( properties[ 1 ] ) != crt_ocl_module.m_crtPlatformId )
                 {
                     errCode = CL_INVALID_PLATFORM;
                 }
@@ -396,7 +413,6 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_d3d10_device_khr_set = CL_TRUE;
                 break;
-#if defined DX9_MEDIA_SHARING
             case CL_CONTEXT_D3D9_DEVICE_INTEL:
             case CL_CONTEXT_D3D9EX_DEVICE_INTEL:
                 if( cl_d3d9_device_intel_set == CL_TRUE )
@@ -412,7 +428,6 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
-#endif
             default:
                 return CL_INVALID_PROPERTY;
             }
@@ -422,15 +437,16 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     return errCode;
 }
 
-
-
 crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, cl_platform_id& pId, cl_context_properties** props, bool dup)
 {
     void** p = (void**)properties;
 
-    if (!properties)
+    if( !properties )
     {
-        *props = NULL;
+        if( props )
+        {
+            *props = NULL;
+        }
         return CRT_SUCCESS;
     }
 
@@ -440,8 +456,8 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
     {
         while (NULL != *p)
         {
-            p += 2;
-            num_entries += 2;
+            p+=2;
+            num_entries+=2;
         }
         // We create a new props to be passed to the underlying
         // platform. this is deleted by the calling function.
@@ -469,16 +485,15 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
             break;
         default:
             *clProperties = *properties;
-            *(clProperties + 1) = *(properties + 1);
+            *(clProperties+1) = *(properties+1);
             break;
         }
-        properties += 2;
-        clProperties += 2;
+        properties+=2;
+        clProperties+=2;
     }
     *clProperties = 0;
     return CRT_SUCCESS;
 }
-
 
 void CrtModule::Shutdown()
 {
@@ -504,7 +519,7 @@ void CrtModule::Shutdown()
         }
         m_oclPlatforms.pop_back();
     }
-        /// Delete all device info
+    // Delete all device info
     for (DEV_INFO_MAP::iterator itr = m_deviceInfoMap.begin(); itr != m_deviceInfoMap.end(); itr++)
     {
         if (itr->second)
@@ -514,9 +529,11 @@ void CrtModule::Shutdown()
         }
     }
 
-    if (m_common_extensions)
+    if( m_common_extensions )
+    {
         delete m_common_extensions;
-    if (m_crtPlatformId)
+    }
+    if( m_crtPlatformId )
     {
         delete m_crtPlatformId;
     }

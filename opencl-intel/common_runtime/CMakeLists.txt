@@ -9,8 +9,8 @@ add_subdirectory( utils )
 set( TARGET_NAME common_runtime )
 
 include_directories( BEFORE
-            ${CMAKE_CURRENT_SOURCE_DIR}/Utils
-			${CMAKE_CURRENT_SOURCE_DIR}/../framework/icd
+		${CMAKE_CURRENT_SOURCE_DIR}/Utils
+		${CMAKE_CURRENT_SOURCE_DIR}
             )
 
 

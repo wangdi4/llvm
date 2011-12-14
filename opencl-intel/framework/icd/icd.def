@@ -84,6 +84,21 @@ EXPORTS
 	clSetUserEventStatus	
 	clReleaseDeviceEXT
 	clRetainDeviceEXT
-	clCreateSubDevicesEXT
+	clCreateSubDevicesEXT	
+	clCreateSubDevices
+    clRetainDevice
+    clReleaseDevice
+    clCreateImage
+    clCreateProgramWithBuiltInKernels
+    clCompileProgram
+    clLinkProgram
+    clUnloadPlatformCompiler
+    clEnqueueFillBuffer
+    clEnqueueFillImage
+    clEnqueueMigrateMemObjects
+    clEnqueueMarkerWithWaitList
+    clEnqueueBarrierWithWaitList
+    clGetExtensionFunctionAddressForPlatform
+    clCreateFromGLTexture
 	
 	

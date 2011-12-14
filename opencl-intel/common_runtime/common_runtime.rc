@@ -27,6 +27,12 @@ FILEVERSION    1,1,0
 PRODUCTVERSION 1,1,0
 FILETYPE       VFT_DLL
 
+#ifdef __CT__
+#define VER_DLLNAME            "IntelOpenCL64.dll"
+#else
+#define VER_DLLNAME            "IntelOpenCL32.dll"
+#endif 
+
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
@@ -35,12 +41,12 @@ BEGIN
             VALUE "FileDescription" ,"Intel(R) OpenCL(TM) Runtime"
             VALUE "ProductName"     ,"Intel(R) OpenCL(TM) SDK"
             VALUE "LegalCopyright"  ,"Copyright \251 2011 Intel Corporation.  All rights reserved."
-            VALUE "FileVersion"     ,"1.1.0.0"
-			VALUE "ProductVersion"     ,"1.1.0.0"
-
+	    VALUE "FileVersion"     ,"1.1.0.1001\0"
+	    VALUE "ProductVersion"     ,"1.1.0.1001\0"
+	    
             VALUE "CompanyName"     ,"Intel Corporation"
-            VALUE "InternalName"    ,"OpenCL SDK"
-            VALUE "OriginalFilename","intelopencl.dll"
+            VALUE "InternalName"    ,VER_DLLNAME
+            VALUE "OriginalFilename", VER_DLLNAME
         END
     END
 

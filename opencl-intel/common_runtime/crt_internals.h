@@ -32,7 +32,7 @@
 
 using namespace OCLCRT::Utils;
 
-/// Forward declarations and typedefs
+// Forward declarations and typedefs
 class CrtContext;
 class CrtMemObject;
 class CrtBuffer;
@@ -44,15 +44,16 @@ typedef std::map<cl_device_id, cl_context>          DEV_CTX_MAP;
 typedef std::map<cl_context, KHRicdVendorDispatch*> SHARED_CTX_DISPATCH;
 typedef std::map<cl_context, cl_mem>                CTX_MEM_MAP;
 typedef std::map<cl_context, cl_program>            CTX_PGM_MAP;
-typedef std::map<cl_context, cl_kernel> CTX_KRN_MAP;
+typedef std::map<cl_context, cl_kernel>             CTX_KRN_MAP;
 typedef std::map<cl_context, cl_sampler>            CTX_SMP_MAP;
 
 bool operator==(const cl_image_format &rhs1, const cl_image_format &rhs2);
 bool operator<(const cl_image_format &rhs1, const cl_image_format &rhs2);
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-    /// All objects inheret from this, like Buffer/Image/Sampler
+// All objects inheret from this, like Buffer/Image/Sampler
 class CrtObject
 {
 public:
@@ -78,56 +79,59 @@ public:
     long         m_refCount;
     long         m_pendencyCount;
 };
-/// CRT handles definition
+
+// CRT handles definition
 struct CrtPlatform
 {
-    cl_platform_id  m_platformIdDEV;
-    char*           m_supportedExtensionsStr;
-    char*           m_icdSuffix;
-    cl_int          m_supportedExtensions;
-    OclDynamicLib   m_lib;
+    cl_platform_id          m_platformIdDEV;
+    char*                   m_supportedExtensionsStr;
+    char*                   m_icdSuffix;
+    cl_int                  m_supportedExtensions;
+    OclDynamicLib           m_lib;
 };
 
 struct CrtDeviceInfo
 {
-    /// platform id of the device
-    cl_platform_id                  m_platformIdDEV;
+    // platform id of the device
+    CrtPlatform*                    m_crtPlatform;
 
-    /// device Id changed; some functions replaced with CRT functions
+    // device Id changed; some functions replaced with CRT functions
     KHRicdVendorDispatch            m_origDispatchTable;
 
-    /// Signals if this an original device
-    /// or created using device fission
+    // Signals if this an original device
+    // or created using device fission
     bool                            m_isRootDevice;
 
-    /// Device capabilties as table 4.3 in spec 1.1
+    cl_device_type                  m_devType;
+
+    // Device capabilties as table 4.3 in spec 1.1
     cl_device_exec_capabilities     m_deviceCapabilities;
 
-        /// refCount valid for Sub-Devices only
+    // refCount valid for Sub-Devices only
     long                            m_refCount;
 
-    /// Vector defining if we need to sync and what and which direction
+    // Vector defining if we need to sync and what and which direction
     unsigned int                    m_syncAttribs;
 };
 
 struct CrtContextInfo
 {
-        /// Specifies the type of context, whether its
+    // Specifies the type of context, whether its
     enum ContextType
     {
         SinglePlatformContext,
         SharedPlatformContext
     };
-        /// Context Type
+    // Context Type
     ContextType             m_contextType;
 
-        /// Used for single device context
-        /// Allows better vendor extensions
-        /// handling.
-    cl_platform_id          m_platformId;
+    // Used for single device context
+    // Allows better vendor extensions
+    // handling.
+    CrtPlatform*            m_crtPlatform;
 
-    /// For single device context: pointer to original dispatch table
-    /// For shared device context: poiter to CrtContext
+    // For single device context: pointer to original dispatch table
+    // For shared device context: poiter to CrtContext
     void*                   m_object;
 };
 
@@ -135,10 +139,15 @@ struct CrtProgram: public CrtObject
 {
     CrtProgram(CrtContext* ctx);
     virtual ~CrtProgram();
-    CTX_PGM_MAP             m_ContextToProgram;
-    CrtContext*             m_contextCRT;
-        /// refCount for handling retain/release
-    cl_int                  Release();
+    CTX_PGM_MAP              m_ContextToProgram;
+    // Tracks which contexts a build request has been submitted to for this program.
+    // We need this since the spec demands the clCreateKernel only for devices 
+    // the build context has been submitted to.
+    std::vector<cl_context>  m_buildContexts;
+    CrtContext*              m_contextCRT;
+    cl_program               m_program_handle;
+
+    cl_int                   Release();
 };
 
 struct CrtKernel: public CrtObject
@@ -173,7 +182,7 @@ struct CrtEvent: public CrtObject
     bool        m_isUserEvent;
 
     virtual cl_int      Release();
-    CrtContext* getContext() { return m_queueCRT->m_contextCRT; }
+    virtual CrtContext* getContext() { return m_queueCRT->m_contextCRT; }
 };
 
 struct CrtUserEvent: public CrtEvent
@@ -192,26 +201,25 @@ struct CrtUserEvent: public CrtEvent
 class CrtMemObject: public CrtObject
 {
 public:
-        /// Ctor
     CrtMemObject(
         cl_mem_flags        flags,
         void*               hostPtr,
         CrtContext*         ctx);
 
     virtual ~CrtMemObject();
-        // Get the memory object belong to the device in the input
+    // Get the memory object belong to the device in the input
     virtual cl_mem getDeviceMemObj(cl_device_id deviceId);
 
-        /// Some entries might be non-valid since the devices don't
-        /// support the image format param
-	virtual cl_mem getAnyValidDeviceMemObj();
+    // Some entries might be non-valid since the devices don't
+    // support the image format param
+    virtual cl_mem getAnyValidDeviceMemObj();
 
-        /// Get Type of memory object (CL_BUFFER, CL_IMAGE)
+    // Get Type of memory object (CL_BUFFER, CL_IMAGE)
     virtual CrtObjectType getObjectType() const  {  return CrtObject::CL_INVALID;  }
 
     virtual cl_int RegisterDestructorCallback(mem_dtor_fn memDtorFunc, void* user_data);
 
-        /// Used whenever the device cannot share memory with host
+    // Used whenever the device cannot share memory with host
     virtual cl_event SynchronizeFromDeviceToHost(
         CrtDeviceInfo*  sourceDevice,
         CrtContext*     context) {  return NULL; }
@@ -227,41 +235,52 @@ public:
 
     bool HasPrivateCopy();
 
-        /// Map between underlying contexts and memory objects
-    CTX_MEM_MAP     m_ContextToMemObj;
+    inline cl_bool IsValidMemObjSize( cl_mem ptr )
+    {
+        return ( ( ptr == ( cl_mem )INVALID_MEMOBJ_SIZE ) ? CL_FALSE : CL_TRUE );
+    }
 
-        /// Pointer to shared context
+    inline cl_bool IsValidImageFormat( cl_mem ptr )
+    {
+        return ( ( ptr == ( cl_mem )INVALID_IMG_FORMAT ) ? CL_FALSE : CL_TRUE );
+    }
+
+    // Map between underlying contexts and memory objects
+    CTX_MEM_MAP         m_ContextToMemObj;
+
+    // Pointer to shared context
     CrtContext*         m_pContext;
 
-        /// Internal reference counting
-    long                m_refCount;
-
-        /// backing store memory size
+    // backing store memory size
     size_t              m_size;
 
-        /// memory creation flags as stated by the user
+    // memory creation flags as stated by the user
     cl_mem_flags        m_flags;
 
-        /// User provided pointer at creation time
+    // User provided pointer at creation time
     void*               m_pUsrPtr;
 
-        /// Backing store pointer
+    // Backing store pointer
     void*               m_pBstPtr;
 
+    // some underlying devices doesn't support same image formats
+    // other devices might support; this counter remembers
+    // how many underlying contexts are valid at m_ContextToMemObj
+    long                m_numValidContextObjs;
 };
 
 
 class CrtBuffer: public CrtMemObject
 {
 public:
-        /// Buffer Ctor
+    // Buffer Ctor
     CrtBuffer(
         const size_t    size,
         cl_mem_flags    flags,
         void*           host_ptr,
         CrtContext*     ctx);
 
-        /// Sub-buffer Ctor
+    // Sub-buffer Ctor
     CrtBuffer(
         _cl_mem_crt*    parent_buffer,
         cl_mem_flags    flags,
@@ -271,16 +290,16 @@ public:
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
 
-        /// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
+    // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
     cl_int Create(CrtMemObject**            memObj);
 
-        /// Used for creating sub-buffers
+    // Used for creating sub-buffers
     cl_int Create(
         CrtMemObject**          memObj,
         cl_buffer_create_type   buffer_create_type,
         const void *            buffer_create_info);
 
-        /// Used by sub-buffers
+    // Used by sub-buffers
     _cl_mem_crt*    m_parentBuffer;
 };
 
@@ -289,7 +308,6 @@ size_t  GetImageElementSize(const cl_image_format * format);
 class CrtImage: public CrtMemObject
 {
 public:
-        /// Buffer Ctor
     CrtImage(
         cl_mem_object_type      image_type,
         const cl_image_format * image_format,
@@ -305,7 +323,7 @@ public:
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
 
-        /// overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
+    // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
     cl_int Create(size_t rowPitch, size_t slicePitch, CrtMemObject** memObj);
 
     const cl_image_format *     m_imageFormat;
@@ -313,19 +331,18 @@ public:
     size_t                      m_imageHeight;
     size_t                      m_imageDepth;
 
-        /// Parameteres forwarded by the CRT to the
-        /// Underlying platforms
+    // Parameteres forwarded by the CRT to the underlying platforms
     size_t                      m_imageRowPitch;
     size_t                      m_imageSlicePitch;
 
-        /// Parameters provided by the user on image create
+    // Parameters provided by the user on image create
     size_t                      m_hostPtrRowPitch;
     size_t                      m_hostPtrSlicePitch;
 
-        /// Specifies Image type (Image2D/Image3D)
+    // Specifies Image type (Image2D/Image3D)
     cl_mem_object_type          m_imageType;
-        /// For Image2D this will be =2
-        /// For Image3D this will be =3
+    // For Image2D this will be =2
+    // For Image3D this will be =3
     cl_uint                     m_dimCount;
 };
 
@@ -333,9 +350,9 @@ public:
 ///
 /// ------------------------------------------------------------------------------
 
-    /// Shared Platform Context
-    /// Manages a number of underlying contexts
-    /// created on the different platforms
+// Shared Platform Context
+// Manages a number of underlying contexts
+// created on the different platforms
 class CrtContext: public CrtObject
 {
 public:
@@ -344,12 +361,12 @@ public:
         const cl_context_properties *   properties,
         cl_uint                         num_devices,
         const cl_device_id *            devices,
-        logging_fn                      pfn_notify,
+        ctxt_logging_fn                 pfn_notify,
         void *                          user_data,
         cl_int *                        errcode_ret);
 
     virtual ~CrtContext();
-        /// Memory APIs
+    // Memory APIs
     cl_int CreateBuffer(
         cl_mem_flags            flags,
         size_t                  size,
@@ -381,7 +398,7 @@ public:
         cl_filter_mode          filter_mode,
         CrtSampler**            sampler);
 
-        /// Command Queue and Build
+    // Command Queue and Build
     cl_int  CreateCommandQueue(
         cl_device_id                    device,
         cl_command_queue_properties     properties,
@@ -402,25 +419,24 @@ public:
         cl_int *                binary_status,
         CrtProgram **           crtProgram );
 
+    cl_device_id GetDeviceByType( cl_device_type device_type );
 
-    cl_device_id GetKernelReflectionDevice();
-
-        /// Flush all command queues on all devices
+    // Flush all command queues on all devices
     cl_int FlushQueues();
 
-        /// Used when some devices cannot share memory with Host
+    // Used when some devices cannot share memory with Host
     bool memObjectAlwaysInSync(CrtObject::CrtObjectType objType) const {    return true;  }
     bool memObjectAlwaysNotInSync(CrtObject::CrtObjectType objType) const { return false; }
 
-        /// Get the alignment agreed by all moinitored devices
-        /// Returns value in bytes
-    cl_uint getAlignment() const { return (m_alignment >> 3); }
+    // Get the alignment agreed by all moinitored devices
+    // Returns value in bytes
+    cl_uint getAlignment(CrtObjectType objType) const;
 
-        /// Returns the Context to which the device belongs
+    // Returns the Context to which the device belongs
     inline cl_context GetContextByDeviceID( cl_device_id devID ) { return m_DeviceToContext[devID]; }
 
-        /// Returns in (outDevices, outNumDevices) the devices which belong
-        /// to the input platform id (pId)
+    // Returns in (outDevices, outNumDevices) the devices which belong
+    // to the input platform id (pId)
     void GetDevicesByPlatformId(
         const cl_uint           inNumDevices,
         const cl_device_id*     inDevices,
@@ -435,38 +451,35 @@ public:
         cl_uint*                outNumIndices,
         cl_uint*                outIndices);
 
-        /// Get Context reference count
+    // Get Context reference count
     cl_int GetReferenceCount(cl_uint* refCountParam);
 
-        /// Store for all underlying contexts
-        /// for each it stores the original dispatch table
-        /// pointer too.
+    // Store for all underlying contexts
+    // for each it stores the original dispatch table
+    // pointer too.
     SHARED_CTX_DISPATCH     m_contexts;
 
-        /// Map from device id to matching underlying context couplying that device id
+    // Map from device id to matching underlying context couplying that device id
     DEV_CTX_MAP             m_DeviceToContext;
 
-        /// Release all underlying contexts
+    // Release all underlying contexts
     cl_int Release();
 
-        /// We need to keep track of all command queue for flush/finish/WaitForEvents
+    // We need to keep track of all command queue for flush/finish/WaitForEvents
     std::list<cl_command_queue> m_commandQueues;
-    
+
     cl_context              m_context_handle;
 
-    cl_device_id            m_kernelReflectionDevice;
 private:
 
-
-        /// Calculate the alignment agreed by all devices
-        /// In this context
+    // Calculate the alignment agreed by all devices
+    // In this context
     cl_int GetDevicesPreferredAlignment(
         const cl_uint           numDevices,
         const cl_device_id*     devices,
         cl_uint*                alignment);
 
-
-        /// Common alignment agreed by all devices in the context
+    // Common alignment agreed by all devices in the context (in Bytes)
     cl_uint m_alignment;
 
 };
@@ -478,19 +491,18 @@ private:
 struct CrtSampler: public CrtObject
 {
     CTX_SMP_MAP             m_ContextToSampler;
+    CrtContext*             m_contextCRT;
     cl_int Release();
     CrtObjectType getObjectType() const {  return CrtObject::CL_SAMPLER; }
 };
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-    /// Mem destructor callback and user data
+// Mem destructor callback and user data
 struct CrtMemDtorCallBackData
 {
     long            m_count;
-
-    CrtMemObject*  m_clMemHandle;
-
+    CrtMemObject*   m_clMemHandle;
 };
 
 void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData);
@@ -530,19 +542,19 @@ void CL_CALLBACK CrtMapUnmapCallBack(cl_event e, cl_int status, void* user_data)
 /// ------------------------------------------------------------------------------
 
 
-/// Class SyncManager
-///
-/// 1. Responsible for triggering memory synchronization process
-///     in case some devices aren't synched with host memory.
-///
-/// 2. Responsible for creating the common runtime user event which
-///     connects between events belonging to different queues on different
-///     underlying contexts.
-///
-/// This class needs to be used in the following manner:
-///     1. Create EventsPartitioner object
-///     2. Init() the created object
-///     3. Destroy the created object
+// Class SyncManager
+//
+// 1. Responsible for triggering memory synchronization process
+//     in case some devices aren't synched with host memory.
+//
+// 2. Responsible for creating the common runtime user event which
+//     connects between events belonging to different queues on different
+//     underlying contexts.
+//
+// This class needs to be used in the following manner:
+//     1. Create EventsPartitioner object
+//     2. Init() the created object
+//     3. Destroy the created object
 
 class SyncManager
 {
@@ -592,9 +604,9 @@ private:
     CrtMapUnmapCallBackData*    m_postCallBackData;
 };
 
-    /// This class is used to protect access to shared STL Map resource
-/// We need this since, on STL, its not thread-safe to call multiple functions
-/// on the same resource where one of them is write operation.
+// This class is used to protect access to shared STL Map resource
+// We need this since, on STL, its not thread-safe to call multiple functions
+// on the same resource where one of them is write operation.
 template <class TKEY, class TVAL>
 class GuardedMap
 {

@@ -1250,6 +1250,15 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
         return NULL;
     }
 
+    if (NULL != pBuffer->GetParent())
+    {
+        if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
+        {
+            *pErrcodeRet = CL_MISALIGNED_SUB_BUFFER_OFFSET;            
+            return NULL;
+        }
+    }
+
     if (pBuffer->GetSize() < (szOffset+szCb))
     {
         // Out of bounds check.

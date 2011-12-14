@@ -29,11 +29,11 @@
 #pragma intrinsic( _InterlockedCompareExchange )
 
 typedef void (CL_CALLBACK *user_func)(void *);
-typedef void (CL_CALLBACK *logging_fn)(const char *, const void *, size_t, void *);
-typedef void (CL_CALLBACK *prog_logging_fn)(cl_program, void *) ;
+typedef void (CL_CALLBACK *ctxt_logging_fn)(const char *, const void *, size_t, void *);
+typedef void (CL_CALLBACK *prog_logging_fn)(cl_program, void *);
 typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 typedef void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *);
-typedef int crt_err_code ;
+typedef int crt_err_code;
 
 #define CRT_FAIL        0x1
 #define CRT_SUCCESS     0x0
@@ -54,9 +54,14 @@ typedef int crt_err_code ;
 #define CRT_PAGE_ALIGNMENT           ( 4096 )
 #define CRT_IMAGE_PITCH_ALIGN        ( 64 )
 
-// Force linear images memory flag. This is an internal flag and needs
-// to be changed if Khronos defines another flag with the same value
-#define CL_MEM_LINEAR_IMAGE_INTEL ( 1 << 31 )
+// IMAGE formats
+#define IMAGE_FORMATS_UNION
+typedef enum
+{
+    INVALID_MEMOBJ_SIZE    = 0xFFFFFFF1,
+    INVALID_IMG_FORMAT     = 0xFFFFFFF2
+} IMAGE_FAIL_TYPE;
+
 
 // Atomic Functions
 inline cl_uint atomic_increment(long* Addend)
@@ -69,7 +74,6 @@ inline long atomic_decrement(long* Addend)
     return (long)_InterlockedDecrement( (volatile long*)Addend );
 }
 
-
 inline cl_uint atomic_add_ret_prev(long* Addend, long num)
 {
     return (long)InterlockedExchangeAdd( (volatile long*)Addend, num);
@@ -80,9 +84,7 @@ inline long test_and_set(long* Addend, long comparand, long exchange)
     return (long)InterlockedCompareExchange((volatile long*)Addend,exchange,comparand);
 }
 
-// Additional cl_context_properties
-
-#define cl_intel_d3d9_media_sharing     1
+#define cl_intel_dx9_media_sharing     1
 
 // Extensions support
 enum CrtExtension

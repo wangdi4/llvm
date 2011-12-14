@@ -248,12 +248,10 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 //// vendor dispatch table structure
 //
 typedef struct: public KHRicdVendorDispatch
-{             
-       KHRpfn_clGetKernelArgInfo                    clGetKernelArgInfo;
-        
+{                            
 #ifdef DX9_MEDIA_SHARING
        KHRpfn_clGetDeviceIDsFromDX9INTEL           clGetDeviceIDsFromDX9INTEL;
-       KHRpfn_clCreateFromDX9MediaSurfaceINTEL          clCreateFromDX9MediaSurfaceINTEL;
+       KHRpfn_clCreateFromDX9MediaSurfaceINTEL     clCreateFromDX9MediaSurfaceINTEL;
        KHRpfn_clEnqueueAcquireDX9ObjectsINTEL      clEnqueueAcquireDX9ObjectsINTEL;
        KHRpfn_clEnqueueReleaseDX9ObjectsINTEL      clEnqueueReleaseDX9ObjectsINTEL;
 #endif

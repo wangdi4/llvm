@@ -24,27 +24,27 @@
 #include "crt_module.h"
 #include "crt_internals.h"
 #include <cl_synch_objects.h>
+
 #include <algorithm>
 #include <string>
 #include <numeric>
 #include <vector>
 #include <sstream>
-#include <stdio.h>
+#include <iterator>
 
 
 namespace OCLCRT
 {
     CrtModule crt_ocl_module;
 
-        /// Globally Initialized Variable
+    // Globally Initialized Variable
     char* CrtModule::m_common_extensions = NULL;
 };
 
 
-    /// Macros
 #define isValidPlatform(X) ((X) == OCLCRT::crt_ocl_module.m_crtPlatformId || NULL == (X))
 
-/// Defined CRT CL handles
+// Defined CRT CL handles
 
 _cl_platform_id_crt::_cl_platform_id_crt()
 {
@@ -95,7 +95,7 @@ cl_int CL_API_CALL clGetPlatformIDs(
     cl_platform_id *  platforms,
     cl_uint *         num_platforms )
 {
-    if( ( ( 0 == num_entries ) && ( NULL != platforms ) )||
+    if( ( ( 0 == num_entries ) && ( NULL != platforms ) ) ||
         ( ( NULL == num_platforms ) && ( NULL == platforms ) ) )
     {
         return CL_INVALID_VALUE;
@@ -119,7 +119,7 @@ cl_int CL_API_CALL clGetPlatformIDs(
     return CL_SUCCESS;
 };
 
-    /// Helper function for 'UpdatePlatformExtensions'
+// Helper function for 'UpdatePlatformExtensions'
 inline std::string concat_spaced_strings(std::string a, std::string b)
 {
     if (a.compare(""))
@@ -132,15 +132,15 @@ inline std::string concat_spaced_strings(std::string a, std::string b)
     }
 };
 
-    /// Detects what extensions are in common for all the
-    /// the managed platforms.
+// Detects what extensions are in common for all the
+// the managed platforms.
 void UpdatePlatformExtensions()
 {
     if (NULL == OCLCRT::crt_ocl_module.m_common_extensions)
     {
-            /// common extensions initialization needs to be thread-safe
+        // common extensions initialization needs to be thread-safe
         OCLCRT::Utils::OclAutoMutex CS(&OCLCRT::crt_ocl_module.m_mutex);
-            /// Check if any other thread has done the initialization for us
+        // Check if any other thread has done the initialization for us
         if (NULL == OCLCRT::crt_ocl_module.m_common_extensions)
         {
             std::vector<std::string> common_exts;
@@ -152,15 +152,15 @@ void UpdatePlatformExtensions()
                 std::istream_iterator<std::string> platExt_end;
                 if (i==0)
                 {
-                        /// start with all extensions from the first platform
+                    // start with all extensions from the first platform
                     common_exts.assign(platExt_it, platExt_end);
                     continue;
                 }
                 std::vector<std::string> platExt_vec(platExt_it, platExt_end);
-                    /// sort the vectors, required by set_intersection
+                // sort the vectors, required by set_intersection
                 std::sort(common_exts.begin(),common_exts.end());
                 std::sort(platExt_vec.begin(),platExt_vec.end());
-                    /// Do the intersection in-place to common_exts
+                // Do the intersection in-place to common_exts
                 std::vector<std::string>::iterator it = std::set_intersection( common_exts.begin(),
                                                                                common_exts.end(),
                                                                                platExt_vec.begin(),
@@ -253,7 +253,7 @@ cl_int CL_API_CALL clGetPlatformInfo(
         case CL_PLATFORM_EXTENSIONS:
 
             UpdatePlatformExtensions();
-                /// there was an allocation failure in UpdatePlatformExtensions
+            // there was an allocation failure in UpdatePlatformExtensions
             if (NULL == OCLCRT::crt_ocl_module.m_common_extensions)
             {
                 return CL_OUT_OF_HOST_MEMORY;
@@ -347,20 +347,12 @@ cl_int CL_API_CALL clGetDeviceIDs(
             // Skip SubDevices; they should not be returned for this query.
             continue;
         }
-        if( !( CL_SUCCESS == devIdDEV->dispatch->clGetDeviceInfo(
-                                        devIdDEV,
-                                        CL_DEVICE_TYPE,
-                                        sizeof( cl_device_type ),
-                                        (void*)( &devType ),
-                                        NULL ) ) )
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
-        }
+        devType = devInfo->m_devType;
+        bool devFound = ( ( 1 == OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size() ) ||
+                          ( devType == OCLCRT::crt_ocl_module.m_defaultDeviceType ) );
 
-        if( ( device_type == CL_DEVICE_TYPE_DEFAULT )   ||
-            ( device_type == CL_DEVICE_TYPE_ALL )       ||
-            ( devType == device_type ) )
+        if( ( ( device_type == CL_DEVICE_TYPE_DEFAULT ) && devFound ) ||
+            ( devType & device_type ) )
         {
             if( devices && ( numRet < num_entries ) )
             {
@@ -384,7 +376,12 @@ cl_int CL_API_CALL clGetDeviceIDs(
             *num_devices = numRet;
         }
     }
-FINISH:
+
+    if( numRet == 0 )
+    {
+        errCode = CL_DEVICE_NOT_FOUND;
+    }
+
     // Unlock Devices Map, done with it
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
     return errCode;
@@ -398,7 +395,7 @@ cl_context CL_API_CALL clCreateContext(
     const cl_context_properties *   properties,
     cl_uint                         num_devices,
     const cl_device_id *            devices,
-    logging_fn                      pfn_notify,
+    ctxt_logging_fn                 pfn_notify,
     void *                          user_data,
     cl_int *                        errcode_ret )
 {
@@ -439,11 +436,11 @@ cl_context CL_API_CALL clCreateContext(
 
         if( i==0 )
         {
-            pPlatformIdDEV = &OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devIdDEV)->m_platformIdDEV;
+            pPlatformIdDEV = &OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devIdDEV)->m_crtPlatform->m_platformIdDEV;
         }
         else
         {
-            if( *pPlatformIdDEV ==  OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devIdDEV)->m_platformIdDEV)
+            if( *pPlatformIdDEV ==  OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devIdDEV)->m_crtPlatform->m_platformIdDEV)
             {
                 continue;
             }
@@ -461,7 +458,7 @@ cl_context CL_API_CALL clCreateContext(
         cl_context_properties* props;
         if( CRT_FAIL == OCLCRT::ReplacePlatformId(
                             properties,
-                            OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0] )->m_platformIdDEV,
+                            OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0] )->m_crtPlatform->m_platformIdDEV,
                             &props ) )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
@@ -481,6 +478,7 @@ cl_context CL_API_CALL clCreateContext(
                 pfn_notify,
                 user_data,
                 &errCode );
+
             if( ctx != NULL )
             {
                 OCLCRT::crt_ocl_module.PatchClContextID(
@@ -488,7 +486,7 @@ cl_context CL_API_CALL clCreateContext(
                     &OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0])->m_origDispatchTable );
 
                 pContextInfo->m_contextType = CrtContextInfo::SinglePlatformContext;
-                pContextInfo->m_platformId = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devices[0])->m_platformIdDEV;
+                pContextInfo->m_crtPlatform = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devices[0])->m_crtPlatform;
                 pContextInfo->m_object = (void*)( &( OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0] )->m_origDispatchTable ) );
                 OCLCRT::crt_ocl_module.m_contextInfoGuard.Add( ctx, pContextInfo );
             }
@@ -532,14 +530,15 @@ cl_context CL_API_CALL clCreateContext(
             user_data,
             &errCode );
 
-        if (NULL == crtContext)
+        if( NULL == crtContext )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
         }
-        else if (CL_SUCCESS != errCode)
+        else if( CL_SUCCESS != errCode )
         {
             delete ctx;
+            ctx = NULL;
             crtContext->Release();
             crtContext->DecPendencyCnt();
             goto FINISH;
@@ -552,7 +551,7 @@ cl_context CL_API_CALL clCreateContext(
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             delete ctx;
-
+            ctx = NULL;
             crtContext->Release();
             crtContext->DecPendencyCnt();
             goto FINISH;
@@ -579,7 +578,7 @@ FINISH:
 cl_context CL_API_CALL clCreateContextFromType(
     const cl_context_properties *   properties,
     cl_device_type                  device_type,
-    logging_fn                      pfn_notify,
+    ctxt_logging_fn                 pfn_notify,
     void *                          user_data,
     cl_int *                        errcode_ret)
 {
@@ -647,38 +646,28 @@ cl_context CL_API_CALL clCreateContextFromType(
             // Skip Sub-Devices
             continue;
         }
-        cl_device_type clDevType;
-        errCode = devInfo->m_origDispatchTable.clGetDeviceInfo(
-            itr->first,
-            CL_DEVICE_TYPE,
-            sizeof(cl_device_type),
-            (void*)(&clDevType),
-            NULL);
+        cl_device_type clDevType = devInfo->m_devType;
 
-        if (CL_SUCCESS != errCode)
-        {
-            errCode = CL_OUT_OF_RESOURCES;
-            break;
-        }
-        if (device_type == CL_DEVICE_TYPE_DEFAULT &&
-            // In case of two-devices pick the CRT default
-            (clDevType == OCLCRT::crt_ocl_module.m_defaultDeviceType || OnlyOneAvailableDevice) )
+        // In case of two-devices pick the CRT default
+        if( ( device_type == CL_DEVICE_TYPE_DEFAULT ) &&
+            ( ( clDevType == OCLCRT::crt_ocl_module.m_defaultDeviceType ) ||
+              ( OnlyOneAvailableDevice ) ) )
         {
             numDevices = 1;
             numPlatforms = 1;
             deviceList[0] = itr->first;
             break;
         }
-        if (device_type == clDevType || device_type == CL_DEVICE_TYPE_ALL)
+        if( device_type & clDevType )
         {
             if (numDevices == 0)
             {
                 numPlatforms = 1;
-                pId =   devInfo->m_platformIdDEV;
+                pId =   devInfo->m_crtPlatform->m_platformIdDEV;
             }
             else
             {
-                if (pId != devInfo->m_platformIdDEV)
+                if (pId != devInfo->m_crtPlatform->m_platformIdDEV)
                 {
                     numPlatforms++;
                 }
@@ -768,7 +757,8 @@ cl_int CL_API_CALL clGetContextInfo(
                     param_name,
                     param_value_size,
                     param_value,
-                    param_value_size_ret);
+                    &pValueSize);
+
                 break;
             }
         case CL_CONTEXT_NUM_DEVICES:
@@ -805,9 +795,9 @@ cl_int CL_API_CALL clGetContextInfo(
                     param_name,
                     param_value_size,
                     param_value,
-                    param_value_size_ret);
+                    &pValueSize);
 
-                if (errCode == CL_SUCCESS)
+                if( errCode == CL_SUCCESS )
                 {
                     // replace the underlying platform_id with the CRT platform id
                     OCLCRT::ReplacePlatformId(
@@ -843,7 +833,7 @@ cl_int CL_API_CALL clGetGLContextInfoKHR( const cl_context_properties * properti
                                           size_t *                      param_value_size_ret)
 {
 
-        /// No supported for GL in a shared Context yet!
+    // No supported for GL in a shared Context yet!
     cl_int retCode = CL_SUCCESS;
 
     if (param_value == NULL && param_value_size_ret == NULL)
@@ -924,12 +914,14 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
                                                             param_value,
                                                             param_value_size_ret);
 
-    if (retCode == CL_SUCCESS && param_name == CL_DEVICE_PLATFORM)
+    if( ( retCode == CL_SUCCESS ) &&
+        ( param_name == CL_DEVICE_PLATFORM ) &&
+        ( param_value ) )
     {
-        memcpy_s(param_value,
-            sizeof(cl_platform_id),
-            &OCLCRT::crt_ocl_module.m_crtPlatformId,
-            sizeof(cl_platform_id));
+        memcpy_s( param_value,
+                  sizeof( cl_platform_id ),
+                  &OCLCRT::crt_ocl_module.m_crtPlatformId,
+                  sizeof( cl_platform_id ) );
     }
     return retCode;
 }
@@ -977,7 +969,9 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
 
 FINISH:
     if (errcode_ret)
+    {
         *errcode_ret = errCode;
+    }
 
     return queue_handle;
 }
@@ -1003,6 +997,11 @@ cl_int CL_API_CALL clGetCommandQueueInfo(
             if (param_value && param_value_size >= pValueSize)
             {
                 *((cl_uint*)param_value) = crtQueue->m_refCount;
+            }
+
+            if( param_value_size_ret )
+            {
+                *param_value_size_ret = pValueSize;
             }
         }
         break;
@@ -1155,27 +1154,41 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
-    if (command_queue == NULL)
+    if( command_queue == NULL )
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    if (buffer == NULL)
+    if( buffer == NULL )
     {
         return CL_INVALID_MEM_OBJECT;
     }
 
     CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
-    if (!queue)
+    if( !queue )
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
-    if (!synchHelper)
+    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
+    if( !crtBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( crtBuffer->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
+    if( !synchHelper )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1191,24 +1204,17 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
         0,
         NULL);
 
-    if (CL_SUCCESS != errCode)
+    if( CL_SUCCESS != errCode )
     {
         goto FINISH;
     }
 
     crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( !crtEvent )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
-    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
-    if (!crtBuffer)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
-        goto FINISH;
-    }
-
 	if (read_command)
 	{
 		if ( crtBuffer->m_flags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) )
@@ -1224,17 +1230,17 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
 		}
 	}
 
-    if (blocking_cmd)
+    if( blocking_cmd )
     {
         errCode = queue->m_contextCRT->FlushQueues();
-        if (CL_SUCCESS != errCode)
+        if( CL_SUCCESS != errCode )
         {
             errCode = CL_OUT_OF_RESOURCES;
             goto FINISH;
         }
     }
 
-    if (read_command)
+    if( read_command )
     {
         errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueReadBuffer(
             queue->m_cmdQueueDEV,
@@ -1261,7 +1267,7 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
             &crtEvent->m_eventDEV);
     }
 
-    if (errCode == CL_SUCCESS && event)
+    if( errCode == CL_SUCCESS && event )
     {
         _cl_event_crt* event_handle = new _cl_event_crt;
         if (!event_handle)
@@ -1274,12 +1280,12 @@ cl_int CL_API_CALL EnqueueReadWriteBuffer(
     }
 
 FINISH:
-    if (crtEvent && (!event || (CL_SUCCESS != errCode)))
+    if( crtEvent && ( !event || ( CL_SUCCESS != errCode ) ) )
     {
         crtEvent->Release();
         crtEvent->DecPendencyCnt();
     }
-    if (synchHelper)
+    if( synchHelper )
     {
         synchHelper->Release(errCode);
         delete synchHelper;
@@ -1364,27 +1370,41 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
     const cl_event *    event_wait_list,
     cl_event *          event )
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
-    if (!command_queue)
+    if( !command_queue )
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    if (!buffer)
+    if( !buffer )
     {
         return CL_INVALID_MEM_OBJECT;
     }
 
     CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
-    if (!queue)
+    if( !queue )
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
-    if (!synchHelper)
+    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
+    if( !crtBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( crtBuffer->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
+    if( !synchHelper )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1400,35 +1420,29 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
         0,
         NULL);
 
-    if (CL_SUCCESS != errCode)
+    if( CL_SUCCESS != errCode )
     {
         goto FINISH;
     }
 
     crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( !crtEvent )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
-    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
-    if (!crtBuffer)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
-        goto FINISH;
-    }
 
-    if (blocking_cmd)
+    if( blocking_cmd )
     {
         errCode = queue->m_contextCRT->FlushQueues();
-        if (CL_SUCCESS != errCode)
+        if( CL_SUCCESS != errCode )
         {
             errCode = CL_OUT_OF_RESOURCES;
             goto FINISH;
         }
     }
 
-    if (read_command)
+    if( read_command )
     {
         errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueReadBufferRect(
             queue->m_cmdQueueDEV,
@@ -1465,10 +1479,10 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
             &crtEvent->m_eventDEV);
     }
 
-    if (errCode == CL_SUCCESS && event)
+    if( errCode == CL_SUCCESS && event )
     {
         _cl_event_crt* event_handle = new _cl_event_crt;
-        if (!event_handle)
+        if( !event_handle )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
@@ -1478,14 +1492,14 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
     }
 
 FINISH:
-    if (crtEvent && (!event || (CL_SUCCESS != errCode)))
+    if( crtEvent && ( !event || ( CL_SUCCESS != errCode ) ) )
     {
         crtEvent->Release();
         crtEvent->DecPendencyCnt();
     }
-    if (synchHelper)
+    if( synchHelper )
     {
-        synchHelper->Release(errCode);
+        synchHelper->Release( errCode );
         delete synchHelper;
     }
     return errCode;
@@ -1587,8 +1601,9 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -1606,7 +1621,22 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
+    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
+    if( !crtSrcBuffer || !crtDstBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( crtSrcBuffer->m_pContext != queue->m_contextCRT ) ||
+        ( crtDstBuffer->m_pContext != queue->m_contextCRT ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -1632,13 +1662,6 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(
     if (!crtEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
-    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
-    if (!crtSrcBuffer || !crtDstBuffer)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -1698,8 +1721,9 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -1717,7 +1741,22 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
+    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
+    if( !crtSrcBuffer || !crtDstBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( crtSrcBuffer->m_pContext != queue->m_contextCRT ) ||
+        ( crtDstBuffer->m_pContext != queue->m_contextCRT ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -1743,13 +1782,6 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(
     if (!crtEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
-    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
-    if (!crtSrcBuffer || !crtDstBuffer)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -1806,10 +1838,11 @@ void * CL_API_CALL clEnqueueMapBuffer(
     cl_event *          event,
     cl_int *            errcode_ret)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtMapEvent = NULL;
-    CrtEvent* crtEvent = NULL;
-    void* ptr = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtMapEvent    = NULL;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
+    void* ptr                = NULL;
 
     if (command_queue == NULL)
     {
@@ -1827,12 +1860,27 @@ void * CL_API_CALL clEnqueueMapBuffer(
         errCode = CL_INVALID_COMMAND_QUEUE;
         return NULL;
     }
-    SyncManager* synchHelper = new SyncManager;
+
+    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
+    if( !crtBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( crtBuffer->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         return NULL;
     }
+
     cl_event*   outEvents = NULL;
     cl_uint     numOutEvents = 0;
     errCode = synchHelper->PrepareToExecute(
@@ -1853,11 +1901,6 @@ void * CL_API_CALL clEnqueueMapBuffer(
     if (!crtMapEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
-    if (!crtBuffer)
-    {   errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -1901,7 +1944,7 @@ void * CL_API_CALL clEnqueueMapBuffer(
                 crtBuffer,
                 crtMapEvent,
                 &crtEvent);
-        
+
         crtEvent->IncPendencyCnt();
 
         crtMapEvent->Release();
@@ -1931,25 +1974,26 @@ void * CL_API_CALL clEnqueueMapBuffer(
 
 FINISH:
 
-    if (CL_SUCCESS != errCode)
+    if( CL_SUCCESS != errCode )
     {
-        if (crtMapEvent)
+        if( crtMapEvent )
         {
             crtMapEvent->Release();
             crtMapEvent->DecPendencyCnt();
         }
-        if (crtEvent != crtMapEvent)
+        if( ( crtEvent != NULL ) &&
+            ( crtEvent != crtMapEvent ) )
         {
             crtEvent->Release();
             crtEvent->DecPendencyCnt();
         }
     }
-    if (synchHelper)
+    if( synchHelper )
     {
-        synchHelper->Release(errCode);
+        synchHelper->Release( errCode );
         delete synchHelper;
     }
-    if (errcode_ret)
+    if( errcode_ret )
     {
         *errcode_ret = errCode;
     }
@@ -1975,11 +2019,11 @@ void * CL_API_CALL clEnqueueMapImage(
     cl_event *          event,
     cl_int *            errcode_ret)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtMapEvent = NULL;
-    CrtEvent* crtEvent = NULL;
-
-    void* ptr = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtMapEvent    = NULL;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
+    void* ptr                = NULL;
 
     if (command_queue == NULL)
     {
@@ -1997,12 +2041,39 @@ void * CL_API_CALL clEnqueueMapImage(
         errCode = CL_INVALID_COMMAND_QUEUE;
         return NULL;
     }
-    SyncManager* synchHelper = new SyncManager;
+
+    CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
+    if( !crtImage )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( crtImage->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    cl_mem devMemObj = crtImage->getDeviceMemObj(queue->m_device);
+    if( crtImage->IsValidImageFormat( devMemObj ) != CL_TRUE )
+    {
+        errCode = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+        goto FINISH;
+    }
+    else if( crtImage->IsValidMemObjSize( devMemObj ) != CL_TRUE )
+    {
+        errCode = CL_INVALID_IMAGE_SIZE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         return NULL;
     }
+
     cl_event*   outEvents = NULL;
     cl_uint     numOutEvents = 0;
     errCode = synchHelper->PrepareToExecute(
@@ -2022,13 +2093,6 @@ void * CL_API_CALL clEnqueueMapImage(
     if (!crtMapEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-
-    CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
-    if (!crtImage)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -2056,6 +2120,21 @@ void * CL_API_CALL clEnqueueMapImage(
         &crtMapEvent->m_eventDEV,
         &errCode);
 
+    // The pitch for CRT Backing store may be different than that for the host_ptr
+    // So we need to report the correct host_ptr pitch
+    *image_row_pitch = crtImage->m_hostPtrRowPitch;
+    if( image_slice_pitch )
+    {
+        if( crtImage->m_dimCount == 3 )
+        {   
+            *image_slice_pitch = crtImage->m_hostPtrSlicePitch;
+        }
+        else
+        {
+            *image_slice_pitch = 0;
+        }
+    }
+
     if (crtImage->HasPrivateCopy())
     {
         // This can be extended to include the region
@@ -2074,7 +2153,7 @@ void * CL_API_CALL clEnqueueMapImage(
                 crtImage,
                 crtMapEvent,
                 &crtEvent);
-        
+
         crtEvent->IncPendencyCnt();
 
         crtMapEvent->Release();
@@ -2139,11 +2218,11 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtUnmapEvent = NULL;
-    CrtEvent* crtEvent = NULL;
-
-    void* ptr = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtUnmapEvent  = NULL;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
+    void* ptr                = NULL;
 
     if (command_queue == NULL)
     {
@@ -2162,23 +2241,29 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
         goto FINISH;
     }
 
-    SyncManager* synchHelper = new SyncManager;
-    if (!synchHelper)
-    {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        return NULL;
-    }
-
     CrtMemObject* crtMemObj = reinterpret_cast<CrtMemObject*>(((_cl_mem_crt*)memobj)->object);
-    if (!crtMemObj)
+    if( !crtMemObj )
     {
         errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
-    cl_event*   outEvents = NULL;   
+    if( crtMemObj->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
+    if( !synchHelper )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        return NULL;
+    }
+
+    cl_event*   outEvents = NULL;
     cl_uint     numOutEvents = 0;
-    
+
     errCode = synchHelper->PrepareToExecute(
         queue,
         num_events_in_wait_list,
@@ -2191,31 +2276,31 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     if (CL_SUCCESS != errCode)
     {
         goto FINISH;
-    }    
-        
+    }
+
     crtUnmapEvent = new CrtEvent(queue);
     if (!crtUnmapEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
- 
+
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueUnmapMemObject(
         queue->m_cmdQueueDEV,
         crtMemObj->getDeviceMemObj(queue->m_device),
         mapped_ptr,
         numOutEvents,
         outEvents,
-        &crtUnmapEvent->m_eventDEV);        
-    
+        &crtUnmapEvent->m_eventDEV);
+
     if (CL_SUCCESS != errCode)
     {
         goto FINISH;
     }
-        /// Theoretically we should sync the surface before the UnMap command
-        /// however, since we already know that UnMap on the devices will do
-        /// nothing besides reference counting the map/unmap operations...
-        /// we choose to follow the Map sequence implementation for simplicity.
+    // Theoretically we should sync the surface before the UnMap command
+    // however, since we already know that UnMap on the devices will do
+    // nothing besides reference counting the map/unmap operations...
+    // we choose to follow the Map sequence implementation for simplicity.
     if (crtMemObj->HasPrivateCopy())
     {
         // This can be extended to include the region
@@ -2233,8 +2318,8 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
                 queue,
                 crtMemObj,
                 crtUnmapEvent,
-                &crtEvent); 
-        
+                &crtEvent);
+
         crtEvent->IncPendencyCnt();
 
         crtUnmapEvent->Release();
@@ -2263,23 +2348,24 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     }
 
 FINISH:
-   
-    if (CL_SUCCESS != errCode)
+
+    if( CL_SUCCESS != errCode )
     {
-        if (crtUnmapEvent)
+        if( crtUnmapEvent )
         {
-            crtUnmapEvent->Release();            
-            crtUnmapEvent->DecPendencyCnt();            
-        }    
-        if (crtEvent != crtUnmapEvent)
+            crtUnmapEvent->Release();
+            crtUnmapEvent->DecPendencyCnt();
+        }
+        if( ( crtEvent != NULL ) &&
+            ( crtEvent != crtUnmapEvent ) )
         {
             crtEvent->Release();
             crtEvent->DecPendencyCnt();
         }
     }
-    if (synchHelper)
+    if( synchHelper )
     {
-        synchHelper->Release(errCode);
+        synchHelper->Release( errCode );
         delete synchHelper;
     }
 
@@ -2342,7 +2428,7 @@ cl_int CL_API_CALL clRetainContext(cl_context context)
 
     if (ctxInfo->m_contextType == CrtContextInfo::SinglePlatformContext)
     {
-            /// Single Platform Context
+        // Single Platform Context
         KHRicdVendorDispatch* dTable = (KHRicdVendorDispatch*)(ctxInfo->m_object);
 
         errCode = dTable->clRetainContext(context);
@@ -2350,7 +2436,7 @@ cl_int CL_API_CALL clRetainContext(cl_context context)
     }
     else
     {
-            /// Shared Platform Context
+        // Shared Platform Context
         CrtContext* ctx = (CrtContext*)(ctxInfo->m_object);
         ctx->IncRefCnt();
     }
@@ -2554,6 +2640,7 @@ cl_program CL_API_CALL clCreateProgramWithSource( cl_context         context ,
         }
         else
         {
+            pgm->m_program_handle = ( cl_program ) SharedProgram;
             SharedProgram->object = (void *) pgm;
         }
     }
@@ -2607,6 +2694,7 @@ cl_program CL_API_CALL clCreateProgramWithBinary(
         }
         else
         {
+            pgm->m_program_handle = ( cl_program ) SharedProgram;
             SharedProgram->object = (void *) pgm;
         }
     }
@@ -2697,7 +2785,11 @@ cl_int CL_API_CALL clBuildProgram(
             OCLCRT::crt_ocl_module.m_oclPlatforms[i]->m_platformIdDEV,
             &matchDevices,
             NULL);
-        numRelevantContexts += 1;
+
+        if( matchDevices > 0 )
+        {
+            numRelevantContexts += 1;
+        }
     }
 
     crtData->m_numBuild = numRelevantContexts;
@@ -2726,6 +2818,10 @@ cl_int CL_API_CALL clBuildProgram(
         }
 
         cl_context ctx = crtProg->m_contextCRT->m_DeviceToContext[outDevices[0]];
+
+        // mark the underlying context as context a build has been requested for
+        crtProg->m_buildContexts.push_back(ctx);
+
         cl_program prog = crtProg->m_ContextToProgram[ctx];
 
         errCode = prog->dispatch->clBuildProgram(
@@ -2736,21 +2832,22 @@ cl_int CL_API_CALL clBuildProgram(
             buildCompleteFn,
             crtData);
 
-        if (CL_SUCCESS != errCode)
+        if( ( CL_SUCCESS != errCode ) && ( CL_BUILD_PROGRAM_FAILURE != errCode ) )
         {
+            assert( numRequested == 0 );
+            delete crtData;
             goto FINISH;
         }
-
         numRequested++;
     }
 
     if (!pfn_notify)
     {
-            /// The Build is a blocking command in this case
         crtData->m_lock.Wait();
+        delete crtData;
 
-            /// According to the spec we must return the build status on returning
-            /// from a blocking build request
+        // According to the spec we must return the build status on returning
+        // from a blocking build request
         for (cl_uint i=0; i < num_devices; i++)
         {
             cl_build_status build_status;
@@ -2772,22 +2869,11 @@ cl_int CL_API_CALL clBuildProgram(
         }
     }
 FINISH:
-    if (device_list == NULL && deviceList)
+    if( ( device_list == NULL ) && ( deviceList ) )
     {
         delete[] deviceList;
     }
 
-    if (CL_SUCCESS != errCode && crtData)
-    {
-        // We set crtData->m_numBuild to numRelevantContexts; however, we succeeded to
-        // send build requests on numRequsted, since the others has fails or not
-        // submitted; hence, we need to reduce this diff from the m_numBuild.
-        cl_int notExecutedCount = numRequested - numRelevantContexts;
-        if (0 == (atomic_add_ret_prev(&crtData->m_numBuild, notExecutedCount)+notExecutedCount))
-        {
-            delete crtData;
-        }
-    }
     return errCode;
 }
 
@@ -2806,17 +2892,13 @@ cl_int CL_API_CALL clGetProgramBuildInfo( cl_program             program,
     CrtProgram* pgm = reinterpret_cast<CrtProgram*>(((_cl_program_crt*)program)->object);
     CrtContext* ctx = pgm->m_contextCRT;
 
-    if( CL_SUCCESS == errCode )
-    {
-        //Shared context.
-        cl_program currPgm = pgm->m_ContextToProgram[ ctx->GetContextByDeviceID( device ) ];
-        errCode = currPgm->dispatch->clGetProgramBuildInfo( currPgm,
-                                                            device,
-                                                            param_name,
-                                                            param_value_size,
-                                                            param_value,
-                                                            param_value_size_ret );
-    }
+    cl_program currPgm = pgm->m_ContextToProgram[ ctx->GetContextByDeviceID( device ) ];
+    errCode = currPgm->dispatch->clGetProgramBuildInfo( currPgm,
+                                                        device,
+                                                        param_name,
+                                                        param_value_size,
+                                                        param_value,
+                                                        param_value_size_ret );
     return errCode;
 }
 
@@ -2889,11 +2971,9 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
     }
     CrtContext* ctx = pgm->m_contextCRT;
 
-    for( SHARED_CTX_DISPATCH::iterator itr = ctx->m_contexts.begin();
-        itr != ctx->m_contexts.end();
-        itr++)
+    for( cl_uint i=0; i < pgm->m_buildContexts.size(); i++)
     {
-        cl_context ctxObj = itr->first;
+        cl_context ctxObj = pgm->m_buildContexts[i];
         cl_kernel knlObj = ctxObj->dispatch->clCreateKernel( pgm->m_ContextToProgram[ctxObj],
                                                   kernel_name,
                                                   &errCode );
@@ -2901,10 +2981,17 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
         {
             crtKernel->m_ContextToKernel[ctxObj] = knlObj;
         }
-        else
-        {
-            goto FINISH;
-        }
+    }
+
+    if( crtKernel->m_ContextToKernel.size() == 0 )
+    {
+        errCode = CL_INVALID_PROGRAM_EXECUTABLE;
+        goto FINISH;
+    }
+    else
+    {
+        // At least there is one successful executable on any of the devices
+        errCode = CL_SUCCESS;
     }
 
     SharedKernel = new _cl_kernel_crt;
@@ -2949,15 +3036,66 @@ cl_int CL_API_CALL clGetKernelInfo(
 {
     cl_int retCode = CL_SUCCESS;
     CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
-        /// Pick any of the underlying created sampler objects
-    cl_kernel kernelObj = crtKernel->m_ContextToKernel.begin()->second;
-        /// Forward call
-    retCode = kernelObj->dispatch->clGetKernelInfo(
-                        kernelObj,
-                        param_name,
-                        param_value_size,
-                        param_value,
-                        param_value_size_ret);
+
+    size_t  pValueSize = 0;
+    switch(param_name)
+    {
+        case CL_KERNEL_REFERENCE_COUNT:
+            {
+                pValueSize = sizeof(crtKernel->m_refCount);
+                if (param_value && param_value_size >= pValueSize)
+                {
+                    *((cl_uint*)param_value) = crtKernel->m_refCount;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
+        case CL_KERNEL_CONTEXT:
+            {
+                pValueSize = sizeof(cl_context);
+                if (param_value && param_value_size >= pValueSize)
+                {
+                    *((cl_context*)param_value) = crtKernel->m_programCRT->m_contextCRT->m_context_handle;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
+        case CL_KERNEL_PROGRAM:
+            {
+                pValueSize = sizeof(cl_program);
+                if (param_value && param_value_size >= pValueSize)
+                {
+                    *((cl_program*)param_value) = crtKernel->m_programCRT->m_program_handle;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
+        default:
+            {
+                // Pick any of the underlying created kernel objects
+                cl_kernel kernelObj = crtKernel->m_ContextToKernel.begin()->second;
+                // Forward call
+                retCode = kernelObj->dispatch->clGetKernelInfo(
+                                    kernelObj,
+                                    param_name,
+                                    param_value_size,
+                                    param_value,
+                                    param_value_size_ret);
+            }
+            break;
+    }
     return retCode;
 }
 /// ------------------------------------------------------------------------------
@@ -2973,10 +3111,10 @@ cl_int CL_API_CALL clSetKernelArg(
     CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
 
     CrtContext* kernelCrtCtx = crtKernel->m_programCRT->m_contextCRT;
-    cl_device_id devId = kernelCrtCtx->GetKernelReflectionDevice();
+    cl_device_id devId = kernelCrtCtx->GetDeviceByType( CL_DEVICE_TYPE_CPU );
 
     size_t size = 0;
-    ((CrtKHRicdVendorDispatch*)devId->dispatch)->clGetKernelArgInfo(
+    ((CrtKHRicdVendorDispatch*)(devId->dispatch))->clGetKernelArgInfo(
         crtKernel->m_ContextToKernel[kernelCrtCtx->m_DeviceToContext[devId]],
         arg_index,
         CL_KERNEL_ARG_TYPE_NAME,
@@ -2984,15 +3122,13 @@ cl_int CL_API_CALL clSetKernelArg(
         NULL,
         &size);
     char* paramType = new char[size];
-    ((CrtKHRicdVendorDispatch*)devId->dispatch)->clGetKernelArgInfo(
+    ((CrtKHRicdVendorDispatch*)(devId->dispatch))->clGetKernelArgInfo(
         crtKernel->m_ContextToKernel[kernelCrtCtx->m_DeviceToContext[devId]],
         arg_index,
         CL_KERNEL_ARG_TYPE_NAME,
         size,
         paramType,
         NULL);
-
-
 
     std::string paramT(paramType);
 
@@ -3001,43 +3137,73 @@ cl_int CL_API_CALL clSetKernelArg(
     bool isSampler = !(paramT.compare(0, strlen("sampler"),"sampler"));
 
     const CrtObject* crtObject = NULL;
-    CrtSampler* samplerObj = NULL;
-    CrtMemObject* memObj = NULL;
+    CrtSampler* crtSamplerObj = NULL;
+    CrtMemObject* crtMemObj = NULL;
 
-    if (isImage || isBuffer)
+    if( isImage )
     {
         _cl_object* ClObject = *((_cl_object**)(arg_value));
         if (NULL == ClObject)
         {
-            return CL_INVALID_KERNEL_ARGS;
+            return CL_INVALID_ARG_VALUE;
         }
         crtObject = reinterpret_cast<const CrtObject*>(ClObject->object);
         if (NULL == crtObject)
         {
-            return CL_INVALID_KERNEL_ARGS;
+            return CL_INVALID_MEM_OBJECT;
         }
-        memObj = (CrtMemObject*)crtObject;
+        crtMemObj = (CrtMemObject*)crtObject;
     }
-    else if (isSampler)
+    else if( ( isBuffer ) &&
+             ( arg_value != NULL ) )
     {
-        samplerObj = (CrtSampler*)crtObject;
+        _cl_object* ClObject = *((_cl_object**)(arg_value));
+        crtObject = reinterpret_cast<const CrtObject*>(ClObject->object);
+        if (NULL == crtObject)
+        {
+            return CL_INVALID_MEM_OBJECT;
+        }
+        crtMemObj = (CrtMemObject*)crtObject;
+    }
+    else if( isSampler )
+    {
+        _cl_object* ClObject = *((_cl_object**)(arg_value));
+        if (NULL == ClObject)
+        {
+            return CL_INVALID_ARG_VALUE;
+        }
+        crtObject = reinterpret_cast<const CrtObject*>(ClObject->object);
+        if (NULL == crtObject)
+        {
+            return CL_INVALID_SAMPLER;
+        }
+        crtSamplerObj = (CrtSampler*)crtObject;
     }
 
     CTX_KRN_MAP::iterator itr = crtKernel->m_ContextToKernel.begin();
     for (;itr != crtKernel->m_ContextToKernel.end(); itr++)
     {
         void* devObject = NULL;
-        if (isImage || isBuffer)
+        if( crtMemObj != NULL )
         {
-            devObject = (void*)(&(memObj->m_ContextToMemObj[itr->first]));
+            cl_mem memObj = crtMemObj->m_ContextToMemObj[itr->first];
+            if( ( crtMemObj->IsValidImageFormat( memObj ) != CL_TRUE ) || 
+                ( crtMemObj->IsValidMemObjSize( memObj ) != CL_TRUE ) )
+            {
+                // This is an image format which is not supported on the underlying
+                // context devices, we shall continue to other contexts
+                // There is no case that the image format isn't supported by any
+                // device since clCreateImage already succeeded previously.
+                continue;
+            }
+            devObject = (void*)(&memObj);
         }
-        else if (isSampler)
+        else if( crtSamplerObj != NULL )
         {
-
-            devObject = (void*)(&(samplerObj->m_ContextToSampler[itr->first]));
+            devObject = (void*)(&(crtSamplerObj->m_ContextToSampler[itr->first]));
         }
 
-        if (devObject == NULL)
+        if( devObject == NULL )
         {
             errCode = itr->second->dispatch->clSetKernelArg(
                 itr->second,
@@ -3053,7 +3219,7 @@ cl_int CL_API_CALL clSetKernelArg(
                 arg_size,
                 devObject);
         }
-        if (CL_SUCCESS != errCode)
+        if( CL_SUCCESS != errCode )
             break;
     }
     return errCode;
@@ -3130,7 +3296,7 @@ cl_int CL_API_CALL clReleaseKernel( cl_kernel kernel )
     if (refCount == 0)
     {
         crtKernel->Release();
-            /// deletes CRT handle _cl_kernel_crt
+        // deletes CRT handle _cl_kernel_crt
         delete kernel;
     }
     crtKernel->DecPendencyCnt();
@@ -3187,10 +3353,11 @@ cl_int CL_API_CALL clCreateSubDevicesEXT(
             }
             *(pDevicesInfo[i]) = *parentDevInfo;
             pDevicesInfo[i]->m_refCount = 1;
-                /// This is a sub-device
+            pDevicesInfo[i]->m_devType = parentDevInfo->m_devType;
+            // This is a sub-device
             pDevicesInfo[i]->m_isRootDevice = false;
-                /// Patch new created device IDs. some platforms don't use the same table
-                /// for all handles (gpu), so we need to call Patch for each new created handle
+            // Patch new created device IDs. some platforms don't use the same table
+            // for all handles (gpu), so we need to call Patch for each new created handle
             OCLCRT::crt_ocl_module.PatchClDeviceID(dev, NULL);
             OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Add(dev,pDevicesInfo[i]);
         }
@@ -3230,7 +3397,7 @@ cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
         return CL_SUCCESS;
     }
 
-        /// If we reached here, then this is a sub-device
+    // If we reached here, then this is a sub-device
     long refCount = atomic_decrement(&(devInfo->m_refCount));
     if (refCount == 0)
     {
@@ -3263,9 +3430,9 @@ cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id device)
     {
         return CL_SUCCESS;
     }
-        /// If we reached here, then this is a sub-device
-        /// No need to forward the retain request, just incremement
-        /// the reference counter
+    // If we reached here, then this is a sub-device
+    // No need to forward the retain request, just incremement
+    // the reference counter
     atomic_increment(&(devInfo->m_refCount));
 
     return errCode;
@@ -3330,27 +3497,29 @@ cl_int CL_API_CALL clWaitForEvents(cl_uint num_events, const cl_event * event_li
     cl_int errCode = CL_SUCCESS;
     CrtContext* crtContext = NULL;
 
-    //// Implements Option 1 from the Design document
+    // Implements Option 1 from the Design document
 
     if (0 == num_events)
     {
         return CL_INVALID_VALUE;
     }
-    else     
+    else
     {
         CrtEvent* crtEvent = reinterpret_cast<CrtEvent*>(((_cl_event_crt*)(event_list[0]))->object);
         crtContext = crtEvent->getContext();
-        for(cl_uint i=1; i < num_events; i++)
+        crtContext->FlushQueues();
+
+        for( cl_uint i=1; i < num_events; i++ )
         {
-            if (crtEvent->getContext() != crtContext)
+            crtEvent = reinterpret_cast<CrtEvent*>(((_cl_event_crt*)(event_list[i]))->object);
+            if( crtEvent->getContext() != crtContext )
             {
                 return CL_INVALID_CONTEXT;
-            }        
+            }
         }
-        crtEvent->getContext()->FlushQueues();
     }
-    
-        /// accumulate events for the same underlying platform
+
+    // accumulate events for the same underlying platform
     cl_event* pEvents = new cl_event[num_events];
     if (NULL == pEvents)
     {
@@ -3369,7 +3538,7 @@ cl_int CL_API_CALL clWaitForEvents(cl_uint num_events, const cl_event * event_li
             {
                 if (crtEvent->m_isUserEvent)
                 {
-                        /// Pick the corrsponding queue event on that context
+                    // Pick the corrsponding queue event on that context
                     pEvents[current++] = ((CrtUserEvent*)crtEvent)->m_ContextToEvent[itr->first];
                 }
                 else
@@ -3431,8 +3600,8 @@ cl_int CL_API_CALL clGetEventInfo(
     {
         if (param_name == CL_EVENT_CONTEXT)
         {
-                /// since the app receives a context handle from the CRT, we need to assure
-                /// we are returning the CRT context and not the underlying context.
+            // since the app receives a context handle from the CRT, we need to assure
+            // we are returning the CRT context and not the underlying context.
             memcpy_s(param_value,
                 sizeof(cl_context),
                 &(crtContext->m_context_handle),
@@ -3440,9 +3609,9 @@ cl_int CL_API_CALL clGetEventInfo(
         }
         else if (param_name == CL_EVENT_REFERENCE_COUNT)
         {
-                /// The CRT maintains the correct reference count, so we need to return
-                /// it from the CRT; recall CRT doesn't forward retain calls to the underlying
-                /// platforms.
+            // The CRT maintains the correct reference count, so we need to return
+            // it from the CRT; recall CRT doesn't forward retain calls to the underlying
+            // platforms.
             *((cl_uint*)param_value) = crtEvent->m_refCount;
         }
     }
@@ -3471,17 +3640,30 @@ cl_int CL_API_CALL clGetProgramInfo(
         case CL_PROGRAM_REFERENCE_COUNT:
             {
                 pValueSize = sizeof(crtProgram->m_refCount);
-                if (param_value && param_value_size >= pValueSize)
+                if( param_value != NULL )
                 {
+                    if( param_value_size < pValueSize )
+                    {
+                        return CL_INVALID_VALUE;
+                    }
                     *((cl_uint*)param_value) = crtProgram->m_refCount;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
                 }
             }
             break;
         case CL_PROGRAM_CONTEXT:
             {
                 pValueSize = sizeof(cl_context);
-                if (param_value && param_value_size >= pValueSize)
+                if( param_value != NULL )
                 {
+                    if( param_value_size < pValueSize )
+                    {
+                        return CL_INVALID_VALUE;
+                    }
                     *((cl_context*)param_value) = crtProgram->m_contextCRT->m_context_handle;
                 }
 
@@ -3493,7 +3675,6 @@ cl_int CL_API_CALL clGetProgramInfo(
             break;
         case CL_PROGRAM_NUM_DEVICES:
             {
-
                 pValueSize = sizeof(cl_uint);
                 cl_uint numDevices = 0;
                 CTX_PGM_MAP::iterator itr = crtProgram->m_ContextToProgram.begin();
@@ -3509,15 +3690,23 @@ cl_int CL_API_CALL clGetProgramInfo(
 
                     numDevices += ctxNumDevices;
                 }
-                if (param_value && param_value_size >= pValueSize)
+                if( param_value != NULL )
                 {
+                    if( param_value_size < pValueSize )
+                    {
+                        return CL_INVALID_VALUE;
+                    }
                     *((cl_uint*)param_value) = numDevices;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
                 }
             }
             break;
         case CL_PROGRAM_DEVICES:
             {
-                //pValueSize = sizeof(cl_device);
                 cl_uint maxNumDevices = (cl_uint)crtProgram->m_contextCRT->m_DeviceToContext.size();
                 outDevices = new cl_device_id[maxNumDevices];
                 if (CL_SUCCESS != errCode)
@@ -3544,20 +3733,37 @@ cl_int CL_API_CALL clGetProgramInfo(
                     }
                 }
                 pValueSize = numDevices * sizeof(cl_device_id);
-                if (param_value && param_value_size >= pValueSize)
+                if( param_value != NULL )
                 {
+                    if( param_value_size < pValueSize )
+                    {
+                        return CL_INVALID_VALUE;
+                    }
                     for (cl_uint i=0; i < numDevices; i++)
                     {
                         ((cl_device_id*)param_value)[i] = outDevices[i];
                     }
                 }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
             }
             break;
         default:
             {
-                CTX_PGM_MAP::iterator itr = crtProgram->m_ContextToProgram.begin();
-                errCode = itr->second->dispatch->clGetProgramInfo(
-                    itr->second,
+                cl_program pgmObj = NULL;
+                if( crtProgram->m_buildContexts.empty() )
+                {
+                    pgmObj = crtProgram->m_ContextToProgram.begin()->second;
+                }
+                else
+                {
+                    pgmObj = crtProgram->m_ContextToProgram[ crtProgram->m_buildContexts[0] ];
+                }
+                errCode = pgmObj->dispatch->clGetProgramInfo(
+                    pgmObj,
                     param_name,
                     param_value_size,
                     param_value,
@@ -3688,8 +3894,8 @@ cl_int CL_API_CALL clSetEventCallback(
         {
             CrtUserEvent* crtUserEVent = (CrtUserEvent*)crtEvent;
             std::map<cl_context, cl_event>::iterator itr = crtUserEVent->m_ContextToEvent.begin();
-                /// No point on registering the callback notification on all
-                /// underlying platforms, so we pick randomly the first one.
+            // No point on registering the callback notification on all
+            // underlying platforms, so we pick randomly the first one.
             errCode = itr->second->dispatch->clSetEventCallback(
                 itr->second,
                 command_exec_callback_type,
@@ -3715,7 +3921,8 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
+    cl_int errCode           = CL_SUCCESS;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -3733,7 +3940,7 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -3796,12 +4003,12 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
     }
 
 FINISH:
-    if (crtEvent && (!event || (CL_SUCCESS != errCode)))
+    if( crtEvent && ( !event || ( CL_SUCCESS != errCode ) ) )
     {
         crtEvent->Release();
         crtEvent->DecPendencyCnt();
     }
-    if (synchHelper)
+    if( synchHelper )
     {
         synchHelper->Release(errCode);
         delete synchHelper;
@@ -3820,7 +4027,8 @@ cl_int CL_API_CALL clEnqueueTask(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
+    cl_int errCode           = CL_SUCCESS;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -3838,7 +4046,7 @@ cl_int CL_API_CALL clEnqueueTask(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -3873,17 +4081,25 @@ cl_int CL_API_CALL clEnqueueTask(
         goto FINISH;
     }
 
+    cl_context targetContext = queue->m_contextCRT->m_DeviceToContext[ queue->m_device ];
+
+    if( crtKernel->m_ContextToKernel.find( targetContext ) == crtKernel->m_ContextToKernel.end() )
+    {
+        errCode = CL_INVALID_PROGRAM_EXECUTABLE;
+        goto FINISH;
+    }
+
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueTask(
         queue->m_cmdQueueDEV,
-        NULL,
+        crtKernel->m_ContextToKernel[ targetContext ],
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        &crtEvent->m_eventDEV );
 
-    if (errCode == CL_SUCCESS && event)
+    if( errCode == CL_SUCCESS && event )
     {
         _cl_event_crt* event_handle = new _cl_event_crt;
-        if (!event_handle)
+        if( !event_handle )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
@@ -3893,14 +4109,14 @@ cl_int CL_API_CALL clEnqueueTask(
     }
 
 FINISH:
-    if (crtEvent && (!event || (CL_SUCCESS != errCode)))
+    if( crtEvent && ( !event || ( CL_SUCCESS != errCode ) ) )
     {
         crtEvent->Release();
         crtEvent->DecPendencyCnt();
     }
-    if (synchHelper)
+    if( synchHelper )
     {
-        synchHelper->Release(errCode);
+        synchHelper->Release( errCode );
         delete synchHelper;
     }
     return errCode;
@@ -3975,7 +4191,8 @@ cl_int CL_API_CALL clEnqueueWaitForEvents(
     cl_uint             num_events_in_wait_list,
     const cl_event *    event_wait_list)
 {
-    cl_int errCode = CL_SUCCESS;
+    cl_int errCode           = CL_SUCCESS;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -3988,7 +4205,7 @@ cl_int CL_API_CALL clEnqueueWaitForEvents(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4040,8 +4257,9 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -4063,14 +4281,14 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-        /// Check if device support Native Kernels in reported device capabilities
+    // Check if device support Native Kernels in reported device capabilities
     CrtDeviceInfo * devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(queue->m_device);
     if (!(devInfo->m_deviceCapabilities & CL_EXEC_NATIVE_KERNEL))
     {
         return CL_INVALID_OPERATION;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4108,7 +4326,7 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
         }
-            /// Translate memory object handles
+        // Translate memory object handles
         for (cl_uint i=0; i < num_mem_objects; i++)
         {
             _cl_mem_crt * crtMemHandle = (_cl_mem_crt *)(mem_list[i]);
@@ -4301,7 +4519,9 @@ cl_int CL_API_CALL EnqueueReadWriteImage(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -4319,7 +4539,31 @@ cl_int CL_API_CALL EnqueueReadWriteImage(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
+    if( !crtImage )
+    {   errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( crtImage->m_pContext != queue->m_contextCRT )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    cl_mem devMemObj = crtImage->getDeviceMemObj(queue->m_device);
+    if( crtImage->IsValidImageFormat( devMemObj ) != CL_TRUE )
+    {
+        errCode = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+        goto FINISH;
+    }
+    else if( crtImage->IsValidMemObjSize( devMemObj ) != CL_TRUE )
+    {
+        errCode = CL_INVALID_IMAGE_SIZE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4341,15 +4585,10 @@ cl_int CL_API_CALL EnqueueReadWriteImage(
         goto FINISH;
     }
 
-    CrtEvent* crtEvent = new CrtEvent(queue);
+    crtEvent = new CrtEvent(queue);
     if (!crtEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
-    if (!crtImage)
-    {   errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -4499,8 +4738,9 @@ cl_int CL_API_CALL clEnqueueCopyImage(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -4518,7 +4758,37 @@ cl_int CL_API_CALL clEnqueueCopyImage(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    SyncManager* synchHelper = new SyncManager;
+    CrtImage* crtSrcImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)src_image)->object);
+    CrtImage* crtDstImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)dst_image)->object);
+    if( ( !crtSrcImage ) || ( !crtDstImage ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( crtSrcImage->m_pContext != queue->m_contextCRT ) || ( crtDstImage->m_pContext != queue->m_contextCRT ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+     cl_mem devSrcMemObj = crtSrcImage->getDeviceMemObj(queue->m_device);
+     cl_mem devDstMemObj = crtDstImage->getDeviceMemObj(queue->m_device);
+
+     if( ( crtSrcImage->IsValidImageFormat( devSrcMemObj ) != CL_TRUE ) ||
+         ( crtDstImage->IsValidImageFormat( devDstMemObj ) != CL_TRUE ) )
+    {
+        errCode = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+        goto FINISH;
+    }
+    else if( ( crtSrcImage->IsValidMemObjSize( devSrcMemObj ) != CL_TRUE ) ||
+             ( crtDstImage->IsValidMemObjSize( devDstMemObj ) != CL_TRUE ) )
+    {
+        errCode = CL_INVALID_IMAGE_SIZE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4544,13 +4814,6 @@ cl_int CL_API_CALL clEnqueueCopyImage(
     if (!crtEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtImage* crtSrcImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)src_image)->object);
-    CrtImage* crtDstImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)dst_image)->object);
-    if (!crtSrcImage || !crtDstImage)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -4606,8 +4869,9 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -4624,9 +4888,34 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-   
 
-    SyncManager* synchHelper = new SyncManager;
+    CrtImage* crtSrcImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)src_image)->object);
+    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
+    if( !crtSrcImage || !crtDstBuffer )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( crtSrcImage->m_pContext != queue->m_contextCRT ) || ( crtDstBuffer->m_pContext != queue->m_contextCRT ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    cl_mem devSrcMemObj = crtSrcImage->getDeviceMemObj(queue->m_device);
+    if( crtSrcImage->IsValidImageFormat( devSrcMemObj ) != CL_TRUE )
+    {
+        errCode = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+        goto FINISH;
+    }
+    else if( crtSrcImage->IsValidMemObjSize( devSrcMemObj ) != CL_TRUE )
+    {
+        errCode = CL_INVALID_IMAGE_SIZE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4652,13 +4941,6 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(
     if (!crtEvent)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
-    CrtImage* crtSrcImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)src_image)->object);
-    CrtBuffer* crtDstBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)dst_buffer)->object);
-    if (!crtSrcImage || !crtDstBuffer)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -4714,8 +4996,9 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(
     const cl_event *    event_wait_list,
     cl_event *          event)
 {
-    cl_int errCode = CL_SUCCESS;
-    CrtEvent* crtEvent = NULL;
+    cl_int errCode           = CL_SUCCESS;
+    CrtEvent* crtEvent       = NULL;
+    SyncManager* synchHelper = NULL;
 
     if (command_queue == NULL)
     {
@@ -4729,11 +5012,37 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(
 
     CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
     if (!queue)
-   {
+    {
         return CL_INVALID_COMMAND_QUEUE;
     }
-   
-    SyncManager* synchHelper = new SyncManager;
+
+    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
+    CrtImage*  crtDstImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)dst_image)->object);
+    if( !crtSrcBuffer || !crtDstImage )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( crtSrcBuffer->m_pContext != queue->m_contextCRT ) || ( crtDstImage->m_pContext != queue->m_contextCRT ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    cl_mem devDstMemObj = crtDstImage->getDeviceMemObj(queue->m_device);
+    if( crtDstImage->IsValidImageFormat( devDstMemObj ) != CL_TRUE )
+    {
+        errCode = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+        goto FINISH;
+    }
+    else if( crtDstImage->IsValidMemObjSize( devDstMemObj ) != CL_TRUE )
+    {
+        errCode = CL_INVALID_IMAGE_SIZE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
     if (!synchHelper)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -4761,14 +5070,6 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
-    CrtBuffer* crtSrcBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)src_buffer)->object);
-    CrtImage*  crtDstImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)dst_image)->object);
-    if (!crtSrcBuffer || !crtDstImage)
-    {
-        errCode = CL_INVALID_MEM_OBJECT;
-        goto FINISH;
-    }
-
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyBufferToImage(
         queue->m_cmdQueueDEV,
@@ -4844,7 +5145,7 @@ cl_sampler CL_API_CALL clCreateSampler(
         (CrtSampler**)(&sampler_handle->object));
 
 FINISH:
-    if (CL_SUCCESS == errCode)
+    if( CL_SUCCESS != errCode )
     {
         if (sampler_handle)
         {
@@ -4907,15 +5208,52 @@ cl_int CL_API_CALL clGetSamplerInfo(
 {
     cl_int retCode = CL_SUCCESS;
     CrtSampler* crtSampler = reinterpret_cast<CrtSampler*>(((_cl_sampler_crt*)sampler)->object);
-        /// Pick any of the underlying created sampler objects
-    cl_sampler samplerObj = crtSampler->m_ContextToSampler.begin()->second;
-        /// Forward call
-    retCode = samplerObj->dispatch->clGetSamplerInfo(
-                        samplerObj,
-                        param_name,
-                        param_value_size,
-                        param_value,
-                        param_value_size_ret);
+
+    size_t  pValueSize = 0;
+    switch( param_name )
+    {
+        case CL_SAMPLER_REFERENCE_COUNT:
+            {
+                pValueSize = sizeof( crtSampler->m_refCount );
+                if( ( param_value ) && ( param_value_size >= pValueSize ) )
+                {
+                    *((cl_uint*)param_value) = crtSampler->m_refCount;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
+        case CL_SAMPLER_CONTEXT:
+            {
+                pValueSize = sizeof( cl_context );
+                if( ( param_value ) && ( param_value_size >= pValueSize ) )
+                {
+                    *((cl_context*)param_value) = crtSampler->m_contextCRT->m_context_handle;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
+        default:
+            {
+                // Pick any of the underlying created sampler objects
+                cl_sampler samplerObj = crtSampler->m_ContextToSampler.begin()->second;
+                // Forward call
+                retCode = samplerObj->dispatch->clGetSamplerInfo(
+                                    samplerObj,
+                                    param_name,
+                                    param_value_size,
+                                    param_value,
+                                    param_value_size_ret);
+            }
+            break;
+    }
     return retCode;
 }
 
@@ -4932,9 +5270,9 @@ cl_int CL_API_CALL clGetImageInfo(
 {
     cl_int retCode = CL_SUCCESS;
     CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
-        /// Pick any of the underlying created memory objects
+    // Pick any of the underlying created memory objects
     cl_mem memObj = crtImage->getAnyValidDeviceMemObj();
-        /// Forward call
+    // Forward call
     retCode = memObj->dispatch->clGetImageInfo( memObj,
                                                 param_name,
                                                 param_value_size,
@@ -4967,6 +5305,11 @@ cl_int CL_API_CALL clGetMemObjectInfo(
                 if (param_value && param_value_size >= pValueSize)
                 {
                     *((cl_mem_flags*)param_value) = crtMemObj->m_flags;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
                 }
             }
             break;
@@ -5029,6 +5372,20 @@ cl_int CL_API_CALL clGetMemObjectInfo(
                 }
             }
             break;
+        case CL_MEM_CONTEXT:
+            {
+                pValueSize = sizeof(cl_context);
+                if (param_value && param_value_size >= pValueSize)
+                {
+                    *((cl_context*)param_value) = crtMemObj->m_pContext->m_context_handle;
+                }
+
+                if( param_value_size_ret )
+                {
+                    *param_value_size_ret = pValueSize;
+                }
+            }
+            break;
         default:
             {
                 cl_mem devMemObj = crtMemObj->getAnyValidDeviceMemObj();
@@ -5059,7 +5416,7 @@ cl_int CL_API_CALL clGetEventProfilingInfo(
 {
     cl_int errCode = CL_SUCCESS;
     CrtEvent* crtEvent = reinterpret_cast<CrtEvent*>(((_cl_event_crt*)event)->object);
-        /// Forward call
+    // Forward call
     errCode = crtEvent->m_eventDEV->dispatch->clGetEventProfilingInfo(
                 crtEvent->m_eventDEV,
                 param_name,
@@ -5093,22 +5450,26 @@ cl_int CL_API_CALL clCreateKernelsInProgram(
 
     // Num kernels which will be returned by each context
     cl_int numKernelsPerContext = -1;
+    cl_kernel* ctxKernels = NULL;
 
-    cl_kernel* ctxKernels = new cl_kernel[num_kernels];
-    if (NULL == ctxKernels)
+    if( num_kernels !=0 )
     {
-        return CL_OUT_OF_HOST_MEMORY;
+        ctxKernels = new cl_kernel[num_kernels];
+        if (NULL == ctxKernels)
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+
+        for (cl_uint i=0; i < num_kernels; i++)
+        {
+            kernels[i] = NULL;
+        }
     }
 
-    for (cl_uint i=0; i < num_kernels; i++)
-    {
-        kernels[i] = NULL;
-    }
-    CTX_PGM_MAP::iterator itr = crtProgram->m_ContextToProgram.begin();
-    for(;itr != crtProgram->m_ContextToProgram.end(); itr++)
+    for(cl_uint i=0 ; i < crtProgram->m_buildContexts.size(); i++)
     {
         cl_uint numRetKernels = 0;
-        cl_context ctxObj = itr->first;
+        cl_context ctxObj = crtProgram->m_buildContexts[i];
         errCode = ctxObj->dispatch->clCreateKernelsInProgram(
             crtProgram->m_ContextToProgram[ctxObj],
             num_kernels,
@@ -5135,41 +5496,44 @@ cl_int CL_API_CALL clCreateKernelsInProgram(
             goto FINISH;
         }
 
-        for (cl_uint i=0; i < (cl_uint)numKernelsPerContext; i++)
+        if( num_kernels !=0 )
         {
-            CrtKernel* crtKernel = NULL;
-
-            if (NULL == kernels[i])
+            for( cl_uint i=0; i < (cl_uint)numKernelsPerContext; i++ )
             {
-                crtKernel = new CrtKernel(crtProgram);
-                if( !crtKernel )
-                {
-                    errCode = CL_OUT_OF_HOST_MEMORY;
-                    goto FINISH;
-                }
+                CrtKernel* crtKernel = NULL;
 
-                kernels[i] = new _cl_kernel_crt;
-                if (NULL == kernels[i])
+                if( NULL == kernels[i] )
                 {
-                    crtKernel->DecPendencyCnt();
-                    errCode = CL_OUT_OF_HOST_MEMORY;
-                    goto FINISH;
+                    crtKernel = new CrtKernel( crtProgram );
+                    if( !crtKernel )
+                    {
+                        errCode = CL_OUT_OF_HOST_MEMORY;
+                        goto FINISH;
+                    }
+
+                    kernels[ i ] = new _cl_kernel_crt;
+                    if( NULL == kernels[i] )
+                    {
+                        crtKernel->DecPendencyCnt();
+                        errCode = CL_OUT_OF_HOST_MEMORY;
+                        goto FINISH;
+                    }
+                    ( (_cl_kernel_crt*)kernels[i] )->object = crtKernel;
                 }
-                ((_cl_kernel_crt*)kernels[i])->object = crtKernel;
+                else
+                {
+                    crtKernel = (CrtKernel*)( (_cl_kernel_crt*)kernels[i] )->object;
+                }
+                crtKernel->m_ContextToKernel[ ctxObj ] = ctxKernels[i];
             }
-            else
-            {
-                crtKernel = (CrtKernel*)((_cl_kernel_crt*)kernels[i])->object;
-            }
-            crtKernel->m_ContextToKernel[ctxObj] = ctxKernels[i];
         }
     }
 FINISH:
-    if (CL_SUCCESS != errCode)
+    if( CL_SUCCESS != errCode )
     {
-        for (cl_uint i=0; i < num_kernels; i++)
+        for( cl_uint i=0; i < num_kernels; i++ )
         {
-            if (NULL != kernels[i])
+            if( NULL != kernels[i] )
             {
                 CrtKernel* crtKernel = (CrtKernel*)((_cl_kernel_crt*)kernels[i])->object;
                 crtKernel->Release();
@@ -5179,11 +5543,11 @@ FINISH:
             }
         }
     }
-    if (ctxKernels)
+    if( ctxKernels )
     {
         delete[] ctxKernels;
     }
-    if (num_kernels_ret)
+    if( num_kernels_ret )
     {
         *num_kernels_ret = numKernelsPerContext;
     }
@@ -5195,14 +5559,15 @@ FINISH:
 /// ------------------------------------------------------------------------------
 cl_int CL_API_CALL clGetSupportedImageFormats(
     cl_context           context,
-	cl_mem_flags         flags,
-	cl_mem_object_type   image_type,
-	cl_uint              num_entries,
-	cl_image_format *    image_formats,
-	cl_uint *            num_image_formats)
+    cl_mem_flags         flags,
+    cl_mem_object_type   image_type,
+    cl_uint              num_entries,
+    cl_image_format *    image_formats,
+    cl_uint *            num_image_formats)
 {
-    cl_int errCode = CL_SUCCESS;    
-    
+    cl_int errCode = CL_SUCCESS;
+    cl_image_format* allImageFormats = NULL;
+
     if (num_entries && num_entries == 0)
     {
         return CL_INVALID_VALUE;
@@ -5212,12 +5577,12 @@ cl_int CL_API_CALL clGetSupportedImageFormats(
 
     cl_uint numTotalAvailable = 0;
     for( SHARED_CTX_DISPATCH::iterator itr = ctx->m_contexts.begin();
-        itr != ctx->m_contexts.end(); 
-        itr++)		
+        itr != ctx->m_contexts.end();
+        itr++)
     {
         cl_uint numAvailable = 0;
         cl_context ctxObj = itr->first;
-        errCode = ctxObj->dispatch->clGetSupportedImageFormats( 
+        errCode = ctxObj->dispatch->clGetSupportedImageFormats(
             ctxObj,
             flags,
             image_type,
@@ -5225,14 +5590,14 @@ cl_int CL_API_CALL clGetSupportedImageFormats(
             NULL,
             &numAvailable);
 
-	    if (CL_SUCCESS != errCode)
-	    {
+        if (CL_SUCCESS != errCode)
+        {
             goto FINISH;
-        }       
+        }
         numTotalAvailable += numAvailable;
-    }	    
+    }
 
-    cl_image_format* allImageFormats = new cl_image_format[numTotalAvailable];
+    allImageFormats = new cl_image_format[ numTotalAvailable ];
     if (NULL == allImageFormats)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
@@ -5241,12 +5606,12 @@ cl_int CL_API_CALL clGetSupportedImageFormats(
 
     cl_uint offset = 0;
     for( SHARED_CTX_DISPATCH::iterator itr = ctx->m_contexts.begin();
-        itr != ctx->m_contexts.end(); 
-        itr++)		
-    {        
+        itr != ctx->m_contexts.end();
+        itr++)
+    {
         cl_uint numAvailable = 0;
         cl_context ctxObj = itr->first;
-        errCode = ctxObj->dispatch->clGetSupportedImageFormats( 
+        errCode = ctxObj->dispatch->clGetSupportedImageFormats(
             ctxObj,
             flags,
             image_type,
@@ -5254,40 +5619,87 @@ cl_int CL_API_CALL clGetSupportedImageFormats(
             allImageFormats  + offset,
             &numAvailable);
 
-	    if (CL_SUCCESS != errCode)
-	    {
+        if (CL_SUCCESS != errCode)
+        {
             goto FINISH;
-        }       
+        }
         offset += numAvailable;
-    }	       
-    
-    std::sort(allImageFormats, allImageFormats + numTotalAvailable);
-    cl_image_format* endUnique = std::unique(allImageFormats,allImageFormats + numTotalAvailable);
-    cl_uint numUnique = (cl_uint)(endUnique - allImageFormats);
-    
+    }
+
+    std::sort( allImageFormats, allImageFormats + numTotalAvailable );
+
+    cl_uint numUnique = 0;
+
+    // Are we returning Union of supported image formats OR intersection?? 'default is intersection'
+#ifndef IMAGE_FORMATS_UNION
+
+    cl_uint j = 0;
+    cl_uint match = 1;
+    for( cl_uint i=1; i < numTotalAvailable; i++ )
+    {
+        if( ( allImageFormats[i].image_channel_data_type == allImageFormats[i-1].image_channel_data_type )  &&
+             ( allImageFormats[i].image_channel_order == allImageFormats[i-1].image_channel_order ) )
+        {
+            if( ++match == ctx->m_contexts.size() )
+            {
+                allImageFormats[j++] = allImageFormats[i];
+            }
+            else
+            {
+                continue;
+            }
+        }
+        match = 1;
+
+    }
+    numUnique = j;
+
+#else   // IMAGE_FORMATS_UNION
+    cl_image_format* endUnique = std::unique( allImageFormats,allImageFormats + numTotalAvailable );
+    numUnique = (cl_uint)( endUnique - allImageFormats );
+#endif
+
     if (num_image_formats)
     {
         *num_image_formats = numUnique;
     }
-    
+
     if (!num_entries)
     {
         goto FINISH;
     }
-    
+
     if (num_entries < numUnique)
     {
         errCode = CL_INVALID_VALUE;
         goto FINISH;
     }
-    for (cl_uint i=0; i < numUnique; i++)
+    if( image_formats != NULL )
     {
-        image_formats[i] = allImageFormats[i];
-    }    
-    
-FINISH:    
+        for (cl_uint i=0; i < numUnique; i++)
+        {
+            image_formats[i] = allImageFormats[i];
+        }
+    }
 
+FINISH:
+    if( allImageFormats )
+    {
+        delete[] allImageFormats;
+    }
     return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clUnloadCompiler(void)
+{
+    for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
+    {
+        CrtPlatform* crtPlatform = OCLCRT::crt_ocl_module.m_oclPlatforms[i];
+        crtPlatform->m_platformIdDEV->dispatch->clUnloadCompiler();
+    }
+    return CL_SUCCESS;
 }
 /// ------------------------------------------------------------------------------
 ///
@@ -5336,19 +5748,20 @@ FINISH:
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_platform_id              platform,
-    cl_dx9_device_source_intel d3d_device_source,
+    cl_dx9_device_source_intel  d3d_device_source,
     void *                      d3d_object,
-    cl_dx9_device_set_intel    d3d_device_set,
+    cl_dx9_device_set_intel     d3d_device_set,
     cl_uint                     num_entries,
     cl_device_id                *devices,
     cl_uint                     *num_devices)
 {
-    if (NULL == platform)
-    {
-        return CL_INVALID_PLATFORM;
-    }
-
     cl_int errCode = CL_SUCCESS;
+
+    if( platform == NULL )
+    {
+        errCode = CL_INVALID_PLATFORM;
+        goto FINISH;
+    }
 
     // We don't support DX for shared context
     cl_uint numDevices=0;
@@ -5358,6 +5771,7 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 
         if (crtPlatform->m_supportedExtensions & CRT_CL_D3D9_EXT)
         {
+            CrtKHRicdVendorDispatch* temp = (CrtKHRicdVendorDispatch*)(crtPlatform->m_platformIdDEV->dispatch);
             errCode = ( (CrtKHRicdVendorDispatch*)(crtPlatform->m_platformIdDEV->dispatch) )->clGetDeviceIDsFromDX9INTEL(
                                         crtPlatform->m_platformIdDEV,
                                         d3d_device_source,
@@ -5387,11 +5801,11 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(
     HANDLE              sharedHandle,
     UINT                plane,
     cl_int *            errcode_ret)
-{   
+{
     cl_int errCode = CL_SUCCESS;
-    cl_mem memObj = NULL;
+    cl_mem memObj  = NULL;
 
-    if (NULL == context)
+    if( context == NULL )
     {
         errCode = CL_INVALID_CONTEXT;
         goto FINISH;
@@ -5404,6 +5818,7 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(
                                         sharedHandle,
                                         plane,
                                         &errCode);
+
     if (errCode == CL_SUCCESS)
     {
         goto FINISH;
@@ -5423,20 +5838,21 @@ FINISH:
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueAcquireDX9ObjectsINTEL( cl_command_queue command_queue,
-                                  cl_uint          num_objects,
-                                  const cl_mem     *mem_objects,
-                                  cl_uint          num_events_in_wait_list,
-                                  const cl_event   *event_wait_list,
-                                  cl_event         *ocl_event )
+                                 cl_uint          num_objects,
+                                 const cl_mem     *mem_objects,
+                                 cl_uint          num_events_in_wait_list,
+                                 const cl_event   *event_wait_list,
+                                 cl_event         *ocl_event )
 {
-    if (NULL == command_queue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
     cl_int errCode = CL_SUCCESS;
 
-        /// We don't support DX for shared context
+    if( command_queue == NULL )
+    {
+        errCode = CL_INVALID_COMMAND_QUEUE;
+        goto FINISH;
+    }
+
+    // We don't support DX for shared context
     errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueAcquireDX9ObjectsINTEL(
                                         command_queue,
                                         num_objects,
@@ -5459,18 +5875,19 @@ FINISH:
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueReleaseDX9ObjectsINTEL( cl_command_queue command_queue,
-                                  cl_uint          num_objects,
-                                  const cl_mem *   mem_objects,
-                                  cl_uint          num_events_in_wait_list,
-                                  const cl_event * event_wait_list,
-                                  cl_event *       ocl_event )
+                                 cl_uint          num_objects,
+                                 const cl_mem *   mem_objects,
+                                 cl_uint          num_events_in_wait_list,
+                                 const cl_event * event_wait_list,
+                                 cl_event *       ocl_event )
 {
-    if (NULL == command_queue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
     cl_int errCode = CL_SUCCESS;
+
+    if( command_queue == NULL )
+    {
+        errCode = CL_INVALID_COMMAND_QUEUE;
+        goto FINISH;
+    }
 
     errCode = ( (CrtKHRicdVendorDispatch*)(command_queue->dispatch) )->clEnqueueReleaseDX9ObjectsINTEL(
                                         command_queue,
@@ -5489,7 +5906,7 @@ FINISH:
 }
 
 
-/// Defined CRT CL API
+// Defined CRT CL API
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -5505,7 +5922,7 @@ void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
         return ((void*)clCreateSubDevicesEXT);
     }
 
-    /// GPU specific extensions
+    // GPU specific extensions
     if ( !strcmp(funcname, "clGetDeviceIDsFromDX9INTEL" ) )
     {
         return ((void*)clGetDeviceIDsFromDX9INTEL);
