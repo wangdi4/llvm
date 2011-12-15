@@ -167,7 +167,7 @@ class VolcanoTestTaskInfo:
             match   = pattern.match(confstr)
             if( match != None):
                 if(match):
-                    task.logAndPrint('Ignored conf(' + confstr + '), pattern (' + pattern_str + ')')
+                    self.task.logAndPrint('Ignored conf(' + confstr + '), pattern (' + pattern_str + ')')
                     return True
         return False;
 
