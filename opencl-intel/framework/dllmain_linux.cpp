@@ -30,6 +30,7 @@ void dll_init(void)
 void dll_fini(void)
 {
 	// release the framework proxy object 
-	Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+	// Commenting out for SDK2012 as data races with terminating threads cause random crashes or deadlocks
+	//Intel::OpenCL::Framework::FrameworkProxy::Destroy();
 }
 
