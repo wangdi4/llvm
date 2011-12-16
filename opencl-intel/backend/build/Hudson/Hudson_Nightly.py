@@ -1,5 +1,6 @@
 import os.path, sys, platform
-from Hudson_Common import HudsonTestRunner, HudsonRunConfig
+from framework.hudson.core import HudsonTestRunner
+from Hudson_Common import HudsonRunConfig
 from Volcano_Nightly import VolcanoNightlyBAT
 from Volcano_Build import VolcanoBinaryCopy
 
