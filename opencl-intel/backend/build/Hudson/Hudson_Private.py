@@ -11,34 +11,38 @@ from getpass import getuser
 SANITY_BRANCHES_ROOT = 'OpenCL/branches/sanity'
 SANITY_SVN_ROOT      = '/'.join([REPOSITORY_ROOT, SANITY_BRANCHES_ROOT])
 SANITY_HUDSON_JOB    = 'PrivatePreCommit'
-   
+
 class ConfigError(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
         return repr(self.value)   
-   
+
 class LogicError(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
         return repr(self.value)   
-   
+
 class PersonalBuildConfig:
     """
     Configuration used for personal build
     """
-    def __init__(self, root_dir, branch_suffix):
-        self.username = getuser()
+    def __init__(self, root_dir, branch_suffix, username):
+        self.username = username
         self.hosttype = self.detectOS()
-        self.branch_name = '/'.join([SANITY_SVN_ROOT, self.username, ] )
-        self.branch_name_full = self.branch_name if( "" == branch_suffix ) else '/'.join([self.branch_name, branch_suffix])
         # Current root path
         self.root_dir       = root_dir
         if self.root_dir == '' or self.root_dir == None:
             self.root_dir = os.path.join(os.path.curdir, os.path.pardir, os.path.pardir, os.path.pardir, os.path.pardir)
         self.root_dir = os.path.abspath(self.root_dir)
-        
+        # Current user
+        if '' == self.username or None == self.username:
+            self.username = getuser()
+        # Target branch
+        self.branch_name = '/'.join([SANITY_SVN_ROOT, self.username, ] )
+        self.branch_name_full = self.branch_name if( "" == branch_suffix ) else '/'.join([self.branch_name, branch_suffix])
+
     def detectOS(self):
         hosttype = "unknown"
         operating_system_name = platform.system()
@@ -75,7 +79,7 @@ def create_branch(svntool, branch_name, force_remove, reuse_branch):
 
     print 'Copying local working copy to the target branch: ' + branch_name
     svntool.copy_to_branch(branch_name)
-        
+
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root",         dest="root_dir",       help="project root directory", default=None)
@@ -84,7 +88,10 @@ def main():
     parser.add_option("-u", "--reuse",        action="store_true",   dest="reuse_branch",default=False,  help="Just run the personal build. Do not create the branch is one exist. Default: False")    
     parser.add_option("-e", "--email",        action="store",        dest="email",  help="EMail address of the job notification receipients.")    
     parser.add_option("-v", "--verbose",      action="store",        dest="verbose_level", default = 0, help="Verbosity level: 1 - print actual commands, 2 - print also commands output. Default: 0")
-    
+    parser.add_option("--username",           action="store",        dest="username", default = "", help="User name used for SVN authentication. Default: current username")
+    parser.add_option("--password",           action="store",        dest="password", default = "", help="Password for SVN authentication. Default: used cached")
+    parser.add_option("--non-interactive",    action="store_false",  dest="interactive", default = True, help="Do no interactive prompting. Default: interactive")
+
     (options, args) = parser.parse_args()
 
     # Process the command line options
@@ -93,20 +100,25 @@ def main():
 
     if options.reuse_branch and options.force_remove: 
         parser.error("Command line options conflict. You can't reuse the branch if you selected to forcefully remove it")
-       
+
     if '' == options.email or None == options.email:
         parser.error("Please supply the e-mail address (-e option) for job run result notification. It can't be detected from your environment")
-        
+
     # Configure the environment
     framework.cmdtool.print_cmd    = int(options.verbose_level) > 0
     framework.cmdtool.print_output = int(options.verbose_level) > 1
        
     try:
-        config = PersonalBuildConfig(options.root_dir, options.branch_name)
+        config = PersonalBuildConfig(options.root_dir, 
+                                     options.branch_name,
+                                     options.username)
         os.chdir(config.root_dir)
 
         # figure out what the SVN urls look like
-        svntool= framework.svn_utils.SvnTool( config.hosttype )
+        svntool= framework.svn_utils.SvnTool( config.hosttype, 
+                                              config.username, 
+                                              options.password,
+                                              options.interactive)
         (local_root,local_url,is_dir) = svntool.svn_info('.')
         if local_root == '':
            raise Exception("No local root specified by svn info." + local_url )
@@ -117,11 +129,11 @@ def main():
         print '[SVN ROOT]      :' + local_root
         print '[SVN URL]       :' + local_url
         print '[TARGET BRANCH] :' + config.branch_name_full
-        
+
         # then create a branch in there
         print '[PREPARING BRANCH]'
         create_branch(svntool, config.branch_name_full, options.force_remove, options.reuse_branch)
-        
+
         # prepare the job parameters
         print '[START JENKINS JOB]'
         jobparams = { "SVN_Requested_Url": config.branch_name_full,
@@ -134,6 +146,12 @@ def main():
         return 1
     except ConfigError as e:
         print "Configuration Error."  + e.value
+        print "[ABORTED]"
+        return 1
+    except framework.svn_utils.SvnError as e:
+        print "SVN Error: " + e.value
+        if options.verbose_level < 2 :
+            print "Consider increasing the verbosity level (-v) option to get more information"
         print "[ABORTED]"
         return 1
     except:
@@ -150,5 +168,4 @@ if __name__ == "__main__":
         sys,exit(1)
     main_result = main()
     sys.exit(main_result)
-
 
