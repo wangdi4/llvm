@@ -369,7 +369,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 {
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("CreateMappedRegion enter"));
 
-    SMemMapParams* coi_params = new SMemMapParams;
+	// Assume that calling this method only once.
+    SMemMapParamsList* coi_params = new SMemMapParamsList;
     assert( coi_params && "Cannot allocate coi_params record" );
     if (NULL == coi_params)
     {
@@ -393,7 +394,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
     assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
 
-    SMemMapParams* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
+    SMemMapParamsList* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
     delete coi_params;
     pMapParams->map_handle = NULL;
 

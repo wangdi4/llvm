@@ -33,77 +33,107 @@
 #include <cl_heap.h>
 #include <cl_synch_objects.h>
 #include <map>
+#include <set>
+#include <list>
 #include <common/COITypes_common.h>
+
+#include "cl_synch_objects.h"
 
 using namespace Intel::OpenCL::Utils;
 
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-// used by commands
+// used by commands, Struct which represent single map handle.
 struct SMemMapParams
 {
-	SMemMapParams() : map_handle(NULL), num_of_rec_map_handles(0), rec_map_handles(NULL)
-	{
-	}
+	SMemMapParams() {}
 
 	virtual ~SMemMapParams()
 	{
-		if (rec_map_handles)
-		{
-			free(rec_map_handles);
-		}
+		m_mapHandlesInstances.clear();
 	}
 
-	// Regular map COIMAPINSTANCE
-    COIMAPINSTANCE  map_handle;
-	// Rectangular maps handler
-	unsigned int    num_of_rec_map_handles;
-	void*			rec_map_handles;
-
-	bool isRectangularOperation()
+	// Insert a new COIMAPINSTANCE to the set. (In case of regular map command will be only one, In case of rectangular map can be more than one)
+	bool insertMapHandle(COIMAPINSTANCE& mapInstance)
 	{
-		return (NULL == map_handle);
+		pair<set<COIMAPINSTANCE>::iterator,bool> ret = m_mapHandlesInstances.insert(mapInstance);
+		return ret.second;
 	}
 
-	bool allocateMapHandlers(unsigned int numOfRegions)
+	// Initialize iterator to the beginning of this COIMAPINSTANCE set.
+	void initMapHandleIterator()
 	{
-		if (numOfRegions > 1)
-		{
-			num_of_rec_map_handles = numOfRegions;
-			// allocate memory for numOfRegions of COIMAPINSTANCE and (numOfRegions - 1) of COIEVENT
-			// The first (numOfRegions * sizeof(COIMAPINSTANCE)) bytes will be the numOfRegions COIMAPINSTANCEs, the rest of the bytes will be (numOfRegions - 1) COIEVENTs.
-			size_t tAllocationSize = (sizeof(COIMAPINSTANCE) + sizeof(COIEVENT)) * numOfRegions - sizeof(COIEVENT);
-			rec_map_handles = malloc(tAllocationSize);
-			if (NULL == rec_map_handles)
-			{
-				return false;
-			}
-			memset(rec_map_handles, 0, tAllocationSize); 
-		}
-		return true;
+		m_mapHandlesIterator = m_mapHandlesInstances.begin();
 	}
 
-	COIMAPINSTANCE& getCoiMapInstance()
+	// Return true if the current location of the iterator is not located at the end of this set.
+	// Must call to "initMapHandleIterator()" before using this method.
+	bool hasNextMapHandle()
 	{
-		assert(rec_map_handles == NULL);
-		return map_handle;
+		return m_mapHandlesIterator != m_mapHandlesInstances.end();
 	}
 
-
-	COIMAPINSTANCE& getCoiMapInstance(unsigned int index)
+	// Return COIMAPINSTANCE which pointed by current iterator location and advance the iterator to the next item.
+	// Must validate that there is next map handle by calling to "hasNextMapHandle()".
+	COIMAPINSTANCE getNextMapHandle()
 	{
-		assert ((map_handle == NULL) && (rec_map_handles) && (index < num_of_rec_map_handles));
-		return ((COIMAPINSTANCE*)rec_map_handles)[index];
+		assert(m_mapHandlesIterator != m_mapHandlesInstances.end());
+		set<COIMAPINSTANCE>::iterator pCurrInstance = m_mapHandlesIterator;
+		m_mapHandlesIterator ++;
+		return (*pCurrInstance);
 	}
 
-	COIEVENT* getRectangularMapCoiEventsArr()
+	// Return the size of the COIMAPINSTANCEs set.
+	size_t getNumMapInstances() 
 	{
-		assert((rec_map_handles) && (num_of_rec_map_handles > 1));
-		return (COIEVENT*)(((char*)rec_map_handles) + (sizeof(COIMAPINSTANCE) * num_of_rec_map_handles));
+		return m_mapHandlesInstances.size();
 	}
 
+private:
+	set<COIMAPINSTANCE> m_mapHandlesInstances;
+	set<COIMAPINSTANCE>::iterator m_mapHandlesIterator;
 };
+
+// Struct which contains a list of "SMemMapParams" because many map operations with the same address use the same handle so We should keep all of them.
+struct SMemMapParamsList
+{
+	SMemMapParamsList() {}
+
+	virtual ~SMemMapParamsList()
+	{
+		m_memMapParamsList.clear();
+	}
+
+	// push SMemMapParams to the list
+	void push(SMemMapParams& memMapParams)
+	{
+		m_spinMutex.Lock();
+		m_memMapParamsList.push_front(memMapParams);
+		m_spinMutex.Unlock();
+	}
+
+	// remove and return one of the instances in the list. (If exists otherwise return false)
+	bool pop(SMemMapParams* pMemMapParams)
+	{
+		assert(pMemMapParams);
+		m_spinMutex.Lock();
+		bool ret = (m_memMapParamsList.size() > 0);
+		if (ret)
+		{
+			*pMemMapParams = m_memMapParamsList.back();
+			m_memMapParamsList.pop_back();
+		}
+		m_spinMutex.Unlock();
+		return ret;
+	}
+
+private:
+	list<SMemMapParams> m_memMapParamsList;
+	// Guard to the list, use spin mutex because the accessibility to this list from more than one thread is rare.
+	OclSpinMutex m_spinMutex;
+};
+
 
 class DeviceServiceCommunication;
 
@@ -132,7 +162,7 @@ public:
 
     // Utility functions
     static size_t CalculateOffset(cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
-    static SMemMapParams* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParams*)pMapParams->map_handle; };
+    static SMemMapParamsList* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParamsList*)pMapParams->map_handle; };
 
 private:
     friend class MICDevMemoryObject;

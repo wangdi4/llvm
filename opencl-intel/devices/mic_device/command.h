@@ -187,6 +187,7 @@ public:
 		if (m_isRegistered)
 		{
 			COIEventUnregisterUserEvent(completionBarrier);
+			m_isRegistered = false;
 		}
 	};
 
