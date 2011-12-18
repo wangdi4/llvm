@@ -19,7 +19,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendImageService
 {
 public:
-    
+    virtual ~ICLDevBackendImageService() {}
 
      /**
     returns the size of the auxilary structure for

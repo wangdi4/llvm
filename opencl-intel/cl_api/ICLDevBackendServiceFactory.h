@@ -28,6 +28,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendServiceFactory
 {
 public:
+    virtual ~ICLDevBackendServiceFactory() {}
+
     /**
      * Creates Compilation Service object
      *

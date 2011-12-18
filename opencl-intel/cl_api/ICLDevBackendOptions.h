@@ -67,6 +67,8 @@ enum IRDumpOptions
 class ICLDevBackendOptions
 {
 public:
+    virtual ~ICLDevBackendOptions() {}
+
     /**
      * returns the specified option as (boolean\int\string\void*) value
      *

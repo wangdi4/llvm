@@ -17,6 +17,8 @@ class ICLDevBackendOptions;
 class ICLDevBackendCompilationService
 {
 public:
+    virtual ~ICLDevBackendCompilationService() {}
+
     /**
      * Creates program from the specified bytecode, it should verify the byte code before 
      * creation

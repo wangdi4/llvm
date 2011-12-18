@@ -11,6 +11,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendExecutable_
 {
 public:
+    virtual ~ICLDevBackendExecutable_() {}
+
     /**
      * Prepares the current thread for execution (should be called before execution)
      *

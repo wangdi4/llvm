@@ -13,6 +13,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendJITContainer
 {
 public:
+    virtual ~ICLDevBackendJITContainer() {}
+
     /**
      * @returns a pointer to the JIT buffer
      */
@@ -31,6 +33,8 @@ public:
 class ICLDevBackendKernelProporties
 {
 public:
+    virtual ~ICLDevBackendKernelProporties() {}
+
     /**
      * @returns the number of Work Items handled by each kernel instance,
      *  0 will be returned in case of failure or not present
@@ -82,6 +86,8 @@ public:
 class ICLDevBackendKernel_
 {
 public:
+    virtual ~ICLDevBackendKernel_() {}
+
     /**
      * @returns an unsigned long which represents the kernel id - this id is unique
      *  per kernel - ; in case of failure 0 will be returned

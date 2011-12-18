@@ -13,6 +13,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendCodeContainer
 {
 public:
+    virtual ~ICLDevBackendCodeContainer() {}
+
     /**
      * @returns a pointer to the bitcode buffer
      */
@@ -33,6 +35,9 @@ class ICLDevBackendProgramJITCodeProperties
      * @returns the size of the JIT code
      */
     virtual size_t GetCodeSize() const = 0;
+
+public:
+    virtual ~ICLDevBackendProgramJITCodeProperties() {}
 };
 
 
@@ -43,6 +48,8 @@ class ICLDevBackendProgramJITCodeProperties
 class ICLDevBackendProgram_
 {
 public:
+    virtual ~ICLDevBackendProgram_() {}
+
     /**
      * @returns an unsigned long which represents the program id - this id is unique
      *  per program - ; in case of failure 0 will be returned

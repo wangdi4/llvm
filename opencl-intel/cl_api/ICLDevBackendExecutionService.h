@@ -15,6 +15,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ICLDevBackendExecutionService
 {
 public:
+    virtual ~ICLDevBackendExecutionService() {}
+
     /**
      * Creates binary object from the given kernel code and the context, the generated binary
      * will be binded for the given work description.

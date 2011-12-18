@@ -19,6 +19,8 @@ typedef enum _cl_serialization_type
 class ICLDevBackendJITAllocator
 {
 public:
+    virtual ~ICLDevBackendJITAllocator() {}
+
     /**
      * @effects returns pointer to the aligned chunk of memory with
      *    the required size; NULL in case of failure
@@ -38,6 +40,8 @@ public:
 class ICLDevBackendSerializationService
 {
 public:
+    virtual ~ICLDevBackendSerializationService() {}
+
     /**
      * Gets the required blob size for serialization
      * 

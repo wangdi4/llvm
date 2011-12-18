@@ -20,6 +20,7 @@ class ICLDevBackendExecutable_; //TEMPORARY
 class ICLDevBackendBinary_
 {
 public:
+    virtual ~ICLDevBackendBinary_() {}
 
 	// Returns the required number of memory buffers and their sizes 
 	//	pBuffersSizes - an array of sizes of buffers
