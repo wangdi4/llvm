@@ -82,15 +82,15 @@ def create_branch(svntool, branch_name, force_remove, reuse_branch):
 
 def main():
     parser = OptionParser()
-    parser.add_option("-r", "--root",         dest="root_dir",       help="project root directory", default=None)
-    parser.add_option("-b", "--branch",       action="store",        dest="branch_name", default='sanity',  help="One word description of your branch. Default is \'sanity\' ")    
-    parser.add_option("-f", "--force",        action="store_true",   dest="force_remove",default=False,  help="Force to remove the already existing branch if one exist. Default: False")    
-    parser.add_option("-u", "--reuse",        action="store_true",   dest="reuse_branch",default=False,  help="Just run the personal build. Do not create the branch is one exist. Default: False")    
-    parser.add_option("-e", "--email",        action="store",        dest="email",  help="EMail address of the job notification receipients.")    
-    parser.add_option("-v", "--verbose",      action="store",        dest="verbose_level", default = 0, help="Verbosity level: 1 - print actual commands, 2 - print also commands output. Default: 0")
-    parser.add_option("--username",           action="store",        dest="username", default = "", help="User name used for SVN authentication. Default: current username")
-    parser.add_option("--password",           action="store",        dest="password", default = "", help="Password for SVN authentication. Default: used cached")
-    parser.add_option("--non-interactive",    action="store_false",  dest="interactive", default = True, help="Do no interactive prompting. Default: interactive")
+    parser.add_option("-r", "--root",         action="store",        dest="root_dir",      default=None,     help="Project root directory. Default: ../../../../")
+    parser.add_option("-b", "--branch",       action="store",        dest="branch_name",   default='sanity', help="One word description of your branch. Default is \'sanity\' ")
+    parser.add_option("-f", "--force",        action="store_true",   dest="force_remove",  default=False,    help="Force to remove the already existing branch if one exist. Default: False")
+    parser.add_option("-u", "--rebuild",      action="store_true",   dest="reuse_branch",  default=False,    help="Just run the personal build on already existing branch. No local changes will be copied. If the given branch doesn't exist this option is ignored. This option is usefull if your personal build has failed because of some environment error and you just want to re-run it. Default: False")
+    parser.add_option("-e", "--email",        action="store",        dest="email",                           help="EMail address of the job notification receipients.Multiple e-mail addresses could be specified, comma separated")
+    parser.add_option("-v", "--verbose",      action="store",        dest="verbose_level", default= 0,       help="Verbosity level: 1 - print actual commands, 2 - print also commands output. Default: 0")
+    parser.add_option("--username",           action="store",        dest="username",      default="",       help="User name used for SVN authentication. Default: current username")
+    parser.add_option("--password",           action="store",        dest="password",      default="",       help="Password for SVN authentication. Default: used cached")
+    parser.add_option("--non-interactive",    action="store_false",  dest="interactive",   default=True,     help="Do no interactive prompting. Default: interactive")
 
     (options, args) = parser.parse_args()
 
@@ -107,7 +107,7 @@ def main():
     # Configure the environment
     framework.cmdtool.print_cmd    = int(options.verbose_level) > 0
     framework.cmdtool.print_output = int(options.verbose_level) > 1
-       
+
     try:
         config = PersonalBuildConfig(options.root_dir, 
                                      options.branch_name,

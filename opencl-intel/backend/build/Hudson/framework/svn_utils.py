@@ -98,7 +98,7 @@ class SvnTool:
         raise SvnError("Svn version was not sufficient: " + version + " -- Must be >= 1.6.0")
 
     def svn_run_cmd_internal(self, cmd, *args):
-        "Executes the given command"
+        "Executes the given SVN command"
         svn_cmd = self.svn_cmd_local + ' ' + cmd
         
         if( None != self.username and '' != self.username):
@@ -116,7 +116,7 @@ class SvnTool:
         
 
     def svn_run_cmd(self, cmd, *args):
-        "Executes the given command, optionally taking care of username password interactive prompt"
+        "Executes the given SVN command, optionally taking care of username password interactive prompt"
         retval = -1
         stdout = ''
         authz_failed = False
@@ -136,12 +136,15 @@ class SvnTool:
                 if( authz_failed ):
                     if( self.interactive):
                         self.password = getpass("Password for '%(username)s':" %{"username":self.username})
+                    else:
+                        cond_die(retval, cmd, 'Authorization failed. Please supply the valid credentials or use the interactive mode')
                 else:
                     break;
 
         return (retval, stdout)
 
     def svn_info(self, path = '.'):
+        "Returns the information about given path. Path could be a local working copy or SVN URL"
         (retval, stdout) = self.svn_run_cmd('info', self.normalize_path(path))
         
         cond_die(retval, 'svn info', "Could not get info about the path: " + path)
@@ -172,8 +175,6 @@ class SvnTool:
         dir_pattern  = re.compile(r"^Node Kind: directory")
         url_err_pattern = re.compile(r"Not a valid URL")
         
-        branch_exist = False
-
         if 0 == retval:
             for line in lines:
                 if dir_pattern.search(line):
@@ -182,8 +183,9 @@ class SvnTool:
             for line in lines:
                 if url_err_pattern.search(line):
                     return False
-            
+
         cond_die(retval, 'svn info', "Could not get info about the path: " + branch_name)
+        return False
 
     def mkdir_branch(self, branch_name):
         "Make the svn branch directory"
@@ -191,18 +193,19 @@ class SvnTool:
         cond_die(retval, 'svn mkdir', "Could not create branch.", stdout)
         
     def test_and_make_branch(self, branch_name):
+        "Ensure that the given branch exists, creating it if needed"
         if not self.test_branch_exists(branch_name):
             parent_branch_name = branch_name.rpartition('/')[0]
             self.test_and_make_branch(parent_branch_name)
             self.mkdir_branch(branch_name)
         
     def remove_branch(self, branch_name):
-        "Run the command to remove the branch"
+        "Remove the given branch"
         (retval, stdout) = self.svn_run_cmd('rm', self.normalize_path(branch_name), '-m sanity-testing-remove-branch')
         cond_die(retval, 'svn rm', "Could not remove branch.\n" + stdout)
 
     def copy_to_branch(self, branch_name):
-        "Copy the current tree to the  branch"
+        "Copy the current working copy to the  branch"
         (retval, stdout) = self.svn_run_cmd('copy', self.normalize_path(branch_name), '-m sanity-testing-create-branch')
         cond_die(retval, 'svn copy', "Could not copy branch.\n" + stdout)
         return branch_name
