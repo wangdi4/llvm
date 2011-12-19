@@ -190,7 +190,7 @@ class SvnTool:
     def mkdir_branch(self, branch_name):
         "Make the svn branch directory"
         (retval, stdout) = self.svn_run_cmd('mkdir', self.normalize_path(branch_name), '-m sanity-testing')
-        cond_die(retval, 'svn mkdir', "Could not create branch.", stdout)
+        cond_die(retval, 'svn mkdir', "Could not create branch." + stdout)
         
     def test_and_make_branch(self, branch_name):
         "Ensure that the given branch exists, creating it if needed"
@@ -206,6 +206,6 @@ class SvnTool:
 
     def copy_to_branch(self, branch_name):
         "Copy the current working copy to the  branch"
-        (retval, stdout) = self.svn_run_cmd('copy', self.normalize_path(branch_name), '-m sanity-testing-create-branch')
+        (retval, stdout) = self.svn_run_cmd('copy', '.', self.normalize_path(branch_name), '-m sanity-testing-create-branch')
         cond_die(retval, 'svn copy', "Could not copy branch.\n" + stdout)
         return branch_name
