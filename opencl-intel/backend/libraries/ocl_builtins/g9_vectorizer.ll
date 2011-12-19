@@ -52,26 +52,11 @@ entry:
 
 define i1 @allOne_v8_i32(<8 x i32> %pred) nounwind readnone {
 entry:
-  %elem0 = extractelement <8 x i32> %pred, i32 0
-  %elem1 = extractelement <8 x i32> %pred, i32 1
-  %elem2 = extractelement <8 x i32> %pred, i32 2
-  %elem3 = extractelement <8 x i32> %pred, i32 3
-  %elem4 = extractelement <8 x i32> %pred, i32 4
-  %elem5 = extractelement <8 x i32> %pred, i32 5
-  %elem6 = extractelement <8 x i32> %pred, i32 6
-  %elem7 = extractelement <8 x i32> %pred, i32 7
-  %v1_0 = insertelement <4 x i32> undef, i32 %elem0, i32 0
-  %v1_1 = insertelement <4 x i32> %v1_0, i32 %elem1, i32 1
-  %v1_2 = insertelement <4 x i32> %v1_1, i32 %elem2, i32 2
-  %v1_3 = insertelement <4 x i32> %v1_2, i32 %elem3, i32 3
-  %v2_0 = insertelement <4 x i32> undef, i32 %elem4, i32 0
-  %v2_1 = insertelement <4 x i32> %v2_0, i32 %elem5, i32 1
-  %v2_2 = insertelement <4 x i32> %v2_1, i32 %elem6, i32 2
-  %v2_3 = insertelement <4 x i32> %v2_2, i32 %elem7, i32 3
-  %f0 = call i1 @allOne_v4_i32(<4 x i32> %v1_3)
-  %f1 = call i1 @allOne_v4_i32(<4 x i32> %v2_3)
-  %f = and i1 %f0, %f1
-  ret i1 %f
+  %a = bitcast <8 x i32> %pred to <4 x i64>
+  %b = bitcast <8 x i32> <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1> to <4 x i64>
+  %res = call i32 @llvm.x86.avx.ptestc.256(<4 x i64> %a, <4 x i64> %b)
+  %one = trunc i32 %res to i1
+  ret i1 %one
 }
 
 define i1 @allOne_v8(<8 x i1> %pred) nounwind readnone {
@@ -236,9 +221,10 @@ entry:
 
 define i1 @allZero_v8_i32(<8 x i32> %pred) nounwind readnone {
 entry:
-  %t = xor <8 x i32> %pred, <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
-  %res = call i1 @allOne_v8_i32(<8 x i32> %t)
-  ret i1 %res
+  %a = bitcast <8 x i32> %pred to <4 x i64>
+  %res = call i32 @llvm.x86.avx.ptestz.256(<4 x i64> %a, <4 x i64> %a)
+  %one = trunc i32 %res to i1
+  ret i1 %one
 }
 
 define i1 @allZero_v16_i32(<16 x i32> %pred) nounwind readnone {
@@ -316,3 +302,7 @@ dont:                                             ; preds = %do, %0
 declare i32 @llvm.x86.sse41.ptestc(<4 x float>, <4 x float>) nounwind readnone
 
 declare i32 @llvm.x86.sse41.ptestz(<4 x float>, <4 x float>) nounwind readnone
+
+declare i32 @llvm.x86.avx.ptestc.256(<4 x i64>, <4 x i64>) nounwind readnone
+
+declare i32 @llvm.x86.avx.ptestz.256(<4 x i64>, <4 x i64>) nounwind readnone

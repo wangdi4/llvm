@@ -97,7 +97,7 @@ entry:
 define i1 @allZero(i1 %t) {
 entry:
   %pred = xor i1 %t, true
-  ret i1 %t
+  ret i1 %pred
 }
 
 define i1 @allZero_v2(<2 x i1> %t) {
