@@ -9,7 +9,6 @@ from framework.hudson.utils import startJob
 from getpass import getuser
 
 SANITY_BRANCHES_ROOT = 'OpenCL/branches/sanity'
-SANITY_SVN_ROOT      = '/'.join([REPOSITORY_ROOT, SANITY_BRANCHES_ROOT])
 SANITY_HUDSON_JOB    = 'PrivatePreCommit'
 
 class ConfigError(Exception):
@@ -40,7 +39,7 @@ class PersonalBuildConfig:
         if '' == self.username or None == self.username:
             self.username = getuser()
         # Target branch
-        self.branch_name = '/'.join([SANITY_SVN_ROOT, self.username, ] )
+        self.branch_name = '/'.join([SANITY_BRANCHES_ROOT, self.username ] )
         self.branch_name_full = self.branch_name if( "" == branch_suffix ) else '/'.join([self.branch_name, branch_suffix])
 
     def detectOS(self):
@@ -123,20 +122,22 @@ def main():
         if local_root == '':
            raise Exception("No local root specified by svn info." + local_url )
 
+        branch_url = '/'.join([local_root, config.branch_name_full])
+
         print 'Personal build'
         print '--------------'
         print '[WORKCOPY ROOT] :' + config.root_dir
         print '[SVN ROOT]      :' + local_root
         print '[SVN URL]       :' + local_url
-        print '[TARGET BRANCH] :' + config.branch_name_full
+        print '[TARGET BRANCH] :' + branch_url
 
         # then create a branch in there
         print '[PREPARING BRANCH]'
-        create_branch(svntool, config.branch_name_full, options.force_remove, options.reuse_branch)
+        create_branch(svntool, branch_url, options.force_remove, options.reuse_branch)
 
         # prepare the job parameters
         print '[START JENKINS JOB]'
-        jobparams = { "SVN_Requested_Url": config.branch_name_full,
+        jobparams = { "SVN_Requested_Url": branch_url,
                       "EmailReceipients":options.email}
         startJob(VOLCANO_JENKINS_URL, SANITY_HUDSON_JOB, jobparams)
         print '[FINISHED]      :The job notification will be sent to: ' + options.email
