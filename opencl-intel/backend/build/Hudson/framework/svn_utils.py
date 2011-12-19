@@ -38,14 +38,14 @@ class SvnTool:
         return '\''+ path + '\''
 
     def get_svn_cmd(self):
-        linux_svn     = '/usr/local/bin/svn'
-        mac_svn       = '/usr/local/bin/svn'
-        bsd_svn       = '/usr/local/bin/svn'
-        cygwin_svn    = '/bin/svn'
+        linux_svn     = 'svn'
+        mac_svn       = 'svn'
+        bsd_svn       = 'svn'
+        cygwin_svn    = 'svn'
         windows_svn   = 'svn'
         
         if self.hosttype == "linux":
-            return usr_intel_svn
+            return linux_svn
         elif self.hosttype == "mac":
             return mac_svn
         elif self.hosttype == "cygwin":
