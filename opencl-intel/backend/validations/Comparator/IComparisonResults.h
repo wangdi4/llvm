@@ -176,9 +176,11 @@ namespace Validation {
             template<typename T>
             void SetVal(const T& in_val)
             {
-                std::stringstream ss;
                 memcpy(val, &in_val, sizeof(T));
+                std::stringstream ss;
                 ss << in_val;
+                uint64_t hexVal = *(uint64_t*)(val);
+                ss << " (hex) 0x" << std::hex << hexVal;
                 m_str = ss.str();
                 isValid = true;
             }

@@ -159,9 +159,11 @@ namespace Validation
             {
             case ACCURATE:
                 ss<<"ACCURATE "<<*GetAcc<T>();
+                ss << " ACCURATE (hex) 0x" << std::hex << *(uint64_t*)(GetAcc<T>());
                 break;
             case INTERVAL:
                 ss<<"INTERVAL ["<<*GetMin<T>()<<"; "<<*GetMax<T>()<<"]";
+                ss << " INTERVAL (hex) [0x" << std::hex << *(uint64_t*)(GetMin<T>()) << "; 0x" << *(uint64_t*)(GetMax<T>()) << "]";
                 break;
             case UNKNOWN:
                 ss<<"UNKNOWN";
