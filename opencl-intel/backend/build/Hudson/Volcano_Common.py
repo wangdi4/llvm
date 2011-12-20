@@ -8,7 +8,7 @@ from framework.core import RunConfig
 SAMBA_SERVER = '//ismb014.iil.intel.com'
 DX_PERFORMANCE_SHADERS_ROOT = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root/Performance/NoDcls/PerformanceCriticalShaders'
 DX_10_SHADERS_ROOT          = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root'
-PERFORMANCE_LOG_ROOT        = '/nfs/iil/disks/cvcc/vdovleka/logs/Volcano/Performance'
+PERFORMANCE_LOG_ROOT        = '/mnt/cvcc_ftp/Logs/Volcano/Performance'
 PERFORMANCE_TESTS_ROOT      = '/Volcano/Performance/Tests'
 OCL_CONFORMANCE_TESTS_ROOT  = '/nfs/iil/disks/cvcc/vdovleka/tests/Volcano/Conformance'
 DEFAULT_WORLOADS_ROOT       = '/nfs/iil/disks/cvcc/OclConformance_14756/trunk/ReleaseCriteria/'
@@ -21,7 +21,7 @@ REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
 if platform.system() == 'Windows':
     DX_PERFORMANCE_SHADERS_ROOT = SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
     DX_10_SHADERS_ROOT          = SAMBA_SERVER + DX_10_SHADERS_ROOT
-    PERFORMANCE_LOG_ROOT        = SAMBA_SERVER + PERFORMANCE_LOG_ROOT
+    PERFORMANCE_LOG_ROOT        = '\\cvcc-w7-mrm-03.iil.intel.com\CVCC_FTP\Logs\Volcano\Performance'
     OCL_CONFORMANCE_TESTS_ROOT  = SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
     DEFAULT_WORLOADS_ROOT       = SAMBA_SERVER + DEFAULT_WORLOADS_ROOT
 
