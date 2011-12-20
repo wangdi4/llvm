@@ -117,6 +117,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
     {
         buildResult.LogS() << e.what() << "\n";
         buildResult.SetBuildResult( e.GetErrorCode());
+        pProgram->SetBuildLog( buildResult.GetBuildLog() );
+        throw e;
     }
 
     pProgram->SetBuildLog( buildResult.GetBuildLog());

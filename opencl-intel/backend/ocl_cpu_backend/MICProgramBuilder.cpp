@@ -293,6 +293,7 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
 
 void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule)
 {
+    assert(spModule && "Invalid module for post optimization processing.");
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 
     std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule));
 

@@ -183,11 +183,10 @@ llvm::Module* MICCompiler::GetRtlModule() const
 {
     if(m_pBuiltinModule)
     {
-        assert(m_pBuiltinModule && "MIC Builtin Module not initialized");
-        return NULL;
-    }
-    else
         return m_pBuiltinModule->GetRtlModule();
+    }
+    assert(m_pBuiltinModule && "MIC Builtin Module not initialized");
+    return NULL;
 }
 
 }}}

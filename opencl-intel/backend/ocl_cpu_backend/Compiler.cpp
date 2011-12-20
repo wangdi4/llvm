@@ -235,67 +235,57 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     assert(pResult && "Build results pointer must not be NULL");
     assert(pOptions && "Build options pointer must not be NULL");
 
-    try
-    { 
-        //TODO: Add log
-        std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer)); 
-        assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
+    //TODO: Add log
+    std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer)); 
+    assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
 
-        //
-        // Apply IR=>IR optimizations
-        //
-        intel::OptimizerConfig optimizerConfig( m_selectedCpuId, 
-                                                m_config.GetTransposeSize(), 
-                                                m_selectedCpuFeatures,
-                                                m_config.GetIRDumpOptionsAfter(),
-                                                m_config.GetIRDumpOptionsBefore(),
-                                                m_config.GetDumpIRDir(),
-                                                pOptions->GetDebugInfoFlag(),
-                                                pOptions->GetDisableOpt(),
-                                                pOptions->GetRelaxedMath(),
-                                                pOptions->GetlibraryModule());
-        Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
-        optimizer.Optimize();
-        
-        if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
-        {
-            Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
-            throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
-        }
-
-        //
-        // Populate the build results
-        //
-        std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
-        std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
-
-
-        optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
-        //dumpModule(*(spModule.get()));
-
-        optimizer.GetKernelsInfo( *kernelsMap.get());
-
-        if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
-          pResult->SetPrivateMemorySize(optimizer.getPrivateMemorySize());
-          pResult->SetFunctionsWidths( vectorizedFunctions.release() );
-          pResult->SetKernelsInfo( kernelsMap.release());
-        }
-        pResult->SetBuildResult( CL_DEV_SUCCESS );
-
-        // !!!WORKAROUND!!! if module wasn't built previously than we use
-        // optimizer output to create execution engine in compiler
-        // spModule is now owned by the execution engine
-        if(!m_config.GetLoadBuiltins())
-            this->CreateExecutionEngine(spModule.get());
-        return spModule.release();
-    }
-    catch( Exceptions::DeviceBackendExceptionBase& e )
+    //
+    // Apply IR=>IR optimizations
+    //
+    intel::OptimizerConfig optimizerConfig( m_selectedCpuId, 
+                                            m_config.GetTransposeSize(), 
+                                            m_selectedCpuFeatures,
+                                            m_config.GetIRDumpOptionsAfter(),
+                                            m_config.GetIRDumpOptionsBefore(),
+                                            m_config.GetDumpIRDir(),
+                                            pOptions->GetDebugInfoFlag(),
+                                            pOptions->GetDisableOpt(),
+                                            pOptions->GetRelaxedMath(),
+                                            pOptions->GetlibraryModule());
+    Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
+    optimizer.Optimize();
+    
+    if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
     {
-        pResult->LogS() << e.what() << "\n";
-        pResult->SetBuildResult( e.GetErrorCode());
+        Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
+        throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }
 
-    return NULL;
+    //
+    // Populate the build results
+    //
+    std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
+    std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
+
+
+    optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
+    //dumpModule(*(spModule.get()));
+
+    optimizer.GetKernelsInfo( *kernelsMap.get());
+
+    if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
+      pResult->SetPrivateMemorySize(optimizer.getPrivateMemorySize());
+      pResult->SetFunctionsWidths( vectorizedFunctions.release() );
+      pResult->SetKernelsInfo( kernelsMap.release());
+    }
+    pResult->SetBuildResult( CL_DEV_SUCCESS );
+
+    // !!!WORKAROUND!!! if module wasn't built previously than we use
+    // optimizer output to create execution engine in compiler
+    // spModule is now owned by the execution engine
+    if(!m_config.GetLoadBuiltins())
+        this->CreateExecutionEngine(spModule.get());
+    return spModule.release();
 }
 
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)

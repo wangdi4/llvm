@@ -39,6 +39,11 @@ File Name:  OpenCLProgramRunner.cpp
 #include "Buffer.h"
 #include "mem_utils.h"
 
+#define DEBUG_TYPE "OpenCLProgramRunner"
+#include <llvm/Support/raw_ostream.h>
+// debug macros
+#include <llvm/Support/Debug.h>
+
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation
@@ -210,11 +215,12 @@ public:
         }
 
         pBuffPtr[count] = m_pPrivateMem.get();
-
+        DEBUG(llvm::dbgs() << "Create executable started.\n");
         int rc = pBinary->CreateExecutable(pBuffPtr, count+1, m_pContext.getOutPtr());
+        DEBUG(llvm::dbgs() << "Create executable finished.\n");
         if (CL_DEV_FAILED(rc))
         {
-            throw Exception::TestRunnerException("Create executable failed");
+            throw Exception::TestRunnerException("Create executable failed\n");
         }
     }
 
@@ -229,7 +235,7 @@ public:
         int rc = m_pContext->PrepareThread();
         if (CL_DEV_FAILED(rc))
         {
-            throw Exception::TestRunnerException("PrepareThread failed");
+            throw Exception::TestRunnerException("PrepareThread failed\n");
         }
 
         m_sample.Start();
@@ -238,8 +244,10 @@ public:
         {
             GenINT3();
         }
+        DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
         m_pContext->Execute(groupId, NULL, NULL);
+        DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y << ", " << z << " group.\n");
         if( m_config->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
         {
             GenINT3();
@@ -250,7 +258,7 @@ public:
         rc = m_pContext->RestoreThreadState();
         if (CL_DEV_FAILED(rc))
         {
-            throw Exception::TestRunnerException("RestoreThreadState failed");
+            throw Exception::TestRunnerException("RestoreThreadState failed\n");
         }
 
     }
@@ -326,15 +334,17 @@ public:
 
         // create the binary
 
+        DEBUG(llvm::dbgs() << "Creating binary started.\n");
         cl_int ret = pExecutionService->CreateBinary(
                                            pKernel,
                                            pArgsBuffer,
                                            argsBufferSize,
                                            &workInfo,
                                            m_spBinary.getOutPtr());
+        DEBUG(llvm::dbgs() << "Creating binary finished.\n");
         if ( CL_DEV_FAILED(ret) )
         {
-            throw Exception::TestRunnerException("Create binary failed");
+            throw Exception::TestRunnerException("Create binary failed\n");
         }
 
         // init the memory buffer sizes
@@ -396,10 +406,10 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
                               IProgramConfiguration* programConfig,
                               const IRunComponentConfiguration* runConfig)
 {
-    assert((program != NULL) && "Program is not initialized");
-    assert((programConfig != NULL) && "Program Configuration is not initialized");
-    assert((runConfig != NULL) && "Run Configuration is not initialized");
-    assert((runResult != NULL) && "Run Result is not initialized");
+    assert((program != NULL) && "Program is not initialized\n");
+    assert((programConfig != NULL) && "Program Configuration is not initialized\n");
+    assert((runConfig != NULL) && "Run Configuration is not initialized\n");
+    assert((runResult != NULL) && "Run Result is not initialized\n");
 
     OpenCLProgramConfiguration *pOCLProgramConfig = static_cast<OpenCLProgramConfiguration *>(programConfig);
     const BERunOptions         *pOCLRunConfig     = static_cast<const BERunOptions *>(runConfig);
@@ -412,25 +422,31 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
     ICLDevBackendImageServicePtr        spImageService(NULL);
 
+    DEBUG(llvm::dbgs() << "Get compilation service started.\n");
     cl_dev_err_code ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
+    DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
         if (ret == CL_DEV_INVALID_OPERATION_MODE)
         {
             throw Exception::TestRunnerException("Invalid CPU architecture was set.", VALIDATION_INVALID_OPERATION_MODE);
         }
-        throw Exception::TestRunnerException("Create compilation service failed");
+        throw Exception::TestRunnerException("Create compilation service failed\n");
     }
 
+    DEBUG(llvm::dbgs() << "Get execution service started.\n");
     ret = m_pServiceFactory->GetExecutionService(NULL, spExecutionService.getOutPtr());
+    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
-        throw Exception::TestRunnerException("Create execution service failed");
+        throw Exception::TestRunnerException("Create execution service failed\n");
     }
+    DEBUG(llvm::dbgs() << "Get image service started.\n");
     ret = m_pServiceFactory->GetImageService(NULL, spImageService.getOutPtr());
+    DEBUG(llvm::dbgs() << "Get image service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
-        throw Exception::TestRunnerException("Create image service failed");
+        throw Exception::TestRunnerException("Create image service failed\n");
     }
 
     {
@@ -477,7 +493,7 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-                ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
+            ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
         }
     }
     }
@@ -488,7 +504,7 @@ ICLDevBackendProgram_* OpenCLProgramRunner::CreateProgram(OpenCLProgram * oclPro
 {
     assert( pCompileService);
     assert( oclProgram);
-    assert( oclProgram->GetProgramContainerSize() > 0 && "Invalid binary buffer ");
+    assert( oclProgram->GetProgramContainerSize() > 0 && "Invalid binary buffer \n");
 
     const cl_prog_container_header* pHeader = oclProgram->GetProgramContainer();
     assert( pHeader );
@@ -498,7 +514,7 @@ ICLDevBackendProgram_* OpenCLProgramRunner::CreateProgram(OpenCLProgram * oclPro
     cl_dev_err_code ret = pCompileService->CreateProgram(pHeader, &pProgram);
     if ( CL_DEV_FAILED(ret) )
     {
-        throw Exception::TestRunnerException("Create program failed");
+        throw Exception::TestRunnerException("Create program failed\n");
     }
 
     return pProgram;
@@ -512,7 +528,9 @@ void OpenCLProgramRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     Sample buildTime;
 
     buildTime.Start();
+    DEBUG(llvm::dbgs() << "Build program started.\n");
     cl_int ret = pCompileService->BuildProgram(pProgram, NULL);
+    DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 
     if( runConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
@@ -609,7 +627,7 @@ void OpenCLProgramRunner::ExecuteKernel(IBufferContainerList& input,
             }
             break;
         default:
-            throw Exception::TestRunnerException("Wrong number of dimensions while running the kernel");
+            throw Exception::TestRunnerException("Wrong number of dimensions while running the kernel\n");
         }
     }
 
@@ -644,7 +662,7 @@ void OpenCLProgramRunner::LoadInputBuffer(OpenCLKernelConfiguration* pKernelConf
             break;
         }
     default:
-        throw Exception::TestRunnerException("Unsupported input file type");
+        throw Exception::TestRunnerException("Unsupported input file type\n");
     }
 }
 
@@ -713,7 +731,7 @@ void OpenCLProgramRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
             break;
         default:
             throw Exception::InvalidArgument("Comparator::CompareOCLKernelRun "
-                "Unknown kernel argument type");
+                "Unknown kernel argument type\n");
         } // switch(pKernelArgs[i].type)
     }
 }
