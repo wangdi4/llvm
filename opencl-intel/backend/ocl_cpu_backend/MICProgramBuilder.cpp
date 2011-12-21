@@ -71,7 +71,7 @@ namespace Utils
  
 }
 
-MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
+MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const MICCompilerConfig& config):
     ProgramBuilder(pBackendFactory),
     m_compiler(config),
     m_config(config)

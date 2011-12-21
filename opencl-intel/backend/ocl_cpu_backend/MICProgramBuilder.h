@@ -32,7 +32,7 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class CompilerConfig;
+class MICCompilerConfig;
 class Program;
 class Kernel;
 class MICProgram;
@@ -49,7 +49,7 @@ public:
     /**
      * Ctor
      */
-    MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
+    MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const MICCompilerConfig& pConfig);
     ~MICProgramBuilder();
 
 protected:

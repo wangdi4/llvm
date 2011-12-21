@@ -31,6 +31,17 @@ File Name:  MICBuiltinLibrary.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+void MICBuiltinLibrary::SetContext(const void* pContext)
+{
+    assert(pContext && "Context is null");
+    m_targetDescription = *(const TargetDescription*)pContext;
+}
+
+unsigned long long int MICBuiltinLibrary::GetFunctionAddress(const std::string& functionName) const
+{
+    return m_targetDescription.GetFunctionAddress(functionName);
+}
+
 void MICBuiltinLibrary::Load()
 {
     char szModuleName[MAX_PATH];

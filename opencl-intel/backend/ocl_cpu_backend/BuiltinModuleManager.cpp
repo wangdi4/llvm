@@ -66,7 +66,7 @@ BuiltinModuleManager* BuiltinModuleManager::GetInstance()
 // TODO: Make this method re-entrable
 BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::ECPU cpuId, unsigned int cpuFeatures)
 {
-    const CPUArchFeatures key(std::make_pair(cpuId, cpuFeatures));
+    const CPUArchFeatures key(std::make_pair(0, std::make_pair(cpuId, cpuFeatures)));
     BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
     if( it != m_BuiltinLibs.end() )
     {
@@ -81,9 +81,10 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::ECPU cpuId, uns
 }
 
 // TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(Intel::ECPU micId, unsigned int micFeatures)
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID, Intel::ECPU micId, 
+        unsigned int micFeatures, const void* targetContext)
 {
-    const CPUArchFeatures key(std::make_pair(micId, micFeatures));
+    const CPUArchFeatures key(std::make_pair(targetID, std::make_pair(micId, micFeatures)));
     BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
     if( it != m_BuiltinLibs.end() )
     {
@@ -91,6 +92,7 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(Intel::ECPU micId, uns
     }
 
     std::auto_ptr<BuiltinLibrary> pLibrary( new MICBuiltinLibrary(micId, micFeatures) );
+    pLibrary->SetContext(targetContext);
     pLibrary->Load();
     
     m_BuiltinLibs[key] = pLibrary.get();

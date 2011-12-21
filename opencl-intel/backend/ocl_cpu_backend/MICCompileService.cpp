@@ -29,7 +29,7 @@ File Name:  MICCompileService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-MICCompileService::MICCompileService(const CompilerConfig& config)
+MICCompileService::MICCompileService(const MICCompilerConfig& config)
 :m_programBuilder(MICDeviceBackendFactory::GetInstance(), config) 
 {
     m_backendFactory = MICDeviceBackendFactory::GetInstance();

@@ -18,10 +18,11 @@ File Name:  CPUDetect.h
 
 #pragma once
 #include "TargetArch.h"
+#include "ProcessorDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-class CPUDetect
+class CPUDetect : public ProcessorDetect
 {
 public:
 
@@ -44,10 +45,6 @@ public:
 private:
     CPUDetect(void);
     ~CPUDetect(void);
-
-    const char* m_CPUNames[CPU_LAST];
-    const char* m_CPUEnvNames[CPU_LAST];
-    const char* m_CPUPrefixes[CPU_LAST];
 
     unsigned int m_uiCPUFeatures;
     ECPU m_CPU;

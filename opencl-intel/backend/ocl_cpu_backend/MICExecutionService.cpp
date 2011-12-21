@@ -16,22 +16,41 @@ File Name:  MICExecutionService.cpp
 
 \*****************************************************************************/
 
+#include "TargetArch.h"
+#include "DynamicLibraryLoader.h"
 #include "MICExecutionService.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "Binary.h"
 #include "MICDeviceBackendFactory.h"
+#include "MICSerializationService.h"
+#include "MICDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICExecutionService::MICExecutionService()
 {
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
+    m_TargetDescription.SetCPUArch((unsigned int)Utils::MICDetect::GetInstance()->GetMICId());
+    m_TargetDescription.SetCPUFeatures((unsigned int)Utils::MICDetect::GetInstance()->GetMICFeatureSupport());
+    
+    m_Loader.SetTargetArch((Intel::ECPU)m_TargetDescription.GetCPUArch(),
+        m_TargetDescription.GetCPUFeatures() );
+   
+    m_Loader.Load();
+
+    std::map<std::string, unsigned long long int> functionsTable;
+    m_Loader.GetLibraryFunctions(functionsTable);
+    m_TargetDescription.SetFunctionsTable(functionsTable);
 }
 
 size_t MICExecutionService::GetTargetMachineDescriptionSize() const
 {
-    return sizeof(char) * 3; // dummy to return "KNF"
+    size_t size = 0;
+    MICSerializationService serializationService(NULL);
+
+    serializationService.GetTargetDescriptionBlobSize(&m_TargetDescription, &size);
+    return size;
 }
 
 cl_dev_err_code MICExecutionService::GetTargetMachineDescription(
@@ -40,10 +59,11 @@ cl_dev_err_code MICExecutionService::GetTargetMachineDescription(
 {
     assert(pTargetDescription && "Target Description buffer is null");
     assert((descriptionSize >= GetTargetMachineDescriptionSize()) && "Too small buffer size");
+    MICSerializationService serializationService(NULL);
 
-    ((char*)pTargetDescription)[0] = 'K';
-    ((char*)pTargetDescription)[1] = 'N';
-    ((char*)pTargetDescription)[2] = 'F';
+    serializationService.SerializeTargetDescription(&m_TargetDescription, pTargetDescription, 
+        descriptionSize);
+
     return CL_DEV_SUCCESS;
 }
 

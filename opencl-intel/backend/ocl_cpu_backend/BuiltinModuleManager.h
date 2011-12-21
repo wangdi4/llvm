@@ -60,7 +60,8 @@ public:
     /**
      * Returns the \see BuiltinsLibrary for the given mic. Loads it if necessary
      */
-    BuiltinLibrary* GetOrLoadMICLibrary(Intel::ECPU micId, unsigned int micFeatures);
+    BuiltinLibrary* GetOrLoadMICLibrary(unsigned int targetID, Intel::ECPU micId, 
+        unsigned int micFeatures, const void* targetContext);
 
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
@@ -68,7 +69,7 @@ public:
     BuiltinModule*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
 
 private:
-    typedef std::pair<int, int> CPUArchFeatures;
+    typedef std::pair< int, std::pair<int, int> > CPUArchFeatures;
     typedef std::map<CPUArchFeatures, BuiltinLibrary*> BuiltinsMap;
 
     static BuiltinModuleManager* s_pInstance;

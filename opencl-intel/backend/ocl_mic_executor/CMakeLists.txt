@@ -200,6 +200,10 @@ endif()
 
 set(TARGET_SOURCES
     MICDeviceServiceFactory.cpp
+    DynamicLibraryLoader.cpp
+    MICDetect.cpp
+    ../ocl_cpu_backend/ProcessorDetect.cpp
+    ../ocl_cpu_backend/TargetDescription.cpp
     ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
     ../ocl_cpu_backend/ExecutionService.cpp
     ../ocl_cpu_backend/MICExecutionService.cpp

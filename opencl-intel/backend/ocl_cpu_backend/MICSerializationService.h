@@ -25,6 +25,8 @@ File Name:  MICSerializationService.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+class TargetDescription;
+
 class SerializationStatus
 {
 public:
@@ -70,6 +72,7 @@ public:
     
     MICSerializationService(const ICLDevBackendOptions* pBackendOptions);
 
+    // Program Functions
     virtual cl_dev_err_code GetSerializationBlobSize(
         cl_serialization_type serializationType,
         const ICLDevBackendProgram_* pProgram, size_t* pSize) const;
@@ -81,6 +84,21 @@ public:
 
     virtual cl_dev_err_code DeSerializeProgram(
         ICLDevBackendProgram_** ppProgram, 
+        const void* pBlob,
+        size_t blobSize) const;
+
+    // Target Description Functions
+    virtual cl_dev_err_code GetTargetDescriptionBlobSize(
+        const TargetDescription* pTargetDescription, 
+        size_t* pSize) const;
+
+    virtual cl_dev_err_code SerializeTargetDescription(
+        const TargetDescription* pTargetDescription, 
+        void* pBlob, 
+        size_t blobSize) const;
+
+    virtual cl_dev_err_code DeSerializeTargetDescription(
+        TargetDescription** pTargetDescription, 
         const void* pBlob,
         size_t blobSize) const;
 

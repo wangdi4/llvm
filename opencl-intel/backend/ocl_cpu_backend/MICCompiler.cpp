@@ -108,7 +108,7 @@ void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
     m_selectedCpuFeatures = 0;
 }
 
-MICCompiler::MICCompiler(const CompilerConfig& config):
+MICCompiler::MICCompiler(const MICCompilerConfig& config):
     Compiler(config),
     m_pBuiltinModule(NULL),
     m_pCGEngine(NULL),
@@ -122,7 +122,11 @@ MICCompiler::MICCompiler(const CompilerConfig& config):
     if(config.GetLoadBuiltins())
     {
         // Initialize the BuiltinModule
-        BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadMICLibrary(m_selectedCpuId, m_selectedCpuFeatures);
+        // TODO: fix target id in case of multi-MIC cards
+        BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadMICLibrary(
+            0, m_selectedCpuId, m_selectedCpuFeatures, &config.GetTargetDescription());
+
+        m_ResolverWrapper.SetResolver(pLibrary);
         std::auto_ptr<llvm::Module> spModule( CreateRTLModule(pLibrary) );
         m_pBuiltinModule = new BuiltinModule( spModule.get());
 
@@ -176,7 +180,7 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
 
     llvm::CodeGenOpt::Level OLvl = llvm::CodeGenOpt::Aggressive;
 
-    return new llvm::MICCodeGenerationEngine(*TM, OLvl);
+    return new llvm::MICCodeGenerationEngine(*TM, OLvl, &m_ResolverWrapper);
 }
 
 llvm::Module* MICCompiler::GetRtlModule() const

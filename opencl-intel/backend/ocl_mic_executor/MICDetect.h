@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -12,31 +12,35 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICExecutionService.h
+File Name:  MICDetect.h
 
 \*****************************************************************************/
+
 #pragma once
+#include "TargetArch.h"
+#include "ProcessorDetect.h"
 
-#include "cl_dev_backend_api.h"
-#include "ExecutionService.h"
-#include "TargetDescription.h"
-#include "DynamicLibraryLoader.h"
+namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-class MICExecutionService: public ExecutionService
+// This class used in order to detect the MIC card type with it's features
+class MICDetect : public ProcessorDetect
 {
 public:
-    MICExecutionService();
-	
-    virtual size_t GetTargetMachineDescriptionSize() const;
-    
-    virtual cl_dev_err_code GetTargetMachineDescription(
-        void* pTargetDescription, 
-        size_t descriptionSize) const;
+
+    static MICDetect *  GetInstance() { return &m_Instance; }
+    unsigned            GetMICFeatureSupport() const { return m_uiCPUFeatures; }
+    const char*         GetMICPrefix() const { return m_CPUPrefixes[m_CPU]; }
+    const char*         GetMICPrefix(ECPU CPU) const { return m_CPUPrefixes[CPU]; }
+    ECPU                GetMICId() const { return m_CPU; }  
+  
 private:
-    DynamicLibraryLoader m_Loader;
-    TargetDescription m_TargetDescription;
+    MICDetect(void);
+    ~MICDetect(void);
+
+    unsigned int m_uiCPUFeatures;
+    ECPU m_CPU;
+
+    static MICDetect m_Instance;
 };
 
-}}}
+}}}} // namespace

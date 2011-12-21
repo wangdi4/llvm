@@ -247,10 +247,13 @@ set (OCL_UTILS_SOURCE_FILES
 # Create target project
     
 set (OCL_CPU_BACKEND_INCLUDE_FILES
+    ProcessorDetect.h
     IAbstractBackendFactory.h
+    IDynamicFunctionsResolver.h
     CPUDeviceBackendFactory.h
     MICDeviceBackendFactory.h
     ${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
+    TargetDescription.h
     exceptions.h
     Logger.h
     Compiler.h
@@ -267,6 +270,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CPUExecutionService.h
     BackendConfiguration.h
     CompilerConfig.h
+    MICCompilerConfig.h
     ProgramBuilder.h
     CompilationUtils.h
     CPUProgramBuilder.h
@@ -301,9 +305,11 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
+    ProcessorDetect.cpp
     CPUDeviceBackendFactory.cpp
     MICDeviceBackendFactory.cpp
     builtin_functions.cpp
+    TargetDescription.cpp
     dllmain.cpp
     InstToFuncCall.cpp
     opencl_printf_ext.cpp

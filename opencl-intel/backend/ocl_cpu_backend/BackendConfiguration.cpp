@@ -20,6 +20,8 @@ File Name:  BackendConfiguration.cpp
 #include "exceptions.h"
 #include "CPUDetect.h"
 #include "cl_dev_backend_api.h"
+#include "MICSerializationService.h"
+#include "TargetDescription.h"
 
 #include <assert.h>
 #include <string>
@@ -30,13 +32,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
 const char* CPU_ARCH_AUTO = "auto";
+const char* CPU_ARCH_AUTO_REMOTE = "auto-remote";
 
 namespace Utils
 {
     OPERATION_MODE SelectOperationMode(const char* cpuArch)
     {
-        if(0 == strcmp(cpuArch, "auto")) return CPU_MODE;
-        if(0 == strcmp(cpuArch, "auto-remote")) return MIC_MODE;
+        if(0 == strcmp(cpuArch, CPU_ARCH_AUTO)) return CPU_MODE;
+        if(0 == strcmp(cpuArch, CPU_ARCH_AUTO_REMOTE)) return MIC_MODE;
         if (!Utils::CPUDetect::GetInstance()->IsValidCPUName(cpuArch))
         {
             throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
@@ -60,9 +63,6 @@ void BackendConfiguration::Init(const ICLDevBackendOptions* pBackendOptions)
 {
     assert(!s_pInstance);
     s_pInstance = new BackendConfiguration();
-    s_pInstance->LoadDefaults();
-    s_pInstance->LoadConfig();
-    s_pInstance->ApplyRuntimeOptions(pBackendOptions);
 }
 
 void BackendConfiguration::Terminate()
@@ -80,28 +80,24 @@ const BackendConfiguration* BackendConfiguration::GetInstance()
     return s_pInstance;
 }
 
-//TODO:Add the needed parameters to specify the persistent storage
-void BackendConfiguration::LoadConfig()
+CompilerConfiguration BackendConfiguration::GetCPUCompilerConfig() const 
 {
-    m_compilerConfig.LoadConfig(); 
-    //TODO: Load configuration for logger config too
+    CompilerConfiguration CPUCompilerConfig;
+
+    CPUCompilerConfig.LoadDefaults();
+    CPUCompilerConfig.LoadConfig(); 
+
+    return CPUCompilerConfig; 
 }
 
-void BackendConfiguration::LoadDefaults()
+MICCompilerConfiguration BackendConfiguration::GetMICCompilerConfig() const
 {
-    m_compilerConfig.LoadDefaults();
-    //TODO: Load defaults for logger config too
-}
+    MICCompilerConfiguration MICCompilerConfig;
 
-void BackendConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
-{
-    m_compilerConfig.ApplyRuntimeOptions(pBackendOptions);
-    //TODO: Apply runtime options to the logger config too
-}
+    MICCompilerConfig.LoadDefaults();
+    MICCompilerConfig.LoadConfig();  
 
-OPERATION_MODE CompilerConfiguration::GetOperationMode()
-{
-     return Utils::SelectOperationMode(GetCpuArch().c_str());
+    return MICCompilerConfig; 
 }
 
 void CompilerConfiguration::LoadDefaults()
@@ -156,6 +152,91 @@ void CompilerConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBac
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_TimePasses    = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_TimePasses.c_str());
+}
+
+
+void MICCompilerConfiguration::LoadDefaults()
+{
+    m_cpuArch = CPU_ARCH_AUTO_REMOTE;
+    m_transposeSize = TRANSPOSE_SIZE_AUTO;
+    m_cpuFeatures = "";
+    m_useVTune = true;
+}
+
+void MICCompilerConfiguration::SkipBuiltins()
+{
+    m_loadBuiltins = false;
+}
+
+void MICCompilerConfiguration::LoadConfig()
+{
+    //TODO: Add validation code
+    if (const char *pEnv = getenv("VOLCANO_ARCH"))
+    {
+        m_cpuArch = pEnv;
+    }
+
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE")) 
+    {
+        unsigned int size;
+        if ((std::stringstream(pEnv) >> size).fail()) 
+        {
+            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
+        }
+        m_transposeSize = ETransposeSize(size);
+    }
+
+    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES")) 
+    {
+        // The validity of the cpud features are checked upon parsing of optimizer options
+        m_cpuFeatures = pEnv;
+    }
+}
+
+void MICCompilerConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
+{
+    if( NULL == pBackendOptions)
+    {
+        return;
+    }
+    m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, m_cpuArch.c_str());
+    m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_FEATURES, m_cpuFeatures.c_str());
+    m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
+    m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
+    m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
+    m_TimePasses    = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_TimePasses.c_str());
+
+    size_t targetDescriptionSize = pBackendOptions->GetIntValue(CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE, 0);
+    if(0 != targetDescriptionSize)
+    {
+        char* pTargetDescriptionBlob = new char[targetDescriptionSize];
+        
+        bool ret = pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB, pTargetDescriptionBlob, 
+            &targetDescriptionSize);
+        if(!ret) 
+        {
+            delete[] pTargetDescriptionBlob;
+            throw Exceptions::BadConfigException("Failed to get target description");
+        }
+
+        MICSerializationService mss(NULL);
+        TargetDescription* pTarget = NULL;
+        
+        // check if error
+        cl_dev_err_code errCode = 
+            mss.DeSerializeTargetDescription(&pTarget, pTargetDescriptionBlob, targetDescriptionSize);
+        delete[] pTargetDescriptionBlob;
+
+        if(CL_DEV_SUCCESS != errCode) 
+        {
+            throw Exceptions::BadConfigException("Failed to read target description");
+        }
+
+        m_TargetDescription = *pTarget;
+        delete pTarget;
+    }
 }
 
 }}}

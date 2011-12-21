@@ -22,10 +22,11 @@ File Name: MICCompiler.h
 #include "Compiler.h"
 #include "CPUDetect.h"
 #include "exceptions.h"
-#include "CompilerConfig.h"
+#include "MICCompilerConfig.h"
 #include "MICKernel.h"
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/MICJITEngine/IFunctionAddressResolver.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -34,14 +35,37 @@ namespace llvm {
     class Type;
     class MICCodeGenerationEngine;
     class ModuleJITHolder;
+    class IFunctionAddressResolver;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModule;
-class CompilerConfig;
+class MICCompilerConfig;
 
+//*****************************************************************************************
+// Wrapper of the Backend interface IDynamicFunctionsResolver to behave as 
+// llvm::IFunctionAddressResolver
+class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
+{
+public:
+    FunctionResolverWrapper() : m_pFuncResolver(NULL) { }
+
+    void SetResolver(IDynamicFunctionsResolver* pResolver)
+    {
+        m_pFuncResolver = pResolver;
+    }
+
+    unsigned long long int getFunctionAddress(const std::string& func) const
+    {
+        assert(m_pFuncResolver && "Resolver is null");
+        return m_pFuncResolver->GetFunctionAddress(func);
+    }
+private:
+    // not owned by the class
+    IDynamicFunctionsResolver* m_pFuncResolver;
+};
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
@@ -52,7 +76,7 @@ public:
     /**
      * Ctor
      */
-    MICCompiler(const CompilerConfig& pConfig);
+    MICCompiler(const MICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
     unsigned int GetTypeAllocSize(const llvm::Type* pType);
@@ -83,8 +107,9 @@ private:
 private:
     BuiltinModule*           m_pBuiltinModule;
     llvm::MICCodeGenerationEngine* m_pCGEngine;
-    CompilerConfig           m_config;
+    MICCompilerConfig        m_config;
     std::string              m_ErrorStr;
+    FunctionResolverWrapper  m_ResolverWrapper;
 };
 
 }}}

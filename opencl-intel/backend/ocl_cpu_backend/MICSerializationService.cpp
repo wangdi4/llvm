@@ -18,6 +18,7 @@ File Name:  MICSerializationService.cpp
 
 #include "MICSerializationService.h"
 #include "MICProgram.h"
+#include "TargetDescription.h"
 #include "Serializer.h"
 #include "MICDeviceBackendFactory.h"
 #include <assert.h>
@@ -170,10 +171,12 @@ private:
 MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBackendOptions)
 {
     DefaultJITMemoryManager* pJITMemManager = DefaultJITMemoryManager::GetInstance();
-    
+    m_pJITAllocator = NULL;
+
     void* pCallBack = NULL;
     size_t size = 0;
-    if(pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pCallBack, &size))
+    if(NULL != pBackendOptions && 
+       pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pCallBack, &size))
     {
         m_pJITAllocator = (ICLDevBackendJITAllocator*)pCallBack;
     }
@@ -183,7 +186,6 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
     }
     
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
-    assert(m_pJITAllocator && "JIT memory Allocator is null");
     assert(m_pBackendFactory && "Backend Factory is null");
 }
 
@@ -220,6 +222,8 @@ cl_dev_err_code MICSerializationService::DeSerializeProgram(
         const void* pBlob,
         size_t blobSize) const
 {
+    assert(m_pJITAllocator && "JIT memory Allocator is null");
+
     try
     {
         SerializationStatus stats;
@@ -230,6 +234,54 @@ cl_dev_err_code MICSerializationService::DeSerializeProgram(
         *ppProgram = stats.GetBackendFactory()->CreateProgram();
         
         static_cast<MICProgram*>(*ppProgram)->Deserialize(ibs, &stats);
+
+        return CL_DEV_SUCCESS;
+    }
+    catch( Exceptions::SerializationException& )
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    catch( std::bad_alloc& )
+    {
+        return CL_DEV_OUT_OF_MEMORY; 
+    }
+}
+
+cl_dev_err_code MICSerializationService::GetTargetDescriptionBlobSize(
+    const TargetDescription* pTargetDescription, 
+    size_t* pSize) const
+{
+    CountingOutputStream cs;
+
+    pTargetDescription->Serialize(cs, NULL);
+    *pSize = cs.GetCount();
+
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code MICSerializationService::SerializeTargetDescription(
+    const TargetDescription* pTargetDescription, 
+    void* pBlob, 
+    size_t blobSize) const
+{
+    OutputBufferStream obs((char*)pBlob, blobSize);
+
+    pTargetDescription->Serialize(obs, NULL);
+
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code MICSerializationService::DeSerializeTargetDescription(
+    TargetDescription** pTargetDescription, 
+    const void* pBlob,
+    size_t blobSize) const
+{
+    try
+    {
+        InputBufferStream ibs((const char*)pBlob, blobSize);
+        *pTargetDescription = new TargetDescription();
+        
+        (*pTargetDescription)->Deserialize(ibs, NULL);
 
         return CL_DEV_SUCCESS;
     }

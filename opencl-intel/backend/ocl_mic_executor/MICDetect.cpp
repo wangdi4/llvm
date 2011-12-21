@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -12,31 +12,26 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICExecutionService.h
+File Name:  MICDetect.cpp
 
 \*****************************************************************************/
-#pragma once
 
-#include "cl_dev_backend_api.h"
-#include "ExecutionService.h"
-#include "TargetDescription.h"
-#include "DynamicLibraryLoader.h"
+#include "MICDetect.h"
+#include <assert.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-class MICExecutionService: public ExecutionService
+MICDetect::MICDetect(void) : m_uiCPUFeatures(0)
 {
-public:
-    MICExecutionService();
-	
-    virtual size_t GetTargetMachineDescriptionSize() const;
-    
-    virtual cl_dev_err_code GetTargetMachineDescription(
-        void* pTargetDescription, 
-        size_t descriptionSize) const;
-private:
-    DynamicLibraryLoader m_Loader;
-    TargetDescription m_TargetDescription;
-};
+    // TODO: Call CPUID for detection of the MIC Card type
+    m_CPU = MIC_KNIGHTSFERRY;
+    assert(m_CPU!=CPU_LAST && "Unknown CPU");
+}
 
-}}}
+MICDetect::~MICDetect(void) 
+{
+}
+
+MICDetect MICDetect::m_Instance;
+
+}}}} // namespace

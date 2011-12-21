@@ -20,6 +20,7 @@ File Name:  MICBuiltinLibrary.h
 #include "BuiltinModule.h"
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
+#include "TargetDescription.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -30,7 +31,12 @@ public:
       BuiltinLibrary(micId, micFeatures) { }
     ~MICBuiltinLibrary() { }
 
+    void SetContext(const void* pContext);
+    unsigned long long int GetFunctionAddress(const std::string& functionName) const;
+
     void Load();
+private:
+    TargetDescription m_targetDescription;
 };
 
 }}} // namespace

@@ -21,6 +21,7 @@ File Name:  BuiltinModule.h
 #include <string>
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
+#include "IDynamicFunctionsResolver.h"
 
 namespace llvm
 { 
@@ -44,13 +45,22 @@ private:
     llvm::Module* m_pModule;
 };
 
-class BuiltinLibrary
+class BuiltinLibrary : public IDynamicFunctionsResolver
 {
 public:
     BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures);
     ~BuiltinLibrary();
 
     llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer; }
+    virtual void SetContext(const void* pContext)
+    {
+        assert(false && "Set Builtin Library Context Not Implemented");
+    }
+    virtual unsigned long long int GetFunctionAddress(const std::string& functionName) const
+    {
+        assert(false && "Get Function Address Not Implemented");
+        return 0;
+    }
 
     virtual void Load() = 0;
 

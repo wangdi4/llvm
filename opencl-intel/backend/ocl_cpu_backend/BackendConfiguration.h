@@ -18,12 +18,17 @@ File Name:  BackendConfiguration.h
 #pragma once
 #include "CPUDetect.h"
 #include "CompilerConfig.h"
+#include "MICCompilerConfig.h"
 #include "ServiceFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class ICLDevBackendOptions;
 
+namespace Utils
+{
+    OPERATION_MODE SelectOperationMode(const char* cpuArch);
+}
 
 //*****************************************************************************************
 // CompilerConfig implementation. The main purpose of this class is to cut the dependancy
@@ -37,10 +42,16 @@ public:
     void LoadConfig();
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-    /**
-     * Return operation mode for current architecture
-     */
-    OPERATION_MODE GetOperationMode();
+};
+
+class MICCompilerConfiguration: public MICCompilerConfig
+{
+public:
+    // MIC CompilerConfiguration methods
+    void LoadDefaults();
+    void LoadConfig();
+    void SkipBuiltins();
+    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 };
 
 
@@ -72,25 +83,10 @@ public:
     /**
      * Returns the compiler specific configuration 
      */
-    const CompilerConfiguration* GetCompilerConfig() const { return &m_compilerConfig; }
-
-private:
-    /**
-     * Loads the configuration from the persistent storage
-     */
-    void LoadConfig();
-    /**
-     * Load the default configuration
-     */
-    void LoadDefaults();
-    /**
-     * Update the current configuration with settings in supplied ICLDevBackendOptions object
-     */
-    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-
+    CompilerConfiguration GetCPUCompilerConfig() const ;
+    MICCompilerConfiguration GetMICCompilerConfig() const ;
 private:
     static BackendConfiguration* s_pInstance;
-    CompilerConfiguration m_compilerConfig;
 };
 
 }}}

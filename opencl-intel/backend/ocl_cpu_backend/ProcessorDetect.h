@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -12,31 +12,28 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICExecutionService.h
+File Name:  ProcessorDetect.h
 
 \*****************************************************************************/
+
 #pragma once
+#include "TargetArch.h"
 
-#include "cl_dev_backend_api.h"
-#include "ExecutionService.h"
-#include "TargetDescription.h"
-#include "DynamicLibraryLoader.h"
+namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class MICExecutionService: public ExecutionService
+/**
+ * This class serves as database for all the supported processors with some basic
+ * properties
+ */
+class ProcessorDetect
 {
 public:
-    MICExecutionService();
-	
-    virtual size_t GetTargetMachineDescriptionSize() const;
-    
-    virtual cl_dev_err_code GetTargetMachineDescription(
-        void* pTargetDescription, 
-        size_t descriptionSize) const;
-private:
-    DynamicLibraryLoader m_Loader;
-    TargetDescription m_TargetDescription;
+    ProcessorDetect();
+    virtual ~ProcessorDetect();
+protected:
+    const char* m_CPUNames[CPU_LAST];
+    const char* m_CPUPrefixes[CPU_LAST];
 };
 
-}}}
+}}}} // namespace
