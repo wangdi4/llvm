@@ -21,7 +21,7 @@
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
     "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store "\
-    "cl_intel_printf cl_ext_device_fission cl_intel_thread_local_exec"
+    "cl_intel_printf cl_ext_device_fission cl_intel_exec_by_local_thread"
 #define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing cl_intel_dx9_media_sharing"
 #define OCL_DOUBLE "cl_khr_fp64"
 

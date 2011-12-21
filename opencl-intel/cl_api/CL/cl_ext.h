@@ -203,7 +203,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
     #define CL_PARTITION_BY_NAMES_LIST_END_EXT          ((cl_device_partition_property_ext) 0 - 1)
     #define CL_PARTITION_BY_NAMES_LIST_END_INTEL        ((cl_device_partition_property_ext) 0 - 1)
 
-    #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL      (1 << 16)
+    #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL      (1 << 31)
 
 #endif /* CL_VERSION_1_1 */
 
