@@ -26,9 +26,7 @@
 #ifndef __OPENCL_CL_D3D10_H
 #define __OPENCL_CL_D3D10_H
 
-#ifdef __D3D10__
 #include <d3d10.h>
-#endif
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
 
@@ -44,11 +42,6 @@ typedef cl_uint cl_d3d10_device_source_khr;
 typedef cl_uint cl_d3d10_device_set_khr;
 
 /******************************************************************************/
-#ifndef __D3D10__
-typedef struct {int i;} ID3D10Buffer;
-typedef struct {int i;} ID3D10Texture2D;
-typedef struct {int i;} ID3D10Texture3D;
-#endif
 
 // Error Codes
 #define CL_INVALID_D3D10_DEVICE_KHR                  -1002

@@ -104,7 +104,6 @@ clEnqueueReleaseGLObjects(cl_command_queue      /* command_queue */,
 
 
 #ifdef CL_USE_DEPRECATED_OPENCL_1_1_APIS
-
     extern CL_API_ENTRY cl_mem CL_API_CALL
     clCreateFromGLTexture2D(cl_context      /* context */,
                             cl_mem_flags    /* flags */,

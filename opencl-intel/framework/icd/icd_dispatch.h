@@ -59,10 +59,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <rpcsal.h>
-#ifdef __D3D10__
-#include <d3d10.h>
-#endif
+//#include <d3d10.h>
+#include <CL/cl_d3d11.h>
 #include <CL/cl_d3d10.h>
+#include <CL/cl_dx9_media_sharing.h>
 #endif
 #include <GL/gl.h>
 #include <CL/cl_gl.h>
@@ -850,14 +850,119 @@ clEnqueueReleaseD3D10ObjectsKHR(
     const cl_event *event_wait_list,
     cl_event *event);
 
+/* cl_khr_d3d11_sharing */
+extern CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceIDsFromD3D11KHR(
+    cl_platform_id             platform,
+    cl_d3d11_device_source_khr d3d_device_source,
+    void *                     d3d_object,
+    cl_d3d11_device_set_khr    d3d_device_set,
+    cl_uint                    num_entries,
+    cl_device_id *             devices,
+    cl_uint *                  num_devices);
+
+extern CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11BufferKHR(
+    cl_context     context,
+    cl_mem_flags   flags,
+    ID3D11Buffer * resource,
+    cl_int *       errcode_ret);
+
+extern CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11Texture2DKHR(
+    cl_context        context,
+    cl_mem_flags      flags,
+    ID3D11Texture2D * resource,
+    UINT              subresource,
+    cl_int *          errcode_ret);
+
+extern CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11Texture3DKHR(
+    cl_context        context,
+    cl_mem_flags      flags,
+    ID3D11Texture3D * resource,
+    UINT              subresource,
+    cl_int *          errcode_ret);
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueAcquireD3D11ObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event);
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReleaseD3D11ObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event);
+
+/* cl_khr_dx9_media_sharing */
+extern CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceIDsForDX9MediaAdapterKHR(
+    cl_platform_id                 platform,
+    cl_dx9_media_adapter_type_khr  media_adapter_type,
+    void *                         media_adapter,
+    cl_dx9_media_adapter_set_khr   media_adapter_set,
+    cl_uint                        num_entries,
+    cl_device_id *                 devices,
+    cl_uint *                      num_devices);
+
+extern CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromDX9MediaSurfaceKHR(
+    cl_context                    context,
+    cl_mem_flags                  flags,
+    cl_dx9_media_adapter_type_khr adapter_type,
+    void *                        surface_info,
+    cl_uint                       plane,                                                                          
+    cl_int *                      errcode_ret);
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueAcquireDX9MediaSurfacesKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event);
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReleaseDX9MediaSurfacesKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    cl_mem *         mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event);
+
 #else
 
+/* cl_khr_d3d10_sharing */
 typedef void *KHRpfn_clGetDeviceIDsFromD3D10KHR;
 typedef void *KHRpfn_clCreateFromD3D10BufferKHR;
 typedef void *KHRpfn_clCreateFromD3D10Texture2DKHR;
 typedef void *KHRpfn_clCreateFromD3D10Texture3DKHR;
 typedef void *KHRpfn_clEnqueueAcquireD3D10ObjectsKHR;
 typedef void *KHRpfn_clEnqueueReleaseD3D10ObjectsKHR;
+
+/* cl_khr_d3d11_sharing */
+typedef void *KHRpfn_clGetDeviceIDsFromD3D11KHR;
+typedef void *KHRpfn_clCreateFromD3D11BufferKHR;
+typedef void *KHRpfn_clCreateFromD3D11Texture2DKHR;
+typedef void *KHRpfn_clCreateFromD3D11Texture3DKHR;
+typedef void *KHRpfn_clCreateFromDX9MediaSurfaceKHR;
+typedef void *KHRpfn_clEnqueueAcquireD3D11ObjectsKHR;
+typedef void *KHRpfn_clEnqueueReleaseD3D11ObjectsKHR;
+
+/* cl_khr_dx9_media_sharing */
+typedef void *KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR;
+typedef void *KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR;
+typedef void *KHRpfn_clGetDeviceIDsForDX9MediaAdapterKHR;
 
 #endif
 
@@ -1029,6 +1134,7 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clEnqueueBarrierWithWaitList             clEnqueueBarrierWithWaitList;
     KHRpfn_clGetExtensionFunctionAddressForPlatform clGetExtensionFunctionAddressForPlatform;
     KHRpfn_clCreateFromGLTexture                    clCreateFromGLTexture;
+
 };
 
 /*

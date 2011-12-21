@@ -5692,7 +5692,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clUnloadCompiler(void)
+cl_int CL_API_CALL clUnloadCompiler()
 {
     for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
     {
