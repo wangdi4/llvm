@@ -352,22 +352,13 @@ cl_dev_err_code NDRange::execute()
 												  m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier));
 		if (result != COI_SUCCESS)
 		{
-			err = CL_DEV_ERROR_FAIL;
+			m_lastError = CL_DEV_ERROR_FAIL;
 			break;
 		}
-		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, true);
-		// Register m_completionBarrier to NotificationPort
-		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
 	}
 	while (0);
 
-	if (CL_DEV_FAILED(err))
-	{
-		delete this;
-	}
-
-    return err;
+	return executePostDispatchProcess(true);
 }
 
 void NDRange::fireCallBack(void* arg)

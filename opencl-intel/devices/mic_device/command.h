@@ -62,6 +62,12 @@ protected:
 	/* Notify runtime that the command status changed */
 	void notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer = 0);
 
+	/* Execute post commands dispatch operations (Such as Setting last dependent barrier, etc...).
+	   lastCmdWasExecution - True if the calling command is execution (NDRange) command.
+	   otherErr - flag that equal to True in case that there is error and m_lastError = CL_DEV_SUCCESS. 
+	   In case of error which indicate by 'm_lastError' or 'otherErr' will notify the framework for completion and delete this object. */
+	cl_dev_err_code executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr = false);
+
 	// COIEVENT that will signal when the Command will finish.
     COIEVENT m_completionBarrier;
 

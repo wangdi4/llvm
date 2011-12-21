@@ -11,6 +11,204 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+const unsigned int MAX_DEPENDENCIES_ARRAY_COUNT = (unsigned int)(4096 / sizeof(COIEVENT));
+
+template <class T>
+void ProcessMemoryChunk<T>::process_finish( void )
+{
+    // current chunk may not be ready to fire, only when no work fired at all
+    if (false == m_current_chunk.isReadyToFire())
+    {
+        assert( (!work_dispatched()) && "current chunk may be ready to fire, false == m_current_chunk.isReadyToFire() means that no work fired at all" );
+        return;
+    }
+
+	// Fire current chunk and force dependency on all accumulated events.
+    fire_current_chunk( true );
+}
+
+template <class T>
+void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
+{
+    //
+    // State machine:
+    //    NOT_INIT          - still no chunk was fired to COI
+    //    SINGLE_CHUNK_MODE - single chunk was fired to COI, dependency array not reserved
+    //    MULTI_CHUNK_MODE  - at least 2 chunks fired to COI, dependency array already reserved
+    //
+    // In all states additional optional external dependency may exists, that should be added to each
+    // COI command invocation
+    //
+
+    COIEVENT* use_dependencies = NULL;
+    uint32_t  num_dependencies = 0;
+    bool      flush_dependencies = false;
+
+    COIEVENT  double_dependency[2];
+
+    if (m_error_occured)
+    {
+        return;
+    }
+
+    assert( (true == m_current_chunk.isReadyToFire()) && "This code might not me called with non ready to fire chunk - it should be screened before!");
+
+    switch (m_state)
+    {
+        case NOT_INIT:
+            m_state = SINGLE_CHUNK_MODE;
+            break;
+
+        case SINGLE_CHUNK_MODE:
+            // single chunk already fired
+            if (force)
+            {
+                // it's just a second and the last chunk
+                if (NULL == m_external_dependency)
+                {
+                    num_dependencies = 1;
+                    use_dependencies = &m_last_dependency;
+                }
+                else
+                {
+                    double_dependency[0] = *m_external_dependency;
+                    double_dependency[1] = m_last_dependency;
+                    num_dependencies = 2;
+                    use_dependencies = double_dependency;
+                }
+            }
+            else
+            {
+                // it's a second but not last chunk - prepare for more
+                m_dependencies.reserve( MAX_DEPENDENCIES_ARRAY_COUNT );
+
+                if (NULL != m_external_dependency)
+                {
+                    m_dependencies.push_back( *m_external_dependency );
+                }
+                m_dependencies.push_back( m_last_dependency );
+                m_state = MULTI_CHUNK_MODE;
+            }
+            break;
+
+        case MULTI_CHUNK_MODE:
+            if (force || (MAX_DEPENDENCIES_ARRAY_COUNT >= m_dependencies.size()))
+            {
+                use_dependencies = &(m_dependencies[0]);
+                num_dependencies = m_dependencies.size();
+                flush_dependencies = true;
+            }
+            break;
+
+        default:
+            assert( 0 && "Unknown state" );
+    }
+
+    COIEVENT fired_event;
+
+    bool ok;
+
+    if (NULL != use_dependencies)
+    {
+        ok = fire_action( m_current_chunk, use_dependencies, num_dependencies, &fired_event );
+    }
+    else
+    {
+        ok = fire_action( m_current_chunk,
+                          m_external_dependency, (NULL == m_external_dependency) ? 0 : 1,
+                          &fired_event );
+    }
+
+    if (!ok)
+    {
+        m_error_occured = true;
+        return;
+    }
+
+    // override last dependency. In the case of SINGLE_CHUNK_MODE with forcing - override used dependency
+    m_last_dependency = fired_event;
+
+    if (MULTI_CHUNK_MODE == m_state)
+    {
+        if (flush_dependencies)
+        {
+            // remove all dependencies - we already used them
+            m_dependencies.clear();
+            if (NULL != m_external_dependency)
+            {
+                m_dependencies.push_back( *m_external_dependency );
+            }
+        }
+
+        m_dependencies.push_back( fired_event );
+    }
+
+    // ensure not firing current chunk twice
+    m_current_chunk.reset();
+}
+
+
+void ProcessCommonMemoryChunk::process_chunk( CommonMemoryChunk::Chunk& chunk )
+{
+    if (error_occured())
+    {
+        return;
+    }
+
+    if (0 == chunk.size)
+    {
+        return;
+    }
+
+    // optimization - try to join chunks before firing COI commands
+    if (((m_current_chunk.from_offset + m_current_chunk.size) == chunk.from_offset) &&
+        ((m_current_chunk.to_offset   + m_current_chunk.size) == chunk.to_offset))
+    {
+        m_current_chunk.size += chunk.size;
+        return;
+    }
+
+	// Do not fire the last chunk when first calling to this method because the chunk value is set after this call.
+	if (m_readyToFireChunk)
+	{
+        // cannot join chunks - need to fire
+        fire_current_chunk( false );
+	}
+
+	m_readyToFireChunk = true;
+
+	// update the current chunk to be the new chunk. (After firing the old one)
+	memcpy(&m_current_chunk, &chunk, sizeof(CommonMemoryChunk::Chunk));
+}
+
+
+void ProcessUnmapMemoryChunk::process_chunk( UnmapMemoryChunkStruct::Chunk& chunk )
+{
+    if (error_occured())
+    {
+        return;
+    }
+
+    if (NULL == chunk.coi_map_instance)
+    {
+        return;
+    }
+
+	// Do not fire the last chunk when first calling to this method because the chunk value is set after this call.
+	if (m_readyToFireChunk)
+	{
+        // cannot join chunks - need to fire
+        fire_current_chunk( false );
+	}
+
+	m_readyToFireChunk = true;
+
+	// update the current chunk to be the new chunk. (After firing the old one)
+    m_current_chunk.coi_map_instance = chunk.coi_map_instance;
+}
+
+
+
 BufferCommands::BufferCommands(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd)
 {
 }
@@ -19,25 +217,20 @@ BufferCommands::~BufferCommands()
 {
 }
 
-void BufferCommands::calculateCopyRegion(mem_copy_info_struct* pMemCopyInfo, vector<void*>* vHostPtr, vector<uint64_t>* vCoiBuffOffset, vector<uint64_t>* vSize)
+void BufferCommands::CopyRegion(mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
+{
+    CopyRegionInternal( pMemCopyInfo, chunk_consumer );
+
+    chunk_consumer->process_finish();
+}
+
+void BufferCommands::CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
 {
 	// Leaf case 1D array only
 	if ( 1 == pMemCopyInfo->uiDimCount )
 	{
-		unsigned int vectorSize = vHostPtr->size();
-		// Optimization - if it is continues memory, merge the last memory chunk with this memory chunk.
-		// TODO - There is option for one more optimization case (when pitch is different than raw size), currenntly it will not enter to the next optimization, while in some cases it
-		// is possible to perform similar optimization if the pitch is similar on both memory objects and it is not rectangular command, than it is possible to read / write continuously.
-		if ((vectorSize > 0) && 
-			((uint64_t)((size_t)(vHostPtr->at(vectorSize - 1))) +  vSize->at(vectorSize - 1) == (uint64_t)((size_t)(pMemCopyInfo->pHostPtr))) && 
-			(vCoiBuffOffset->at(vectorSize - 1) + vSize->at(vectorSize - 1) == pMemCopyInfo->pCoiBuffOffset))
-		{
-			vSize->at(vectorSize - 1) = vSize->at(vectorSize - 1) + pMemCopyInfo->vRegion[0];
-			return;
-		}
-		vHostPtr->push_back(pMemCopyInfo->pHostPtr);
-		vCoiBuffOffset->push_back(pMemCopyInfo->pCoiBuffOffset);
-		vSize->push_back(pMemCopyInfo->vRegion[0]);
+		CommonMemoryChunk::Chunk tChunk(pMemCopyInfo->from_Offset, pMemCopyInfo->to_Offset, pMemCopyInfo->vRegion[0]);
+        chunk_consumer->process_chunk( tChunk );
 		return;
 	}
 
@@ -46,16 +239,65 @@ void BufferCommands::calculateCopyRegion(mem_copy_info_struct* pMemCopyInfo, vec
 	// Copy current parameters
 	memcpy(&sRecParam, pMemCopyInfo, sizeof(mem_copy_info_struct));
 	sRecParam.uiDimCount = pMemCopyInfo->uiDimCount-1;
+
 	// Make recursion
 	for(unsigned int i=0; i<pMemCopyInfo->vRegion[sRecParam.uiDimCount]; ++i)
 	{
-		calculateCopyRegion(&sRecParam, vHostPtr, vCoiBuffOffset, vSize);
-		sRecParam.pHostPtr = sRecParam.pHostPtr + pMemCopyInfo->vHostPitch[sRecParam.uiDimCount-1];
-		sRecParam.pCoiBuffOffset = sRecParam.pCoiBuffOffset + pMemCopyInfo->vCoiBuffPitch[sRecParam.uiDimCount-1];
+		CopyRegionInternal( &sRecParam, chunk_consumer);
+		sRecParam.from_Offset += pMemCopyInfo->vFromPitch[sRecParam.uiDimCount-1];
+		sRecParam.to_Offset   += pMemCopyInfo->vToPitch[sRecParam.uiDimCount-1];
 	}
 }
 
 
+class ReadWriteMemoryChunk : public ProcessCommonMemoryChunk
+{
+public:
+    ReadWriteMemoryChunk( const COIEVENT* external, COIBUFFER buffer, void* ptr, bool is_read ) :
+        ProcessCommonMemoryChunk( external ),
+        m_buffer(buffer), m_ptr( (char*)ptr ), m_is_read_mode(is_read) {};
+
+protected:
+
+    bool fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event );
+
+private:
+    COIBUFFER m_buffer;
+    char*     m_ptr;
+    bool      m_is_read_mode;
+};
+
+bool ReadWriteMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event )
+{
+    COIRESULT result;
+
+	if ( m_is_read_mode )
+	{
+		result = COIBufferRead ( m_buffer,					// Buffer to read from.
+							     chunk.from_offset,			// Location in the buffer to start reading from.
+							     m_ptr+chunk.to_offset,		// A pointer to local memory that should be written into.
+							     chunk.size,				// The number of bytes to write from coiBuffer into host
+							     COI_COPY_UNSPECIFIED,		// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+							     num_dependencies,			// The number of dependencies specified.
+							     dependecies,			    // An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
+							     fired_event		        // An optional event to be signaled when the copy has completed.
+							   );
+	}
+	else
+	{
+		result = COIBufferWrite (m_buffer,				    // Buffer to write to.
+							     chunk.from_offset,			// Location in the buffer to start writing from.
+							     m_ptr+chunk.to_offset,		// A pointer to local memory that should be read from.
+							     chunk.size,				// The number of bytes to write from host into coiBuffer.
+							     COI_COPY_UNSPECIFIED,		// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+							     num_dependencies,			// The number of dependencies specified.
+							     dependecies,				// An optional array of handles to previously created COIEVENT objects that this write operation will wait for before starting.
+							     fired_event		        // An optional event to be signaled when the copy has completed.
+							   );
+	}
+
+	return (COI_SUCCESS == result);
+}
 
 ReadWriteMemObject::ReadWriteMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
@@ -79,123 +321,125 @@ cl_dev_err_code ReadWriteMemObject::execute()
 		return err;
 	}
 
-	notifyCommandStatusChanged(CL_RUNNING);
+    bool error = false;
 
-	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
+    do {
+    	notifyCommandStatusChanged(CL_RUNNING);
 
-	size_t offset;
-	const size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj.pitch;
+       	COIEVENT* barrier = NULL;
+    	unsigned int numDependecies = 0;
+    	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-	// copy the dimension value
-	sCpyParam.uiDimCount = cmdParams->dim_count;
-	offset = MemoryAllocator::CalculateOffset(sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj.uiElementSize);
+        assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
 
-	// Set region
-	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
-	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
+        if (numDependecies > 1)
+        {
+    		m_lastError = CL_DEV_NOT_SUPPORTED;
+            break;
+        }
 
-	// In case the pointer parameter (Host pointer) has pitch properties,
-	// we need to consider that too.
-	size_t ptrOffset =	cmdParams->ptr_origin[2] * cmdParams->pitch[1] + \
-						cmdParams->ptr_origin[1] * cmdParams->pitch[0] + \
-						cmdParams->ptr_origin[0];
+    	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
-	// set host pointer with the claculated offset and copy the pitch
-	sCpyParam.pHostPtr = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
-	memcpy(sCpyParam.vHostPitch, cmdParams->pitch, sizeof(sCpyParam.vHostPitch));
+    	size_t offset;
+    	const size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj.pitch;
 
-	// set coiBuffer (objPtr) initial offset
-	sCpyParam.pCoiBuffOffset = offset;
-	memcpy(sCpyParam.vCoiBuffPitch, pObjPitchPtr, sizeof(sCpyParam.vCoiBuffPitch));
+    	// copy the dimension value
+    	sCpyParam.uiDimCount = cmdParams->dim_count;
+    	offset = MemoryAllocator::CalculateOffset(sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj.uiElementSize);
 
-	// Get estimation for the amount of copy operations
-	const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
+    	// Set region
+    	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+    	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
 
-	vector<void*> vHostPtr;
-	vector<uint64_t> vCoiBuffOffset;
-	vector<uint64_t> vSize;
-	vHostPtr.reserve(initVecSize);
-	vCoiBuffOffset.reserve(initVecSize);
-	vSize.reserve(initVecSize);
+    	// In case the pointer parameter (Host pointer) has pitch properties,
+    	// we need to consider that too.
+    	size_t ptrOffset =	cmdParams->ptr_origin[2] * cmdParams->pitch[1] + \
+    						cmdParams->ptr_origin[1] * cmdParams->pitch[0] + \
+    						cmdParams->ptr_origin[0];
 
-	calculateCopyRegion(&sCpyParam, &vHostPtr, &vCoiBuffOffset, &vSize);
+        ReadWriteMemoryChunk copier(
+                            barrier,
+                            pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
+                            cmdParams->ptr,
+                            ( CL_DEV_CMD_READ == m_pCmd->type ) );
 
-	assert(vHostPtr.size() >= 1);
-	assert((vHostPtr.size() == vCoiBuffOffset.size()) && (vCoiBuffOffset.size() == vSize.size()));
+        if ( CL_DEV_CMD_READ == m_pCmd->type )
+        {
+        	// set coiBuffer (objPtr) initial offset
+        	sCpyParam.from_Offset = offset;
+        	memcpy(sCpyParam.vFromPitch, pObjPitchPtr, sizeof(sCpyParam.vFromPitch));
 
-	// Hold the size of the vectors returned (Must be >= 1) In case of == 1 it is regular read / write, otherwise it is rectangular read / write.
-	size_t retVecSize = vHostPtr.size();
+        	// set host pointer with the calculated offset and copy the pitch
+        	sCpyParam.to_Offset = ptrOffset;
+        	memcpy(sCpyParam.vToPitch, cmdParams->pitch, sizeof(sCpyParam.vToPitch));
+        }
+        else
+        {
+        	// set host pointer with the calculated offset and copy the pitch
+        	sCpyParam.from_Offset = ptrOffset;
+        	memcpy(sCpyParam.vFromPitch, cmdParams->pitch, sizeof(sCpyParam.vFromPitch));
 
-	// Get the COIBUFFER which represent this memory object
-	COIBUFFER coiBuffer = pMicMemObj->clDevMemObjGetCoiBufferHandler();
+        	// set coiBuffer (objPtr) initial offset
+        	sCpyParam.to_Offset = offset;
+        	memcpy(sCpyParam.vToPitch, pObjPitchPtr, sizeof(sCpyParam.vToPitch));
+        }
 
-	COIEVENT* barrier = NULL;
-	unsigned int numDependecies = 0;
-	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        CopyRegion( &sCpyParam, &copier );
 
-	COIRESULT result = COI_SUCCESS;
+        if (copier.error_occured())
+        {
+    		m_lastError = CL_DEV_ERROR_FAIL;
+            break;
+        }
 
-	// If read command
-	if ( CL_DEV_CMD_READ == m_pCmd->type )
-	{
-		if (retVecSize > 1)
-		{
-			// TODO READRECTANGLE
-			assert(0);
-		}
-		else
-		{
-			result = COIBufferRead ( coiBuffer,					// Buffer to read from.
-								     vCoiBuffOffset[0],			// Location in the buffer to start reading from.
-								     vHostPtr[0],				// A pointer to local memory that should be written into.
-								     vSize[0],					// The number of bytes to write from coiBuffer into vHostPtr[0].
-								     COI_COPY_UNSPECIFIED,		// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-								     numDependecies,			// The number of dependencies specified.
-								     barrier,					// An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
-								     &m_completionBarrier		// An optional event to be signaled when the copy has completed.
-								   );
-		}
-	}
-	else
-	{
-		// write command
-		if (retVecSize > 1)
-		{
-			// TODO WRITERECTANGLE
-			assert(0);
-		}
-		else
-		{
-			result = COIBufferWrite ( coiBuffer,				// Buffer to write to.
-								     vCoiBuffOffset[0],			// Location in the buffer to start writing from.
-								     vHostPtr[0],				// A pointer to local memory that should be read from.
-								     vSize[0],					// The number of bytes to write from vHostPtr[0] into coiBuffer.
-								     COI_COPY_UNSPECIFIED,		// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-								     numDependecies,			// The number of dependencies specified.
-								     barrier,					// An optional array of handles to previously created COIEVENT objects that this write operation will wait for before starting.
-								     &m_completionBarrier		// An optional event to be signaled when the copy has completed.
-								   );
-		}
-	}
+        if (!copier.work_dispatched())
+        {
+    		m_lastError = CL_DEV_SUCCESS;
+            error = true;
+            break;
+        }
 
-	if (COI_SUCCESS == result)
-	{
-		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
-		// Register m_completionBarrier to NotificationPort
-		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
-	}
-	else
-	{
-		m_lastError = CL_DEV_ERROR_FAIL;
-		notifyCommandStatusChanged(CL_COMPLETE);
-		delete this;
-		return CL_DEV_ERROR_FAIL;
-	}
+        m_completionBarrier = copier.get_last_event();
+        m_lastError = CL_DEV_SUCCESS;
 
-	return CL_DEV_SUCCESS;
+    } while (0);
+
+	return executePostDispatchProcess(false, error);
 }
 
+
+class CopyMemoryChunk : public ProcessCommonMemoryChunk
+{
+public:
+    CopyMemoryChunk( const COIEVENT* external, COIBUFFER from_buffer, COIBUFFER to_buffer ) :
+        ProcessCommonMemoryChunk( external ),
+        m_from_buffer(from_buffer), m_to_buffer(to_buffer) {};
+
+protected:
+
+    bool fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event );
+
+private:
+    COIBUFFER m_from_buffer;
+    COIBUFFER m_to_buffer;
+};
+
+bool CopyMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event )
+{
+	COIRESULT result = COIBufferCopy (
+                         m_to_buffer,           // Buffer to copy into.
+	                     m_from_buffer,			// Buffer to copy from.
+						 chunk.to_offset,		// Location in the destination buffer to start writing to.
+						 chunk.from_offset,		// Location in the source buffer to start reading from.
+						 chunk.size,			// The number of bytes to copy from coiBufferSrc into coiBufferSrc.
+						 COI_COPY_UNSPECIFIED,	// The type of copy operation to use.
+						 num_dependencies,		// The number of dependencies.
+						 dependecies,			// An optional array of handles to previously created COIEVENT objects that this copy operation will wait for before starting.
+						 fired_event		    // An optional event to be signaled when the copy has completed.
+					);
+
+	return (COI_SUCCESS == result);
+}
 
 CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
@@ -230,6 +474,8 @@ cl_dev_err_code CopyMemObject::execute()
 	size_t  uiSrcElementSize = pSrcMemObj.uiElementSize;
 	size_t	uiDstElementSize = pDstMemObj.uiElementSize;
 
+    bool error = false;
+
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
 	{
@@ -252,11 +498,11 @@ cl_dev_err_code CopyMemObject::execute()
 		//Copy 2D image to buffer
 		//Copy 3D image to buffer
 		//Buffer to image
-		memcpy(sCpyParam.vHostPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj.pitch, sizeof(sCpyParam.vHostPitch));
-		memcpy(sCpyParam.vCoiBuffPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj.pitch, sizeof(sCpyParam.vCoiBuffPitch));
+		memcpy(sCpyParam.vFromPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj.pitch, sizeof(sCpyParam.vFromPitch));
+		memcpy(sCpyParam.vToPitch,   cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj.pitch, sizeof(sCpyParam.vToPitch));
 
-		sCpyParam.pHostPtr = (cl_char*)MemoryAllocator::CalculateOffset(cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vHostPitch, pSrcMemObj.uiElementSize);
-		sCpyParam.pCoiBuffOffset = (uint64_t)(MemoryAllocator::CalculateOffset(cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vCoiBuffPitch, pDstMemObj.uiElementSize));
+		sCpyParam.from_Offset = MemoryAllocator::CalculateOffset(cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vFromPitch, pSrcMemObj.uiElementSize);
+		sCpyParam.to_Offset   = MemoryAllocator::CalculateOffset(cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vToPitch, pDstMemObj.uiElementSize);
 
 		sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
 		if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
@@ -266,15 +512,15 @@ cl_dev_err_code CopyMemObject::execute()
 			{
 				uiSrcElementSize = uiDstElementSize;
 				sCpyParam.uiDimCount = cmdParams->dst_dim_count;
-				sCpyParam.vHostPitch[0] = cmdParams->region[0] * uiDstElementSize;
-				sCpyParam.vHostPitch[1] = sCpyParam.vHostPitch[0] * cmdParams->region[1];
+				sCpyParam.vFromPitch[0] = cmdParams->region[0] * uiDstElementSize;
+				sCpyParam.vFromPitch[1] = sCpyParam.vFromPitch[0] * cmdParams->region[1];
 			}
 			if( 1 == cmdParams->dst_dim_count)
 			{
 				//When destination is buffer the memcpy will be done as if the buffer is an image with height=1
 				sCpyParam.uiDimCount = cmdParams->src_dim_count;
-				sCpyParam.vCoiBuffPitch[0] = cmdParams->region[0] * uiSrcElementSize;
-				sCpyParam.vCoiBuffPitch[1] = sCpyParam.vCoiBuffPitch[0] * cmdParams->region[1];
+				sCpyParam.vToPitch[0] = cmdParams->region[0] * uiSrcElementSize;
+				sCpyParam.vToPitch[1] = sCpyParam.vToPitch[0] * cmdParams->region[1];
 			}
 		}
 
@@ -283,82 +529,106 @@ cl_dev_err_code CopyMemObject::execute()
 		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
 		sCpyParam.vRegion[0] *= uiSrcElementSize;
 
-		// Get estimation for the amount of copy operations
-		const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
+       	COIEVENT* barrier = NULL;
+    	unsigned int numDependecies = 0;
+    	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-		vector<void*> vHostPtrSrc;
-		vector<uint64_t> vCoiBuffOffsetSrc;
-		vector<uint64_t> vCoiBuffOffsetDst;
-		vector<uint64_t> vSize;
-		vHostPtrSrc.reserve(initVecSize);
-		vCoiBuffOffsetSrc.reserve(initVecSize);
-		vCoiBuffOffsetDst.reserve(initVecSize);
-		vSize.reserve(initVecSize);
+        assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
 
-		calculateCopyRegion(&sCpyParam, &vHostPtrSrc, &vCoiBuffOffsetDst, &vSize);
+        if (numDependecies > 1)
+        {
+    		m_lastError = CL_DEV_NOT_SUPPORTED;
+            break;
+        }
 
-		assert(vHostPtrSrc.size() >= 1);
-		assert((vHostPtrSrc.size() == vCoiBuffOffsetDst.size()) && (vCoiBuffOffsetDst.size() == vSize.size()));
+        CopyMemoryChunk copier(
+                            barrier,
+                            pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
+                            pMicMemObjDst->clDevMemObjGetCoiBufferHandler()  // Get the COIBUFFER which represent this memory object
+                           );
 
-		// Hold the size of the vectors returned (Must be >= 1) In case of == 1 it is regular copy, otherwise it is rectangular copy.
-		size_t retVecSize = vHostPtrSrc.size();
+        CopyRegion( &sCpyParam, &copier );
 
-		// convert the void* offsets of the source to uint64_t offsets
-		for (unsigned int i = 0; i < retVecSize; i++)
-		{
-			vCoiBuffOffsetSrc.push_back((size_t)(vHostPtrSrc[i]));
-		}
+        if (copier.error_occured())
+        {
+    		m_lastError = CL_DEV_ERROR_FAIL;
+            break;
+        }
 
-		// Get the COIBUFFER which represent this memory object
-		COIBUFFER coiBufferSrc = pMicMemObjSrc->clDevMemObjGetCoiBufferHandler();
-		COIBUFFER coiBufferDst = pMicMemObjDst->clDevMemObjGetCoiBufferHandler();
+        if (!copier.work_dispatched())
+        {
+    		m_lastError = CL_DEV_SUCCESS;
+            error = true;
+            break;
+        }
 
-		COIEVENT* barrier = NULL;
-		unsigned int numDependecies = 0;
-		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        m_completionBarrier = copier.get_last_event();
+        m_lastError = CL_DEV_SUCCESS;
 
-		COIRESULT result = COI_SUCCESS;
-
-		if (retVecSize > 1)
-		{
-			// TODO RECTANGULAR COPY
-			assert(0);
-		}
-		else
-		{
-			result = COIBufferCopy ( coiBufferDst,					// Buffer to copy into.
-				                     coiBufferSrc,					// Buffer to copy from.
-									 vCoiBuffOffsetDst[0],			// Location in the destination buffer to start writing to.
-									 vCoiBuffOffsetSrc[0],			// Location in the source buffer to start reading from.
-									 vSize[0],						// The number of bytes to copy from coiBufferSrc into coiBufferSrc.
-									 COI_COPY_UNSPECIFIED,			// The type of copy operation to use.
-									 numDependecies,				// The number of dependencies.
-									 barrier,						// An optional array of handles to previously created COIEVENT objects that this copy operation will wait for before starting.
-									 &m_completionBarrier		// An optional event to be signaled when the copy has completed.
-									 );
-		}
-		if (COI_SUCCESS != result)
-		{
-			m_lastError = CL_DEV_ERROR_FAIL;
-			break;
-		}
-
-		// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-		m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
-		// Register m_completionBarrier to NotificationPort
-		m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
-
-		return CL_DEV_SUCCESS;
 	}
 	while (0);
 
-	notifyCommandStatusChanged(CL_COMPLETE);
-
-	err = m_lastError;
-
-	delete this;
-	return err;
+   	return executePostDispatchProcess(false, error);
 }
+
+
+class MapMemoryChunk : public ProcessCommonMemoryChunk
+{
+public:
+    MapMemoryChunk( const COIEVENT* external, COIBUFFER buffer, void* ptr, COI_MAP_TYPE map_type, SMemMapParamsList* coiMapParamList ) :
+        ProcessCommonMemoryChunk( external ), 
+		m_buffer(buffer), m_ptr((char*)ptr), m_mapType(map_type), m_pCoiMapParamList(coiMapParamList) {};
+
+	void process_finish( void );
+
+protected:
+
+    bool fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event );
+
+private:
+    COIBUFFER m_buffer;
+    char* m_ptr;
+	COI_MAP_TYPE m_mapType;
+	SMemMapParamsList* m_pCoiMapParamList;
+	SMemMapParams m_coiMapParam;
+
+};
+
+/* Overwrite my parent implementation. */
+void MapMemoryChunk::process_finish()
+{
+	// Call parent 'process_finish()' first in order to execute the last chunk.
+	ProcessCommonMemoryChunk::process_finish();
+
+	assert(m_pCoiMapParamList);
+	// Push the new SMemMapParams to SMemMapParamsList. (As the last operation)
+	m_pCoiMapParamList->push(m_coiMapParam);
+}
+
+bool MapMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event )
+{
+	COIMAPINSTANCE currentMapInstance;
+	void* mapPointer = m_ptr+chunk.to_offset;
+	COIRESULT coiResult = COIBufferMap ( m_buffer,				    // Handle for the buffer to map.
+							   chunk.from_offset,                   // Offset into the buffer that a pointer should be returned for.
+							   chunk.size,				            // Length of the buffer area to map.
+							   m_mapType,							// The access type that is needed by the application.
+							   num_dependencies,					// The number of dependencies specified in the barrier array.
+							   dependecies,					        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+							   fired_event,							// An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+							   &currentMapInstance,				    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+							   &mapPointer
+							 );
+
+	assert(COI_SUCCESS == coiResult);
+	bool result = (COI_SUCCESS == coiResult);
+	if (result)
+	{
+		result = m_coiMapParam.insertMapHandle(currentMapInstance);
+	}
+	return result;
+}
+
 
 MapMemObject::MapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
@@ -386,8 +656,8 @@ cl_dev_err_code MapMemObject::execute()
 
 	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
-	sCpyParam.pCoiBuffOffset = MemoryAllocator::CalculateOffset(pMemObj.dim_count, cmdParams->origin, pMemObj.pitch, pMemObj.uiElementSize);
-	memcpy(sCpyParam.vCoiBuffPitch, pMemObj.pitch, sizeof(sCpyParam.vCoiBuffPitch));
+	sCpyParam.from_Offset = MemoryAllocator::CalculateOffset(pMemObj.dim_count, cmdParams->origin, pMemObj.pitch, pMemObj.uiElementSize);
+	memcpy(sCpyParam.vFromPitch, pMemObj.pitch, sizeof(sCpyParam.vFromPitch));
 
 	// Setup data for copying
 	// Set Source/Destination
@@ -395,149 +665,85 @@ cl_dev_err_code MapMemObject::execute()
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
 
-	sCpyParam.pHostPtr = (cl_char*)cmdParams->ptr;
-	memcpy(sCpyParam.vHostPitch, cmdParams->pitch, sizeof(sCpyParam.vHostPitch));
+	sCpyParam.to_Offset = 0;
+	memcpy(sCpyParam.vToPitch, cmdParams->pitch, sizeof(sCpyParam.vToPitch));
 
-	// Get estimation for the amount of copy operations
-	const unsigned int initVecSize = getEstimatedCopyOperationsAmount(sCpyParam);
-
-	vector<void*> vHostPtr;
-	vector<uint64_t> vCoiBuffOffset;
-	vector<uint64_t> vSize;
-	vHostPtr.reserve(initVecSize);
-	vCoiBuffOffset.reserve(initVecSize);
-	vSize.reserve(initVecSize);
-
-	calculateCopyRegion(&sCpyParam, &vHostPtr, &vCoiBuffOffset, &vSize);
-
-	assert(vHostPtr.size() >= 1);
-	assert((vHostPtr.size() == vCoiBuffOffset.size()) && (vCoiBuffOffset.size() == vSize.size()));
-
-	// Hold the size of the vectors returned (Must be >= 1) In case of == 1 it is regular read / write, otherwise it is rectangular read / write.
-	size_t retVecSize = vHostPtr.size();
-
-	// Get the COIBUFFER which represent this memory object
-	COIBUFFER coiBuffer = pMicMemObj->clDevMemObjGetCoiBufferHandler();
-
-	COIEVENT* barrier = NULL;
-	unsigned int numDependecies = 0;
-	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
-
-	SMemMapParams coiMapParam;
-
+	bool error = false;
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
 	{
-		COIRESULT coiResult = COI_SUCCESS;
+	    COIEVENT* barrier = NULL;
+	    unsigned int numDependecies = 0;
+	    m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-		if (retVecSize > 1)
-		{
-			// Rectangular map operations
-			COIEVENT* mapBarriers = new COIEVENT[retVecSize];
-			// Perform the first (retVecSize - 1) map operations. (asynchronous operations, only dependent on the previous command in the CommandList)
-			for (unsigned int i = 0; i < retVecSize - 1; i++)
-			{
-				COIMAPINSTANCE currentMapInstance;
-				coiResult = COIBufferMap ( coiBuffer,				            // Handle for the buffer to map.
-										vCoiBuffOffset[i],                      // Offset into the buffer that a pointer should be returned for.
-										vSize[i],				                // Length of the buffer area to map.
-										COI_MAP_READ_WRITE,                     // The access type that is needed by the application.
-										numDependecies,							// The number of dependencies specified in the barrier array.
-										barrier,						        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-										&(mapBarriers[i]),				        // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-										&currentMapInstance,				    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-										&(vHostPtr[i])
-										);
+	    assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
 
-				if (COI_SUCCESS != coiResult)
-				{
-					m_lastError = CL_DEV_ERROR_FAIL;
-					break;
-				}
-				if (false == coiMapParam.insertMapHandle(currentMapInstance))
-				{
-					m_lastError = CL_DEV_ERROR_FAIL;
-					break;
-				}
-			}
+        if (numDependecies > 1)
+        {
+            m_lastError = CL_DEV_NOT_SUPPORTED;
+            break;
+        }
 
-			COIMAPINSTANCE currentMapInstance;
-			// Perform the last map operation that depend on the previous (retVecSize - 1) map operations
-			if (CL_DEV_SUCCESS == m_lastError)
-			{
-				coiResult = COIBufferMap ( coiBuffer,										// Handle for the buffer to map.
-										vCoiBuffOffset[retVecSize - 1],						// Offset into the buffer that a pointer should be returned for.
-										vSize[retVecSize - 1],								// Length of the buffer area to map.
-										COI_MAP_READ_WRITE,									// The access type that is needed by the application.
-										retVecSize - 1,										// The number of dependencies specified in the barrier array.
-										mapBarriers,										// An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-										&m_completionBarrier,								// An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-										&currentMapInstance,								// A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-										&(vHostPtr[retVecSize - 1])
-										);
-			}
+		MapMemoryChunk copier(
+                               barrier,
+                               pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
+                               cmdParams->ptr,
+							   COI_MAP_READ_WRITE, 
+                               MemoryAllocator::GetCoiMapParams(cmdParams) ); // Get the 'SMemMapParamsList' pointer of this memory object
 
-			delete [] mapBarriers;
+		CopyRegion( &sCpyParam, &copier );
 
-			if (COI_SUCCESS != coiResult)
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-			if (false == coiMapParam.insertMapHandle(currentMapInstance))
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
+		if (copier.error_occured())
+        {
+    		m_lastError = CL_DEV_ERROR_FAIL;
+            break;
+        }
 
-		}
-		// Regular map operation
-		else
-		{
-			COIMAPINSTANCE currentMapInstance;
-			coiResult = COIBufferMap ( coiBuffer,				        // Handle for the buffer to map.
-									vCoiBuffOffset[0],              // Offset into the buffer that a pointer should be returned for.
-									vSize[0],				        // Length of the buffer area to map.
-									COI_MAP_READ_WRITE,             // The access type that is needed by the application.
-									numDependecies,                 // The number of dependencies specified in the barrier array.
-									barrier,				        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-									&m_completionBarrier,           // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-									&currentMapInstance,		    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-									&(vHostPtr[0])
-									);
-			if (COI_SUCCESS != coiResult)
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-			if (false == coiMapParam.insertMapHandle(currentMapInstance))
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-		}
+        if (!copier.work_dispatched())
+        {
+    		m_lastError = CL_DEV_SUCCESS;
+            error = true;
+            break;
+        }
 
-		SMemMapParamsList* coiMapParamList = MemoryAllocator::GetCoiMapParams(cmdParams);
-		assert(coiMapParamList);
-		coiMapParamList->push(coiMapParam);
+        m_completionBarrier = copier.get_last_event();
+        m_lastError = CL_DEV_SUCCESS;
 	}
 	while (0);
 
-	if (CL_DEV_SUCCESS != m_lastError)
-	{
-		cl_dev_err_code tErr = m_lastError;
-		notifyCommandStatusChanged(CL_COMPLETE);
-		delete this;
-		return tErr;
-	}
-
-	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
-	// Register m_completionBarrier to NotificationPort
-	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
-
-	return CL_DEV_SUCCESS;
+	return executePostDispatchProcess(false, error);
 }
+
+
+class UnmapMemoryChunk : public ProcessUnmapMemoryChunk
+{
+public:
+    UnmapMemoryChunk( const COIEVENT* external ) :
+        ProcessUnmapMemoryChunk( external ) {};
+
+protected:
+
+    bool fire_action( const UnmapMemoryChunkStruct::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event );
+
+};
+
+bool UnmapMemoryChunk::fire_action( const UnmapMemoryChunkStruct::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event )
+{
+	if (NULL == chunk.coi_map_instance)
+	{
+		return false;
+	}
+	COIRESULT coiResult = COIBufferUnmap ( chunk.coi_map_instance,		            // Buffer map instance handle to unmap.
+											num_dependencies,						// The number of dependencies specified in the barrier array.
+											dependecies,							// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+											fired_event								// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+										  );
+
+	assert(COI_SUCCESS == coiResult);
+	return (COI_SUCCESS == coiResult);
+}
+
+
 
 UnmapMemObject::UnmapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
@@ -554,17 +760,24 @@ cl_dev_err_code UnmapMemObject::execute()
 
 	notifyCommandStatusChanged(CL_RUNNING);
 
-	COIEVENT* barrier = NULL;
-	unsigned int numDependecies = 0;
-	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
-
-	SMemMapParamsList* coiMapParamList = MemoryAllocator::GetCoiMapParams(cmdParams);
-	assert(coiMapParamList);
-
+	bool error = false;
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
-	{
-		COIRESULT result = COI_SUCCESS;
+	{		
+		COIEVENT* barrier = NULL;
+		unsigned int numDependecies = 0;
+		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+
+		assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
+
+		if (numDependecies > 1)
+		{
+			m_lastError = CL_DEV_NOT_SUPPORTED;
+			break;
+		}
+
+		SMemMapParamsList* coiMapParamList = MemoryAllocator::GetCoiMapParams(cmdParams);
+		assert(coiMapParamList);
 
 		SMemMapParams coiMapParam;
 		// Get arbitrary instance of SMemMapParams
@@ -574,87 +787,36 @@ cl_dev_err_code UnmapMemObject::execute()
 			break;
 		}
 
-		size_t numOfMapHandles = coiMapParam.getNumMapInstances();
+		UnmapMemoryChunk unmapper( barrier );
 
-		// Rectangular unmap operation
-		if (numOfMapHandles > 1)
+		// Init map handler iterator and traversing over it.
+		coiMapParam.initMapHandleIterator();
+		while (coiMapParam.hasNextMapHandle())
 		{
-			// In rectangular mapping must be more than one map handle
-			COIEVENT* unmapBarriers = new COIEVENT[numOfMapHandles - 1];
-			unsigned int index = 0;
-			coiMapParam.initMapHandleIterator();
-			while ((index < numOfMapHandles - 1) &&(coiMapParam.hasNextMapHandle()))
-			{
-				result = COIBufferUnmap ( coiMapParam.getNextMapHandle(),				 // Buffer map instance handle to unmap.
-											numDependecies,								 // The number of dependencies specified in the barrier array.
-											barrier,									 // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-											&(unmapBarriers[index])							 // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
-											);
-				if (COI_SUCCESS != result)
-				{
-					m_lastError = CL_DEV_ERROR_FAIL;
-					break;
-				}
-				index ++;
-			}
+			UnmapMemoryChunkStruct::Chunk tChunk(coiMapParam.getNextMapHandle());
+			unmapper.process_chunk(tChunk);
+		}
 
-			if (CL_DEV_SUCCESS == m_lastError)
-			{
-				if ((index != numOfMapHandles - 1) || (false == coiMapParam.hasNextMapHandle()))
-				{
-					m_lastError = CL_DEV_ERROR_FAIL;
-					delete [] unmapBarriers;
-					break;
-				}
-				result = COIBufferUnmap ( coiMapParam.getNextMapHandle(),							// Buffer map instance handle to unmap.
-										  numOfMapHandles - 1,									    // The number of dependencies specified in the barrier array.
-										  unmapBarriers,											// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-										  &m_completionBarrier										// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
-										);
-			}
-			delete [] unmapBarriers;
-			if (COI_SUCCESS != result)
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-		}
-		// Regular unmap
-		else
-		{
-			coiMapParam.initMapHandleIterator();
-			if ((numOfMapHandles == 0) || (false == coiMapParam.hasNextMapHandle()))
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-			result = COIBufferUnmap ( coiMapParam.getNextMapHandle(),          // Buffer map instance handle to unmap.
-									  numDependecies,							// The number of dependencies specified in the barrier array.
-									  barrier,									// An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-									  &m_completionBarrier						// An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
-									);
-			if (COI_SUCCESS != result)
-			{
-				m_lastError = CL_DEV_ERROR_FAIL;
-				break;
-			}
-		}
+		// Call to 'process_finish()' in order to complete the last unmap operations.
+		unmapper.process_finish();
+
+		if (unmapper.error_occured())
+        {
+    		m_lastError = CL_DEV_ERROR_FAIL;
+            break;
+        }
+
+        if (!unmapper.work_dispatched())
+        {
+    		m_lastError = CL_DEV_SUCCESS;
+            error = true;
+            break;
+        }
+
+        m_completionBarrier = unmapper.get_last_event();
+        m_lastError = CL_DEV_SUCCESS;
 	}
 	while (0);
 
-	if (CL_DEV_SUCCESS != m_lastError)
-	{
-		cl_dev_err_code tErr = m_lastError;
-		notifyCommandStatusChanged(CL_COMPLETE);
-		delete this;
-		return tErr;
-	}
-
-	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, false);
-	// Register m_completionBarrier to NotificationPort
-	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
-
-	return CL_DEV_SUCCESS;
-
+	return executePostDispatchProcess(false, error);
 }

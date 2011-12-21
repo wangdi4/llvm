@@ -30,6 +30,27 @@ void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
 	m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, uStatus, m_lastError, timer);
 }
 
+cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr)
+{
+	cl_dev_err_code err = m_lastError;
+
+	if ((CL_DEV_SUCCESS == err) && (!otherErr))
+    {
+    	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
+    	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, lastCmdWasExecution);
+    	// Register m_completionBarrier to NotificationPort
+    	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
+    }
+    else
+    {
+        // error path
+    	notifyCommandStatusChanged(CL_COMPLETE);
+    	delete this;
+    }
+
+	return err;
+}
+
 void Command::fireCallBack(void* arg)
 {
 	// Notify runtime that  the command completed
