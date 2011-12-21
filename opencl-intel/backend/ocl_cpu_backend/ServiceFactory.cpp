@@ -72,8 +72,12 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
     try
     {
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
-        std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-        OPERATION_MODE mode = Utils::SelectOperationMode(cpuArch.c_str());
+        OPERATION_MODE mode = CPU_MODE;
+        if(NULL != pBackendOptions)
+        {
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            mode = Utils::SelectOperationMode(cpuArch.c_str());
+        }
 
         if(MIC_MODE == mode)
         {
@@ -109,8 +113,12 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
     try
     {
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-        OPERATION_MODE mode = Utils::SelectOperationMode(cpuArch.c_str());
+        OPERATION_MODE mode = CPU_MODE;
+        if(NULL != pBackendOptions)
+        {
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            mode = Utils::SelectOperationMode(cpuArch.c_str());
+        }
 
         if(MIC_MODE == mode)
         {
@@ -139,8 +147,12 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
     try
     {
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-        OPERATION_MODE mode = Utils::SelectOperationMode(cpuArch.c_str());
+        OPERATION_MODE mode = CPU_MODE;
+        if(NULL != pBackendOptions)
+        {
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            mode = Utils::SelectOperationMode(cpuArch.c_str());
+        }
 
         if(MIC_MODE == mode)
         {
@@ -175,8 +187,12 @@ cl_dev_err_code ServiceFactory::GetImageService(
 {
     try
     {
-        std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-        OPERATION_MODE mode = Utils::SelectOperationMode(cpuArch.c_str());
+        OPERATION_MODE mode = CPU_MODE;
+        if(NULL != pBackendOptions)
+        {
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            mode = Utils::SelectOperationMode(cpuArch.c_str());
+        }
 
         CompilerConfiguration config(BackendConfiguration::GetInstance()->GetCPUCompilerConfig());
         config.ApplyRuntimeOptions(pBackendOptions);
