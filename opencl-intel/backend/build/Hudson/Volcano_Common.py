@@ -21,7 +21,7 @@ REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
 if platform.system() == 'Windows':
     DX_PERFORMANCE_SHADERS_ROOT = SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
     DX_10_SHADERS_ROOT          = SAMBA_SERVER + DX_10_SHADERS_ROOT
-    PERFORMANCE_LOG_ROOT        = '\\cvcc-w7-mrm-03.iil.intel.com\CVCC_FTP\Logs\Volcano\Performance'
+    PERFORMANCE_LOG_ROOT        = '//cvcc-w7-mrm-03.iil.intel.com/CVCC_FTP/Logs/Volcano/Performance'
     OCL_CONFORMANCE_TESTS_ROOT  = SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
     DEFAULT_WORLOADS_ROOT       = SAMBA_SERVER + DEFAULT_WORLOADS_ROOT
 
