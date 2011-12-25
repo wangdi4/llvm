@@ -47,14 +47,13 @@ using namespace Intel::OpenCL::CPUDevice;
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
 
 #if defined(_M_X64) || defined(__x86_64__)
-	#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, TotalPhysicalSize()/4))
-	#define GLOBAL_MEM_SIZE (TotalPhysicalSize())
+	#define MEMORY_LIMIT (TotalPhysicalSize())
 #else
 	// When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory 
-	#define MEMORY_LIMIT	(MIN(TotalPhysicalSize(), TotalVirtualSize()))
-	#define MAX_MEM_ALLOC_SIZE (MAX(128*1024*1024, MEMORY_LIMIT/4))
-	#define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
+	#define MEMORY_LIMIT	( MIN(TotalPhysicalSize(), TotalVirtualSize()) )
 #endif
+#define MAX_MEM_ALLOC_SIZE ( MAX(128*1024*1024, MEMORY_LIMIT/4) )
+#define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
 
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
@@ -343,7 +342,7 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, MAX_MEM_ALLOC_SIZE, m_pProgramService->GetImageService());
+    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GLOBAL_MEM_SIZE, m_pProgramService->GetImageService());
     m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
     m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
     if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )

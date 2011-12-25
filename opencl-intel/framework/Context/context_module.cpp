@@ -2041,6 +2041,27 @@ cl_err_code ContextModule::CheckImageParameters(cl_mem_flags clMemFlags,
 		return CL_INVALID_IMAGE_SIZE;
 	}
 
+	if (NULL != clImageFormat)
+    {
+		// Check minumum row pitch size
+		size_t pixelBytesCnt = Context::GetPixelBytesCount(clImageFormat);
+		if (0 == pixelBytesCnt) // image format is invalid.
+		{
+			return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+		}
+		size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
+		if ( (NULL != pHostPtr) && (0 != szImageRowPitch) && ((szImageRowPitch<szMinRowPitchSize)||(szImageRowPitch % pixelBytesCnt)) )
+		{
+			return CL_INVALID_IMAGE_SIZE;
+		}
+
+		size_t szMinSlicePitchSize = szImageRowPitch * szImageHeight;
+		if ( (NULL != pHostPtr) && (0 != szImageSlicePitch) && ((szImageSlicePitch<szMinSlicePitchSize)||(szImageSlicePitch % pixelBytesCnt)) )
+		{
+			return CL_INVALID_IMAGE_SIZE;
+		}
+	}
+
 	return CL_SUCCESS;
 }
 
