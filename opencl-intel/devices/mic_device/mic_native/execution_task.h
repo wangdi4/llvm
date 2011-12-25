@@ -50,6 +50,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	class class_name : public task_handler_class, public task_interface_class, public TaskContainerInterface \
 	{ \
 	public: \
+	    \
+		virtual ~class_name() {}; \
+	    \
 		virtual TaskHandler* getMyTaskHandler() { return this; } \
 		\
 		virtual TaskInterface* getMyTask() { return this; } \
@@ -165,6 +168,8 @@ class TaskInterface
 {
 public:
 
+	virtual ~TaskInterface() {};
+
 	/* Initialize the task and execute pre-exe operations.
 	   Return CL_DEV_SUCCESS if succeeded. */
 	virtual cl_dev_err_code init(TaskHandler* pTaskHandler) = 0;
@@ -256,6 +261,8 @@ public:
 	{
 	public:
 
+		virtual ~TBBNDRangeExecutor() {};
+
 		TBBNDRangeExecutor(TBBNDRangeTask* pTbbNDRangeTask, TaskHandler* pTaskHandler, const unsigned int& dim, uint64_t* region);
 
 		// This method is an abstract method of tbb:task, have to implement it in order to be tbb:task object.
@@ -284,7 +291,7 @@ public:
 	virtual cl_dev_err_code init(TaskHandler* pTaskHandler);
 
 	// It is only delegation method to "execute()" of TBBNDRangeExecutor.
-	virtual void run() { m_pTaskExecutor->execute(); };
+	virtual void run();
 
 	/* Return the instance of TBBNDRangeExecutor in order to enqueue it to TBB::task::queue. */
 	TBBNDRangeExecutor* getTaskExecutor() {   assert(m_pTaskExecutor);
@@ -300,6 +307,8 @@ private:
 class TaskContainerInterface
 {
 public:
+
+	virtual ~TaskContainerInterface() {};
 
 	/* Return this object as Taskhandler. */
 	virtual TaskHandler* getMyTaskHandler() = 0;
@@ -322,6 +331,7 @@ TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(NonBlockingNDRangeTask, TBBNonB
 	- Array of constructor and destructor functions for each type. */
 struct GENERIC_TLS_STRUCT
 {
+	virtual ~GENERIC_TLS_STRUCT() {};
 	/* Each thread include generic void*[NUM_OF_GENERIC_TLS_ENTRIES] TLS. the following enum define the index of specific data in the array. */
 	enum GENERIC_TLS_ENTRIES_INDEXES
 	{
@@ -341,6 +351,8 @@ struct GENERIC_TLS_STRUCT
 			// Nullify the data content
 			memset(data, 0, sizeof(void*) * NUM_OF_GENERIC_TLS_ENTRIES);
 		}
+
+		virtual ~GENERIC_TLS_DATA() {};
 
 		void* getElementAt(unsigned int index)
 		{

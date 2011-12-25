@@ -392,6 +392,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	struct TaskLoopBody1D {
 		TaskInterface* task;
 		TaskLoopBody1D(TaskInterface* t) : task(t) {}
+		virtual ~TaskLoopBody1D() {}
 		void operator()(const tbb::blocked_range<int>& r) const {
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = r.size();
@@ -411,6 +412,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	struct TaskLoopBody2D {
 		TaskInterface* task;
 		TaskLoopBody2D(TaskInterface* t) : task(t) {}
+		virtual ~TaskLoopBody2D() {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
@@ -431,6 +433,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	struct TaskLoopBody3D {
 		TaskInterface* task;
 		TaskLoopBody3D(TaskInterface* t) : task(t) {}
+		virtual ~TaskLoopBody3D() {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
@@ -584,6 +587,12 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 			((ICLDevBackendExecutable_*)m_contextExecutableArr[i])->Release();
 			m_contextExecutableArr[i] = NULL;
 		}
+	}
+
+	// Release the binary.
+	if (m_pBinary)
+	{
+		m_pBinary->Release();
 	}
 
 	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
@@ -752,6 +761,15 @@ cl_dev_err_code TBBNDRangeTask::init(TaskHandler* pTaskHandler)
 	}
 
 	return CL_DEV_SUCCESS;
+}
+
+void TBBNDRangeTask::run()
+{
+	// Call explicitly to 'tbb::task::execute()'
+	m_pTaskExecutor->execute();
+	// In case of calling 'execute()' explicitly We should destroy the tbb::task explicitly also.
+	tbb::task::destroy(*m_pTaskExecutor);
+	m_pTaskExecutor = NULL;
 }
 
 
