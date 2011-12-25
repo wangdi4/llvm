@@ -137,6 +137,7 @@ OclAutoMutex::~OclAutoMutex()
 OclCondition::OclCondition():
 m_ulNumWaiters(0)
 {
+	assert(0 && "Invalid condition implementation");
     // Signal event is an auto-reset event, only 1 thread released.
     // Fairness is not guaranteed,
     m_signalEvent = (void*)CreateEvent(NULL,FALSE,FALSE,NULL);

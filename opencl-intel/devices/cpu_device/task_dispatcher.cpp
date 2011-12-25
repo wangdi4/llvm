@@ -557,25 +557,35 @@ SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, unsigned int* l
 	: TaskDispatcher(devId, pDevCallbacks, programService, memAlloc, logDesc, cpuDeviceConfig, pObserver),
 	m_thread(NULL),	m_legalCoreIDs(legalCoreIDs)
 {
+	m_uiRefCount = 2; // We start with reference count of two
+					 // The first item is for cpu device level release
+					 // The second item is for sub-device worker release
 	m_uiNumThreads = numThreads;
-#ifndef WIN32
 	m_evWaitForCompletion.Init(true); // Auto-reset event
-#endif
 }
 
 SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
 {
-	if (m_threadInitSuccessful)
+}
+
+void SubdeviceTaskDispatcher::Release()
+{
+	if ( m_threadInitSuccessful)
 	{
-	    // Send termination command
-	    m_commandListsForFlushing.PushBack(NULL);
-	    m_thread->WaitForCompletion();
+		// When release from application thread need to send notificaiton to worker thread
+		m_commandListsForFlushing.PushBack(NULL);
 	}
-	
-	if ( NULL != m_thread )
+
+	// Must wait until SubDevice worker thread finishes shutdown sequence.
+	// Use thread reentered mutex, to be able to not to wait while shuting down from the same thread
+	m_muDestructReady.Lock();
+	// Check if this call should destroy the task dispatcher
+	bool bDeleteThis = ( (m_uiRefCount)-- == 1);
+	m_muDestructReady.Unlock();
+
+	if ( bDeleteThis )
 	{
-		delete m_thread;
-		m_thread = NULL;
+		delete this;
 	}
 }
 
@@ -610,13 +620,9 @@ cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN lis
 
 cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
 {
-#ifndef WIN32
 	m_commandListsForFlushing.PushBack((void*)0x1);
 	m_evWaitForCompletion.Wait();
 	return CL_DEV_SUCCESS;
-#else
-	return CL_DEV_NOT_SUPPORTED;
-#endif
 }
 
 cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
@@ -641,7 +647,7 @@ bool SubdeviceTaskDispatcher::isDestributedAllocationRequried()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 SubdeviceTaskDispatcherThread::SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher) :
-	OclThread("SubdeviceDispatcherWorkerThread"), m_dispatcher(dispatcher)
+	OclThread("SubdeviceDispatcherWorkerThread", true /*AutoDelete*/), m_dispatcher(dispatcher)
 {
     m_partitioner = NULL;
 }
@@ -652,7 +658,7 @@ SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
 
 int SubdeviceTaskDispatcherThread::Run()
 {
-	if (NULL != m_dispatcher->m_legalCoreIDs)
+	if ( m_dispatcher->isThreadAffinityRequried() && NULL != m_dispatcher->m_legalCoreIDs )
 	{
 		clSetThreadAffinityToCore(m_dispatcher->m_legalCoreIDs[0]);
 	}
@@ -695,6 +701,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		return 0;
 	}
 	
+	m_dispatcher->m_muDestructReady.Lock(); // Catch destruction mutex, should be release before thread exists
 	m_dispatcher->m_threadInitSuccessful = true;
 	m_dispatcher->m_threadInitComplete.Signal();
 	
@@ -711,13 +718,11 @@ int SubdeviceTaskDispatcherThread::Run()
 		{
 			break;
 		}
-#ifndef WIN32
 		if ( (cl_dev_cmd_list*)(0x1) == list )
 		{
 			m_dispatcher->m_evWaitForCompletion.Signal();
 			continue;
 		}
-#endif
 		m_dispatcher->internalFlushCommandList(list);
 	} while(true);
 
@@ -725,9 +730,21 @@ int SubdeviceTaskDispatcherThread::Run()
 	m_partitioner->Deactivate();
 	delete m_partitioner;
 
-	assert(NULL != pLocalWGContext);
-	delete pLocalWGContext;
-	pLocalWGContext = NULL;
+	bool bDispatcherDelete = ((m_dispatcher->m_uiRefCount--) == 1);
+	m_dispatcher->m_muDestructReady.Unlock();
+
+	if ( bDispatcherDelete )
+	{
+		// The local WGContext will be destroyed as part of the m_dispatcher destructor
+		delete m_dispatcher;
+	}
+	else
+	{
+		// Task Dispatcher continue to exist, need to destroy local WGContext
+		assert(NULL != pLocalWGContext);
+		delete pLocalWGContext;
+		pLocalWGContext = NULL;
+	}
 
 	return 0;
 }

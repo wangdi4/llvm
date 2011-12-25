@@ -33,8 +33,8 @@
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
 #include "wg_context.h"
-#include "cl_synch_objects.h"
-#include "cl_thread.h"
+#include <cl_synch_objects.h>
+#include <cl_thread.h>
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
@@ -120,7 +120,6 @@ public:
     SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
         ProgramService	*programService, MemoryAllocator *memAlloc,
         IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver);
-    virtual ~SubdeviceTaskDispatcher();
     
     virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
     virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
@@ -130,16 +129,23 @@ public:
 
 	virtual bool isThreadAffinityRequried();
 	virtual bool isDestributedAllocationRequried();
+
+	// Release SubDispatcher Instance
+	// We to handle reference counting in order to be able to release it from different code places
+	void Release();
 	
 protected:
-#ifndef WIN32
+	// We don't need direct destroy
+    virtual ~SubdeviceTaskDispatcher();
+
 	OclOsDependentEvent						m_evWaitForCompletion;
-#endif
     SubdeviceTaskDispatcherThread*          m_thread;
 
 	OclBinarySemaphore      				m_threadInitComplete;
 	volatile bool        					m_threadInitSuccessful;
 
+	OclSpinMutex							m_muDestructReady;
+	unsigned int							m_uiRefCount;
 	unsigned int*       					m_legalCoreIDs;
 
 	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<cl_dev_cmd_list> m_commandListsForFlushing;

@@ -1786,7 +1786,16 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 		if (1 == prev)
 		{
 			//Need to also delete the corresponding subdevice task dispatcher
-			delete pList->task_dispatcher;
+			SubdeviceTaskDispatcher* pSubDevDispatcher = dynamic_cast<SubdeviceTaskDispatcher*>(pList->task_dispatcher);
+			if ( NULL == pSubDevDispatcher )
+			{
+				assert(0 && "Currently we expect only SubDevice dispatcher here");
+				delete pList->task_dispatcher;
+			}
+			else
+			{
+				pSubDevDispatcher->Release();
+			}
 			ReleaseComputeUnits(pList->subdevice_id->legal_core_ids, pList->subdevice_id->num_compute_units);
 			pList->subdevice_id->task_dispatcher = NULL;
 		}

@@ -169,7 +169,6 @@ public:
     bool Activate()
     {
         m_init.initialize(m_numWorkers);
-#ifndef WIN32
 		if (NULL == m_trapper)
 		{
 			return false;
@@ -177,17 +176,14 @@ public:
 		m_trapper->Activate();
 
 
-#endif
 		return true;
     }
     void Deactivate()
     {
-#ifndef WIN32
 		if (NULL != m_trapper)
 		{
     		m_trapper->Deactivate();
 		}
-#endif
         m_init.terminate();
     }
 
