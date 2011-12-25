@@ -35,10 +35,9 @@ project(OCL)
 #
 
 # extract working copy information for all components into variables
-Subversion_WC_INFO(${OCL_SOURCE_DIR} SDKVER)
-Subversion_WC_INFO(${OCL_SOURCE_DIR}/backend/ocl_cpu_backend BEVER)
+Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
 
-message("Current build version is ${SDKVER_WC_LAST_CHANGED_REV}.${BEVER_WC_LAST_CHANGED_REV}")
+message("Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
 
 # vars
 set( OCL_MAKE_UTILS_DIR ${OCL_SOURCE_DIR}/cmake_utils )
@@ -53,8 +52,8 @@ set( OCL_GLOBAL_INCLUDE   ${OCL_SOURCE_DIR}/cl_api )
 set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # write a file with the BUILDVERSION define
-file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}\n#define BUILDVERSIONSTR "\"(Build\ ${SDKVER_WC_REVISION}.${BEVER_WC_REVISION})\")
-file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${SDKVER_WC_REVISION}.${BEVER_WC_REVISION}")
+file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})\")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.0.${BUILDVER_WC_REVISION}")
 
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
