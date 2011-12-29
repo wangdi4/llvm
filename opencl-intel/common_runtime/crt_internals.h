@@ -46,6 +46,7 @@ typedef std::map<cl_context, cl_mem>                CTX_MEM_MAP;
 typedef std::map<cl_context, cl_program>            CTX_PGM_MAP;
 typedef std::map<cl_context, cl_kernel>             CTX_KRN_MAP;
 typedef std::map<cl_context, cl_sampler>            CTX_SMP_MAP;
+typedef std::vector<void*>                          MEMMAP_PTR_VEC;
 
 bool operator==(const cl_image_format &rhs1, const cl_image_format &rhs2);
 bool operator<(const cl_image_format &rhs1, const cl_image_format &rhs2);
@@ -144,10 +145,11 @@ struct CrtProgram: public CrtObject
     // We need this since the spec demands the clCreateKernel only for devices 
     // the build context has been submitted to.
     std::vector<cl_context>  m_buildContexts;
-    CrtContext*              m_contextCRT;
-    cl_program               m_program_handle;
+    std::vector<cl_device_id>   m_assocDevices;
+    CrtContext*                 m_contextCRT;
+    cl_program                  m_program_handle;
 
-    cl_int                   Release();
+    cl_int                      Release();
 };
 
 struct CrtKernel: public CrtObject
@@ -198,6 +200,16 @@ struct CrtUserEvent: public CrtEvent
 };
 
 
+inline cl_int ValidateMapFlags( cl_map_flags map_flags )
+{
+    cl_int validFlags = ( CL_MAP_READ | CL_MAP_WRITE );
+    if( map_flags & ~validFlags )
+    {
+        return CL_INVALID_VALUE;        
+    }
+    return CL_SUCCESS;
+}
+
 class CrtMemObject: public CrtObject
 {
 public:
@@ -209,6 +221,9 @@ public:
     virtual ~CrtMemObject();
     // Get the memory object belong to the device in the input
     virtual cl_mem getDeviceMemObj(cl_device_id deviceId);
+
+    virtual void*  GetMapPointer(const size_t* origin, const size_t* region) = 0;
+    virtual cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region) = 0;
 
     // Some entries might be non-valid since the devices don't
     // support the image format param
@@ -245,6 +260,15 @@ public:
         return ( ( ptr == ( cl_mem )INVALID_IMG_FORMAT ) ? CL_FALSE : CL_TRUE );
     }
 
+    void    SetMemHandle(cl_mem memHandle) 
+    { 
+        m_memHandle = memHandle; 
+    }
+
+    cl_mem  GetMemHandle() const 
+    { 
+        return m_memHandle; 
+    }
     // Map between underlying contexts and memory objects
     CTX_MEM_MAP         m_ContextToMemObj;
 
@@ -263,10 +287,16 @@ public:
     // Backing store pointer
     void*               m_pBstPtr;
 
+    long                m_mapCount;
+
+    MEMMAP_PTR_VEC      m_mappedPointers;
+
     // some underlying devices doesn't support same image formats
     // other devices might support; this counter remembers
     // how many underlying contexts are valid at m_ContextToMemObj
     long                m_numValidContextObjs;
+
+    cl_mem              m_memHandle;
 };
 
 
@@ -282,13 +312,16 @@ public:
 
     // Sub-buffer Ctor
     CrtBuffer(
-        _cl_mem_crt*    parent_buffer,
+        CrtMemObject*    parent_buffer,
         cl_mem_flags    flags,
         CrtContext*     ctx);
 
     virtual ~CrtBuffer();
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
+
+    void*  GetMapPointer(const size_t* origin, const size_t* region);
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region);
 
     // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
     cl_int Create(CrtMemObject**            memObj);
@@ -300,7 +333,8 @@ public:
         const void *            buffer_create_info);
 
     // Used by sub-buffers
-    _cl_mem_crt*    m_parentBuffer;
+    CrtMemObject*       m_parentBuffer;
+
 };
 
 size_t  GetImageElementSize(const cl_image_format * format);
@@ -308,42 +342,46 @@ size_t  GetImageElementSize(const cl_image_format * format);
 class CrtImage: public CrtMemObject
 {
 public:
-    CrtImage(
-        cl_mem_object_type      image_type,
+    struct CrtImageDesc {
+        cl_mem_object_type      image_type;
+        size_t                  image_width;
+        size_t                  image_height;
+        size_t                  image_depth;
+        size_t                  image_array_size;
+        size_t                  image_row_pitch;
+        size_t                  image_slice_pitch;
+        cl_uint                 num_mip_levels;
+        cl_uint                 num_samples;
+        cl_mem                  buffer;
+    };
+
+    CrtImage(        
         const cl_image_format * image_format,
-        size_t                  image_width,
-        size_t                  image_height,
-        size_t                  image_depth,
+        const CrtImageDesc *    image_desc,
         cl_mem_flags            flags,
         void*                   host_ptr,
         CrtContext*             ctx);
 
-
     virtual ~CrtImage();
+
+    void*  GetMapPointer(const size_t* origin, const size_t* region);
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region);
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
 
     // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
     cl_int Create(size_t rowPitch, size_t slicePitch, CrtMemObject** memObj);
 
-    const cl_image_format *     m_imageFormat;
-    size_t                      m_imageWidth;
-    size_t                      m_imageHeight;
-    size_t                      m_imageDepth;
-
-    // Parameteres forwarded by the CRT to the underlying platforms
-    size_t                      m_imageRowPitch;
-    size_t                      m_imageSlicePitch;
+    const cl_image_format       m_imageFormat;
+    CrtImageDesc                m_imageDesc;
 
     // Parameters provided by the user on image create
     size_t                      m_hostPtrRowPitch;
     size_t                      m_hostPtrSlicePitch;
-
-    // Specifies Image type (Image2D/Image3D)
-    cl_mem_object_type          m_imageType;
+    
     // For Image2D this will be =2
     // For Image3D this will be =3
-    cl_uint                     m_dimCount;
+    cl_uint                     m_dimCount;           
 };
 
 /// ------------------------------------------------------------------------------
@@ -380,17 +418,12 @@ public:
         const void *            buffer_create_info,
         CrtMemObject**          memObj);
 
-    cl_int CreateImage(
-        cl_mem_object_type      mem_obj_type,
-        cl_mem_flags            flags,
-        const cl_image_format * image_format,
-        size_t                  image_width,
-        size_t                  image_height,
-        size_t                  image_depth,
-        size_t                  image_row_pitch,
-        size_t                  image_slice_pitch,
-        void *                  host_ptr,
-        CrtMemObject**          memObj);
+    cl_int CreateImage(        
+        cl_mem_flags                    flags,
+        const cl_image_format *         image_format,
+        const CrtImage::CrtImageDesc *  image_desc,
+        void *                          host_ptr,
+        CrtMemObject**                  memObj);
 
     cl_int CreateSampler(
         cl_bool                 normalized_coords,
@@ -527,15 +560,6 @@ void CL_CALLBACK buildCompleteFn( cl_program program, void *userData );
 
 void CL_CALLBACK CrtEventCallBack(cl_event e, cl_int status, void* user_data);
 
-struct CrtMapUnmapCallBackData
-{
-    CrtEvent*               m_userEvent;    // UserEvent to fire
-    cl_int                  m_syncWay;      // True -> Map ;  False -> Unmap
-    CrtMemObject*           m_memObj;
-    long                    m_numDepEvents;
-};
-void CL_CALLBACK CrtMapUnmapCallBack(cl_event e, cl_int status, void* user_data);
-
 
 /// ------------------------------------------------------------------------------
 ///
@@ -573,35 +597,23 @@ public:
         cl_uint         NumEventsInWaitList,
         const cl_event* inEventWaitList,
         cl_uint*        numOutEvents,
-        cl_event**      OutEvents,
-        const cl_uint   numMemObjects,
-        CrtMemObject**  memObjects);
+        cl_event**      OutEvents);
 
-    cl_int SyncManager::PreExecuteMemSync(
-        SYNC_WAY        syncWay,
-        CrtQueue*       queue,
+    cl_int  EnqueueNopCommand(
         CrtMemObject*   memObj,
-        cl_uint         numDepEvents,
-        cl_event*       depEvents,
-        CrtEvent**      outEvent);
-
-    cl_int PostExecuteMemSync(
-        SYNC_WAY        syncWay,
         CrtQueue*       queue,
-        CrtMemObject*   memObj,
-        CrtEvent*       depEvent,
-        CrtEvent**      outEvent);
+        cl_uint			NumEventsInWaitList,
+        const cl_event*	inEventWaitList,
+        cl_event*      outEvent);
 
     void Release(cl_int errCode);
 
 private:
 
-
     CrtEventCallBackData*       m_callBackData;
     cl_event*                   m_outEventArray;
     bool                        m_eventRetained;
-    cl_event                    m_userEvent;
-    CrtMapUnmapCallBackData*    m_postCallBackData;
+    cl_event                    m_userEvent;    
 };
 
 // This class is used to protect access to shared STL Map resource

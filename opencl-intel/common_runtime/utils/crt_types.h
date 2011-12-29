@@ -41,10 +41,20 @@ typedef int crt_err_code;
 
 #define MAX_STRLEN                  (1024)
 #define INTEL_PLATFORM_PROFILE      "FULL_PROFILE"
-#define INTEL_PLATFORM_VERSION      "OpenCL 1.1 "
 #define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
 #define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
 #define INTEL_ICD_EXTENSIONS_STRING "INTEL"
+
+typedef enum
+{    
+    OPENCL_INVALID = 0,
+    OPENCL_1_1     = 11,
+    OPENCL_1_2     = 12
+} OclVersion;
+
+#define INTEL_OPENCL_1_1_PVER_STR "OpenCL 1.1 "
+#define INTEL_OPENCL_1_2_PVER_STR "OpenCL 1.2 "
+
 
 // default device type, which will be picked by the
 // CRT in case of two underlying devices
@@ -95,3 +105,4 @@ enum CrtExtension
 };
 
 cl_int GetCrtExtension(const char* str_extensions);
+cl_uint GetPlatformVersion(const char* platform_version_str);

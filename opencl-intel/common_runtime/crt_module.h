@@ -51,22 +51,20 @@ namespace OCLCRT
         };
     };
 
-	class IcdDispatchMgr
-	{
-	public:
-		IcdDispatchMgr();
-		CrtKHRicdVendorDispatch m_crtDispatchTable;		
-	};
+    class IcdDispatchMgr
+    {
+    public:
+        IcdDispatchMgr();
+        CrtKHRicdVendorDispatch m_crtDispatchTable;
+    };
 
-        /// Typedefs
     typedef std::map<cl_device_id,  CrtDeviceInfo*>     DEV_INFO_MAP;
     typedef std::map<cl_context,    CrtContextInfo*>    CTX_INFO_MAP;
 
-        /// axuiliary functions
-    bool isGLContext(const cl_context_properties*   properties);
+    bool isSupportedContextType(const cl_context_properties*   properties);
 
-        /// Fixes the properties flag passed from the app to match the underlying platform properties
-        /// Like cl_platform_id need to be fixed.
+    // Fixes the properties flag passed from the app to match the underlying platform properties
+    // Like cl_platform_id need to be fixed.
     crt_err_code ReplacePlatformId( const cl_context_properties*    src_properties,
                                     cl_platform_id&                 pId,
                                     cl_context_properties**         dst_props,
@@ -74,16 +72,15 @@ namespace OCLCRT
 
 
 
-        /// CrtModule
     class CrtModule
     {
     public:
         enum INIT_STATE {
-                /// Common Runtime has not been initialized yet
+            // Common Runtime has not been initialized yet
             NOT_INITIALIZED,
-                /// Common Runtime initialization went OK
+            // Common Runtime initialization went OK
             INITIALIZE_OK,
-                /// Common Runtime failed initializations.
+            // Common Runtime failed initializations.
             INITIALIZE_ERROR
         };
 
@@ -94,39 +91,42 @@ namespace OCLCRT
         cl_int       isValidProperties(const cl_context_properties* properties);
         ~CrtModule();
 
-            /// Patches underlying device id allowing the CRT
-            /// to intercept some of the CL calls.
+        // Patches underlying device id allowing the CRT
+        // to intercept some of the CL calls.
         crt_err_code PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable);
         crt_err_code PatchClContextID(cl_context& inContextId, KHRicdVendorDispatch* origDispatchTable);
 
-            /// Common Runtime platform id
+        // Common Runtime platform id
         cl_platform_id  m_crtPlatformId;
 
-            /// Common runtime Dispatch table manager.
+        // Common runtime Dispatch table manager.
         IcdDispatchMgr  m_icdDispatchMgr;
 
-            /// all underlying managed platforms
+        // all underlying managed platforms
         std::vector<CrtPlatform*>               m_oclPlatforms;
 
-            /// All underlying managed devices (including
-            /// any created sub devices)
-
-
+        // All underlying managed devices (including
+        // any created sub devices)
         GuardedMap<cl_device_id,CrtDeviceInfo*> m_deviceInfoMapGuard;
 
 
-            /// MAPs for each context (single/shared platform contexts)
-            /// an info data structure
+        // MAPs for each context (single/shared platform contexts)
+        // an info data structure
         GuardedMap<cl_context,CrtContextInfo*>  m_contextInfoGuard;
 
 
-            /// mutex gaurding CRT data structure modifying
+        // mutex gaurding CRT data structure modifying
         Utils::OclMutex                         m_mutex;
 
-            /// default device type
+        // default device type
         cl_device_type                          m_defaultDeviceType;
 
         static char*                            m_common_extensions;
+
+        // 10 - stands for OpenCL 1.0
+        // 11 - stands for OpenCL 1.1
+        // 12 - stands for OpenCL 1.2
+        cl_uint                                 m_CrtPlatformVersion;
     private:
 
         CrtConfig                               m_crtConfig;

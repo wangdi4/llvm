@@ -122,7 +122,8 @@ IcdDispatchMgr::IcdDispatchMgr()
 
 CrtModule::CrtModule():
 m_deviceInfoMapGuard(m_deviceInfoMap),
-m_contextInfoGuard(m_contextInfo)
+m_contextInfoGuard(m_contextInfo),
+m_CrtPlatformVersion(OPENCL_INVALID)
 {
     m_initializeState = NOT_INITIALIZED;
 }
@@ -149,27 +150,54 @@ crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDi
     return CRT_SUCCESS;
 }
 
-bool OCLCRT::isGLContext(const cl_context_properties* properties)
+bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
 {
-    cl_context_properties hGL = NULL, hDC = NULL;
-    if ( NULL == properties)
+    cl_int errCode = CL_SUCCESS;
+
+    if( properties != NULL )
     {
-        return false;
-    }
-    while (NULL != *properties)
-    {
-        switch (*properties)
+        while( *properties != NULL )
         {
-        case CL_GL_CONTEXT_KHR:
-            hGL = *(properties+1);
-            break;
-        case  CL_WGL_HDC_KHR:
-            hDC = *(properties+1);
-            break;
+            switch( properties[ 0 ] )
+            {            
+            case CL_GL_CONTEXT_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_WGL_HDC_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_CONTEXT_D3D10_DEVICE_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_CONTEXT_D3D9_DEVICE_INTEL:
+            case CL_CONTEXT_D3D9EX_DEVICE_INTEL:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_CONTEXT_DXVA_DEVICE_INTEL:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            default:
+                break;
+            }
+            properties += 2;
         }
-        properties+=2;
     }
-    return ( (NULL != hGL) || (NULL != hDC) );
+    return true;
 }
 
 crt_err_code CrtModule::Initialize()
@@ -179,6 +207,8 @@ crt_err_code CrtModule::Initialize()
     if (m_initializeState == NOT_INITIALIZED)
     {
         crt_err_code res = CRT_SUCCESS;
+
+        char platformVersionStr[ MAX_STRLEN ] = {0};
 
         m_crtPlatformId = new _cl_platform_id_crt;
 
@@ -277,6 +307,40 @@ crt_err_code CrtModule::Initialize()
             {
                 res = CRT_FAIL;
                 break;
+            }
+
+            // Get the underlying platform version
+            if( CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
+                                    pCrtPlatform->m_platformIdDEV,
+                                    CL_PLATFORM_VERSION,
+                                    MAX_STRLEN,
+                                    platformVersionStr,
+                                    NULL ) )
+            {
+                res = CRT_FAIL;
+                break;
+            }
+            
+            cl_uint curPlatVer = GetPlatformVersion( platformVersionStr );
+            if( curPlatVer == 0 )
+            {
+                res = CRT_FAIL;
+                break;
+            }
+
+            if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion == OPENCL_INVALID )
+            {
+                // First platform being loaded
+                OCLCRT::crt_ocl_module.m_CrtPlatformVersion = curPlatVer;
+            }
+            else
+            {
+                // Loaded platforms support different OpenCL API levels
+                if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion != curPlatVer )
+                {
+                    res = CRT_FAIL;
+                    break;
+                }
             }
 
             cl_uint num_devices = 0;
