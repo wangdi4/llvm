@@ -39,9 +39,11 @@ CommandList::~CommandList()
     assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
 	if ((gSafeReleaseOfCoiObjects) && (m_pipe))
 	{
-		cl_dev_err_code err = releaseCommandListOnDevice();
+		cl_dev_err_code err = CL_DEV_SUCCESS;
+		err = releaseCommandListOnDevice();
 		assert(CL_DEV_SUCCESS == err);
-	    COIRESULT result = COIPipelineDestroy(m_pipe);
+		COIRESULT result = COI_SUCCESS;
+	    result = COIPipelineDestroy(m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineDestroy failed");
 	}
 }
