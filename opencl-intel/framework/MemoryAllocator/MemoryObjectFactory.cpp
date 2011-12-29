@@ -41,13 +41,9 @@ MemoryObjectFactory* MemoryObjectFactory::GetInstance()
 
 bool MemoryObjectFactory::FactoryKey::operator<(const FactoryKey& _Right) const
 {
-	if ( clObjType < _Right.clObjType)
-		return true;
-	if ( iSupportedDevices < _Right.iSupportedDevices)
-		return true;
-	if ( iGfxSysSharing < _Right.iGfxSysSharing)
-		return true;
-	return false;
+	return ( ( clObjType < _Right.clObjType) ||
+		     ( ( clObjType == _Right.clObjType) && ( iSupportedDevices < _Right.iSupportedDevices) ) ||
+			 ( ( clObjType == _Right.clObjType) && ( iSupportedDevices == _Right.iSupportedDevices) && ( iGfxSysSharing < _Right.iGfxSysSharing) ) );
 }
 
 void MemoryObjectFactory::RegisterMemoryObjectCreator(cl_bitfield iSupportedDevices,
