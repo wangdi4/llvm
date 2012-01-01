@@ -14,12 +14,14 @@ class CMakeConfig:
     """CMake specific configuration"""
     CFG_NAME = "CMAKECFG"
     
-    def __init__(self, vc_version, include_cnf = True, include_crt = False, include_java = False, include_dbg = False, enable_warnings = False):
+    def __init__(self, vc_version, include_cnf = True, include_crt = False,
+            include_java = False, include_dbg = False, include_svn = True, enable_warnings = False):
         self.vc_version   = vc_version
         self.include_cnf  = include_cnf
         self.include_crt  = include_crt
         self.include_java = include_java
         self.include_dbg  = include_dbg
+        self.include_svn  = include_svn
         self.enable_warnings = enable_warnings
 
 class CMakeBuilder(VolcanoCmdTask):
@@ -108,7 +110,9 @@ class OCLCMakeBuilder( CMakeBuilder ):
             defs['OCL_BUILD32:BOOL']                   = 'ON' if 32 == config.target_os_bit else 'OFF'
             defs['TARGET_CPU:STRING']                  = '"x86"'
             defs['INTEL_COMPILER:BOOL']                = 'OFF'
-        
+
+        defs['SVN_REVISIONS'] = 'ON' if cmake_config.include_svn else 'OFF'
+    
         CMakeBuilder.__init__(self, name, config, config.src_dir, defs)
                 
 class VSProjectBuilder(VolcanoCmdTask):
@@ -211,10 +215,12 @@ class VolcanoBuilderConfig:
                         include_crt     = False, 
                         include_java    = False, 
                         include_dbg     = False, 
+                        include_svn     = True ,
                         enable_warnings = False):
         self.volcano_only = volcano_only
         self.solution_name= DEFAULT_VOLCANO_SOLUTION if volcano_only else DEFAULT_OCL_SOLUTION
-        self.cmake_config = CMakeConfig(DEFAULT_VS_VERSION, include_cnf, include_crt, include_java, include_dbg, enable_warnings)
+        self.cmake_config = CMakeConfig(DEFAULT_VS_VERSION, include_cnf,
+                include_crt, include_java, include_dbg, include_svn, enable_warnings)
         
 class VolcanoBuilder(VolcanoTestSuite):
     def __init__(self, name, config, rebuild = True, skip_build = False):
@@ -279,6 +285,7 @@ def main():
     parser.add_option("--njava",           dest="include_java", action="store_false", help="Exclude java code. Default")
     parser.add_option("--dbg",             dest="include_dbg",  action="store_true",  help="Include the debugger engine into solution", default=False)
     parser.add_option("--ndbg",            dest="include_dbg",  action="store_false", help="Exclude the debugger engine from solution. Default")
+    parser.add_option("--no-svn",          dest="include_svn",  action="store_false",  help="Do not use svn revision to create package version. Useful if you are not building from an SVN working copy.", default=True)
     parser.add_option("-d", "--demo",      dest="demo_mode",    action="store_true",  help="Do not execute the commands, just print them. Default: False", default=False)
     
    
@@ -297,6 +304,7 @@ def main():
                                                                             options.include_crt,
                                                                             options.include_java,
                                                                             options.include_dbg,
+                                                                            options.include_svn,
                                                                             enable_warnings = False)
     suite  = VolcanoBuilder('Build', 
                             config, 

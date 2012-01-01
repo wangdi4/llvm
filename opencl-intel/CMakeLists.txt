@@ -35,7 +35,12 @@ project(OCL)
 #
 
 # extract working copy information for all components into variables
-Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
+option(SVN_REVISIONS "Make package version from svn revision"  ON)
+if (SVN_REVISIONS)
+    Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
+else ()
+    set( BUILDVER "0" )
+endif (SVN_REVISIONS)
 
 message("Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
 
