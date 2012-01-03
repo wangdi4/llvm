@@ -63,7 +63,7 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
             return;
         }
 		ppDevices[idx]->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &devProp, NULL);
-		if (devProp != hDC)
+		if (NULL != devProp && devProp != hDC)
 		{
 			*pclErr = CL_INVALID_OPERATION;
 				return;
