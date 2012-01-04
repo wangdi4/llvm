@@ -1507,7 +1507,7 @@ def main():
                               options.cpu_features,
                               options.vector_size)
     
-    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path, 'c:/temp', True, True)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path, os.path.dirname(os.path.realpath(options.output_file)), False, False)
     
     suite  = perf_suites[options.suite][0](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)

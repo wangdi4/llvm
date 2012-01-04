@@ -5,29 +5,27 @@ import sys, os.path, platform, re, time, traceback
 from framework.core import RunConfig
 
 #Volcano specific global default paths
-SAMBA_SERVER = '//ismb014.iil.intel.com'
+REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
+IT_SAMBA_SERVER             = '//ismb014.iil.intel.com'
+VOLCANO_SAMBA_SERVER        = '//cvcc-ubu-01.iil.intel.com'
 DX_PERFORMANCE_SHADERS_ROOT = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root/Performance/NoDcls/PerformanceCriticalShaders'
 DX_10_SHADERS_ROOT          = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root'
-PERFORMANCE_LOG_ROOT        = '/mnt/cvcc_ftp/Logs/Volcano/Performance'
-PERFORMANCE_TESTS_ROOT      = '/Volcano/Performance/Tests'
-OCL_CONFORMANCE_TESTS_ROOT  = '/nfs/iil/disks/cvcc/vdovleka/tests/Volcano/Conformance'
-DEFAULT_WORLOADS_ROOT       = '/nfs/iil/disks/cvcc/OclConformance_14756/trunk/ReleaseCriteria/'
+OCL_CONFORMANCE_TESTS_ROOT  = '/cvcc/CapturedWLs/Conformance'
+PERFORMANCE_LOG_ROOT        = '/cvcc/Logs/Volcano/Performance'
+PERFORMANCE_TESTS_ROOT      = os.path.realpath('/Volcano/Performance/Tests')
 DEFAULT_VS_VERSION          = 9
 DEFAULT_VOLCANO_SOLUTION    = 'Backend.sln'
 DEFAULT_OCL_SOLUTION        = 'OCL.sln'
-REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
-
 
 if platform.system() == 'Windows':
-    DX_PERFORMANCE_SHADERS_ROOT = SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
-    DX_10_SHADERS_ROOT          = SAMBA_SERVER + DX_10_SHADERS_ROOT
-    PERFORMANCE_LOG_ROOT        = '//cvcc-w7-mrm-03.iil.intel.com/CVCC_FTP/Logs/Volcano/Performance'
-    OCL_CONFORMANCE_TESTS_ROOT  = SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
-    DEFAULT_WORLOADS_ROOT       = SAMBA_SERVER + DEFAULT_WORLOADS_ROOT
+    DX_PERFORMANCE_SHADERS_ROOT = IT_SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
+    DX_10_SHADERS_ROOT          = IT_SAMBA_SERVER + DX_10_SHADERS_ROOT
+    PERFORMANCE_LOG_ROOT        = VOLCANO_SAMBA_SERVER + PERFORMANCE_LOG_ROOT
+    OCL_CONFORMANCE_TESTS_ROOT  = VOLCANO_SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
 
-SUPPORTED_CPUS = ['auto', 'corei7', 'sandybridge']
-SUPPORTED_TARGETS = ['Win32', 'Win64', 'Linux64']
-SUPPORTED_BUILDS = ['Release', 'Debug']
+SUPPORTED_CPUS         = ['auto', 'corei7', 'sandybridge']
+SUPPORTED_TARGETS      = ['Win32', 'Win64', 'Linux64']
+SUPPORTED_BUILDS       = ['Release', 'Debug']
 SUPPORTED_VECTOR_SIZES = ['0', '1', '4', '8', '16']
 
 # maps the target short name to the OS and Bitness
