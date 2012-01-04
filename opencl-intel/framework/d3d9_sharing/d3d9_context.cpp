@@ -158,25 +158,6 @@ namespace Intel { namespace OpenCL { namespace Framework
         size_t dims[3];
         d3d9Resource.FillDimensions(*pResourceInfo, dims);
         const cl_image_format clFormat = D3D9Resource::MapD3DFormat2OclFormat(d3dFormat, plane);
-        // we hard code CL_MEM_OBJECT_IMAGE2D, because currently we support only surfaces
-        if (!(clFlags & CL_MEM_WRITE_ONLY))
-        {
-            clErr = CheckSupportedImageFormat(&clFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE2D);
-        }
-        if (CL_SUCCESS != clErr)
-        {
-            d3d9Resource.Release();
-            return clErr;
-        }
-        if (!(clFlags & CL_MEM_READ_ONLY))
-        {
-            clErr = CheckSupportedImageFormat(&clFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE2D);
-        }        
-        if (CL_SUCCESS != clErr)
-        {
-            d3d9Resource.Release();
-            return clErr;
-        }
         clErr = d3d9Resource.Initialize(clFlags, D3DFMT_UNKNOWN != d3dFormat ? &clFormat : NULL,
             uiDimCnt, dims, NULL, pResourceInfo);
         if (CL_FAILED(clErr))

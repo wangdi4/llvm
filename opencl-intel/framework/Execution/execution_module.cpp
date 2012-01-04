@@ -2536,8 +2536,7 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
     errVal = pAcquireCmd->Init();
     if (CL_SUCCEEDED(errVal))
     {
-        // GEN guys interpret the release command to be synchronous - I disagree, but we'll do it this way in order to be aligned with them.
-        errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        errVal = pCommandQueue->EnqueueCommand(pAcquireCmd, false, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
         if (CL_FAILED(errVal))
         {
             // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            
