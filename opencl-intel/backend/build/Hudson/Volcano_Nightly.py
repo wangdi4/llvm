@@ -5,7 +5,7 @@ from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
 from framework.utils import EnvironmentValue
 from framework.tasks import SimpleTest
 from Volcano_Common import VolcanoRunConfig, DX_10_SHADERS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
-from Volcano_Build import VolcanoBuilder, CopyWolfWorkloads
+from Volcano_Build import VolcanoBuilder#, CopyWolfWorkloads
 from Volcano_Tasks import LitTest, VectorizerTest
 from Volcano_Conformance_Nightly import VolcanoConformanceNightly
 

@@ -7,7 +7,7 @@ from framework.tasks import SimpleTest, DirCleanup
 from framework.utils import VSEnvironment
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, VolcanoTestTask, TestTaskResult
 from Volcano_Tasks import BINARIES_ARCH_NAME, UnarchiverTask
-from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_WORLOADS_ROOT, DEFAULT_VS_VERSION, DEFAULT_VOLCANO_SOLUTION, DEFAULT_OCL_SOLUTION
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_VS_VERSION, DEFAULT_VOLCANO_SOLUTION, DEFAULT_OCL_SOLUTION
 
     
 class CMakeConfig:
@@ -166,17 +166,17 @@ class FixWolfWorkloads(VolcanoTestTask):
                         return TestTaskResult.Failed
         return TestTaskResult.Passed
 
-class CopyWolfWorkloads(VolcanoTestSuite):
-    def __init__(self, name, config):
-        VolcanoTestSuite.__init__(self, name)
-        self.generate_children_report = False
-         
-        self.addTask( UnarchiverTask( 'UnarchWLs', os.path.join( DEFAULT_WORLOADS_ROOT, 'Workloads.7z'), config.bin_dir, useCurDir = False), stop_on_failure=True)
-        
-        if platform.system() != 'Windows':
-            self.addTask(SimpleTest('ChMod',   config.bin_dir,   'chmod -R 777 .'), stop_on_failure=True)
-            
-        self.addTask( FixWolfWorkloads( 'FixWolfWLs', config), stop_on_failure=True)
+#class CopyWolfWorkloads(VolcanoTestSuite):
+#    def __init__(self, name, config):
+#        VolcanoTestSuite.__init__(self, name)
+#        self.generate_children_report = False
+#         
+#        self.addTask( UnarchiverTask( 'UnarchWLs', os.path.join( DEFAULT_WORLOADS_ROOT, 'Workloads.7z'), config.bin_dir, useCurDir = False), stop_on_failure=True)
+#        
+#        if platform.system() != 'Windows':
+#            self.addTask(SimpleTest('ChMod',   config.bin_dir,   'chmod -R 777 .'), stop_on_failure=True)
+#            
+#        self.addTask( FixWolfWorkloads( 'FixWolfWLs', config), stop_on_failure=True)
 
 
 class FixCSharpProject(VolcanoTestTask):
