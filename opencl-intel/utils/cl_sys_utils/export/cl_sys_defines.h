@@ -153,6 +153,7 @@ typedef cpu_set_t                      affinityMask_t;
 
 // aligned malloc
 #include <stdlib.h>
+#include <sys/mman.h>
 
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
@@ -169,4 +170,9 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 #define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
 
 #define PAGE_4K_SIZE                    4096
+
+// assumes alignment is a power of 2
+#define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what) & ((size_t)(alignment) - 1))))
+#define ALIGN_UP( what, alignment )      ((size_t)((what) + (alignment)) & ~((size_t)(alignment) - 1))
+
 

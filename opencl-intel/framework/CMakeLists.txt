@@ -19,10 +19,6 @@ if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 	endif(${BUILD_X64} STREQUAL "ON")
 endif ()
 
-if (INCLUDE_MIC_DEVICE)
-    add_definitions( -D INCLUDE_ACCELERATOR_SUPPORT )
-endif(INCLUDE_MIC_DEVICE)
-
 add_subdirectory( icd )
 add_subdirectory( Platform )
 

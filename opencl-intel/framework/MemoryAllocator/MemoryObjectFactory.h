@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
 	class MemoryObject;
 
-#define REGISTER_MEMORY_OBJECT_CREATOR(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS)	struct CLASS##CreatorRegister\
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,IMPLEMETATION)	struct CLASS##CreatorRegister\
 	{\
 		CLASS##CreatorRegister()\
 		{\
@@ -50,11 +50,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		}\
 		static MemoryObject* Create(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType)\
 		{\
-			return new CLASS(pContext, pOclEntryPoints, clObjType);\
+			return new IMPLEMETATION(pContext, pOclEntryPoints, clObjType);\
 		}\
 	};\
 	CLASS##CreatorRegister class##CLASS##CreatorRegister;
-
 
 	typedef MemoryObject* fn_MemoryObjectCreator(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
 
@@ -83,4 +82,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		std::map<FactoryKey, fn_MemoryObjectCreator*>	m_memObjMap;
 	};
+
+// This macro level constructs an object creator class name as a concatenation of a memory object class name and random number
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS##_##NUMBER##_,CLASS)
+
+// This macro level just desacralizes __LINE__ macro and converts it into simple number 
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)
+
+// This macro level is required to add a __LINE__ macro operand
+#define REGISTER_MEMORY_OBJECT_CREATOR(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,__LINE__)
+
 }}}

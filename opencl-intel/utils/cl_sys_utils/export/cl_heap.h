@@ -33,6 +33,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 typedef void* ClHeap;
 
 // Create local heap
+//   maxHeapSize == 0 means unlimited heap
 int		clCreateHeap(int node, size_t maxHeapSize, ClHeap* pHeap);
 int		clDeleteHeap(ClHeap hHeap);
 

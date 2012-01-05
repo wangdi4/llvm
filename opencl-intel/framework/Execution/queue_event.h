@@ -71,6 +71,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
 
+		// include times from other command into me
+		void		IncludeProfilingInfo( const QueueEvent* other );
+
 		//Must override RemovePendency to prevent this aggregated object from being deleted
 		virtual long RemovePendency(OCLObjectBase* obj);
 
@@ -89,6 +92,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		SProfilingInfo			m_sProfilingInfo;
 		bool					m_bProfilingEnabled;
+		bool					m_bCommandQueuedValid;
+		bool					m_bCommandSubmitValid;
+		bool					m_bCommandStartValid;
+		bool					m_bCommandEndValid;
 		Command*				m_pCommand;             // Pointer to the command represented by this event
 		IOclCommandQueueBase*   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
 	

@@ -28,68 +28,85 @@
 
 #include "cl_heap.h"
 #include "cl_synch_objects.h"
+#include "cl_sys_defines.h"
+#include <map>
+
+using namespace std;
+
+#define MEM_LARGE_ALLOC_TRIGGER (2*PAGE_4K_SIZE)
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-typedef struct
+enum AllocApproach_t {
+	USE_HEAP = 0,
+	USE_VIRTUAL_ALLOC
+};
+
+struct ClHeapEntry_t
 {
-	HANDLE heapHandle;
-	size_t maxSize;
-	size_t userAllocatedSpace;
-	size_t actualAllocatedSpace;
+	void*			actualPtr;
+	size_t			userAllocatedSize;
+	size_t			actualAllocatedSize;
+	AllocApproach_t	use_approach;
 
-	OclMutex critSectionMtx;
-} ClHeapInfo_t;
+};
 
-typedef struct
+typedef map<size_t, ClHeapEntry_t> EntryMap_t;
+
+struct ClHeapInfo_t
 {
-	void*  actualPtr;
-	size_t userAllocatedSize;
-	size_t actualAllocatedSize;
-} ClHeapEntry_t;
+	HANDLE		heapHandle;
+	size_t		maxSize;
+	size_t		userAllocatedSpace;
+	size_t		actualAllocatedSpace;
+	
+	EntryMap_t	entryMap;
+	size_t		numVirtualAllocs;
 
-// Create local heap
-int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
+	OclMutex	critSectionMtx;
+};
+
+//////////////////////////////////////////////////////////////////
+//
+// Internal functions
+//
+/////////////////////////////////////////////////////////////////
+
+// 4K page alinged
+inline void* LargeAlloc( size_t size )
 {
-	assert(phHeap);
-	// Let the heap generate exceptions.
-	// Make the heap non-thread safe. Use our own serialization.
-	HANDLE hHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS | HEAP_NO_SERIALIZE, 0, 0);
-
-	if ( NULL == hHeap)
-	{
-		return -1;
-	}
-
-	ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
-	heapInfo->heapHandle = hHeap;
-	heapInfo->maxSize = maxHeapSize;
-	heapInfo->userAllocatedSpace   = 0;
-	heapInfo->actualAllocatedSpace = 0;
-
-	*phHeap = heapInfo;
-	return 0;
+	return VirtualAlloc( NULL, size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE );
 }
 
-int	clDeleteHeap(ClHeap hHeap)
+inline BOOL LargeFree( void* ptr )
 {
-	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
-
-	BOOL retVal = HeapDestroy(heapInfo->heapHandle);
-	if (0 == retVal)
-	{
-		DWORD dw = GetLastError();
-		// Construct error string for debug purposes:
-		LPVOID buffer;
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &buffer, 0, NULL );
-		LocalFree(buffer);
-	} else {
-		delete heapInfo;
-	}
-	return retVal;
+	return VirtualFree( ptr, 0, MEM_RELEASE );
 }
 
+// remove all entrys 
+static void RemoveAll( ClHeapInfo_t* phHeap )
+{
+	assert( NULL != phHeap );
+
+	if (0 == phHeap->numVirtualAllocs)
+	{
+		return;
+	}
+
+	EntryMap_t::const_iterator it     = phHeap->entryMap.begin();
+	EntryMap_t::const_iterator it_end = phHeap->entryMap.end();
+
+	for (; it != it_end; ++it)
+	{
+		const ClHeapEntry_t& entry = it->second;
+
+		if (USE_VIRTUAL_ALLOC == entry.use_approach)
+		{
+			LargeFree( entry.actualPtr );
+		}
+	}
+
+}
 
 /**
  *__try/__except pattern conflicts with objects DTOR, like CLAutoPtr. So
@@ -123,8 +140,65 @@ static void *__safeHeapAlloc__(HANDLE heap, const size_t allocSize)
 	return ptr;
 }
 
+//////////////////////////////////////////////////////////////////
+//
+// Interface functions
+//
+/////////////////////////////////////////////////////////////////
+
+// Create local heap
+int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
+{
+	assert(phHeap);
+	// Let the heap generate exceptions.
+	// Make the heap non-thread safe. Use our own serialization.
+	HANDLE hHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS | HEAP_NO_SERIALIZE, 0, 0);
+
+	if ( NULL == hHeap)
+	{
+		return -1;
+	}
+
+	ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
+
+	heapInfo->heapHandle		   = hHeap;
+	heapInfo->maxSize			   = (0 != maxHeapSize) ? maxHeapSize : (size_t)(-1);
+	heapInfo->userAllocatedSpace   = 0;
+	heapInfo->actualAllocatedSpace = 0;
+	heapInfo->numVirtualAllocs	   = 0;
+
+	*phHeap = heapInfo;
+	return 0;
+}
+
+int	clDeleteHeap(ClHeap hHeap)
+{
+	assert(hHeap);
+
+	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
+
+	RemoveAll( heapInfo );
+
+	BOOL retVal = HeapDestroy(heapInfo->heapHandle);
+	if (0 == retVal)
+	{
+		DWORD dw = GetLastError();
+		// Construct error string for debug purposes:
+		LPVOID buffer;
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &buffer, 0, NULL );
+		LocalFree(buffer);
+	} else {
+		delete heapInfo;
+	}
+	return retVal;
+}
+
 void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
 {
+	assert(hHeap);
+	assert( IS_ALIGNED_ON(alignment, alignment) && "Alignment is not power of 2" );
+
 	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
 
 	OclAutoMutex critSection(&heapInfo->critSectionMtx);
@@ -134,51 +208,99 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
 		return NULL;
 	}
 
-	// Allocate with extra space for meta-data and alignment.
-	size_t newSize = allocSize + sizeof(ClHeapEntry_t) + alignment - 1;
+	bool   used_large_alloc;
+	size_t real_allocated_size;
+	void   *ptr;
+	void   *user_ptr;
 
-	void *ptr = __safeHeapAlloc__(heapInfo->heapHandle, newSize);
+	if ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE))
+	{
+		used_large_alloc = true;
+
+		// align to page boundary
+		real_allocated_size = (IS_ALIGNED_ON( allocSize, PAGE_4K_SIZE )) ? 
+										allocSize : ALIGN_UP( allocSize, PAGE_4K_SIZE );
+
+		ptr = LargeAlloc( real_allocated_size );
+		user_ptr = ptr;
+	}
+	else
+	{
+		used_large_alloc	= false;
+
+		// add extra space to allow alignment
+		real_allocated_size = allocSize + alignment -1;
+
+		ptr = __safeHeapAlloc__(heapInfo->heapHandle, real_allocated_size);
+		user_ptr = (IS_ALIGNED_ON( (size_t)ptr, alignment )) ? 
+										ptr : (void*)ALIGN_UP( (size_t)ptr, alignment );
+
+		assert( (((size_t)user_ptr - (size_t)ptr) + allocSize) <= real_allocated_size );
+	}
+
 	if (NULL == ptr)
 	{
 		return NULL;
 	}
 
-	// Find aligned user pointer position.
-	size_t uiPtr = (size_t)ptr;
-	uiPtr += sizeof(ClHeapEntry_t) + alignment - 1;
-	uiPtr &= ~(alignment-1);
-	
-	void* retPtr = (void*)uiPtr;
-
 	// Fill meta-data.
-	ClHeapEntry_t* entryInfo = (ClHeapEntry_t*)(uiPtr - sizeof(ClHeapEntry_t));
-	entryInfo->actualPtr = ptr;
-	entryInfo->userAllocatedSize   = allocSize;
-	entryInfo->actualAllocatedSize = newSize;
+	ClHeapEntry_t& entry = heapInfo->entryMap[ (size_t)user_ptr ];
+
+	entry.actualPtr			  = ptr;
+	entry.userAllocatedSize   = allocSize;
+	entry.actualAllocatedSize = real_allocated_size;
+	entry.use_approach		  = used_large_alloc ? USE_VIRTUAL_ALLOC : USE_HEAP;
 
 	heapInfo->userAllocatedSpace   += allocSize;
-	heapInfo->actualAllocatedSpace += newSize;
+	heapInfo->actualAllocatedSpace += real_allocated_size;
 
-	return retPtr;
+	if (used_large_alloc)
+	{
+		++(heapInfo->numVirtualAllocs);
+	}
+
+	return user_ptr;
 }
 
 int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 {
-	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
+	assert(hHeap);
 
-	ClHeapEntry_t* entryInfo = (ClHeapEntry_t*)((size_t)ptr - sizeof(ClHeapEntry_t));
+	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
+	BOOL	     retVal;
 
 	OclAutoMutex critSection(&heapInfo->critSectionMtx);
 
-	heapInfo->userAllocatedSpace   -= entryInfo->userAllocatedSize;
-	heapInfo->actualAllocatedSpace -= entryInfo->actualAllocatedSize;
+	EntryMap_t::iterator it = heapInfo->entryMap.find( (size_t)ptr );
 
-	void* realPtr = entryInfo->actualPtr;
-	BOOL retVal = TRUE;
+	if (heapInfo->entryMap.end() != it )
+	{
+		ClHeapEntry_t& entryInfo = it->second;
 
-	retVal = HeapFree(heapInfo->heapHandle, 0, realPtr) == TRUE ? 0 : -1;
+		heapInfo->userAllocatedSpace   -= entryInfo.userAllocatedSize;
+		heapInfo->actualAllocatedSpace -= entryInfo.actualAllocatedSize;
 
-	if (0 == retVal)
+		BOOL ok;
+
+		if (USE_VIRTUAL_ALLOC == entryInfo.use_approach)
+		{
+			--(heapInfo->numVirtualAllocs);
+			ok = LargeFree( entryInfo.actualPtr );
+		}
+		else
+		{
+			ok = HeapFree(heapInfo->heapHandle, 0, entryInfo.actualPtr);
+		}
+
+		retVal = (FALSE != ok) ? ERROR_SUCCESS : GetLastError();
+		heapInfo->entryMap.erase( it );
+	}
+	else
+	{
+		retVal = ERROR_INVALID_ADDRESS; 
+	}
+	
+	if (ERROR_SUCCESS != retVal)
 	{
 		DWORD dw = GetLastError();
 		// Make error visible for debug purposes:

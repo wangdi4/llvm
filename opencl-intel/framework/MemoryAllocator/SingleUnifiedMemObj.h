@@ -62,12 +62,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// initialize the data on the memory object
 		// initialize the memory object
 		virtual cl_err_code Initialize(
-			cl_mem_flags		clMemFlags,
+			cl_mem_flags			clMemFlags,
 			const cl_image_format*	pclImageFormat,
-			unsigned int		dim_count,
-			const size_t*		dimension,
-			const size_t*       pitches,
-			void*				pHostPtr
+			unsigned int			dim_count,
+			const size_t*			dimension,
+			const size_t*			pitches,
+			void*					pHostPtr,
+			cl_rt_memobj_creation_flags	creation_flags
 			);
 
 		cl_err_code UpdateHostPtr(cl_mem_flags	clMemFlags, void* pHostPtr) {return CL_INVALID_OPERATION;}
@@ -95,6 +96,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
+		virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const { return false; }
         virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) { return CL_SUCCESS; };
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) { return CL_SUCCESS; };
 

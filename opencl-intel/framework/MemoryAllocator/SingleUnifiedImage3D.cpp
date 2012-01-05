@@ -46,12 +46,13 @@ SingleUnifiedImage3D::SingleUnifiedImage3D(Context *pContext, ocl_entry_points *
 // SingleUnifiedImage3D::Initialize
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code SingleUnifiedImage3D::Initialize(
-	cl_mem_flags		clMemFlags,
+	cl_mem_flags			clMemFlags,
 	const cl_image_format*	pclImageFormat,
-	unsigned int		dim_count,
-	const size_t*		dimension,
-	const size_t*       pitches,
-	void*				pHostPtr
+	unsigned int			dim_count,
+	const size_t*			dimension,
+	const size_t*			pitches,
+	void*					pHostPtr,
+	cl_rt_memobj_creation_flags	creation_flags
 	)
 {
 	assert(3 == dim_count);
@@ -74,7 +75,7 @@ cl_err_code SingleUnifiedImage3D::Initialize(
 	m_stMemObjSize = CalcImageSize();
 
 	size_t newPitch[] = {m_szImageRowPitch, m_szImageSlicePitch};
-	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, newPitch, pHostPtr);
+	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, newPitch, pHostPtr, creation_flags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

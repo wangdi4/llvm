@@ -239,7 +239,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual cl_err_code Initialize(cl_mem_flags	clMemFlags,
             const cl_image_format*	pclImageFormat, unsigned int dim_count,
-            const size_t* dimension, const size_t* pitches, void* pHostPtr);
+            const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
 
         virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
             cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
