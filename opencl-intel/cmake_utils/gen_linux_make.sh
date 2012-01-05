@@ -5,11 +5,13 @@ function usage
 cat <<- _EOT_
 Build Unix Makefiles for OpenCL
 
-Usage: $0 [+cnf] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ver>][-32] [--meego] [--help] <working_dir>
+Usage: $0 [+cnf] [+cnf12] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ver>][-32] [--meego] [--help] <working_dir>
 
-    +cnf           - include conformance tests into build - ONLY FOR INITIAL SETTINGS!
+    +cnf                - include conformance 1.1 tests into build - ONLY FOR INITIAL SETTINGS!
                                use 'make edit_cache' to modify later!
 
+    +cnf12              - include conformance 1.1 and 1.2 tests into build
+	
     --eclipse | -e      - create eclipse project
 
     --esrc              - create eclipse project + sources project (for SVN use)
@@ -45,6 +47,7 @@ _EOT_
 generator="Unix Makefiles"
 eclipse_extra_args=""
 incl_cnf=OFF
+incl_cnf12=OFF
 target=Release
 icc_ver=11.1
 meego=OFF
@@ -76,6 +79,9 @@ while [ "$1" != "" ]; do
     case $1 in
         +cnf )                  incl_cnf=ON
                                 ;;
+		+cnf12 )                incl_cnf=ON
+		                        incl_cnf12=ON
+                                ;;						
         --esrc )                eclipse_extra_args="${eclipse_extra_args} -D ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT=ON"
                                 generator="Eclipse CDT4 - Unix Makefiles"
                                 eclipse_extra_args="${eclipse_extra_args} -D CMAKE_BUILD_TYPE=Debug"
@@ -185,6 +191,7 @@ cmake -G "$generator" \
     -D CMAKE_MODULE_PATH="${toolchain_dir}" \
     -D CONFORMANCE_LIST="$conformance_list" \
     -D INCLUDE_CONFORMANCE_TESTS:BOOL=$incl_cnf \
+    -D INCLUDE_CONFORMANCE_1_2_TESTS:BOOL=$incl_cnf12 \
     -D OCL_BUILD32:BOOL=$trgt32 \
     -D TARGET_CPU=$trgt_cpu \
     -D INTEL_COMPILER=$use_intc \
