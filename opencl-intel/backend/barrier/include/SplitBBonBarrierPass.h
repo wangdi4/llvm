@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright © 2011-2012, Intel Corporation
  *********************************************************************************************/
 #ifndef __SPLIT_BB_ON_BARRIER_PASS_H__
 #define __SPLIT_BB_ON_BARRIER_PASS_H__

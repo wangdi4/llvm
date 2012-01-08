@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright © 2011-2012, Intel Corporation
  *********************************************************************************************/
 #ifndef __WI_RELATED_VALUE_PASS_H__
 #define __WI_RELATED_VALUE_PASS_H__
