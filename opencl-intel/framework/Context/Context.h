@@ -37,7 +37,6 @@
 #include <list>
 #include <map>
 #include "ocl_itt.h"
-#include "cl_heap.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -250,9 +249,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		static size_t		GetPixelBytesCount(const cl_image_format * pclImageFormat);
 
-		// return context-specific memory objects heap handle
-		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
-
 	protected:
 		/******************************************************************************************
 		* Function: 	~Device
@@ -315,8 +311,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		typedef std::map<int, tImageFormatList>	tImageFormatMap;
 		Intel::OpenCL::Utils::OclSpinMutex		m_muFormatsMap;
 		tImageFormatMap							m_mapSupportedFormats;
-
-		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
 	};
 
 

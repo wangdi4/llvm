@@ -45,15 +45,10 @@ using namespace Intel::OpenCL::Utils;
 QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
 OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
 {
-	m_sProfilingInfo.m_ulCommandQueued	= 0;
-	m_sProfilingInfo.m_ulCommandSubmit	= 0;
-	m_sProfilingInfo.m_ulCommandStart	= 0;
-	m_sProfilingInfo.m_ulCommandEnd		= 0;
-
-	m_bCommandQueuedValid = false;
-	m_bCommandSubmitValid = false;
-	m_bCommandStartValid  = false;
-	m_bCommandEndValid    = false;
+	m_sProfilingInfo.m_ulCommandQueued = 0;
+	m_sProfilingInfo.m_ulCommandSubmit = 0;
+	m_sProfilingInfo.m_ulCommandStart = 0;
+	m_sProfilingInfo.m_ulCommandEnd = 0;
 
 	if (cmdQueue != NULL)
 	{
@@ -215,80 +210,21 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
 	switch ( clParamName )
 	{
 	case CL_PROFILING_COMMAND_QUEUED:
-		if (m_bCommandQueuedValid)
-		{
-			m_sProfilingInfo.m_ulCommandQueued = MIN( m_sProfilingInfo.m_ulCommandQueued, ulData );
-		}
-
-		else
-		{
-			m_sProfilingInfo.m_ulCommandQueued = ulData;
-			m_bCommandQueuedValid = true;
-		}
+		m_sProfilingInfo.m_ulCommandQueued = ulData;
 		break;
 	case CL_PROFILING_COMMAND_SUBMIT:
-		if (m_bCommandSubmitValid)
-		{
-			m_sProfilingInfo.m_ulCommandSubmit = MIN( m_sProfilingInfo.m_ulCommandSubmit, ulData );
-		}
-		else
-		{
-			m_sProfilingInfo.m_ulCommandSubmit = ulData;
-			m_bCommandSubmitValid = true;
-		}
+		m_sProfilingInfo.m_ulCommandSubmit = ulData;
 		break;
 	case CL_PROFILING_COMMAND_START:
-		if (m_bCommandStartValid)
-		{
-			m_sProfilingInfo.m_ulCommandStart = MIN( m_sProfilingInfo.m_ulCommandStart, ulData );
-		}
-		else
-		{
-			m_sProfilingInfo.m_ulCommandStart = ulData;
-			m_bCommandStartValid = true;
-		}
+		m_sProfilingInfo.m_ulCommandStart = ulData;
 		break;
 	case CL_PROFILING_COMMAND_END:
-		if (m_bCommandEndValid)
-		{
-			m_sProfilingInfo.m_ulCommandEnd = MAX( m_sProfilingInfo.m_ulCommandEnd, ulData );
-		}
-		else
-		{
-			m_sProfilingInfo.m_ulCommandEnd = ulData;
-			m_bCommandEndValid = true;
-		}
+		m_sProfilingInfo.m_ulCommandEnd = ulData;
 		break;
 	default:
 		break;
 	}
 }
-
-void QueueEvent::IncludeProfilingInfo( const QueueEvent* other )
-{
-	assert( NULL != other );
-
-	if (other->m_bCommandQueuedValid)
-	{
-		SetProfilingInfo( CL_PROFILING_COMMAND_QUEUED, other->m_sProfilingInfo.m_ulCommandQueued );
-	}
-
-	if (other->m_bCommandSubmitValid)
-	{
-		SetProfilingInfo( CL_PROFILING_COMMAND_SUBMIT, other->m_sProfilingInfo.m_ulCommandSubmit );
-	}
-
-	if (other->m_bCommandStartValid)
-	{
-		SetProfilingInfo( CL_PROFILING_COMMAND_START,  other->m_sProfilingInfo.m_ulCommandStart );
-	}
-
-	if (other->m_bCommandEndValid)
-	{
-		SetProfilingInfo( CL_PROFILING_COMMAND_END,    other->m_sProfilingInfo.m_ulCommandEnd );
-	}
-}
-
 
 /******************************************************************
 *

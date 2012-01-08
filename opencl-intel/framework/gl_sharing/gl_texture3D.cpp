@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::Framework;
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture3D)
 
 cl_err_code GLTexture3D::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
-			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
+			const size_t* dimension, const size_t* pitches, void* pHostPtr)
 {
 	GLTextureDescriptor* pTxtDescriptor = (GLTextureDescriptor*)pHostPtr;
 
@@ -119,7 +119,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 
 	size_t dim[] = {m_szImageWidth, m_szImageHeight, m_szImageDepth};
 //	size_t pitch[] = {m_szImageRowPitch, m_szImageSlicePitch};
-	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, 3, dim, NULL, NULL, 0);
+	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, 3, dim, NULL, NULL);
 	if (CL_FAILED(res))
 	{
 		pChild->Release();

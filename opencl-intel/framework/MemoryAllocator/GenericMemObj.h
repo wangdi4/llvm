@@ -36,7 +36,6 @@
 #include <cl_object.h>
 #include <cl_synch_objects.h>
 #include <cl_device_api.h>
-#include "cl_heap.h"
 #include <stack>
 #include <list>
 #include <vector>
@@ -71,13 +70,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// initialize the data on the memory object
 		// initialize the memory object
 		virtual cl_err_code Initialize(
-			cl_mem_flags			clMemFlags,
+			cl_mem_flags		clMemFlags,
 			const cl_image_format*	pclImageFormat,
-			unsigned int			dim_count,
-			const size_t*			dimension,
-			const size_t*			pitches,
-			void*					pHostPtr,
-			cl_rt_memobj_creation_flags	creation_flags
+			unsigned int		dim_count,
+			const size_t*		dimension,
+			const size_t*       pitches,
+			void*				pHostPtr
 			);
 
 		cl_err_code UpdateHostPtr(cl_mem_flags	clMemFlags, void* pHostPtr) {return CL_INVALID_OPERATION;}
@@ -110,7 +108,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
-		bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
         cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
         cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
@@ -118,8 +115,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
 		void * GetBackingStoreData( const size_t * pszOrigin = NULL ) const;
-
-		cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 		size_t GetPixelSize() const;
 
@@ -162,8 +157,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         struct DeviceDescriptor
         {
             FissionableDevice*              m_pDevice;
-            size_t							m_sharing_group_id;
-            size_t							m_alignment;
+            unsigned int                    m_sharing_group_id;
+            unsigned int                    m_alignment;
 
             // TODO: DK: temporary unused - required for multi-device support
             bool                            m_has_data;
@@ -275,10 +270,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							   const size_t*	        dimension,
 							   const size_t*            pitches,
 							   void*			        pHostPtr,
-							   size_t                   alignment,
-							   size_t                   preferred_alignment,
-							   ClHeap					heap,
-							   cl_rt_memobj_creation_flags	creation_flags );
+							   size_t                   alignment );
 
         // for SubObject
 		GenericMemObjectBackingStore(
@@ -293,7 +285,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void*                   GetRawData()     const {return m_ptr;}
         size_t                  GetRawDataSize() const {return m_raw_data_size;}
         size_t                  GetRawDataOffset( const size_t* origin ) const;
-		cl_dev_bs_description   GetRawDataDecription() const { return m_raw_data_description; }
+		cl_dev_bs_description   GetRawDataDecription() const
+                { return (m_pHostPtr == m_ptr) ? CL_DEV_BS_USER_ALLOCATED : CL_DEV_BS_RT_ALLOCATED; }
 
 		size_t                  GetDimCount()    const {return m_dim_count;}
 		const size_t*           GetDimentions()  const {return m_dimensions;}
@@ -314,7 +307,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // pointer where user should expect the data
         void* GetHostMapPtr( void )  const { return m_pHostPtr ? m_pHostPtr : m_ptr; }
         // same as GetHostMapPtr but NULL if used did not provide this pointer
-        void* GetUserProvidedHostMapPtr( void )  const { return m_pHostPtr; }
+        void* GetUserProvidedHostMapPtr( void )  const { return (m_creation_flags & CL_MEM_USE_HOST_PTR) ? m_pHostPtr : NULL; }
 
         // helper function to calculate offsets
         static size_t calculate_offset( size_t elem_size, unsigned int  dim_count,
@@ -326,11 +319,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	private:
 		virtual ~GenericMemObjectBackingStore();
 
-		static void calculate_pitches_and_dimentions( 
-									   size_t elem_size, unsigned int  dim_count, 
-									   const size_t user_dims[], const size_t user_pitches[],
-                                       size_t  dimensions[], size_t  pitches[] );
-
 		void*			m_ptr;
 
         size_t          m_dim_count;
@@ -340,16 +328,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_element_size;
 
         void*           m_pHostPtr;
-        cl_mem_flags    m_user_flags;
+        cl_mem_flags    m_creation_flags;
 
         bool            m_data_valid;
         size_t          m_alignment;
-		size_t			m_preferred_alignment;
         size_t          m_raw_data_size;
-
-		cl_dev_bs_description	m_raw_data_description;
-
-		ClHeap			m_heap;
 
         IOCLDevBackingStore* m_parent;
 		AtomicCounter	m_refCount;

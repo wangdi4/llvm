@@ -52,7 +52,7 @@ using namespace Intel::OpenCL::Framework;
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
-	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
+	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0)
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -64,12 +64,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	m_pDeviceIds = NULL;
     m_pOriginalDeviceIds = NULL;
 	m_pGPAData = pGPAData;
-
-	if ((0 != clCreateHeap( 0, 0, &m_MemObjectsHeap )) || (NULL == m_MemObjectsHeap))
-	{
-		*pclErr = CL_OUT_OF_HOST_MEMORY;
-		return;
-	}
 
 	assert ((NULL != ppDevices) && (uiNumDevices > 0));
     m_uiNumRootDevices = uiNumRootDevices;
@@ -238,8 +232,6 @@ Context::~Context()
     //
     // Free private resources
     //
-
-	clDeleteHeap( m_MemObjectsHeap );
 
 	RELEASE_LOGGER_CLIENT;
 
@@ -580,7 +572,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 		return clErr;
 	}
 
-	clErr = (*ppBuffer)->Initialize(clFlags, NULL, 1, &szSize, NULL, pHostPtr, 0);
+	clErr = (*ppBuffer)->Initialize(clFlags, NULL, 1, &szSize, NULL, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
@@ -716,7 +708,7 @@ cl_err_code Context::CreateImage2D(cl_mem_flags clFlags,
 
 	size_t dim[2] = {szImageWidth, szImageHeight};
 	// clFlags should be already sanitized by the context module.
-	clErr = (*ppImage2d)->Initialize(clFlags, pclImageFormat, 2, dim, &szImageRowPitch, pHostPtr, 0);
+	clErr = (*ppImage2d)->Initialize(clFlags, pclImageFormat, 2, dim, &szImageRowPitch, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
@@ -790,7 +782,7 @@ cl_err_code Context::CreateImage3D(cl_mem_flags clFlags,
 
 	size_t dim[3] = {szImageWidth, szImageHeight, szImageDepth};
 	size_t pitch[2] = {szImageRowPitch, szImageSlicePitch};
-	clErr = (*ppImage3d)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr, 0);
+	clErr = (*ppImage3d)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));

@@ -35,7 +35,7 @@ using namespace Intel::OpenCL::Framework;
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture2D)
 
 cl_err_code GLTexture2D::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
-			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
+			const size_t* dimension, const size_t* pitches, void* pHostPtr)
 {
 	GLTextureDescriptor* pTxtDescriptor = (GLTextureDescriptor*)pHostPtr;
 

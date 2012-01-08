@@ -52,13 +52,12 @@ SingleUnifiedMemObject(pContext, pOclEntryPoints, clObjType)
 // SingleUnifiedBuffer::Initialize
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code SingleUnifiedImage2D::Initialize(
-	cl_mem_flags			clMemFlags,
+	cl_mem_flags		clMemFlags,
 	const cl_image_format*	pclImageFormat,
-	unsigned int			dim_count,
-	const size_t*			dimension,
-	const size_t*			pitches,
-	void*					pHostPtr,
-	cl_rt_memobj_creation_flags	creation_flags
+	unsigned int		dim_count,
+	const size_t*		dimension,
+	const size_t*       pitches,
+	void*				pHostPtr
 	)
 {
 	assert(2 == dim_count);
@@ -77,7 +76,7 @@ cl_err_code SingleUnifiedImage2D::Initialize(
 	// create buffer for image data
 	m_stMemObjSize = CalcImageSize();
 
-	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, &m_szImageRowPitch, pHostPtr, creation_flags);
+	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, &m_szImageRowPitch, pHostPtr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

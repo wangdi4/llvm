@@ -45,7 +45,6 @@
 #include <assert.h>
 #include "execution_module.h"
 #include "ocl_itt.h"
-#include "cl_sys_info.h"
 
 
 using namespace Intel::OpenCL::Framework;
@@ -141,12 +140,6 @@ Command::~Command()
 	m_pCommandQueue = NULL;
 
 	RELEASE_LOGGER_CLIENT;
-}
-
-cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
-{
-	// 'this' may disapper during Enqueue if it was successful!
-	return GetCommandQueue()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
 }
 
 /******************************************************************
@@ -981,9 +974,7 @@ MapMemObjCommand::MapMemObjCommand(
     m_clMapFlags(clMapFlags),
     m_pszImageRowPitch(pszImageRowPitch),
     m_pszImageSlicePitch(pszImageSlicePitch),
-    m_pHostDataPtr(NULL),
-	m_pOclEntryPoints(pOclEntryPoints),
-	m_pPostfixCommand(NULL)
+    m_pHostDataPtr(NULL)
 {
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
     {
@@ -1034,35 +1025,6 @@ cl_err_code MapMemObjCommand::Init()
         // Case of error
         return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
-	
-	// check whether postfix command should be run to update user mirror area
-	if ((0 == (CL_MAP_WRITE_INVALIDATE_REGION & m_pMappedRegion->flags))	&&		// region was not mapped for overriding by host
-		(m_pMemObj->IsSynchDataWithHostRequired( m_pMappedRegion, m_pHostDataPtr )))
-	{
-		m_pPostfixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue(), m_pOclEntryPoints );
-
-		if (NULL != m_pPostfixCommand)
-		{
-			err = m_pPostfixCommand->Init();
-			if ( CL_FAILED(err) )
-			{
-				delete m_pPostfixCommand;
-				m_pPostfixCommand = NULL;
-			}
-		}
-		else
-		{
-			err = CL_OUT_OF_HOST_MEMORY;
-		}
-
-		if (NULL == m_pPostfixCommand)
-		{
-			m_pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
-			m_pMemObj->RemovePendency(this);
-			assert(0);
-			return err;
-		}
-	}
 
 	// Initialize GPA data
 	GPA_InitCommand();
@@ -1123,93 +1085,20 @@ cl_err_code MapMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code MapMemObjCommand::CommandDone()
 {
-	if (m_pPostfixCommand)
-	{
-		// error enqueue or no enqueue at all
-		m_pPostfixCommand->ErrorDone();
-		delete m_pPostfixCommand;
-		m_pPostfixCommand = NULL;
-	}
+    // Synch data with user provided HostMapPtr
+    cl_err_code res = m_pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
 
     // Don't remove buffer pendency, the buffer should be alive at least until unmap is done.
-    return CL_SUCCESS;
+    return res;
 }
 
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
-{
-	// 'this' may disapper during Enqueue if it was successful!
-	cl_err_code err = CL_SUCCESS;
-
-	if (m_pPostfixCommand)
-	{
-		cl_event		intermediate_pEvent;
-		EventsManager*	event_manager = GetCommandQueue()->GetEventsManager();
-
-		PrePostFixRuntimeCommand* postfix  = m_pPostfixCommand;
-		m_pPostfixCommand = NULL;	// in the case 'this' will disappear
-
-		// 'this' may disapper after the self-enqueue is successful!
-		err = Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
-		if (CL_FAILED(err))
-		{
-			// enqueue unsuccessful - 'this' still alive
-			m_pPostfixCommand = postfix; // restore
-			return err;
-		}
-
-		err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
-		if (CL_FAILED(err))
-		{
-			// oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
-			// pEvent and be able to make other commands dependent on it
-			if (NULL != pEvent)
-			{
-				// add manually and leave postfix floating
-				postfix->ErrorEnqueue( &intermediate_pEvent, pEvent, err );
-			}
-			else
-			{
-				// 'this' may not exist already - remove postfix manually
-				postfix->ErrorDone();
-				delete postfix;
-			}
-		}
-	
-		// release intermediate event
-		event_manager->ReleaseEvent( intermediate_pEvent );
-
-		// return success in any case as the original command fired ok
-		return CL_SUCCESS;
-	}
-	else
-	{
-		// 'this' may disapper after the self-enqueue is successful!
-		return Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
-	}
-}
-
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code	MapMemObjCommand::PostfixExecute()
-{
-	return m_pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
-}
-
-/******************************************************************
- *
- ******************************************************************/
-UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, 
-											 MemoryObject* pMemObject, void* pMappedPtr):
+UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, MemoryObject* pMemObject, void* pMappedPtr):
 	Command(cmdQueue, pOclEntryPoints),
     m_pMemObject(pMemObject),
-    m_pMappedPtr(pMappedPtr),
-	m_pPrefixCommand(NULL),
-	m_pOclEntryPoints(pOclEntryPoints)
+    m_pMappedPtr(pMappedPtr)
 {
 }
 
@@ -1227,34 +1116,6 @@ cl_err_code UnmapMemObjectCommand::Init()
 {
     // First check the the region has been mapped
     cl_err_code err = m_pMemObject->GetMappedRegionInfo(m_pDevice, m_pMappedPtr, &m_pMappedRegion);
-
-	// check whether postfix command should be run to update user mirror area
-	if (CL_SUCCEEDED(err)															  && 
-		(0 != ((CL_MAP_WRITE|CL_MAP_WRITE_INVALIDATE_REGION) & m_pMappedRegion->flags)) && // region was mapped for writing on host 
-		m_pMemObject->IsSynchDataWithHostRequired( m_pMappedRegion, m_pMappedPtr ))
-	{
-		m_pPrefixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue(), m_pOclEntryPoints );
-
-		if (NULL != m_pPrefixCommand)
-		{
-			err = m_pPrefixCommand->Init();
-			if ( CL_FAILED(err) )
-			{
-				delete m_pPrefixCommand;
-				m_pPrefixCommand = NULL;
-			}
-		}
-		else
-		{
-			err = CL_OUT_OF_HOST_MEMORY;
-		}
-
-		if (NULL == m_pPrefixCommand)
-		{
-			assert(0);
-			return err;
-		}
-	}
 
 	// Initialize GPA data
 	GPA_InitCommand();
@@ -1295,9 +1156,20 @@ cl_err_code UnmapMemObjectCommand::Execute()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code	UnmapMemObjectCommand::PrefixExecute()
+cl_err_code UnmapMemObjectCommand::NotifyCmdStatusChanged(
+                                           cl_dev_cmd_id clCmdId,
+                                           cl_int iCmdStatus, cl_int iCompletionResult,
+                                           cl_ulong ulTimer)
 {
-	return m_pMemObject->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
+    if (CL_RUNNING == iCmdStatus)
+    {
+        // we are called from inside device and immediately before command start.
+        // it's a time to synch host map data with Memory Object backing store
+        m_pMemObject->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
+    }
+
+    // propagate notification further
+    return Command::NotifyCmdStatusChanged( clCmdId, iCmdStatus, iCompletionResult, ulTimer );
 }
 
 /******************************************************************
@@ -1307,54 +1179,11 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 {
     cl_err_code errVal;
 
-	if (m_pPrefixCommand)
-	{
-		m_pPrefixCommand->ErrorDone();
-		m_pPrefixCommand = NULL;
-	}
-
     // Here we do the actual operation off releasing the mapped region.
     errVal = m_pMemObject->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr);
 
     m_pMemObject->RemovePendency(NULL); // NULL because this command wasn't the one that added the dependency in the first place - it was the map command
-
     return errVal;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
-{
-	cl_err_code err;
-
-	if (m_pPrefixCommand)
-	{
-		cl_event 			  intermediate_pEvent;
-		EventsManager*	event_manager = GetCommandQueue()->GetEventsManager();
-
-		err = m_pPrefixCommand->EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
-		if (CL_FAILED(err))
-		{
-			return err;
-		}
-
-		// prefix starts it own life
-		m_pPrefixCommand = NULL;
-
-		// 'this' may disapper during Enqueue if it was successful!
-		err = Command::EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
-
-		// release intermediate event
-		event_manager->ReleaseEvent( intermediate_pEvent );
-	}
-	else
-	{
-		// 'this' may disapper during Enqueue if it was successful!
-		err = Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
-	}
-
-	return err;
 }
 
 /******************************************************************
@@ -2436,182 +2265,4 @@ cl_err_code RuntimeCommand::Execute()
 	m_Event.SetColor(EVENT_STATE_BLACK);
 	m_Event.RemovePendency(NULL);
     return CL_SUCCESS;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code ErrorQueueEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
-{
-	return m_owner->GetEvent()->NotifyEventDone( pEvent, m_owner->GetForcedErrorCode() ); 
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_context ErrorQueueEvent::GetContextHandle() const
-{
-	return m_owner->GetEvent()->GetContextHandle(); 
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_int     ErrorQueueEvent::GetReturnCode() const
-{
-	return m_owner->GetForcedErrorCode();
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code	ErrorQueueEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
-{
-	return m_owner->GetEvent()->GetInfo( iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet );
-}
-
-/******************************************************************
- *
- ******************************************************************/
-PrePostFixRuntimeCommand::PrePostFixRuntimeCommand( 
-	Command* relatedUserCommand, Mode working_mode, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ): 
-	RuntimeCommand(cmdQueue, pOclEntryPoints), 
-	m_relatedUserCommand(relatedUserCommand), 
-	m_working_mode( working_mode ),
-	m_force_error_return(CL_SUCCESS)
-{
-	assert( NULL != m_relatedUserCommand );
-	
-	m_error_event.Init( this );
-	m_error_event.AddPendency( this ); // ensure event will never be deleted externally
-
-	m_task.Init( this );
-}
-
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code PrePostFixRuntimeCommand::Init()
-{
-	// related command should not disapper before I finished
-	m_relatedUserCommand->GetEvent()->AddPendency( this );
-
-	// Initialize GPA data
-	GPA_InitCommand();
-	return CL_SUCCESS;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code PrePostFixRuntimeCommand::CommandDone()
-{
-	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
-
-	// update times here
-	if ( PREFIX_MODE == m_working_mode )
-	{
-		related_event->IncludeProfilingInfo( &m_Event );
-	}
-	else
-	{
-		m_Event.IncludeProfilingInfo( related_event );
-	}
-
-	related_event->RemovePendency( this );
-
-    LogDebugA("Command - DONE  : PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_iId);
-	return CL_SUCCESS;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-void PrePostFixRuntimeCommand::ErrorDone()
-{
-	CommandDone();
-	m_Event.RemovePendency(NULL);
-}
-
-/******************************************************************
- *
- ******************************************************************/
-void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return )
-{
-	m_force_error_return = err_to_force_return;
-
-	// add manually and leave postfix floating
-	EventsManager*	event_manager = GetCommandQueue()->GetEventsManager();
-
-	event_manager->RegisterQueueEvent( &m_Event, user_pEvent );
-
-	// 'this' may disapper right now
-	cl_err_code err;
-	err = event_manager->RegisterEvents( &m_error_event, 1, intermediate_pEvent );
-
-	// in our case RegisterEvents() cannot return failure by construction
-	assert( CL_SUCCEEDED( err ));
-}
-
-/******************************************************************
- *
- ******************************************************************/
-void PrePostFixRuntimeCommand::DoAction()
-{
-	LogDebugA("PrePostFixRuntimeCommand - DoAction Started: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_iId);
-
-	m_returnCode = CL_SUCCESS;
-
-	NotifyCmdStatusChanged(0, CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
-
-	m_returnCode = ( PREFIX_MODE == m_working_mode ) ?
-						m_relatedUserCommand->PrefixExecute() 
-						:
-						m_relatedUserCommand->PostfixExecute();
-
-	NotifyCmdStatusChanged(0, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
-
-	LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_iId);
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code PrePostFixRuntimeCommand::Execute()
-{
-	cl_err_code			ret  = CL_SUCCESS;
-
-	// prevent deletion of the command until task is deleted by TaskExecutor
-	m_Event.AddPendency( this );
-	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(&m_task);
-
-	if (0 != task_err)
-	{
-		m_Event.RemovePendency( this );
-		LogDebugA("PrePostFixRuntimeCommand - Execute: Task submission failed for PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_iId);
-
-		ret = CL_OUT_OF_RESOURCES;
-		m_returnCode = ret;	
-		NotifyCmdStatusChanged(0, CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
-	}
-
-    return ret;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-bool RuntimeCommandTask::Execute()
-{
-	m_owner->DoAction();
-	return true;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-void RuntimeCommandTask::Release() 
-{
-	m_owner->GetEvent()->RemovePendency(m_owner);
 }

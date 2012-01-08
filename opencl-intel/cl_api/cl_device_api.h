@@ -259,10 +259,10 @@ enum cl_dev_err_code
  */
 enum cl_dev_cmd_list_props
 {
-	CL_DEV_LIST_NONE		=	0,		//!< Determines a list wherein all items will be executed sequentially.
+	CL_DEV_LIST_NONE	=	0,		//!< Determines a list wherein all items will be executed sequentially.
 	CL_DEV_LIST_ENABLE_OOO	=	1,		//!< Determines whether the out-of-order optimization could be applied on items in the command list
 	CL_DEV_LIST_SUBDEVICE	=	2,		//!< Determines whether the command list executes on a root-level device or on a sub-device
-    CL_DEV_LIST_IN_PLACE    =   4       //!< Determines whether the command list is executed using the calling thread
+        CL_DEV_LIST_IN_PLACE    =       4               //!< Determines whether the command list is executed using the calling thread
 };
 
 /*! \enum cl_dev_cmd_type
@@ -373,7 +373,6 @@ struct cl_dev_alloc_prop
 	cl_dev_image_sharing_group_id  imageSharingGroupId;  //!< ID of the sharing group used by the device allocator for images
 
 	size_t		alignment;			//!< Specifies the minimum alignment in bytes for the memory object
-	size_t		preferred_alignment;//!< Specifies the preferred alignment in bytes for the memory object
 	cl_ulong	maxBufferSize;      //!< Specifies the minimum size in bytes for the buffer memory object
 	bool		imagesSupported;    //!< Device supports images
 	bool		hostUnified;		//!< Memory allocator may allocate memory in unified(accessible) with the host memory
@@ -630,7 +629,7 @@ public:
 		CL_DEV_BS_RT_ALLOCATED = 0,		//!<	The backing store is allocated by the runtime or by a device
 		CL_DEV_BS_USER_ALLOCATED,		//!<	The backing store is based on a pointer provided by CL_USE_HOST_PTR
 		CL_DEV_BS_USER_COPY,			//!<	The backing store contains data to be copied by the runtime (CL_COPY_HOST_PTR)
-		CL_DEV_BS_RT_MAPPED             //!<    The backing store contains data that is mapped by the runtime from other object (such as GL object)
+        CL_DEV_BS_RT_MAPPED             //!<    The backing store contains data that is mapped by the runtime from other object (such as GL object)
 	};
 
 	//!	Returns pointer to a backing store data

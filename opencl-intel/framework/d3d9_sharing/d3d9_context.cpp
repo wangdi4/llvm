@@ -159,7 +159,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         d3d9Resource.FillDimensions(*pResourceInfo, dims);
         const cl_image_format clFormat = D3D9Resource::MapD3DFormat2OclFormat(d3dFormat, plane);
         clErr = d3d9Resource.Initialize(clFlags, D3DFMT_UNKNOWN != d3dFormat ? &clFormat : NULL,
-            uiDimCnt, dims, NULL, pResourceInfo, 0);
+            uiDimCnt, dims, NULL, pResourceInfo);
         if (CL_FAILED(clErr))
         {
             LOG_ERROR(TEXT("Failed to initialize data, pD3D9Resource->Initialize(pHostPtr = %S"),

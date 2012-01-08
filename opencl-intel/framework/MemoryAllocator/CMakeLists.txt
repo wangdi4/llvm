@@ -7,6 +7,10 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME MemoryAllocator )
 
+if ( NOT INCLUDE_MIC_DEVICE )
+    set( IGNORE_FILES GenericMemObj )
+endif( NOT INCLUDE_MIC_DEVICE )
+
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 

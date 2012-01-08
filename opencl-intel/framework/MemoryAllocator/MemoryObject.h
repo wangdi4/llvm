@@ -58,12 +58,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	typedef std::pair<mem_dtor_fn,void*> MemDtorNotifyData;
 
-	/*! \define cl_rt_memobj_creation_flags
-	* Defines a set of bitflags that modify memory objects creation behavior depending on Framework internal requirements
-	*/
-	/* cl_rt_memobj_creation_flags */
-	typedef unsigned int cl_rt_memobj_creation_flags;
-	#define CL_RT_MEMOBJ_FORCE_BS (1<<0) //! If HostPtr provided - use it as a backing store and mark BS as CL_DEV_BS_RT_MAPPED
 
 	/**********************************************************************************************
 	* Class name:	MemoryObject
@@ -109,13 +103,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// initialize the memory object
 		virtual cl_err_code Initialize(
-			cl_mem_flags			clMemFlags,
+			cl_mem_flags		clMemFlags,
 			const cl_image_format*	pclImageFormat,
-			unsigned int			dim_count,
-			const size_t*			dimension,
-			const size_t*			pitches,
-			void*					pHostPtr,
-			cl_rt_memobj_creation_flags	creation_flags // modification flags
+			unsigned int		dim_count,
+			const size_t*		dimension,
+			const size_t*       pitches,
+			void*				pHostPtr
 			) = 0;
 
 		// Update the host pointer that is used for the memory object
@@ -252,7 +245,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
-		virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const = 0;
         virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) = 0;
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) = 0;
 

@@ -385,7 +385,7 @@ cl_err_code GLTexture::CreateChildObject()
 	}
 
 	size_t dim[] = {m_szImageWidth, m_szImageHeight};
-	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_szImageRowPitch, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
+	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_szImageRowPitch, pBuffer);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);

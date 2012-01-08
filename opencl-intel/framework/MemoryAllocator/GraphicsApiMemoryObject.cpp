@@ -146,11 +146,6 @@ namespace Intel { namespace OpenCL { namespace Framework
         return m_pChildObject->MemObjReleaseDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
     }
 
-	bool GraphicsApiMemoryObject::IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const
-	{
-		return m_pChildObject->IsSynchDataWithHostRequired( pMapInfo, pHostMapDataPtr );
-	}
-
     cl_err_code GraphicsApiMemoryObject::SynchDataToHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
     {
         return m_pChildObject->SynchDataToHost( pMapInfo, pHostMapDataPtr );

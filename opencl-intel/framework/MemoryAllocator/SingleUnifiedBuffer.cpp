@@ -49,13 +49,12 @@ SingleUnifiedBuffer::~SingleUnifiedBuffer()
 // SingleUnifiedBuffer::Initialize
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code SingleUnifiedBuffer::Initialize(
-		cl_mem_flags			clMemFlags,
+		cl_mem_flags		clMemFlags,
 		const cl_image_format*	pclImageFormat,
-		unsigned int			dim_count,
-		const size_t*			dimension,
-		const size_t*			pitches,
-		void*					pHostPtr,
-		cl_rt_memobj_creation_flags	creation_flags
+		unsigned int		dim_count,
+		const size_t*		dimension,
+		const size_t*       pitches,
+		void*				pHostPtr
 		)
 {
 	assert(1 == dim_count);
@@ -65,7 +64,7 @@ cl_err_code SingleUnifiedBuffer::Initialize(
 	// The object size is given in first dimension
 	m_stMemObjSize = dimension[0];
 
-	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr, creation_flags);
+	return SingleUnifiedMemObject::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,7 +174,7 @@ cl_err_code SingleUnifiedBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	cl_err_code err = pSubBuffer->Initialize(clFlags, NULL, 1, &(region->size), &(region->origin), this, 0 );
+	cl_err_code err = pSubBuffer->Initialize(clFlags, NULL, 1, &(region->size), &(region->origin), this);
 	if ( CL_FAILED(err) )
 	{
 		pSubBuffer->Release();

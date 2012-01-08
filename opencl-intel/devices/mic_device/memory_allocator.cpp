@@ -179,7 +179,6 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 	pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
     pAllocProp->hostUnified          = false;
     pAllocProp->alignment            = MIC_DEV_MAXIMUM_ALIGN;
-    pAllocProp->preferred_alignment  = PAGE_4K_SIZE;
     pAllocProp->maxBufferSize        = m_maxAllocSize;
     pAllocProp->imagesSupported      = true;
     pAllocProp->DXSharing            = false;

@@ -124,7 +124,7 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Mem
 		return clErr;
 	}
 
-	clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
+	clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
@@ -159,7 +159,7 @@ cl_err_code GLContext::CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextu
 	txtDesc.glMipLevel = glMipLevel;
 	txtDesc.glTextureTarget = glTextureTarget;
 
-	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
+	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, &txtDesc);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %S", ClErrTxt(clErr));
@@ -193,7 +193,7 @@ cl_err_code GLContext::CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextu
 	txtDesc.glMipLevel = glMipLevel;
 	txtDesc.glTextureTarget = glTextureTarget;
 
-	clErr = pImage->Initialize(clMemFlags, NULL, 3, NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
+	clErr = pImage->Initialize(clMemFlags, NULL, 3, NULL, NULL, &txtDesc);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
@@ -222,7 +222,7 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 		return clErr;
 	}
 
-	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
+	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %ws", ClErrTxt(clErr));

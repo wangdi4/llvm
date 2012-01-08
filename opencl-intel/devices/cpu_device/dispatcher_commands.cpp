@@ -582,11 +582,21 @@ cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 bool MapMemObject::Execute()
 {
+	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+	cl_mem_obj_descriptor*	pMemObj;
+	SMemCpyParams			sCpyParam;
+
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
 	printf("--> MapMemObject(start), cmdid:%d\n", m_pCmd->id);
 #endif
+
+	// Request access on default device
+	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+
+	sCpyParam.pSrc = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	memcpy(sCpyParam.vSrcPitch, pMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
 
 	// Write Map task to TAL trace
 #if defined(USE_GPA)
@@ -597,6 +607,63 @@ bool MapMemObject::Execute()
 		TAL_SetNamedTaskColor("Map", 255, 0, 0);
 	}
 #endif
+
+	// Different pointer to map, need copy data
+	if (sCpyParam.pSrc != cmdParams->ptr)
+	{
+#ifdef _DEBUG_PRINT
+	printf("--> MapMemObject(copying), cmdid:%d\n", m_pCmd->id);
+#endif
+		// Setup data for copying
+		// Set Source/Destination
+		sCpyParam.uiDimCount = cmdParams->dim_count;
+		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+		sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+
+		sCpyParam.pDst = (cl_char*)cmdParams->ptr;
+		memcpy(sCpyParam.vDstPitch, cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
+
+#if defined(USE_GPA)
+		// In case of data copy during Map, add size/dimention parameters to the task
+		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+		{
+			__itt_set_track(NULL);
+
+			switch(cmdParams->dim_count)
+			{
+#if defined(_M_X64)
+			case 1:		
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				break;
+			case 2:
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+				break;
+			case 3:
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
+				break;
+#else
+			case 1:		
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				break;
+			case 2:
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				break;
+			case 3:
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
+				__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
+				break;
+#endif
+			}
+		}
+#endif
+		// Execute copy routine
+		clCopyMemoryRegion(&sCpyParam);
+	}
 
 #if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -663,11 +730,54 @@ cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 bool UnmapMemObject::Execute()
 {
+	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+	cl_mem_obj_descriptor*	pMemObj = NULL;
+	SMemCpyParams			sCpyParam;
+
+	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
 	printf("--> UnmapMemObject(start), cmdid:%d\n", m_pCmd->id);
 #endif
+
+	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, pMemObj->dim_count, cmdParams->origin, pMemObj->pitch, pMemObj->uiElementSize);
+	memcpy(sCpyParam.vDstPitch, pMemObj->pitch, sizeof(sCpyParam.vDstPitch));
+
+	// Different pointer to map, need copy data
+	if (sCpyParam.pDst != cmdParams->ptr)
+	{
+#ifdef _DEBUG_PRINT
+	printf("--> UnmapMemObject(copying), cmdid:%d\n", m_pCmd->id);
+#endif
+		// Setup data for copying
+		// Set Source/Destination
+		sCpyParam.uiDimCount = cmdParams->dim_count;
+		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+		sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+
+		sCpyParam.pSrc = (cl_char*)cmdParams->ptr;
+		memcpy(sCpyParam.vSrcPitch, cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
+
+#if defined(USE_GPA)
+		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+		{
+			__itt_set_track(NULL);
+			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pUnmapHandle);
+			TAL_SetNamedTaskColor("Unmap", 255, 0, 0);
+		}
+#endif
+		// Execute copy command
+		clCopyMemoryRegion(&sCpyParam);
+#if defined(USE_GPA)
+		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+		{
+			__itt_set_track(NULL);
+			__itt_task_end(m_pGPAData->pDeviceDomain);
+		}
+#endif
+	}
 
 #ifdef _DEBUG_PRINT
 	printf("--> UnmapMemObject(end), cmdid:%d\n", m_pCmd->id);

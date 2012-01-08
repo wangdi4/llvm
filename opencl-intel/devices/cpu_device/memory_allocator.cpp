@@ -44,7 +44,7 @@
 using namespace Intel::OpenCL::CPUDevice;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize, ICLDevBackendImageService* pImageService) :
-	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pImageService(pImageService)
+	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_lclHeap(NULL), m_pImageService(pImageService)
 {
 	if ( NULL != logDesc )
 	{
@@ -55,6 +55,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl
 		}
 	}
 
+	clCreateHeap(0, (size_t)maxAllocSize, &m_lclHeap);
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Created"));
 }
 
@@ -62,6 +63,10 @@ MemoryAllocator::~MemoryAllocator()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Distructed"));
 
+	if ( NULL != m_lclHeap )
+	{
+		clDeleteHeap(m_lclHeap);
+	}
 	if (0 != m_iLogHandle)
 	{
 		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
@@ -128,13 +133,12 @@ cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags
 ********************************************************************************************************************/
 cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp )
 {
-	assert( NULL != pAllocProp );
+	assert( NULL == pAllocProp );
 
 	pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
 	pAllocProp->imageSharingGroupId  = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
 	pAllocProp->hostUnified          = true;
 	pAllocProp->alignment            = CPU_DEV_MAXIMUM_ALIGN;
-	pAllocProp->preferred_alignment  = CPU_DEV_MAXIMUM_ALIGN;
 	pAllocProp->maxBufferSize        = m_maxAllocSize;
     pAllocProp->imagesSupported      = true;
 	pAllocProp->DXSharing            = false;
@@ -143,6 +147,63 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 	return CL_DEV_SUCCESS;
 }
 
+/****************************************************************************************************************
+ ElementSize
+	Description
+		This function calculated the expected element size
+	Input
+		format 				    Image format
+********************************************************************************************************************/
+size_t MemoryAllocator::GetElementSize(const cl_image_format* format)
+{
+	size_t stChannels = 0;
+	size_t stChSize = 0;
+	switch (format->image_channel_order)
+	{
+	case CL_R:case CL_A:case CL_LUMINANCE:case CL_INTENSITY:
+	case CL_RGB:	// Special case, must be used only with specific data type
+		stChannels = 1;
+		break;
+	case CL_RG:case CL_RA:
+		stChannels = 2;
+		break;
+	case CL_RGBA: case CL_ARGB: case CL_BGRA:
+		stChannels = 4;
+		break;
+	default:
+		assert(0);
+	}
+	switch (format->image_channel_data_type)
+	{
+		case (CL_SNORM_INT8):
+		case (CL_UNORM_INT8):
+		case (CL_SIGNED_INT8):
+		case (CL_UNSIGNED_INT8):
+				stChSize = 1;
+				break;
+		case (CL_SNORM_INT16):
+		case (CL_UNORM_INT16):
+		case (CL_UNSIGNED_INT16):
+		case (CL_SIGNED_INT16):
+		case (CL_HALF_FLOAT):
+		case CL_UNORM_SHORT_555:
+		case CL_UNORM_SHORT_565:
+				stChSize = 2;
+				break;
+		case (CL_SIGNED_INT32):
+		case (CL_UNSIGNED_INT32):
+		case (CL_FLOAT):
+		case CL_UNORM_INT_101010:
+				stChSize = 4;
+				break;
+		default:
+				assert(0);
+	}
+
+	return stChannels*stChSize;
+}
+
+
 cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
 					 size_t dim_count, const size_t* dim,
 					 IOCLDevRTMemObjectService* pRTMemObjService,
@@ -150,15 +211,26 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateObject enter"));
 
+	if ( NULL == m_lclHeap)
+	{
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Device heap was not created"));
+		return CL_DEV_OBJECT_ALLOC_FAIL;
+	}
+	size_t uiElementSize = 1;
+
 	assert(NULL != memObj);
 	assert(NULL != dim);
 	assert(MAX_WORK_DIM >= dim_count);
-	assert(NULL != pRTMemObjService );
+
+	if ( dim_count > 1)
+	{
+		uiElementSize = GetElementSize(format);
+	}
 
 	// Allocate memory for memory object
-	CPUDevMemoryObject*	pMemObj = new CPUDevMemoryObject(m_iLogHandle, m_pLogDescriptor, 
+	CPUDevMemoryObject*	pMemObj = new CPUDevMemoryObject(m_iLogHandle, m_pLogDescriptor, m_lclHeap,
 															node_id, flags,
-															format, 
+															format, uiElementSize,
 															dim_count, dim,
 															pRTMemObjService, m_pImageService);
 	if ( NULL == pMemObj )
@@ -201,27 +273,26 @@ void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count,
 // CPUDevMemoryObject
 //-----------------------------------------------------------------------------------------------------
 
-CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, 
+CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, ClHeap lclHeap,
 				   cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
-				   const cl_image_format* pImgFormat, 
+				   const cl_image_format* pImgFormat, size_t elemSize,
 				   size_t dimCount, const size_t* dim,
 				   IOCLDevRTMemObjectService* pRTMemObjService,
 				   ICLDevBackendImageService* pImageService):
-m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
+m_lclHeap(lclHeap), m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
 m_nodeId(nodeId), m_memFlags(memFlags), m_pRTMemObjService(pRTMemObjService),
-m_pBackingStore(NULL),  m_pImageService(pImageService)
+m_pBackingStore(NULL),  m_pImageService(pImageService), m_pHostPtr(NULL)
 {
 	assert( NULL != m_pRTMemObjService);
 
 	// Get only if there is available backing store.
-	cl_dev_err_code bsErr;
-	bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) );
+	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &m_pBackingStore);
+	if ( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) )
+	{
+		m_pBackingStore->AddPendency();
+	}
 
-	m_pBackingStore->AddPendency();
-	
 	m_objDecr.dim_count = (cl_uint)dimCount;
-
 	if ( NULL != pImgFormat )
 	{
 		// Convert from User to Kernel format
@@ -233,39 +304,158 @@ m_pBackingStore(NULL),  m_pImageService(pImageService)
 		m_objDecr.dimensions.buffer_size = dim[0];
 	} else
 	{
-		const size_t* dims = m_pBackingStore->GetDimentions();
-		for (unsigned int i = 0; i < dimCount; ++i)
+		for (size_t i=0; i<MAX_WORK_DIM; ++i)
 		{
-			m_objDecr.dimensions.dim[i] = (unsigned int)dims[i];
+			m_objDecr.dimensions.dim[i] = (unsigned int)dim[i];
 		}
 	}
 
-	m_objDecr.uiElementSize = (unsigned int)m_pBackingStore->GetElementSize();
+	if ( (NULL != m_pBackingStore) && ( IOCLDevBackingStore::CL_DEV_BS_RT_ALLOCATED != m_pBackingStore->GetRawDataDecription()) )
+	{
+		m_pHostPtr = m_pBackingStore->GetRawData();
+
+		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
+		{
+			m_hostPitch[i] = m_pBackingStore->GetPitch()[i];
+		}
+	}
+	else
+	{
+		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
+		{
+			m_hostPitch[i] = 0;
+		}
+	}
+	m_objDecr.uiElementSize = (unsigned int)elemSize;
 	m_objDecr.pData = NULL;
 }
 
 CPUDevMemoryObject::~CPUDevMemoryObject()
 {
-	m_pBackingStore->RemovePendency();
+	if ( NULL != m_pBackingStore )
+	{
+		m_pBackingStore->RemovePendency();
+	}
 }
 
 cl_dev_err_code CPUDevMemoryObject::Init()
 {
-	m_objDecr.pData = m_pBackingStore->GetRawData();
-	memcpy( m_objDecr.pitch, m_pBackingStore->GetPitch(), sizeof(m_objDecr.pitch) );
+
+	bool bUserPtrNotAligned =
+		( (NULL != m_pBackingStore) && IOCLDevBackingStore::CL_DEV_BS_USER_ALLOCATED == m_pBackingStore->GetRawDataDecription() ) &&
+		( ((((size_t)m_pHostPtr & (CPU_DEV_MAXIMUM_ALIGN-1)) != 0) && (1 == m_objDecr.dim_count)) ||
+		  ((((size_t)m_pHostPtr & (m_objDecr.uiElementSize-1)) != 0) && (1 != m_objDecr.dim_count))
+		);
+
+	// Allocate memory internally, required when:
+	// 1. No host pointer provided
+	// 2. Pointer provided by RT is not aligned and it's working area
+	// 3. Host pointer contains user data to be copied(not working area)
+	bool bCopyData = (NULL != m_pBackingStore) && IOCLDevBackingStore::CL_DEV_BS_USER_COPY == m_pBackingStore->GetRawDataDecription();
+	if ( NULL == m_pHostPtr || bUserPtrNotAligned || bCopyData )
+	{
+		// Calculate total memory required for allocation
+		size_t allocSize;
+		if ( 1 == m_objDecr.dim_count )
+		{
+			allocSize = m_objDecr.dimensions.buffer_size;
+		}
+		else
+		{
+			allocSize = m_objDecr.uiElementSize;
+			for(unsigned int i=0; i<m_objDecr.dim_count; ++i)
+			{
+				allocSize*=m_objDecr.dimensions.dim[i];
+			}
+		}
+		m_objDecr.pData = clAllocateFromHeap(m_lclHeap, allocSize, CPU_DEV_MAXIMUM_ALIGN);
+		if ( NULL == m_objDecr.pData )
+		{
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object memory buffer Allocation failed"));
+			return CL_DEV_OBJECT_ALLOC_FAIL;
+		}
+		// For images only
+		size_t prev_pitch = m_objDecr.uiElementSize;
+		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
+		{
+			m_objDecr.pitch[i] = prev_pitch*m_objDecr.dimensions.dim[i];
+			prev_pitch = m_objDecr.pitch[i];
+		}
+	} else
+	{
+		// The object pointers to external buffer
+		m_objDecr.pData = m_pHostPtr;
+		// Also need to update object pitches
+		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
+		{
+			m_objDecr.pitch[i] = m_hostPitch[i];
+		}
+	}
+
+	// Copy initial data if required:
+	//		Data available and our PTR is not the HOST ptr provided by user
+	if ( ((NULL != m_pBackingStore) && m_pBackingStore->IsDataValid()) && (NULL != m_pHostPtr) && (m_objDecr.pData != m_pHostPtr) )
+	{
+		SMemCpyParams sCpyPrm;
+
+		sCpyPrm.uiDimCount = m_objDecr.dim_count;
+		sCpyPrm.pSrc = (cl_char*)m_pHostPtr;
+
+		sCpyPrm.pDst = (cl_char*)m_objDecr.pData;
+		for(unsigned int i=0; i<m_objDecr.dim_count-1; i++)
+		{
+			sCpyPrm.vDstPitch[i] = m_objDecr.pitch[i];
+			sCpyPrm.vSrcPitch[i] = m_hostPitch[i];
+		}
+		if ( 1 == m_objDecr.dim_count )
+		{
+			sCpyPrm.vRegion[0] = m_objDecr.dimensions.buffer_size;
+		}
+		else
+		{
+			for(unsigned int i=0; i< m_objDecr.dim_count; i++)
+			{
+				sCpyPrm.vRegion[i] = m_objDecr.dimensions.dim[i];
+			}
+			sCpyPrm.vRegion[0] = sCpyPrm.vRegion[0] * m_objDecr.uiElementSize;
+		}
+		// Copy original buffer to internal area
+		clCopyMemoryRegion(&sCpyPrm);
+	}
+
+	// If original BS holds only data to copy we don't need it any more
+	if ( bCopyData )
+	{
+		m_pBackingStore->RemovePendency();
+		m_pBackingStore = NULL;
+		m_pHostPtr = NULL;
+	}
+
+	// Create local backing store if required
+	if ( NULL == m_pBackingStore )
+	{
+		m_pBackingStore = new CPUDevBackingStore(m_objDecr.pData, m_objDecr.pitch);
+		if ( NULL == m_pBackingStore )
+		{
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CPU Backign store allocation failed"));
+			return CL_DEV_OUT_OF_MEMORY;
+		}
+		cl_dev_err_code rtErr = m_pRTMemObjService->SetBackingStore(m_pBackingStore);
+		if ( CL_DEV_FAILED(rtErr) )
+		{
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to update Backing store 0x%X"), rtErr);
+			m_pBackingStore->RemovePendency();
+			m_pBackingStore = NULL;
+			return CL_DEV_ERROR_FAIL;
+		}
+	}
 
 	//allocating the memory on the device by querying the backend for the size
 	void* auxObject = NULL;
 	if (m_objDecr.dim_count > 1)  //image - should be correctly established in another way!
 	{
 		size_t auxObjectSize=m_pImageService->GetAuxilarySize();
-		auxObject = ALIGNED_MALLOC( auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
-		if( NULL == auxObject )
-		{
-			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Allocate aux image object failed"));
-			return CL_DEV_ERROR_FAIL;
-		}
-
+		auxObject = clAllocateFromHeap(m_lclHeap, auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
 		cl_dev_err_code rtErr = m_pImageService->CreateImageObject(&m_objDecr, (image_aux_data*)auxObject);
 		if( CL_DEV_FAILED(rtErr) )
 		{
@@ -285,13 +475,16 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 
 	void* auxObject = NULL;
 	if(m_pImageService != NULL)
-	{
 		m_pImageService->DeleteImageObject(&m_objDecr, &auxObject);
+	if ( (NULL != auxObject) && (NULL != m_lclHeap) )
+	{
+		clFreeHeapPointer(m_lclHeap, auxObject);
 	}
 
-	if (NULL != auxObject)
+	// Did we allocate the buffer and not sub-object
+	if ( (m_pHostPtr != m_objDecr.pData) && (NULL != m_lclHeap) )
 	{
-		ALIGNED_FREE( auxObject );
+		clFreeHeapPointer(m_lclHeap, m_objDecr.pData);
 	}
 
 	delete this;
@@ -314,8 +507,8 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 	void*	pMapPtr = NULL;
 	// Determine which pointer to use
-	pMapPtr = m_objDecr.pData;
-	size_t*	pitch = m_objDecr.pitch;
+	pMapPtr = ((NULL != m_pBackingStore) && IOCLDevBackingStore::CL_DEV_BS_USER_ALLOCATED == m_pBackingStore->GetRawDataDecription() ) ? m_pHostPtr : m_objDecr.pData;
+	size_t*	pitch = ((NULL != m_pBackingStore) && IOCLDevBackingStore::CL_DEV_BS_USER_ALLOCATED == m_pBackingStore->GetRawDataDecription() ) ? m_hostPitch : m_objDecr.pitch;
 
 	assert(pMapParams->dim_count == m_objDecr.dim_count);
 	pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(pMapPtr, m_objDecr.dim_count, pMapParams->origin, pitch, m_objDecr.uiElementSize);
@@ -380,9 +573,41 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
 	m_memFlags = mem_flags;
 
+	if ( NULL != m_pParent->m_pHostPtr )
+	{
+		// Set appropriate host pointer values
+		m_pHostPtr = MemoryAllocator::CalculateOffsetPointer(m_pParent->m_pHostPtr, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
+		MEMCPY_S(m_hostPitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_pParent->m_hostPitch, sizeof(size_t)*(m_objDecr.dim_count-1));
+	}
+
 	m_pBackingStore = m_pParent->m_pBackingStore;
 	m_pBackingStore->AddPendency();
 
 	return CL_DEV_SUCCESS;
 }
 
+//////////////////////////////////////////////////////////////////////////
+/// CPUDevBackingStore
+//////////////////////////////////////////////////////////////////////////
+CPUDevBackingStore::CPUDevBackingStore(void* ptr, const size_t pitch[]) :
+	m_ptr(ptr)
+{
+	assert(NULL != pitch);
+	memcpy(m_pitch, pitch, sizeof(m_pitch));
+	m_refCount = 1;
+}
+
+int CPUDevBackingStore::AddPendency()
+{
+	return m_refCount++;
+}
+
+int CPUDevBackingStore::RemovePendency()
+{
+	long oldVal = m_refCount--;
+	if ( 1 == oldVal )
+	{
+		delete this;
+	}
+	return oldVal;
+}
