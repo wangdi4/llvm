@@ -10,7 +10,7 @@ Usage: $0 [+cnf] [+cnf12] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ve
     +cnf                - include conformance 1.1 tests into build - ONLY FOR INITIAL SETTINGS!
                                use 'make edit_cache' to modify later!
 
-    +cnf12              - include conformance 1.1 and 1.2 tests into build
+    +cnf12              - include conformance 1.2 tests into build
 	
     --eclipse | -e      - create eclipse project
 
@@ -79,8 +79,7 @@ while [ "$1" != "" ]; do
     case $1 in
         +cnf )                  incl_cnf=ON
                                 ;;
-		+cnf12 )                incl_cnf=ON
-		                        incl_cnf12=ON
+		+cnf12 )                incl_cnf12=ON
                                 ;;						
         --esrc )                eclipse_extra_args="${eclipse_extra_args} -D ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT=ON"
                                 generator="Eclipse CDT4 - Unix Makefiles"

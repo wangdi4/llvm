@@ -8,7 +8,7 @@ rem Usage:
 rem    gen_vc_project [+cnf] [+cnf12] [-cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] [build_type]
 rem
 rem  +cnf           - include conformance 1.1 tests into solution
-rem  +cnf12         - include conformance 1.1 and 1.2 tests into solution
+rem  +cnf12         - include conformance 1.2 tests into solution
 rem  -cmrt          - remove Common Runtime from the solution
 rem  +java          - include java code
 rem  +dbg           - include debugger engine into solution	
@@ -45,9 +45,7 @@ set build_type=
 		set incl_cnf=ON
 		echo Include CNF
 	) else if x%1 == x+cnf12 (
-		set incl_cnf=ON
 		set incl_cnf12=ON
-		echo Include CNF
 		echo Include CNF 1.2
 	)else if x%1 == x-cmrt (
 		set incl_cmrt=OFF
@@ -113,7 +111,7 @@ if %use_x64% == ON set BUILD_CONFIG=win64
 
 set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_d3d9 test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
 
-cmake -G %GEN_VERSION% -D PYTHON_EXECUTABLE="C:\Python27\python.exe" -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type%  -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ -D CMAKE_INSTALL_IDE_PREFIX=%CD%/../install/%BUILD_CONFIG%/$(OutDir)  %top_dir%\src
+cmake -G %GEN_VERSION% -D PYTHON_EXECUTABLE="C:\Python27\python.exe" -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type%  -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ %top_dir%\src
 if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
