@@ -178,7 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             return clErr;
         }
         clErr = d3d9Resource.Initialize(clFlags, D3DFMT_UNKNOWN != d3dFormat ? &clFormat : NULL,
-            uiDimCnt, dims, NULL, pResourceInfo);
+            uiDimCnt, dims, NULL, pResourceInfo, 0);
         if (CL_FAILED(clErr))
         {
             LOG_ERROR(TEXT("Failed to initialize data, pD3D9Resource->Initialize(pHostPtr = %S"),

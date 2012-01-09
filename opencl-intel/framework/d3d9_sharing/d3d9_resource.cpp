@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code D3D9Resource::Initialize(cl_mem_flags clMemFlags,
         const cl_image_format* pclImageFormat, unsigned int dim_count,
-        const size_t* dimension, const size_t* pitches, void* pHostPtr)
+        const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags)
     {
         m_pResourceInfo = (D3D9ResourceInfo*)pHostPtr;
         m_pResourceInfo->m_pResource->AddRef();
@@ -174,7 +174,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             SetAcquireState(res);
             return;
         }
-        res = pChild->Initialize(m_clFlags, &m_clImageFormat, m_uiNumDim, m_szDimensions, GetPitches(), pData);
+        res = pChild->Initialize(m_clFlags, &m_clImageFormat, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
         if (CL_FAILED(res))
         {
             Unlock();

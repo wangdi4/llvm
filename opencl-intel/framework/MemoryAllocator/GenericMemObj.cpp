@@ -33,9 +33,6 @@
 
 #include "MemoryObjectFactory.h"
 
-// assumes alignment is a power of 2
-#define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what) & ((size_t)(alignment) - 1))))
-
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
@@ -121,12 +118,13 @@ static inline bool is_image_ok_for_device( unsigned int		dim_count,
 
 // initialize the memory object
 cl_err_code GenericMemObject::Initialize(
-							   cl_mem_flags		clMemFlags,
+							   cl_mem_flags				clMemFlags,
 							   const cl_image_format*	pclImageFormat,
-							   unsigned int		dim_count,
-							   const size_t*	dimension,
-							   const size_t*    pitches,
-							   void*			pHostPtr
+							   unsigned int				dim_count,
+							   const size_t*			dimension,
+							   const size_t*			pitches,
+							   void*					pHostPtr,
+							   cl_rt_memobj_creation_flags	creation_flags
 							   )
 {
 	m_clFlags = clMemFlags;
@@ -157,6 +155,7 @@ cl_err_code GenericMemObject::Initialize(
     assert( (0 != dev_count) && (NULL != pDevices) );
 
     size_t alignment = 1; // no alignment
+	size_t preferred_alignment = alignment;
     size_t object_size = GenericMemObjectBackingStore::calculate_size(
                             GenericMemObjectBackingStore::get_element_size( pclImageFormat ),
                             dim_count, dimension, pitches );
@@ -178,6 +177,9 @@ cl_err_code GenericMemObject::Initialize(
         assert( (unsigned int)device_properties.bufferSharingGroupId < MAX_DEVICE_SHARING_GROUP_ID );
         assert( 0 == (device_properties.alignment & (device_properties.alignment - 1))
                         && "Device Mem alignment requirement is not a power of 2");
+        assert( 0 == (device_properties.preferred_alignment & (device_properties.preferred_alignment - 1))
+                        && "Device Mem preferred_alignment requirement is not a power of 2");
+        assert( device_properties.alignment <= device_properties.preferred_alignment );
 
         unsigned int sharingGroupId;
 
@@ -204,7 +206,8 @@ cl_err_code GenericMemObject::Initialize(
             }
         }
 
-        alignment = MAX( alignment, device_properties.alignment );
+        alignment			= MAX( alignment,			device_properties.alignment );
+        preferred_alignment = MAX( preferred_alignment, device_properties.preferred_alignment );
 
         // add device to the list
         m_device_descriptors.push_back( DeviceDescriptor(dev, sharingGroupId,
@@ -231,7 +234,10 @@ cl_err_code GenericMemObject::Initialize(
                 							   dimension,
                 							   pitches,
                 							   pHostPtr,
-                							   alignment );
+                							   alignment,
+											   preferred_alignment,
+											   GetContext()->GetMemoryObjectsHeap(),
+											   creation_flags );
 
     if (NULL == m_BS)
     {
@@ -274,7 +280,7 @@ cl_err_code GenericMemObject::Initialize(
 
 	// Now we should set backing store
 	// Get access to internal pointer
-	m_pMemObjData = m_BS->GetRawData();
+	m_pMemObjData = m_pBackingStore->GetRawData();
 
 	m_stMemObjSize  = m_BS->GetRawDataSize();
 
@@ -298,7 +304,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 	m_clFlags   = clMemFlags;
 
     // Create Backing Store
-    assert( (NULL != parent.m_pBackingStore->GetRawData()) && parent.m_pBackingStore->IsDataValid() &&
+    assert( (NULL != parent.m_pBackingStore->GetRawData()) &&
             "Parent Memory Object Backing Store must be finalized during SubObject creation" );
 
     m_BS = new GenericMemObjectBackingStore( clMemFlags,
@@ -317,7 +323,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
     m_pBackingStore = m_BS;
 
 	m_pHostPtr = m_BS->GetUserProvidedHostMapPtr();
-    m_uiNumDim = m_BS->GetDimCount();
+    m_uiNumDim = (cl_uint)m_BS->GetDimCount();
 
     size_t start_offset = parent.m_BS->GetRawDataOffset(origin);
 
@@ -378,7 +384,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 
 	// Now we should set backing store
 	// Get access to internal pointer
-	m_pMemObjData = m_BS->GetRawData();
+	m_pMemObjData = m_pBackingStore->GetRawData();
 
     // sub-buffer related
     m_stMemObjSize  = m_BS->GetRawDataSize();
@@ -489,7 +495,7 @@ cl_err_code GenericMemObject::CreateDeviceResource(FissionableDevice* pDevice)
 
     OclAutoMutex lock( &m_global_lock );
 
-    return allocate_object_for_sharing_group(desc->m_sharing_group_id);
+    return allocate_object_for_sharing_group((unsigned int)desc->m_sharing_group_id);
 }
 
 cl_err_code GenericMemObject::GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent)
@@ -559,6 +565,11 @@ cl_err_code	GenericMemObject::MemObjReleaseDevMappedRegion(
 	cl_dev_err_code dev_err =  dev_object->clDevMemObjReleaseMappedRegion(cmd_param_map);
 
 	return CL_DEV_SUCCEEDED(dev_err) ? CL_SUCCESS : CL_INVALID_VALUE;
+}
+
+bool GenericMemObject::IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const
+{
+	return (pMapInfo->ptr != pHostMapDataPtr);
 }
 
 cl_err_code GenericMemObject::SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
@@ -634,7 +645,7 @@ cl_err_code GenericMemObject::ReadData(void * pData,
 	SMemCpyParams			sCpyParam;
 
 	// Region
-	sCpyParam.uiDimCount = m_BS->GetDimCount();
+	sCpyParam.uiDimCount = (cl_uint)m_BS->GetDimCount();
 
     // set source pointer (we)
     sCpyParam.pSrc = (cl_char*)m_pBackingStore->GetRawData() + m_BS->GetRawDataOffset( pszOrigin );
@@ -656,7 +667,7 @@ cl_err_code GenericMemObject::ReadData(void * pData,
 	// set row Pitch for src (we) and dst (them)
 	memcpy(sCpyParam.vSrcPitch, m_BS->GetPitch(), sizeof(sCpyParam.vSrcPitch));
     sCpyParam.vDstPitch[0] = szRowPitch;
-    sCpyParam.vDstPitch[0] = szSlicePitch;
+    sCpyParam.vDstPitch[1] = szSlicePitch;
 
 	clCopyMemoryRegion(&sCpyParam);
 
@@ -672,7 +683,7 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
 	SMemCpyParams			sCpyParam;
 
 	// Region
-	sCpyParam.uiDimCount = m_BS->GetDimCount();
+	sCpyParam.uiDimCount = (cl_uint)m_BS->GetDimCount();
 
     // set source pointer (them)
     sCpyParam.pSrc = (cl_char*)pData;
@@ -693,7 +704,7 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
 
 	// set row Pitch for src (them) and dst (we)
     sCpyParam.vSrcPitch[0] = szRowPitch;
-    sCpyParam.vSrcPitch[0] = szSlicePitch;
+    sCpyParam.vSrcPitch[1] = szSlicePitch;
 	memcpy(sCpyParam.vDstPitch, m_BS->GetPitch(), sizeof(sCpyParam.vDstPitch));
 
 	clCopyMemoryRegion(&sCpyParam);
@@ -703,36 +714,160 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
 
 cl_err_code GenericMemObject::CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const
 {
-    size_t past_last_end_offset[MAX_WORK_DIM] = {0};
-    unsigned int dim_count = (unsigned int)m_BS->GetDimCount();
+	const size_t* my_dims  = m_BS->GetDimentions();
+	unsigned int dim_count = (unsigned int)m_BS->GetDimCount();
 
-    for (unsigned int i = 0;  i < dim_count; ++i)
+    for (unsigned int i = 0; i < dim_count; ++i)
     {
-        past_last_end_offset[i] = pszOrigin[i] + pszRegion[i];
+		if ((pszOrigin[i] + pszRegion[i]) > my_dims[i])
+		{
+			return CL_INVALID_MEM_OBJECT;
+		}
     }
 
-	return (m_BS->GetRawDataOffset( past_last_end_offset ) <= m_BS->GetRawDataSize()) ? CL_SUCCESS : CL_INVALID_MEM_OBJECT;
+	return CL_SUCCESS;
 }
 
 cl_err_code GenericMemObject::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion,
                                                size_t szRowPitch, size_t szSlicePitch) const
 {
-    size_t past_last_end_offset[MAX_WORK_DIM] = {0};
     size_t pitches[2] = { szRowPitch, szSlicePitch };
     unsigned int dim_count = (unsigned int)m_BS->GetDimCount();
 
-    for (unsigned int i = 0; i < dim_count; ++i)
-    {
-        past_last_end_offset[i] = pszOrigin[i] + pszRegion[i];
-    }
+	size_t raw_base_offset = m_BS->calculate_offset(m_BS->GetElementSize(),
+													dim_count,
+													pszOrigin,
+													pitches );
 
-    size_t raw_past_end_offset = m_BS->calculate_offset( m_BS->GetElementSize(),
-                                                         dim_count,
-                                                         past_last_end_offset,
-                                                         pitches );
+	size_t raw_delta_size = m_BS->calculate_size(	m_BS->GetElementSize(),
+													dim_count,
+													pszRegion,
+													pitches );
 
-    return (raw_past_end_offset <= m_BS->GetRawDataSize()) ? CL_SUCCESS : CL_INVALID_MEM_OBJECT;
+    return ((raw_base_offset + raw_delta_size) <= m_BS->GetRawDataSize()) ? CL_SUCCESS : CL_INVALID_MEM_OBJECT;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// SingleUnifiedImage2D::GetImageInfo()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+{
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
+	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType)
+	{
+		return CL_INVALID_MEM_OBJECT;
+	}
+
+	// init MemoryObject fields
+	const size_t* dims = m_BS->GetDimentions();
+	const size_t* pits = m_BS->GetPitch();
+	size_t	 elem_size = m_BS->GetElementSize();
+
+	size_t  szSize = 0;
+	void * pValue = NULL;
+	size_t	stZero = 0;
+	switch (clParamName)
+	{
+	case CL_IMAGE_FORMAT:
+		szSize = sizeof(cl_image_format);
+		pValue = (void*)&m_BS->GetFormat();
+		break;
+	case CL_IMAGE_ELEMENT_SIZE:
+		szSize = sizeof(size_t);
+		pValue = &elem_size;
+		break;
+	case CL_IMAGE_ROW_PITCH:
+		szSize = sizeof(size_t);
+		pValue = (void*)&pits[0];
+		break;
+	case CL_IMAGE_WIDTH:
+		szSize = sizeof(size_t);
+		pValue = (void*)&dims[0];
+		break;
+
+	case CL_IMAGE_HEIGHT:
+		if ((CL_MEM_OBJECT_IMAGE1D		  != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE1D_BUFFER != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE1D_ARRAY  != m_clMemObjectType))
+		{
+			szSize = sizeof(size_t);
+			pValue = (void*)&dims[1];
+		}
+		else
+		{
+			szSize = sizeof(size_t);
+			pValue = &stZero;
+		}
+		break;
+
+	case CL_IMAGE_SLICE_PITCH:
+		if ((CL_MEM_OBJECT_IMAGE1D		  != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE1D_BUFFER != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE2D		  != m_clMemObjectType))
+		{
+			szSize = sizeof(size_t);
+			pValue = (void*)&pits[1];
+		}
+		else
+		{
+			szSize = sizeof(size_t);
+			pValue = &stZero;
+		}
+		break;
+
+	case CL_IMAGE_DEPTH:
+		if ((CL_MEM_OBJECT_IMAGE1D		  != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE1D_BUFFER != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE2D		  != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE1D_ARRAY  != m_clMemObjectType) &&
+			(CL_MEM_OBJECT_IMAGE2D_ARRAY  != m_clMemObjectType))
+		{
+			szSize = sizeof(size_t);
+			pValue = (void*)&dims[2];
+		}
+		else
+		{
+			szSize = sizeof(size_t);
+			pValue = &stZero;
+		}
+		break;
+
+	case CL_IMAGE_ARRAY_SIZE:
+	case CL_IMAGE_BUFFER:
+	case CL_IMAGE_NUM_MIP_LEVELS:
+	case CL_IMAGE_NUM_SAMPLES:
+		assert( 0 );
+
+	default:
+        return CL_INVALID_VALUE;
+	}
+
+	if (NULL != pParamValue && szParamValueSize < szSize)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if (NULL != pszParamValueSizeRet)
+	{
+		*pszParamValueSizeRet = szSize;
+	}
+
+	if (NULL != pParamValue && szSize > 0)
+	{
+		MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+	}
+
+	return CL_SUCCESS;
+
+}
+
 
 void * GenericMemObject::GetBackingStoreData( const size_t * pszOrigin ) const
 {
@@ -789,9 +924,14 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 							   const size_t*	        dimensions,
 							   const size_t*            pitches,
 							   void*			        pHostPtr,
-							   size_t                   alignment ) :
-	m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_creation_flags(clMemFlags),
-    m_data_valid(NULL != pHostPtr), m_alignment(alignment), m_parent(NULL), m_refCount(1)
+							   size_t                   alignment,
+							   size_t					preferred_alignment,
+							   ClHeap					heap,
+							   cl_rt_memobj_creation_flags   creation_flags ) :
+	m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
+    m_data_valid(NULL != pHostPtr), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
+	m_raw_data_size(0), m_raw_data_description(CL_DEV_BS_RT_ALLOCATED), 
+	m_heap(heap), m_parent(NULL), m_refCount(1)
 {
     if (pclImageFormat)
     {
@@ -807,39 +947,29 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 
     // caclulate pitches and dimensions
     assert( NULL != dimensions );
-
-    memset( m_dimensions, 0, sizeof(m_dimensions) );
-    memset( m_pitches, 0, sizeof(m_pitches) );
-
-    m_dimensions[0]     = dimensions[0];
-    size_t prev_pitch   = m_dimensions[0] * m_element_size;
-
-    for ( cl_uint i = 1; i < dim_count; ++i)
-    {
-        m_dimensions[i]     = dimensions[i];
-        size_t next_pitch   = m_dimensions[i] * prev_pitch;
-
-        if ((NULL != pitches) && (pitches[i-1] > next_pitch))
-        {
-            next_pitch = pitches[i-1];
-        }
-
-        m_pitches[i-1] = next_pitch;
-        prev_pitch     = next_pitch;
-    }
+	calculate_pitches_and_dimentions( m_element_size, dim_count, dimensions, pitches, m_dimensions, m_pitches );
 
     // calc raw data size
-    m_raw_data_size = calculate_size(m_element_size, m_dim_count, m_dimensions, m_pitches);
+    m_raw_data_size = calculate_size(m_element_size, (cl_uint)m_dim_count, m_dimensions, m_pitches);
 
     assert( IS_ALIGNED_ON(m_alignment, m_alignment) && "Alignment is not power of 2" );
+    assert( IS_ALIGNED_ON(m_preferred_alignment, m_preferred_alignment) && "Preferred alignment is not power of 2" );
 
     // can user data be used?
-    if ((NULL != pHostPtr)                              && // user provided some pointer
-        (0 == (m_creation_flags & CL_MEM_COPY_HOST_PTR))&& // this pointer is not for copy from only
-        (IS_ALIGNED_ON( pHostPtr, m_alignment )))          // this pointer alignment is ok
-    {
-        m_ptr = pHostPtr;
-    }
+    if (NULL != pHostPtr)                              // user provided some pointer
+	{
+		if (CL_RT_MEMOBJ_FORCE_BS & creation_flags)	   // force user data as BS regardless of alignment
+		{
+			m_ptr = pHostPtr;
+			m_raw_data_description = CL_DEV_BS_RT_MAPPED;
+		}
+		else if ((0 == (m_user_flags & CL_MEM_COPY_HOST_PTR))	&& // this pointer is not for copy from only
+				 (IS_ALIGNED_ON( pHostPtr, m_alignment )))			   // this pointer alignment is ok
+		{
+			m_ptr = pHostPtr;
+			m_raw_data_description = CL_DEV_BS_USER_ALLOCATED;
+		}
+	}
 }
 
 GenericMemObjectBackingStore::GenericMemObjectBackingStore(
@@ -848,8 +978,9 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
                                const size_t*	        origin,
                                const size_t*            region,
                                GenericMemObjectBackingStore&  copy_setting_from ):
-	m_ptr(NULL), m_dim_count(0), m_pHostPtr(NULL), m_creation_flags(clMemFlags),
-    m_data_valid(true), m_alignment(0), m_parent(NULL), m_refCount(1)
+	m_ptr(NULL), m_dim_count(0), m_pHostPtr(NULL), m_user_flags(clMemFlags),
+    m_data_valid(true), m_alignment(0), m_preferred_alignment(0), m_heap(NULL),
+	m_parent(parent_ps), m_refCount(1)
 {
     size_t raw_data_offset = copy_setting_from.GetRawDataOffset(origin);
 
@@ -866,13 +997,13 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     m_pHostPtr     = (m_pHostPtr) ? (cl_uchar*)m_pHostPtr + raw_data_offset : NULL;
     m_alignment    = copy_setting_from.m_alignment;
 
+	m_raw_data_description = m_parent->GetRawDataDecription();
+
     // calc raw data size
-    m_raw_data_size = calculate_size(m_element_size, m_dim_count, m_dimensions, m_pitches);
+    m_raw_data_size = calculate_size(m_element_size, (cl_uint)m_dim_count, m_dimensions, m_pitches);
 
     m_parent->AddPendency();
 }
-
-
 
 GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
 {
@@ -883,7 +1014,7 @@ GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
     }
     else if (m_ptr && (m_ptr != m_pHostPtr))
 	{
-        ALIGNED_FREE( m_ptr );
+		clFreeHeapPointer( m_heap, m_ptr );
 	}
 }
 
@@ -967,17 +1098,58 @@ size_t GenericMemObjectBackingStore::calculate_offset( size_t elem_size, unsigne
     return offset;
 }
 
+void GenericMemObjectBackingStore::calculate_pitches_and_dimentions( 
+									   size_t elem_size, unsigned int  dim_count, 
+									   const size_t user_dims[], const size_t user_pitches[],
+                                       size_t  dimensions[], size_t  pitches[] )
+{
+    assert( NULL != user_dims );
+
+    memset( dimensions, 0, sizeof(dimensions[0]) * MAX_WORK_DIM );
+    memset( pitches, 0, sizeof(pitches[0]) * (MAX_WORK_DIM - 1) );
+
+    dimensions[0]		= user_dims[0];
+    size_t prev_pitch   = elem_size;
+
+    for ( cl_uint i = 1; i < dim_count; ++i)
+    {
+        dimensions[i]     = user_dims[i];
+        size_t next_pitch = dimensions[i-1] * prev_pitch;
+
+        if ((NULL != user_pitches) && (user_pitches[i-1] > next_pitch))
+        {
+            next_pitch = user_pitches[i-1];
+        }
+
+        pitches[i-1] = next_pitch;
+        prev_pitch   = next_pitch;
+    }
+}
+
 size_t GenericMemObjectBackingStore::calculate_size( size_t elem_size, unsigned int  dim_count,
                                                      const size_t  dimensions[], const size_t  pitches[] )
 {
+	size_t tmp_dims[MAX_WORK_DIM];
+	size_t tmp_pitches[MAX_WORK_DIM-1];
+
+	const size_t* working_dims    = dimensions;
+	const size_t* working_pitches = pitches;
+
+	if ((NULL == pitches) || ((dim_count > 1) && (0 == pitches[0])))
+	{
+		calculate_pitches_and_dimentions( elem_size, dim_count, dimensions, pitches, tmp_dims, tmp_pitches );
+		working_dims	= tmp_dims;
+		working_pitches = tmp_pitches;
+	}
+
     return (1 == dim_count) ?
-                        dimensions[0] * elem_size :
-                        pitches[dim_count-2] * dimensions[dim_count-1];
+                        working_dims[0] * elem_size :
+                        working_pitches[dim_count-2] * working_dims[dim_count-1];
 }
 
 size_t GenericMemObjectBackingStore::GetRawDataOffset( const size_t* origin ) const
 {
-    return calculate_offset( m_element_size, m_dim_count, origin, m_pitches );
+    return calculate_offset( m_element_size, (cl_uint)m_dim_count, origin, m_pitches );
 }
 
 bool GenericMemObjectBackingStore::AllocateData( void )
@@ -987,16 +1159,13 @@ bool GenericMemObjectBackingStore::AllocateData( void )
         return true;
     }
 
-    // to get the best possible performance from external devices (DMA transfers) prefer 4K page alignment if possible
-    size_t alignment = MAX( m_alignment, PAGE_4K_SIZE );
-
-    m_ptr = ALIGNED_MALLOC( m_raw_data_size, alignment );
+	m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment );
 
     if (m_ptr && IsCopyRequired())
     {
         memcpy( m_ptr, m_pHostPtr, m_raw_data_size );
 
-        if (m_creation_flags & CL_MEM_COPY_HOST_PTR)
+        if (m_user_flags & CL_MEM_COPY_HOST_PTR)
         {
             // user provided the host pointer only for one-time init and not for mapping
             m_pHostPtr = NULL;

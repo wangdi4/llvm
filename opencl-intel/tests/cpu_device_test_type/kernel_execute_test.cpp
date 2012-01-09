@@ -69,6 +69,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 	IOCLDevMemoryObject *memObjA, *memObjB, *memObjRes;
 
 	//Create Memory Object
+	localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjA);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -77,6 +78,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 		return false;
 	}
 
+	localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL );
 	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjB);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -86,6 +88,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 		return false;
 	}
 
+	localRTMemService.SetupState( NULL, 1, &stSizeRes, NULL );
 	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_WRITE_ONLY, NULL, 1, &stSizeRes, &localRTMemService, &memObjRes);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -211,6 +214,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 	IOCLDevMemoryObject *memObjA, *memObjB;
 
 	//Create Memory Object
+	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -219,6 +223,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 		return false;
 	}
 
+	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL );
 	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -343,6 +348,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	IOCLDevMemoryObject *memObjA, *memObjB;
 
 	//Create Memory Object
+	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -351,6 +357,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
 		return false;
 	}
 
+	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL );
 	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
 	if (CL_DEV_FAILED(iRes))
 	{

@@ -38,6 +38,7 @@
 #include <ocl_itt.h>
 #include <list>
 #include "ocl_object_base.h"
+#include "task_executor.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -118,6 +119,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_cmd_list	GetDevCmdListId    () const							{ return m_clDevCmdListId; }
 		void            SetDevice(FissionableDevice* pDevice)				{ m_pDevice = pDevice; }
 		FissionableDevice* GetDevice() const								{ return m_pDevice; }
+
+		// wrapper above Enqueue command to allow pre/post-fix commands
+		// pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
+		// Note: this may disapper during Enqueue if it was successful!
+		virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+
+		// Prefix and Postfix Runtime commands
+		// Each command may schedule prefix and postfix runtime commands for itself. Such commands are invisible for users
+		// and are logical part of the main command that should be executed by RunTime.
+		//   Prefix command is executed Before main command is scheduled to device agent
+		//   Postfix command is executed After main command signals completion
+		// This commands may be long and are executed by task executor
+		virtual cl_err_code	PrefixExecute()  { return CL_SUCCESS; }
+		virtual cl_err_code	PostfixExecute() { return CL_SUCCESS; }
 
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
@@ -648,6 +663,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      *
      ******************************************************************/
+	class PrePostFixRuntimeCommand;
     class MapMemObjCommand : public Command
     {
     public:
@@ -667,6 +683,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code Execute();
         virtual cl_err_code CommandDone();
 
+		virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+		virtual cl_err_code	PostfixExecute();
+
         // Object only function
 		void*           GetMappedPtr() const { return m_pHostDataPtr; }
 
@@ -679,6 +698,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t*					m_pszImageSlicePitch;
         cl_dev_cmd_param_map*   m_pMappedRegion;
         void*                   m_pHostDataPtr;
+
+		// postfix-related. Created in init, pointer zeroed at enqueue.
+		ocl_entry_points *      m_pOclEntryPoints;
+		PrePostFixRuntimeCommand* m_pPostfixCommand;
     };
 
     /******************************************************************
@@ -742,14 +765,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         UnmapMemObjectCommand(
 			IOclCommandQueueBase* cmdQueue,
 			ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObject,
-            void*             pMappedRegion
+            MemoryObject*		  pMemObject,
+            void*				  pMappedRegion
             );
         virtual ~UnmapMemObjectCommand();
 
         cl_err_code             Init();
         cl_err_code             Execute();
         cl_err_code             CommandDone();
+
+		cl_err_code				EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+		cl_err_code				PrefixExecute();
+
         cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;       }
         const char*             GetCommandName() const  { return "CL_COMMAND_UNMAP_MEM_OBJECT"; }
@@ -757,14 +784,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// GPA related functions
 		virtual const char*     GPA_GetCommandName() const { return "Unmap"; }
 
-        // override NotifyCmdStatusChanged to catch execution start (CL_RUNNING)
-        cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId,
-                                           cl_int iCmdStatus, cl_int iCompletionResult,
-                                           cl_ulong ulTimer);
-    private:
+	private:
         MemoryObject*			m_pMemObject;
 		void*					m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;
+
+		// prefix-related. Created in init, pointer zeroed at enqueue.
+		PrePostFixRuntimeCommand* m_pPrefixCommand;
+		ocl_entry_points *      m_pOclEntryPoints;
     };
 
     /******************************************************************
@@ -925,6 +952,76 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }
         const char*             GetCommandName() const  { return "CL_COMMAND_BARRIER"; }
+    };
+
+    /******************************************************************
+     *
+	 * Special internal Runtime commands to perform some async action before/after normal command
+	 *
+     ******************************************************************/
+	class ErrorQueueEvent : public OclEvent
+	{
+	public:
+		ErrorQueueEvent() : m_owner(NULL) {};
+		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
+
+		//Override to notify my command about failed events it depended on
+		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode);
+		// Get the context to which the event belongs.
+		virtual cl_context GetContextHandle() const;
+		// Get the return code of the command associated with the event.
+		virtual cl_int     GetReturnCode() const; 
+
+		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+
+	private:
+		PrePostFixRuntimeCommand* m_owner;
+	};
+
+	class RuntimeCommandTask : public Intel::OpenCL::TaskExecutor::ITask
+	{
+	public:
+		RuntimeCommandTask() : m_owner(NULL) {};
+		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
+
+		// ITask interface
+		bool Execute();
+		void Release(); 
+
+	private:
+		PrePostFixRuntimeCommand*			m_owner;
+	};
+
+    class PrePostFixRuntimeCommand : public RuntimeCommand
+    {
+    public:
+		enum Mode { PREFIX_MODE = 0, POSTFIX_MODE };
+
+        PrePostFixRuntimeCommand(Command* relatedUserCommand,    Mode working_mode, 
+								 IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ); 
+        virtual ~PrePostFixRuntimeCommand() {}
+
+		cl_err_code             Init();
+		cl_err_code				Execute();
+		cl_err_code             CommandDone();
+
+		// called possibly from another thread
+		void					DoAction();
+
+		// called by "related" command if enqueue was unsuccessful 
+		void					ErrorDone();
+		void					ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return );
+		cl_err_code				GetForcedErrorCode() const { return m_force_error_return; };
+
+        cl_command_type         GetCommandType() const  { return m_relatedUserCommand->GetCommandType(); };
+        const char*             GetCommandName() const  { return m_relatedUserCommand->GetCommandName(); };
+
+	private:
+		 Command*			m_relatedUserCommand;
+		 Mode				m_working_mode;
+		 cl_err_code		m_force_error_return;
+		 ErrorQueueEvent	m_error_event;
+		 RuntimeCommandTask m_task;
     };
 
 }}}    // Intel::OpenCL::Framework

@@ -47,16 +47,17 @@ SingleUnifiedImage2DArray::~SingleUnifiedImage2DArray()
 }
 
 cl_err_code SingleUnifiedImage2DArray::Initialize(
-			cl_mem_flags		clMemFlags,
+			cl_mem_flags			clMemFlags,
 			const cl_image_format*	pclImageFormat,
-			unsigned int		dim_count,
-			const size_t*		dimension,
-			const size_t*       pitches,
-			void*				pHostPtr
+			unsigned int			dim_count,
+			const size_t*			dimension,
+			const size_t*			pitches,
+			void*					pHostPtr,
+			cl_rt_memobj_creation_flags	creation_flags
 			)
 {
 	// First intialize as 3D image
-	cl_err_code ret = SingleUnifiedImage3D::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr);
+	cl_err_code ret = SingleUnifiedImage3D::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr, creation_flags);
 	if ( CL_FAILED(ret) )
 	{
 		return ret;
@@ -70,7 +71,8 @@ cl_err_code SingleUnifiedImage2DArray::Initialize(
 			return CL_OUT_OF_HOST_MEMORY;
 		}
 
-		ret = pImage2D->Initialize(clMemFlags, pclImageFormat, 2, dimension, &m_szImageRowPitch, &((char*)m_pMemObjData)[m_szImageSlicePitch * i]);
+		ret = pImage2D->Initialize(clMemFlags, pclImageFormat, 2, dimension, &m_szImageRowPitch, 
+									&((char*)m_pMemObjData)[m_szImageSlicePitch * i], creation_flags);
         if (CL_FAILED(ret))
         {
 			pImage2D->Release();

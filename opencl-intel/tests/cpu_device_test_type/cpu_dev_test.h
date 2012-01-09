@@ -25,6 +25,7 @@
 #pragma once
 
 #include "cl_device_api.h"
+#include "SimpleBackingStore.h"
 
 
 #ifdef _WIN32
@@ -69,25 +70,36 @@ extern "C" int clDevGetDeviceInfo(
 extern "C" char* clDevErr2Txt(cl_dev_err_code error_code);
 bool test_task_executor();
 
-// Simple RT memory object implementation
 class RTMemObjService : public IOCLDevRTMemObjectService
 {
 public:
 
-	RTMemObjService() : m_pBS(NULL) {}
-	~RTMemObjService()
+	RTMemObjService() : m_pclImageFormat(NULL),m_dim_count(0),m_pDimension(NULL),m_pPitches(NULL)  {}
+	~RTMemObjService() {};
+
+	void SetupState(    const cl_image_format*	pclImageFormat,
+						unsigned int		    dim_count,
+						const size_t*	        dimension,
+						const size_t*           pitches)
 	{
-		if ( NULL != m_pBS )
+		m_pclImageFormat = pclImageFormat;
+		m_dim_count		 = dim_count;
+		m_pDimension	 = dimension;
+		m_pPitches		 = pitches;
+
+		// hack - this test assumes that if dim_count==1, pclImageFormat is ignored. In reality this is different.
+		if (1==dim_count)
 		{
-			m_pBS->RemovePendency();
+			m_pclImageFormat = NULL;
 		}
 	}
 
 	cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS)
 	{
-		*ppBS = NULL;
+		*ppBS = new SimpleBackingStore( m_pclImageFormat, m_dim_count, m_pDimension, m_pPitches );
 		return CL_DEV_SUCCESS;
 	}
+
 	cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS)
 	{
 		return CL_DEV_SUCCESS;
@@ -102,7 +114,9 @@ public:
 		return (const IOCLDeviceAgent* const *)&dev_entry;
 	}
 
-protected:
-
-	IOCLDevBackingStore* m_pBS;
+private:
+	const cl_image_format*	m_pclImageFormat;
+	unsigned int			m_dim_count;
+	const size_t*			m_pDimension;
+	const size_t*			m_pPitches;
 };

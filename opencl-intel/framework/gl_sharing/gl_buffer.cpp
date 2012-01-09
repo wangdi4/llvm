@@ -34,7 +34,7 @@ using namespace Intel::OpenCL::Framework;
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_BUFFER, GLBuffer)
 
 cl_err_code GLBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
-					   const size_t* dimension, const size_t* pitches, void* pHostPtr)
+					   const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
 {
 	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
 
@@ -113,7 +113,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 		return res;
 	}
 
-	res = pChild->Initialize(m_clFlags, NULL, 1, &m_stMemObjSize, NULL, pBuffer);
+	res = pChild->Initialize(m_clFlags, NULL, 1, &m_stMemObjSize, NULL, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);

@@ -618,7 +618,7 @@ void OrderViolationThread::ThreadRoutine()
 	cl_int       err;
 	const size_t globalSize   = 1;
 
-	cl_char* mapPtr = (cl_char*)clEnqueueMapBuffer(m_queue, m_param, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_char), 0, NULL, NULL, &err);
+	cl_char* mapPtr = (cl_char*)clEnqueueMapBuffer(m_queue, m_param, CL_TRUE, CL_MAP_WRITE, 0, sizeof(cl_char), 0, NULL, NULL, &err);
 	SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, err);
 	*mapPtr = (cl_char)(0x80+m_id);
 

@@ -191,6 +191,7 @@ bool memoryTest(bool profiling)
 	IOCLDevMemoryObject* memObj;
 
 	//Create Memory Object
+	localRTMemService.SetupState( format, 1, objSize, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, format, 1, objSize, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))

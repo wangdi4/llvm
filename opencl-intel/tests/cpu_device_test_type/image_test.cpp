@@ -364,6 +364,7 @@ bool clReadWrite2DImage_Test(bool profiling)
 		return false;
 	}
 	//Create 2D Image Memory Object
+	localRTMemService.SetupState( &format, dim_count, dim, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
@@ -437,7 +438,8 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 	 
-   cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
+	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -446,6 +448,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 
+	localRTMemService.SetupState( &format, dim_count, dim, NULL );
 	iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -593,7 +596,8 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 		unsigned int dim_count = 2;
 
 		//Create 2D Image Memory Object
-		
+
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -604,6 +608,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 
 		//Create Buffer Object
 		dim[0] = IMAGE_WIDTH * IMAGE_HEIGHT *ELEMENT_SIZE;
+		localRTMemService.SetupState( &format, 1, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -694,6 +699,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 
 		//Create Source Buffer Memory Object
 		
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -703,7 +709,8 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		}
 
 		//Create Destination Buffer Object
-		
+
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -798,7 +805,8 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		return false;
 	}
 	 
-       cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
 			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -807,6 +815,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 			return false;
 		}
 
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -962,6 +971,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 
 		//Create 3D Image Memory Object
 		
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -973,6 +983,8 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		//Create Buffer Object
 		uiBufferSize = uiImageSlizeSize * IMAGE_DEPTH;
 		dim[0] = uiBufferSize;
+
+		localRTMemService.SetupState( &format, 1, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1065,6 +1077,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 
 		//Create 3D Image Memory Object
 		
+		localRTMemService.SetupState( &format, dim_count, dim, NULL );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1076,6 +1089,8 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		//Create Buffer Object
 		uiBufferSize = uiImageSlizeSize * IMAGE_DEPTH;
 		dim[0] = uiBufferSize;
+
+		localRTMemService.SetupState( &format, 1, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1174,7 +1189,8 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 	 
-       cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
+		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL );
+	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
 			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -1183,6 +1199,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 			return false;
 		}
 
+		localRTMemService.SetupState( &format, src_dim_count, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -1341,7 +1358,8 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		return false;
 	}
 	 
-       cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
+		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL );
+	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
 			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -1350,6 +1368,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 			return false;
 		}
 
+		localRTMemService.SetupState( &format, src_dim_count, dim, NULL );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{

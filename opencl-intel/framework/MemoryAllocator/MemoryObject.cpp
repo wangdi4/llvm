@@ -291,6 +291,9 @@ cl_err_code MemoryObject::CreateMappedRegion(
 			*pImageSlicePitch = pclDevCmdParamMap->cmd_param_map.pitch[1];
 		}
 
+		// it is possible that saved map flags and new one are different - merge
+		pclDevCmdParamMap->cmd_param_map.flags |= clMapFlags;
+
 		*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
         *pHostMapDataPtr = pPrevMapping;
 		return CL_SUCCESS;
@@ -304,6 +307,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	}
 
 	// Update map parameters
+	pclDevCmdParamMap->cmd_param_map.flags	   = clMapFlags;
 	pclDevCmdParamMap->cmd_param_map.dim_count = m_uiNumDim;
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.origin, sizeof(size_t[MAX_WORK_DIM]), pOrigin, sizeof(size_t)*m_uiNumDim);
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.region, sizeof(size_t[MAX_WORK_DIM]), pRegion, sizeof(size_t)*m_uiNumDim);

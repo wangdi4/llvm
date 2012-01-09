@@ -187,6 +187,7 @@ bool clMapBuffer_Test()
 
 	
 	//Create Buffer Memory Object
+	localRTMemService.SetupState( &format, dim_count, dim, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
@@ -295,6 +296,7 @@ bool clMapImage_Test()
 	}
 	
 	//Create Image Memory Object
+	localRTMemService.SetupState( &format, dim_count, dim, NULL );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
