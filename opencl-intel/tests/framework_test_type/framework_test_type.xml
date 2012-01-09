@@ -1,0 +1,15 @@
+<TestType Name="framework_test_type">
+    <Cmd>
+        <Launch>framework_test_type.py cfg.xml</Launch>
+        <OSType>Windows</OSType>
+    </Cmd>
+    <OutputFile Pass="true" Fail="true">
+        <Path>framework_test_type.out</Path>
+    </OutputFile>
+    <OutputFile Pass="true" Fail="true">
+	<Path>framework_test_type_cl.log</Path>
+    </OutputFile>
+    <Description>
+        This is a framework test type
+    </Description>
+</TestType>

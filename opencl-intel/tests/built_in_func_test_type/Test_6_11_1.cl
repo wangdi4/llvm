@@ -1,0 +1,1 @@
+__kernel void get_work_dim_0(uint* dst){	uint threadId = get_global_id(0);	dst[threadId] = get_work_dim();}

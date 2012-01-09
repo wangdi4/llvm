@@ -1,0 +1,15 @@
+<TestType Name="workloads_test_type">
+    <Cmd>
+        <Launch>workloads_test_type.py cfg.xml</Launch>
+        <OSType>Windows</OSType>
+    </Cmd>
+    <OutputFile Pass="true" Fail="true">
+        <Path>workloads_test_type.out</Path>
+    </OutputFile>
+    <OutputFile Pass="true" Fail="true">
+	<Path>workloads_test_type.log</Path>
+    </OutputFile>
+    <Description>
+        This is a workloads test type
+    </Description>
+</TestType>

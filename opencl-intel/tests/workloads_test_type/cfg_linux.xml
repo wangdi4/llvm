@@ -1,0 +1,94 @@
+<TestConfig>
+	<TestCases>
+		<TestCase>
+			<Name>wlFrameworkOverhead</Name>
+			<Command> </Command>
+			<Flags>length=16,wg_size=1,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>
+		<TestCase>
+			<Name>wlFrameworkOverhead</Name>
+			<Command> </Command>
+			<Flags>length=16777216,wg_size=1,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>		
+		<TestCase>
+			<Name>wlFrameworkOverhead</Name>
+			<Command> </Command>
+			<Flags>length=1024,wg_size=1024,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>				
+		<TestCase>
+			<Name>wlFrameworkOverhead</Name>
+			<Command> </Command>
+			<Flags>length=16777216,wg_size=1024,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>						
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=720,TCC_CFG_FRAME_HEIGHT=480,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_scalar_unroll2,TCC_CFG_GLOBAL_WORKGROUP_SIZE=0,TCC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>		
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=720,TCC_CFG_FRAME_HEIGHT=480,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_scalar_unroll2,TCC_CFG_GLOBAL_WORKGROUP_SIZE=0,TCC_CFG_LOCAL_WORKGROUP_SIZE=32</Flags>
+		</TestCase>		
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=1920,TCC_CFG_FRAME_HEIGHT=1080,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_scalar_unroll2,TCC_CFG_GLOBAL_WORKGROUP_SIZE=0,TCC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=1920,TCC_CFG_FRAME_HEIGHT=1080,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_scalar_unroll2,TCC_CFG_GLOBAL_WORKGROUP_SIZE=0,TCC_CFG_LOCAL_WORKGROUP_SIZE=64</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=720,TCC_CFG_FRAME_HEIGHT=480,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_vector8_third_optimization,TCC_CFG_GLOBAL_WORKGROUP_SIZE=8,TCC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlTCC</Name>
+			<Command> </Command>
+			<Flags>TCC_CFG_FRAME_WIDTH=1920,TCC_CFG_FRAME_HEIGHT=1080,TCC_CFG_USE_RANDOM_DATA=True,TCC_CFG_MAX_NUMBER_OF_FRAMES=10,TCC_CFG_EXE_ITER_COUNT=100,TCC_CFG_KERNEL_NAME=tcc_vector8_third_optimization,TCC_CFG_GLOBAL_WORKGROUP_SIZE=8,TCC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=16384,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=16384,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1024</Flags>
+		</TestCase>				
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=524288,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>						
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=524288,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1024</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=1048576,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlBitonicSort</Name>
+			<Command> </Command>
+			<Flags>bMeasureNQNDRange=False,BITONIC_CFG_BUFFER_SIZE=1048576,BITONIC_CFG_LOCAL_WORKGROUP_SIZE=1024</Flags>
+		</TestCase>					
+		<TestCase>
+			<Name>wlConvolution</Name>
+			<Command> </Command>
+			<Flags>CFG_CONVOLUTION_ARRAY_WIDTH=256,CFG_CONVOLUTION_ARRAY_HEIGHT=256,CFG_CONVOLUTION_LOCAL_WORGROUP_SIZE=1,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>			
+		<TestCase>
+			<Name>wlConvolution</Name>
+			<Command> </Command>
+			<Flags>CFG_CONVOLUTION_ARRAY_WIDTH=256,CFG_CONVOLUTION_ARRAY_HEIGHT=256,CFG_CONVOLUTION_LOCAL_WORGROUP_SIZE=1024,bMeasureNQNDRange=false,bMeasureReadBuffer=false,bMeasureWriteBuffer=false</Flags>
+		</TestCase>				
+	</TestCases>
+</TestConfig>

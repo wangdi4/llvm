@@ -146,4 +146,4 @@ endif(WIN32 AND INCLUDE_CMRT)
 add_subdirectory ( tools )
 
 #validation
-add_subdirectory( validation/types )
+add_subdirectory( tests )

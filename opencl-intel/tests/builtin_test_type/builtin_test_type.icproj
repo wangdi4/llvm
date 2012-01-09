@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<VisualStudioProject
+	ProjectType="Intel C++ Project"
+	Version="11.1"
+	Name="builtin_test_type"
+	ProjectGUID="{B3DFA186-C7C5-4A87-A136-D47CF14FF96D}"
+	VCNestedProjectGUID="{F313304D-D693-4BEC-A749-273D39D6E3B2}"
+	VCNestedProjectFileName="builtin_test_type.vcproj">
+	<Configurations/>
+	<Files/>
+</VisualStudioProject>

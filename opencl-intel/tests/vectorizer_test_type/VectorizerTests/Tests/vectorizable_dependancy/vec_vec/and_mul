@@ -1,0 +1,35 @@
+/*
+ * Part of the tests that check different LLVM instructions on different argument
+ * types and different argument sources.
+ *
+ * Tests the LLVM vectorizable mul instruction when it receives as input 2 char arguments
+ * produced by previous vectorizable and instructions.
+ * This instruction is vectorizable.
+ *
+ * @param in
+ * 		The input array.
+ * @param out
+ * 		The output array.
+ *
+ */
+__kernel void
+and_mul ( __global const float *in,
+		__global float8 *out)
+{
+	int gid = get_global_id(0);
+	char gidChar = gid;
+	char gidChar2 = gid + 1;
+	char inGidChar = in[gid];
+	char inGidChar2 = in[gid] + 1;
+	char arg1 = gidChar & gidChar2;
+	char arg2 = inGidChar & inGidChar2;
+	char arg3 = arg1 * arg2;
+	out[gid].s0 = gidChar;
+	out[gid].s1 = gidChar2;
+	out[gid].s2 = inGidChar;
+	out[gid].s3 = inGidChar2;
+	out[gid].s4 = arg1;
+	out[gid].s5 = arg2;
+	out[gid].s6 = arg3;
+
+}

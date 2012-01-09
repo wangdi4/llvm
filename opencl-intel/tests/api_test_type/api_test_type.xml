@@ -1,0 +1,12 @@
+<TestType Name="api_test_type">
+    <Cmd>
+        <Launch>api_test_type.py cfg.xml</Launch>
+        <OSType>Windows</OSType>
+    </Cmd>
+    <OutputFile Pass="true">
+        <Path>api_test_type.out</Path>
+    </OutputFile>
+    <Description>
+        This is an api test type
+    </Description>
+</TestType>
