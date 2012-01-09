@@ -54,6 +54,10 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 	glErr |= glGetError();
 	pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_INTERNAL_FORMAT_EXT, &m_glInternalFormat);
 	glErr |= glGetError();
+    if (0 == realWidth || 0 == realHeight)
+    {
+        return CL_INVALID_GL_OBJECT;
+    }
 
 	pGLContext->glBindRenderbufferEXT(GL_RENDERBUFFER, currBuffer);
 	glErr |= glGetError();

@@ -1696,6 +1696,14 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
+    if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 
 	clErr = pGLContext->CreateGLBuffer(clMemFlags, glBufObj, &pBuffer);
 	if (CL_FAILED(clErr))
@@ -1761,6 +1769,14 @@ cl_mem ContextModule::CreateFromGLTexture2D(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
+    if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 	clErr = pGLContext->CreateGLTexture2D(clMemFlags, glTextureTarget, glMipLevel, glTexture, &pMemObj);
 	if (CL_FAILED(clErr))
 	{
@@ -1826,6 +1842,14 @@ cl_mem ContextModule::CreateFromGLTexture3D(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
+    if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 	clErr = pGLContext->CreateGLTexture3D(clMemFlags, glTextureTarget, glMipLevel, glTexture, &pMemObj);
 	if (CL_FAILED(clErr))
 	{
@@ -1889,6 +1913,14 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
 		}
 		return CL_INVALID_HANDLE;
 	}
+    if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 	clErr = pGLContext->CreateGLRenderBuffer(clMemFlags, glRenderBuffer, &pMemObj);
 	if (CL_FAILED(clErr))
 	{

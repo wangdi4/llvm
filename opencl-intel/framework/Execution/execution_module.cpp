@@ -749,7 +749,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 {
 	cl_err_code errVal = CL_SUCCESS;
 	
-    if (NULL == pOutData)
+    if (NULL == pOutData || NULL == szBufferOrigin || NULL == szHostOrigin || NULL == region)
     {
         return CL_INVALID_VALUE;
     }
@@ -923,7 +923,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
 	cl_start;
     cl_err_code errVal = CL_SUCCESS;
 
-    if (NULL == pOutData)
+    if (NULL == pOutData || NULL == szBufferOrigin || NULL == szHostOrigin || NULL == region)
     {
         return CL_INVALID_VALUE;
     }
@@ -1108,6 +1108,10 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 						cl_event* pEvent)
 {
 	cl_err_code errVal = CL_SUCCESS;
+    if (NULL == szSrcOrigin || NULL == szDstOrigin || NULL == region)
+    {
+        return CL_INVALID_VALUE;
+    }
     IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
@@ -1991,6 +1995,10 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
+    if (NULL == szSrcOrigin || NULL == szDstOrigin || NULL == szRegion)
+    {
+        return CL_INVALID_VALUE;
+    }
     IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
@@ -2246,7 +2254,7 @@ void * ExecutionModule::EnqueueMapImage(
     cl_event*           pEvent, 
     cl_int*             pErrcodeRet)
 {
-	cl_int err = CL_SUCCESS;
+	cl_int err = CL_SUCCESS;    
 	if (NULL == pErrcodeRet)
 	{
 		pErrcodeRet = &err;
@@ -2255,7 +2263,11 @@ void * ExecutionModule::EnqueueMapImage(
 	{
 		*pErrcodeRet = CL_SUCCESS;
 	}
-
+    if (NULL == szOrigin || NULL == szRegion)
+    {
+        *pErrcodeRet = CL_INVALID_VALUE;
+        return NULL;
+    }
     IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
     MemoryObject* pImage = m_pContextModule->GetMemoryObject(clImage);    
 
