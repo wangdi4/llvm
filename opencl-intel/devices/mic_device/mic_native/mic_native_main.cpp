@@ -15,7 +15,6 @@
 #include <stdlib.h>
 
 #include "native_common_macros.h"
-#include "native_program_service.h"
 #include "memory_manager.h"
 #include "thread_local_storage.h"
 #include "execution_task.h"
@@ -38,8 +37,6 @@ int main(int , char**)
     // init device
     TlsAccessor::tls_initialize();
     MemoryManager::createMemoryManager();
-    ProgramService::createProgramService();
-
 
     COIRESULT result;
 
@@ -59,7 +56,6 @@ int main(int , char**)
     COIProcessWaitForShutdown();
 
     // shutdown
-    ProgramService::releaseProgramService();
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
 

@@ -58,6 +58,7 @@ void init_device(uint32_t         in_BufferCount,
 {
 	assert(in_MiscDataLength == sizeof(unsigned int));
 	assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
+	ProgramService::createProgramService();
 	// The amount of worker threads.
 	unsigned int* numOfWorkers = (unsigned int*)in_pMiscData;
 	assert((*numOfWorkers > 0) && (*numOfWorkers < MIC_NATIVE_MAX_WORKER_THREADS));
@@ -93,6 +94,7 @@ void release_device(uint32_t         in_BufferCount,
 	ThreadPool::getInstance()->unregisterMasterThread();
 	// Release the thread pool singleton.
 	ThreadPool::releaseSingletonInstance();
+	ProgramService::releaseProgramService();
 }
 
 // Initialize current pipeline command queue. Call it after Pipeline creation of Command list.

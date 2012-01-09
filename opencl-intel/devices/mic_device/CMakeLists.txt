@@ -79,7 +79,14 @@ link_directories(
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )
 
-    file( GLOB MIC_BACKEND_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${BACKEND_SDK_PATH_RELATIVE}/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}/?*.* )
+    file( GLOB MIC_BACKEND_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${BACKEND_SDK_PATH_RELATIVE}/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}/?*.* )
+	foreach(FILE ${MIC_BACKEND_FILES})
+        if ( FILE MATCHES svml )
+            list(APPEND MIC_BACKEND_SVML_LIBS_TO_COPY ${FILE})
+		else ( FILE MATCHES svml )
+		    list(APPEND MIC_BACKEND_LIBS_TO_COPY ${FILE})
+        endif ( FILE MATCHES svml )
+    endforeach(FILE)
 endif(WIN32)
 
 if (WIN32)
@@ -100,6 +107,7 @@ install(TARGETS ${TARGET_NAME}
     LIBRARY DESTINATION bin)
 
 install(FILES ${COI_LIBS} ${MIC_BACKEND_LIBS_TO_COPY} DESTINATION bin)
+install(FILES ${MIC_BACKEND_SVML_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME})
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils

@@ -70,6 +70,9 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, 
 	result = tCommandList->createPipeline();
 	if (result != CL_DEV_SUCCESS)
 	{
+		bool tempDeleteFlag = false;
+		tCommandList->releaseCommandList(&tempDeleteFlag);
+		assert(tempDeleteFlag);
 	    delete(tCommandList);
 		return result;
 	}
@@ -77,6 +80,9 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, 
 	result = tCommandList->initCommandListOnDevice();
 	if (result != CL_DEV_SUCCESS)
 	{
+		bool tempDeleteFlag = false;
+		tCommandList->releaseCommandList(&tempDeleteFlag);
+		assert(tempDeleteFlag);
 		delete(tCommandList);
 		return result;
 	}

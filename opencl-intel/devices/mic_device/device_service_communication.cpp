@@ -46,6 +46,9 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
 
 cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
 {
+	//TODO 
+	// REMOVE THE NEXT SLEEP COMMAND - IT IS WORKAROUND BECAUSE OF THE TIME IT TAKES TO RELAESE THE PREVIOUS COIPROCESS.
+	sleep(2);
     // find the first unused device index
     DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
 	if (NULL == tDeviceServiceComm)
