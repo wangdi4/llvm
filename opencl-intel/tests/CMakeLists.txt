@@ -12,7 +12,7 @@ if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
     
 	if (INCLUDE_CONFORMANCE_TESTS)
 	    # Add conformance 1.1 sources
-	    add_subdirectory( khronos_conformance )
+	    add_subdirectory( conform1.1 )
 	endif (INCLUDE_CONFORMANCE_TESTS)
     
 	if (INCLUDE_CONFORMANCE_1_2_TESTS)
