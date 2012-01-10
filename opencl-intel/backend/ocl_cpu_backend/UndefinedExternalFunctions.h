@@ -36,8 +36,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Constructor
     /// @param undefinedExternalFunctions container to fill with undefined function names
-    UndefExternalFunctions(std::vector<std::string> &undefinedExternalFunctions) :
-        ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions) {}
+    /// @param runtimeModules conatiner for all the runtime BI modules to check if the
+    ///     function supplied by them or not.
+    UndefExternalFunctions(std::vector<std::string> &undefinedExternalFunctions, 
+        const std::vector<llvm::Module*>& runtimeModules) :
+        ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions), 
+        m_RuntimeModules(runtimeModules) {}
 
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
@@ -52,15 +56,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
   protected:
-    /// @brief Check if given function contains call to undefined external functions
-    ///        If found such collect their names
-    /// @param pFunc The given function
-    void runOnFunction(Function *pFunc);
+
+    /// @brief Search the given function name in the runtime modules, return true
+    ///        If found; false otherwise
+    /// @param name function name
+    bool SearchForFunction(const std::string& name);
     
    protected:
     /// Curently not used (it should be filled with names
     /// of non resolved external function called from this module.
     std::vector<std::string> *m_pUndefinedExternalFunctions;
+
+    /// container of all the runtime modules which will be linked with the module
+    /// JIT code, it supplies all the extenral functions implementations
+    std::vector<llvm::Module*> m_RuntimeModules;
 
   };
   

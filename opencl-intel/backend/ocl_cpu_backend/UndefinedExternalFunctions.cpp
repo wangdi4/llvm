@@ -27,8 +27,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   char UndefExternalFunctions::ID = 0;
 
-  ModulePass* createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions) {
-    return new UndefExternalFunctions(undefinedExternalFunctions);
+  ModulePass* createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
+    const std::vector<llvm::Module*>& runtimeModules) {
+    return new UndefExternalFunctions(undefinedExternalFunctions, runtimeModules);
   }
 
   bool UndefExternalFunctions::runOnModule(Module &M) {
@@ -36,25 +37,38 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(&*fi);
-      if ( !pFunc || pFunc->isDeclaration () ) {
-        // Function is not defined inside module
+      if ( !pFunc ) {
         continue;
       }
-      runOnFunction(pFunc);
+      if( pFunc->getNumUses() > 0 && pFunc->isDeclaration () ) {
+        // Function is not defined inside module
+        if ( pFunc->isIntrinsic() ) continue;
+        bool found = SearchForFunction(pFunc->getNameStr());
+        if( !found ) {
+          // The extenral function not found in any of the runtime libraries
+          // Report an error
+          m_pUndefinedExternalFunctions->push_back(pFunc->getNameStr() + " is undefined ");
+        }
+      }
     }
 
     return false;
   }
 
-  void UndefExternalFunctions::runOnFunction(Function *pFunc) {
+  bool UndefExternalFunctions::SearchForFunction(const std::string& name) {
+    for(std::vector<llvm::Module*>::iterator it = m_RuntimeModules.begin()
+        ,fi = m_RuntimeModules.end(); it != fi; ++it) {
+      // look for the required function in all the runtime modules
+      Function *pFunc = (*it)->getFunction(name);
+      if(pFunc && !pFunc->isDeclaration()){
+        return true;
+      }
+    }
 
-
-    //if the function is read\write image, ignore the function pointer calls
-    std::string calledFuncName = pFunc->getNameStr();
-
+    // TODO: Remove this and replace it with a module which represents the images library
     const unsigned int NumImageFunctions = 16;
 
-    std::string ImageFunctions[NumImageFunctions] = {
+    static const std::string ImageFunctions[NumImageFunctions] = {
       "_Z12read_imageuiP10_image2d_tjDv2_i",
       "_Z12read_imageuiP10_image3d_tjDv4_i",
       "_Z12read_imageuiP10_image2d_tjDv2_f",
@@ -73,36 +87,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "_Z11read_imagefP10_image3d_tjDv4_f"
     };
 
-    bool FoundImageName = false;
     for( unsigned int i=0; i < NumImageFunctions ; i++ ) {
-      if ( !calledFuncName.compare(ImageFunctions[i]) ) {
-        FoundImageName = true;
-        return;
+      if ( !name.compare(ImageFunctions[i]) ) {
+        return true;
       }
     }
 
-    // Go through function instructions and search calls
-    for ( inst_iterator ii = inst_begin(pFunc), ie = inst_end(pFunc); ii != ie; ++ii ) {
-
-      CallInst *pCall = dyn_cast<CallInst>(&*ii);
-      if ( !pCall ) {
-        continue;
-      }
-      // Call instruction
-
-
-      //TODO: rewrite this check!
-      // Check call for not inlined functions/ kernels
-      Function *pCallee = pCall->getCalledFunction();
-      // check for external functions, and make sure they exist
-      if ( ( NULL != pCallee) && ( pCallee->isDeclaration() ) && pCallee->getNameStr().compare(0, 4, "llvm") ) {
-        void *Ptr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(pCallee->getNameStr());
-        if ( NULL == Ptr ) {
-          // report error
-          m_pUndefinedExternalFunctions->push_back(pCallee->getNameStr() + " in function " + pFunc->getNameStr());
-        }
-      }
-    }
+    // Some builtin functions supplied by the backend itself, need to check if the LLVM
+    // knows the implementation of the required function
+    void* ptr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
+    return (ptr != NULL);
   }
 
 

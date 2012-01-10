@@ -48,7 +48,8 @@ llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::Pass* pVect, llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
-llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
+llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
+                                                       const std::vector<llvm::Module*>& runtimeModules );
 llvm::ModulePass *createLocalBuffersPass();
 llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
 llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
@@ -157,12 +158,19 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(m_localBuffersPass);
   }
 
+#ifdef _DEBUG
+  m_modulePasses.add(llvm::createVerifierPass());
+#endif
+
+  // This pass checks if the module uses an undefined function or not
+  // TODO : need to add the image library also
+  // assumption: should run after WI function inlining 
+  std::vector<llvm::Module*> runtimeModules;
+  if(pRtlModule != NULL) runtimeModules.push_back(pRtlModule);
+  m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions, runtimeModules));
+
   if(pRtlModule != NULL)
     m_modulePasses.add(createBuiltInImportPass(pRtlModule)); // Inline BI function
-
-  // This pass should come after resolving all special functions,
-  // i.e. WI-Info functions, Builtins, OpenCL special functions, etc.
-  m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions));
 
   //funcPassMgr->add(new intel::SelectLower());
 
