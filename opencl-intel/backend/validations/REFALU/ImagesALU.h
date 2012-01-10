@@ -26,7 +26,6 @@ File Name:  ImagesALU.h
 
 namespace Conformance
 {
-
     typedef struct
     {
         size_t width;
@@ -34,7 +33,10 @@ namespace Conformance
         size_t depth;
         size_t rowPitch;
         size_t slicePitch;
+        size_t arraySize;
         cl_image_format *format;
+        cl_mem buffer;
+        cl_mem_object_type type;
     } image_descriptor;
 
     // Definition for our own sampler type, to mirror the cl_sampler internals
@@ -58,7 +60,10 @@ namespace Conformance
     template <class T> void read_image_pixel( void *imageData, image_descriptor *imageInfo, 
         int x, int y, int z, T *outData )
     {
-        if( x < 0 || x >= (int)imageInfo->width || y < 0 || y >= (int)imageInfo->height || ( imageInfo->depth != 0 && ( z < 0 || z >= (int)imageInfo->depth ) ) )
+        if ( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width 
+               || ( imageInfo->height != 0 && y >= (int)imageInfo->height )
+               || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth )
+               || ( imageInfo->arraySize != 0 && z >= (int)imageInfo->arraySize ) )
         {
             // Border color
             outData[ 0 ] = outData[ 1 ] = outData[ 2 ] = outData[ 3 ] = 0;
@@ -349,15 +354,37 @@ namespace Conformance
     }
 
     // Stupid template rules
-    bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset, 
-        size_t width, size_t height, size_t depth, image_sampler_data *imageSampler, int &outX, int &outY, int &outZ );
+    bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+        size_t width, size_t height, size_t depth, image_sampler_data *imageSampler, image_descriptor *imageInfo, int &outX, int &outY, int &outZ );
+
 
     template <class T> void sample_image_pixel_offset( void *imageData, image_descriptor *imageInfo, 
-        float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
-        image_sampler_data *imageSampler, T *outData )
+                                                  float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+                                                  image_sampler_data *imageSampler, T *outData )
     {
         int iX, iY, iZ;
-        get_integer_coords_offset( x, y, z, xAddressOffset, yAddressOffset, zAddressOffset, imageInfo->width, imageInfo->height, imageInfo->depth, imageSampler, iX, iY, iZ );
+        
+        float max_w = imageInfo->width;
+        float max_h;
+        float max_d;
+            
+        switch (imageInfo->type) {
+            case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+                max_h = imageInfo->arraySize;
+                max_d = 0;
+                break;
+            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                max_h = imageInfo->height;
+                max_d = imageInfo->arraySize;
+                break;
+            default:
+                max_h = imageInfo->height;
+                max_d = imageInfo->depth;
+                break;
+        }
+        
+        get_integer_coords_offset( x, y, z, xAddressOffset, yAddressOffset, zAddressOffset, max_w, max_h, max_d, imageSampler, imageInfo, iX, iY, iZ );
+        
         read_image_pixel<T>( imageData, imageInfo, iX, iY, iZ, outData );
     }
 
@@ -377,16 +404,21 @@ namespace Conformance
         float *outData, int verbose, int *containsDenorms );
 
     void write_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, float* inData );
+        const int x, const int y, const int z, float* inData );
     void write_image_pixel_int( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, int* inData );
+        const int x, const int y, const int z, int* inData );
     void write_image_pixel_uint( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, unsigned int* inData );
+        const int x, const int y, const int z, unsigned int* inData );
 
     // get maximum relative error for pixel
     float get_max_relative_error( cl_image_format *format, image_sampler_data *sampler, int is3D, int isLinearFilter );
     // get maximum absolute error for pixel
     float get_max_absolute_error( cl_image_format *format, image_sampler_data *sampler);
+
+
+    FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *imageInfo, 
+                                               float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+                                               image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms );
 }
 
 #endif
