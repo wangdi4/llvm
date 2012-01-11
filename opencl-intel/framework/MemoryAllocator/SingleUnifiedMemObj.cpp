@@ -245,6 +245,21 @@ cl_dev_err_code SingleUnifiedMemObject::GetBackingStore(cl_dev_bs_flags flags, I
 	return CL_DEV_SUCCESS;
 }
 
+// IOCLDevRTMemObjectService Methods
+cl_dev_err_code SingleUnifiedMemObject::GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore* *ppBS) const
+{
+    assert(NULL!= ppBS);
+
+    if ( (CL_DEV_BS_GET_ALWAYS & flags) && (NULL == m_pBackingStore ) )
+    {
+        return CL_DEV_NOT_SUPPORTED;
+    }
+
+    *ppBS = m_pBackingStore;
+
+    return CL_DEV_SUCCESS;
+}
+
 cl_dev_err_code SingleUnifiedMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
 {
 	pBS->AddPendency();

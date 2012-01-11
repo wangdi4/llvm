@@ -129,7 +129,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Blocking function, returns after NotifyComplete is done
 		virtual void    Wait();
 
-		cl_int GetEventCurrentStatus();
+		cl_int GetEventCurrentStatus() const;
 
 
 		// Get the context to which the event belongs.

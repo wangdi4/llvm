@@ -61,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			);
 
 		// get image info
-		cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 		// MemoryObject methods
 		cl_err_code CreateDeviceResource(cl_device_id clDeviceId);

@@ -118,7 +118,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("Enter Sampler::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"), 
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -130,7 +130,7 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 	}
 	size_t szSize = 0;
 	volatile cl_context clContext = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_mem_info)iParamName )

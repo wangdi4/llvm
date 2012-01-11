@@ -119,7 +119,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
 		void * GetBackingStoreData( const size_t * pszOrigin = NULL ) const;
 
-		cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 		size_t GetPixelSize() const;
 
@@ -132,12 +132,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// IOCLDevRTMemObjectService Methods
 		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
+        cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore** ppBS) const;
 		cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS);
 		size_t GetDeviceAgentListSize() const;
 		const IOCLDeviceAgent* const *GetDeviceAgentList() const;
+        virtual ~GenericMemObject();
 
     protected:
-		virtual ~GenericMemObject();
+		
 
         // copy all data required for sub-buffer
         cl_err_code InitializeSubObject(  cl_mem_flags		clMemFlags,

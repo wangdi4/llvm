@@ -952,9 +952,8 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
-    //image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
-    //CL_MEM_OBJECT_IMAGE3D
-    if((imageType != CL_MEM_OBJECT_IMAGE2D) && (imageType != CL_MEM_OBJECT_IMAGE3D))
+    //image_type describes the image type and must be either an image object
+    if(imageType == CL_MEM_OBJECT_BUFFER)
     {
         return CL_DEV_INVALID_VALUE;
     }

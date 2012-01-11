@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Sampler();
 
 		// get image info
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints);
 

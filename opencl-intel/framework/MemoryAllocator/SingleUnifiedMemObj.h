@@ -89,6 +89,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// IOCLDevRTMemObjectService Methods
 		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
+        cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore** ppBS) const;
 		cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS);
 		size_t GetDeviceAgentListSize() const;
 		const IOCLDeviceAgent* const *GetDeviceAgentList() const;

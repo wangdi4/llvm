@@ -62,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_command_queue GetQueueHandle() const;
 		cl_int           GetReturnCode() const;
 		// OCLObject implementation
-		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet);
+		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
 
 		//Override to notify my command about failed events it depended on
 		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode); 

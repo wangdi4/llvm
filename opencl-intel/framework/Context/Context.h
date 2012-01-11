@@ -31,6 +31,7 @@
 #include "cl_object.h"
 #include "cl_objects_map.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
+#include "MemoryAllocator/MemoryObject.h"
 
 #include <Logger.h>
 #include <cl_synch_objects.h>
@@ -93,7 +94,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithSource    
@@ -172,40 +173,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// create new sub buffer object
 		cl_err_code CreateSubBuffer(MemoryObject * buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, MemoryObject ** ppBuffer);
 
-		// create new 1 or 2 dimensional image object
-		cl_err_code CreateImage2D(	cl_mem_flags	        clFlags,
+		// create new image object
+        template<size_t DIM, cl_mem_object_type OBJ_TYPE>
+		cl_err_code CreateImage(	cl_mem_flags	        clFlags,
 									const cl_image_format * pclImageFormat,
 									void *                  pHostPtr,
-									size_t                  szImageWidth,
-									size_t                  szImageHeight,
-									size_t                  szImageRowPitch,
-									MemoryObject **		        ppImage2d);
+                                    const size_t*           szImageDims,
+									const size_t*           szImagePitches,
+									MemoryObject **         ppImage,
+                                    bool                    bIsImageBuffer);
 
-		// create new 3 dimensional image object
-		cl_err_code CreateImage3D(	cl_mem_flags	        clFlags,
-									const cl_image_format * pclImageFormat,
-									void *                  pHostPtr,
-									size_t                  szImageWidth,
-									size_t                  szImageHeight,
-									size_t                  szImageDepth,
-									size_t                  szImageRowPitch,
-									size_t                  szImageSlicePitch,
-									MemoryObject **		        ppImage3d);
-
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-        // create new array of 2 dimensional image objects
-        cl_err_code clCreateImage2DArray(
-                                    cl_mem_flags		    clflags,
-                                    const cl_image_format *	pclImageFormat,
-                                    void *					pHostPtr,
-                                    cl_image_array_type		clImageArrayType,
-                                    const size_t*			pszImageWidth,
-                                    const size_t*			pszImageHeight,
-                                    size_t					szNumImages,
-                                    size_t					szImageRowPitch,
-                                    size_t					szImageSlicePitch,                                    
-                                    MemoryObject**          ppImage2dArr);
-#endif
+        // create new array of image objects
+        cl_err_code CreateImageArray(cl_mem_flags		    clflags,
+                                     const cl_image_format*	pclImageFormat,
+                                     void*					pHostPtr,
+                                     const cl_image_desc*   pClImageDesc,
+                                     MemoryObject**         ppImageArr);
 
 		// get the supported image formats for this context
 		cl_err_code GetSupportedImageFormats(	cl_mem_flags		clFlags,
@@ -269,7 +252,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											size_t * psz3dWidth, 
 											size_t * psz3dHeight, 
 											size_t * psz3dDepth,
-                                            size_t * psz2dArraySize);
+                                            size_t * pszArraySize,
+                                            size_t * psz1dImgBufSize);
 
 		cl_err_code	CheckSupportedImageFormat(const cl_image_format *pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType);
 		size_t		QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
@@ -304,12 +288,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		ocl_gpa_data *							m_pGPAData;
 		cl_ulong								m_ulMaxMemAllocSize;
+        size_t                                  m_sz1dImgBufSize;
 		size_t									m_sz2dWidth;
 		size_t									m_sz2dHeight;
 		size_t									m_sz3dWidth;
 		size_t									m_sz3dHeight;
 		size_t									m_sz3dDepth;
-		size_t									m_sz2dArraySize;
+		size_t									m_szArraySize;
 
 		typedef std::list<cl_image_format>		tImageFormatList;
 		typedef std::map<int, tImageFormatList>	tImageFormatMap;
@@ -319,6 +304,110 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
 	};
 
+#if not defined (_WIN32)
+    /* In the line:
+    for (size_t i = 0; i < DIM - 1; i++)
+    don't issue an error that i < DIM - 1 is always false when DIM is 1 - this is intentional */
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#endif
+
+template<size_t DIM, cl_mem_object_type OBJ_TYPE>
+cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
+                                 const cl_image_format * pclImageFormat,
+                                 void *                  pHostPtr,
+                                 const size_t*           szImageDims,
+                                 const size_t*           szImagePitches,
+                                 MemoryObject **         ppImage,
+                                 bool                    bIsImageBuffer)
+{
+    //Acquire a reader lock on the device map to prevent race with device fission
+    Intel::OpenCL::Utils::OclAutoReader CS(&m_deviceDependentObjectsLock);
+    assert ( NULL != ppImage );
+    //check image sizes
+    const size_t szImageDimsPerDim[3][3] = {
+        { m_sz2dWidth },                            // DIM == 1
+        { m_sz2dWidth, m_sz2dHeight, 0},            // DIM == 2
+        { m_sz3dWidth, m_sz3dHeight, m_sz3dDepth }  // DIM == 3
+    };
+    // OpenCL 1.2 doesn't state that the dimensions shouldn't be 0, but I believe this is a mistake (Yariv should verify it)
+    if (bIsImageBuffer)
+    {        
+        if (bIsImageBuffer && (szImageDims[0] < 1 || szImageDims[0] > m_sz1dImgBufSize))
+        {
+            LOG_ERROR(TEXT("For a 1D image buffer, the image width must be <= CL_DEVICE_IMAGE_MAX_BUFFER_SIZE"), "");
+            return CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < DIM; i++)
+        {
+            if (szImageDims[i] < 1 || szImageDims[i] > szImageDimsPerDim[DIM - 1][i])
+            {
+                LOG_ERROR(TEXT("Image dimension are not allowed"), "");
+                return CL_INVALID_IMAGE_SIZE;
+            }
+        }
+    }    
+
+    cl_err_code clErr;
+    // Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
+    // If WRITE_ONLY flag is not set check for read image support
+    if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
+    {
+        clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, OBJ_TYPE);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+            return clErr;
+        }
+    }
+    // If READ_ONLY flag is not set check for write image support
+    if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
+    {
+        clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, OBJ_TYPE);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+            return clErr;
+        }
+    }
+
+    clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
+        return clErr;
+    }
+
+    size_t dim[3] = {0}, pitch[2] = {0};
+    for (size_t i = 0; i < DIM; i++)
+    {
+        dim[i] = szImageDims[i];
+    }
+    for (size_t i = 0; i < DIM - 1; i++)
+    {
+        pitch[i] = szImagePitches[i];
+    }
+    if (bIsImageBuffer)
+    {
+        clErr = (*ppImage)->Initialize(clFlags, pclImageFormat, DIM, dim, pitch, pHostPtr, CL_RT_MEMOBJ_FORCE_BS);
+    }
+    else
+    {
+        clErr = (*ppImage)->Initialize(clFlags, pclImageFormat, DIM, dim, pitch, pHostPtr, 0);
+    }    
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+        (*ppImage)->Release();
+        return clErr;
+    }
+
+    m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage);
+
+    return clErr;
+}
 
 }}}
 

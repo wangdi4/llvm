@@ -94,7 +94,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  void* GraphicsApiMemoryObject::GetBackingStore(const size_t* pszOrigin) const
+     * @fn  void* GraphicsApiMemoryObject::GetBackingStoreData(const size_t* pszOrigin) const
      */
 
     void* GraphicsApiMemoryObject::GetBackingStoreData(const size_t* pszOrigin) const

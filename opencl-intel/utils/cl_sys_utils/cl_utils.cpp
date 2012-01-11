@@ -47,14 +47,15 @@ void clSleep(int milliseconds)
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
+    assert(*mask <= (DWORD_PTR)-1);
 	if (0 == tid)
-	{
-	    SetThreadAffinityMask(GetCurrentThread(), *mask);
+	{        
+	    SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)*mask);
 	}
 	else
 	{
 	    HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
-	    SetThreadAffinityMask(tid_handle, *mask);
+	    SetThreadAffinityMask(tid_handle, (DWORD_PTR)*mask);
     	CloseHandle(tid_handle);
 	}
 }
@@ -77,7 +78,7 @@ void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 
 void clResetThreadAffinityMask(threadid_t tid)
 {
-	static const unsigned long long allMask = (const unsigned long long)-1;
+	static const DWORD_PTR allMask = (DWORD_PTR)-1;
 	if (0 == tid)
 	{
 		SetThreadAffinityMask(GetCurrentThread(), allMask);
@@ -94,7 +95,8 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
 {
 	assert(mask);
 	assert(IDs);
-	DWORD_PTR localMask = *mask;;
+    assert(*mask <= (DWORD_PTR)-1);
+	DWORD_PTR localMask = (DWORD_PTR)*mask;
 	size_t i = 0;
 	size_t set_bits = 0;
 	while ((0 != localMask) && (set_bits < len))

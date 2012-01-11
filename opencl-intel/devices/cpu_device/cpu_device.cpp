@@ -1307,8 +1307,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
                 return CL_DEV_SUCCESS;
             }
             break;
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-		case CL_DEVICE_IMAGE_ARRAY_MAX_SIZE:
+		case CL_DEVICE_IMAGE_MAX_ARRAY_SIZE:
 			*pinternalRetunedValueSize = sizeof(size_t);
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 			{
@@ -1317,10 +1316,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
 			{
-				*(size_t*)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
+                // TODO: should this be the constant used?
+				*(size_t*)paramVal = MIN(CPU_IMAGE3D_MAX_DIM_SIZE, CPU_IMAGE2D_MAX_DIM_SIZE);
 			}
 			return CL_DEV_SUCCESS;
-#endif
+        case CL_DEVICE_IMAGE_MAX_BUFFER_SIZE:
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                // we want to support the maximum buffer when the pixel size is minimal (1 byte)
+                *(size_t*)paramVal = MAX_MEM_ALLOC_SIZE;
+            }
+            return CL_DEV_SUCCESS;
         default:
             return CL_DEV_INVALID_VALUE;
     };
@@ -1848,7 +1859,7 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     Call Memory Allocator to get supported image formats
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-                cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
+                cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedImageFormats Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetSupportedImageFormats(flags, imageType, numEntries, formats, numEntriesRet);

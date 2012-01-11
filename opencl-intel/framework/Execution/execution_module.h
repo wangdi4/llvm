@@ -145,7 +145,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Input parameters validation commands
         cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
-        cl_err_code         Check2DImageParameters( MemoryObject* pImage, const size_t szOrigin[3], const size_t szRegion[3]);
         cl_err_code         CheckImageFormats( MemoryObject* pSrcImage, MemoryObject* pDstImage);
 		bool                CheckMemoryObjectOverlapping(MemoryObject* pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(MemoryObject* pImage, const size_t* szRegion);

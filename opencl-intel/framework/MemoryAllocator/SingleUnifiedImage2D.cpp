@@ -90,7 +90,7 @@ SingleUnifiedImage2D::~SingleUnifiedImage2D()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SingleUnifiedImage2D::GetImageInfo()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -100,7 +100,7 @@ cl_err_code SingleUnifiedImage2D::GetImageInfo(cl_image_info clParamName, size_t
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	size_t	stZero = 0;
 	switch (clParamName)
 	{

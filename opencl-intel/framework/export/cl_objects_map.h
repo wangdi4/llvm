@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// object's map
 		std::map<HandleType*, OCLObject<HandleType>*>		m_mapObjects;
 		static Intel::OpenCL::Utils::AtomicCounter		    m_iNextGenKey;
-		Intel::OpenCL::Utils::OclSpinMutex				    m_muMapMutex;
+		mutable Intel::OpenCL::Utils::OclSpinMutex			m_muMapMutex;
 
 	public:
 
@@ -178,7 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_uint	Count();
+		cl_uint	Count() const;
 
 		/******************************************************************************************
 		* Function: 	ReleaseObject    

@@ -727,3 +727,14 @@ vector<string> tokenize(const string& str, const string& delims)
     return ret;
 }
 
+template<>
+bool Compare<const char*>(const char* x, const char* y)
+{
+    return strcmp(x, y) == 0;
+}
+
+template<>
+void Print<cl_int>(std::wostream& os, const cl_int& x)
+{
+    os << ClErrTxt(x);
+}

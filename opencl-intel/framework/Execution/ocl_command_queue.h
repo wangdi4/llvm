@@ -71,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			ocl_entry_points *			pOclEntryPoints
 			);
 		virtual  cl_err_code     Initialize();
-		cl_err_code	    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		cl_err_code	    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 
 		//These make little sense. Here for legacy support - deprecated in 1.1

@@ -195,7 +195,7 @@ void OclEvent::WaitOSEvent()
 * The status is translated from the m_queueEvent color to OCL API
 * status
 ******************************************************************/
-cl_int OclEvent::GetEventCurrentStatus()
+cl_int OclEvent::GetEventCurrentStatus() const
 {
 	switch(m_color)
 	{

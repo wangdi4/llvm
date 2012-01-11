@@ -972,7 +972,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const; 
 
-		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 	private:
 		PrePostFixRuntimeCommand* m_owner;

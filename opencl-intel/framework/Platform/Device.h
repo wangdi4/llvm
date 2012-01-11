@@ -80,6 +80,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
+        virtual const IOCLDeviceAgent* GetDeviceAgent() const = 0;
+
 #if defined (DX9_MEDIA_SHARING)
         /**
          * @fn  void FissionableDevice::setD3D9Device(IUnknown* const pD3D9Device)
@@ -122,6 +124,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         int GetD3D9DevType() const { return m_iD3D9DevType; }
 #endif
+
+        /**
+         * @param clImgFormat   a cl_image_format
+         * @param clMemFlags    cl_mem_flags for image usage information
+         * @param clMemObjType  cl_mem_object_type of the image
+         * @return whether clImgFormat is supported by the device						
+         */
+        bool IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const;
 
     protected:
         ~FissionableDevice() {}
@@ -181,7 +191,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code	GetInfo(cl_int		param_name,
 							size_t		param_value_size,
 							void *		param_value,
-							size_t *	param_value_size_ret);
+							size_t *	param_value_size_ret) const;
 
 		/******************************************************************************************
 		* Function: 	InitDevice
@@ -235,6 +245,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const FrontEndCompiler * GetFrontEndCompiler(){ return m_pFrontEndCompiler; }
 
 		IOCLDeviceAgent*	GetDeviceAgent() {return m_pDevice;}
+
+        const IOCLDeviceAgent* GetDeviceAgent() const { return m_pDevice; }
 
 		cl_device_type		GetDeviceType() {return m_deviceType;}
 
@@ -335,7 +347,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code	GetInfo(cl_int		param_name,
                             size_t		param_value_size,
                             void *		param_value,
-                            size_t *	param_value_size_ret);
+                            size_t *	param_value_size_ret) const;
 
         // Inherited from FissionableDevice
         Device* GetRootDevice() { return m_pRootDevice; }
@@ -345,6 +357,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_subdevice_id GetSubdeviceId()     { return m_deviceId; }
         FissionableDevice*  GetParentDevice()    { return m_pParentDevice; }
         IOCLDeviceAgent*    GetDeviceAgent()     { return m_pRootDevice->GetDeviceAgent(); }
+        const IOCLDeviceAgent* GetDeviceAgent() const { return m_pRootDevice->GetDeviceAgent(); }
 
     protected:
         ~SubDevice(); 

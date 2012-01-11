@@ -77,7 +77,7 @@ void Device::Cleanup( bool bIsTerminate )
 	m_dlModule.Close();
 }
 
-cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret)
+cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
 {
 	LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
 		param_name, param_value_size, param_value, param_value_size_ret);
@@ -92,7 +92,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
     cl_uint      one              = 1;
     
     cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
-	void * pValue = NULL;
+	const void * pValue = NULL;
 
 	switch (param_name)
 	{
@@ -483,7 +483,8 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
         size_t partitionIndex = 1;
         while (CL_PARTITION_BY_NAMES_LIST_END_INTEL != props[partitionIndex])
         {
-            requestedUnits.push_back(props[partitionIndex++]);
+            assert(props[partitionIndex] <= (size_t)-1);
+            requestedUnits.push_back((size_t)props[partitionIndex++]);
         }
 		if (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex + 1])
 		{
@@ -552,6 +553,34 @@ void FissionableDevice::NotifyDeviceFissioned(cl_uint numChildren, FissionableDe
     }
 }
 
+bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const
+{
+    cl_uint uiNumEntries;
+    bool bSupported = false;
+    cl_dev_err_code clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, 0, NULL, &uiNumEntries);
+    assert(CL_SUCCESS == clErr);    
+    cl_image_format* const pFormats = new cl_image_format[uiNumEntries];
+
+    if (!pFormats)
+    {
+        LOG_ERROR(TEXT("out of memory"), "");
+        return false;
+    }
+    clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, uiNumEntries, pFormats, NULL);
+    assert(CL_SUCCESS == clErr);
+    for (cl_uint i = 0; i < uiNumEntries; i++)
+    {
+        if (pFormats[i].image_channel_data_type == clImgFormat.image_channel_data_type &&
+            pFormats[i].image_channel_order == clImgFormat.image_channel_order)
+        {
+            bSupported = true;
+            break;
+        }
+    }
+    delete[] pFormats;
+    return bSupported;
+}
+
 SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints) : 
 m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
@@ -580,7 +609,7 @@ SubDevice::~SubDevice()
     m_pRootDevice->CloseDeviceInstance();
 }
 
-cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const
 {
     if (NULL == param_value && NULL == param_value_size_ret)
     {
@@ -589,7 +618,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     size_t szParamValueSize = 0;
     cl_uint uValue = 0;
     cl_device_id clDevIdVal = 0;
-    void * pValue = NULL;
+    const void * pValue = NULL;
 
     switch (param_name)
     {

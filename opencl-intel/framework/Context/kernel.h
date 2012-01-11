@@ -212,7 +212,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code	GetInfo(cl_int iParamName, 
 							size_t szParamValueSize, 
 							void * pParamValue, 
-							size_t * pszParamValueSizeRet);
+							size_t * pszParamValueSizeRet) const;
 
 
 		/******************************************************************************************

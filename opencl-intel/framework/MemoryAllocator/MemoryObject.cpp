@@ -87,7 +87,7 @@ cl_err_code MemoryObject::registerDtorNotifierCallback(mem_dtor_fn pfn_notify, v
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -152,24 +152,10 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		szParam = m_stOrigin[0];
 		pValue = &szParam;
 		break;
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-    case CL_MEM_ARRAY_SIZE:
-        szSize = sizeof(size_t);
-        if (CL_MEM_OBJECT_IMAGE2D_ARRAY == GetType())
-        {
-			szParam = (dynamic_cast<IMemoryObjectArray*>(this))->GetNumObjects();
-        }
-        else
-        {
-            szParam = 0;
-        }
-        pValue = &szParam;
-        break;
-#endif
 #if defined (DX9_MEDIA_SHARING)
     case CL_MEM_DX9_RESOURCE_INTEL:
         {
-            const D3D9Resource* const pD3d9Resource = dynamic_cast<D3D9Resource*>(this);
+            const D3D9Resource* const pD3d9Resource = dynamic_cast<const D3D9Resource*>(this);
             if (NULL == pD3d9Resource)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
@@ -180,7 +166,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
         }
     case CL_MEM_DX9_SHARED_HANDLE_INTEL:
         {
-            const D3D9Surface* const pD3d9Surface = dynamic_cast<D3D9Surface*>(this);
+            const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
             if (NULL == pD3d9Surface)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;                
@@ -236,6 +222,33 @@ void MemoryObject::NotifyDestruction()
 	}
 }
 
+static void AssignPitches(const MemoryObject& memObj, size_t* pImageRowPitch, size_t* pImageSlicePitch, const MapParamPerPtr& clDevCmdParamMap)
+{
+    // image_slice_pitch returns the size in bytes of each 2D slice of a 3D image or the size of each 1D or 2D image in a 1D or 2D image array for the mapped region
+    if (NULL != pImageRowPitch)
+    {
+        if (memObj.GetType() != CL_MEM_OBJECT_IMAGE1D_ARRAY)
+        {
+            *pImageRowPitch = clDevCmdParamMap.cmd_param_map.pitch[0];
+        }
+        else
+        {
+            *pImageRowPitch = 0;
+        }        
+    }
+    if (NULL != pImageSlicePitch)
+    {
+        if (memObj.GetType() != CL_MEM_OBJECT_IMAGE1D_ARRAY)
+        {
+            *pImageSlicePitch = clDevCmdParamMap.cmd_param_map.pitch[1];
+        }
+        else
+        {
+            *pImageSlicePitch = clDevCmdParamMap.cmd_param_map.pitch[0];
+        }        
+    }
+}
+
 cl_err_code MemoryObject::CreateMappedRegion(
 	const FissionableDevice*    IN pDevice,
 	cl_map_flags    IN clMapFlags,
@@ -282,14 +295,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	{
 		it->second->refCount++;
 		m_mapCount++;
-		if (NULL != pImageRowPitch)
-		{
-			*pImageRowPitch = pclDevCmdParamMap->cmd_param_map.pitch[0];
-		}
-		if (NULL != pImageSlicePitch)
-		{
-			*pImageSlicePitch = pclDevCmdParamMap->cmd_param_map.pitch[1];
-		}
+        AssignPitches(*this, pImageRowPitch, pImageSlicePitch, *pclDevCmdParamMap);
 
 		// it is possible that saved map flags and new one are different - merge
 		pclDevCmdParamMap->cmd_param_map.flags |= clMapFlags;
@@ -320,14 +326,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
 	pclDevCmdParamMap->refCount = 1;
 	pclDevCmdParamMap->pDevice = pDevice;
-	if (NULL != pImageRowPitch)
-	{
-		*pImageRowPitch = pclDevCmdParamMap->cmd_param_map.pitch[0];
-	}
-	if (NULL != pImageSlicePitch)
-	{
-		*pImageSlicePitch = pclDevCmdParamMap->cmd_param_map.pitch[1];
-	}
+    AssignPitches(*this, pImageRowPitch, pImageSlicePitch, *pclDevCmdParamMap);
 
 	m_mapMappedRegions[*pHostMapDataPtr] = pclDevCmdParamMap;
 	m_mapCount++;

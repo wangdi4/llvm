@@ -713,6 +713,8 @@ public:
 	*/
 	virtual cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS) = 0;
 
+    virtual cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore** ppBS) const = 0;
+
 	//!	Updates current memory object backing store.
 	/*!
 		\paran[out] pBS		Updated memory object backing store to be used by the runtime
@@ -976,7 +978,7 @@ public:
 									   cl_uint IN num_entries,
 									   cl_image_format* OUT formats,
 									   cl_uint* OUT num_entries_ret
-									   ) = 0;
+									   ) const = 0;
 
 
 	//!This function returns the memory allocation properties required by the device.

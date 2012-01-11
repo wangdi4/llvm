@@ -51,10 +51,10 @@ void UserEvent::SetComplete(cl_int returnCode)
 	OclEvent::NotifyComplete(returnCode);
 }
 
-cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void *paramValue, size_t *szParamValueSizeRet)
+cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void *paramValue, size_t *szParamValueSizeRet) const
 {
 	cl_err_code res = CL_SUCCESS;
-	void* localParamValue = NULL;
+	const void* localParamValue = NULL;
 	size_t outputValueSize = 0;
 	cl_int eventStatus;
 	cl_command_type cmd_type;

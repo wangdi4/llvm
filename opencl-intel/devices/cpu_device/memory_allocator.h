@@ -48,7 +48,7 @@ public:
 
 	//Image Info Function
 	cl_dev_err_code GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet);
+				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
 	cl_dev_err_code GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp );
 	// Create/Release functions
 	cl_dev_err_code	CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,

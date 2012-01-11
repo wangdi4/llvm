@@ -190,7 +190,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		*pclErr = ret;
 		return;
 	}
-	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_sz2dArraySize);
+	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
 
 	m_handle.object   = this;
 	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
@@ -279,7 +279,7 @@ Context::~Context()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const
 {
 	LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"), param_name, param_value_size, param_value, param_value_size_ret);
 	
@@ -289,7 +289,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	}
 	size_t szParamValueSize = 0;
 	cl_uint uiVal;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_context_info)param_name )
@@ -660,219 +660,66 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 
 	return clErr;
 }
-// Context::CreateImage2D
+
+// Context::clCreateImageArray
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateImage2D(cl_mem_flags clFlags, 
-								   const cl_image_format * pclImageFormat, 
-								   void * pHostPtr,
-								   size_t szImageWidth, 
-								   size_t szImageHeight, 
-								   size_t szImageRowPitch,
-								   MemoryObject ** ppImage2d)
+cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_format* pclImageFormat, void* pHostPtr, const cl_image_desc* pClImageDesc,
+                                      MemoryObject** ppImageArr)
 {
-	LOG_DEBUG(TEXT("Enter CreateImage2D (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, szImageWidth=%d, szImageHeight=%d, szImageRowPitch=%d, ppImage2d=%d)"), 
-		clFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageRowPitch, ppImage2d);
-
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-	assert ( NULL != ppImage2d );
-
-	//check image sizes
-	if ( (szImageWidth < 1)	|| (szImageHeight < 1)	|| (szImageWidth > m_sz2dWidth)	|| (szImageHeight > m_sz2dHeight))
-	{
-		LOG_ERROR(TEXT("Image dimension are not allowed, szImageWidth == %d, szImageHeight =%d"), szImageWidth, szImageHeight);
-		return CL_INVALID_IMAGE_SIZE;
-	}
-
-	cl_err_code clErr;
-	// Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
-	// If WRITE_ONLY flag is not set check for read image support
-	if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
-	{
-		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE2D);
-		if (CL_FAILED(clErr))
-		{
-			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-			return clErr;
-		}
-	}
-	// If READ_ONLY flag is not set check for write image support
-	if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
-	{
-		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE2D);
-		if (CL_FAILED(clErr))
-		{
-			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-			return clErr;
-		}
-	}
-
-	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE2D, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage2d);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Failed to create image: %S"), ClErrTxt(clErr));
-		return clErr;
-	}
-
-	size_t dim[2] = {szImageWidth, szImageHeight};
-	// clFlags should be already sanitized by the context module.
-	clErr = (*ppImage2d)->Initialize(clFlags, pclImageFormat, 2, dim, &szImageRowPitch, pHostPtr, 0);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
-		(*ppImage2d)->Release();
-		return clErr;
-	}
-
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage2d);
-
-	return CL_SUCCESS;
-
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::CreateImage3D
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateImage3D(cl_mem_flags clFlags, 
-								   const cl_image_format * pclImageFormat, 
-								   void * pHostPtr,
-								   size_t szImageWidth, 
-								   size_t szImageHeight, 
-								   size_t szImageDepth, 
-								   size_t szImageRowPitch,
-								   size_t szImageSlicePitch,
-								   MemoryObject ** ppImage3d)
-{
-	LOG_DEBUG(TEXT("Enter CreateImage3D (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2d=%d)"), 
-		clFlags, pclImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, ppImage3d);
-
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-	assert ( NULL != ppImage3d );
-	//check image sizes
-	if ((szImageWidth < 1)	|| (szImageHeight < 1) || (szImageDepth <= 1) ||
-		(szImageWidth > m_sz3dWidth) || (szImageHeight > m_sz3dHeight) || (szImageDepth > m_sz3dDepth) )
-	{
-		LOG_ERROR(TEXT("Image dimension are not allowed, szImageWidth == %d, szImageHeight =%d, szImageDepth = %d"),
-			szImageWidth, szImageHeight, szImageDepth);
-		return CL_INVALID_IMAGE_SIZE;
-	}
-
-	cl_err_code clErr;
-	// Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
-	// If WRITE_ONLY flag is not set check for read image support
-	if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
-	{
-		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE3D);
-		if (CL_FAILED(clErr))
-		{
-			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-			return clErr;
-		}
-	}
-	// If READ_ONLY flag is not set check for write image support
-	if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
-	{
-		clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE3D);
-		if (CL_FAILED(clErr))
-		{
-			LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-			return clErr;
-		}
-	}
-
-	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE3D, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage3d);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
-		return clErr;
-	}
-
-	size_t dim[3] = {szImageWidth, szImageHeight, szImageDepth};
-	size_t pitch[2] = {szImageRowPitch, szImageSlicePitch};
-	clErr = (*ppImage3d)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr, 0);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
-		(*ppImage3d)->Release();
-		return clErr;
-	}
-
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage3d);
-
-	return clErr;
-}
-
-// Context::clCreateImage2DArray
-///////////////////////////////////////////////////////////////////////////////////////////////////
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-cl_err_code Context::clCreateImage2DArray(
-    cl_mem_flags		    clFlags,
-    const cl_image_format *	pclImageFormat,
-    void *					pHostPtr,
-    cl_image_array_type		clImageArrayType,
-    const size_t*			pszImageWidth,
-    const size_t*			pszImageHeight,
-    size_t					szNumImages,
-    size_t					szImageRowPitch,
-    size_t					szImageSlicePitch,                                    
-    MemoryObject**          ppImage2dArr)
-{
-    LOG_DEBUG(TEXT("Enter (clFlags=%d, pclImageFormat=%d, pHostPtr=%d, clImageArrayType=%d, pszImageWidth[0]=%d, pszImageHeight[0]=%d, szNumImages=%d, szImageRowPitch=%d, szImageSlicePitch=%d, ppImage2dArr=%d)"), 
-        clFlags, pclImageFormat, pHostPtr, clImageArrayType, pszImageWidth[0], pszImageHeight[0],
-        szNumImages, szImageRowPitch, szImageSlicePitch, ppImage2dArr);
-
-	assert ( NULL != ppImage2dArr );
-
-	//Curretnly only same size array is supported
-    if (CL_IMAGE_ARRAY_SAME_DIMENSIONS != clImageArrayType)
+	assert(NULL != ppImageArr);
+    assert(CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type || CL_MEM_OBJECT_IMAGE2D_ARRAY == pClImageDesc->image_type);
+    
+    if (pClImageDesc->image_array_size < 1 || pClImageDesc->image_array_size > m_szArraySize || pClImageDesc->image_width < 1 || pClImageDesc->image_width > m_sz2dWidth ||
+        (CL_MEM_OBJECT_IMAGE2D_ARRAY == pClImageDesc->image_type && (pClImageDesc->image_height < 1 || pClImageDesc->image_height > m_sz2dHeight)))
     {
-        LOG_ERROR(TEXT("Invalide clImageArrayType = %d"), clImageArrayType);
-        return CL_INVALID_VALUE;
+        return CL_INVALID_IMAGE_DESCRIPTOR;
     }
 
-    if ((pszImageWidth[0] < 1)	||
-        (pszImageHeight[0] < 1)	||
-		(pszImageWidth[0] > m_sz2dWidth)	||
-        (pszImageHeight[0] > m_sz2dHeight) ||
-        (szNumImages <= 1) ||
-        (szNumImages > m_sz2dArraySize))
-    {
-        LOG_ERROR(TEXT("pszImageWidth = %p, pszImageHeight = %p, szNumImages = %d"), pszImageWidth[0],
-            pszImageHeight[0], szNumImages);
-        return CL_INVALID_IMAGE_SIZE;
-    }
-
-	size_t pixelBytesCnt = GetPixelBytesCount(pclImageFormat);
-	size_t imageRowPitch = (0 == szImageRowPitch) ? pszImageWidth[0] * pixelBytesCnt : szImageRowPitch;
-	size_t imageSlicePitch = (0 == szImageSlicePitch) ? imageRowPitch * pszImageHeight[0] : szImageSlicePitch;
+	const size_t pixelBytesCnt = GetPixelBytesCount(pclImageFormat);
+    // handle the mess in the spec, where for 1D image array the slice pitch defines the size in bytes of each 1D image
+    const size_t szPitchDim1 =
+        CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
+        (0 == pClImageDesc->image_slice_pitch ? pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_slice_pitch) :
+        (0 == pClImageDesc->image_row_pitch ? pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_row_pitch);
+    const size_t szPitchDim2 =
+        CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
+        0 :
+        0 == pClImageDesc->image_slice_pitch ? szPitchDim1 * pClImageDesc->image_height : pClImageDesc->image_slice_pitch;
 
     //Acquire a reader lock on the device map to prevent race with device fission
     OclAutoReader CS(&m_deviceDependentObjectsLock);
 
     // flags and imageFormat are validated by Image2D and MemoryObject contained inside Image2DArray and hostPtr by MemoryObject::initialize.
-	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_IMAGE2D_ARRAY, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage2dArr);
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, pClImageDesc->image_type, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImageArr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
 		return clErr;
 	}
 
-	size_t dim[3] = {pszImageWidth[0], pszImageHeight[0], szNumImages};
-	size_t pitch[2] = {imageRowPitch, imageSlicePitch};
-	clErr = (*ppImage2dArr)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr);
+    size_t dim[3] = {pClImageDesc->image_width};
+	const size_t pitch[2] = {szPitchDim1, szPitchDim2};
+
+    if (CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type)
+    {
+        dim[1] = pClImageDesc->image_array_size;
+        clErr = (*ppImageArr)->Initialize(clFlags, pclImageFormat, 2, dim, pitch, pHostPtr, 0);
+    }
+    else
+    {
+        dim[1] = pClImageDesc->image_height;
+        dim[2] = pClImageDesc->image_array_size;
+        clErr = (*ppImageArr)->Initialize(clFlags, pclImageFormat, 3, dim, pitch, pHostPtr, 0);
+    }	
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
-		(*ppImage2dArr)->Release();
+		(*ppImageArr)->Release();
 		return clErr;
 	}
-
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage2dArr);
-
+	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImageArr);
     return CL_SUCCESS;
 }
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::GetSupportedImageFormats
@@ -892,7 +739,7 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 		return CL_INVALID_VALUE;
 	}
 
-	if ( clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D && clType != CL_MEM_OBJECT_IMAGE2D_ARRAY)
+	if (clType == CL_MEM_OBJECT_BUFFER)
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D"));
 		return CL_INVALID_VALUE;
@@ -968,7 +815,8 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 										   size_t * psz3dWidth, 
 										   size_t * psz3dHeight, 
 										   size_t * psz3dDepth,
-                                           size_t * psz2dArraySize)
+                                           size_t * pszArraySize,
+                                           size_t * psz1dImgBufSize)
 {
 	assert ( "wrong input params" && ((psz2dWidth != NULL) || (psz2dHeight != NULL) || (psz3dWidth != NULL) || (psz3dHeight != NULL) || (psz3dDepth != NULL)) );
 
@@ -976,9 +824,8 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 
 	size_t sz2dWith = 0, sz2dHeight = 0, szMax2dWith = 0, szMax2dHeight = 0;
 	size_t sz3dWith = 0, sz3dHeight = 0, szMax3dWith = 0, szMax3dHeight = 0, sz3dDepth = 0, szMax3dDepth = 0;
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-    size_t sz2dArraySize = 0, szMax2dArraySize = 0;
-#endif
+    size_t szArraySize = 0, szMaxArraySize = 0;
+    size_t sz1dImgBufSize = 0, szMax1dImgBufSize = 0;
 	cl_err_code clErr = CL_SUCCESS;
 	Device * pDevice = NULL;
 	
@@ -1029,16 +876,22 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 				szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
 			}
 		}
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-        if (NULL != psz2dArraySize)
+        if (NULL != pszArraySize)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_ARRAY_MAX_SIZE, sizeof(size_t), &sz2dArraySize, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &szArraySize, NULL);
             if (CL_SUCCEEDED(clErr))
             {
-                szMax2dArraySize = ((0 == ui) || (sz2dArraySize < szMax2dArraySize)) ? sz2dArraySize : szMax2dArraySize;
+                szMaxArraySize = ((0 == ui) || (szArraySize < szMaxArraySize)) ? szArraySize : szMaxArraySize;
             }
         }
-#endif
+        if (NULL != psz1dImgBufSize)
+        {
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz1dImgBufSize, NULL);
+            if (CL_SUCCEEDED(clErr))
+            {
+                szMax1dImgBufSize = 0 == ui || sz1dImgBufSize < szMax1dImgBufSize ? sz1dImgBufSize : szMax1dImgBufSize;
+            }
+        }
 	}
 
 	if (NULL != psz2dWidth)
@@ -1061,12 +914,14 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	{
 		*psz3dDepth = szMax3dDepth;
 	}
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-    if (NULL != psz2dArraySize)
+    if (NULL != pszArraySize)
     {
-        *psz2dArraySize = szMax2dArraySize;
+        *pszArraySize = szMaxArraySize;
     }
-#endif
+    if (NULL != psz1dImgBufSize)
+    {
+        *psz1dImgBufSize = szMax1dImgBufSize;
+    }
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

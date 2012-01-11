@@ -192,7 +192,7 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const
 {
 	LOG_DEBUG(TEXT("Program::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"), 
 		param_name, param_value_size, param_value, param_value_size_ret);
@@ -202,7 +202,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		return CL_INVALID_VALUE;
 	}
 	size_t szParamValueSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 
 	cl_context clContextParam = 0;
 	cl_device_id* clDevIds = NULL;

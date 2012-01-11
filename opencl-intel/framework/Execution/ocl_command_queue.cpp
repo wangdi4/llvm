@@ -97,10 +97,10 @@ OclCommandQueue::~OclCommandQueue()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
+cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet ) const
 {
     cl_err_code res = CL_SUCCESS;
-    void* localParamValue = NULL;
+    const void* localParamValue = NULL;
     size_t szOutputValueSize = 0;
     cl_command_queue_properties propreties;
     

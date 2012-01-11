@@ -312,7 +312,7 @@ Kernel::~Kernel()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -322,7 +322,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		return CL_INVALID_VALUE;
 	}
 	size_t szParamSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	cl_ulong iParam = 0;
 	switch (iParamName)
 	{

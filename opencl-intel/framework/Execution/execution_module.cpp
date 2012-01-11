@@ -1005,6 +1005,28 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     cl_return  errVal;
 }
 
+static cl_err_code CheckImageFormatSupportedByDevice(const FissionableDevice& dev, const MemoryObject& image)
+{
+    cl_image_format clImgFormat;
+    size_t szValSize;
+
+    const cl_err_code errVal = image.GetImageInfo(CL_IMAGE_FORMAT, sizeof(clImgFormat), &clImgFormat, &szValSize);
+
+    assert(CL_SUCCESS == errVal);
+    if (CL_FAILED(errVal))
+    {
+        return errVal;
+    }
+    
+    assert(sizeof(clImgFormat) == szValSize);
+
+    if (!dev.IsImageFormatSupported(clImgFormat, image.GetFlags(), image.GetType()))
+    {
+        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+    }
+    return CL_SUCCESS;
+}
+
 /******************************************************************
  * 
  ******************************************************************/
@@ -1663,7 +1685,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 	    return  errVal;
 	}
 
-    errVal = pNativeKernelCommand->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pNativeKernelCommand->EnqueueSelf(CL_FALSE/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1677,34 +1699,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
     }
 
 	return  errVal;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-inline cl_err_code ExecutionModule::Check2DImageParameters( MemoryObject* pImage, const size_t szOrigin[MAX_WORK_DIM], const size_t szRegion[MAX_WORK_DIM])
-{
-    cl_err_code errVal = CL_SUCCESS;
-    if( CL_MEM_OBJECT_IMAGE2D == pImage->GetType())
-    {
-        // 2D image check
-        if( 0 != szOrigin[2])
-        {
-            errVal = CL_INVALID_VALUE;
-        }
-        if( 1 != szRegion[2] )
-        {
-            errVal = CL_INVALID_VALUE;
-        }
-    }
-    if (CL_MEM_OBJECT_IMAGE2D_ARRAY == pImage->GetType())
-    {
-        if (1 != szRegion[2])
-        {
-            errVal = CL_INVALID_VALUE;
-        }
-    }
-    return errVal;
 }
 
 inline bool DimensionsOverlap(size_t d1_min, size_t d1_max, size_t d2_min, size_t d2_max)
@@ -1748,15 +1742,26 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj,
 			break;
 		}
 		dimensionsToCompare = 2;
-		break;
+		break;    
 
 	case CL_MEM_OBJECT_IMAGE2D:
 		dimensionsToCompare = 2;
 		break;
 
-	case CL_MEM_OBJECT_BUFFER:
-		dimensionsToCompare = 3;
-		break;
+    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+        if (szSrcOrigin[1] == szDstOrigin[1])
+        {
+            dimensionsToCompare = 1;
+        }        
+        break;
+
+    case CL_MEM_OBJECT_IMAGE1D:
+    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+        dimensionsToCompare = 1;
+        break;
+    case CL_MEM_OBJECT_BUFFER:
+        dimensionsToCompare = 3;
+        break;
 
     default:
 		assert(0 && "Illegal type of memory object");
@@ -1780,7 +1785,7 @@ inline size_t ExecutionModule::CalcRegionSizeInBytes(MemoryObject* pImage, const
     cl_mem_object_type memObjType = pImage->GetType();
     if( memObjType != CL_MEM_OBJECT_BUFFER )
     {
-        // Note, we already checked that szRegion[2] == 1, so same calculation is valide for 2D/3D images
+        // Note: we have already checked that the appropriate elements of szRegion equal 1, so the same calculation is valid for all image types
         errVal = pImage->GetImageInfo( CL_IMAGE_ELEMENT_SIZE, sizeof(size_t), &szPixelByteSize, NULL);
         if(CL_SUCCEEDED(errVal))
         {
@@ -1866,11 +1871,14 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     {
         return errVal;
     }
-    if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
-        ((CL_MEM_OBJECT_IMAGE2D == pImage->GetType()) && (0 != szSlicePitch))
-        )
+    errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pImage);
+    if (CL_SUCCESS != errVal)
     {
-        return CL_INVALID_VALUE;
+        return errVal;
+    }
+    if (pImage->GetFlags() & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_NO_ACCESS))
+    {
+        return CL_INVALID_OPERATION;
     }
 
     Command* pReadImageCmd  = new ReadImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, pOutData);
@@ -1896,7 +1904,6 @@ cl_err_code ExecutionModule::EnqueueReadImage(
 
     return  errVal;
 }
-
 
 /******************************************************************
  *
@@ -1947,11 +1954,14 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     {
         return errVal;
     }
-    if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))  ||
-        ((CL_MEM_OBJECT_IMAGE2D == pImage->GetType()) && (0 != szSlicePitch))
-        )
+    errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pImage);
+    if (CL_SUCCESS != errVal)
     {
-        return CL_INVALID_VALUE;
+        return errVal;
+    }
+    if (pImage->GetFlags() & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_NO_ACCESS))
+    {
+        return CL_INVALID_OPERATION;
     }
 
     Command* pWriteImageCmd  = new WriteImageCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pImage, szOrigin, szRegion, szRowPitch, szSlicePitch, cpSrcData);
@@ -1967,7 +1977,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	    return  errVal;
 	}
 
-    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pWriteImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1978,6 +1988,69 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	return  errVal;
 }
 
+static bool IsImageDimSupportedByDevice(const MemoryObject& img, const FissionableDevice& dev, cl_image_info clImgInfo, cl_int iDevInfo)
+{
+    size_t szImgVal, szDevVal, szValSize;
+
+    cl_err_code clErr = img.GetImageInfo(clImgInfo, sizeof(szImgVal), &szImgVal, &szValSize);
+    
+    assert(CL_SUCCEEDED(clErr));
+    if (CL_FAILED(clErr))
+    {
+        return false;
+    }
+    
+    assert(sizeof(szImgVal) == szValSize);
+    clErr = dev.GetInfo(iDevInfo, sizeof(szDevVal), &szDevVal, &szValSize);
+
+    assert(CL_SUCCEEDED(clErr));
+    if (CL_FAILED(clErr))
+    {
+        return false;
+    }
+    
+    assert(sizeof(szDevVal) == szValSize);
+    return szImgVal <= szDevVal;
+}
+
+static bool AreImageDimsSupportedByDevice(const MemoryObject& img, const FissionableDevice& dev)
+{
+    cl_mem_object_type clMemObjType;
+    size_t szValSize;
+
+    cl_err_code clErr = img.GetInfo(CL_MEM_TYPE, sizeof(clMemObjType), &clMemObjType, &szValSize);
+
+    assert(CL_SUCCEEDED(clErr));
+    if (CL_FAILED(clErr))
+    {
+        return false;
+    }
+
+    assert(sizeof(clMemObjType) == szValSize);
+
+    switch (clMemObjType)
+    {
+    case CL_MEM_OBJECT_IMAGE1D:
+        return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH);
+    case CL_MEM_OBJECT_IMAGE2D:
+        return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE2D_MAX_HEIGHT);
+    case CL_MEM_OBJECT_IMAGE3D:
+        return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE3D_MAX_HEIGHT) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_DEPTH, CL_DEVICE_IMAGE3D_MAX_DEPTH);
+    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+        return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_ARRAY_SIZE, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+        return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE3D_MAX_HEIGHT) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_ARRAY_SIZE, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
+    default:
+        assert(0);
+        return false;
+    }
+}
 
 /******************************************************************
  *
@@ -2032,13 +2105,6 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
         return errVal;
     }
 
-    if( CL_FAILED(Check2DImageParameters(pSrcImage, szSrcOrigin, szRegion))  ||
-        CL_FAILED(Check2DImageParameters(pDstImage, szDstOrigin, szRegion))  
-        )
-    {
-        return CL_INVALID_VALUE;
-    }
-
     // Check overlapping
     if( clSrcImage == clDstImage)
     {
@@ -2046,6 +2112,19 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
         {
             return CL_MEM_COPY_OVERLAP;
         }
+    }
+    if (!AreImageDimsSupportedByDevice(*pSrcImage, *pCommandQueue->GetDefaultDevice()) ||
+        !AreImageDimsSupportedByDevice(*pDstImage, *pCommandQueue->GetDefaultDevice()))
+    {
+        return CL_INVALID_IMAGE_SIZE;
+    }
+    if (CL_SUCCESS != (errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pSrcImage)))
+    {
+        return errVal;
+    }
+    if (CL_SUCCESS != (errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pDstImage)))
+    {
+        return errVal;
     }
 
     //
@@ -2113,16 +2192,21 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
         return CL_INVALID_CONTEXT;
     }    
 
-    if( CL_FAILED(Check2DImageParameters(pSrcImage, szSrcOrigin, szRegion)) )
-    {
-        return CL_INVALID_VALUE;
-    }
-
     // Calculate dst_cb
     size_t szDstCb = CalcRegionSizeInBytes(pSrcImage, szRegion);
 
     // Check boundaries.
     if (CL_SUCCESS != (errVal = pSrcImage->CheckBounds(szSrcOrigin,szRegion)) || CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(&szDstOffset,&szDstCb)))
+    {
+        return errVal;
+    }
+    // check that if pSrcImage is a 1D image buffer it wasn't created from pDstBuffer
+    if (pSrcImage->GetType() == CL_MEM_OBJECT_IMAGE1D_BUFFER && pSrcImage->GetBackingStoreData() == pDstBuffer->GetBackingStoreData())
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    if (CL_SUCCESS != (errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pSrcImage)))
     {
         return errVal;
     }
@@ -2193,16 +2277,21 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
         return CL_INVALID_CONTEXT;
     }    
 
-    if( CL_FAILED(Check2DImageParameters(pDstImage, szDstOrigin, szRegion)) )
-    {
-        return CL_INVALID_VALUE;
-    }
-
     // Calculate dst_cb
     size_t szDstCb = CalcRegionSizeInBytes(pDstImage, szRegion);
 
     // Check boundaries.
     if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(&szSrcOffset,&szDstCb)) || CL_SUCCESS != (errVal = pDstImage->CheckBounds(szDstOrigin,szRegion)))
+    {
+        return errVal;
+    }
+    // check that if pDstImage is a 1D image buffer, it wasn't created from pSrcBuffer
+    if (pDstImage->GetType() == CL_MEM_OBJECT_IMAGE1D_BUFFER && pDstImage->GetBackingStoreData() == pSrcBuffer->GetBackingStoreData())
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    if (CL_SUCCESS != (errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pDstImage)))
     {
         return errVal;
     }
@@ -2301,21 +2390,23 @@ void * ExecutionModule::EnqueueMapImage(
         }
         else
         {
-            if (CL_FAILED(Check2DImageParameters(pImage, szOrigin, szRegion))   ||
-                (NULL == pszImageRowPitch)                                      ||
-                ((CL_MEM_OBJECT_IMAGE3D == pImage->GetType()) && (NULL == pszImageSlicePitch))  
+            const cl_mem_object_type imgType = pImage->GetType();
+            if ((NULL == pszImageRowPitch)                                      ||
+                ((CL_MEM_OBJECT_IMAGE3D == imgType || CL_MEM_OBJECT_IMAGE1D_ARRAY == imgType || CL_MEM_OBJECT_IMAGE2D_ARRAY == imgType) && (NULL == pszImageSlicePitch))  
                 )
             {
                 *pErrcodeRet = CL_INVALID_VALUE;
             }
         }
     }
-
     if(CL_FAILED(*pErrcodeRet))
     {
         return NULL;
     }
-        
+    if (CL_SUCCESS != (*pErrcodeRet = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pImage)))
+    {
+        return NULL;
+    } 
     MapImageCommand* pMapImageCmd = new MapImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
     // Must set device Id before init for image resource allocation.
 	if (NULL == pMapImageCmd)

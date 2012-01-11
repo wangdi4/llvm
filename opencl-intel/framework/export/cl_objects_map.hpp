@@ -169,7 +169,7 @@ cl_err_code OCLObjectsMap<HandleType>::GetIDs(cl_uint uiIdsCount, HandleType** p
 }
 
 template <class HandleType>
-cl_uint OCLObjectsMap<HandleType>::Count()
+cl_uint OCLObjectsMap<HandleType>::Count() const
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	assert(m_mapObjects.size() <= CL_MAX_UINT32);

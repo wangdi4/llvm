@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 		/******************************************************************************************
 		* Function: 	GetImageInfo
@@ -104,7 +104,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Arnon Peleg
 		* Date:			April 2009
 		******************************************************************************************/
-        virtual cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+        virtual cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
             {return CL_INVALID_MEM_OBJECT; }
 
 		// initialize the memory object
@@ -329,12 +329,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class IMemoryObjectArray
 	{
 	public:
-        /************************************************************************
-         * @param index index of component inside the array
-         * @return the MemoryObject object representing the component whose index in the
-         *  array is index.
-         ************************************************************************/
-        virtual MemoryObject* GetMemObject(size_t index) = 0;
 
         /************************************************************************
          * @return number of Image2D objects in this Array

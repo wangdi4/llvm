@@ -31,6 +31,7 @@
 #include "ocl_config.h"
 #include "ocl_itt.h"
 #include "cl_objects_map.h"
+#include "Context.h"
 
 #include <Logger.h>
 #if defined (DX9_MEDIA_SHARING)
@@ -160,12 +161,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// memory object methods
 		virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
 		virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
-        virtual cl_mem CreateImage(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
-		virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
-		virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
-#if 0   // disabled until changes in the spec regarding 2D image arrays are made
-        virtual cl_mem CreateImage2DArray(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, cl_image_array_type clImageArrayType, const size_t * pszImageWidth, const size_t * pszImageHeight, size_t clNumImages, size_t clImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int *	pErrcodeRet);
-#endif
+        virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
+        virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
+        virtual cl_mem CreateImage(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);        
+        virtual cl_mem CreateImageArray(cl_context clContext, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc* pClImageDesc, void* pHostPtr, cl_int* pErrcodeRet);
 		virtual cl_int RetainMemObject(cl_mem clMemObj);
 		virtual cl_int ReleaseMemObject(cl_mem clMemObj);
 		virtual cl_int GetSupportedImageFormats(cl_context clContext, cl_mem_flags clFlags, cl_mem_object_type clImageType, cl_uint uiNumEntries, cl_image_format * pclImageFormats, cl_uint * puiNumImageFormats);
@@ -213,18 +212,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:
 
-		cl_err_code CheckImageParameters(cl_mem_flags clMemFlags,
+		cl_err_code CheckMemObjectParameters(cl_mem_flags clMemFlags,
 										const cl_image_format * clImageFormat,
+                                        cl_mem_object_type clMemObjType,
                                          size_t szImageWidth,
                                          size_t szImageHeight,
                                          size_t szImageDepth,
                                          size_t szImageRowPitch,
                                          size_t szImageSlicePitch,
+                                         size_t szArraySize,
                                          void * pHostPtr);
 
 		// get pointers to device objects according to the device ids
 		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
         cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
+
+        template<size_t DIM, cl_mem_object_type OBJ_TYPE> cl_mem CreateScalarImage(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet, bool bIsImageBuffer = false);
+
+        cl_mem CreateImage1DBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, size_t szImageWidth, cl_mem buffer, cl_int* pErrcodeRet);
 
 #if defined (DX9_MEDIA_SHARING)
         cl_mem CreateFromD3D9Resource(cl_context clContext, cl_mem_flags flags,
@@ -246,5 +251,78 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		DECLARE_LOGGER_CLIENT;
 	};
+
+    template<size_t DIM, cl_mem_object_type OBJ_TYPE>
+    cl_mem ContextModule::CreateScalarImage(cl_context clContext, 
+        cl_mem_flags clFlags, 
+        const cl_image_format * clImageFormat, 
+        size_t szImageWidth, 
+        size_t szImageHeight, 
+        size_t szImageDepth, 
+        size_t szImageRowPitch, 
+        size_t szImageSlicePitch, 
+        void * pHostPtr, 
+        cl_int * pErrcodeRet,
+        bool bIsImageBuffer)
+    {
+        assert(DIM >= 1 && DIM <= 3);
+        LOG_DEBUG(TEXT("Enter CreateScalarImage (clContext=%d, clFlags=%d, clImageFormat=%d, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%d, pErrcodeRet=%d)"), 
+            clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
+
+        Context* pContext = NULL;
+        MemoryObject* pImage = NULL;
+        cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+
+        if (CL_FAILED(clErr) || NULL == pContext)
+        {
+            LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_INVALID_CONTEXT;
+            }
+            return CL_INVALID_HANDLE;
+        }
+
+        // Do some initial (not context specific) parameter checking
+        // check input memory flags
+        clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("%S"), TEXT("Parameter check failed"));
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = clErr;
+            }
+            return CL_INVALID_HANDLE;
+        }
+
+        // Create image from context
+        const size_t szDims[] = {szImageWidth, szImageHeight, szImageDepth}, szPitches[] = {szImageRowPitch, szImageSlicePitch};
+        clErr = pContext->CreateImage<DIM, OBJ_TYPE>(clFlags, clImageFormat, pHostPtr, szDims, szPitches, &pImage, bIsImageBuffer);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("pContext->CreateImage(%d, %d, %d, %d, %d, %d, %d, %d, %d) = %S"), clFlags, clImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, &pImage, ClErrTxt(clErr));
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_ERR_OUT(clErr);
+            }
+            return CL_INVALID_HANDLE;
+        }
+        clErr = m_mapMemObjects.AddObject(pImage, false);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pImage, pImage->GetHandle(), ClErrTxt(clErr))
+                if (NULL != pErrcodeRet)
+                {
+                    *pErrcodeRet = CL_ERR_OUT(clErr);
+                }
+                return CL_INVALID_HANDLE;
+        }
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_SUCCESS;
+        }
+        return pImage->GetHandle();
+    }
 
 }}}

@@ -76,10 +76,10 @@ QueueEvent::~QueueEvent()
 /******************************************************************
 *
 ******************************************************************/
-cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * paramValue, size_t * paramValueSizeRet)
+cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * paramValue, size_t * paramValueSizeRet) const
 {
 	cl_err_code res = CL_SUCCESS;
-	void* localParamValue = NULL;
+	const void* localParamValue = NULL;
 	size_t outputValueSize = 0;
 	cl_int eventStatus = CL_QUEUED;
 	cl_command_type  cmd_type;

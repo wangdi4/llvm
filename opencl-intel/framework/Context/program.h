@@ -75,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			void *					pUserData);
 
 		// Implement the common queries. Specific queries like binaries or source go to implementing classes
-		virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+		virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
         // Called by the context when a device is fissioned
         // Left virtual as implementation is different for programs created from source and ones created from binaries
@@ -91,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DeviceProgram** m_ppDevicePrograms;
 		cl_uint         m_szNumAssociatedDevices;
 
-        Utils::OclReaderWriterLock m_deviceProgramLock;
+        mutable Utils::OclReaderWriterLock m_deviceProgramLock;
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
 

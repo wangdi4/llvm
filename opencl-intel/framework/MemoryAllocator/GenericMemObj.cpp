@@ -32,6 +32,7 @@
 #include "cl_sys_defines.h"
 
 #include "MemoryObjectFactory.h"
+#include "Image1DBuffer.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -131,7 +132,7 @@ cl_err_code GenericMemObject::Initialize(
 	m_pHostPtr = pHostPtr;
 
 	// assign default value
-	if ( !(m_clFlags & (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)) )
+	if (0 == m_clFlags)
 	{
 		m_clFlags |= CL_MEM_READ_WRITE;
 	}
@@ -614,6 +615,16 @@ cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, IOCLDev
 	return CL_DEV_SUCCESS;
 }
 
+// IOCLDevRTMemObjectService Methods
+cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore* *ppBS) const
+{
+    assert(NULL!= ppBS);
+    assert(NULL!= m_pBackingStore);
+
+    *ppBS = m_pBackingStore;
+    return CL_DEV_SUCCESS;
+}
+
 cl_dev_err_code GenericMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
 {
 	pBS->AddPendency();
@@ -721,10 +732,23 @@ cl_err_code GenericMemObject::CheckBounds( const size_t* pszOrigin, const size_t
     {
 		if ((pszOrigin[i] + pszRegion[i]) > my_dims[i])
 		{
-			return CL_INVALID_MEM_OBJECT;
+			return CL_INVALID_VALUE;
 		}
     }
-
+    if (CL_MEM_OBJECT_IMAGE2D == m_clMemObjectType || CL_MEM_OBJECT_IMAGE1D_ARRAY == m_clMemObjectType)
+    {
+        if (0 != pszOrigin[2] || 1 != pszRegion[2])
+        {
+            return CL_INVALID_VALUE;
+        }
+    }
+    else if (CL_MEM_OBJECT_IMAGE1D == m_clMemObjectType || CL_MEM_OBJECT_IMAGE1D_BUFFER == m_clMemObjectType)
+    {
+        if (0 != pszOrigin[1] || 0 != pszOrigin[2] || 1 != pszRegion[1] || 1 != pszRegion[2])
+        {
+            return CL_INVALID_VALUE;
+        }
+    }
 	return CL_SUCCESS;
 }
 
@@ -750,7 +774,7 @@ cl_err_code GenericMemObject::CheckBoundsRect( const size_t* pszOrigin, const si
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SingleUnifiedImage2D::GetImageInfo()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -771,8 +795,9 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 	size_t	 elem_size = m_BS->GetElementSize();
 
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	size_t	stZero = 0;
+    cl_uint uiZero = 0;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -840,11 +865,25 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 		break;
 
 	case CL_IMAGE_ARRAY_SIZE:
-	case CL_IMAGE_BUFFER:
+        szSize = sizeof(size_t);
+        if (CL_MEM_OBJECT_IMAGE1D_ARRAY == m_clMemObjectType)
+        {
+            pValue = &dims[1];
+        }
+        else if (CL_MEM_OBJECT_IMAGE2D_ARRAY == m_clMemObjectType)
+        {
+            pValue = &dims[2];
+        }
+        else
+        {
+            pValue = &stZero;
+        }
+        break;            
 	case CL_IMAGE_NUM_MIP_LEVELS:
 	case CL_IMAGE_NUM_SAMPLES:
-		assert( 0 );
-
+		szSize = sizeof(cl_uint);
+        pValue = &uiZero;
+        break;
 	default:
         return CL_INVALID_VALUE;
 	}
@@ -1253,3 +1292,38 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
 	return IS_ALIGNED_ON(m_stOrigin[0], device_properties.alignment );
 }
 
+cl_err_code Image1DBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
+{
+    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    {
+        return CL_INVALID_VALUE;
+    }    
+    if (CL_IMAGE_BUFFER == clParamName)
+    {
+        if (NULL != pParamValue && szParamValueSize < sizeof(cl_mem))
+        {
+            return CL_INVALID_VALUE;
+        }
+        if (NULL != pParamValue)
+        {
+            *(cl_mem*)pParamValue = m_pBuffer->GetHandle();
+        }
+        if (NULL != pszParamValueSizeRet)
+        {
+            *pszParamValueSizeRet = sizeof(cl_mem);
+        }
+        return CL_SUCCESS;
+    }
+    return GenericMemObject::GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+}
+
+void Image1DBuffer::SetBuffer(GenericMemObject* pBuffer)
+{
+    m_pBuffer = pBuffer;
+    pBuffer->AddPendency(this);
+}
+
+Image1DBuffer::~Image1DBuffer()
+{
+    m_pBuffer->RemovePendency(this);
+}

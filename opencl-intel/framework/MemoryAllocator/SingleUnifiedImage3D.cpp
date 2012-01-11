@@ -89,7 +89,7 @@ SingleUnifiedImage3D::~SingleUnifiedImage3D()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Image3D::GetImageInfo()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code SingleUnifiedImage3D::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code SingleUnifiedImage3D::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -99,7 +99,7 @@ cl_err_code SingleUnifiedImage3D::GetImageInfo(cl_image_info clParamName, size_t
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	switch (clParamName)
 	{
 	case CL_IMAGE_SLICE_PITCH:

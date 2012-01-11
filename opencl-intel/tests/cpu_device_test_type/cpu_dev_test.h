@@ -100,6 +100,12 @@ public:
 		return CL_DEV_SUCCESS;
 	}
 
+    cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore* *ppBS) const
+    {
+        *ppBS = new SimpleBackingStore( m_pclImageFormat, m_dim_count, m_pDimension, m_pPitches );
+        return CL_DEV_SUCCESS;
+    }
+
 	cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS)
 	{
 		return CL_DEV_SUCCESS;

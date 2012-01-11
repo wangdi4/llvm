@@ -102,7 +102,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const char * GetModuleName() const { return m_pszModuleName; }
 
 		//OclObject implementation
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) {return CL_INVALID_OPERATION; }
+		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const {return CL_INVALID_OPERATION; }
 
 	protected:
 		/******************************************************************************************

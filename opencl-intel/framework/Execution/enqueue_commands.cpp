@@ -537,17 +537,6 @@ cl_err_code MemoryCommand::PrepareOnDevice(
 }
 #endif
 
-// in case of an image array we need to substitute the MemoryObject representing the array with the indexed 2D image.
-static MemoryObject* GetImageFromArray(MemoryObject* memObj, size_t index)
-{
-    if (CL_MEM_OBJECT_IMAGE2D_ARRAY == memObj->GetType())
-    {
-        return dynamic_cast<IMemoryObjectArray*>(memObj)->GetMemObject(index);
-    }
-
-	return memObj;
-}
-
 CopyMemObjCommand::CopyMemObjCommand(
 				  IOclCommandQueueBase* cmdQueue,
 				  ocl_entry_points *    pOclEntryPoints,
@@ -581,8 +570,8 @@ CopyMemObjCommand::CopyMemObjCommand(
 		m_szRegion[i] = szRegion[i];
     }
 
-	m_pSrcMemObj = GetImageFromArray(pSrcMemObj, m_szSrcOrigin[2]);
-    m_pDstMemObj = GetImageFromArray(pDstMemObj, m_szDstOrigin[2]);
+	m_pSrcMemObj = pSrcMemObj;
+    m_pDstMemObj = pDstMemObj;
 
 	m_uiSrcNumDims = m_pSrcMemObj->GetNumDimensions();
 	m_uiDstNumDims = m_pDstMemObj->GetNumDimensions();
@@ -998,7 +987,7 @@ MapMemObjCommand::MapMemObjCommand(
 			m_szRegion[i] = 1;
     }
 
-    m_pMemObj = GetImageFromArray(pMemObj, m_szOrigin[2]);
+    m_pMemObj = pMemObj;
 }
 
 /******************************************************************
@@ -2238,6 +2227,7 @@ WriteMemObjCommand::WriteMemObjCommand(
 	const size_t    szSrcSlicePitch
     ):
 	MemoryCommand(cmdQueue, pOclEntryPoints),
+    m_pMemObj(pMemObj),
 	m_bBlocking(bBlocking),
     m_szMemObjRowPitch(szRowPitch),
     m_szMemObjSlicePitch(szSlicePitch),
@@ -2260,8 +2250,6 @@ WriteMemObjCommand::WriteMemObjCommand(
 			m_szSrcOrigin[i] = 0;
 		}
     }
-
-    m_pMemObj = GetImageFromArray(pMemObj, m_szOrigin[2]);
 
 	if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
 	{
@@ -2462,10 +2450,7 @@ cl_int     ErrorQueueEvent::GetReturnCode() const
 	return m_owner->GetForcedErrorCode();
 }
 
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code	ErrorQueueEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	ErrorQueueEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	return m_owner->GetEvent()->GetInfo( iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet );
 }

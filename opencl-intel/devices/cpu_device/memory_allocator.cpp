@@ -91,7 +91,7 @@ MemoryAllocator::~MemoryAllocator()
 		CL_DEV_INVALID_VALUE	If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
 ********************************************************************************************************************/
 cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
+				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
 {
 	//image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
 	//CL_MEM_OBJECT_IMAGE3D
