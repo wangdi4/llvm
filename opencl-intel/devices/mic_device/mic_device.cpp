@@ -384,7 +384,7 @@ cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     Call Memory Allocator to get supported image formats
 ********************************************************************************************************************/
 cl_dev_err_code MICDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-                                    cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
+                                    cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedImageFormats Function enter"));
     return (cl_dev_err_code)m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
