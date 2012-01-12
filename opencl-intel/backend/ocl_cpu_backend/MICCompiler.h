@@ -26,7 +26,7 @@ File Name: MICCompiler.h
 #include "MICKernel.h"
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/MICJITEngine/IFunctionAddressResolver.h"
+#include "MICJITEngine/include/IFunctionAddressResolver.h"
 
 namespace llvm {
     class ExecutionEngine;

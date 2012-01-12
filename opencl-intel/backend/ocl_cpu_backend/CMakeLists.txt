@@ -386,7 +386,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS} 
 	${OCL_CPU_BACKEND_EXPORT_DIR} 
-	)
+	../)
 
 # Add additional lib direcories
 link_directories (
