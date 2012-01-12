@@ -251,14 +251,14 @@ GLTexture::~GLTexture()
 
 }
 
-cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
 	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
 	{
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	void * pValue = NULL;
+	const void * pValue = NULL;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:

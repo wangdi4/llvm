@@ -304,7 +304,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
 	};
 
-#if not defined (_WIN32)
+#if !defined (_WIN32)
     /* In the line:
     for (size_t i = 0; i < DIM - 1; i++)
     don't issue an error that i < DIM - 1 is always false when DIM is 1 - this is intentional */

@@ -101,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, MemoryObject** ppBuffer) {return CL_INVALID_OPERATION;}
 
-        cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
+        cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 	protected:
 		GLTexture(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):

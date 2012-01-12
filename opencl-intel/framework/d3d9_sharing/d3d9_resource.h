@@ -253,7 +253,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual FissionableDevice* GetLocation() const;
 
-        cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
+        cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const;
 
     protected:
 

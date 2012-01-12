@@ -320,10 +320,10 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     /**
      * @fn  cl_err_code D3D9Resource::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize,
-     *      void* pParamValue, size_t* pszParamValueSizeRet)
+     *      void* pParamValue, size_t* pszParamValueSizeRet) const
      */
 
-    cl_err_code D3D9Resource::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet)
+    cl_err_code D3D9Resource::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
     {
         if (NULL == pParamValue && NULL == pszParamValueSizeRet)
         {
