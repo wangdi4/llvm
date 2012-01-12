@@ -46,8 +46,8 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
 
 cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
 {
-	//TODO 
-	// REMOVE THE NEXT SLEEP COMMAND - IT IS WORKAROUND BECAUSE OF THE TIME IT TAKES TO RELAESE THE PREVIOUS COIPROCESS.
+	// TODO The following sleep command purpose is to let device side process to release all its resources.
+	// REMOVE it when will change the reserved memory of COIProcess to 0.
 	sleep(2);
     // find the first unused device index
     DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);

@@ -63,17 +63,20 @@ private:
     OclDynamicLib                   m_dlRunTime;
     cl_dev_cmd_list                 m_defaultCommandList;
     DeviceServiceCommunication*     m_pDeviceServiceComm;
-    NotificationPort                m_notificationPort;
+    NotificationPort*               m_pNotificationPort;
 
     set<CommandList*>               m_commandListsSet;
 
     // static set to handle all existing MIC DA instancies
-    static set<IOCLDeviceAgent*>    m_mic_instancies;
-    static OclMutex                 m_mic_instancies_mutex;
+    static set<IOCLDeviceAgent*>*    m_mic_instancies;
+    static OclMutex*                 m_mic_instancies_mutex;
 
     // manage multiple DAs
     static void RegisterMicDevice( MICDevice* dev );
-    static void UnregisterMicDevice( MICDevice* dev );
+    // Return true if dev exist in m_mic_instancies
+	static bool UnregisterMicDevice( MICDevice* dev );
+
+	void  clDevCloseDeviceInt();
 
 protected:
     ~MICDevice();
@@ -134,7 +137,8 @@ public:
     // manage multiple DAs
     typedef set<MICDevice*>  TMicsSet;
     static TMicsSet FilterMicDevices( size_t count, const IOCLDeviceAgent* const *dev_arr );
-    static TMicsSet GetActiveMicDevices( void );
+    // Return activated mic devices. If erase = true than erase those devices from m_mic_instancies
+	static TMicsSet GetActiveMicDevices( bool erase = false );
 
     //
     // IOCLDeviceFECompilerDescription

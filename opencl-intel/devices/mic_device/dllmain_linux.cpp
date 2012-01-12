@@ -43,12 +43,12 @@ void dll_init(void)
     safeStrCpy(clMICDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
     safeStrCat(clMICDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
     MICDevice::loadingInit();
+	atexit(MICDevice::unloadRelease);
 }
 
 void dll_fini(void)
 {
 	gSafeReleaseOfCoiObjects = false;
-    MICDevice::unloadRelease();
 }
 
 

@@ -427,9 +427,8 @@ bool mic_cpu_test()
         &proc               // The resulting process handle.
     ));
 
-	NotificationPort* notificationPort = new NotificationPort();
-	int err = notificationPort->initialize(10);
-	assert(0 == err && "initialize failed");
+	NotificationPort* notificationPort = NotificationPort::notificationPortFactory(10);
+	assert(NULL != notificationPort && "initialize failed");
 	micSyncNotification* synchNotifiaction = new micSyncNotification(notificationPort, &proc, 100);
 
 	micMultiThreadedNotification* multiThreadedNotification = new micMultiThreadedNotification(notificationPort, &proc, 100);
@@ -452,6 +451,8 @@ bool mic_cpu_test()
 	printf("MIC2 done\n");
 	fflush(0);
 
+	notificationPort->release();
+	NotificationPort::waitForAllNotificationPortThreads();
 
     // Destroy the process
     //
@@ -466,7 +467,6 @@ bool mic_cpu_test()
     
 	delete(multiThreadedNotification);
 	delete(synchNotifiaction);
-	delete(notificationPort);
 
 	printf("Exiting\n");
 
@@ -487,5 +487,7 @@ int main(int argc, char* argv[])
 		fflush(0);
 		mic_cpu_test();
 	}
+	printf("Test done\n");
+	fflush(0);
 	return 0;
 }

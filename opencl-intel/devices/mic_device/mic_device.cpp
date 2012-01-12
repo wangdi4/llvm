@@ -39,8 +39,8 @@ using namespace Intel::OpenCL::MICDevice;
 
 bool gSafeReleaseOfCoiObjects = true;
 
-set<IOCLDeviceAgent*> MICDevice::m_mic_instancies;
-OclMutex              MICDevice::m_mic_instancies_mutex;
+set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
+OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;
 
 char clMICDEVICE_CFG_PATH[MAX_PATH];
 
@@ -58,29 +58,35 @@ typedef struct _cl_dev_internal_cmd_list
 
 void MICDevice::RegisterMicDevice( MICDevice* dev )
 {
-    OclAutoMutex lock( &m_mic_instancies_mutex );
-    m_mic_instancies.insert( dev );
+    OclAutoMutex lock( m_mic_instancies_mutex );
+    m_mic_instancies->insert( dev );
 }
 
-void MICDevice::UnregisterMicDevice( MICDevice* dev )
+bool MICDevice::UnregisterMicDevice( MICDevice* dev )
 {
-		OclAutoMutex lock( &m_mic_instancies_mutex );
-		m_mic_instancies.erase( dev );
+		OclAutoMutex lock( m_mic_instancies_mutex );
+		return (0 != m_mic_instancies->erase( dev ));
 }
 
-MICDevice::TMicsSet MICDevice::GetActiveMicDevices( void )
+MICDevice::TMicsSet MICDevice::GetActiveMicDevices( bool erase )
 {
     TMicsSet ret_list;
 
-    OclAutoMutex lock( &m_mic_instancies_mutex );
+    OclAutoMutex lock( m_mic_instancies_mutex );
 
-    set<IOCLDeviceAgent*>::iterator it  = m_mic_instancies.end();
-    set<IOCLDeviceAgent*>::iterator end = m_mic_instancies.end();
+    set<IOCLDeviceAgent*>::iterator it  = m_mic_instancies->begin();
+    set<IOCLDeviceAgent*>::iterator end = m_mic_instancies->end();
 
     for(; it != end; ++it)
     {
         ret_list.insert( (MICDevice*)*it );
     }
+
+	// If the client ask to erase than remove the mic devices pointers from the set.
+	if (erase)
+	{
+		m_mic_instancies->clear();
+	}
 
     return ret_list;
 }
@@ -89,15 +95,15 @@ MICDevice::TMicsSet MICDevice::FilterMicDevices( size_t count, const IOCLDeviceA
 {
     TMicsSet ret_list;
 
-    OclAutoMutex lock( &m_mic_instancies_mutex );
+    OclAutoMutex lock( m_mic_instancies_mutex );
 
-    set<IOCLDeviceAgent*>::iterator found_end = m_mic_instancies.end();
+    set<IOCLDeviceAgent*>::iterator found_end = m_mic_instancies->end();
 
     for(size_t i = 0; i < count; ++i)
     {
         IOCLDeviceAgent* dev = const_cast<IOCLDeviceAgent*>(dev_arr[i]);
 
-        if (m_mic_instancies.find( dev ) != found_end)
+        if (m_mic_instancies->find( dev ) != found_end)
         {
             ret_list.insert( (MICDevice*)dev );
         }
@@ -143,7 +149,8 @@ cl_dev_err_code MICDevice::Init()
 	assert(m_pDeviceServiceComm);
 
     // initialize the notificationPort mechanism.
-    if (NotificationPort::SUCCESS != m_notificationPort.initialize(NOTIFICATION_PORT_MAX_BARRIERS))
+	m_pNotificationPort = NotificationPort::notificationPortFactory(NOTIFICATION_PORT_MAX_BARRIERS);
+	if (NULL == m_pNotificationPort)
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -189,10 +196,30 @@ MICDevice::~MICDevice()
 
 void MICDevice::loadingInit()
 {
+	m_mic_instancies = new set<IOCLDeviceAgent*>;
+	m_mic_instancies_mutex = new OclMutex;
 }
 
 void MICDevice::unloadRelease()
 {
+	TMicsSet micSet = GetActiveMicDevices(true);
+	TMicsSet::iterator it;
+	TMicsSet::iterator itEnd = micSet.end();
+	// Send release order to all Notification ports
+	for (it = micSet.begin(); it != itEnd; it++)
+	{
+		(*it)->m_pNotificationPort->release();
+		// Nullify it in order to symbol that this object already deleted. (It will delete itself when the Worker thread will complete its work)
+		(*it)->m_pNotificationPort = NULL;
+	}
+	// Wait until all Notificatoin port threads are dieing
+	NotificationPort::waitForAllNotificationPortThreads();
+	// Release all mic device instances.
+	for (it = micSet.begin(); it != itEnd; it++)
+	{
+		(*it)->clDevCloseDeviceInt();
+	}
+	assert(GetActiveMicDevices().size() == 0);
 }
 
 
@@ -282,7 +309,7 @@ cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateCommandList Function enter"));
     CommandList* tCommandList;
-    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, &m_notificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
+    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, m_pNotificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
     if (CL_DEV_FAILED(ret))
     {
         return ret;
@@ -553,7 +580,22 @@ void MICDevice::clDevCloseDevice(void)
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clCloseDevice Function enter"));
 
     // remove Mic device from global set
-    UnregisterMicDevice( this );
+    if (UnregisterMicDevice( this ))
+	{
+		// If the device didn't close yet.
+		clDevCloseDeviceInt();
+	}
+
+
+}
+
+void MICDevice::clDevCloseDeviceInt(void)
+{
+	// release notification port
+	if (NULL != m_pNotificationPort)
+	{
+		m_pNotificationPort->release();
+	}
 
 	/* TODO remove the comment from the next command when m_defaultCommandList will initialize in Init() method
     clDevReleaseCommandList(m_defaultCommandList); */
@@ -579,15 +621,12 @@ void MICDevice::clDevCloseDevice(void)
     }
 
     // delete commandList objects (If not released by the client)
-    set<CommandList*> ::iterator commandListsIter;
+    set<CommandList*>::iterator commandListsIter;
     for (commandListsIter = m_commandListsSet.begin(); commandListsIter != m_commandListsSet.end(); ++commandListsIter)
     {
         delete(*commandListsIter);
     }
     m_commandListsSet.clear();
-
-    // release notification port
-    m_notificationPort.release();
 
     if (m_pDeviceServiceComm)
     {
@@ -597,4 +636,3 @@ void MICDevice::clDevCloseDevice(void)
 
     delete this;
 }
-

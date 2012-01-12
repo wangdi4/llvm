@@ -6,30 +6,91 @@
 #include <malloc.h>
 #include <cstring>
 #include <algorithm>
+#include <signal.h>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;
 
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
 
-NotificationPort::NotificationPort(void) : m_poc(0), m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_realSize(0), m_lastCallBackAge(0), m_workerState(CREATED)
+set<pthread_t> NotificationPort::m_NotificationThreadsSet;
+OclMutex      NotificationPort::m_notificationThreadsMutex;
+
+void NotificationPort::registerNotificationPortThread(pthread_t threadHandler)
+{
+	// Add the new thread to the live threads set.
+	OclAutoMutex lock(&m_notificationThreadsMutex);
+	m_NotificationThreadsSet.insert(threadHandler);
+}
+
+void NotificationPort::unregisterNotificationPortThread(pthread_t threadHandler)
+{
+	// Remove the thread from the live threads set.
+	OclAutoMutex lock(&m_notificationThreadsMutex);
+	m_NotificationThreadsSet.erase(threadHandler);
+}
+
+void NotificationPort::waitForAllNotificationPortThreads()
+{
+	vector<pthread_t> liveThreadsSnapshot;
+	{
+		// Get snapshot of the current threads alive.
+		OclAutoMutex lock(&m_notificationThreadsMutex);
+		liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet.begin(), m_NotificationThreadsSet.end());
+	}
+	while (liveThreadsSnapshot.size() > 0)
+	{
+		// Waits for all threads.
+		for (unsigned int i = 0; i < liveThreadsSnapshot.size(); i++)
+		{
+			while (ESRCH != pthread_kill(liveThreadsSnapshot[i], 0))
+			{
+				pthread_yield();
+			}
+		}
+
+		liveThreadsSnapshot.clear();
+		
+		{
+			// Get snapshot of the current threads alive.
+			OclAutoMutex lock(&m_notificationThreadsMutex);
+			liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet.begin(), m_NotificationThreadsSet.end());
+		}
+	}
+}
+
+NotificationPort::NotificationPort(void) : m_poc(0), m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED)
 {
 	// initialize client critical section object (mutex)
 	pthread_mutex_init(&m_mutex, NULL);
 	// initialize client condition variable
 	pthread_cond_init(&m_clientCond, NULL);
-	// initialize resize condition variable
-	pthread_cond_init(&m_resizeCond, NULL);
 }
 
 NotificationPort::~NotificationPort(void)
 {
-	release();
 	// destroy condition variables
-	pthread_cond_destroy(&m_resizeCond);
 	pthread_cond_destroy(&m_clientCond);
 	// destroy mutex
 	pthread_mutex_destroy(&m_mutex);
+}
+
+NotificationPort* NotificationPort::notificationPortFactory(uint16_t maxBarriers)
+{
+	NotificationPort* retNotificationPort = new NotificationPort();
+	if (NULL == retNotificationPort)
+	{
+		return NULL;
+	}
+
+	int err = retNotificationPort->initialize(maxBarriers);
+	if (SUCCESS != err)
+	{
+		delete retNotificationPort;
+		retNotificationPort = NULL;
+	}
+
+	return retNotificationPort;
 }
 
 int NotificationPort::initialize(uint16_t maxBarriers)
@@ -42,6 +103,8 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 		pthread_mutex_unlock(&m_mutex);
 		return ALREADY_INITIALIZE_FAILURE;
 	}
+	// Reserve "maxBarriers" to "m_pendingNotificationArr". (The size of the vector is at least "maxBarriers")
+	m_pendingNotificationArr.reserve(maxBarriers);
 	// Add 1 barrier for the main barrier (The first barrier)
 	m_maxBarriers = maxBarriers + 1;
 
@@ -77,8 +140,8 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 		return CREATE_BARRIER_FAILURE;
 	}
 
+	// waiting size = 1 becuase currently it waits only on the main barrier.
 	m_waitingSize = 1;
-	m_realSize = 1;
 
 	pthread_attr_t tattr;
 	pthread_attr_init(&tattr);
@@ -96,6 +159,9 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 		return CREATE_WORKER_THREAD_FAILURE;
 	}
 	pthread_attr_destroy(&tattr);
+
+	// Register the new thread
+	NotificationPort::registerNotificationPortThread(m_workerThread);
 
 	// wait until the worker thread will start execution
 	while (BEGINNING == m_workerState)
@@ -121,30 +187,17 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 		return NOT_INITIASLIZE_FAILURE;
 	}
 
-	// Exceed the barrier array size
-	while (m_realSize >= m_maxBarriers)
-	{
-		m_operationMask[RESIZE] = true;
-		result = COIEventSignalUserEvent(m_barriers[0]);
-		assert(result == COI_SUCCESS && "Signal main barrier failed");
+	// Set the new pending notification
+	EventNotificationPackagePair tNotification;
+	tNotification.first = barrier;
+	tNotification.second.callBack = callBack;
+	tNotification.second.arg = arg;
+	tNotification.second.age = m_lastCallBackAge;
 
-		// wait for the allocation
-	    pthread_cond_wait(&m_resizeCond, &m_mutex);
+	// Push the new notification to the pending list
+	m_pendingNotificationArr.push_back(tNotification);
 
-		// The object does not initialize
-		if (m_maxBarriers == 0)
-		{
-			pthread_mutex_unlock(&m_mutex);
-			return NOT_INITIASLIZE_FAILURE;
-		}
-	}
-
-	m_barriers[m_realSize] = barrier;
-	m_notificationsPackages[m_realSize].callBack = callBack;
-	m_notificationsPackages[m_realSize].arg = arg;
-	m_notificationsPackages[m_realSize].age = m_lastCallBackAge;
 	m_lastCallBackAge ++;
-	m_realSize ++;
 
 	m_operationMask[ADD] = true;
 
@@ -174,9 +227,9 @@ int NotificationPort::release()
 	result = COIEventSignalUserEvent(m_barriers[0]);
 	assert(result == COI_SUCCESS && "Signal main barrier failed");
 
-	// wait for the termination of worker thread
+	// wait for the termination of worker thread (If the calling thread is the worker thread)
 	size_t currPoc = m_poc;
-	while ((m_workerState != FINISHED) && (currPoc == m_poc))
+	while ((m_workerState != FINISHED) && (currPoc == m_poc) && (0 == pthread_equal(m_workerThread, pthread_self())))
 	{
 	    pthread_cond_wait(&m_clientCond, &m_mutex);
 	}
@@ -231,14 +284,22 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 			// If Add barrier operation
 			if (thisWorker->m_operationMask[ADD] == true)
 			{
-				thisWorker->m_waitingSize = thisWorker->m_realSize;
+				size_t pendingNotificationsAmount = thisWorker->m_pendingNotificationArr.size();
+				// If there is no enougth space, should resize the buffers "m_barriers" and "m_notificationsPackages".
+				if ((thisWorker->m_waitingSize + pendingNotificationsAmount) >= thisWorker->m_maxBarriers)
+				{
+					thisWorker->resizeBuffers(&fireCallBacksArr, &firedIndicesArr, pendingNotificationsAmount);
+				}
+				assert((thisWorker->m_waitingSize + thisWorker->m_pendingNotificationArr.size()) < thisWorker->m_maxBarriers);
+				for (unsigned int i = 0; i < pendingNotificationsAmount; i++)
+				{
+					// Add the pending notification to the real waiting list.
+					thisWorker->m_barriers[thisWorker->m_waitingSize] = ((thisWorker->m_pendingNotificationArr)[i]).first;
+					thisWorker->m_notificationsPackages[thisWorker->m_waitingSize] = ((thisWorker->m_pendingNotificationArr)[i]).second;
+					thisWorker->m_waitingSize ++;
+				}
+				thisWorker->m_pendingNotificationArr.clear();
 				thisWorker->m_operationMask[ADD] = false;
-			}
-			// If Resize operation
-			if (thisWorker->m_operationMask[RESIZE] == true)
-			{
-				thisWorker->resizeBuffers(&fireCallBacksArr, &firedIndicesArr);
-				thisWorker->m_operationMask[RESIZE] = false;
 			}
 			// If Release operation
 			if (thisWorker->m_operationMask[RELEASE] == true)
@@ -266,13 +327,17 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 
 	free(firedIndicesArr);
 
-	return 0;
+	// Unregister this thread.
+	NotificationPort::unregisterNotificationPortThread(thisWorker->m_workerThread);
+	// delete the NotificationPort instance.
+	delete(thisWorker);
+
+	return NULL;
 }
 
 void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, vector<notificationPackage>& callBacksRet, bool* workerThreadSignaled)
 {
-	unsigned int initialWaitingSize = m_waitingSize;
-	unsigned int notSignaledIndex = m_realSize - 1;
+	unsigned int notSignaledIndex = m_waitingSize - 1;
 
 	unsigned int index = 0;
 	for (unsigned int i = 0; i < numSignaled; i++)
@@ -309,24 +374,18 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 			m_barriers[signaledIndices[i]] = m_barriers[notSignaledIndex];
 			m_notificationsPackages[signaledIndices[i]] = m_notificationsPackages[notSignaledIndex];
 
-			// if swap with index larger than initialWaitingSize increasing m_waitingSize by one because it will decrease by one at the end of the loop
-			if (notSignaledIndex >= initialWaitingSize)
-			{
-				m_waitingSize ++;
-			}
 			notSignaledIndex --;
 		}
 
-		m_realSize --;
 		m_waitingSize --;
 	}
 }
 
 
-void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr)
+void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
 {
-	assert(m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT <= INT16_MAX && "Resize failed overflow max barriers size");
-	m_maxBarriers = m_maxBarriers + CALL_BACKS_ARRAY_RESIZE_AMOUNT;
+	m_maxBarriers =   + (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
+	assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
 	m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
 	assert(m_barriers && "memory allocation failed for m_barriers");
 	m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
@@ -334,7 +393,6 @@ void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksA
 	fireCallBacksArr->reserve(m_maxBarriers);
 	*firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
 	assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
-	pthread_cond_broadcast(&m_resizeCond);
 }
 
 
@@ -359,9 +417,7 @@ void NotificationPort::releaseResources()
 		m_notificationsPackages = NULL;
 	}
 	m_waitingSize = 0;
-	m_realSize = 0;
 
-	pthread_cond_broadcast(&m_resizeCond);
 	m_workerState = FINISHED;
 	pthread_cond_broadcast(&m_clientCond);
 
