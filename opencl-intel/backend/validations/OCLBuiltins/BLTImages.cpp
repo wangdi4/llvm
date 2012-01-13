@@ -185,22 +185,13 @@ Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& i
                                                          cl_image_format& out_ImageFmt)
 {
     Conformance::image_descriptor retDesc;
-    const bool Is2D = (in_Desc.dim_count == 2);
-    const bool Is3D = (in_Desc.dim_count == 3);
+    const bool Is3D = (in_Desc.dim_count > 2);
     
     retDesc.width = (size_t) in_Desc.dimensions.dim[0];
-    retDesc.height = (size_t) ((Is2D || Is3D)? in_Desc.dimensions.dim[1] : 0);
-    retDesc.depth = (size_t) (Is3D ? in_Desc.dimensions.dim[2] : 0);
+    retDesc.height = (size_t) in_Desc.dimensions.dim[1];
+    retDesc.depth = (size_t) (Is3D ? in_Desc.dimensions.dim[1] : 0);
     retDesc.rowPitch = (size_t) in_Desc.pitch[0];
     retDesc.slicePitch = (size_t) (Is3D ? in_Desc.pitch[1] : 0);
-
-    // TODO: to add array support when runtime 1.2 will be ready
-    if(Is2D) 
-        retDesc.type = CL_MEM_OBJECT_IMAGE2D;
-    if(Is3D) 
-        retDesc.type = CL_MEM_OBJECT_IMAGE3D;
-
-    retDesc.arraySize = 0;
     
     out_ImageFmt.image_channel_data_type = 
         ConvertChannelDataTypeFromIntelOCLToCL(in_Desc.format.image_channel_data_type);
@@ -349,7 +340,6 @@ llvm::GenericValue lle_X_write_image( const llvm::FunctionType *FT,
     const GenericValue& CoordGV = Args[1];
     const int32_t u = getVal<uint32_t, 4>(CoordGV, 0);
     const int32_t v = getVal<uint32_t, 4>(CoordGV, 1);
-    const int32_t w = getVal<uint32_t, 4>(CoordGV, 2);
 
     // datatype of pixel 
     const GenericValue& PixelGV = Args[2];
@@ -362,7 +352,7 @@ llvm::GenericValue lle_X_write_image( const llvm::FunctionType *FT,
                         PixelGV.AggregateVal[1].FloatVal,
                         PixelGV.AggregateVal[2].FloatVal, 
                         PixelGV.AggregateVal[3].FloatVal };
-        write_image_pixel_float(memobj->pData, &desc, u, v, w, val);    
+        write_image_pixel_float(memobj->pData, &desc, u, v, val);    
     }
     else if(PixelTy == llvm::Type::IntegerTyID && CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
     {   // pixel is signed int
@@ -372,7 +362,7 @@ llvm::GenericValue lle_X_write_image( const llvm::FunctionType *FT,
             PixelGV.AggregateVal[2].IntVal.getSExtValue(), 
             PixelGV.AggregateVal[3].IntVal.getSExtValue()};
 
-        write_image_pixel_int(memobj->pData, &desc, u, v, w, val);    
+        write_image_pixel_int(memobj->pData, &desc, u, v, val);    
     }
     else if(PixelTy == llvm::Type::IntegerTyID && !CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
     {   // pixel is unsigned int
@@ -381,7 +371,7 @@ llvm::GenericValue lle_X_write_image( const llvm::FunctionType *FT,
             PixelGV.AggregateVal[1].IntVal.getZExtValue(),
             PixelGV.AggregateVal[2].IntVal.getZExtValue(), 
             PixelGV.AggregateVal[3].IntVal.getZExtValue()};
-        write_image_pixel_uint(memobj->pData, &desc, u, v, w, val);    
+        write_image_pixel_uint(memobj->pData, &desc, u, v, val);    
     }
     else throw Exception::InvalidArgument("lle_X_write_image::Invalid data type of pixel data");
 
