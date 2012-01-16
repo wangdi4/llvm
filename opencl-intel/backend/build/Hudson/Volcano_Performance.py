@@ -160,6 +160,65 @@ CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(7,12)])
 CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(12,19)])
 CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(48,72)])
 
+CyberLinkPerformanceWW44T = [
+['CyberLink.Abstractionism',16],
+['CyberLink.Abstractionism.2',16],
+['CyberLink.Beating',16],
+['CyberLink.BlackAndWhite',16],
+['CyberLink.Bloom',16],
+['CyberLink.Blur',16],
+['CyberLink.Bumpmap',16],
+['CyberLink.ChinesePainting',16],
+['CyberLink.ChinesePainting.2',16],
+['CyberLink.ChinesePainting2',16],
+['CyberLink.ChinesePainting2.2',16],
+['CyberLink.ColorBalance',16],
+['CyberLink.ColorCrayon',16],
+['CyberLink.ColorEdge',16],
+['CyberLink.ColorEdge.2',16],
+['CyberLink.ColorFocus',16],
+['CyberLink.ColorPainting',16],
+['CyberLink.ColorPainting.2',16],
+['CyberLink.Drain',16],
+['CyberLink.DrainInverse',16],
+['CyberLink.Dreamy',16],
+['CyberLink.Dreamy.2',16],
+['CyberLink.Fade',16],
+['CyberLink.FishEyeInverse',16],
+['CyberLink.FishEyeNoInverse',16],
+['CyberLink.Focus',16],
+['CyberLink.GaussianBlur',16],
+['CyberLink.Glow',16],
+['CyberLink.Glow.2',16],
+['CyberLink.Grid',16],
+['CyberLink.Kaleidoscope',16],
+['CyberLink.Laser',16],
+['CyberLink.LightRay',16],
+['CyberLink.Moonlight',16],
+['CyberLink.Moonlight.2',16],
+['CyberLink.OldMovie',16],
+['CyberLink.OldMovie.2',16],
+['CyberLink.RadialBlur',16],
+['CyberLink.ReplaceColor',16],
+['CyberLink.Rocking',16],
+['CyberLink.Sepia',16],
+['CyberLink.Solarize',16],
+['CyberLink.Spotlight',16],
+['CyberLink.Square',16],
+['CyberLink.squeeze',16],
+['CyberLink.SqueezeInverse',16],
+['CyberLink.Threshold',16],
+['CyberLink.Tiles',16],
+['CyberLink.Tiles.2',16],
+['CyberLink.TVSimulator',16],
+['CyberLink.Woodcut',16],
+['CyberLink.Woodcut.2',16],
+['CyberLink.XRay',16],
+['CyberLink.ZoomIn',16],
+['CyberLink.ZoomOut',16]
+]
+
+
 VCSDPerformance = [
 ['AOBenchOpenCLAll', 16],
 ['CollisionOCL', 16],
@@ -1360,6 +1419,11 @@ class VolcanoCyberLinkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'CyberLink', None, config, CyberLinkPerformance)
 
+class VolcanoCyberLinkPerformanceWW44Suite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink.WW44T', None, config, CyberLinkPerformanceWW44T)
+
+
 class VolcanoLuxMarkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'LuxMark', None, config, LuxMarkPerformance)
@@ -1450,6 +1514,7 @@ class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
 perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
                "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
                "CyberLink":             [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]   ],
+               "CyberLink.WW44T":       [VolcanoCyberLinkPerformanceWW44Suite, [['.*','*64']]   ],
                "VCSD":                  [VolcanoVCSDPerformanceSuite,      [['.*','*64']]   ], 
                "Sandra":                [VolcanoSandraPerformanceSuite,    [['.*','Win32']] ],
                "LuxMark":               [VolcanoLuxMarkPerformanceSuite,   []               ],
