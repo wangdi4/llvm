@@ -92,4 +92,12 @@ EXPORTS
 	clEnqueueAcquireDX9ObjectsINTEL
 	clEnqueueReleaseDX9ObjectsINTEL
 	clGetDeviceIDsFromDX9INTEL
-	
+	clEnqueueFillBuffer
+	clEnqueueMigrateMemObjects
+	clCreateSubDevices
+	clReleaseDevice
+	clEnqueueBarrierWithWaitList
+	clCompileProgram
+	clLinkProgram
+	clEnqueueMarkerWithWaitList
+	clEnqueueFillImage

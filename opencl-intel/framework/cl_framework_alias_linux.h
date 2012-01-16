@@ -122,5 +122,13 @@ DECLARE_ALIAS(clRetainDeviceEXT);
 DECLARE_ALIAS(clReleaseDeviceEXT);
 DECLARE_ALIAS(clGetKernelArgInfo);
 DECLARE_ALIAS(clCreateImage2DArrayINTEL);
-
+DECLARE_ALIAS(clEnqueueFillBuffer);
+DECLARE_ALIAS(clEnqueueMigrateMemObjects);
+DECLARE_ALIAS(clCreateSubDevices);
+DECLARE_ALIAS(clReleaseDevice);
+DECLARE_ALIAS(clEnqueueBarrierWithWaitList);
+DECLARE_ALIAS(clCompileProgram);
+DECLARE_ALIAS(clLinkProgram);
+DECLARE_ALIAS(clEnqueueMarkerWithWaitList);
+DECLARE_ALIAS(clEnqueueFillImage);
 }}}

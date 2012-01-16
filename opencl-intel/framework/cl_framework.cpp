@@ -1124,3 +1124,105 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret));
 }
 SET_ALIAS(clGetKernelArgInfo);
+
+// the following functions are not implemented yet:
+
+cl_int CL_API_CALL clEnqueueFillBuffer(cl_command_queue command_queue,
+                                       cl_mem buffer,
+                                       const void *pattern,
+                                       size_t pattern_size,
+                                       size_t offset,
+                                       size_t size,
+                                       cl_uint num_events_in_wait_list,
+                                       const cl_event *event_wait_list,cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueFillBuffer);
+
+cl_int CL_API_CALL clEnqueueFillImage(cl_command_queue command_queue,
+                                      cl_mem image,
+                                      const void *fill_color,
+                                      const size_t *origin,
+                                      const size_t *region,
+                                      cl_uint num_events_in_wait_list,
+                                      const cl_event *event_wait_list,
+                                      cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueFillImage);                                      
+
+cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
+                                              cl_uint num_mem_objects,
+                                              const cl_mem *mem_objects,
+                                              cl_mem_migration_flags flags,
+                                              cl_uint num_events_in_wait_list,
+                                              const cl_event *event_wait_list,
+                                              cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueMigrateMemObjects);
+
+cl_int CL_API_CALL clCreateSubDevices(cl_device_id in_device,
+                                      const cl_device_partition_property *properties,
+                                      cl_uint num_devices,
+                                      cl_device_id *out_devices,
+                                      cl_uint *num_devices_ret)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clCreateSubDevices);
+
+cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clReleaseDevice);
+
+cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
+                                                cl_uint num_events_in_wait_list,
+                                                const cl_event *event_wait_list,
+                                                cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueBarrierWithWaitList);
+
+cl_int CL_API_CALL clCompileProgram(cl_program program,
+                                    cl_uint num_devices,
+                                    const cl_device_id *device_list,
+                                    const char *options,
+                                    cl_uint num_input_headers,
+                                    const cl_program *input_headers,
+                                    const char **header_include_names,
+                                    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
+                                    void *user_data)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clCompileProgram);
+
+cl_program CL_API_CALL clLinkProgram(cl_context context,
+                                     cl_uint num_devices,
+                                     const cl_device_id *device_list,
+                                     const char *options,
+                                     cl_uint num_input_programs,
+                                     const cl_program *input_programs,
+                                     void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
+                                     void *user_data,
+                                     cl_int *errcode_ret)
+{
+    return CL_INVALID_HANDLE;
+}
+SET_ALIAS(clLinkProgram);
+
+cl_int CL_API_CALL clEnqueueMarkerWithWaitList(cl_command_queue command_queue,
+                                               cl_uint num_events_in_wait_list,
+                                               const cl_event *event_wait_list,
+                                               cl_event *event)
+{
+    return CL_INVALID_HANDLE;
+}
+SET_ALIAS(clEnqueueMarkerWithWaitList);
