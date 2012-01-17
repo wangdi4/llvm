@@ -37,7 +37,7 @@ namespace Conformance
     static void pack_image_pixel( float *srcVector, const cl_image_format *imageFormat, void *outData );
 
     template<typename T>
-    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, T* inData );
+    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, T* inData );
 
     // Define the addressing functions
     typedef int (*AddressFn)( int value, size_t maxValue );
@@ -362,7 +362,10 @@ namespace Conformance
     void read_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
         int x, int y, int z, float *outData )
     {
-        if( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width || y >= (int)imageInfo->height || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth ) )
+            if ( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width 
+               || ( imageInfo->height != 0 && y >= (int)imageInfo->height )
+               || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth )
+               || ( imageInfo->arraySize != 0 && z >= (int)imageInfo->arraySize ) )
         {
             // Border color
             outData[ 0 ] = outData[ 1 ] = outData[ 2 ] = outData[ 3 ] = 0;
@@ -627,99 +630,204 @@ namespace Conformance
             results[i] = errMax( fabsf(a[i]), fabsf(b[i]) );
     }
 
+
+
+    inline float calculate_array_index( float coord, float extent ) {
+        // from Section 8.4 of the 1.2 Spec 'Selecting an Image from an Image Array'
+        //
+        // given coordinate 'w' that represents an index:
+        // layer_index = clamp( floor(w + 0.5f), 0.0f, max_value_for_w )
+        
+        float ret = floorf( coord + 0.5f );
+        ret = ret > extent ? extent : ret;
+        ret = ret < 0.0f ? 0.0f : ret;
+        
+        return ret;
+    }
+
+/*
+ * Utility function to unnormalized a coordinate given a particular sampler.
+ *
+ * name     - the name of the coordinate, used for verbose debugging only
+ * coord    - the coordinate requiring unnormalization
+ * offset   - an addressing offset to be added to the coordinate
+ * extent   - the max value for this coordinate (e.g. width for x)
+ */
+    static float unnormalize_coordinate( const char* name, float coord, 
+       float offset, float extent, cl_addressing_mode addressing_mode, int verbose ) 
+    {
+        float ret = 0.0f;
+        
+        switch (addressing_mode) {
+            case CL_ADDRESS_REPEAT:
+                ret = RepeatNormalizedAddressFn( coord, extent );
+                
+                if ( verbose ) {
+                    log_info( "\tRepeat filter denormalizes %s (%f) to %f\n", 
+                        name, coord, ret );
+                }
+                
+                if (offset != 0.0) {
+                    // Add in the offset, and handle wrapping.
+                    ret += offset;
+                    if (ret > extent) ret -= extent;
+                    if (ret < 0.0) ret += extent;
+                }
+                   
+                if (verbose && offset != 0.0f) {
+                    log_info( "\tAddress offset of %f added to get %f\n", offset, ret );
+                }        
+                break;
+                
+            case CL_ADDRESS_MIRRORED_REPEAT:
+                ret = MirroredRepeatNormalizedAddressFn( coord, extent );     
+                
+                if ( verbose ) {
+                    log_info( "\tMirrored repeat filter denormalizes %s (%f) to %f\n", 
+                        name, coord, ret );
+                }
+    
+                if (offset != 0.0) {
+                    float temp = ret + offset;
+                    if( temp > extent )
+                        temp = extent - (temp - extent );
+                    ret = fabsf( temp );
+                }
+    
+                if (verbose && offset != 0.0f) {
+                    log_info( "\tAddress offset of %f added to get %f\n", offset, ret );
+                }        
+                break;
+                
+            default:
+    
+                ret = coord * extent;
+    
+                if ( verbose ) {
+                    log_info( "\tFilter denormalizes %s (%f) to %f\n", 
+                        name, coord, ret );
+                }
+                
+                ret += offset;
+                
+                if (verbose && offset != 0.0f) {
+                    log_info( "\tAddress offset of %f added to get %f\n", offset, ret );
+                }
+        }
+        
+        return ret;
+    }
+
+
     FloatPixel sample_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
-        float x, float y, float z, image_sampler_data *imageSampler, 
-        float *outData, int verbose, int *containsDenorms )
+                                        float x, float y, float z,
+                                        image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms ) {
+        return sample_image_pixel_float_offset(imageData, imageInfo, x, y, z, 0.0f, 0.0f, 0.0f, imageSampler, outData, verbose, containsDenorms);
+    }
+
+    // returns max pixel value of the pixels touched
+    FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *imageInfo, 
+                                               float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+                                               image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms )
     {
         AddressFn adFn = sAddressingTable[ imageSampler ];
         FloatPixel returnVal;
-
+        
         if( containsDenorms )
             *containsDenorms = 0;
-
-        if( imageSampler->normalized_coords )
-        {   // denormalize
-            float normalizedX = x;
-            float normalizedY = y; 
-            float normalizedZ = z;
-
-            switch (imageSampler->addressing_mode)
-            {
-            case CL_ADDRESS_REPEAT:
-                x = RepeatNormalizedAddressFn( x, imageInfo->width );
-                y = RepeatNormalizedAddressFn( y, imageInfo->height );
-                if( imageInfo->depth != 0 ) {
-                    z = RepeatNormalizedAddressFn( z, imageInfo->depth );
-                }        
-                if( verbose )
-                {
-                    if( imageInfo->depth )
-                        log_info("\tRepeat filter denormalizes %f, %f, %f  to %f, %f, %f\n",  normalizedX, normalizedY, normalizedZ, x, y, z );
-                    else
-                        log_info( "\tRepeat filter denormalizes %f, %f  to %f, %f\n",  normalizedX, normalizedY, x, y );
-                }
-                break;
-
-            case CL_ADDRESS_MIRRORED_REPEAT:
-                x = MirroredRepeatNormalizedAddressFn( x, imageInfo->width );
-                y = MirroredRepeatNormalizedAddressFn( y, imageInfo->height );
-                if( imageInfo->depth != 0 ) {
-                    z = MirroredRepeatNormalizedAddressFn( z, imageInfo->depth );
-                }        
-
-                if( verbose )
-                {
-                    if( imageInfo->depth )
-                        log_info( "\tMirrored Repeat filter denormalizes %f, %f, %f  to %f, %f, %f\n",  normalizedX, normalizedY, normalizedZ, x, y, z );
-                    else
-                        log_info( "\tMirrored Repeat filter denormalizes %f, %f  to %f, %f\n",  normalizedX, normalizedY, x, y );
-                }
-                break;
-
-            default:
-                // Also, remultiply to the original coords. This simulates any truncation in
-                // the pass to OpenCL
-                x *= (float)imageInfo->width;
-                y *= (float)imageInfo->height;
-                z *= (float)imageInfo->depth;
-
-                if( verbose )
-                {
-                    if( imageInfo->depth )
-                        log_info( "\tFilter denormalizes %f, %f, %f  to %f, %f, %f\n",  normalizedX, normalizedY, normalizedZ, x, y, z );
-                    else
-                        log_info( "\tFilter denormalizes %f, %f  to %f, %f\n",  normalizedX, normalizedY, x, y );
-                }
-                break;
+        
+        if( imageSampler->normalized_coords ) {
+            
+            // We need to unnormalize our coordinates differently depending on
+            // the image type, but 'x' is always processed the same way.
+            
+            x = unnormalize_coordinate("x", x, xAddressOffset, imageInfo->width, 
+            imageSampler->addressing_mode, verbose);
+    
+            switch (imageInfo->type) {
+            
+                // The image array types require special care:
+                
+                case CL_MEM_OBJECT_IMAGE1D_ARRAY:                
+                    y = unnormalize_coordinate("array index", y, yAddressOffset, 
+                        imageInfo->arraySize, CL_ADDRESS_CLAMP_TO_EDGE, verbose);
+                    z = 0; // don't care -- unused for 1D arrays
+                    break;
+                    
+                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                    y = unnormalize_coordinate("y", y, yAddressOffset, imageInfo->height, 
+                        imageSampler->addressing_mode, verbose);
+                    z = unnormalize_coordinate("array index", z, zAddressOffset, 
+                        imageInfo->arraySize, CL_ADDRESS_CLAMP_TO_EDGE, verbose);
+                    break;
+                
+                // Everybody else:
+                
+                default: 
+                    y = unnormalize_coordinate("y", y, yAddressOffset, imageInfo->height, 
+                        imageSampler->addressing_mode, verbose);
+                    z = unnormalize_coordinate("z", z, zAddressOffset, imageInfo->depth, 
+                        imageSampler->addressing_mode, verbose);
+            }
+            
+        } else if ( verbose ) {
+            
+            switch (imageInfo->type) {
+                case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+                    log_info("Starting coordinate: %f, array index %f\n", x, y);
+                    break;
+                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                    log_info("Starting coordinate: %f, %f, array index %f\n", x, y, z);
+                    break;
+                case CL_MEM_OBJECT_IMAGE1D:
+                case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+                    log_info("Starting coordinate: %f\b", x);
+                    break;
+                case CL_MEM_OBJECT_IMAGE2D:
+                    log_info("Starting coordinate: %f, %f\n", x, y);
+                    break;
+                case CL_MEM_OBJECT_IMAGE3D:
+                default:
+                    log_info("Starting coordinate: %f, %f, %f\n", x, y, z); 
             }
         }
-        else 
-        if( verbose)
-        {
-            if( imageInfo->depth )
-                log_info( "\tStarting coordinate: %f, %f, %f\n", x, y, z );
-            else
-                log_info( "\tStarting coordinate: %f, %f\n",  x, y );
-        }
-
+        
+        // At this point, we have unnormalized coordinates.
+        
         if( imageSampler->filter_mode == CL_FILTER_NEAREST )
         {
             int ix, iy, iz;
+            
+            // We apply the addressing function to the now-unnormalized
+            // coordiates.  Note that the array cases again require special
+            // care, per section 8.4 in the OpenCL 1.2 Specification.
+            
             ix = adFn( floorf( x ), imageInfo->width );
-            iy = adFn( floorf( y ), imageInfo->height );
-            if( imageInfo->depth != 0 )
-                iz = adFn( floorf( z ), imageInfo->depth );
-            else
-                iz = 0;
-
-            if( verbose )
-            {
-                if( imageInfo->depth )
+            
+            switch (imageInfo->type) {
+                case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+                    iy = calculate_array_index( y, imageInfo->arraySize - 1 );
+                    iz = 0;
+                    break;
+                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                    iy = adFn( floorf( y ), imageInfo->height );
+                    iz = calculate_array_index( z, imageInfo->arraySize - 1 );
+                    break;
+                default:
+                    iy = adFn( floorf( y ), imageInfo->height );
+                    if( imageInfo->depth != 0 )
+                        iz = adFn( floorf( z ), imageInfo->depth );
+                    else
+                        iz = 0;
+            }
+            
+            if( verbose ) {
+                if( iz )
                     log_info( "\tActual integer coords used (i = floor(x)): { %d, %d, %d }\n", ix, iy, iz );
                 else
                     log_info( "\tActual integer coords used (i = floor(x)): { %d, %d }\n", ix, iy );
             }
-
+            
             read_image_pixel_float( imageData, imageInfo, ix, iy, iz, outData );
             check_for_denorms( outData, containsDenorms );
             for( int i = 0; i < 4; i++ )
@@ -728,32 +836,59 @@ namespace Conformance
         }
         else
         {
+            // Linear filtering cases.
+        
             size_t width = imageInfo->width, height = imageInfo->height, depth = imageInfo->depth;
-
-            if( depth == 0 )
-            {
+            
+            // Image arrays can use 2D filtering, but require us to walk into the
+            // image a certain number of slices before reading.
+            
+            if( depth == 0 || imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY || 
+                              imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
+            {            
+                size_t layer_offset = 0;
+                
+                if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+                    layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
+                        z, imageInfo->arraySize - 1 
+                    );
+                }
+                else if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
+                    layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
+                        y, imageInfo->arraySize - 1 
+                    );
+                    
+                    // Set up y and height so that the filtering below is correct
+                    // 1D filtering on a single slice.
+                    y = 0;
+                    height = 1;
+                } 
+            
                 int x1 = adFn( floorf( x - 0.5f ), width );
                 int y1 = adFn( floorf( y - 0.5f ), height );
                 int x2 = adFn( floorf( x - 0.5f ) + 1, width );
-                int y2 = adFn( floorf( y - 0.5f ) + 1, height );
-
+                int y2 = adFn( floorf( y - 0.5f ) + 1, height ); 
+                
                 if( verbose )
                     log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d } and i1:{%d, %d }\n", x1, y1, x2, y2 );
-
+                
+                // Walk to beginning of the 'correct' slice, if needed.
+                char* imgPtr = ((char*)imageData) + layer_offset;
+                
                 float upLeft[ 4 ], upRight[ 4 ], lowLeft[ 4 ], lowRight[ 4 ];
                 float maxUp[4], maxLow[4];
-                read_image_pixel_float( imageData, imageInfo, x1, y1, 0, upLeft );
-                read_image_pixel_float( imageData, imageInfo, x2, y1, 0, upRight );
+                read_image_pixel_float( imgPtr, imageInfo, x1, y1, 0, upLeft );
+                read_image_pixel_float( imgPtr, imageInfo, x2, y1, 0, upRight );
                 check_for_denorms( upLeft, containsDenorms );
                 check_for_denorms( upRight, containsDenorms );
                 pixelMax( upLeft, upRight, maxUp );
-                read_image_pixel_float( imageData, imageInfo, x1, y2, 0, lowLeft );
-                read_image_pixel_float( imageData, imageInfo, x2, y2, 0, lowRight );
+                read_image_pixel_float( imgPtr, imageInfo, x1, y2, 0, lowLeft );
+                read_image_pixel_float( imgPtr, imageInfo, x2, y2, 0, lowRight );
                 check_for_denorms( lowLeft, containsDenorms );
                 check_for_denorms( lowRight, containsDenorms );
                 pixelMax( lowLeft, lowRight, maxLow );
                 pixelMax( maxUp, maxLow, returnVal.p );
-
+                
                 if( verbose )
                 {
                     if( NULL == containsDenorms )
@@ -765,39 +900,39 @@ namespace Conformance
                     log_info( "\t\tp10: %f, %f, %f, %f\n", lowLeft[0], lowLeft[1], lowLeft[2], lowLeft[3] ); 
                     log_info( "\t\tp11: %f, %f, %f, %f\n", lowRight[0], lowRight[1], lowRight[2], lowRight[3] ); 
                 }
-
+                
                 bool printMe = false;
                 if( x1 <= 0 || x2 <= 0 || x1 >= (int)width-1 || x2 >= (int)width-1 )
                     printMe = true;
                 if( y1 <= 0 || y2 <= 0 || y1 >= (int)height-1 || y2 >= (int)height-1 )
                     printMe = true;
-
+                
                 double weights[ 2 ][ 2 ];
-
+                
                 weights[ 0 ][ 0 ] = weights[ 0 ][ 1 ] = 1.0 - frac( x - 0.5f );
                 weights[ 1 ][ 0 ] = weights[ 1 ][ 1 ] = frac( x - 0.5f );
                 weights[ 0 ][ 0 ] *= 1.0 - frac( y - 0.5f );
                 weights[ 1 ][ 0 ] *= 1.0 - frac( y - 0.5f );
                 weights[ 0 ][ 1 ] *= frac( y - 0.5f );
                 weights[ 1 ][ 1 ] *= frac( y - 0.5f );
-
+                
                 if( verbose )
                     log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f\n",  frac( x - 0.5f ), frac( y - 0.5f ) );
-
+                
                 for( int i = 0; i < 4; i++ )
                 {
                     outData[ i ] = (float)( ( upLeft[ i ] * weights[ 0 ][ 0 ] ) +
-                        ( upRight[ i ] * weights[ 1 ][ 0 ] ) +
-                        ( lowLeft[ i ] * weights[ 0 ][ 1 ] ) +
-                        ( lowRight[ i ] * weights[ 1 ][ 1 ] ));
-
+                                           ( upRight[ i ] * weights[ 1 ][ 0 ] ) +
+                                           ( lowLeft[ i ] * weights[ 0 ][ 1 ] ) +
+                                           ( lowRight[ i ] * weights[ 1 ][ 1 ] ));
+                    
                     // flush subnormal results to zero if necessary
                     if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
-                        outData[i] = Conformance::copysignf( 0.0f, outData[i] );
+                        outData[i] = copysignf( 0.0f, outData[i] );
                 }
             }
             else
-            {
+            {    
                 // 3D linear filtering
                 int x1 = adFn( floorf( x - 0.5f ), width );
                 int y1 = adFn( floorf( y - 0.5f ), height );
@@ -805,10 +940,10 @@ namespace Conformance
                 int x2 = adFn( floorf( x - 0.5f ) + 1, width );
                 int y2 = adFn( floorf( y - 0.5f ) + 1, height );
                 int z2 = adFn( floorf( z - 0.5f ) + 1, depth );
-
+                
                 if( verbose )
                     log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d, %d} and i1:{%d, %d, %d}\n", x1, y1, z1, x2, y2, z2 );
-
+                
                 float upLeftA[ 4 ], upRightA[ 4 ], lowLeftA[ 4 ], lowRightA[ 4 ];
                 float upLeftB[ 4 ], upRightB[ 4 ], lowLeftB[ 4 ], lowRightB[ 4 ];
                 float pixelMaxA[4], pixelMaxB[4];
@@ -835,7 +970,7 @@ namespace Conformance
                 pixelMax( lowLeftB, lowRightB, pixelMaxB );
                 pixelMax( pixelMaxA, pixelMaxB, pixelMaxA);
                 pixelMax( pixelMaxA, returnVal.p, returnVal.p );
-
+                            
                 if( verbose )
                 {
                     if( NULL == containsDenorms )
@@ -851,56 +986,54 @@ namespace Conformance
                     log_info( "\t\tp110: %f, %f, %f, %f\n", lowLeftB[0], lowLeftB[1], lowLeftB[2], lowLeftB[3] ); 
                     log_info( "\t\tp111: %f, %f, %f, %f\n", lowRightB[0], lowRightB[1], lowRightB[2], lowRightB[3] ); 
                 }
-
+                
                 double weights[ 2 ][ 2 ][ 2 ];
-
+                
                 float a = frac( x - 0.5f ), b = frac( y - 0.5f ), c = frac( z - 0.5f );
                 weights[ 0 ][ 0 ][ 0 ] = weights[ 0 ][ 1 ][ 0 ] = weights[ 0 ][ 0 ][ 1 ] = weights[ 0 ][ 1 ][ 1 ] = 1.f - a;
-                weights[ 1 ][ 0 ][ 0 ] = weights[ 1 ][ 1 ][ 0 ] = weights[ 1 ][ 0 ][ 1 ] = weights[ 1 ][ 1 ][ 1 ] = a;
-                weights[ 0 ][ 0 ][ 0 ] *= 1.f - b;
-                weights[ 1 ][ 0 ][ 0 ] *= 1.f - b;
-                weights[ 0 ][ 0 ][ 1 ] *= 1.f - b;
-                weights[ 1 ][ 0 ][ 1 ] *= 1.f - b;
-                weights[ 0 ][ 1 ][ 0 ] *= b;
-                weights[ 1 ][ 1 ][ 0 ] *= b;
-                weights[ 0 ][ 1 ][ 1 ] *= b;
-                weights[ 1 ][ 1 ][ 1 ] *= b;
-                weights[ 0 ][ 0 ][ 0 ] *= 1.f - c;
-                weights[ 0 ][ 1 ][ 0 ] *= 1.f - c;
-                weights[ 1 ][ 0 ][ 0 ] *= 1.f - c;
-                weights[ 1 ][ 1 ][ 0 ] *= 1.f - c;
-                weights[ 0 ][ 0 ][ 1 ] *= c;
-                weights[ 0 ][ 1 ][ 1 ] *= c;
-                weights[ 1 ][ 0 ][ 1 ] *= c;
-                weights[ 1 ][ 1 ][ 1 ] *= c;
-
+                weights[ 1 ][ 0 ][ 0 ] = weights[ 1 ][ 1 ][ 0 ] = weights[ 1 ][ 0 ][ 1 ] = weights[ 1 ][ 1 ][ 1 ] = a; 
+                weights[ 0 ][ 0 ][ 0 ] *= 1.f - b; 
+                weights[ 1 ][ 0 ][ 0 ] *= 1.f - b; 
+                weights[ 0 ][ 0 ][ 1 ] *= 1.f - b; 
+                weights[ 1 ][ 0 ][ 1 ] *= 1.f - b; 
+                weights[ 0 ][ 1 ][ 0 ] *= b; 
+                weights[ 1 ][ 1 ][ 0 ] *= b; 
+                weights[ 0 ][ 1 ][ 1 ] *= b; 
+                weights[ 1 ][ 1 ][ 1 ] *= b; 
+                weights[ 0 ][ 0 ][ 0 ] *= 1.f - c; 
+                weights[ 0 ][ 1 ][ 0 ] *= 1.f - c; 
+                weights[ 1 ][ 0 ][ 0 ] *= 1.f - c; 
+                weights[ 1 ][ 1 ][ 0 ] *= 1.f - c; 
+                weights[ 0 ][ 0 ][ 1 ] *= c; 
+                weights[ 0 ][ 1 ][ 1 ] *= c; 
+                weights[ 1 ][ 0 ][ 1 ] *= c; 
+                weights[ 1 ][ 1 ][ 1 ] *= c; 
+                
                 if( verbose )
                     log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f, frac( z - 0.5f ) = %f\n",  
-                    frac( x - 0.5f ), frac( y - 0.5f ), frac( z - 0.5f )  );
-
+                             frac( x - 0.5f ), frac( y - 0.5f ), frac( z - 0.5f )  );
+                
                 for( int i = 0; i < 4; i++ )
                 {
                     outData[ i ] = (float)( ( upLeftA[ i ] * weights[ 0 ][ 0 ][ 0 ] ) +
-                        ( upRightA[ i ] * weights[ 1 ][ 0 ][ 0 ] ) +
-                        ( lowLeftA[ i ] * weights[ 0 ][ 1 ][ 0 ] ) +
-                        ( lowRightA[ i ] * weights[ 1 ][ 1 ][ 0 ] ) +
-                        ( upLeftB[ i ] * weights[ 0 ][ 0 ][ 1 ] ) +
-                        ( upRightB[ i ] * weights[ 1 ][ 0 ][ 1 ] ) +
-                        ( lowLeftB[ i ] * weights[ 0 ][ 1 ][ 1 ] ) +
-                        ( lowRightB[ i ] * weights[ 1 ][ 1 ][ 1 ] ));
-
+                                           ( upRightA[ i ] * weights[ 1 ][ 0 ][ 0 ] ) +
+                                           ( lowLeftA[ i ] * weights[ 0 ][ 1 ][ 0 ] ) +
+                                           ( lowRightA[ i ] * weights[ 1 ][ 1 ][ 0 ] ) +
+                                           ( upLeftB[ i ] * weights[ 0 ][ 0 ][ 1 ] ) +
+                                           ( upRightB[ i ] * weights[ 1 ][ 0 ][ 1 ] ) +
+                                           ( lowLeftB[ i ] * weights[ 0 ][ 1 ][ 1 ] ) +
+                                           ( lowRightB[ i ] * weights[ 1 ][ 1 ][ 1 ] ));
+                    
                     // flush subnormal results to zero if necessary
                     if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
-                        outData[i] = Conformance::copysignf( 0.0f, outData[i] );
+                        outData[i] = copysignf( 0.0f, outData[i] );
                 }
             }
-
+            
             return returnVal;
         }
-
-        return returnVal;
-
     }
+
 
     template <class T> void swizzle_vector_for_image( T *srcVector, const cl_image_format *imageFormat )
     {
@@ -1206,9 +1339,13 @@ namespace Conformance
     }
 
     template<typename T>
-    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, T* inData )
+    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, T* inData )
     {
-        if( x < 0 || y < 0 || x >= (int)imageInfo->width || y >= (int)imageInfo->height)
+
+        if ( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width
+           || ( imageInfo->height != 0 && y >= (int)imageInfo->height )
+           || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth )
+           || ( imageInfo->arraySize != 0 && z >= (int)imageInfo->arraySize ) )
         {
             throw Exception::InvalidArgument("write_image_pixel:: Coordinates out of boundaries");
         }
@@ -1218,24 +1355,24 @@ namespace Conformance
         char *ptr = (char *)imageData;
         size_t pixelSize = get_pixel_size( format );
 
-        ptr += y * imageInfo->rowPitch + x * pixelSize;
+        ptr += z * imageInfo->slicePitch + y * imageInfo->rowPitch + x * pixelSize;
         
         pack_image_pixel(inData, format, ptr);
     }
 
-    void write_image_pixel_float( void *imageData, image_descriptor *imageInfo, const int x, const int y, float* inData )
+    void write_image_pixel_float( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, float* inData )
     {
-        write_image_pixel<float>(imageData, imageInfo, x, y, inData);
+        write_image_pixel<float>(imageData, imageInfo, x, y, z, inData);
     }
     
-    void write_image_pixel_int( void *imageData, image_descriptor *imageInfo, const int x, const int y, int* inData )
+    void write_image_pixel_int( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, int* inData )
     {
-        write_image_pixel<int>(imageData, imageInfo, x, y, inData);
+        write_image_pixel<int>(imageData, imageInfo, x, y, z, inData);
     }
 
-    void write_image_pixel_uint( void *imageData, image_descriptor *imageInfo, const int x, const int y, unsigned int* inData )
+    void write_image_pixel_uint( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, unsigned int* inData )
     {
-        write_image_pixel<unsigned int>(imageData, imageInfo, x, y, inData);
+        write_image_pixel<unsigned int>(imageData, imageInfo, x, y, z, inData);
     }
 
     float get_max_relative_error( cl_image_format *format, image_sampler_data *sampler, int is3D, int isLinearFilter )
@@ -1335,23 +1472,32 @@ namespace Conformance
         }
     }
 
-    bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
-        size_t width, size_t height, size_t depth, image_sampler_data *imageSampler, int &outX, int &outY, int &outZ )
+bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+                               size_t width, size_t height, size_t depth, image_sampler_data *imageSampler, image_descriptor *imageInfo, int &outX, int &outY, int &outZ )
+{
+    AddressFn adFn = sAddressingTable[ imageSampler ];
+    
+    float refX = floorf( x ), refY = floorf( y ), refZ = floorf( z );
+
+    if( imageSampler->normalized_coords )
     {
-        AddressFn adFn = sAddressingTable[ imageSampler ];
-
-        float refX = floorf( x ), refY = floorf( y ), refZ = floorf( z );
-
-        if( imageSampler->normalized_coords )
+        switch (imageSampler->addressing_mode)
         {
-            switch (imageSampler->addressing_mode)
-            {
             case CL_ADDRESS_REPEAT:
                 x = RepeatNormalizedAddressFn( x, width );
-                y = RepeatNormalizedAddressFn( y, height );
-                if( depth != 0 )
-                    z = RepeatNormalizedAddressFn( z, depth );
-
+                if (height != 0) {
+                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
+                        y *= (float)height+yAddressOffset;
+                    else
+                        y = RepeatNormalizedAddressFn( y, height );
+                }
+                if (depth != 0) {
+                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY)
+                        z *= (float)depth+zAddressOffset;
+                    else
+                        z = RepeatNormalizedAddressFn( z, depth );
+                }
+                
                 if (xAddressOffset != 0.0) {
                     // Add in the offset
                     x += xAddressOffset;
@@ -1361,7 +1507,7 @@ namespace Conformance
                     if (x < 0)
                         x += (float)width;
                 }
-                if (yAddressOffset != 0.0) {
+                if ( (yAddressOffset != 0.0) && (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY) ) {
                     // Add in the offset
                     y += yAddressOffset;
                     // Handle wrapping
@@ -1370,7 +1516,7 @@ namespace Conformance
                     if (y < 0)
                         y += (float)height;
                 }
-                if (zAddressOffset != 0.0) {
+                if ( (zAddressOffset != 0.0) && (imageInfo->type != CL_MEM_OBJECT_IMAGE2D_ARRAY) )  {
                     // Add in the offset
                     z += zAddressOffset;
                     // Handle wrapping
@@ -1378,15 +1524,24 @@ namespace Conformance
                         z -= (float)depth;
                     if (z < 0)
                         z += (float)depth;
-                }      			
+                }               
                 break;
-
+                
             case CL_ADDRESS_MIRRORED_REPEAT:
                 x = MirroredRepeatNormalizedAddressFn( x, width );
-                y = MirroredRepeatNormalizedAddressFn( y, height );
-                if( depth != 0 )
-                    z = MirroredRepeatNormalizedAddressFn( z, depth );
-
+                if (height != 0) {
+                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
+                        y *= (float)height+yAddressOffset;
+                    else
+                        y = MirroredRepeatNormalizedAddressFn( y, height );
+                }
+                if (depth != 0) {
+                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY)
+                        z *= (float)depth+zAddressOffset;
+                    else
+                        z = MirroredRepeatNormalizedAddressFn( z, depth );
+                }
+                
                 if (xAddressOffset != 0.0) 
                 {
                     float temp = x + xAddressOffset;
@@ -1394,20 +1549,20 @@ namespace Conformance
                         temp = (float) width - (temp - (float) width );
                     x = fabsf( temp );
                 }
-                if (yAddressOffset != 0.0) {
+                if ( (yAddressOffset != 0.0) && (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY) ) {
                     float temp = y + yAddressOffset;
                     if( temp > (float) height )
                         temp = (float) height - (temp - (float) height );
                     y = fabsf( temp );
                 }
-                if (zAddressOffset != 0.0) {
+                if ( (zAddressOffset != 0.0) && (imageInfo->type != CL_MEM_OBJECT_IMAGE2D_ARRAY) )  {
                     float temp = z + zAddressOffset;
                     if( temp > (float) depth )
                         temp = (float) depth - (temp - (float) depth );
                     z = fabsf( temp );
-                }      			
+                }               
                 break;
-
+                
             default:
                 // Also, remultiply to the original coords. This simulates any truncation in
                 // the pass to OpenCL
@@ -1415,16 +1570,37 @@ namespace Conformance
                 y *= (float)height+yAddressOffset;
                 z *= (float)depth+zAddressOffset;
                 break;
-            }
         }
-
-        outX = adFn( floorf( x ), width );
-        outY = adFn( floorf( y ), height );
-        if( depth != 0 )
-            outZ = adFn( floorf( z ), depth );
-
-        return !( (int)refX == outX && (int)refY == outY && (int)refZ == outZ );
     }
+    
+    // At this point, we're dealing with non-normalized coordinates.
+    
+    outX = adFn( floorf( x ), width );
+    
+    // 1D and 2D arrays require special care for the index coordinate:
+    
+    switch (imageInfo->type) {
+        case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+            outY = calculate_array_index(y, imageInfo->arraySize - 1.0f);
+            outZ = 0.0f; /* don't care! */
+            break;
+        case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+            outY = adFn( floorf( y ), height );
+            outZ = calculate_array_index(z, imageInfo->arraySize - 1.0f);
+            break;
+        default:
+            // legacy path:
+            if (height != 0)
+                outY = adFn( floorf( y ), height );
+            if( depth != 0 )
+                outZ = adFn( floorf( z ), depth );
+    }
+    
+
+    
+    return !( (int)refX == outX && (int)refY == outY && (int)refZ == outZ );
+}
+
 
     template <> void sample_image_pixel<float>( void *imageData, image_descriptor *imageInfo, 
         float x, float y, float z, image_sampler_data *imageSampler, float *outData )
