@@ -106,7 +106,7 @@ class GlobalIdTest(DebuggerTestCase):
     #           work-items is (256*256*256) (CSSD100007249)
     #   6. Minimum and maximum size of work-group (1 and 1024)
     #
-    def test_3D_default_global_id(self):
+    def DISABLED_test_3D_default_global_id(self):
         import itertools
         CLNAME = 'check_ndrange_dimensions.cl'
         CL_DEVICE_MAX_WORK_GROUP_SIZE = 256
@@ -354,7 +354,7 @@ class GlobalIdTest(DebuggerTestCase):
     # Based on global_id, we calculate the group_id (group_id_x, group_id_y,
     #   group_id_z) and the local_id (local_id_x, local_id_y, local_id_z)
     #
-    def test_3D_non_default_global_id(self):
+    def DISABLED_test_3D_non_default_global_id(self):
         import random
         import itertools
         CLNAME = 'check_ndrange_dimensions.cl'
