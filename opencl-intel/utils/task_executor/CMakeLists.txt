@@ -57,4 +57,10 @@ install(TARGETS ${TARGET_NAME}
 target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 
+if (WIN32)
+    file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)	
+	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+endif(WIN32)
+
 
