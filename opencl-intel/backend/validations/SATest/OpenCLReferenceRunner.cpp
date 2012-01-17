@@ -41,11 +41,13 @@ using std::exception;
 #include "llvm/Support/Debug.h"
 // Command line options
 #include "llvm/Support/CommandLine.h"
+// mutex
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/System/Mutex.h"
 
 #include "RunResult.h"
 #include "OpenCLReferenceRunner.h"
 #include "OpenCLRunConfiguration.h"
-#include "OCLUpdatePass.h"
 #include "SATestException.h"
 #include "OpenCLProgram.h"
 #include "cl_device_api.h"
@@ -63,6 +65,8 @@ using std::exception;
 #include "InterpreterPlugIn.h"
 #include "InterpreterPluggable.h"
 #include "PlugInNEAT.h"
+#include "WorkItemStorage.h"
+
 using namespace llvm;
 using std::string;
 
@@ -83,6 +87,8 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 #endif
 
 static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
+// mutex for RunKernel to be thread-safe
+static ManagedStatic<sys::Mutex> InterpreterLock;
 
 OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
     m_pLLVMContext(NULL),
@@ -768,82 +774,43 @@ void OpenCLReferenceRunner::ParseToModule( const IProgram* program )
                                            LLVM module");
     }
 
-  //createBuiltInImportPass(m_pRTModule, m_pExecEngine)->runOnModule(*m_pModule);
-  DEBUG(dbgs() << "Before optimization: " << *m_pModule << "\n");
-
-  SmallVector<Function*, 16> vectFunctions;
-    std::vector<std::string> UndefinedExternalFunctions;
-    ModulePass *wiUpdate = createOCLReferenceKernelUpdatePass(0, vectFunctions,
-        m_pLLVMContext, UndefinedExternalFunctions);
-    wiUpdate->runOnModule(*m_pModule);
-  DEBUG(dbgs() << "running : " << *m_pModule << "\n");
+  DEBUG(dbgs() << "Module LLVM code: " << *m_pModule << "\n");
 }
 
-
-static std::vector<GlobalVariable *> getLocalVariables(llvm::Module* pModule)
+// find OpenCL __local variables in module
+static std::vector<const GlobalVariable *> getLocalVariables(llvm::Module* pModule)
 {
-    std::vector<GlobalVariable *> locList;
-
-    // Extract pointer to module annotations
-    NamedMDNode *pMetadata = pModule->getNamedMetadata("opencl.kernels");
-    if ( NULL == pMetadata )
-    {
-        throw Exception::InvalidArgument("getLocalVariables::"
-            " Invalid input OpenCL module does not contain metadata");
-    }
-
-    // now we need to pass every kernel and make relevant changes to match our environment
-    for (uint32_t i = 0, e = pMetadata->getNumOperands(); i != e; ++i)
-    {
-        // Obtain kernel function from annotation
-        MDNode *elt = pMetadata->getOperand(i);
-        Function *pFunc = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
-        if ( NULL == pFunc )
-        {
-            continue; // Not a function pointer
-        }
-
-        // Obtain local variables array
-        // magic const describes offset of local memory specifier in metadata
-        const uint32_t METADATA_LOCAL_MEMORY_IDX = 5;
-        const string LocalStr = dyn_cast<llvm::MDString>(
-            elt->getOperand(METADATA_LOCAL_MEMORY_IDX))->getString();
-        NamedMDNode *pFuncLocals = pModule->getNamedMetadata( LocalStr );
-
-        if(pFuncLocals == NULL)
-        {
-            // no local variables in the function
-            continue;
-        }
-
-        // Iterate through local vars in function
-        for (uint32_t i = 0, e = pFuncLocals->getNumOperands(); i != e; ++i)
-        {
-            // Obtain local var name
-            MDNode *elt = pFuncLocals->getOperand(i);
-            std::string lclStr = dyn_cast<MDString>(
-                elt->getOperand(0))->getString();
-
-            GlobalVariable *pLclVar = pModule->getGlobalVariable(lclStr, true);
-            if( NULL == pLclVar )
-            {
-                throw Exception::InvalidArgument("getLocalVariables::"
-                    " Cannot retrieve local variable "+lclStr);
-            }
-
-            DEBUG(dbgs() << "local variable:\n " << *pLclVar << "\n");
-            locList.push_back(pLclVar);
-        }
-    }
+   std::vector<const GlobalVariable *> locList;
+   // pass on global variables in module
+   for (Module::const_global_iterator I = pModule->global_begin(), E = pModule->global_end();
+       I != E; ++I)
+   {
+       const uint32_t LOCAL_MEMORY_ADDR_SPACE = 3;
+       // if global variable belongs to address space == LOCAL_MEMORY_ADDR_SPACE 
+       // then it is local
+       if(I->getType()->getAddressSpace() == LOCAL_MEMORY_ADDR_SPACE)
+       {
+            DEBUG(dbgs() << "local variable:\n " << *I << "\n");
+            locList.push_back(I);
+       }
+   }
     return locList;
 }
 
-
+// convert vector from size_t format to uint64_t
+static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, uint32_t num)
+{
+    for(uint32_t i=0; i < num; ++i)
+        O[i] = (uint64_t) pI[i];
+}
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
                                        const ReferenceRunOptions* runConfig )
 {
     assert(pKernelConfig != NULL && "There is no kernel to run!");
+
+    // acquire lock this method is not thread safe
+    InterpreterLock->acquire();
 
     BufferContainerList input;
     ReadInputBuffer(pKernelConfig, &input);
@@ -865,113 +832,56 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         &runResult->GetOutput(kernelName.c_str()),
         &runResult->GetNEATOutput(kernelName.c_str()));
 
-    // get global workgroup sizes
-    size_t globalWGSizes[MAX_WORK_DIM];
-    std::copy(pKernelConfig->GetGlobalWorkSize(),
-        pKernelConfig->GetGlobalWorkSize() + MAX_WORK_DIM,
-        globalWGSizes);
+    // init global workgroup sizes with ones
+    std::vector<uint64_t> globalWGSizes(MAX_WORK_DIM, 1);
+    ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkSize(), globalWGSizes, workDim);
 
-    // get local work group sizes
-    size_t localWGSizes[MAX_WORK_DIM];
-    std::copy(pKernelConfig->GetLocalWorkSize(),
-        pKernelConfig->GetLocalWorkSize() + MAX_WORK_DIM,
-        localWGSizes);
+    // init local workgroup sizes with ones
+    std::vector<uint64_t> localWGSizes(MAX_WORK_DIM, 1);
+    // convert size_t to uint64_t
+    ConvertSizeTtoUint64T(pKernelConfig->GetLocalWorkSize(), localWGSizes, workDim);
 
-    // setup global sizes
-    size_t global_size_x=globalWGSizes[0];
-    size_t global_size_y=workDim<2?1:globalWGSizes[1];
-    size_t global_size_z=workDim<3?1:globalWGSizes[2];
+    // init work offset workgroup sizes with zeros
+    std::vector<uint64_t> GlobalWorkOffset(MAX_WORK_DIM, 0);
+    // convert size_t to uint64_t
+    ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkOffset(), GlobalWorkOffset, workDim);
 
     // check usage of default local work size ( == 0 )
-    for(cl_uint i=0; i < workDim; ++i)
+    for(uint32_t i=0; i < workDim; ++i)
     {
         if(localWGSizes[i] == 0)
         {   // set local Work size
-            localWGSizes[i] = std::min<size_t>(
+            localWGSizes[i] = std::min<uint64_t>(
                 globalWGSizes[i],
-                size_t(runConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0)));
+                uint64_t(runConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0)));
         }
     }
-
-    // setup local sizes
-    const size_t local_size_x=              localWGSizes[0];
-    const size_t local_size_y=workDim<2?1:  localWGSizes[1];
-    const size_t local_size_z=workDim<3?1:  localWGSizes[2];
-
-    size_t num_groups[MAX_WORK_DIM] = {(global_size_x + local_size_x - 1) / local_size_x,
-                                       (global_size_y + local_size_y - 1) / local_size_y,
-                                       (global_size_z + local_size_z - 1) / local_size_z};
 
     // hack to speed up reference
     // reference runs only single work group
     if(runConfig->GetValue<bool>(RC_COMMON_RUN_SINGLE_WG, false))
     {
-        global_size_x = local_size_x;
-        global_size_y = local_size_y;
-        global_size_z = local_size_z;
+        globalWGSizes[0] = localWGSizes[0];
+        globalWGSizes[1] = localWGSizes[1];
+        globalWGSizes[2] = localWGSizes[2];
     }
 
-    // index at which workload parameters are pushed into function
-    // argument list
-    uint32_t KernelArgBaseIdx = ArgVals.size();
-    ///////////////////////////////////////////////////////////////////////////
-    // Add pointer to a WorkDim.
-    //struct sWorkInfoVal
-    //{
-    //    unsigned int	uiWorkDim;
-    //    size_t            GlobalOffset[MAX_WORK_DIM];
-    //    size_t            GlobalSize[MAX_WORK_DIM];
-    //    size_t            LocalSize[MAX_WORK_DIM];
-    //    size_t            WGNumber[MAX_WORK_DIM];
-    //};
-    Validation::sWorkInfoVal workDimMemory;
-    Validation::sWorkInfoVal* pWorkDimMemory = &workDimMemory;
-
-    pWorkDimMemory->uiWorkDim = workDim;
-
-    ::memcpy(pWorkDimMemory->GlobalOffset,
-        pKernelConfig->GetGlobalWorkOffset(),
-        MAX_WORK_DIM * sizeof(size_t));
-
-    ::memcpy(pWorkDimMemory->GlobalSize,
-        globalWGSizes,
-        MAX_WORK_DIM * sizeof(size_t));
-
-    ::memcpy(pWorkDimMemory->LocalSize,
-        localWGSizes,
-        MAX_WORK_DIM * sizeof(size_t));
-
-    ::memcpy(pWorkDimMemory->WGNumber, num_groups, MAX_WORK_DIM * sizeof(size_t));
-
-    ArgVals.push_back(GenericValue(pWorkDimMemory));
-
-//////////////////////////////////////////////////////////////////////////////////
-    // Add pointer to a WorkGroupID.
-    size_t workGroupIDMemory[MAX_WORK_DIM];
-    size_t * pWorkGroupIDMemory = &workGroupIDMemory[0];
-    ::memset(pWorkGroupIDMemory, 0, MAX_WORK_DIM*sizeof(size_t));
-    ArgVals.push_back(GenericValue(pWorkGroupIDMemory));
-///////////////////////////////////////////////////////////////////////////////
-    // Add pointer to a base global ID.
-    size_t baseGlobalID[MAX_WORK_DIM];
-    size_t * pBaseGlobalID = &baseGlobalID[0];
-    ::memset(pBaseGlobalID, 0, MAX_WORK_DIM*sizeof(size_t));
-    ArgVals.push_back(GenericValue(pBaseGlobalID));
-///////////////////////////////////////////////////////////////////////////////
-    // Add pointer to a local ID.
-    size_t * pLocalIDMemory = NULL;
-    ArgVals.push_back(GenericValue(pLocalIDMemory));
-    // remember index of local id storage in function argument vector
-    uint32_t LocalIdIdx = KernelArgBaseIdx + 3;
-///////////////////////////////////////////////////////////////////////////////
+    // work item storage
+    Validation::WorkItemStorage wiStorage(workDim, globalWGSizes, localWGSizes, GlobalWorkOffset);
+    // set wiStorage as interface for OCLBuiltins workitem functions
+    OCLBuiltins::WorkItemInterfaceSetter::inst()->SetWorkItemInterface(&wiStorage);
 
     // local engines
     std::vector<ExecutionEngine *> localEngines;
     std::vector<NEATPlugIn *> localNEATs;
-
+    
+    // total number of local workitems
+    const uint32_t totalLocalWIs = localWGSizes[0] * localWGSizes[1] * localWGSizes[2];
+    // vector of kernel arguments. used for multiple execution arguments
     typedef std::vector< std::vector<GenericValue> > KernelArgsVector;
-    KernelArgsVector localKernelArgVector;
-
+    // storage of kernel arguments. each per local work item
+    KernelArgsVector localKernelArgVector(totalLocalWIs);
+    
     // use interpreterPluggable instead of interpreter
     // this should be called prior to creating EngineBuilder
     LLVMLinkInInterpreterPluggable();
@@ -979,11 +889,13 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     EngineBuilder builder(m_pModule);
     builder.setEngineKind(EngineKind::Interpreter);
 
-#define FOR3_LOCALWG \
-    for(size_t idx=0,lid_z=0;lid_z<local_size_z;lid_z++)\
-    for(size_t lid_y=0;lid_y<local_size_y;lid_y++)\
-    for(size_t lid_x=0;lid_x<local_size_x;lid_x++,idx++)
 
+#define FOR3_LOCALWG \
+    for(uint64_t idx=0,lid_z=0;lid_z<localWGSizes[2];lid_z++)\
+    for(uint64_t lid_y=0;lid_y<localWGSizes[1];lid_y++)\
+    for(uint64_t lid_x=0;lid_x<localWGSizes[0];lid_x++,idx++)
+
+    // initialize interpreters
     FOR3_LOCALWG
     {
         // Create interpreter instance.
@@ -1011,39 +923,28 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT){
             localNEATs.push_back(pNEAT);
         }
-
-        // local ID
-        std::vector<GenericValue> localM = ArgVals;
-        size_t localIDMemory[MAX_WORK_DIM];
-        size_t * pLocalIDMemory = &localIDMemory[0];
-        memset(pLocalIDMemory, 0, MAX_WORK_DIM*sizeof(size_t));
-        localM[LocalIdIdx] = GenericValue(pLocalIDMemory);
-        localKernelArgVector.push_back(localM);
+        
+        // copy kernel arguments
+        localKernelArgVector[idx] = ArgVals;
     }
 
-    for(size_t tid_z=0;tid_z<global_size_z;tid_z+=local_size_z)
+    // global work item execution loop
+    // global offset is not added (included) to loop variables
+    for(uint64_t tid_z=0;tid_z<globalWGSizes[2];tid_z+=localWGSizes[2])
     {
-        for(size_t tid_y=0;tid_y<global_size_y;tid_y+=local_size_y)
+        for(uint64_t tid_y=0;tid_y<globalWGSizes[1];tid_y+=localWGSizes[1])
         {
-            for(size_t tid_x=0;tid_x<global_size_x;tid_x+=local_size_x)
+            for(uint64_t tid_x=0;tid_x<globalWGSizes[0];tid_x+=localWGSizes[0])
             {
-                pBaseGlobalID[0] = tid_x + pWorkDimMemory->GlobalOffset[0];
-                pBaseGlobalID[1] = tid_y + pWorkDimMemory->GlobalOffset[1];
-                pBaseGlobalID[2] = tid_z + pWorkDimMemory->GlobalOffset[2];
-                pWorkGroupIDMemory[0] = tid_x / local_size_x;
-                pWorkGroupIDMemory[1] = tid_y / local_size_y;
-                pWorkGroupIDMemory[2] = tid_z / local_size_z;
-
                 // Run static constructors.
-                FOR3_LOCALWG
-                {
+                FOR3_LOCALWG {
                     localEngines[idx]->runStaticConstructorsDestructors(false);
                 }
 
                 // detect variables from __local space
                 // and push it to list
                 // list of __local variables
-                std::vector<GlobalVariable *> localList =
+                std::vector<const GlobalVariable *> localList =
                     getLocalVariables(m_pModule);
 
                 // allocate or set mapping to memory of __local variables
@@ -1077,7 +978,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 
                         for(uint32_t i=0, cntNeat=0;i<localList.size();++i)
                         {
-                            GlobalVariable * GV = localList[i];
+                            const GlobalVariable * GV = localList[i];
                             const Type *GlobalType =
                                 GV->getType()->getElementType();
 
@@ -1116,15 +1017,17 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                     // loop over work items
                     FOR3_LOCALWG
                     {
-                        // get pointer to local ID memory storage for current work item
-                        GenericValue GVLocalId = localKernelArgVector[idx].at(LocalIdIdx);
-                        size_t * pLocalIDMemory = (size_t*) GVTOP(GVLocalId);
-
                         DEBUG(dbgs() << "About to run local workitem idx :\n " << idx << "\n");
+
                         // setup local work item IDs
-                        pLocalIDMemory[0] = lid_x;
-                        pLocalIDMemory[1] = lid_y;
-                        pLocalIDMemory[2] = lid_z;
+                        wiStorage.SetLocalID(0, lid_x);
+                        wiStorage.SetLocalID(1, lid_y);
+                        wiStorage.SetLocalID(2, lid_z);
+
+                        // setup global work item IDs
+                        wiStorage.SetGlobalID(0, tid_x + lid_x);
+                        wiStorage.SetGlobalID(1, tid_y + lid_y);
+                        wiStorage.SetGlobalID(2, tid_z + lid_z);
 
                         // Run function.
                         GenericValue Result = localEngines[idx]->runFunction(
@@ -1160,5 +1063,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 
     for(std::size_t i=0; i<localsMemVec.size(); ++i)
         delete [] localsMemVec[i];
+    
+    // release lock
+    InterpreterLock->release();
 }
 

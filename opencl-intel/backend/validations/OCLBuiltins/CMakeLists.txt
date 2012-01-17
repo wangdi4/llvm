@@ -26,6 +26,8 @@ endif (NOT WIN32)
 
 add_llvm_library(OCLBuiltins
   IBLTMapFiller.h
+  IWorkItemBuiltins.h
+  BLTWorkItem.cpp
   BLTCommon.cpp
   BLTMath.cpp
   BLTImages.cpp

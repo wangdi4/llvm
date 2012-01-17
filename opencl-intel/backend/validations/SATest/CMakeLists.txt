@@ -100,7 +100,6 @@ set (SATest_INCLUDE_FILES
     OpenCLProgramConfiguration.h
     OpenCLBackendWrapper.h
     OpenCLComparator.h
-    OCLUpdatePass.h
     RunResult.h
     Performance.h
     PerformancePrinter.h
@@ -113,6 +112,7 @@ set (SATest_INCLUDE_FILES
     DXFactory.h
     DXRunConfiguration.h
     DXProgramConfiguration.h
+    WorkItemStorage.h
 )
 
 set (SATest_SOURCE_FILES
@@ -136,7 +136,6 @@ set (SATest_SOURCE_FILES
     OpenCLProgramConfiguration.cpp
     OpenCLBackendWrapper.cpp
     OpenCLComparator.cpp
-    OCLUpdatePass.cpp
     )
 
 if(MIC_ENABLE)

@@ -125,7 +125,9 @@ namespace Validation
             IBufferContainerList * Args,
             IBufferContainerList * neatArgs );
 
-        /// @brief Runs kernel.
+        /// @brief Runs kernel. 
+        /// !!! Not thread-safe since it uses singleton (global) to pass workitem variables
+        /// to built-ins
         /// @param [INOUT] runResult    Kernel argument values. Some of them are input,
         ///                             some are output and some of them could be both.
         /// @param [IN] pKernelConfig   Configuration containing kernel-specific parameters.

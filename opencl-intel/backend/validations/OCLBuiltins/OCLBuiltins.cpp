@@ -16,6 +16,7 @@ File Name:  OCLBuiltins.cpp
 
 \*****************************************************************************/
 
+#include "BLTWorkItem.h"
 #include "VLoadStore.h"
 #include "BLTCommon.h"
 #include "BLTMath.h"
@@ -37,6 +38,10 @@ namespace OCLBuiltins {
 
 void FillOCLBuiltins (map<string, GenericValue (*)(const FunctionType *, const vector<GenericValue> &)>& funcNames)
 {
+    // Adding work-item built-in functions to the map.
+    WorkItemMapFiller wiBuiltins;
+    wiBuiltins.addOpenCLBuiltins(funcNames);
+
     // Adding vector load/store built-in functions to the map.
     VLoadStoreMapFiller vlsBuiltins;
     vlsBuiltins.addOpenCLBuiltins(funcNames);
