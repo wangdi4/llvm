@@ -407,10 +407,51 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 size_t              IN  szSrcOffset,
                                                 size_t              IN  szDstOffset,
                                                 size_t              IN  szCb,
-                                                cl_uint             IN  uNumEventsInWaitList, 
-                                                const cl_event*     IN  cpEeventWaitList, 
+                                                cl_uint             IN  uNumEventsInWaitList,
+                                                const cl_event*     IN  cpEeventWaitList,
                                                 cl_event*           OUT pEvent      )  = 0;
 
+        
+        /**
+            * enqueues a command to fill a buffer object with a pattern of a given pattern size.
+            *
+            * @param clCommandQueue the command-queue in which the fill command will be queued.
+            * @param clBuffer a valid buffer object.
+            * @param pattern a pointer to the data pattern of size pattern_size in bytes.
+            * @param pattern_size
+            * @param offset the location in bytes of the region being filled in buffer and must be a multiple of pattern_size.
+            * @param size the size in bytes of region being filled in buffer and must be a multiple of pattern_size.
+            * @param num_events_in_wait_list event_wait_list and num_events_in_wait_list specify events that need to complete before this particular command can be executed.
+            * @param event_wait_list
+            * @param event returns an event object that identifies this particular command and can be used to query or queue a wait for this particular command to complete.
+            *
+            * @return
+            *      - CL_INVALID_COMMAND_QUEUE if command_queue is not a valid command-queue.
+            *      - CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same or if the context associated with command_queue and events in event_wait_list are not the same.
+            *      - CL_INVALID_MEM_OBJECT if buffer is not a valid buffer object.
+            *      - CL_INVALID_VALUE if offset or offset + size require accessing elements outside the buffer buffer object respectively.
+            *      - CL_INVALID_VALUE if pattern is NULL or if pattern_size is 0 or if pattern_size is not one of {1, 2, 4, 8, 16, 32, 64, 128}.
+            *      - CL_INVALID_VALUE if offset and size are not a multiple of pattern_size.
+            *      - CL_INVALID_EVENT_WAIT_LIST if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events.
+            *      - CL_MISALIGNED_SUB_BUFFER_OFFSET if buffer is a sub-buffer object and offset specified when the sub-buffer object is created is not aligned to
+            *      - CL_DEVICE_MEM_BASE_ADDR_ALIGN value for device associated with queue.
+            *      - CL_MEM_OBJECT_ALLOCATION_FAILURE if there is a failure to allocate memory for data store associated with buffer.
+            *      - CL_OUT_OF_RESOURCES if there is a failure to allocate resources required by the OpenCL implementation on the device.
+            *      - CL_OUT_OF_HOST_MEMORY if there is a failure to allocate resources required by the OpenCL implementation on the host.
+            *
+            *  @author Shoham Levy
+            */
+        virtual cl_err_code EnqueueFillBuffer (cl_command_queue clCommandQueue,
+                                                cl_mem clBuffer,
+                                                const void *pattern,
+                                                size_t pattern_size,
+                                                size_t offset,
+                                                size_t size,
+                                                cl_uint num_events_in_wait_list,
+                                                const cl_event *event_wait_list,
+                                                cl_event *event) = 0;
+
+                                                                                       
         /******************************************************************************************
          * Function:    EnqueueReadImage    
          * Description: Enqueue commands to read from a 2D or 3D image object to host memory.

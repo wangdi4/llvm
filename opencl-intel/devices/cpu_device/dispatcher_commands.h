@@ -200,4 +200,20 @@ protected:
 #endif
 };
 
+
+// OCL fill buffer/image command
+class FillMemObject : public DispatcherCommand, public ITask
+{
+public:
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+
+    // ITask interface
+    bool    Execute();
+    void    Release() {delete this;}
+
+protected:
+    FillMemObject(TaskDispatcher* pTD);
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
+};
+
 }}}
