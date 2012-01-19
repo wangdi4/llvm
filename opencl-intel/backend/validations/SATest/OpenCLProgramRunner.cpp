@@ -44,6 +44,19 @@ File Name:  OpenCLProgramRunner.cpp
 // debug macros
 #include <llvm/Support/Debug.h>
 
+#include <string.h>
+
+
+/**
+ * Description of ENABLE_SDE mode for MIC:
+ * In the initialization flow for MIC, we need from the device (Target 
+ * Description), this is a buffer of target data which will contain some 
+ * info about the device capabilities and "execution context" (for now 
+ * execution context can be SVML function addresses), this needed by the 
+ * Compiler in order to generate the JIT and link it with the addresses 
+ * given from the device.
+ */
+
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation
@@ -54,6 +67,12 @@ extern void GenINT3();
 class BackendOptions: public ICLDevBackendOptions
 {
 public:
+    BackendOptions() {}
+
+    virtual ~BackendOptions()
+    {
+    }
+
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
         m_transposeSize = runConfig.GetValue<ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO);
@@ -83,8 +102,13 @@ public:
 
     virtual int GetIntValue( int optionId, int defaultValue) const
     {
-        return CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE == optionId ? (int)m_transposeSize
-                                                                : defaultValue;
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+            return m_transposeSize;
+        default:
+             return defaultValue;
+        }
     }
 
     virtual const char* GetStringValue(int optionId, const char* defaultValue)const
@@ -125,6 +149,7 @@ public:
     }
 
 private:
+
     ETransposeSize m_transposeSize;
     std::string    m_cpu;
     std::string    m_cpuFeatures;
@@ -134,6 +159,94 @@ private:
     std::string m_DumpIRDir;
     std::string m_TimePasses;
 };
+
+#ifdef ENABLE_SDE
+class SDEBackendOptions: public BackendOptions
+{
+public:
+    SDEBackendOptions() : m_targetDescSize(0), m_pTargetDesc(NULL) {}
+    
+    virtual ~SDEBackendOptions()
+    {
+        delete[] m_pTargetDesc;
+    }
+
+    SDEBackendOptions(const SDEBackendOptions& options)
+    {
+        copy(options);
+    }
+
+    SDEBackendOptions& operator=(const SDEBackendOptions& options)
+    {
+        delete[] m_pTargetDesc;
+        copy(options);
+        return *this;
+    }
+
+    void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
+    {
+        if(!isMIC()) return ;
+        m_targetDescSize = pExecutionService->GetTargetMachineDescriptionSize();
+
+        if(0 != m_targetDescSize)
+        {
+            m_pTargetDesc = new char[m_targetDescSize];
+            pExecutionService->GetTargetMachineDescription(m_pTargetDesc, m_targetDescSize);
+        }
+    }
+
+    virtual int GetIntValue( int optionId, int defaultValue) const
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
+            return m_targetDescSize;
+        default:
+            return BackendOptions::GetIntValue(optionId, defaultValue);
+        }
+    }
+
+    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
+    {
+        if (Value == NULL)
+        {
+            throw Exception::InvalidArgument("Value is not initialized");
+        }
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB:
+            if(*pSize < m_targetDescSize) return false;
+            memcpy(Value, m_pTargetDesc, m_targetDescSize);
+            return true;
+        default:
+            return BackendOptions::GetValue(optionId, defaultValue);
+        }
+    }
+
+
+private:
+    bool isMIC()
+    {
+        return (0 == m_cpu.compare(0, 3, "knf"));
+    }
+
+    void copy(const BackendOptions& options)
+    {
+        m_targetDescSize = options.m_targetDescSize;
+        m_pTargetDesc = NULL;
+
+        if(0 != m_targetDescSize)
+        {
+            m_pTargetDesc = new char[m_targetDescSize];
+            memcpy(m_pTargetDesc, options.m_pTargetDesc, m_targetDescSize);
+        }
+    }
+
+private:
+    size_t m_targetDescSize;
+    char*  m_pTargetDesc;
+}
+#endif // ENABLE_SDE
 
 /**
  * Options used during program code container dump
@@ -415,15 +528,32 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
     const BERunOptions         *pOCLRunConfig     = static_cast<const BERunOptions *>(runConfig);
     OpenCLProgram              *pOCLProgram       = static_cast<OpenCLProgram *>(program);
 
+#ifdef ENABLE_SDE
+    SDEBackendOptions options;
+#else
     BackendOptions options;
+#endif
+
     options.InitFromRunConfiguration(*pOCLRunConfig);
 
     ICLDevBackendExecutionServicePtr spExecutionService(NULL);
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
     ICLDevBackendImageServicePtr        spImageService(NULL);
 
+    DEBUG(llvm::dbgs() << "Get execution service started.\n");
+    cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
+    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
+    if ( CL_DEV_FAILED(ret) )
+    {
+        throw Exception::TestRunnerException("Create execution service failed\n");
+    }
+
+#ifdef ENABLE_SDE
+    options.InitTargetDescriptionSession(spExecutionService.get());
+#endif // ENABLE_SDE
+
     DEBUG(llvm::dbgs() << "Get compilation service started.\n");
-    cl_dev_err_code ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
+    ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
@@ -434,13 +564,6 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         throw Exception::TestRunnerException("Create compilation service failed\n");
     }
 
-    DEBUG(llvm::dbgs() << "Get execution service started.\n");
-    ret = m_pServiceFactory->GetExecutionService(NULL, spExecutionService.getOutPtr());
-    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
-    if ( CL_DEV_FAILED(ret) )
-    {
-        throw Exception::TestRunnerException("Create execution service failed\n");
-    }
     DEBUG(llvm::dbgs() << "Get image service started.\n");
     ret = m_pServiceFactory->GetImageService(NULL, spImageService.getOutPtr());
     DEBUG(llvm::dbgs() << "Get image service finished.\n");

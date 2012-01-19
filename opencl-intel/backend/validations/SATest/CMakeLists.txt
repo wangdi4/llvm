@@ -12,6 +12,11 @@ else( CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set (PLATFORM 64)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
+if (ENABLE_SDE)
+    message("-- Enabling SDE version ... ")
+    add_definitions( -DENABLE_SDE )
+endif (ENABLE_SDE)
+
 #
 # Settings for Linux compilation
 #

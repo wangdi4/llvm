@@ -38,14 +38,14 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define FORCE_INLINE_POST  __attribute__((always_inline))
 #endif
 
-#if defined(ENABLE_SDE_DEBUG_TRACE)
+#if defined(ENABLE_SDE)
 // These functions are used as marks for the debug trace of the JIT execution
 extern "C" 
 {
 void BeforeExecution() { }
 void AfterExecution() { }
 }
-#endif // ENABLE_SDE_DEBUG_TRACE
+#endif // ENABLE_SDE
 
 Executable::Executable(const Binary* pBin) :
   m_pBinary(pBin), m_pParameters(NULL), m_stParamSize(0),
@@ -138,13 +138,13 @@ cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
   }
 
   assert( (m_stParamSize < (1 << 12)) && "Parameters on stack size is more than 4K!" );
-#if defined(ENABLE_SDE_DEBUG_TRACE)
+#if defined(ENABLE_SDE)
   BeforeExecution();
 #endif
   // The kernel has a single parameter &m_pParameters - a pointer to the buffers containg all the arguments
   // This parameter is of size sizeof(void*)
   InvokeKernel(sizeof(void*), m_pParameters, const_cast<void*>(m_pBinary->m_pUsedEntryPoint));
-#if defined(ENABLE_SDE_DEBUG_TRACE)
+#if defined(ENABLE_SDE)
   AfterExecution();
 #endif
   

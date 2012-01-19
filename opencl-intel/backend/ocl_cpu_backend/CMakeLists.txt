@@ -5,8 +5,6 @@ project(${TARGET_NAME})
 
 cmake_minimum_required(VERSION 2.8.4)
 
-# provides an option for supporting SDE Debug Tracing
-set(ENABLE_DEBUG_TRACE OFF)
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
 	# 32 bit
@@ -19,11 +17,13 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # The directory 'cl_api' below is used by OCL BE only when compiling outside of OCL SDK, otherwise OCL SDK overrides that setting
 set(OCL_CPU_BACKEND_IMPORT_DIRS 
-  ${BACKEND_ROOT_DIR}/../cl_api
-  ${OCL_CPU_BACKEND_DIR}/import 
+  ${BACKEND_ROOT_DIR}/../cl_api 
   ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
+  ${OCL_CPU_BACKEND_DIR}
+  ${OCL_CPU_BACKEND_DIR}/import
+  ${OCL_CPU_BACKEND_DIR}/../arch_headers
   ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
-  ${OCL_CPU_BACKEND_DIR}/../arch_headers)
+  ${OCL_CPU_BACKEND_DIR}/../ocl_mic_executor)
 set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
 # the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
 option(OCL_BACKEND_STAND_ALONE "CBackend Enabled" ON)
@@ -303,6 +303,14 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     debuggingservicewrapper.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
   )
+  
+if (ENABLE_SDE)
+  set(OCL_CPU_BACKEND_INCLUDE_FILES ${OCL_CPU_BACKEND_INCLUDE_FILES}
+    ../ocl_mic_executor/MICDetect.h
+    ../ocl_mic_executor/DynamicLibraryLoader.h
+    MICExecutionService.h
+  )
+endif()
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
     ProcessorDetect.cpp
@@ -360,6 +368,15 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ocl_debug_builtins.cpp
     debuginfopass.cpp
   )
+
+if (ENABLE_SDE)
+  set(OCL_CPU_BACKEND_SOURCE_FILES ${OCL_CPU_BACKEND_SOURCE_FILES}
+    ../ocl_mic_executor/MICDetect.cpp
+    ../ocl_mic_executor/DynamicLibraryLoader.cpp
+    MICExecutionService.cpp
+  )
+endif()
+  
  if (WIN32)	
  set (OCL_CPU_BACKEND_RESOURCE_FILES
 	# Resources
@@ -499,10 +516,10 @@ add_dependencies(${TARGET_NAME}
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 
-if (ENABLE_DEBUG_TRACE)
-    message("-- Enabling SDE Debug Trace ... ")
-    add_definitions( -DENABLE_SDE_DEBUG_TRACE )
-endif (ENABLE_DEBUG_TRACE)
+if (ENABLE_SDE)
+    message("-- Enabling SDE version ... ")
+    add_definitions( -DENABLE_SDE )
+endif (ENABLE_SDE)
 
 if (WIN32)
 	set_target_properties(${TARGET_NAME} PROPERTIES
