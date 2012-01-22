@@ -1459,57 +1459,57 @@ class VolcanoSonyVegas425PerformanceSuite(VolcanoPerformanceSuite):
 
 class VolcanoBIMeterPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeterFullWW35", config, BIMeterPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeter.ww35_26642", config, BIMeterPerformance)
 
 # math
 class VolcanoBIMeterMathSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
 # atomics
 class VolcanoBIMeterAtomicsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', "BIMeterFullWW35", config, BIMeterFullWW35, r"atomics_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"atomics_*")
         
 # common and common_double
 class VolcanoBIMeterCommonSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', "BIMeterFullWW35", config, BIMeterFullWW35, r"common_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"common_*")
 # geometric and geometric double
 class VolcanoBIMeterGeometricSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', "BIMeterFullWW35", config, BIMeterFullWW35, r"geometric_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"geometric_*")
 # math double
 class VolcanoBIMeterMathDoubleSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
 # math half precision
 class VolcanoBIMeterMathHalfSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_half_half_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_half_half_[a-z]+[.]?[0-9]*$")
 # integer
 class VolcanoBIMeterIntegerSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', "BIMeterFullWW35", config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
 # math native precision
 class VolcanoBIMeterMathNativeSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', "BIMeterFullWW35", config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
 # relational and relational double
 class VolcanoBIMeterRelationalSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', "BIMeterFullWW35", config, BIMeterFullWW35, r"relational_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"relational_*")
 # misc
 class VolcanoBIMeterMiscellaneousSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', "BIMeterFullWW35", config, BIMeterFullWW35, r"miscellaneous_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"miscellaneous_*")
 # conversions
 class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeterFullWW35", config, BIMeterFullWW35, r"conversions_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"conversions_*")
 
 class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeterFullWW35", config, BIMeterFullWW35, r".*_image.*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeter.ww35_26642", config, BIMeterFullWW35, r".*_image.*")
 
 perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
                "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
