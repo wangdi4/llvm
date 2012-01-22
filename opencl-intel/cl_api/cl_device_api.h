@@ -278,9 +278,7 @@ enum cl_dev_cmd_type
 	CL_DEV_CMD_EXEC_KERNEL,			//!< Execute Kernel Command
 	CL_DEV_CMD_EXEC_TASK,			//!< Execute task command
 	CL_DEV_CMD_EXEC_NATIVE,			//!< Execute native kernel command
-    CL_DEV_CMD_FILL_BUFFER,         //!< Fill buffer
-    CL_DEV_CMD_FILL_IMAGE,          //!< Fill image
-    //--------------------
+	//--------------------
 	CL_DEV_CMD_MAX_COMMAND_TYPE
 };
 
@@ -500,24 +498,6 @@ struct	cl_dev_cmd_param_kernel
 													//!< An order of the values must be the same as the order of parameters in the kernel prototype.
 													//!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
 	size_t				arg_size;					//!< Size in bytes of the arg_values array.
-} ;
-
-
-/**
- * Used for fill image, and fill buffer commands.
- */
-struct cl_dev_cmd_param_fill
-{
-    IOCLDevMemoryObject*    memObj;         //!< Handle to a memory object from where/to the data to be read/written.
-    //!< It can be a buffer, image2D or image3D
-    cl_uint         dim_count;              //!< A number of dimensions in the memory object.
-    size_t          offset[MAX_WORK_DIM];   //!< Multi-dimensional offset in the memory object.
-    //!< For 2Dimages origin[2] must be 0.
-    size_t          region[MAX_WORK_DIM];   //!< Defines multi-dimensional region of the memory object to be used.
-    //!< region[0] is width of region ; region[1] is height of the region ;
-    //!< region[2] is depth of the region.
-    const void*     pattern;                //!< Pointer to the host fill buffer
-    size_t          pattern_size;           //!< Size of fill buffer (in bytes)
 } ;
 
 /**

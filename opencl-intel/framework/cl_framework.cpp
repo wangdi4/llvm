@@ -638,21 +638,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue,
 	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event));
 }
 SET_ALIAS(clEnqueueCopyBufferRect);
-
-cl_int CL_API_CALL clEnqueueFillBuffer(cl_command_queue command_queue,
-		cl_mem buffer,
-		const void *pattern,
-		size_t pattern_size,
-		size_t offset,
-		size_t size,
-		cl_uint num_events_in_wait_list,
-		const cl_event *event_wait_list,
-		cl_event *event) CL_API_SUFFIX__VERSION_1_2
-{
-	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event));
-}
-SET_ALIAS(clEnqueueFillBuffer);
-
+                            
 cl_int CL_API_CALL clEnqueueReadImage(cl_command_queue command_queue,
 						  cl_mem			image,
 						  cl_bool			blocking_read, 
@@ -698,20 +684,6 @@ cl_int CL_API_CALL clEnqueueCopyImage(cl_command_queue	command_queue,
 	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event));
 }
 SET_ALIAS(clEnqueueCopyImage);
-
-
-cl_int CL_API_CALL clEnqueueFillImage (cl_command_queue command_queue,
-						cl_mem image,
-						const void *fill_color,
-						const size_t *origin,
-						const size_t *region,
-						cl_uint num_events_in_wait_list,
-						const cl_event *event_wait_list,
-						cl_event *event)
-{
-	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event));
-}
-SET_ALIAS(clEnqueueFillImage);
 
 cl_int CL_API_CALL clEnqueueCopyImageToBuffer(cl_command_queue	command_queue,
 								  cl_mem			src_image,
@@ -1154,6 +1126,32 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
 SET_ALIAS(clGetKernelArgInfo);
 
 // the following functions are not implemented yet:
+
+cl_int CL_API_CALL clEnqueueFillBuffer(cl_command_queue command_queue,
+                                       cl_mem buffer,
+                                       const void *pattern,
+                                       size_t pattern_size,
+                                       size_t offset,
+                                       size_t size,
+                                       cl_uint num_events_in_wait_list,
+                                       const cl_event *event_wait_list,cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueFillBuffer);
+
+cl_int CL_API_CALL clEnqueueFillImage(cl_command_queue command_queue,
+                                      cl_mem image,
+                                      const void *fill_color,
+                                      const size_t *origin,
+                                      const size_t *region,
+                                      cl_uint num_events_in_wait_list,
+                                      const cl_event *event_wait_list,
+                                      cl_event *event)
+{
+    return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clEnqueueFillImage);                                      
 
 cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
                                               cl_uint num_mem_objects,

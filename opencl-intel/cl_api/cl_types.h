@@ -112,7 +112,6 @@ typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 // cl_command_type (internal use)
 #define CL_COMMAND_READ_MEM_OBJECT	 1500
 #define	CL_COMMAND_WRITE_MEM_OBJECT  1501
-#define	CL_COMMAND_FILL_MEM_OBJECT   1502
 
 ///////////////////////////////////////
 // Memory runtime declaration

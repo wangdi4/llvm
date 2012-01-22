@@ -940,6 +940,30 @@ clEnqueueWriteBufferRect(
 }
 
 CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueFillBuffer(cl_command_queue   command_queue,
+                    cl_mem             buffer, 
+                    const void *       pattern, 
+                    size_t             pattern_size, 
+                    size_t             offset, 
+                    size_t             cb, 
+                    cl_uint            num_events_in_wait_list, 
+                    const cl_event *   event_wait_list, 
+                    cl_event *         event) CL_API_SUFFIX__VERSION_1_2
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueFillBuffer(
+        command_queue, 
+        buffer,
+        pattern, 
+        pattern_size,
+        offset,
+        cb, 
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueCopyBuffer(cl_command_queue    command_queue, 
                     cl_mem              src_buffer,
                     cl_mem              dst_buffer, 
@@ -961,30 +985,6 @@ clEnqueueCopyBuffer(cl_command_queue    command_queue,
         num_events_in_wait_list,
         event_wait_list,
         event);
-}
-
-CL_API_ENTRY cl_int CL_API_CALL
-clEnqueueFillBuffer(cl_command_queue command_queue,
-		cl_mem buffer,
-		const void *pattern,
-		size_t pattern_size,
-		size_t offset,
-		size_t size,
-		cl_uint num_events_in_wait_list,
-		const cl_event *event_wait_list,
-		cl_event *event) CL_API_SUFFIX__VERSION_1_2
-{
-    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
-	return command_queue->dispatch->clEnqueueFillBuffer (
-			command_queue,
-			buffer,
-			pattern,
-			pattern_size,
-			offset,
-			size,
-			num_events_in_wait_list,
-			event_wait_list,
-			event);
 }
 
 CL_API_ENTRY cl_int CL_API_CALL

@@ -140,16 +140,14 @@ void InPlaceTaskList::ExecuteInPlace(Intel::OpenCL::TaskExecutor::ITaskBase *pTa
 
 fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
 {
-	&ReadWriteMemObject::Create,    // 	CL_DEV_CMD_READ = 0,
-	&ReadWriteMemObject::Create,    //	CL_DEV_CMD_WRITE,
-	&CopyMemObject::Create,         //	CL_DEV_CMD_COPY,
-	&MapMemObject::Create,          //	CL_DEV_CMD_MAP,
-	&UnmapMemObject::Create,        //	CL_DEV_CMD_UNMAP,
-	&NDRange::Create,               //	CL_DEV_CMD_EXEC_KERNEL,
-	&NDRange::Create,               //	CL_DEV_CMD_EXEC_TASK,
-	&NativeFunction::Create,        //	CL_DEV_CMD_EXEC_NATIVE,
-	&FillMemObject::Create,         //	CL_DEV_CMD_FILL_BUFFER
-	&FillMemObject::Create          //	CL_DEV_CMD_FILL_IMAGE
+	&ReadWriteMemObject::Create,	// 	CL_DEV_CMD_READ = 0,
+	&ReadWriteMemObject::Create,	//	CL_DEV_CMD_WRITE,
+	&CopyMemObject::Create,			//	CL_DEV_CMD_COPY,
+	&MapMemObject::Create,			//	CL_DEV_CMD_MAP,
+	&UnmapMemObject::Create,		//	CL_DEV_CMD_UNMAP,
+	&NDRange::Create,				//	CL_DEV_CMD_EXEC_KERNEL,
+	&NDRange::Create,				//	CL_DEV_CMD_EXEC_TASK,
+	&NativeFunction::Create			//	CL_DEV_CMD_EXEC_NATIVE,
 };
 
 // Constructor/Dispatcher

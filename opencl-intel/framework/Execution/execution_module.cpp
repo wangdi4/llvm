@@ -36,7 +36,6 @@
 #include "Context.h"
 #include "enqueue_commands.h"
 #include "MemoryAllocator/MemoryObject.h"
-#include "conversion_rules.h"
 
 #if defined (_WIN32)
 #include "gl_mem_objects.h"
@@ -1006,7 +1005,6 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     cl_return  errVal;
 }
 
-
 static cl_err_code CheckImageFormatSupportedByDevice(const FissionableDevice& dev, const MemoryObject& image)
 {
     cl_image_format clImgFormat;
@@ -1019,7 +1017,7 @@ static cl_err_code CheckImageFormatSupportedByDevice(const FissionableDevice& de
     {
         return errVal;
     }
-
+    
     assert(sizeof(clImgFormat) == szValSize);
 
     if (!dev.IsImageFormatSupported(clImgFormat, image.GetFlags(), image.GetType()))
@@ -1027,100 +1025,6 @@ static cl_err_code CheckImageFormatSupportedByDevice(const FissionableDevice& de
         return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
     }
     return CL_SUCCESS;
-}
-
-cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
-		cl_mem clBuffer,
-		const void *pattern,
-		size_t pattern_size,
-		size_t offset,
-		size_t size,
-		cl_uint num_events_in_wait_list,
-		const cl_event *event_wait_list,
-		cl_event *pEvent)
-{
-	cl_start;
-    cl_err_code errVal = CL_SUCCESS;
-
-    // Only accept powers of 2, up to 128
-    if (NULL == pattern || 0 >= pattern_size || 128 < pattern_size || 0 != (pattern_size & (pattern_size-1)) )
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
-    }
-
-    if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
-    {
-        return CL_INVALID_CONTEXT;
-    }
-
-    size_t szOrigin[MAX_WORK_DIM] = {offset, 0, 0};
-    size_t szRegion[MAX_WORK_DIM] = {size, 1, 1};
-    if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(szOrigin, szRegion)))
-    {
-        // Out of bounds check.
-        return errVal;
-    }
-
-    if ( (offset % pattern_size) || (size % pattern_size) )
-    {
-    	return CL_INVALID_VALUE;
-    }
-
-    // check alignment with the device, just for sub-buffers.
-    if (pBuffer->GetParent())
-    {
-    	cl_uint         devAlignment;
-
-    	FissionableDevice *pDevice = pCommandQueue->GetDefaultDevice();
-    	pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(devAlignment), &devAlignment, NULL);
-    	void *pData = pBuffer->GetBackingStoreData();
-    	// check there is BS data, and that it is not aligned with the queue device
-    	if (pData && ((cl_ulong)pData % devAlignment))
-    	{
-    		return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-    	}
-    }
-
-    if ( (!event_wait_list && (0 < num_events_in_wait_list)) ||
-    		(event_wait_list && (0 == num_events_in_wait_list)) )
-	{
-		return CL_INVALID_EVENT_WAIT_LIST;
-	}
-
-	Command* pFillBufferCmd = new FillBufferCommand(pCommandQueue, m_pOclEntryPoints,
-			pBuffer, pattern, pattern_size, offset, size);
-	if (NULL == pFillBufferCmd)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-    errVal = pFillBufferCmd->Init();
-	if ( CL_FAILED(errVal) )
-	{
-		delete pFillBufferCmd;
-	    return  errVal;
-	}
-
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, pEvent);
-    if(CL_FAILED(errVal))
-    {
-		pFillBufferCmd->CommandDone();
-		delete pFillBufferCmd;
-    }
-
-    return  errVal;
 }
 
 /******************************************************************
@@ -1328,176 +1232,6 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 
     return  errVal;
 }
-
-/******************************************************************
- * EnqueueFillImage
- * and help functions.
- ******************************************************************/
-
-/**
- * Allocate buffer, and convert origColor to the relevant format,
- * as described in clEnqueueFillImage
- * @param buf target buffer, will be allocated inside the function.
- * 	Freeing the buffer is responsibility of the caller.
- * @param bufLen length of allocated buffer.
- * @param order
- * @param type
- * @param origColor pointer to original color (cl_float4, cl_int4, cl_uint4)
- * @return
- */
-static cl_uint buffer_from_converted_fill_color(
-		void *&buf,
-		size_t &bufLen,
-		cl_channel_order order,
-		cl_channel_type  type,
-		const void *origColor)
-{
-	buf = Intel::OpenCL::Framework::allocate_buffer_for_pixel(type, bufLen);
-	if (NULL == buf)
-	{
-		return CL_DEV_INVALID_IMG_FORMAT;
-	}
-
-	switch (type)
-	{
-	case CL_SNORM_INT8:
-	case CL_SNORM_INT16:
-	case CL_UNORM_INT8:
-	case CL_UNORM_INT16:
-	case CL_UNORM_SHORT_565:
-	case CL_UNORM_SHORT_555:
-	case CL_UNORM_INT_101010:
-	case CL_HALF_FLOAT:
-	case CL_FLOAT:
-		Intel::OpenCL::Framework::norm_float_to_image((cl_float4*)origColor, order, type, buf, bufLen);
-		break;
-
-	case CL_SIGNED_INT8:
-	case CL_SIGNED_INT16:
-	case CL_SIGNED_INT32:
-		Intel::OpenCL::Framework::non_norm_signed_to_image((cl_int4*)origColor, order, type, buf, bufLen);
-		break;
-
-	case CL_UNSIGNED_INT8:
-	case CL_UNSIGNED_INT16:
-	case CL_UNSIGNED_INT32:
-		Intel::OpenCL::Framework::non_norm_unsigned_to_image((cl_uint4*)origColor, order, type, buf, bufLen);
-		break;
-
-	default:
-		return CL_DEV_INVALID_IMG_FORMAT;
-	}
-
-	return CL_SUCCESS;
-}
-
-cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
-		cl_mem clImage,
-		const void *fillColor,
-		const size_t *origin,
-		const size_t *region,
-		cl_uint num_events_in_wait_list,
-		const cl_event *event_wait_list,
-		cl_event *event)
-{
-	cl_start;
-    cl_err_code errVal = CL_SUCCESS;
-
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
-    MemoryObject* img = m_pContextModule->GetMemoryObject(clImage);
-    if (NULL == img)
-    {
-        return CL_INVALID_MEM_OBJECT;
-    }
-
-    if (img->GetContext()->GetId() != pCommandQueue->GetContextId())
-    {
-        return CL_INVALID_CONTEXT;
-    }
-
-    if (CL_SUCCESS != (errVal = img->CheckBounds(origin, region)))
-    {
-        // Out of bounds check.
-        return errVal;
-    }
-
-    if ( (!event_wait_list && (0 < num_events_in_wait_list)) ||
-    		(event_wait_list && (0 == num_events_in_wait_list)) )
-	{
-		return CL_INVALID_EVENT_WAIT_LIST;
-	}
-
-    cl_image_format format;
-    errVal = img->GetImageInfo(CL_IMAGE_FORMAT, sizeof(cl_image_format), &format, NULL);
-	if (CL_SUCCESS != errVal)
-	{
-		return CL_INVALID_MEM_OBJECT;
-	}
-
-    errVal = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *img);
-    if (CL_SUCCESS != errVal)
-    {
-        return errVal;
-    }
-
-	size_t img_dim_count = 1;
-	size_t dim_sz = 0;
-	errVal = img->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(size_t), &dim_sz, NULL);
-	if (CL_SUCCESS == errVal)
-	{
-		if (dim_sz) ++img_dim_count;
-		errVal = img->GetImageInfo(CL_IMAGE_DEPTH, sizeof(size_t), &dim_sz, NULL);
-		if (dim_sz) ++img_dim_count;
-	}
-	if ( CL_SUCCESS != errVal )
-	{
-		return CL_INVALID_MEM_OBJECT;
-	}
-
-	void *pattern;
-	size_t pattern_size;
-	errVal = buffer_from_converted_fill_color(pattern, pattern_size, format.image_channel_order,
-			format.image_channel_data_type, fillColor);
-
-	if (CL_SUCCESS != errVal)
-	{
-		if (pattern) { free(pattern); pattern = NULL; }
-		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-	}
-
-	Command* pFillBufferCmd = new FillImageCommand(pCommandQueue, m_pOclEntryPoints,
-			img, pattern, pattern_size, img_dim_count, origin, region);
-	if (NULL == pFillBufferCmd)
-	{
-		if (pattern) { free(pattern); pattern = NULL; }
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-    errVal = pFillBufferCmd->Init();
-	if ( CL_FAILED(errVal) )
-	{
-		if (pattern) { free(pattern); pattern = NULL; }
-		delete pFillBufferCmd;
-	    return  errVal;
-	}
-
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, event);
-    if(CL_FAILED(errVal))
-    {
-		pFillBufferCmd->CommandDone();
-		if (pattern) { free(pattern); pattern = NULL; }
-		delete pFillBufferCmd;
-    }
-
-    if (pattern) { free(pattern); pattern = NULL; }
-    return  errVal;
-}
-
 /******************************************************************
  * 
  ******************************************************************/

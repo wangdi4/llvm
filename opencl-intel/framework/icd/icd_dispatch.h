@@ -437,7 +437,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueFillBuffer)(
     const void *       pattern,
     size_t             pattern_size,
     size_t             offset,
-    size_t             size,
+    size_t             cb,
     cl_uint            num_events_in_wait_list,
     const cl_event *   event_wait_list,
     cl_event *         event) CL_API_SUFFIX__VERSION_1_2;
@@ -452,7 +452,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueCopyBuffer)(
     cl_uint             num_events_in_wait_list,
     const cl_event *    event_wait_list,
     cl_event *          event) CL_API_SUFFIX__VERSION_1_0;
-
+                            
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueCopyBufferRect)(
     cl_command_queue    command_queue, 
     cl_mem              src_buffer,
