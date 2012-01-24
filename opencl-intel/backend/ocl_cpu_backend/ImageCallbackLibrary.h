@@ -74,38 +74,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
 #endif
 
-// Auxiliary class for storing image function pointer and name
-class FuncDesc
-{
-public:
-
-    FuncDesc():
-      m_fncPtr(NULL)
-    {}
-
-    void Init(llvm::Function* pFunc)
-    {
-        assert(pFunc != NULL);
-        m_fncPtr = pFunc;
-    }
-
-    void* GetPtr(CPUCompiler* pCompiler)
-    {
-        assert(pCompiler != NULL);
-        if(m_fncPtr == NULL)
-            throw Exceptions::DeviceBackendExceptionBase(std::string("Images internal error. Uninitialized callback function requested"));
-        // Request pointer to function. If it is the first request function is being JITted.
-        void* ptr = pCompiler->GetPointerToFunction(m_fncPtr);
-        if( ptr == NULL){
-            throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error occurred while jitting image functions"));
-        }
-        return ptr;
-    }
-
-private:
-    /// Pointer to jitted funciton
-    llvm::Function* m_fncPtr;
-};
 
 /**
  *  Holds the entire callback functions set for a specific compiled library (i.e., per architecture)
@@ -115,73 +83,49 @@ public:
 
     ImageCallbackFunctions(llvm::Module* pImagesRTModule, CPUCompiler* pCompiler);
 
-private:
-
-#define DECLARE_IMAGE_CALLBACK(NAME)\
-private:\
-    FuncDesc m_fp##NAME;\
-public:\
-    void* Get##NAME()\
-    {\
-        return m_fp##NAME.GetPtr(m_pCompiler);\
-    }
-
-#define DECLARE_CALLBACK_ARRAY(NAME, COUNT)\
-private:\
-    FuncDesc m_fp##NAME[COUNT];\
-public:\
-    void* Get##NAME(int idx)\
-    {\
-        assert(idx < COUNT);\
-        return m_fp##NAME[idx].GetPtr(m_pCompiler);\
-    }
-
     //integer coordinate translate callbacks
-    DECLARE_IMAGE_CALLBACK(INoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(IClampToEdgeFalseNearest)
-    DECLARE_IMAGE_CALLBACK(IUndefTrans)
+    void* m_fpINoneFalseNearest; 
+    void* m_fpIClampToEdgeFalseNearest;
+    void* m_fpIUndefTrans;
 
     //float coordinate translation callbacks
-    DECLARE_IMAGE_CALLBACK(FNoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FUndefTrans)
-    DECLARE_IMAGE_CALLBACK(FFUndefTrans)
+    void *m_fpFNoneFalseNearest;
+    void *m_fpFClampToEdgeFalseNearest;
+    void *m_fpFUndefTrans;
+    void *m_fpFFUndefTrans;
+    
+    void *m_fpFNoneTrueNearest;
+    void *m_fpFClampToEdgeTrueNearest;
+    void *m_fpFRepeatTrueNearest;
+    void *m_fpFMirroredTrueNearest;
 
-    DECLARE_IMAGE_CALLBACK(FNoneTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FRepeatTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FMirroredTrueNearest)
+    void *m_fpFNoneFalseLinear;
+    void *m_fpFClampToEdgeFalseLinear;
+    
+    void *m_fpFNoneTrueLinear;
+    void *m_fpFClampToEdgeTrueLinear;
+    void *m_fpFRepeatTrueLinear;
+    void *m_fpFMirroredTrueLinear;
 
-    DECLARE_IMAGE_CALLBACK(FNoneFalseLinear)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeFalseLinear)
+    void *m_fpFFNoneFalseNearest;
+    void *m_fpFFClampToEdgeFalseNearest;
 
-    DECLARE_IMAGE_CALLBACK(FNoneTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FRepeatTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FMirroredTrueLinear)
-
-    DECLARE_IMAGE_CALLBACK(FFNoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FFClampToEdgeFalseNearest)
-
-    DECLARE_IMAGE_CALLBACK(FFNoneTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFClampToEdgeTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFRepeatTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFMirroredTrueNearest)
+    void *m_fpFFNoneTrueNearest;
+    void *m_fpFFClampToEdgeTrueNearest;
+    void *m_fpFFRepeatTrueNearest;
+    void *m_fpFFMirroredTrueNearest;
 
     //image reading callbacks
-    DECLARE_CALLBACK_ARRAY(NearestNoClamp, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(NearestClamp, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearNoClamp2D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearClamp2D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearNoClamp3D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearClamp3D, MAX_NUM_FORMATS)
-    DECLARE_IMAGE_CALLBACK(UndefReadQuad)
+    void *m_fpNearestNoClamp[MAX_NUM_FORMATS];
+    void *m_fpNearestClamp[MAX_NUM_FORMATS];
+    void *m_fpLinearNoClamp2D[MAX_NUM_FORMATS];
+    void *m_fpLinearClamp2D[MAX_NUM_FORMATS];
+    void *m_fpLinearNoClamp3D[MAX_NUM_FORMATS];
+    void *m_fpLinearClamp3D[MAX_NUM_FORMATS];
+    void *m_fpUndefReadQuad;
 
     // image writing callbackS
-    DECLARE_CALLBACK_ARRAY(WriteImage, MAX_NUM_FORMATS)
-
-    // Used for Lazy compilation. Not owned by this class
-    CPUCompiler* m_pCompiler;
+    void* m_fpWriteImage[MAX_NUM_FORMATS];
 };
 
 /**

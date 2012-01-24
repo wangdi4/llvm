@@ -3,7 +3,6 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-
 const cl_image_format supportedImageFormats[] = {
     // Minimum supported image formats
     // CL_RGBA
@@ -24,47 +23,9 @@ const cl_image_format supportedImageFormats[] = {
     // Additional formats required by users
     // CL_INTENCITY
     {CL_INTENSITY,  CL_FLOAT},
-    {CL_INTENSITY,  CL_UNORM_INT8},
-    {CL_INTENSITY,  CL_UNORM_INT16},
-    {CL_INTENSITY,  CL_HALF_FLOAT},
 
     // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_FLOAT},
-    {CL_LUMINANCE,  CL_UNORM_INT8},
-    {CL_LUMINANCE,  CL_UNORM_INT16},
-    {CL_LUMINANCE,  CL_HALF_FLOAT},
-
-
-    // CL_R
-    {CL_R,      CL_FLOAT},
-    {CL_R,      CL_UNORM_INT8},
-    {CL_R,      CL_UNORM_INT16},
-    {CL_R,      CL_SIGNED_INT8},
-    {CL_R,      CL_SIGNED_INT16},
-    {CL_R,      CL_SIGNED_INT32},
-    {CL_R,      CL_UNSIGNED_INT8},
-    {CL_R,      CL_UNSIGNED_INT16},
-    {CL_R,      CL_UNSIGNED_INT32},
-    {CL_R,      CL_HALF_FLOAT},
-
-    // CL_A
-    {CL_A,      CL_UNORM_INT8},
-    {CL_A,      CL_UNORM_INT16},
-    {CL_A,      CL_HALF_FLOAT},
-    {CL_A,      CL_FLOAT},
-
-    // CL_RG
-    {CL_RG,     CL_UNORM_INT8},
-    {CL_RG,     CL_UNORM_INT16},
-    {CL_RG,     CL_SIGNED_INT16},
-    {CL_RG,     CL_SIGNED_INT32},
-    {CL_RG,     CL_SIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT16},
-    {CL_RG,     CL_UNSIGNED_INT32},
-    {CL_RG,     CL_HALF_FLOAT},
-    {CL_RG,     CL_FLOAT}
-
+    {CL_LUMINANCE,  CL_FLOAT}
 };
 
 ImageCallbackService::ImageCallbackService(CompilerConfiguration& config, bool isCpu)
@@ -75,32 +36,6 @@ ImageCallbackService::ImageCallbackService(CompilerConfiguration& config, bool i
 const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats){
     *numFormats=ARRAY_SIZE(supportedImageFormats);
     return (&supportedImageFormats[0]);
-}
-
-bool IsIntDataType(int dt)
-{
-    switch(dt)
-    {
-    case CLK_SIGNED_INT8:
-    case CLK_SIGNED_INT16:
-    case CLK_SIGNED_INT32:
-    case CLK_UNSIGNED_INT8:
-    case CLK_UNSIGNED_INT16:
-    case CLK_UNSIGNED_INT32:
-        return true;
-    case CLK_SNORM_INT8:
-    case CLK_SNORM_INT16:
-    case CLK_UNORM_INT8:
-    case CLK_UNORM_INT16:
-    case CLK_UNORM_SHORT_565:
-    case CLK_UNORM_SHORT_555:
-    case CLK_UNORM_INT_101010:
-    case CLK_HALF_FLOAT:
-    case CLK_FLOAT:
-        return false;
-    default:
-        throw Exceptions::DeviceBackendExceptionBase(std::string("Unkown channel type"));
-    }
 }
 
 cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const
@@ -152,96 +87,93 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 
     ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_ArchId, m_ArchFeatures);
 
-    pImageAuxData->coord_translate_i_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetINoneFalseNearest();
-    pImageAuxData->coord_translate_i_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetINoneFalseNearest();
-    pImageAuxData->coord_translate_i_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetIClampToEdgeFalseNearest();
-    pImageAuxData->coord_translate_i_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetIUndefTrans();    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
-    pImageAuxData->coord_translate_i_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetIUndefTrans();    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
+    pImageAuxData->coord_translate_i_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpINoneFalseNearest;
+    pImageAuxData->coord_translate_i_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->m_fpINoneFalseNearest;
+    pImageAuxData->coord_translate_i_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIClampToEdgeFalseNearest;
+    pImageAuxData->coord_translate_i_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIUndefTrans;    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
+    pImageAuxData->coord_translate_i_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIUndefTrans;    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
 
     //Normalized and bilinear modes are not defined with integer coordinates
 
     for (unsigned int i=MIRRORED_FALSE_NEAREST+1;i<32;i++)
-        pImageAuxData->coord_translate_i_callback[i] = pImageCallbackFuncs->GetIUndefTrans();
+        pImageAuxData->coord_translate_i_callback[i] = pImageCallbackFuncs->m_fpIUndefTrans;
 
     //////////////////The float coordinates callbacks
 
-    if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
-    {
+    if ((pImageAuxData->format.image_channel_data_type>=CLK_SIGNED_INT8) && (pImageAuxData->format.image_channel_data_type<=CLK_UNSIGNED_INT32)){
     // for integer images and float coordinates
         //nearest filter, and false normalized
-        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetFClampToEdgeFalseNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetFUndefTrans();   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetFUndefTrans();    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFNoneFalseNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFNoneFalseNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFClampToEdgeFalseNearest;
+        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFUndefTrans;   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFUndefTrans;    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
 
         //nearest filter, and true normalized
-        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFNoneTrueNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFNoneTrueNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFClampToEdgeTrueNearest;
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFRepeatTrueNearest;   
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFMirroredTrueNearest;  
     } else {   //float and unorm images
-        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetFFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetFFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetFFClampToEdgeFalseNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetFFUndefTrans();   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetFFUndefTrans();    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFFNoneFalseNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFFNoneFalseNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFFClampToEdgeFalseNearest;
+        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFFUndefTrans;   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->m_fpFFUndefTrans;    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
 
         //nearest filter, and true normalized
-        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetFFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetFFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetFFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetFFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetFFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFFNoneTrueNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFFNoneTrueNearest;
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFFClampToEdgeTrueNearest;
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFFRepeatTrueNearest;   
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->m_fpFFMirroredTrueNearest;  
     }
 
     //bilinear filter is undefined for un/signed integer types
 
-    if (IsIntDataType(pImageAuxData->format.image_channel_data_type)){
+    if ((pImageAuxData->format.image_channel_data_type>=CLK_SIGNED_INT8) && (pImageAuxData->format.image_channel_data_type<=CLK_UNSIGNED_INT32)){
         for (unsigned int i=MIRRORED_TRUE_NEAREST+1;i<32;i++)
-            pImageAuxData->coord_translate_f_callback[i] = pImageCallbackFuncs->GetFUndefTrans();
+            pImageAuxData->coord_translate_f_callback[i] = pImageCallbackFuncs->m_fpFUndefTrans;
     } else {
         //nearest filter, and false normalized
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_FALSE_LINEAR], pImageCallbackFuncs->GetFNoneFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetFNoneFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_LINEAR], pImageCallbackFuncs->GetFClampToEdgeFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_LINEAR], pImageCallbackFuncs->GetFUndefTrans());   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_LINEAR], pImageCallbackFuncs->GetFUndefTrans());    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_FALSE_LINEAR], pImageCallbackFuncs->m_fpFNoneFalseLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->m_fpFNoneFalseLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_LINEAR], pImageCallbackFuncs->m_fpFClampToEdgeFalseLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_LINEAR], pImageCallbackFuncs->m_fpFUndefTrans);   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_LINEAR], pImageCallbackFuncs->m_fpFUndefTrans);    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
 
         //nearest filter, and true normalized
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_TRUE_LINEAR], pImageCallbackFuncs->GetFNoneTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetFNoneTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_LINEAR], pImageCallbackFuncs->GetFClampToEdgeTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR], pImageCallbackFuncs->GetFRepeatTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR], pImageCallbackFuncs->GetFMirroredTrueLinear());
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_TRUE_LINEAR], pImageCallbackFuncs->m_fpFNoneTrueLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->m_fpFNoneTrueLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_LINEAR], pImageCallbackFuncs->m_fpFClampToEdgeTrueLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR], pImageCallbackFuncs->m_fpFRepeatTrueLinear);
+        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR], pImageCallbackFuncs->m_fpFMirroredTrueLinear);
     }
 
     ///////////////////////////Read & write image callbacks
 
     for (unsigned int i=NONE_FALSE_NEAREST;i<NONE_FALSE_LINEAR;i++)
-        pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetNearestNoClamp(TOIndex);
-    if( !IsIntDataType(pImageAuxData->format.image_channel_data_type))
+        pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->m_fpNearestNoClamp[TOIndex];
+    if(pImageAuxData->dim_count == 2)
     {
-        if(pImageAuxData->dim_count == 2)
-        {
-            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp2D(TOIndex);
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
-        }
-        else
-        {
-            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp3D(TOIndex);
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
-        }
+        for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
+            pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->m_fpLinearNoClamp2D[TOIndex];
+        IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->m_fpLinearClamp2D[TOIndex]);
+        IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->m_fpLinearClamp2D[TOIndex]);
     }
-    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
-    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
+    else
+    {
+        for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
+            pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->m_fpLinearNoClamp3D[TOIndex];
+        IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->m_fpLinearClamp3D[TOIndex]);
+        IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->m_fpLinearClamp3D[TOIndex]);
+    }
 
-    pImageAuxData->write_img_callback = pImageCallbackFuncs->GetWriteImage(TOIndex);
+    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->m_fpNearestClamp[TOIndex]);
+    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_NEAREST], pImageCallbackFuncs->m_fpNearestClamp[TOIndex]);
+
+    pImageAuxData->write_img_callback = pImageCallbackFuncs->m_fpWriteImage[TOIndex];
     
   return CL_DEV_SUCCESS;
 }
