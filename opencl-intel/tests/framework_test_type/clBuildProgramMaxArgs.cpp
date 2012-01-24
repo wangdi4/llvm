@@ -113,6 +113,8 @@ bool clBuildProgramMaxArgsTest()
 	bResult &= Check(L"clGetDeviceInfo", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
+		clReleaseCommandQueue(queue);
+		clReleaseContext(context);
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
@@ -122,6 +124,8 @@ bool clBuildProgramMaxArgsTest()
 	if( maxSize < 256 )
 	{
 		printf( "ERROR: Reported max parameter size is less than required! (%d)\n", (int)maxSize );
+		clReleaseCommandQueue(queue);
+		clReleaseContext(context);
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
@@ -279,6 +283,7 @@ bool clBuildProgramMaxArgsTest()
 		}
 	}
 
+	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 
 	delete []pDevices;

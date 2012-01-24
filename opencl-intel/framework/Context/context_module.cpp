@@ -1258,7 +1258,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 {
-	LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%d)"), clMemObj);
+	LOG_DEBUG(TEXT("Enter ReleaseMemObject (clMemObj=%d)"), clMemObj);
 
 	cl_err_code clErr = CL_SUCCESS;
 	MemoryObject * pMemObj = NULL;

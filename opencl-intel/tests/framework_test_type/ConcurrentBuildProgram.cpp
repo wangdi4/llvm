@@ -120,6 +120,7 @@ bool ConcurrentBuildProgramTest()
 	delete []pDevices;
 	delete []pBinarySizes;
 	delete []pBinaryStatus;
+	clReleaseKernel(dummy);
 	clReleaseProgram(clProg);
 	clReleaseContext(context);
 	return bResult;

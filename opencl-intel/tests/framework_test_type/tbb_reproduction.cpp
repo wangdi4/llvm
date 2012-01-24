@@ -115,6 +115,8 @@ bool TBBTest()
 	delete []pDevices;
 
 	// Release objects
+	clReleaseKernel(dummyKernel); 
+	clReleaseMemObject(dummyBuffer);
 	clReleaseProgram(clProg);
 	clReleaseContext(context);
 	return bResult;
