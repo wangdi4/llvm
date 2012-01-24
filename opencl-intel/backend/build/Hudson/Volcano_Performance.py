@@ -5,7 +5,7 @@ import framework.cmdtool
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, TestTaskResult, TIMEOUT_HALFHOUR
 from framework.tasks import SimpleTest 
 from framework.utils import EnvironmentValue 
-from Volcano_Common import VolcanoRunConfig, PERFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES 
+from Volcano_Common import VolcanoRunConfig, PERFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP 
 from BIMeterFullWW35 import BIMeterFullWW35
 
 # Note that the iteration count is modified to 3 for the stable cases (STD < 0.005).
@@ -1309,34 +1309,25 @@ SHOCPerformance = [
 SonyVegas425Performance = [['vegas', 16]]
 SonyVegas425Performance.extend([['vegas.'+str(i), 16] for i in range(2,19)])
 
-"""
-def FillBIMeterPerformanceTable(Path, Iterations, TargetType):
-    #get list of configs
-    OutTable = []
-    TargetTypePath = os.path.join( Path, "BIMeter", TargetType )
-    configs = glob.glob(os.path.join(TargetTypePath, '*.cfg'))
-    if len(configs) < 1:
-        raise Exception("Error parsing configuration files for BIMeter") 
-    for conf in configs:
-        [dir, fname] = os.path.split(conf)
-        (shortname, extension) = os.path.splitext(fname)   
-        OutTable.append([shortname, Iterations])
-    return OutTable
-"""
+SUPPORTED_PERF_MODES = ['PERF', 'VAL']
 
 class PerformanceRunConfig():
     CFG_NAME = "PerformanceConfig"
-    def __init__(self, tests_path, logs_path, dump_ir, dump_jit):
+    def __init__(self, tests_path, logs_path, dump_ir, dump_jit, mode = 'PERF'):
         if '' == tests_path:
             tests_path = PERFORMANCE_TESTS_ROOT
             
         if '' == logs_path:
             logs_path = PERFORMANCE_LOG_ROOT
-            
+
+        if not mode in SUPPORTED_PERF_MODES:
+            raise Exception("Configuration Error: Unsupported performance mode specified:" + mode + ". Supported modes are:" + str(SUPPORTED_PERF_MODES))
+
         self.tests_root_dir = tests_path
         self.logs_root_dir = logs_path
         self.dump_ir  = dump_ir
         self.dump_jit = dump_jit
+        self.mode = mode
 
 class PerformanceTestRunner(VolcanoTestRunner):
     def __init__(self, csv_filename):
@@ -1356,9 +1347,15 @@ class PerformanceTask(VolcanoCmdTask):
         perf_config  = config.sub_configs[PerformanceRunConfig.CFG_NAME]
         config_file  = os.path.join( perf_config.tests_root_dir, suite_path, config.target_type, wl_name + '.cfg')
         self.workdir = config.bin_dir
-        self.command = 'SATest -PERF -OCL -tsize=' + config.transpose_size + ' -cpuarch=' + config.cpu  + ' -config=' + config_file + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
+        self.command = 'SATest -OCL -' + perf_config.mode + ' -tsize=' + config.transpose_size + ' -cpuarch=' + CPU_MAP[config.cpu]  + ' -config=' + config_file 
         
-        if config.cpu_features != '':
+        if 'VAL' == perf_config.mode:
+            build_iterations = 1
+            execute_iterations = 1
+        
+        self.command = self.command + ' -build-iterations=' + str(build_iterations) + ' -execute-iterations=' + str(execute_iterations)
+        
+        if '' != config.cpu_features:
             self.command = self.command + ' -cpufeatures=' + run_config.cpu_features
         
         if True == perf_config.dump_ir:
@@ -1417,12 +1414,7 @@ class VolcanoWOLFBenchPerformanceSuite(VolcanoPerformanceSuite):
 
 class VolcanoCyberLinkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink', None, config, CyberLinkPerformance)
-
-class VolcanoCyberLinkPerformanceWW44Suite(VolcanoPerformanceSuite):
-    def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'CyberLink.WW44T', None, config, CyberLinkPerformanceWW44T)
-
 
 class VolcanoLuxMarkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
@@ -1511,76 +1503,90 @@ class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeter.ww35_26642", config, BIMeterFullWW35, r".*_image.*")
 
-perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      []               ],
-               "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, []               ], 
+perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      [['.*','SLES64'],['.*','RH64']]],
+               "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, [['.*','SLES64'],['.*','RH64']]], 
                "CyberLink":             [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]   ],
-               "CyberLink.WW44T":       [VolcanoCyberLinkPerformanceWW44Suite, [['.*','*64']]   ],
                "VCSD":                  [VolcanoVCSDPerformanceSuite,      [['.*','*64']]   ], 
                "Sandra":                [VolcanoSandraPerformanceSuite,    [['.*','Win32']] ],
                "LuxMark":               [VolcanoLuxMarkPerformanceSuite,   []               ],
-               "BIMeter":               [VolcanoBIMeterPerformanceSuite,   [['.*','*64']]   ],
+               "BIMeter":               [VolcanoBIMeterPerformanceSuite,   [['.*','SLES64'],['.*','RH64']]],
                "AVX256_P1":             [VolcanoAVX256_P1_PerformanceSuite,[]               ],
                "Phoronix":              [VolcanoPhoronixPerformanceSuite,  [['.*','Win32']] ],
-               "GEHC":                  [VolcanoGEHCPerformanceSuite,      [['.*','Win32']] ], 
+               "GEHC":                  [VolcanoGEHCPerformanceSuite,      [['.*','Win32'],['.*','Win64']]], 
                "SHOC":                  [VolcanoSHOCPerformanceSuite,      [['.*','Win32']] ], 
                "SonyVegas425":          [VolcanoSonyVegas425PerformanceSuite,[['.*','Win32']] ], 
-               "BIMeterMath":           [VolcanoBIMeterMathSuite,          [['.*','.*64']]  ],
-               "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,       [['.*','.*64']]  ],
-               "BIMeterCommon":         [VolcanoBIMeterCommonSuite,        [['.*','.*64']]  ],
-               "BIMeterGeometric":      [VolcanoBIMeterGeometricSuite,     [['.*','.*64']]  ],
-               "BIMeterMathDouble":     [VolcanoBIMeterMathDoubleSuite,    [['.*','.*64']]  ],
-               "BIMeterMathHalf":       [VolcanoBIMeterMathHalfSuite,      [['.*','.*64']]  ],
-               "BIMeterInteger":        [VolcanoBIMeterIntegerSuite,       [['.*','.*64']]  ],
-               "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,    [['.*','.*64']]  ],
-               "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,    [['.*','.*64']]  ],
-               "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite, [['.*','.*64']]  ], 
-               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','.*64']]  ],
-               "BIMeterImages":         [VolcanoBIMeterImagesSuite,        [['.*','.*64']]  ]
+               "BIMeterMath":           [VolcanoBIMeterMathSuite,          [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,       [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterCommon":         [VolcanoBIMeterCommonSuite,        [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterGeometric":      [VolcanoBIMeterGeometricSuite,     [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterMathDouble":     [VolcanoBIMeterMathDoubleSuite,    [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterMathHalf":       [VolcanoBIMeterMathHalfSuite,      [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterInteger":        [VolcanoBIMeterIntegerSuite,       [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,    [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,    [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite, [['.*','SLES64'],['.*','RH64']]], 
+               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','SLES64'],['.*','RH64']]],
+               "BIMeterImages":         [VolcanoBIMeterImagesSuite,        [['.*','SLES64'],['.*','RH64']]]
              }
+
+perf_modes = ['VAL', 'PERF']
+
+def addPerformanceSuite(parent_suite, name, config):
+    if not name in perf_suites:
+        raise Exception("Configuration Error: Unsupported performance suite specified:" + name + ". The suite must be one of: " + str(perf_suites.keys()))
+    
+    perf_suite = perf_suites[name][0](name, config)
+    suite_skip_list = perf_suites[name][1]
+    parent_suite.addTask(perf_suite, skiplist = suite_skip_list)
+
 
 def main():
     parser = OptionParser()
-    
+
     parser.add_option("-r", "--root",    dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target",  dest="target_type", help="target type: Win32, Win64, Linux64", default='Win32')
-    parser.add_option("-c", "--cpu",     dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-m", "--mode",    action="store",      choices=perf_modes,        dest="mode",         default='PERF',    help="Running mode: VAL for validation, PERF for performance. [Default: %default]")
+    parser.add_option("-t", "--target",  action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",     action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features (-avx256, +avx)", default="")
-    parser.add_option("-v", "--vector",  dest="vector_size", help="Transpose Size:0(auto),1,4,8,16", default="0")
-    parser.add_option("-o", "--output",  dest="output_file", help="output file name")
-    parser.add_option("-k", "--kernels", dest="tests_path", help="root path of the performance tests", default='')
-    parser.add_option("-d", "--demo",    action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
-    parser.add_option("-s", "--suite",   dest="suite", help="Suite to run:" + str(perf_suites.keys()), default=None)
-    
+    parser.add_option("-v", "--vector",  action="store",      choices=SUPPORTED_VECTOR_SIZES, dest="vector_size", default="0",   help="Transpose Size: " + str(SUPPORTED_VECTOR_SIZES)+ ". [Default: %default (auto)]")
+    parser.add_option("-o", "--output",  action="store",      dest="output_file",  help="output file name")
+    parser.add_option("-k", "--kernels", action="store",      dest="tests_path",   help="root path of the performance tests", default='')
+    parser.add_option("-i", "--dumpIR",  action="store_true", dest="dumpIR",  default=False, help="Dump generated IR for each WL")
+    parser.add_option("-j", "--dumpJIT", action="store_true", dest="dumpJIT", default=False, help="Dump generated IR for each WL")
+    parser.add_option("-d", "--demo",    action="store_true", dest="demo_mode",    help="Do not execute the command, just print them", default=False)
+    parser.add_option("-s", "--suite",   action="store",      choices=perf_suites.keys(), dest="suite", help="Suite to run:" + str(perf_suites.keys()))
+
     (options, args) = parser.parse_args()
 
-    if (options.output_file == None):
-        print "Output file (-o) not specified"
-        return 1
+    if None == options.output_file:
+        parser.error("Output file (-o) not specified")
     
+    if None == options.suite:
+        parser.error("No performance suite is specified")
+
     # Run the performance suite for the current configuration
     framework.cmdtool.demo_mode = options.demo_mode 
-    
 
-    if (options.suite not in perf_suites):
-        print "Unsupported suite '""'. The suite must be one of: " + str(perf_suites.keys())
-        return 1
-    
     config = VolcanoRunConfig(options.root_dir,
                               options.target_type,
                               'Release',
                               options.cpu,
                               options.cpu_features,
                               options.vector_size)
-    
-    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path, os.path.dirname(os.path.realpath(options.output_file)), False, False)
-    
+
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( options.tests_path, 
+                                                                            os.path.dirname(os.path.realpath(options.output_file)),
+                                                                            options.dumpIR,
+                                                                            options.dumpJIT, 
+                                                                            mode=options.mode)
+
     suite  = perf_suites[options.suite][0](options.suite, config)
     runner = PerformanceTestRunner(options.output_file)
     passed = runner.runTask(suite, config)
-    
+
     if not passed:
         return 1
-    
+
     return 0
 
 if __name__ == "__main__":

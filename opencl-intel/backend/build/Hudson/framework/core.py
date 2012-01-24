@@ -9,10 +9,11 @@ import glob
 import shutil
 
 # Common definitions
-TIMEOUT_DAY = 60*60*24
-TIMEOUT_HOUR= 60*60
-TIMEOUT_HALFHOUR = 60*30
-TIMEOUT_HOURANDHALF = 60*90
+TIMEOUT_MINUTE      = 60
+TIMEOUT_HALFHOUR    = TIMEOUT_MINUTE*30
+TIMEOUT_HOUR        = TIMEOUT_MINUTE*60
+TIMEOUT_HOURANDHALF = TIMEOUT_MINUTE*90
+TIMEOUT_DAY         = TIMEOUT_HOUR*24
 
 class TaskVisitor:
     """Base visitor class for task/suite hierarchy """
@@ -177,28 +178,39 @@ class VolcanoTestSuite(VolcanoTestTask):
         VolcanoTestTask.__init__(self, name)
         self.tasks = []
         self.generate_children_report = True
-        
-    def addTask(self, task, stop_on_failure = False, always_pass = False, skiplist=[]):
-        self.tasks.append(VolcanoTestTaskInfo(task, stop_on_failure, always_pass, skiplist))
+
+    def insertTask(self, index, task, stop_on_failure = False, always_pass = False, skiplist=[], timeout = -1):
+        self.tasks.insert(index, VolcanoTestTaskInfo(task, stop_on_failure, always_pass, skiplist))
         task.parent = self
+        task.timeout = timeout if timeout != -1 else task.timeout
         if( self.generate_children_report == False):
             task.generate_report = False
 
-    def insertTask(self, index, task, stop_on_failure = False, always_pass = False, skiplist=[]):
-        self.tasks.insert(index, VolcanoTestTaskInfo(task, stop_on_failure, always_pass, skiplist))
-        task.parent = self
-        if( self.generate_children_report == False):
-            task.generate_report = False
-      
-    def updateTask(self, taskname, stop_on_failure = False, always_pass = False, skiplist=[]):
-        for t in self.tasks:
-            if( t.task.name == taskname):
-                t.stop_on_failure = stop_on_failure
-                t.always_pass = always_pass
-                t.skip_configs = skiplist
-    
+    def addTask(self, task, stop_on_failure = False, always_pass = False, skiplist=[], timeout = -1):
+        self.insertTask(len(self.tasks), task, stop_on_failure, always_pass, skiplist, timeout) 
+
     def getTasksNames(self):
         return [ t.task.name for t in self.tasks]
+
+    def getTask(self, taskname):
+        for t in self.tasks:
+            if( t.task.name == taskname):
+                return t
+        return None
+    
+    def updateTask(self, taskname, stop_on_failure = False, always_pass = False, skiplist=[]):
+        t = self.getTask(taskname)
+        
+        if( None != t):
+            t.stop_on_failure = stop_on_failure
+            t.always_pass = always_pass
+            t.skip_configs = skiplist
+
+    def removeTask(self, taskname):
+        task = self.getTask(taskname)
+        
+        if( None != task):
+            self.tasks.remove(task)
 
     def minTimeout(self, t1, t2):
         if t1 == -1:
@@ -248,19 +260,18 @@ class VolcanoTestSuite(VolcanoTestTask):
             ended  = time.time()
             self.elapsed = ended - started
             self.result = TestTaskResult.fromBoolean(suitePassed)
-        
+
     def onBeforeExecution(self, observer):
         observer.OnBeforeSuiteExecution(self)
-        
+
     def onAfterExecution(self, observer):
         observer.OnAfterSuiteExecution(self) 
-        
+
     def visit(self, visitor):
         visitor.OnVisitSuite(self)
         for t in self.tasks:
             t.task.visit(visitor)
 
-    
 class VolcanoTestRunner:
     """Base class providing basic test task running"""
     def __init__(self):

@@ -1,5 +1,5 @@
 import os.path, platform, re, shutil
-from framework.core import TIMEOUT_HOUR 
+from framework.core import TIMEOUT_MINUTE, TIMEOUT_HOUR 
 from framework.tasks import VolcanoCmdTask
 from framework.utils import EnvironmentValue
 from Volcano_Common import DEFAULT_OCL_SOLUTION
@@ -23,17 +23,14 @@ class LitTest(VolcanoCmdTask):
         else:
             self.command = 'make ' + lit_project
 
-class WOLFTest(VolcanoCmdTask):
-    """ Runs the WOLF test given the workload name and config string"""
-    def __init__(self, name, workload, iterations, config_str, config, capture_data):
+class WOLFCommonTest(VolcanoCmdTask):
+    """ Runs the WOLF or WolfBench test given the workload name and config string"""
+    def __init__(self, name, workload, iterations, config_str, config, capture_data, exe_name):
         VolcanoCmdTask.__init__(self, name)
-        config_str = re.sub(r'\$\{([a-zA-Z0-9_]+)\}', r'Workloads/\1/\1', config_str)
-        self.command = ' '.join(['WOLF.exe', 'out/'+workload+'.out', workload, str(iterations), config_str])
+        self.command = ' '.join([exe_name, 'out/'+workload+'.out', workload, str(iterations), config_str])
         self.workdir = config.bin_dir
         self.capture_data = capture_data
         self.workload = workload
-        self.timeout = TIMEOUT_HOUR
-        
     def startUp(self):
         if( self.capture_data ):
             os.environ["OCLBACKEND_PLUGINS"] = "OCLRecorder.dll"
@@ -43,26 +40,18 @@ class WOLFTest(VolcanoCmdTask):
         if( self.capture_data ):
             os.environ.pop("OCLBACKEND_PLUGINS")
 
-class WOLFBenchTest(VolcanoCmdTask):
+class WOLFTest(WOLFCommonTest):
+    """ Runs the WOLF test given the workload name and config string"""
+    def __init__(self, name, workload, iterations, config_str, config, capture_data):
+        WOLFCommonTest.__init__(self, name, workload, iterations, config_str, config, capture_data, "WOLF")
+
+class WOLFBenchTest(WOLFCommonTest):
     """ Runs the WOLFbench test given the workload name and config string"""
     def __init__(self, name, workload, iterations, config_str, config, capture_data):
-        VolcanoCmdTask.__init__(self, name)
-        config_str = re.sub(r'\$\{([a-zA-Z0-9_]+)\}', r'Workloads/\1/\1', config_str)
-        self.command = ' '.join(['WOLFbench', 'out/'+workload+'.out', workload, str(iterations), config_str])
-        self.workdir = config.bin_dir
-        self.capture_data = capture_data
-        self.workload = workload
-        
-    def startUp(self):
-        if( self.capture_data ):
-            os.environ["OCLBACKEND_PLUGINS"] = "OCLRecorder.dll"
-            # WOLFbench workloads has the same name as WOLF workloads.
-            # To distinguish them we add prefix "WOLFbench".
-            os.environ["OCLRECORDER_DUMPPREFIX"] = "WOLFbench."+self.name
- 
-    def tearDown(self):
-        if( self.capture_data ):
-            os.environ.pop("OCLBACKEND_PLUGINS")
+        # WOLFbench workloads has the same name as WOLF workloads.
+        # To distinguish them we add prefix "WOLFbench". 
+        # This is mainly for historical reasons
+        WOLFCommonTest.__init__(self, "WOLFbench."+name, workload, iterations, config_str, config, capture_data, "WOLFBench")
 
 class ArchiverTask(VolcanoCmdTask):
     def __init__(self, name, arch_name, root_dir):

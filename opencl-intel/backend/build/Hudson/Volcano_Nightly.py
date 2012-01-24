@@ -4,10 +4,12 @@ import framework.cmdtool
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR 
 from framework.utils import EnvironmentValue
 from framework.tasks import SimpleTest
-from Volcano_Common import VolcanoRunConfig, DX_10_SHADERS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Common import VolcanoRunConfig, DX_10_SHADERS_ROOT,SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP
 from Volcano_Build import VolcanoBuilder#, CopyWolfWorkloads
 from Volcano_Tasks import LitTest, VectorizerTest
 from Volcano_Conformance_Nightly import VolcanoConformanceNightly
+from Volcano_Performance import PerformanceRunConfig, addPerformanceSuite
+
 
 class VolcanoNightlyBAT(VolcanoTestSuite):
     def __init__(self, name, config):
@@ -25,12 +27,16 @@ class VolcanoNightlyBAT(VolcanoTestSuite):
         # Google tests
         self.addTask(SimpleTest('ValidationTests', config.bin_dir, 'ValidationTests'))
         self.addTask(SimpleTest('LLVMUnitTests', config.bin_dir, 'LLVMUnitTests' ))
-                
+
+        # Running the performance suites in conformance mode
+        #addPerformanceSuite(self, 'WOLF.25726', config)
+        #addPerformanceSuite(self, 'WOLFbench.24582', config)
+
         # OCL Conformance
         self.addTask(VolcanoConformanceNightly(config))
     
     def startUp(self):
-        os.environ['VOLCANO_ARCH'] = self.config.cpu
+        os.environ['VOLCANO_ARCH'] = CPU_MAP[self.config.cpu]
         os.environ['VOLCANO_CPU_FEATURES'] = self.config.cpu_features
         os.environ['VOLCANO_TRANSPOSE_SIZE'] = self.config.transpose_size
         os.environ['CL_CONFIG_VECTORIZER_HEURISTICS'] = 'false'
@@ -58,9 +64,9 @@ class VolcanoNightly(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32/64,Linux64", default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: Debug, Release", default="Release")
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features", default="")
     parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size:0(auto),1,4,8,16", default="0")    
     parser.add_option("-s", "--skipbuild", action="store_true", dest="skip_build", help="skip the build", default=False)
@@ -75,6 +81,7 @@ def main():
                               options.cpu,
                               options.cpu_features,
                               options.transpose_size)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( '', '.', False, False, mode='VAL')
     suite  = VolcanoNightly('Nightly', config, options.skip_build)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)

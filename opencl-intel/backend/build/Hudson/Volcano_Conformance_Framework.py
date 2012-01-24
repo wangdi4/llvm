@@ -56,6 +56,6 @@ class VolcanoConformanceFramework(VolcanoTestSuite):
             test.success_code = 1
             self.addTask(test)
 
-        self.updateTask("Test_opencl_printf_test", skiplist = [[".*","Linux64"]])
+        self.updateTask("Test_opencl_printf_test", skiplist = [['.*','SLES64'],['.*','RH64']])
         self.updateTask("Test_VecTypeHintTest", skiplist = [[".*",".*",".*",".*","1"]])
         self.updateTask("Test_clFinishTest", skiplist = [[".*"]])

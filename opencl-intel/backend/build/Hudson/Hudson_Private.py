@@ -3,9 +3,10 @@ import os, sys, platform, re
 import framework.cmdtool
 import framework.resultPrinter
 import framework.svn_utils
+import framework.hudson.utils 
+
 from Volcano_Common import REPOSITORY_ROOT
 from Hudson_Common import VOLCANO_JENKINS_URL
-from framework.hudson.utils import startJob
 from getpass import getuser
 
 SANITY_BRANCHES_ROOT = 'OpenCL/branches/sanity'
@@ -100,8 +101,13 @@ def main():
     if options.reuse_branch and options.force_remove: 
         parser.error("Command line options conflict. You can't reuse the branch if you selected to forcefully remove it")
 
-    if '' == options.email or None == options.email:
-        parser.error("Please supply the e-mail address (-e option) for job run result notification. It can't be detected from your environment")
+    email = options.email
+    if '' == email or None == email:
+        if 'USEREMAIL' in os.environ:
+            email = os.environ['USEREMAIL']
+        else:
+            parser.error("Please supply the e-mail address (-e option) for job run result notification. It can't be detected from your environment")
+    
 
     # Configure the environment
     framework.cmdtool.print_cmd    = int(options.verbose_level) > 0
@@ -138,9 +144,9 @@ def main():
         # prepare the job parameters
         print '[START JENKINS JOB]'
         jobparams = { "SVN_Requested_Url": branch_url,
-                      "EmailReceipients":options.email}
-        startJob(VOLCANO_JENKINS_URL, SANITY_HUDSON_JOB, jobparams)
-        print '[FINISHED]      :The job notification will be sent to: ' + options.email
+                      "EmailReceipients":email}
+        framework.hudson.utils.startJob(VOLCANO_JENKINS_URL, SANITY_HUDSON_JOB, jobparams)
+        print '[FINISHED]      :The job notification will be sent to: ' + email
     except LogicError as e:
         print "Error." + e.value
         print "[ABORTED]"
@@ -153,6 +159,10 @@ def main():
         print "SVN Error: " + e.value
         if options.verbose_level < 2 :
             print "Consider increasing the verbosity level (-v) option to get more information"
+        print "[ABORTED]"
+        return 1
+    except framework.hudson.utils.HudsonError as e:
+        print "Hudson Error: " + e.value
         print "[ABORTED]"
         return 1
     except:

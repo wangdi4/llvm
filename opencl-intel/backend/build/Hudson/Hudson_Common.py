@@ -12,13 +12,7 @@ class HudsonBuildEnvironment(HudsonEnvironment):
         Provides information about Volcano specific settings, like Volcano Labels mapping to target platform and cpu information
     """
     def getTargetPlatform(self):
-        targetType = self.getParam('Target_Type')
-        if( targetType == '' ):
-            # WORKAROUND: Maps a Hudson job label to a target string.
-            #             Enables the legacy jobs to continue to work with old configurations
-            label2TargetMap = {'Volcano_Linux64':'Linux64', 'Volcano_SLES11': 'Linux64', 'Volcano_Win32': 'Win32', 'Volcano_Win64': 'Win64', 'Volcano_Win32_snb': 'Win32', 'Volcano_Win64_snb': 'Win64', 'NN_Win32': 'Win32', 'NN_Win64': 'Win64' }
-            targetType = label2TargetMap[ self.getParam('label')]
-        return targetType     
+        return self.getParam('Target_Type')
 
     def getCPUType(self):
         return self.getParam('Cpu_Arch')

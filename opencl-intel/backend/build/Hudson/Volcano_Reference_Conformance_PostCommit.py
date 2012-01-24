@@ -1,7 +1,7 @@
 import os, sys, platform
 import framework.cmdtool
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, OCL_CONFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, EnvironmentValue, OCL_CONFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Tasks import LitTest, SimpleTest, UnarchiverTask
 from Volcano_WOLF import VolcanoWolf, WolfPostCommit
 from Volcano_Conformance_Framework import VolcanoConformanceFramework
@@ -134,9 +134,9 @@ class VolcanoReferenceConformancePostCommit(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: " + str(SUPPORTED_TARGETS), default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: " + str(SUPPORTED_BUILDS), default="Release")
-    parser.add_option("-c", "--cpu",     dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features", default="")
     parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size: " + str(SUPPORTED_VECTOR_SIZES), default="0")    
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)

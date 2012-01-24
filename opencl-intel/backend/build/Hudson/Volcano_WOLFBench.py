@@ -1,7 +1,13 @@
-from optparse import OptionParser
+"""
+Script for running WOLF based benchmarks
+"""
+
 import  sys, platform
 import framework.cmdtool
-from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_MINUTE
+from optparse import OptionParser
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Tasks import WOLFTest
 from Volcano_Tasks import WOLFBenchTest
 
 Wolfbench = [
@@ -51,7 +57,9 @@ class VolcanoWolfBench(VolcanoTestSuite):
         VolcanoTestSuite.__init__(self, name)
 
         for test in tests:
-            self.addTask( WOLFBenchTest( self.getTestName(test[0]), test[0], test[1], test[2], config, capture_data));
+            self.addTask( \
+            task = WOLFBenchTest( self.getTestName(test[0]), test[0], test[1], test[2], config, capture_data), \
+            timeout = 30 * TIMEOUT_MINUTE );
 
     def getTestName(self, test):
         tname = test
@@ -64,11 +72,11 @@ class VolcanoWolfBench(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32/64,Linux64", default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: Debug, Release", default="Release")
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features", default="")
-    parser.add_option("-s", "--suite", dest="suite", help="Suite to run: Performance[New,Conf,NewConf], Benchmark, Fast", default=None)
+    parser.add_option("-s", "--suite", dest="suite", help="Suite to run: Wolfbench", default=None)
     parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size:0(auto),1,4,8,16", default="0")
     parser.add_option("-p", "--capture", action="store_true", dest="capture", help="Capture the data", default=False)
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)

@@ -1,8 +1,8 @@
 import os, sys, platform
 import framework.cmdtool
-from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
+from framework.core import VolcanoTestRunner, VolcanoTestSuite
 from optparse import OptionParser
-from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION
+from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION, CPU_MAP
 from Volcano_Build import VolcanoBuilder, VolcanoBuilderConfig
 from Volcano_Tasks import LitTest 
 
@@ -28,20 +28,20 @@ class VolcanoLIT(VolcanoTestSuite):
         self.addTask(LitTest('Barriers', 'check_barrier', config, solution_name), skiplist=[['.*','.*64']])
 
     def startUp(self):
-        os.environ['VOLCANO_ARCH'] = self.config.cpu
+        os.environ['VOLCANO_ARCH'] = CPU_MAP[self.config.cpu]
         os.environ['VOLCANO_CPU_FEATURES'] = self.config.cpu_features
         os.environ['VOLCANO_TRANSPOSE_SIZE'] = self.config.transpose_size
         
 def main():
     parser = OptionParser()
-    parser.add_option("-r", "--root",      dest="root_dir",    help="project root directory. Default: Autodetect", default=None)
-    parser.add_option("-t", "--target",    dest="target_type",  help="Target type: " + str(SUPPORTED_TARGETS) + ". Default: Win32", default="Win32")
-    parser.add_option("-b", "--build_type",dest="build_type",   help="Build type: " + str(SUPPORTED_BUILDS) + ". Default: Release", default="Release")
-    parser.add_option("-s", "--skipbuild", dest="skip_build",   action="store_true",  help="skip the build", default=False)
-    parser.add_option("--norebuild",       dest="rebuild",      action="store_false", help="Perform only regular build.", default=True )
-    parser.add_option("--volcano",         dest="volcano_only", action="store_true",  help="Build the Volcano solution.", default=False)
-    parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")
-    parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
+    parser.add_option("-r", "--root",      action="store",      dest="root_dir",    help="project root directory. Default: Autodetect", default=None)
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-s", "--skipbuild", action="store_true", dest="skip_build",   help="skip the build", default=False)
+    parser.add_option("--norebuild",       action="store_false",dest="rebuild",      help="Perform only regular build.", default=True )
+    parser.add_option("--volcano",         action="store_true", dest="volcano_only", help="Build the Volcano solution.", default=False)
+    parser.add_option("--ocl",             action="store_false",dest="volcano_only", help="Build the OCL solution. Default")
+    parser.add_option("-d", "--demo",      action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
 

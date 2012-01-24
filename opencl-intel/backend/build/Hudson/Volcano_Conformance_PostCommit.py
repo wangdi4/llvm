@@ -6,7 +6,7 @@ from framework.utils import EnvironmentValue
 from framework.tasks import SimpleTest
 from Volcano_Common import VolcanoRunConfig, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
 from Volcano_Tasks import LitTest
-from Volcano_WOLF import VolcanoWolf, WolfPostCommit
+from Volcano_WOLF import VolcanoWolf, VolcanoWolfPostCommit
 from Volcano_Conformance_Framework import VolcanoConformanceFramework
 from Volcano_Conformance_Basic import VolcanoConformanceBasic
 
@@ -53,9 +53,9 @@ class VolcanoConformancePostCommit(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32/64,Linux64", default="Win32")
-    parser.add_option("-b", "--build", dest="build_type", help="build type: Debug, Release", default="Release")
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features", default="")
     parser.add_option("-v", "--vec", dest="tranpose_size", help="Tranpose Size:0(auto),1,4,8,16", default="0")    
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)

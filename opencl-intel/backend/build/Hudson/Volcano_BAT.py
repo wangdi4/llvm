@@ -2,14 +2,16 @@ from optparse import OptionParser
 import os, sys, platform
 import framework.cmdtool
 import framework.resultPrinter
+import Volcano_Performance
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
 from framework.utils import EnvironmentValue
 from framework.tasks import SimpleTest
-from Volcano_Common import VolcanoRunConfig,  SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES
+from Volcano_Common import VolcanoRunConfig,  SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP
 from Volcano_Build import VolcanoBuilder #, CopyWolfWorkloads
 from Volcano_Tasks import VectorizerTest 
 from Volcano_WOLF import VolcanoWolfPostCommit, VolcanoWolfPerformance
 from Volcano_Conformance_PostCommit import VolcanoConformancePostCommit
+from Volcano_Performance import PerformanceRunConfig, addPerformanceSuite
 
 
 class VolcanoBAT(VolcanoTestSuite):
@@ -29,17 +31,22 @@ class VolcanoBAT(VolcanoTestSuite):
         self.addTask(SimpleTest('ValidationTests', config.bin_dir, 'ValidationTests'))
         self.addTask(SimpleTest('LLVMUnitTests', config.bin_dir, 'LLVMUnitTests' ))
 
+        # Running the performance suites in conformance mode
+        #addPerformanceSuite(self, 'WOLF.25726', config)
+        #addPerformanceSuite(self, 'WOLFbench.24582', config)
+        
         # WOLF Super Fast
         # wolfFast = VolcanoWolfPostCommit("WOLF_Fast", config, capture_data =  False)
-        # self.addTask(wolfFast, skiplist=[['.*','Linux64']])
+        # self.addTask(wolfFast, skiplist=[['.*','SLES64'],['.*','RH64']])
         # wolfPerf = VolcanoWolfPerformance("WOLF_Perf", config, capture_data =  False)
-        # self.addTask(wolfPerf, skiplist=[['.*','Linux64']])
+        # self.addTask(wolfPerf, skiplist=[['.*','SLES64'],['.*','RH64']])
+        
 
         # OCL Conformance
         self.addTask(VolcanoConformancePostCommit("Conformance", config))
 
     def startUp(self):
-        os.environ['VOLCANO_ARCH'] = self.config.cpu
+        os.environ['VOLCANO_ARCH'] = CPU_MAP[self.config.cpu]
         os.environ['VOLCANO_CPU_FEATURES'] = self.config.cpu_features
         os.environ['VOLCANO_TRANSPOSE_SIZE'] = self.config.transpose_size
         os.environ['CL_CONFIG_VECTORIZER_HEURISTICS'] = str(self.use_heuristics).lower()
@@ -69,9 +76,9 @@ class VolcanoPostCommit(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root",         dest="root_dir",       help="project root directory", default=None)
-    parser.add_option("-t", "--target",       dest="target_type",    help="Target type: " + str(SUPPORTED_TARGETS), default="Win32")
-    parser.add_option("-b", "--build",        dest="build_type",     help="Build type: " + str(SUPPORTED_BUILDS), default="Release")
-    parser.add_option("-c", "--cpu",          dest="cpu",            help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",       action="store",        choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",   action="store",        choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",          action="store",        choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features",   help="CPU features:+avx,-avx256", default="")
     parser.add_option("-v", "--vec",          dest="transpose_size", help="Tranpose Size: " + str(SUPPORTED_VECTOR_SIZES), default="0")
     parser.add_option("-s", "--skipbuild",    action="store_true",   dest="skip_build", help="skip the build", default=False)
@@ -87,6 +94,8 @@ def main():
                               options.cpu,
                               options.cpu_features,
                               options.transpose_size)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( '', '.', False, False, mode='VAL')
+    
     suite  = VolcanoPostCommit('PostCommit', config, options.skip_build)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)

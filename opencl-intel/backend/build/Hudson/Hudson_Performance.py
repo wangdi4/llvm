@@ -36,7 +36,7 @@ class HudsonPerformanceTestRunner(HudsonTestRunner):
     def OnBeforeSuiteExecution(self, suite):
         HudsonTestRunner.OnBeforeSuiteExecution(self, suite)
         if( isinstance(suite, VolcanoPerformanceSuite)):
-            self.csv_filename = self.csv_filename_base + "_" + suite.suitename + ".csv"
+            self.csv_filename = self.csv_filename_base + "_" + suite.suitename.split('.')[0] + ".csv"
 
 class HudsonPerformanceSuite(VolcanoTestSuite):
     def __init__(self, name, config):

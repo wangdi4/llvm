@@ -22,18 +22,25 @@ if platform.system() == 'Windows':
     DX_10_SHADERS_ROOT          = IT_SAMBA_SERVER + DX_10_SHADERS_ROOT
     PERFORMANCE_LOG_ROOT        = VOLCANO_SAMBA_SERVER + PERFORMANCE_LOG_ROOT
     OCL_CONFORMANCE_TESTS_ROOT  = VOLCANO_SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
+    PERFORMANCE_TESTS_ROOT      = os.path.realpath('c:/Volcano/Performance/Tests')
 
 SUPPORTED_CPUS         = ['auto', 'corei7', 'sandybridge']
-SUPPORTED_TARGETS      = ['Win32', 'Win64', 'Linux64']
+SUPPORTED_TARGETS      = ['Win32', 'Win64', 'SLES64', 'RH64']
 SUPPORTED_BUILDS       = ['Release', 'Debug']
 SUPPORTED_VECTOR_SIZES = ['0', '1', '4', '8', '16']
 
 # maps the target short name to the OS and Bitness
 TARGETS_MAP = { 
-                'Win32'  : ['Windows', 32],
-                'Win64'  : ['Windows', 64],
-                'Linux64': ['Linux', 64] 
+                'Win32'   : ['Windows', 32],
+                'Win64'   : ['Windows', 64],
+                'SLES64'  : ['Linux', 64],
+                'RH64'    : ['Linux', 64],
+                'Linux64' : ['Linux', 64]
               }
+# maps the volcano environment supported cpu names to the backend internal cpu names
+CPU_MAP = { 'auto': 'auto',
+            'corei7': 'corei7',
+            'sandybridge': 'sandybridge'}
 
 class VolcanoRunConfig( RunConfig):
     """

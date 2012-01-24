@@ -271,8 +271,8 @@ class VolcanoBinaryCopy(VolcanoTestSuite):
 def main():
     parser = OptionParser()
     parser.add_option("-r", "--root",      dest="root_dir",     help="Project root directory. Default:Autodetect", default=None)
-    parser.add_option("-t", "--target",    dest="target_type",  help="Target type: " + str(SUPPORTED_TARGETS) + ". Default: Win32", default="Win32")
-    parser.add_option("-b", "--build_type",dest="build_type",   help="Build type: " + str(SUPPORTED_BUILDS) + ". Default: Release", default="Release")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
     parser.add_option("-s", "--cmake_only",dest="cmake_only",   action="store_true",  help="Do not run the build, just generate the project files. Default: False", default=False)
     parser.add_option("--volcano",         dest="volcano_only", action="store_true",  help="Build the Volcano solution only.", default=False)
     parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")

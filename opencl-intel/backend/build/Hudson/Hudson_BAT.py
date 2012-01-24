@@ -4,6 +4,7 @@ from framework.hudson.core import HudsonTestRunner
 from Hudson_Common import HudsonRunConfig
 from Volcano_BAT import VolcanoBAT
 from Volcano_Build import VolcanoBuilder
+from Volcano_Performance import PerformanceRunConfig
 
 
 class HudsonPreCommit(VolcanoTestSuite):
@@ -15,6 +16,8 @@ class HudsonPreCommit(VolcanoTestSuite):
 def main():
     trunk_dir = os.path.join(os.getcwd(), 'trunk')
     config    = HudsonRunConfig(trunk_dir)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( '', '.', False, False, mode='VAL')
+    
     suite     = HudsonPreCommit('', config)
     runner    = HudsonTestRunner(config, 'BAT')
     passed    = False

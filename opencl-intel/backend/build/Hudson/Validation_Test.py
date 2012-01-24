@@ -4,7 +4,7 @@ Runs conformance testing for specified conformance suite and provided captured d
 '''
 from Validation_Record import OclRefSuites
 from Volcano_Common import VolcanoRunConfig, VolcanoTestRunner, VolcanoTestSuite, \
-    VolcanoCmdTask, TestTaskResult, TIMEOUT_HOUR, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, EnvironmentValue
+    VolcanoCmdTask, TestTaskResult, TIMEOUT_HOUR, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP, EnvironmentValue
 from Volcano_Tasks import LitTest, UnarchiverTask, SimpleTest
 from optparse import OptionParser
 from string import Template, atoi
@@ -68,7 +68,7 @@ class OclRefConformanceTest(VolcanoTestSuite):
             
             otherOptions = saTestConfig.GetRunParams()
             cfg_path = os.path.join(test_path, cfg_file)
-            options = " -config=" + cfg_path + " -basedir=. " + "-cpuarch=" + config.cpu + " -cpufeatures=" + config.cpu_features + otherOptions
+            options = " -config=" + cfg_path + " -basedir=. " + "-cpuarch=" + CPU_MAP[config.cpu] + " -cpufeatures=" + config.cpu_features + otherOptions
             
             executable = os.path.join(config.bin_dir, "SATest") 
             command = executable + options
@@ -179,12 +179,12 @@ def main():
     SATEST_MODE = ['VAL', 'REF', 'PERF']
      
     parser.add_option("-r", "--root", dest="root_dir", help="project root directory", default=None)
-    parser.add_option("-t", "--target", dest="target_type", help="target type: Win32, Win64, Linux64", default='Win32')
-    parser.add_option("-c", "--cpu",  dest="cpu", help="CPU Type: " + str(SUPPORTED_CPUS), default="auto")
+    parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
+    parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
+    parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features:+avx,-avx256", default="")
     parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size: 0(auto),1,4,8,16", default="0")
     parser.add_option("-o", "--log", dest="log_file", help="Log file name", default='log.txt')
-    parser.add_option('-b', '--build_type', dest='build_type', help='Build type. Possible values. Allowed values: ' + str(SUPPORTED_BUILDS), default='Release')
     # SATest options
     parser.add_option("-k", "--kernels", dest="tests_path", help="root path of tests", default='')
     parser.add_option("-s", "--suite", dest="suite", help="Suite to capture: basic_common, basic_images", default=None)

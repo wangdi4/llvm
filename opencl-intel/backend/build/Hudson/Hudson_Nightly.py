@@ -3,10 +3,12 @@ from framework.hudson.core import HudsonTestRunner
 from Hudson_Common import HudsonRunConfig
 from Volcano_Nightly import VolcanoNightlyBAT
 from Volcano_Build import VolcanoBinaryCopy
+from Volcano_Performance import PerformanceRunConfig
 
 def main():
     trunk_dir = os.path.join(os.getcwd(), 'trunk')
     config    = HudsonRunConfig(trunk_dir)
+    config.sub_configs[PerformanceRunConfig.CFG_NAME]=PerformanceRunConfig( '', '.', False, False, mode='VAL')
     suite     = VolcanoNightlyBAT('Tests',config)
     suite.insertTask(0, VolcanoBinaryCopy("CopyVolcanoBinary", config),stop_on_failure = True)
     runner    = HudsonTestRunner(config, 'Tests')
