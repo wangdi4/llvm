@@ -194,7 +194,7 @@ int	clDeleteHeap(ClHeap hHeap)
 	return retVal;
 }
 
-void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
+void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool force_dedicated_pages)
 {
 	assert(hHeap);
 	assert( IS_ALIGNED_ON(alignment, alignment) && "Alignment is not power of 2" );
@@ -216,7 +216,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
 	//BUGBUG: Workaround for short2 shift compiler error - need to allocate at least 16 bytes after the buffer to avoid page faults!!!!
 	allocSize += 128;
 
-	if ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE))
+	if (force_dedicated_pages || ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE)))
 	{
 		used_large_alloc = true;
 
@@ -317,4 +317,20 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 	return retVal;
 }
 
+////////////////////////////////////////////////////////////////////
+//
+// There is no special treatment on Windows to allow DMA access to memory
+//
+////////////////////////////////////////////////////////////////////
+int clHeapMarkSafeForDMA( void* start, size_t size )
+{
+	return 0;
+}
+
+int clHeapUnmarkSafeForDMA( void* start, size_t size )
+{
+	return 0;
+}
+
 }}}
+

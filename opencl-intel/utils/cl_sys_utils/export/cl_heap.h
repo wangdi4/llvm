@@ -38,7 +38,12 @@ int		clCreateHeap(int node, size_t maxHeapSize, ClHeap* pHeap);
 int		clDeleteHeap(ClHeap hHeap);
 
 // Allocate a buffer from heap, assumption alligment is power of 2
-void*	clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t allignent);
+void*	clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t allignent, bool force_dedicated_pages );
 int		clFreeHeapPointer(ClHeap hHeap, void* ptr);
+
+// Mark pages as safe to be used by DMA HW engines. Required in Linux to avoid copy-on-write behavior during fork()
+// return 0 on success
+int     clHeapMarkSafeForDMA( void* start, size_t size );
+int	    clHeapUnmarkSafeForDMA( void* start, size_t size );
 
 }}}

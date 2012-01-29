@@ -279,6 +279,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							   void*			        pHostPtr,
 							   size_t                   alignment,
 							   size_t                   preferred_alignment,
+							   bool						used_by_DMA,
 							   ClHeap					heap,
 							   cl_rt_memobj_creation_flags	creation_flags );
 
@@ -345,6 +346,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_mem_flags    m_user_flags;
 
         bool            m_data_valid;
+		bool			m_used_by_DMA;
         size_t          m_alignment;
 		size_t			m_preferred_alignment;
         size_t          m_raw_data_size;

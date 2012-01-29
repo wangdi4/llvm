@@ -377,6 +377,7 @@ struct cl_dev_alloc_prop
 	cl_ulong	maxBufferSize;      //!< Specifies the minimum size in bytes for the buffer memory object
 	bool		imagesSupported;    //!< Device supports images
 	bool		hostUnified;		//!< Memory allocator may allocate memory in unified(accessible) with the host memory
+	bool		usedByDMA;			//!< Device may use DMA engine to access memory object
 	bool		GLSharing;			//!< Device memory manager can accept GL sub-system memory object handles
 	bool		DXSharing;			//!< Device memory manager can accept DX sub-system memory object handles
 };

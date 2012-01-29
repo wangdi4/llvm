@@ -172,7 +172,8 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 #define PAGE_4K_SIZE                    4096
 
 // assumes alignment is a power of 2
-#define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what) & ((size_t)(alignment) - 1))))
+#define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what)          &  ((size_t)(alignment) - 1))))
+#define ALIGN_DOWN( what, alignment )    ((size_t)(what)                 & ~((size_t)(alignment) - 1))
 #define ALIGN_UP( what, alignment )      ((size_t)((what) + (alignment)) & ~((size_t)(alignment) - 1))
 
 

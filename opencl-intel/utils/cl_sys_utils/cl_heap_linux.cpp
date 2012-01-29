@@ -136,7 +136,7 @@ int	clDeleteHeap(ClHeap hHeap)
 	return 0;
 }
 
-void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
+void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool force_dedicated_pages)
 {
 	assert(hHeap);
 	assert( IS_ALIGNED_ON(alignment, alignment) && "Alignment is not power of 2" );
@@ -157,7 +157,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment)
 	//BUGBUG: Workaround for short2 shift compiler error - need to allocate at least 16 bytes after the buffer to avoid page faults!!!!
 	allocSize += 128;
 
-	if ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE))
+	if (force_dedicated_pages || ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE)))
 	{
 		used_large_alloc = true;
 
@@ -224,6 +224,38 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 
 	heapInfo->entryMap.erase( it );	
 	return 0;
+}
+
+////////////////////////////////////////////////////////////////////
+//
+// On Linux when new process is created all parent memory is marked as copy-on-write.
+// When one of processes parent or child access memory marked as copy-on-write, this page 
+// is copied aside to another physical address. This may create problems for external devices
+// that cache page physical addresses for DMA.
+//
+////////////////////////////////////////////////////////////////////
+int clHeapMarkSafeForDMA( void* start, size_t size )
+{
+	assert( NULL != start );
+
+	char* end = (char*)start + size;
+	char* begin = (char*)ALIGN_DOWN( start, PAGE_4K_SIZE );
+
+	int ret = madvise( begin, end - begin, MADV_DONTFORK ); 
+	assert( 0 == ret );
+	return ret;
+}
+
+int clHeapUnmarkSafeForDMA( void* start, size_t size )
+{
+	assert( NULL != start );
+
+	char* end = (char*)start + size;
+	char* begin = (char*)ALIGN_DOWN( start, PAGE_4K_SIZE );
+
+	int ret = madvise( begin, end - begin, MADV_DOFORK ); 
+	assert( 0 == ret );
+	return ret;
 }
 
 }}}

@@ -133,6 +133,7 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 	pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
 	pAllocProp->imageSharingGroupId  = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
 	pAllocProp->hostUnified          = true;
+	pAllocProp->usedByDMA			 = false;
 	pAllocProp->alignment            = CPU_DEV_MAXIMUM_ALIGN;
 	pAllocProp->preferred_alignment  = CPU_DEV_MAXIMUM_ALIGN;
 	pAllocProp->maxBufferSize        = m_maxAllocSize;

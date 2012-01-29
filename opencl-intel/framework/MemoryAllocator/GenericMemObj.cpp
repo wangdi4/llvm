@@ -155,6 +155,7 @@ cl_err_code GenericMemObject::Initialize(
 
     assert( (0 != dev_count) && (NULL != pDevices) );
 
+	bool   used_by_DMA = false;
     size_t alignment = 1; // no alignment
 	size_t preferred_alignment = alignment;
     size_t object_size = GenericMemObjectBackingStore::calculate_size(
@@ -209,6 +210,7 @@ cl_err_code GenericMemObject::Initialize(
 
         alignment			= MAX( alignment,			device_properties.alignment );
         preferred_alignment = MAX( preferred_alignment, device_properties.preferred_alignment );
+		used_by_DMA			= used_by_DMA || device_properties.usedByDMA;
 
         // add device to the list
         m_device_descriptors.push_back( DeviceDescriptor(dev, sharingGroupId,
@@ -237,6 +239,7 @@ cl_err_code GenericMemObject::Initialize(
                 							   pHostPtr,
                 							   alignment,
 											   preferred_alignment,
+											   used_by_DMA,
 											   GetContext()->GetMemoryObjectsHeap(),
 											   creation_flags );
 
@@ -965,10 +968,11 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 							   void*			        pHostPtr,
 							   size_t                   alignment,
 							   size_t					preferred_alignment,
+							   bool						used_by_DMA,
 							   ClHeap					heap,
 							   cl_rt_memobj_creation_flags   creation_flags ) :
 	m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
-    m_data_valid(NULL != pHostPtr), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
+    m_data_valid(NULL != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
 	m_raw_data_size(0), m_raw_data_description(CL_DEV_BS_RT_ALLOCATED), 
 	m_heap(heap), m_parent(NULL), m_refCount(1)
 {
@@ -1001,6 +1005,14 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 		{
 			m_ptr = pHostPtr;
 			m_raw_data_description = CL_DEV_BS_RT_MAPPED;
+#ifndef _WIN32
+			// on Linux each BS physical memory mast be marked as SafeForDMA.
+			// assuming that CL_RT_MEMOBJ_FORCE_BS is passed only when OpenGL objact shares its own BS 
+			// this BS memory should not be mark additionally but either reference counted or
+			// ensured that real OpenGL object will be released last.
+			// Defer implementation until OpenGL will be implemented on Linux together with any Device Agent that use DMA
+			assert( !m_used_by_DMA );
+#endif
 		}
 		else if ((0 == (m_user_flags & CL_MEM_COPY_HOST_PTR))	&& // this pointer is not for copy from only
 				 (IS_ALIGNED_ON( pHostPtr, m_alignment )))			   // this pointer alignment is ok
@@ -1051,9 +1063,16 @@ GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
         // subobject
         m_parent->RemovePendency();
     }
-    else if (m_ptr && (m_ptr != m_pHostPtr))
+    else if (NULL != m_ptr)
 	{
-		clFreeHeapPointer( m_heap, m_ptr );
+		if (m_used_by_DMA)
+		{
+			clHeapUnmarkSafeForDMA( m_ptr, m_raw_data_size );
+		}
+		if (m_ptr != m_pHostPtr)
+		{
+			clFreeHeapPointer( m_heap, m_ptr );
+		}
 	}
 }
 
@@ -1195,10 +1214,26 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 {
     if (NULL != m_ptr)
     {
+		if (m_used_by_DMA)
+		{
+			if (0 != clHeapMarkSafeForDMA( m_ptr, m_raw_data_size ))
+			{
+				return false;
+			}
+		}
         return true;
     }
 
-	m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment );
+	m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment, m_used_by_DMA );
+
+	if (m_ptr && m_used_by_DMA)
+	{
+		if (0 != clHeapMarkSafeForDMA( m_ptr, m_raw_data_size ))
+		{
+			clFreeHeapPointer( m_heap, m_ptr );
+			m_ptr = NULL;
+		}
+	}
 
     if (m_ptr && IsCopyRequired())
     {
