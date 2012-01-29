@@ -124,7 +124,7 @@ bool test_task_executor()
 {
 	printf("test_task_executor - Start test\n");
 
-	for(int i=0; i<500; ++i)
+	for(int i=0; i<100; ++i)
 	{
 		ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 		pTaskExecutor->Activate();
@@ -165,11 +165,9 @@ bool test_task_executor()
 #endif
 		
 		pTaskExecutor->Deactivate();
-		if ( ((i % 10)) == 0 && (0 != i))
-		{
-			printf(".");
-		}
-		if ( ((i % 100) == 0) && (0 != i))
+		printf(".");
+		fflush(stdout);
+		if ( ((i % 10) == 0) && (0 != i))
 		{
 			printf("\nEnd iteration = %d, passed\n", i);
 		}
