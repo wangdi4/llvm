@@ -124,7 +124,7 @@ bool test_task_executor()
 {
 	printf("test_task_executor - Start test\n");
 
-	for(int i=0; i<2000; ++i)
+	for(int i=0; i<500; ++i)
 	{
 		ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 		pTaskExecutor->Activate();
