@@ -296,6 +296,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_uiCpuId(uiDevId),
     m_pLogDescriptor(logDesc), 
     m_iLogHandle (0),
+	m_defaultCommandList(NULL),
 	m_pComputeUnitMap(NULL),
 	m_pComputeUnitScoreboard(NULL),
 	m_pCoreToThread(NULL)
@@ -351,11 +352,6 @@ cl_dev_err_code CPUDevice::Init()
     }
     
     ret = m_pTaskDispatcher->init();
-    if ( CL_DEV_FAILED(ret) )
-    {
-    	return ret;
-    }
-    ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
 
     return ret;
 }
@@ -381,6 +377,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 	{
 		delete[] m_pComputeUnitScoreboard;
 		delete[] m_pComputeUnitMap;
+		return CL_DEV_OUT_OF_MEMORY;
 	}
 
 	//Todo: calculate the real map here
@@ -1408,17 +1405,20 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             for (cl_uint i = 0; i < (cl_uint)numPartitions; ++i)
             {
 				cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
-				if (NULL != pNewsubdeviceId)
+				if (NULL == pNewsubdeviceId)
 				{
-					pNewsubdeviceId->legal_core_ids = new unsigned int[partitionSize];
+					rollBackSubdeviceAllocation(subdevice_ids, i);
+					return CL_DEV_OUT_OF_MEMORY;
 				}
 			
-                if ((NULL == pNewsubdeviceId) || (NULL == pNewsubdeviceId->legal_core_ids))
+				pNewsubdeviceId->legal_core_ids = new unsigned int[partitionSize];
+                if ( NULL == pNewsubdeviceId->legal_core_ids )
                 {
-					if (NULL != pNewsubdeviceId) delete pNewsubdeviceId;
+					delete pNewsubdeviceId;
 					rollBackSubdeviceAllocation(subdevice_ids, i);
                     return CL_DEV_OUT_OF_MEMORY;
                 }
+
 				if (NULL == pParent)
 				{
     				pNewsubdeviceId->is_numa     = false;
@@ -1429,6 +1429,9 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 					//Disallow re-partitioning devices BY_NAMES
 					if (pParent->is_by_names)
 					{
+						delete []pNewsubdeviceId->legal_core_ids;
+						delete pNewsubdeviceId;
+
 						return CL_DEV_NOT_SUPPORTED;
 					}
 					pNewsubdeviceId->is_numa     = pParent->is_numa;
@@ -1584,6 +1587,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				{
 					delete pNewsubdeviceId;
 					rollBackSubdeviceAllocation(subdevice_ids, i);
+					return CL_DEV_OUT_OF_MEMORY; // CSSD100011981
 				}
 				for (unsigned int k = 0; k < pNewsubdeviceId->num_compute_units; ++k)
 				{
@@ -1736,6 +1740,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 			if (NULL == pSubdeviceData->task_dispatcher)
 			{
 				//Can happen if init failed on the other thread
+				delete pList;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
 			pList->task_dispatcher = pList->subdevice_id->task_dispatcher;
@@ -1828,10 +1833,20 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     }
     else
     {
+		if ( NULL == m_defaultCommandList )
+		{
+			cl_dev_err_code ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
+			if ( CL_DEV_FAILED(ret) )
+			{
+				CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("clDevCommandListExecute failed to create internal command list: %d"), ret);
+				return ret;
+			}
+		}
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(m_defaultCommandList);
         cl_dev_err_code ret = m_pTaskDispatcher->commandListExecute(pList->cmd_list,cmds,count);
         if (CL_DEV_FAILED(ret))
         {
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("clDevCommandListExecute failed to submit command to execution: %d"), ret);
             return ret;
         }
         return m_pTaskDispatcher->flushCommandList(pList->cmd_list);

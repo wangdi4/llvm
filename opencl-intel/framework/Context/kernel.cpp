@@ -588,6 +588,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 
 	bool bIsMemObj = false;
 	bool bIsSampler = false;
+	bool bIsLocal = false;
 
 	cl_err_code clErr = CL_SUCCESS;
 	Context * pContext = const_cast<Context *>(m_pProgram->GetContext());
@@ -638,6 +639,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		{
 			return CL_INVALID_ARG_VALUE;
 		}
+		bIsLocal = true;
 	}
 
 	else if (clArgType == CL_KRNL_ARG_VECTOR)
@@ -669,7 +671,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	MemoryObject * pMemObj = NULL;
 	KernelArg * pKernelArg = NULL;
 	
-	if (true == bIsMemObj)
+	if (bIsMemObj)
 	{
 		// TODO: Why we need this check
 		if (NULL != pValue)
@@ -700,7 +702,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		m_ppArgs[uiIndex] = pKernelArg;
 		return CL_SUCCESS;
 	}
-	else if (true == bIsSampler)
+	else if (bIsSampler)
 	{
 		if (NULL == pValue)
 		{
@@ -725,6 +727,13 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		}
 		m_ppArgs[uiIndex] = pKernelArg;
 		return CL_SUCCESS;
+	}
+	else
+	{
+		if ( !bIsLocal && (NULL == pValue) )
+		{
+			return CL_INVALID_ARG_VALUE;
+		}
 	}
 
 	if (NULL != m_ppArgs[uiIndex])

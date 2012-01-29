@@ -134,6 +134,9 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 
 	cl_event ndEvent;
 
+	//err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,1,NULL, &ndEvent);
+	//sres = SilentCheck(L"clEnqueueNDRangeKernel",CL_INVALID_EVENT_WAIT_LIST,err);
+
 	err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL, &ndEvent);
 	res = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!res) 
@@ -165,7 +168,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	SilentCheck(L"Second clReleaseKernel()", CL_INVALID_KERNEL, clReleaseKernel(kernel)); // CSSD100005934
 	clReleaseProgram(program);
 	SilentCheck(L"Second clReleaseProgram()", CL_INVALID_PROGRAM, clReleaseProgram(program)); // CSSD100005934
-	return ((CL_SUCCESS == (err|!res))? true : false);
+	return res;
 }
 
 bool api_test(){
@@ -275,7 +278,7 @@ bool api_test(){
 	}	
 
 	//init Command Queue - should succeed
-	cmd_queue = clCreateCommandQueue(context,device,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,&err);
+	cmd_queue = clCreateCommandQueue(context,device, 0/*CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE*/,&err);
 	bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult){
 		clReleaseContext(context);
@@ -300,7 +303,6 @@ bool api_test(){
 	clReleaseContext(context);
 	err = clReleaseContext(context);
 	bResult = SilentCheck(L"Second clReleaseContext()",CL_INVALID_CONTEXT,err); // CSSD100006057, CSSD100005934
-	if (!bResult)	return bResult;
 
 	return bResult;
 }

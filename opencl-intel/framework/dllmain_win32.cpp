@@ -25,8 +25,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		break;
 	case DLL_PROCESS_DETACH:
 		// release the framework proxy object 
-	  // Commenting out for SDK2012 as data races with terminating threads cause random crashes or deadlocks
-		//Intel::OpenCL::Framework::FrameworkProxy::Destroy();		
+		Intel::OpenCL::Framework::FrameworkProxy::Destroy();		
 		break;
 	}
 	return TRUE;

@@ -33,24 +33,64 @@
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
+	#define INVALID_WORKER_ID		0xFFFFFFFF
+	#define INVALID_SCHEDULER_ID	((tbb::task_scheduler_init*)(-1))
+
+	class ThreadIDAllocator
+	{
+	public:
+		ThreadIDAllocator(unsigned int uiNumOfThreads);
+
+		unsigned int GetNextAvailbleId();	// Return available Id, and increase ref. count
+											// -1 return is there is no available id's, ref. count is not increased
+		void ReleaseId(unsigned int uiId);	// Release Available id and decreases reference count
+
+		long GetRefCount() { return m_aRefCount;}
+
+	protected:
+		// can't be deleted
+		~ThreadIDAllocator() {};
+
+		unsigned int							m_uiNumThreads;
+		//The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
+		//The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
+		//When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
+		Intel::OpenCL::Utils::AtomicBitField	m_aThreadAvailabilityMask;
+
+		Intel::OpenCL::Utils::AtomicCounter		m_aRefCount; // Reference count is set to be 1
+	};
+
 	class ThreadIDAssigner : public tbb::task_scheduler_observer
 	{
-	private:
-		static tbb::enumerable_thread_specific<unsigned int>              *t_uiWorkerId;
-		static tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *t_pScheduler;
+		struct thread_local_data
+		{
+			thread_local_data() : uiWorkerId(INVALID_WORKER_ID), pScheduler(INVALID_SCHEDULER_ID), pIDAllocator(NULL) {};
+			unsigned int				uiWorkerId;
+			tbb::task_scheduler_init*	pScheduler;
+			ThreadIDAllocator*			pIDAllocator;
+		};
+
+		static tbb::enumerable_thread_specific<thread_local_data>  *t_pThreadLocalData;
+
+		bool m_bUseTaskalyzer;
+		Intel::OpenCL::Utils::AtomicPointer<ThreadIDAllocator> m_pIdAllocator;
 
 	public:
-		bool m_bUseTaskalyzer;
 
 		ThreadIDAssigner();
 		~ThreadIDAssigner();
+
 		static unsigned int GetWorkerID();
 		static void SetWorkerID(unsigned int id);
+		static void ReleaseWorkerID();
 		static tbb::task_scheduler_init* GetScheduler();
 		static void SetScheduler(tbb::task_scheduler_init* init);
 		static bool IsWorkerScheduler();
+
 		virtual void on_scheduler_entry( bool is_worker );
 		virtual void on_scheduler_exit( bool is_worker );
+
+		ThreadIDAllocator* SetThreadIdAllocator(ThreadIDAllocator* newIdAllocator);
 	};
 
 	class TBBTaskExecutor : public ITaskExecutor
@@ -59,6 +99,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		TBBTaskExecutor();
 		virtual ~TBBTaskExecutor();
 		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
+
+		bool Activate();
+		void Deactivate();
+
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(CommandListCreationParam* param);
 		unsigned int	Execute(ITaskBase * pTask);
@@ -70,13 +114,20 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		ocl_gpa_data* GetGPAData() const;
 	protected:
-		Intel::OpenCL::Utils::AtomicCounter		m_lRefCount;
+		Intel::OpenCL::Utils::OclMutex		m_muActivate;
+
+		friend class						base_command_list;
+		tbb::task_group_context*			m_pGrpContext;
+
+		long								m_lActivateCount;
+
+
 		// Independent tasks will be executed by this task group
-		static ITaskList*				sTBB_executor;
-#if defined(USE_GPA)   
+		ITaskList*							m_pExecutorList;
+#if defined(USE_GPA)
 		// When using GPA, keep an extra task_scheduler_init to keep the same worker pool even after CPU device shutdown
 		// This is a deliberate memory leak and is never freed
-		tbb::task_scheduler_init*       m_scheduler;
+		tbb::task_scheduler_init*			m_pGPAscheduler;
 #endif
 	private:
 		ThreadIDAssigner* m_threadPoolChangeObserver;

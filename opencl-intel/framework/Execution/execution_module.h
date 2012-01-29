@@ -130,7 +130,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent);
 #endif
 
-        cl_err_code         Release() { return CL_SUCCESS; }  // Release resources ???
+        cl_err_code         Release(bool bTerminate) { return CL_SUCCESS; }  // Release resources ???
 
 		EventsManager*      GetEventsManager() const { return m_pEventsManager; }
 

@@ -180,7 +180,7 @@ void FrameworkProxy::Initialize()
 	// Need to load manually before defualt dll is loaded
 	char tBuff[MAX_PATH], *ptCutBuff;
 	char oldDLLDir[MAX_PATH];
-	DWORD oldDllRet;
+	DWORD oldDllRet = 0 ;
 	int iCh = '\\';
 	int iPathLength;
 
@@ -355,7 +355,7 @@ void FrameworkProxy::Destroy()
 {
 	if (NULL != m_pInstance)
 	{
-		m_pInstance->Release();
+		m_pInstance->Release(true);
 		delete m_pInstance;
 		m_pInstance = NULL;
 	}
@@ -364,32 +364,25 @@ void FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::Release()
+void FrameworkProxy::Release(bool bTerminate)
 {
 	LOG_DEBUG(TEXT("%S"), TEXT("FrameworkProxy::Release enter"));
 
-	// Close TaskExecutor
-    ITaskExecutor* pTaskExecutor = GetTaskExecutor();
-	if (NULL != pTaskExecutor)
-    {
-        pTaskExecutor->Close(true);
-    }
-
     if (NULL != m_pExecutionModule)
     {
-        m_pExecutionModule->Release();
+        m_pExecutionModule->Release(bTerminate);
         delete m_pExecutionModule;
     }
 
     if (NULL != m_pContextModule)
     {
-        m_pContextModule->Release(true);
+        m_pContextModule->Release(bTerminate);
         delete m_pContextModule;
     }
 	
     if (NULL != m_pPlatformModule)
     {
-        m_pPlatformModule->Release();
+        m_pPlatformModule->Release(bTerminate);
         delete m_pPlatformModule;
     }
 

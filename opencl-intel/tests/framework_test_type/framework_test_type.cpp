@@ -260,16 +260,6 @@ TEST(FrameworkTestType, Test_userDefinedStruct)
     EXPECT_TRUE(clStructTest());
 }
 
-TEST(IocTests, Threads)
-{
-	EXPECT_TRUE(clIntelOfflineCompilerThreadsTest());
-}
-
-TEST(IocTests, BuildOptions)
-{
-	EXPECT_TRUE(clIntelOfflineCompilerBuildOptionsTest());
-}
-
 TEST(FrameworkTestType, Test_clfissionBasicTest)
 {
 	EXPECT_TRUE(fission_basic_test());

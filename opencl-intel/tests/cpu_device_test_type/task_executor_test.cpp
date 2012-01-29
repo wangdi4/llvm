@@ -33,6 +33,8 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
+
+//#define EXTENDED_PRINT
 // OCL Kernel execution
 class TestSet : public ITaskSet
 {
@@ -45,7 +47,9 @@ public:
 	int		Init(size_t region[], unsigned int &regCount)
 	{
 		*m_pDone = 0;
+#ifdef EXTENDED_PRINT
 		printf("TestSet::Init() - %d - Init on %d\n", m_id, GET_THREAD_ID);
+#endif
 		regCount = 1;
 		region[0] = 1000;
 		return 0;
@@ -53,13 +57,17 @@ public:
 	int		AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 	{
 		m_attached++;
+#ifdef EXTENDED_PRINT
 		printf("TestSet::AttachToThread() - %d - %d was joined as %d, attached: %d\n",  m_id, GET_THREAD_ID, uiWorkerId, long(m_attached));
+#endif
 		return 0;
 	}
 	int		DetachFromThread(unsigned int uiWorkerId)
 	{
 		m_attached--;
+#ifdef EXTENDED_PRINT
 		printf("TestSet::DetachFromThread() - %d - %d left execution, attached: %d\n",  m_id, uiWorkerId, long(m_attached));
+#endif
 		return 0;
 	}
 	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
@@ -77,12 +85,10 @@ public:
     }
 	void	Finish(FINISH_REASON reason)
 	{
+#ifdef EXTENDED_PRINT
 		printf("TestSet::Finish() - %d - Finished on %d\n", m_id, GET_THREAD_ID);
-		if ( m_attached )
-		{
-			printf("Assertion: m_attached != 0 !!!\n");
-			throw;
-		}
+#endif
+		assert( 0==m_attached && "m_attached != 0");
 		*m_pDone = 1;
 	}
 	void	Release()
@@ -116,43 +122,58 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 
 bool test_task_executor()
 {
-	printf("Start test\n");
-    CommandListCreationParam p;
-    p.isOOO = false;
-    p.isSubdevice = false;
-	ITaskList *pList = GetTaskExecutor()->CreateTaskList(&p);
+	printf("test_task_executor - Start test\n");
 
-#ifdef _WIN32
-	HANDLE hMaster = (HANDLE)_beginthreadex(NULL, 0, &MasterThread, GetTaskExecutor(), 0, NULL);
-#else
-	pthread_t* hMaster = new pthread_t;
-    int err = pthread_create(hMaster, NULL, &MasterThread, GetTaskExecutor());
-#endif
-	volatile int done = 0;
-
-
-	pList->Enqueue(new TestSet(0, &done));
-	pList->Flush();
-	te_wait_result res = pList->WaitForCompletion();
-	while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
+	for(int i=0; i<2000; ++i)
 	{
-		SLEEP(100);
-		res = pList->WaitForCompletion();
+		ITaskExecutor* pTaskExecutor = GetTaskExecutor();
+		pTaskExecutor->Activate();
+		CommandListCreationParam p;
+		p.isOOO = false;
+		p.isSubdevice = false;
+		ITaskList *pList = pTaskExecutor->CreateTaskList(&p);
+#if 0
+#ifdef _WIN32
+		HANDLE hMaster = (HANDLE)_beginthreadex(NULL, 0, &MasterThread, GetTaskExecutor(), 0, NULL);
+#else
+		pthread_t* hMaster = new pthread_t;
+		int err = pthread_create(hMaster, NULL, &MasterThread, GetTaskExecutor());
+#endif
+#endif
+		volatile int done = 0;
+
+
+		pList->Enqueue(new TestSet(0, &done));
+		pList->Flush();
+		te_wait_result res = pList->WaitForCompletion();
+		while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
+		{
+			SLEEP(100);
+			res = pList->WaitForCompletion();
+		}
+
+		pList->Release();
+
+#if 0
+#ifdef _WIN32
+		WaitForSingleObject(hMaster, INFINITE);
+		CloseHandle(hMaster);
+#else
+		pthread_join(*hMaster, NULL);
+		delete(hMaster);
+#endif
+#endif
+		
+		pTaskExecutor->Deactivate();
+		if ( ((i % 10)) == 0 && (0 != i))
+		{
+			printf(".");
+		}
+		if ( ((i % 100) == 0) && (0 != i))
+		{
+			printf("\nEnd iteration = %d, passed\n", i);
+		}
 	}
-
-#ifdef _WIN32
-	WaitForSingleObject(hMaster, INFINITE);
-#else
-	pthread_join(*hMaster, NULL);
-#endif
-
-	pList->Release();
-#ifdef _WIN32
-	CloseHandle(hMaster);
-#else
-	delete(hMaster);
-#endif
-	SLEEP(10);
-	printf("End test\n");
+	printf("test_task_executor - End test\n");
 	return true;
 }

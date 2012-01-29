@@ -51,6 +51,10 @@
 #else
 #define TASK_EXECUTOR_API
 #endif
+
+// Forward declaration
+struct ocl_gpa_data;
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 // The following enum is used for defining task priority
@@ -175,6 +179,12 @@ public:
 	// Returns 0, if succeeded, else -1
 	virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
 
+	// Activate thread pool. All worker threads are created
+	virtual bool Activate() = 0;
+
+	// Deactivate thread pool. All workrer threads are destroyed
+	virtual void Deactivate() = 0;
+
 	// Return number of initialized worker threads
 	virtual unsigned int GetNumWorkingThreads() const = 0;
 
@@ -187,9 +197,6 @@ public:
 	// Function blocks, until all independent tasks are completed.
 	// Return false, if the calling thread was not joined the execution
 	virtual te_wait_result WaitForCompletion() = 0;
-
-	// Cancels execution of uncompleted tasks and and then release task executor resources
-	virtual void Close(bool bCancel) = 0;
 
 	virtual void ReleasePerThreadData() = 0;
 

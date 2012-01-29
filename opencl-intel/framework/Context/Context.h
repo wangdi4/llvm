@@ -258,6 +258,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code	CheckSupportedImageFormat(const cl_image_format *pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType);
 		size_t		QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
 
+
+		bool									m_bTEActivated;
+
 		// -------------- DEVICES -------------- 
 		
 		OCLObjectsMap<_cl_device_id_int>		m_mapDevices;			// holds the devices that associated to the program

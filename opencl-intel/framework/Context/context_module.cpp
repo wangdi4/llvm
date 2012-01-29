@@ -73,12 +73,6 @@ cl_err_code ContextModule::Release(  bool bTerminate )
 {
 	LOG_INFO(TEXT("%S"), TEXT("ContextModule::Release enter"));
 
-	m_mapContexts.ReleaseAllObjects();
-	m_mapPrograms.Clear();
-	m_mapKernels.Clear();
-	m_mapMemObjects.Clear();
-	m_mapSamplers.Clear();
-
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////

@@ -233,6 +233,16 @@ void clIntelOfflineCompilerTestAux(char sKernel[]) {
 }
 
 /*-------------------actual tests--------------*/
+TEST(IocTests, Threads)
+{
+	EXPECT_TRUE(clIntelOfflineCompilerThreadsTest());
+}
+
+TEST(IocTests, DISABLED_BuildOptions)
+{
+	EXPECT_TRUE(clIntelOfflineCompilerBuildOptionsTest());
+}
+
 TEST(IocTests, SimpleKernel)
 {
 	clIntelOfflineCompilerTestAux((char*)XSTR(KERNEL));

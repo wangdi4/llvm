@@ -262,7 +262,7 @@ enum cl_dev_cmd_list_props
 	CL_DEV_LIST_NONE		=	0,		//!< Determines a list wherein all items will be executed sequentially.
 	CL_DEV_LIST_ENABLE_OOO	=	1,		//!< Determines whether the out-of-order optimization could be applied on items in the command list
 	CL_DEV_LIST_SUBDEVICE	=	2,		//!< Determines whether the command list executes on a root-level device or on a sub-device
-    CL_DEV_LIST_IN_PLACE    =   4       //!< Determines whether the command list is executed using the calling thread
+	CL_DEV_LIST_IN_PLACE    =   4       //!< Determines whether the command list is executed using the calling thread
 };
 
 /*! \enum cl_dev_cmd_type

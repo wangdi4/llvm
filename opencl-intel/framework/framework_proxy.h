@@ -114,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~FrameworkProxy();
             
 		void Initialize();
-		void Release();
+		void Release(bool bTerminate);
 		
 		// static instance of the framework factory class
 		static  FrameworkProxy * m_pInstance;

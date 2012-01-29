@@ -45,9 +45,6 @@
 //#include "tal\tal.h"
 #endif
 
-#define INVALID_WORKER_ID 0xFFFFFFFF
-#define INVALID_SCHEDULER_ID 0xFFFFFFFF
-
 #pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
@@ -67,10 +64,9 @@ using namespace Intel::OpenCL::Utils;
 #define VECTOR_RESERVE 16
 #endif
 
-//The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
-//The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
-//When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
-static AtomicBitField gThreadAvailabilityMask;
+#ifdef _DEBUG
+AtomicBitField DEBUG_Thread_ID_running;
+#endif
 
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
@@ -79,90 +75,117 @@ unsigned int gWorker_threads = 0;
 DECLARE_LOGGER_CLIENT;
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
+// -----------------------------------------------------------
+ThreadIDAllocator::ThreadIDAllocator(unsigned int uiNumThreads) : m_uiNumThreads(uiNumThreads)
+{
+	m_aThreadAvailabilityMask.init(uiNumThreads, 1);
+	m_aRefCount = 1;
+}
+
+unsigned int ThreadIDAllocator::GetNextAvailbleId()
+{
+	unsigned int uiWorkerId = 0;
+	long canExit = false;
+	while (uiWorkerId < m_uiNumThreads)
+	{
+		canExit = m_aThreadAvailabilityMask.bitTestAndReset(uiWorkerId);
+		if (canExit) break;
+		++uiWorkerId;
+	}
+
+	if ( uiWorkerId >= m_uiNumThreads )
+	{
+		assert(0 && "We always should be able to allocate ID for worker thread");
+		return -1;
+	}
+
+	m_aRefCount++;
+	return ++uiWorkerId;
+}
+
+void ThreadIDAllocator::ReleaseId(unsigned int uiId)
+{
+	if ( INVALID_WORKER_ID != uiId )
+	{
+		m_aThreadAvailabilityMask.bitTestAndSet(uiId-1);
+	}
+	long prev = m_aRefCount--;
+	if ( 1 == prev )
+	{
+		delete this;
+	}
+}
+
 //Implementation of the interface to be notified on thread addition/removal from the working thread pool
 ThreadIDAssigner::ThreadIDAssigner() : tbb::task_scheduler_observer()
+{
+	m_pIdAllocator = NULL;
+	if (NULL == t_pThreadLocalData)
 	{
-		assert(NULL == t_uiWorkerId);
-		assert(NULL == t_pScheduler);
-
-		if (NULL == t_uiWorkerId)
-		{
-			t_uiWorkerId = new tbb::enumerable_thread_specific<unsigned int>;
-		}
-
-		if (NULL == t_pScheduler)
-		{
-			t_pScheduler = new tbb::enumerable_thread_specific<tbb::task_scheduler_init*>;
-		}
+		t_pThreadLocalData = new tbb::enumerable_thread_specific<thread_local_data>;
 	}
+}
 
 ThreadIDAssigner::~ThreadIDAssigner()
 {
-	if (NULL != t_uiWorkerId)
+	if (NULL != t_pThreadLocalData)
 	{
-		delete t_uiWorkerId;
-		t_uiWorkerId = NULL;
-	}
-
-	if (NULL != t_pScheduler)
-	{
-		delete t_pScheduler;
-		t_pScheduler = NULL;
+		delete t_pThreadLocalData;
+		t_pThreadLocalData = NULL;
 	}
 }
 
 unsigned int ThreadIDAssigner::GetWorkerID()
 {
 	bool alreadyHad = false;
-	unsigned int ret = t_uiWorkerId->local(alreadyHad);
-	return alreadyHad ? ret : INVALID_WORKER_ID;
+	thread_local_data ret = t_pThreadLocalData->local(alreadyHad);
+	return alreadyHad ? ret.uiWorkerId : INVALID_WORKER_ID;
 }
 
 void ThreadIDAssigner::SetWorkerID(unsigned int id)
 {
-	t_uiWorkerId->local() = id;
+	t_pThreadLocalData->local().uiWorkerId = id;
+}
+
+void ThreadIDAssigner::ReleaseWorkerID()
+{
+	unsigned int uiWorkerId = t_pThreadLocalData->local().uiWorkerId;
+	t_pThreadLocalData->local().pIDAllocator->ReleaseId(uiWorkerId-1);
+	t_pThreadLocalData->local().uiWorkerId = INVALID_WORKER_ID;
 }
 
 tbb::task_scheduler_init* ThreadIDAssigner::GetScheduler()
 {
 	bool alreadyHad = false;
-	tbb::task_scheduler_init* ret = t_pScheduler->local(alreadyHad);
-	return alreadyHad ? ret : NULL;
+	thread_local_data &ret = t_pThreadLocalData->local(alreadyHad);
+	return alreadyHad ? ret.pScheduler : INVALID_SCHEDULER_ID;
 }
 
 void ThreadIDAssigner::SetScheduler(tbb::task_scheduler_init* init)
 {						
-	t_pScheduler->local() = init;		
+	t_pThreadLocalData->local().pScheduler = init;		
 }
 
 bool ThreadIDAssigner::IsWorkerScheduler()
 {
-	return (INVALID_SCHEDULER_ID == (cl_ulong)GetScheduler());
+	return (INVALID_SCHEDULER_ID == GetScheduler());
 }
 
 void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
 {
 	unsigned int uiWorkerId = 0;
+	t_pThreadLocalData->local().pIDAllocator = m_pIdAllocator;
+
 	if ( is_worker && (INVALID_WORKER_ID == GetWorkerID()))
 	{
-		long canExit = false;
-		while (uiWorkerId < gWorker_threads)
-			{
-				// TODO: use 64 bit version when compiled under x64
-				canExit = gThreadAvailabilityMask.bitTestAndReset(uiWorkerId);
-				if (canExit) break;
-				++uiWorkerId;
-			}
-			assert(uiWorkerId < gWorker_threads);
-			++uiWorkerId;
-			SetScheduler((tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
-		}
+		uiWorkerId = m_pIdAllocator->GetNextAvailbleId();
+		SetScheduler((tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
+	}
 #ifdef _EXTENDED_LOG
 	LOG_INFO("------->%s %d was joined as %d\n", is_worker ? "worker" : "master",
 		GetThreadId(GetCurrentThread()), uiWorkerId);
 #endif
 	SetWorkerID(uiWorkerId);
-
 }
 
 void ThreadIDAssigner::on_scheduler_exit( bool is_worker )
@@ -174,37 +197,47 @@ void ThreadIDAssigner::on_scheduler_exit( bool is_worker )
 
 	if ( (is_worker)  && (INVALID_WORKER_ID != GetWorkerID()))
 	{
-		long prevVal;
-
-		prevVal = gThreadAvailabilityMask.bitTestAndSet(GetWorkerID() - 1);
-		//Just for extra safety, make sure we're not relinquishing an ID somebody already relinquished
-		assert(prevVal==0);
-		SetScheduler(NULL);
-		SetWorkerID(INVALID_WORKER_ID);
+		ReleaseWorkerID();
+		SetScheduler(INVALID_SCHEDULER_ID);
 	}
 }
 
+ThreadIDAllocator* ThreadIDAssigner::SetThreadIdAllocator(ThreadIDAllocator* pNewIdAllocator)
+{
+	ThreadIDAllocator* old = m_pIdAllocator.exchange(pNewIdAllocator);
+	return old;
+}
 
-//A singleton copy of the observer class
-// The implementation base on the fact that 'gThreadPoolChangeObserver' is static and single.
-tbb::enumerable_thread_specific<unsigned int>              *ThreadIDAssigner::t_uiWorkerId = NULL;
-tbb::enumerable_thread_specific<tbb::task_scheduler_init*> *ThreadIDAssigner::t_pScheduler = NULL;
-//static ThreadIDAssigner* gThreadPoolChangeObserver = NULL;
+tbb::enumerable_thread_specific<ThreadIDAssigner::thread_local_data> *ThreadIDAssigner::t_pThreadLocalData = NULL;
+
+AtomicCounter	glTaskSchedCounter;
 
 static void InitSchedulerForMasterThread()
 {
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( (NULL == pScheduler) && (!ThreadIDAssigner::IsWorkerScheduler()) )
 	{
-		//t_pScheduler = new tbb::task_scheduler_init(gWorker_threads);
-		ThreadIDAssigner::SetScheduler(new tbb::task_scheduler_init(gWorker_threads));
+		pScheduler = new tbb::task_scheduler_init(gWorker_threads);
+		if (NULL != pScheduler )
+		{
+			glTaskSchedCounter++;
+			ThreadIDAssigner::SetScheduler(pScheduler);
+		}
 	}
 }
 
-
-
-	// Make TBB init class and WG executor thread local
-	ITaskList* TBBTaskExecutor::sTBB_executor = NULL;
+static void ReleaseSchedulerForMasterThread()
+{
+	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+	if ((NULL != pScheduler) && (INVALID_SCHEDULER_ID != pScheduler))
+	{				
+		
+		//pScheduler->terminate();
+		delete pScheduler;
+		glTaskSchedCounter--;
+		ThreadIDAssigner::SetScheduler(NULL);
+	}
+}
 
 #ifdef __LOCAL_RANGES__
 	class Range1D {
@@ -416,6 +449,14 @@ static void InitSchedulerForMasterThread()
 			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
+#ifdef _DEBUG
+			if ( 0 != uiWorkerId )
+			{
+				long prev = DEBUG_Thread_ID_running.bitTestAndReset(uiWorkerId-1);
+				assert( prev == 1 && "Worker with same ID is already running");
+			}
+#endif
+
 			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
@@ -423,6 +464,10 @@ static void InitSchedulerForMasterThread()
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 						task.ExecuteIteration(k, j, i, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
+
+#ifdef _DEBUG
+			DEBUG_Thread_ID_running.bitTestAndSet(uiWorkerId-1);
+#endif
 		}
 	};
 
@@ -439,12 +484,24 @@ static void InitSchedulerForMasterThread()
 
 			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+#ifdef _DEBUG
+			if ( 0 != uiWorkerId )
+			{
+				long prev = DEBUG_Thread_ID_running.bitTestAndReset(uiWorkerId-1);
+				assert( prev == 1 && "Worker with same ID is already running");
+			}
+#endif
+
 			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 					task.ExecuteIteration(k, j, 0, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
+#ifdef _DEBUG
+			DEBUG_Thread_ID_running.bitTestAndSet(uiWorkerId-1);
+#endif
 		}
 	};
 
@@ -461,12 +518,24 @@ static void InitSchedulerForMasterThread()
 
 			uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+#ifdef _DEBUG
+			if ( 0 != uiWorkerId )
+			{
+				long prev = DEBUG_Thread_ID_running.bitTestAndReset(uiWorkerId-1);
+				assert( prev == 1 && "Worker with same ID is already running");
+			}
+#endif
 			if ( task.AttachToThread(uiWorkerId, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
 				return;
 
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task.ExecuteIteration(k, 0, 0, uiWorkerId);
 			task.DetachFromThread(uiWorkerId);
+
+#ifdef _DEBUG
+			DEBUG_Thread_ID_running.bitTestAndSet(uiWorkerId-1);
+#endif
+
 		}
 	};
 
@@ -550,14 +619,15 @@ typedef std::vector<ITaskBase*>           TaskVector;
 class base_command_list : public ITaskList
 {
 public:
-	base_command_list(bool subdevice) :
-		m_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait),
-		m_subdevice(subdevice)
+	base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) :
+		m_subdevice(subdevice), m_pTBBExecutor(pTBBExec)
 	{
-		m_rootTask = new (tbb::task::allocate_root(m_context)) deleting_task(this);
-		m_rootTask->set_ref_count(1);
+		m_pListRootTask = new (tbb::task::allocate_root(*m_pTBBExecutor->m_pGrpContext)) base_list_root_task();
+		m_pListRootTask->set_ref_count(1);
+
 		m_execTaskRequests = 0;
 		m_bMasterRunning = false;
+		m_refCount = 1;
 	}
 
 	virtual ~base_command_list()
@@ -585,12 +655,13 @@ public:
 			return TE_WAIT_MASTER_THREAD_BLOCKING;
 		}
 
+		++m_refCount;
 		// Request processing task to stop
 		unsigned int ret = RequestStopProcessing();
 		while (ret > 0)
 		{
 			// This master started the task, so need wait for completion
-			m_rootTask->wait_for_all();
+			m_pListRootTask->wait_for_all();
 
 			if ( m_MasterSync.IsFired() )
 			{
@@ -607,6 +678,8 @@ public:
 		// Current master is not in charge for the work
 		m_bMasterRunning = false;
 
+		Release();
+
 		return TE_WAIT_COMPLETED;
 	}
 
@@ -617,9 +690,27 @@ public:
 	}
 
 	void Release() 
-	{ 
-		m_rootTask->decrement_ref_count();
-		//tbb::task::enqueue(*m_rootTask);
+	{
+		long newRef = --m_refCount;
+		if ( 0 != newRef )
+		{
+			return;
+		}
+
+		assert(!m_bMasterRunning);
+
+		if ( !ThreadIDAssigner::IsWorkerScheduler() )
+		{
+			m_pListRootTask->wait_for_all();
+			tbb::task::destroy(*m_pListRootTask);
+		}
+		else
+		{
+			tbb::task::enqueue(*m_pListRootTask);
+		}
+
+		m_pListRootTask = NULL;
+		delete this;
 	}
 
 	ConcurrentTaskQueue* GetExecutingContainer()
@@ -662,14 +753,16 @@ protected:
 		return InternalFlush(true);
 	}
 
-	tbb::task_group_context m_context;
     bool                    m_subdevice;
-    tbb::task*              m_rootTask;
+	TBBTaskExecutor*		m_pTBBExecutor;
+    tbb::task*              m_pListRootTask;
+
+	tbb::atomic<unsigned int>	m_refCount;			// reference counter on command list
 
 	ConcurrentTaskQueue		m_quIncomingWork;
 
 	tbb::atomic<unsigned int>	m_execTaskRequests;
-	SyncTask	m_MasterSync;
+	SyncTask					m_MasterSync;
 
 	// Only single muster thread can join the execution on specific queue
 	// this mutex will block others. The atomic prevents wait on
@@ -680,20 +773,15 @@ private:
 	//Disallow copy constructor
 	base_command_list(const base_command_list& l) : ITaskList() {}
 
-	class deleting_task : public tbb::task
+	class base_list_root_task  : public tbb::task
 	{
-	public:
-		deleting_task(base_command_list* list) : m_list(list) {}
 		tbb::task* execute()
 		{
-			assert(m_list);
-			delete m_list;
+			wait_for_all();
+			decrement_ref_count();
 			return NULL;
 		}
-	protected:
-		base_command_list* m_list;
 	};
-
 };
 
 static bool execute_command(ITaskBase* cmd)
@@ -741,67 +829,10 @@ static bool execute_command(ITaskBase* cmd)
 	}
 }
 
-class ordered_command_list : public base_command_list
-{
-public:
-	ordered_command_list(bool subdevice) : base_command_list(subdevice)	{}
-
-	virtual unsigned int LaunchExecutorTask(bool blocking);
-
-protected:
-};
-
-
-class unordered_command_list : public base_command_list
-{
-public:
-    unordered_command_list(bool subdevice) : base_command_list(subdevice) {}
-
-	virtual unsigned int LaunchExecutorTask(bool blocking);
-
-	// Move work from incoming queue to work queue
-	// Todo: currently this is serial, see if we can parallelize it somehow
-	size_t FillWork(TaskVector& workList)
-	{
-		ITaskBase* current;
-		while (m_quIncomingWork.TryPop(current))
-		{
-			workList.push_back(current);
-		}
-		return workList.size();
-	}
-
-protected:
-};
-
-struct ExecuteContainerBody
-{
-	TaskVector*		m_work;
-	volatile bool*	m_bMasterSync;
-
-	ExecuteContainerBody(TaskVector* work, volatile bool* masterSync) :
-			m_work(work), m_bMasterSync(masterSync) {}
-
-	void operator()(const tbb::blocked_range<size_t>& range) const 
-	{
-		bool masterSync = false; // Monitor if we should stop master
-
-		for (size_t it = range.begin(); it != range.end(); ++it)
-		{
-			ITaskBase* cmd = m_work->at(it);
-			masterSync |= !execute_command(cmd);
-
-			cmd->Release();
-		}
-
-		*m_bMasterSync = masterSync;
-	}
-};
-
 class in_order_executor_task : public tbb::task
 {
 public:
-	in_order_executor_task(ordered_command_list* list) : m_list(list){}
+	in_order_executor_task(base_command_list* list) : m_list(list){}
 
 	tbb::task* execute()
 	{
@@ -811,6 +842,8 @@ public:
 		TaskVector forDeletion;
 		ITaskBase* currentTask;
 		bool mustExit = false;
+
+		assert(m_list->m_refCount>1);
 
 		while(true)
 		{
@@ -840,17 +873,83 @@ public:
 			}
 		}
 
+		m_list->Release();
+
 		return NULL;
 	}
 
 protected:
-	ordered_command_list* m_list;
+	base_command_list* m_list;
+};
+
+class ordered_command_list : public base_command_list
+{
+public:
+	ordered_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) : base_command_list(subdevice, pTBBExec)	{}
+
+	virtual unsigned int LaunchExecutorTask(bool blocking)
+	{
+		m_refCount++;
+		if (!m_subdevice)
+		{
+			InitSchedulerForMasterThread();
+
+			m_pListRootTask->increment_ref_count();
+			tbb::task* executor = new (m_pListRootTask->allocate_child()) in_order_executor_task(this);
+			
+			assert(executor && "Can't create executor task");
+			if ( NULL == executor )
+			{
+				m_execTaskRequests = 0;
+				return 0;
+			}
+			
+			if (!blocking)
+			{
+				tbb::task::enqueue(*executor);
+				return 1;
+			}
+
+			m_pListRootTask->spawn_and_wait_for_all(*executor);
+		}
+		else
+		{
+			in_order_executor_task queueTask(this);
+			queueTask.execute();
+		}
+
+		return 0;
+	}
+};
+
+struct ExecuteContainerBody
+{
+	TaskVector*		m_work;
+	volatile bool*	m_bMasterSync;
+
+	ExecuteContainerBody(TaskVector* work, volatile bool* masterSync) :
+			m_work(work), m_bMasterSync(masterSync) {}
+
+	void operator()(const tbb::blocked_range<size_t>& range) const 
+	{
+		bool masterSync = false; // Monitor if we should stop master
+
+		for (size_t it = range.begin(); it != range.end(); ++it)
+		{
+			ITaskBase* cmd = m_work->at(it);
+			masterSync |= !execute_command(cmd);
+
+			cmd->Release();
+		}
+
+		*m_bMasterSync = masterSync;
+	}
 };
 
 class unorder_executor_task : public tbb::task
 {
 public:
-	unorder_executor_task(unordered_command_list* list) : m_list(list) {}
+	unorder_executor_task(base_command_list* list) : m_list(list) {}
 
 	tbb::task* execute()
 	{
@@ -858,9 +957,10 @@ public:
 		TaskVector		work;
 		volatile bool	mustExit = false;
 
+		assert(m_list->m_refCount>1);
 		while (true)
 		{
-			size_t size = m_list->FillWork(work);
+			size_t size = FillWork(work);
 			if ( size > 0 )
 			{
 
@@ -884,162 +984,270 @@ public:
 			}
 		}
 
+		m_list->Release();
 
 		return NULL;
 	}
 protected:
+	// Move work from incoming queue to work queue
+	// Todo: currently this is serial, see if we can parallelize it somehow
+	size_t FillWork(TaskVector& workList)
+	{
+		ITaskBase* current;
+		while (m_list->GetExecutingContainer()->TryPop(current))
+		{
+			workList.push_back(current);
+		}
+		return workList.size();
+	}
 
-	unordered_command_list* m_list;
+	base_command_list* m_list;
 };
 
-unsigned int ordered_command_list::LaunchExecutorTask(bool blocking)
+class unordered_command_list : public base_command_list
 {
-	if (!m_subdevice)
+public:
+    unordered_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) : base_command_list(subdevice, pTBBExec) {}
+
+	virtual unsigned int LaunchExecutorTask(bool blocking)
 	{
-		InitSchedulerForMasterThread();
-
-		m_rootTask->increment_ref_count();
-		tbb::task* executor = new (m_rootTask->allocate_child()) in_order_executor_task(this);
-		
-		assert(executor);
-		if ( NULL == executor )
+		m_refCount++;
+		if (!m_subdevice)
 		{
-			tbb::task::destroy(*executor);
-			m_execTaskRequests = 0;
-			return 0;
+			InitSchedulerForMasterThread();
+
+			m_pListRootTask->increment_ref_count();
+			tbb::task* executor = new (m_pListRootTask->allocate_child()) unorder_executor_task(this);
+			assert(executor && "Can't create executor task");
+			if ( NULL == executor)
+			{
+				m_execTaskRequests = 0;
+				return 0;
+			}
+			if ( !blocking )
+			{
+				tbb::task::enqueue(*executor);
+				return 1;
+			}
+
+			m_pListRootTask->spawn_and_wait_for_all(*executor);
 		}
-		
-		if (!blocking)
+		else
 		{
-			tbb::task::enqueue(*executor);
-			return 1;
-		}
-
-		m_rootTask->spawn_and_wait_for_all(*executor);
-	}
-	else
-	{
-		in_order_executor_task queueTask(this);
-		queueTask.execute();
-	}
-
-	return 0;
-}
-
-unsigned int unordered_command_list::LaunchExecutorTask(bool blocking)
-{
-	if (!m_subdevice)
-	{
-		InitSchedulerForMasterThread();
-
-		m_rootTask->increment_ref_count();
-		tbb::task* executor = new (m_rootTask->allocate_child()) unorder_executor_task(this);
-		assert(executor);
-		if ( NULL == executor)
-		{
-			tbb::task::destroy(*executor);
-			m_execTaskRequests = 0;
-			return 0;
-		}
-		if ( !blocking )
-		{
-			tbb::task::enqueue(*executor);
-			return 1;
+			// Always blocking
+			unorder_executor_task queueTask(this);
+			queueTask.execute();
 		}
 
-		m_rootTask->spawn_and_wait_for_all(*executor);
+		return 0;
 	}
-	else
-	{
-		// Always blocking
-		unorder_executor_task queueTask(this);
-		queueTask.execute();
-	}
-
-	return 0;
-}
+};
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor() : m_lRefCount(0)
+TBBTaskExecutor::TBBTaskExecutor() :
+	m_pGrpContext(NULL), m_lActivateCount(0), m_pExecutorList(NULL)
 {
 #if defined(USE_GPA)   
-    m_scheduler = NULL;
+    m_pGPAscheduler = NULL;
 #endif
+
+	INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
+
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
-
-	gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
-
-	ThreadIDAssigner::SetScheduler(NULL);
+	if ( NULL == m_threadPoolChangeObserver )
+	{
+		LOG_ERROR(TEXT("%s"), "Failed to allocate ThreadIDAssigner");
+	}
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-	if (m_threadPoolChangeObserver != NULL)
+	if ( NULL != m_threadPoolChangeObserver)
 	{
 		delete m_threadPoolChangeObserver;
 		m_threadPoolChangeObserver = NULL;
-	}		
+	}
+
+	LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
+	RELEASE_LOGGER_CLIENT;
 }
 
 int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 {
-	unsigned long ulNewVal = ++m_lRefCount;
+	if ( 0 != gWorker_threads )
+	{
+		assert(0 && "TBBExecutor already initialized");
+		return gWorker_threads;
+	}
+
+	if ( NULL == m_threadPoolChangeObserver )
+	{
+		// Observer must exits
+		LOG_ERROR(TEXT("%s"), "Can't init TBBTaskExecutor, m_threadPoolChangeObserver == NULL"); 
+		return 0;
+	}
 
 	m_pGPAData = pGPAData;
 	
-	if ( ulNewVal == 1 )
+	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
+	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
+	if (uiNumThreads > 0)
 	{
-		INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
-		LOG_INFO("TBBTaskExecutor constructed to %d threads", gWorker_threads);
-		LOG_INFO("TBBTaskExecutor initialized to %u threads", uiNumThreads);
-		if (uiNumThreads > 0)
-		{
-			gWorker_threads = uiNumThreads;
-		}
+		gWorker_threads = uiNumThreads;
 	}
-	else if (uiNumThreads > 0)
+	else
 	{
-		if (uiNumThreads != gWorker_threads)
-		{
-			LOG_ERROR("Error: an attempt to re-init TBB Executor with a different number of threads. Trying to init %u threads, %d threads already used", uiNumThreads, gWorker_threads);
-			assert(0);
-		}
+		gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
 	}
 
-	//Initialize the "available threads" mask
-	gThreadAvailabilityMask.init(gWorker_threads, 1);
+#ifdef _DEBUG
+	DEBUG_Thread_ID_running.init(gWorker_threads, 1);
+#endif
+
+	LOG_INFO(TEXT("%s"),"Done");	
+	return gWorker_threads;
+}
+
+bool TBBTaskExecutor::Activate()
+{
+	assert(gWorker_threads && "TBB executor should be initialized first");
+	OclAutoMutex mu(&m_muActivate);
+
+	if ( 0 != m_lActivateCount )
+	{
+		// We are already acticated
+		++m_lActivateCount;
+		return true;
+	}
+
+	ThreadIDAssigner::SetScheduler(NULL);
 
     // if using GPA, initialize the "global" task scheduler init
     // Otherwise, initialize this master thread's observer
 #if defined(USE_GPA)   
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
-	    if (NULL == m_scheduler)
+	    if (NULL == m_pGPAscheduler)
 	    {
-		    m_scheduler = new tbb::task_scheduler_init(gWorker_threads);		
+		    m_pGPAscheduler = new tbb::task_scheduler_init(gWorker_threads);		
+			if ( NULL == m_pGPAscheduler )
+			{
+				LOG_ERROR(TEXT("%s"), "Failed to allocate tbb::task_scheduler_init");
+				return false;
+			}
 	    }
     }
     else
     {
 #endif
     InitSchedulerForMasterThread();
+	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+	if ( NULL == pScheduler )
+	{
+		LOG_ERROR(TEXT("%s"), "Failed to allocate tbb::task_scheduler_init");
+		return false;
+	}
 #if defined(USE_GPA)   
     }
 #endif
-	if (NULL == sTBB_executor)
+
+	m_pGrpContext = new tbb::task_group_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait);
+	if ( NULL == m_pGrpContext )
 	{
-		//sTBB_executor = new unordered_command_list();
-		sTBB_executor = new ordered_command_list(false);
+		tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+		if ( NULL != pScheduler )
+		{
+			delete pScheduler;
+			ThreadIDAssigner::SetScheduler(NULL);
+		}
+		LOG_ERROR(TEXT("%s"), "Failed to allocate m_pGrpContext");
+		return false;
+	}
+
+	m_pExecutorList = new ordered_command_list(false, this);
+	if ( NULL == m_pExecutorList )
+	{
+		delete m_pGrpContext;
+		tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
+		if ( NULL != pScheduler )
+		{
+			delete pScheduler;
+			ThreadIDAssigner::SetScheduler(NULL);
+		}
+		LOG_ERROR(TEXT("%s"), "Failed to allocate m_pExecutorList");
+		return false;
+	}
+
+	m_threadPoolChangeObserver->SetThreadIdAllocator(new ThreadIDAllocator(gWorker_threads));
+
+	m_threadPoolChangeObserver->observe();
+
+	++m_lActivateCount;
+	return true;
+}
+
+void TBBTaskExecutor::Deactivate()
+{
+	OclAutoMutex mu(&m_muActivate);
+
+	if ( 0 != --m_lActivateCount )
+	{
+		// Need to keep active instance
+		return;
+	}
+
+	assert(NULL != m_threadPoolChangeObserver);
+
+	LOG_INFO(TEXT("%s"),"Shutting down...");
+
+	assert(NULL != m_pExecutorList);
+	m_pExecutorList->Release();
+	m_pExecutorList = NULL;
+
+	if ( !ThreadIDAssigner::IsWorkerScheduler() )
+	{
+		assert(m_pGrpContext);
+		m_pGrpContext->cancel_group_execution();
+		delete m_pGrpContext;
+
+		ReleaseSchedulerForMasterThread();
+
+		if ( 0 == glTaskSchedCounter )
+		{
+			ThreadIDAllocator* prev = m_threadPoolChangeObserver->SetThreadIdAllocator(NULL);
+			assert(NULL != prev && "The old ThreadID allocator is NULL");
+
+			unsigned int uiTimeOutCount = 0;
+			long refCount = prev->GetRefCount();
+			
+			// What for 100ms for shutdown
+			while ( 1 < refCount && (uiTimeOutCount < 100))
+			{
+				clSleep(1);
+				refCount = prev->GetRefCount();
+				uiTimeOutCount++;
+			}
+
+			if ( 1 == refCount )
+			{
+				// We must stop observing only when all worker threads are shut down,
+				// Otherwise resource leaks and memory corruption inside TBB
+				m_threadPoolChangeObserver->observe(false);
+			}
+
+			if ( NULL != prev )
+			{
+				prev->ReleaseId(INVALID_WORKER_ID);
+			}
+		}
+
+
 	}
 	else
 	{
-		LOG_DEBUG("sTBB_executor was initialized to %0x", sTBB_executor);
+		//gThreadAvailabilityMask
+		assert(0 && "Don't know what to do when release from worker thread");
 	}
-
-	m_threadPoolChangeObserver->observe();
-	
-	LOG_INFO(TEXT("%s"),"Done");	
-	return gWorker_threads;
 }
 
 unsigned int TBBTaskExecutor::GetNumWorkingThreads() const
@@ -1060,11 +1268,11 @@ ITaskList* TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param)
 	ITaskList *pList = NULL;
 	if (OOO) 
 	{
-		pList = new unordered_command_list(subdevice);
+		pList = new unordered_command_list(subdevice, this);
 	}
 	else
 	{
-		pList = new ordered_command_list(subdevice);
+		pList = new ordered_command_list(subdevice, this);
 	}
 
 	return pList;
@@ -1072,58 +1280,25 @@ ITaskList* TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param)
 
 unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
 {
-	sTBB_executor->Enqueue(pTask);
-	sTBB_executor->Flush();		
+	m_pExecutorList->Enqueue(pTask);
+	m_pExecutorList->Flush();		
 	return 0;
 }
 
 te_wait_result TBBTaskExecutor::WaitForCompletion()
 {
-	return sTBB_executor->WaitForCompletion();
-}
-
-// Cancels execution of uncompleted tasks and and then release task executor resources
-void TBBTaskExecutor::Close(bool bCancel)
-{
-	// Worker threads should never get here
-	assert(!ThreadIDAssigner::IsWorkerScheduler());
-
-	unsigned long ulNewVal = --m_lRefCount;
-
-	if ( 0 != ulNewVal )
-	{
-		LOG_INFO(TEXT("%s"),"Still alive");
-		return;
-	}
-
-	LOG_INFO(TEXT("%s"),"Shutting down...");
-
-	if ( NULL != sTBB_executor )
-	{				
-		delete sTBB_executor;
-		sTBB_executor = NULL;
-	}	
-	
-	m_threadPoolChangeObserver->observe(false);
-	LOG_INFO(TEXT("%s"),"Done");
-	RELEASE_LOGGER_CLIENT;
+	return m_pExecutorList->WaitForCompletion();
 }
 
 void TBBTaskExecutor::ReleasePerThreadData()
 {
 	// TBB was not initialized within calling thread or its TBB worker thread.
-	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( ThreadIDAssigner::IsWorkerScheduler())
 	{
 		return;
 	}
-	if ((NULL != pScheduler) && (INVALID_SCHEDULER_ID != (uintptr_t)pScheduler))
-	{				
-		
-		//pScheduler->terminate();
-		delete pScheduler;		
-		ThreadIDAssigner::SetScheduler(NULL);
-	}
+
+	ReleaseSchedulerForMasterThread();
 }
 
 ocl_gpa_data* TBBTaskExecutor::GetGPAData() const

@@ -93,7 +93,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	if( CL_FAILED(errVal))
 	{
 		pQueueEvent->RemoveFloatingDependence();
-		pCommand->CommandDone();
 		pQueueEvent->RemovePendency(NULL); //implicitly added by Command->SetEvent
 		if (NULL == pUserEvent)
 		{

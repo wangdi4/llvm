@@ -34,10 +34,11 @@
 #include "context_module.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "ocl_itt.h"
 #include <cl_utils.h>
 #include <cl_objects_map.h>
 #include <cl_local_array.h>
-#include "ocl_itt.h"
+#include <task_executor.h>
 
 // for debug...???
 #include <limits.h>
@@ -46,7 +47,7 @@
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
-
+using namespace Intel::OpenCL::TaskExecutor;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
@@ -58,6 +59,12 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
 	LOG_DEBUG(TEXT("%S"), TEXT("Context constructor enter"));
 
+	m_bTEActivated = GetTaskExecutor()->Activate();
+	if ( !m_bTEActivated )
+	{
+		*pclErr = CL_OUT_OF_HOST_MEMORY;
+		return;
+	}
 
 	m_ppAllDevices = NULL;
     m_ppRootDevices = NULL;
@@ -179,7 +186,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 			if (m_ppAllDevices[ui]->IsRootLevelDevice())
 			{
 				m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
-    }
+			}
 			else
 			{
 				m_ppAllDevices[ui]->RemovePendency(this);
@@ -224,6 +231,12 @@ void Context::Cleanup( bool bTerminate )
 			m_ppAllDevices[ui]->RemovePendency(this);
         }
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
+	}
+
+	if ( m_bTEActivated )
+	{
+		GetTaskExecutor()->Deactivate();
+		m_bTEActivated = false;
 	}
 }
 

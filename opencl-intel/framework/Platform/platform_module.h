@@ -95,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		Release();
+		cl_err_code		Release(bool bTerminate);
 
 		/******************************************************************************************
 		* Function: 	GetRootDevice    
