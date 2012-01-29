@@ -310,13 +310,15 @@ else ()
 	            -c -DCL_BUILTIN_FUNCTIONS_EXPORTS -fPIC -I ${IMPORT_DIR} -U__MMX__
 	      )
 	 set (BUILD_TYPE_ICC_COMPILER_FLAGS_Debug "-g")
-   set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "-O3")
- 
+     set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "-O3")
+     set (BUILD_TYPE_ICC_COMPILER_FLAGS_RelWithDebInfo "-O3")
+     
 	 list (APPEND ICC_LINKER_PARAMS_LIST 
 	            -fPIC -static-intel -shared -Wl,-rpath=\\\$ORIGIN
 	 	    )
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "-g")
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "-g")
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_RelWithDebInfo "-g")
 endif (WIN32)
 
 # the same lists, but converted into single strings (otherwise they cannot be feeded to ICC compiler and linker scripts)
