@@ -105,6 +105,8 @@ bool api_test();
 bool immediateExecutionTest();
 bool clCreateImageTest();
 bool MultithreadedBuildTest();
+bool EventDependenciesTest();
+bool CreateReleaseOOOQueueTest();
 //#define CUDA_DEVICE
 
 

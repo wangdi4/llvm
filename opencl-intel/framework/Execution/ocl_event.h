@@ -113,15 +113,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		OclEvent();
 
-		void                    AddCompleteListener(IEventDoneObserver* listener);
-		void                    AddDependentOn( OclEvent* pDependsOnEvent );
-		void                    AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
-		void                    AddFloatingDependence() { ++m_depListLength; }
-		void                    RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
-		OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
+		void                            AddCompleteListener(IEventDoneObserver* listener);
+		void                            AddDependentOn( OclEvent* pDependsOnEvent );
+		void                            AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
+		void                            AddFloatingDependence() { ++m_depListLength; }
+		void                            RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
+		virtual OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
 
-		OclEventStateColor      GetColor() const                                    { return (OclEventStateColor)((long)m_color); }
-		bool                    HasDependencies() const                             { return m_depListLength > 0;}
+		OclEventStateColor              GetColor() const                                    { return (OclEventStateColor)((long)m_color); }
+		bool                            HasDependencies() const                             { return m_depListLength > 0;}
 
 		// Implementation IEventDoneObserver
 		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);

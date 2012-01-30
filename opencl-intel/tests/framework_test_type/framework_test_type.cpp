@@ -342,7 +342,15 @@ TEST(FrameworkTestType, Test_MT_build)
 {
     EXPECT_TRUE(MultithreadedBuildTest());
 }
+TEST(FrameworkTestType, Test_CreateReleaseOOOQueueTest)
+{
+    EXPECT_TRUE(CreateReleaseOOOQueueTest());
+}
 
+TEST(FrameworkTestType, Test_EventDependenciesTest)
+{
+    EXPECT_TRUE(EventDependenciesTest());
+}
 // To run individual tests, use the --gtest_filter=<pattern> command-line 
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest

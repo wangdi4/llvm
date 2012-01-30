@@ -73,6 +73,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void Cleanup( bool bIsTerminate = false )   { return; }
 
         /******************************************************************************************
+        * Function: 	NotifyInvisible    
+        * Description:	Called when the reference count for the object is decremented to zero,
+        *               indicating the object is no longer user-visible
+        * Arguments:	
+        * Author:		Doron Singer
+        * 
+        ******************************************************************************************/	
+        virtual void NotifyInvisible() {}
+
+        /******************************************************************************************
 		* Function: 	Release    
 		* Description:	release the OCLObject - decrease reference count in 1, inherited 
 		*				objects might want to add functionality to this method

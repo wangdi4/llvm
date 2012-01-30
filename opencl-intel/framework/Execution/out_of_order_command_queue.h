@@ -65,6 +65,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	protected:
 		virtual cl_err_code AddDependentOnAll(Command* cmd);
 
+        //Inherited from OCLObject
+        virtual void NotifyInvisible();
+
 		void                Submit(Command* cmd);
 
     // At all times, points to a command that depends on everything enqueued since the last time clEnqueueBarrier/Marker was enqueued to this queue

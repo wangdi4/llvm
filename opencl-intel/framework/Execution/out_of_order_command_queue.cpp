@@ -52,10 +52,6 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
 
 OutOfOrderCommandQueue::~OutOfOrderCommandQueue() 
 {
-	if (NULL != m_depOnAll)
-	{
-		delete (Command*)((void*)m_depOnAll);
-	}
 }
 
 cl_err_code OutOfOrderCommandQueue::Initialize()
@@ -73,10 +69,8 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      {
          return CL_OUT_OF_HOST_MEMORY;
      }
-     QueueEvent* pDepOnAllEvent = pDepOnAll->GetEvent();
+     pDepOnAll->GetEvent()->Release();
      // This floating dependence will be resolved at the completion of clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
-     pDepOnAllEvent->AddFloatingDependence();
-     pDepOnAllEvent->SetColor(EVENT_STATE_RED);
 	 m_depOnAll = pDepOnAll;
 	 return CL_SUCCESS;	
 }
@@ -125,13 +119,10 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 	}
 
   //Todo: get rid of the WHITE->RED->YELLOW color cycle by changing event's listener behaviour
+    cmdEvent->AddFloatingDependence();
 	cmdEvent->SetColor(EVENT_STATE_RED);
-	if (!cmdEvent->HasDependencies())
-	{
+    cmdEvent->RemoveFloatingDependence();
 		//Todo: remove
-		cmdEvent->SetColor(EVENT_STATE_YELLOW);
-		Submit(cmd);
-	}
 
 	return CL_SUCCESS;
 }
@@ -226,17 +217,21 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 
     QueueEvent* pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
     QueueEvent* pCommandEvent      = cmd->GetEvent();
+    pNewDepnOnAllEvent->Release();
     
     // First of all create a new "depends on all" object and put it in place.
     // Then link dependencies: new "dep on all" depends on command (marker/barrier) depends on old "dep on all"
     // Finally remove the floating dependence to allow the thing to resolve in due course.
 
-    pNewDepnOnAllEvent->AddFloatingDependence();
 	Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
     QueueEvent* pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
+	pOldDepOnAllEvent->AddFloatingDependence();
+	pOldDepOnAllEvent->SetColor(EVENT_STATE_RED);
 	pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
-	pNewDepnOnAllEvent->SetColor(EVENT_STATE_RED);
-	pNewDepnOnAllEvent->AddDependentOn(pCommandEvent);
 	pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;
+}
+void OutOfOrderCommandQueue::NotifyInvisible()
+{
+    m_depOnAll->GetEvent()->RemovePendency(NULL);
 }

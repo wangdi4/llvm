@@ -26,6 +26,7 @@ long OCLObject<HandleType>::Release()
 	}
 	else if (0 == newVal)
 	{
+        NotifyInvisible();
 		//This may have the side effect of deleting the object
 		RemovePendency(NULL);
 	}
