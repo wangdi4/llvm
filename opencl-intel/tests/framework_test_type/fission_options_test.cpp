@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY property from root device.
 //| 2. Check that the number of devices creates <= max number of devices (num_entries >= num_devices)
 //| 3. Create context which includes sub devices as part of the context devices list.
 //| 4. Calling clgetProgramBuildInfo on the created sub devices.
@@ -145,13 +145,13 @@ bool fission_options_test(){
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 2;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY_EXT, 3, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY, 3, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	//requirement: num_entries >= num_devices
 	err = ((num_entries >= num_devices) ? CL_SUCCESS : CL_INVALID_VALUE);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT: num_entries < num_devices",CL_SUCCESS,err);
+	bResult = SilentCheck(L"clCreateSubDevices: num_entries < num_devices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init context
@@ -200,7 +200,7 @@ bool fission_options_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 	return bResult;
 }

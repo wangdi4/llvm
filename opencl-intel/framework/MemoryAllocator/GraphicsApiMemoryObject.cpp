@@ -161,18 +161,6 @@ namespace Intel { namespace OpenCL { namespace Framework
         return m_pChildObject->SynchDataFromHost( pMapInfo, pHostMapDataPtr );
     }
 
-
-    /**
-     * @fn  cl_err_code GraphicsApiMemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count,
-     *      FissionableDevice** children)
-     */
-
-    cl_err_code GraphicsApiMemoryObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count,
-        FissionableDevice** children)
-    {
-        return CL_SUCCESS;
-    }
-
     /**
      * @fn  cl_err_code GraphicsApiMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
      */

@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
 //| 2. Create a out-of-order command queue on one of the sub-devices.
 //| 3. Enqueue execution of a kernel on this sub device.
 //| 4. read and validate the result.
@@ -142,9 +142,9 @@ bool fission_commandQ_test(){
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 0;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 1,2,CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1,2,0, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 
@@ -178,7 +178,7 @@ bool fission_commandQ_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 	return bResult;
 }

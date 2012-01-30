@@ -26,7 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
-#include "observer.h"
 
 #include "cl_object.h"
 #include "cl_objects_map.h"
@@ -56,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/		
-	class Context : public OCLObject<_cl_context_int>, public IDeviceFissionObserver
+	class Context : public OCLObject<_cl_context_int>
 	{
 	public:
 
@@ -228,9 +227,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb);
 
-        //Implementation of the IDeviceFissionObserver interface
-        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
-
 		// return context-specific memory objects heap handle
 		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
 
@@ -268,8 +264,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_device_id *                          m_pOriginalDeviceIds;
         cl_uint                                 m_pOriginalNumDevices;
         cl_uint                                 m_uiNumRootDevices;
-        Utils::OclReaderWriterLock              m_deviceMapsLock;   // used to prevent a race between accesses to the device maps and the device fission sequence
-        Utils::OclReaderWriterLock              m_deviceDependentObjectsLock; // Used to prevent a race between program / memory object "device" objects and device fission sequence
 
 		cl_bitfield								m_devTypeMask;			// Mask of device types involved by the context
 		
@@ -321,8 +315,6 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
                                  MemoryObject **         ppImage,
                                  bool                    bIsImageBuffer)
 {
-    //Acquire a reader lock on the device map to prevent race with device fission
-    Intel::OpenCL::Utils::OclAutoReader CS(&m_deviceDependentObjectsLock);
     assert ( NULL != ppImage );
     //check image sizes
     const size_t szImageDimsPerDim[3][3] = {

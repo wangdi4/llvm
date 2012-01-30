@@ -155,6 +155,9 @@ void FrameworkProxy::InitOCLEntryPoints()
     OclEntryPoints.clCreateSubDevicesEXT = (KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT);
     OclEntryPoints.clRetainDeviceEXT = (KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT);
     OclEntryPoints.clReleaseDeviceEXT = (KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT);
+    OclEntryPoints.clCreateSubDevices = (KHRpfn_clCreateSubDevices)GET_ALIAS(clCreateSubDevices);
+    OclEntryPoints.clRetainDevice = (KHRpfn_clRetainDevice)GET_ALIAS(clRetainDevice);
+    OclEntryPoints.clReleaseDevice = (KHRpfn_clReleaseDevice)GET_ALIAS(clReleaseDevice);
 
     /// Extra functions for Common Runtime
     OclEntryPoints.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);

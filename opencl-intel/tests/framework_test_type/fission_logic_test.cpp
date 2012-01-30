@@ -9,8 +9,8 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
-//| 2. Create sub devices with CL_DEVICE_PARTITION_EQUALLY_EXT property from the first sub device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
+//| 2. Create sub devices with CL_DEVICE_PARTITION_EQUALLY property from the first sub device.
 //| 3. Enqueue execution of 2 different kernels: first kernel on one sub device,
 //|    second kernel on the rest sub devices.
 //| 4. read and validate the results.
@@ -173,8 +173,72 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	clReleaseProgram(program);
 	return ((CL_SUCCESS == err)? true : false);
 }
-
+#include <iostream>
+using namespace std;
 bool fission_logic_test(){
+#if 0
+//fission start
+    cl_int status = CL_SUCCESS;
+
+    char deviceExtensions[512];
+
+	cl_device_id m_device_id;
+	cl_platform_id m_platform = 0;
+	clGetPlatformIDs(1, &m_platform, NULL);
+	clGetDeviceIDs(m_platform, CL_DEVICE_TYPE_CPU, 1, &m_device_id, NULL);
+
+    status = clGetDeviceInfo(m_device_id, CL_DEVICE_EXTENSIONS, 512, deviceExtensions, NULL);
+	if(!SilentCheck(L"clGetDeviceInfo 2 failed.(CL_DEVICE_EXTENSIONS)", CL_SUCCESS, status)) return false;
+
+    // Check if device fission is supported
+    if(!strstr(deviceExtensions, "cl_ext_device_fission"))
+    {
+        cout << "Device does not support cl_ext_device_fission extension!" << endl;
+        return false;
+    }
+
+	cl_device_partition_property partitionPrtyEq[3] =
+    {
+        CL_DEVICE_PARTITION_EQUALLY, 1, 0
+    };
+	cl_device_partition_property partitionPrtyAff[3] =
+    {
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT, CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT, 0
+    };
+
+	bool affinityFissionFlag = false;
+	std::vector<cl_device_id> subDevices;
+	std::vector<cl_command_queue> subCmdQueues;
+
+	size_t numSubDevices = 1;
+
+	status = clCreateSubDevices(m_device_id, partitionPrtyEq, 0, NULL, &numSubDevices);
+	if(!SilentCheck(L"clCreateSubDevices failed.", CL_SUCCESS, status))
+        return false;
+
+	subDevices.resize(numSubDevices);
+    //status = pfn_clCreateSubDevices(m_device_id, partitionPrtyEq, numSubDevices, &subDevices.front(), &numSubDevices); //NULL);
+	status = clCreateSubDevices(m_device_id, partitionPrtyEq, numSubDevices, &subDevices.front(), &numSubDevices); //NULL);
+    if(!SilentCheck(L"clCreateSubDevices failed.", CL_SUCCESS, status))
+        return false;
+
+    cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)m_platform, 0 };
+	// Create context for sub-devices, Setup sub-device cmd queues
+    cl_context subContext = clCreateContext(cps, numSubDevices, &subDevices.front(), NULL, NULL, &status);
+	if(!SilentCheck(L"clCreateContext failed.", CL_SUCCESS, status))
+        return false;
+
+    for(cl_uint i = 0; i < numSubDevices; i++)
+    {
+        // Create command queue 
+        subCmdQueues.push_back( clCreateCommandQueue(subContext, subDevices[i], 0, &status) );
+		if(!SilentCheck(L"clCreateCommandQueue failed.", CL_SUCCESS, status))
+			return false;
+    }
+//fission end
+
+	return true;
+#else
 	printf("---------------------------------------\n");
 	printf("fission logic test\n");
 	printf("---------------------------------------\n");
@@ -201,17 +265,17 @@ bool fission_logic_test(){
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 2;
 	cl_uint tot_num_devices = 0;
-	cl_device_partition_property_ext properties1[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 4, 2, CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
-	cl_device_partition_property_ext properties2[] = {CL_DEVICE_PARTITION_EQUALLY_EXT, 2, CL_PROPERTIES_LIST_END_EXT};
+	cl_device_partition_property properties1[] = {CL_DEVICE_PARTITION_BY_COUNTS, 4, 2, CL_DEVICE_PARTITION_BY_COUNTS_LIST_END, 0};
+	cl_device_partition_property properties2[] = {CL_DEVICE_PARTITION_EQUALLY, 2, 0};
 
-	err = clCreateSubDevicesEXT(device, properties1, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	err = clCreateSubDevices(device, properties1, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	tot_num_devices+= num_devices;
 
-	err = clCreateSubDevicesEXT(out_devices[0], properties2, num_entries, (out_devices + num_devices), &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	err = clCreateSubDevices(out_devices[0], properties2, num_entries, (out_devices + num_devices), &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	tot_num_devices+= num_devices;
@@ -261,7 +325,8 @@ bool fission_logic_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 	return bResult;;
+#endif
 }

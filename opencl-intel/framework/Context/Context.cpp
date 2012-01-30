@@ -116,6 +116,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     cl_uint curRoot = 0;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
+		ppDevices[ui]->AddedToContext();
 		m_mapDevices.AddObject(ppDevices[ui], false);
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
@@ -124,7 +125,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         {
             assert(curRoot < m_uiNumRootDevices);
             m_ppRootDevices[curRoot++] = ppDevices[ui]->GetRootDevice();
-			
         }
 		cl_bitfield devType = ppDevices[ui]->GetRootDevice()->GetDeviceType();
 		m_devTypeMask |= devType;
@@ -176,13 +176,11 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		{
             ppDevices[idx]->AddPendency(this);
         }
-			ppDevices[idx]->RegisterDeviceFissionObserver(this);
-		}
+	}
 	if ( CL_FAILED(ret) )
 	{
 		for(cl_uint ui=0; ui<idx; ++ui)
 		{
-			ppDevices[ui]->UnregisterDeviceFissionObserver(this);
 			if (m_ppAllDevices[ui]->IsRootLevelDevice())
 			{
 				m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
@@ -193,6 +191,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 			}
 
 	        m_mapDevices.RemoveObject(ppDevices[ui]->GetHandle());
+			ppDevices[ui]->RemovedFromContext();
 		}
 		*pclErr = ret;
 		return;
@@ -221,7 +220,6 @@ void Context::Cleanup( bool bTerminate )
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
 		// The pendency to the device implicitly removed by RemoveObject()
-        m_ppAllDevices[ui]->UnregisterDeviceFissionObserver(this);
         if (m_ppAllDevices[ui]->IsRootLevelDevice())
         {
             m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
@@ -231,6 +229,7 @@ void Context::Cleanup( bool bTerminate )
 			m_ppAllDevices[ui]->RemovePendency(this);
         }
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
+		m_ppAllDevices[ui]->RemovedFromContext();
 	}
 
 	if ( m_bTEActivated )
@@ -363,8 +362,6 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 {
 	LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%d, ppcStrings=%d, szLengths=%d, ppProgram=%d"), uiCount, ppcStrings, szLengths, ppProgram);
 
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
 	// check input parameters
 	if (NULL == ppProgram)
 	{
@@ -477,8 +474,6 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 {
 	LOG_DEBUG(TEXT("CreateProgramWithBinary enter. uiNumDevices=%d, pclDeviceList=%d, pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d, ppProgram=%d"), 
 		uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus, ppProgram);
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
 	
 	cl_err_code clErrRet = CL_SUCCESS;
 	
@@ -570,9 +565,6 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, szSize=%d, pHostPtr=%d, ppBuffer=%d)"), 
 		clFlags, szSize, pHostPtr, ppBuffer);
 
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-
 	assert ( NULL != ppBuffer );
 
 	cl_ulong ulMaxMemAllocSize = GetMaxMemAllocSize();
@@ -617,9 +609,6 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 	assert ( NULL != ppBuffer );
 
 
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-	
 	// Parameters check
 	if ( CL_BUFFER_CREATE_TYPE_REGION != buffer_create_type )
 	{
@@ -698,9 +687,6 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
         CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
         0 :
         0 == pClImageDesc->image_slice_pitch ? szPitchDim1 * pClImageDesc->image_height : pClImageDesc->image_slice_pitch;
-
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
 
     // flags and imageFormat are validated by Image2D and MemoryObject contained inside Image2DArray and hostPtr by MemoryObject::initialize.
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, pClImageDesc->image_type, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImageArr);
@@ -988,9 +974,6 @@ cl_err_code Context::GetSampler(cl_sampler clSamplerId, Sampler ** ppSampler)
 }
 FissionableDevice ** Context::GetDevices(cl_uint * puiNumDevices)
 {
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-
 	if (NULL != puiNumDevices)
 	{
 		*puiNumDevices = m_mapDevices.Count();
@@ -1009,9 +992,6 @@ Device** Context::GetRootDevices(cl_uint* puiNumDevices)
 
 cl_device_id * Context::GetDeviceIds(size_t * puiNumDevices)
 {
-    //Acquire a reader lock on the device map to prevent race with device fission
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
-
 	if (NULL != puiNumDevices)
 	{
 		*puiNumDevices = m_mapDevices.Count();
@@ -1021,7 +1001,6 @@ cl_device_id * Context::GetDeviceIds(size_t * puiNumDevices)
 
 cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
 {
-    OclAutoReader CS(&m_deviceDependentObjectsLock);
     FissionableDevice* pDevice;
     if (CL_SUCCESS != m_mapDevices.GetOCLObject((_cl_device_id_int*)id, (OCLObject<_cl_device_id_int>**)(&pDevice)))
     {
@@ -1035,90 +1014,6 @@ cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
     return pSubdevice->GetSubdeviceId();
 }
 
-cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
-{
-    cl_err_code ret = CL_SUCCESS;
-
-    // Prevent further accesses to device-specific objects
-    // This will block further calls to clCreate<MemObj> and clCreateProgramWithXXX
-    OclAutoWriter CS(&m_deviceDependentObjectsLock);
-
-    size_t prevNumDevices = m_mapDevices.Count();
-    cl_device_id* pNewDeviceIds = new cl_device_id[prevNumDevices + count];
-    if (NULL == pNewDeviceIds)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    FissionableDevice** pNewDevices = new FissionableDevice* [prevNumDevices + count];
-    if (NULL == pNewDeviceIds)
-    {
-        delete[] pNewDeviceIds;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    MEMCPY_S(pNewDeviceIds, sizeof(cl_device_id) * prevNumDevices, m_pDeviceIds, sizeof(cl_device_id) * prevNumDevices);
-    MEMCPY_S(pNewDevices, sizeof(FissionableDevice*) * prevNumDevices, m_ppAllDevices, sizeof(FissionableDevice*) * prevNumDevices);
-
-    for (size_t i = 0; i < count; ++i)
-    {
-		children[i]->AddPendency(this);
-        pNewDeviceIds[prevNumDevices + i] = children[i]->GetHandle();
-        pNewDevices[prevNumDevices + i]   = children[i];
-        m_mapDevices.AddObject(children[i], false);
-    }
-
-    delete m_pDeviceIds;
-    m_pDeviceIds = pNewDeviceIds;
-    delete[] m_ppAllDevices;
-    m_ppAllDevices = pNewDevices;
-
-    //Now, notify the dependents
-    cl_uint numMemObjects, numPrograms;
-    OCLObject<_cl_mem_int>** memObjs   = NULL;
-    OCLObject<_cl_program_int>** progs = NULL;
-
-    do //I have to iterate as it's possible another object will be added between querying for count and querying for objects
-    {
-        if (NULL != memObjs)
-        {
-            delete[] memObjs;
-        }
-        if (NULL != progs)
-        {
-            delete[] progs;
-        }
-
-        numMemObjects = m_mapMemObjects.Count();
-        numPrograms   = m_mapPrograms.Count();
-
-        //Todo: use local array here
-        memObjs       = new OCLObject<_cl_mem_int>*[numMemObjects];
-        progs         = new OCLObject<_cl_program_int>*[numPrograms];
-
-        assert(memObjs);
-        assert(progs);
-
-        ret  = m_mapMemObjects.GetObjects(numMemObjects, memObjs, NULL);
-        ret |= m_mapPrograms.GetObjects(numPrograms, progs, NULL);
-    } while (CL_SUCCESS != ret);
-
-    //Iterate over all programs and all memory objects and notify them of the new device
-    for (cl_uint i = 0; i < numMemObjects; ++i)
-    {
-		assert(NULL != dynamic_cast<MemoryObject*>(memObjs[i]));
-        MemoryObject* pMemObj = static_cast<MemoryObject*>(memObjs[i]);
-        
-        pMemObj->NotifyDeviceFissioned(parent, count, children);
-    }
-    for (cl_uint i = 0; i < numPrograms; ++i)
-    {
-        assert(NULL != dynamic_cast<Program*>(progs[i]));
-        Program* pProgram = static_cast<Program*>(progs[i]);
-        pProgram->NotifyDeviceFissioned(parent, count, children);
-    }
-    delete[] memObjs;
-    delete[] progs;
-    return CL_SUCCESS;
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CheckSupportedImageFormat
 ///////////////////////////////////////////////////////////////////////////////////////////////////

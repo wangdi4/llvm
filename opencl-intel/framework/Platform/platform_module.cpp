@@ -70,6 +70,14 @@ const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformN
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
+
+// Translation values for backwards compatability with 1.1 device fission
+cl_device_info translatePartitionSelectorExt(cl_device_info selector);
+cl_device_partition_property_ext translatePartitionProperty(cl_device_partition_property prop);
+cl_device_partition_property translatePartitionPropertyExt(cl_device_partition_property_ext prop);
+cl_device_info translatePartitionSelector(cl_device_info selector);
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::PlatformModule
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,6 +218,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
     {
 		LOG_CRITICAL(TEXT("%S"), TEXT("Failed to initialize devices compilers"));
     }
+
 	return clErr;
 
 }
@@ -530,6 +539,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		{
 			return CL_INVALID_DEVICE;
 		}
+		clParamName = translatePartitionSelectorExt(clParamName);
 		return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}
 
@@ -682,7 +692,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 }
 
 // Device Fission
-cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property_ext *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
+cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
 {
     OclAutoMutex CS(&m_deviceFissionMutex);
     cl_err_code ret; 
@@ -795,7 +805,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
     //Get the partitioning mode
     cl_int partitionMode = (cl_int)properties[0];
-    if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == partitionMode)
+    if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN == partitionMode)
     {
         partitionMode = (cl_int)properties[1];
     }
@@ -839,8 +849,6 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return ret;
     }
 
-    //Successful fission, tell the device it can notify the dependents
-    pParentDevice->NotifyDeviceFissioned(numSubdevicesToCreate, pNewDevices);
     delete[] pNewDevices;
     
     return CL_SUCCESS;
@@ -876,6 +884,185 @@ cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
     }
     return pDevice->Retain();
 }
+
+//Backwards compatability for 1.1
+
+cl_device_partition_property translatePartitionPropertyExt(cl_device_partition_property_ext prop)
+{
+	switch (prop)
+	{
+	case CL_DEVICE_PARTITION_EQUALLY_EXT:
+		return CL_DEVICE_PARTITION_EQUALLY;
+	case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
+		return CL_DEVICE_PARTITION_BY_COUNTS;
+	case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
+		return CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN;
+	case CL_AFFINITY_DOMAIN_L1_CACHE_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE;
+	case CL_AFFINITY_DOMAIN_L2_CACHE_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE;
+	case CL_AFFINITY_DOMAIN_L3_CACHE_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE;
+	case CL_AFFINITY_DOMAIN_L4_CACHE_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE;
+    case CL_AFFINITY_DOMAIN_NUMA_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+	case CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT:
+		return CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE;
+	default:
+		return (cl_device_partition_property)prop;
+	}
+}
+
+cl_device_partition_property_ext translatePartitionProperty(cl_device_partition_property prop)
+{
+	switch (prop)
+	{
+	case CL_DEVICE_PARTITION_EQUALLY:
+		return CL_DEVICE_PARTITION_EQUALLY_EXT;
+	case CL_DEVICE_PARTITION_BY_COUNTS:
+		return CL_DEVICE_PARTITION_BY_COUNTS_EXT;
+	case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN:
+		return CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT;
+	case CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE:
+		return CL_AFFINITY_DOMAIN_L1_CACHE_EXT;
+	case CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE:
+		return CL_AFFINITY_DOMAIN_L2_CACHE_EXT;
+	case CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE:
+		return CL_AFFINITY_DOMAIN_L3_CACHE_EXT;
+	case CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE:
+		return CL_AFFINITY_DOMAIN_L4_CACHE_EXT;
+    case CL_DEVICE_AFFINITY_DOMAIN_NUMA:
+		return CL_AFFINITY_DOMAIN_NUMA_EXT;
+	case CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE:
+		return CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT;
+	default:
+		return (cl_device_partition_property_ext)prop;
+	}
+}
+
+cl_device_info translatePartitionSelectorExt(cl_device_info selector)
+{
+	switch (selector)
+	{
+	case CL_DEVICE_PARENT_DEVICE_EXT:
+		return CL_DEVICE_PARENT_DEVICE;
+	case CL_DEVICE_PARTITION_TYPES_EXT:
+		return CL_DEVICE_PARTITION_PROPERTIES;
+	case CL_DEVICE_AFFINITY_DOMAINS_EXT:
+		return CL_DEVICE_PARTITION_AFFINITY_DOMAIN;
+	case CL_DEVICE_REFERENCE_COUNT_EXT:
+		return CL_DEVICE_REFERENCE_COUNT;
+	case CL_DEVICE_PARTITION_STYLE_EXT:
+		return CL_DEVICE_PARTITION_TYPE;
+	default:
+		return selector;
+	}
+}
+
+cl_device_info translatePartitionSelector(cl_device_info selector)
+{
+	switch (selector)
+	{
+	case CL_DEVICE_PARENT_DEVICE:
+		return CL_DEVICE_PARENT_DEVICE_EXT;
+	case CL_DEVICE_PARTITION_PROPERTIES:
+		return CL_DEVICE_PARTITION_TYPES_EXT;
+	case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
+		return CL_DEVICE_AFFINITY_DOMAINS_EXT;
+	case CL_DEVICE_REFERENCE_COUNT:
+		return CL_DEVICE_REFERENCE_COUNT_EXT;
+	case CL_DEVICE_PARTITION_TYPE:
+		return CL_DEVICE_PARTITION_STYLE_EXT;
+	default:
+		return selector;
+	}
+}
+
+cl_err_code PlatformModule::clReleaseDeviceEXT(cl_device_id device)
+{
+	return clReleaseDevice(device);
+}
+cl_err_code PlatformModule::clRetainDeviceEXT(cl_device_id device)
+{
+	return clRetainDevice(device);
+}
+
+cl_err_code PlatformModule::clCreateSubDevicesEXT(cl_device_id device, const cl_device_partition_property_ext *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
+{
+	//Need to translate property list 
+	if (NULL == properties)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+    FissionableDevice* pDevice;
+    cl_err_code ret = CL_SUCCESS;
+    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
+    if (CL_ERR_KEY_NOT_FOUND == ret)
+    {
+        return CL_INVALID_DEVICE;
+    }
+	if (pDevice->IsInContext())
+	{
+		return CL_DEVICE_PARTITION_FAILED_EXT;
+	}
+
+	//Count property list length
+	unsigned int uiPropLength = 0;
+	cl_device_partition_property_ext mode = properties[uiPropLength];
+	switch (mode)
+	{
+	case CL_DEVICE_PARTITION_EQUALLY_EXT:
+		//Expected: this token, the requested size, end
+		uiPropLength += 2;
+		break;
+
+	case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
+		//Expected: list of counts, CL_PARTITION_BY_COUNTS_LIST_END_EXT, end
+		++uiPropLength;
+		while (CL_PARTITION_BY_COUNTS_LIST_END_EXT != properties[uiPropLength])
+		{
+			++uiPropLength;
+		}
+		++uiPropLength;
+		break;
+
+	case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
+		//Expected: the desired domain, end
+		uiPropLength += 2;
+		break;
+
+	case CL_DEVICE_PARTITION_BY_NAMES_INTEL:
+		//Expected: list of core IDs, CL_PARTITION_BY_NAMES_LIST_END_INTEL, end
+		++uiPropLength;
+		while (CL_PARTITION_BY_NAMES_LIST_END_INTEL != properties[uiPropLength])
+		{
+			++uiPropLength;
+		}
+		++uiPropLength;
+		break;
+	}
+	if (CL_PROPERTIES_LIST_END_EXT != properties[uiPropLength])
+	{
+		return CL_INVALID_VALUE;
+	}
+	++uiPropLength;
+	cl_device_partition_property* newProp = new cl_device_partition_property[uiPropLength];
+	if (NULL == newProp)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+	for (unsigned int ui = 0; ui < uiPropLength; ++ui)
+	{
+		newProp[ui] = translatePartitionPropertyExt(properties[ui]);
+	}
+	ret = clCreateSubDevices(device, newProp, num_entries, out_devices, num_devices);
+	delete[] newProp;
+	return ret;
+}
+
 
 cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevice ** ppDevices, unsigned int count)
 {

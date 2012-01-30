@@ -72,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class MemoryObject : public OCLObject<_cl_mem_int>, public IDeviceFissionObserver
+	class MemoryObject : public OCLObject<_cl_mem_int>
 	{
 	public:
 

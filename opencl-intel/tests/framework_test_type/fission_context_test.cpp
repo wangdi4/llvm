@@ -10,7 +10,7 @@
 //| ------
 //|
 //| 1. Create context on the root device.
-//| 2. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
+//| 2. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
 //| 3. Release the context and the sub devices.
 //|
 //| Pass criteria
@@ -63,9 +63,9 @@ bool fission_context_test(){
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 0;
 
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, numComputeUnits - 1,CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, numComputeUnits - 1,0, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	fflush(stdout);
@@ -74,8 +74,8 @@ bool fission_context_test(){
 	if (!bResult)	return bResult;
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		err = clReleaseDeviceEXT(out_devices[i]);
-		bResult = SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
+		err = clReleaseDevice(out_devices[i]);
+		bResult = SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
 	}
 	printf("\n---------------------------------------\n");
 	printf("fission context test succeeded!\n");

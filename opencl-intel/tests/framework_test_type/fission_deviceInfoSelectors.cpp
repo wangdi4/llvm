@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY property from root device.
 //| 2. Check for support and correctness of all relevant "clGetDeviceInfo" selectors, for sub devices.
 //|
 //| Pass criteria
@@ -55,9 +55,9 @@ bool fission_deviceInfoSelectors_test(){
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 0;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY_EXT, 4, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY, 4, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_device_id param;
@@ -74,127 +74,128 @@ bool fission_deviceInfoSelectors_test(){
 		return false;
 	}
 
-	//CL_DEVICE_PARENT_DEVICE_EXT for sub device
-	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_PARENT_DEVICE_EXT, sizeof(cl_device_id), &param, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARENT_DEVICE for sub device
+	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_PARENT_DEVICE, sizeof(cl_device_id), &param, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	if (device != param)
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE\n");
 		printf("\t\texpected = 0x%x, result = 0x%x\n", device, param);
 		return false;
 	}
 
-	//CL_DEVICE_PARENT_DEVICE_EXT for root device
-	err = clGetDeviceInfo(device, CL_DEVICE_PARENT_DEVICE_EXT, sizeof(cl_device_id), &param, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARENT_DEVICE for root device
+	err = clGetDeviceInfo(device, CL_DEVICE_PARENT_DEVICE, sizeof(cl_device_id), &param, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	if (NULL != param)
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARENT_DEVICE\n");
 		printf("\t\texpected = 0x0, result = 0x%x\n", param);
 		return false;
 	}
 
-	//CL_DEVICE_PARTITION_TYPES_EXT
-	cl_device_partition_property_ext prop[20];
-	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_TYPES_EXT, 20*sizeof(cl_device_partition_property_ext), &prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPES_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARTITION_PROPERTIES
+	cl_device_partition_property prop[20];
+	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_PROPERTIES, 20*sizeof(cl_device_partition_property), &prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_PROPERTIES",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	if (1 > actual_size)
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPES_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_PROPERTIES\n");
 		printf("\t\texpected at least one supported property\n");
 		return false;
 	}
-	for (size_t i = 0; i < actual_size / sizeof(cl_device_partition_property_ext); i++)
+	for (size_t i = 0; i < actual_size / sizeof(cl_device_partition_property); i++)
 	{
 		switch (prop[i])
 		{
-		case CL_DEVICE_PARTITION_EQUALLY_EXT:
-		case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
-		case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
+		case CL_DEVICE_PARTITION_EQUALLY:
+		case CL_DEVICE_PARTITION_BY_COUNTS:
+		case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN:
+		case CL_DEVICE_PARTITION_BY_NAMES_INTEL: 
 			break;
 		default:
-			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPES_EXT\n");
+			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_PROPERTIES\n");
 			printf("\t\tinvalid property\n");
 			return false;
 		}
 	}
 
-	//CL_DEVICE_AFFINITY_DOMAINS_EXT
-	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_AFFINITY_DOMAINS_EXT, 20*sizeof(cl_device_partition_property_ext), &prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_AFFINITY_DOMAINS_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARTITION_AFFINITY_DOMAIN
+	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_AFFINITY_DOMAIN, 20*sizeof(cl_device_partition_property), &prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	for (size_t i = 0; i < actual_size; i++)
 	{
 		switch (prop[i])
 		{
-		case CL_AFFINITY_DOMAIN_NUMA_EXT:
+		case CL_DEVICE_AFFINITY_DOMAIN_NUMA:
 			break;
 		default:
-			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_AFFINITY_DOMAINS_EXT\n");
+			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN\n");
 			printf("\t\tinvalid property\n");
 			return false;
 		}
 	}
 
 	//CL_DEVICE_REFERENCE_COUNT_EXT for sub device
-	err = clRetainDeviceEXT(out_devices[0]);
-	bResult = SilentCheck(L"clRetainDeviceEXT",CL_SUCCESS,err);
+	err = clRetainDevice(out_devices[0]);
+	bResult = SilentCheck(L"clRetainDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_REFERENCE_COUNT_EXT, sizeof(cl_uint), &ref, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT",CL_SUCCESS,err);
+	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_REFERENCE_COUNT, sizeof(cl_uint), &ref, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	clReleaseDeviceEXT(out_devices[0]);
+	clReleaseDevice(out_devices[0]);
 
 	if (2 != ref)
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT\n");
 		printf("\t\texpected = 2, result = %d\n", ref);
 		return false;
 	}
 
-	//CL_DEVICE_REFERENCE_COUNT_EXT for root device
-	err = clRetainDeviceEXT(device);
-	bResult = SilentCheck(L"clRetainDeviceEXT",CL_SUCCESS,err);
+	//CL_DEVICE_REFERENCE_COUNT for root device
+	err = clRetainDevice(device);
+	bResult = SilentCheck(L"clRetainDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	err = clGetDeviceInfo(device, CL_DEVICE_REFERENCE_COUNT_EXT, sizeof(cl_uint), &ref, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT",CL_SUCCESS,err);
+	err = clGetDeviceInfo(device, CL_DEVICE_REFERENCE_COUNT, sizeof(cl_uint), &ref, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (1 != ref)
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT\n");
 		printf("\t\texpected = 1, result = %d\n", ref);
 		return false;
 	}
 
-	//CL_DEVICE_PARTITION_STYLE_EXT for root device
-	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_STYLE_EXT, 20*sizeof(cl_device_partition_property_ext), prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARTITION_TYPE for root device
+	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_TYPE, 20*sizeof(cl_device_partition_property), prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	if ((CL_PROPERTIES_LIST_END_EXT != prop[0]) || (1 != actual_size))
+	if ((0 != prop[0]) || (1 != actual_size))
 	{
-		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_STYLE_EXT\n");
+		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
 		printf("\t\texpected only one property: %d, result: %d properties - %d\n", properties[0], actual_size, prop[0]);
 		return false;
 	}
 
-	//CL_DEVICE_PARTITION_STYLE_EXT for sub device
-	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_PARTITION_STYLE_EXT, 20*sizeof(cl_device_partition_property_ext), prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_REFERENCE_COUNT_EXT",CL_SUCCESS,err);
+	//CL_DEVICE_PARTITION_TYPE for sub device
+	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_PARTITION_TYPE, 20*sizeof(cl_device_partition_property), prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	for (size_t i = 0; i < actual_size; i++)
 	{
 		if (prop[i] != properties[i])
 		{
-			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_STYLE_EXT\n");
+			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
 			printf("\t\texpected = %d, result = %d\n", properties[i], prop[i]);
 			return false;
 		}
@@ -205,7 +206,7 @@ bool fission_deviceInfoSelectors_test(){
 
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 
 	return bResult;

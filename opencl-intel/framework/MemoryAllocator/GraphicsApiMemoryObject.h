@@ -98,9 +98,6 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual bool IsSupportedByDevice(FissionableDevice* pDevice);
 
-        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count,
-            FissionableDevice** children);
-
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //

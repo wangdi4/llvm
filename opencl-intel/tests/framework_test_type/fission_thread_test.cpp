@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_EQUALLY property from root device.
 //| 2. Validate the number of compute units in the sub device.
 //| 3. Enqueue execution of a kernel on the sub device.
 //| 4. read the results.
@@ -110,9 +110,9 @@ bool fission_thread_test(){
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 2;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY_EXT, 2, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY, 2, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 
@@ -142,7 +142,7 @@ bool fission_thread_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 	return bResult;
 }

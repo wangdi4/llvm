@@ -84,9 +84,6 @@ cl_err_code Program::Build(cl_uint	    uiNumDevices,
 		return CL_INVALID_OPERATION;
 	}
 
-   // Acquire read access to the device program array to prevent device fission from switching it under our feet
-    OclAutoReader CS(&m_deviceProgramLock);
-
 	size_t* indices = new size_t[m_szNumAssociatedDevices];
 
 	if (uiNumDevices > 0)
@@ -227,9 +224,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	case CL_PROGRAM_DEVICES:
         {
-            //Prevent change in associated device by device fission during the query
-            OclAutoReader CS(&m_deviceProgramLock);
-
 		    szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
 		    clDevIds = new cl_device_id[m_szNumAssociatedDevices];
 		    if (!clDevIds)
@@ -246,7 +240,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	case CL_PROGRAM_BINARY_SIZES:
 		{
-            OclAutoReader CS(&m_deviceProgramLock);
 			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
 			if (NULL != param_value)
 			{
@@ -328,8 +321,6 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 		return CL_INVALID_VALUE;
 	}
 
-    OclAutoReader CS(&m_deviceProgramLock);
-
 	// check if there's a valid program binary already built for any device
     bool bAnyValid = false;
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
@@ -384,8 +375,6 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 {
 	LOG_DEBUG(TEXT("Enter CreateAllKernels (uiNumKernels=%d, pclKernels=%d, puiNumKernelsRet=%d"), 
 		uiNumKernels, pclKernels, puiNumKernelsRet);
-
-    OclAutoReader Cs(&m_deviceProgramLock);
 
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
@@ -527,7 +516,6 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_ui
 
 DeviceProgram* Program::GetDeviceProgram(cl_device_id clDeviceId)
 {
-    OclAutoReader CS(&m_deviceProgramLock);
     return InternalGetDeviceProgram(clDeviceId);
 }
 DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)

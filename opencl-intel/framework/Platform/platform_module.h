@@ -144,7 +144,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Device Fission support
         cl_err_code clCreateSubDevices(cl_device_id device,
-                                       const cl_device_partition_property_ext* properties,
+                                       const cl_device_partition_property* properties,
                                        cl_uint num_entries,
                                        cl_device_id* out_devices,
                                        cl_uint* num_devices);
@@ -153,6 +153,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code clRetainDevice(cl_device_id device);
 
+		//Backwards compatability
+        cl_err_code clReleaseDeviceEXT(cl_device_id device);
+        cl_err_code clRetainDeviceEXT(cl_device_id device);
+        cl_err_code clCreateSubDevicesEXT(cl_device_id device,
+                                          const cl_device_partition_property_ext* properties,
+                                          cl_uint num_entries,
+                                          cl_device_id* out_devices,
+                                          cl_uint* num_devices);
 		/******************************************************************************************
 		* Function: 	InitFECompiler
 		* Description:	Load OpenCL front-end compiler for the specific device.

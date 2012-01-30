@@ -91,6 +91,9 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT(clCreateSubDevicesEXT,clCreateSubDevicesEXT);
     REGISTER_DISPATCH_ENTRYPOINT(clReleaseDeviceEXT,clReleaseDeviceEXT);
     REGISTER_DISPATCH_ENTRYPOINT(clRetainDeviceEXT,clRetainDeviceEXT);
+    REGISTER_DISPATCH_ENTRYPOINT(clCreateSubDevices,clCreateSubDevices);
+    REGISTER_DISPATCH_ENTRYPOINT(clReleaseDevice,clReleaseDevice);
+    REGISTER_DISPATCH_ENTRYPOINT(clRetainDevice,clRetainDevice);
     REGISTER_DISPATCH_ENTRYPOINT(clWaitForEvents,clWaitForEvents);
     REGISTER_DISPATCH_ENTRYPOINT(clReleaseEvent,clReleaseEvent);
     REGISTER_DISPATCH_ENTRYPOINT(clRetainEvent,clRetainEvent);
@@ -134,11 +137,14 @@ crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDi
     if (origDispatchTable)
         *(origDispatchTable) = *(inDeviceId->dispatch);
 
-    inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateContext;
-    inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clGetDeviceInfo;
+    inDeviceId->dispatch->clCreateContext    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateContext;
+    inDeviceId->dispatch->clGetDeviceInfo    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clGetDeviceInfo;
     inDeviceId->dispatch->clCreateSubDevicesEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateSubDevicesEXT;
     inDeviceId->dispatch->clReleaseDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clReleaseDeviceEXT;
     inDeviceId->dispatch->clRetainDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clRetainDeviceEXT;
+    inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateSubDevices;
+    inDeviceId->dispatch->clReleaseDevice    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clReleaseDevice;
+    inDeviceId->dispatch->clRetainDevice     = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clRetainDevice;
     return CRT_SUCCESS;
 }
 

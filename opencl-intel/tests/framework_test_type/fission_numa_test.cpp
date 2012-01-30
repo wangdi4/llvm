@@ -10,7 +10,7 @@
 //| ------
 //|
 //| 1. Check that the device support NUMA partition.
-//| 2. Create sub devices with CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT, CL_AFFINITY_DOMAIN_NUMA_EXT property from root device.
+//| 2. Create sub devices with CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT, CL_DEVICE_AFFINITY_DOMAIN_NUMA property from root device.
 //|
 //| Pass criteria
 //| -------------
@@ -178,20 +178,20 @@ bool fission_numa_test(){
 
 	//check that we support NUMA
 	size_t actual_size;
-	cl_device_partition_property_ext prop[20];
-	err = clGetDeviceInfo(device, CL_DEVICE_AFFINITY_DOMAINS_EXT, 20*sizeof(cl_device_partition_property_ext), prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_AFFINITY_DOMAINS_EXT",CL_SUCCESS,err);
+	cl_device_partition_property prop[20];
+	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_AFFINITY_DOMAIN, 20*sizeof(cl_device_partition_property), prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	if (0 < actual_size && CL_AFFINITY_DOMAIN_NUMA_EXT == prop[0])
+	if (0 < actual_size && CL_DEVICE_AFFINITY_DOMAIN_NUMA == prop[0])
 	{
 	
 		cl_uint num_entries = 100;
 		cl_device_id out_devices[100];
 		cl_uint num_devices = 2;
-		cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT, CL_AFFINITY_DOMAIN_NUMA_EXT, CL_PROPERTIES_LIST_END_EXT};
-		err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-		bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+		cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, CL_DEVICE_AFFINITY_DOMAIN_NUMA, 0};
+		err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+		bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 		if (!bResult)	return bResult;
 		for (size_t i = 0; i < 2; i++)
 		{
@@ -199,7 +199,7 @@ bool fission_numa_test(){
 		}
 		for (size_t i = 0; i < num_devices; i++)
 		{
-			clReleaseDeviceEXT(out_devices[i]);
+			clReleaseDevice(out_devices[i]);
 		}
 		if (!bResult)
 		{

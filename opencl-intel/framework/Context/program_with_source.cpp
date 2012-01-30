@@ -102,7 +102,6 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 	case CL_PROGRAM_BINARIES:
 		{
-            OclAutoReader CS(&m_deviceProgramLock);
 			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
 			char ** pParamValue = static_cast<char **>(param_value);
 			// get  data
@@ -217,44 +216,4 @@ bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSo
 		m_pSourceStrings[ui][m_pszStringLengths[ui]] = 0; 
 	}
 	return true;
-}
-
-cl_err_code ProgramWithSource::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
-{
-    // Prevent further read access to device program map as we're about to relocate it
-    OclAutoWriter CS(&m_deviceProgramLock);
-
-    // Prepare new device program map
-    cl_uint szNewNumAssociatedDevices = m_szNumAssociatedDevices + (cl_uint)count;
-    DeviceProgram** ppNewDevicesPrograms = new DeviceProgram*[szNewNumAssociatedDevices];
-    if (NULL == ppNewDevicesPrograms)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    MEMCPY_S(ppNewDevicesPrograms, sizeof(DeviceProgram*) * m_szNumAssociatedDevices, m_ppDevicePrograms, sizeof(DeviceProgram*) * m_szNumAssociatedDevices);
-
-    // Get the device program to be cloned
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(parent->GetHandle());
-    assert(pDeviceProgram);
-
-    for (size_t i = 0; i < count; ++i)
-    {
-        DeviceProgram* pNewDeviceProgram = new DeviceProgram(*pDeviceProgram);
-        if (NULL == pNewDeviceProgram)
-        {
-            for (size_t j = 0; j < i; ++j)
-            {
-                delete ppNewDevicesPrograms[m_szNumAssociatedDevices + j];
-            }
-            delete[] ppNewDevicesPrograms;
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-        ppNewDevicesPrograms[m_szNumAssociatedDevices + i] = pNewDeviceProgram;
-    }
-
-    m_szNumAssociatedDevices = szNewNumAssociatedDevices;
-    delete[] m_ppDevicePrograms;
-    m_ppDevicePrograms = ppNewDevicesPrograms;
-
-    return CL_SUCCESS;
 }

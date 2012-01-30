@@ -92,8 +92,6 @@ cl_err_code ProgramWithBinary::GetInfo(cl_int param_name, size_t param_value_siz
 	{
 	case CL_PROGRAM_BINARIES:
 		{
-            OclAutoReader CS(&m_deviceProgramLock);
-
 			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
 			char ** pParamValue = static_cast<char **>(param_value);
 			// get  data

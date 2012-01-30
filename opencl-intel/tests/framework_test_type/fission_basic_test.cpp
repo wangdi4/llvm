@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
 //| 2. Validate the number of compute units in the sub device.
 //| 3. Enqueue execution of a kernel on the sub device.
 //| 4. read the results.
@@ -178,20 +178,20 @@ bool fission_basic_test(){
 		return true;
 	}
 
-	err = clRetainDeviceEXT(device);
-	bResult = SilentCheck(L"clRetainDeviceEXT",CL_SUCCESS,err);
+	err = clRetainDevice(device);
+	bResult = SilentCheck(L"clRetainDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	err = clReleaseDeviceEXT(device);
-	bResult = SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
+	err = clReleaseDevice(device);
+	bResult = SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 2;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 2, 1, CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 2, 1, 0, 0};
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint param;
@@ -261,7 +261,7 @@ bool fission_basic_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDeviceEXT(out_devices[i]);
+		clReleaseDevice(out_devices[i]);
 	}
 	return bResult;
 }

@@ -31,8 +31,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    class FissionableDevice;
-
     // Pure interface class 
 	// implement this interface if you want to be notified when program build process was finished
 	// in order to register the observer, call BuildProgram method in Device object
@@ -63,16 +61,5 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~ICmdStatusChangedObserver(){}; // Virtual D'tor
 	};
-
-    // Pure interface class 
-    // implement this interface if you want to be notified when a device has been fissioned
-    class IDeviceFissionObserver
-    {
-    public:
-        // Notifies that device <parent> now has <count> children with ids <child_ids>
-        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children) = 0;
-        virtual ~IDeviceFissionObserver() {}
-    };
-
 }}}    // Intel::OpenCL::Framework
 

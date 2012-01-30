@@ -92,7 +92,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
     cl_uint      one              = 1;
     const cl_bool clFalse         = CL_FALSE;
     
-    cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
+    cl_device_partition_property emptyList[] = { 0 }; 
 	const void * pValue = NULL;
 
 	switch (param_name)
@@ -107,18 +107,17 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 		pValue = &m_hHDC;
 		break;
 
-    case CL_DEVICE_PARENT_DEVICE_EXT:
+    case CL_DEVICE_PARENT_DEVICE:
         szParamValueSize = sizeof(cl_device_id);
         pValue = &zeroHandle;
         break;
 
-    case CL_DEVICE_REFERENCE_COUNT_EXT:
+    case CL_DEVICE_REFERENCE_COUNT:
         szParamValueSize = sizeof(cl_uint);
         pValue           = &one;
         break;
 
-    case CL_DEVICE_PARTITION_STYLE_EXT:
-        //szParamValueSize = sizeof(emptyList);
+    case CL_DEVICE_PARTITION_TYPE:
         szParamValueSize = 1;
         pValue           = &emptyList;
         break;
@@ -158,7 +157,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	if (NULL != param_value && szParamValueSize > 0)
 	{
         //hack but the units defined for CL_DEVICE_PARTITION_STYLE_EXT are entries in the list
-        if (CL_DEVICE_PARTITION_STYLE_EXT == param_name)
+        if (CL_DEVICE_PARTITION_TYPE == param_name)
         {
             szParamValueSize = sizeof(emptyList);
         }
@@ -381,7 +380,7 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 	return;
 }
 
-cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
+cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)
 {
     cl_err_code ret = CL_SUCCESS;
     cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
@@ -389,11 +388,11 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
     cl_dev_partition_prop partitionMode;
     switch (props[0])
     {
-    case CL_DEVICE_PARTITION_EQUALLY_EXT:
+    case CL_DEVICE_PARTITION_EQUALLY:
         partitionMode = CL_DEV_PARTITION_EQUALLY;
         break;
 
-    case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
+    case CL_DEVICE_PARTITION_BY_COUNTS:
         partitionMode = CL_DEV_PARTITION_BY_COUNTS;
         break;
 
@@ -401,30 +400,30 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
         partitionMode = CL_DEV_PARTITION_BY_NAMES;
         break;
 
-    case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
+    case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN:
         switch (props[1])
         {
-        case CL_AFFINITY_DOMAIN_L1_CACHE_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE:
             partitionMode = CL_DEV_PARTITION_AFFINITY_L1;
             break;
 
-        case CL_AFFINITY_DOMAIN_L2_CACHE_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE:
             partitionMode = CL_DEV_PARTITION_AFFINITY_L2;
             break;
 
-        case CL_AFFINITY_DOMAIN_L3_CACHE_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE:
             partitionMode = CL_DEV_PARTITION_AFFINITY_L3;
             break;
 
-        case CL_AFFINITY_DOMAIN_L4_CACHE_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE:
             partitionMode = CL_DEV_PARTITION_AFFINITY_L4;
             break;
 
-        case CL_AFFINITY_DOMAIN_NUMA_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_NUMA:
             partitionMode = CL_DEV_PARTITION_AFFINITY_NUMA;
             break;
 
-        case CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT:
+        case CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE:
             partitionMode = CL_DEV_PARTITION_AFFINITY_NEXT;
             break;
 
@@ -442,9 +441,8 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
     {
         std::vector<size_t> partitionSizes;
         size_t partitionIndex = 1;
-        while (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex])
+        while (0 != props[partitionIndex])
         {
-            assert((size_t)~0 >= props[partitionIndex]);
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
         if (NULL != sizes)
@@ -464,9 +462,8 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
     }
     else if (CL_DEV_PARTITION_EQUALLY == partitionMode)
     {
-        assert((size_t)~0 >= props[1]);
         size_t partitionSize = (size_t)props[1];
-        if (CL_PROPERTIES_LIST_END_EXT != props[2])
+        if (0 != props[2])
         {
             return CL_INVALID_PROPERTY;
         }
@@ -487,12 +484,11 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
     {
         std::vector<size_t> requestedUnits;
         size_t partitionIndex = 1;
-        while (CL_PARTITION_BY_NAMES_LIST_END_INTEL != props[partitionIndex])
+        while ((cl_device_partition_property)CL_PARTITION_BY_NAMES_LIST_END_INTEL != props[partitionIndex])
         {
-            assert(props[partitionIndex] <= (size_t)-1);
             requestedUnits.push_back((size_t)props[partitionIndex++]);
         }
-		if (CL_PROPERTIES_LIST_END_EXT != props[partitionIndex + 1])
+		if (0 != props[partitionIndex + 1])
 		{
 			return CL_INVALID_VALUE;
 		}
@@ -525,38 +521,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property_
         //Unsupported fission mode
         return CL_INVALID_PROPERTY;
     }
-    return CL_DEVICE_PARTITION_FAILED_EXT;
-}
-
-cl_err_code FissionableDevice::RegisterDeviceFissionObserver(Intel::OpenCL::Framework::IDeviceFissionObserver *ob)
-{
-    OclAutoMutex CS(&m_fissionObserverListMutex);
-    m_fissionObserverList.push_back(ob);
-    return CL_SUCCESS;
-}
-
-void FissionableDevice::UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob)
-{
-    OclAutoMutex CS(&m_fissionObserverListMutex);
-    std::list<IDeviceFissionObserver*>::iterator it = m_fissionObserverList.begin();
-    while (it != m_fissionObserverList.end())
-    {
-        if (ob == *it)
-        {
-            m_fissionObserverList.erase(it);
-            return;
-        }
-        ++it;
-    }
-}
-
-void FissionableDevice::NotifyDeviceFissioned(cl_uint numChildren, FissionableDevice** children)
-{
-    OclAutoMutex CS(&m_fissionObserverListMutex);
-    for (std::list<IDeviceFissionObserver*>::iterator it = m_fissionObserverList.begin(); it != m_fissionObserverList.end(); ++it)
-    {
-        (*it)->NotifyDeviceFissioned(this, numChildren, children);
-    }
+    return CL_DEVICE_PARTITION_FAILED;
 }
 
 bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const
@@ -586,8 +551,7 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     delete[] pFormats;
     return bSupported;
 }
-
-SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints) : 
+SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props, ocl_entry_points * pOclEntryPoints) : 
 m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
@@ -635,7 +599,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         break;
 
     //Todo: handle these
-    case CL_DEVICE_PARENT_DEVICE_EXT:
+    case CL_DEVICE_PARENT_DEVICE:
         szParamValueSize = sizeof(cl_device_id);
         clDevIdVal = m_pParentDevice->GetHandle();
         pValue = &clDevIdVal;
@@ -643,13 +607,13 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
 
     //CL_DEVICE_PARTITION_TYPES_EXT and CL_DEVICE_AFFINITY_DOMAINS_EXT handled on root-level device
 
-    case CL_DEVICE_REFERENCE_COUNT_EXT:
+    case CL_DEVICE_REFERENCE_COUNT:
         szParamValueSize = sizeof(cl_uint);
         pValue = &m_uiRefCount;
         break;
 
-    case CL_DEVICE_PARTITION_STYLE_EXT:
-        szParamValueSize = m_cachedFissionLength;// * sizeof(cl_device_partition_property_ext);
+    case CL_DEVICE_PARTITION_TYPE:
+        szParamValueSize = m_cachedFissionLength;// * sizeof(cl_device_partition_property);
         pValue = m_cachedFissionMode;
         break;
 
@@ -671,9 +635,9 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     }
 
     //Hack, but spec defines the "size" as the size of the list
-    if (CL_DEVICE_PARTITION_STYLE_EXT == param_name)
+    if (CL_DEVICE_PARTITION_TYPE == param_name)
     {
-        szParamValueSize *= sizeof(cl_device_partition_property_ext);
+        szParamValueSize *= sizeof(cl_device_partition_property);
     }
 
     if (NULL != param_value && szParamValueSize > 0)
@@ -682,29 +646,29 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     }
     return CL_SUCCESS;
 }
-void SubDevice::CacheFissionProperties(const cl_device_partition_property_ext* props)
+void SubDevice::CacheFissionProperties(const cl_device_partition_property* props)
 {
     m_cachedFissionLength = 0;
     //Todo: don't copy the partition properties for every sub-device, keep it in the parent
     if (props)
     {
         m_fissionMode = (cl_int)props[0];
-        if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT == m_fissionMode)
+        if (CL_DEVICE_PARTITION_AFFINITY_DOMAIN == m_fissionMode)
         {
             m_fissionMode = (cl_int)props[1];
         }
 
         //Ninja-style is still the most readable here, I think
-        while (props[m_cachedFissionLength++] != CL_PROPERTIES_LIST_END_EXT)
+        while (props[m_cachedFissionLength++] != 0)
         {
             //Nothing, I'm just counting the property list length 
         }
-        m_cachedFissionMode = new cl_device_partition_property_ext[m_cachedFissionLength];
+        m_cachedFissionMode = new cl_device_partition_property[m_cachedFissionLength];
         if (NULL == m_cachedFissionMode)
         {
             //Todo: what?
             return;
         }
-        MEMCPY_S(m_cachedFissionMode, m_cachedFissionLength * sizeof(cl_device_partition_property_ext), props, m_cachedFissionLength * sizeof(cl_device_partition_property_ext));
+        MEMCPY_S(m_cachedFissionMode, m_cachedFissionLength * sizeof(cl_device_partition_property), props, m_cachedFissionLength * sizeof(cl_device_partition_property));
     }
 }

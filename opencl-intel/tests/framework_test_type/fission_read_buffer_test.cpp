@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
+//| 1. Create sub devices with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
 //| 2. Create two buffers
 //| 3. Write to the first buffer on the sub-device and read from the second
 //| 4. Verify the second buffer was updated
@@ -49,9 +49,9 @@ bool fission_read_buffer_test()
 
 	cl_uint num_entries = 1;
 	cl_uint num_devices = 1;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 1,CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
-	err = clCreateSubDevicesEXT(devices[0], properties, num_entries, devices + 1, &num_devices);
-	bResult &= SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1,0, 0};
+	err = clCreateSubDevices(devices[0], properties, num_entries, devices + 1, &num_devices);
+	bResult &= SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init context
@@ -65,7 +65,7 @@ bool fission_read_buffer_test()
 	if (!bResult)
     {
 		clReleaseContext(context);
-		clReleaseDeviceEXT(devices[1]);
+		clReleaseDevice(devices[1]);
 		return bResult;
 	}	
 	
@@ -78,7 +78,7 @@ bool fission_read_buffer_test()
 	{
 		clReleaseCommandQueue(cmd_queue);
 		clReleaseContext(context);
-		clReleaseDeviceEXT(devices[1]);
+		clReleaseDevice(devices[1]);
 		return bResult;
 	}
 
@@ -90,7 +90,7 @@ bool fission_read_buffer_test()
     clReleaseMemObject(buf);
 	clReleaseCommandQueue(cmd_queue);
 	clReleaseContext(context);
-	clReleaseDeviceEXT(devices[1]);
+	clReleaseDevice(devices[1]);
 	if (!bResult) return bResult;
 	
 	return data[0] == data[1];

@@ -56,54 +56,54 @@ bool fission_subdivision_test()
 		return true;
 	}
     size_t actual_size;
-	cl_device_partition_property_ext prop[20];
-	err = clGetDeviceInfo(device, CL_DEVICE_AFFINITY_DOMAINS_EXT, 20*sizeof(cl_device_partition_property_ext), prop, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_AFFINITY_DOMAINS_EXT",CL_SUCCESS,err);
+	cl_device_partition_property prop[20];
+	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_AFFINITY_DOMAIN, 20*sizeof(cl_device_partition_property), prop, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	bool bHasNuma = (0 < actual_size && CL_AFFINITY_DOMAIN_NUMA_EXT == prop[0]);
+	bool bHasNuma = (0 < actual_size && CL_DEVICE_AFFINITY_DOMAIN_NUMA == prop[0]);
 
 	cl_uint next_subdevice_index = 0;
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
 	cl_uint num_devices = 1;
-	cl_device_partition_property_ext properties[100];
+	cl_device_partition_property properties[100];
 
 
     //First test: attempt to create a device that's the entire parent. This should fail.
-	properties[0] = CL_DEVICE_PARTITION_EQUALLY_EXT;
+	properties[0] = CL_DEVICE_PARTITION_EQUALLY;
 	properties[1] = numComputeUnits;
-	properties[2] = CL_PROPERTIES_LIST_END_EXT;
+	properties[2] = 0;
 
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - attempt to create a subdevice equal to a root level device",CL_DEVICE_PARTITION_FAILED_EXT,err);
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - attempt to create a subdevice equal to a root level device",CL_DEVICE_PARTITION_FAILED,err);
 	if (!bResult)	return bResult;
 
 	//Create a sub-device of the root level device
 	properties[1] = numComputeUnits - 1;
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - attempt to create a subdevice with one less compute unit",CL_SUCCESS,err);
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - attempt to create a subdevice with one less compute unit",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	++next_subdevice_index;
 
 	//Second test: attempt to get a one-sized sub-device of the parent device
-	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS_EXT;
+	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
 	properties[1] = 1;
-	properties[2] = CL_PARTITION_BY_COUNTS_LIST_END_EXT;
-	properties[3] = CL_PROPERTIES_LIST_END_EXT;
-	err = clCreateSubDevicesEXT(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - attempt to create a child of a sub-device with one compute unit",CL_SUCCESS,err);
+	properties[2] = 0;
+	properties[3] = 0;
+	err = clCreateSubDevices(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - attempt to create a child of a sub-device with one compute unit",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	++next_subdevice_index;
 
 	if (bHasNuma)
 	{
 		//Third test: attempt to create a sub-device of the parent containing a single NUMA node
-    	properties[0] = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT;
-	    properties[1] = CL_AFFINITY_DOMAIN_NUMA_EXT;
-	    properties[2] = CL_PROPERTIES_LIST_END_EXT;
-		err = clCreateSubDevicesEXT(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
-		bResult = SilentCheck(L"clCreateSubDevicesEXT - attempt to create a child that's a numa node",CL_SUCCESS,err);
+    	properties[0] = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN;
+	    properties[1] = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+	    properties[2] = 0;
+		err = clCreateSubDevices(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
+		bResult = SilentCheck(L"clCreateSubDevices - attempt to create a child that's a numa node",CL_SUCCESS,err);
 		if (!bResult)	return bResult;
 
 		++next_subdevice_index;
@@ -113,31 +113,31 @@ bool fission_subdivision_test()
 	properties[0] = CL_DEVICE_PARTITION_BY_NAMES_INTEL;
 	properties[1] = 0;
 	properties[2] = CL_PARTITION_BY_NAMES_LIST_END_INTEL;
-	properties[3] = CL_PROPERTIES_LIST_END_EXT;
-	err = clCreateSubDevicesEXT(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - attempt to create a BY_NAMES child of a BY_COUNTS subdevice",CL_DEVICE_PARTITION_FAILED_EXT,err);
+	properties[3] = 0;
+	err = clCreateSubDevices(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - attempt to create a BY_NAMES child of a BY_COUNTS subdevice",CL_DEVICE_PARTITION_FAILED,err);
 	if (!bResult)	return bResult;
 
 	//Release devices acquired in the previous phase of testing
 	for (unsigned int subdevice = 0; subdevice < next_subdevice_index; ++subdevice)
 	{
-		err      = clReleaseDeviceEXT(out_devices[subdevice]);
-		bResult &= SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
+		err      = clReleaseDevice(out_devices[subdevice]);
+		bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
 	}
 	if (!bResult) return bResult;
 	next_subdevice_index = 0;
 
 	//Create two sub-devices that must alias compute units
 	num_devices   = 1;
-	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS_EXT;
+	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
 	properties[1] = (numComputeUnits / 2) + 1;
-	properties[2] = CL_PARTITION_BY_COUNTS_LIST_END_EXT;
-	properties[3] = CL_PROPERTIES_LIST_END_EXT;
-	err = clCreateSubDevicesEXT(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - create a device with more than half the compute units",CL_SUCCESS,err);
+	properties[2] = 0;
+	properties[3] = 0;
+	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - create a device with more than half the compute units",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
-	err = clCreateSubDevicesEXT(device, properties, num_entries - 1, out_devices + 1, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT - create a device with more than half the compute units",CL_SUCCESS,err);
+	err = clCreateSubDevices(device, properties, num_entries - 1, out_devices + 1, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices - create a device with more than half the compute units",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a context with the two sub-devices
@@ -160,10 +160,10 @@ bool fission_subdivision_test()
 	bResult &= SilentCheck(L"clReleaseCommandQueue",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
 	bResult &= SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
-	err      = clReleaseDeviceEXT(out_devices[0]);
-	bResult &= SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
-	err      = clReleaseDeviceEXT(out_devices[1]);
-	bResult &= SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
+	err      = clReleaseDevice(out_devices[0]);
+	bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
+	err      = clReleaseDevice(out_devices[1]);
+	bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
 
 	if (!bResult) return bResult;
 

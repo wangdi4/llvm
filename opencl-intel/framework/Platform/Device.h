@@ -41,7 +41,6 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Froward declarations
-    class IDeviceFissionObserver;
 	class FrontEndCompiler;
     class Device;
 
@@ -58,16 +57,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         FissionableDevice() : OCLObject<_cl_device_id_int>("FissionableDevice"), m_pD3D9Device(NULL) {}
 
-        cl_err_code RegisterDeviceFissionObserver(IDeviceFissionObserver* ob); 
-        void        UnregisterDeviceFissionObserver(IDeviceFissionObserver* ob);
-
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
-        virtual cl_err_code FissionDevice(const cl_device_partition_property_ext* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
-
-        virtual void NotifyDeviceFissioned(cl_uint numChildren, FissionableDevice** children);
-
-        //Currently not implemented
-        virtual void NotifyDeviceReleased(cl_device_id device) {}
+        virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
 
         // An API to get the root-level device of deriving subclasses
         virtual Device*     GetRootDevice() = 0;
@@ -81,6 +72,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
         virtual const IOCLDeviceAgent* GetDeviceAgent() const = 0;
+		void AddedToContext()     { m_numContexts++; }
+		void RemovedFromContext() { m_numContexts--; }
+		bool IsInContext() const  { return m_numContexts > 0; }
 
 #if defined (DX9_MEDIA_SHARING)
         /**
@@ -136,9 +130,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     protected:
         ~FissionableDevice() {}
 
-        Utils::OclSpinMutex                     m_fissionObserverListMutex;
-
-        std::list<IDeviceFissionObserver*>      m_fissionObserverList;
+		Intel::OpenCL::Utils::AtomicCounter m_numContexts;
 
     private:
 
@@ -330,7 +322,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class SubDevice : public FissionableDevice
     {
     public:
-        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property_ext* props, ocl_entry_points * pOclEntryPoints);
+        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props, ocl_entry_points * pOclEntryPoints);
 
         /******************************************************************************************
         * Function: 	GetInfo
@@ -362,7 +354,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     protected:
         ~SubDevice(); 
 
-        void CacheFissionProperties(const cl_device_partition_property_ext* props); 
+        void CacheFissionProperties(const cl_device_partition_property* props); 
 
         Device*             m_pRootDevice;
         FissionableDevice*  m_pParentDevice;   // Can be a sub-device or a device 
@@ -370,8 +362,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t              m_numComputeUnits; // The amount of compute units represented by this sub-device
         cl_int              m_fissionMode;     // The fission mode that created this sub-device
 
-        cl_device_partition_property_ext* m_cachedFissionMode;   // A copy of the property list used to create this device
-        cl_uint                           m_cachedFissionLength; // How many entries the list contains
+        cl_device_partition_property* m_cachedFissionMode;   // A copy of the property list used to create this device
+        cl_uint                       m_cachedFissionLength; // How many entries the list contains
     };
 
 

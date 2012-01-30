@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Kernel;
 	class Context;
 
-	class Program : public OCLObject<_cl_program_int>, IDeviceFissionObserver
+	class Program : public OCLObject<_cl_program_int>
 	{
 
 	public:
@@ -77,21 +77,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Implement the common queries. Specific queries like binaries or source go to implementing classes
 		virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
-        // Called by the context when a device is fissioned
-        // Left virtual as implementation is different for programs created from source and ones created from binaries
-        virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children) = 0;
-
 	protected:
 		virtual ~Program();
 
 		DeviceProgram* GetDeviceProgram(cl_device_id clDeviceId);
         DeviceProgram* InternalGetDeviceProgram(cl_device_id clDeviceId);
 
-		Context*       m_pContext;
+		Context*        m_pContext;
 		DeviceProgram** m_ppDevicePrograms;
 		cl_uint         m_szNumAssociatedDevices;
-
-        mutable Utils::OclReaderWriterLock m_deviceProgramLock;
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
 

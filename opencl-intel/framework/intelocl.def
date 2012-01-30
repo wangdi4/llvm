@@ -88,6 +88,9 @@ EXPORTS
 	clReleaseDeviceEXT
 	clRetainDeviceEXT
 	clCreateSubDevicesEXT	
+	clReleaseDevice
+	clRetainDevice
+	clCreateSubDevices	
 	clCreateFromDX9MediaSurfaceINTEL	
 	clEnqueueAcquireDX9ObjectsINTEL
 	clEnqueueReleaseDX9ObjectsINTEL

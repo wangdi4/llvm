@@ -9,7 +9,7 @@
 //| Method
 //| ------
 //|
-//| 1. Create a sub device with CL_DEVICE_PARTITION_BY_COUNTS_EXT property from root device.
+//| 1. Create a sub device with CL_DEVICE_PARTITION_BY_COUNTS property from root device.
 //| 2. Create two command queues on the sub-device. 
 //| 3. Execute a kernel on the first command queue and release it. Do the same for the second command queue.
 //| 4. read the results.
@@ -59,13 +59,13 @@ bool fission_two_queues_test()
     	printf("Not enough compute units to create sub-device, tast passing vacuously\n");
 		return true;
 	}
-	cl_device_id                     subdevice_id;
-	cl_uint                          num_entries  = 1;
-	cl_uint                          num_devices  = 1;
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 1, CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
+	cl_device_id                 subdevice_id;
+	cl_uint                      num_entries  = 1;
+	cl_uint                      num_devices  = 1;
+	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1, 0, 0};
 
-	err = clCreateSubDevicesEXT(device, properties, num_entries, &subdevice_id, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevicesEXT",CL_SUCCESS,err);
+	err = clCreateSubDevices(device, properties, num_entries, &subdevice_id, &num_devices);
+	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a context with the sub-device
@@ -171,8 +171,8 @@ bool fission_two_queues_test()
 	bResult &= SilentCheck(L"clReleaseMemObject",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
 	bResult &= SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
-	err      = clReleaseDeviceEXT(subdevice_id);
-	bResult &= SilentCheck(L"clReleaseDeviceEXT",CL_SUCCESS,err);
+	err      = clReleaseDevice(subdevice_id);
+	bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
 
 	if (bResult)
 	{

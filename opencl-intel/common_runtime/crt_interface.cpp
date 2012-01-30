@@ -3355,9 +3355,89 @@ cl_int CL_API_CALL clReleaseKernel( cl_kernel kernel )
     return errCode;
 }
 
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL updateAddedDevicesInfo(
+    CrtDeviceInfo*                              parentDevInfo,        
+    const cl_device_id*                         out_devices,
+    cl_uint                                     num_devices)
+{
+    cl_int errCode = CL_SUCCESS;
+     // Tracks number of additions to m_deviceInfoMapGuard
+    cl_uint numProcessed = 0;
+
+    for (cl_uint i=0; i< num_devices; i++)
+    {
+        cl_device_id dev = out_devices[i];
+        CrtDeviceInfo* devInfo = new CrtDeviceInfo;
+        if( NULL == devInfo )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            break;
+        }            
+        *( devInfo ) = *parentDevInfo;
+        devInfo->m_refCount = 1;
+        devInfo->m_devType = parentDevInfo->m_devType;
+        // This is a sub-device
+        devInfo->m_isRootDevice = false;
+        // Patch new created device IDs. some platforms don't use the same table
+        // for all handles (gpu), so we need to call Patch for each new created handle
+        OCLCRT::crt_ocl_module.PatchClDeviceID(dev, NULL);
+        OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Add(dev,devInfo);
+        numProcessed++;
+    }
+
+    if (CL_SUCCESS != errCode)
+    {            
+        for (cl_uint i=0; i < numProcessed; i++)
+        {
+            CrtDeviceInfo* pDevInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(out_devices[i]);
+            if( pDevInfo )
+            {                        
+                delete pDevInfo;
+            }
+            OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Remove(out_devices[i]);
+        }            
+    }   
+    return errCode;
+}
 
 /// ------------------------------------------------------------------------------
 ///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clCreateSubDevices(
+    cl_device_id                                device,
+    const cl_device_partition_property*         properties,
+    cl_uint                                     num_entries,
+    cl_device_id*                               out_devices,
+    cl_uint*                                    num_devices)
+{
+    cl_int errCode = CL_SUCCESS;
+
+    CrtDeviceInfo* parentDevInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
+    if (!parentDevInfo)
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    errCode = parentDevInfo->m_origDispatchTable.clCreateSubDevices(
+                device,
+                properties,
+                num_entries,
+                out_devices,
+                num_devices);
+
+    if ((CL_SUCCESS == errCode) && (NULL != out_devices))
+    {
+        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, *num_devices );            
+    }
+    return errCode;
+}
+
+
+/// ------------------------------------------------------------------------------
+/// EXT version for backwards compatability
 /// ------------------------------------------------------------------------------
 cl_int CL_API_CALL clCreateSubDevicesEXT(
     cl_device_id                                device,
@@ -3367,7 +3447,6 @@ cl_int CL_API_CALL clCreateSubDevicesEXT(
     cl_uint*                                    num_devices)
 {
     cl_int errCode = CL_SUCCESS;
-    CrtDeviceInfo** pDevicesInfo  = NULL;
 
     CrtDeviceInfo* parentDevInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
     if (!parentDevInfo)
@@ -3382,62 +3461,16 @@ cl_int CL_API_CALL clCreateSubDevicesEXT(
                 out_devices,
                 num_devices);
 
-    if( ( CL_SUCCESS == errCode ) &&
-        ( out_devices ) )
-    {
-        pDevicesInfo = new CrtDeviceInfo*[*num_devices];
-        if( NULL == pDevicesInfo )
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            return errCode;
-        }
-        for( cl_uint i=0; i < *num_devices; i++ )
-        {
-            pDevicesInfo[i] = NULL;
-        }
-        for( cl_uint i=0; i< *num_devices; i++ )
-        {
-            cl_device_id dev = out_devices[i];
-            pDevicesInfo[i] = new CrtDeviceInfo;
-            if (NULL == pDevicesInfo[i])
-            {
-                errCode = CL_OUT_OF_HOST_MEMORY;
-                break;
-            }
-            *(pDevicesInfo[i]) = *parentDevInfo;
-            pDevicesInfo[i]->m_refCount = 1;
-            pDevicesInfo[i]->m_devType = parentDevInfo->m_devType;
-            // This is a sub-device
-            pDevicesInfo[i]->m_isRootDevice = false;
-            // Patch new created device IDs. some platforms don't use the same table
-            // for all handles (gpu), so we need to call Patch for each new created handle
-            OCLCRT::crt_ocl_module.PatchClDeviceID(dev, NULL);
-            OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Add(dev,pDevicesInfo[i]);
-        }
-
-        if (CL_SUCCESS != errCode)
-        {
-            if( pDevicesInfo )
-            {
-                for (cl_uint i=0; i< *num_devices; i++)
-                {
-                    if (pDevicesInfo[i])
-                    {
-                        delete pDevicesInfo[i];
-                    }
-                }
-                delete[] pDevicesInfo;
-            }
-        }
+    if (CL_SUCCESS == errCode && ( out_devices ) )
+    {   
+        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, *num_devices );            
     }
     return errCode;
 }
-
-
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
+cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
 {
     cl_int errCode = CL_SUCCESS;
 
@@ -3458,7 +3491,7 @@ cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
     long refCount = atomic_decrement(&(devInfo->m_refCount));
     if (refCount == 0)
     {
-        errCode = devInfo->m_origDispatchTable.clReleaseDeviceEXT(device);
+        errCode = devInfo->m_origDispatchTable.clReleaseDevice(device);
 
         OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Remove(device);
 
@@ -3471,7 +3504,15 @@ cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id device)
+cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
+{
+    return clReleaseDevice(device);
+}
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clRetainDevice(cl_device_id device)
 {
     cl_int errCode = CL_SUCCESS;
 
@@ -3495,6 +3536,13 @@ cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id device)
     return errCode;
 }
 
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id device)
+{
+	return clRetainDevice(device);
+}
 
 /// ------------------------------------------------------------------------------
 ///

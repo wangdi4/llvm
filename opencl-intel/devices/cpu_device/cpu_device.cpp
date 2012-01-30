@@ -209,16 +209,17 @@ static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     CPU_MAX_WORK_GROUP_SIZE
     };
 
-static const cl_device_partition_property_ext CPU_SUPPORTED_FISSION_MODES[] = 
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
     {
-        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT,
-        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
-        CL_DEVICE_PARTITION_EQUALLY_EXT
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+        CL_DEVICE_PARTITION_BY_COUNTS,
+        CL_DEVICE_PARTITION_EQUALLY,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_partition_property_ext CPU_SUPPORTED_AFFINITY_DOMAINS[] =
+static const cl_device_partition_property CPU_SUPPORTED_AFFINITY_DOMAINS[] =
     {
-        CL_AFFINITY_DOMAIN_NUMA_EXT
+        CL_DEVICE_AFFINITY_DOMAIN_NUMA
     };
 
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
@@ -1282,7 +1283,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 
         }
 
-        case CL_DEVICE_PARTITION_TYPES_EXT:
+        case CL_DEVICE_PARTITION_PROPERTIES:
             *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1295,7 +1296,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             return CL_DEV_SUCCESS;
 
-        case CL_DEVICE_AFFINITY_DOMAINS_EXT:
+        case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
 #ifndef _WIN32 //Numa support disabled for windows machines
                 //No NUMA -> return a 0 sized array
@@ -1314,7 +1315,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    *((cl_device_partition_property_ext*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS[0];
+                    *((cl_device_partition_property*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS[0];
                 }
                 return CL_DEV_SUCCESS;
             }

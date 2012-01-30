@@ -72,3 +72,6 @@ EXPORTS
     clGetEventProfilingInfo
     clFlush
     clFinish
+    clCreateSubDevices
+    clReleaseDevice
+    clRetainDevice
