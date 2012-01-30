@@ -47,6 +47,14 @@
 #include "ocl_itt.h"
 #include "cl_sys_info.h"
 
+#if defined(USE_GPA) 
+#if defined(_M_X64)
+    #define ITT_SIZE_T_METADATA_TYPE    __itt_metadata_u64
+#else
+    #define ITT_SIZE_T_METADATA_TYPE    __itt_metadata_u32
+#endif
+#endif
+
 
 using namespace Intel::OpenCL::Framework;
 
@@ -1186,7 +1194,54 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
  ******************************************************************/
 cl_err_code	MapMemObjCommand::PostfixExecute()
 {
-	return m_pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
+	cl_err_code err;
+
+#if defined(USE_GPA)
+
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+	{
+		cl_mem_obj_descriptor*	pMemObj;
+		size_t regionInBytes[MAX_WORK_DIM] = {m_pMappedRegion->region[0],m_pMappedRegion->region[1],m_pMappedRegion->region[2]};	
+
+		// Calculate each region size in bytes
+		m_pMappedRegion->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+		for (unsigned int i = 0 ; i < m_pMappedRegion->dim_count ; ++i)
+		{
+			regionInBytes[i] *= pMemObj->uiElementSize;
+		}
+
+		// Start Sync Data GPA task
+		__itt_set_track(NULL);
+		__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pSyncDataHandle);
+		TAL_SetNamedTaskColor("Sync Data", 255, 0, 0);
+
+		// Add region metadata to the Sync Data task
+		switch(m_pMappedRegion->dim_count)
+		{
+		case 3:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pDepthHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[2]);
+		case 2:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pHeightHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[1]);
+		case 1:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, (m_pMappedRegion->dim_count > 1) ? pGPAData->pWidthHandle : pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[0]);
+		}
+	}
+#endif
+	
+	err = m_pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
+
+#if defined(USE_GPA)
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+	{
+		// End Sync Data GPA task
+		__itt_set_track(NULL);
+		__itt_task_end(pGPAData->pDeviceDomain);
+	} 
+#endif
+
+	return err;
 }
 
 /******************************************************************
@@ -1286,7 +1341,55 @@ cl_err_code UnmapMemObjectCommand::Execute()
  ******************************************************************/
 cl_err_code	UnmapMemObjectCommand::PrefixExecute()
 {
-	return m_pMemObject->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
+	cl_err_code err;
+
+#if defined(USE_GPA)
+	
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+	{
+		cl_mem_obj_descriptor*	pMemObj;
+		size_t regionInBytes[MAX_WORK_DIM] = {m_pMappedRegion->region[0],m_pMappedRegion->region[1],m_pMappedRegion->region[2]};	
+
+		// Calculate each region size in bytes
+		m_pMappedRegion->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
+		for (unsigned int i = 0 ; i < m_pMappedRegion->dim_count ; ++i)
+		{
+			regionInBytes[i] *= pMemObj->uiElementSize;
+		}
+
+		// Start Sync Data GPA task
+		__itt_set_track(NULL);
+		__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pSyncDataHandle);
+		TAL_SetNamedTaskColor("Sync Data", 255, 0, 0);
+
+		// Add region metadata to the Sync Data task
+		switch(m_pMappedRegion->dim_count)
+		{
+		case 3:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pDepthHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[2]);
+		case 2:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pHeightHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[1]);
+		case 1:
+			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, (m_pMappedRegion->dim_count > 1) ? pGPAData->pWidthHandle : pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[0]);
+		}
+	}
+#endif
+
+	err = m_pMemObject->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
+
+#if defined(USE_GPA)
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+	{
+		// End Sync Data GPA task
+
+		__itt_set_track(NULL);
+		__itt_task_end(pGPAData->pDeviceDomain);
+	} 
+#endif
+
+	return err;
 }
 
 /******************************************************************

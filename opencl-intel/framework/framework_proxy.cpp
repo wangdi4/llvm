@@ -312,6 +312,7 @@ void FrameworkProxy::Initialize()
 		m_GPAData.pCopyHandle = __itt_string_handle_createA("Copy");
 		m_GPAData.pMapHandle = __itt_string_handle_createA("Map");
 		m_GPAData.pUnmapHandle = __itt_string_handle_createA("Unmap");
+		m_GPAData.pSyncDataHandle = __itt_string_handle_createA("Sync Data");
 		m_GPAData.pSizeHandle = __itt_string_handle_createA("Size");
 		m_GPAData.pWidthHandle = __itt_string_handle_createA("Width");
 		m_GPAData.pHeightHandle = __itt_string_handle_createA("Height");

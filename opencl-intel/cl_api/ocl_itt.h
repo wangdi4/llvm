@@ -33,6 +33,7 @@ struct ocl_gpa_data
 	__itt_string_handle*	pCopyHandle;
 	__itt_string_handle*	pMapHandle;
 	__itt_string_handle*	pUnmapHandle;
+	__itt_string_handle*	pSyncDataHandle;
 	__itt_string_handle*	pSizeHandle;
 	__itt_string_handle*	pWidthHandle;
 	__itt_string_handle*	pHeightHandle;
