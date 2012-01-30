@@ -90,6 +90,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	size_t       szParamValueSize = 0;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
+    const cl_bool clFalse         = CL_FALSE;
     
     cl_device_partition_property_ext emptyList[] = { CL_PROPERTIES_LIST_END_EXT }; 
 	const void * pValue = NULL;
@@ -120,6 +121,11 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
         //szParamValueSize = sizeof(emptyList);
         szParamValueSize = 1;
         pValue           = &emptyList;
+        break;
+
+    case CL_DEVICE_PREFERRED_INTEROP_USER_SYNC:
+        szParamValueSize = sizeof(cl_bool);
+        pValue = &clFalse;
         break;
 
 	default:

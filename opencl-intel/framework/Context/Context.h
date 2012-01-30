@@ -231,8 +231,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //Implementation of the IDeviceFissionObserver interface
         virtual cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
 
-		static size_t		GetPixelBytesCount(const cl_image_format * pclImageFormat);
-
 		// return context-specific memory objects heap handle
 		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
 
@@ -335,19 +333,29 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
     // OpenCL 1.2 doesn't state that the dimensions shouldn't be 0, but I believe this is a mistake (Yariv should verify it)
     if (bIsImageBuffer)
     {        
-        if (bIsImageBuffer && (szImageDims[0] < 1 || szImageDims[0] > m_sz1dImgBufSize))
+        if (0 == szImageDims[0])
+        {
+            LOG_ERROR(TEXT("image width is 0") , "");
+            return CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        if (szImageDims[0] > m_sz1dImgBufSize)
         {
             LOG_ERROR(TEXT("For a 1D image buffer, the image width must be <= CL_DEVICE_IMAGE_MAX_BUFFER_SIZE"), "");
-            return CL_INVALID_IMAGE_DESCRIPTOR;
+            return CL_INVALID_IMAGE_SIZE;
         }
     }
     else
     {
         for (size_t i = 0; i < DIM; i++)
         {
-            if (szImageDims[i] < 1 || szImageDims[i] > szImageDimsPerDim[DIM - 1][i])
+            if (0 == szImageDims[i])
             {
-                LOG_ERROR(TEXT("Image dimension are not allowed"), "");
+                LOG_ERROR(TEXT("0 == szImageDims[i]"), "");
+                return CL_INVALID_IMAGE_DESCRIPTOR;
+            }
+            if (szImageDims[i] > szImageDimsPerDim[DIM - 1][i])
+            {
+                LOG_ERROR(TEXT("image dimension is not allowed"), "");
                 return CL_INVALID_IMAGE_SIZE;
             }
         }

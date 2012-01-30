@@ -101,7 +101,7 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 
 	m_uiNumDim = 2;
 
-	m_szElementSize = m_pContext->GetPixelBytesCount(&m_clFormat.clType);
+	m_szElementSize = clGetPixelBytesCount(&m_clFormat.clType);
 	m_szImageRowPitch = m_szImageWidth * m_szElementSize;
 
 	// create buffer for image data

@@ -223,19 +223,12 @@ void MemoryObject::NotifyDestruction()
 }
 
 static void AssignPitches(const MemoryObject& memObj, size_t* pImageRowPitch, size_t* pImageSlicePitch, const MapParamPerPtr& clDevCmdParamMap)
-{
-    // image_slice_pitch returns the size in bytes of each 2D slice of a 3D image or the size of each 1D or 2D image in a 1D or 2D image array for the mapped region
+{    
     if (NULL != pImageRowPitch)
     {
-        if (memObj.GetType() != CL_MEM_OBJECT_IMAGE1D_ARRAY)
-        {
-            *pImageRowPitch = clDevCmdParamMap.cmd_param_map.pitch[0];
-        }
-        else
-        {
-            *pImageRowPitch = 0;
-        }        
+        *pImageRowPitch = clDevCmdParamMap.cmd_param_map.pitch[0];  // for 1D image arrays *pImageRowPitch and *pImageSlicePitch hold the same value
     }
+    // image_slice_pitch returns the size in bytes of each 2D slice of a 3D image or the size of each 1D or 2D image in a 1D or 2D image array for the mapped region
     if (NULL != pImageSlicePitch)
     {
         if (memObj.GetType() != CL_MEM_OBJECT_IMAGE1D_ARRAY)

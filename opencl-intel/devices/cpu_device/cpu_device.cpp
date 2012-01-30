@@ -492,6 +492,21 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
     return CL_DEV_SUCCESS;
 }
 
+size_t CPUDevice::GetMinSupportedPixelSize()
+{ 
+    size_t i = 0, szMinPixelSize = 0;
+
+    for (; i < sizeof(supportedImageFormats) / sizeof(supportedImageFormats[0]); i++)
+    {
+        const size_t szPixelSize = clGetPixelBytesCount(&supportedImageFormats[i]);
+        if (0 == szMinPixelSize || szPixelSize < szMinPixelSize)
+        {
+            szMinPixelSize = szPixelSize;
+        }
+    }
+    return szMinPixelSize;
+}
+
 // Device entry points
 //Device Information function prototypes
 //
@@ -1325,8 +1340,16 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             if (NULL != paramVal)
             {
-                // we want to support the maximum buffer when the pixel size is minimal (1 byte)
-                *(size_t*)paramVal = MAX_MEM_ALLOC_SIZE;
+                // we want to support the maximum buffer when the pixel size is minimal
+                const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / GetMinSupportedPixelSize();
+                if (iImgMaxBufSize < (size_t)-1)
+                {
+                    *(size_t*)paramVal = (size_t)iImgMaxBufSize;
+                }
+                else
+                {
+                    *(size_t*)paramVal = (size_t)-1;
+                }                
             }
             return CL_DEV_SUCCESS;
         default:

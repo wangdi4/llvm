@@ -487,7 +487,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     size_t D3D9Image2D::GetPixelSize() const
     {
         const cl_image_format clFormat = MapD3DFormat2OclFormat(GetDesc(*GetResourceInfo()).Format);
-        return m_pContext->GetPixelBytesCount(&clFormat);
+        return clGetPixelBytesCount(&clFormat);
     }    
 
     /**
@@ -517,7 +517,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
         const cl_image_format clFormat = MapD3DFormat2OclFormat(desc.Format);
-        return m_pContext->GetPixelBytesCount(&clFormat) * m_szPitch * desc.Height;
+        return clGetPixelBytesCount(&clFormat) * m_szPitch * desc.Height;
     }    
 
     /**
@@ -797,7 +797,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         const cl_image_format clFormat = MapD3DFormat2OclFormat(GetDesc(*GetResourceInfo()).Format,
             dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane);
-        return m_pContext->GetPixelBytesCount(&clFormat);
+        return clGetPixelBytesCount(&clFormat);
     }
 
     /**
@@ -828,7 +828,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             assert(GetPitch() * desc.Height % 4 == 0);
             return sizeof(cl_uchar) * GetPitch() * desc.Height / 4;
         default:
-            return m_pContext->GetPixelBytesCount(&clFormat) * GetPitch() * desc.Height;
+            return clGetPixelBytesCount(&clFormat) * GetPitch() * desc.Height;
         }        
     }
 
@@ -1156,7 +1156,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         const D3DVOLUME_DESC desc = GetDesc(*GetResourceInfo());
         const cl_image_format clImageFormat = MapD3DFormat2OclFormat(desc.Format);
-        const size_t szPixelByteCnt = m_pContext->GetPixelBytesCount(&clImageFormat);
+        const size_t szPixelByteCnt = clGetPixelBytesCount(&clImageFormat);
         return szPixelByteCnt * m_szPitches[0] * m_szPitches[1] * desc.Depth;
     }
 
@@ -1207,7 +1207,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         const D3DVOLUME_DESC desc = GetDesc(*GetResourceInfo());
         const cl_image_format clImageFormat = MapD3DFormat2OclFormat(desc.Format);
-        return m_pContext->GetPixelBytesCount(&clImageFormat);
+        return clGetPixelBytesCount(&clImageFormat);
     }
 
     /**

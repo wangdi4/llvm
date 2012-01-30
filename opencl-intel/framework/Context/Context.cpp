@@ -688,7 +688,7 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
         return CL_INVALID_IMAGE_DESCRIPTOR;
     }
 
-	const size_t pixelBytesCnt = GetPixelBytesCount(pclImageFormat);
+	const size_t pixelBytesCnt = clGetPixelBytesCount(pclImageFormat);
     // handle the mess in the spec, where for 1D image array the slice pitch defines the size in bytes of each 1D image
     const size_t szPitchDim1 =
         CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
@@ -1125,7 +1125,7 @@ cl_err_code Context::NotifyDeviceFissioned(FissionableDevice* parent, size_t cou
 cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType)
 {
 	// Check for invalid format
-	if (NULL == pclImageFormat || (0 == GetPixelBytesCount(pclImageFormat)) )
+	if (NULL == pclImageFormat || (0 == clGetPixelBytesCount(pclImageFormat)) )
 	{
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
@@ -1253,83 +1253,4 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 	delete []pFormats;
 	m_mapSupportedFormats[key] = tmpList;
 	return tmpList.size();	
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::GetPixelBytesCount
-///////////////////////////////////////////////////////////////////////////////////////////////////
-size_t Context::GetPixelBytesCount(const cl_image_format * pclImageFormat)
-{
-	if (NULL == pclImageFormat)
-	{
-		return 0;
-	}
-	size_t szBytesCount = 0, szElementsCount = 0;
-
-	// get size of element in bytes
-	switch(pclImageFormat->image_channel_data_type)
-	{
-	case CL_SNORM_INT8:
-	case CL_SIGNED_INT8:
-		szBytesCount = sizeof(cl_char);
-		break;
-	case CL_UNORM_INT8:
-	case CL_UNSIGNED_INT8:
-		szBytesCount = sizeof(cl_uchar);
-		break;
-	case CL_SNORM_INT16:
-	case CL_SIGNED_INT16:
-		szBytesCount = sizeof(cl_short);
-		break;
-	case CL_UNORM_SHORT_565:
-	case CL_UNORM_SHORT_555:
-	case CL_UNORM_INT16:
-	case CL_UNSIGNED_INT16:
-		szBytesCount = sizeof(cl_ushort);
-		break;
-	case CL_SIGNED_INT32:
-	case CL_UNORM_INT_101010:
-		szBytesCount = sizeof(cl_int);
-		break;
-	case CL_UNSIGNED_INT32:
-		szBytesCount = sizeof(cl_uint);
-		break;
-	case CL_HALF_FLOAT:
-		szBytesCount = sizeof(cl_half);
-		break;
-	case CL_FLOAT:
-		szBytesCount = sizeof(cl_float);
-		break;
-	default:
-		return 0;
-	}
-
-	// get number of elements in pixel
-	switch(pclImageFormat->image_channel_order)
-	{
-	case CL_R:
-	case CL_A:
-		szElementsCount = 1;
-		break;
-	case CL_RG:
-	case CL_RA:
-		szElementsCount = 2;
-		break;
-	case CL_RGB:
-		szElementsCount = 1;
-		break;
-	case CL_RGBA:
-	case CL_BGRA:
-	case CL_ARGB:
-		szElementsCount = 4;
-		break;
-	case CL_LUMINANCE:
-	case CL_INTENSITY:
-		szElementsCount = 1;
-		break;
-	default:
-		return 0;
-	}
-
-	return szBytesCount * szElementsCount;
 }

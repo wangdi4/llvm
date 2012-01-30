@@ -39,6 +39,32 @@ static void FillData(char* pData, size_t szSize)
     }
 }
 
+static void TestInvalidFlags(cl_context context, const cl_image_format& clImgFormat, const cl_image_desc& clImgDesc)
+{
+    const cl_mem_flags invalidFlags =
+        ~(CL_MEM_READ_WRITE |
+          CL_MEM_WRITE_ONLY |
+          CL_MEM_READ_ONLY |
+          CL_MEM_USE_HOST_PTR |
+          CL_MEM_ALLOC_HOST_PTR |
+          CL_MEM_COPY_HOST_PTR |
+          CL_MEM_HOST_WRITE_ONLY |
+          CL_MEM_HOST_READ_ONLY |
+          CL_MEM_HOST_NO_ACCESS);
+    cl_int iRet;
+
+    clCreateBuffer(context, invalidFlags, 1, NULL, &iRet);
+    CheckException(L"clCreateBuffer", CL_INVALID_VALUE, iRet);
+    
+    clMemWrapper buf = clCreateBuffer(context, 0, 1000, NULL, &iRet);
+    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    clCreateSubBuffer(buf, invalidFlags, CL_BUFFER_CREATE_TYPE_REGION, NULL, &iRet);
+    CheckException(L"clCreateSubBuffer", CL_INVALID_VALUE, iRet);
+
+    clCreateImage(context, invalidFlags, &clImgFormat, &clImgDesc, NULL, &iRet);
+    CheckException(L"clCreateImage", CL_INVALID_VALUE, iRet);
+}
+
 static void TestWriteReadImgArray(cl_command_queue queue, cl_mem clImgArr, cl_mem_object_type type, const cl_image_desc& clImgDesc)
 {
     bool bResult = true;
@@ -224,8 +250,8 @@ static void TestHostPtr(cl_context context, cl_command_queue queue, cl_mem_objec
         break;
     case CL_MEM_OBJECT_IMAGE1D_ARRAY:
         region[1] = clImgDesc.image_array_size;
-        szExpectedSrcSlicePitch = (size_t)(IMAGE_ELEM_SIZE * clImgDesc.image_width * PITCH_RATIO);
-        szExpectedDstSlicePitch = IMAGE_ELEM_SIZE * clImgDesc.image_width;
+        szExpectedSrcSlicePitch = szExpectedSrcRowPitch = (size_t)(IMAGE_ELEM_SIZE * clImgDesc.image_width * PITCH_RATIO);
+        szExpectedDstSlicePitch = szExpectedDstRowPitch = IMAGE_ELEM_SIZE * clImgDesc.image_width;
         szHostDataSize = szExpectedSrcSlicePitch * clImgDesc.image_array_size;
         break;
     case CL_MEM_OBJECT_IMAGE2D_ARRAY:
@@ -332,10 +358,13 @@ static void TestInvalidDim(cl_context context, const cl_image_format& clImgForma
     szDim = 0;
     clCreateImage(context, 0, &clImgFormat, &clImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
-    szDim = szMaxVal + 1;
-    clCreateImage(context, 0, &clImgFormat, &clImgDesc, NULL, &iRet);
-    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
-    szDim = szOrigDim;
+    if (szMaxVal > 0)
+    {
+        szDim = szMaxVal + 1;
+        clCreateImage(context, 0, &clImgFormat, &clImgDesc, NULL, &iRet);
+        CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
+        szDim = szOrigDim;
+    }
 }
 
 static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& clImageDesc, cl_context context, cl_device_id device, cl_command_queue queue)
@@ -565,7 +594,18 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     TestInvalidDim(context, clFormat, localImgDesc, szImg3dMaxDepth, localImgDesc.image_depth);  
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
     localImgDesc.buffer = clBuf;
-    TestInvalidDim(context, clFormat, localImgDesc, szImgMaxBufSize, localImgDesc.image_width);
+    TestInvalidDim(context, clFormat, localImgDesc, 0, localImgDesc.image_width);
+
+    // pitch different than 0 when hostptr is NULL
+    localImgDesc = clImageDesc;
+    localImgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    localImgDesc.image_row_pitch = 1;
+    clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
+    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+
+    // row pitch smaller than minimum
+    clCreateImage(context, CL_MEM_USE_HOST_PTR, &clFormat, &localImgDesc, &buf, &iRet);
+    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
 }
 
 bool clCreateImageTest()
@@ -640,12 +680,12 @@ bool clCreateImageTest()
         // 3D image 
         clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
         clImg3D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException(L"clCreateImage", CL_SUCCESS, iRet);        
+        CheckException(L"clCreateImage", CL_SUCCESS, iRet);
 
         // 3D image, old API
         clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_depth, clImageDesc.image_row_pitch,
             clImageDesc.image_slice_pitch, NULL, &iRet);
-        CheckException(L"clCreateImage3D", CL_SUCCESS, iRet);        
+        CheckException(L"clCreateImage3D", CL_SUCCESS, iRet);
 
         // unsupported image type
         clImageDesc.image_type = 0xffff;
@@ -702,6 +742,8 @@ bool clCreateImageTest()
         }
 
         TestNegative(clFormat, clImageDesc, context, device, queue);
+
+        TestInvalidFlags(context, clFormat, clImageDesc);
     }
     catch (const std::exception&)
     {

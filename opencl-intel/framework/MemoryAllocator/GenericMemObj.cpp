@@ -796,11 +796,14 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 	const size_t* dims = m_BS->GetDimentions();
 	const size_t* pits = m_BS->GetPitch();
 	size_t	 elem_size = m_BS->GetElementSize();
-
+    const size_t szRowPitch = pits[0] != 0 ? pits[0] : elem_size * dims[0];
+    const size_t szSlicePitch = pits[1] != 0 ? pits[1] : szRowPitch * dims[1];
 	size_t  szSize = 0;
 	const void * pValue = NULL;
 	size_t	stZero = 0;
     cl_uint uiZero = 0;
+    const cl_mem nullBuffer = NULL;
+
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -813,7 +816,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 		break;
 	case CL_IMAGE_ROW_PITCH:
 		szSize = sizeof(size_t);
-		pValue = (void*)&pits[0];
+		pValue = (void*)&szRowPitch;
 		break;
 	case CL_IMAGE_WIDTH:
 		szSize = sizeof(size_t);
@@ -841,7 +844,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 			(CL_MEM_OBJECT_IMAGE2D		  != m_clMemObjectType))
 		{
 			szSize = sizeof(size_t);
-			pValue = (void*)&pits[1];
+			pValue = (void*)&szSlicePitch;
 		}
 		else
 		{
@@ -886,6 +889,10 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
 	case CL_IMAGE_NUM_SAMPLES:
 		szSize = sizeof(cl_uint);
         pValue = &uiZero;
+        break;
+    case CL_IMAGE_BUFFER:
+        szSize = sizeof(nullBuffer);
+        pValue = &nullBuffer;
         break;
 	default:
         return CL_INVALID_VALUE;

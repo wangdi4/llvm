@@ -536,7 +536,10 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 			*pErrRet = clErrRet;
 		}
 		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
-		pProgram->Release();
+        if (pProgram)
+        {
+            pProgram->Release();
+        }		
 		return CL_INVALID_HANDLE;
 	}
 	clErrRet = m_mapPrograms.AddObject((OCLObject<_cl_program_int>*)pProgram, false);
@@ -547,6 +550,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 			*pErrRet = clErrRet;
 		}
 		pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
+        pProgram->Release();
 		return CL_INVALID_HANDLE;
 	}
 	if (NULL != pErrRet)
@@ -948,7 +952,6 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 	return pKernel->GetWorkGroupInfo(pDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
-
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateBuffer
 //////////////////////////////////////////////////////////////////////////
@@ -1019,9 +1022,17 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	LOG_INFO(TEXT("Enter CreateSubBuffer (clFlags=%d, cl_buffer_create_type=%d, pErrcodeRet=%d)"), 
 		clFlags, buffer_create_type, pErrcodeRet);
 
+    cl_int iNullErr;
+    cl_int& iErr = pErrcodeRet ? *pErrcodeRet : iNullErr;
+
+    iErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(iErr))
+    {
+        return CL_INVALID_HANDLE;
+    }
 	if (!clBuffer)
 	{
-		*pErrcodeRet = CL_INVALID_MEM_OBJECT;		
+		iErr = CL_INVALID_MEM_OBJECT;		
 		return CL_INVALID_HANDLE;
 	}
 
@@ -1030,7 +1041,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
 		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clBuffer, &pMemObj, ClErrTxt(clErr));
-		*pErrcodeRet = CL_INVALID_MEM_OBJECT;		
+		iErr = CL_INVALID_MEM_OBJECT;		
 		return CL_INVALID_HANDLE;
 	}
 
@@ -1039,13 +1050,13 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	// check memory object is a Buffer not Image2D/3D
 	if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
 	{
-		*pErrcodeRet = CL_INVALID_MEM_OBJECT;		
+		iErr = CL_INVALID_MEM_OBJECT;		
 		return CL_INVALID_HANDLE;
 	}
 			
 	if (NULL != pMemObj->GetParent())
 	{
-		*pErrcodeRet = CL_INVALID_MEM_OBJECT;
+		iErr = CL_INVALID_MEM_OBJECT;
 		return CL_INVALID_HANDLE;
 	}
 
@@ -1053,7 +1064,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	clErr = pContext->CreateSubBuffer(pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer);
 	if (CL_FAILED(clErr))
 	{		
-		*pErrcodeRet = CL_ERR_OUT(clErr);		
+		iErr = CL_ERR_OUT(clErr);		
 		return CL_INVALID_HANDLE;
 	}
 
@@ -1063,13 +1074,13 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
+			iErr = CL_ERR_OUT(clErr);
 		}
 		return CL_INVALID_HANDLE;
 	}
 	if (NULL != pErrcodeRet)
 	{
-		*pErrcodeRet = CL_SUCCESS;
+		iErr = CL_SUCCESS;
 	}
 
 	return pBuffer->GetHandle();	
@@ -1160,11 +1171,6 @@ cl_mem ContextModule::CreateImage(cl_context context,
             *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
         }
     }
-    if (errcode_ret && CL_INVALID_IMAGE_SIZE == *errcode_ret)
-    {
-        // in OpenCL 1.2 we return CL_INVALID_IMAGE_DESCRIPTOR if values specified in image_desc are not valid
-        *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
-    }
     return clMemObj;
 }
 
@@ -1177,6 +1183,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 {
     Context * pContext = NULL;
     MemoryObject * pImageArr = NULL;
+
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
     if (CL_FAILED(clErr) || NULL == pContext)
     {
@@ -1579,7 +1586,17 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 
 	Context * pContext = NULL;
 	MemoryObject * pBuffer = NULL;
-	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+    
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1652,7 +1669,17 @@ cl_mem ContextModule::CreateFromGLTexture2D(cl_context clContext,
 
 	Context * pContext = NULL;
 	MemoryObject * pMemObj = NULL;
-	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_TEXTURE2D, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1725,7 +1752,17 @@ cl_mem ContextModule::CreateFromGLTexture3D(cl_context clContext,
 
 	Context * pContext = NULL;
 	MemoryObject * pMemObj = NULL;
-	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_TEXTURE3D, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
 		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
@@ -1932,6 +1969,21 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
                                          size_t szArraySize,
                                          void * pHostPtr)
 {
+    // check for illegal flags
+    if ((clMemFlags & ~(
+        CL_MEM_READ_WRITE |
+        CL_MEM_WRITE_ONLY |
+        CL_MEM_READ_ONLY |
+        CL_MEM_USE_HOST_PTR |
+        CL_MEM_ALLOC_HOST_PTR |
+        CL_MEM_COPY_HOST_PTR |
+        CL_MEM_HOST_WRITE_ONLY |
+        CL_MEM_HOST_READ_ONLY |
+        CL_MEM_HOST_NO_ACCESS)) != 0)
+    {
+        return CL_INVALID_VALUE;
+    }
+    // check for illegal flag combinations
 	if ( ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & CL_MEM_WRITE_ONLY)) ||
 		((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & CL_MEM_READ_WRITE)) ||
 		((clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & CL_MEM_READ_WRITE))||
@@ -1946,7 +1998,7 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 
 	if ( (NULL == pHostPtr) && ((0 != szImageRowPitch) ||(0 != szImageSlicePitch)) )
 	{
-		return CL_INVALID_IMAGE_SIZE;
+		return CL_INVALID_IMAGE_DESCRIPTOR;
  	}
 
 	if ( (NULL == pHostPtr) && ((CL_MEM_COPY_HOST_PTR|CL_MEM_USE_HOST_PTR)&clMemFlags) )
@@ -1959,46 +2011,28 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 		return CL_INVALID_HOST_PTR;
 	}
 
-	size_t pixelBytesCnt = Context::GetPixelBytesCount(clImageFormat);
-    if (0 == pixelBytesCnt)
+    if (NULL != clImageFormat)
     {
-        return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+        size_t pixelBytesCnt = clGetPixelBytesCount(clImageFormat);
+        
+        if (0 == pixelBytesCnt)
+        {
+            return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+        }
+        // Check minimum row pitch size
+        size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
+        if ( (NULL != pHostPtr) && (0 != szImageRowPitch) && ((szImageRowPitch<szMinRowPitchSize)||(szImageRowPitch % pixelBytesCnt)) )
+        {
+            return CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        // in 1D image array there is no row pitch, just slice pitch
+        const size_t szRealRowPitch = 0 == szImageRowPitch || CL_MEM_OBJECT_IMAGE1D_ARRAY == clMemObjType ? szMinRowPitchSize : szImageRowPitch;
+        const size_t szMinSlicePitchSize = CL_MEM_OBJECT_IMAGE1D_ARRAY == clMemObjType ? szRealRowPitch : szRealRowPitch * szImageHeight;
+        if ( (NULL != pHostPtr) && (0 != szImageSlicePitch) && ((szImageSlicePitch<szMinSlicePitchSize)||(szImageRowPitch != 0 && szImageSlicePitch % szImageRowPitch)) )
+        {
+            return CL_INVALID_IMAGE_DESCRIPTOR;
+        }
     }
-
-	// Check minimum row pitch size
-	size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
-	if ( (NULL != pHostPtr) && (0 != szImageRowPitch) && ((szImageRowPitch<szMinRowPitchSize)||(szImageRowPitch % pixelBytesCnt)) )
-	{
-		return CL_INVALID_IMAGE_SIZE;
-	}
-    // in 1D image array there is no row pitch, just slice pitch
-    const size_t szRealRowPitch = 0 == szImageRowPitch || CL_MEM_OBJECT_IMAGE1D_ARRAY == clMemObjType ? szMinRowPitchSize : szImageRowPitch;
-    const size_t szMinSlicePitchSize = CL_MEM_OBJECT_IMAGE1D_ARRAY == clMemObjType ? szRealRowPitch : szRealRowPitch * szImageHeight;
-	if ( (NULL != pHostPtr) && (0 != szImageSlicePitch) && ((szImageSlicePitch<szMinSlicePitchSize)||(szImageRowPitch != 0 && szImageSlicePitch % szImageRowPitch)) )
-	{
-		return CL_INVALID_IMAGE_SIZE;
-	}
-
-	if (NULL != clImageFormat)
-    {
-		// Check minumum row pitch size
-		size_t pixelBytesCnt = Context::GetPixelBytesCount(clImageFormat);
-		if (0 == pixelBytesCnt) // image format is invalid.
-		{
-			return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		}
-		size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
-		if ( (NULL != pHostPtr) && (0 != szImageRowPitch) && ((szImageRowPitch<szMinRowPitchSize)||(szImageRowPitch % pixelBytesCnt)) )
-		{
-			return CL_INVALID_IMAGE_SIZE;
-		}
-
-		size_t szMinSlicePitchSize = szImageRowPitch * szImageHeight;
-		if ( (NULL != pHostPtr) && (0 != szImageSlicePitch) && ((szImageSlicePitch<szMinSlicePitchSize)||(szImageSlicePitch % pixelBytesCnt)) )
-		{
-			return CL_INVALID_IMAGE_SIZE;
-		}
-	}
 
 	return CL_SUCCESS;
 }
@@ -2011,7 +2045,17 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
 {
     Context* pContext = NULL;
     MemoryObject* pMemObj = NULL;
-    cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
     
     if (CL_FAILED(clErr) || NULL == pContext)
     {
@@ -2335,10 +2379,10 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
         }
         return CL_INVALID_HANDLE;
     }
-    if (szImageWidth * Context::GetPixelBytesCount(clImageFormat) > pBuffer->GetSize())
+    if (szImageWidth * clGetPixelBytesCount(clImageFormat) > pBuffer->GetSize())
     {
         LOG_ERROR(TEXT("The image_width (%d) * size of element in bytes (%d) must be <= size of buffer object data store (%d)"),
-            szImageWidth, Context::GetPixelBytesCount(clImageFormat), pBuffer->GetSize());
+            szImageWidth, clGetPixelBytesCount(clImageFormat), pBuffer->GetSize());
         if (pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;

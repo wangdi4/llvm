@@ -90,7 +90,7 @@ cl_err_code GLTexture3D::Initialize(cl_mem_flags clMemFlags, const cl_image_form
 	}
 
 	m_uiNumDim = 3;
-	m_szElementSize = m_pContext->GetPixelBytesCount(&m_clFormat.clType);
+	m_szElementSize = clGetPixelBytesCount(&m_clFormat.clType);
 	m_szImageRowPitch = m_szImageWidth * m_szElementSize;
 	m_szImageSlicePitch = m_szImageRowPitch*m_szImageHeight;
 

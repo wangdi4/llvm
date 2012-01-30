@@ -146,3 +146,13 @@ struct SMemCpyParams
 };
 
 void clCopyMemoryRegion(SMemCpyParams* pCopyCmd);
+
+/************************************************************************
+ * Function:        clGetPixelBytesCount
+ * Parameters:
+ *  pclImageFormat  a cl_image_format
+ * Return value:    the size in bytes of each pixel in this image format
+ * Author:          Aharon Abramson
+ * Date:            January 2012
+ ************************************************************************/
+size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat);

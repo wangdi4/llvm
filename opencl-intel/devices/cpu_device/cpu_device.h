@@ -64,6 +64,8 @@ private:
 	cl_dev_cmd_list			m_defaultCommandList;
     OpenCLBackendWrapper    m_backendWrapper;
 
+    static size_t GetMinSupportedPixelSize();
+
 protected:
 	~CPUDevice();
 

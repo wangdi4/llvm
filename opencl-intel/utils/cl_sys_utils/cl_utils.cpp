@@ -287,3 +287,79 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
 		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
 	}
 }
+
+size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
+{
+    if (NULL == pclImageFormat)
+    {
+        return 0;
+    }
+    size_t szBytesCount = 0, szElementsCount = 0;
+
+    // get size of element in bytes
+    switch(pclImageFormat->image_channel_data_type)
+    {
+    case CL_SNORM_INT8:
+    case CL_SIGNED_INT8:
+        szBytesCount = sizeof(cl_char);
+        break;
+    case CL_UNORM_INT8:
+    case CL_UNSIGNED_INT8:
+        szBytesCount = sizeof(cl_uchar);
+        break;
+    case CL_SNORM_INT16:
+    case CL_SIGNED_INT16:
+        szBytesCount = sizeof(cl_short);
+        break;
+    case CL_UNORM_SHORT_565:
+    case CL_UNORM_SHORT_555:
+    case CL_UNORM_INT16:
+    case CL_UNSIGNED_INT16:
+        szBytesCount = sizeof(cl_ushort);
+        break;
+    case CL_SIGNED_INT32:
+    case CL_UNORM_INT_101010:
+        szBytesCount = sizeof(cl_int);
+        break;
+    case CL_UNSIGNED_INT32:
+        szBytesCount = sizeof(cl_uint);
+        break;
+    case CL_HALF_FLOAT:
+        szBytesCount = sizeof(cl_half);
+        break;
+    case CL_FLOAT:
+        szBytesCount = sizeof(cl_float);
+        break;
+    default:
+        return 0;
+    }
+
+    // get number of elements in pixel
+    switch(pclImageFormat->image_channel_order)
+    {
+    case CL_R:
+    case CL_A:
+        szElementsCount = 1;
+        break;
+    case CL_RG:
+    case CL_RA:
+        szElementsCount = 2;
+        break;
+    case CL_RGB:
+        szElementsCount = 1;
+        break;
+    case CL_RGBA:
+    case CL_BGRA:
+    case CL_ARGB:
+        szElementsCount = 4;
+        break;
+    case CL_LUMINANCE:
+    case CL_INTENSITY:
+        szElementsCount = 1;
+        break;
+    default:
+        return 0;
+    }
+
+    return szBytesCount * szElementsCount;
+}
