@@ -122,7 +122,7 @@ public:
 		{
 			ASSERT_TRUE(false) << "subdevices were not initialized";
 		}
-		int i=0; 
+		unsigned int i=0; 
 		for(i=0; i<subdevices_size; ++i)
 		{
 			out_devices[i] = subdevices[i];

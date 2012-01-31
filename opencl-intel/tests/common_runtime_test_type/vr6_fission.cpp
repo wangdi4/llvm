@@ -170,4 +170,51 @@ TEST_F(VR6_Fission, SubDevicesContext)
 	ASSERT_EQ(desired_num_devices,num_devices) << "Number of devices in context is " << num_devices << " and it should be "<<desired_num_devices;
 }
 
+//|	TEST: VR6_Fission.AllContexts (TC-111)
+//|
+//|	Purpose
+//|	-------
+//|	
+//|	Verify the ability to create several contexts
+//| 
+//|	Method
+//|	------
+//|
+//|	1. Create array of subdevices
+//|	2. Create context for CPU root device only
+//|	3. Create context for GPU root device only
+//|	4. Create context for CPU subdevices only
+//|	
+//|	Pass criteria
+//|	-------------
+//|
+//|	All objects were returned successfully
+//|
+TEST_F(VR6_Fission, AllContexts)
+{
+	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, ocl_descriptor.devices));
+	cl_uint desired_num_devices = 2;
+	ASSERT_NO_FATAL_FAILURE(partitionByCounts(ocl_descriptor.devices[0], desired_num_devices));
+	// set up contexts
+	cl_context cpu_context = 0;
+	cl_context gpu_context = 0;
+	cl_context sub_devices_context = 0;
+
+	// set up CPU context
+	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 1, &ocl_descriptor.devices[0], NULL, NULL));
+	cl_uint num_devices = 0;
+	ASSERT_NO_FATAL_FAILURE(getContextInfo(&ocl_descriptor.context, CL_CONTEXT_NUM_DEVICES, sizeof(cl_uint), &num_devices));
+	ASSERT_EQ(1,num_devices) << "Number of devices in context is " << num_devices << " and it should be "<<1;
+
+	// set up GPU context
+	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 1, &ocl_descriptor.devices[1], NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(getContextInfo(&ocl_descriptor.context, CL_CONTEXT_NUM_DEVICES, sizeof(cl_uint), &num_devices));
+	ASSERT_EQ(1,num_devices) << "Number of devices in context is " << num_devices << " and it should be "<<1;
+
+	// set up CPU subdevices context
+	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, desired_num_devices, subdevices, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(getContextInfo(&ocl_descriptor.context, CL_CONTEXT_NUM_DEVICES, sizeof(cl_uint), &num_devices));
+	ASSERT_EQ(desired_num_devices,num_devices) << "Number of devices in context is " << num_devices << " and it should be "<<desired_num_devices;
+}
+
 

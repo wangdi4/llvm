@@ -262,6 +262,18 @@ void createImage3D(cl_mem* image3D, cl_context context, cl_mem_flags flags, cons
 	ASSERT_NE((cl_mem)0, *image3D) << "clCreateImage3D returned 0 as image3D value";
 }
 
+//	createImage - calls and validates clCreateImage
+void createImage(cl_mem* image, cl_context context, cl_mem_flags flags, const cl_image_format *image_format, 
+	const cl_image_desc *image_desc, void *host_ptr)
+{
+	if(NULL==image){
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	*image = clCreateImage(context, flags, image_format, image_desc, host_ptr, &errcode_ret);
+	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateImage failed";
+}
+
 // createProgramWithSource - calls and validates clCreateProgramWithSource
 // uses programSource which is actual kernel source
 void createProgramWithSource(cl_program* program, cl_context context,	cl_uint count, const char **programSource,
@@ -674,86 +686,6 @@ void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor,
 	}
 }
 
-void initializeHalfArray(cl_half* input_array, int arraySize){
-	//ASSERT_NE(0, input_array);
-	cl_platform_id platforms[1];
-	cl_device_id devices[1];
-	cl_program program = 0;
-	cl_context context = 0;
-	cl_command_queue queue = 0;
-	cl_mem buffer = 0;
-	cl_kernel kernel = 0;
-
-	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(getCPUDevice(platforms, devices));
-	// cpu is at index 0, gpu is at index 1
-
-	// create context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[0], 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&context, properties, 1, devices, NULL, NULL));
-
-	//	create and build program
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource("init_half.cl", &program, context, 1, devices, NULL, NULL, NULL));
-
-	// create queues
-	// create queue
-	ASSERT_NO_FATAL_FAILURE(createCommandQueue(&queue, context, devices[0], 0));
-
-	// create buffer
-	ASSERT_NO_FATAL_FAILURE(createBuffer(&buffer, context, 
-		CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR, arraySize * sizeof(cl_half), NULL));
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-
-	// create kernel
-	ASSERT_NO_FATAL_FAILURE(createKernel(&kernel ,program, "init_half"));
-
-	// set kernel arguments
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 0, sizeof(cl_mem), &buffer));
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(kernel, 1, sizeof(int), &arraySize));
-	
-	// enqueue kernel and map buffer
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size, NULL, 0, NULL,  NULL));
-
-	// read from buffers
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(queue, buffer, CL_TRUE, 0,sizeof(cl_half)*arraySize, 
-		&input_array, 0, NULL, NULL));
-
-	// release buffers[i]
-	if(0!=buffer)
-	{
-		EXPECT_EQ(CL_SUCCESS, clReleaseMemObject(buffer)) << "clReleaseMemObject failed";
-		buffer = 0;
-	}
-	// release kernels
-	if (0 != kernel)
-	{
-		EXPECT_EQ(CL_SUCCESS, clReleaseKernel(kernel)) << "clReleaseKernel failed";
-		kernel = 0;
-	}				
-	
-	// release program
-	if (0 != program)
-	{
-		EXPECT_EQ(CL_SUCCESS, clReleaseProgram(program)) << "clReleaseProgram failed";
-		program = 0;
-	}
-	// release queues
-	if (0 != queue)
-	{
-		EXPECT_EQ(CL_SUCCESS, clReleaseCommandQueue(queue)) << "clReleaseCommandQueue failed";
-		queue = 0;
-	}
-	// release context
-	if (0 != context)
-	{
-		EXPECT_EQ(CL_SUCCESS, clReleaseContext(context)) << "clReleaseContext failed";
-		context = 0;
-	}
-}
-
 // setMemObjectDestructorCallback - calls and validates clSetMemObjectDestructorCallback
 void setMemObjectDestructorCallback(cl_mem memobj, 
 	void (CL_CALLBACK *pfn_notify)(cl_mem memobj, void *user_data), void *user_data)
@@ -1038,4 +970,60 @@ void getCPUGPUDevicesIfNotCreated(OpenCLDescriptor& ocl_descriptor)
 	}
 }
 
+// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
+void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
+	size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueFillBuffer(command_queue, buffer, pattern, pattern_size, 
+		offset, size, num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillBuffer failed";
+}
 
+// clEnqueueFillImage - calls and validates clEnqueueFillImage
+void enqueueFillImage(cl_command_queue command_queue, cl_mem image, const void *fill_color, const size_t *origin, const size_t *region,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event) 
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueFillImage(command_queue, image, fill_color, origin, region, 
+		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillImage failed";
+}
+ 
+// getImageInfo - calls and validates clGetImageInfo
+void getImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+{
+	ASSERT_EQ(CL_SUCCESS, clGetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret)) << "clGetImageInfo failed";
+}
+
+// enqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
+void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueMigrateMemObjects(command_queue, num_mem_objects, mem_objects, flags, 
+		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueMigrateMemObjects failed";
+}
+
+// createProgramWithBuiltInKernels - calls and validates clCreateProgramWithBuiltInKernels
+void createProgramWithBuiltInKernels(cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list,
+	const char *kernel_names)
+{
+	if(NULL==program)
+	{
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	*program = clCreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, &errcode_ret);
+	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithBuiltInKernels failed";
+}
+
+// enqueueNativeKernel - calls and validates clEnqueueNativeKernel
+void enqueueNativeKernel(cl_command_queue command_queue, void (CL_CALLBACK *user_func)(void *), void *args, size_t cb_args,
+	cl_uint num_mem_objects, const cl_mem *mem_list, const void **args_mem_loc, 
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *userevent)
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, 
+		num_events_in_wait_list, event_wait_list, userevent)) << "clEnqueueNativeKernel falied";
+}
+
+// finish - calls and validates clFinish
+void finish(cl_command_queue command_queue)
+{
+	ASSERT_EQ(CL_SUCCESS, clFinish(command_queue)) << "clFinish failed";
+}

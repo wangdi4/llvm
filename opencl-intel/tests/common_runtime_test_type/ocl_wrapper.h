@@ -194,6 +194,10 @@ void createImage3D(cl_mem* image3D, cl_context context, cl_mem_flags flags, cons
 	size_t image_width, size_t image_height, size_t image_depth, size_t image_row_pitch, size_t image_slice_pitch,
 	void *host_ptr);
 
+//	createImage - calls and validates clCreateImage
+void createImage(cl_mem* image, cl_context context, cl_mem_flags flags, const cl_image_format *image_format, 
+	const cl_image_desc *image_desc, void *host_ptr);
+
 //	createImage3D - calls and validates clCreateImage3D
 void createImage3D(cl_mem* image3D, cl_context context, cl_mem_flags flags, const cl_image_format *image_format,
 	size_t image_width, size_t image_height, size_t image_depth, size_t image_row_pitch, size_t image_slice_pitch,
@@ -569,5 +573,32 @@ void createPartitionByCounts(cl_device_id in_device, cl_device_id* out_devices, 
 // And in case of subdevices (or mixture of subdevices with root devices) -
 // devices member of ocl_descriptor will already be already initialized
 void getCPUGPUDevicesIfNotCreated(OpenCLDescriptor& ocl_descriptor);
+
+// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
+void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
+	size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event);
+
+// clEnqueueFillImage - calls and validates clEnqueueFillImage
+void enqueueFillImage(cl_command_queue command_queue, cl_mem image, const void *fill_color, const size_t *origin, const size_t *region,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event) ;
+ 
+// getImageInfo - calls and validates clGetImageInfo
+void getImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
+// enqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
+void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event);
+
+// createProgramWithBuiltInKernels - calls and validates clCreateProgramWithBuiltInKernels
+void createProgramWithBuiltInKernels(cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list,
+	const char *kernel_names);
+
+// enqueueNativeKernel - calls and validates clEnqueueNativeKernel
+void enqueueNativeKernel(cl_command_queue command_queue, void (CL_CALLBACK *user_func)(void *), void *args, size_t cb_args,
+	cl_uint num_mem_objects, const cl_mem *mem_list, const void **args_mem_loc, 
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *userevent);
+
+// finish - calls and validates clFinish
+void finish(cl_command_queue command_queue);
 
 #endif /* OCL_WRAPPER_GTEST_ */

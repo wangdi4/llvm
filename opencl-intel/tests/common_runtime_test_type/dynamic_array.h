@@ -860,6 +860,17 @@ void DynamicArray<cl_char4>::printArrayContent()
 }
 
 template<>
+void DynamicArray<cl_int4>::printArrayContent()
+{
+	for(int i=0; i<dynamic_array_size; ++i){
+		std::cout << i << std::endl;
+		for(int k=0; k<4; ++k){
+			std::cout << "[" << i << "].[" << k << "]=" << (int)dynamic_array[i].s[k] << std::endl;
+		}
+	}
+}
+
+template<>
 void DynamicArray<UserDefinedStructure>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
