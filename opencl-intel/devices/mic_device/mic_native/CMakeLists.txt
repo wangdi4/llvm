@@ -14,20 +14,20 @@ if (WIN32)
     message( WARNING "MIC native server creation is not supported on Windows yet!")
 else ()
     # Linux
-    set( TMP_ICC_INSTALL_DIR $ENV{ICC_INSTALL_DIR} )
+    set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
 
     if (NOT TMP_ICC_INSTALL_DIR)
-        if (EXISTS /opt/intel/composerxe_mic)
-            set( TMP_ICC_INSTALL_DIR /opt/intel/composerxe_mic )
+        if (EXISTS /opt/intel/composerxe_mic/bin)
+            set( TMP_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin )
         endif ()
     endif (NOT TMP_ICC_INSTALL_DIR)
 
     if (TMP_ICC_INSTALL_DIR)
         # if environment ICC_INSTALL_DIR is set
-        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/bin/compilervars.sh" )
+        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/compilervars.sh" )
         message("MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
     else ()
-        message( FATAL_ERROR "ICC is not found! Setenv ICC_INSTALL_DIR to point to the ICC with MIC support" )
+        message( FATAL_ERROR "ICC is not found! Setenv ICC_MIC_COMPILER_PATH to point to the ICC with MIC support" )
     endif (TMP_ICC_INSTALL_DIR)
     unset( TMP_ICC_INSTALL_DIR )
 
