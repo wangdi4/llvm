@@ -13,14 +13,23 @@
 #pragma comment(lib, "libtask_executor.so")
 
 using namespace Intel::OpenCL::Utils;
+using namespace Intel::OpenCL::Framework;
 
 extern char clFRAMEWORK_CFG_PATH[];
+extern bool Intel::OpenCL::Framework::g_bModuleShutdown;
+
+static void atexit_handler_framework()
+{
+	g_bModuleShutdown = true;
+}
 
 __attribute__ ((constructor)) static void dll_init(void);
 __attribute__ ((destructor)) static void dll_fini(void);
 
 void dll_init(void)
 {
+	atexit(&atexit_handler_framework);
+
 	char tBuff[PATH_MAX];
 	GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
 	safeStrCpy(clFRAMEWORK_CFG_PATH, MAX_PATH-1, dirname(tBuff));

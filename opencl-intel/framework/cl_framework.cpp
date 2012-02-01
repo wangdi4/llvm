@@ -13,10 +13,6 @@
 #include "cl_framework_alias_linux.h"
 #endif
 
-
-
-
-
 #if defined(USE_GPA)
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
