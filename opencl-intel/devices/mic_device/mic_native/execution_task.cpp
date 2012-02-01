@@ -2,6 +2,7 @@
 #include "native_program_service.h"
 #include "native_common_macros.h"
 #include "wg_context.h"
+#include "mic_tracer.h"
 
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
@@ -14,6 +15,8 @@
 #include <assert.h>
  
 using namespace Intel::OpenCL::MICDeviceNative;
+
+extern DeviceTracer gTracer;
 
 ///////////////////////////////////////////////////////
 // For testing only
@@ -136,7 +139,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 {
 	dispatcher_data* tDispatcherData = NULL;
 	misc_data* tMiscData = NULL;
-	// the buffer index of misc_data in case of it is not in "in_pReturnValue"
+	// the buffer index of misc_data in case that it is not in "in_pReturnValue"
 	uint32_t tMiscDataBufferIndex = in_BufferCount - DISPATCHER_DATA - 1;
 	// If the dispatcher_data is not in in_pMiscData than it suppose to be at in_ppBufferPointers[in_BufferCount - DISPATCHER_DATA - 1] (The last buffer)
 	if (0 == in_MiscDataLength)
@@ -190,6 +193,12 @@ void execute_NDRange(uint32_t         in_BufferCount,
 
 TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
 {
+}
+
+TaskHandler::~TaskHandler()
+{
+	// Set leaving time to device for the tracer
+	m_commandTracer.set_current_time_cmd_run_in_device_time_end();
 }
 
 
@@ -260,6 +269,11 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 	assert(pTaskContainer->getMyTask());
 	// Set "TaskInterface" in this "TaskHandler" object.
 	taskHandler->setTaskInterface(pTaskContainer->getMyTask());
+
+	// Set arrival time to device for the tracer
+	taskHandler->m_commandTracer.set_current_time_cmd_run_in_device_time_start();
+	// Set command ID for the tracer
+	taskHandler->m_commandTracer.set_command_id((size_t)(dispatcherData->commandIdentifier));
 
 	return taskHandler;
 }
@@ -391,11 +405,41 @@ void TBBNonBlockingTaskHandler::RunTask()
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
+#ifdef ENABLE_MIC_TRACER
+	struct TaskLoopBodyTrace {
+	public:
+		TaskLoopBodyTrace(CommandTracer* pCmdTracer, size_t numOfWorkGroups) : m_pCommandTracer(pCmdTracer), m_cpuId(0) { init(numOfWorkGroups); }
+		~TaskLoopBodyTrace()
+		{
+			unsigned long long end = CommandTracer::_RDTSC();
+			unsigned long long delta = end - m_start;
+			m_pCommandTracer->add_delta_time_thread_overall_time(delta, m_cpuId);
+		}
+	private:
+
+		void init(unsigned long long numOfWorkGroups)
+		{
+			m_start = CommandTracer::_RDTSC();
+			m_cpuId = hw_cpu_idx();
+			m_pCommandTracer->increment_thread_num_of_invocations(m_cpuId);
+			m_pCommandTracer->add_delta_thread_num_wg_exe(numOfWorkGroups, m_cpuId);
+		}
+
+		CommandTracer* m_pCommandTracer;
+
+		unsigned int m_cpuId;
+		unsigned long long m_start;
+	};
+#endif
+
 	struct TaskLoopBody1D {
 		TaskInterface* task;
 		TaskLoopBody1D(TaskInterface* t) : task(t) {}
 		virtual ~TaskLoopBody1D() {}
 		void operator()(const tbb::blocked_range<int>& r) const {
+#ifdef ENABLE_MIC_TRACER
+			TaskLoopBodyTrace(task->getCommandTracerPtr(), r.size());
+#endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -416,6 +460,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		TaskLoopBody2D(TaskInterface* t) : task(t) {}
 		virtual ~TaskLoopBody2D() {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
+#ifdef ENABLE_MIC_TRACER
+			TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.rows().size())*(r.cols().size()));
+#endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -437,6 +484,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		TaskLoopBody3D(TaskInterface* t) : task(t) {}
 		virtual ~TaskLoopBody3D() {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
+#ifdef ENABLE_MIC_TRACER
+			TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.pages().size())*(r.rows().size())*(r.cols().size()));
+#endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -457,7 +507,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 
 NDRangeTask::NDRangeTask() : m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
-m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
+m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL), m_pCommandTracer(NULL)
 {
 	// Nullify the ICLDevBackendExecutable_* array.
 	memset((ICLDevBackendExecutable_**)m_contextExecutableArr, 0, sizeof(ICLDevBackendExecutable_*) * MIC_NATIVE_MAX_WORKER_THREADS);
@@ -474,6 +524,17 @@ NDRangeTask::~NDRangeTask()
 cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 {
 	assert(pTaskHandler);
+
+	m_pCommandTracer = &(pTaskHandler->m_commandTracer);
+	// Set total buffers size and num of buffers for the tracer.
+	m_pCommandTracer->add_delta_num_of_buffer_sent_to_device((pTaskHandler->m_lockBufferCount));
+	unsigned long long bufSize = 0;
+	for (unsigned int i = 0; i < pTaskHandler->m_lockBufferCount; i++)
+	{
+		bufSize = pTaskHandler->m_lockBufferLengths[i];
+		m_pCommandTracer->add_delta_buffers_size_sent_to_device(bufSize);
+	}
+
 	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
 	assert(pDispatcherData);
 	ProgramService& tProgramService = ProgramService::getInstance();
@@ -546,6 +607,9 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 		return errCode;
 	}
 
+	// Set kernel name for the tracer.
+	m_pCommandTracer->set_kernel_name((char*)(m_kernel->GetKernelName()));
+
 	// Update buffer parameters
     m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
@@ -566,10 +630,20 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 	for (i = 0; i < m_dim; ++i)
 	{
 		m_region[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
+		
+		// Set global work size in dimension "i" for the tracer.
+		m_pCommandTracer->set_global_work_size(pWorkDesc->globalWorkSize[i], i);
+		// Set WG size in dimension "i" for the tracer.
+		m_pCommandTracer->set_work_group_size(pWGSize[i], i);
 	}
 	for (; i < MAX_WORK_DIM; ++i)
 	{
 		m_region[i] = 1;
+
+		// Set global work size in dimension "i" for the tracer.
+		m_pCommandTracer->set_global_work_size(0, i);
+		// Set WG size in dimension "i" for the tracer.
+		m_pCommandTracer->set_work_group_size(0, i);
 	}
 
 	return CL_DEV_SUCCESS;
@@ -790,6 +864,9 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 	return NULL;
 #endif
 
+	// Set execution start for tracer
+	m_pTbbNDRangeTask->getCommandTracerPtr()->set_current_time_tbb_exe_in_device_time_start();
+
 	if (1 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
@@ -813,6 +890,9 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 													0, (int)m_region[0]),
 													TaskLoopBody3D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
+
+	// Set execution start for tracer
+	m_pTbbNDRangeTask->getCommandTracerPtr()->set_current_time_tbb_exe_in_device_time_end();
 
 	// Call to "finish()" as the last command in order to release resources and notify for completion (in case of OOO).
 	m_pTbbNDRangeTask->finish(m_taskHandler);

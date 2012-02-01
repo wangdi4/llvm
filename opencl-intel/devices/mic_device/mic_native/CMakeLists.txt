@@ -169,6 +169,12 @@ if ( MIC_TESTING_MODE )
                     )
 endif ( MIC_TESTING_MODE )
 
+if ( ENABLE_MIC_TRACER )
+    list( APPEND MIC_FLAGS
+                -DENABLE_MIC_TRACER
+                    )
+endif ( ENABLE_MIC_TRACER )
+
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     set( TBB_LIBS_TO_LINK tbb_debug )
 else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
@@ -240,6 +246,8 @@ configure_file(${DEVICE_LINKER_SCRIPT} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} @ONLY)
 set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
 
 FIND_SOURCES()
+list(APPEND SOURCE_FILES ../mic_tracer.cpp)
+list(APPEND HEADER_FILES ../mic_tracer_counters.h ../mic_tracer.h)
 CALCULATE_TARGET_SOURCES()
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})

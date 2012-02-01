@@ -48,6 +48,11 @@ public:
 		INIT_COMMANDS_QUEUE,
 		RELEASE_COMMANDS_QUEUE,
 
+#ifdef ENABLE_MIC_TRACER
+		GET_TRACE_SIZE, 
+		GET_TRACE,
+#endif
+
         // insert new function ids before this line
         LAST_DEVICE_SIDE_FUNCTION,
         DEVICE_SIDE_FUNCTION_COUNT = LAST_DEVICE_SIDE_FUNCTION // used as a count of functions

@@ -22,7 +22,7 @@
 //  MICDevice.cpp
 ///////////////////////////////////////////////////////////
 
-
+#include "mic_tracer.h"
 #include "mic_device.h"
 #include "program_service.h"
 #include "mic_logger.h"
@@ -38,6 +38,8 @@
 using namespace Intel::OpenCL::MICDevice;
 
 bool gSafeReleaseOfCoiObjects = true;
+
+HostTracer MICDevice::m_tracer;
 
 set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
 OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;

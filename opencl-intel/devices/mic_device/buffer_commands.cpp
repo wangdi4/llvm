@@ -108,6 +108,9 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
 
     bool ok;
 
+	m_total_chunks_processed ++;
+	m_total_size_processed += m_current_chunk.getSize();
+
     if (NULL != use_dependencies)
     {
         ok = fire_action( m_current_chunk, use_dependencies, num_dependencies, &fired_event );
@@ -365,6 +368,8 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
         if ( CL_DEV_CMD_READ == m_pCmd->type )
         {
+			// Set command type for the tracer.
+			m_commandTracer.set_command_type((char*)"Read");
         	// set coiBuffer (objPtr) initial offset
         	sCpyParam.from_Offset = offset;
         	memcpy(sCpyParam.vFromPitch, pObjPitchPtr, sizeof(sCpyParam.vFromPitch));
@@ -375,6 +380,8 @@ cl_dev_err_code ReadWriteMemObject::execute()
         }
         else
         {
+			// Set command type for the tracer.
+			m_commandTracer.set_command_type((char*)"Write");
         	// set host pointer with the calculated offset and copy the pitch
         	sCpyParam.from_Offset = ptrOffset;
         	memcpy(sCpyParam.vFromPitch, cmdParams->pitch, sizeof(sCpyParam.vFromPitch));
@@ -383,6 +390,9 @@ cl_dev_err_code ReadWriteMemObject::execute()
         	sCpyParam.to_Offset = offset;
         	memcpy(sCpyParam.vToPitch, pObjPitchPtr, sizeof(sCpyParam.vToPitch));
         }
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
         CopyRegion( &sCpyParam, &copier );
 
@@ -398,6 +408,13 @@ cl_dev_err_code ReadWriteMemObject::execute()
             error = true;
             break;
         }
+
+		// Set total amount of buffer operations for the Tracer.
+		unsigned int amount = copier.get_total_amount_of_chunks();
+		m_commandTracer.add_delta_num_of_buffer_operations(amount);
+		// Set total size of buffer operations for the Tracer.
+		unsigned long long size = copier.get_total_memory_processed_size();
+		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
         m_lastError = CL_DEV_SUCCESS;
@@ -541,11 +558,17 @@ cl_dev_err_code CopyMemObject::execute()
             break;
         }
 
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type((char*)"Copy");
+
         CopyMemoryChunk copier(
                             barrier,
                             pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
                             pMicMemObjDst->clDevMemObjGetCoiBufferHandler()  // Get the COIBUFFER which represent this memory object
                            );
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
         CopyRegion( &sCpyParam, &copier );
 
@@ -561,6 +584,13 @@ cl_dev_err_code CopyMemObject::execute()
             error = true;
             break;
         }
+
+		// Set total amount of buffer operations for the Tracer.
+		unsigned int amount = copier.get_total_amount_of_chunks();
+		m_commandTracer.add_delta_num_of_buffer_operations(amount);
+		// Set total size of buffer operations for the Tracer.
+		unsigned long long size = copier.get_total_memory_processed_size();
+		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
         m_lastError = CL_DEV_SUCCESS;
@@ -684,12 +714,18 @@ cl_dev_err_code MapMemObject::execute()
             break;
         }
 
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type((char*)"Map");
+
 		MapMemoryChunk copier(
                                barrier,
                                pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
                                cmdParams->ptr,
 							   COI_MAP_READ_WRITE, 
                                MemoryAllocator::GetCoiMapParams(cmdParams) ); // Get the 'SMemMapParamsList' pointer of this memory object
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
 		CopyRegion( &sCpyParam, &copier );
 
@@ -705,6 +741,13 @@ cl_dev_err_code MapMemObject::execute()
             error = true;
             break;
         }
+
+		// Set total amount of buffer operations for the Tracer.
+		unsigned int amount = copier.get_total_amount_of_chunks();
+		m_commandTracer.add_delta_num_of_buffer_operations(amount);
+		// Set total size of buffer operations for the Tracer.
+		unsigned long long size = copier.get_total_memory_processed_size();
+		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
         m_lastError = CL_DEV_SUCCESS;
@@ -787,7 +830,13 @@ cl_dev_err_code UnmapMemObject::execute()
 			break;
 		}
 
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type((char*)"Unmap");
+
 		UnmapMemoryChunk unmapper( barrier );
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
 		// Init map handler iterator and traversing over it.
 		coiMapParam.initMapHandleIterator();
@@ -812,6 +861,13 @@ cl_dev_err_code UnmapMemObject::execute()
             error = true;
             break;
         }
+
+		// Set total amount of buffer operations for the Tracer.
+		unsigned int amount = unmapper.get_total_amount_of_chunks();
+		m_commandTracer.add_delta_num_of_buffer_operations(amount);
+		// Set total size of buffer operations for the Tracer.
+		unsigned long long size = unmapper.get_total_memory_processed_size();
+		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = unmapper.get_last_event();
         m_lastError = CL_DEV_SUCCESS;

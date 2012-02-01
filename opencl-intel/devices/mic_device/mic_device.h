@@ -33,6 +33,7 @@
 #include "mic_config.h"
 #include "notification_port.h"
 #include "cl_synch_objects.h"
+#include "mic_tracer.h"
 
 #include <set>
 
@@ -146,6 +147,9 @@ public:
 	const char* clDevFEModuleName() const;
 	const void* clDevFEDeviceInfo() const;
 	size_t		clDevFEDeviceInfoSize() const;
+
+	// Add Tracer support
+	static HostTracer m_tracer;
 
 };
 

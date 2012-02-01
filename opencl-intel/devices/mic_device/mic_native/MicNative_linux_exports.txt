@@ -9,6 +9,9 @@ Base {
         get_backend_target_description_size;
         copy_program_to_device;
         remove_program_from_device;
+		
+		get_trace_size;
+		get_trace;
 
     local:
         *;

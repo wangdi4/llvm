@@ -22,6 +22,7 @@
 
 #include "notification_port.h"
 #include "mic_device_interface.h"
+#include "mic_tracer.h"
 
 #include <source/COIEvent_source.h>
 #include <source/COIPipeline_source.h>
@@ -82,6 +83,9 @@ protected:
 
 	// Synchronization handler for the command according to the queue type.
 	CommandSynchHandler* m_pCommandSynchHandler;
+
+	// Command tracer
+	CommandTracer m_commandTracer;
 
 private:
 	

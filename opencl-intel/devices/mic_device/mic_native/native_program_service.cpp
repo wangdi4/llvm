@@ -31,6 +31,8 @@
 #include "thread_local_storage.h"
 #include <cl_dev_backend_api.h>
 
+#include "mic_tracer.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
@@ -583,6 +585,11 @@ void copy_program_to_device(
 
     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)in_ppBufferPointers[1];
 
+	CommandTracer cmdTracer;
+	cmdTracer.set_command_id(input->uid_program_on_device);
+	cmdTracer.set_current_time_build_deserialize_time_start();
+
+
     // check that serialized program size is valid
     size_t blob_size = in_pBufferLengths[0];
     assert( blob_size > 0 && "SINK: copy_program_to_device() should get non-zero serialized program" );
@@ -590,6 +597,7 @@ void copy_program_to_device(
     ProgramService& program_service = ProgramService::getInstance();
 
     program_service.add_program( blob_size, in_ppBufferPointers[0], input, output );
+	cmdTracer.set_current_time_build_deserialize_time_end();
 }
 
 //

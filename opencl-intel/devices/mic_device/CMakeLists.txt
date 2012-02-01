@@ -12,6 +12,10 @@ else (NOT MIC_TESTING_MODE)
     set( TARGET_NAME mic_device_testing_mode )
     add_definitions( -DNDRANGE_UNIT_TEST )
 endif (NOT MIC_TESTING_MODE)
+option( ENABLE_MIC_TRACER OFF )
+if ( ENABLE_MIC_TRACER )
+	add_definitions( -DENABLE_MIC_TRACER )
+endif( ENABLE_MIC_TRACER )
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
@@ -99,7 +103,7 @@ endif (WIN32)
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd)
+add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd cl_sys_utils)
 
 install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin

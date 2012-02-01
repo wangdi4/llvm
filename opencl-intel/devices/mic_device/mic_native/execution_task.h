@@ -30,6 +30,7 @@
 #include "program_memory_manager.h"
 #include "cl_sys_defines.h"
 #include "native_synch_objects.h"
+#include "mic_tracer.h"
 
 #include "cl_dev_backend_api.h"
 
@@ -86,7 +87,7 @@ protected:
 
 	TaskHandler();
 
-	virtual ~TaskHandler() {};
+	virtual ~TaskHandler();
 
 	/* It will be call from 'run()' method (of m_task) as the last command,
 	   It will release the resources and singal the user barrier if needed. 
@@ -104,6 +105,9 @@ protected:
 
 	// a pointer to TaskInterface
 	TaskInterface* m_task;
+
+	// Command tracer
+	CommandTracer m_commandTracer;
 
 private:
 
@@ -192,6 +196,9 @@ public:
 
 	// The function is called with different 'inx' parameters for each iteration number
 	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
+
+	/* Return CommandTracer */
+	virtual CommandTracer* getCommandTracerPtr() = 0;
 };
 
 
@@ -217,6 +224,9 @@ public:
 	/* Static function which detroy the NDRange TLS object. */
 	static void destructTlsEntry(void* pEntry);
 
+	/* Return CommandTracer */
+	virtual CommandTracer* getCommandTracerPtr() { return m_pCommandTracer; };
+
 protected:
 
 	NDRangeTask();
@@ -241,6 +251,9 @@ protected:
 
 	// The kernel arguments blob
 	char* m_lockedParams;
+
+	// CommandTracer object
+	CommandTracer* m_pCommandTracer;
 
 private:
 

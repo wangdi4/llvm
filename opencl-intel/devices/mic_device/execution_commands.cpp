@@ -2,6 +2,7 @@
 #include "cl_dev_backend_api.h"
 #include "command_list.h"
 #include "memory_allocator.h"
+#include "mic_device.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -332,6 +333,9 @@ cl_dev_err_code NDRange::execute()
 		//Get COIFUNCTION handle according to func name (ask from DeviceServiceCommunication dictionary)
 		COIFUNCTION func = m_pCommandList->getDeviceFunction( DeviceServiceCommunication::EXECUTE_NDRANGE );
 
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type((char*)"NDRange");
+
 		err = init(coiBuffsArr, accessFlagsArr);
 		if (err != CL_DEV_SUCCESS)
 		{
@@ -340,6 +344,9 @@ cl_dev_err_code NDRange::execute()
 
 		// TODO - Call it only when realy starting the command.
 		notifyCommandStatusChanged(CL_RUNNING);
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
 		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier when finish.
 		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier))' can return NULL, in case of Out of order CommandList */
@@ -363,6 +370,8 @@ cl_dev_err_code NDRange::execute()
 
 void NDRange::fireCallBack(void* arg)
 {
+	// Set end coi execution time for the tracer. (Notification)
+	m_commandTracer.set_current_time_coi_execute_command_time_end();
 #ifndef NDRANGE_UNIT_TEST
 	// Decrement the reference counter of this kernel program.
 	m_pCommandList->getProgramService()->releaseKernelOnDevice(((cl_dev_cmd_param_kernel*)m_pCmd->params)->kernel);

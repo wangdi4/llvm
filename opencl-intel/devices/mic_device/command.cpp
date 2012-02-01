@@ -1,6 +1,7 @@
 #include "command.h"
 #include "command_list.h"
 #include "cl_sys_info.h"
+#include "mic_device.h"
 
 using namespace Intel::OpenCL::MICDevice;
 
@@ -14,6 +15,10 @@ m_pCommandList(pCommandList), m_pFrameworkCallBacks(pFrameworkCallBacks)
 	// Get CommandSynchHandler singleton according to Queue type.
 	m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
 	assert(m_pCommandSynchHandler);
+	// Set command id for the tracer.
+	m_commandTracer.set_command_id((size_t)(pCmd->id));
+	// Set start execution time for the tracer.
+	m_commandTracer.set_current_time_command_host_time_start();
 }
 
 Command::~Command()
@@ -53,6 +58,8 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 
 void Command::fireCallBack(void* arg)
 {
+	// Set end coi execution time for the tracer. (Notification)
+	m_commandTracer.set_current_time_coi_execute_command_time_end();
 	// Notify runtime that  the command completed
 	notifyCommandStatusChanged(CL_COMPLETE);
 	// Delete this Command object
@@ -61,6 +68,8 @@ void Command::fireCallBack(void* arg)
 
 void Command::releaseResources()
 {
+	// Set end execution time for the tracer.
+	m_commandTracer.set_current_time_command_host_time_end();
 	// Delete Synchronization handler
 	assert(m_pCommandSynchHandler);
 	// Unregister the completion barrier

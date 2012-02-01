@@ -4,10 +4,12 @@
 #include "mic_dev_limits.h"
 #include "mic_common_macros.h"
 #include "mic_sys_info.h"
+#include "mic_device.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
 #include <source/COIEvent_source.h>
+#include <source/COIBuffer_source.h>
 
 #include <libgen.h>
 #include <assert.h>
@@ -31,6 +33,10 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 	"release_device",						// CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
 	"init_commands_queue",					// INIT COMMANDS QUEUE ON DEVICE
 	"release_commands_queue"				// RELEASE COMMANDS QUEUE ON DEVICE
+#ifdef ENABLE_MIC_TRACER
+	,"get_trace_size",
+	"get_trace"
+#endif
 };
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
@@ -82,6 +88,52 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 
 	if (releaseCoiObjects)
 	{
+#ifdef ENABLE_MIC_TRACER
+		// Get device trace size
+		uint64_t devTraceSize = 0;
+		// Get device trace size
+		bool res = runServiceFunction(GET_TRACE_SIZE, 0, NULL, sizeof(uint64_t), &devTraceSize, 0, NULL, NULL);
+		assert(res);
+		if (devTraceSize > 0)
+		{
+			COIBUFFER traceCoiBuffer;
+			COIRESULT coiRes = COIBufferCreate( devTraceSize, 
+				                                COI_BUFFER_NORMAL, 0, 
+												NULL, 
+												1, &m_process,
+												&traceCoiBuffer);
+			assert(COI_SUCCESS == coiRes);
+
+			COI_ACCESS_FLAGS accessFlag[1] = { COI_SINK_WRITE_ENTIRE };
+			// Get device trace
+			res = runServiceFunction(GET_TRACE, 0, NULL, 0, NULL, 1, &traceCoiBuffer, accessFlag);
+			assert(res);
+
+			COIMAPINSTANCE mapInstance;
+			void* devTrace = NULL;
+			coiRes = COIBufferMap( traceCoiBuffer,
+				                   0, devTraceSize, 
+								   COI_MAP_READ_ONLY, 
+								   0, NULL, NULL,
+								   &mapInstance, 
+								   &devTrace );
+			assert(COI_SUCCESS == coiRes);
+
+			// Get device 0 freq.
+			unsigned long long freq = MICSysInfo::getInstance().getMaxClockFrequency(0) * 1000000;
+
+			// Write to file device trace
+			MICDevice::m_tracer.draw_device_to_file(devTrace, devTraceSize, freq);
+
+			coiRes = COIBufferUnmap( mapInstance, 0, NULL, NULL);
+			assert(COI_SUCCESS == coiRes);
+			coiRes = COIBufferDestroy( traceCoiBuffer );
+			assert(COI_SUCCESS == coiRes);
+		}
+
+		// Write to file host trace
+		MICDevice::m_tracer.draw_host_to_file();
+#endif
 		// Run release device function on device side
 		runServiceFunction(RELEASE_DEVICE, 0, NULL, 0, NULL, 0, NULL, NULL);
 

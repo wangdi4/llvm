@@ -36,6 +36,7 @@
 #include "mic_common_macros.h"
 #include "device_service_communication.h"
 #include "mic_device_interface.h"
+#include "mic_tracer.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIPipeline_source.h>
@@ -151,9 +152,7 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
     switch (optionId)
     {
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-// BUGBUG: DK: Disable vectorizer
-//            return !m_bUseVectorizer ? 1 : defaultValue;
-            return TRANSPOSE_SIZE_1;
+            return !m_bUseVectorizer ? TRANSPOSE_SIZE_1 : defaultValue;
 
         case CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE:
             {
@@ -666,6 +665,9 @@ public:
     // ITask interface
     bool Execute()
     {
+		CommandTracer cmdTracer;
+		cmdTracer.set_command_type((char*)"Build");
+		cmdTracer.set_current_time_command_host_time_start();
         MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Enter"));
 
         ICLDevBackendCompilationService* compiler = m_ProgramService.GetCompilationService();
@@ -688,9 +690,11 @@ public:
             }
         }
 
+		cmdTracer.set_command_id((uint64_t)m_pProgEntry);
         m_pProgEntry->clBuildStatus = status;
         m_ProgramService.m_pCallBacks->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
         MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+		cmdTracer.set_current_time_command_host_time_end();
         return true;
     }
 
@@ -1436,8 +1440,12 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             break;
         }
 
+		CommandTracer cmdTracer;
+		cmdTracer.set_command_id(input->uid_program_on_device);
+		cmdTracer.set_current_time_build_serialize_time_start();
         // 4. Serialize program
         be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
+		cmdTracer.set_current_time_build_serialize_time_end();
 
         assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
 

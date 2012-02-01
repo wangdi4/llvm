@@ -48,9 +48,13 @@ public:
     bool     error_occured( void ) const { return m_error_occured; };
 	// Return true if some work dispatched.
     bool     work_dispatched( void ) const { return (NOT_INIT != m_state); };
+	// Return the total amount of dispatched chunks
+	unsigned int get_total_amount_of_chunks() { return m_total_chunks_processed; };
+	// Return the total size processed
+	size_t get_total_memory_processed_size() { return m_total_size_processed; };
 
     ProcessMemoryChunk( const COIEVENT* external_dependency ) :
-        m_external_dependency( external_dependency ), m_state(NOT_INIT), m_error_occured(false) {};
+        m_external_dependency( external_dependency ), m_state(NOT_INIT), m_error_occured(false), m_total_chunks_processed(0), m_total_size_processed(0) {};
 
     virtual ~ProcessMemoryChunk() {};
 
@@ -82,6 +86,10 @@ private:
     const COIEVENT*     m_external_dependency;
     State               m_state;
     bool                m_error_occured;
+
+	// Counters for tracing
+	unsigned int		m_total_chunks_processed;
+	size_t				m_total_size_processed;
 };
 
 // Chunk struct for common buffer commands.
@@ -100,6 +108,8 @@ namespace CommonMemoryChunk
 		bool isReadyToFire() { return (size > 0); };
 
 		void reset() { size = 0; };
+
+		size_t getSize() { return size; };
 	};
 }
 
@@ -138,6 +148,8 @@ namespace UnmapMemoryChunkStruct
 		bool isReadyToFire() { return (NULL != coi_map_instance); };
 
 		void reset() { coi_map_instance = NULL; };
+
+		size_t getSize() { return 0; };
 	};
 }
 
