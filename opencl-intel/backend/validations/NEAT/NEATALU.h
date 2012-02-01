@@ -5514,6 +5514,7 @@ public:
     static NEATValue smoothstep (const NEATValue& edge0, 
                                  const NEATValue& edge1,
                                  const NEATValue& x) {
+        typedef typename superT<T>::type sT;
         // check for ANY,UNWRITTEN,UNKNOWN
         if(CheckAUU(edge0) || CheckAUU(edge1) || CheckAUU(x)) 
             return NEATValue(NEATValue::UNKNOWN);
@@ -5547,27 +5548,101 @@ public:
         if (Utils::ge<T>(xMin,edgeMax1))
             return NEATValue(T(1));
 
-        if ( flushedX.IsAcc() && flushedEdge0.IsAcc() && flushedEdge1.IsAcc() )
-            return NEATValue(RefALU::flush(RefALU::smoothstep(*flushedEdge0.GetAcc<T>(), *flushedEdge1.GetAcc<T>(), *flushedX.GetAcc<T>())));
-
         // according to openCL spec Version: 1.1 (6.11.4 Common Functions)
         // smoothstep function is equivalent to: 
         // gentype t;
         // t = clamp ((x - edge0) / (edge1 - edge0), 0, 1);
         // return t * t * (3 - 2 * t);
 
-        // compute a = (x - edge0) / (edge1 - edge0) with no range extention
-        NEATValue res = InternalDiv<T>(sub<T>(flushedX,flushedEdge0),sub<T>(flushedEdge1,flushedEdge0),0);
-        // and compute clamp(a)
-        res = clamp<T>(res,NEATValue(T(0)),NEATValue(T(1)));
+        // compute a = (x - edge0) / (edge1 - edge0)
+        sT min=sT(0), max=sT(0);
 
-        NEATValue res1 = mul<T>(NEATValue(T(2)),res); // 2 * t, correctly rounded
-        res1 = sub<T>(NEATValue(T(3)),res1); // 3 - 2 * t, correctly rounded
+        NEATValue a,b, e2sub;
+        // x - edge0
+        e2sub = neg<T>(flushedEdge0);
 
-        res = mul<T>(res,res); //  t * t, correctly rounded
-        res = mul<T>(res,res1); // t * t * (3 - 2 * t), correctly rounded
+        double const localErr = 0.5;
 
-        return res;
+        sT minA = RefALU::add( sT(*flushedX.GetMin<T>()), sT(*e2sub.GetMin<T>()) );
+        sT maxA = RefALU::add( sT(*flushedX.GetMax<T>()), sT(*e2sub.GetMax<T>()) );
+        ExpandFloatInterval<sT>(&minA, &maxA, localErr);
+
+        // edge1 - edge0
+        sT minB = RefALU::add( sT(*flushedEdge1.GetMin<T>()), sT(*e2sub.GetMin<T>()) );
+        sT maxB = RefALU::add( sT(*flushedEdge1.GetMax<T>()), sT(*e2sub.GetMax<T>()) );
+        ExpandFloatInterval<sT>(&minB, &maxB, localErr);
+
+        // (x - edge0) / (edge1 - edge0)
+        if ( (Utils::le(minB,sT(0.0)) && Utils::le(sT(0.0),maxB)) ||
+             (Utils::le(minB,sT(-0.0)) && Utils::le(sT(-0.0),maxB)) )
+        {
+            return NEATValue(NEATValue::UNKNOWN);
+        }
+
+        const int RES_COUNT = 8;
+        sT val[RES_COUNT];
+
+        sT zero = sT(0);
+        sT one = sT(1);
+
+        val[0] = RefALU::div(minA,minB);
+        val[1] = RefALU::div(minA,maxB);
+        val[2] = RefALU::div(maxA,minB);
+        val[3] = RefALU::div(maxA,maxB);
+        val[4] = RefALU::mul(minA, RefALU::div(one,minB) );
+        val[5] = RefALU::mul(minA, RefALU::div(one,maxB) );
+        val[6] = RefALU::mul(maxA, RefALU::div(one,minB) );
+        val[7] = RefALU::mul(maxA, RefALU::div(one,maxB) );
+
+        Combine(val, RES_COUNT, min, max);
+        ExpandFloatInterval<sT>(&min, &max, DIV_ERROR);
+
+        // and compute t = clamp ((x - edge0) / (edge1 - edge0), 0, 1);
+        sT minT, maxT;
+        if(max < zero)
+        {
+            minT = std::max(zero, min);
+            maxT = zero;
+        } else if(max < one)
+        {
+            minT = std::max(zero, min);
+            minT = std::min(min, one);
+            maxT = max;
+        } else
+        {
+            minT = std::min(min, one);
+            minT = std::max(min, zero);
+            maxT = one;
+        }
+
+        // clamp result t is between 0.0 and 1.0
+        min = minT;
+        max = maxT;
+
+        // 2 * t
+        sT min2 = RefALU::add( min, min );
+        sT max2 = RefALU::add( max, max );
+
+        // 3 - 2 * t
+        min2 = RefALU::add( sT(3), -max2 );
+        max2 = RefALU::add( sT(3), -min2 );
+
+        //  t * t
+        val[0] = RefALU::mul(min, max);
+        val[1] = RefALU::mul(min, min);
+        val[2] = RefALU::mul(max, max);
+        Combine(val, 3, min, max);
+
+        // t * t * (3 - 2 * t)
+        val[0] = RefALU::mul(min, max2);
+        val[1] = RefALU::mul(min, min2);
+        val[2] = RefALU::mul(max, min2);
+        val[3] = RefALU::mul(max, max2);
+        Combine(val, 4, min, max);
+        // 0 <= t <= 1, so 3 is a max value in "t * t * (3 - 2 * t)"
+        ExpandFloatInterval<sT>(&min, &max, 3, (localErr*3.0)); // const 3 is used in 3 operations
+
+        return NEATValue(castDown(min), castDown(max));
     }
 
     // smoothstep function for vector arguments.
