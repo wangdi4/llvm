@@ -37,8 +37,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	extern bool g_bModuleShutdown;
-
 	/**********************************************************************************************
 	* Class name:	FrameworkProxy
 	*
@@ -149,5 +147,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DECLARE_LOGGER_CLIENT;
 
 	};
+
+
 
 }}}

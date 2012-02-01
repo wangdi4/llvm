@@ -37,6 +37,7 @@
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
 
+
 struct _cl_object
 {
 	void * object;

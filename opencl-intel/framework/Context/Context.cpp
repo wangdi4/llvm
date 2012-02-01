@@ -25,7 +25,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "framework_proxy.h"
 #include "Context.h"
 #include "Device.h"
 #include "program_with_source.h"
@@ -210,9 +209,9 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void Context::Cleanup( bool bTerminate )
 {
-    // If terminate, do nothing since devices are off already
-    if ( bTerminate || g_bModuleShutdown)
+    if (bTerminate)
     {
+        // If terminate, do nothing since devices are off already
         return;
     }
 

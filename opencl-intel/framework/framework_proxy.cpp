@@ -33,9 +33,6 @@ char clFRAMEWORK_CFG_PATH[MAX_PATH];
 
 ocl_entry_points FrameworkProxy::OclEntryPoints;
 
-// Global variable which is set to true
-// When shared object shutdowns (atexit() call)
-bool Intel::OpenCL::Framework::g_bModuleShutdown = false;
 
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
