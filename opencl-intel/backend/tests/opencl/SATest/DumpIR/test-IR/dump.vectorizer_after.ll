@@ -3,685 +3,682 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @intel_median(<4 x i8> addrspace(1)* nocapture %pSrc, i32 addrspace(1)* nocapture %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
-entry:
   %iPixels = alloca [9 x <4 x i32>], align 16
-  %cmp10 = icmp sgt i32 %iImageWidth, 0
-  br i1 %cmp10, label %for.cond1.preheader.lr.ph, label %for.end79
+  %1 = icmp sgt i32 %iImageWidth, 0
+  br i1 %1, label %.preheader.lr.ph, label %._crit_edge
 
-for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %call = call i32 @get_global_id(i32 0) nounwind readnone
-  %add = add i32 %call, 2
-  %mul74 = mul nsw i32 %add, %iImageWidth
-  br label %for.cond1.preheader
+.preheader.lr.ph:                                 ; preds = %0
+  %2 = call i32 @get_global_id(i32 0) nounwind readnone
+  %3 = add i32 %2, 2
+  %4 = mul nsw i32 %3, %iImageWidth
+  br label %.preheader
 
-for.cond1.preheader:                              ; preds = %for.end66, %for.cond1.preheader.lr.ph
-  %x.011 = phi i32 [ 0, %for.cond1.preheader.lr.ph ], [ %inc78, %for.end66 ]
-  br label %for.body3
+.preheader:                                       ; preds = %111, %.preheader.lr.ph
+  %x.011 = phi i32 [ 0, %.preheader.lr.ph ], [ %124, %111 ]
+  br label %5
 
-for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
-  %iRow.02 = phi i32 [ -1, %for.cond1.preheader ], [ %inc28, %for.body3 ]
-  %iPixelCount.01 = phi i32 [ 0, %for.cond1.preheader ], [ %inc27, %for.body3 ]
-  %add4 = add i32 %add, %iRow.02
-  %mul = mul nsw i32 %add4, %iImageWidth
-  %add5 = add nsw i32 %mul, %x.011
-  %sub = add nsw i32 %add5, -1
-  %arrayidx = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %sub
-  %0 = load <4 x i8> addrspace(1)* %arrayidx, align 4
-  %1 = extractelement <4 x i8> %0, i32 0
-  %conv = zext i8 %1 to i32
-  %arrayidx6 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %iPixelCount.01
-  %2 = load <4 x i32>* %arrayidx6, align 16
-  %3 = insertelement <4 x i32> %2, i32 %conv, i32 0
-  %4 = extractelement <4 x i8> %0, i32 1
-  %conv7 = zext i8 %4 to i32
-  %5 = insertelement <4 x i32> %3, i32 %conv7, i32 1
-  %6 = extractelement <4 x i8> %0, i32 2
-  %conv9 = zext i8 %6 to i32
-  %7 = insertelement <4 x i32> %5, i32 %conv9, i32 2
-  store <4 x i32> %7, <4 x i32>* %arrayidx6, align 16
-  %inc = add nsw i32 %iPixelCount.01, 1
-  %arrayidx11 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %add5
-  %8 = load <4 x i8> addrspace(1)* %arrayidx11, align 4
-  %9 = extractelement <4 x i8> %8, i32 0
-  %conv12 = zext i8 %9 to i32
-  %arrayidx13 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc
-  %10 = load <4 x i32>* %arrayidx13, align 16
-  %11 = insertelement <4 x i32> %10, i32 %conv12, i32 0
-  %12 = extractelement <4 x i8> %8, i32 1
-  %conv14 = zext i8 %12 to i32
-  %13 = insertelement <4 x i32> %11, i32 %conv14, i32 1
-  %14 = extractelement <4 x i8> %8, i32 2
-  %conv16 = zext i8 %14 to i32
-  %15 = insertelement <4 x i32> %13, i32 %conv16, i32 2
-  store <4 x i32> %15, <4 x i32>* %arrayidx13, align 16
-  %inc18 = add nsw i32 %iPixelCount.01, 2
-  %add19 = add nsw i32 %add5, 1
-  %arrayidx20 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %add19
-  %16 = load <4 x i8> addrspace(1)* %arrayidx20, align 4
-  %17 = extractelement <4 x i8> %16, i32 0
-  %conv21 = zext i8 %17 to i32
-  %arrayidx22 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc18
-  %18 = load <4 x i32>* %arrayidx22, align 16
-  %19 = insertelement <4 x i32> %18, i32 %conv21, i32 0
-  %20 = extractelement <4 x i8> %16, i32 1
-  %conv23 = zext i8 %20 to i32
-  %21 = insertelement <4 x i32> %19, i32 %conv23, i32 1
-  %22 = extractelement <4 x i8> %16, i32 2
-  %conv25 = zext i8 %22 to i32
-  %23 = insertelement <4 x i32> %21, i32 %conv25, i32 2
-  store <4 x i32> %23, <4 x i32>* %arrayidx22, align 16
-  %inc27 = add nsw i32 %iPixelCount.01, 3
-  %inc28 = add nsw i32 %iRow.02, 1
-  %exitcond = icmp eq i32 %inc28, 2
-  br i1 %exitcond, label %for.cond29.loopexit, label %for.body3
+; <label>:5                                       ; preds = %5, %.preheader
+  %iRow.02 = phi i32 [ -1, %.preheader ], [ %53, %5 ]
+  %iPixelCount.01 = phi i32 [ 0, %.preheader ], [ %52, %5 ]
+  %6 = add i32 %3, %iRow.02
+  %7 = mul nsw i32 %6, %iImageWidth
+  %8 = add nsw i32 %7, %x.011
+  %9 = add nsw i32 %8, -1
+  %10 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %9
+  %11 = load <4 x i8> addrspace(1)* %10, align 4
+  %12 = extractelement <4 x i8> %11, i32 0
+  %13 = zext i8 %12 to i32
+  %14 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %iPixelCount.01
+  %15 = load <4 x i32>* %14, align 16
+  %16 = insertelement <4 x i32> %15, i32 %13, i32 0
+  %17 = extractelement <4 x i8> %11, i32 1
+  %18 = zext i8 %17 to i32
+  %19 = insertelement <4 x i32> %16, i32 %18, i32 1
+  %20 = extractelement <4 x i8> %11, i32 2
+  %21 = zext i8 %20 to i32
+  %22 = insertelement <4 x i32> %19, i32 %21, i32 2
+  store <4 x i32> %22, <4 x i32>* %14, align 16
+  %23 = add nsw i32 %iPixelCount.01, 1
+  %24 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %8
+  %25 = load <4 x i8> addrspace(1)* %24, align 4
+  %26 = extractelement <4 x i8> %25, i32 0
+  %27 = zext i8 %26 to i32
+  %28 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %23
+  %29 = load <4 x i32>* %28, align 16
+  %30 = insertelement <4 x i32> %29, i32 %27, i32 0
+  %31 = extractelement <4 x i8> %25, i32 1
+  %32 = zext i8 %31 to i32
+  %33 = insertelement <4 x i32> %30, i32 %32, i32 1
+  %34 = extractelement <4 x i8> %25, i32 2
+  %35 = zext i8 %34 to i32
+  %36 = insertelement <4 x i32> %33, i32 %35, i32 2
+  store <4 x i32> %36, <4 x i32>* %28, align 16
+  %37 = add nsw i32 %iPixelCount.01, 2
+  %38 = add nsw i32 %8, 1
+  %39 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %38
+  %40 = load <4 x i8> addrspace(1)* %39, align 4
+  %41 = extractelement <4 x i8> %40, i32 0
+  %42 = zext i8 %41 to i32
+  %43 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %37
+  %44 = load <4 x i32>* %43, align 16
+  %45 = insertelement <4 x i32> %44, i32 %42, i32 0
+  %46 = extractelement <4 x i8> %40, i32 1
+  %47 = zext i8 %46 to i32
+  %48 = insertelement <4 x i32> %45, i32 %47, i32 1
+  %49 = extractelement <4 x i8> %40, i32 2
+  %50 = zext i8 %49 to i32
+  %51 = insertelement <4 x i32> %48, i32 %50, i32 2
+  store <4 x i32> %51, <4 x i32>* %43, align 16
+  %52 = add nsw i32 %iPixelCount.01, 3
+  %53 = add nsw i32 %iRow.02, 1
+  %exitcond = icmp eq i32 %53, 2
+  br i1 %exitcond, label %.loopexit, label %5
 
-for.cond29.loopexit:                              ; preds = %for.body3
-  %arrayidx38 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 0
-  br label %for.cond34.preheader
+.loopexit:                                        ; preds = %5
+  %54 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 0
+  br label %.preheader3
 
-for.cond34.preheader:                             ; preds = %for.cond34.preheader, %for.cond29.loopexit
-  %iSearch.09 = phi i32 [ 0, %for.cond29.loopexit ], [ %inc65, %for.cond34.preheader ]
-  %iYes.08 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %for.cond29.loopexit ], [ %shr, %for.cond34.preheader ]
-  %iMin.07 = phi <4 x i32> [ zeroinitializer, %for.cond29.loopexit ], [ %or, %for.cond34.preheader ]
-  %iMax.06 = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %for.cond29.loopexit ], [ %or62, %for.cond34.preheader ]
-  %24 = load <4 x i32>* %arrayidx38, align 16
-  %cmp39 = icmp slt <4 x i32> %iYes.08, %24
-  %sext = sext <4 x i1> %cmp39 to <4 x i32>
-  %arrayidx42 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 1
-  %25 = load <4 x i32>* %arrayidx42, align 16
-  %cmp43 = icmp slt <4 x i32> %iYes.08, %25
-  %sext44 = sext <4 x i1> %cmp43 to <4 x i32>
-  %add45 = add <4 x i32> %sext, %sext44
-  %arrayidx47 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 2
-  %26 = load <4 x i32>* %arrayidx47, align 16
-  %cmp48 = icmp slt <4 x i32> %iYes.08, %26
-  %sext49 = sext <4 x i1> %cmp48 to <4 x i32>
-  %add50 = add <4 x i32> %add45, %sext49
-  %arrayidx38.1 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 3
-  %27 = load <4 x i32>* %arrayidx38.1, align 16
-  %cmp39.1 = icmp slt <4 x i32> %iYes.08, %27
-  %sext.1 = sext <4 x i1> %cmp39.1 to <4 x i32>
-  %add40.1 = add <4 x i32> %add50, %sext.1
-  %arrayidx42.1 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 4
-  %28 = load <4 x i32>* %arrayidx42.1, align 16
-  %cmp43.1 = icmp slt <4 x i32> %iYes.08, %28
-  %sext44.1 = sext <4 x i1> %cmp43.1 to <4 x i32>
-  %add45.1 = add <4 x i32> %add40.1, %sext44.1
-  %arrayidx47.1 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 5
-  %29 = load <4 x i32>* %arrayidx47.1, align 16
-  %cmp48.1 = icmp slt <4 x i32> %iYes.08, %29
-  %sext49.1 = sext <4 x i1> %cmp48.1 to <4 x i32>
-  %add50.1 = add <4 x i32> %add45.1, %sext49.1
-  %arrayidx38.2 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 6
-  %30 = load <4 x i32>* %arrayidx38.2, align 16
-  %cmp39.2 = icmp slt <4 x i32> %iYes.08, %30
-  %sext.2 = sext <4 x i1> %cmp39.2 to <4 x i32>
-  %add40.2 = add <4 x i32> %add50.1, %sext.2
-  %arrayidx42.2 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 7
-  %31 = load <4 x i32>* %arrayidx42.2, align 16
-  %cmp43.2 = icmp slt <4 x i32> %iYes.08, %31
-  %sext44.2 = sext <4 x i1> %cmp43.2 to <4 x i32>
-  %add45.2 = add <4 x i32> %add40.2, %sext44.2
-  %arrayidx47.2 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 8
-  %32 = load <4 x i32>* %arrayidx47.2, align 16
-  %cmp48.2 = icmp slt <4 x i32> %iYes.08, %32
-  %sext49.2 = sext <4 x i1> %cmp48.2 to <4 x i32>
-  %add50.2 = add <4 x i32> %add45.2, %sext49.2
-  %sub55 = sub <4 x i32> zeroinitializer, %add50.2
-  %cmp56 = icmp sgt <4 x i32> %sub55, <i32 4, i32 4, i32 4, i32 4>
-  %sext57 = sext <4 x i1> %cmp56 to <4 x i32>
-  %and = and <4 x i32> %iYes.08, %sext57
-  %neg = xor <4 x i32> %sext57, <i32 -1, i32 -1, i32 -1, i32 -1>
-  %and58 = and <4 x i32> %iMin.07, %neg
-  %or = or <4 x i32> %and, %and58
-  %and60 = and <4 x i32> %iYes.08, %neg
-  %and61 = and <4 x i32> %iMax.06, %sext57
-  %or62 = or <4 x i32> %and60, %and61
-  %add63 = add <4 x i32> %or62, %or
-  %shr = ashr <4 x i32> %add63, <i32 1, i32 1, i32 1, i32 1>
-  %inc65 = add nsw i32 %iSearch.09, 1
-  %exitcond13 = icmp eq i32 %inc65, 8
-  br i1 %exitcond13, label %for.end66, label %for.cond34.preheader
+.preheader3:                                      ; preds = %.preheader3, %.loopexit
+  %iSearch.010 = phi i32 [ 0, %.loopexit ], [ %110, %.preheader3 ]
+  %iYes.09 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %.loopexit ], [ %109, %.preheader3 ]
+  %iMin.08 = phi <4 x i32> [ zeroinitializer, %.loopexit ], [ %104, %.preheader3 ]
+  %iMax.07 = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %.loopexit ], [ %107, %.preheader3 ]
+  %55 = load <4 x i32>* %54, align 16
+  %56 = icmp slt <4 x i32> %iYes.09, %55
+  %57 = sext <4 x i1> %56 to <4 x i32>
+  %58 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 1
+  %59 = load <4 x i32>* %58, align 16
+  %60 = icmp slt <4 x i32> %iYes.09, %59
+  %61 = sext <4 x i1> %60 to <4 x i32>
+  %62 = add <4 x i32> %57, %61
+  %63 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 2
+  %64 = load <4 x i32>* %63, align 16
+  %65 = icmp slt <4 x i32> %iYes.09, %64
+  %66 = sext <4 x i1> %65 to <4 x i32>
+  %67 = add <4 x i32> %62, %66
+  %68 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 3
+  %69 = load <4 x i32>* %68, align 16
+  %70 = icmp slt <4 x i32> %iYes.09, %69
+  %71 = sext <4 x i1> %70 to <4 x i32>
+  %72 = add <4 x i32> %67, %71
+  %73 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 4
+  %74 = load <4 x i32>* %73, align 16
+  %75 = icmp slt <4 x i32> %iYes.09, %74
+  %76 = sext <4 x i1> %75 to <4 x i32>
+  %77 = add <4 x i32> %72, %76
+  %78 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 5
+  %79 = load <4 x i32>* %78, align 16
+  %80 = icmp slt <4 x i32> %iYes.09, %79
+  %81 = sext <4 x i1> %80 to <4 x i32>
+  %82 = add <4 x i32> %77, %81
+  %83 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 6
+  %84 = load <4 x i32>* %83, align 16
+  %85 = icmp slt <4 x i32> %iYes.09, %84
+  %86 = sext <4 x i1> %85 to <4 x i32>
+  %87 = add <4 x i32> %82, %86
+  %88 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 7
+  %89 = load <4 x i32>* %88, align 16
+  %90 = icmp slt <4 x i32> %iYes.09, %89
+  %91 = sext <4 x i1> %90 to <4 x i32>
+  %92 = add <4 x i32> %87, %91
+  %93 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 8
+  %94 = load <4 x i32>* %93, align 16
+  %95 = icmp slt <4 x i32> %iYes.09, %94
+  %96 = sext <4 x i1> %95 to <4 x i32>
+  %97 = add <4 x i32> %92, %96
+  %98 = sub <4 x i32> zeroinitializer, %97
+  %99 = icmp sgt <4 x i32> %98, <i32 4, i32 4, i32 4, i32 4>
+  %100 = sext <4 x i1> %99 to <4 x i32>
+  %101 = and <4 x i32> %iYes.09, %100
+  %102 = xor <4 x i32> %100, <i32 -1, i32 -1, i32 -1, i32 -1>
+  %103 = and <4 x i32> %iMin.08, %102
+  %104 = or <4 x i32> %101, %103
+  %105 = and <4 x i32> %iYes.09, %102
+  %106 = and <4 x i32> %iMax.07, %100
+  %107 = or <4 x i32> %105, %106
+  %108 = add <4 x i32> %107, %104
+  %109 = ashr <4 x i32> %108, <i32 1, i32 1, i32 1, i32 1>
+  %110 = add nsw i32 %iSearch.010, 1
+  %exitcond13 = icmp eq i32 %110, 8
+  br i1 %exitcond13, label %111, label %.preheader3
 
-for.end66:                                        ; preds = %for.cond34.preheader
-  %33 = extractelement <4 x i32> %shr, i32 0
-  %and67 = and i32 %33, 255
-  %34 = extractelement <4 x i32> %shr, i32 1
-  %shl = shl i32 %34, 8
-  %and68 = and i32 %shl, 65280
-  %35 = extractelement <4 x i32> %shr, i32 2
-  %shl70 = shl i32 %35, 16
-  %and71 = and i32 %shl70, 16711680
-  %or69 = or i32 %and71, %and67
-  %or72 = or i32 %or69, %and68
-  %add75 = add nsw i32 %x.011, %mul74
-  %arrayidx76 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %add75
-  store i32 %or72, i32 addrspace(1)* %arrayidx76, align 4
-  %inc78 = add nsw i32 %x.011, 1
-  %exitcond14 = icmp eq i32 %inc78, %iImageWidth
-  br i1 %exitcond14, label %for.end79.loopexit, label %for.cond1.preheader
+; <label>:111                                     ; preds = %.preheader3
+  %112 = extractelement <4 x i32> %109, i32 0
+  %113 = and i32 %112, 255
+  %114 = extractelement <4 x i32> %109, i32 1
+  %115 = shl i32 %114, 8
+  %116 = and i32 %115, 65280
+  %117 = extractelement <4 x i32> %109, i32 2
+  %118 = shl i32 %117, 16
+  %119 = and i32 %118, 16711680
+  %120 = or i32 %119, %113
+  %121 = or i32 %120, %116
+  %122 = add nsw i32 %x.011, %4
+  %123 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %122
+  store i32 %121, i32 addrspace(1)* %123, align 4
+  %124 = add nsw i32 %x.011, 1
+  %exitcond14 = icmp eq i32 %124, %iImageWidth
+  br i1 %exitcond14, label %._crit_edge.loopexit, label %.preheader
 
-for.end79.loopexit:                               ; preds = %for.end66
-  br label %for.end79
+._crit_edge.loopexit:                             ; preds = %111
+  br label %._crit_edge
 
-for.end79:                                        ; preds = %for.end79.loopexit, %entry
+._crit_edge:                                      ; preds = %._crit_edge.loopexit, %0
   ret void
 }
 
 declare i32 @get_global_id(i32) nounwind readnone
 
 define void @intel_median_scalar(i8 addrspace(1)* nocapture %pSrc, i32 addrspace(1)* nocapture %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
-entry:
   %iResult = alloca [4 x i32], align 4
   %iPixels = alloca [9 x i32], align 4
-  %call = call i32 @get_global_id(i32 0) nounwind readnone
-  %cmp11 = icmp sgt i32 %iImageWidth, 0
-  br i1 %cmp11, label %for.cond1.preheader.lr.ph, label %for.end82
+  %1 = call i32 @get_global_id(i32 0) nounwind readnone
+  %2 = icmp sgt i32 %iImageWidth, 0
+  br i1 %2, label %.preheader11.lr.ph, label %._crit_edge
 
-for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %add = add i32 %call, 2
-  %arrayidx69 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 0
-  %arrayidx70 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 1
-  %arrayidx72 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 2
-  %mul77 = mul nsw i32 %add, %iImageWidth
-  br label %for.cond1.preheader
+.preheader11.lr.ph:                               ; preds = %0
+  %3 = add i32 %1, 2
+  %4 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 0
+  %5 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 1
+  %6 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 2
+  %7 = mul nsw i32 %3, %iImageWidth
+  br label %.preheader11
 
-for.cond1.preheader:                              ; preds = %for.end68, %for.cond1.preheader.lr.ph
-  %x.012 = phi i32 [ 0, %for.cond1.preheader.lr.ph ], [ %inc81, %for.end68 ]
-  br label %for.cond4.preheader
+.preheader11:                                     ; preds = %109, %.preheader11.lr.ph
+  %x.013 = phi i32 [ 0, %.preheader11.lr.ph ], [ %122, %109 ]
+  br label %.preheader
 
-for.cond4.preheader:                              ; preds = %for.end64, %for.cond1.preheader
-  %ch.010 = phi i32 [ 0, %for.cond1.preheader ], [ %inc67, %for.end64 ]
-  %mul9 = add i32 %ch.010, -4
-  %mul19 = add i32 %ch.010, 4
-  %add7 = add i32 %call, 1
-  %mul = mul nsw i32 %add7, %iImageWidth
-  %add8 = add nsw i32 %mul, %x.012
-  %sub = shl i32 %add8, 2
-  %add10 = add i32 %mul9, %sub
-  %arrayidx = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add10
-  %0 = load i8 addrspace(1)* %arrayidx, align 1
-  %conv = zext i8 %0 to i32
-  %arrayidx11 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 0
-  store i32 %conv, i32* %arrayidx11, align 4
-  %add13 = add nsw i32 %sub, %ch.010
-  %arrayidx14 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add13
-  %1 = load i8 addrspace(1)* %arrayidx14, align 1
-  %conv15 = zext i8 %1 to i32
-  %arrayidx16 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 1
-  store i32 %conv15, i32* %arrayidx16, align 4
-  %add20 = add i32 %mul19, %sub
-  %arrayidx21 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add20
-  %2 = load i8 addrspace(1)* %arrayidx21, align 1
-  %conv22 = zext i8 %2 to i32
-  %arrayidx23 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 2
-  store i32 %conv22, i32* %arrayidx23, align 4
-  %add8.1 = add nsw i32 %mul77, %x.012
-  %sub.1 = shl i32 %add8.1, 2
-  %add10.1 = add i32 %mul9, %sub.1
-  %arrayidx.1 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add10.1
-  %3 = load i8 addrspace(1)* %arrayidx.1, align 1
-  %conv.1 = zext i8 %3 to i32
-  %arrayidx11.1 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 3
-  store i32 %conv.1, i32* %arrayidx11.1, align 4
-  %add13.1 = add nsw i32 %sub.1, %ch.010
-  %arrayidx14.1 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add13.1
-  %4 = load i8 addrspace(1)* %arrayidx14.1, align 1
-  %conv15.1 = zext i8 %4 to i32
-  %arrayidx16.1 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 4
-  store i32 %conv15.1, i32* %arrayidx16.1, align 4
-  %add20.1 = add i32 %mul19, %sub.1
-  %arrayidx21.1 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add20.1
-  %5 = load i8 addrspace(1)* %arrayidx21.1, align 1
-  %conv22.1 = zext i8 %5 to i32
-  %arrayidx23.1 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 5
-  store i32 %conv22.1, i32* %arrayidx23.1, align 4
-  %add7.2 = add i32 %call, 3
-  %mul.2 = mul nsw i32 %add7.2, %iImageWidth
-  %add8.2 = add nsw i32 %mul.2, %x.012
-  %sub.2 = shl i32 %add8.2, 2
-  %add10.2 = add i32 %mul9, %sub.2
-  %arrayidx.2 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add10.2
-  %6 = load i8 addrspace(1)* %arrayidx.2, align 1
-  %conv.2 = zext i8 %6 to i32
-  %arrayidx11.2 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 6
-  store i32 %conv.2, i32* %arrayidx11.2, align 4
-  %add13.2 = add nsw i32 %sub.2, %ch.010
-  %arrayidx14.2 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add13.2
-  %7 = load i8 addrspace(1)* %arrayidx14.2, align 1
-  %conv15.2 = zext i8 %7 to i32
-  %arrayidx16.2 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 7
-  store i32 %conv15.2, i32* %arrayidx16.2, align 4
-  %add20.2 = add i32 %mul19, %sub.2
-  %arrayidx21.2 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add20.2
-  %8 = load i8 addrspace(1)* %arrayidx21.2, align 1
-  %conv22.2 = zext i8 %8 to i32
-  %arrayidx23.2 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 8
-  store i32 %conv22.2, i32* %arrayidx23.2, align 4
-  br label %for.cond31.preheader
+.preheader:                                       ; preds = %106, %.preheader11
+  %ch.012 = phi i32 [ 0, %.preheader11 ], [ %108, %106 ]
+  %8 = add i32 %ch.012, -4
+  %9 = add i32 %ch.012, 4
+  %10 = add i32 %1, 1
+  %11 = mul nsw i32 %10, %iImageWidth
+  %12 = add nsw i32 %11, %x.013
+  %13 = shl i32 %12, 2
+  %14 = add i32 %8, %13
+  %15 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %14
+  %16 = load i8 addrspace(1)* %15, align 1
+  %17 = zext i8 %16 to i32
+  %18 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 0
+  store i32 %17, i32* %18, align 4
+  %19 = add nsw i32 %13, %ch.012
+  %20 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %19
+  %21 = load i8 addrspace(1)* %20, align 1
+  %22 = zext i8 %21 to i32
+  %23 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 1
+  store i32 %22, i32* %23, align 4
+  %24 = add i32 %9, %13
+  %25 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %24
+  %26 = load i8 addrspace(1)* %25, align 1
+  %27 = zext i8 %26 to i32
+  %28 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 2
+  store i32 %27, i32* %28, align 4
+  %29 = add nsw i32 %7, %x.013
+  %30 = shl i32 %29, 2
+  %31 = add i32 %8, %30
+  %32 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %31
+  %33 = load i8 addrspace(1)* %32, align 1
+  %34 = zext i8 %33 to i32
+  %35 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 3
+  store i32 %34, i32* %35, align 4
+  %36 = add nsw i32 %30, %ch.012
+  %37 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %36
+  %38 = load i8 addrspace(1)* %37, align 1
+  %39 = zext i8 %38 to i32
+  %40 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 4
+  store i32 %39, i32* %40, align 4
+  %41 = add i32 %9, %30
+  %42 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %41
+  %43 = load i8 addrspace(1)* %42, align 1
+  %44 = zext i8 %43 to i32
+  %45 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 5
+  store i32 %44, i32* %45, align 4
+  %46 = add i32 %1, 3
+  %47 = mul nsw i32 %46, %iImageWidth
+  %48 = add nsw i32 %47, %x.013
+  %49 = shl i32 %48, 2
+  %50 = add i32 %8, %49
+  %51 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %50
+  %52 = load i8 addrspace(1)* %51, align 1
+  %53 = zext i8 %52 to i32
+  %54 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 6
+  store i32 %53, i32* %54, align 4
+  %55 = add nsw i32 %49, %ch.012
+  %56 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %55
+  %57 = load i8 addrspace(1)* %56, align 1
+  %58 = zext i8 %57 to i32
+  %59 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 7
+  store i32 %58, i32* %59, align 4
+  %60 = add i32 %9, %49
+  %61 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %60
+  %62 = load i8 addrspace(1)* %61, align 1
+  %63 = zext i8 %62 to i32
+  %64 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 8
+  store i32 %63, i32* %64, align 4
+  br label %.preheader3
 
-for.cond31.preheader:                             ; preds = %for.cond31.preheader, %for.cond4.preheader
-  %iSearch.09 = phi i32 [ 0, %for.cond4.preheader ], [ %inc63, %for.cond31.preheader ]
-  %iMax.08 = phi i32 [ 255, %for.cond4.preheader ], [ %cond60, %for.cond31.preheader ]
-  %iMin.07 = phi i32 [ 0, %for.cond4.preheader ], [ %cond, %for.cond31.preheader ]
-  %iYes.06 = phi i32 [ 128, %for.cond4.preheader ], [ %shr, %for.cond31.preheader ]
-  %9 = load i32* %arrayidx11, align 4
-  %cmp36 = icmp slt i32 %iYes.06, %9
-  %conv37 = zext i1 %cmp36 to i32
-  %10 = load i32* %arrayidx16, align 4
-  %cmp41 = icmp slt i32 %iYes.06, %10
-  %conv42 = zext i1 %cmp41 to i32
-  %11 = load i32* %arrayidx23, align 4
-  %cmp46 = icmp slt i32 %iYes.06, %11
-  %conv47 = zext i1 %cmp46 to i32
-  %add43 = add i32 %conv37, %conv42
-  %add48 = add i32 %add43, %conv47
-  %12 = load i32* %arrayidx11.1, align 4
-  %cmp36.1 = icmp slt i32 %iYes.06, %12
-  %conv37.1 = zext i1 %cmp36.1 to i32
-  %13 = load i32* %arrayidx16.1, align 4
-  %cmp41.1 = icmp slt i32 %iYes.06, %13
-  %conv42.1 = zext i1 %cmp41.1 to i32
-  %14 = load i32* %arrayidx23.1, align 4
-  %cmp46.1 = icmp slt i32 %iYes.06, %14
-  %conv47.1 = zext i1 %cmp46.1 to i32
-  %add38.1 = add i32 %conv37.1, %add48
-  %add43.1 = add i32 %add38.1, %conv42.1
-  %add48.1 = add i32 %add43.1, %conv47.1
-  %15 = load i32* %arrayidx11.2, align 4
-  %cmp36.2 = icmp slt i32 %iYes.06, %15
-  %conv37.2 = zext i1 %cmp36.2 to i32
-  %16 = load i32* %arrayidx16.2, align 4
-  %cmp41.2 = icmp slt i32 %iYes.06, %16
-  %conv42.2 = zext i1 %cmp41.2 to i32
-  %cmp46.2 = icmp slt i32 %iYes.06, %conv22.2
-  %conv47.2 = zext i1 %cmp46.2 to i32
-  %add38.2 = add i32 %conv37.2, %add48.1
-  %add43.2 = add i32 %add38.2, %conv42.2
-  %add48.2 = add i32 %add43.2, %conv47.2
-  %cmp53 = icmp sgt i32 %add48.2, 4
-  %cond = select i1 %cmp53, i32 %iYes.06, i32 %iMin.07
-  %cmp55 = icmp slt i32 %add48.2, 5
-  %cond60 = select i1 %cmp55, i32 %iYes.06, i32 %iMax.08
-  %add61 = add nsw i32 %cond60, %cond
-  %shr = ashr i32 %add61, 1
-  %inc63 = add nsw i32 %iSearch.09, 1
-  %exitcond = icmp eq i32 %inc63, 8
-  br i1 %exitcond, label %for.end64, label %for.cond31.preheader
+.preheader3:                                      ; preds = %.preheader3, %.preheader
+  %iSearch.010 = phi i32 [ 0, %.preheader ], [ %105, %.preheader3 ]
+  %iMax.09 = phi i32 [ 255, %.preheader ], [ %102, %.preheader3 ]
+  %iMin.08 = phi i32 [ 0, %.preheader ], [ %100, %.preheader3 ]
+  %iYes.07 = phi i32 [ 128, %.preheader ], [ %104, %.preheader3 ]
+  %65 = load i32* %18, align 4
+  %66 = icmp slt i32 %iYes.07, %65
+  %67 = zext i1 %66 to i32
+  %68 = load i32* %23, align 4
+  %69 = icmp slt i32 %iYes.07, %68
+  %70 = zext i1 %69 to i32
+  %71 = load i32* %28, align 4
+  %72 = icmp slt i32 %iYes.07, %71
+  %73 = zext i1 %72 to i32
+  %74 = add i32 %67, %70
+  %75 = add i32 %74, %73
+  %76 = load i32* %35, align 4
+  %77 = icmp slt i32 %iYes.07, %76
+  %78 = zext i1 %77 to i32
+  %79 = load i32* %40, align 4
+  %80 = icmp slt i32 %iYes.07, %79
+  %81 = zext i1 %80 to i32
+  %82 = load i32* %45, align 4
+  %83 = icmp slt i32 %iYes.07, %82
+  %84 = zext i1 %83 to i32
+  %85 = add i32 %78, %75
+  %86 = add i32 %85, %81
+  %87 = add i32 %86, %84
+  %88 = load i32* %54, align 4
+  %89 = icmp slt i32 %iYes.07, %88
+  %90 = zext i1 %89 to i32
+  %91 = load i32* %59, align 4
+  %92 = icmp slt i32 %iYes.07, %91
+  %93 = zext i1 %92 to i32
+  %94 = icmp slt i32 %iYes.07, %63
+  %95 = zext i1 %94 to i32
+  %96 = add i32 %90, %87
+  %97 = add i32 %96, %93
+  %98 = add i32 %97, %95
+  %99 = icmp sgt i32 %98, 4
+  %100 = select i1 %99, i32 %iYes.07, i32 %iMin.08
+  %101 = icmp slt i32 %98, 5
+  %102 = select i1 %101, i32 %iYes.07, i32 %iMax.09
+  %103 = add nsw i32 %102, %100
+  %104 = ashr i32 %103, 1
+  %105 = add nsw i32 %iSearch.010, 1
+  %exitcond = icmp eq i32 %105, 8
+  br i1 %exitcond, label %106, label %.preheader3
 
-for.end64:                                        ; preds = %for.cond31.preheader
-  %arrayidx65 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 %ch.010
-  store i32 %shr, i32* %arrayidx65, align 4
-  %inc67 = add nsw i32 %ch.010, 1
-  %exitcond13 = icmp eq i32 %inc67, 3
-  br i1 %exitcond13, label %for.end68, label %for.cond4.preheader
+; <label>:106                                     ; preds = %.preheader3
+  %107 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 %ch.012
+  store i32 %104, i32* %107, align 4
+  %108 = add nsw i32 %ch.012, 1
+  %exitcond14 = icmp eq i32 %108, 3
+  br i1 %exitcond14, label %109, label %.preheader
 
-for.end68:                                        ; preds = %for.end64
-  %17 = load i32* %arrayidx69, align 4
-  %and = and i32 %17, 255
-  %18 = load i32* %arrayidx70, align 4
-  %shl = shl i32 %18, 8
-  %and71 = and i32 %shl, 65280
-  %19 = load i32* %arrayidx72, align 4
-  %shl73 = shl i32 %19, 16
-  %and74 = and i32 %shl73, 16711680
-  %or = or i32 %and71, %and
-  %or75 = or i32 %or, %and74
-  %add78 = add nsw i32 %x.012, %mul77
-  %arrayidx79 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %add78
-  store i32 %or75, i32 addrspace(1)* %arrayidx79, align 4
-  %inc81 = add nsw i32 %x.012, 1
-  %exitcond14 = icmp eq i32 %inc81, %iImageWidth
-  br i1 %exitcond14, label %for.end82.loopexit, label %for.cond1.preheader
+; <label>:109                                     ; preds = %106
+  %110 = load i32* %4, align 4
+  %111 = and i32 %110, 255
+  %112 = load i32* %5, align 4
+  %113 = shl i32 %112, 8
+  %114 = and i32 %113, 65280
+  %115 = load i32* %6, align 4
+  %116 = shl i32 %115, 16
+  %117 = and i32 %116, 16711680
+  %118 = or i32 %114, %111
+  %119 = or i32 %118, %117
+  %120 = add nsw i32 %x.013, %7
+  %121 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %120
+  store i32 %119, i32 addrspace(1)* %121, align 4
+  %122 = add nsw i32 %x.013, 1
+  %exitcond15 = icmp eq i32 %122, %iImageWidth
+  br i1 %exitcond15, label %._crit_edge.loopexit, label %.preheader11
 
-for.end82.loopexit:                               ; preds = %for.end68
-  br label %for.end82
+._crit_edge.loopexit:                             ; preds = %109
+  br label %._crit_edge
 
-for.end82:                                        ; preds = %for.end82.loopexit, %entry
+._crit_edge:                                      ; preds = %._crit_edge.loopexit, %0
   ret void
 }
 
 define void @__Vectorized_.intel_median_scalar(i8 addrspace(1)* nocapture %pSrc, i32 addrspace(1)* nocapture %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
-entry:
   %temp = insertelement <4 x i32> undef, i32 %iImageWidth, i32 0
   %vector = shufflevector <4 x i32> %temp, <4 x i32> undef, <4 x i32> zeroinitializer
-  %0 = alloca [4 x i32], align 4
   %1 = alloca [4 x i32], align 4
   %2 = alloca [4 x i32], align 4
   %3 = alloca [4 x i32], align 4
-  %call = call i32 @get_global_id(i32 0) nounwind readnone
-  %broadcast1 = insertelement <4 x i32> undef, i32 %call, i32 0
+  %4 = alloca [4 x i32], align 4
+  %5 = call i32 @get_global_id(i32 0) nounwind readnone
+  %broadcast1 = insertelement <4 x i32> undef, i32 %5, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
-  %cmp11 = icmp sgt i32 %iImageWidth, 0
-  br i1 %cmp11, label %for.cond1.preheader.lr.ph, label %for.end82
+  %6 = icmp sgt i32 %iImageWidth, 0
+  br i1 %6, label %.preheader11.lr.ph, label %._crit_edge
 
-for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %add25 = add <4 x i32> %broadcast2, <i32 2, i32 3, i32 4, i32 5>
-  %4 = getelementptr inbounds [4 x i32]* %0, i32 0, i32 0
-  %5 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 0
-  %6 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 0
-  %7 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 0
-  %8 = getelementptr inbounds [4 x i32]* %0, i32 0, i32 1
-  %9 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 1
-  %10 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 1
-  %11 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 1
-  %12 = getelementptr inbounds [4 x i32]* %0, i32 0, i32 2
-  %13 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 2
-  %14 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 2
-  %15 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 2
-  %mul7726 = mul nsw <4 x i32> %add25, %vector
-  br label %for.cond1.preheader
+.preheader11.lr.ph:                               ; preds = %0
+  %7 = add <4 x i32> %broadcast2, <i32 2, i32 3, i32 4, i32 5>
+  %8 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 0
+  %9 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 0
+  %10 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 0
+  %11 = getelementptr inbounds [4 x i32]* %4, i32 0, i32 0
+  %12 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 1
+  %13 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 1
+  %14 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 1
+  %15 = getelementptr inbounds [4 x i32]* %4, i32 0, i32 1
+  %16 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 2
+  %17 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 2
+  %18 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 2
+  %19 = getelementptr inbounds [4 x i32]* %4, i32 0, i32 2
+  %20 = mul nsw <4 x i32> %7, %vector
+  br label %.preheader11
 
-for.cond1.preheader:                              ; preds = %for.end68, %for.cond1.preheader.lr.ph
-  %x.012 = phi i32 [ 0, %for.cond1.preheader.lr.ph ], [ %inc81, %for.end68 ]
-  %temp29 = insertelement <4 x i32> undef, i32 %x.012, i32 0
-  %vector30 = shufflevector <4 x i32> %temp29, <4 x i32> undef, <4 x i32> zeroinitializer
-  br label %for.cond4.preheader
+.preheader11:                                     ; preds = %161, %.preheader11.lr.ph
+  %x.013 = phi i32 [ 0, %.preheader11.lr.ph ], [ %186, %161 ]
+  %temp25 = insertelement <4 x i32> undef, i32 %x.013, i32 0
+  %vector26 = shufflevector <4 x i32> %temp25, <4 x i32> undef, <4 x i32> zeroinitializer
+  br label %.preheader
 
-for.cond4.preheader:                              ; preds = %for.end64, %for.cond1.preheader
-  %ch.010 = phi i32 [ 0, %for.cond1.preheader ], [ %inc67, %for.end64 ]
-  %temp39 = insertelement <4 x i32> undef, i32 %ch.010, i32 0
-  %vector40 = shufflevector <4 x i32> %temp39, <4 x i32> undef, <4 x i32> zeroinitializer
-  %mul9 = add i32 %ch.010, -4
-  %temp33 = insertelement <4 x i32> undef, i32 %mul9, i32 0
-  %vector34 = shufflevector <4 x i32> %temp33, <4 x i32> undef, <4 x i32> zeroinitializer
-  %mul19 = add i32 %ch.010, 4
-  %temp46 = insertelement <4 x i32> undef, i32 %mul19, i32 0
-  %vector47 = shufflevector <4 x i32> %temp46, <4 x i32> undef, <4 x i32> zeroinitializer
-  %add727 = add <4 x i32> %broadcast2, <i32 1, i32 2, i32 3, i32 4>
-  %mul28 = mul nsw <4 x i32> %add727, %vector
-  %add831 = add nsw <4 x i32> %mul28, %vector30
-  %sub32 = shl <4 x i32> %add831, <i32 2, i32 2, i32 2, i32 2>
-  %add1035 = add <4 x i32> %vector34, %sub32
-  %extract = extractelement <4 x i32> %add1035, i32 0
-  %extract36 = extractelement <4 x i32> %add1035, i32 1
-  %extract37 = extractelement <4 x i32> %add1035, i32 2
-  %extract38 = extractelement <4 x i32> %add1035, i32 3
-  %16 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract
-  %17 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract36
-  %18 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract37
-  %19 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract38
-  %20 = load i8 addrspace(1)* %16, align 1
-  %21 = load i8 addrspace(1)* %17, align 1
-  %22 = load i8 addrspace(1)* %18, align 1
-  %23 = load i8 addrspace(1)* %19, align 1
-  %temp.vect95 = insertelement <4 x i8> undef, i8 %20, i32 0
-  %temp.vect96 = insertelement <4 x i8> %temp.vect95, i8 %21, i32 1
-  %temp.vect97 = insertelement <4 x i8> %temp.vect96, i8 %22, i32 2
-  %temp.vect98 = insertelement <4 x i8> %temp.vect97, i8 %23, i32 3
-  %add1341 = add nsw <4 x i32> %sub32, %vector40
-  %extract42 = extractelement <4 x i32> %add1341, i32 0
-  %extract43 = extractelement <4 x i32> %add1341, i32 1
-  %extract44 = extractelement <4 x i32> %add1341, i32 2
-  %extract45 = extractelement <4 x i32> %add1341, i32 3
-  %24 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract42
-  %25 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract43
-  %26 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract44
-  %27 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract45
-  %28 = load i8 addrspace(1)* %24, align 1
-  %29 = load i8 addrspace(1)* %25, align 1
-  %30 = load i8 addrspace(1)* %26, align 1
-  %31 = load i8 addrspace(1)* %27, align 1
-  %temp.vect100 = insertelement <4 x i8> undef, i8 %28, i32 0
-  %temp.vect101 = insertelement <4 x i8> %temp.vect100, i8 %29, i32 1
-  %temp.vect102 = insertelement <4 x i8> %temp.vect101, i8 %30, i32 2
-  %temp.vect103 = insertelement <4 x i8> %temp.vect102, i8 %31, i32 3
-  %add2048 = add <4 x i32> %vector47, %sub32
-  %extract49 = extractelement <4 x i32> %add2048, i32 0
-  %extract50 = extractelement <4 x i32> %add2048, i32 1
-  %extract51 = extractelement <4 x i32> %add2048, i32 2
-  %extract52 = extractelement <4 x i32> %add2048, i32 3
-  %32 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract49
-  %33 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract50
-  %34 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract51
-  %35 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract52
-  %36 = load i8 addrspace(1)* %32, align 1
-  %37 = load i8 addrspace(1)* %33, align 1
-  %38 = load i8 addrspace(1)* %34, align 1
-  %39 = load i8 addrspace(1)* %35, align 1
-  %temp.vect105 = insertelement <4 x i8> undef, i8 %36, i32 0
-  %temp.vect106 = insertelement <4 x i8> %temp.vect105, i8 %37, i32 1
-  %temp.vect107 = insertelement <4 x i8> %temp.vect106, i8 %38, i32 2
-  %temp.vect108 = insertelement <4 x i8> %temp.vect107, i8 %39, i32 3
-  %add8.153 = add nsw <4 x i32> %mul7726, %vector30
-  %sub.154 = shl <4 x i32> %add8.153, <i32 2, i32 2, i32 2, i32 2>
-  %add10.155 = add <4 x i32> %vector34, %sub.154
-  %extract56 = extractelement <4 x i32> %add10.155, i32 0
-  %extract57 = extractelement <4 x i32> %add10.155, i32 1
-  %extract58 = extractelement <4 x i32> %add10.155, i32 2
-  %extract59 = extractelement <4 x i32> %add10.155, i32 3
-  %40 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract56
-  %41 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract57
-  %42 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract58
-  %43 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract59
+.preheader:                                       ; preds = %155, %.preheader11
+  %ch.012 = phi i32 [ 0, %.preheader11 ], [ %160, %155 ]
+  %temp32 = insertelement <4 x i32> undef, i32 %ch.012, i32 0
+  %vector33 = shufflevector <4 x i32> %temp32, <4 x i32> undef, <4 x i32> zeroinitializer
+  %21 = add i32 %ch.012, -4
+  %temp27 = insertelement <4 x i32> undef, i32 %21, i32 0
+  %vector28 = shufflevector <4 x i32> %temp27, <4 x i32> undef, <4 x i32> zeroinitializer
+  %22 = add i32 %ch.012, 4
+  %temp38 = insertelement <4 x i32> undef, i32 %22, i32 0
+  %vector39 = shufflevector <4 x i32> %temp38, <4 x i32> undef, <4 x i32> zeroinitializer
+  %23 = add <4 x i32> %broadcast2, <i32 1, i32 2, i32 3, i32 4>
+  %24 = mul nsw <4 x i32> %23, %vector
+  %25 = add nsw <4 x i32> %24, %vector26
+  %26 = shl <4 x i32> %25, <i32 2, i32 2, i32 2, i32 2>
+  %27 = add <4 x i32> %vector28, %26
+  %extract = extractelement <4 x i32> %27, i32 0
+  %extract29 = extractelement <4 x i32> %27, i32 1
+  %extract30 = extractelement <4 x i32> %27, i32 2
+  %extract31 = extractelement <4 x i32> %27, i32 3
+  %28 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract
+  %29 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract29
+  %30 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract30
+  %31 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract31
+  %32 = load i8 addrspace(1)* %28, align 1
+  %33 = load i8 addrspace(1)* %29, align 1
+  %34 = load i8 addrspace(1)* %30, align 1
+  %35 = load i8 addrspace(1)* %31, align 1
+  %temp.vect73 = insertelement <4 x i8> undef, i8 %32, i32 0
+  %temp.vect74 = insertelement <4 x i8> %temp.vect73, i8 %33, i32 1
+  %temp.vect75 = insertelement <4 x i8> %temp.vect74, i8 %34, i32 2
+  %temp.vect76 = insertelement <4 x i8> %temp.vect75, i8 %35, i32 3
+  %36 = add nsw <4 x i32> %26, %vector33
+  %extract34 = extractelement <4 x i32> %36, i32 0
+  %extract35 = extractelement <4 x i32> %36, i32 1
+  %extract36 = extractelement <4 x i32> %36, i32 2
+  %extract37 = extractelement <4 x i32> %36, i32 3
+  %37 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract34
+  %38 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract35
+  %39 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract36
+  %40 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract37
+  %41 = load i8 addrspace(1)* %37, align 1
+  %42 = load i8 addrspace(1)* %38, align 1
+  %43 = load i8 addrspace(1)* %39, align 1
   %44 = load i8 addrspace(1)* %40, align 1
-  %45 = load i8 addrspace(1)* %41, align 1
-  %46 = load i8 addrspace(1)* %42, align 1
-  %47 = load i8 addrspace(1)* %43, align 1
-  %temp.vect112 = insertelement <4 x i8> undef, i8 %44, i32 0
-  %temp.vect113 = insertelement <4 x i8> %temp.vect112, i8 %45, i32 1
-  %temp.vect114 = insertelement <4 x i8> %temp.vect113, i8 %46, i32 2
-  %temp.vect115 = insertelement <4 x i8> %temp.vect114, i8 %47, i32 3
-  %add13.160 = add nsw <4 x i32> %sub.154, %vector40
-  %extract61 = extractelement <4 x i32> %add13.160, i32 0
-  %extract62 = extractelement <4 x i32> %add13.160, i32 1
-  %extract63 = extractelement <4 x i32> %add13.160, i32 2
-  %extract64 = extractelement <4 x i32> %add13.160, i32 3
-  %48 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract61
-  %49 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract62
-  %50 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract63
-  %51 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract64
+  %temp.vect77 = insertelement <4 x i8> undef, i8 %41, i32 0
+  %temp.vect78 = insertelement <4 x i8> %temp.vect77, i8 %42, i32 1
+  %temp.vect79 = insertelement <4 x i8> %temp.vect78, i8 %43, i32 2
+  %temp.vect80 = insertelement <4 x i8> %temp.vect79, i8 %44, i32 3
+  %45 = add <4 x i32> %vector39, %26
+  %extract40 = extractelement <4 x i32> %45, i32 0
+  %extract41 = extractelement <4 x i32> %45, i32 1
+  %extract42 = extractelement <4 x i32> %45, i32 2
+  %extract43 = extractelement <4 x i32> %45, i32 3
+  %46 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract40
+  %47 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract41
+  %48 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract42
+  %49 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract43
+  %50 = load i8 addrspace(1)* %46, align 1
+  %51 = load i8 addrspace(1)* %47, align 1
   %52 = load i8 addrspace(1)* %48, align 1
   %53 = load i8 addrspace(1)* %49, align 1
-  %54 = load i8 addrspace(1)* %50, align 1
-  %55 = load i8 addrspace(1)* %51, align 1
-  %temp.vect117 = insertelement <4 x i8> undef, i8 %52, i32 0
-  %temp.vect118 = insertelement <4 x i8> %temp.vect117, i8 %53, i32 1
-  %temp.vect119 = insertelement <4 x i8> %temp.vect118, i8 %54, i32 2
-  %temp.vect120 = insertelement <4 x i8> %temp.vect119, i8 %55, i32 3
-  %add20.165 = add <4 x i32> %vector47, %sub.154
-  %extract66 = extractelement <4 x i32> %add20.165, i32 0
-  %extract67 = extractelement <4 x i32> %add20.165, i32 1
-  %extract68 = extractelement <4 x i32> %add20.165, i32 2
-  %extract69 = extractelement <4 x i32> %add20.165, i32 3
-  %56 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract66
-  %57 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract67
-  %58 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract68
-  %59 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract69
-  %60 = load i8 addrspace(1)* %56, align 1
+  %temp.vect81 = insertelement <4 x i8> undef, i8 %50, i32 0
+  %temp.vect82 = insertelement <4 x i8> %temp.vect81, i8 %51, i32 1
+  %temp.vect83 = insertelement <4 x i8> %temp.vect82, i8 %52, i32 2
+  %temp.vect84 = insertelement <4 x i8> %temp.vect83, i8 %53, i32 3
+  %54 = add nsw <4 x i32> %20, %vector26
+  %55 = shl <4 x i32> %54, <i32 2, i32 2, i32 2, i32 2>
+  %56 = add <4 x i32> %vector28, %55
+  %extract44 = extractelement <4 x i32> %56, i32 0
+  %extract45 = extractelement <4 x i32> %56, i32 1
+  %extract46 = extractelement <4 x i32> %56, i32 2
+  %extract47 = extractelement <4 x i32> %56, i32 3
+  %57 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract44
+  %58 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract45
+  %59 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract46
+  %60 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract47
   %61 = load i8 addrspace(1)* %57, align 1
   %62 = load i8 addrspace(1)* %58, align 1
   %63 = load i8 addrspace(1)* %59, align 1
-  %temp.vect122 = insertelement <4 x i8> undef, i8 %60, i32 0
-  %temp.vect123 = insertelement <4 x i8> %temp.vect122, i8 %61, i32 1
-  %temp.vect124 = insertelement <4 x i8> %temp.vect123, i8 %62, i32 2
-  %temp.vect125 = insertelement <4 x i8> %temp.vect124, i8 %63, i32 3
-  %add7.270 = add <4 x i32> %broadcast2, <i32 3, i32 4, i32 5, i32 6>
-  %mul.271 = mul nsw <4 x i32> %add7.270, %vector
-  %add8.272 = add nsw <4 x i32> %mul.271, %vector30
-  %sub.273 = shl <4 x i32> %add8.272, <i32 2, i32 2, i32 2, i32 2>
-  %add10.274 = add <4 x i32> %vector34, %sub.273
-  %extract75 = extractelement <4 x i32> %add10.274, i32 0
-  %extract76 = extractelement <4 x i32> %add10.274, i32 1
-  %extract77 = extractelement <4 x i32> %add10.274, i32 2
-  %extract78 = extractelement <4 x i32> %add10.274, i32 3
-  %64 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract75
-  %65 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract76
-  %66 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract77
-  %67 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract78
-  %68 = load i8 addrspace(1)* %64, align 1
-  %69 = load i8 addrspace(1)* %65, align 1
+  %64 = load i8 addrspace(1)* %60, align 1
+  %temp.vect85 = insertelement <4 x i8> undef, i8 %61, i32 0
+  %temp.vect86 = insertelement <4 x i8> %temp.vect85, i8 %62, i32 1
+  %temp.vect87 = insertelement <4 x i8> %temp.vect86, i8 %63, i32 2
+  %temp.vect88 = insertelement <4 x i8> %temp.vect87, i8 %64, i32 3
+  %65 = add nsw <4 x i32> %55, %vector33
+  %extract48 = extractelement <4 x i32> %65, i32 0
+  %extract49 = extractelement <4 x i32> %65, i32 1
+  %extract50 = extractelement <4 x i32> %65, i32 2
+  %extract51 = extractelement <4 x i32> %65, i32 3
+  %66 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract48
+  %67 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract49
+  %68 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract50
+  %69 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract51
   %70 = load i8 addrspace(1)* %66, align 1
   %71 = load i8 addrspace(1)* %67, align 1
-  %temp.vect130 = insertelement <4 x i8> undef, i8 %68, i32 0
-  %temp.vect131 = insertelement <4 x i8> %temp.vect130, i8 %69, i32 1
-  %temp.vect132 = insertelement <4 x i8> %temp.vect131, i8 %70, i32 2
-  %temp.vect133 = insertelement <4 x i8> %temp.vect132, i8 %71, i32 3
-  %add13.279 = add nsw <4 x i32> %sub.273, %vector40
-  %extract80 = extractelement <4 x i32> %add13.279, i32 0
-  %extract81 = extractelement <4 x i32> %add13.279, i32 1
-  %extract82 = extractelement <4 x i32> %add13.279, i32 2
-  %extract83 = extractelement <4 x i32> %add13.279, i32 3
-  %72 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract80
-  %73 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract81
-  %74 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract82
-  %75 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract83
-  %76 = load i8 addrspace(1)* %72, align 1
-  %77 = load i8 addrspace(1)* %73, align 1
-  %78 = load i8 addrspace(1)* %74, align 1
+  %72 = load i8 addrspace(1)* %68, align 1
+  %73 = load i8 addrspace(1)* %69, align 1
+  %temp.vect89 = insertelement <4 x i8> undef, i8 %70, i32 0
+  %temp.vect90 = insertelement <4 x i8> %temp.vect89, i8 %71, i32 1
+  %temp.vect91 = insertelement <4 x i8> %temp.vect90, i8 %72, i32 2
+  %temp.vect92 = insertelement <4 x i8> %temp.vect91, i8 %73, i32 3
+  %74 = add <4 x i32> %vector39, %55
+  %extract52 = extractelement <4 x i32> %74, i32 0
+  %extract53 = extractelement <4 x i32> %74, i32 1
+  %extract54 = extractelement <4 x i32> %74, i32 2
+  %extract55 = extractelement <4 x i32> %74, i32 3
+  %75 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract52
+  %76 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract53
+  %77 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract54
+  %78 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract55
   %79 = load i8 addrspace(1)* %75, align 1
-  %temp.vect135 = insertelement <4 x i8> undef, i8 %76, i32 0
-  %temp.vect136 = insertelement <4 x i8> %temp.vect135, i8 %77, i32 1
-  %temp.vect137 = insertelement <4 x i8> %temp.vect136, i8 %78, i32 2
-  %temp.vect138 = insertelement <4 x i8> %temp.vect137, i8 %79, i32 3
-  %add20.284 = add <4 x i32> %vector47, %sub.273
-  %extract85 = extractelement <4 x i32> %add20.284, i32 0
-  %extract86 = extractelement <4 x i32> %add20.284, i32 1
-  %extract87 = extractelement <4 x i32> %add20.284, i32 2
-  %extract88 = extractelement <4 x i32> %add20.284, i32 3
-  %80 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract85
-  %81 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract86
-  %82 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract87
-  %83 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract88
-  %84 = load i8 addrspace(1)* %80, align 1
-  %85 = load i8 addrspace(1)* %81, align 1
-  %86 = load i8 addrspace(1)* %82, align 1
-  %87 = load i8 addrspace(1)* %83, align 1
-  %temp.vect = insertelement <4 x i8> undef, i8 %84, i32 0
-  %temp.vect89 = insertelement <4 x i8> %temp.vect, i8 %85, i32 1
-  %temp.vect90 = insertelement <4 x i8> %temp.vect89, i8 %86, i32 2
-  %temp.vect91 = insertelement <4 x i8> %temp.vect90, i8 %87, i32 3
-  %conv22.292 = zext <4 x i8> %temp.vect91 to <4 x i32>
-  br label %for.cond31.preheader
+  %80 = load i8 addrspace(1)* %76, align 1
+  %81 = load i8 addrspace(1)* %77, align 1
+  %82 = load i8 addrspace(1)* %78, align 1
+  %temp.vect93 = insertelement <4 x i8> undef, i8 %79, i32 0
+  %temp.vect94 = insertelement <4 x i8> %temp.vect93, i8 %80, i32 1
+  %temp.vect95 = insertelement <4 x i8> %temp.vect94, i8 %81, i32 2
+  %temp.vect96 = insertelement <4 x i8> %temp.vect95, i8 %82, i32 3
+  %83 = add <4 x i32> %broadcast2, <i32 3, i32 4, i32 5, i32 6>
+  %84 = mul nsw <4 x i32> %83, %vector
+  %85 = add nsw <4 x i32> %84, %vector26
+  %86 = shl <4 x i32> %85, <i32 2, i32 2, i32 2, i32 2>
+  %87 = add <4 x i32> %vector28, %86
+  %extract56 = extractelement <4 x i32> %87, i32 0
+  %extract57 = extractelement <4 x i32> %87, i32 1
+  %extract58 = extractelement <4 x i32> %87, i32 2
+  %extract59 = extractelement <4 x i32> %87, i32 3
+  %88 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract56
+  %89 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract57
+  %90 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract58
+  %91 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract59
+  %92 = load i8 addrspace(1)* %88, align 1
+  %93 = load i8 addrspace(1)* %89, align 1
+  %94 = load i8 addrspace(1)* %90, align 1
+  %95 = load i8 addrspace(1)* %91, align 1
+  %temp.vect97 = insertelement <4 x i8> undef, i8 %92, i32 0
+  %temp.vect98 = insertelement <4 x i8> %temp.vect97, i8 %93, i32 1
+  %temp.vect99 = insertelement <4 x i8> %temp.vect98, i8 %94, i32 2
+  %temp.vect100 = insertelement <4 x i8> %temp.vect99, i8 %95, i32 3
+  %96 = add nsw <4 x i32> %86, %vector33
+  %extract60 = extractelement <4 x i32> %96, i32 0
+  %extract61 = extractelement <4 x i32> %96, i32 1
+  %extract62 = extractelement <4 x i32> %96, i32 2
+  %extract63 = extractelement <4 x i32> %96, i32 3
+  %97 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract60
+  %98 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract61
+  %99 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract62
+  %100 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract63
+  %101 = load i8 addrspace(1)* %97, align 1
+  %102 = load i8 addrspace(1)* %98, align 1
+  %103 = load i8 addrspace(1)* %99, align 1
+  %104 = load i8 addrspace(1)* %100, align 1
+  %temp.vect101 = insertelement <4 x i8> undef, i8 %101, i32 0
+  %temp.vect102 = insertelement <4 x i8> %temp.vect101, i8 %102, i32 1
+  %temp.vect103 = insertelement <4 x i8> %temp.vect102, i8 %103, i32 2
+  %temp.vect104 = insertelement <4 x i8> %temp.vect103, i8 %104, i32 3
+  %105 = add <4 x i32> %vector39, %86
+  %extract64 = extractelement <4 x i32> %105, i32 0
+  %extract65 = extractelement <4 x i32> %105, i32 1
+  %extract66 = extractelement <4 x i32> %105, i32 2
+  %extract67 = extractelement <4 x i32> %105, i32 3
+  %106 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract64
+  %107 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract65
+  %108 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract66
+  %109 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %extract67
+  %110 = load i8 addrspace(1)* %106, align 1
+  %111 = load i8 addrspace(1)* %107, align 1
+  %112 = load i8 addrspace(1)* %108, align 1
+  %113 = load i8 addrspace(1)* %109, align 1
+  %temp.vect = insertelement <4 x i8> undef, i8 %110, i32 0
+  %temp.vect68 = insertelement <4 x i8> %temp.vect, i8 %111, i32 1
+  %temp.vect69 = insertelement <4 x i8> %temp.vect68, i8 %112, i32 2
+  %temp.vect70 = insertelement <4 x i8> %temp.vect69, i8 %113, i32 3
+  %114 = zext <4 x i8> %temp.vect70 to <4 x i32>
+  br label %.preheader3
 
-for.cond31.preheader:                             ; preds = %for.cond31.preheader, %for.cond4.preheader
-  %iSearch.09 = phi i32 [ 0, %for.cond4.preheader ], [ %inc63, %for.cond31.preheader ]
-  %vectorPHI = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %for.cond4.preheader ], [ %116, %for.cond31.preheader ]
-  %vectorPHI93 = phi <4 x i32> [ zeroinitializer, %for.cond4.preheader ], [ %110, %for.cond31.preheader ]
-  %vectorPHI94 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %for.cond4.preheader ], [ %shr147, %for.cond31.preheader ]
-  %88 = zext <4 x i8> %temp.vect98 to <4 x i32>
-  %89 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %88, <4 x i32> %vectorPHI94)
-  %msb = and <4 x i32> %89, <i32 1, i32 1, i32 1, i32 1>
-  %90 = zext <4 x i8> %temp.vect103 to <4 x i32>
-  %91 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %90, <4 x i32> %vectorPHI94)
-  %msb184 = and <4 x i32> %91, <i32 1, i32 1, i32 1, i32 1>
-  %92 = zext <4 x i8> %temp.vect108 to <4 x i32>
-  %93 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %92, <4 x i32> %vectorPHI94)
-  %msb186 = and <4 x i32> %93, <i32 1, i32 1, i32 1, i32 1>
-  %add43110 = add <4 x i32> %msb, %msb184
-  %add48111 = add <4 x i32> %add43110, %msb186
-  %94 = zext <4 x i8> %temp.vect115 to <4 x i32>
-  %95 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %94, <4 x i32> %vectorPHI94)
-  %msb188 = and <4 x i32> %95, <i32 1, i32 1, i32 1, i32 1>
-  %96 = zext <4 x i8> %temp.vect120 to <4 x i32>
-  %97 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %96, <4 x i32> %vectorPHI94)
-  %msb190 = and <4 x i32> %97, <i32 1, i32 1, i32 1, i32 1>
-  %98 = zext <4 x i8> %temp.vect125 to <4 x i32>
-  %99 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %98, <4 x i32> %vectorPHI94)
-  %msb192 = and <4 x i32> %99, <i32 1, i32 1, i32 1, i32 1>
-  %add38.1127 = add <4 x i32> %msb188, %add48111
-  %add43.1128 = add <4 x i32> %add38.1127, %msb190
-  %add48.1129 = add <4 x i32> %add43.1128, %msb192
-  %100 = zext <4 x i8> %temp.vect133 to <4 x i32>
-  %101 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %100, <4 x i32> %vectorPHI94)
-  %msb194 = and <4 x i32> %101, <i32 1, i32 1, i32 1, i32 1>
-  %102 = zext <4 x i8> %temp.vect138 to <4 x i32>
-  %103 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %102, <4 x i32> %vectorPHI94)
-  %msb196 = and <4 x i32> %103, <i32 1, i32 1, i32 1, i32 1>
-  %104 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %conv22.292, <4 x i32> %vectorPHI94)
-  %msb198 = and <4 x i32> %104, <i32 1, i32 1, i32 1, i32 1>
-  %add38.2141 = add <4 x i32> %msb194, %add48.1129
-  %add43.2142 = add <4 x i32> %add38.2141, %msb196
-  %add48.2143 = add <4 x i32> %add43.2142, %msb198
-  %105 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %add48.2143, <4 x i32> <i32 4, i32 4, i32 4, i32 4>)
-  %106 = bitcast <4 x i32> %vectorPHI94 to <4 x float>
-  %107 = bitcast <4 x i32> %vectorPHI93 to <4 x float>
-  %108 = bitcast <4 x i32> %105 to <4 x float>
-  %109 = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %107, <4 x float> %106, <4 x float> %108)
-  %110 = bitcast <4 x float> %109 to <4 x i32>
-  %111 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i32> %add48.2143)
-  %112 = bitcast <4 x i32> %vectorPHI94 to <4 x float>
-  %113 = bitcast <4 x i32> %vectorPHI to <4 x float>
-  %114 = bitcast <4 x i32> %111 to <4 x float>
-  %115 = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %113, <4 x float> %112, <4 x float> %114)
-  %116 = bitcast <4 x float> %115 to <4 x i32>
-  %add61146 = add nsw <4 x i32> %116, %110
-  %shr147 = ashr <4 x i32> %add61146, <i32 1, i32 1, i32 1, i32 1>
-  %inc63 = add nsw i32 %iSearch.09, 1
-  %exitcond = icmp eq i32 %inc63, 8
-  br i1 %exitcond, label %for.end64, label %for.cond31.preheader
+.preheader3:                                      ; preds = %.preheader3, %.preheader
+  %iSearch.010 = phi i32 [ 0, %.preheader ], [ %154, %.preheader3 ]
+  %vectorPHI = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %.preheader ], [ %151, %.preheader3 ]
+  %vectorPHI71 = phi <4 x i32> [ zeroinitializer, %.preheader ], [ %145, %.preheader3 ]
+  %vectorPHI72 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %.preheader ], [ %153, %.preheader3 ]
+  %115 = zext <4 x i8> %temp.vect76 to <4 x i32>
+  %116 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %115, <4 x i32> %vectorPHI72)
+  %msb = and <4 x i32> %116, <i32 1, i32 1, i32 1, i32 1>
+  %117 = zext <4 x i8> %temp.vect80 to <4 x i32>
+  %118 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %117, <4 x i32> %vectorPHI72)
+  %msb144 = and <4 x i32> %118, <i32 1, i32 1, i32 1, i32 1>
+  %119 = zext <4 x i8> %temp.vect84 to <4 x i32>
+  %120 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %119, <4 x i32> %vectorPHI72)
+  %msb146 = and <4 x i32> %120, <i32 1, i32 1, i32 1, i32 1>
+  %121 = add <4 x i32> %msb, %msb144
+  %122 = add <4 x i32> %121, %msb146
+  %123 = zext <4 x i8> %temp.vect88 to <4 x i32>
+  %124 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %123, <4 x i32> %vectorPHI72)
+  %msb148 = and <4 x i32> %124, <i32 1, i32 1, i32 1, i32 1>
+  %125 = zext <4 x i8> %temp.vect92 to <4 x i32>
+  %126 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %125, <4 x i32> %vectorPHI72)
+  %msb150 = and <4 x i32> %126, <i32 1, i32 1, i32 1, i32 1>
+  %127 = zext <4 x i8> %temp.vect96 to <4 x i32>
+  %128 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %127, <4 x i32> %vectorPHI72)
+  %msb152 = and <4 x i32> %128, <i32 1, i32 1, i32 1, i32 1>
+  %129 = add <4 x i32> %msb148, %122
+  %130 = add <4 x i32> %129, %msb150
+  %131 = add <4 x i32> %130, %msb152
+  %132 = zext <4 x i8> %temp.vect100 to <4 x i32>
+  %133 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %132, <4 x i32> %vectorPHI72)
+  %msb154 = and <4 x i32> %133, <i32 1, i32 1, i32 1, i32 1>
+  %134 = zext <4 x i8> %temp.vect104 to <4 x i32>
+  %135 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %134, <4 x i32> %vectorPHI72)
+  %msb156 = and <4 x i32> %135, <i32 1, i32 1, i32 1, i32 1>
+  %136 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %114, <4 x i32> %vectorPHI72)
+  %msb158 = and <4 x i32> %136, <i32 1, i32 1, i32 1, i32 1>
+  %137 = add <4 x i32> %msb154, %131
+  %138 = add <4 x i32> %137, %msb156
+  %139 = add <4 x i32> %138, %msb158
+  %140 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> %139, <4 x i32> <i32 4, i32 4, i32 4, i32 4>)
+  %141 = bitcast <4 x i32> %vectorPHI72 to <4 x float>
+  %142 = bitcast <4 x i32> %vectorPHI71 to <4 x float>
+  %143 = bitcast <4 x i32> %140 to <4 x float>
+  %144 = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %142, <4 x float> %141, <4 x float> %143)
+  %145 = bitcast <4 x float> %144 to <4 x i32>
+  %146 = call <4 x i32> @llvm.x86.sse2.pcmpgt.d(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i32> %139)
+  %147 = bitcast <4 x i32> %vectorPHI72 to <4 x float>
+  %148 = bitcast <4 x i32> %vectorPHI to <4 x float>
+  %149 = bitcast <4 x i32> %146 to <4 x float>
+  %150 = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %148, <4 x float> %147, <4 x float> %149)
+  %151 = bitcast <4 x float> %150 to <4 x i32>
+  %152 = add nsw <4 x i32> %151, %145
+  %153 = ashr <4 x i32> %152, <i32 1, i32 1, i32 1, i32 1>
+  %154 = add nsw i32 %iSearch.010, 1
+  %exitcond = icmp eq i32 %154, 8
+  br i1 %exitcond, label %155, label %.preheader3
 
-for.end64:                                        ; preds = %for.cond31.preheader
-  %extract151 = extractelement <4 x i32> %shr147, i32 3
-  %extract150 = extractelement <4 x i32> %shr147, i32 2
-  %extract149 = extractelement <4 x i32> %shr147, i32 1
-  %extract148 = extractelement <4 x i32> %shr147, i32 0
-  %117 = getelementptr inbounds [4 x i32]* %0, i32 0, i32 %ch.010
-  %118 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 %ch.010
-  %119 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 %ch.010
-  %120 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 %ch.010
-  store i32 %extract148, i32* %117, align 4
-  store i32 %extract149, i32* %118, align 4
-  store i32 %extract150, i32* %119, align 4
-  store i32 %extract151, i32* %120, align 4
-  %inc67 = add nsw i32 %ch.010, 1
-  %exitcond13 = icmp eq i32 %inc67, 3
-  br i1 %exitcond13, label %for.end68, label %for.cond4.preheader
+; <label>:155                                     ; preds = %.preheader3
+  %extract108 = extractelement <4 x i32> %153, i32 3
+  %extract107 = extractelement <4 x i32> %153, i32 2
+  %extract106 = extractelement <4 x i32> %153, i32 1
+  %extract105 = extractelement <4 x i32> %153, i32 0
+  %156 = getelementptr inbounds [4 x i32]* %1, i32 0, i32 %ch.012
+  %157 = getelementptr inbounds [4 x i32]* %2, i32 0, i32 %ch.012
+  %158 = getelementptr inbounds [4 x i32]* %3, i32 0, i32 %ch.012
+  %159 = getelementptr inbounds [4 x i32]* %4, i32 0, i32 %ch.012
+  store i32 %extract105, i32* %156, align 4
+  store i32 %extract106, i32* %157, align 4
+  store i32 %extract107, i32* %158, align 4
+  store i32 %extract108, i32* %159, align 4
+  %160 = add nsw i32 %ch.012, 1
+  %exitcond14 = icmp eq i32 %160, 3
+  br i1 %exitcond14, label %161, label %.preheader
 
-for.end68:                                        ; preds = %for.end64
-  %121 = load i32* %4, align 4
-  %122 = load i32* %5, align 4
-  %123 = load i32* %6, align 4
-  %124 = load i32* %7, align 4
-  %temp.vect152 = insertelement <4 x i32> undef, i32 %121, i32 0
-  %temp.vect153 = insertelement <4 x i32> %temp.vect152, i32 %122, i32 1
-  %temp.vect154 = insertelement <4 x i32> %temp.vect153, i32 %123, i32 2
-  %temp.vect155 = insertelement <4 x i32> %temp.vect154, i32 %124, i32 3
-  %and156 = and <4 x i32> %temp.vect155, <i32 255, i32 255, i32 255, i32 255>
-  %125 = load i32* %8, align 4
-  %126 = load i32* %9, align 4
-  %127 = load i32* %10, align 4
-  %128 = load i32* %11, align 4
-  %temp.vect157 = insertelement <4 x i32> undef, i32 %125, i32 0
-  %temp.vect158 = insertelement <4 x i32> %temp.vect157, i32 %126, i32 1
-  %temp.vect159 = insertelement <4 x i32> %temp.vect158, i32 %127, i32 2
-  %temp.vect160 = insertelement <4 x i32> %temp.vect159, i32 %128, i32 3
-  %shl161 = shl <4 x i32> %temp.vect160, <i32 8, i32 8, i32 8, i32 8>
-  %and71162 = and <4 x i32> %shl161, <i32 65280, i32 65280, i32 65280, i32 65280>
-  %129 = load i32* %12, align 4
-  %130 = load i32* %13, align 4
-  %131 = load i32* %14, align 4
-  %132 = load i32* %15, align 4
-  %temp.vect163 = insertelement <4 x i32> undef, i32 %129, i32 0
-  %temp.vect164 = insertelement <4 x i32> %temp.vect163, i32 %130, i32 1
-  %temp.vect165 = insertelement <4 x i32> %temp.vect164, i32 %131, i32 2
-  %temp.vect166 = insertelement <4 x i32> %temp.vect165, i32 %132, i32 3
-  %shl73167 = shl <4 x i32> %temp.vect166, <i32 16, i32 16, i32 16, i32 16>
-  %and74168 = and <4 x i32> %shl73167, <i32 16711680, i32 16711680, i32 16711680, i32 16711680>
-  %or169 = or <4 x i32> %and71162, %and156
-  %or75170 = or <4 x i32> %or169, %and74168
-  %extract176 = extractelement <4 x i32> %or75170, i32 0
-  %extract177 = extractelement <4 x i32> %or75170, i32 1
-  %extract178 = extractelement <4 x i32> %or75170, i32 2
-  %extract179 = extractelement <4 x i32> %or75170, i32 3
-  %add78171 = add nsw <4 x i32> %vector30, %mul7726
-  %extract172 = extractelement <4 x i32> %add78171, i32 0
-  %extract173 = extractelement <4 x i32> %add78171, i32 1
-  %extract174 = extractelement <4 x i32> %add78171, i32 2
-  %extract175 = extractelement <4 x i32> %add78171, i32 3
-  %133 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract172
-  %134 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract173
-  %135 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract174
-  %136 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract175
-  store i32 %extract176, i32 addrspace(1)* %133, align 4
-  store i32 %extract177, i32 addrspace(1)* %134, align 4
-  store i32 %extract178, i32 addrspace(1)* %135, align 4
-  store i32 %extract179, i32 addrspace(1)* %136, align 4
-  %inc81 = add nsw i32 %x.012, 1
-  %exitcond14 = icmp eq i32 %inc81, %iImageWidth
-  br i1 %exitcond14, label %for.end82, label %for.cond1.preheader
+; <label>:161                                     ; preds = %155
+  %162 = load i32* %8, align 4
+  %163 = load i32* %9, align 4
+  %164 = load i32* %10, align 4
+  %165 = load i32* %11, align 4
+  %temp.vect109 = insertelement <4 x i32> undef, i32 %162, i32 0
+  %temp.vect110 = insertelement <4 x i32> %temp.vect109, i32 %163, i32 1
+  %temp.vect111 = insertelement <4 x i32> %temp.vect110, i32 %164, i32 2
+  %temp.vect112 = insertelement <4 x i32> %temp.vect111, i32 %165, i32 3
+  %166 = and <4 x i32> %temp.vect112, <i32 255, i32 255, i32 255, i32 255>
+  %167 = load i32* %12, align 4
+  %168 = load i32* %13, align 4
+  %169 = load i32* %14, align 4
+  %170 = load i32* %15, align 4
+  %temp.vect113 = insertelement <4 x i32> undef, i32 %167, i32 0
+  %temp.vect114 = insertelement <4 x i32> %temp.vect113, i32 %168, i32 1
+  %temp.vect115 = insertelement <4 x i32> %temp.vect114, i32 %169, i32 2
+  %temp.vect116 = insertelement <4 x i32> %temp.vect115, i32 %170, i32 3
+  %171 = shl <4 x i32> %temp.vect116, <i32 8, i32 8, i32 8, i32 8>
+  %172 = and <4 x i32> %171, <i32 65280, i32 65280, i32 65280, i32 65280>
+  %173 = load i32* %16, align 4
+  %174 = load i32* %17, align 4
+  %175 = load i32* %18, align 4
+  %176 = load i32* %19, align 4
+  %temp.vect117 = insertelement <4 x i32> undef, i32 %173, i32 0
+  %temp.vect118 = insertelement <4 x i32> %temp.vect117, i32 %174, i32 1
+  %temp.vect119 = insertelement <4 x i32> %temp.vect118, i32 %175, i32 2
+  %temp.vect120 = insertelement <4 x i32> %temp.vect119, i32 %176, i32 3
+  %177 = shl <4 x i32> %temp.vect120, <i32 16, i32 16, i32 16, i32 16>
+  %178 = and <4 x i32> %177, <i32 16711680, i32 16711680, i32 16711680, i32 16711680>
+  %179 = or <4 x i32> %172, %166
+  %180 = or <4 x i32> %179, %178
+  %extract125 = extractelement <4 x i32> %180, i32 0
+  %extract126 = extractelement <4 x i32> %180, i32 1
+  %extract127 = extractelement <4 x i32> %180, i32 2
+  %extract128 = extractelement <4 x i32> %180, i32 3
+  %181 = add nsw <4 x i32> %vector26, %20
+  %extract121 = extractelement <4 x i32> %181, i32 0
+  %extract122 = extractelement <4 x i32> %181, i32 1
+  %extract123 = extractelement <4 x i32> %181, i32 2
+  %extract124 = extractelement <4 x i32> %181, i32 3
+  %182 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract121
+  %183 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract122
+  %184 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract123
+  %185 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %extract124
+  store i32 %extract125, i32 addrspace(1)* %182, align 4
+  store i32 %extract126, i32 addrspace(1)* %183, align 4
+  store i32 %extract127, i32 addrspace(1)* %184, align 4
+  store i32 %extract128, i32 addrspace(1)* %185, align 4
+  %186 = add nsw i32 %x.013, 1
+  %exitcond15 = icmp eq i32 %186, %iImageWidth
+  br i1 %exitcond15, label %._crit_edge, label %.preheader11
 
-for.end82:                                        ; preds = %for.end68, %entry
+._crit_edge:                                      ; preds = %161, %0
   ret void
 }
 
