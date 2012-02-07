@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define <4 x double> @convert_float4_to_double4(<4 x float> %x) nounwind readnone {
 entry1:

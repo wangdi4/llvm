@@ -22,7 +22,7 @@ bool SelectLower::runOnFunction(Function &F) {
   // For each select
   for (std::vector<SelectInst*>::iterator it = selects.begin(), e = selects.end(); it != e; ++it) {  
     SelectInst* select = *it;
-    const VectorType *tp = dyn_cast<VectorType>(select->getType());
+    VectorType *tp = dyn_cast<VectorType>(select->getType());
     unsigned numelem = tp->getNumElements();
 
     Value* new_return =  UndefValue::get(select->getType());

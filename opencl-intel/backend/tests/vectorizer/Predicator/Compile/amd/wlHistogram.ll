@@ -1,11 +1,11 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
+; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'wlHistogram.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
 target triple = "i686-pc-win32"
-	type { i8*, i8*, i8*, i8*, i32 }		; type %0
+
 @sgv = internal constant [4 x i8] c"120\00"		; <[4 x i8]*> [#uses=1]
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
@@ -30,7 +30,6 @@ target triple = "i686-pc-win32"
 @sgv19 = internal constant [6 x i8] c"22000\00"		; <[6 x i8]*> [#uses=1]
 @fgv20 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv21 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
-@llvm.global.annotations = appending global [8 x %0] [%0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, ...)* @histogramScalar to i8*), i8* getelementptr ([4 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, i32, ...)* @histogramGrouped to i8*), i8* getelementptr ([7 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, ...)* @histogramStep1 to i8*), i8* getelementptr ([5 x i8]* @sgv4, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv5, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv6 to i8*), i32 0 }, %0 { i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int to i8*), i8* getelementptr ([6 x i8]* @sgv7, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv8, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv9 to i8*), i32 0 }, %0 { i8* bitcast (void (<2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int2 to i8*), i8* getelementptr ([6 x i8]* @sgv10, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv11, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv12 to i8*), i32 0 }, %0 { i8* bitcast (void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int4 to i8*), i8* getelementptr ([6 x i8]* @sgv13, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv14, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv15 to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x i32> addrspace(1)*, <8 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int8 to i8*), i8* getelementptr ([6 x i8]* @sgv16, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv17, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv18 to i8*), i32 0 }, %0 { i8* bitcast (void (<16 x i32> addrspace(1)*, <16 x i32> addrspace(1)*, i32, i32, i32, ...)* @histogramStep2int16 to i8*), i8* getelementptr ([6 x i8]* @sgv19, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv20, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv21 to i8*), i32 0 }], section "llvm.metadata"		; <[8 x %0]*> [#uses=0]
 
 ; CHECK: @histogramScalar
 

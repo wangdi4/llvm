@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -23,6 +23,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 #include <intrin.h>
 #define ALIGN16 __attribute__((aligned(16)))
@@ -114,11 +116,11 @@ ALIGN16 int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) <
 
 float HalfToFloat( half param )
 {
-	unsigned short expHalf16 = param & 0x7C00;
+	unsigned short expHalf16 = as_short(param) & 0x7C00;
 	int exp1 = (int)expHalf16;
-	unsigned short mantissa16 = param & 0x03FF;
+	unsigned short mantissa16 = as_short(param) & 0x03FF;
 	int mantissa1 = (int)mantissa16;
-	int sign = (int)(param & 0x8000);
+	int sign = (int)(as_short(param) & 0x8000);
 	sign = sign << 16;
 	
 	if (expHalf16 == 0x7C00) // nan or inf
@@ -204,32 +206,32 @@ float4 Half4ToFloat4(_8i16 xmm0)
 	return xmm5;
 }
 
-float4 float2half_rte(float4 param);
-float4 float2half_rtz(float4 param);
-float4 float2half_rtn(float4 param);
-float4 float2half_rtp(float4 param);
+float4 _intel_ocl_float2half_rte(float4 param);
+float4 _intel_ocl_float2half_rtz(float4 param);
+float4 _intel_ocl_float2half_rtn(float4 param);
+float4 _intel_ocl_float2half_rtp(float4 param);
 
 /// !!! This function is copy-pasted to images module.
 /// In case of any changes they should also be applied to image_callback_functions.cpp
-float4 float2half(float4 param)
+float4 _intel_ocl_float2half(float4 param)
 {
-	return float2half_rte(param);
+	return _intel_ocl_float2half_rte(param);
 }
 
-float4 double2ToHalf2_rte(double2 param);
-float4 double2ToHalf2_rtz(double2 param);
-float4 double2ToHalf2_rtn(double2 param);
-float4 double2ToHalf2_rtp(double2 param);
+float4 _intel_ocl_double2ToHalf2_rte(double2 param);
+float4 _intel_ocl_double2ToHalf2_rtz(double2 param);
+float4 _intel_ocl_double2ToHalf2_rtn(double2 param);
+float4 _intel_ocl_double2ToHalf2_rtp(double2 param);
 
-float4 double2ToHalf2(double2 param)
+float4 _intel_ocl_double2ToHalf2(double2 param)
 {
-	return double2ToHalf2_rte(param);
+	return _intel_ocl_double2ToHalf2_rte(param);
 }
 
 #define DEF_VLOADVSTORE_PROTOV_X_X_Y(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, VEC)\
 	_##VEC##TI##NUM __attribute__((overloadable)) FUNC##VEC(size_t offset,const SIGN SIZ __attribute__((address_space(ADR))) *ptr)\
 	{\
-		const void* pSrc = ((char*)ptr + (offset * VEC * sizeof(SIZ)));\
+		void* pSrc = ((char*)ptr + (offset * VEC * sizeof(SIZ)));\
 		_##VEC##TI##NUM res;\
 		memcpy((void*)&res, pSrc, VEC*sizeof(SIZ));\
 		return res;\
@@ -367,22 +369,22 @@ float4 double2ToHalf2(double2 param)
 	{\
 		float4 f4;\
 		f4.s0 = data;\
-		f4 = float2half##RMODE(f4);\
-		ptr[offset] = (half)_mm_extract_epi16( (__m128i)f4, 0);\
+		f4 = _intel_ocl_float2half##RMODE(f4);\
+		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half2##RMODE(float2 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		float4 f4;\
 		f4.lo = data;\
 		ptr = ptr + (offset*2);\
-		f4 = float2half##RMODE(f4);\
+		f4 = _intel_ocl_float2half##RMODE(f4);\
 		*((float*)ptr) = f4.s0;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half3##RMODE(float3 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		float4 f4;\
 		f4.s012 = data;\
-		f4 = float2half##RMODE(f4);\
+		f4 = _intel_ocl_float2half##RMODE(f4);\
 		if(Alligned)\
 		{\
 			ptr = ptr + (offset*4);\
@@ -392,7 +394,7 @@ float4 double2ToHalf2(double2 param)
 		{\
 			ptr = ptr + (offset*3);\
 			*((float*)ptr) = f4.s0;\
-			ptr[2] = (half)_mm_extract_epi16( (__m128i)f4, 2);\
+			((short*)ptr)[2] = (short)_mm_extract_epi16( (__m128i)f4, 2);\
 		}\
 	}\
 	/* !!! This function is copy-pasted to images module
@@ -400,14 +402,14 @@ float4 double2ToHalf2(double2 param)
 	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
-		data = float2half##RMODE(data);\
+		data = _intel_ocl_float2half##RMODE(data);\
 		*((float2 *)ptr) = data.lo;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half8##RMODE(float8 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*8);\
-		data.lo = float2half##RMODE(data.lo);\
-		data.hi = float2half##RMODE(data.hi);\
+		data.lo = _intel_ocl_float2half##RMODE(data.lo);\
+		data.hi = _intel_ocl_float2half##RMODE(data.hi);\
 		data.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo, (__m128i)data.hi);\
 		if(Alligned)\
 			_mm_store_ps((float*)ptr, data.lo);\
@@ -417,16 +419,16 @@ float4 double2ToHalf2(double2 param)
 	void __attribute__((overloadable))  vstore##A##_half16##RMODE(float16 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*16);\
-		data.lo.lo = float2half##RMODE(data.lo.lo);\
-		data.lo.hi = float2half##RMODE(data.lo.hi);\
+		data.lo.lo = _intel_ocl_float2half##RMODE(data.lo.lo);\
+		data.lo.hi = _intel_ocl_float2half##RMODE(data.lo.hi);\
 		data.lo.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo.lo, (__m128i)data.lo.hi);\
 		if(Alligned)\
 		_mm_store_ps((float*)ptr, data.lo.lo);\
 		else\
 		_mm_storeu_ps((float*)ptr, data.lo.lo);\
 		ptr = ptr + 8;\
-		data.hi.lo = float2half##RMODE(data.hi.lo);\
-		data.hi.hi = float2half##RMODE(data.hi.hi);\
+		data.hi.lo = _intel_ocl_float2half##RMODE(data.hi.lo);\
+		data.hi.hi = _intel_ocl_float2half##RMODE(data.hi.hi);\
 		data.hi.lo = (float4)_mm_unpacklo_epi64((__m128i)data.hi.lo, (__m128i)data.hi.hi);\
 		if(Alligned)\
 		_mm_store_ps((float*)ptr, data.hi.lo);\
@@ -435,22 +437,22 @@ float4 double2ToHalf2(double2 param)
 	}\
 	void __attribute__((overloadable))  vstore##A##_half##RMODE(double data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
-		double2 d2;\
+		double2 d2 = (double2)(0.0);\
 		d2.x = data;\
-		float4 f4 = double2ToHalf2##RMODE(d2);\
-		ptr[offset] = (half)_mm_extract_epi16( (__m128i)f4, 0);\
+		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(d2);\
+		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half2##RMODE(double2 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*2);\
-		float4 f4 = double2ToHalf2##RMODE(data);\
+		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(data);\
 		*((float*)ptr) = f4.s0;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half3##RMODE(double3 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		float4 t1, t2, f4;\
-		t1 = double2ToHalf2##RMODE(data.xy);\
-		t2 = double2ToHalf2##RMODE(data.zz);\
+		t1 = _intel_ocl_double2ToHalf2##RMODE(data.xy);\
+		t2 = _intel_ocl_double2ToHalf2##RMODE(data.zz);\
 		f4.x = t1.x;\
 		f4.y = t2.x;\
 		if(Alligned)\
@@ -462,15 +464,15 @@ float4 double2ToHalf2(double2 param)
 		{\
 			ptr = ptr + (offset*3);\
 			*((float*)ptr) = f4.s0;\
-			ptr[2] = (half)_mm_extract_epi16( (__m128i)f4, 2);\
+			((short *)ptr)[2] = (short)_mm_extract_epi16( (__m128i)f4, 2);\
 		}\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half4##RMODE(double4 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
 		float4 t1, t2, f4;\
-		t1 = double2ToHalf2##RMODE(data.xy);\
-		t2 = double2ToHalf2##RMODE(data.zw);\
+		t1 = _intel_ocl_double2ToHalf2##RMODE(data.xy);\
+		t2 = _intel_ocl_double2ToHalf2##RMODE(data.zw);\
 		f4.x = t1.x;\
 		f4.y = t2.x;\
 		_mm_storel_epi64((__m128i*)ptr, (__m128i)f4);\
@@ -480,10 +482,10 @@ float4 double2ToHalf2(double2 param)
 		ptr = ptr + (offset*8);\
 		float8 f8;\
 		float4 t1, t2, t3, t4;\
-		t1 = double2ToHalf2##RMODE(data.s01);\
-		t2 = double2ToHalf2##RMODE(data.s23);\
-		t3 = double2ToHalf2##RMODE(data.s45);\
-		t4 = double2ToHalf2##RMODE(data.s67);\
+		t1 = _intel_ocl_double2ToHalf2##RMODE(data.s01);\
+		t2 = _intel_ocl_double2ToHalf2##RMODE(data.s23);\
+		t3 = _intel_ocl_double2ToHalf2##RMODE(data.s45);\
+		t4 = _intel_ocl_double2ToHalf2##RMODE(data.s67);\
 		f8.x = t1.x;\
 		f8.y = t2.x;\
 		f8.z = t3.x;\
@@ -498,14 +500,14 @@ float4 double2ToHalf2(double2 param)
 		ptr = ptr + (offset*16);\
 		float16 f16;\
 		float4 t1, t2, t3, t4, t5, t6, t7, t8;\
-		t1 = double2ToHalf2##RMODE(data.s01);\
-		t2 = double2ToHalf2##RMODE(data.s23);\
-		t3 = double2ToHalf2##RMODE(data.s45);\
-		t4 = double2ToHalf2##RMODE(data.s67);\
-		t5 = double2ToHalf2##RMODE(data.s89);\
-		t6 = double2ToHalf2##RMODE(data.sAB);\
-		t7 = double2ToHalf2##RMODE(data.sCD);\
-		t8 = double2ToHalf2##RMODE(data.sEF);\
+		t1 = _intel_ocl_double2ToHalf2##RMODE(data.s01);\
+		t2 = _intel_ocl_double2ToHalf2##RMODE(data.s23);\
+		t3 = _intel_ocl_double2ToHalf2##RMODE(data.s45);\
+		t4 = _intel_ocl_double2ToHalf2##RMODE(data.s67);\
+		t5 = _intel_ocl_double2ToHalf2##RMODE(data.s89);\
+		t6 = _intel_ocl_double2ToHalf2##RMODE(data.sAB);\
+		t7 = _intel_ocl_double2ToHalf2##RMODE(data.sCD);\
+		t8 = _intel_ocl_double2ToHalf2##RMODE(data.sEF);\
 		f16.s0 = t1.x;\
 		f16.s1 = t2.x;\
 		f16.s2 = t3.x;\

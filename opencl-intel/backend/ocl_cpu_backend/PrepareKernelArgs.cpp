@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -44,6 +44,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   bool PrepareKernelArgs::runOnModule(Module &M) {
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
+
+    NamedMDNode *KernelsMD = m_pModule->getNamedMetadata("opencl.kernels");
+    NamedMDNode *WrapperMD = m_pModule->getOrInsertNamedMetadata("opencl.wrappers");
+    for(int i = 0, e = KernelsMD->getNumOperands(); i < e ; i++) {
+      MDNode *elem = KernelsMD->getOperand(i);
+      WrapperMD->addOperand(elem);
+    }
     
     // Map functions and their metadata
     CompilationUtils::getKernelsMetadata(m_pModule, *m_pVectFunctions, m_kernelsMetadata);
@@ -89,7 +96,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   Function* PrepareKernelArgs::createWrapper(Function* pFunc) {
     // Create new function's argument type list
     // The new function receives one argument: i8* pBuffer
-    std::vector<const llvm::Type *> newArgsVec;
+    std::vector<llvm::Type *> newArgsVec;
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
 
     // Create new functions return type
@@ -103,19 +110,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
   
   std::vector<Value*> PrepareKernelArgs::createArgumentLoads(IRBuilder<>& builder, Function* pFunc, Argument *pArgsBuffer) {
-    
-    // Get old function's arguments list in the OpenCL level from its metadata
-    MDNode* pMetadata = m_kernelsMetadata[pFunc];
-    assert(pMetadata && "No metdata for kernel");
 
-    MDString *pFuncArgs = dyn_cast<MDString>(pMetadata->getOperand(4));
-     if (NULL == pFuncArgs)
-    {
-      throw Exceptions::CompilerException( "Invalid argument's map", CL_DEV_BUILD_ERROR);
-    }
-    
+    // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
-    CompilationUtils::parseKernelArguments(m_pModule, pFunc, pFuncArgs->getString().str(), arguments);
+    CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments);
+
     
     std::vector<Value*> params;
     // assuming pBuffer is initially aligned to TypeAlignment::MAX_ALIGNMENT and 
@@ -227,7 +226,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     std::vector<Value*> params = createArgumentLoads(builder, pFunc, pArgsBuffer);
     
-    CallInst* call = builder.CreateCall(pFunc, params.begin(), params.end());
+    CallInst* call = builder.CreateCall(pFunc, ArrayRef<Value*>(params));
     call->setCallingConv(pFunc->getCallingConv());
     
     builder.CreateRetVoid();
@@ -253,21 +252,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_oldToNewFunctionMap[pFunc] = pWrapper;
       
     if (!isVectorized) {
-    
-      // Replace metadata with metada containing information about the wrapper
-      MDNode* pMetadata = m_kernelsMetadata[pFunc];
-      assert(pMetadata && "No metdata for kernel");
-      
-      SmallVector<Value *, 16> values;
-      for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
-        values.push_back(pMetadata->getOperand(i));
+      NamedMDNode *WrapperMD = m_pModule->getNamedMetadata("opencl.wrappers");
+
+      SmallVector<llvm::Value*, 5> Operands;
+
+      for(int i = 0, e = WrapperMD->getNumOperands(); i < e ; i++) {
+        Value *op = WrapperMD->getOperand(i)->getOperand(0);
+        if(pFunc == dyn_cast<Function>(op))
+          Operands.push_back(pWrapper);
+        else
+          Operands.push_back(WrapperMD->getOperand(i)->getOperand(0));
       }
-      // Add new function with one buffer
-      values.push_back(pWrapper);
-      
-      // &(values[0]) gets the pointer to the metyadata values array
-      MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, &(values[0]), values.size());
-      pMetadata->replaceAllUsesWith(pNewMetadata);
+
+      WrapperMD->eraseFromParent();
+
+      WrapperMD = m_pModule->getOrInsertNamedMetadata("opencl.wrappers");
+
+      for(int i = 0, e = Operands.size(); i < e ; i++) {
+        WrapperMD->addOperand(llvm::MDNode::get(*m_pLLVMContext, Operands[i]));
+      }
     }
 
    return pWrapper;

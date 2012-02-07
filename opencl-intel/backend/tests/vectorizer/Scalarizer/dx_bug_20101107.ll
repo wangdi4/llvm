@@ -26,5 +26,5 @@ entry:
 
 
   declare <4 x float> @dx_soa_load_constant_uniform_imm_1_float4_vs(i8*, i32 , i32 ) nounwind;
-  declare  <4 x float> @dx_soa_load_constant_uniform_imm_1_float4_vs(i8*, i32 , i32 ) nounwind;
+ 
   declare void @dx_soa_store_output_uniform_indirect_1_float4_vs(i8* , i32 , i32 , <4 x float> ) nounwind;

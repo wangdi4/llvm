@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlNVMedian.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -372,11 +372,11 @@ if.end225:                                        ; preds = %if.end224, %if.else
 if.end226:                                        ; preds = %if.end225, %if.end139
   call void @barrier(i32 1)
   %tmp228 = bitcast [3 x float]* %fMedianEstimate to i8* ; <i8*> [#uses=1]
-  call void @llvm.memcpy.i32(i8* %tmp228, i8* bitcast ([3 x float]* @ckMedian.fMedianEstimate to i8*), i32 12, i32 4)
+  call void @llvm_memcpy(i8* %tmp228, i8* bitcast ([3 x float]* @ckMedian.fMedianEstimate to i8*), i32 12, i32 4, i1 false)
   %tmp230 = bitcast [3 x float]* %fMinBound to i8* ; <i8*> [#uses=1]
-  call void @llvm.memset.i32(i8* %tmp230, i8 0, i32 12, i32 4)
+  call void @llvm_memset(i8* %tmp230, i8 0, i32 12, i32 4, i1 false)
   %tmp232 = bitcast [3 x float]* %fMaxBound to i8* ; <i8*> [#uses=1]
-  call void @llvm.memcpy.i32(i8* %tmp232, i8* bitcast ([3 x float]* @ckMedian.fMaxBound to i8*), i32 12, i32 4)
+  call void @llvm_memcpy(i8* %tmp232, i8* bitcast ([3 x float]* @ckMedian.fMaxBound to i8*), i32 12, i32 4, i1 false)
   store i32 0, i32* %iSearch
   br label %for.cond
 
@@ -387,7 +387,7 @@ for.cond:                                         ; preds = %for.inc, %if.end226
 
 for.body:                                         ; preds = %for.cond
   %tmp237 = bitcast [3 x i32]* %uiHighCount to i8* ; <i8*> [#uses=1]
-  call void @llvm.memset.i32(i8* %tmp237, i8 0, i32 12, i32 4)
+  call void @llvm_memset(i8* %tmp237, i8 0, i32 12, i32 4, i1 false)
   %call238 = call i32 @get_local_id(i32 1)        ; <i32> [#uses=1]
   %tmp239 = load i32* %iLocalPixPitch.addr        ; <i32> [#uses=1]
   %call240 = call i32 @_Z5mul24ii(i32 %call238, i32 %tmp239) ; <i32> [#uses=1]
@@ -1057,6 +1057,6 @@ declare i32 @get_group_id(i32)
 
 declare void @barrier(i32)
 
-declare void @llvm.memcpy.i32(i8* nocapture, i8* nocapture, i32, i32) nounwind
+declare void @llvm_memcpy(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind
 
-declare void @llvm.memset.i32(i8* nocapture, i8, i32, i32) nounwind
+declare void @llvm_memset(i8* nocapture, i8, i32, i32, i1) nounwind

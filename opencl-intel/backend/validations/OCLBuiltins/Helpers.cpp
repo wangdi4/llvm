@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -23,7 +23,7 @@ using namespace llvm;
 namespace Validation {
 namespace OCLBuiltins {
 
-    llvm::GenericValue UnimplementedBuiltin(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
     {
         throw Exception::NotImplemented("Some OCL built-in function.");
     }
@@ -123,7 +123,7 @@ namespace OCLBuiltins {
         return one.val();
     }
 
-    llvm::GenericValue lle_X_memcpy(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_memcpy(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue arg0 = Args[0];

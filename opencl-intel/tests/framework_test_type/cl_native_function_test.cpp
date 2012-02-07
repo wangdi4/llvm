@@ -57,6 +57,7 @@ using namespace Intel::OpenCL::Utils;
 #define D_SQRT_ULP 10 
 #define D_TAN_ULP 5000000
 
+#define PXSTR(p, s) p STR(s)
 #define XSTR(s) STR(s)
 #define STR(s) #s
 #define NAME_STR(name) #name
@@ -88,7 +89,8 @@ using namespace Intel::OpenCL::Utils;
 	pULP[index] = (-as_int##vec(abs(isgreater(pBuff[index],fabs(fres/two)))))  | as_int##vec(abs(res - native_res)); \
 }
 
-#define NATIVE_TEST_DOUBLE(func,vec) __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
+#define NATIVE_TEST_DOUBLE(func,vec) \
+__kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	double##vec dres=(func(pBuff[index])); \
@@ -188,7 +190,7 @@ using namespace Intel::OpenCL::Utils;
 	RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_TEST_FLOAT(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
 
 #define RUNTESTS_DOUBLES(name,func,buff,buffnum)	\
-	RunFunctionTest(NAME_VEC(name,double,),XSTR(NATIVE_TEST_DOUBLE(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
+	RunFunctionTest(NAME_VEC(name,double,), XSTR(NATIVE_TEST_DOUBLE(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
 	RunFunctionTest(NAME_VEC(name,double,2),XSTR(NATIVE_TEST_DOUBLE(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
 	RunFunctionTest(NAME_VEC(name,double,3),XSTR(NATIVE_TEST_DOUBLE(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
 	RunFunctionTest(NAME_VEC(name,double,4),XSTR(NATIVE_TEST_DOUBLE(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
@@ -213,6 +215,8 @@ using namespace Intel::OpenCL::Utils;
   RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_##name##_DOUBLE(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
 	//TODO: once convert_int3(long3) implemented uncomment vec 3 and delete the temporary one
 
+const char Pragma[] = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable";
+
 //runs a kernel and check it's results vs targetULP
 template <typename T>
 void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,cl_context& context,cl_command_queue& queue,T** pBuff,int numBuffs,size_t& stBuffSize,bool& bResult,int target_ulp){
@@ -230,9 +234,11 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	cl_program program;
 	cl_kernel kernel;
 	cl_mem clBuff[MAX_BUFFS+1]; //+1 for clULP which is clBuff[numBuffs]
+  char *kernelCode = new char[strlen(ocl_test_program) + strlen(Pragma)+10];
+  sprintf(kernelCode, "%s\n%s\n", Pragma,  ocl_test_program);
 	try{
 	// create program with source
-	if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &program) ){
+	if ( !BuildProgramSynch(context, 1, (const char**)&kernelCode, NULL, NULL, &program) ){
 		bResult=false;
 		throw RELEASE_QUEUE;
 	}
@@ -336,6 +342,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	}
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
+  delete [] kernelCode;
 
 }
 

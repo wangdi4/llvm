@@ -221,10 +221,12 @@ set (OCL_UTILS_INCLUDE_FILES
 	LocalBuffersAnalysis.h
 	PrepareKernelArgs.h
 	ResolveWICall.h
+	ShiftZeroUpperBits.h
 	SystemInfo.h
 	TLLVMKernelInfo.h
 	TypeAlignment.h
 	UndefinedExternalFunctions.h
+	PreventDivisionCrashes.h
   )
   
 set (OCL_UTILS_SOURCE_FILES
@@ -239,9 +241,11 @@ set (OCL_UTILS_SOURCE_FILES
 	LocalBuffersAnalysis.cpp
 	PrepareKernelArgs.cpp
 	ResolveWICall.cpp
+	ShiftZeroUpperBits.cpp
 	SystemInfo.cpp
 	TypeAlignment.cpp
 	UndefinedExternalFunctions.cpp
+	PreventDivisionCrashes.cpp
   )
 
 # Create target project
@@ -403,7 +407,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS} 
 	${OCL_CPU_BACKEND_EXPORT_DIR} 
-	../)
+	)
 
 # Add additional lib direcories
 link_directories (
@@ -442,8 +446,7 @@ endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
  set (LLVM_LIBS
 	
 	# LLVM libs
-	LLVMMICCodeGenerationEngine
-	LLVMMICModuleJIT
+
 	LLVMLinker
 	LLVMX86AsmParser
 	LLVMX86AsmPrinter
@@ -453,7 +456,6 @@ endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 	LLVMTransformUtils
 	LLVMCore
 	LLVMTarget
-	LLVMSystem
 	LLVMExecutionEngine
 	LLVMJIT
 	LLVMCodeGen
@@ -520,14 +522,6 @@ if (ENABLE_SDE)
     message("-- Enabling SDE version ... ")
     add_definitions( -DENABLE_SDE )
 endif (ENABLE_SDE)
-
-if (WIN32)
-	set_target_properties(${TARGET_NAME} PROPERTIES
-							LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-							LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-						  )
-	install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-endif(WIN32)
 
 install( TARGETS ${TARGET_NAME} ${TARGET_UTILS_NAME} 
     RUNTIME DESTINATION bin

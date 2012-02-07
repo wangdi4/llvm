@@ -31,7 +31,7 @@
 #include "CL/cl.h"
 #include <float.h>
 #include <xmmintrin.h>
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 
 namespace Conformance
 {

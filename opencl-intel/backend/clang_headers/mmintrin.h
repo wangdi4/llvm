@@ -28,6 +28,10 @@
 #error "MMX instruction set not enabled"
 #else
 
+typedef long __m64 __attribute__((__vector_size__(8)));
+
+typedef long __m64 __attribute__((__vector_size__(8)));
+
 typedef int __v2si __attribute__((__vector_size__(8)));
 typedef short __v4hi __attribute__((__vector_size__(8)));
 typedef char __v8qi __attribute__((__vector_size__(8)));

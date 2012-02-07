@@ -1,4 +1,4 @@
-; RUN: llc < %s -mcpu=sandybridge | FileCheck %s
+; RUN: llc < %s -mcpu=corei7-avx | FileCheck %s
 
 define <2 x double> @test1(double* nocapture %f) nounwind readonly {
 ; CHECK: test1
@@ -175,7 +175,7 @@ define <4 x double> @vector4_codef64()  {
    ret <4 x double> <double 1.0, double 1.0, double 1.0, double 1.0>
 } 
 
-define  x86_ocl_kernelcc void @__Vectorized_CryptThread(i32 %blockLen) nounwind {
+define   void @__Vectorized_CryptThread(i32 %blockLen) nounwind {
 .preheader14:
   %temp = insertelement <8 x i32> undef, i32 %blockLen, i32 0
   %vector = shufflevector <8 x i32> %temp, <8 x i32> undef, <8 x i32> zeroinitializer

@@ -27,8 +27,9 @@
 #include "Binary.h"
 #include "Executable.h"
 #include "exceptions.h"
-#include "llvm/System/DataTypes.h"
 #include "llvm/Support/MutexGuard.h"
+#include "llvm/Support/Mutex.h"
+#include "llvm/Instructions.h"
 #include <stdio.h>
 
 #include <cstdio>

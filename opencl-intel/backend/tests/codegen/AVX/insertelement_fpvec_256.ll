@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define <4 x double> @insertelement_4_double_3(<4 x double> %broadcast2) nounwind readnone {
 ; CHECK: insertelement_4_double_3

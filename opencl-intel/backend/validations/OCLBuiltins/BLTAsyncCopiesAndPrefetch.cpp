@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -537,13 +537,13 @@ void AsyncCopiesAndPrefetchMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& 
 
 }
 
-llvm::GenericValue lle_X_prefetch(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT,
                                   const std::vector<llvm::GenericValue> &Args)
 {
     return GenericValue();
 }
 
-llvm::GenericValue lle_X_wait_group_events(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT,
                                   const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue arg0 = Args[0];

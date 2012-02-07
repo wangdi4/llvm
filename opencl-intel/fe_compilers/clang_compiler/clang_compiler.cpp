@@ -9,7 +9,7 @@
 #include <cl_sys_defines.h>
 #include <cl_device_api.h>
 
-#include <llvm/Target/TargetSelect.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/ManagedStatic.h>
 
 #if defined (_WIN32)
@@ -28,7 +28,6 @@ using namespace Intel::OpenCL::Utils;
 #pragma comment (lib, "LLVMBitWriter.lib")
 #pragma comment (lib, "LLVMCodeGen.lib")
 #pragma comment (lib, "LLVMSupport.lib")
-#pragma comment (lib, "LLVMSystem.lib")
 #pragma comment (lib, "LLVMTarget.lib")
 #pragma comment (lib, "LLVMTransformUtils.lib")
 #pragma comment (lib, "LLVMCore.lib")
@@ -72,6 +71,7 @@ int InitClangDriver()
 	llvm::InitializeAllTargets();
 	llvm::InitializeAllAsmPrinters();
 	llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllTargetMCs();
 
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
 	return 0;

@@ -14,7 +14,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend
     ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend/export
     )
-add_llvm_library(Comparator STATIC
+add_library(Comparator STATIC
   ${CMP_INCLUDE_FILES}
   Comparator.cpp
   ComparisonResults.cpp

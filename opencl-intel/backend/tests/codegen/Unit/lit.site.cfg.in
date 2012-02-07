@@ -9,4 +9,4 @@ config.enable_shared = @ENABLE_SHARED@
 config.shlibpath_var = "@SHLIBPATH_VAR@"
 
 # Let the main config do the real work.
-lit.load_config(config, "@LLVM_SOURCE_DIR@/../tests/vectorizer/Unit/lit.cfg")
+lit.load_config(config, "@LLVM_SOURCE_DIR@/../tests/codegen/Unit/lit.cfg")

@@ -1,6 +1,5 @@
 
 #include "SpecialCaseBuiltinResolver.h"
-#include "llvm/Support/StandardPasses.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 
@@ -22,6 +21,7 @@ SpecialCaseBuiltinResolver::~SpecialCaseBuiltinResolver() {
 }
 
 bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
+  V_PRINT(SpecialCaseBuiltinResolver, "starting bltn resolver\n");
   m_changedKernels.clear();
   m_curModule = &M;
   m_runtimeServices = (OpenclRuntime *)RuntimeServices::get();
@@ -36,6 +36,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
       changed =true;
     }
   }
+  V_PRINT(SpecialCaseBuiltinResolver, "finished filling wrappers\n");
   
   if (changed){
     PassManager mpm1;
@@ -65,6 +66,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
     for (; it!=e ; ++it)
       fpm.run(**it);
   }
+  V_PRINT(SpecialCaseBuiltinResolver, "finished bltn resolver\n");
   return changed;
 }
 
@@ -74,20 +76,20 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
   Function::arg_iterator argE = F->arg_end();
   unsigned resolvedFuncArgInd = 0;
   for ( ;argIt != argE; ++argIt ) {
-    const ArrayType *arrType = dyn_cast<ArrayType>(argIt->getType());
+    ArrayType *arrType = dyn_cast<ArrayType>(argIt->getType());
     if (arrType) {
       // incase wrapper argument is array of vectors than we extract the vectors 
       // and pass each one separately to the true builtin
       unsigned nElts = arrType->getNumElements();
       for (unsigned i=0; i<nElts; ++i) {
         ExtractValueInst *EVI = ExtractValueInst::Create(argIt, i, "extract_param", loc);
-        const Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
+        Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
         Value *curArg = VectorizerUtils::getCastedArgIfNeeded(EVI, desiredType, loc); 
         resolvedArgs.push_back(curArg);
         resolvedFuncArgInd++;
       }
     } else {
-      const Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
+      Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
       Value *curArg = VectorizerUtils::getCastedArgIfNeeded(argIt, desiredType, loc);
       resolvedArgs.push_back(curArg);
       resolvedFuncArgInd++;
@@ -143,10 +145,11 @@ Value *SpecialCaseBuiltinResolver::obtainReturnValueGatheredVector(CallInst *CI,
 
 
 void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName) {
-  std::string resolvedName = Mangler::demangle_fake_builtin(funcName);
+  V_PRINT(SpecialCaseBuiltinResolver, "filling " << funcName << "\n");
   // not need to implement wrapper with no uses
   if (F->getNumUses() == 0) return;
   
+  std::string resolvedName = Mangler::demangle_fake_builtin(funcName);
   BasicBlock *entry = BasicBlock::Create(F->getContext(), "entry" , F);
   // first check if function already found in module
   // this is important incase function contains opaque pointers 
@@ -160,7 +163,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   const FunctionType *resolvedFuncType = resolvedFunc->getFunctionType();
 
   // creating ret in the just to be used as insrtion point for argumnet casting
-  const Type *wrapperRetType = F->getReturnType();
+  Type *wrapperRetType = F->getReturnType();
   ReturnInst *fakeRet = ReturnInst::Create(F->getContext(), UndefValue::get(wrapperRetType), entry);
   
   // obtain input arguments into the builtin actual type
@@ -169,7 +172,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
 
   // obtain return value attributes into m_wrraperRetAttr
   obtainRetAttrs(wrapperRetType);
-  const Type *resolvedFuncRetType = resolvedFunc->getReturnType();
+  Type *resolvedFuncRetType = resolvedFunc->getReturnType();
   bool retByPtr = resolvedFuncRetType->isVoidTy() && !m_wrraperRetAttr.isVoid;
   bool retByGatheredVec = resolvedFuncRetType->isVectorTy() && m_wrraperRetAttr.isArrayOfVec; 
   
@@ -185,7 +188,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
         "resolved argument type mismatch");
   
   // creating call to resolved function
-  CallInst *newCall = CallInst::Create(resolvedFunc, resolvedArgs.begin(), resolvedArgs.end(), "" , fakeRet);
+  CallInst *newCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(resolvedArgs), "" , fakeRet);
 
   // obtaining return value
   Value *retVal = NULL; // this capture case of void return 
@@ -211,7 +214,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   }
 }
 
-void SpecialCaseBuiltinResolver::obtainRetAttrs(const Type *theType) {
+void SpecialCaseBuiltinResolver::obtainRetAttrs(Type *theType) {
   // first check if void return
   if (theType->isVoidTy()) {
     m_wrraperRetAttr.isVoid = true;
@@ -222,8 +225,8 @@ void SpecialCaseBuiltinResolver::obtainRetAttrs(const Type *theType) {
   m_wrraperRetAttr.isVoid = false;
   
   // check if multiple return (array of vectors)
-  const ArrayType *arrType = dyn_cast<ArrayType>(theType);
-  const VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : NULL;
+  ArrayType *arrType = dyn_cast<ArrayType>(theType);
+  VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : NULL;
   if (vecType) {
     m_wrraperRetAttr.isArrayOfVec = true;
     m_wrraperRetAttr.arrType = arrType;

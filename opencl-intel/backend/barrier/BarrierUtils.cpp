@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierUtils.h"
 
@@ -212,8 +212,8 @@ namespace intel {
     if ( !m_barrierFunc ) {
       //Module has no barrier declaration
       //Create one
-      const Type *pResult = Type::getVoidTy(m_pModule->getContext());
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = Type::getVoidTy(m_pModule->getContext());
+      std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), m_uiSizeT));
       m_barrierFunc = 
         createFunctionDeclaration(BARRIER_FUNC_NAME, pResult, funcTyArgs);
@@ -235,8 +235,8 @@ namespace intel {
         "dummyBarrier() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = Type::getVoidTy(m_pModule->getContext());
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = Type::getVoidTy(m_pModule->getContext());
+      std::vector<Type*> funcTyArgs;
       m_dummyBarrierFunc = createFunctionDeclaration(
         DUMMY_BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
@@ -244,8 +244,8 @@ namespace intel {
   }
 
   Instruction* BarrierUtils::createMemFence(BasicBlock *pAtEnd) {
-    const Type *pResult = Type::getVoidTy(m_pModule->getContext());
-    std::vector<const Type*> funcTyArgs;
+    Type *pResult = Type::getVoidTy(m_pModule->getContext());
+    std::vector<Type*> funcTyArgs;
     FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
     Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
     return CallInst::Create(pNewFunc, "", pAtEnd);
@@ -259,9 +259,9 @@ namespace intel {
         "get_curr_WI() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = PointerType::get(
-        IntegerType::get(m_pModule->getContext(), m_uiSizeT), CURR_WI_ADDR_SPACE);
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = PointerType::get(
+      IntegerType::get(m_pModule->getContext(), m_uiSizeT), CURR_WI_ADDR_SPACE);
+      std::vector<Type*> funcTyArgs;
       m_getCurrWIFunc = createFunctionDeclaration(
         GET_CURR_WI, pResult, funcTyArgs);
     }
@@ -276,9 +276,9 @@ namespace intel {
         "get_special_buffer() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = PointerType::get(
-        IntegerType::get(m_pModule->getContext(), 8), SPECIAL_BUFFER_ADDR_SPACE);
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = PointerType::get(
+      IntegerType::get(m_pModule->getContext(), 8), SPECIAL_BUFFER_ADDR_SPACE);
+      std::vector<Type*> funcTyArgs;
       m_getSpecialBufferFunc = createFunctionDeclaration(
         GET_SPECIAL_BUFFER, pResult, funcTyArgs);
     }
@@ -293,8 +293,8 @@ namespace intel {
         "get_iter_count() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
+      std::vector<Type*> funcTyArgs;
       m_getIterationCountFunc = createFunctionDeclaration(
         GET_ITERATION_COUNT, pResult, funcTyArgs);
     }
@@ -345,15 +345,15 @@ namespace intel {
         "get_new_local_id() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
+      std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
       m_getNewLIDFunc = 
         createFunctionDeclaration(GET_NEW_LID_NAME, pResult, funcTyArgs);
     }
     Value *args[2] = {pArg1, pArg2};
-    return CallInst::Create(m_getNewLIDFunc, args, args+2, "newLID", pInsertBefore);
+    return CallInst::Create(m_getNewLIDFunc, ArrayRef<Value*>(args, 2), "newLID", pInsertBefore);
   }
 
   Instruction* BarrierUtils::createNewGetGlobalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore) {
@@ -364,15 +364,15 @@ namespace intel {
         "get_new_local_id() instruction is origanlity declared by the module!!!" );
 
       //Create one
-      const Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
-      std::vector<const Type*> funcTyArgs;
+      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
+      std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
       m_getNewGIDFunc = 
         createFunctionDeclaration(GET_NEW_GID_NAME, pResult, funcTyArgs);
     }
     Value *args[2] = {pArg1, pArg2};
-    return CallInst::Create(m_getNewGIDFunc, args, args+2, "newGID", pInsertBefore);
+    return CallInst::Create(m_getNewGIDFunc, ArrayRef<Value*>(args, 2), "newGID", pInsertBefore);
   }
 
   bool BarrierUtils::doesCallModuleFunction(Function *pFunc) {
@@ -437,7 +437,7 @@ namespace intel {
     }
   }
 
-  Function* BarrierUtils::createFunctionDeclaration(const llvm::Twine& name, const Type *pResult, std::vector<const Type*>& funcTyArgs) {
+  Function* BarrierUtils::createFunctionDeclaration(const llvm::Twine& name, Type *pResult, std::vector<Type*>& funcTyArgs) {
     FunctionType *pFuncTy = FunctionType::get(
       /*Result=*/pResult,
       /*Params=*/funcTyArgs,

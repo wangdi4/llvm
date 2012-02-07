@@ -13,19 +13,34 @@ class VolcanoLIT(VolcanoTestSuite):
         self.config  = config
 
         # LLVM Regression suite
+		# TODO: LLVM 3.0 - disable 'make check' until we change the machine configurations
         self.addTask(LitTest('Check', 'check', config, solution_name))
 
         # Vectorizer suite
         self.addTask(LitTest('Check_Vectorizer', 'check_vectorizer', config, solution_name))
 
-        # Regression
-        self.addTask(LitTest('Check_Regression', 'check_regression', config, solution_name))
+        # Regression suite
+        self.addTask(LitTest('Check_Regression', 'check_regression', config, solution_name), skiplist=[['.*']])
+		
+		# Codegen suite
+        self.addTask(LitTest('Check_Codegen', 'check_codegen', config, solution_name), skiplist=[['.*']])
 
         # OCL Reference compiler checks
-        self.addTask(LitTest('Check_OCL_Reference', 'check_ocl_ref', config, solution_name), skiplist=[['.*','.*64']])
+        self.addTask(LitTest('Check_OCL_Reference', 'check_ocl_ref', config, solution_name), skiplist = [['.*','SLES64'],['.*','RH64']])
         
-        # Barriers tests
-        self.addTask(LitTest('Barriers', 'check_barrier', config, solution_name), skiplist=[['.*','.*64']])
+        # Barriers suite
+        self.addTask(LitTest('Barriers', 'check_barrier', config, solution_name))
+		
+		# OCL backend passes suite
+        self.addTask(LitTest('Check_OCL_Backend_Passes', 'check_ocl_backend_passes', config, solution_name))
+        
+        # Clang related LIT tests
+        self.addTask(LitTest('Clang_ClearQuest',    'clang-clearquest',    config, solution_name))
+        self.addTask(LitTest('Clang_CodegenOpenCL', 'clang-codegenopencl', config, solution_name))
+        self.addTask(LitTest('Clang_Conformance',   'clang-conformance',   config, solution_name), skiplist=[['.*','.*','Debug']])
+        self.addTask(LitTest('Clang_OpenCL_General','clang-opencl-general',config, solution_name))
+        self.addTask(LitTest('Clang_Restrictions',  'clang-restrictions',  config, solution_name))
+        self.addTask(LitTest('Clang-SemaOpenCL',    'clang-semaopencl',    config, solution_name))
 
     def startUp(self):
         os.environ['VOLCANO_ARCH'] = CPU_MAP[self.config.cpu]
@@ -33,6 +48,7 @@ class VolcanoLIT(VolcanoTestSuite):
         os.environ['VOLCANO_TRANSPOSE_SIZE'] = self.config.transpose_size
         
 def main():
+    #
     parser = OptionParser()
     parser.add_option("-r", "--root",      action="store",      dest="root_dir",    help="project root directory. Default: Autodetect", default=None)
     parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")

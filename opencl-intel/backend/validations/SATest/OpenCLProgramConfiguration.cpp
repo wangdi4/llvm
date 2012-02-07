@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -16,7 +16,8 @@ File Name:  OpenCLProgramConfiguration.cpp
 
 \*****************************************************************************/
 
-#include "llvm/System/Path.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/FileSystem.h"
 #include "OpenCLProgramConfiguration.h"
 #include "SATestException.h"
 #include "llvm/Support/raw_ostream.h"
@@ -38,17 +39,20 @@ namespace Utils
 {
     string GetDataFilePath(const string& fileName, const string& baseDirectory)
     {
-        llvm::sys::Path filePath(fileName.c_str(), fileName.size());
-
-        if( !filePath.isAbsolute() && !baseDirectory.empty())
+        if( !llvm::sys::path::is_absolute(fileName) && !baseDirectory.empty())
         {
             llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
-            absFilePath.appendComponent(filePath.c_str());
+            if(false == absFilePath.appendComponent(fileName))
+                throw Exception::IOError("GetDataFilePath::Inexistent path created with \
+                                         fileName=" + fileName +
+                                         " and baseDirectory=" +  baseDirectory);
+            
             return absFilePath.str();
         }
 
-        filePath.makeAbsolute();
-        return filePath.str();
+        llvm::SmallString<128> fName(fileName);
+        llvm::sys::fs::make_absolute(fName);
+        return fileName;
     }
 }
 
@@ -184,15 +188,16 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
         throw Exception::IOError("Configuration file name is invalid");
     }
 
-    if( !configFilePath.isAbsolute() )
+    llvm::SmallString<128> configPath(configFile);
+    if( !llvm::sys::path::is_absolute(configFile) )
     {
-        configFilePath.makeAbsolute();
+        llvm::sys::fs::make_absolute(configPath);
         //llvm::Path::makeAbsolute bug workaround - forces to llvm::Path to flip backslashes
-        configFilePath = llvm::sys::Path(configFilePath.str().c_str(), configFilePath.str().size());
+        configFilePath = llvm::sys::Path(configPath.c_str(), configPath.size());
     }
-    m_programName   = configFilePath.getBasename();
+    m_programName   = llvm::sys::path::stem(llvm::StringRef(configPath));
     m_configFile    = configFilePath.c_str();
-    m_baseDirectory = baseDir.empty() ? configFilePath.getDirname().str()
+    m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;
 
     TiXmlDocument config(m_configFile);

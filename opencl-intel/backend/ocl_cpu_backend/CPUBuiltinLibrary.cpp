@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -21,7 +21,7 @@ File Name:  MICBuiltinLibrary.cpp
 #include "SystemInfo.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/System/DynamicLibrary.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -79,9 +79,10 @@ void CPUBuiltinLibrary::Load()
 #else
     snprintf(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
 #endif
-    
-    m_pRtlBuffer = llvm::MemoryBuffer::getFile(szRTLibName);
-    if( NULL == m_pRtlBuffer )
+     
+    llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
+    //assert(ret && "Unable to open file");
+    if( !m_pRtlBuffer )
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
     }

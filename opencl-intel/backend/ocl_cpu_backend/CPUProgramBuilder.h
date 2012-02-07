@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -80,7 +80,7 @@ private:
                                                    llvm::Function* pFunc,
                                                    const TLLVMKernelInfo& info);
 
-    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps);
+    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps);
 
 
     size_t ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc);

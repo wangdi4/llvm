@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge -mtriple=i386-pc-linux-gnu < %p/../../llvm/CodeGen/X86/2009-08-06-inlineasm.ll 
+; RUN: llc -mcpu=corei7-avx -mtriple=i386-pc-linux-gnu < %p/../../../llvm/test/CodeGen/X86/2009-08-06-inlineasm.ll 
 ; PR4668
 ; XFAIL: *
 ; FIXME: If the coalescer happens to coalesce %level.1 with the copy to EAX

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -30,7 +30,7 @@ namespace OCLBuiltins {
 
     // template parameter T could be int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t
     template<typename T, int n>
-    llvm::GenericValue lle_X_vload(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_vload(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -49,7 +49,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_vstore(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_vstore(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue arg0=Args[0];
@@ -69,7 +69,7 @@ namespace OCLBuiltins {
     }
 
     template<int n, bool aligned>
-    llvm::GenericValue lle_X_vload_half(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_vload_half(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -88,7 +88,7 @@ namespace OCLBuiltins {
     }
 
     template<> llvm::GenericValue lle_X_vload_half<3, true>(
-        const llvm::FunctionType *FT,
+        llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
     // Wrapper to provide single interface to two conversion functions: double2half and float2half
@@ -102,7 +102,7 @@ namespace OCLBuiltins {
     uint16_t convert2half<double>(double f);
 
     template<typename T, int n, bool aligned>
-    llvm::GenericValue lle_X_vstore_half(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_vstore_half(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue arg0 = Args[0];
@@ -120,11 +120,11 @@ namespace OCLBuiltins {
     }
 
     template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
-        const llvm::FunctionType *FT,
+        llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
     template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
-        const llvm::FunctionType *FT,
+        llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
     // This class adds references to the implementations of OpenCL built-in functions from 6.11.7 section.

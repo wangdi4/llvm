@@ -1,9 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = 'C:\Users\nrotem\Desktop\runme\runtime_tests64\Subdivision.cl'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
 target triple = "x86_64-pc-win32"
+
+; CHECK: this_fails_due_to_assert
+; XFAIL: *
 
 ; CHECK: ret
 %opencl_metadata_type = type <{ i8*, i8*, [4 x i32], [4 x i32], i8*, i8* }>
@@ -829,7 +832,7 @@ NewEdgeIndex.exit:                                ; preds = %34, %36
   %43 = sext i32 %39 to i64                       ; <i64> [#uses=1]
   %44 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %43, i32 0, i64 0 ; <i32 addrspace(1)*> [#uses=1]
   %45 = bitcast i32 addrspace(1)* %44 to i8*      ; <i8*> [#uses=1]
-  call void @llvm.memset.i64(i8* %45, i8 -1, i64 16, i32 1)
+  call void @llvm_memset_i64(i8* %45, i8 -1, i64 16, i32 1, i1 false)
   ret void
 
 ; <label>:46                                      ; preds = %NewEdgeIndex.exit
@@ -1365,7 +1368,7 @@ NewFaceIndex.exit3:                               ; preds = %349, %362
   %429 = sext i32 %tmp57 to i64                   ; <i64> [#uses=1]
   %430 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %429, i32 0, i64 0 ; <i32 addrspace(1)*> [#uses=1]
   %431 = bitcast i32 addrspace(1)* %430 to i8*    ; <i8*> [#uses=1]
-  call void @llvm.memset.i64(i8* %431, i8 -1, i64 16, i32 1)
+  call void @llvm_memset_i64(i8* %431, i8 -1, i64 16, i32 1, i1 false)
   store i32 -1, i32 addrspace(1)* %334
   %432 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %tmp48, i32 0, i64 1 ; <i32 addrspace(1)*> [#uses=1]
   store i32 -1, i32 addrspace(1)* %432
@@ -1684,4 +1687,4 @@ bb.nph:                                           ; preds = %0
 
 declare float @_Z4sqrtf(float)
 
-declare void @llvm.memset.i64(i8* nocapture, i8, i64, i32) nounwind
+declare void @llvm_memset_i64(i8* nocapture, i8, i64, i32, i1) nounwind

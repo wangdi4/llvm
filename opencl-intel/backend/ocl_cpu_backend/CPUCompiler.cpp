@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -32,7 +32,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -217,7 +217,7 @@ CPUCompiler::~CPUCompiler()
     delete m_pExecEngine;
 }
 
-unsigned int CPUCompiler::GetTypeAllocSize(const llvm::Type* pType)
+unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType)
 {
     assert(m_pExecEngine);
     return m_pExecEngine->getTargetData()->getTypeAllocSize(pType);
@@ -232,7 +232,7 @@ void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
 uint64_t CPUCompiler::GetJitFunctionStackSize(const llvm::Function* pf)
 {
     assert(m_pExecEngine);
-    return m_pExecEngine->getJitFunctionStackSize(pf);
+    return 0;//m_pExecEngine->getJitFunctionStackSize(pf); missing in LLVM 3.0
 }
 
 void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf)
@@ -244,7 +244,7 @@ void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf)
 unsigned int CPUCompiler::GetJitFunctionSize(const llvm::Function* pf)
 {
     assert(m_pExecEngine);
-    return m_pExecEngine->getJitFunctionSize(pf);
+    return 0;// m_pExecEngine->getJitFunctionSize(pf); missing in LLVM 3.0 
 }
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
@@ -252,6 +252,7 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     m_selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
     Utils::SplitString( cpuFeatures, ",", m_forcedCpuFeatures);
    
+    bool DisableAVX = false;
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
     if( CPU_ARCH_AUTO == cpuName)
     {
@@ -266,10 +267,14 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
                 if (false == AVXReadyOS)
                 {
                     m_forcedCpuFeatures.push_back("-avx");
+                    DisableAVX = true;
                 }
             }
         }
     }
+
+    if (!DisableAVX && (m_selectedCpuId == Intel::CPU_SANDYBRIDGE))
+      m_forcedCpuFeatures.push_back("+avx");
 
     m_selectedCpuFeatures = Utils::SelectCpuFeatures( m_selectedCpuId, m_forcedCpuFeatures );
 }
@@ -294,7 +299,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
                   .setErrorStr(&strErr)
                   .setOptLevel(llvm::CodeGenOpt::Default)
                   .setAllocateGVsWithCode(AllocateGVsWithCode)
-                  .setCodeModel(llvm::CodeModel::Default)
+                  .setCodeModel(llvm::CodeModel::JITDefault)
                   .setMArch(MArch)
                   .setMCPU(MCPU)
                   .setMAttrs(m_forcedCpuFeatures)

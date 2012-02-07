@@ -74,11 +74,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             const Type2ValueLookup &Lookup2 = ( *iter ).second;
 
             Value* in = inst.getOperand(0);
-            const Type* inType = in->getType();
+            Type* inType = in->getType();
             TypeInfo TI = getTypeInfo(inType);
             if (Unknown == TI) return 0;
 
-            const Type* outType = inst.getType();
+            Type* outType = inst.getType();
             TypeInfo TO = getTypeInfo(outType);
             if (Unknown == TO) return 0;
 
@@ -105,9 +105,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         };
         Opcode2T2VLookup m_Lookup;
 
-        static TypeInfo getTypeInfo(const Type *type) 
+        static TypeInfo getTypeInfo(Type *type) 
         {
-            if (const IntegerType *tp = dyn_cast<IntegerType>(type)) 
+            if (IntegerType *tp = dyn_cast<IntegerType>(type)) 
             {
                 switch (tp->getBitWidth()) 
                 {
@@ -152,11 +152,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		Value *Op0 = inst->getOperand(0);
 		
 		std::vector<Value*>      args (1, Op0); // arguments
-		std::vector<const Type*> types(1, Op0->getType()); // type of args
+		std::vector<Type*> types(1, Op0->getType()); // type of args
 		
 		FunctionType *proto = FunctionType::get(inst->getType(), types, false);
 		Constant* new_f = func->getParent()->getOrInsertFunction(funcName, proto);
-		CallInst* call = CallInst::Create(new_f, args.begin(), args.end(), "call_conv", inst);
+		CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv", inst);
 		call->setCallingConv(CC);
 		// replace all users with new function call, DCE will take care of it
 		inst->replaceAllUsesWith(call);

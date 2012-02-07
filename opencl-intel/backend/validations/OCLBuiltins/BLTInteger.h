@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -35,17 +35,17 @@ namespace OCLBuiltins {
     };
 
     template <typename T>
-    llvm::APInt& ExtAPInt(llvm::APInt& a, unsigned width)
+    llvm::APInt ExtAPInt(llvm::APInt& a, unsigned width)
     {
         return a.zext(width);
     }
-    template <> llvm::APInt& ExtAPInt<int8_t>(llvm::APInt& a, unsigned width);
-    template <> llvm::APInt& ExtAPInt<int16_t>(llvm::APInt& a, unsigned width);
-    template <> llvm::APInt& ExtAPInt<int32_t>(llvm::APInt& a, unsigned width);
-    template <> llvm::APInt& ExtAPInt<int64_t>(llvm::APInt& a, unsigned width);
+    template <> llvm::APInt ExtAPInt<int8_t>(llvm::APInt& a, unsigned width);
+    template <> llvm::APInt ExtAPInt<int16_t>(llvm::APInt& a, unsigned width);
+    template <> llvm::APInt ExtAPInt<int32_t>(llvm::APInt& a, unsigned width);
+    template <> llvm::APInt ExtAPInt<int64_t>(llvm::APInt& a, unsigned width);
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_hadd(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_hadd(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -71,7 +71,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_rhadd(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_rhadd(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -97,7 +97,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_abs(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_abs(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -112,7 +112,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_abs_diff(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_abs_diff(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -134,7 +134,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n, int s>
-    llvm::GenericValue lle_X_maxi(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_maxi(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -149,7 +149,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n, int s>
-    llvm::GenericValue lle_X_mini(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mini(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -164,7 +164,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n, int s>
-    llvm::GenericValue lle_X_clampi(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_clampi(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -180,7 +180,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_add_sat(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_add_sat(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -206,7 +206,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_sub_sat(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_sub_sat(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -232,7 +232,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_clz(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_clz(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -246,7 +246,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_rotate(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_rotate(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -261,7 +261,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_upsample(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_upsample(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -281,7 +281,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_mul_hi(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mul_hi(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -299,7 +299,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_mad_hi(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mad_hi(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -318,7 +318,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_mad_sat(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mad_sat(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -339,7 +339,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_mul24(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mul24(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -359,7 +359,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_mad24(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_mad24(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;

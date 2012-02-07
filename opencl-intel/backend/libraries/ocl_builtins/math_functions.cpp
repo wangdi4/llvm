@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -25,6 +25,7 @@
 // Compiled with Clang as LLVM module
 #define ALIGN16 __attribute__((aligned(16)))
 #define ALIGN32 __attribute__((aligned(32)))
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 #if defined(__AVX__)
 #include <avxintrin.h>
@@ -649,7 +650,7 @@ float4  __attribute__((overloadable)) nan(_4u32 x)
 #if defined(__AVX__)
 float8  __attribute__((overloadable)) nan(_8u32 x)
 {
-    return _mm256_or_ps(x, *(__m256*)mth_nanStorage8);
+    return _mm256_or_ps((__m256)x, *(__m256*)mth_nanStorage8);
 }
 #endif // defined(__AVX__)
 /*
@@ -830,8 +831,8 @@ _8i32  __attribute__((overloadable)) ilogb(float8 x)
 
     __m256 res_and = _mm256_and_ps(denom, *(__m256*)mth_StorageI64_8);
     // convert m256 to 2 m128 to perform integer addition since AVX256 does not have it
-    __m128i res_and0 =  _mm256_extractf128_si256 (res_and, 0);
-    __m128i res_and1 =  _mm256_extractf128_si256 (res_and, 1);
+    __m128i res_and0 =  _mm256_extractf128_si256 ((__m256i)res_and, 0);
+    __m128i res_and1 =  _mm256_extractf128_si256 ((__m256i)res_and, 1);
     __m128i factor0 = _mm_add_epi32(res_and0, *(__m128i*)mth_StorageI127);
     __m128i factor1 = _mm_add_epi32(res_and1, *(__m128i*)mth_StorageI127);
 
@@ -840,23 +841,23 @@ _8i32  __attribute__((overloadable)) ilogb(float8 x)
     denom = _mm256_mul_ps(denom, x);
     denom = _mm256_and_ps(denom, *(__m256*)mth_expMask8);
 
-    __m128i res1_0 = _mm256_extractf128_si256(res1, 0);
-    __m128i res1_1 = _mm256_extractf128_si256(res1, 1);
+    __m128i res1_0 = _mm256_extractf128_si256((__m256i)res1, 0);
+    __m128i res1_1 = _mm256_extractf128_si256((__m256i)res1, 1);
 
     res1_0 = _mm_srli_epi32(res1_0, 23);
     res1_1 = _mm_srli_epi32(res1_1, 23);
 
-    __m128i denom_0 = _mm256_extractf128_si256(denom, 0);
-    __m128i denom_1 = _mm256_extractf128_si256(denom, 1);
+    __m128i denom_0 = _mm256_extractf128_si256((__m256i)denom, 0);
+    __m128i denom_1 = _mm256_extractf128_si256((__m256i)denom, 1);
     
-    __m128i res3_0 = _mm_srli_epi32(_mm_castps_si128(denom_0), 23);
-    __m128i res3_1 = _mm_srli_epi32(_mm_castps_si128(denom_1), 23);
+    __m128i res3_0 = _mm_srli_epi32(_mm_castps_si128((__m128)denom_0), 23);
+    __m128i res3_1 = _mm_srli_epi32(_mm_castps_si128((__m128)denom_1), 23);
 
     __m256i res3;
-    res3 = _mm256_insertf128_ps(res3, res3_0, 0);
-    res3 = _mm256_insertf128_ps(res3, res3_1, 1);
+    res3 = (__m256i)_mm256_insertf128_ps((__m256)res3, (__m128)res3_0, 0);
+    res3 = (__m256i)_mm256_insertf128_ps((__m256)res3, (__m128)res3_1, 1);
 
-    __m256i notDenom = _mm256_cmp_ps( res3, _mm256_setzero_ps(), _CMP_EQ_OQ );
+    __m256i notDenom = (__m256i)_mm256_cmp_ps( res3, _mm256_setzero_ps(), _CMP_EQ_OQ );
 
     res1_0 = _mm_sub_epi32(res1_0, factor0);
     res1_1 = _mm_sub_epi32(res1_1, factor1);
@@ -864,16 +865,16 @@ _8i32  __attribute__((overloadable)) ilogb(float8 x)
     res3_0 = _mm_sub_epi32(res3_0, factor0);
     res3_1 = _mm_sub_epi32(res3_1, factor1);
 
-    res1 = _mm256_insertf128_ps(res1, res1_0, 0);
-    res1 = _mm256_insertf128_ps(res1, res1_1, 1);
+    res1 = _mm256_insertf128_ps(res1, (__m128)res1_0, 0);
+    res1 = _mm256_insertf128_ps(res1, (__m128)res1_1, 1);
 
-    res3 = _mm256_insertf128_ps(res3, res3_0, 0);
-    res3 = _mm256_insertf128_ps(res3, res3_1, 1);
+    res3 = (__m256i)_mm256_insertf128_ps((__m256)res3, (__m128)res3_0, 0);
+    res3 = (__m256i)_mm256_insertf128_ps((__m256)res3, (__m128)res3_1, 1);
 
     //res2-4 are mutually exclusive sor we can "or" between them
-    res1 = _mm256_blendv_ps(res3, res1, notDenom);
-    res1 = _mm256_blendv_ps(res1, *(__m256*)mth_intMaxStorage8, NaNorINF);
-    res1 = _mm256_blendv_ps(res1, *(__m256*)mth_intMinStorage8, zero);
+    res1 = _mm256_blendv_ps((__m256)res3, (__m256)res1, (__m256)notDenom);
+    res1 = _mm256_blendv_ps((__m256)res1, *(__m256*)mth_intMaxStorage8, NaNorINF);
+    res1 = _mm256_blendv_ps((__m256)res1, *(__m256*)mth_intMinStorage8, zero);
 
     return (_8i32)res1;
 }
@@ -915,12 +916,12 @@ float  __attribute__((overloadable)) fract(float x, float *iptr)
 float4 __attribute__((overloadable)) fract(float4 f4x, float4 *iptr)
 {
     // check NaN or Inf
-    int4 isNaNOrInfTemp = _mm_and_si128(f4x, *(__m128*)mth_expMask);
-    int4 isNaNOrInf =  _mm_cmpeq_epi32(isNaNOrInfTemp, *(__m128*)mth_expMask);
+    int4 isNaNOrInfTemp = (int4)_mm_and_si128((__m128i)f4x, *(__m128i*)mth_expMask);
+    int4 isNaNOrInf =  (int4)_mm_cmpeq_epi32((__m128i)isNaNOrInfTemp, *(__m128i*)mth_expMask);
     // check for zero
-    int4 isZero = _mm_cmpeq_ps(f4x, *((__m128*)mth_pzero));
+    int4 isZero = (int4)_mm_cmpeq_ps((__m128)f4x, *((__m128*)mth_pzero));
     // obtain mask with elements zero or infinity. we need to keep sign
-    int4 mask =  _mm_or_si128(isNaNOrInf,  isZero);
+    int4 mask =  (int4)_mm_or_si128((__m128i)isNaNOrInf,  (__m128i)isZero);
 
     // floor(x)
     *iptr = _mm_floor_ps(f4x);
@@ -932,17 +933,17 @@ float4 __attribute__((overloadable)) fract(float4 f4x, float4 *iptr)
     // approach with if() instead of unconditional blend
     // works better on SSE then on AVX. 
     // if any of elements of mask is 0 or infinity
-    if( _mm_movemask_ps(mask))
+    if( _mm_movemask_ps((__m128)mask))
     {
         // check for NaN
-        int4 isNaN = _mm_cmpneq_ps(f4x, f4x);
-        int4 isInf = _mm_andnot_ps(isNaN, isNaNOrInf);
+        int4 isNaN = (int4)_mm_cmpneq_ps((__m128)f4x, (__m128)f4x);
+        int4 isInf = (int4)_mm_andnot_ps((__m128)isNaN, (__m128)isNaNOrInf);
         // make zero with sign
         float4 xSignedZero = _mm_andnot_ps(*(__m128*)mth_signMask, f4x);
         // NaN. Put NaN from f4x to res
-        res = _mm_blendv_ps(res, f4x, isNaN);
+        res = (float4)_mm_blendv_ps(res, f4x, (__m128)isNaN);
         // +/- inf and zero. Put zero with proper sign
-        res = _mm_blendv_ps(res, xSignedZero, _mm_or_si128( isInf, isZero));
+        res = (float4)_mm_blendv_ps(res, xSignedZero, (__m128)_mm_or_si128( (__m128i)isInf, (__m128i)isZero));
     }
 
     return res;
@@ -1277,153 +1278,206 @@ double4 __attribute__((overloadable)) native_hypot(double4 x, double4 y)
 //half_cos
 float __attribute__((overloadable)) half_cos(float x)
 {
-	return native_cos(x);
+	float res;
+	res = OCL_SVML_FUNCTION(_cosf1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_cos(float4 x)
 {
-	return native_cos(x);
+	__m128 res = OCL_SVML_FUNCTION(_cosf4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_cos(float8 x)
 {
-    return native_cos(x);
+	__m256 res = OCL_SVML_FUNCTION(_cosf8)(x);
+	return res;
 }
 #endif
-//half_divide
-//float  __attribute__((overloadable)) half_divide(float x, float y)
-//{
-//	return native_divide(x,y);
-//}
 
-//float4  __attribute__((overloadable)) half_divide(float4 x, float4 y)
-//{
-//	return native_divide(x,y);
-//}
+//half_divide
+float  __attribute__((overloadable)) half_divide(float x, float y)
+{
+	return x/y;
+}
+
+float2  __attribute__((overloadable)) half_divide(float2 x, float2 y)
+{
+  float4 valx, valy;
+  valx.s01 = x;
+  valx.s23 = (float2)(1.0f,1.0f);
+  valy.s01 = y;
+  valy.s23 = (float2)(1.0f,1.0f);
+  valx = valx/valy;
+	return valx.s01;
+}
+
+float3  __attribute__((overloadable)) half_divide(float3 x, float3 y)
+{
+	float4 valx, valy;
+  valx.s012 = x;
+  valx.s3 = 1.0f;
+  valy.s012 = y;
+  valy.s3 = 1.0f;
+	return (valx/valy).s012;
+}
+
+float4  __attribute__((overloadable)) half_divide(float4 x, float4 y)
+{
+	return x/y;
+}
+
+float8  __attribute__((overloadable)) half_divide(float8 x, float8 y)
+{
+	return x/y;
+}
+
+float16  __attribute__((overloadable)) half_divide(float16 x, float16 y)
+{
+	return x/y;
+}
 
 //half_exp
 float __attribute__((overloadable)) half_exp(float x)
 {
-	return native_exp(x);
+	return OCL_SVML_FUNCTION(_expf1)(x);
 }
 
 float4 __attribute__((overloadable)) half_exp(float4 x)
 {
-	return native_exp(x);
+	return OCL_SVML_FUNCTION(_expf4)(x);
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_exp(float8 x)
 {
-    return native_exp(x);
+    return OCL_SVML_FUNCTION(_expf8)(x);
 }
 #endif
 
 //half_exp2
 float __attribute__((overloadable)) half_exp2(float x)
 {
-	return native_exp2(x);
+	float res = OCL_SVML_FUNCTION(_exp2f1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_exp2(float4 x)
 {
-	return native_exp2(x);
+	__m128 res = OCL_SVML_FUNCTION(_exp2f4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_exp2(float8 x)
 {
-    return native_exp2(x);
+	__m256 res = OCL_SVML_FUNCTION(_exp2f8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
+
 //half_exp10
 float __attribute__((overloadable)) half_exp10(float x)
 {
-	return native_exp10(x);
+	float res = OCL_SVML_FUNCTION(_exp10f1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_exp10(float4 x)
 {
-	return native_exp10(x);
+	__m128 res = OCL_SVML_FUNCTION(_exp10f4)(x);
+	return res;
 }
-
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_exp10(float8 x)
 {
-    return native_exp10(x);
+	__m256 res = OCL_SVML_FUNCTION(_exp10f8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
 
 //half_log
 float __attribute__((overloadable)) half_log(float x)
 {
-	return native_log(x);
+	float res = OCL_SVML_FUNCTION(_logf1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_log(float4 x)
 {
-	return native_log(x);
+	__m128 res = OCL_SVML_FUNCTION(_logf4)(x);
+	return res;
 }
-
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_log(float8 x)
 {
-    return native_log(x);
+	__m256 res = OCL_SVML_FUNCTION(_logf8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
 
 //half_log2
 float __attribute__((overloadable)) half_log2(float x)
 {
-	return native_log2(x);
+	float res = OCL_SVML_FUNCTION(_log2f1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_log2(float4 x)
 {
-	return native_log2(x);
+	__m128 res = OCL_SVML_FUNCTION(_log2f4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_log2(float8 x)
 {
-    return native_log2(x);
+	__m256 res = OCL_SVML_FUNCTION(_log2f8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
 
 //half_log10
 float __attribute__((overloadable)) half_log10(float x)
 {
-	return native_log10(x);
+	float res = OCL_SVML_FUNCTION(_log10f1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_log10(float4 x)
 {
-	return native_log10(x);
+	__m128 res = OCL_SVML_FUNCTION(_log10f4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_log10(float8 x)
 {
-    return native_log10(x);
+	__m256 res = OCL_SVML_FUNCTION(_log10f8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
 
 //half_powr
-float  __attribute__((overloadable)) half_powr(float x, float y)
+float __attribute__((overloadable)) half_powr(float x,float y)
 {
-	return native_powr(x,y);
+	float res = OCL_SVML_FUNCTION(_powrf1)(x,y);
+	return res;
 }
 
-float4  __attribute__((overloadable)) half_powr(float4 x, float4 y)
+float4 __attribute__((overloadable)) half_powr(float4 x,float4 y)
 {
-	return native_powr(x,y);
+	__m128 res = OCL_SVML_FUNCTION(_powrf4)(x,y);
+	return res;
 }
 
 #if defined(__AVX__)
-float8 __attribute__((overloadable)) half_powr(float8 x, float8 y)
+float8 __attribute__((overloadable)) half_powr(float8 x,float8 y)
 {
-    return native_powr(x, y);
+	__m256 res = OCL_SVML_FUNCTION(_powrf8)(x,y);
+	return res;
 }
 #endif // defined(__AVX__)
 
@@ -1466,18 +1520,22 @@ float8 __attribute__((overloadable)) half_rsqrt(float8 x)
 //half_sin
 float __attribute__((overloadable)) half_sin(float x)
 {
-	return native_sin(x);
+	float res;
+	res = OCL_SVML_FUNCTION(_sinf1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_sin(float4 x)
 {
-	return native_sin(x);
+	__m128 res = OCL_SVML_FUNCTION(_sinf4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_sin(float8 x)
 {
-    return native_sin(x);
+    __m256 res = OCL_SVML_FUNCTION(_sinf8)(x);
+    return res;
 }
 #endif // defined(__AVX__)
 
@@ -1502,18 +1560,22 @@ float8 __attribute__((overloadable)) half_sqrt(float8 x)
 //half_tan
 float __attribute__((overloadable)) half_tan(float x)
 {
-	return native_tan(x);
+	float res;
+	res = OCL_SVML_FUNCTION(_tanf1)(x);
+	return res;
 }
 
 float4 __attribute__((overloadable)) half_tan(float4 x)
 {
-	return native_tan(x);
+	__m128 res = OCL_SVML_FUNCTION(_tanf4)(x);
+	return res;
 }
 
 #if defined(__AVX__)
 float8 __attribute__((overloadable)) half_tan(float8 x)
 {
-    return native_tan(x);
+	__m256 res = OCL_SVML_FUNCTION(_tanf8)(x);
+	return res;
 }
 #endif // defined(__AVX__)
 
@@ -1524,48 +1586,6 @@ float8 __attribute__((overloadable)) half_tan(float8 x)
 ** + double versions (extension)
 ** ***************************/
 
-//native_cos
-float __attribute__((overloadable)) native_cos(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_cosf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_cos(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_cosf4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_cos(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_cosf8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_cos(double x)
-{
-	double res;
-	res = OCL_SVML_FUNCTION(_cos1)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_cos(double2 x)
-{
-	double2 res;
-	res = OCL_SVML_FUNCTION(_cos2)(x);
-	return res;
-}
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_cos(double4 x)
-{
-	double4 res;
-	res = OCL_SVML_FUNCTION(_cos4)(x);
-	return res;
-}
-#endif // defined(__AVX__)
 //native_divide
 float __attribute__((overloadable)) native_divide(float x, float y)
 {
@@ -1619,304 +1639,6 @@ double4 __attribute__((overloadable)) native_divide(double4 x, double4 y)
 }
 #endif
 
-//native_exp
-float __attribute__((overloadable)) native_exp(float x)
-{
-	float res = OCL_SVML_FUNCTION(_expf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_exp(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_expf4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_exp(float8 x)
-{
-    __m256 res = OCL_SVML_FUNCTION(_expf8)(x);
-    return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_exp(double x)
-{
-	double res = OCL_SVML_FUNCTION(_exp1)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_exp(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_exp2)(x);
-	return res;
-}
-
-double3 __attribute__((overloadable)) native_exp(double3 x)
-{
-    double4 valx; valx.s012 = x;
-	double4 res = OCL_SVML_FUNCTION(_exp4)(valx);
-	return res.s012;
-}
-
-double4 __attribute__((overloadable)) native_exp(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_exp4)(x);
-	return res;
-}
-
-double8 __attribute__((overloadable)) native_exp(double8 x)
-{
-	double8 res = OCL_SVML_FUNCTION(_exp8)(x);
-	return res;
-}
-
-double16 __attribute__((overloadable)) native_exp(double16 x)
-{    
-	double16 res; 
-    res.lo = OCL_SVML_FUNCTION(_exp8)(x.lo);
-    res.hi = OCL_SVML_FUNCTION(_exp8)(x.hi);
-	return res;
-}
-
-//native_exp2
-float __attribute__((overloadable)) native_exp2(float x)
-{
-	float res = OCL_SVML_FUNCTION(_exp2f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_exp2(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_exp2f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_exp2(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_exp2f8)(x);
-	return res;
-}
-#endif
-
-double __attribute__((overloadable)) native_exp2(double x)
-{
-	double res = OCL_SVML_FUNCTION(_exp21)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_exp2(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_exp22)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_exp2(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_exp24)(x);
-	return res;
-}
-#endif
-//native_exp10
-float __attribute__((overloadable)) native_exp10(float x)
-{
-	float res = OCL_SVML_FUNCTION(_exp10f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_exp10(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_exp10f4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_exp10(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_exp10f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_exp10(double x)
-{
-	double res = OCL_SVML_FUNCTION(_exp101)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_exp10(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_exp102)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_exp10(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_exp104)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-//native_log
-float __attribute__((overloadable)) native_log(float x)
-{
-	float res = OCL_SVML_FUNCTION(_logf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_log(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_logf4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_log(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_logf8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_log(double x)
-{
-	double res = OCL_SVML_FUNCTION(_log1)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_log(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_log2)(x);
-	return res;
-}
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_log(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_log4)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//native_log2
-float __attribute__((overloadable)) native_log2(float x)
-{
-	float res = OCL_SVML_FUNCTION(_log2f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_log2(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_log2f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_log2(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_log2f8)(x);
-	return res;
-}
-#endif
-
-double __attribute__((overloadable)) native_log2(double x)
-{
-	double res = OCL_SVML_FUNCTION(_log21)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_log2(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_log22)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_log2(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_log24)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-//native_log10
-float __attribute__((overloadable)) native_log10(float x)
-{
-	float res = OCL_SVML_FUNCTION(_log10f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_log10(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_log10f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_log10(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_log10f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_log10(double x)
-{
-	double res = OCL_SVML_FUNCTION(_log101)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_log10(double2 x)
-{
-	double2 res = OCL_SVML_FUNCTION(_log102)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_log10(double4 x)
-{
-	double4 res = OCL_SVML_FUNCTION(_log104)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//native_powr
-float __attribute__((overloadable)) native_powr(float x,float y)
-{
-	float res = OCL_SVML_FUNCTION(_powrf1)(x,y);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_powr(float4 x,float4 y)
-{
-	__m128 res = OCL_SVML_FUNCTION(_powrf4)(x,y);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_powr(float8 x,float8 y)
-{
-	__m256 res = OCL_SVML_FUNCTION(_powrf8)(x,y);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_powr(double x,double y)
-{
-	double res = OCL_SVML_FUNCTION(_powr1)(x,y);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_powr(double2 x,double2 y)
-{
-	double2 res = OCL_SVML_FUNCTION(_powr2)(x,y);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_powr(double4 x,double4 y)
-{
-	double4 res = OCL_SVML_FUNCTION(_powr4)(x,y);
-	return res;
-}
-#endif 
 //native recip
 float __attribute__((overloadable)) native_recip(float x)
 {
@@ -1993,13 +1715,13 @@ float8 __attribute__((overloadable)) native_rsqrt(float8 x)
 double __attribute__((overloadable)) native_rsqrt(double x)
 {
 	double res;
-	__m128 xVec = _mm_load_sd((double*)&x);
+	__m128 xVec = (__m128)_mm_load_sd((double*)&x);
 
-	__m128 res1 = _mm_sqrt_sd( xVec ,xVec);
+	__m128 res1 = (__m128)_mm_sqrt_sd( (__m128d)xVec ,(__m128d)xVec);
 
-	res1=_mm_div_sd(_mm_set_sd(1.0),res1);
+	res1=(__m128)_mm_div_sd(_mm_set_sd(1.0),(__m128d)res1);
 
-	_mm_store_sd(&res, res1);
+	_mm_store_sd(&res, (__m128d)res1);
 	return res;
 }
 
@@ -2016,50 +1738,7 @@ double4 __attribute__((overloadable)) native_rsqrt(double4 x)
 	return _mm256_div_pd( _mm256_set1_pd(1.0),_mm256_sqrt_pd(x));
 }
 #endif // defined(__AVX__)
-//native_sin
-float __attribute__((overloadable)) native_sin(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_sinf1)(x);
-	return res;
-}
 
-float4 __attribute__((overloadable)) native_sin(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_sinf4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_sin(float8 x)
-{
-    __m256 res = OCL_SVML_FUNCTION(_sinf8)(x);
-    return res;
-}
-#endif
-
-double __attribute__((overloadable)) native_sin(double x)
-{
-	double res;
-	res = OCL_SVML_FUNCTION(_sin1)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_sin(double2 x)
-{
-	double2 res;
-	res = OCL_SVML_FUNCTION(_sin2)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_sin(double4 x)
-{
-	double4 res;
-	res = OCL_SVML_FUNCTION(_sin4)(x);
-	return res;
-}
-#endif // defined(__AVX__)
 //native_sqrt
 float __attribute__((overloadable)) native_sqrt(float x)
 {
@@ -2087,11 +1766,11 @@ float8 __attribute__((overloadable)) native_sqrt(float8 x)
 double __attribute__((overloadable)) native_sqrt(double x)
 {
 	double res;
-	__m128 xVec = _mm_load_sd((double*)&x);
+	__m128 xVec = (__m128)_mm_load_sd((double*)&x);
 
-	__m128 res1 = _mm_sqrt_sd( xVec,xVec );
+	__m128 res1 = (__m128)_mm_sqrt_sd( (__m128d)xVec,(__m128d)xVec );
 
-	_mm_store_sd(&res, res1);
+	_mm_store_sd(&res, (__m128d)res1);
 	return res;
 }
 
@@ -2104,51 +1783,6 @@ double2 __attribute__((overloadable)) native_sqrt(double2 x)
 double4 __attribute__((overloadable)) native_sqrt(double4 x)
 {
 	return _mm256_sqrt_pd( x );
-}
-#endif // defined(__AVX__)
-
-//native_tan
-float __attribute__((overloadable)) native_tan(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_tanf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) native_tan(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_tanf4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) native_tan(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_tanf8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-double __attribute__((overloadable)) native_tan(double x)
-{
-	double res;
-	res = OCL_SVML_FUNCTION(_tan1)(x);
-	return res;
-}
-
-double2 __attribute__((overloadable)) native_tan(double2 x)
-{
-	double2 res;
-	res = OCL_SVML_FUNCTION(_tan2)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-double4 __attribute__((overloadable)) native_tan(double4 x)
-{
-	double4 res;
-	res = OCL_SVML_FUNCTION(_tan4)(x);
-	return res;
 }
 #endif // defined(__AVX__)
 

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\intel_bilateral2D.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -167,7 +167,7 @@ entry:
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
   store <2 x i32> zeroinitializer, <2 x i32>* %iZero
   %tmp = bitcast [4 x float]* %dst to i8*         ; <i8*> [#uses=1]
-  call void @llvm.memset.i32(i8* %tmp, i8 0, i32 16, i32 4)
+  call void @llvm_memset_i32(i8* %tmp, i8 0, i32 16, i32 4, i1 false)
   store float 0.000000e+000, float* %scale
   %tmp3 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp4 = getelementptr inbounds %struct.anon addrspace(2)* %tmp3, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
@@ -536,7 +536,7 @@ for.end260:                                       ; preds = %for.cond
   ret <4 x float> %0
 }
 
-declare void @llvm.memset.i32(i8* nocapture, i8, i32, i32) nounwind
+declare void @llvm_memset_i32(i8* nocapture, i8, i32, i32, i1) nounwind
 
 declare i32 @_Z3minii(i32, i32)
 

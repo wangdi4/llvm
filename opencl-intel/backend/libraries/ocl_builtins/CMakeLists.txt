@@ -161,92 +161,45 @@ if (WIN32)
   if (NOT DEFINED ICC_WIN32_PATH)
   	message (FATAL_ERROR "ICC is not installed in the system")
   endif ()
- 	set (ICC_CPU_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/iclvars.bat)
- 	if (NOT EXISTS ${ICC_CPU_ENV_SCRIPT})
- 	  set (ICC_CPU_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/iclvars_${ICC_PLATFORM}.bat)
+ 	set (ICC_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/iclvars.bat)
+ 	if (NOT EXISTS ${ICC_ENV_SCRIPT})
+ 	  set (ICC_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/iclvars_${ICC_PLATFORM}.bat)
  	endif()
-	set (ICC_CPU_CL ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/icl.exe)
-	set (ICC_CPU_LD ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/xilink.exe)
-else (WIN32)  
-  # search for the icc cpu compiler
-  set (ICC_CPU_CL icpc)
-  set (ICC_CPU_LD icpc)
-  
-  # search for the iccvars script
-  set (ICC_CPU_ENV_SCRIPT iccvars.sh)
-  find_program (ICC_CPU_COMPILER_SCRIPT ${ICC_CPU_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-  if (${ICC_CPU_COMPILER_SCRIPT} STREQUAL "ICC_CPU_COMPILER_SCRIPT-NOTFOUND")
-      set (ICC_CPU_ENV_SCRIPT iccvars_${ICC_PLATFORM}.sh)
+	set (ICC_CL ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/icl.exe)
+	set (ICC_LD ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/xilink.exe)
+else (WIN32)
+  set (ICC_ENV_SCRIPT iccvars.sh)
+  find_program (ICC_FOUND ${ICC_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+  if (${ICC_FOUND} STREQUAL "ICC_FOUND-NOTFOUND")
+      set (ICC_ENV_SCRIPT iccvars_${ICC_PLATFORM}.sh)
   endif()
-  find_program (ICC_CPU_COMPILER_SCRIPT ${ICC_CPU_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-  if (${ICC_CPU_COMPILER_SCRIPT} STREQUAL "ICC_CPU_COMPILER_SCRIPT-NOTFOUND")
-    message (FATAL_ERROR "ICC(CPU) (${ICC_CPU_ENV_SCRIPT}) is not installed in the system")
+	set (ICC_CL icpc)
+	set (ICC_LD icpc)
+	# check that all executables are indeed in path
+  find_program (ICC_SCRIPT_FOUND ${ICC_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+  if (${ICC_SCRIPT_FOUND} STREQUAL "ICC_SCRIPT_FOUND-NOTFOUND")
+    message (FATAL_ERROR "ICC (${ICC_ENV_SCRIPT}) is not installed in the system")
   endif()
-  message("ICC CPU Compiler Script: ${ICC_CPU_COMPILER_SCRIPT}")
-  set(ICC_CPU_ENV_SCRIPT ${ICC_CPU_COMPILER_SCRIPT})
-  
-  # set the compiler and linker variables
-  find_program (ICC_CPU_COMPILER ${ICC_CPU_CL} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-  if (${ICC_CPU_COMPILER} STREQUAL "ICC_CPU_COMPILER_FOUND-NOTFOUND")
-    message (FATAL_ERROR "ICC(CPU) (${ICC_CPU_CL}) is not installed in the system")
+  set (ICC_ENV_SCRIPT ${ICC_SCRIPT_FOUND})
+  find_program (ICC_CL_FOUND ${ICC_CL} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+  if (${ICC_CL_FOUND} STREQUAL "ICC_CL_FOUND-NOTFOUND")
+    message (FATAL_ERROR "ICC (${ICC_CL}) is not installed in the system")
   endif()
-  message ("ICC CPU Compiler: ${ICC_CPU_COMPILER}")
-  set(ICC_CPU_CL ${ICC_CPU_COMPILER})
-  
-  find_program (ICC_CPU_LINKER ${ICC_CPU_LD} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
-  if (${ICC_CPU_LINKER} STREQUAL "ICC_CPU_LINKER-NOTFOUND")
-    message (FATAL_ERROR "ICC(CPU) (${ICC_CPU_LD}) is not installed in the system")
+  set (ICC_CL ${ICC_CL_FOUND})
+  find_program (ICC_LD_FOUND ${ICC_LD} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+  if (${ICC_LD_FOUND} STREQUAL "ICC_LD_FOUND-NOTFOUND")
+    message (FATAL_ERROR "ICC (${ICC_LD}) is not installed in the system")
   endif()
-  message ("ICC CPU Linker: ${ICC_CPU_COMPILER}")
-  set (ICC_CPU_LD ${ICC_CPU_LINKER})
-  
-  # search for the icc mic compiler
-  set (ICC_MIC_CL icpc)
-  set (ICC_MIC_LD icpc)
-  
-  # check env. variable for the icc mic compiler
-  if(LLVM_BUILD_OCL_MIC_TARGET)
-    set(ICC_MIC_COMPILER $ENV{ICC_MIC_COMPILER_PATH})
-    if(NOT ICC_MIC_COMPILER)
-      if (EXISTS /opt/intel/composerxe_mic/bin)
-        set( ICC_MIC_COMPILER /opt/intel/composerxe_mic/bin/ )
-	    message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
-	    set(MIC_TARGET "ON")
-      else()
-        message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
-        set(MIC_TARGET "OFF")
-	  endif()
-    else()
-      message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
-	  set(MIC_TARGET "ON")
-    endif()
-  
-    if(MIC_TARGET)
-      # search for the iccvars script
-      set (ICC_MIC_ENV_SCRIPT compilervars.sh)
-      # check if the script exists
-      if (NOT EXISTS "${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT}")
-	    message (FATAL_ERROR "ICC MIC Compiler Script do not exist, please set the enviroment variable ICC_MIC_COMPILER_PATH")
-      else()
-        set(ICC_MIC_ENV_SCRIPT ${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT})
-      endif()
-	  message("ICC MIC Compiler Script: ${ICC_MIC_ENV_SCRIPT}")
-    endif()
-  endif()
-  
+  set (ICC_LD ${ICC_LD_FOUND})
 endif (WIN32)
 
 # icc wrappers (they are required in order to provide run-time environment for spawned ICC)
 if (WIN32)
-  set (ICC_CPU_COMPILER_SCRIPT compile_win.bat)
-  set (ICC_CPU_LINKER_SCRIPT   link_win.bat)
-  set (ICC_MIC_COMPILER_SCRIPT "")  # Not important
-  set (ICC_MIC_LINKER_SCRIPT   "")  # Not important
+	set (ICC_COMPILER_SCRIPT compile_win.bat)
+	set (ICC_LINKER_SCRIPT   link_win.bat)
 else()
-  set (ICC_CPU_COMPILER_SCRIPT compile_linux_cpu.sh)
-  set (ICC_CPU_LINKER_SCRIPT   link_linux_cpu.sh)
-  set (ICC_MIC_COMPILER_SCRIPT compile_linux_mic.sh)  
-  set (ICC_MIC_LINKER_SCRIPT   link_linux_mic.sh)     
+  set (ICC_COMPILER_SCRIPT compile_linux.sh)
+  set (ICC_LINKER_SCRIPT   link_linux.sh)
 endif ()
 
 message ("CLANG:     ${CLANG}")
@@ -266,7 +219,7 @@ set (OCL_OUTPUT_EXTENSION .rtl)
 set (CLANG_COMPILER_PARAMS 
 							-cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim
 							-mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins
-              -mrelocation-model static -fmessage-length 200 -fms-extensions
+              -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
               -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics
               -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -include opencl_.h
     )
@@ -310,15 +263,13 @@ else ()
 	            -c -DCL_BUILTIN_FUNCTIONS_EXPORTS -fPIC -I ${IMPORT_DIR} -U__MMX__
 	      )
 	 set (BUILD_TYPE_ICC_COMPILER_FLAGS_Debug "-g")
-     set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "-O3")
-     set (BUILD_TYPE_ICC_COMPILER_FLAGS_RelWithDebInfo "-O3")
-     
+   set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "-O3")
+ 
 	 list (APPEND ICC_LINKER_PARAMS_LIST 
 	            -fPIC -static-intel -shared -Wl,-rpath=\\\$ORIGIN
 	 	    )
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "-g")
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "-g")
-    set (BUILD_TYPE_ICC_LINKER_FLAGS_RelWithDebInfo "-g")
 endif (WIN32)
 
 # the same lists, but converted into single strings (otherwise they cannot be feeded to ICC compiler and linker scripts)
@@ -348,14 +299,14 @@ function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
     get_filename_component (NAME ${INPUT_FILE} NAME_WE )
     set (OUTPUT_FILE ${NAME}_${ARCH}${OCL_OUTPUT_EXTENSION} )
 	
-	  # -- BUGBUG -- ${LLVM_OPT} dependency is removed as it is changed most frequently during LLVM development and 
+	  # -- BUGBUG -- ${LLVM_OPT} ${CLANG} dependency is removed as it is changed most frequently during LLVM development and 
 	  #              in the context of BI Clang compilation these changes have least impact on generated IR
     add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
                         COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
                         COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
                         MAIN_DEPENDENCY ${INPUT_FILE}
-                        DEPENDS ${CLANG} ${HEADER_FILES}
+                        DEPENDS ${HEADER_FILES}
                         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
                         WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
                         COMMENT "OCL Compiling ${INPUT_FILE}"
@@ -397,8 +348,8 @@ function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_D
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
                         COMMENT "OCL Linking ${TARGET_NAME}${OCL_OUTPUT_EXTENSION}"
-                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.bc
-                        DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.bc
+                        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
+                        DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
                         VERBATIM
                        )
     if(${USE_OPT})
@@ -419,7 +370,6 @@ endfunction( add_ocl_library )
 #
 # compile_c( OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE OUTPUT_DIR )
 #
-#   COMPILER_SCRIPT - the compilation script which will be used
 #   OUTPUT_FILE_VAR - output, contains full path to object file
 #   ARCH            - target SIMD arch type
 #   CPP_DEFINE      - arch-dependent #define for compilation
@@ -428,15 +378,15 @@ endfunction( add_ocl_library )
 #   OUTPUT_DIR      - directory for output file
 #
 
-function( compile_c COMPILER_SCRIPT OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE OUTPUT_DIR )
+function( compile_c OUTPUT_FILE_VAR ARCH CPP_DEFINE AUX_COMPILE_OPT INPUT_FILE OUTPUT_DIR )
 
     get_filename_component (NAME ${INPUT_FILE} NAME_WE )
     set (OUTPUT_FILE ${NAME}_${ARCH}${CMAKE_C_OUTPUT_EXTENSION} )
 	
     add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
-                        COMMAND ${COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE} ${CPP_DEFINE} ${AUX_COMPILE_OPT} 
+                        COMMAND ${ICC_COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE} ${CPP_DEFINE} ${AUX_COMPILE_OPT} 
                         MAIN_DEPENDENCY ${INPUT_FILE}
-                        DEPENDS ${COMPILER_SCRIPT} ${HEADER_FILES}
+                        DEPENDS ${ICC_COMPILER_SCRIPT} ${HEADER_FILES}
                         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
                         WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
                         COMMENT "C Compiling ${INPUT_FILE}"
@@ -452,8 +402,6 @@ endfunction( compile_c )
 #
 # add_c_library( OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_OPT OUTPUT_DIR ...FILES... )
 #
-#   LINKER_SCRIPT   - the linking script which will be used
-#   COMPILER_SCRIPT - the compilation script which will be used
 #   OUTPUT_FILE_VAR - output, contains generated library
 #   TARGET_NAME     - name of the target and base name of the lib. Extension is CMAKE_SHARED_LIBRARY_SUFFIX
 #   ARCH            - target SIMD arch type
@@ -463,7 +411,7 @@ endfunction( compile_c )
 #   FILES           - input files list
 #
 
-function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_OPT OUTPUT_DIR)
+function( add_c_library OUTPUT_FILE_VAR TARGET_NAME ARCH CPP_DEFINE AUX_COMPILE_OPT OUTPUT_DIR)
 
     if (${ARGC} LESS 7)
         message (FATAL_ERROR "add_c_library(${TARGET_NAME}) - no sources given")
@@ -485,7 +433,7 @@ function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAM
 
 	# Compile all files and prepare a 'TMP_FILES' list of object files
 	foreach (FILE ${ARGN})
-		compile_c( ${COMPILER_SCRIPT} TMP_OBJ ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${FILE} ${OUTPUT_DIR})
+		compile_c( TMP_OBJ ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${FILE} ${OUTPUT_DIR})
 		set (TMP_FILES "${TMP_FILES} ${TMP_OBJ}")
 		list (APPEND TMP_FILES_DEPEND ${TMP_OBJ})
 	  endforeach (FILE)
@@ -493,8 +441,8 @@ function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAM
     # link C library (together with SVML import lib - for Win32 only)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
 						COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
-                        COMMAND ${LINKER_SCRIPT} ${CL_BUILD_TYPE} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${BUILTINS_INSTALL_DIR}/${PDB_FILE} ${TMP_FILES}
-		                DEPENDS ${LINKER_SCRIPT} ${TMP_FILES_DEPEND} ${RESOURCE_FILE}
+                        COMMAND ${ICC_LINKER_SCRIPT} ${CL_BUILD_TYPE} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${SVML_IMPORT_LIB} ${BUILTINS_INSTALL_DIR}/${PDB_FILE} ${TMP_FILES}
+		                DEPENDS ${ICC_LINKER_SCRIPT} ${TMP_FILES_DEPEND} ${RESOURCE_FILE}
                         COMMENT "C Linking ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                         VERBATIM
                        )
@@ -533,11 +481,7 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 	add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
 	# build DLL/.so file out of C code (by ICC) and copy it to install directory
-    if(${PROC} MATCHES "knf")
-      add_c_library( ${ICC_MIC_LINKER_SCRIPT} ${ICC_MIC_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
-    else()
-      add_c_library( ${ICC_CPU_LINKER_SCRIPT} ${ICC_CPU_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
-    endif()
+	add_c_library( OUTPUT_C_LIB ${TARGET_NAME} ${ARCH} ${CPP_DEFINE} ${AUX_COMPILE_OPT} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
 
 	# top-level target for both OCL and C targets
 	add_custom_target (${TARGET_NAME} ALL
@@ -621,36 +565,23 @@ foreach (FILE ${SAVE_HEADER_FILES})
 endforeach (FILE)
 
 # conversion of filepaths used during configuration of ICC compiler and linker scripts to native format (as they will be directly used by these scripts)
-file (TO_NATIVE_PATH ${ICC_CPU_ENV_SCRIPT} ICC_CPU_ENV_SCRIPT_NATIVE)
-file (TO_NATIVE_PATH ${ICC_CPU_CL}         ICC_CPU_CL_NATIVE)
-file (TO_NATIVE_PATH ${ICC_CPU_LD}         ICC_CPU_LD_NATIVE)
-if(LLVM_BUILD_OCL_MIC_TARGET AND MIC_TARGET)
-file (TO_NATIVE_PATH ${ICC_MIC_ENV_SCRIPT} ICC_MIC_ENV_SCRIPT_NATIVE)
-file (TO_NATIVE_PATH ${ICC_MIC_CL}         ICC_MIC_CL_NATIVE)
-file (TO_NATIVE_PATH ${ICC_MIC_LD}         ICC_MIC_LD_NATIVE)
-endif()
+file (TO_NATIVE_PATH ${ICC_ENV_SCRIPT} ICC_ENV_SCRIPT_NATIVE)
+file (TO_NATIVE_PATH ${ICC_CL}         ICC_CL_NATIVE)
+file (TO_NATIVE_PATH ${ICC_LD}         ICC_LD_NATIVE)
 file (TO_NATIVE_PATH ${SVML_LIB_DIR}   SVML_LIB_DIR_NATIVE)
 file (TO_NATIVE_PATH ${RESOURCE_FILE}  RESOURCE_FILE_NATIVE)
 
 # configuring ICC compiler and linker scripts (the configured scripts are in ${CMAKE_CURRENT_BINARY_DIR})
-configure_file (${ICC_CPU_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT} @ONLY)
-configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT} @ONLY) 
-if(LLVM_BUILD_OCL_MIC_TARGET AND MIC_TARGET)  
-configure_file (${ICC_MIC_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${ICC_MIC_COMPILER_SCRIPT} @ONLY)
-configure_file (${ICC_MIC_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_MIC_LINKER_SCRIPT} @ONLY) 
-endif()
+configure_file (${ICC_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${ICC_COMPILER_SCRIPT} @ONLY)
+configure_file (${ICC_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_LINKER_SCRIPT} @ONLY)   
 
 # redefine ICC compiler and linker scripts to their new locations
-set (ICC_CPU_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT})
-set (ICC_CPU_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT})
-if(LLVM_BUILD_OCL_MIC_TARGET AND MIC_TARGET)
-set (ICC_MIC_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_MIC_COMPILER_SCRIPT})
-set (ICC_MIC_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_MIC_LINKER_SCRIPT})
-endif()
+set (ICC_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_COMPILER_SCRIPT})
+set (ICC_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_LINKER_SCRIPT})
 
 # running build for all supported SIMD architectures 
-add_subdirectory (core2)
+#add_subdirectory (core2)
 add_subdirectory (corei7)
 add_subdirectory (penryn)
-add_subdirectory (prescott)
+#add_subdirectory (prescott)
 add_subdirectory (sandybridge)

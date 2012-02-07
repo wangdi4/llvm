@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -15,8 +15,9 @@ Copyright (c) Intel Corporation (2010-2012).
 File Name:  BuiltinModule.h
 
 \*****************************************************************************/
-#pragma once
+#pragma once // <--- TODO: Add proper INCLUDE_GUARD
 
+#include "llvm/ADT/OwningPtr.h"
 #include <assert.h>
 #include <string>
 #include "cl_dev_backend_api.h"
@@ -51,7 +52,7 @@ public:
     BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures);
     ~BuiltinLibrary();
 
-    llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer; }
+    llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer.get(); }
     virtual void SetContext(const void* pContext)
     {
         assert(false && "Set Builtin Library Context Not Implemented");
@@ -67,7 +68,7 @@ public:
 protected:
     const Intel::ECPU   m_cpuId;
     const unsigned int  m_cpuFeatures;
-    llvm::MemoryBuffer* m_pRtlBuffer;
+    llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
 };
 
 

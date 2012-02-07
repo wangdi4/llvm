@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -29,6 +29,7 @@ extern "C" {
 // Compiled with Clang as LLVM module
 #define ALIGN16 __attribute__((aligned(16)))
 #define ALIGN32 __attribute__((aligned(32)))
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 #include "cl_common_declaration.h"
 

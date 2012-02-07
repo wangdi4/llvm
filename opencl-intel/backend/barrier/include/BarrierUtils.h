@@ -1,10 +1,11 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __BARRIER_UTILS_H__
 #define __BARRIER_UTILS_H__
 
 #include "CL/cl.h"
+#include "llvm/Constants.h"
 
 //Forward declaration
 namespace llvm {
@@ -193,7 +194,7 @@ namespace intel {
     /// @param pResult type of return value of the function
     /// @param funcTyArgs types vector of all arguments values of the function
     /// @returns Function new declared function
-    Function* createFunctionDeclaration(const llvm::Twine& name, const Type *pResult, std::vector<const Type*>& funcTyArgs);
+    Function* createFunctionDeclaration(const llvm::Twine& name, Type *pResult, std::vector<Type*>& funcTyArgs);
 
   private:
     /// Pointer to current processed module

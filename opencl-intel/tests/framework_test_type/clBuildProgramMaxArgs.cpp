@@ -182,6 +182,7 @@ bool clBuildProgramMaxArgsTest()
 		bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
+			numberOfIntParametersToTry -= decrement;
 			continue;
 		}
 
@@ -191,6 +192,7 @@ bool clBuildProgramMaxArgsTest()
 		bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
 		if (!bResult || (0!=szSize))
 		{
+			numberOfIntParametersToTry -= decrement;
 			clReleaseProgram(prog);
 			continue;
 		}
@@ -199,6 +201,7 @@ bool clBuildProgramMaxArgsTest()
 		bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
+			numberOfIntParametersToTry -= decrement;
 			clReleaseProgram(prog);
 			continue;
 		}
@@ -211,6 +214,7 @@ bool clBuildProgramMaxArgsTest()
 		bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
+			numberOfIntParametersToTry -= decrement;
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);
@@ -226,6 +230,7 @@ bool clBuildProgramMaxArgsTest()
 		}
 		if ( CL_FAILED(iRet))
 		{
+			numberOfIntParametersToTry -= decrement;
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);

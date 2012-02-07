@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __DATA_PER_VALUE_PASS_H__
 #define __DATA_PER_VALUE_PASS_H__
@@ -143,7 +143,7 @@ namespace intel {
     /// @param pType pointer to Type
     /// @param allocaAlignment alignment of alloca instruction (0 if it is not alloca)
     /// @returns offset of given Type in special buffer stride
-    unsigned int getValueOffset(const Type *pType, unsigned int allocaAlignment);
+    unsigned int getValueOffset(Type *pType, unsigned int allocaAlignment);
 
   private:
     // Internal Data used to calculate user Analysis Data

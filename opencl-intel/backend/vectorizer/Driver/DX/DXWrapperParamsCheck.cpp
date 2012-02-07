@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -10,8 +10,8 @@
 
 namespace intel {
 
-bool DXWrapperParamsCheck::checkSameTypeScalar(const Type* packetizeType,
-                                                    const Type* scalarizeType)
+bool DXWrapperParamsCheck::checkSameTypeScalar(Type* packetizeType,
+                                                    Type* scalarizeType)
 {
   // checks if params are the same
   if (packetizeType != scalarizeType) return false;
@@ -24,7 +24,7 @@ bool DXWrapperParamsCheck::checkSameTypeScalar(const Type* packetizeType,
   return false;
 }
 
-bool DXWrapperParamsCheck::checkSameTypeConstant(const Type* packetizeType,
+bool DXWrapperParamsCheck::checkSameTypeConstant(Type* packetizeType,
                                                     Value* scalarizeVal)
 {
   // checks if params are the same
@@ -34,8 +34,8 @@ bool DXWrapperParamsCheck::checkSameTypeConstant(const Type* packetizeType,
   return false;
 }
 
-bool DXWrapperParamsCheck::checkVec(const Type* packetizeType,
-                           const Type* scalarizeType, unsigned packetWidth)
+bool DXWrapperParamsCheck::checkVec(Type* packetizeType,
+                           Type* scalarizeType, unsigned packetWidth)
 {
   bool scalarizeTypeOK = (scalarizeType->isIntegerTy() ||
                        scalarizeType->isFloatTy());
@@ -43,13 +43,13 @@ bool DXWrapperParamsCheck::checkVec(const Type* packetizeType,
       scalarizeType, packetWidth));
 }
 
-bool DXWrapperParamsCheck::checkSOA(const Type* packetizeType,
-                           const Type* scalarizeType, unsigned packetWidth)
+bool DXWrapperParamsCheck::checkSOA(Type* packetizeType,
+                           Type* scalarizeType, unsigned packetWidth)
 {
   const VectorType* vType = dyn_cast<VectorType>(scalarizeType);
   if (vType){
     unsigned numElements = vType->getNumElements();
-    const Type* primitive = vType->getElementType(); 
+    Type* primitive = vType->getElementType(); 
     bool scalarizeTypeOK = (primitive->isIntegerTy(32) ||
                             primitive->isFloatTy());
     return scalarizeTypeOK && (packetizeType == ArrayType::get(
@@ -59,7 +59,7 @@ bool DXWrapperParamsCheck::checkSOA(const Type* packetizeType,
 }
 
 DXWrapperParamsCheck::DXWrapperRetType DXWrapperParamsCheck::checkRet
-  (const Type* packetizeRetType, const Type* scalarizeRetType, unsigned packetWidth)
+  (Type* packetizeRetType, Type* scalarizeRetType, unsigned packetWidth)
 {
   if ( packetizeRetType->isVoidTy() && scalarizeRetType->isVoidTy()){
     return DXWrapperParamsCheck::DX_RET_VOID;

@@ -1,18 +1,20 @@
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Constants.h"
 
 #include "X86Lower.h"
 #include "Logger.h"
 #include <sstream>
+
 namespace intel {
 
 
 static void AddComperator(Module &M, std::string name, std::string intrinsic) {
 
   // Type Definitions
-  const Type* Vec8Type = VectorType::get(IntegerType::get(M.getContext(), 32), 8);
-  const Type* Vec4Type = VectorType::get(IntegerType::get(M.getContext(), 32), 4);
-  const Type* Int32T = IntegerType::get(M.getContext(), 32);
-  std::vector<const Type*> T8Func;
+  Type* Vec8Type = VectorType::get(IntegerType::get(M.getContext(), 32), 8);
+  Type* Vec4Type = VectorType::get(IntegerType::get(M.getContext(), 32), 4);
+  Type* Int32T = IntegerType::get(M.getContext(), 32);
+  std::vector<Type*> T8Func;
   T8Func.push_back(Vec8Type);
   T8Func.push_back(Vec8Type);
   FunctionType* Func8Ty_0 = FunctionType::get(Vec8Type, T8Func, false);
@@ -43,10 +45,10 @@ static void AddComperator(Module &M, std::string name, std::string intrinsic) {
   Value *AHigh = new ShuffleVectorInst(ArgA, UndefValue::get(ArgA->getType()), M47, "AHigh",entry);
   Value *BHigh = new ShuffleVectorInst(ArgB, UndefValue::get(ArgB->getType()), M47, "BHigh",entry);
 
-  std::vector<const Type*> params;
+  std::vector<Type*> params;
   params.push_back(Vec4Type);
   params.push_back(Vec4Type);
-  const FunctionType* FType = FunctionType::get(Vec4Type, params, false);
+  FunctionType* FType = FunctionType::get(Vec4Type, params, false);
 
   Constant* IntrinsicFunc = M.getOrInsertFunction(intrinsic.c_str(), FType);
 
@@ -57,8 +59,8 @@ static void AddComperator(Module &M, std::string name, std::string intrinsic) {
   ArgsH.push_back(AHigh);
   ArgsH.push_back(BHigh);
 
-  Value* CmpLow = CallInst::Create(IntrinsicFunc, ArgsL.begin(), ArgsL.end(), "callLow", entry);
-  Value* CmpHigh = CallInst::Create(IntrinsicFunc, ArgsH.begin(), ArgsH.end(), "callLow", entry);
+  Value* CmpLow = CallInst::Create(IntrinsicFunc, ArrayRef<Value*>(ArgsL), "callLow", entry);
+  Value* CmpHigh = CallInst::Create(IntrinsicFunc, ArrayRef<Value*>(ArgsH), "callLow", entry);
 
   Value *Ret = new ShuffleVectorInst(CmpLow, CmpHigh, M07, "join",entry);
 
@@ -89,7 +91,7 @@ Value* X86Lower::convertToI32(Value* A, Instruction* loc) {
 }
 
 bool X86Lower::needTranslate(Value* val) {
-  const Type *tp = val->getType();
+  Type *tp = val->getType();
   if (tp->isVectorTy()) {
     // if this is a vector, look at the element type
     tp = dyn_cast<VectorType>(tp)->getElementType();
@@ -102,9 +104,9 @@ bool X86Lower::needTranslate(Value* val) {
   return false;
 }
 
-const Type* X86Lower::TranslateType(const Type* tp) {
+Type* X86Lower::TranslateType(Type* tp) {
   if (tp->isVectorTy()) {
-    const VectorType *vt = dyn_cast<VectorType>(tp);
+    VectorType *vt = dyn_cast<VectorType>(tp);
     return  VectorType::get(m_i32, vt->getNumElements());
   }
 
@@ -122,7 +124,7 @@ Constant* X86Lower::TranslateConst(Value* val) {
   // translate vector of integers
   if (val->getType()->isVectorTy()) {
     ConstantVector* cv = dyn_cast<ConstantVector>(val);
-    const VectorType *vt = dyn_cast<VectorType>(val->getType());
+    VectorType *vt = dyn_cast<VectorType>(val->getType());
     V_ASSERT(vt);
     // Zero initializer
 
@@ -170,12 +172,12 @@ Constant* X86Lower::TranslateConst(Value* val) {
 }
 
 
-const char* X86Lower::getIntrinsicNameForCMPType(int predicate, const Type* vec) {
-  const VectorType* vt = dyn_cast<VectorType>(vec);
+const char* X86Lower::getIntrinsicNameForCMPType(int predicate, Type* vec) {
+  VectorType* vt = dyn_cast<VectorType>(vec);
   V_PRINT("x86lower", "looking for intrinsic for "<<*vec<<" of type "<<predicate<<"\n");
   if (! vt) return NULL;
   unsigned numElem = vt->getNumElements();
-  const Type* elTp = vt->getElementType();
+  Type* elTp = vt->getElementType();
   if (! elTp->isIntegerTy()) return NULL;
   /*if (predicate == CmpInst::ICMP_EQ && numElem == 2 && elTp->isIntegerTy() && dyn_cast<IntegerType>(elTp)->getBitWidth() == 64) {
     if (m_arch < SSE4) return NULL;
@@ -250,7 +252,7 @@ void X86Lower::Translate(SelectInst* select) {
 
 void X86Lower::Translate(CallInst* ci) {
   std::vector<Value*> args;
-  std::vector<const Type *> types;
+  std::vector<Type *> types;
   for (unsigned i=0; i<ci->getNumArgOperands();++i) {
     Value *A= ci->getArgOperand(0);
     A = convertToI32(A, ci);
@@ -261,13 +263,15 @@ void X86Lower::Translate(CallInst* ci) {
   std::string name = std::string(ci->getCalledFunction()->getName()) +std::string("_i32");
   FunctionType *intr = FunctionType::get(ci->getType(), types, false);
   Constant* new_f = m_func->getParent()->getOrInsertFunction(name, intr);
-  Instruction* call = CallInst::Create(new_f, args.begin(), args.end(), "", ci);
+  Instruction* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "", ci);
   m_rauw[ci] = call;
   return;
 }
 
 void X86Lower::Translate(PHINode* phi) {
-  PHINode* new_phi = PHINode::Create(TranslateType(phi->getType()), phi->getName() + "_32", phi);
+  PHINode* new_phi = PHINode::Create(TranslateType(phi->getType()), 
+    phi->getNumIncomingValues(),
+    phi->getName() + "_32", phi);
   for (unsigned i=0; i <  phi->getNumIncomingValues(); ++i) {
     Value* in = phi->getIncomingValue(i);
     if (m_trans.find(in) != m_trans.end()) {
@@ -320,9 +324,9 @@ void X86Lower::TranslateVector(ICmpInst* cmp) {
   A = convertToI32(A, cmp);
   B = convertToI32(B, cmp);
 
-  const VectorType* vt = dyn_cast<VectorType>(A->getType());
+  VectorType* vt = dyn_cast<VectorType>(A->getType());
   V_ASSERT(vt);
-  const Type* elTp = vt->getElementType();
+  Type* elTp = vt->getElementType();
   unsigned numElem = vt->getNumElements();
 
   // look for an intrinsic
@@ -353,7 +357,7 @@ void X86Lower::TranslateVector(ICmpInst* cmp) {
   // try unsigned hack (twist and shout)
   if (! intr_name) {
     V_PRINT("x86lower", "Trying unsigned hack for compare "<<*cmp<<" \n");
-    const IntegerType *intType = dyn_cast<IntegerType>(elTp); V_ASSERT(intType);
+    IntegerType *intType = dyn_cast<IntegerType>(elTp); V_ASSERT(intType);
     unsigned bw = intType->getBitWidth();
     std::vector<Constant*> cvect (numElem, ConstantInt::get(elTp, 1 << (bw -1)));
     Constant *cv = ConstantVector::get(cvect);
@@ -384,7 +388,7 @@ void X86Lower::TranslateVector(ICmpInst* cmp) {
   }
 
   std::vector<Value*> args;
-  std::vector<const Type *> types;
+  std::vector<Type *> types;
 
   // If you were able to find an intinsic
   if (intr_name) {
@@ -396,7 +400,7 @@ void X86Lower::TranslateVector(ICmpInst* cmp) {
     V_PRINT("x86lower", "Doing compare using integer intrinsic "<<intr_name<<" for "<<*cmp<<" \n");
     FunctionType *intr = FunctionType::get(TranslateType(cmp->getType()), types, false);
     Constant* new_f = m_func->getParent()->getOrInsertFunction(intr_name, intr);
-    Instruction* call = CallInst::Create(new_f, args.begin(), args.end(), "", cmp);
+    Instruction* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "", cmp);
 
     if (negate) {
       std::vector<Constant*> cvect (numElem, ConstantInt::get(elTp, -1));
@@ -412,13 +416,13 @@ void X86Lower::TranslateVector(ICmpInst* cmp) {
 }
 
 void X86Lower::TranslateVector(FCmpInst* cmp) {
-  const VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
+  VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
   V_ASSERT(vt);
-  const Type* elTp = vt->getElementType();
+  Type* elTp = vt->getElementType();
   unsigned numElem = vt->getNumElements();
 
   std::vector<Value*> args;
-  std::vector<const Type *> types;
+  std::vector<Type *> types;
 
   if ((numElem == 4 || numElem == 8) && elTp->isFloatTy()) {
     V_PRINT("x86lower", "Trying  floating point for "<<*cmp<<" \n");
@@ -478,7 +482,7 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
         TranslateFallback(cmp);
         return;
       }
-      Instruction* call = CallInst::Create(new_f, args.begin(), args.end(), "call_cmps", cmp);
+      Instruction* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_cmps", cmp);
       call = new BitCastInst(call, TranslateType(cmp->getType()), "cmp_toi32", cmp);
       
       if (neg) {
@@ -497,7 +501,7 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
 
 
 void X86Lower::TranslateFallback(CmpInst* cmp) {
-  const VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
+  VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
   if  (vt) {
     V_PRINT("x86lower", "Using fallback for :( "<<*cmp<<" \n");
     unsigned numElem = vt->getNumElements();
@@ -528,7 +532,7 @@ void X86Lower::TranslateFallback(CmpInst* cmp) {
 void X86Lower::Translate(CmpInst* cmp) {
   V_PRINT("x86lower", "Doing compare "<<*cmp<<" \n");
 
-  const VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
+  VectorType* vt = dyn_cast<VectorType>(cmp->getOperand(0)->getType());
   if (vt) {
     if (ICmpInst *icmp = dyn_cast<ICmpInst>(cmp)) return TranslateVector(icmp);
     if (FCmpInst *fcmp = dyn_cast<FCmpInst>(cmp)) return TranslateVector(fcmp);
@@ -565,7 +569,7 @@ void X86Lower::LowerInst(ZExtInst* ex) {
 
   // No need to handle zext instructions which are 
   // not i1 -> i32
-  const Type* target = ex->getType();
+  Type* target = ex->getType();
   if (target->isVectorTy()) {
     // Check that we extend this instruction to vector of i32
     if (cast<VectorType>(target)->getElementType() != m_i32) return;  
@@ -580,8 +584,8 @@ void X86Lower::LowerInst(ZExtInst* ex) {
   A = convertToI32(A, ex);
   Value* one;
   // Implement trunc using AND 0x1
-  if (const VectorType *vt = dyn_cast<VectorType>(A->getType())) {
-    const Type* elTp = vt->getElementType();
+  if (VectorType *vt = dyn_cast<VectorType>(A->getType())) {
+    Type* elTp = vt->getElementType();
     unsigned numElem = vt->getNumElements();
     std::vector<Constant*> cvect (numElem, ConstantInt::get(elTp, 1));
     one = ConstantVector::get(cvect);
@@ -620,13 +624,13 @@ void X86Lower::LowerInst(SelectInst* si) {
   cond = convertToI32(cond, si);
   Value *A = si->getTrueValue();
   Value *B = si->getFalseValue();
-  if (const VectorType *vt = dyn_cast<VectorType>(cond->getType())) {
-    const Type* elTp = vt->getElementType();
+  if (VectorType *vt = dyn_cast<VectorType>(cond->getType())) {
+    Type* elTp = vt->getElementType();
     unsigned numElem = vt->getNumElements();
 
-    const VectorType *value_vt = dyn_cast<VectorType>(A->getType());
+    VectorType *value_vt = dyn_cast<VectorType>(A->getType());
     V_ASSERT(value_vt);
-    const Type* value_elTp = value_vt->getElementType();
+    Type* value_elTp = value_vt->getElementType();
     unsigned value_numElem = value_vt->getNumElements();
 
     //put assembly code
@@ -653,7 +657,7 @@ void X86Lower::LowerInst(SelectInst* si) {
       args.push_back(B);
       args.push_back(A);
       args.push_back(cond);
-      std::vector<const Type *> types;
+      std::vector<Type *> types;
       types.push_back(B->getType());
       types.push_back(A->getType());
       types.push_back(cond->getType());
@@ -665,7 +669,7 @@ void X86Lower::LowerInst(SelectInst* si) {
       } else {
         new_f = m_func->getParent()->getOrInsertFunction("llvm.x86.avx.blendv.ps.256", intr);
       }
-      Instruction* call = CallInst::Create(new_f, args.begin(), args.end(), "", si);
+      Instruction* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "", si);
       if (!value_elTp->isFloatTy()) {
         call = new BitCastInst(call, si->getType(), "", si);
       }
@@ -722,7 +726,7 @@ void X86Lower::scalarizeSingleVectorInstruction(Instruction* inst) {
 
   V_PRINT("x86lower", "Scalarizing bottleneck instuction "<<*op<<"\n");
 
-  const VectorType *vt = dyn_cast<VectorType>(inst->getType());
+  VectorType *vt = dyn_cast<VectorType>(inst->getType());
   unsigned numElem = vt->getNumElements();
 
   Value* join = UndefValue::get(op->getType());

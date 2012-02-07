@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,7 +36,7 @@ public:
 };
 
 template<typename T, int n, int s>
-llvm::GenericValue lle_X_max(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_max(llvm::FunctionType *FT,
                        const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -51,7 +51,7 @@ llvm::GenericValue lle_X_max(const llvm::FunctionType *FT,
 }
 
 template<typename T, int n, int s>
-llvm::GenericValue lle_X_min(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_min(llvm::FunctionType *FT,
                        const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -66,7 +66,7 @@ llvm::GenericValue lle_X_min(const llvm::FunctionType *FT,
 }
 
 template<typename T, int n, int s>
-llvm::GenericValue lle_X_mix(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_mix(llvm::FunctionType *FT,
                              const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -82,7 +82,7 @@ llvm::GenericValue lle_X_mix(const llvm::FunctionType *FT,
 }
 
 template<typename T, int s, int n>
-llvm::GenericValue lle_X_step(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_step(llvm::FunctionType *FT,
                              const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -97,7 +97,7 @@ llvm::GenericValue lle_X_step(const llvm::FunctionType *FT,
 }
 
 template<typename T, int s, int n>
-llvm::GenericValue lle_X_smoothstep(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_smoothstep(llvm::FunctionType *FT,
                              const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -113,7 +113,7 @@ llvm::GenericValue lle_X_smoothstep(const llvm::FunctionType *FT,
 }
 
 template<typename T, int n, int s>
-llvm::GenericValue lle_X_clamp(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_clamp(llvm::FunctionType *FT,
                              const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;

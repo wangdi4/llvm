@@ -249,11 +249,11 @@ TEST(FrameworkTestType, Test_MisalignedHostPtr)
     EXPECT_TRUE(MisalignedUseHostPtrTest());
 }
 
-
-TEST(FrameworkTestType, Test_overloadingTest)
-{
-    EXPECT_TRUE(overloading_test());
-}
+//extension not supported
+//TEST(FrameworkTestType, Test_overloadingTest)
+//{
+//    EXPECT_TRUE(overloading_test());
+//}
 
 TEST(FrameworkTestType, Test_userDefinedStruct)
 {

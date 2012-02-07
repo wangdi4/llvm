@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -15,7 +15,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Linker.h"
 #include "llvm/PassManager.h"
-#include "llvm/Support/StandardPasses.h"
 #include "Main.h"
 #include "RuntimeServices.h"
 #include "X86Lower.h"
@@ -45,6 +44,28 @@ extern "C" FunctionPass* createFuncResolver();
 extern "C" FunctionPass *createOCLBuiltinPreVectorizationPass();
 extern "C" Pass *createSpecialCaseBuiltinResolverPass();
 
+
+namespace intel {
+
+  class PrintIRPass : public FunctionPass {
+  public:
+    static char ID; // Pass identification, replacement for typeid
+    PrintIRPass() : FunctionPass(ID) {}
+    virtual bool runOnFunction(Function &F) {
+      F.dump();
+      return false;
+    }
+    llvm::FunctionPass *createPrintIRPass();
+};
+}
+extern "C" {
+  FunctionPass* createPrintIRPass() {
+    return new intel::PrintIRPass();
+  }
+}
+char intel::PrintIRPass::ID = 0;
+
+
 namespace intel {
 
 
@@ -57,7 +78,7 @@ m_pConfig(pConfig)
 {
   // init debug prints
   V_INIT_PRINT;
-  createOpenclRuntimeSupport(m_runtimeModule);  
+  createOpenclRuntimeSupport(m_runtimeModule);
 }
 
 Vectorizer::~Vectorizer()
@@ -93,11 +114,9 @@ bool Vectorizer::runOnModule(Module &M)
       V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
       return false;
     }
-  
-    // Engulf entire vectorizer operation with try-catch. If an exception happens,
-    // we gracefully fail vectorization, but don't collapse
-    try {
 
+    NamedMDNode *pVecTypeMetadata = M.getNamedMetadata("opencl.vec_type_hints");
+ 
         // List all kernels in module
         for (unsigned i = 0, e = m_numOfKernels; i != e; ++i)
         {
@@ -106,19 +125,26 @@ bool Vectorizer::runOnModule(Module &M)
             if (Function *F = dyn_cast<Function>(field0))
             {
                 // Check for existance of vector-width hint
-                MDString *VTHMDStr = dyn_cast<MDString>(elt->getOperand(3));
-
                 bool disableVect = false;
-                if(VTHMDStr)
+                if(pVecTypeMetadata)
                 {
-                    std::string vecTypeHint = VTHMDStr->getString().str();
-                    disableVect = ((vecTypeHint != "")      && 
-                                   (vecTypeHint != "int")   && (vecTypeHint !="uint")    && 
-                                   (vecTypeHint != "float") &&
-                                   (vecTypeHint != "char")  && (vecTypeHint != "uchar")  && 
-                                   (vecTypeHint != "short") && (vecTypeHint != "ushort") && 
-                                   (vecTypeHint != "long")  && (vecTypeHint != "ulong")  &&
-                                   (vecTypeHint != "double"));
+                    for(unsigned j = 0, e2 = pVecTypeMetadata->getNumOperands(); j != e2; ++j)
+                    {
+                        MDNode *VTelt = pVecTypeMetadata->getOperand(j);
+                        Value *field1 = VTelt->getOperand(1)->stripPointerCasts();
+                        if(F == dyn_cast<Function>(field1))
+                        {
+                            MDString *VTHMDStr = dyn_cast<MDString>(VTelt->getOperand(2));
+                            std::string vecTypeHint = VTHMDStr->getString().str();
+                            disableVect = ((vecTypeHint != "")      && 
+                                           (vecTypeHint != "int")   && (vecTypeHint !="uint")    && 
+                                           (vecTypeHint != "float") &&
+                                           (vecTypeHint != "char")  && (vecTypeHint != "uchar")  && 
+                                           (vecTypeHint != "short") && (vecTypeHint != "ushort") && 
+                                           (vecTypeHint != "long")  && (vecTypeHint != "ulong")  &&
+                                           (vecTypeHint != "double"));
+                        }
+                    }
                 }
 
                 // Only add kernels to list, if they have scalar vec-type hint (or none)
@@ -339,13 +365,6 @@ bool Vectorizer::runOnModule(Module &M)
         V_DUMP_MODULE((&M));
         //////////////////////////////////////////////
         //////////////////////////////////////////////
-    }
-    catch (...) {
-        // An exception happened. Just mark isModuleVectorized to false,
-        // so later queries will show no vectored functions
-        m_isModuleVectorized = false;
-        return false;
-    }
     V_PRINT(wrapper, "\nCompleted Vectorizer Wrapper!\n");
     return m_isModuleVectorized;
 }

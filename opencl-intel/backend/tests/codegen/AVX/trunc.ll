@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define <4 x i32> @trunc_64_32(<4 x i64> %A) nounwind {
 ; CHECK: trunc_64_32

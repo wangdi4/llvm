@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -35,7 +35,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -57,18 +57,21 @@ using std::string;
 #include <iostream>
 #include <sstream>
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 void dumpModule(llvm::Module& m){
-#if !defined(__NDEBUG__)
+#ifndef NDEBUG
   static unsigned counter=0;
   std::string buffer;
   llvm::raw_string_ostream stream(buffer);
   std::stringstream fileName;
-  fileName << "kernel" << counter++ << ".ll";
+  fileName << "kernel" << counter << ".ll";
   std::ofstream outf(fileName.str().c_str());
-  std::cout << "before" << std::endl;
   stream << m;
-  std::cout << "after" << std::endl;
+  std::cout << "dumped kernel" << counter << std::endl;
+  counter++;
   stream.flush();
   outf << buffer;
 #endif
@@ -189,6 +192,7 @@ void Compiler::Init()
 
     llvm::InitializeAllTargets();
     llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllTargetMCs();
 }
 
 /*

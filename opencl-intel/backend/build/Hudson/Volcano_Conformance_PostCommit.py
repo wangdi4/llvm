@@ -69,7 +69,7 @@ def main():
                               options.build_type,
                               options.cpu,
                               options.cpu_features,
-                              options.tranpose_size)
+                              options.transpose_size)
     suite  = VolcanoConformancePostCommit("Conformance", config)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)

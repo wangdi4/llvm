@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -24,7 +24,7 @@
 
 #include "stdafx.h"
 
-#include "llvm/Exception.h"
+//#include "llvm/Exception.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/ArgList.h"
@@ -46,9 +46,9 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/System/DynamicLibrary.h"
-#include "llvm/Target/TargetSelect.h"
-#include "llvm/System/Threading.h"
+//#include "llvm/System/DynamicLibrary.h"
+//#include "llvm/Target/TargetSelect.h"
+//#include "llvm/System/Threading.h"
 
 #include "clang_driver.h"
 
@@ -73,6 +73,7 @@ using namespace std;
 
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
+#define PASS_PCH
 #else
 #define GET_CURR_WORKING_DIR(len, buff) getcwd(buff, len)
 #endif
@@ -85,7 +86,7 @@ DECLARE_LOGGER_CLIENT;
 OclMutex ClangFECompilerBuildTask::s_serializingMutex;
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
-  Diagnostic &Diags = *static_cast<Diagnostic*>(UserData);
+  DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
   Diags.Report(diag::err_fe_error_backend) << Message;
 
@@ -339,15 +340,14 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
 	list.push_back(CPUType);
 
 	char	szBinaryPath[MAX_STR_BUFF];
-#ifndef WIN32
-	char	szOclIncPath[MAX_STR_BUFF];
-	char	szOclPchPath[MAX_STR_BUFF];
-#endif
 	char	szCurrDirrPath[MAX_STR_BUFF];
 
 	// Retrieve local relatively to binary directory
 	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
-#ifndef WIN32
+#ifndef PASS_PCH
+    char	szOclIncPath[MAX_STR_BUFF];
+	char	szOclPchPath[MAX_STR_BUFF];
+
 	SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
 	SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
 
@@ -356,7 +356,12 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
 
 	list.push_back("-include-pch");
 	list.push_back(szOclPchPath);
+#else
+    list.push_back("-include-pch");
+	list.push_back("OpenCL_.pch");
 #endif
+
+    list.push_back("-fno-validate-pch");
 
 	// Add current directory
 	GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
@@ -397,8 +402,8 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
 		list.push_back("-D");
         list.push_back(subExtStr);
 
-        list.push_back("-target-feature");
-        list.push_back('+' + subExtStr);
+        //list.push_back("-target-feature");
+        //list.push_back('+' + subExtStr);
 	}
 
 	// Don't optimize in the frontend
@@ -407,6 +412,8 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
 	list.push_back("-triple");
 	list.push_back("x86_64-unknown-linux-gnu");
 #endif
+
+  list.push_back("-cl-kernel-arg-info");
 }
 
 int ClangFECompilerBuildTask::Build()
@@ -441,13 +448,12 @@ int ClangFECompilerBuildTask::Build()
 	}
 
 	llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
-
-	Clang->setLLVMContext(new llvm::LLVMContext());
+    llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
 	// Buffer diagnostics from argument parsing so that we can output them using a
 	//well formed diagnostic object.
 	TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
-	Diagnostic Diags(DiagsBuffer);
+	DiagnosticsEngine Diags(DiagID, DiagsBuffer);
 	CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
                                      Diags);
 
@@ -485,7 +491,7 @@ int ClangFECompilerBuildTask::Build()
     
     bool Success = true;
 
-#ifdef WIN32
+#ifdef PASS_PCH
 	//prepare pch buffer
 	HMODULE hMod = NULL;
 	HRSRC hRes = NULL;

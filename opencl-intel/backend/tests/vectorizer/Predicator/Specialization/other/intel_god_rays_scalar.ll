@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -phicanon -loopsimplify -predicate -specialize -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -loop-simplify -predicate -specialize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'intel_god_rays_scalar.ll'

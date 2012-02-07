@@ -3,11 +3,14 @@ Volcano specific common definitions and configurations
 """
 import sys, os.path, platform, re, time, traceback
 from framework.core import RunConfig
+from framework.utils import NetworkEnvironment
 
 #Volcano specific global default paths
 REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
 IT_SAMBA_SERVER             = '//ismb014.iil.intel.com'
-VOLCANO_SAMBA_SERVER        = '//cvcc-ubu-01.iil.intel.com'
+VOLCANO_IDC_SAMBA_SERVER    = '//cvcc-ubu-01.iil.intel.com'
+VOLCANO_NN_SAMBA_SERVER     = '//nntavc216ew.ccr.corp.intel.com/CVCC_share'
+
 DX_PERFORMANCE_SHADERS_ROOT = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root/Performance/NoDcls/PerformanceCriticalShaders'
 DX_10_SHADERS_ROOT          = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root'
 OCL_CONFORMANCE_TESTS_ROOT  = '/cvcc/CapturedWLs/Conformance'
@@ -16,13 +19,6 @@ PERFORMANCE_TESTS_ROOT      = os.path.realpath('/Volcano/Performance/Tests')
 DEFAULT_VS_VERSION          = 9
 DEFAULT_VOLCANO_SOLUTION    = 'Backend.sln'
 DEFAULT_OCL_SOLUTION        = 'OCL.sln'
-
-if platform.system() == 'Windows':
-    DX_PERFORMANCE_SHADERS_ROOT = IT_SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
-    DX_10_SHADERS_ROOT          = IT_SAMBA_SERVER + DX_10_SHADERS_ROOT
-    PERFORMANCE_LOG_ROOT        = VOLCANO_SAMBA_SERVER + PERFORMANCE_LOG_ROOT
-    OCL_CONFORMANCE_TESTS_ROOT  = VOLCANO_SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
-    PERFORMANCE_TESTS_ROOT      = os.path.realpath('c:/Volcano/Performance/Tests')
 
 SUPPORTED_CPUS         = ['auto', 'corei7', 'sandybridge']
 SUPPORTED_TARGETS      = ['Win32', 'Win64', 'SLES64', 'RH64']
@@ -40,7 +36,22 @@ TARGETS_MAP = {
 # maps the volcano environment supported cpu names to the backend internal cpu names
 CPU_MAP = { 'auto': 'auto',
             'corei7': 'corei7',
-            'sandybridge': 'sandybridge'}
+            'sandybridge': 'corei7-avx'}
+
+DOMAIN_MAP = { 'ccr.corp.intel.com': VOLCANO_NN_SAMBA_SERVER, 
+               'ger.corp.intel.com': VOLCANO_IDC_SAMBA_SERVER,
+               'ill.intel.com': VOLCANO_NN_SAMBA_SERVER }
+
+if platform.system() == 'Windows':
+    DX_PERFORMANCE_SHADERS_ROOT = IT_SAMBA_SERVER + DX_PERFORMANCE_SHADERS_ROOT
+    DX_10_SHADERS_ROOT          = IT_SAMBA_SERVER + DX_10_SHADERS_ROOT
+    OCL_CONFORMANCE_TESTS_ROOT  = VOLCANO_IDC_SAMBA_SERVER + OCL_CONFORMANCE_TESTS_ROOT
+    PERFORMANCE_TESTS_ROOT      = os.path.realpath('c:/Volcano/Performance/Tests')
+    domain = NetworkEnvironment.getDomain()
+    if domain in DOMAIN_MAP: 
+        PERFORMANCE_LOG_ROOT = DOMAIN_MAP[domain] + PERFORMANCE_LOG_ROOT
+    else:
+        PERFORMANCE_LOG_ROOT = VOLCANO_IDC_SAMBA_SERVER + PERFORMANCE_LOG_ROOT
 
 class VolcanoRunConfig( RunConfig):
     """

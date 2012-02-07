@@ -8,12 +8,12 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: @__crossf3_test
+; CHECK: @_Z5crossDv3_fS__test
 ; CHECK-NOT: @_f_v.__vertical_cross3f8
 ; CHECK: @__vertical_cross3f8
 ; CHECK-NOT: @_f_v.__vertical_cross3f8
 ; CHECK: ret void
-define void @__crossf3_test(<3 x float>* nocapture, <3 x float>* nocapture, <3 x float>* nocapture) {
+define void @_Z5crossDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -203,12 +203,12 @@ declare i32 @get_global_id(i32)
 
 
 
-; CHECK: @__crossf4_test
+; CHECK: @_Z5crossDv4_fS__test
 ; CHECK-NOT: @_f_v.__vertical_cross4f8
 ; CHECK: @__vertical_cross4f8
 ; CHECK-NOT: @_f_v.__vertical_cross4f8
 ; CHECK: ret void
-define void @__crossf4_test(<4 x float>* nocapture, <4 x float>* nocapture, <4 x float>* nocapture) {
+define void @_Z5crossDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -344,12 +344,12 @@ entry:
 
 
 
-; CHECK: @__fast_distancef_test
+; CHECK: @_Z13fast_distanceff_test
 ; CHECK-NOT: @_f_v.__vertical_fast_distance1f8
 ; CHECK: @__vertical_fast_distance1f8
 ; CHECK-NOT: @_f_v.__vertical_fast_distance1f8
 ; CHECK: ret void
-define void @__fast_distancef_test(float* nocapture, float* nocapture, float* nocapture) {
+define void @_Z13fast_distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %3 = getelementptr float* %0, i32 %gid
@@ -367,12 +367,12 @@ entry:
 
 
 
-; CHECK: @__fast_distancef2_test
+; CHECK: @_Z13fast_distanceDv2_fS__test
 ; CHECK-NOT: @_f_v.__vertical_fast_distance2f8
 ; CHECK: @__vertical_fast_distance2f8
 ; CHECK-NOT: @_f_v.__vertical_fast_distance2f8
 ; CHECK: ret void
-define void @__fast_distancef2_test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
+define void @_Z13fast_distanceDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -495,12 +495,12 @@ entry:
 
 
 
-; CHECK: @__fast_distancef3_test
+; CHECK: @_Z13fast_distanceDv3_fS__test
 ; CHECK-NOT: @_f_v.__vertical_fast_distance3f8
 ; CHECK: @__vertical_fast_distance3f8
 ; CHECK-NOT: @_f_v.__vertical_fast_distance3f8
 ; CHECK: ret void
-define void @__fast_distancef3_test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
+define void @_Z13fast_distanceDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -657,12 +657,12 @@ entry:
 
 
 
-; CHECK: @__fast_distancef4_test
+; CHECK: @_Z13fast_distanceDv4_fS__test
 ; CHECK-NOT: @_f_v.__vertical_fast_distance4f8
 ; CHECK: @__vertical_fast_distance4f8
 ; CHECK-NOT: @_f_v.__vertical_fast_distance4f8
 ; CHECK: ret void
-define void @__fast_distancef4_test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
+define void @_Z13fast_distanceDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -765,12 +765,12 @@ entry:
 
 
 
-; CHECK: @__distancef_test
+; CHECK: @_Z8distanceff_test
 ; CHECK-NOT: @_f_v.__vertical_distance1f8
 ; CHECK: @__vertical_distance1f8
 ; CHECK-NOT: @_f_v.__vertical_distance1f8
 ; CHECK: ret void
-define void @__distancef_test(float* nocapture, float* nocapture, float* nocapture) {
+define void @_Z8distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %3 = getelementptr float* %0, i32 %gid
@@ -788,12 +788,12 @@ entry:
 
 
 
-; CHECK: @__lengthf_test
+; CHECK: @_Z6lengthf_test
 ; CHECK-NOT: @_f_v.__vertical_length1f8
 ; CHECK: @__vertical_length1f8
 ; CHECK-NOT: @_f_v.__vertical_length1f8
 ; CHECK: ret void
-define void @__lengthf_test(float* nocapture, float* nocapture) {
+define void @_Z6lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %2 = getelementptr float* %0, i32 %gid
@@ -808,12 +808,12 @@ entry:
 
 
 
-; CHECK: @__distancef2_test
+; CHECK: @_Z8distanceDv2_fS__test
 ; CHECK-NOT: @_f_v.__vertical_distance2f8
 ; CHECK: @__vertical_distance2f8
 ; CHECK-NOT: @_f_v.__vertical_distance2f8
 ; CHECK: ret void
-define void @__distancef2_test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
+define void @_Z8distanceDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -936,12 +936,12 @@ entry:
 
 
 
-; CHECK: @__lengthf2_test
+; CHECK: @_Z6lengthDv2_f_test
 ; CHECK-NOT: @_f_v.__vertical_length2f8
 ; CHECK: @__vertical_length2f8
 ; CHECK-NOT: @_f_v.__vertical_length2f8
 ; CHECK: ret void
-define void @__lengthf2_test(<2 x float>* nocapture, float* nocapture) {
+define void @_Z6lengthDv2_f_test(<2 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1014,12 +1014,12 @@ entry:
 
 
 
-; CHECK: @__distancef3_test
+; CHECK: @_Z8distanceDv3_fS__test
 ; CHECK-NOT: @_f_v.__vertical_distance3f8
 ; CHECK: @__vertical_distance3f8
 ; CHECK-NOT: @_f_v.__vertical_distance3f8
 ; CHECK: ret void
-define void @__distancef3_test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
+define void @_Z8distanceDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1176,12 +1176,12 @@ entry:
 
 
 
-; CHECK: @__lengthf3_test
+; CHECK: @_Z6lengthDv3_f_test
 ; CHECK-NOT: @_f_v.__vertical_length3f8
 ; CHECK: @__vertical_length3f8
 ; CHECK-NOT: @_f_v.__vertical_length3f8
 ; CHECK: ret void
-define void @__lengthf3_test(<3 x float>* nocapture, float* nocapture) {
+define void @_Z6lengthDv3_f_test(<3 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1271,12 +1271,12 @@ entry:
 
 
 
-; CHECK: @__distancef4_test
+; CHECK: @_Z8distanceDv4_fS__test
 ; CHECK-NOT: @_f_v.__vertical_distance4f8
 ; CHECK: @__vertical_distance4f8
 ; CHECK-NOT: @_f_v.__vertical_distance4f8
 ; CHECK: ret void
-define void @__distancef4_test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
+define void @_Z8distanceDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1379,12 +1379,12 @@ entry:
 
 
 
-; CHECK: @__lengthf4_test
+; CHECK: @_Z6lengthDv4_f_test
 ; CHECK-NOT: @_f_v.__vertical_length4f8
 ; CHECK: @__vertical_length4f8
 ; CHECK-NOT: @_f_v.__vertical_length4f8
 ; CHECK: ret void
-define void @__lengthf4_test(<4 x float>* nocapture, float* nocapture) {
+define void @_Z6lengthDv4_f_test(<4 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1447,12 +1447,12 @@ entry:
 
 
 
-; CHECK: @__dotf_test
+; CHECK: @_Z3dotff_test
 ; CHECK-NOT: @_f_v.__vertical_dot1f8
 ; CHECK: @__vertical_dot1f8
 ; CHECK-NOT: @_f_v.__vertical_dot1f8
 ; CHECK: ret void
-define void @__dotf_test(float* nocapture, float* nocapture, float* nocapture) {
+define void @_Z3dotff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %3 = getelementptr float* %0, i32 %gid
@@ -1470,12 +1470,12 @@ entry:
 
 
 
-; CHECK: @__dotf2_test
+; CHECK: @_Z3dotDv2_fS__test
 ; CHECK-NOT: @_f_v.__vertical_dot2f8
 ; CHECK: @__vertical_dot2f8
 ; CHECK-NOT: @_f_v.__vertical_dot2f8
 ; CHECK: ret void
-define void @__dotf2_test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
+define void @_Z3dotDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1598,12 +1598,12 @@ entry:
 
 
 
-; CHECK: @__dotf3_test
+; CHECK: @_Z3dotDv3_fS__test
 ; CHECK-NOT: @_f_v.__vertical_dot3f8
 ; CHECK: @__vertical_dot3f8
 ; CHECK-NOT: @_f_v.__vertical_dot3f8
 ; CHECK: ret void
-define void @__dotf3_test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
+define void @_Z3dotDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1760,12 +1760,12 @@ entry:
 
 
 
-; CHECK: @__dotf4_test
+; CHECK: @_Z3dotff4_test
 ; CHECK-NOT: @_f_v.__vertical_dot4f8
 ; CHECK: @__vertical_dot4f8
 ; CHECK-NOT: @_f_v.__vertical_dot4f8
 ; CHECK: ret void
-define void @__dotf4_test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
+define void @_Z3dotff4_test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1868,12 +1868,12 @@ entry:
 
 
 
-; CHECK: @__fast_lengthf_test
+; CHECK: @_Z11fast_lengthf_test
 ; CHECK-NOT: @_f_v.__vertical_fast_length1f8
 ; CHECK: @__vertical_fast_length1f8
 ; CHECK-NOT: @_f_v.__vertical_fast_length1f8
 ; CHECK: ret void
-define void @__fast_lengthf_test(float* nocapture, float* nocapture) {
+define void @_Z11fast_lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %2 = getelementptr float* %0, i32 %gid
@@ -1888,12 +1888,12 @@ entry:
 
 
 
-; CHECK: @__fast_lengthf2_test
+; CHECK: @_Z11fast_lengthDv2_f_test
 ; CHECK-NOT: @_f_v.__vertical_fast_length2f8
 ; CHECK: @__vertical_fast_length2f8
 ; CHECK-NOT: @_f_v.__vertical_fast_length2f8
 ; CHECK: ret void
-define void @__fast_lengthf2_test(<2 x float>* nocapture, float* nocapture) {
+define void @_Z11fast_lengthDv2_f_test(<2 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -1966,12 +1966,12 @@ entry:
 
 
 
-; CHECK: @__fast_lengthf3_test
+; CHECK: @_Z11fast_lengthDv3_f_test
 ; CHECK-NOT: @_f_v.__vertical_fast_length3f8
 ; CHECK: @__vertical_fast_length3f8
 ; CHECK-NOT: @_f_v.__vertical_fast_length3f8
 ; CHECK: ret void
-define void @__fast_lengthf3_test(<3 x float>* nocapture, float* nocapture) {
+define void @_Z11fast_lengthDv3_f_test(<3 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2061,12 +2061,12 @@ entry:
 
 
 
-; CHECK: @__fast_lengthf4_test
+; CHECK: @_Z11fast_lengthDv4_f_test
 ; CHECK-NOT: @_f_v.__vertical_fast_length4f8
 ; CHECK: @__vertical_fast_length4f8
 ; CHECK-NOT: @_f_v.__vertical_fast_length4f8
 ; CHECK: ret void
-define void @__fast_lengthf4_test(<4 x float>* nocapture, float* nocapture) {
+define void @_Z11fast_lengthDv4_f_test(<4 x float>* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2129,12 +2129,12 @@ entry:
 
 
 
-; CHECK: @__fast_normalizef_test
+; CHECK: @_Z14fast_normalizef_test
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize1f8
 ; CHECK: @__vertical_fast_normalize1f8
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize1f8
 ; CHECK: ret void
-define void @__fast_normalizef_test(float* nocapture, float* nocapture) {
+define void @_Z14fast_normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %2 = getelementptr float* %0, i32 %gid
@@ -2149,12 +2149,12 @@ entry:
 
 
 
-; CHECK: @__fast_normalizef2_test
+; CHECK: @_Z14fast_normalizeDv2_f_test
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize2f8
 ; CHECK: @__vertical_fast_normalize2f8
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize2f8
 ; CHECK: ret void
-define void @__fast_normalizef2_test(<2 x float>* nocapture, <2 x float>* nocapture) {
+define void @_Z14fast_normalizeDv2_f_test(<2 x float>* nocapture, <2 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2252,12 +2252,12 @@ entry:
 
 
 
-; CHECK: @__fast_normalizef3_test
+; CHECK: @_Z14fast_normalizeDv3_f_test
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize3f8
 ; CHECK: @__vertical_fast_normalize3f8
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize3f8
 ; CHECK: ret void
-define void @__fast_normalizef3_test(<3 x float>* nocapture, <3 x float>* nocapture) {
+define void @_Z14fast_normalizeDv3_f_test(<3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2378,12 +2378,12 @@ entry:
 
 
 
-; CHECK: @__fast_normalizef4_test
+; CHECK: @_Z14fast_normalizef4_test
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize4f8
 ; CHECK: @__vertical_fast_normalize4f8
 ; CHECK-NOT: @_f_v.__vertical_fast_normalize4f8
 ; CHECK: ret void
-define void @__fast_normalizef4_test(<4 x float>* nocapture, <4 x float>* nocapture) {
+define void @_Z14fast_normalizef4_test(<4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2479,12 +2479,12 @@ entry:
 
 
 
-; CHECK: @__normalizef_test
+; CHECK: @_Z9normalizef_test
 ; CHECK-NOT: @_f_v.__vertical_normalize1f8
 ; CHECK: @__vertical_normalize1f8
 ; CHECK-NOT: @_f_v.__vertical_normalize1f8
 ; CHECK: ret void
-define void @__normalizef_test(float* nocapture, float* nocapture) {
+define void @_Z9normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %2 = getelementptr float* %0, i32 %gid
@@ -2499,12 +2499,12 @@ entry:
 
 
 
-; CHECK: @__normalizef2_test
+; CHECK: @_Z9normalizeDv2_f_test
 ; CHECK-NOT: @_f_v.__vertical_normalize2f8
 ; CHECK: @__vertical_normalize2f8
 ; CHECK-NOT: @_f_v.__vertical_normalize2f8
 ; CHECK: ret void
-define void @__normalizef2_test(<2 x float>* nocapture, <2 x float>* nocapture) {
+define void @_Z9normalizeDv2_f_test(<2 x float>* nocapture, <2 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2602,12 +2602,12 @@ entry:
 
 
 
-; CHECK: @__normalizef3_test
+; CHECK: @_Z9normalizeDv3_f_test
 ; CHECK-NOT: @_f_v.__vertical_normalize3f8
 ; CHECK: @__vertical_normalize3f8
 ; CHECK-NOT: @_f_v.__vertical_normalize3f8
 ; CHECK: ret void
-define void @__normalizef3_test(<3 x float>* nocapture, <3 x float>* nocapture) {
+define void @_Z9normalizeDv3_f_test(<3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0
@@ -2728,12 +2728,12 @@ entry:
 
 
 
-; CHECK: @__normalizef4_test
+; CHECK: @_Z9normalizeDv4_f_test
 ; CHECK-NOT: @_f_v.__vertical_normalize4f8
 ; CHECK: @__vertical_normalize4f8
 ; CHECK-NOT: @_f_v.__vertical_normalize4f8
 ; CHECK: ret void
-define void @__normalizef4_test(<4 x float>* nocapture, <4 x float>* nocapture) {
+define void @_Z9normalizeDv4_f_test(<4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
   %gid = tail call i32 @get_global_id(i32 0)
   %broadcast1 = insertelement <8 x i32> undef, i32 %gid, i32 0

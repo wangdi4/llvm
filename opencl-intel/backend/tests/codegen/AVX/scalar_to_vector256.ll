@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define  void @test1() nounwind {
 deload:

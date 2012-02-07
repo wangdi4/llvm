@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __WI_RELATED_VALUE_PASS_H__
 #define __WI_RELATED_VALUE_PASS_H__
@@ -8,6 +8,9 @@
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+
+#include <map>
+#include <set>
 
 using namespace llvm;
 

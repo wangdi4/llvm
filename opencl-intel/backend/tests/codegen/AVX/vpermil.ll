@@ -1,4 +1,4 @@
-; RUN: llc < %s -mcpu=sandybridge | FileCheck %s
+; RUN: llc < %s -mcpu=corei7-avx | FileCheck %s
 
 ; CHECK: vpermilps
 define <8 x float> @funcA(<8 x float> %a) nounwind  readnone {

@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -58,7 +58,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 
   // Vector function was found in hash. Now find the function prototype of the scalar function
   const char *scalarFuncName = foundFunction.first->funcs[0];
-  const Function *scalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
+  Function *scalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
   if (!scalarFunc)
   {
     V_ASSERT(0 && "Functions hash mismatch with runtime module!");
@@ -68,14 +68,14 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 
   // Define the "desired" type of vectorized function, by expanding
   // the scalar function's argument types to vector width
-  const FunctionType *scalarFuncType = scalarFunc->getFunctionType();
-  const FunctionType *vectorFuncType = vectorFunc->getFunctionType();
+  FunctionType *scalarFuncType = scalarFunc->getFunctionType();
+  FunctionType *vectorFuncType = vectorFunc->getFunctionType();
   unsigned numInputParams = scalarFuncType->getNumParams();
   V_ASSERT(!scalarFuncType->getReturnType()->isVoidTy() && "scalar func expected to have ret val");
   bool isVectorFuncReturnsVoid = vectorFuncType->getReturnType()->isVoidTy();
 
-  std::vector<const Type*> desiredArgsTypes;
-  const Type *desiredRetValType = VectorType::get(scalarFuncType->getReturnType(), vectorWidth);
+  std::vector<Type*> desiredArgsTypes;
+  Type *desiredRetValType = VectorType::get(scalarFuncType->getReturnType(), vectorWidth);
   unsigned vectorIndex = isVectorFuncReturnsVoid ? 1 : 0;
   for (unsigned scalarIndex = 0; scalarIndex < numInputParams; ++scalarIndex, ++vectorIndex)
   {

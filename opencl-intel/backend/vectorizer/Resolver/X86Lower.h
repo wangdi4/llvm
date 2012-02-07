@@ -3,6 +3,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/Constants.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Dominators.h"
@@ -114,7 +115,7 @@ class X86Lower : public FunctionPass {
     /// @brief Translate predicate type to 32bit predicate
     /// @param tp Type to translate
     /// @return Translated type
-    const Type* TranslateType(const Type* tp);
+    Type* TranslateType(Type* tp);
 
     /// @brief Scalarize instruction if all useers and producers
     /// are scalar.
@@ -127,12 +128,12 @@ class X86Lower : public FunctionPass {
     /// @param predicate LLVM predicate encoding
     /// @param vec Vector Type
     /// @return intrinsic name or null
-    const char* getIntrinsicNameForCMPType(int predicate, const Type* vec);
+    const char* getIntrinsicNameForCMPType(int predicate, Type* vec);
 
     /// Type
-    const Type* m_i1;
-    const Type* m_i8;
-    const Type* m_i32;
+    Type* m_i1;
+    Type* m_i8;
+    Type* m_i32;
 
     /// Numeric Constant
     Constant* m_i32_0;   // the number 0

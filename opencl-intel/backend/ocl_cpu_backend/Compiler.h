@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -161,7 +161,7 @@ public:
 
     virtual void CreateExecutionEngine(llvm::Module* m) = 0;
 
-    virtual unsigned int GetTypeAllocSize(const llvm::Type* pType) = 0;
+    virtual unsigned int GetTypeAllocSize(llvm::Type* pType) = 0;
 
 protected:
     /**

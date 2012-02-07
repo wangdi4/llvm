@@ -1,15 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'amd_mandelbrot.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
 target triple = "i686-pc-win32"
-	type { i8*, i8*, i8*, i8*, i32 }		; type %0
+
 @sgv = internal constant [5 x i8] c"2000\00"		; <[5 x i8]*> [#uses=1]
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
-@llvm.global.annotations = appending global [1 x %0] [%0 { i8* bitcast (void (i32 addrspace(1)*, float, i32, i32, ...)* @mandelbrot to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }], section "llvm.metadata"		; <[1 x %0]*> [#uses=0]
 
 ; CHECK: @mandelbrot
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
@@ -18,148 +17,69 @@ target triple = "i686-pc-win32"
 
 define void @mandelbrot(i32 addrspace(1)* %mandelbrotImage, float %scale, i32 %maxIterations, i32 %width, ...) nounwind {
 entry:
-	%mandelbrotImage.addr = alloca i32 addrspace(1)*		; <i32 addrspace(1)**> [#uses=2]
-	%scale.addr = alloca float		; <float*> [#uses=7]
-	%maxIterations.addr = alloca i32		; <i32*> [#uses=3]
-	%width.addr = alloca i32		; <i32*> [#uses=7]
-	%tid = alloca i32, align 4		; <i32*> [#uses=4]
-	%i = alloca i32, align 4		; <i32*> [#uses=2]
-	%j = alloca i32, align 4		; <i32*> [#uses=2]
-	%x0 = alloca float, align 4		; <float*> [#uses=3]
-	%y0 = alloca float, align 4		; <float*> [#uses=3]
-	%x = alloca float, align 4		; <float*> [#uses=7]
-	%y = alloca float, align 4		; <float*> [#uses=7]
-	%x2 = alloca float, align 4		; <float*> [#uses=4]
-	%y2 = alloca float, align 4		; <float*> [#uses=4]
-	%scaleSquare = alloca float, align 4		; <float*> [#uses=2]
-	%iter = alloca i32, align 4		; <i32*> [#uses=6]
-	store i32 addrspace(1)* %mandelbrotImage, i32 addrspace(1)** %mandelbrotImage.addr
-	store float %scale, float* %scale.addr
-	store i32 %maxIterations, i32* %maxIterations.addr
-	store i32 %width, i32* %width.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
-	store i32 %call, i32* %tid
-	%tmp = load i32* %tid		; <i32> [#uses=1]
-	%tmp1 = load i32* %width.addr		; <i32> [#uses=3]
-	%ashr = ashr i32 %tmp1, 31		; <i32> [#uses=1]
-	%cmp = icmp eq i32 %ashr, %tmp1		; <i1> [#uses=2]
-	%nonzero = select i1 %cmp, i32 1, i32 %tmp1		; <i32> [#uses=1]
-	%rem = srem i32 %tmp, %nonzero		; <i32> [#uses=1]
-	%grem = select i1 %cmp, i32 0, i32 %rem		; <i32> [#uses=1]
-	store i32 %grem, i32* %i
-	%tmp3 = load i32* %tid		; <i32> [#uses=2]
-	%tmp4 = load i32* %width.addr		; <i32> [#uses=3]
-	%ashr5 = ashr i32 %tmp4, 31		; <i32> [#uses=1]
-	%cmp6 = icmp eq i32 %ashr5, %tmp4		; <i1> [#uses=2]
-	%nonzero7 = select i1 %cmp6, i32 1, i32 %tmp4		; <i32> [#uses=1]
-	%div = sdiv i32 %tmp3, %nonzero7		; <i32> [#uses=1]
-	%neg = sub i32 0, %tmp3		; <i32> [#uses=1]
-	%gdiv = select i1 %cmp6, i32 %neg, i32 %div		; <i32> [#uses=1]
-	store i32 %gdiv, i32* %j
-	%tmp9 = load i32* %i		; <i32> [#uses=1]
-	%conv = sitofp i32 %tmp9 to float		; <float> [#uses=1]
-	%tmp10 = load float* %scale.addr		; <float> [#uses=1]
-	%mul = fmul float %conv, %tmp10		; <float> [#uses=1]
-	%tmp11 = load float* %scale.addr		; <float> [#uses=1]
-	%div12 = fdiv float %tmp11, 2.000000e+000		; <float> [#uses=1]
-	%tmp13 = load i32* %width.addr		; <i32> [#uses=1]
-	%conv14 = sitofp i32 %tmp13 to float		; <float> [#uses=1]
-	%mul15 = fmul float %div12, %conv14		; <float> [#uses=1]
-	%sub = fsub float %mul, %mul15		; <float> [#uses=1]
-	%tmp16 = load i32* %width.addr		; <i32> [#uses=1]
-	%conv17 = sitofp i32 %tmp16 to float		; <float> [#uses=1]
-	%div18 = fdiv float %sub, %conv17		; <float> [#uses=1]
-	store float %div18, float* %x0
-	%tmp20 = load i32* %j		; <i32> [#uses=1]
-	%conv21 = sitofp i32 %tmp20 to float		; <float> [#uses=1]
-	%tmp22 = load float* %scale.addr		; <float> [#uses=1]
-	%mul23 = fmul float %conv21, %tmp22		; <float> [#uses=1]
-	%tmp24 = load float* %scale.addr		; <float> [#uses=1]
-	%div25 = fdiv float %tmp24, 2.000000e+000		; <float> [#uses=1]
-	%tmp26 = load i32* %width.addr		; <i32> [#uses=1]
-	%conv27 = sitofp i32 %tmp26 to float		; <float> [#uses=1]
-	%mul28 = fmul float %div25, %conv27		; <float> [#uses=1]
-	%sub29 = fsub float %mul23, %mul28		; <float> [#uses=1]
-	%tmp30 = load i32* %width.addr		; <i32> [#uses=1]
-	%conv31 = sitofp i32 %tmp30 to float		; <float> [#uses=1]
-	%div32 = fdiv float %sub29, %conv31		; <float> [#uses=1]
-	store float %div32, float* %y0
-	%tmp34 = load float* %x0		; <float> [#uses=1]
-	store float %tmp34, float* %x
-	%tmp36 = load float* %y0		; <float> [#uses=1]
-	store float %tmp36, float* %y
-	%tmp38 = load float* %x		; <float> [#uses=1]
-	%tmp39 = load float* %x		; <float> [#uses=1]
-	%mul40 = fmul float %tmp38, %tmp39		; <float> [#uses=1]
-	store float %mul40, float* %x2
-	%tmp42 = load float* %y		; <float> [#uses=1]
-	%tmp43 = load float* %y		; <float> [#uses=1]
-	%mul44 = fmul float %tmp42, %tmp43		; <float> [#uses=1]
-	store float %mul44, float* %y2
-	%tmp46 = load float* %scale.addr		; <float> [#uses=1]
-	%tmp47 = load float* %scale.addr		; <float> [#uses=1]
-	%mul48 = fmul float %tmp46, %tmp47		; <float> [#uses=1]
-	store float %mul48, float* %scaleSquare
-	store i32 0, i32* %iter
-	store i32 0, i32* %iter
-	br label %for.cond
+  %call = call i32 @get_global_id(i32 0) nounwind
+  %ashr = ashr i32 %width, 31
+  %cmp = icmp eq i32 %ashr, %width
+  %nonzero = select i1 %cmp, i32 1, i32 %width
+  %rem = srem i32 %call, %nonzero
+  %div = sdiv i32 %call, %nonzero
+  %neg = sub i32 0, %call
+  %gdiv = select i1 %cmp, i32 %neg, i32 %div
+  %0 = sitofp i32 %rem to float
+  %conv = select i1 %cmp, float 0.000000e+00, float %0
+  %mul = fmul float %conv, %scale
+  %div12 = fmul float %scale, 5.000000e-01
+  %conv14 = sitofp i32 %width to float
+  %mul15 = fmul float %div12, %conv14
+  %sub = fsub float %mul, %mul15
+  %div18 = fdiv float %sub, %conv14
+  %conv21 = sitofp i32 %gdiv to float
+  %mul23 = fmul float %conv21, %scale
+  %sub29 = fsub float %mul23, %mul15
+  %div32 = fdiv float %sub29, %conv14
+  %mul40 = fmul float %div18, %div18
+  %mul44 = fmul float %div32, %div32
+  %mul48 = fmul float %scale, %scale
+  %add5 = fadd float %mul40, %mul44
+  %cmp536 = fcmp ole float %add5, %mul48
+  %cmp577 = icmp ne i32 %maxIterations, 0
+  %or.cond8 = and i1 %cmp536, %cmp577
+  br i1 %or.cond8, label %for.body.preheader, label %for.end
 
-for.cond:		; preds = %for.inc, %entry
-	%tmp50 = load float* %x2		; <float> [#uses=1]
-	%tmp51 = load float* %y2		; <float> [#uses=1]
-	%add = fadd float %tmp50, %tmp51		; <float> [#uses=1]
-	%tmp52 = load float* %scaleSquare		; <float> [#uses=1]
-	%cmp53 = fcmp ole float %add, %tmp52		; <i1> [#uses=1]
-	br i1 %cmp53, label %land.lhs.true, label %for.end
+for.body.preheader:                               ; preds = %entry
+  br label %for.body
 
-land.lhs.true:		; preds = %for.cond
-	%tmp55 = load i32* %iter		; <i32> [#uses=1]
-	%tmp56 = load i32* %maxIterations.addr		; <i32> [#uses=1]
-	%cmp57 = icmp ult i32 %tmp55, %tmp56		; <i1> [#uses=1]
-	br i1 %cmp57, label %for.body, label %for.end
+for.body:                                         ; preds = %for.body.preheader, %for.body
+  %storemerge13 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
+  %add69112 = phi float [ %add69, %for.body ], [ %div18, %for.body.preheader ]
+  %tmp73211 = phi float [ %add64, %for.body ], [ %div32, %for.body.preheader ]
+  %mul72310 = phi float [ %mul72, %for.body ], [ %mul40, %for.body.preheader ]
+  %mul7549 = phi float [ %mul75, %for.body ], [ %mul44, %for.body.preheader ]
+  %mul60 = fmul float %add69112, 2.000000e+00
+  %mul62 = fmul float %mul60, %tmp73211
+  %add64 = fadd float %mul62, %div32
+  %sub67 = fsub float %mul72310, %mul7549
+  %add69 = fadd float %sub67, %div18
+  %mul72 = fmul float %add69, %add69
+  %mul75 = fmul float %add64, %add64
+  %inc = add i32 %storemerge13, 1
+  %add = fadd float %mul72, %mul75
+  %cmp53 = fcmp ole float %add, %mul48
+  %cmp57 = icmp ult i32 %inc, %maxIterations
+  %or.cond = and i1 %cmp53, %cmp57
+  br i1 %or.cond, label %for.body, label %for.cond.for.end_crit_edge
 
-for.body:		; preds = %land.lhs.true
-	%tmp59 = load float* %x		; <float> [#uses=1]
-	%mul60 = fmul float 2.000000e+000, %tmp59		; <float> [#uses=1]
-	%tmp61 = load float* %y		; <float> [#uses=1]
-	%mul62 = fmul float %mul60, %tmp61		; <float> [#uses=1]
-	%tmp63 = load float* %y0		; <float> [#uses=1]
-	%add64 = fadd float %mul62, %tmp63		; <float> [#uses=1]
-	store float %add64, float* %y
-	%tmp65 = load float* %x2		; <float> [#uses=1]
-	%tmp66 = load float* %y2		; <float> [#uses=1]
-	%sub67 = fsub float %tmp65, %tmp66		; <float> [#uses=1]
-	%tmp68 = load float* %x0		; <float> [#uses=1]
-	%add69 = fadd float %sub67, %tmp68		; <float> [#uses=1]
-	store float %add69, float* %x
-	%tmp70 = load float* %x		; <float> [#uses=1]
-	%tmp71 = load float* %x		; <float> [#uses=1]
-	%mul72 = fmul float %tmp70, %tmp71		; <float> [#uses=1]
-	store float %mul72, float* %x2
-	%tmp73 = load float* %y		; <float> [#uses=1]
-	%tmp74 = load float* %y		; <float> [#uses=1]
-	%mul75 = fmul float %tmp73, %tmp74		; <float> [#uses=1]
-	store float %mul75, float* %y2
-	br label %for.inc
+for.cond.for.end_crit_edge:                       ; preds = %for.body
+  %phitmp = mul i32 %inc, 255
+  br label %for.end
 
-for.inc:		; preds = %for.body
-	%tmp76 = load i32* %iter		; <i32> [#uses=1]
-	%inc = add i32 %tmp76, 1		; <i32> [#uses=1]
-	store i32 %inc, i32* %iter
-	br label %for.cond
-
-for.end:		; preds = %land.lhs.true, %for.cond
-	%tmp77 = load i32* %tid		; <i32> [#uses=1]
-	%tmp78 = load i32 addrspace(1)** %mandelbrotImage.addr		; <i32 addrspace(1)*> [#uses=1]
-	%arrayidx = getelementptr i32 addrspace(1)* %tmp78, i32 %tmp77		; <i32 addrspace(1)*> [#uses=1]
-	%tmp79 = load i32* %iter		; <i32> [#uses=1]
-	%mul80 = mul i32 255, %tmp79		; <i32> [#uses=1]
-	%tmp81 = load i32* %maxIterations.addr		; <i32> [#uses=2]
-	%cmp82 = icmp ne i32 %tmp81, 0		; <i1> [#uses=1]
-	%nonzero83 = select i1 %cmp82, i32 %tmp81, i32 1		; <i32> [#uses=1]
-	%div84 = udiv i32 %mul80, %nonzero83		; <i32> [#uses=1]
-	store i32 %div84, i32 addrspace(1)* %arrayidx
-	ret void
+for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
+  %storemerge.lcssa = phi i32 [ %phitmp, %for.cond.for.end_crit_edge ], [ 0, %entry ]
+  %arrayidx = getelementptr i32 addrspace(1)* %mandelbrotImage, i32 %call
+  %nonzero83 = select i1 %cmp577, i32 %maxIterations, i32 1
+  %div84 = udiv i32 %storemerge.lcssa, %nonzero83
+  store i32 %div84, i32 addrspace(1)* %arrayidx, align 4
+  ret void
 }
 
 declare i32 @get_global_id(i32)

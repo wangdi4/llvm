@@ -1,7 +1,7 @@
 """
 Simple test framework
 """
-import sys, os.path, platform, re, time, traceback, glob, shutil
+import sys, os.path, platform, re, time, traceback, glob, shutil, socket
 from datetime import timedelta
 from cmdtool import CommandLineTool
 
@@ -88,3 +88,13 @@ class VSEnvironment:
         path = os.getenv("ProgramFiles(x86)").replace('\\','/')
         return path + '/' + self.vc_version.programFiles_relpath + '/VC/bin/x86_amd64/ml64.exe'
 
+class NetworkEnvironment:
+    def __init__(self):
+        pass
+    @staticmethod
+    def getFQDN():
+        return socket.getfqdn()
+        
+    @staticmethod
+    def getDomain():
+        return socket.getfqdn().partition('.')[2]

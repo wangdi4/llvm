@@ -1,10 +1,11 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "Packetizer.h"
+#include "llvm/Constants.h"
 
 namespace intel {
 
@@ -302,8 +303,8 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
   }
 
   // Create the dummy values and place them in VCMEntry
-  const Type * vectorType = VectorType::get(origValue->getType(), m_packetWidth);
-  const Type * ptrType = PointerType::get(vectorType, 0);
+  Type * vectorType = VectorType::get(origValue->getType(), m_packetWidth);
+  Type * ptrType = PointerType::get(vectorType, 0);
   V_PRINT(packetizer, 
       "\t\tCreate Dummy Vector value/s (of type " << *vectorType << ")\n");
   Constant * subExpr = ConstantExpr::getIntToPtr(
@@ -341,7 +342,7 @@ void PacketizeFunction::createDummyMultiScalarVals(Value *origValue, Value *mult
   }
 
   // Create the dummy values and place them in VCMEntry
-  const Type * ptrType = PointerType::get(origValue->getType(), 0);
+  Type * ptrType = PointerType::get(origValue->getType(), 0);
   V_PRINT(packetizer, 
       "\t\tCreate Dummy value/s (of type " << *(origValue->getType()) << ")\n");
   Constant * subExpr = ConstantExpr::getIntToPtr(

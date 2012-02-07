@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,12 +36,12 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
-#include "MICJITEngine/include/MICCodeGenerationEngine.h"
-#include "MICJITEngine/include/ModuleJITHolder.h"
+//#include "llvm/MICJITEngine/MICCodeGenerationEngine.h"
+//#include "llvm/MICJITEngine/ModuleJITHolder.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -89,7 +89,7 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
     std::vector<cl_kernel_argument> arguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, args, arguments);
+    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, /*args,*/ arguments);
 
     return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps ));
 }
@@ -211,7 +211,7 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
         }
 
         // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, elt, buildResult.GetKernelsInfo()[pFunc]));
+        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, pFunc, buildResult.GetKernelsInfo()[pFunc]));
         std::auto_ptr<MICKernelJITProperties> spKernelJITProps( CreateKernelJITProperties( pModule,
                                                                                         pWrapperFunc,
                                                                                         buildResult.GetKernelsInfo()[pFunc]));
@@ -293,6 +293,7 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
 
 void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule)
 {
+#if 0
     assert(spModule && "Invalid module for post optimization processing.");
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 
     std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule));
@@ -313,8 +314,9 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         kernelInfo.kernelSize   = it->second.size;
         KernelID kernelID = (const KernelID)it->first;
         pModuleJIT->RegisterKernel(kernelID, kernelInfo);
-}
+	}
     static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
+#endif
 }
 
 }}} // namespace

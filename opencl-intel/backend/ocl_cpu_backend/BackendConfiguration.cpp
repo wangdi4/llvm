@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -98,6 +98,11 @@ MICCompilerConfiguration BackendConfiguration::GetMICCompilerConfig() const
     MICCompilerConfig.LoadConfig();  
 
     return MICCompilerConfig; 
+}
+
+OPERATION_MODE CompilerConfiguration::GetOperationMode()
+{
+     return Utils::SelectOperationMode(GetCpuArch().c_str());
 }
 
 void CompilerConfiguration::LoadDefaults()

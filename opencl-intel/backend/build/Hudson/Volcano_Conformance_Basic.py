@@ -103,7 +103,7 @@ class VolcanoConformanceBasic(VolcanoTestSuite):
     def __init__(self, config):
         import os.path
         VolcanoTestSuite.__init__(self,"Basic")
-        self.generate_children_report = False
+        #self.generate_children_report = False
         
         for testname in BasicTestsNames:
             test = SimpleTest(testname, config.bin_dir, os.path.join('validation', 'conformance', 'basic','test_basic') + ' ' + testname)

@@ -11,7 +11,7 @@ include_directories(BEFORE "AppleWrapper")
 include_directories(BEFORE "PreVectorization")
 include_directories(../arch_headers)
 
-add_llvm_library( LLVMVectorizer
+add_llvm_library(LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp

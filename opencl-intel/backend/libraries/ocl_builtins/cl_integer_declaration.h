@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -29,6 +29,7 @@
 #define LLONG_MAX	LONG_MAX
 #define LLONG_MIN	LONG_MIN
 #define ULLONG_MAX	ULONG_MAX
+#define UCHAR_MIN	0
 
 
 #define DEF_INT_PROTO8_X_Y(FUNC, TI, TO)\
@@ -161,6 +162,59 @@
 		return res;\
 	}
 
+#define DEF_INT_PROMOTE8(FUNC, UN, UI)\
+	_2##UI##8 __attribute__((overloadable)) FUNC(_2##UI##8 x, _2##UI##8 y)\
+	{\
+		_2##UI##32 x2 = convert_##UN##int2 (x);\
+		_2##UI##32 y2 = convert_##UN##int2 (y);\
+		return convert_##UN##char2 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_3##UI##8 __attribute__((overloadable)) FUNC(_3##UI##8 x, _3##UI##8 y)\
+	{\
+		_3##UI##32 x2 = convert_##UN##int3 (x);\
+		_3##UI##32 y2 = convert_##UN##int3 (y);\
+		return convert_##UN##char3 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_4##UI##8 __attribute__((overloadable)) FUNC(_4##UI##8 x, _4##UI##8 y)\
+	{\
+		_4##UI##32 x2 = convert_##UN##int4 (x);\
+		_4##UI##32 y2 = convert_##UN##int4 (y);\
+		return convert_##UN##char4 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_8##UI##8 __attribute__((overloadable)) FUNC(_8##UI##8 x, _8##UI##8 y)\
+	{\
+		_8##UI##32 x2 = convert_##UN##int8 (x);\
+		_8##UI##32 y2 = convert_##UN##int8 (y);\
+		return convert_##UN##char8 ( FUNC ( x2,  y2 ) ); \
+	}
+
+#define DEF_INT_PROMOTE16(FUNC, UN, UI)\
+	_2##UI##16 __attribute__((overloadable)) FUNC(_2##UI##16 x, _2##UI##16 y)\
+	{\
+		_2##UI##32 x2 = convert_##UN##int2 (x);\
+		_2##UI##32 y2 = convert_##UN##int2 (y);\
+		return convert_##UN##short2 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_3##UI##16 __attribute__((overloadable)) FUNC(_3##UI##16 x, _3##UI##16 y)\
+	{\
+		_3##UI##32 x2 = convert_##UN##int3 (x);\
+		_3##UI##32 y2 = convert_##UN##int3 (y);\
+		return convert_##UN##short3 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_4##UI##16 __attribute__((overloadable)) FUNC(_4##UI##16 x, _4##UI##16 y)\
+	{\
+		_4##UI##32 x2 = convert_##UN##int4 (x);\
+		_4##UI##32 y2 = convert_##UN##int4 (y);\
+		return convert_##UN##short4 ( FUNC ( x2,  y2 ) ); \
+	}\
+	_16##UI##16 __attribute__((overloadable)) FUNC(_16##UI##16 x, _16##UI##16 y)\
+	{\
+		_16##UI##16 res;\
+		res.lo = FUNC(x.lo, y.lo);\
+		res.hi = FUNC(x.hi, y.hi);\
+		return res;\
+	}
+	
 #define DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
 	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TI0##8 x, _2##TI1##8 y)\
 	{\
@@ -483,9 +537,121 @@
 		res.hi.hi.hi = FUNC(x.hi.hi.hi, tmpY);\
 		return res;\
 	}
+	
+#define DEF_INT_MAD_SAT8_X_X_X_Y(FUNC, UN, UNlow, TO)\
+	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TO##8 x, _2##TO##8 y,  _2##TO##8 z)\
+	{\
+		_2##TO##8 res;\
+		res.s0 = FUNC(x.s0, y.s0, z.s0);\
+		res.s1 = FUNC(x.s1, y.s1, z.s1);\
+		return res;\
+	}\
+	_3##TO##8 __attribute__((overloadable)) FUNC(_3##TO##8 x, _3##TO##8 y, _3##TO##8 z)\
+	{\
+		_16##TO##8 temp1, temp2, temp3;\
+		temp1.s012 = x;\
+		temp2.s012 = y;\
+		temp3.s012 = z;\
+		_16##TO##8 res;\
+		res = FUNC(temp1, temp2, temp3);\
+		return res.s012;\
+	}\
+	_4##TO##8 __attribute__((overloadable)) FUNC(_4##TO##8 x, _4##TO##8 y, _4##TO##8 z)\
+	{\
+		_4##TO##32 res; \
+		_4##TO##32 cmin = {UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN};\
+		_4##TO##32 cmax = {UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX};\
+		res =  convert_##UN##int4 (x) * convert_##UN##int4 (y)  + convert_##UN##int4(z); \
+		return convert_##UN##char4 ( clamp ( res,  cmin , cmax ) ); \
+	}\
+	_8##TO##8 __attribute__((overloadable)) FUNC(_8##TO##8 x, _8##TO##8 y, _8##TO##8 z)\
+	{\
+		_8##TO##32 res; \
+		_8##TO##32 cmin = {UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN, UNlow##CHAR_MIN};\
+		_8##TO##32 cmax = {UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX, UNlow##CHAR_MAX};\
+		res =  convert_##UN##int8 (x) * convert_##UN##int8 (y)  + convert_##UN##int8(z); \
+		return convert_##UN##char8 ( clamp ( res,  cmin , cmax ) ); \
+	}\
 
 
+#define DEF_INT_CLAMP8_X_X_X_Y(FUNC, UN, UNlow, TO)\
+	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TO##8 x, _2##TO##8 y,  _2##TO##8 z)\
+	{\
+		_2##TO##32 a = convert_##UN##int2(x) ; \
+		_2##TO##32 b = convert_##UN##int2(y) ; \
+		_2##TO##32 c = convert_##UN##int2(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##char2(a); \
+	}\
+	_3##TO##8 __attribute__((overloadable)) FUNC(_3##TO##8 x, _3##TO##8 y, _3##TO##8 z)\
+	{\
+		_3##TO##32 a = convert_##UN##int3(x) ; \
+		_3##TO##32 b = convert_##UN##int3(y) ; \
+		_3##TO##32 c = convert_##UN##int3(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##char3(a); \
+	}\
+	_4##TO##8 __attribute__((overloadable)) FUNC(_4##TO##8 x, _4##TO##8 y, _4##TO##8 z)\
+	{\
+		_4##TO##32 a = convert_##UN##int4(x) ; \
+		_4##TO##32 b = convert_##UN##int4(y) ; \
+		_4##TO##32 c = convert_##UN##int4(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##char4(a); \
+	}\
+	_8##TO##8 __attribute__((overloadable)) FUNC(_8##TO##8 x, _8##TO##8 y, _8##TO##8 z)\
+	{\
+		_8##TO##32 a = convert_##UN##int8(x) ; \
+		_8##TO##32 b = convert_##UN##int8(y) ; \
+		_8##TO##32 c = convert_##UN##int8(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##char8(a); \
+	}\
 
+#define DEF_INT_CLAMP16_X_X_X_Y(FUNC, UN, UNlow, TO)\
+	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TO##16 x, _2##TO##16 y,  _2##TO##16 z)\
+	{\
+		_2##TO##32 a = convert_##UN##int2(x) ; \
+		_2##TO##32 b = convert_##UN##int2(y) ; \
+		_2##TO##32 c = convert_##UN##int2(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short2(a); \
+	}\
+	_3##TO##16 __attribute__((overloadable)) FUNC(_3##TO##16 x, _3##TO##16 y, _3##TO##16 z)\
+	{\
+		_3##TO##32 a = convert_##UN##int3(x) ; \
+		_3##TO##32 b = convert_##UN##int3(y) ; \
+		_3##TO##32 c = convert_##UN##int3(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short3(a); \
+	}\
+	_4##TO##16 __attribute__((overloadable)) FUNC(_4##TO##16 x, _4##TO##16 y, _4##TO##16 z)\
+	{\
+		_4##TO##32 a = convert_##UN##int4(x) ; \
+		_4##TO##32 b = convert_##UN##int4(y) ; \
+		_4##TO##32 c = convert_##UN##int4(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short4(a); \
+	}\
+	_8##TO##16 __attribute__((overloadable)) FUNC(_8##TO##16 x, _8##TO##16 y, _8##TO##16 z)\
+	{\
+		_8##TO##32 a = convert_##UN##int8(x) ; \
+		_8##TO##32 b = convert_##UN##int8(y) ; \
+		_8##TO##32 c = convert_##UN##int8(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short8(a); \
+	}\
+	_16##TO##16 __attribute__((overloadable)) FUNC(_16##TO##16 x, _16##TO##16 y, _16##TO##16 z)\
+	{\
+		_16##TO##32 a = convert_##UN##int16(x) ; \
+		_16##TO##32 b = convert_##UN##int16(y) ; \
+		_16##TO##32 c = convert_##UN##int16(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short16(a); \
+	}\
+
+	
+	
 #define DEF_INT_PROTO8_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
 	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TI0##8 x, _2##TI1##8 y,  _2##TI2##8 z)\
 	{\
@@ -1031,12 +1197,18 @@
     DEF_INT_PROTO32_X_X_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO64_X_X_Y(FUNC, TI0, TI1, TO)
 
+// Promote chars to dwords
+#define DEF_INT_PROMOTE(FUNC, UN, UI)\
+    DEF_INT_PROMOTE8(FUNC, UN, UI)\
+	DEF_INT_PROMOTE16(FUNC, UN, UI)\
+    DEF_INT_PROTO32_X_X_Y(FUNC, UI, UI, UI)\
+    DEF_INT_PROTO64_X_X_Y(FUNC, UI, UI, UI)
+
 #define DEF_INT_PROTO_vX_sX_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO8_vX_sX_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO16_vX_sX_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO32_vX_sX_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO64_vX_sX_Y(FUNC, TI0, TI1, TO)
-
 
 #define DEF_MUL24_PROTO_X_X_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO32_X_X_Y(FUNC, TI0, TI1, TO)
@@ -1055,6 +1227,18 @@
     DEF_INT_PROTO32_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
     DEF_INT_PROTO64_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)
 
+#define DEF_INT_MAD_SAT_X_X_X_Y(FUNC, UN, UNlow, TO)\
+    DEF_INT_MAD_SAT8_X_X_X_Y(FUNC, UN, UNlow, TO)\
+    DEF_INT_PROTO16_X_X_X_Y(FUNC, TO, TO, TO, TO)\
+    DEF_INT_PROTO32_X_X_X_Y(FUNC, TO, TO, TO, TO)\
+    DEF_INT_PROTO64_X_X_X_Y(FUNC, TO, TO, TO, TO)
+
+#define DEF_INT_CLAMP_X_X_X_Y(FUNC, UN, UNlow, TO)\
+    DEF_INT_CLAMP8_X_X_X_Y(FUNC, UN, UNlow, TO)\
+	DEF_INT_CLAMP16_X_X_X_Y(FUNC, UN, UNlow, TO)\
+    DEF_INT_PROTO32_X_X_X_Y(FUNC, TO, TO, TO, TO)\
+    DEF_INT_PROTO64_X_X_X_Y(FUNC, TO, TO, TO, TO)
+	
 #define DEF_INT_PROTO_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
 	DEF_INT_PROTO8_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
 	DEF_INT_PROTO16_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
@@ -1080,18 +1264,20 @@ DEF_INT_PROTO_X_X_Y(rhadd, i, i, i)
 DEF_INT_PROTO_X_X_Y(rhadd, u, u, u)
 DEF_LLVM_BUILT_IN_PROTO_X_Y(clz, i, i)
 DEF_LLVM_BUILT_IN_PROTO_X_Y(clz, u, u)
-DEF_INT_PROTO_X_X_X_Y(clamp, u, u, u, u)
-DEF_INT_PROTO_X_X_X_Y(clamp, i, i, i, i)
 DEF_INT_PROTO_X_sX_sX_Y(clamp, u, u, u, u)
 DEF_INT_PROTO_X_sX_sX_Y(clamp, i, i, i, i)
 DEF_INT_PROTO_X_X_X_Y(mad_hi, u, u, u, u)
 DEF_INT_PROTO_X_X_X_Y(mad_hi, i, i, i, i)
-DEF_INT_PROTO_X_X_X_Y(mad_sat, u, u, u, u)
-DEF_INT_PROTO_X_X_X_Y(mad_sat, i, i, i, i)
-DEF_INT_PROTO_X_X_Y(max, i, i, i)
-DEF_INT_PROTO_X_X_Y(max, u, u, u)
-DEF_INT_PROTO_X_X_Y(min, i, i, i)
-DEF_INT_PROTO_X_X_Y(min, u, u, u)
+
+DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, u, U, u)
+DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, , , i)
+DEF_INT_CLAMP_X_X_X_Y(clamp, u, U, u)
+DEF_INT_CLAMP_X_X_X_Y(clamp, , , i)
+
+DEF_INT_PROMOTE(max, u, u)
+DEF_INT_PROMOTE(max, , i)
+DEF_INT_PROMOTE(min, u, u)
+DEF_INT_PROMOTE(min, , i)
 
 DEF_INT_PROTO_vX_sX_Y(max, i, i, i)
 DEF_INT_PROTO_vX_sX_Y(max, u, u, u)

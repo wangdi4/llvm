@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,7 +19,7 @@ File Name:  Image.h
 #define __IMAGE_H__
 
 #include "IMemoryObject.h"                    // IMemoryObject declaration
-#include "llvm/System/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // llvm data types
 #include "Exception.h"
 #include "ImageDesc.h"
 

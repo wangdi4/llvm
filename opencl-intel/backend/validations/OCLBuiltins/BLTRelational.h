@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,7 +36,7 @@ namespace OCLBuiltins {
     };
 
     template<typename T>
-    llvm::GenericValue lle_X_isinf(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isinf(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -45,7 +45,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isinf(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isinf(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -59,7 +59,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isnormal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnormal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -68,7 +68,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isnormal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnormal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -82,7 +82,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isnan(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnan(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -91,7 +91,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isnan(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnan(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -105,7 +105,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isgreater(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isgreater(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -115,7 +115,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isgreater(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isgreater(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -131,7 +131,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -141,7 +141,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -156,7 +156,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isgreaterequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isgreaterequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -166,7 +166,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isgreaterequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isgreaterequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -181,7 +181,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isless(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isless(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -191,7 +191,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isless(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isless(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -206,7 +206,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_islessequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_islessequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -216,7 +216,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_islessequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_islessequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -231,7 +231,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_islessgreater(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_islessgreater(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -241,7 +241,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_islessgreater(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_islessgreater(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -256,7 +256,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isnotequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnotequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -266,7 +266,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isnotequal(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isnotequal(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -281,7 +281,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isunordered(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isunordered(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -291,7 +291,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isunordered(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isunordered(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -306,7 +306,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isordered(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isordered(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -316,7 +316,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isordered(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isordered(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -331,7 +331,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isfinite(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isfinite(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -340,7 +340,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isfinite(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_isfinite(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -354,7 +354,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_signbit(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_signbit(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -363,7 +363,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_signbit(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_signbit(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -377,7 +377,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_any(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_any(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -389,7 +389,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_any(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_any(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         typedef typename signedT<T>::type sT;
@@ -409,7 +409,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_all(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_all(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         typedef typename signedT<T>::type sT;
@@ -423,7 +423,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_all(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_all(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         typedef typename signedT<T>::type sT;
@@ -452,7 +452,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_bitselect(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_bitselect(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -464,7 +464,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_bitselect(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_bitselect(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -490,7 +490,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, typename C>
-    llvm::GenericValue lle_X_select(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_select(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -504,7 +504,7 @@ namespace OCLBuiltins {
         return R;
     }
     template<typename T, typename C, int32_t n>
-    llvm::GenericValue lle_X_select(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_select(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         typedef typename signedT<C>::type sC;

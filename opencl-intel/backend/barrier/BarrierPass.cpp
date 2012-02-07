@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierPass.h"
 
@@ -408,7 +408,7 @@ namespace intel {
   }
 
   Value* Barrier::getAddressInSpecialBuffer(
-    unsigned int offset, const PointerType *pType, Instruction *pInsertBefore){
+    unsigned int offset, PointerType *pType, Instruction *pInsertBefore){
       Value *pOffsetVal = ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, offset));
       //If hit this assert then need to handle PHINode!
       assert( !isa<PHINode>(pInsertBefore) && "cannot add instructions before a PHI node!" );
@@ -418,7 +418,7 @@ namespace intel {
       Idxs[0] = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
         pOffsetVal, "&(pSB[currWI].offset)", pInsertBefore);
       Value *pAddrInSpecialBuffer = GetElementPtrInst::CreateInBounds(
-        m_pSpecialBufferValue, Idxs, Idxs+1, "&pSB[currWI].offset", pInsertBefore);
+        m_pSpecialBufferValue, ArrayRef<Value*>(Idxs), "&pSB[currWI].offset", pInsertBefore);
       //Bitcast pointer according to alloca type!
       pAddrInSpecialBuffer = BitCastInst::CreatePointerCast(
         pAddrInSpecialBuffer, pType, "CastToValueType", pInsertBefore);
@@ -502,7 +502,7 @@ namespace intel {
   }
 
   Function* Barrier::createFixFunctionVersion(Function *pFuncToFix) {
-    std::vector<const llvm::Type *> newArgsVec;
+    std::vector<llvm::Type *> newArgsVec;
 
     //Add original parameter types
     for ( Function::ArgumentListType::iterator ai = pFuncToFix->getArgumentList().begin(),
@@ -530,7 +530,7 @@ namespace intel {
     Function *pNewFunc = Function::Create(FTy, pFuncToFix->getLinkage(), pFuncToFix->getName()+"_New");
     pNewFunc->setCallingConv(pFuncToFix->getCallingConv());
 
-    ValueMap<const Value*, Value*> ValueMap;
+    llvm::ValueToValueMapTy ValueMap;
     TValueVector newFuncArgs;
 
     //Copy parameter names of original function to new function
@@ -706,7 +706,7 @@ namespace intel {
           Idxs[0] = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
             pOffsetArg, "&(pSB[currWI].offset)", pInsertBefore);
           Value *pAddrInSpecialBuffer = GetElementPtrInst::CreateInBounds(
-            m_pSpecialBufferValue, Idxs, Idxs+1, "&pSB[currWI].offset", pInsertBefore);
+            m_pSpecialBufferValue, ArrayRef<Value*>(Idxs), "&pSB[currWI].offset", pInsertBefore);
           //Bitcast pointer according to alloca type!
           PointerType *pType = PointerType::get(pOriginalArg->getType(), SPECIAL_BUFFER_ADDR_SPACE);
           pAddrInSpecialBuffer = BitCastInst::CreatePointerCast(
@@ -740,7 +740,7 @@ namespace intel {
         Idxs[0] = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
           pOffsetArg, "&(pSB[currWI].offset)", pThenBB);
         Value *pAddrInSpecialBuffer = GetElementPtrInst::CreateInBounds(
-          m_pSpecialBufferValue, Idxs, Idxs+1, "&pSB[currWI].offset", pThenBB);
+          m_pSpecialBufferValue, ArrayRef<Value*>(Idxs), "&pSB[currWI].offset", pThenBB);
         //Bitcast pointer according to alloca type!
         PointerType *pType = PointerType::get(pOriginalArg->getType(), SPECIAL_BUFFER_ADDR_SPACE);
         pAddrInSpecialBuffer = BitCastInst::CreatePointerCast(
@@ -751,8 +751,7 @@ namespace intel {
 
         //C. Create PHINode at the begining of the pPHINodeBB to represent the
         //   Valid parameter and then replace the original parameter with this value
-        PHINode* pValidArg = PHINode::Create(pOriginalArg->getType(), "", pPHINodeBB->begin());
-    pValidArg->reserveOperandSpace(2);
+        PHINode* pValidArg = PHINode::Create(pOriginalArg->getType(), 2, "", pPHINodeBB->begin());
     pValidArg->addIncoming(pLoadedValue, pThenBB);
     pValidArg->addIncoming(pOriginalArg, pConditionBB);
         ++ui; // Need to increment iterator before replace it!
@@ -772,7 +771,7 @@ namespace intel {
         Idxs[0] = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
           pOffsetArg, "&(pSB[currWI].offset)", pNextInst);
         Value *pAddrInSpecialBuffer = GetElementPtrInst::CreateInBounds(
-          m_pSpecialBufferValue, Idxs, Idxs+1, "&pSB[currWI].offset", pNextInst);
+          m_pSpecialBufferValue, ArrayRef<Value*>(Idxs), "&pSB[currWI].offset", pNextInst);
         //Bitcast pointer according to alloca type!
         PointerType *pType = PointerType::get(pRetVal->getType(), SPECIAL_BUFFER_ADDR_SPACE);
         pAddrInSpecialBuffer = BitCastInst::CreatePointerCast(
@@ -809,10 +808,10 @@ namespace intel {
     }
 
     CallInst *pNewCall = CallInst::Create(
-      pNewFunc, params.begin(), params.end(), "", pOriginalCall);
+      pNewFunc, ArrayRef<Value*>(params), "", pOriginalCall);
     pNewCall->setCallingConv(pOriginalCall->getCallingConv());
 
-    pOriginalCall->uncheckedReplaceAllUsesWith(pNewCall);
+    pOriginalCall->replaceAllUsesWith(pNewCall);
     return true;
   }
 

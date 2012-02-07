@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __BARRIER_IN_FUNCTION_PASS_H__
 #define __BARRIER_IN_FUNCTION_PASS_H__

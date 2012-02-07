@@ -2,13 +2,13 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/InstIterator.h"
 #include "Logger.h"
-
+#include "llvm/Constants.h"
 
 namespace intel{
 
 
 
-Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, const Type *realType)
+Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, Type *realType)
 {
   V_ASSERT(SI && "Expected ShuffleVector instruction as input");
 
@@ -18,7 +18,7 @@ Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, const Type *r
   // That is legal, as the consumer of the shuffleInst is known to be using only the
   // lower WIDTH elements of the vector.
   // WIDTH is calculated as number of vector Elements of realType
-  const VectorType *desiredVectorType = dyn_cast<VectorType>(realType);
+  VectorType *desiredVectorType = dyn_cast<VectorType>(realType);
   if (!desiredVectorType) return NULL;
   unsigned realWidth = desiredVectorType->getNumElements();
 
@@ -35,19 +35,29 @@ Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, const Type *r
 }
 
 
-bool VectorizerUtils::isOpaquePtrPair(const Type *x, const Type *y)
+bool VectorizerUtils::isOpaquePtrPair(Type *x, Type *y)
 {
-  return x->isPointerTy() &&
-         y->isPointerTy() &&
-         (cast<PointerType>(x))->getElementType()->isOpaqueTy() &&
-         (cast<PointerType>(y))->getElementType()->isOpaqueTy() ;
+  PointerType *xPtr = dyn_cast<PointerType>(x);
+  PointerType *yPtr = dyn_cast<PointerType>(y);
+  if (xPtr && yPtr ) {
+    StructType *xStructEl = dyn_cast<StructType>(xPtr->getElementType());
+    StructType *yStructEl = dyn_cast<StructType>(yPtr->getElementType());
+    if (xStructEl && yStructEl){
+      return (// in apple the samplers have slightly differnet function names between
+              // rt module and kernels IR so I skip checking that name is the same.
+              //xStructEl->getName() == yStructEl->getName() && // have the same name
+              xStructEl->isEmptyTy() && //x is empty
+              yStructEl->isEmptyTy());  //y is empty        
+    }
+  }
+  return false;
 }
 
-Value *VectorizerUtils::RootInputArgument(Value *arg, const Type *rootType, CallInst *CI)
+Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *CI)
 {
   LLVMContext &context = CI->getContext();
   // Is the argument already in the correct type?
-  const Type *argType = arg->getType();
+  Type *argType = arg->getType();
   if (argType == rootType) return arg; 
 
   if (isOpaquePtrPair(argType, rootType))
@@ -128,7 +138,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, const Type *rootType, Call
     else
     {
         // maybe we should return NULL ? I am not sure why we ever return NULL!!!
-        break;    
+        return NULL;    
     }
     V_PRINT(utils, "climbing through use-def chain: " << *currVal << "\n");
   }
@@ -170,7 +180,7 @@ bool VectorizerUtils::isShuffleVectorTruncate(ShuffleVectorInst *SI)
   if (!SI) return false;
   // The "proper" input is supposed to be in the first vector input,
   // and the shuffle values (locations) are the ordered components of that input.
-  const VectorType *inputType = dyn_cast<VectorType>(SI->getOperand(0)->getType());
+  VectorType *inputType = dyn_cast<VectorType>(SI->getOperand(0)->getType());
   V_ASSERT(inputType && "ShuffleVector is expected to have vector inputs!");
   unsigned inputWidth = inputType->getNumElements();
   unsigned resultWidth = SI->getType()->getNumElements();
@@ -185,7 +195,7 @@ bool VectorizerUtils::isShuffleVectorTruncate(ShuffleVectorInst *SI)
 }
 
 
-Value *VectorizerUtils::RootReturnValue(Value *retVal, const Type *rootType, CallInst *CI)
+Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst *CI)
 {
   LLVMContext &context = CI->getContext();
   // Check maybe the return value is of the right type - no need for rooting
@@ -279,7 +289,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, const Type *rootType, Cal
   Instruction *dummyInstruction = NULL;
   if (retvalUsers.count(CI))
   {
-    const Type *ptrType = PointerType::get(CI->getType(), 0);
+    Type *ptrType = PointerType::get(CI->getType(), 0);
     Constant *subExpr = ConstantExpr::getIntToPtr(
       ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0xdeadbeef)), ptrType);
     dummyInstruction = new LoadInst(subExpr);
@@ -341,11 +351,11 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, const Type *rootType, Cal
 }
 
 
-Instruction *VectorizerUtils::BitCastValToType(Value *orig, const Type *targetType,
+Instruction *VectorizerUtils::BitCastValToType(Value *orig, Type *targetType,
                                                  Instruction *insertPoint)
 {
   LLVMContext& context = insertPoint->getContext();
-  const Type *currType = orig->getType();
+  Type *currType = orig->getType();
   V_ASSERT (currType != targetType && "should get here in case of same type" );
   unsigned currSize = currType->getPrimitiveSizeInBits();
   unsigned rootSize = targetType->getPrimitiveSizeInBits();
@@ -376,7 +386,7 @@ Instruction *VectorizerUtils::BitCastValToType(Value *orig, const Type *targetTy
   return retVal;
 }
 
-Instruction *VectorizerUtils::ExtendValToType(Value *orig, const Type *targetType,
+Instruction *VectorizerUtils::ExtendValToType(Value *orig, Type *targetType,
                                               Instruction *insertPoint)
 {
   V_ASSERT(orig->getType()->getPrimitiveSizeInBits() <= targetType->getPrimitiveSizeInBits() &&
@@ -384,19 +394,19 @@ Instruction *VectorizerUtils::ExtendValToType(Value *orig, const Type *targetTyp
   return BitCastValToType(orig, targetType, insertPoint);
 }
 
-Instruction *VectorizerUtils::TruncValToType(Value *orig, const Type *targetType, Instruction *insertPoint)
+Instruction *VectorizerUtils::TruncValToType(Value *orig, Type *targetType, Instruction *insertPoint)
 {
   V_ASSERT(orig->getType()->getPrimitiveSizeInBits() >= targetType->getPrimitiveSizeInBits() &&
       "trunc when souce is  smaller than target");
   return BitCastValToType(orig, targetType, insertPoint);
 }
 
-Instruction *VectorizerUtils::convertValToPointer(Value *orig, const Type *targetType, Instruction *insertPoint)
+Instruction *VectorizerUtils::convertValToPointer(Value *orig, Type *targetType, Instruction *insertPoint)
 {
-  const PointerType *targetPointerType = dyn_cast<PointerType>(targetType);
+  PointerType *targetPointerType = dyn_cast<PointerType>(targetType);
   V_ASSERT(targetPointerType && "getting here target type must be a pointer");
   if (!targetPointerType) return NULL;
-  const Type *sourceType = orig->getType();
+  Type *sourceType = orig->getType();
   V_ASSERT(targetPointerType->getElementType() == sourceType && "pointer nust of orig type");
   AllocaInst *ptr = new AllocaInst(sourceType, "allocated_val" , insertPoint);
   new StoreInst(orig, ptr, insertPoint);
@@ -404,9 +414,9 @@ Instruction *VectorizerUtils::convertValToPointer(Value *orig, const Type *targe
 }
 
 
-Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, const Type *targetType, Instruction *insertPoint)
+Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, Instruction *insertPoint)
 {
-  const Type *sourceType = inputVal->getType();
+  Type *sourceType = inputVal->getType();
   
   // incase of same type do noting
   if (sourceType == targetType) return inputVal;
@@ -432,10 +442,10 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, const Type *target
 }
 
 
-Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, const Type *targetType)
+Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetType)
 {
   // incase of same type do noting
-  const Type *sourceType = CI->getType();
+  Type *sourceType = CI->getType();
   if (sourceType == targetType) return CI;
 
   // this is ugly but I could not think of something better

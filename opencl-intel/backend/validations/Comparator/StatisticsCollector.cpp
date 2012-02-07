@@ -1,7 +1,7 @@
 
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,7 +36,7 @@ void StatisticsCollector::UpdateStatistics(STAT_TYPE in_statType, std::string st
         val.type = in_statType;
         val.value = 0;
         val.count = 0;
-        val.res   = 0;
+		val.res = 0;
         mit = m_values.insert(std::pair<std::string, StatValue>(stat_name, val)).first;
     }
     

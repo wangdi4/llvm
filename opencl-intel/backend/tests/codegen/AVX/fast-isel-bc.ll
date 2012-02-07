@@ -1,4 +1,4 @@
-; RUN: llc < %s -O0 -regalloc=linearscan -march=x86-64 -mattr=+mmx,+sse2 -mcpu=sandybridge 
+; RUN: llc < %s -O0 -regalloc=linearscan -march=x86-64 -mattr=+mmx,+sse2 -mcpu=corei7-avx 
 
 
 

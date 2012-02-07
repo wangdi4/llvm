@@ -1,5 +1,5 @@
 /*****************************************************************************
- Copyright (c) Intel Corporation (2010-2012).
+ Copyright (c) Intel Corporation (2010).
 
  INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
  LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -44,20 +44,20 @@ public:
   /// @param packetizeType packetized parameter Type 
   /// @param scalarizeType scalarized parameter Type 
   /// @returns whether types of the DX wrapper should be handled as same scalar type
-  static bool checkSameTypeScalar(const Type* packetizeType, const Type* scalarizeType);
+  static bool checkSameTypeScalar(Type* packetizeType, Type* scalarizeType);
 
   /// @brief checks whether types of the DX wrapper should be handled as same constant type
   /// @param packetizeType packetized parameter Type 
   /// @param scalarizeVal scalarized value
   /// @returns whether types of the DX wrapper should be handled as same constant value
-  static bool checkSameTypeConstant(const Type* packetizeType, Value* scalarizeVal);
+  static bool checkSameTypeConstant(Type* packetizeType, Value* scalarizeVal);
   
   /// @brief checks whether types of the DX wrapper should be handled scalar -> vector
   /// @param packetizeType packetized parameter Type 
   /// @param scalarizeType scalarized parameter Type 
   /// @param packetWidth number of work items correspond tp SOA4 SOA8
   /// @returns whether types of the DX wrapper should be handled as scalar -> vector
-  static bool checkVec(const Type* packetizeType, const Type* scalarizeType, unsigned packetWidth);
+  static bool checkVec(Type* packetizeType, Type* scalarizeType, unsigned packetWidth);
   
   
   /// @brief checks whether types of the DX wrapper should be handled vector -> SOA
@@ -65,14 +65,14 @@ public:
   /// @param scalarizeType scalarized parameter Type 
   /// @param packetWidth number of work items correspond tp SOA4 SOA8
   /// @returns whether types of the DX wrapper should be handled as vector -> SOA
-  static bool checkSOA(const Type* packetizeType, const Type* scalarizeType, unsigned packetWidth);
+  static bool checkSOA(Type* packetizeType, Type* scalarizeType, unsigned packetWidth);
 
   /// @brief checks which type of return (void , scalar\vec , vec\SOA , illegal)
   /// @param packetizeType packetized parameter Type 
   /// @param scalarizeType scalarized parameter Type 
   /// @param packetWidth number of work items correspond tp SOA4 SOA8
   /// @returns enumuration of return type
-  static DXWrapperRetType checkRet(const Type* packetizeType, const Type* scalarizeType, unsigned packetWidth);
+  static DXWrapperRetType checkRet(Type* packetizeType, Type* scalarizeType, unsigned packetWidth);
 
   /// @brief checks if scalar wrapper is masked
   /// @param CI call instruction to be checked

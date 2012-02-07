@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -185,9 +185,9 @@ void DebugInfoPass::addGlobalIdDeclaration()
 
     // No such declaration; let's add it
     //
-    const Type* i_size_t = IntegerType::get(*m_llvm_context, 8 * sizeof(size_t));
-    const Type* uint_type = IntegerType::get(*m_llvm_context, 32);
-    vector<const Type*> params;
+    Type* i_size_t = IntegerType::get(*m_llvm_context, 8 * sizeof(size_t));
+    Type* uint_type = IntegerType::get(*m_llvm_context, 32);
+    vector<Type*> params;
     params.push_back(uint_type);
 
     FunctionType* gid_type = FunctionType::get(i_size_t, params, false);
@@ -198,9 +198,9 @@ void DebugInfoPass::addGlobalIdDeclaration()
 
 void DebugInfoPass::addDebugBuiltinDeclarations()
 {
-    const Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
-    const Type* i64 = IntegerType::getInt64Ty(*m_llvm_context);
-    const Type* void_type = Type::getVoidTy(*m_llvm_context);
+    Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
+    Type* i64 = IntegerType::getInt64Ty(*m_llvm_context);
+    Type* void_type = Type::getVoidTy(*m_llvm_context);
     
     // BUILTIN_DBG_DECLARE_LOCAL_NAME
     // Arguments of this builtin:
@@ -208,7 +208,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 2. Address of the metadata for variable
     // 3-5. global IDs for dimensions 0-2
     //
-    vector<const Type*> local_params;
+    vector<Type*> local_params;
     local_params.push_back(pointer_i8);
     local_params.push_back(i64);
     for (int i = 0; i < 3; ++i) 
@@ -228,7 +228,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 1. Address of the metadata for the subprogram entry
     // 2-4. global IDs for dimensions 0-2
     //    
-    vector<const Type*> enter_params;
+    vector<Type*> enter_params;
     enter_params.push_back(i64);
     for (int i = 0; i < 3; ++i) 
         enter_params.push_back(i64);
@@ -261,7 +261,7 @@ void DebugInfoPass::runOnUserFunction(Function* pFunc)
 
 void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fContext)
 {
-    const Type* uint_type = IntegerType::get(*m_llvm_context, 32);
+    Type* uint_type = IntegerType::get(*m_llvm_context, 32);
     Function* get_global_id_func = m_pModule->getFunction("get_global_id");
     assert(get_global_id_func);
 
@@ -424,7 +424,7 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
     params.push_back(subprogram_md_addr);
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
-    CallInst::Create(enter_function_func, params.begin(), params.end(), "",
+    CallInst::Create(enter_function_func, params, "",
         fContext.original_first_instr);
 }
 
@@ -440,7 +440,7 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 
     Function* declare_global_func = m_pModule->getFunction(BUILTIN_DBG_DECLARE_GLOBAL_NAME);
     assert(declare_global_func);
-    const Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
+    Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
 
     // Generate the builtin call fro each global var listed in llvm.dbg.gv
     //
@@ -472,7 +472,7 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         params.push_back(metadata_addr);
         for (int i = 0; i <= 2; ++i)
             params.push_back(fContext.gids[i]);
-        CallInst::Create(declare_global_func, params.begin(), params.end(), "",
+        CallInst::Create(declare_global_func, params, "",
             fContext.original_first_instr);
     }
 }
@@ -499,7 +499,7 @@ void DebugInfoPass::insertDbgStoppointCall(Instruction* instr, const FunctionCon
     params.push_back(makeAddressValueFromPointer(static_cast<void*>(mdn)));
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
-    CallInst::Create(stoppoint_func, params.begin(), params.end(), "", instr);
+    CallInst::Create(stoppoint_func, params, "", instr);
 }
 
 
@@ -515,7 +515,7 @@ void DebugInfoPass::insertDbgDeclaraLocalCall(CallInst* call_instr, const Functi
     MDNode* md_var = cast<MDNode>(call_instr->getArgOperand(0));
     assert(md_var->getNumOperands() == 1);
     Value* var_ref = md_var->getOperand(0);
-    const Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
+    Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
     BitCastInst* var_ref_cast = new BitCastInst(var_ref, pointer_i8, "",
         call_instr);
 
@@ -533,8 +533,7 @@ void DebugInfoPass::insertDbgDeclaraLocalCall(CallInst* call_instr, const Functi
     params.push_back(metadata_addr);
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
-    CallInst::Create(declare_local_func, params.begin(), params.end(), "",
-        call_instr);
+    CallInst::Create(declare_local_func, params, "", call_instr);
 }
 
 
@@ -550,8 +549,7 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
     params.push_back(subprogram_md_addr);
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
-    CallInst::Create(exit_function_func, params.begin(), params.end(), "",
-        instr);
+    CallInst::Create(exit_function_func, params, "", instr);
 }
 
 

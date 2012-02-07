@@ -23,24 +23,24 @@ const char *appleNeedPreVectorization[] = {
   // ci_gamma
   "__ci_gamma_scalar_SPI",
   // geometric special case
-  "__crossf3","__crossf4",
-  "__fast_distancef", "__fast_distancef2", "__fast_distancef3", "__fast_distancef4",
-  "__distancef", "__distancef2", "__distancef3", "__distancef4",
-  "__lengthf", "__lengthf2", "__lengthf3", "__lengthf4",
-  "__dotf", "__dotf2", "__dotf3", "__dotf4",
-  "__fast_lengthf", "__fast_lengthf2", "__fast_lengthf3", "__fast_lengthf4",
-  "__fast_normalizef", "__fast_normalizef2", "__fast_normalizef3", "__fast_normalizef4",
-  "__normalizef", "__normalizef2", "__normalizef3", "__normalizef4",
+  "_Z5crossDv3_fS_","_Z5crossDv4_fS_",
+  "_Z13fast_distanceff", "_Z13fast_distanceDv2_fS_", "_Z13fast_distanceDv3_fS_", "_Z13fast_distanceDv4_fS_",
+  "_Z8distanceff", "_Z8distanceDv2_fS_", "_Z8distanceDv3_fS_", "_Z8distanceDv4_fS_",
+  "_Z6lengthf", "_Z6lengthDv2_f", "_Z6lengthDv3_f", "_Z6lengthDv4_f",
+  "_Z3dotff", "_Z3dotDv2_fS_", "_Z3dotDv3_fS_", "_Z3dotff4",
+  "_Z11fast_lengthf", "_Z11fast_lengthDv2_f", "_Z11fast_lengthDv3_f", "_Z11fast_lengthDv4_f",
+  "_Z14fast_normalizef", "_Z14fast_normalizeDv2_f", "_Z14fast_normalizeDv3_f", "_Z14fast_normalizef4",
+  "_Z9normalizef", "_Z9normalizeDv2_f", "_Z9normalizeDv3_f", "_Z9normalizeDv4_f",
   NULL
 };
 
 const char *appleScalarSelect[] = {
-  "__select_1i8", "__select_1i16", "__select_1i32", "__select_1i64",
-  "__select_1i8u", "__select_1i16u", "__select_1i32u", "__select_1i64u",
-  "__select_1u8", "__select_1u16", "__select_1u32", "__select_1u64",
-  "__select_1u8u", "__select_1u16u", "__select_1u32u", "__select_1u64u",
-  "__select_ffi", "__select_ffu",
-  "__select_ddi", "__select_ddu",
+  "_Z6selectccc", "_Z6selectsss", "_Z6selectiii", "_Z6selectlll",
+  "_Z6selectcch", "_Z6selectsst", "_Z6selectiij", "_Z6selectllm",
+  "_Z6selecthhc", "_Z6selecttts", "_Z6selectjji", "_Z6selectmml",
+  "_Z6selecthhh", "_Z6selectttt", "_Z6selectjjj", "_Z6selectmmm",
+  "_Z6selectffi", "_Z6selectffj",
+  "_Z6selectddl", "_Z6selectddm",
   NULL
 };
 

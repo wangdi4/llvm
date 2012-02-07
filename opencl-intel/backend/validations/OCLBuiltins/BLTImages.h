@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -40,28 +40,28 @@ namespace OCLBuiltins {
         void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
     };
 
-    llvm::GenericValue lle_X_write_image(const llvm::FunctionType *FT, 
+    llvm::GenericValue lle_X_write_image(llvm::FunctionType *FT, 
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_dim2(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_dim2(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_width(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_width(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_height(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_height(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_depth(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_depth(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_dim3(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_dim3(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_channel_data_type(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_channel_data_type(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
-    llvm::GenericValue lle_X_get_image_channel_order(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_get_image_channel_order(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
     /// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix

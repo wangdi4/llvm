@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 
 define <4 x i64> @and_4_i64(<4 x i64> %broadcast2) nounwind readnone {

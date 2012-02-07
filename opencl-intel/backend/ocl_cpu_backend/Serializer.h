@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -164,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         {
             bool isNullPointer = false;
             DeserialPrimitive<bool>(&isNullPointer, stream);
-            *item = (void*)(intptr_t)(isNullPointer ? 0 : !0);
+            *item = (void*)(isNullPointer ? 0 : 1);
         }
 
     };

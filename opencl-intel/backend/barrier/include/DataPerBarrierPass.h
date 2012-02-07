@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __DATA_PER_BARRIER_PASS_H__
 #define __DATA_PER_BARRIER_PASS_H__
@@ -12,6 +12,7 @@
 #include "llvm/BasicBlock.h"
 #include "llvm/Instruction.h"
 
+#include <map>
 using namespace llvm;
 
 namespace intel {

@@ -17,6 +17,7 @@
 #include "Linearizer.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "llvm/Constants.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -29,7 +30,7 @@ namespace intel {
 
 void Predicator::createAllOne(Module &M) {
   // Create function arguments
-  std::vector<const Type*> allOneArgs;
+  std::vector<Type*> allOneArgs;
   allOneArgs.push_back(IntegerType::get(M.getContext(), 1));
   FunctionType* allOneType = FunctionType::get(
     IntegerType::get(M.getContext(), 1), allOneArgs, false);
@@ -120,7 +121,7 @@ Function* Predicator::createSelect(PHINode* phi, Value* mask) {
            "Phi node must have only two incoming edges");
 
   // Create function arguments
-  std::vector<const Type*> selectArgs;
+  std::vector<Type*> selectArgs;
   selectArgs.push_back(IntegerType::get(
       phi->getParent()->getParent()->getContext(), 1));
   selectArgs.push_back(phi->getIncomingValue(0)->getType());
@@ -430,7 +431,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   }
 
   // Create function arguments
-  std::vector<const Type*> args;
+  std::vector<Type*> args;
   /// first argument is predicator
   args.push_back(pred->getType());
 
@@ -458,14 +459,6 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   return f;
 }
 
-std::string Predicator::getNameFromPointerType(const Type* tp) {
-  V_ASSERT(tp->isPointerTy() && "Load argument must be of pointer type");
-  const PointerType *pty = dyn_cast<PointerType>(tp);
-  const Type *pointee = pty->getElementType();
-  V_ASSERT( pointee && "Pointer must have a pointee");
-  return pointee->getDescription();
-}
-
 Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
   // Preplace Load with call to function
@@ -479,7 +472,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     params.push_back(load->getOperand(0));
 
     CallInst* call =
-      CallInst::Create(func, params.begin(), params.end(), "pLoad", inst);
+      CallInst::Create(func, ArrayRef<Value*>(params), "pLoad", inst);
     load->replaceAllUsesWith(call);
     load->eraseFromParent();
     return call;
@@ -497,7 +490,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     params.push_back(store->getOperand(0));
     params.push_back(store->getOperand(1));
     CallInst* call =
-      CallInst::Create(func, params.begin(), params.end(), "", inst);
+      CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
     store->replaceAllUsesWith(call);
     store->eraseFromParent();
     return call;
@@ -518,7 +511,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     }
 
     CallInst* pcall =
-      CallInst::Create(func, params.begin(), params.end(), "", inst);
+      CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();
     return pcall;
@@ -986,8 +979,9 @@ void Predicator::maskIncoming_loopHeader(BasicBlock *BB, BasicBlock* preheader){
   Value* old_in = m_inMask[BB];
 
   // create phi node
+  unsigned numPhiEntries = std::distance(pred_begin(BB), pred_end(BB));
   PHINode* new_phi = PHINode::Create(
-    IntegerType::get(BB->getParent()->getContext(), 1),
+    IntegerType::get(BB->getParent()->getContext(), 1), numPhiEntries,
     BB->getName() + "_Min", BB->begin());
 
   // For each incoming edge into the block

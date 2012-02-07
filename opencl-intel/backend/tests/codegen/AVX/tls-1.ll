@@ -1,4 +1,4 @@
-; RUN: llc < %s -mcpu=sandybridge -mtriple x86_64-apple-darwin | FileCheck %s
+; RUN: llc < %s -mcpu=corei7-avx -mtriple x86_64-apple-darwin | FileCheck %s
 
 @a = thread_local global i32 0                    ; <i32*> [#uses=0]
 @b = thread_local global i32 0                    ; <i32*> [#uses=0]

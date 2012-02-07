@@ -27,7 +27,10 @@ namespace intel {
 class PhiCanon : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  PhiCanon() : FunctionPass(ID) {}
+  PhiCanon() : FunctionPass(ID) {
+    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
+    initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
+  }
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
   /// @return True if changed

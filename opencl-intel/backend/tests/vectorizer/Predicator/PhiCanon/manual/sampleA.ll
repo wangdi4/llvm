@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'sampleA.bc'
@@ -9,96 +9,61 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: @func
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %for.cond13.preheader, %if.end.loopexit14
-; CHECK: phi-split-bb15:                                   ; preds = %for.cond.preheader, %if.end.loopexit
+; CHECK: phi-split-bb1:                                    ; preds = %for.cond.preheader, %if.end.loopexit
 ; CHECK: ret
+
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %n.addr = alloca i64, align 8                   ; <i64*> [#uses=3]
-  %A.addr = alloca i64*, align 8                  ; <i64**> [#uses=3]
-  %B.addr = alloca i64*, align 8                  ; <i64**> [#uses=4]
-  %i = alloca i32, align 4                        ; <i32*> [#uses=6]
-  %i12 = alloca i32, align 4                      ; <i32*> [#uses=6]
-  store i64 %n, i64* %n.addr
-  store i64* %A, i64** %A.addr
-  store i64* %B, i64** %B.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
-  %rem = urem i32 %call, 2                        ; <i32> [#uses=1]
-  %tobool = icmp ne i32 %rem, 0                   ; <i1> [#uses=1]
-  br i1 %tobool, label %if.then, label %if.else
+  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %rem = and i32 %call, 1
+  %tobool = icmp eq i32 %rem, 0
+  br i1 %tobool, label %for.cond13.preheader, label %for.cond.preheader
 
-if.then:                                          ; preds = %entry
-  store i32 0, i32* %i
-  br label %for.cond
+for.cond13.preheader:                             ; preds = %entry
+  %add = add nsw i64 %n, 4
+  %cmp176 = icmp sgt i64 %add, 0
+  br i1 %cmp176, label %for.body19.preheader, label %if.end
 
-for.cond:                                         ; preds = %for.inc, %if.then
-  %tmp = load i32* %i                             ; <i32> [#uses=1]
-  %conv = sext i32 %tmp to i64                    ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
-  %cmp = icmp slt i64 %conv, %tmp1                ; <i1> [#uses=1]
-  br i1 %cmp, label %for.body, label %for.end
+for.body19.preheader:                             ; preds = %for.cond13.preheader
+  br label %for.body19
 
-for.body:                                         ; preds = %for.cond
-  %tmp3 = load i32* %i                            ; <i32> [#uses=1]
-  %tmp4 = load i64** %B.addr                      ; <i64*> [#uses=1]
-  %idxprom = sext i32 %tmp3 to i64                ; <i64> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp4, i64 %idxprom ; <i64*> [#uses=1]
-  %tmp5 = load i64* %arrayidx                     ; <i64> [#uses=1]
-  %tmp6 = load i32* %i                            ; <i32> [#uses=1]
-  %tmp7 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %idxprom8 = sext i32 %tmp6 to i64               ; <i64> [#uses=1]
-  %arrayidx9 = getelementptr inbounds i64* %tmp7, i64 %idxprom8 ; <i64*> [#uses=1]
-  store i64 %tmp5, i64* %arrayidx9
-  br label %for.inc
+for.cond.preheader:                               ; preds = %entry
+  %cmp2 = icmp sgt i64 %n, 0
+  br i1 %cmp2, label %for.body.preheader, label %if.end
 
-for.inc:                                          ; preds = %for.body
-  %tmp10 = load i32* %i                           ; <i32> [#uses=1]
-  %inc = add nsw i32 %tmp10, 1                    ; <i32> [#uses=1]
-  store i32 %inc, i32* %i
-  br label %for.cond
+for.body.preheader:                               ; preds = %for.cond.preheader
+  br label %for.body
 
-for.end:                                          ; preds = %for.cond
+for.body:                                         ; preds = %for.body.preheader, %for.body
+  %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
+  %arrayidx = getelementptr inbounds i64* %B, i64 %indvars.iv
+  %tmp5 = load i64* %arrayidx, align 8
+  %arrayidx9 = getelementptr inbounds i64* %A, i64 %indvars.iv
+  store i64 %tmp5, i64* %arrayidx9, align 8
+  %indvars.iv.next = add i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %n
+  br i1 %exitcond, label %if.end.loopexit, label %for.body
+
+for.body19:                                       ; preds = %for.body19.preheader, %for.body19
+  %indvars.iv10 = phi i64 [ %indvars.iv.next11, %for.body19 ], [ 0, %for.body19.preheader ]
+  %arrayidx23 = getelementptr inbounds i64* %A, i64 %indvars.iv10
+  %tmp24 = load i64* %arrayidx23, align 8
+  %arrayidx28 = getelementptr inbounds i64* %B, i64 %indvars.iv10
+  store i64 %tmp24, i64* %arrayidx28, align 8
+  %indvars.iv.next11 = add i64 %indvars.iv10, 1
+  %exitcond12 = icmp eq i64 %indvars.iv.next11, %add
+  br i1 %exitcond12, label %if.end.loopexit14, label %for.body19
+
+if.end.loopexit:                                  ; preds = %for.body
   br label %if.end
 
-if.else:                                          ; preds = %entry
-  store i32 0, i32* %i12
-  br label %for.cond13
-
-for.cond13:                                       ; preds = %for.inc29, %if.else
-  %tmp14 = load i32* %i12                         ; <i32> [#uses=1]
-  %conv15 = sext i32 %tmp14 to i64                ; <i64> [#uses=1]
-  %tmp16 = load i64* %n.addr                      ; <i64> [#uses=1]
-  %add = add nsw i64 %tmp16, 4                    ; <i64> [#uses=1]
-  %cmp17 = icmp slt i64 %conv15, %add             ; <i1> [#uses=1]
-  br i1 %cmp17, label %for.body19, label %for.end32
-
-for.body19:                                       ; preds = %for.cond13
-  %tmp20 = load i32* %i12                         ; <i32> [#uses=1]
-  %tmp21 = load i64** %A.addr                     ; <i64*> [#uses=1]
-  %idxprom22 = sext i32 %tmp20 to i64             ; <i64> [#uses=1]
-  %arrayidx23 = getelementptr inbounds i64* %tmp21, i64 %idxprom22 ; <i64*> [#uses=1]
-  %tmp24 = load i64* %arrayidx23                  ; <i64> [#uses=1]
-  %tmp25 = load i32* %i12                         ; <i32> [#uses=1]
-  %tmp26 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %idxprom27 = sext i32 %tmp25 to i64             ; <i64> [#uses=1]
-  %arrayidx28 = getelementptr inbounds i64* %tmp26, i64 %idxprom27 ; <i64*> [#uses=1]
-  store i64 %tmp24, i64* %arrayidx28
-  br label %for.inc29
-
-for.inc29:                                        ; preds = %for.body19
-  %tmp30 = load i32* %i12                         ; <i32> [#uses=1]
-  %inc31 = add nsw i32 %tmp30, 1                  ; <i32> [#uses=1]
-  store i32 %inc31, i32* %i12
-  br label %for.cond13
-
-for.end32:                                        ; preds = %for.cond13
+if.end.loopexit14:                                ; preds = %for.body19
   br label %if.end
 
-if.end:                                           ; preds = %for.end32, %for.end
-  %call33 = call i32 @get_global_id(i32 0)        ; <i32> [#uses=1]
-  %conv34 = zext i32 %call33 to i64               ; <i64> [#uses=1]
-  %tmp35 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %arrayidx36 = getelementptr inbounds i64* %tmp35, i64 0 ; <i64*> [#uses=1]
-  store i64 %conv34, i64* %arrayidx36
+if.end:                                           ; preds = %if.end.loopexit14, %if.end.loopexit, %for.cond13.preheader, %for.cond.preheader
+  %call33 = tail call i32 @get_global_id(i32 0) nounwind
+  %conv34 = zext i32 %call33 to i64
+  store i64 %conv34, i64* %B, align 8
   ret void
 }
 

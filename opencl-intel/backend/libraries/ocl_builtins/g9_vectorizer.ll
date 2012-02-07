@@ -40,13 +40,8 @@ entry:
 
 define i1 @allOne_v4(<4 x i1> %pred) nounwind readnone {
 entry:
-  %elem0 = extractelement <4 x i1> %pred, i32 0
-  %elem1 = extractelement <4 x i1> %pred, i32 1
-  %elem2 = extractelement <4 x i1> %pred, i32 2
-  %elem3 = extractelement <4 x i1> %pred, i32 3
-  %res1 = and i1 %elem0, %elem1
-  %res2 = and i1 %elem2, %elem3
-  %res = and i1 %res1, %res2
+  %t = sext <4 x i1> %pred to <4 x i32>  
+  %res = call i1 @allOne_v4_i32(<4 x i32> %t)
   ret i1 %res
 }
 
@@ -61,26 +56,9 @@ entry:
 
 define i1 @allOne_v8(<8 x i1> %pred) nounwind readnone {
 entry:
-  %elem0 = extractelement <8 x i1> %pred, i32 0
-  %elem1 = extractelement <8 x i1> %pred, i32 1
-  %elem2 = extractelement <8 x i1> %pred, i32 2
-  %elem3 = extractelement <8 x i1> %pred, i32 3
-  %elem4 = extractelement <8 x i1> %pred, i32 4
-  %elem5 = extractelement <8 x i1> %pred, i32 5
-  %elem6 = extractelement <8 x i1> %pred, i32 6
-  %elem7 = extractelement <8 x i1> %pred, i32 7
-  %v1_0 = insertelement <4 x i1> undef, i1 %elem0, i32 0
-  %v1_1 = insertelement <4 x i1> %v1_0, i1 %elem1, i32 1
-  %v1_2 = insertelement <4 x i1> %v1_1, i1 %elem2, i32 2
-  %v1_3 = insertelement <4 x i1> %v1_2, i1 %elem3, i32 3
-  %v2_0 = insertelement <4 x i1> undef, i1 %elem4, i32 0
-  %v2_1 = insertelement <4 x i1> %v2_0, i1 %elem5, i32 1
-  %v2_2 = insertelement <4 x i1> %v2_1, i1 %elem6, i32 2
-  %v2_3 = insertelement <4 x i1> %v2_2, i1 %elem7, i32 3
-  %f0 = call i1 @allOne_v4(<4 x i1> %v1_3)
-  %f1 = call i1 @allOne_v4(<4 x i1> %v2_3)
-  %f = and i1 %f0, %f1
-  ret i1 %f
+  %t = sext <8 x i1> %pred to <8 x i32>  
+  %res = call i1 @allOne_v8_i32(<8 x i32> %t)
+  ret i1 %res
 }
 
 define i1 @allOne_v16_i32(<16 x i32> %pred) nounwind readnone {

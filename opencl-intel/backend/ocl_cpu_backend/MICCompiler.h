@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -16,6 +16,7 @@ File Name: MICCompiler.h
 
 \*****************************************************************************/
 #pragma once
+#define MICJIT_ENABLE 0
 
 #include <assert.h>
 #include <string>
@@ -26,7 +27,9 @@ File Name: MICCompiler.h
 #include "MICKernel.h"
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "MICJITEngine/include/IFunctionAddressResolver.h"
+#if MICJIT_ENABLE 
+#include "llvm/MICJITEngine/IFunctionAddressResolver.h"
+#endif 
 
 namespace llvm {
     class ExecutionEngine;
@@ -47,6 +50,8 @@ class MICCompilerConfig;
 //*****************************************************************************************
 // Wrapper of the Backend interface IDynamicFunctionsResolver to behave as 
 // llvm::IFunctionAddressResolver
+#if MICJIT_ENABLE 
+
 class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
 {
 public:
@@ -66,6 +71,7 @@ private:
     // not owned by the class
     IDynamicFunctionsResolver* m_pFuncResolver;
 };
+#endif
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
@@ -79,7 +85,7 @@ public:
     MICCompiler(const MICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
-    unsigned int GetTypeAllocSize(const llvm::Type* pType);
+    unsigned int GetTypeAllocSize(llvm::Type* pType);
 
     const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module);
 
@@ -104,12 +110,15 @@ private:
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule );
 
+
 private:
     BuiltinModule*           m_pBuiltinModule;
-    llvm::MICCodeGenerationEngine* m_pCGEngine;
     MICCompilerConfig        m_config;
     std::string              m_ErrorStr;
+#if MICJIT_ENABLE 
+    llvm::MICCodeGenerationEngine* m_pCGEngine;
     FunctionResolverWrapper  m_ResolverWrapper;
+#endif
 };
 
 }}}

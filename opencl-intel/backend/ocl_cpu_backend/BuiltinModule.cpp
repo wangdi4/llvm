@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,9 +26,7 @@ BuiltinModule::BuiltinModule(llvm::Module* pRtlModule):
 {
 }
 
-BuiltinModule::~BuiltinModule()
-{
-}
+BuiltinModule::~BuiltinModule() { }
 
 BuiltinLibrary::BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures):
     m_cpuId(cpuId),
@@ -37,9 +35,6 @@ BuiltinLibrary::BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures):
 {
 }
 
-BuiltinLibrary::~BuiltinLibrary()
-{
-    delete m_pRtlBuffer;
-}
+BuiltinLibrary::~BuiltinLibrary() {}
 
 }}}

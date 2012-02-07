@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 
 #include "DataPerValuePass.h"
@@ -230,7 +230,7 @@ namespace intel {
     }
   }
 
-  unsigned int DataPerValue::getValueOffset(const Type *pType, unsigned int allocaAlignment) {
+  unsigned int DataPerValue::getValueOffset(Type *pType, unsigned int allocaAlignment) {
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pTD->getABITypeAlignment(pType);
     unsigned int alignment = (allocaAlignment) ?

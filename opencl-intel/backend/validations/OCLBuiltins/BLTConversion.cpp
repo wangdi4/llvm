@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -58,7 +58,7 @@ template<>
 double AsT(const double& R){return R;}
 
 template<typename T1, typename T2, int n, Conformance::RoundingMode round>
-GenericValue lle_X_convert_rmode(const llvm::FunctionType *FT,
+GenericValue lle_X_convert_rmode(llvm::FunctionType *FT,
    const std::vector<llvm::GenericValue> &Args)
 {
         IsScalarType<T1> _x; UNUSED_ARGUMENT(_x);
@@ -83,7 +83,7 @@ GenericValue lle_X_convert_rmode(const llvm::FunctionType *FT,
 }
 
 template<typename T1, typename T2, int n>
-llvm::GenericValue lle_X_convert(const llvm::FunctionType *FT,
+llvm::GenericValue lle_X_convert(llvm::FunctionType *FT,
                                  const std::vector<llvm::GenericValue> &Args)
 {
     IsScalarType<T1> _x; UNUSED_ARGUMENT(_x);

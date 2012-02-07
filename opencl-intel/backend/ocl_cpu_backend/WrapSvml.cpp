@@ -131,13 +131,13 @@ bool WrapSvmlPass::runOnModule(Module &M)
                         // Check that there is any integer/pointer parameter or
                         // float/double vector(s) which overflow 4 XMMs
                         for (unsigned int i = 0; i < pCall->getNumArgOperands(); i++ ) {                            
-                          const Type * type = pCall->getArgOperand(i)->getType();
+                          Type * type = pCall->getArgOperand(i)->getType();
                           if (type->isIntOrIntVectorTy() || type->isPointerTy() || type->isArrayTy()) {
                              isIntegerParam = true;
                              break;
                           }
                           if (type->isVectorTy()) {
-                            const VectorType *vType = dyn_cast<VectorType>(type);
+                            VectorType *vType = dyn_cast<VectorType>(type);
                             if (vType->getElementType()->isFloatTy() || vType->getElementType()->isDoubleTy()) {
                                 sizeOfFloatDoubleVectors += vType->getBitWidth();
                             }
@@ -163,7 +163,7 @@ bool WrapSvmlPass::runOnModule(Module &M)
 // Creates SVML thunk function pointer
 Value *WrapSvmlPass::CreateThunkFunction() 
 {
-        std::vector<const Type *> args;
+        std::vector<Type *> args;
         args.push_back(Type::getInt8PtrTy(*m_pLLVMContext));
         FunctionType *FnType = FunctionType::get( Type::getVoidTy(*m_pLLVMContext), args, false);
         const char *funcName = "SvmlThunk";
@@ -182,7 +182,7 @@ Instruction* WrapSvmlPass::WrapSVMLCall(CallInst *pCall, Value *thunkValue, Allo
         
         // Create wrapper parameters and their types
 		SmallVector<Value*, 4> params;
-        std::vector<const Type*> wrapperTypes;
+        std::vector<Type*> wrapperTypes;
 
         /*
         Replace original SVML call with SVML wrapper
@@ -224,8 +224,8 @@ Instruction* WrapSvmlPass::WrapSVMLCall(CallInst *pCall, Value *thunkValue, Allo
         Value *svmlWrapper = CastInst::Create(Instruction::BitCast, thunkValue, PointerType::get(svmlWrapperType, 0), "tcast", pCall);
         
         // call to thunk function
-		CallInst *newCall = CallInst::Create(svmlWrapper, params.begin(), params.end(), "", pCall);
-        newCall->setCallingConv(CallingConv::X86_SvmlThunk);
+		CallInst *newCall = CallInst::Create(svmlWrapper, ArrayRef<Value*>(params), "", pCall);
+    newCall->setCallingConv(CallingConv::X86_SvmlThunk);
         return newCall;
 }
 

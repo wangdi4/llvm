@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -98,6 +98,10 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
       }
     
       alignment = vectorAlignment;
+      // Adding assert to check we are following the OpenCL spec:
+      // A built-in data type that is not a power of two bytes in size must be
+      // aligned to the next larger power of two
+      assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
       // Adding assert to check we are following the OpenCL spec:
       // A built-in data type that is not a power of two bytes in size must be
       // aligned to the next larger power of two

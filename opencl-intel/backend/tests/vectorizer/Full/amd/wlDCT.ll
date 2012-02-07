@@ -1,11 +1,11 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'wlDCT.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
 target triple = "i686-pc-win32"
-	type { i8*, i8*, i8*, i8*, i32 }		; type %0
+
 @DCT_cllocal_inter = internal addrspace(3) global [64 x float] zeroinitializer		; <[64 x float] addrspace(3)*> [#uses=2]
 @sgv = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
@@ -24,7 +24,6 @@ target triple = "i686-pc-win32"
 @sgv10 = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv11 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv12 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
-@llvm.global.annotations = appending global [5 x %0] [%0 { i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32, ...)* @DCT to i8*), i8* getelementptr ([5 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_VECTOR to i8*), i8* getelementptr ([5 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv3 to i8*), i32 0 }, %0 { i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_VECTOR_DOT to i8*), i8* getelementptr ([5 x i8]* @sgv4, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv5, i32 0, i32 0), i8* bitcast ([1 x i8*]* @lvgv6 to i8*), i32 0 }, %0 { i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32, ...)* @DCT_CPU to i8*), i8* getelementptr ([5 x i8]* @sgv7, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv8, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv9 to i8*), i32 0 }, %0 { i8* bitcast (void (float addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32, ...)* @DCT_CPU_VECTOR to i8*), i8* getelementptr ([5 x i8]* @sgv10, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv11, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv12 to i8*), i32 0 }], section "llvm.metadata"		; <[5 x %0]*> [#uses=0]
 
 ; CHECK: @DCT
 

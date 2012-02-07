@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
+ * TODO: add Copyright © 2011, Intel Corporation
  *********************************************************************************************/
 #ifndef __BARRIER_PASS_H__
 #define __BARRIER_PASS_H__
@@ -97,7 +97,7 @@ namespace intel {
     /// @param pInsertBefore instruction to insert new instructions before
     /// @returns value represnting the calculated address in the special buffer
     Value* getAddressInSpecialBuffer(
-      unsigned int offset, const PointerType *pType, Instruction *pInsertBefore);
+      unsigned int offset, PointerType *pType, Instruction *pInsertBefore);
 
     /// @brief return instruction to insert new instruction before
     ///  if pUserInst is not a PHINode then return pUserInst. Otherwise, 
@@ -160,7 +160,7 @@ namespace intel {
     /// This holds size of size_t of processed module
     unsigned int       m_uiSizeT;
     /// This holds type of size_t of processed module
-    const Type         *m_sizeTType;
+    Type         *m_sizeTType;
 
     /// This holds instruction to be removed in the processed function/module
     TInstructionVector m_toRemoveInstructions;

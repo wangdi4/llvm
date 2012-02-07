@@ -44,7 +44,7 @@
 //
 //-----------------------------------------------------------------------------
 #include <limits>
-#include "llvm/System/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // llvm data types
 #include <iostream>
 
 #ifndef DX_FLOAT_H

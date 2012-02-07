@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -94,7 +94,7 @@ namespace OCLBuiltins {
     DEFINE_BLT_THREE_ARGS(mad)
 
     template<typename F, typename I, int32_t n>
-    llvm::GenericValue lle_X_nan(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_nan(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -108,7 +108,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_pown(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_pown(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -123,7 +123,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_ilogb(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_ilogb(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -137,7 +137,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_rootn(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_rootn(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -154,7 +154,7 @@ namespace OCLBuiltins {
     // TODO: to check this functions with n != nj after CSSD100006419 will be resolved
     // (OCL backend can't build program with external function "gentype ldexp (gentype x, int n)")
     template<typename T, int32_t n, int32_t nj>
-    llvm::GenericValue lle_X_ldexp(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_ldexp(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -169,7 +169,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_modf(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_modf(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -187,7 +187,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_frexp(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_frexp(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -206,7 +206,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_sincos(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_sincos(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -225,7 +225,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_recip(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_recip(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -241,7 +241,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_fract(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_fract(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -261,7 +261,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n, int32_t nj>
-    llvm::GenericValue lle_X_fmax(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_fmax(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -276,7 +276,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n, int32_t nj>
-    llvm::GenericValue lle_X_fmin(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_fmin(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -291,7 +291,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_lgamma_r(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_lgamma_r(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -310,7 +310,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int32_t n>
-    llvm::GenericValue lle_X_remquo(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_remquo(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;

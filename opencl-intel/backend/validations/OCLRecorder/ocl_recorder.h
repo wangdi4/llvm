@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010,2011,2012).
+Copyright (c) Intel Corporation (2010,2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -34,11 +34,12 @@ File Name:  ocl_recorder.h
 #endif
 
 
-#include "llvm/System/Path.h"
-#include "llvm/System/Atomic.h"
-#include "llvm/System/Mutex.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Atomic.h"
+#include "llvm/Support/Mutex.h"
 #include "llvm/Target/TargetData.h"
 #include <list>
+#include <map>
 #include "plugin_interface.h"
 #include "cl_types.h"
 #include "cl_device_api.h"
@@ -177,7 +178,7 @@ namespace Validation
         ///\brief Ctor
         ///\param logsPath [in] path to store all the recorded output
         ///\param prefix   [in] prefix used for the recorder files
-        RecorderContext( const llvm::sys::Path& logsPath, const std::string& prefix);
+        RecorderContext( const std::string& logsPath, const std::string& prefix);
 
         ~RecorderContext();
 
@@ -260,7 +261,7 @@ namespace Validation
         ///\brief Ctor
         ///\param logsPath [in] path to store all the recorded output
         ///\param prefix   [in] prefix used for the recorder files
-        OCLRecorder( const llvm::sys::Path& logsDir, const std::string& prefix );
+        OCLRecorder( const std::string& logsDir, const std::string& prefix );
         ~OCLRecorder();
 
     public:
@@ -325,7 +326,7 @@ namespace Validation
 
         RecorderContextMap m_contexts;     // container for program specific contexts
         llvm::sys::Mutex   m_contextsLock; // synchronization for the contexts container
-        llvm::sys::Path    m_logsDir;      // optional path to log directory
+        std::string        m_logsDir;      // optional path to log directory
         std::string        m_prefix;       // optional prefix to add to generated files
         llvm::LLVMContext* m_pLLVMContext; // context used to re-parse the recorder modules
     };

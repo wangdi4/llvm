@@ -66,7 +66,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  clangAnalysis
 									  clangAST
 									  clangBasic
-									  clangChecker
 									  clangCodeGen
 									  clangDriver
 									  clangFrontend
@@ -77,7 +76,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  clangRewrite
 									  clangSema
 									  clangSerialization
-									  libclang
 									  LLVMMCParser
 									  LLVMAnalysis
 									  LLVMArchive
@@ -94,8 +92,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  LLVMLinker									  
 									  LLVMMCDisassembler
 									  LLVMScalarOpts									  
-									  LLVMSupport
-									  LLVMSystem									  
+									  LLVMSupport									  
 									  LLVMTransformUtils
 									  LLVMX86AsmParser									  
 									  LLVMX86CodeGen
@@ -111,6 +108,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1
 					  -x cl
+					  -O0
+					  -cl-kernel-arg-info
 					  -emit-pch 
 					  -I ${OCL_CLANG_HEADERS}
 					  )
@@ -128,12 +127,6 @@ install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
-
-if (WIN32)
-    file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)	
-	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
-	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-endif(WIN32)
 
 add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 add_llvm_definitions( -D__STDC_CONSTANT_MACROS )

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'sample2.bc'
@@ -10,46 +10,30 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK-NOT: phi-split-bb
 ; CHECK: ret
-define void @func(i64 %n, i64* %A, i64* %B) nounwind {
+
+define void @func(i64 %n, i64* %A, i64* nocapture %B) nounwind {
 entry:
-  %n.addr = alloca i64, align 8                   ; <i64*> [#uses=2]
-  %A.addr = alloca i64*, align 8                  ; <i64**> [#uses=3]
-  %B.addr = alloca i64*, align 8                  ; <i64**> [#uses=1]
-  %sum = alloca i64, align 8                      ; <i64*> [#uses=4]
-  %i = alloca i64, align 8                        ; <i64*> [#uses=5]
-  store i64 %n, i64* %n.addr
-  store i64* %A, i64** %A.addr
-  store i64* %B, i64** %B.addr
-  store i64 0, i64* %sum
-  store i64 0, i64* %i
-  br label %for.cond
+  %cmp2 = icmp sgt i64 %n, 0
+  br i1 %cmp2, label %for.body.preheader, label %for.end
 
-for.cond:                                         ; preds = %for.inc, %entry
-  %tmp = load i64* %i                             ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
-  %cmp = icmp slt i64 %tmp, %tmp1                 ; <i1> [#uses=1]
-  br i1 %cmp, label %for.body, label %for.end
+for.body.preheader:                               ; preds = %entry
+  br label %for.body
 
-for.body:                                         ; preds = %for.cond
-  %tmp2 = load i64* %i                            ; <i64> [#uses=1]
-  %tmp3 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
-  %tmp4 = load i64* %arrayidx                     ; <i64> [#uses=1]
-  %tmp5 = load i64* %sum                          ; <i64> [#uses=1]
-  %add = add nsw i64 %tmp5, %tmp4                 ; <i64> [#uses=1]
-  store i64 %add, i64* %sum
-  br label %for.inc
+for.body:                                         ; preds = %for.body.preheader, %for.body
+  %storemerge4 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
+  %tmp713 = phi i64 [ %add, %for.body ], [ 0, %for.body.preheader ]
+  %arrayidx = getelementptr inbounds i64* %A, i64 %storemerge4
+  %tmp4 = load i64* %arrayidx, align 8
+  %add = add nsw i64 %tmp4, %tmp713
+  %inc = add nsw i64 %storemerge4, 1
+  %exitcond = icmp eq i64 %inc, %n
+  br i1 %exitcond, label %for.end.loopexit, label %for.body
 
-for.inc:                                          ; preds = %for.body
-  %tmp6 = load i64* %i                            ; <i64> [#uses=1]
-  %inc = add nsw i64 %tmp6, 1                     ; <i64> [#uses=1]
-  store i64 %inc, i64* %i
-  br label %for.cond
+for.end.loopexit:                                 ; preds = %for.body
+  br label %for.end
 
-for.end:                                          ; preds = %for.cond
-  %tmp7 = load i64* %sum                          ; <i64> [#uses=1]
-  %tmp8 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx9 = getelementptr inbounds i64* %tmp8, i64 0 ; <i64*> [#uses=1]
-  store i64 %tmp7, i64* %arrayidx9
+for.end:                                          ; preds = %for.end.loopexit, %entry
+  %tmp71.lcssa = phi i64 [ 0, %entry ], [ %add, %for.end.loopexit ]
+  store i64 %tmp71.lcssa, i64* %A, align 8
   ret void
 }

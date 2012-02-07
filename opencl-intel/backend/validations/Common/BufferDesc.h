@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,7 +19,7 @@ File Name:  BufferDesc.h
 #define __BUFFER_DESC_H__
 
 #include <cstddef>                      // for std::size_t
-#include "llvm/System/DataTypes.h"      // LLVM data types
+#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "VectorWidth.h"
 #include "DataType.h"
 #include "TypeDesc.h"

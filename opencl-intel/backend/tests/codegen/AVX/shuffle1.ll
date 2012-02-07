@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define <4 x float> @shuf_0123(<8 x float> %broadcast2) nounwind readnone {
 ; CHECK: shuf_0123

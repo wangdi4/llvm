@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -146,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       if ( pNewRes ) {
         // Replace pCall usages with new calculation
-        pCall->uncheckedReplaceAllUsesWith(pNewRes);
+        pCall->replaceAllUsesWith(pNewRes);
       }
       // Add pCall it to toRemoveInstruction container
       toRemoveInstructions.push_back(pCall);
@@ -175,7 +175,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
       params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
       GetElementPtrInst *pDimCntAddr =
-        GetElementPtrInst::Create(m_pWorkInfo, params.begin(), params.end(), "", pCall);
+        GetElementPtrInst::Create(m_pWorkInfo, ArrayRef<Value*>(params), "", pCall);
       // Load the Value
       pResult = new LoadInst(pDimCntAddr, "", pCall);
       return pResult;
@@ -249,8 +249,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // C.Create Phi node at the first of the spiltted BB
     ConstantInt *const_overflow = ConstantInt::get(*m_pLLVMContext, APInt(sizeof(size_t) * BYTE_SIZE, StringRef(overflowValueString), 10));
-    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pLLVMContext, sizeof(size_t) * BYTE_SIZE), "", splitContinue->getFirstNonPHI());
-    pAttrResult->reserveOperandSpace(2);
+    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pLLVMContext, sizeof(size_t) * BYTE_SIZE), 2, "", splitContinue->getFirstNonPHI());
     pAttrResult->addIncoming(pResult, getWIProperties);
     pAttrResult->addIncoming(const_overflow, pBlock);
 
@@ -285,7 +284,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       params.push_back(pCall->getArgOperand(0));
 
       GetElementPtrInst *pAddr =
-        GetElementPtrInst::Create(structure, params.begin(), params.end(), "", pInsertBefore);
+        GetElementPtrInst::Create(structure, ArrayRef<Value*>(params), "", pInsertBefore);
 
       // Load the Value
       return new LoadInst(pAddr, "", pInsertBefore);
@@ -313,7 +312,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Calculate the address of local id value
     GetElementPtrInst *pLclIdAddr =
-      GetElementPtrInst::Create(m_pLocalId, params.begin(), params.end(), "", pInsertBefore);
+      GetElementPtrInst::Create(m_pLocalId, ArrayRef<Value*>(params), "", pInsertBefore);
     // Load the value of local id
     Value *pLocalIdVal = new LoadInst(pLclIdAddr, "", pInsertBefore);
 
@@ -325,7 +324,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Calculate the address of base global value
     GetElementPtrInst *pGlbBaseAddr =
-      GetElementPtrInst::Create(m_pBaseGlbId, params.begin(), params.end(), "", pInsertBefore);
+      GetElementPtrInst::Create(m_pBaseGlbId, ArrayRef<Value*>(params), "", pInsertBefore);
     // Load the value of base global
     Value *pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", pInsertBefore);
 
@@ -357,8 +356,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Types used in several places
     //
-    const IntegerType *int32_type = IntegerType::get(*m_pLLVMContext, 32);
-    const IntegerType *int8_type = IntegerType::get(*m_pLLVMContext, 8);
+    IntegerType *int32_type = IntegerType::get(*m_pLLVMContext, 32);
+    IntegerType *int8_type = IntegerType::get(*m_pLLVMContext, 8);
 
     // Create the alloca instruction for allocating the buffer on the stack.
     // Also, handle the special case where printf got no vararg arguments:
@@ -390,10 +389,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // be placed
       //
       GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
-        buf_alloca_inst, index_args.begin(), index_args.end(), "", pCall);
+        buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
       Value *arg = pCall->getArgOperand(numarg);
-      const Type *argtype = arg->getType();
+      Type *argtype = arg->getType();
 
       // bitcast from generic i8* address to a pointer to the argument's type
       //
@@ -419,7 +418,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     index_args.push_back(ConstantInt::get(int32_type, 0));
 
     GetElementPtrInst *ptr_to_buf = GetElementPtrInst::CreateInBounds(
-      buf_alloca_inst, index_args.begin(), index_args.end(), "", pCall);
+      buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
     // Finally create the call to opencl_printf
     //
@@ -430,7 +429,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
     params.push_back(m_pCtx);
-    Value *res = CallInst::Create(pFunc, params.begin(), params.end(), "translated_opencl_printf_call", pCall);
+    Value *res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
     return res;
   }
 
@@ -455,9 +454,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       params.push_back(pCall->getArgOperand(4));
     }
     // Distinguish operator size
-    const PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
+    PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
     assert(pPTy && "Must be a pointer");
-    const Type *pPT = pPTy->getElementType();
+    Type *pPT = pPTy->getElementType();
 
 
 	assert(pPT->getPrimitiveSizeInBits() && "Not primitive type, not valid calculation");
@@ -474,7 +473,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       pNewAsyncCopy = m_pModule->getFunction(pPTy->getAddressSpace() == 3 ? "lasync_wg_copy_g2l" : "lasync_wg_copy_l2g");
     }
 
-    Value *res = CallInst::Create(pNewAsyncCopy, params.begin(), params.end(), "", pCall);
+    Value *res = CallInst::Create(pNewAsyncCopy, ArrayRef<Value*>(params), "", pCall);
     return res;
   }
 
@@ -488,7 +487,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     params.push_back(pCall->getArgOperand(1));
     params.push_back(m_pCtx);
     Function *pNewWait = m_pModule->getFunction("lwait_group_events");
-    CallInst::Create(pNewWait, params.begin(), params.end(), "", pCall);
+    CallInst::Create(pNewWait, ArrayRef<Value*>(params), "", pCall);
   }
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
@@ -507,16 +506,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Put number of elements
     params.push_back(pCall->getArgOperand(1));
     // Distinguish element size
-    const PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
+    PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
     assert(pPTy && "Must be a pointer");
-    const Type *pPT = pPTy->getElementType();
+    Type *pPT = pPTy->getElementType();
 	
 	assert(pPT->getPrimitiveSizeInBits() && "Not primitive type, not valid calculation");
     unsigned int uiSize = TD.getPrefTypeAlignment(pPT);
 
     params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
     Function *pPrefetch = m_pModule->getFunction("lprefetch");
-    CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
+    CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
   }
 
   void ResolveWICall::addAsyncCopyDeclaration() {
@@ -529,7 +528,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     //event_t async_work_group_copy(void *pDst, void *pSrc, size_t numElem, event_t event,
     //                 size_t elemSize, LLVMExecMultipleWIWithBarrier **ppExec);
-    std::vector<const Type*> params;
+    std::vector<Type*> params;
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
@@ -575,7 +574,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // The prototype of opencl_printf is:
     // int opencl_printf(char *format, char *args, LLVMExecutable **ppExec)
     //
-    std::vector<const Type*> params;
+    std::vector<Type*> params;
     // The 'format' string is in constant address space (address space 2)
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 2));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
@@ -595,7 +594,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
-    std::vector<const Type*> params;
+    std::vector<Type*> params;
     // Source Pointer
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     // Number of elements

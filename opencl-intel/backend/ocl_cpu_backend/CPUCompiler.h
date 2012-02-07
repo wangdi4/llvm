@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -52,7 +52,7 @@ public:
     CPUCompiler(const CompilerConfig& pConfig);
     virtual ~CPUCompiler();
 
-    unsigned int GetTypeAllocSize(const llvm::Type* pType);
+    unsigned int GetTypeAllocSize(llvm::Type* pType);
 
     // Returns pointer to jitted function if function hasn't been compiled
     // Otherwise function is jitted and pointer is returned

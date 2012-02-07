@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'file.s'
@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @m33ain(i32 %x, i32 %y) nounwind {
 entry:
-  %tobool = icmp eq i32 %x, 0                     ; <i1> [#uses=1]
+  %tobool = icmp eq i32 %x, 0
   br i1 %tobool, label %if.else, label %if.then
 
 if.then:                                          ; preds = %entry
@@ -20,16 +20,15 @@ if.then:                                          ; preds = %entry
   br label %UnifiedReturnBlock
 
 if.else:                                          ; preds = %entry
-  %tobool3 = icmp eq i32 %y, 0                    ; <i1> [#uses=1]
+  %tobool3 = icmp eq i32 %y, 0
   br i1 %tobool3, label %if.else6, label %if.then4
 
 if.then4:                                         ; preds = %if.else
-  tail call void @g(i32 %x) nounwind
+  tail call void @g(i32 0) nounwind
   br label %UnifiedReturnBlock
 
 if.else6:                                         ; preds = %if.else
-  %sub = add i32 %y, -5                           ; <i32> [#uses=1]
-  tail call void @g(i32 %sub) nounwind
+  tail call void @g(i32 -5) nounwind
   br label %UnifiedReturnBlock
 
 UnifiedReturnBlock:                               ; preds = %if.else6, %if.then4, %if.then

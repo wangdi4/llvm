@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -17,11 +17,9 @@ File Name:  UndefinedExternalFunctions.cpp
 \*****************************************************************************/
 
 #include "UndefinedExternalFunctions.h"
-
+#include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Instructions.h"
-#include "llvm/System/DynamicLibrary.h"
-
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

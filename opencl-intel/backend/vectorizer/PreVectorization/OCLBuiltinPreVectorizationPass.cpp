@@ -1,7 +1,9 @@
 #include "OCLBuiltinPreVectorizationPass.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Transforms/Scalar.h"
+
+
 #include "VectorizerUtils.h"
-#include "llvm/Support/StandardPasses.h"
 #include "Mangler.h"
 
 char intel::OCLBuiltinPreVectorizationPass::ID = 0;
@@ -75,13 +77,13 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   SmallVector<Value *,4> fakeFuncArgs(4);
   // putting image pointer
   Value *origImg = CI->getArgOperand(0);
-  const Type *targetImgType = fakeFuncType->getParamType(0);
+  Type *targetImgType = fakeFuncType->getParamType(0);
   fakeFuncArgs[0] = VectorizerUtils::RootInputArgument(origImg, targetImgType, CI);
  
   // handling image coords fake function contains x,y coords separate since they are not 
   // packetized but transfered as multi-scalar value (assuming x consequtive y uniform)
-  const Type *i32Ty = Type::getInt32Ty(CI->getContext());
-  const Type *coordType = VectorType::get(i32Ty, 2);
+  Type *i32Ty = Type::getInt32Ty(CI->getContext());
+  Type *coordType = VectorType::get(i32Ty, 2);
   Constant *constZero = ConstantInt::get(i32Ty, 0);
   Constant *constOne = ConstantInt::get(i32Ty, 1);
   Value *origCoords = CI->getArgOperand(1);
@@ -92,7 +94,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   fakeFuncArgs[2] = ExtractElementInst::Create(rootCoords, constOne, "extract.y", CI);
 
   // handling colors just root to 4xfloat 
-  const Type *colorType = VectorType::get(Type::getFloatTy(CI->getContext()), 4);
+  Type *colorType = VectorType::get(Type::getFloatTy(CI->getContext()), 4);
   Value *origColors = CI->getArgOperand(2);
   Value *rootColors = VectorizerUtils::RootInputArgument(origColors, colorType, CI);
   V_ASSERT(rootColors && "failed rooting colors");
@@ -100,7 +102,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   fakeFuncArgs[3] = rootColors;
 
   // Create call to fake read sampler
-  CallInst::Create(fakeFunc, fakeFuncArgs.begin(), fakeFuncArgs.end(), "", CI);
+  CallInst::Create(fakeFunc, ArrayRef<Value*>(fakeFuncArgs), "", CI);
 
   m_removedInsts.push_back(CI);
 }
@@ -156,7 +158,7 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   std::vector<Value *> fakeFuncArgs(fakeNumArgs , 0);
   for (unsigned i=0; i<fakeNumArgs; ++i) {
     Value *origArg = CI->getArgOperand(i);
-    const Type *rootType =  fakeFuncType->getParamType(i);
+    Type *rootType =  fakeFuncType->getParamType(i);
     V_PRINT(prevectorization, "going to root:  " << *origArg << " into " << *rootType << "\n");
     fakeFuncArgs[i] = VectorizerUtils::RootInputArgument(origArg, rootType, CI);
     V_ASSERT(fakeFuncArgs[i] && "failed rooting argument in pre vectorization");
@@ -170,7 +172,7 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   if (!rootRet) return;
   
   // Create call to fake read sampler
-  CallInst *fakeCall = CallInst::Create(fakeFunc, fakeFuncArgs.begin(), fakeFuncArgs.end(), "fake.func", CI);
+  CallInst *fakeCall = CallInst::Create(fakeFunc, ArrayRef<Value*>(fakeFuncArgs), "fake.func", CI);
 
   rootRet->replaceAllUsesWith(fakeCall);
  
@@ -199,7 +201,7 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   //V_ASSERT(CI->getType()->isFloatingPointTy() && "expect float\double return");
   if (!CI->getType()->isFloatingPointTy()) return;
   
-  const Type *opDesiredType = CI->getType();
+  Type *opDesiredType = CI->getType();
   if(opWidth > 1) opDesiredType = VectorType::get(CI->getType(), opWidth);
   Value *A =  VectorizerUtils::RootInputArgument(CI->getArgOperand(0), opDesiredType, CI);
   Value *B =  VectorizerUtils::RootInputArgument(CI->getArgOperand(1), opDesiredType, CI);

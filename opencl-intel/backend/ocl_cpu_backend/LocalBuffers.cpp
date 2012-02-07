@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -76,14 +76,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           if (Val == From) Val = To;
           Indices.push_back(Val);
         }
-        Replacement = GetElementPtrInst::Create(Pointer, Indices.begin(), Indices.end());
+        Replacement = GetElementPtrInst::Create(Pointer, ArrayRef<Value*>(Indices));
 
       } else if ( CEx->getOpcode() == Instruction::ExtractValue ) {
         Value *Agg = CEx->getOperand(0);
         if (Agg == From) Agg = To;
 
-        const SmallVector<unsigned, 4> &Indices = CEx->getIndices();
-        Replacement = ExtractValueInst::Create(Agg,  Indices.begin(), Indices.end());
+        Replacement = ExtractValueInst::Create(Agg,  CEx->getIndices());
 
       } else if (CEx->getOpcode() == Instruction::InsertValue) {
         Value *Agg = CEx->getOperand(0);
@@ -91,8 +90,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         if (Agg == From) Agg = To;
         if (Val == From) Val = To;
 
-        const SmallVector<unsigned, 4> &Indices = CEx->getIndices();
-        Replacement = InsertValueInst::Create(Agg, Val, Indices.begin(), Indices.end());
+        Replacement = InsertValueInst::Create(Agg, Val, CEx->getIndices());
 
       } else if (CEx->isCast()) {
         assert(CEx->getOperand(0) == From && "Cast only has one use!");
@@ -150,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     if (ConstantVector *CV = dyn_cast<ConstantVector>(pCE)) {
 
-      const VectorType *VT = CV->getType();
+      VectorType *VT = CV->getType();
       unsigned numElem = VT->getNumElements();
 
       Value *UpdatedVec = UndefValue::get(CV->getType()); 

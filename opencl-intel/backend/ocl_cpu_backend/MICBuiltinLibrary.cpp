@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -60,8 +60,10 @@ void MICBuiltinLibrary::Load()
     snprintf(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
 #endif
     
-    m_pRtlBuffer = llvm::MemoryBuffer::getFile(szRTLibName);
-    if( NULL == m_pRtlBuffer )
+    
+    llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
+    assert(ret && "Unable to open file");
+    if( !m_pRtlBuffer )
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
     }

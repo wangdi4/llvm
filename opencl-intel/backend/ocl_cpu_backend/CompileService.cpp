@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -24,9 +24,11 @@ File Name:  CompileService.cpp
 #include "plugin_manager.h"
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/PathV1.h"
+#include "llvm/Support/PathV2.h"
 #include "BitCodeContainer.h"
 
-#include "llvm/Target/TargetRegistry.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetData.h"
@@ -37,7 +39,9 @@ File Name:  CompileService.cpp
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/System/Path.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/PassManager.h"
 #include "llvm/PassManager.h"
 
 #include <sstream>
@@ -153,7 +157,8 @@ void CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCo
     std::string err;
     const llvm::Target *target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
     std::string FeaturesStr;
-    TargetMachine* TM = target->createTargetMachine(triple.getTriple(), FeaturesStr);
+    std::string CPU;
+    TargetMachine* TM = target->createTargetMachine(triple.getTriple(), CPU, FeaturesStr);
     
     // Build up all of the passes that we want to do to the module.
     PassManager PM;
@@ -162,7 +167,7 @@ void CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCo
     std::string fileName;
     llvm::sys::Path filePath(dumpJIT.c_str(), dumpJIT.size());
 
-    if( !filePath.isAbsolute() && !baseDirectory.empty())
+    if( !sys::path::is_absolute(filePath.c_str()) && !baseDirectory.empty())
     {
         llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
         absFilePath.appendComponent(filePath.c_str());
@@ -170,8 +175,9 @@ void CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCo
     }
     else
     {
-        filePath.makeAbsolute();
-        fileName = filePath.str();
+        llvm::SmallString<128> filePathStr(filePath.c_str());
+        llvm::sys::fs::make_absolute(filePathStr);
+        fileName = filePathStr.c_str();
     }
     std::string errorInfo;
     llvm::raw_fd_ostream out(fileName.c_str(), errorInfo,

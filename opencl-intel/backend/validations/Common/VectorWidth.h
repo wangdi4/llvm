@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,7 +19,7 @@ File Name:  VectorWidth.h
 #define __VECTORWIDTH_H__
 
 #include <map>
-#include "llvm/System/DataTypes.h"      // LLVM data types
+#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "Exception.h"
 
 namespace Validation

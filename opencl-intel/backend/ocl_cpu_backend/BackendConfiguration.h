@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -42,6 +42,10 @@ public:
     void LoadConfig();
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+    /**
+     * Return operation mode for current architecture
+     */
+    OPERATION_MODE GetOperationMode();
 };
 
 class MICCompilerConfiguration: public MICCompilerConfig

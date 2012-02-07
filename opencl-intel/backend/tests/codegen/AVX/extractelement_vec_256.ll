@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 
 define <8 x float> @extract_insert_8_float(<8 x float> %broadcast1, <8 x float> %broadcast2) nounwind readnone {

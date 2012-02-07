@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'sampleD.bc'
@@ -8,77 +8,77 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @func
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.end26.loopexit, %for.end26.loopexit13
+; CHECK: phi-split-bb:                                     ; preds = %for.end26.loopexit, %for.end26.loopexit9
 ; CHECK: ret
+
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %n.addr = alloca i64, align 8                   ; <i64*> [#uses=2]
-  %A.addr = alloca i64*, align 8                  ; <i64**> [#uses=3]
-  %B.addr = alloca i64*, align 8                  ; <i64**> [#uses=2]
-  %i = alloca i64, align 8                        ; <i64*> [#uses=7]
-  %j = alloca i64, align 8                        ; <i64*> [#uses=4]
-  store i64 %n, i64* %n.addr
-  store i64* %A, i64** %A.addr
-  store i64* %B, i64** %B.addr
-  store i64 0, i64* %i
-  br label %for.cond
+  %call4 = tail call i32 @get_local_id(i32 0) nounwind
+  %cmp7 = icmp eq i32 %call4, 0
+  br i1 %cmp7, label %for.end26, label %for.cond3.preheader.lr.ph
 
-for.cond:                                         ; preds = %for.inc23, %entry
-  %tmp = load i64* %i                             ; <i64> [#uses=1]
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
-  %conv = zext i32 %call to i64                   ; <i64> [#uses=1]
-  %cmp = icmp slt i64 %tmp, %conv                 ; <i1> [#uses=1]
-  br i1 %cmp, label %for.body, label %for.end26
+for.cond3.preheader.lr.ph:                        ; preds = %entry
+  %div = sdiv i64 %n, 10
+  %cmp62 = icmp sgt i64 %n, 9
+  br i1 %cmp62, label %for.body8.lr.ph.us.preheader, label %for.end.preheader
 
-for.body:                                         ; preds = %for.cond
-  store i64 0, i64* %j
-  br label %for.cond3
+for.body8.lr.ph.us.preheader:                     ; preds = %for.cond3.preheader.lr.ph
+  br label %for.body8.lr.ph.us
 
-for.cond3:                                        ; preds = %for.inc, %for.body
-  %tmp4 = load i64* %j                            ; <i64> [#uses=1]
-  %tmp5 = load i64* %n.addr                       ; <i64> [#uses=1]
-  %div = sdiv i64 %tmp5, 10                       ; <i64> [#uses=1]
-  %cmp6 = icmp slt i64 %tmp4, %div                ; <i1> [#uses=1]
-  br i1 %cmp6, label %for.body8, label %for.end
+for.end.preheader:                                ; preds = %for.cond3.preheader.lr.ph
+  br label %for.end
 
-for.body8:                                        ; preds = %for.cond3
-  %tmp9 = load i64* %i                            ; <i64> [#uses=1]
-  %add = add nsw i64 %tmp9, 10                    ; <i64> [#uses=1]
-  %tmp10 = load i64** %A.addr                     ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp10, i64 %add ; <i64*> [#uses=1]
-  %tmp11 = load i64* %arrayidx                    ; <i64> [#uses=1]
-  %tmp12 = load i64* %i                           ; <i64> [#uses=1]
-  %xor = xor i64 %tmp12, 90                       ; <i64> [#uses=1]
-  %tmp13 = load i64** %A.addr                     ; <i64*> [#uses=1]
-  %arrayidx14 = getelementptr inbounds i64* %tmp13, i64 %xor ; <i64*> [#uses=1]
-  store i64 %tmp11, i64* %arrayidx14
-  br label %for.inc
+for.end.us:                                       ; preds = %for.body8.us
+  %call16.us = tail call i32 @get_local_id(i32 0) nounwind
+  %conv17.us = zext i32 %call16.us to i64
+  %arrayidx20.us = getelementptr inbounds i64* %B, i64 %storemerge8.us
+  %tmp21.us = load i64* %arrayidx20.us, align 8
+  %xor22.us = xor i64 %tmp21.us, %conv17.us
+  store i64 %xor22.us, i64* %arrayidx20.us, align 8
+  %inc25.us = add nsw i64 %storemerge8.us, 1
+  %call.us = tail call i32 @get_local_id(i32 0) nounwind
+  %conv.us = zext i32 %call.us to i64
+  %cmp.us = icmp slt i64 %inc25.us, %conv.us
+  br i1 %cmp.us, label %for.body8.lr.ph.us, label %for.end26.loopexit9
 
-for.inc:                                          ; preds = %for.body8
-  %tmp15 = load i64* %j                           ; <i64> [#uses=1]
-  %inc = add nsw i64 %tmp15, 1                    ; <i64> [#uses=1]
-  store i64 %inc, i64* %j
-  br label %for.cond3
+for.body8.us:                                     ; preds = %for.body8.lr.ph.us, %for.body8.us
+  %storemerge13.us = phi i64 [ 0, %for.body8.lr.ph.us ], [ %inc.us, %for.body8.us ]
+  %tmp11.us = load i64* %arrayidx.us, align 8
+  store i64 %tmp11.us, i64* %arrayidx14.us, align 8
+  %inc.us = add nsw i64 %storemerge13.us, 1
+  %cmp6.us = icmp slt i64 %inc.us, %div
+  br i1 %cmp6.us, label %for.body8.us, label %for.end.us
 
-for.end:                                          ; preds = %for.cond3
-  %call16 = call i32 @get_local_id(i32 0)         ; <i32> [#uses=1]
-  %conv17 = zext i32 %call16 to i64               ; <i64> [#uses=1]
-  %tmp18 = load i64* %i                           ; <i64> [#uses=1]
-  %tmp19 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %arrayidx20 = getelementptr inbounds i64* %tmp19, i64 %tmp18 ; <i64*> [#uses=2]
-  %tmp21 = load i64* %arrayidx20                  ; <i64> [#uses=1]
-  %xor22 = xor i64 %tmp21, %conv17                ; <i64> [#uses=1]
-  store i64 %xor22, i64* %arrayidx20
-  br label %for.inc23
+for.body8.lr.ph.us:                               ; preds = %for.body8.lr.ph.us.preheader, %for.end.us
+  %storemerge8.us = phi i64 [ %inc25.us, %for.end.us ], [ 0, %for.body8.lr.ph.us.preheader ]
+  %add.us = add nsw i64 %storemerge8.us, 10
+  %arrayidx.us = getelementptr inbounds i64* %A, i64 %add.us
+  %xor.us = xor i64 %storemerge8.us, 90
+  %arrayidx14.us = getelementptr inbounds i64* %A, i64 %xor.us
+  br label %for.body8.us
 
-for.inc23:                                        ; preds = %for.end
-  %tmp24 = load i64* %i                           ; <i64> [#uses=1]
-  %inc25 = add nsw i64 %tmp24, 1                  ; <i64> [#uses=1]
-  store i64 %inc25, i64* %i
-  br label %for.cond
+for.end:                                          ; preds = %for.end.preheader, %for.end
+  %storemerge8 = phi i64 [ %inc25, %for.end ], [ 0, %for.end.preheader ]
+  %call16 = tail call i32 @get_local_id(i32 0) nounwind
+  %conv17 = zext i32 %call16 to i64
+  %arrayidx20 = getelementptr inbounds i64* %B, i64 %storemerge8
+  %tmp21 = load i64* %arrayidx20, align 8
+  %xor22 = xor i64 %tmp21, %conv17
+  store i64 %xor22, i64* %arrayidx20, align 8
+  %inc25 = add nsw i64 %storemerge8, 1
+  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %conv = zext i32 %call to i64
+  %cmp = icmp slt i64 %inc25, %conv
+  br i1 %cmp, label %for.end, label %for.end26.loopexit
 
-for.end26:                                        ; preds = %for.cond
-  %call27 = call i32 @get_local_id(i32 2)         ; <i32> [#uses=0]
+for.end26.loopexit:                               ; preds = %for.end
+  br label %for.end26
+
+for.end26.loopexit9:                              ; preds = %for.end.us
+  br label %for.end26
+
+for.end26:                                        ; preds = %for.end26.loopexit9, %for.end26.loopexit, %entry
+  %call27 = tail call i32 @get_local_id(i32 2) nounwind
   ret void
 }
 

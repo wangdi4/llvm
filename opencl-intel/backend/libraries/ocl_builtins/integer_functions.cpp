@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -25,6 +25,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 // Compiled with Clang as LLVM module
 #define ALIGN16 __attribute__((aligned(16)))
@@ -200,13 +202,13 @@ _16u8	__attribute__((overloadable)) abs(_16i8 x)
 	ALIGN16 _1i8 result[16];
 
 	// Store to temporary buffer
-	_mm_store_si128((__m128i *)tempX, x);
+	_mm_store_si128((__m128i *)tempX, __builtin_astype(x,__m128i));
 	#pragma ivdep
 	for(int i=0; i<16; ++i)
 	{
 		result[i] = abs(tempX[i]);
 	}
-	return _mm_load_si128((const __m128i *)result);
+	return as_uchar16(_mm_load_si128((const __m128i *)result));
 #endif
 }
 
@@ -234,13 +236,13 @@ _8u16	__attribute__((overloadable)) abs(_8i16 x)
 	ALIGN16 _1i16 result[8];
 
 	// Store to temporary buffer
-	_mm_store_si128((__m128i *)tempX, x);
+	_mm_store_si128((__m128i *)tempX, __builtin_astype(x,__m128i));
 	#pragma ivdep
 	for(int i=0; i<8; ++i)
 	{
 		result[i] = abs(tempX[i]);
 	}
-	return _mm_load_si128((const __m128i *)result);
+	return as_ushort8(_mm_load_si128((const __m128i *)result));
 #endif
 }
 
@@ -268,13 +270,13 @@ _4u32	__attribute__((overloadable)) abs(_4i32 x)
 	ALIGN16 _1i32 result[4];
 
 	// Store to temporary buffer
-	_mm_store_si128((__m128i *)tempX, x);
+	_mm_store_si128((__m128i *)tempX, __builtin_astype(x,__m128i));
 	#pragma ivdep
 	for(int i=0; i<4; ++i)
 	{
 		result[i] = abs(tempX[i]);
 	}
-	return _mm_load_si128((const __m128i *)result);
+	return as_uint4(_mm_load_si128((const __m128i *)result));
 #endif
 }
 
@@ -1179,14 +1181,6 @@ _16i8	__attribute__((overloadable)) clamp(_16i8 x, _16i8 y, _16i8 z)
 _16u8	__attribute__((overloadable)) clamp(_16u8 x, _16u8 y, _16u8 z)
 {
 	return min(max(x, y), z);
-}
-_8i16	__attribute__((overloadable)) clamp(_8i16 x, _8i16 y, _8i16 z)
-{
-	return min(max(x, y), z);
-}
-_8u16	__attribute__((overloadable)) clamp(_8u16 x, _8u16 y, _8u16 z)
-{
-	return min(max(x, y), z); 
 }
 _4i32	__attribute__((overloadable)) clamp(_4i32 x, _4i32 y, _4i32 z)
 {

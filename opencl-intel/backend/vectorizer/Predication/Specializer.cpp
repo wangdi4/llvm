@@ -9,6 +9,7 @@
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Constants.h"
 
 static cl::opt<unsigned>
 SpecializeThreshold("specialize-threshold", cl::init(10), cl::Hidden,
@@ -331,7 +332,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
     V_ASSERT(!inst->getType()->isVoidTy() &&
            "Instruction must not have void type");
     PHINode* new_phi = PHINode::Create(
-      inst->getType(), inst->getName() + "_spec", footer->begin());
+      inst->getType(), 2, inst->getName() + "_spec", footer->begin());
     UndefValue* undef = UndefValue::get(inst->getType());
 
     // Use PHI value outside of skipped region
@@ -361,7 +362,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
       exitBlock->getTerminator());
 
       PHINode* new_phi =
-        PHINode::Create(non_bypass_mask->getType(),
+        PHINode::Create(non_bypass_mask->getType(), 2,
         mask_target->getName() + "_maskspec", footer->begin());
 
       new_phi->addIncoming(non_bypass_mask, exitBlock);

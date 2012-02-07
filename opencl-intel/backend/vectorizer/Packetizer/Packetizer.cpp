@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -268,7 +268,7 @@ void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWr
   V_ASSERT(BI && "instruction type dynamic cast failed");
   V_ASSERT(2 == BI->getNumOperands() && "binary operator with num operands other than 2");
 
-  const Type * origInstType = BI->getType();
+  Type * origInstType = BI->getType();
 
   // If instruction's return type is not primitive - cannot packetize
   if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy())
@@ -301,8 +301,8 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   V_PRINT(packetizer, "\t\tCast Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
   V_ASSERT(1 == CI->getNumOperands() && "unexpected arguments number");
-  const Type *origInstType = CI->getType();
-  const Type *inputType = CI->getOperand(0)->getType();
+  Type *origInstType = CI->getType();
+  Type *inputType = CI->getOperand(0)->getType();
 
   // In general (true for all cast instructions, also BitCast), we can only
   // Packetize if both input and output types are scalar primitives
@@ -319,7 +319,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   }
 
   // Obtain packetized arguments
-  const Type * targetDestType = VectorType::get(origInstType, m_packetWidth);
+  Type * targetDestType = VectorType::get(origInstType, m_packetWidth);
   Value * operand0;
   obtainVectorizedValue(&operand0, CI->getOperand(0), CI);
 
@@ -338,7 +338,7 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 {
   V_PRINT(packetizer, "\t\tCompare Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  const Type * origInstType = CI->getOperand(0)->getType();
+  Type * origInstType = CI->getOperand(0)->getType();
   V_ASSERT(2 == CI->getNumOperands() && "unexpected number of operands!");
 
   // If instruction's return type is not primitive - cannot packetize
@@ -362,7 +362,7 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 }
 
 
-static const char* getTypePrefix(const Type *TP) {
+static const char* getTypePrefix(Type *TP) {
   if (TP->isFloatTy()) return "F32";
   if (TP->isDoubleTy()) return "F64";
   if (TP->isIntegerTy(8)) return "I8";
@@ -375,21 +375,21 @@ static const char* getTypePrefix(const Type *TP) {
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
       V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
 
-  const Type *ElemTy = 0;
+  Type *ElemTy = 0;
   if (MO.Data) {
     ElemTy = MO.Data->getType();
   } else {
     ElemTy = MO.Orig->getType();
   }
 
-  const Type *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
+  Type *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
 
   // Check if this type is supported and if we have a name for it
   const char* suffix = getTypePrefix(ElemTy);
   if (!suffix) return NULL;
 
   std::vector<Value*> args;
-  std::vector<const Type *> types;
+  std::vector<Type *> types;
 
   Value *SclrBase[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(SclrBase, MO.Base , MO.Orig);
@@ -401,8 +401,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.Data)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
-  const PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
-  const PointerType *StrippedBaseTy =
+  PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
+  PointerType *StrippedBaseTy =
     PointerType::get(BaseTy->getElementType(),0);
   MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
@@ -419,7 +419,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(VecElemTy == MO.Data->getType() && "Invalid vector type");
   }
 
-  const Type *RetTy = Type::getVoidTy(VecElemTy->getContext());
+  Type *RetTy = Type::getVoidTy(VecElemTy->getContext());
   if (!MO.Orig->getType()->isVoidTy()) {
     RetTy = VecElemTy;
   }
@@ -431,7 +431,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   FunctionType *intr = FunctionType::get(RetTy, types, false);
   Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(
     intrinsic_name, intr);
-  return CallInst::Create(new_f, args.begin(), args.end(), "", MO.Orig);
+  return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
 Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
@@ -440,12 +440,12 @@ Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
     Value *inAddr[MAX_PACKET_WIDTH];
     obtainMultiScalarValues(inAddr, MO.Ptr , MO.Orig);
 
-    const PointerType *inPtr = dyn_cast<PointerType>(inAddr[0]->getType());
+    PointerType *inPtr = dyn_cast<PointerType>(inAddr[0]->getType());
     V_ASSERT(inPtr && "unexpected non-pointer argument");
 
     // BitCast the "scalar" pointer to a "vector" pointer
-    const Type *elementType = inPtr->getElementType();
-    const Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
+    Type *elementType = inPtr->getElementType();
+    Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
     PointerType *vectorInPtr = PointerType::get(vectorElementType, 
       inPtr->getAddressSpace());
     Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr,
@@ -503,10 +503,10 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   // Widen the load
   // BitCast the "scalar" pointer to a "vector" pointer
   V_ASSERT(PtrDep == WIAnalysis::PTR_CONSECUTIVE);
-  const PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
+  PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(PtrTy && "Pointer must be of pointer type");
-  const Type *ElemType = PtrTy->getElementType();
-  const Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
+  Type *ElemType = PtrTy->getElementType();
+  Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
   PointerType *VecTy = PointerType::get(VecElemTy, PtrTy->getAddressSpace());
   MO.Ptr = new BitCastInst(MO.Ptr, VecTy, "ptrTypeCast",MO.Orig);
 
@@ -517,7 +517,7 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   
   // Implement the function call
   std::vector<Value*> args;
-  std::vector<const Type *> types;
+  std::vector<Type *> types;
   
   args.push_back(MO.Mask);
   if (MO.Data) args.push_back(MO.Data);
@@ -526,11 +526,11 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   if (MO.Data) types.push_back(MO.Data->getType());
   types.push_back(MO.Ptr->getType());
 
-  const Type *DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
+  Type *DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
   if (MO.Data) DT = Type::getVoidTy(DT->getContext());
   FunctionType *intr = FunctionType::get(DT, types, false);
   Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(name, intr);
-  return CallInst::Create(new_f, args.begin(), args.end(), "", MO.Orig);
+  return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
 void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
@@ -570,7 +570,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   }
 
   // Find the data type;
-  const Type *DT;
+  Type *DT;
   if (MO.Data) { 
     DT = MO.Data->getType(); // stored type
   } else {
@@ -729,7 +729,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   
   // Create new instruction
   CallInst * newCall = 
-    CallInst::Create(vectorFunction, newArgs.begin(), newArgs.end(), "", CI);
+    CallInst::Create(vectorFunction, ArrayRef<Value*>(newArgs), "", CI);
 
   // updates packetizer data structure with new packetized call
   if (!handleCallReturn(CI, newCall)) {
@@ -766,19 +766,19 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   unsigned scalarStart = isMangled ? 1 : 0;
   for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex) {
     Value *operand;
-    const Type *neededType = LibFunc->getFunctionType()->getParamType(argIndex+LibFuncStart);
+    Type *neededType = LibFunc->getFunctionType()->getParamType(argIndex+LibFuncStart);
     V_ASSERT(neededType && "argument error");
     // Operands are expected to be packetized, unless the scalar and vector functions
     // receive arguments of the exact same type
     Value *curScalarArg = CI->getArgOperand(argIndex+scalarStart);
-    const Type *curScalarArgType = curScalarArg->getType();
+    Type *curScalarArgType = curScalarArg->getType();
     if (neededType == curScalarArgType) {
       // If a non-packetized argument is needed, simply use the first argument of 
       // the received multi-scalar argument
       Value *multiScalarVals[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiScalarVals, curScalarArg, CI);
       operand = multiScalarVals[0];
-    }  else if (const VectorType *aosType = dyn_cast<VectorType>(curScalarArgType)) {
+    }  else if (VectorType *aosType = dyn_cast<VectorType>(curScalarArgType)) {
       // we assume thar if a scalar built-in has vector argument that differs from it's packetized argument
       // than it should be transfered in SOA form using array of vectors
       ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(), m_packetWidth),
@@ -799,8 +799,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
 }
 
 bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
-  const Type *scalarRetType = CI->getType();
-  const Type *vectorRetType = newCall->getType();
+  Type *scalarRetType = CI->getType();
+  Type *vectorRetType = newCall->getType();
   // Check if the function's return type is static (not packetized).
   bool retIsPacketized = (scalarRetType != vectorRetType);
   // Check if function's return type is static in size (happens only for
@@ -814,7 +814,7 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
       createVCMEntryWithMultiScalarValues(CI, multiScalarBroadcast);
     }
   } else if (scalarRetType->isVectorTy()) {
-    const VectorType *aosType = cast<VectorType>(scalarRetType);
+    VectorType *aosType = cast<VectorType>(scalarRetType);
     ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(), m_packetWidth) , aosType->getNumElements());
     if (soaType != vectorRetType) {
       // failed to handle return - remove call and duplicate original call instruciton
@@ -857,7 +857,7 @@ bool PacketizeFunction::obtainInsertElement(Value* inst,
 }
 
 void PacketizeFunction::HandleReturnValueSOA(CallInst* CI, Value *soaRet){
-  const ArrayType *soaRetType = dyn_cast<ArrayType>(soaRet->getType());
+  ArrayType *soaRetType = dyn_cast<ArrayType>(soaRet->getType());
   V_ASSERT(soaRetType && "soa type is array of vetors");
   unsigned numElements = soaRetType->getNumElements();
   SmallVector<Instruction*, MAX_INPUT_VECTOR_WIDTH> scalars;
@@ -881,7 +881,7 @@ void PacketizeFunction::HandleReturnValueSOA(CallInst* CI, Value *soaRet){
 }
 
 Value *PacketizeFunction::HandleParamSOA(CallInst* CI, 
-        Value *scalarParam, const ArrayType* soaType){
+        Value *scalarParam, ArrayType* soaType){
   // Try to find the source element for the stored-value.
   // If was not able to find the InsertElement chain, need to duplicate the store
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands(MAX_INPUT_VECTOR_WIDTH);
@@ -905,7 +905,7 @@ bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** In
   // assembly of vectors should start with undef
   if (!isa<UndefValue>(assembledVector)) return false;
 
-  const VectorType *vType = dyn_cast<VectorType>(IEI->getType());
+  VectorType *vType = dyn_cast<VectorType>(IEI->getType());
   V_ASSERT(vType && "InsertElement should be a vector");
   // currently we only support 32 bit transposes
   if (vType->getElementType()->getScalarSizeInBits() != 32) return false;
@@ -1337,16 +1337,16 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
   V_ASSERT(PI && "instruction type dynamic cast failed");
 
   unsigned numValues = PI->getNumIncomingValues();
-  const Type * retType = PI->getType();
+  Type * retType = PI->getType();
 
   // If instruction's return type is not primitive - cannot packetize
   if (!retType->isIntegerTy() && !retType->isFloatingPointTy())
     return duplicateNonPacketizableInst(PI);
 
-  const Type * vectorPHIType = VectorType::get(retType, m_packetWidth);
+  Type * vectorPHIType = VectorType::get(retType, m_packetWidth);
 
   // Create new PHI node
-  PHINode *newPHINode = PHINode::Create(vectorPHIType, "vectorPHI", PI);
+  PHINode *newPHINode = PHINode::Create(vectorPHIType, numValues, "vectorPHI", PI);
 
   // Obtain vectorized versions of incoming values, and place in new PHI node/s
   for (unsigned inputNum = 0; inputNum < numValues; inputNum++)
@@ -1418,16 +1418,16 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
     Function *origFunc = m_currFunc->getParent()->getFunction(
       Mangler::demangle(CI->getCalledFunction()->getName()));
     V_ASSERT(origFunc && "error finding unmasked function!");
-    tidGenInst = CallInst::Create(origFunc, params.begin(), params.end(), "", I);
+    tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
 
     // Remove original instruction
     m_removedInsts.insert(I);
   }
 
   // Prepare: Obtain the used type of the ID, and make a vector for it
-  const Type * usedType = tidGenInst->getType();
+  Type * usedType = tidGenInst->getType();
   V_ASSERT(!isa<VectorType>(usedType) && "expected TID value to be scalar");
-  const VectorType *vectorIndexType = VectorType::get(usedType, m_packetWidth);
+  VectorType *vectorIndexType = VectorType::get(usedType, m_packetWidth);
 
   // Generate the broadcasting of the original ID
   Constant * constZero = ConstantInt::get(Type::getInt32Ty(context()), 0);
@@ -1465,7 +1465,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 
   // Generate the TID vectors
   BinaryOperator *vectorIndex = BinaryOperator::Create(
-    addOperation, shuffleInst, ConstantVector::get(vectorIndexType, constList));
+    addOperation, shuffleInst, ConstantVector::get(ArrayRef<Constant*>(constList)));
   vectorIndex->insertAfter(shuffleInst);
 
   // register the new converted value.

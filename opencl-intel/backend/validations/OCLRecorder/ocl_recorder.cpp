@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010,2011,2012).
+Copyright (c) Intel Corporation (2010,2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -24,6 +24,7 @@ File Name:  ocl_recorder.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Argument.h"
 #include "llvm/Function.h"
 #include "llvm/DerivedTypes.h"
@@ -37,6 +38,8 @@ File Name:  ocl_recorder.cpp
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 #include "BufferDesc.h"
+
+#define MAX_LOG_PATH 512
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -53,7 +56,7 @@ namespace Validation
     namespace Utils
     {
     /// \brief Converts type description from LLVM data structures to Data Manager structures.
-    TypeDesc GetTypeDesc(const llvm::Type* type, const llvm::TargetData* td)
+    TypeDesc GetTypeDesc(llvm::Type* type, const llvm::TargetData* td)
     {
         assert(NULL != type);
         TypeDesc ret;
@@ -117,7 +120,7 @@ namespace Validation
             }
         case llvm::Type::StructTyID:
             {
-                const llvm::StructType* STy = llvm::cast<llvm::StructType>(type);
+                llvm::StructType* STy = llvm::cast<llvm::StructType>(type);
                 const llvm::StructLayout *SLO = td->getStructLayout(STy);
                 ret.SetType(TSTRUCT);
                 ret.SetNumOfSubTypes(STy->getNumElements());
@@ -156,7 +159,7 @@ namespace Validation
     {
         BufferDesc bd;
         // Do not record pointer.
-        const llvm::Type* elType = func_arg.getType();
+        llvm::Type* elType = func_arg.getType();
         if (elType->isPointerTy())
         {
             elType = (llvm::cast<llvm::PointerType>(elType))->getElementType();
@@ -302,9 +305,9 @@ namespace Validation
         return &*it;
     }
 
-    RecorderContext::RecorderContext( const llvm::sys::Path& logsPath, const std::string& prefix):
+    RecorderContext::RecorderContext( const std::string& logsPath, const std::string& prefix):
         m_TD(NULL),
-        m_logsPath(logsPath.c_str())
+        m_logsPath(logsPath)
     {
         // create the unique path for current context
         std::ostringstream filename;
@@ -437,7 +440,7 @@ namespace Validation
         m_kernels.insert(std::make_pair(pKernel, KernelContext( pKernel->GetKernelName(), pFunction)));
     }
 
-    OCLRecorder::OCLRecorder( const llvm::sys::Path& logsDir, const std::string& prefix ):
+    OCLRecorder::OCLRecorder( const std::string& logsDir, const std::string& prefix ):
         m_logsDir(logsDir),
         m_prefix(prefix),
         m_pLLVMContext(new llvm::LLVMContext)
@@ -779,13 +782,13 @@ extern "C"
         char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
         char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
 
-        llvm::sys::Path logpath = (NULL == sz_logdir) ? llvm::sys::Path::GetCurrentDirectory()
-                                                      : llvm::sys::Path(sz_logdir);
+        llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ? llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str())
+                                                      : llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
         std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
                                                      : sz_dumpprefix;
-        logpath.makeAbsolute();
+        llvm::sys::fs::make_absolute(logpath);
 
-        return new Validation::OCLRecorder(logpath, prefix);
+        return new Validation::OCLRecorder(std::string(logpath.c_str()), prefix);
     }
 
     OCL_RECORDER_API void ReleasePlugin(ICLDevBackendPlugin* pPlugin)

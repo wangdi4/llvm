@@ -1,12 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
+; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'tcc.cl'
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
 target triple = "i686-pc-win32"
-	type { i8*, i8*, i8*, i8*, i32 }		; type %0
+
 @uv_min_val_16 = addrspace(2) global i16 -512, align 2		; <i16 addrspace(2)*> [#uses=15]
 @uv_max_val_16 = addrspace(2) global i16 511, align 2		; <i16 addrspace(2)*> [#uses=5]
 @hi_key_mask_16 = addrspace(2) global i16 -32, align 2		; <i16 addrspace(2)*> [#uses=2]
@@ -42,7 +42,6 @@ target triple = "i686-pc-win32"
 @sgv1 = internal constant [7 x i8] c"112208\00"		; <[7 x i8]*> [#uses=1]
 @fgv2 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv3 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
-@llvm.global.annotations = appending global [2 x %0] [%0 { i8* bitcast (void (<8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, <8 x i16> addrspace(1)*, i32, i8 addrspace(2)*, i32 addrspace(1)*, ...)* @tcc_vector8_third_optimization to i8*), i8* getelementptr ([8 x i8]* @sgv, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv to i8*), i32 0 }, %0 { i8* bitcast (void (i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i32, i8 addrspace(2)*, ...)* @tcc_scalar_unroll2 to i8*), i8* getelementptr ([7 x i8]* @sgv1, i32 0, i32 0), i8* getelementptr ([0 x i8]* @fgv2, i32 0, i32 0), i8* bitcast ([0 x i8*]* @lvgv3 to i8*), i32 0 }], section "llvm.metadata"		; <[2 x %0]*> [#uses=0]
 
 ; CHECK: @tcc_vector8_third_optimization
 

@@ -149,7 +149,7 @@ bool RelaxedPass::runOnModule(Module &M)
 		{
 			Function* pFunction = &*it;
 			std::string stRelaxedName = m_relaxedFunctions[pFuncName];
-			const FunctionType* pType = pFunction->getFunctionType();
+			FunctionType* pType = pFunction->getFunctionType();
 
 			Function* pRelaxedFunction = dyn_cast<Function>(M.getOrInsertFunction( stRelaxedName, pType, pFunction->getAttributes() ));
 			assert(NULL != pRelaxedFunction);

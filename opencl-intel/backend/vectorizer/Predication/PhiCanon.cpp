@@ -135,10 +135,10 @@ BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
     toFix->getParent()->getContext(),
     "phi-split-bb" , toFix->getParent(), toFix);
 
-  // Point new PHI BB to old one
-  BranchInst::Create(toFix, new_bb);
-  V_ASSERT(std::find(pred_begin(toFix), pred_end(toFix), new_bb) !=
-         pred_end(toFix));
+    // Point new BB to old one
+    BranchInst::Create(toFix, new_bb);
+    V_ASSERT(std::find(pred_begin(toFix), pred_end(toFix), new_bb) !=
+           pred_end(toFix));
 
   // Fix jump target of old predecessors to new BB
   fixBasicBlockSucessor(prev0, toFix, new_bb);
@@ -160,11 +160,11 @@ BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
     Value* v0 = phi->getIncomingValueForBlock(prev0);
     Value* v1 = phi->getIncomingValueForBlock(prev1);
 
-    // Move them to a new PHI in the new block
-    PHINode* phi_new = PHINode::Create(
-      phi->getType(), "new_phi", new_bb->begin());
-    phi_new->addIncoming(v0, prev0);
-    phi_new->addIncoming(v1, prev1);
+      // Move them to a new PHI in the new block
+      PHINode* phi_new = PHINode::Create(
+        phi->getType(), 2, "new_phi", new_bb->begin());
+      phi_new->addIncoming(v0, prev0);
+      phi_new->addIncoming(v1, prev1);
 
     // Replace old values with new PHI of new BB
     phi->removeIncomingValue(prev0);
@@ -223,3 +223,4 @@ extern "C" {
 char intel::PhiCanon::ID = 0;
 static RegisterPass<intel::PhiCanon>
 CLIPhiCannon("phicanon", "Phi Canonicalizer path (Two-based Phi)");
+

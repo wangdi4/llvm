@@ -322,6 +322,12 @@ _mm_comigt_sd(__m128d a, __m128d b)
 }
 
 __inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_comige_sd(__m128d a, __m128d b)
+{
+  return __builtin_ia32_comisdge(a, b);
+}
+
+__inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_comineq_sd(__m128d a, __m128d b)
 {
   return __builtin_ia32_comisdneq(a, b);
@@ -349,6 +355,12 @@ __inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_ucomigt_sd(__m128d a, __m128d b)
 {
   return __builtin_ia32_ucomisdgt(a, b);
+}
+
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_ucomige_sd(__m128d a, __m128d b)
+{
+  return __builtin_ia32_ucomisdge(a, b);
 }
 
 __inline__ int __attribute__((__always_inline__, __nodebug__))
@@ -420,6 +432,24 @@ _mm_cvttsd_si32(__m128d a)
   return a[0];
 }
 
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpd_pi32(__m128d a)
+{
+  return (__m64)__builtin_ia32_cvtpd2pi(a);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvttpd_pi32(__m128d a)
+{
+  return (__m64)__builtin_ia32_cvttpd2pi(a);
+}
+
+__inline__ __m128d __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpi32_pd(__m64 a)
+{
+  return __builtin_ia32_cvtpi2pd((__v2si)a);
+}
+
 __inline__ double __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsd_f64(__m128d a)
 {
@@ -435,7 +465,11 @@ _mm_load_pd(double const *dp)
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_load1_pd(double const *dp)
 {
-  return (__m128d){ dp[0], dp[0] };
+  struct __mm_load1_pd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  double u = ((struct __mm_load1_pd_struct*)dp)->u;
+  return (__m128d){ u, u };
 }
 
 #define        _mm_load_pd1(dp)        _mm_load1_pd(dp)
@@ -443,31 +477,47 @@ _mm_load1_pd(double const *dp)
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_loadr_pd(double const *dp)
 {
-  return (__m128d){ dp[1], dp[0] };
+  __m128d u = *(__m128d*)dp;
+  return __builtin_shufflevector(u, u, 1, 0);
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_loadu_pd(double const *dp)
 {
-  return __builtin_ia32_loadupd(dp);
+  struct __loadu_pd {
+    __m128d v;
+  } __attribute__((packed, may_alias));
+  return ((struct __loadu_pd*)dp)->v;
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_load_sd(double const *dp)
 {
-  return (__m128d){ *dp, 0.0 };
+  struct __mm_load_sd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  double u = ((struct __mm_load_sd_struct*)dp)->u;
+  return (__m128d){ u, 0 };
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_loadh_pd(__m128d a, double const *dp)
 {
-  return __builtin_shufflevector(a, *(__m128d *)dp, 0, 2);
+  struct __mm_loadh_pd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  double u = ((struct __mm_loadh_pd_struct*)dp)->u;
+  return (__m128d){ a[0], u };
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_loadl_pd(__m128d a, double const *dp)
 {
-  return __builtin_shufflevector(a, *(__m128d *)dp, 2, 1);
+  struct __mm_loadl_pd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  double u = ((struct __mm_loadl_pd_struct*)dp)->u;
+  return (__m128d){ u, a[1] }; 
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
@@ -509,14 +559,20 @@ _mm_move_sd(__m128d a, __m128d b)
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_store_sd(double *dp, __m128d a)
 {
-  dp[0] = a[0];
+  struct __mm_store_sd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_store_sd_struct*)dp)->u = a[0];
 }
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_store1_pd(double *dp, __m128d a)
 {
-  dp[0] = a[0];
-  dp[1] = a[0];
+  struct __mm_store1_pd_struct {
+    double u[2];
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_store1_pd_struct*)dp)->u[0] = a[0];
+  ((struct __mm_store1_pd_struct*)dp)->u[1] = a[0];
 }
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -534,20 +590,26 @@ _mm_storeu_pd(double *dp, __m128d a)
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storer_pd(double *dp, __m128d a)
 {
-  dp[0] = a[1];
-  dp[1] = a[0];
+  a = __builtin_shufflevector(a, a, 1, 0);
+  *(__m128d *)dp = a;
 }
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storeh_pd(double *dp, __m128d a)
 {
-  dp[0] = a[1];
+  struct __mm_storeh_pd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_storeh_pd_struct*)dp)->u = a[1];
 }
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storel_pd(double *dp, __m128d a)
 {
-  dp[0] = a[0];
+  struct __mm_storeh_pd_struct {
+    double u;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_storeh_pd_struct*)dp)->u = a[0];
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -566,6 +628,12 @@ __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_add_epi32(__m128i a, __m128i b)
 {
   return (__m128i)((__v4si)a + (__v4si)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_add_si64(__m64 a, __m64 b)
+{
+  return a + b;
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -658,6 +726,12 @@ _mm_mullo_epi16(__m128i a, __m128i b)
   return (__m128i)((__v8hi)a * (__v8hi)b);
 }
 
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_mul_su32(__m64 a, __m64 b)
+{
+  return __builtin_ia32_pmuludq((__v2si)a, (__v2si)b);
+}
+
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_mul_epu32(__m128i a, __m128i b)
 {
@@ -686,6 +760,12 @@ __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_sub_epi32(__m128i a, __m128i b)
 {
   return (__m128i)((__v4si)a - (__v4si)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_sub_si64(__m64 a, __m64 b)
+{
+  return a - b;
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -742,11 +822,8 @@ _mm_xor_si128(__m128i a, __m128i b)
   return a ^ b;
 }
 
-__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_slli_si128(__m128i a, int imm)
-{
-  return __builtin_ia32_pslldqi128(a, imm * 8);
-}
+#define _mm_slli_si128(VEC, IMM) \
+  ((__m128i)__builtin_ia32_pslldqi128((__m128i)(VEC), (IMM)*8))
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_slli_epi16(__m128i a, int count)
@@ -808,11 +885,9 @@ _mm_sra_epi32(__m128i a, __m128i count)
   return (__m128i)__builtin_ia32_psrad128((__v4si)a, (__v4si)count);
 }
 
-__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_srli_si128(__m128i a, int imm)
-{
-  return __builtin_ia32_psrldqi128(a, imm * 8);
-}
+
+#define _mm_srli_si128(VEC, IMM) \
+  ((__m128i)__builtin_ia32_psrldqi128((__m128i)(VEC), (IMM)*8))
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_srli_epi16(__m128i a, int count)
@@ -981,19 +1056,31 @@ _mm_load_si128(__m128i const *p)
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_loadu_si128(__m128i const *p)
 {
-  return (__m128i)__builtin_ia32_loaddqu((char const *)p);
+  struct __loadu_si128 {
+    __m128i v;
+  } __attribute__((packed, may_alias));
+  return ((struct __loadu_si128*)p)->v;
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_loadl_epi64(__m128i const *p)
 {
-  return (__m128i) { *(long *)p, 0};
+  struct __mm_loadl_epi64_struct {
+    long u;
+  } __attribute__((__packed__, __may_alias__));
+  return (__m128i) { ((struct __mm_loadl_epi64_struct*)p)->u, 0};
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set_epi64x(long q1, long q0)
 {
   return (__m128i){ q0, q1 };
+}
+
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set_epi64(__m64 q1, __m64 q0)
+{
+  return (__m128i){ (long)q0, (long)q1 };
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1021,6 +1108,12 @@ _mm_set1_epi64x(long q)
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_set1_epi64(__m64 q)
+{
+  return (__m128i){ (long)q, (long)q };
+}
+
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set1_epi32(int i)
 {
   return (__m128i)(__v4si){ i, i, i, i };
@@ -1036,6 +1129,12 @@ __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set1_epi8(char b)
 {
   return (__m128i)(__v16qi){ b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b };
+}
+
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_setr_epi64(__m64 q0, __m64 q1)
+{
+  return (__m128i){ (long)q0, (long)q1 };
 }
 
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1162,16 +1261,18 @@ _mm_movemask_epi8(__m128i a)
 }
 
 #define _mm_shuffle_epi32(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v4si)(a), (__v4si) {0}, \
+  ((__m128i)__builtin_shufflevector((__v4si)(a), (__v4si) _mm_set1_epi32(0), \
                                     (imm) & 0x3, ((imm) & 0xc) >> 2, \
                                     ((imm) & 0x30) >> 4, ((imm) & 0xc0) >> 6))
+
+
 #define _mm_shufflelo_epi16(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0}, \
+  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) _mm_set1_epi16(0), \
                                     (imm) & 0x3, ((imm) & 0xc) >> 2, \
                                     ((imm) & 0x30) >> 4, ((imm) & 0xc0) >> 6, \
                                     4, 5, 6, 7))
 #define _mm_shufflehi_epi16(a, imm) \
-  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) {0}, 0, 1, 2, 3, \
+  ((__m128i)__builtin_shufflevector((__v8hi)(a), (__v8hi) _mm_set1_epi16(0), 0, 1, 2, 3, \
                                     4 + (((imm) & 0x03) >> 0), \
                                     4 + (((imm) & 0x0c) >> 2), \
                                     4 + (((imm) & 0x30) >> 4), \
@@ -1225,10 +1326,22 @@ _mm_unpacklo_epi64(__m128i a, __m128i b)
   return (__m128i)__builtin_shufflevector(a, b, 0, 2+0);
 }
 
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_movepi64_pi64(__m128i a)
+{
+  return (__m64)a[0];
+}
+
+__inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+_mm_movpi64_pi64(__m64 a)
+{
+  return (__m128i){ (long)a, 0 };
+}
+
 __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_move_epi64(__m128i a)
 {
-  return __builtin_shufflevector(a, (__m128i){ 0 }, 0, 2);
+  return __builtin_shufflevector(a, (__m128i){ 0, 0 }, 0, 2);
 }
 
 __inline__ __m128d __attribute__((__always_inline__, __nodebug__))

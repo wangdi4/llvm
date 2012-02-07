@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -258,16 +258,16 @@ namespace Validation
             return m_includeDirs.get();
         }
 
-        /// @brief Return number of kernel configurations to run.
-        size_t numberOfKenelConfigurations() const
-        {
-            return m_kernels.size();
-        }
-
         /// @brief Returns the base directory
         std::string GetBaseDirectory() const
         {
             return m_baseDirectory;
+        }
+
+        /// @brief Return number of kernel configurations to run.
+        size_t numberOfKenelConfigurations() const
+        {
+            return m_kernels.size();
         }
 
     private:

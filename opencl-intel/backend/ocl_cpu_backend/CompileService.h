@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -20,6 +20,7 @@ File Name:  CompileService.h
 #include "cl_dev_backend_api.h"
 #include "CompilerConfig.h"
 #include "ProgramBuilder.h"
+#include "IAbstractBackendFactory.h"
 #include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

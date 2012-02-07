@@ -1,4 +1,4 @@
-; RUN: llc < %s -march=x86-64 -mcpu=sandybridge | FileCheck %s
+; RUN: llc < %s -march=x86-64 -mcpu=corei7-avx | FileCheck %s
 
 ; Splat patterns below
 

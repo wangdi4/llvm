@@ -39,8 +39,9 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/MutexGuard.h"
-#include "llvm/Target/TargetSelect.h"
+
 #include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -129,7 +130,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
 }
 
 KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
-                                                   llvm::MDNode *elt, 
+                                                   Function *func, 
                                                    const TLLVMKernelInfo& info)
 {
     // Set optimal WG size
@@ -140,45 +141,61 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     size_t hintWGSize[MAX_WORK_DIM] = {0,0,0};
     size_t reqdWGSize[MAX_WORK_DIM] = {0,0,0};
 
-    if( NULL != elt )
-    {
+    Module *pModule = func->getParent();
 
-        llvm::MDNode *wgsh = llvm::dyn_cast<llvm::MDNode>(elt->getOperand(2));
-        hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(0))->getValue().getZExtValue();
-        hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(1))->getValue().getZExtValue();
-        hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(wgsh->getOperand(2))->getValue().getZExtValue();
-        if(hintWGSize[0])
-        {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(hintWGSize[i]) optWGSize*=hintWGSize[i];
-            }
+    NamedMDNode *WGSH = pModule->getNamedMetadata("opencl.work_group_size_hints");
+        
+    if(WGSH) {
+      for(int i = 0, e = WGSH->getNumOperands() ; i < e ; i++ ) {
+        MDNode *elem = WGSH->getOperand(i);
+        if(func == dyn_cast<Function>(elem->getOperand(1))) {
+          hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(2))->getValue().getZExtValue();
+          hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(3))->getValue().getZExtValue();
+          hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(4))->getValue().getZExtValue();
         }
-
-        // Set required WG size
-        llvm::MDNode *rwgs = llvm::dyn_cast<llvm::MDNode>(elt->getOperand(1));
-        reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(0))->getValue().getZExtValue();
-        reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(1))->getValue().getZExtValue();
-        reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(rwgs->getOperand(2))->getValue().getZExtValue();
-        if(reqdWGSize[0])
+      }
+        
+      if(hintWGSize[0])
+      {
+        optWGSize = 1;
+        for(int i=0; i<MAX_WORK_DIM; ++i)
         {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(reqdWGSize[i]) optWGSize*=reqdWGSize[i];
-            }
+          if(hintWGSize[i]) optWGSize*=hintWGSize[i];
         }
+      }
     }
 
-    KernelProperties* pProps = m_pBackendFactory->CreateKernelProperties();
+    // Set required WG size
+    NamedMDNode *RWGS = pModule->getNamedMetadata("opencl.reqd_work_group_sizes");
+        
+    if(RWGS) {
+      for(int i = 0, e = RWGS->getNumOperands() ; i < e ; i++ ) {
+        MDNode *elem = RWGS->getOperand(i);
+        if(func == dyn_cast<Function>(elem->getOperand(1))) {
+          reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(2))->getValue().getZExtValue();
+          reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(3))->getValue().getZExtValue();
+          reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(4))->getValue().getZExtValue();
+        }
+      }
+        
+      if(reqdWGSize[0])
+      {
+        optWGSize = 1;
+        for(int i=0; i<MAX_WORK_DIM; ++i)
+        {
+          if(reqdWGSize[i]) optWGSize*=reqdWGSize[i];
+        }
+      }
+    }
+
+    KernelProperties* pProps = new KernelProperties();
 
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);
     pProps->SetHintWGSize(hintWGSize);
     pProps->SetTotalImplSize(info.stTotalImplSize);
     pProps->SetDAZ( pProgram->GetDAZ());
-    pProps->SetCpuId( GetCompiler()->GetSelectedCPU());
+    pProps->SetCpuId( GetCompiler()->GetSelectedCPU() );
     pProps->SetCpuFeatures( GetCompiler()->GetSelectedCPUFeatures() );
 
     return pProps;

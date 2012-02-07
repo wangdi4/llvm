@@ -408,6 +408,18 @@ _mm_cvtss_si64(__m128 a)
 
 #endif
 
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtps_pi32(__m128 a)
+{
+  return (__m64)__builtin_ia32_cvtps2pi(a);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvt_ps2pi(__m128 a)
+{
+  return _mm_cvtps_pi32(a);
+}
+
 __inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_cvttss_si32(__m128 a)
 {
@@ -424,6 +436,18 @@ __inline__ long __attribute__((__always_inline__, __nodebug__))
 _mm_cvttss_si64(__m128 a)
 {
   return a[0];
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvttps_pi32(__m128 a)
+{
+  return (__m64)__builtin_ia32_cvttps2pi(a);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtt_ps2pi(__m128 a)
+{
+  return _mm_cvttps_pi32(a);
 }
 
 __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -450,6 +474,18 @@ _mm_cvtsi64_ss(__m128 a, long b)
 
 #endif
 
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpi32_ps(__m128 a, __m64 b)
+{
+  return __builtin_ia32_cvtpi2ps(a, (__v2si)b);
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvt_pi2ps(__m128 a, __m64 b)
+{
+  return _mm_cvtpi32_ps(a, b);
+}
+
 __inline__ float __attribute__((__always_inline__, __nodebug__))
 _mm_cvtss_f32(__m128 a)
 {
@@ -457,15 +493,47 @@ _mm_cvtss_f32(__m128 a)
 }
 
 __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_loadh_pi(__m128 a, const __m64 *p)
+{
+  typedef float __mm_loadh_pi_v2f32 __attribute__((__vector_size__(8)));
+  struct __mm_loadh_pi_struct {
+    __mm_loadh_pi_v2f32 u;
+  } __attribute__((__packed__, __may_alias__));
+  __mm_loadh_pi_v2f32 b = ((struct __mm_loadh_pi_struct*)p)->u;
+  __m128 bb = __builtin_shufflevector(b, b, 0, 1, 0, 1);
+  return __builtin_shufflevector(a, bb, 0, 1, 4, 5);
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_loadl_pi(__m128 a, const __m64 *p)
+{
+  typedef float __mm_loadl_pi_v2f32 __attribute__((__vector_size__(8)));
+  struct __mm_loadl_pi_struct {
+    __mm_loadl_pi_v2f32 u;
+  } __attribute__((__packed__, __may_alias__));
+  __mm_loadl_pi_v2f32 b = ((struct __mm_loadl_pi_struct*)p)->u;
+  __m128 bb = __builtin_shufflevector(b, b, 0, 1, 0, 1);
+  return __builtin_shufflevector(a, bb, 4, 5, 2, 3);
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_load_ss(const float *p)
 {
-  return (__m128){ *p, 0, 0, 0 };
+  struct __mm_load_ss_struct {
+    float u;
+  } __attribute__((__packed__, __may_alias__));
+  float u = ((struct __mm_load_ss_struct*)p)->u;
+  return (__m128){ u, 0, 0, 0 };
 }
 
 __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_load1_ps(const float *p)
 {
-  return (__m128){ *p, *p, *p, *p };
+  struct __mm_load1_ps_struct {
+    float u;
+  } __attribute__((__packed__, __may_alias__));
+  float u = ((struct __mm_load1_ps_struct*)p)->u;
+  return (__m128){ u, u, u, u };
 }
 
 #define        _mm_load_ps1(p) _mm_load1_ps(p)
@@ -479,7 +547,10 @@ _mm_load_ps(const float *p)
 __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_loadu_ps(const float *p)
 {
-  return __builtin_ia32_loadups(p);
+  struct __loadu_ps {
+    __m128 v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((struct __loadu_ps*)p)->v;
 }
 
 __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -527,9 +598,24 @@ _mm_setzero_ps(void)
 }
 
 __inline__ void __attribute__((__always_inline__))
+_mm_storeh_pi(__m64 *p, __m128 a)
+{
+  __builtin_ia32_storehps((__v2si *)p, a);
+}
+
+__inline__ void __attribute__((__always_inline__))
+_mm_storel_pi(__m64 *p, __m128 a)
+{
+  __builtin_ia32_storelps((__v2si *)p, a);
+}
+
+__inline__ void __attribute__((__always_inline__))
 _mm_store_ss(float *p, __m128 a)
 {
-  *p = a[0];
+  struct __mm_store_ss_struct {
+    float u;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_store_ss_struct*)p)->u = a[0];
 }
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -575,6 +661,12 @@ _mm_storer_ps(float *p, __m128 a)
 #define _mm_prefetch(a, sel) (__builtin_prefetch((void *)(a), 0, sel))
 
 __inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm_stream_pi(__m64 *p, __m64 a)
+{
+  __builtin_ia32_movntq(p, a);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_stream_ps(float *p, __m128 a)
 {
   __builtin_ia32_movntps(p, a);
@@ -584,6 +676,84 @@ __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_sfence(void)
 {
   __builtin_ia32_sfence();
+}
+
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_extract_pi16(__m64 a, int n)
+{
+  __v4hi b = (__v4hi)a;
+  return (unsigned short)b[n & 3];
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_insert_pi16(__m64 a, int d, int n)
+{
+   __v4hi b = (__v4hi)a;
+   b[n & 3] = d;
+   return (__m64)b;
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_max_pi16(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pmaxsw((__v4hi)a, (__v4hi)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_max_pu8(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pmaxub((__v8qi)a, (__v8qi)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_min_pi16(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pminsw((__v4hi)a, (__v4hi)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_min_pu8(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pminub((__v8qi)a, (__v8qi)b);
+}
+
+__inline__ int __attribute__((__always_inline__, __nodebug__))
+_mm_movemask_pi8(__m64 a)
+{
+  return __builtin_ia32_pmovmskb((__v8qi)a);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_mulhi_pu16(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pmulhuw((__v4hi)a, (__v4hi)b);  
+}
+
+#define _mm_shuffle_pi16(a, n) \
+  ((__m64)__builtin_ia32_pshufw(a, n))
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm_maskmove_si64(__m64 d, __m64 n, char *p)
+{
+  __builtin_ia32_maskmovq((__v8qi)d, (__v8qi)n, p);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_avg_pu8(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pavgb((__v8qi)a, (__v8qi)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_avg_pu16(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_pavgw((__v4hi)a, (__v4hi)b);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_sad_pu8(__m64 a, __m64 b)
+{
+  return (__m64)__builtin_ia32_psadbw((__v8qi)a, (__v8qi)b);
 }
 
 __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
@@ -633,7 +803,100 @@ _mm_movelh_ps(__m128 a, __m128 b)
 {
   return __builtin_shufflevector(a, b, 0, 1, 4, 5);
 }
+/*
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpi16_ps(__m64 a)
+{
+  __m64 b, c;
+  __m128 r;
 
+  b = _mm_setzero_si64();
+  b = _mm_cmpgt_pi16(b, a);
+  c = _mm_unpackhi_pi16(a, b);  
+  r = _mm_setzero_ps();
+  r = _mm_cvtpi32_ps(r, c);
+  r = _mm_movelh_ps(r, r);
+  c = _mm_unpacklo_pi16(a, b);  
+  r = _mm_cvtpi32_ps(r, c);
+
+  return r;
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpu16_ps(__m64 a)
+{
+  __m64 b, c;
+  __m128 r;
+
+  b = _mm_setzero_si64();
+  c = _mm_unpackhi_pi16(a, b);  
+  r = _mm_setzero_ps();
+  r = _mm_cvtpi32_ps(r, c);
+  r = _mm_movelh_ps(r, r);
+  c = _mm_unpacklo_pi16(a, b);  
+  r = _mm_cvtpi32_ps(r, c);
+
+  return r;
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpi8_ps(__m64 a)
+{
+  __m64 b;
+  
+  b = _mm_setzero_si64();
+  b = _mm_cmpgt_pi8(b, a);
+  b = _mm_unpacklo_pi8(a, b);
+
+  return _mm_cvtpi16_ps(b);
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpu8_ps(__m64 a)
+{
+  __m64 b;
+  
+  b = _mm_setzero_si64();
+  b = _mm_unpacklo_pi8(a, b);
+
+  return _mm_cvtpi16_ps(b);
+}
+
+__inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtpi32x2_ps(__m64 a, __m64 b)
+{
+  __m128 c;
+  
+  c = _mm_setzero_ps();  
+  c = _mm_cvtpi32_ps(c, b);
+  c = _mm_movelh_ps(c, c);
+
+  return _mm_cvtpi32_ps(c, a);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtps_pi16(__m128 a)
+{
+  __m64 b, c;
+  
+  b = _mm_cvtps_pi32(a);
+  a = _mm_movehl_ps(a, a);
+  c = _mm_cvtps_pi32(a);
+  
+  return _mm_packs_pi16(b, c);
+}
+
+__inline__ __m64 __attribute__((__always_inline__, __nodebug__))
+_mm_cvtps_pi8(__m128 a)
+{
+  __m64 b, c;
+  
+  b = _mm_cvtps_pi16(a);
+  c = _mm_setzero_si64();
+  
+  return _mm_packs_pi16(b, c);
+}
+*/
 __inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_movemask_ps(__m128 a)
 {

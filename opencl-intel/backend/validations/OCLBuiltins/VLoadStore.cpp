@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -75,7 +75,7 @@ namespace OCLBuiltins {
     }
 
 template<> llvm::GenericValue lle_X_vload_half<3, true>(
-    const llvm::FunctionType *FT,
+    llvm::FunctionType *FT,
     const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
@@ -107,7 +107,7 @@ uint16_t convert2half<double>(double f)
 
 
 template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
-    const llvm::FunctionType *FT,
+    llvm::FunctionType *FT,
     const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue arg0 = Args[0];
@@ -125,7 +125,7 @@ template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
 }
 
 template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
-    const llvm::FunctionType *FT,
+    llvm::FunctionType *FT,
     const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue arg0 = Args[0];
@@ -144,7 +144,7 @@ template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
 
 #define VSTOREF_HALF_CONVERT(RMODE)                                                 \
 template<int n, bool aligned>                                                       \
-llvm::GenericValue lle_X_vstoref_half_ ## RMODE (const llvm::FunctionType *FT,      \
+llvm::GenericValue lle_X_vstoref_half_ ## RMODE (llvm::FunctionType *FT,      \
                                      const std::vector<llvm::GenericValue> &Args)   \
 {                                                                                   \
     llvm::GenericValue arg0 = Args[0];                                              \
@@ -168,7 +168,7 @@ VSTOREF_HALF_CONVERT(rtn)
 
 #define VSTORED_HALF_CONVERT(RMODE)                                                 \
 template<int n, bool aligned>                                                       \
-llvm::GenericValue lle_X_vstored_half_ ## RMODE (const llvm::FunctionType *FT,      \
+llvm::GenericValue lle_X_vstored_half_ ## RMODE (llvm::FunctionType *FT,      \
                                     const std::vector<llvm::GenericValue> &Args)    \
 {                                                                                   \
     llvm::GenericValue arg0 = Args[0];                                              \
@@ -192,7 +192,7 @@ VSTORED_HALF_CONVERT(rtn)
 
 #define VSTOREAF_HALF_CONVERT(RMODE)                                        \
 template<> llvm::GenericValue lle_X_vstoref_half_ ## RMODE <3, true>(       \
-    const llvm::FunctionType *FT,                                           \
+    llvm::FunctionType *FT,                                           \
     const std::vector<llvm::GenericValue> &Args)                            \
 {                                                                           \
     llvm::GenericValue arg0 = Args[0];                                      \
@@ -216,7 +216,7 @@ VSTOREAF_HALF_CONVERT(rtn)
 
 #define VSTOREAD_HALF_CONVERT(RMODE)                                            \
 template<> llvm::GenericValue lle_X_vstored_half_ ## RMODE <3, true>(           \
-    const llvm::FunctionType *FT,                                               \
+    llvm::FunctionType *FT,                                               \
     const std::vector<llvm::GenericValue> &Args)                                \
 {                                                                               \
     llvm::GenericValue arg0 = Args[0];                                          \

@@ -3,6 +3,7 @@
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "llvm/Constants.h"
 
 #include <vector>
 
@@ -201,7 +202,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
     // Nothing to do for void type
     if (insts[i]->getType()->isVoidTy()) continue;
     UndefValue* undef = UndefValue::get(insts[i]->getType());
-    PHINode* phi = PHINode::Create(insts[i]->getType(), "phi", footer->getFirstNonPHI());
+    PHINode* phi = PHINode::Create(insts[i]->getType(), 2, "phi", footer->getFirstNonPHI());
 
     // replace all users which are not skipped (this will create a broken module)
     std::vector<Value*> users(insts[i]->use_begin(), insts[i]->use_end());
@@ -255,7 +256,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   Value *Ptr = caller->getArgOperand(1);
   assert(caller->getNumArgOperands() == 2 && "Bad number of operands");
 
-  const Type *Tp = caller->getType();
+  Type *Tp = caller->getType();
   assert(Tp->isVectorTy() && "Return value must be of vector type");
   assert(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
 
@@ -269,12 +270,12 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     return;
   }
 
-  const VectorType *VT = cast<VectorType>(Tp);
+  VectorType *VT = cast<VectorType>(Tp);
   unsigned NumElem = VT->getNumElements();
-  const Type *Elem = VT->getElementType();
+  Type *Elem = VT->getElementType();
 
   // Cast the ptr back to its original form
-  const PointerType *InPT = cast<PointerType>(Ptr->getType());
+  PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
   Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
@@ -329,12 +330,12 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Value *Ptr = caller->getArgOperand(2);
   assert(caller->getNumArgOperands() == 3 && "Bad number of operands");
 
-  const Type *Tp = Data->getType();
+  Type *Tp = Data->getType();
   assert(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
 
-  const VectorType *VT = cast<VectorType>(Tp);
+  VectorType *VT = cast<VectorType>(Tp);
   unsigned NumElem = VT->getNumElements();
-  const Type *Elem = VT->getElementType();
+  Type *Elem = VT->getElementType();
 
   
   // Uniform mask for vector store.
@@ -348,7 +349,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   }
 
   // Cast the ptr back to its original form
-  const PointerType *InPT = cast<PointerType>(Ptr->getType());
+  PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
   Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
@@ -369,7 +370,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
 void FuncResolver::resolveFunc(CallInst* caller) {
 
   // Create function arguments
-  std::vector<const Type*> args;
+  std::vector<Type*> args;
 
   //Operands: [PRED, arg0, arg1 , ...]. Omit the pred..
   for (unsigned j = 1; j < caller->getNumArgOperands(); ++j) {
@@ -398,7 +399,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
 
   // Generate a Call the new function
   CallInst* call = CallInst::Create(
-    func, params.begin(), params.end(), "", caller);
+    func, ArrayRef<Value*>(params), "", caller);
   caller->replaceAllUsesWith(call);
   // Replace predicate with control flow
   toPredicate(call, caller->getArgOperand(0));
@@ -423,9 +424,9 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
       Value *Ptr  = caller->getArgOperand(1);
       assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
       assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-      const Type *MaskTy = Mask->getType();
-      const Type *RetTy = caller->getType();
-      const PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
+      Type *MaskTy = Mask->getType();
+      Type *RetTy = caller->getType();
+      PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
       assert(PtrTy->getElementType() == RetTy && 
         "mismatch between ptr and retval");
       
@@ -440,7 +441,7 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
 
       if (IntrinsicName != "") {
         std::vector<Value*> args;
-        std::vector<const Type *> types;
+        std::vector<Type *> types;
 
         args.push_back(Mask);
         args.push_back(Ptr);
@@ -451,7 +452,7 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
         Constant* new_f = caller->getParent()->getParent()->getParent()->
           getOrInsertFunction(IntrinsicName, intr);
         caller->replaceAllUsesWith(CallInst::Create(new_f, 
-          args.begin(), args.end(), "", caller));
+          ArrayRef<Value*>(args), "", caller));
         caller->eraseFromParent();
         return true;
       }
@@ -463,9 +464,9 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
       Value *Data = caller->getArgOperand(1);
       assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
       assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-      const Type *MaskTy = Mask->getType();
-      const Type *DataTy = Data->getType();
-      const PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
+      Type *MaskTy = Mask->getType();
+      Type *DataTy = Data->getType();
+      PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
       assert(PtrTy->getElementType() == DataTy && 
         "mismatch between ptr and retval");
       
@@ -480,7 +481,7 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
 
       if (IntrinsicName != "") {
         std::vector<Value*> args;
-        std::vector<const Type *> types;
+        std::vector<Type *> types;
 
         args.push_back(Mask);
         args.push_back(Data);
@@ -494,7 +495,7 @@ bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
         Constant* new_f = caller->getParent()->getParent()->getParent()->
           getOrInsertFunction(IntrinsicName, intr);
         caller->replaceAllUsesWith(CallInst::Create(new_f, 
-          args.begin(), args.end(), "", caller));
+          ArrayRef<Value*>(args), "", caller));
         caller->eraseFromParent();
         return true;
 

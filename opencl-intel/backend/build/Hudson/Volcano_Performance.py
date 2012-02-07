@@ -4,8 +4,8 @@ import re
 import framework.cmdtool
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, VolcanoCmdTask, TestTaskResult, TIMEOUT_HALFHOUR
 from framework.tasks import SimpleTest 
-from framework.utils import EnvironmentValue 
-from Volcano_Common import VolcanoRunConfig, PERFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP 
+from framework.utils import EnvironmentValue, NetworkEnvironment 
+from Volcano_Common import VolcanoRunConfig, PERFORMANCE_TESTS_ROOT, SUPPORTED_CPUS, SUPPORTED_TARGETS, SUPPORTED_BUILDS, SUPPORTED_VECTOR_SIZES, CPU_MAP, PERFORMANCE_LOG_ROOT
 from BIMeterFullWW35 import BIMeterFullWW35
 
 # Note that the iteration count is modified to 3 for the stable cases (STD < 0.005).
@@ -160,7 +160,7 @@ CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(7,12)])
 CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(12,19)])
 CyberLinkPerformance.extend([['CyberLink.'+str(i), 16] for i in range(48,72)])
 
-CyberLinkPerformanceWW44T = [
+CyberLinkPerformanceWW44 = [
 ['CyberLink.Abstractionism',16],
 ['CyberLink.Abstractionism.2',16],
 ['CyberLink.Beating',16],
@@ -216,6 +216,30 @@ CyberLinkPerformanceWW44T = [
 ['CyberLink.XRay',16],
 ['CyberLink.ZoomIn',16],
 ['CyberLink.ZoomOut',16]
+]
+
+RightWareRC21 = [
+['RightWare.TestFluidSimulation',16],
+['RightWare.TestImageColorCorrection',16],
+['RightWare.TestImageNoiseReduction',16],
+['RightWare.TestImageSharpening',16],
+['RightWare.TestImageSharpening.2',16],
+['RightWare.TestImageSharpening.3',16],
+['RightWare.TestImageSmoothing',16],
+['RightWare.TestImageSurfaceAwareSmoothing',16],
+['RightWare.TestJuliaFractal',16],
+['RightWare.TestMandelbulb',16],
+['RightWare.TestSoftBodySimulation',16],
+['RightWare.TestSphFluid',16],
+['RightWare.TestVideoColorCorrection',16],
+['RightWare.TestVideoNoiseReduction',16],
+['RightWare.TestVideoSharpening',16],
+['RightWare.TestVideoSharpening.2',16],
+['RightWare.TestVideoSharpening.3',16],
+['RightWare.TestVideoSmoothing',16],
+['RightWare.TestVideoSurfaceSmoothing',16],
+['RightWare.TestWaveSimulation',16],
+['RightWare.TestWaveSimulation.2',16]
 ]
 
 
@@ -1316,7 +1340,7 @@ class PerformanceRunConfig():
     def __init__(self, tests_path, logs_path, dump_ir, dump_jit, mode = 'PERF'):
         if '' == tests_path:
             tests_path = PERFORMANCE_TESTS_ROOT
-            
+
         if '' == logs_path:
             logs_path = PERFORMANCE_LOG_ROOT
 
@@ -1408,13 +1432,33 @@ class VolcanoWOLFPerformanceSuite(VolcanoPerformanceSuite):
         self.updateTask('wlPrefixSum',   skiplist=[['.*','Win32']])
         self.updateTask('wlSubdivision', skiplist=[[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]])
 
+class VolcanoWOLFPerformanceSuite25726(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'WOLF.25726', None, config, WOLFPerformance)
+        self.updateTask('wlHistogram',   skiplist=[['.*','Win32']])
+        self.updateTask('wlHistogram_1', skiplist=[['.*','Win32']])
+        self.updateTask('wlPrefixSum',   skiplist=[['.*','Win32']])
+        self.updateTask('wlSubdivision', skiplist=[[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]])
+
 class VolcanoWOLFBenchPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'WOLFbench', None, config, WOLFBenchPerformance)
 
+class VolcanoWOLFBenchPerformanceSuite24582(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'WOLFbench.24582', None, config, WOLFBenchPerformance)
+
 class VolcanoCyberLinkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink.WW44T', None, config, CyberLinkPerformanceWW44T)
+        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink', None, config, CyberLinkPerformance)
+
+class VolcanoCyberLinkPerformanceWW44Suite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'CyberLink.WW44', None, config, CyberLinkPerformanceWW44)
+
+class VolcanoRightWareRC21PerformanceSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'RightWare.RC21', None, config, RightWareRC21)
 
 class VolcanoLuxMarkPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
@@ -1441,9 +1485,13 @@ class VolcanoGEHCPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
         VolcanoPerformanceSuite.__init__(self, name, 'GEHC', None, config, GEHCPerformance)
 
+class VolcanoGEHC26672PerformanceSuite(VolcanoPerformanceSuite):
+    def __init__(self, name, config):
+        VolcanoPerformanceSuite.__init__(self, name, 'GEHC.26672', None, config, GEHCPerformance)
+
 class VolcanoSHOCPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'SHOC', None, config, SHOCPerformance)
+        VolcanoPerformanceSuite.__init__(self, name, 'SHOC_L3.26930', None, config, SHOCPerformance)
 
 class VolcanoSonyVegas425PerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
@@ -1451,82 +1499,88 @@ class VolcanoSonyVegas425PerformanceSuite(VolcanoPerformanceSuite):
 
 class VolcanoBIMeterPerformanceSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeter.ww35_26642", config, BIMeterPerformance)
-
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeter', "BIMeter.ww35_26642L", config, BIMeterPerformance)
 # math
 class VolcanoBIMeterMathSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMath', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"math_[a-z]+[.]?[0-9]*$")
 # atomics
 class VolcanoBIMeterAtomicsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"atomics_*")
-        
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterAtomics', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"atomics_*")
 # common and common_double
 class VolcanoBIMeterCommonSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"common_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterCommon', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"common_*")
 # geometric and geometric double
 class VolcanoBIMeterGeometricSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"geometric_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterGeometric', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"geometric_*")
 # math double
 class VolcanoBIMeterMathDoubleSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathDouble', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"math_double_[a-z]+[.]?[0-9]*$")
 # math half precision
 class VolcanoBIMeterMathHalfSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_half_half_[a-z]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathHalf', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"math_half_half_[a-z]+[.]?[0-9]*$")
 # integer
 class VolcanoBIMeterIntegerSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterInteger', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"math_int_[a-z_]+[.]?[0-9]*$")
 # math native precision
 class VolcanoBIMeterMathNativeSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMathNative', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"native_math_[a-z_]+[.]?[0-9]*$")
 # relational and relational double
 class VolcanoBIMeterRelationalSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"relational_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterRelational', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"relational_*")
 # misc
 class VolcanoBIMeterMiscellaneousSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"miscellaneous_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterMiscellaneous', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"miscellaneous_*")
 # conversions
 class VolcanoBIMeterConversionsSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeter.ww35_26642", config, BIMeterFullWW35, r"conversions_*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterConversions', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"conversions_*")
 
 class VolcanoBIMeterImagesSuite(VolcanoPerformanceSuite):
     def __init__(self, name, config):
-        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeter.ww35_26642", config, BIMeterFullWW35, r".*_image.*")
+        VolcanoPerformanceSuite.__init__(self, name, 'BIMeterImages', "BIMeter.ww35_26642L", config, BIMeterFullWW35, r"images_.*")
 
-perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite,      [['.*','SLES64'],['.*','RH64']]],
-               "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite, [['.*','SLES64'],['.*','RH64']]], 
-               "CyberLink":             [VolcanoCyberLinkPerformanceSuite, [['.*','*64']]   ],
-               "VCSD":                  [VolcanoVCSDPerformanceSuite,      [['.*','*64']]   ], 
-               "Sandra":                [VolcanoSandraPerformanceSuite,    [['.*','Win32']] ],
-               "LuxMark":               [VolcanoLuxMarkPerformanceSuite,   []               ],
-               "BIMeter":               [VolcanoBIMeterPerformanceSuite,   [['.*','SLES64'],['.*','RH64']]],
-               "AVX256_P1":             [VolcanoAVX256_P1_PerformanceSuite,[]               ],
-               "Phoronix":              [VolcanoPhoronixPerformanceSuite,  [['.*','Win32']] ],
-               "GEHC":                  [VolcanoGEHCPerformanceSuite,      [['.*','Win32'],['.*','Win64']]], 
-               "SHOC":                  [VolcanoSHOCPerformanceSuite,      [['.*','Win32']] ], 
-               "SonyVegas425":          [VolcanoSonyVegas425PerformanceSuite,[['.*','Win32']] ], 
-               "BIMeterMath":           [VolcanoBIMeterMathSuite,          [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,       [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterCommon":         [VolcanoBIMeterCommonSuite,        [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterGeometric":      [VolcanoBIMeterGeometricSuite,     [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterMathDouble":     [VolcanoBIMeterMathDoubleSuite,    [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterMathHalf":       [VolcanoBIMeterMathHalfSuite,      [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterInteger":        [VolcanoBIMeterIntegerSuite,       [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,    [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,    [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite, [['.*','SLES64'],['.*','RH64']]], 
-               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,   [['.*','SLES64'],['.*','RH64']]],
-               "BIMeterImages":         [VolcanoBIMeterImagesSuite,        [['.*','SLES64'],['.*','RH64']]]
+# Note: 
+#     Suite names must have the following simple format:
+#     Name[.version]
+#     
+#     Where 'Name' should not contain any white spaces nor '.' characters
+#     The 'version' part is optional and if specified should be separated from the 'Name' by dot character
+#
+
+perf_suites = {"WOLF":                  [VolcanoWOLFPerformanceSuite25726,     [['.*','SLES64'],['.*','RH64']]],
+               "WOLFbench":             [VolcanoWOLFBenchPerformanceSuite24582,[['.*','SLES64'],['.*','RH64']]],
+               "CyberLink":             [VolcanoCyberLinkPerformanceWW44Suite, [['.*','*64']]   ],
+               "RightWare":             [VolcanoRightWareRC21PerformanceSuite, [['.*','*64']]   ],
+               "VCSD":                  [VolcanoVCSDPerformanceSuite,          [['.*','*64']]   ],
+               "Sandra":                [VolcanoSandraPerformanceSuite,        [['.*','Win32']] ],
+               "LuxMark":               [VolcanoLuxMarkPerformanceSuite,       []               ],
+               "BIMeter":               [VolcanoBIMeterPerformanceSuite,       [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "Phoronix":              [VolcanoPhoronixPerformanceSuite,      [['.*','Win32']] ],
+               "GEHC":                  [VolcanoGEHC26672PerformanceSuite,     [['.*','Win32'],['.*','Win64']] ],
+               "SHOC_L3":               [VolcanoSHOCPerformanceSuite,          [['.*','Win32']] ],
+               "SonyVegas":             [VolcanoSonyVegas425PerformanceSuite,  [['.*','Win32'],['.*','SLES64'],['.*','RH64']] ],
+               "BIMeterMath":           [VolcanoBIMeterMathSuite,              [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterAtomics":        [VolcanoBIMeterAtomicsSuite,           [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterCommon":         [VolcanoBIMeterCommonSuite,            [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterGeometric":      [VolcanoBIMeterGeometricSuite,         [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterMathDouble":     [VolcanoBIMeterMathDoubleSuite,        [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterMathHalf":       [VolcanoBIMeterMathHalfSuite,          [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterInteger":        [VolcanoBIMeterIntegerSuite,           [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterMathNative":     [VolcanoBIMeterMathNativeSuite,        [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterRelational":     [VolcanoBIMeterRelationalSuite,        [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterMiscellaneous":  [VolcanoBIMeterMiscellaneousSuite,     [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterConversions":    [VolcanoBIMeterConversionsSuite,       [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]],
+               "BIMeterImages":         [VolcanoBIMeterImagesSuite,            [['.*','SLES64'],['.*','RH64'],[".*",".*",".*",".*","4"],[".*",".*",".*",".*","8"],[".*",".*",".*",".*","0"]]]
              }
 
 perf_modes = ['VAL', 'PERF']

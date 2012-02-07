@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -109,8 +109,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Create new call instruction with extended parameters
       SmallVector<Value*, 16> params;
 
-      // Go over explicit parameters
-      for ( unsigned int i = 0; i < pCall->getNumArgOperands(); ++i ) {
+      // Go over explicit parameters, they are currently undef and need to be assigned their actual value.
+      for ( unsigned int i = 0; i < pCall->getNumArgOperands() - CompilationUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
         params.push_back(pCall->getArgOperand(i));
       }
 
@@ -125,12 +125,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       params.push_back(pCallArgs[7]);
       params.push_back(pCallArgs[8]);
 
-      CallInst *pNewCall = CallInst::Create(pCallee, params.begin(), params.end(), "", pCall);
+      CallInst *pNewCall = CallInst::Create(pCallee, ArrayRef<Value*>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
 
       delete [] pCallArgs;
 
-      pCall->uncheckedReplaceAllUsesWith(pNewCall);
+      pCall->replaceAllUsesWith(pNewCall);
       pCall->eraseFromParent();
 
     }
@@ -143,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned int directLocalSize = 
       (unsigned int) m_localBuffersAnalysis->getDirectLocalsSize(pFunc);
 
-    std::vector<const llvm::Type *> newArgsVec;
+    std::vector<llvm::Type *> newArgsVec;
 
     // Go over all explicit arguments in the function sugnature
     Function::ArgumentListType::iterator argIt = pFunc->getArgumentList().begin();
@@ -157,10 +157,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 3));
-    newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
+    newArgsVec.push_back(PointerType::get(m_struct_WorkDim, 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
-    newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
+    //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
+    //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
+    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
+    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
     newArgsVec.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
@@ -175,11 +177,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       pNewF->setCallingConv(CallingConv::C);
     }
 
-    ValueMap<const Value*, Value*> ValueMap;
+    llvm::ValueToValueMapTy ValueMap;
 
     // Set explict arguments' names
     Function::arg_iterator DestI = pNewF->arg_begin();
-    for ( Function::const_arg_iterator I = pFunc->arg_begin(),
+    for ( Function::arg_iterator I = pFunc->arg_begin(),
       E = pFunc->arg_end(); I != E; ++I, ++DestI ) {
         DestI->setName(I->getName());
         ValueMap[I] = DestI;
@@ -252,13 +254,49 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         pCallArgs[7] = pSpecialBuf;
         pCallArgs[8] = pCurrWI;
 
+        // Memory leak in here. Who deletes this ? Seriously! 
         m_fixupCalls[pCall] = pCallArgs;
 
       }
     }
+    
+    std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
+    for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end();
+       it != e; ++it) {
+      CallInst *CI = dyn_cast<CallInst>(*it);
+      // We do not handle non CallInst users. Is this okay ?
+      if (!CI) continue;
+
+      std::vector<Value*> arguments;
+      // Push existing arguments
+      for (unsigned i=0; i < CI->getNumArgOperands(); ++i)
+      {
+        arguments.push_back(CI->getArgOperand(i));
+      }
+      
+      // Push undefs for new arguments
+      unsigned int numOriginalParams = CI->getNumArgOperands();
+      for (unsigned i = numOriginalParams; i < numOriginalParams + CompilationUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+        arguments.push_back(UndefValue::get(newArgsVec[i]));
+      }
+        
+      // Replace the original function with a call 
+      CallInst* pNewCall = CallInst::Create(pNewF, ArrayRef<Value*>(arguments), "", CI);
+            
+      // Update CI in the m_fixupCalls, now the map needs to have only the newly created call
+      if (m_fixupCalls.count(CI) > 0) {        
+        Value **pCallArgs = m_fixupCalls[CI];
+        m_fixupCalls.erase(CI);
+        m_fixupCalls[pNewCall] = pCallArgs;
+      }
+      
+      CI->replaceAllUsesWith(pNewCall);
+      // Need to erase from parent to make sure there are no uses for the called function when we delete it
+      CI->eraseFromParent();
+    }
 
     // Add declaration of original function with its signature
-    pFunc->uncheckedReplaceAllUsesWith(pNewF);
+    //pFunc->replaceAllUsesWith(pNewF);
     pFunc->setName("__" + pFunc->getName() + "_original");
     m_pModule->getFunctionList().push_back(pNewF);
 
@@ -266,6 +304,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     pFunc->deleteBody();
 
     // Map original function to new function
+    
     m_oldToNewFunctionMap[pFunc] = pNewF;
 
     for ( Value::use_iterator UI = pNewF->use_begin(),
@@ -275,6 +314,35 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
          // calling convention of the called function.
          I->setCallingConv(pNewF->getCallingConv());
        }
+    }
+
+    Module *pModule = pFunc->getParent();
+    Module::named_metadata_iterator MDIter = pModule->named_metadata_begin();
+    Module::named_metadata_iterator EndMDIter = pModule->named_metadata_end();
+
+    for(;MDIter != EndMDIter; MDIter++)
+    {
+      for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++)
+      { 
+        // Replace metadata with metada containing information about the wrapper
+        MDNode* pMetadata = MDIter->getOperand(ui);
+        
+        SmallVector<Value *, 16> values;
+        for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
+          Value *elem = pMetadata->getOperand(i);
+
+          if(pFunc == dyn_cast<Function>(elem))
+            elem = pNewF;
+
+          values.push_back(elem);
+        }
+          
+        // &(values[0]) gets the pointer to the metadata values array
+        MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
+        // TODO: Why may pMetadata and pNewMetadata be the same value ?
+        if (pMetadata != pNewMetadata)
+          pMetadata->replaceAllUsesWith(pNewMetadata);
+      }
     }
 
     return pNewF;
@@ -290,12 +358,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       };
     */
     // Create Work Group/Work Item info structures
-    std::vector<const Type*> members;
+    std::vector<Type*> members;
     assert(CPU_MAX_WI_DIM_POW_OF_2 == 4 && "CPU_MAX_WI_DIM_POW_OF_2 is not equal to 4!");
     //use 4 instead of MAX_WORK_DIM for alignment & for better calculation of offset in Local ID buffer
     members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), CPU_MAX_WI_DIM_POW_OF_2)); // Local Id's
     StructType *PaddedDimId = StructType::get(*m_pLLVMContext, members, true);
-    m_pModule->addTypeName("struct.PaddedDimId", PaddedDimId);
+    //m_pModule->addTypeName("struct.PaddedDimId", PaddedDimId);
+    m_struct_PaddedDimId = PaddedDimId;
 
     /*
       struct sWorkInfo
@@ -314,7 +383,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // WG size/Local size
     members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Number of groups
     StructType *pWorkDimType = StructType::get(*m_pLLVMContext, members, false);
-    m_pModule->addTypeName("struct.WorkDim", pWorkDimType);
+    //m_pModule->addTypeName("struct.WorkDim", pWorkDimType);
+    m_struct_WorkDim = pWorkDimType;
   }
 
 

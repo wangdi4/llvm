@@ -1,6 +1,6 @@
 #include "Utility.h"
 #include "test_common/compat.h"
-#include "llvm/System/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // llvm data types
 #include "CL/cl.h"
 #include <stdio.h>
 #include <string.h>

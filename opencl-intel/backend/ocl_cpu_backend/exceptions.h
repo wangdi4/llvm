@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,7 +19,8 @@ File Name:  exceptions.h
 #pragma once
 #include <stdexcept>
 #include "cl_device_api.h"
-
+#include "llvm/Support/Errno.h"
+#include "llvm/Support/system_error.h"
 
 #ifndef LLVM_BACKEND_UNUSED
 	#if defined(_WIN32)

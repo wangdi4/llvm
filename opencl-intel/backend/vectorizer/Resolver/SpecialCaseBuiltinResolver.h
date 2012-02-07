@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -13,6 +13,7 @@
 #include "OpenclRuntime.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
 
@@ -25,8 +26,8 @@ namespace intel {
     bool isArrayOfVec;          // true iff return is array of vectors [n x <m x T>]
     bool isVoid;                // true iff return is void
     unsigned nVals;             // number of vals returned [n x <m x T>]=n \ <m x T>=1 \ void = 0
-    const ArrayType *arrType;   // if isArrayOfVec the type otherwise NULL
-    const Type *elType;         // the basic type returned [n x <m x T>]=<m x T> \ <m x T>=<m x T> \ void=NULL
+    ArrayType *arrType;   // if isArrayOfVec the type otherwise NULL
+    Type *elType;         // the basic type returned [n x <m x T>]=<m x T> \ <m x T>=<m x T> \ void=NULL
     unsigned vecWidth;          // if isArrayOfVec [n x <m x T>]=m  otherwise 0(unused)
   } retAttr;
 
@@ -72,7 +73,7 @@ private:
 
   ///@brief utility function to get relevant attributes of wrraper return type
   ///@param theType - type to inspect
-  void obtainRetAttrs(const Type *theType);
+  void obtainRetAttrs(Type *theType);
 
   ///@brief allocates pointers to hold return valus and add them to args vector
   ///@param resolvedArgs - argumetns vector for resolved built-in

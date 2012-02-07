@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010,2011,2012).
+Copyright (c) Intel Corporation (2010,2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -30,7 +30,7 @@ File Name:  dllmain.cpp
 #include "Compiler.h"
 #include "MICSerializationService.h"
 #include "plugin_manager.h"
-#include "llvm/System/Mutex.h"
+#include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 
 
@@ -93,7 +93,7 @@ void __attribute__ ((destructor)) dll_fini(void)
         }
         else
         {
-            Compiler::Terminate();
+            //Compiler::Terminate();
         }
 }
 #endif

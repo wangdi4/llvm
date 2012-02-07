@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,7 +19,7 @@ File Name:  Helpers.h
 #define HELPERS_H
 
 #include <llvm/Support/ErrorHandling.h> // report_fatal_error declared here
-#include <llvm/System/DataTypes.h> // int8_t, int16_t, ... declared here
+#include <llvm/Support/DataTypes.h> // int8_t, int16_t, ... declared here
 #include <llvm/ADT/APInt.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/DerivedTypes.h>
@@ -29,7 +29,7 @@ File Name:  Helpers.h
 namespace Validation {
 namespace OCLBuiltins {
 
-    llvm::GenericValue UnimplementedBuiltin(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
+    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
 
     // Returns true if integer data type is signed and false otherwise
     template<typename T>
@@ -152,7 +152,7 @@ namespace OCLBuiltins {
 
 #define DEFINE_BLT_ONE_ARG(name)                                        \
     template<typename T, int n>                                         \
-    llvm::GenericValue lle_X_ ##name(const llvm::FunctionType *FT,      \
+    llvm::GenericValue lle_X_ ##name(llvm::FunctionType *FT,      \
         const std::vector<llvm::GenericValue> &Args)                    \
     {                                                                   \
         llvm::GenericValue R;                                           \
@@ -167,7 +167,7 @@ namespace OCLBuiltins {
 
 #define DEFINE_BLT_TWO_ARGS(name)                                                           \
     template<typename T, int n>                                                             \
-    llvm::GenericValue lle_X_ ##name(const llvm::FunctionType *FT,                          \
+    llvm::GenericValue lle_X_ ##name(llvm::FunctionType *FT,                          \
         const std::vector<llvm::GenericValue> &Args)                                        \
     {                                                                                       \
         llvm::GenericValue R;                                                               \
@@ -183,7 +183,7 @@ namespace OCLBuiltins {
 
 #define DEFINE_BLT_THREE_ARGS(name)                                                         \
     template<typename T, int n>                                                             \
-    llvm::GenericValue lle_X_ ##name(const llvm::FunctionType *FT,                          \
+    llvm::GenericValue lle_X_ ##name(llvm::FunctionType *FT,                          \
         const std::vector<llvm::GenericValue> &Args)                                        \
     {                                                                                       \
         llvm::GenericValue R;                                                               \
@@ -371,7 +371,7 @@ namespace OCLBuiltins {
     template<typename T>
     T getOneMinus1ULP();
 
-    llvm::GenericValue lle_X_memcpy(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_memcpy(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
 
 

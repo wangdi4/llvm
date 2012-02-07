@@ -162,7 +162,7 @@ bool VectorizationHeuristics::isIntegerHeavy(Function &F) {
       if (ii->getOpcode() == Instruction::Or) { Floats++; continue;}
       if (ii->getOpcode() == Instruction::Xor) { Floats++; continue;}
       
-      const Type *Tp = ii->getType();
+      Type *Tp = ii->getType();
       if (Tp->isVectorTy()) {
         Tp = cast<VectorType>(Tp)->getElementType();
       }
@@ -185,7 +185,7 @@ bool VectorizationHeuristics::isVectorHeavy(Function &F) {
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
     // for each instruction
     for (BasicBlock::iterator ii = it->begin(), fi = it->end(); ii != fi; ++ii) {
-      const Type* Tp = ii->getType();
+      Type* Tp = ii->getType();
       if (Tp->isIntegerTy() || Tp->isFloatingPointTy()) Scalars++;
       if (Tp->isVectorTy()) Vectors++;
     }
@@ -313,13 +313,13 @@ bool VectorizationHeuristics::hasIllegalTypes(Function &F) {
   for (Function::iterator bbit = F.begin(), bbe=F.end(); bbit != bbe; ++bbit) {
     // For each instruction
     for (BasicBlock::iterator it = bbit->begin(), e=bbit->end(); it!=e;++it) {
-      const Type* tp = it->getType();
+      Type* tp = it->getType();
       // strip vector types
-      if (const VectorType* VT = dyn_cast<VectorType>(tp)) {
+      if (VectorType* VT = dyn_cast<VectorType>(tp)) {
         tp = VT->getElementType();
       }
       // check that integer types are legal
-      if (const IntegerType* IT = dyn_cast<IntegerType>(tp)) {
+      if (IntegerType* IT = dyn_cast<IntegerType>(tp)) {
         unsigned BW = IT->getBitWidth();
         if (BW > 64) return true;
       }
@@ -368,12 +368,12 @@ bool VectorizationHeuristics::hasDifficultTypes(Function &F) {
     // for each instruction
     for (BasicBlock::iterator ii = it->begin(), fi = it->end(); ii != fi; ++ii) {
       // Only consider arithmetic operations
-      const Type *Tp =  ii->getType();
+      Type *Tp =  ii->getType();
 
       // Code generator does not handle these compares well
       if (CmpInst* Cmp = dyn_cast<CmpInst>(ii)){
         Tp = Cmp->getOperand(1)->getType();
-        if (const Type *VT = Tp) {
+        if (Type *VT = Tp) {
             unsigned ScalarSize = VT->getScalarSizeInBits();
             if (ScalarSize != 32) {Hard+=6; continue; }
         }
@@ -601,7 +601,7 @@ bool VectorizationHeuristics::isHeavyScatterGather(Function &F) {
       if (ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(ii)) {
           if (MaskedBlock || m_WIAnalysisPass->whichDepend(EEI->getOperand(0)) != WIAnalysis::UNIFORM) {
           // Gather :)
-          const VectorType *VT = cast<VectorType>(EEI->getOperand(0)->getType());
+          VectorType *VT = cast<VectorType>(EEI->getOperand(0)->getType());
           unsigned NumElt = VT->getNumElements();
           if (NumElt> 1)
             transpose++;
@@ -613,7 +613,7 @@ bool VectorizationHeuristics::isHeavyScatterGather(Function &F) {
             m_WIAnalysisPass->whichDepend(IEI->getOperand(1)) != WIAnalysis::UNIFORM || 
             MaskedBlock) {
           // Scatter :(
-          const VectorType *VT = cast<VectorType>(IEI->getOperand(0)->getType());
+          VectorType *VT = cast<VectorType>(IEI->getOperand(0)->getType());
           unsigned NumElt = VT->getNumElements();
           if (NumElt> 1)
             transpose++;
@@ -669,9 +669,9 @@ extern "C" {
   }
 }
 
-char VectorizationHeuristics::ID = 0;
-INITIALIZE_PASS(VectorizationHeuristics, "vecHeuristics",
-                "Vectorization Heuristics Analysis", false, true);
+char intel::VectorizationHeuristics::ID = 0;
+static RegisterPass<intel::VectorizationHeuristics>
+CLIVecHeur("vecHeuristics", "Vectorization Heuristics Analysis");
 
 } // namespace intel
 

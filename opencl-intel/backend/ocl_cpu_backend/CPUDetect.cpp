@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -187,7 +187,7 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 	m_CPUNames[CPU_CORE2]       = "core2";
 	m_CPUNames[CPU_PENRYN]      = "penryn";
 	m_CPUNames[CPU_COREI7]      = "corei7";
-	m_CPUNames[CPU_SANDYBRIDGE] = "sandybridge";
+	m_CPUNames[CPU_SANDYBRIDGE] = "corei7-avx";
 	m_CPUNames[CPU_HASWELL]     = "haswell";
     m_CPUNames[MIC_KNIGHTSFERRY] = "knf";
 
@@ -225,6 +225,8 @@ Intel::ECPU CPUDetect::GetCPUByName(const char *CPUName) const
 	for (unsigned i=0; i<CPU_LAST; ++i)
 		if (!strcmp(m_CPUNames[i], CPUName))
 			return (ECPU)i;
+  // Our scripts call it 'sandybridge' while LLVM calls it 'corei7-avx'
+  if (!strcmp("sandybridge", CPUName)) return CPU_SANDYBRIDGE;
 	assert(false && "Unknown CPU Name");
 	return CPU_LAST;
 }

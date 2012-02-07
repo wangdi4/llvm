@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 define <8 x i32> @zext_8i8_to_8i32(<8 x i8> %A) nounwind {
 ;CHECK: zext_8i8_to_8i32

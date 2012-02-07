@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -35,11 +35,11 @@ public:
     void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
 };
 
-llvm::GenericValue lle_X_prefetch(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
-llvm::GenericValue lle_X_wait_group_events(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
+llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
+llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_copy(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_copy(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];
@@ -59,7 +59,7 @@ llvm::GenericValue lle_X_async_work_group_copy(const llvm::FunctionType *FT, con
 }
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];
@@ -84,7 +84,7 @@ llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(const llvm::FunctionT
 }
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_strided_copy_g2l(const llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_strided_copy_g2l(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];

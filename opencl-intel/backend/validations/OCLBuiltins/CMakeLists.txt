@@ -1,6 +1,8 @@
 #
 # Settings for Linux compilation
 #
+set(LLVM_REQUIRES_EH 1)
+
 if (NOT WIN32)
 
 # Compiler switches that CANNOT be modified during makefile generation
@@ -49,13 +51,11 @@ include_directories (
   )
 
 target_link_libraries(OCLBuiltins
-  DataManager
   LLVMSupport
   REFALU
   )
 
 add_dependencies(OCLBuiltins
-  DataManager
   LLVMSupport
   REFALU
   )

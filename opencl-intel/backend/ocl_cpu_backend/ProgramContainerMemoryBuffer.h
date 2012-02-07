@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -53,12 +53,13 @@ public:
         return m_pContainerHeader->container_size + sizeof(cl_prog_container_header);
     }
 
-    const char *getBufferIdentifier() const 
-    {
-        return "Program";
-    }
+    const char *getBufferIdentifier() const { return "Program"; }
     
     static ProgramContainerMemoryBuffer* Create( const cl_prog_container_header* pHeader );
+
+    virtual BufferKind getBufferKind() const {
+      return MemoryBuffer_Malloc;
+    }
 
 private:
     const cl_prog_container_header* m_pContainerHeader;

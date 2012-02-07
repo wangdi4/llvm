@@ -5,7 +5,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 include_directories( ${VALIDATIONS_ROOT}/DataManager )
 include_directories( ${VALIDATIONS_ROOT}/NEAT )
 
-add_llvm_executable(NEATChecker
+add_executable(NEATChecker
   main.cpp
 )
 

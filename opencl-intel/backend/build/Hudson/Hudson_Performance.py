@@ -3,7 +3,7 @@ from framework.core import TestTaskResult,VolcanoCmdTask, VolcanoTestSuite, Volc
 from framework.hudson.core import HudsonTestRunner
 from Hudson_Common import HudsonBuildEnvironment, HudsonRunConfig
 from Volcano_Common import PERFORMANCE_LOG_ROOT 
-from Volcano_Performance import perf_suites, PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig, PerformanceTestRunner, VolcanoWOLFPerformanceSuite, VolcanoWOLFBenchPerformanceSuite, VolcanoVCSDPerformanceSuite, VolcanoCyberLinkPerformanceSuite, VolcanoSandraPerformanceSuite, VolcanoLuxMarkPerformanceSuite, VolcanoBIMeterPerformanceSuite, VolcanoAVX256_P1_PerformanceSuite, VolcanoPhoronixPerformanceSuite, VolcanoGEHCPerformanceSuite, VolcanoSHOCPerformanceSuite
+from Volcano_Performance import perf_suites, PerformanceTask, VolcanoPerformanceSuite, PerformanceRunConfig  
 from Volcano_Build import VolcanoBinaryCopy
 
 

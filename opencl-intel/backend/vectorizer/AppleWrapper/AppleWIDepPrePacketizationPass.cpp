@@ -9,6 +9,7 @@ namespace intel{
 
 AppleWIDepPrePacketizationPass::AppleWIDepPrePacketizationPass():
 FunctionPass(ID) {
+  initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
 }
 
 AppleWIDepPrePacketizationPass::~AppleWIDepPrePacketizationPass() {
@@ -62,19 +63,19 @@ void AppleWIDepPrePacketizationPass::handleWriteImage(CallInst *CI, std::string 
     // obtain write image arguments
     SmallVector<Value *, 3> writeImgArgs(3);
     Value *fakeImg = CI->getArgOperand(0);
-    const Type *imgType = origWriteImg->getFunctionType()->getParamType(0);
+    Type *imgType = origWriteImg->getFunctionType()->getParamType(0);
     writeImgArgs[0] = VectorizerUtils::getCastedArgIfNeeded(fakeImg, imgType, CI); // img
 
     Value *coordsVec = getWriteImgCoordsVector(xCoord, yCoord, CI);
-    const Type *coordsType = origWriteImgType->getParamType(1);
+    Type *coordsType = origWriteImgType->getParamType(1);
     writeImgArgs[1] = VectorizerUtils::getCastedArgIfNeeded( coordsVec , coordsType, CI);
 
     Value *colors = CI->getArgOperand(3);
-    const Type *colorsType = origWriteImgType->getParamType(2);
+    Type *colorsType = origWriteImgType->getParamType(2);
     writeImgArgs[2] = VectorizerUtils::getCastedArgIfNeeded(colors , colorsType, CI);
     
     // create new call 
-    CallInst::Create(origWriteImg, writeImgArgs.begin(), writeImgArgs.end(), "", CI);
+    CallInst::Create(origWriteImg, ArrayRef<Value*>(writeImgArgs), "", CI);
 
     // mark old call for removal
     m_removedInsts.push_back(CI);
@@ -83,8 +84,8 @@ void AppleWIDepPrePacketizationPass::handleWriteImage(CallInst *CI, std::string 
 
 Value *AppleWIDepPrePacketizationPass::getWriteImgCoordsVector(Value *xCoord, Value *yCoord, CallInst *CI)
 {
-   const Type *i32Ty = Type::getInt32Ty(CI->getContext());
-   const Type *coordType = VectorType::get(i32Ty, 2);
+   Type *i32Ty = Type::getInt32Ty(CI->getContext());
+   Type *coordType = VectorType::get(i32Ty, 2);
    Constant *constZero = ConstantInt::get(i32Ty, 0);
    Constant *constOne = ConstantInt::get(i32Ty, 1);
    

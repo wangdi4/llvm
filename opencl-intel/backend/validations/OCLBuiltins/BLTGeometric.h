@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,7 +36,7 @@ namespace OCLBuiltins {
     };
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_dot(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_dot(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -53,7 +53,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_normalize(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_normalize(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -73,7 +73,7 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_length(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_length(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -90,7 +90,7 @@ namespace OCLBuiltins {
 
 
     template<typename T, int n>
-    llvm::GenericValue lle_X_distance(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_distance(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
@@ -109,7 +109,7 @@ namespace OCLBuiltins {
 
 
     template<typename T, uint32_t n>
-    llvm::GenericValue lle_X_cross(const llvm::FunctionType *FT,
+    llvm::GenericValue lle_X_cross(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;

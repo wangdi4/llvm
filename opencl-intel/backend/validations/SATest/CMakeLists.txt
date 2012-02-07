@@ -72,20 +72,20 @@ endif (MIC_ENABLE)
 endif (NOT WIN32)
 
 include_directories(
-    ${VALIDATIONS_ROOT}/SATest
-    ${VALIDATIONS_ROOT}/DataManager
-    ${VALIDATIONS_ROOT}/NEAT
-    ${VALIDATIONS_ROOT}/Comparator
-    ${VALIDATIONS_ROOT}/Common
-    ${VALIDATIONS_ROOT}/OCLBuiltins
-    ${VALIDATIONS_ROOT}/../external/tinyxml
-    ${BACKEND_ROOT_DIR}/../cl_api
-    ${VALIDATIONS_ROOT}/../ocl_cpu_backend
-    ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
+	${VALIDATIONS_ROOT}/SATest
+	${VALIDATIONS_ROOT}/DataManager
+	${VALIDATIONS_ROOT}/NEAT
+	${VALIDATIONS_ROOT}/Comparator
+	${VALIDATIONS_ROOT}/Common
+	${VALIDATIONS_ROOT}/OCLBuiltins
+	${VALIDATIONS_ROOT}/../external/tinyxml
+	${BACKEND_ROOT_DIR}/../cl_api
+	${VALIDATIONS_ROOT}/../ocl_cpu_backend
+	${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
-    ${LLVM_ROOT}/lib/ExecutionEngine/InterpreterPluggable
-    ${LLVM_ROOT}/lib/ExecutionEngine/PlugInNEAT
+	${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
+	${VALIDATIONS_ROOT}/InterpreterPluggable
+	${VALIDATIONS_ROOT}/PlugInNEAT
 )
 
 set (SATest_INCLUDE_FILES

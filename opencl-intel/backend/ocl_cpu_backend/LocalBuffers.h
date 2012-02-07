@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -25,6 +25,7 @@ File Name:  LocalBuffers.h
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
 #include <llvm/Instructions.h>
+#include <llvm/Constants.h>
 
 #include <map>
 

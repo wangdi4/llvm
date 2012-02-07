@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -24,6 +24,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 #include <intrin.h>
 #if defined(__AVX__)
@@ -428,9 +430,9 @@ _4i64  __attribute__((overloadable)) isnormal(double4 x)
 {
 	double4 exp = _mm256_and_pd(x, *(__m256d*)d4exp_mask);
 	_4i64 NaNorINF = _mm256_castpd_si256(_mm256_cmp_pd(exp, *(__m256d*)d4exp_mask, _CMP_EQ_OQ));
-	_4i64 denom = _mm256_castpd_si256(_mm256_cmp_pd(exp, _mm256_setzero_pd(), _CMP_EQ_OQ));
-	_4i64 res = _mm256_or_pd(NaNorINF, denom);
-	return (_4i64)_mm256_xor_pd(res, *(__m256d*)FF4);
+	_4i64 denom = as_long4(_mm256_castpd_si256(_mm256_cmp_pd(exp, _mm256_setzero_pd(), _CMP_EQ_OQ)));
+	_4i64 res = as_long4(_mm256_or_pd(__builtin_astype(NaNorINF,__m256d) , __builtin_astype(denom,__m256d)));
+	return (_4i64)_mm256_xor_pd(__builtin_astype(res,__m256d), *(__m256d*)FF4);
 }
 #else
 _4i64  __attribute__((overloadable)) isnormal(double4 x)
@@ -1024,9 +1026,9 @@ _8u16   __attribute__((overloadable)) bitselect(_8u16 a, _8u16 b, _8u16 c)
 #if defined (__AVX__)
 _8u32  __attribute__((overloadable)) bitselect(_8u32 a, _8u32 b, _8u32 c)
 {
-	a = _mm256_andnot_ps((__m256) c,(__m256) a);
-	b = _mm256_and_ps((__m256) c,(__m256) b);
-	return (_8u32)_mm256_or_ps(a, b);
+	a = as_uint8(_mm256_andnot_ps((__m256) c,(__m256) a));
+	b = as_uint8(_mm256_and_ps((__m256) c,(__m256) b));
+	return (_8u32)_mm256_or_ps((__m256)a, (__m256)b);
 }
 #else
 _8u32  __attribute__((overloadable)) bitselect(_8u32 a, _8u32 b, _8u32 c)
@@ -1077,9 +1079,11 @@ _16i8  __attribute__((overloadable)) select(_16i8 a, _16i8 b, _16i8 c)
 	return (_16i8) _mm_blendv_epi8((__m128i)a,(__m128i)b,(__m128i)c);
 #else
 	__m128i zero = _mm_setzero_si128();
-	__m128i mask = _mm_cmpgt_epi8(zero, c);
-	__m128i res = _mm_and_si128(mask, b);
-	return _mm_or_si128(_mm_andnot_si128(mask, a), res);
+	__m128i mask = _mm_cmpgt_epi8(zero, __builtin_astype(c, __m128i));
+	__m128i res = _mm_and_si128(mask, __builtin_astype(b, __m128i));
+	return __builtin_astype(
+      _mm_or_si128(_mm_andnot_si128(mask, __builtin_astype(a, __m128i)), res),
+      _16i8);
 #endif
 }
 
@@ -1164,9 +1168,11 @@ _16i8  __attribute__((overloadable)) select(_16i8 a, _16i8 b, _16u8 c)
 	return (_16i8) _mm_blendv_epi8((__m128i)a,(__m128i)b,(__m128i)c);
 #else
 	__m128i zero = _mm_setzero_si128();
-	__m128i mask = _mm_cmpgt_epi8(zero, c);
-	__m128i res = _mm_and_si128(mask, b);
-	return _mm_or_si128(_mm_andnot_si128(mask, a), res);
+	__m128i mask = _mm_cmpgt_epi8(zero, __builtin_astype(c, __m128i));
+	__m128i res = _mm_and_si128(mask, __builtin_astype(b, __m128i));
+	return __builtin_astype(
+      _mm_or_si128(_mm_andnot_si128(mask, __builtin_astype(a, __m128i)), res),
+      _16i8);
 #endif
 }
 _1i16  __attribute__((overloadable)) select(_1i16 a, _1i16 b, _1u16 c)
@@ -1249,9 +1255,11 @@ _16u8  __attribute__((overloadable)) select(_16u8 a, _16u8 b, _16i8 c)
 	return (_16u8) _mm_blendv_epi8((__m128i)a,(__m128i)b,(__m128i)c);
 #else
 	__m128i zero = _mm_setzero_si128();
-	__m128i mask = _mm_cmpgt_epi8(zero, c);
-	__m128i res = _mm_and_si128(mask, b);
-	return _mm_or_si128(_mm_andnot_si128(mask, a), res);
+	__m128i mask = _mm_cmpgt_epi8(zero, __builtin_astype(c, __m128i));
+	__m128i res = _mm_and_si128(mask, __builtin_astype(b, __m128i));
+	return __builtin_astype(
+      _mm_or_si128(_mm_andnot_si128(mask, __builtin_astype(a, __m128i)), res),
+      _16u8);
 #endif
 }
 _1u16  __attribute__((overloadable)) select(_1u16 a, _1u16 b, _1i16 c)
@@ -1334,9 +1342,11 @@ _16u8  __attribute__((overloadable)) select(_16u8 a, _16u8 b, _16u8 c)
 	return (_16u8) _mm_blendv_epi8((__m128i)a,(__m128i)b,(__m128i)c);
 #else
 	__m128i zero = _mm_setzero_si128();
-	__m128i mask = _mm_cmpgt_epi8(zero, c);
-	__m128i res = _mm_and_si128(mask, b);
-	return _mm_or_si128(_mm_andnot_si128(mask, a), res);
+	__m128i mask = _mm_cmpgt_epi8(zero, __builtin_astype(c, __m128i));
+	__m128i res = _mm_and_si128(mask, __builtin_astype(b, __m128i));
+	return __builtin_astype(
+     _mm_or_si128(_mm_andnot_si128(mask, __builtin_astype(a, __m128i)), res),
+      _16u8);
 #endif
 }
 _1u16  __attribute__((overloadable)) select(_1u16 a, _1u16 b, _1u16 c)
@@ -1414,7 +1424,7 @@ float4  __attribute__((overloadable)) select(float4 a, float4 b, _4i32 c)
 	return _mm_blendv_ps(a, b, _mm_castsi128_ps((__m128i)c));
 #else
 	__m128i mask = _mm_setzero_si128();
-	mask = _mm_cmpgt_epi32(mask, c);
+	mask = _mm_cmpgt_epi32(mask, __builtin_astype(c, __m128i));
 	b = _mm_and_ps(b, _mm_castsi128_ps(mask));
 	mask = _mm_castps_si128(_mm_andnot_ps(_mm_castsi128_ps(mask), a));
 	return _mm_or_ps(_mm_castsi128_ps(mask), b);
@@ -1446,7 +1456,7 @@ float4  __attribute__((overloadable)) select(float4 a, float4 b, _4u32 c)
 	return _mm_blendv_ps(a, b, _mm_castsi128_ps((__m128i)c));
 #else
 	__m128i mask = _mm_setzero_si128();
-	mask = _mm_cmpgt_epi32(mask, c);
+	mask = _mm_cmpgt_epi32(mask, __builtin_astype(c, __m128i));
 	b = _mm_and_ps(b, _mm_castsi128_ps(mask));
 	mask = _mm_castps_si128(_mm_andnot_ps(_mm_castsi128_ps(mask), a));
 	return _mm_or_ps(_mm_castsi128_ps(mask), b);
@@ -1528,10 +1538,11 @@ double4 __attribute__((overloadable)) select(double4 a, double4 b, _4u64 c)
 double2 __attribute__((overloadable)) select(double2 a, double2 b, _2u64 c)
 {
 #ifdef __SSE4_1__
-	return _mm_blendv_pd(a, b, _mm_castsi128_pd(c));
+	return _mm_blendv_pd(a, b, 
+    _mm_castsi128_pd(__builtin_astype(c, __m128i)));
 #else
 	__m128i mask = _mm_setzero_si128();
-	mask = _mm_cmpgt_epi32(mask, c);
+	mask = _mm_cmpgt_epi32(mask, __builtin_astype(c, __m128i));
 	__m128 fMask = _mm_castsi128_ps(mask);
 	fMask = _mm_movehdup_ps(fMask);
 	__m128d dMask = _mm_castps_pd(fMask);

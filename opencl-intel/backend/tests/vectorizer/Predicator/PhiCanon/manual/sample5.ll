@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify -phicanon -verify %t.bc -S -o %t1.ll
+; RUN: opt -phicanon -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'sample5.bc'
@@ -10,75 +10,45 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK-NOT: phi-split-bb
 ; CHECK: ret
+
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %n.addr = alloca i64, align 8                   ; <i64*> [#uses=3]
-  %A.addr = alloca i64*, align 8                  ; <i64**> [#uses=3]
-  %B.addr = alloca i64*, align 8                  ; <i64**> [#uses=2]
-  %sum = alloca i64, align 8                      ; <i64*> [#uses=6]
-  %i = alloca i64, align 8                        ; <i64*> [#uses=5]
-  %j = alloca i64, align 8                        ; <i64*> [#uses=5]
-  store i64 %n, i64* %n.addr
-  store i64* %A, i64** %A.addr
-  store i64* %B, i64** %B.addr
-  store i64 0, i64* %sum
-  store i64 0, i64* %i
-  br label %for.cond
+  %div = sdiv i64 %n, 10
+  %cmp7 = icmp sgt i64 %n, 9
+  br i1 %cmp7, label %for.body12.lr.ph.us.preheader, label %for.end23
 
-for.cond:                                         ; preds = %for.inc20, %entry
-  %tmp = load i64* %i                             ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
-  %div = sdiv i64 %tmp1, 10                       ; <i64> [#uses=1]
-  %cmp = icmp slt i64 %tmp, %div                  ; <i1> [#uses=1]
-  br i1 %cmp, label %for.body, label %for.end23
+for.body12.lr.ph.us.preheader:                    ; preds = %entry
+  br label %for.body12.lr.ph.us
 
-for.body:                                         ; preds = %for.cond
-  %tmp2 = load i64* %i                            ; <i64> [#uses=1]
-  %tmp3 = load i64** %B.addr                      ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
-  %tmp4 = load i64* %arrayidx                     ; <i64> [#uses=1]
-  %tmp5 = load i64* %sum                          ; <i64> [#uses=1]
-  %add = add nsw i64 %tmp5, %tmp4                 ; <i64> [#uses=1]
-  store i64 %add, i64* %sum
-  store i64 0, i64* %j
-  br label %for.cond7
+for.inc20.us:                                     ; preds = %for.body12.us
+  %inc22.us = add nsw i64 %storemerge9.us, 1
+  %cmp.us = icmp slt i64 %inc22.us, %div
+  br i1 %cmp.us, label %for.body12.lr.ph.us, label %for.end23.loopexit
 
-for.cond7:                                        ; preds = %for.inc, %for.body
-  %tmp8 = load i64* %j                            ; <i64> [#uses=1]
-  %tmp9 = load i64* %n.addr                       ; <i64> [#uses=1]
-  %div10 = sdiv i64 %tmp9, 10                     ; <i64> [#uses=1]
-  %cmp11 = icmp slt i64 %tmp8, %div10             ; <i1> [#uses=1]
-  br i1 %cmp11, label %for.body12, label %for.end
+for.body12.us:                                    ; preds = %for.body12.lr.ph.us, %for.body12.us
+  %storemerge16.us = phi i64 [ 0, %for.body12.lr.ph.us ], [ %inc.us, %for.body12.us ]
+  %tmp2435.us = phi i64 [ %add.us, %for.body12.lr.ph.us ], [ %add18.us, %for.body12.us ]
+  %arrayidx15.us = getelementptr inbounds i64* %A, i64 %storemerge16.us
+  %tmp16.us = load i64* %arrayidx15.us, align 8
+  %add18.us = add nsw i64 %tmp16.us, %tmp2435.us
+  %inc.us = add nsw i64 %storemerge16.us, 1
+  %cmp11.us = icmp slt i64 %inc.us, %div
+  br i1 %cmp11.us, label %for.body12.us, label %for.inc20.us
 
-for.body12:                                       ; preds = %for.cond7
-  %tmp13 = load i64* %j                           ; <i64> [#uses=1]
-  %tmp14 = load i64** %A.addr                     ; <i64*> [#uses=1]
-  %arrayidx15 = getelementptr inbounds i64* %tmp14, i64 %tmp13 ; <i64*> [#uses=1]
-  %tmp16 = load i64* %arrayidx15                  ; <i64> [#uses=1]
-  %tmp17 = load i64* %sum                         ; <i64> [#uses=1]
-  %add18 = add nsw i64 %tmp17, %tmp16             ; <i64> [#uses=1]
-  store i64 %add18, i64* %sum
-  br label %for.inc
+for.body12.lr.ph.us:                              ; preds = %for.body12.lr.ph.us.preheader, %for.inc20.us
+  %storemerge9.us = phi i64 [ %inc22.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
+  %tmp2428.us = phi i64 [ %add18.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
+  %arrayidx.us = getelementptr inbounds i64* %B, i64 %storemerge9.us
+  %tmp4.us = load i64* %arrayidx.us, align 8
+  %add.us = add nsw i64 %tmp4.us, %tmp2428.us
+  br label %for.body12.us
 
-for.inc:                                          ; preds = %for.body12
-  %tmp19 = load i64* %j                           ; <i64> [#uses=1]
-  %inc = add nsw i64 %tmp19, 1                    ; <i64> [#uses=1]
-  store i64 %inc, i64* %j
-  br label %for.cond7
+for.end23.loopexit:                               ; preds = %for.inc20.us
+  br label %for.end23
 
-for.end:                                          ; preds = %for.cond7
-  br label %for.inc20
-
-for.inc20:                                        ; preds = %for.end
-  %tmp21 = load i64* %i                           ; <i64> [#uses=1]
-  %inc22 = add nsw i64 %tmp21, 1                  ; <i64> [#uses=1]
-  store i64 %inc22, i64* %i
-  br label %for.cond
-
-for.end23:                                        ; preds = %for.cond
-  %tmp24 = load i64* %sum                         ; <i64> [#uses=1]
-  %tmp25 = load i64** %A.addr                     ; <i64*> [#uses=1]
-  %arrayidx26 = getelementptr inbounds i64* %tmp25, i64 5 ; <i64*> [#uses=1]
-  store i64 %tmp24, i64* %arrayidx26
+for.end23:                                        ; preds = %for.end23.loopexit, %entry
+  %tmp242.lcssa = phi i64 [ 0, %entry ], [ %add18.us, %for.end23.loopexit ]
+  %arrayidx26 = getelementptr inbounds i64* %A, i64 5
+  store i64 %tmp242.lcssa, i64* %arrayidx26, align 8
   ret void
 }

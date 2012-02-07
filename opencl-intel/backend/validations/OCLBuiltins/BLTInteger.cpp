@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -25,10 +25,10 @@ using std::vector;
 namespace Validation {
 namespace OCLBuiltins {
 
-    template <> llvm::APInt& ExtAPInt<int8_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
-    template <> llvm::APInt& ExtAPInt<int16_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
-    template <> llvm::APInt& ExtAPInt<int32_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
-    template <> llvm::APInt& ExtAPInt<int64_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int8_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int16_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int32_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int64_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
 
 void IntegerMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
 {

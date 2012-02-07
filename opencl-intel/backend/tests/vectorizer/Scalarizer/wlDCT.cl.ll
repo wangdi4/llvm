@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlDCT.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -63,7 +63,7 @@ entry:
   store i32 0, i32* %index1
   store i32 0, i32* %index2
   %tmp = bitcast [8 x float]* %acc to i8*         ; <i8*> [#uses=1]
-  call void @llvm.memset.i32(i8* %tmp, i8 0, i32 32, i32 4)
+  call void @llvm.memset.p0i8.i32(i8* %tmp, i8 0, i32 32, i32 4, i1 false)
   %tmp5 = load i32* %i                            ; <i32> [#uses=1]
   store i32 %tmp5, i32* %k1
   %tmp6 = load i32* %k1                           ; <i32> [#uses=1]
@@ -364,7 +364,7 @@ declare i32 @get_group_id(i32)
 
 declare i32 @get_local_id(i32)
 
-declare void @llvm.memset.i32(i8* nocapture, i8, i32, i32) nounwind
+declare void @llvm.memset.p0i8.i32(i8* nocapture, i8, i32, i32, i1) nounwind
 
 declare void @barrier(i32)
 
@@ -1533,7 +1533,7 @@ entry:
   %call1 = call i32 @get_group_id(i32 1)          ; <i32> [#uses=1]
   store i32 %call1, i32* %groupIdy
   %tmp = bitcast [64 x float]* %inter to i8*      ; <i8*> [#uses=1]
-  call void @llvm.memset.i32(i8* %tmp, i8 0, i32 256, i32 4)
+  call void @llvm.memset.p0i8.i32(i8* %tmp, i8 0, i32 256, i32 4, i1 false)
   %tmp3 = load i32* %width.addr                   ; <i32> [#uses=1]
   store i32 %tmp3, i32* %step
   store i32 0, i32* %inputIndex

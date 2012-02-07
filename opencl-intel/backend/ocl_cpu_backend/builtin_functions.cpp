@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -16,12 +16,14 @@ File Name:  builtin_functions.cpp
 
 \*****************************************************************************/
 
+
 #include "Binary.h"
 #include "Executable.h"
 #include "cpu_dev_limits.h"
 #include "SystemInfo.h"
-#include "llvm/System/DynamicLibrary.h"
-#include "llvm/System/DataTypes.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/DataTypes.h"
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -359,9 +361,10 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_fun
 
 //Register BI functions defined above
 #define REGISTER_BI_FUNCTION(name,ptr) \
-    llvm::sys::DynamicLibrary::AddSymbol(name, (void*)(intptr_t)ptr);
+  llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
 void RegisterBIFunctions(void)
 {
+
     REGISTER_BI_FUNCTION("dbg_print",dbg_print)
     REGISTER_BI_FUNCTION("lwait_group_events",lwait_group_events)
     REGISTER_BI_FUNCTION("lasync_wg_copy_l2g",lasync_wg_copy_l2g)

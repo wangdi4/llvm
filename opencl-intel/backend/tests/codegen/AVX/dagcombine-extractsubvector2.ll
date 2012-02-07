@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s | grep vinsertf128 | count 1 
+; RUN: llc -mcpu=corei7-avx < %s | grep vinsertf128 | count 1 
 
 define <8 x i32> @test(<8 x i32> %v1, <8 x i32> %v2) nounwind readonly {
   %1 = add <8 x i32> %v1, %v2

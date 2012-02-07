@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -68,36 +68,58 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 {
                     throw Exception::IOError("Include directories for CLang aren't set in configuration file.");
                 }
+
+/*
+Example command line to run clang in OpenCL mode.
+LLVm30 branch 
+
+clang -cc1 -x cl -S -emit-llvm-bc 
+-I C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/cl_api -I C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/clang_headers 
+-include opencl_.h 
+-D __OPENCL_VERSION__=110 -D CL_VERSION_1_0=100 -D CL_VERSION_1_1=110 -D __ENDIAN_LITTLE__=1 
+-D __ROUNDING_MODE__=rte -D __IMAGE_SUPPORT__=1 
+-D cl_khr_fp64 -D cl_khr_global_int32_base_atomics   -D  cl_khr_global_int32_extended_atomic 
+-D cl_khr_local_int32_base_atomics  -D cl_khr_local_int32_extended_atomics 
+-D cl_khr_gl_sharing -D cl_khr_byte_addressable_store -D cl_intel_printf -D cl_intel_overloading
+-O0 C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/local_mem.cl -o local_mem.cl.llvm_ir
+*/
+
                 std::stringstream cmd;
-                cmd << "clang -cc1 -x cl -S -emit-llvm-bc -target-cpu "
-                    << cpuArch ;
-                    for(OpenCLIncludeDirs::IncludeDirsList::const_iterator it = includeDirs->beginIncldueDirs();
+                cmd << "clang -cc1 -x cl -S -emit-llvm-bc -cl-kernel-arg-info ";
+                for(OpenCLIncludeDirs::IncludeDirsList::const_iterator it = includeDirs->beginIncldueDirs();
                         it != includeDirs->endIncludeDirs();
                         ++it )
-                    {
+                {
                     cmd << " -I "<< *it ;
-                    }
-                    cmd << " -include opencl_.h -D __OPENCL_VERSION__=110 -D \
-                    CL_VERSION_1_0=100 -D CL_VERSION_1_1=110 -D __ENDIAN_LITTLE__=1 \
-                    -D __ROUNDING_MODE__=rte -D __IMAGE_SUPPORT__=1 -D cl_khr_fp64 \
-                    -target-feature +cl_khr_fp64 -D cl_khr_global_int32_base_atomics \
-                    -target-feature +cl_khr_global_int32_base_atomics -D \
-                    cl_khr_global_int32_extended_atomic -target-feature \
-                    +cl_khr_global_int32_extended_atomics -D cl_khr_local_int32_base_atomics \
-                    -target-feature +cl_khr_local_int32_base_atomics -D \
-                    cl_khr_local_int32_extended_atomics -target-feature \
-                    +cl_khr_local_int32_extended_atomics -D cl_khr_gl_sharing \
-                    -target-feature +cl_khr_gl_sharing -D cl_khr_byte_addressable_store \
-                    -target-feature +cl_khr_byte_addressable_store -D cl_intel_printf \
-                    -target-feature +cl_intel_printf -D cl_intel_overloading \
-                    -target-feature +cl_intel_overloading -O0 ";
-                #ifndef _WIN32
-                    cmd << "-triple x86_64-unknown-linux-gnu ";
-                #endif
+                }
+
+                cmd << " -include opencl_.h -D __OPENCL_VERSION__=110 -D \
+                       CL_VERSION_1_0=100 -D CL_VERSION_1_1=110 -D __ENDIAN_LITTLE__=1 \
+                       -D __ROUNDING_MODE__=rte -D __IMAGE_SUPPORT__=1 \
+                       -D cl_khr_fp64 \
+                       -D cl_khr_global_int32_base_atomics \
+                       -D cl_khr_global_int32_extended_atomic \
+                       -D cl_khr_local_int32_base_atomics \
+                       -D cl_khr_local_int32_extended_atomics \
+                       -D cl_khr_gl_sharing \
+                       -D cl_khr_byte_addressable_store \
+                       -D cl_intel_printf \
+                       -D cl_intel_overloading \
+                       -O0 "; // turn off optimizations
+#ifndef _WIN32
+                cmd << "-triple x86_64-unknown-linux-gnu ";
+#endif
                 cmd << programFile.c_str() << " -o " << fileName.str().c_str() << std::ends;
-                system(cmd.str().c_str());
+                // execute clang
+                int errcode = system(cmd.str().c_str());
+                if(errcode != 0)
+                {
+                    throw Exception::IOError("Clang compilation failed with command line: " + 
+                        cmd.str() + "\n");
+                }
+
                 BCOpenCLProgram(fileName.str());
-         }
+            }
             break;
         case LL:
             {

@@ -3,6 +3,7 @@
 #include "Mangler.h"
 #include "llvm/Support/Debug.h"
 #include <string>
+#include "llvm/Constants.h"
 
 namespace intel {
 

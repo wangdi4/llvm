@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s | FileCheck %s
+; RUN: llc -mcpu=corei7-avx < %s | FileCheck %s
 
 define <4 x i32> @test1(<4 x i32> %v1) nounwind readonly {
 ; CHECK: test1:

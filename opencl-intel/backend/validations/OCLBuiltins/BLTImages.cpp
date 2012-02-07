@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -41,7 +41,7 @@ namespace Validation {
 namespace OCLBuiltins {
 
     template<typename T>
-    llvm::GenericValue lle_X_read_image( const llvm::FunctionType *FT, 
+    llvm::GenericValue lle_X_read_image( llvm::FunctionType *FT, 
         const std::vector<llvm::GenericValue> &Args )
     {
         GenericValue gv;
@@ -248,7 +248,7 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
     return retSampler;
 }
 
-GenericValue lle_X_get_image_dim2(const FunctionType *FT,
+GenericValue lle_X_get_image_dim2(FunctionType *FT,
                                   const std::vector<GenericValue> &Args) 
 {
 
@@ -264,7 +264,7 @@ GenericValue lle_X_get_image_dim2(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_width(const FunctionType *FT,
+GenericValue lle_X_get_image_width(FunctionType *FT,
                                    const std::vector<GenericValue> &Args) 
 {
 
@@ -275,7 +275,7 @@ GenericValue lle_X_get_image_width(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_height(const FunctionType *FT,
+GenericValue lle_X_get_image_height(FunctionType *FT,
                                     const std::vector<GenericValue> &Args) 
 {
 
@@ -286,7 +286,7 @@ GenericValue lle_X_get_image_height(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_depth(const FunctionType *FT,
+GenericValue lle_X_get_image_depth(FunctionType *FT,
                                     const std::vector<GenericValue> &Args) 
 {
 
@@ -297,7 +297,7 @@ GenericValue lle_X_get_image_depth(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_dim3(const FunctionType *FT,
+GenericValue lle_X_get_image_dim3(FunctionType *FT,
                                   const std::vector<GenericValue> &Args) 
 {
 
@@ -316,7 +316,7 @@ GenericValue lle_X_get_image_dim3(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_channel_data_type(const FunctionType *FT,
+GenericValue lle_X_get_image_channel_data_type(FunctionType *FT,
                                   const std::vector<GenericValue> &Args) 
 {
     GenericValue gv;
@@ -326,7 +326,7 @@ GenericValue lle_X_get_image_channel_data_type(const FunctionType *FT,
     return gv;
 }
 
-GenericValue lle_X_get_image_channel_order(const FunctionType *FT,
+GenericValue lle_X_get_image_channel_order(FunctionType *FT,
                                                const std::vector<GenericValue> &Args) 
 {
     GenericValue gv;
@@ -336,7 +336,7 @@ GenericValue lle_X_get_image_channel_order(const FunctionType *FT,
     return gv;
 }
 
-llvm::GenericValue lle_X_write_image( const llvm::FunctionType *FT, 
+llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT, 
                                      const std::vector<llvm::GenericValue> &Args )
 {
     GenericValue gv;

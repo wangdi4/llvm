@@ -31,7 +31,6 @@ set (OCL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external)
 set (OCL_DATAMANAGER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/DataManager)
 set (OCL_NEAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/NEAT)
 
-	
 set (OCL_RECORDER_INCLUDE_FILES
 	ocl_recorder.h
 	stdafx.h
@@ -65,7 +64,6 @@ set (LLVM_LIBS
 	LLVMTransformUtils
 	LLVMCore
 	LLVMTarget
-	LLVMSystem
 	LLVMExecutionEngine
 	LLVMJIT
 	LLVMInterpreter

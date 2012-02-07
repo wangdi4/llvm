@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -20,7 +20,7 @@ File Name:  IStatisticsCollector.h
 #ifndef __STATISTICSCOLLECTOR_H__
 #define __STATISTICSCOLLECTOR_H__
 
-#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DataTypes.h"
 #include <string>
 #include <sstream>
 #include <map>

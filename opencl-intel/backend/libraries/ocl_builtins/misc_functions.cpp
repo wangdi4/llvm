@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -24,6 +24,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 #define ALIGN16 __attribute__((aligned(16)))
 #include <intrin.h>
@@ -153,8 +155,16 @@ _16i8 __attribute__((overloadable)) shuffle(_2i8 x, _16u8 mask)
 {
 	_16i8 tX;
 	tX.s01 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_char2_mask));
-	tX = SHUFFLE_EPI8(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i), 
+             *((__m128i*)shuffle_char2_mask)),
+           _16u8);
+	tX = __builtin_astype(
+         SHUFFLE_EPI8(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _16i8);
 	return tX;
 }
 
@@ -183,8 +193,16 @@ _16i8 __attribute__((overloadable)) shuffle(_4i8 x, _16u8 mask)
 {
 	_16i8 tX;
 	tX.s0123 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_char4_mask));
-	tX = SHUFFLE_EPI8(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_char4_mask)),
+           _16u8);
+	tX = __builtin_astype(
+         SHUFFLE_EPI8(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _16i8);
 	return tX;
 }
 
@@ -213,8 +231,15 @@ _16i8 __attribute__((overloadable)) shuffle(_8i8 x, _16u8 mask)
 {
 	_16i8 tX;
 	tX.s01234567 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_char8_mask));
-	tX = SHUFFLE_EPI8(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_char8_mask)),
+           _16u8);
+	tX = __builtin_astype(
+         SHUFFLE_EPI8(__builtin_astype(tX, __m128i),
+         __builtin_astype(mask, __m128i)),
+       _16i8);
 	return tX;
 }
 
@@ -241,8 +266,16 @@ _8i8 __attribute__((overloadable)) shuffle(_16i8 x, _8u8 mask)
 
 _16i8 __attribute__((overloadable)) shuffle(_16i8 x, _16u8 mask)
 {
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_char16_mask));
-	x = SHUFFLE_EPI8(x, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_char16_mask)),
+           _16u8);
+	x = __builtin_astype(
+        SHUFFLE_EPI8(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask, __m128i)),
+        _16i8);
 	return x;
 }
 
@@ -344,8 +377,16 @@ _8i16 __attribute__((overloadable)) shuffle(_2i16 x, _8u16 mask)
 {
 	_8i16 tX;
 	tX.s01 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short2_mask));
-	tX = SHUFFLE_EPI16(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_short2_mask)),
+           _8u16);
+	tX = __builtin_astype(
+         SHUFFLE_EPI16(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _8i16);
 	return tX;
 }
 
@@ -377,8 +418,16 @@ _8i16 __attribute__((overloadable)) shuffle(_4i16 x, _8u16 mask)
 {
 	_8i16 tX;
 	tX.s0123 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short4_mask));
-	tX = SHUFFLE_EPI16(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_short4_mask)),
+           _8u16);
+	tX = __builtin_astype(
+         SHUFFLE_EPI16(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _8i16);
 	return tX;
 }
 
@@ -408,8 +457,16 @@ _4i16 __attribute__((overloadable)) shuffle(_8i16 x, _4u16 mask)
 
 _8i16 __attribute__((overloadable)) shuffle(_8i16 x, _8u16 mask)
 {
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short8_mask));
-	x = SHUFFLE_EPI16(x, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_short8_mask)),
+           _8u16);
+	x = __builtin_astype(
+        SHUFFLE_EPI16(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask, __m128i)),
+        _8i16);
 	return x;
 }
 
@@ -442,12 +499,27 @@ _8i16 __attribute__((overloadable)) shuffle(_16i16 x, _8u16 mask)
 	_8i16 res1;
 	_8i16 res2;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short16_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_short16_mask)),
+           _8u16);
 
-    res1 = SHUFFLE_EPI16(x.lo, mask + (_8u16){56});
-    res2 = SHUFFLE_EPI16(x.hi, mask - (_8u16){8});
+    res1 = __builtin_astype(
+             SHUFFLE_EPI16(
+               __builtin_astype(x.lo, __m128i), 
+               (__m128i)(__builtin_astype(mask, ushort8) + (ushort8)(56))),
+             _8i16);
+    res2 = __builtin_astype(
+             SHUFFLE_EPI16(
+               __builtin_astype(x.hi, __m128i),
+               (__m128i)(__builtin_astype(mask, ushort8) - (ushort8)(8)) ),
+             _8i16);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(_mm_or_si128(
+           __builtin_astype(res1, __m128i), 
+           __builtin_astype(res2, __m128i)),
+         _8i16);
 }
 
 _16i16 __attribute__((overloadable)) shuffle(_16i16 x, _16u16 mask)
@@ -552,8 +624,16 @@ _4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
 {
 	_4i32 tX;
 	tX.s01 = x;
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int2_mask));
-	tX = SHUFFLE_EPI32(tX, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_int2_mask)),
+           _4u32);
+	tX = __builtin_astype(
+         SHUFFLE_EPI32(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _4i32);
 	return tX;
 }
 
@@ -588,8 +668,16 @@ _2i32 __attribute__((overloadable)) shuffle(_4i32 x, _2u32 mask)
 
 _4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
 {
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int4_mask));
-	x = SHUFFLE_EPI32(x, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_int4_mask)),
+           _4u32);
+	x = __builtin_astype(
+        SHUFFLE_EPI32(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask, __m128i)),
+        _4i32);
 	return x;
 }
 
@@ -627,11 +715,27 @@ _4i32 __attribute__((overloadable)) shuffle(_8i32 x, _4u32 mask)
 	_4i32 res1;
 	_4i32 res2;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int8_mask));
-    res1 = SHUFFLE_EPI32(x.lo, mask + (_4u32){28});
-    res2 = SHUFFLE_EPI32(x.hi, mask - (_4u32){4});
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_int8_mask)),
+           _4u32);
+    res1 = __builtin_astype(
+             SHUFFLE_EPI32(
+               __builtin_astype(x.lo, __m128i), 
+               __builtin_astype(mask + (uint4)(28), __m128i)),
+             _4i32);
+    res2 = __builtin_astype(
+             SHUFFLE_EPI32(
+               __builtin_astype(x.hi, __m128i), 
+               __builtin_astype(mask - (uint4)(4), __m128i)),
+             _4i32);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1, __m128i),
+             __builtin_astype(res2, __m128i)),
+           _4i32);
 }
 
 _8i32 __attribute__((overloadable)) shuffle(_8i32 x, _8u32 mask)
@@ -674,21 +778,69 @@ _4i32 __attribute__((overloadable)) shuffle(_16i32 x, _4u32 mask)
 	_4u32 t3;
 	_4u32 t4;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int16_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_int16_mask)),
+           _4u32);
 
-    t1 = _mm_adds_epu8(mask, (_4u32){28});
-    t2 = _mm_adds_epu8(mask - (_4u32){4}, (_4u32){28});
-    t3 = _mm_adds_epu8(mask - (_4u32){8}, (_4u32){28});
-    t4 = _mm_adds_epu8(mask - (_4u32){12}, (_4u32){28});
+    t1 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask, __m128i),
+             __builtin_astype((uint4)(28), __m128i)),
+           _4u32);
+    t2 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(4), __m128i),
+             __builtin_astype((uint4)(28), __m128i)),
+           _4u32);
+    t3 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(8), __m128i),
+             __builtin_astype((uint4)(28), __m128i)),
+           _4u32);
+    t4 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(12), __m128i),
+             __builtin_astype((uint4)(28), __m128i)),
+           _4u32);
 	
-	res1 = SHUFFLE_EPI32(x.lo.lo, t1);
-	res2 = SHUFFLE_EPI32(x.lo.hi, t2);
-	res3 = SHUFFLE_EPI32(x.hi.lo, t3);
-	res4 = SHUFFLE_EPI32(x.hi.hi, t4);
-	res1 = _mm_or_si128(res1, res2);
-	res2 = _mm_or_si128(res3, res4);
+	res1 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.lo.lo,__m128i),
+             __builtin_astype(t1,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.lo.hi,__m128i),
+             __builtin_astype(t2,__m128i)),
+           _4i32);
+	res3 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.hi.lo,__m128i),
+             __builtin_astype(t3,__m128i)),
+           _4i32);
+	res4 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.hi.hi,__m128i),
+             __builtin_astype(t4,__m128i)),
+           _4i32);
+	res1 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res3,__m128i),
+             __builtin_astype(res4,__m128i)),
+           _4i32);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
 }
 
 _8i32 __attribute__((overloadable)) shuffle(_16i32 x, _8u32 mask)
@@ -796,8 +948,16 @@ _16u32 __attribute__((overloadable)) shuffle(_16u32 x, _16u32 mask)
 
 _2i64 __attribute__((overloadable)) shuffle(_2i64 x, _2u64 mask)
 {
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_long2_mask));
-	x = SHUFFLE_EPI64(x, mask);
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_long2_mask)),
+           _2u64);
+	x = __builtin_astype(
+        SHUFFLE_EPI64(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask,__m128i)),
+        _2i64);
 	return x;
 }
 
@@ -1384,13 +1544,33 @@ _16i8 __attribute__((overloadable)) shuffle2(_16i8 x, _16i8 y, _16u8 mask)
 {
 	_16u8 mask1, mask2;
 
-    mask1 = _mm_and_si128(mask + (_16u8){112}, *((__m128*)shuffle2_char16_mask));
-	x = SHUFFLE_EPI8(x, mask1);
+  mask1 = __builtin_astype(
+            _mm_and_si128(
+              __builtin_astype(mask + (uchar16)(112),__m128i),
+              *((__m128i*)shuffle2_char16_mask)),
+            _16u8);
+	x = __builtin_astype(
+        SHUFFLE_EPI8(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask1, __m128i)),
+        _16i8);
 
-    mask2 = _mm_and_si128(mask - (_16u8){16}, *((__m128*)shuffle2_char16_mask));
-	y = SHUFFLE_EPI8(y, mask2);
+  mask2 = __builtin_astype(
+            _mm_and_si128(
+              __builtin_astype(mask - (uchar16)(16),__m128i),
+              *((__m128i*)shuffle2_char16_mask)),
+            _16u8);
+	y = __builtin_astype(
+        SHUFFLE_EPI8(
+          __builtin_astype(y,__m128i),
+          __builtin_astype(mask2,__m128i)),
+        _16i8);
 
-	return _mm_or_si128(x, y);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(x,__m128i),
+             __builtin_astype(y,__m128i)),
+           _16i8);
 }
 
 _2i8 __attribute__((overloadable)) shuffle2(_16i8 x, _16i8 y, _2u8 mask)
@@ -1569,15 +1749,39 @@ _8i16 __attribute__((overloadable)) shuffle2(_8i16 x, _8i16 y, _8u16 mask)
 	_8u16 t1;
 	_8u16 t2;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short16_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_short16_mask)),
+           _8u16);
 
-    t1 = _mm_adds_epu8(mask, (_8u16){56});
-    t2 = _mm_adds_epu8(mask - (_8u16){8}, (_8u16){56});
+  t1 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask,__m128i),
+           __builtin_astype((ushort8)(56),__m128i)),
+         _8u16);
+  t2 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask - (ushort8)(8),__m128i),
+           __builtin_astype((ushort8)(56),__m128i)),
+         _8u16);
 
-	res1 = SHUFFLE_EPI16(x, t1);
-	res2 = SHUFFLE_EPI16(y, t2);
+	res1 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(x,__m128i),
+             __builtin_astype(t1,__m128i)),
+           _8i16);
+	res2 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(y,__m128i),
+             __builtin_astype(t2,__m128i)),
+           _8i16);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _8i16);
 }
 
 _2i16 __attribute__((overloadable)) shuffle2(_8i16 x, _8i16 y, _2u16 mask)
@@ -1615,21 +1819,69 @@ _8i16 __attribute__((overloadable)) shuffle2(_16i16 x, _16i16 y, _8u16 mask)
 	_8u16 t3;
 	_8u16 t4;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_short32_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_short32_mask)),
+           _8u16);
 
-    t1 = _mm_adds_epu8(mask, (_8u16){56});
-    t2 = _mm_adds_epu8(mask - (_8u16){8}, (_8u16){56});
-    t3 = _mm_adds_epu8(mask - (_8u16){16}, (_8u16){56});
-    t4 = _mm_adds_epu8(mask - (_8u16){24}, (_8u16){56});
+    t1 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask,__m128i),
+             __builtin_astype((ushort8)(56),__m128i)),
+           _8u16);
+    t2 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (ushort8)(8),__m128i),
+             __builtin_astype((ushort8)(56),__m128i)),
+           _8u16);
+    t3 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (ushort8)(16),__m128i),
+             __builtin_astype((ushort8)(56),__m128i)),
+           _8u16);
+    t4 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (ushort8)(24),__m128i),
+             __builtin_astype((ushort8)(56),__m128i)),
+           _8u16);
 
-	res1 = SHUFFLE_EPI16(x.lo, t1);
-	res2 = SHUFFLE_EPI16(x.hi, t2);
-	res3 = SHUFFLE_EPI16(y.lo, t3);
-	res4 = SHUFFLE_EPI16(y.hi, t4);
-	res1 = _mm_or_si128(res1, res2);
-	res2 = _mm_or_si128(res3, res4);
+	res1 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(x.lo,__m128i),
+             __builtin_astype(t1,__m128i)),
+           _8i16);
+	res2 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(x.hi,__m128i),
+             __builtin_astype(t2,__m128i)),
+           _8i16);
+	res3 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(y.lo,__m128i),
+             __builtin_astype(t3,__m128i)),
+           _8i16);
+	res4 = __builtin_astype(
+           SHUFFLE_EPI16(
+             __builtin_astype(y.hi,__m128i),
+             __builtin_astype(t4,__m128i)),
+           _8i16);
+	res1 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _8i16);
+	res2 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res3,__m128i),
+             __builtin_astype(res4,__m128i)),
+           _8i16);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _8i16);
 }
 
 _2i16 __attribute__((overloadable)) shuffle2(_16i16 x, _16i16 y, _2u16 mask)
@@ -1780,11 +2032,27 @@ _4i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _4u32 mask)
 	_4i32 res1;
 	_4i32 res2;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int8_mask));
-    res1 = SHUFFLE_EPI32(x, mask + (_4u32){28});
-    res2 = SHUFFLE_EPI32(y, mask - (_4u32){4});
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_int8_mask)),
+           _4u32);
+  res1 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x,__m128i),
+             __builtin_astype(mask + (uint4)(28),__m128i)),
+           _4i32);
+  res2 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y,__m128i),
+             __builtin_astype(mask - (uint4)(4),__m128i)),
+           _4i32);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
 }
 
 _2i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _2u32 mask)
@@ -1827,21 +2095,69 @@ _4i32 __attribute__((overloadable)) shuffle2(_8i32 x, _8i32 y, _4u32 mask)
 	_4u32 t3;
 	_4u32 t4;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int16_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_int16_mask)),
+           _4u32);
 
-    t1 = _mm_adds_epu8(mask, (_4u32){28});
-    t2 = _mm_adds_epu8(mask - (_4u32){4}, (_4u32){28});
-    t3 = _mm_adds_epu8(mask - (_4u32){8}, (_4u32){28});
-    t4 = _mm_adds_epu8(mask - (_4u32){12}, (_4u32){28});
+  t1 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask,__m128i),
+           __builtin_astype((uint4)(28),__m128i)),
+         _4u32);
+  t2 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask - (uint4)(4),__m128i),
+           __builtin_astype((uint4)(28),__m128i)),
+         _4u32);
+  t3 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask - (uint4)(8),__m128i),
+           __builtin_astype((uint4)(28),__m128i)),
+         _4u32);
+  t4 = __builtin_astype(
+         _mm_adds_epu8(
+           __builtin_astype(mask - (uint4)(12),__m128i),
+           __builtin_astype((uint4)(28),__m128i)),
+         _4u32);
 
-	res1 = SHUFFLE_EPI32(x.lo, t1);
-	res2 = SHUFFLE_EPI32(x.hi, t2);
-	res3 = SHUFFLE_EPI32(y.lo, t3);
-	res4 = SHUFFLE_EPI32(y.hi, t4);
-	res1 = _mm_or_si128(res1, res2);
-	res2 = _mm_or_si128(res3, res4);
+	res1 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.lo,__m128i),
+             __builtin_astype(t1,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.hi,__m128i),
+             __builtin_astype(t2,__m128i)),
+           _4i32);
+	res3 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.lo,__m128i),
+             __builtin_astype(t3,__m128i)),
+           _4i32);
+	res4 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.hi,__m128i),
+             __builtin_astype(t4,__m128i)),
+           _4i32);
+	res1 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res3,__m128i),
+             __builtin_astype(res4,__m128i)),
+           _4i32);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
 }
 
 _2i32 __attribute__((overloadable)) shuffle2(_8i32 x, _8i32 y, _2u32 mask)
@@ -1893,35 +2209,131 @@ _4i32 __attribute__((overloadable)) shuffle2(_16i32 x, _16i32 y, _4u32 mask)
 	_4u32 t7;
 	_4u32 t8;
 
-	mask = _mm_and_si128(mask, *((__m128*)shuffle_int32_mask));
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask,__m128i),
+             *((__m128i*)shuffle_int32_mask)),
+           _4u32);
 
-    t1 = _mm_adds_epu8(mask, (_4u32){28});
-    t2 = _mm_adds_epu8(mask - (_4u32){4}, (_4u32){28});
-    t3 = _mm_adds_epu8(mask - (_4u32){8}, (_4u32){28});
-    t4 = _mm_adds_epu8(mask - (_4u32){12}, (_4u32){28});
-    t5 = _mm_adds_epu8(mask - (_4u32){16}, (_4u32){28});
-    t6 = _mm_adds_epu8(mask - (_4u32){20}, (_4u32){28});
-    t7 = _mm_adds_epu8(mask - (_4u32){24}, (_4u32){28});
-    t8 = _mm_adds_epu8(mask - (_4u32){28}, (_4u32){28});
+    t1 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask,__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t2 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(4),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t3 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(8),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t4 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(12),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t5 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(16),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t6 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(20),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t7 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(24),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
+    t8 = __builtin_astype(
+           _mm_adds_epu8(
+             __builtin_astype(mask - (uint4)(28),__m128i),
+             __builtin_astype((uint4)(28),__m128i)),
+           _4u32);
 
-	res1 = SHUFFLE_EPI32(x.lo.lo, t1);
-	res2 = SHUFFLE_EPI32(x.lo.hi, t2);
-	res3 = SHUFFLE_EPI32(x.hi.lo, t3);
-	res4 = SHUFFLE_EPI32(x.hi.hi, t4);
-	res5 = SHUFFLE_EPI32(y.lo.lo, t5);
-	res6 = SHUFFLE_EPI32(y.lo.hi, t6);
-	res7 = SHUFFLE_EPI32(y.hi.lo, t7);
-	res8 = SHUFFLE_EPI32(y.hi.hi, t8);
+	res1 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.lo.lo,__m128i),
+             __builtin_astype(t1,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.lo.hi,__m128i),
+             __builtin_astype(t2,__m128i)),
+           _4i32);
+	res3 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.hi.lo,__m128i),
+             __builtin_astype(t3,__m128i)),
+           _4i32);
+	res4 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(x.hi.hi,__m128i),
+             __builtin_astype(t4,__m128i)),
+           _4i32);
+	res5 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.lo.lo,__m128i),
+             __builtin_astype(t5,__m128i)),
+           _4i32);
+	res6 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.lo.hi,__m128i),
+             __builtin_astype(t6,__m128i)),
+           _4i32);
+	res7 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.hi.lo,__m128i),
+             __builtin_astype(t7,__m128i)),
+           _4i32);
+	res8 = __builtin_astype(
+           SHUFFLE_EPI32(
+             __builtin_astype(y.hi.hi,__m128i),
+             __builtin_astype(t8,__m128i)),
+           _4i32);
 
-	res1 = _mm_or_si128(res1, res2);
-	res2 = _mm_or_si128(res3, res4);
-	res3 = _mm_or_si128(res5, res6);
-	res4 = _mm_or_si128(res7, res8);
+	res1 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res3,__m128i),
+             __builtin_astype(res4,__m128i)),
+           _4i32);
+	res3 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res5,__m128i),
+             __builtin_astype(res6,__m128i)),
+           _4i32);
+	res4 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res7,__m128i),
+             __builtin_astype(res8,__m128i)),
+           _4i32);
 
-	res1 = _mm_or_si128(res1, res2);
-	res2 = _mm_or_si128(res3, res4);
+	res1 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
+	res2 = __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res3,__m128i),
+             __builtin_astype(res4,__m128i)),
+           _4i32);
 
-	return _mm_or_si128(res1, res2);
+	return __builtin_astype(
+           _mm_or_si128(
+             __builtin_astype(res1,__m128i),
+             __builtin_astype(res2,__m128i)),
+           _4i32);
 }
 
 _2i32 __attribute__((overloadable)) shuffle2(_16i32 x, _16i32 y, _2u32 mask)

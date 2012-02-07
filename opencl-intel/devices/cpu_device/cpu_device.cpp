@@ -82,64 +82,76 @@ const cl_image_format Intel::OpenCL::CPUDevice::supportedImageFormats[] = {
 
     // CL_LUMINANCE
     {CL_LUMINANCE,  CL_FLOAT},
-#ifndef __MINUMUM_SUPPORT__
+
+    // --------- New image formats for gen ------------
+
     // CL_R
+    {CL_R,      CL_FLOAT},
     {CL_R,      CL_UNORM_INT8},
     {CL_R,      CL_UNORM_INT16},
-    {CL_R,      CL_SNORM_INT8},
-    {CL_R,      CL_SNORM_INT16},
     {CL_R,      CL_SIGNED_INT8},
     {CL_R,      CL_SIGNED_INT16},
     {CL_R,      CL_SIGNED_INT32},
     {CL_R,      CL_UNSIGNED_INT8},
     {CL_R,      CL_UNSIGNED_INT16},
     {CL_R,      CL_UNSIGNED_INT32},
-    //  {CL_R,      CL_HALF_FLOAT},
-    {CL_R,      CL_FLOAT},
+    {CL_R,      CL_HALF_FLOAT},
+
+    // CL_INTENSITY
+    {CL_INTENSITY,  CL_UNORM_INT8},
+    {CL_INTENSITY,  CL_UNORM_INT16},
+    {CL_INTENSITY,  CL_HALF_FLOAT},
+
+    // CL_LUMINANCE
+    {CL_LUMINANCE,  CL_UNORM_INT8},
+    {CL_LUMINANCE,  CL_UNORM_INT16},
+    {CL_LUMINANCE,  CL_HALF_FLOAT},
 
     // CL_A
     {CL_A,      CL_UNORM_INT8},
+    {CL_A,      CL_UNORM_INT16},
+    {CL_A,      CL_HALF_FLOAT},
+    {CL_A,      CL_FLOAT},
+
+    // CL_RG
+    {CL_RG,     CL_UNORM_INT8},
+    {CL_RG,     CL_UNORM_INT16},
+    {CL_RG,     CL_SIGNED_INT16},
+    {CL_RG,     CL_SIGNED_INT32},
+    {CL_RG,     CL_SIGNED_INT8},
+    {CL_RG,     CL_UNSIGNED_INT8},
+    {CL_RG,     CL_UNSIGNED_INT16},
+    {CL_RG,     CL_UNSIGNED_INT32},
+    {CL_RG,     CL_HALF_FLOAT},
+    {CL_RG,     CL_FLOAT}
+
+#ifndef __MINUMUM_SUPPORT__
+    // CL_R
+    {CL_R,      CL_SNORM_INT8},
+    {CL_R,      CL_SNORM_INT16},
+    //  
+
+    // CL_A
     {CL_A,      CL_UNSIGNED_INT8},
     {CL_A,      CL_SNORM_INT8},
     {CL_A,      CL_SIGNED_INT8},
-    {CL_A,      CL_UNORM_INT16},
     {CL_A,      CL_UNSIGNED_INT16},
     {CL_A,      CL_SNORM_INT16},
     {CL_A,      CL_SIGNED_INT16},
     {CL_A,      CL_UNSIGNED_INT32},
     {CL_A,      CL_SIGNED_INT32},
-    //  {CL_A,      CL_HALF_FLOAT},
-    {CL_A,      CL_FLOAT},
 
     // CL_INTENSITY
-    {CL_INTENSITY,  CL_UNORM_INT8},
-    {CL_INTENSITY,  CL_UNORM_INT16},
     {CL_INTENSITY,  CL_SNORM_INT8},
     {CL_INTENSITY,  CL_SNORM_INT16},
-    //  {CL_INTENSITY,  CL_HALF_FLOAT},
-    {CL_INTENSITY,  CL_FLOAT},
 
     // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_UNORM_INT8},
-    {CL_LUMINANCE,  CL_UNORM_INT16},
     {CL_LUMINANCE,  CL_SNORM_INT8},
     {CL_LUMINANCE,  CL_SNORM_INT16},
-    //  {CL_LUMINANCE,  CL_HALF_FLOAT},
-    {CL_LUMINANCE,  CL_FLOAT},
 
     // CL_RG
-    {CL_RG,     CL_UNORM_INT8},
-    {CL_RG,     CL_UNSIGNED_INT8},
     {CL_RG,     CL_SNORM_INT8},
-    {CL_RG,     CL_SIGNED_INT8},
-    {CL_RG,     CL_UNORM_INT16},
-    {CL_RG,     CL_UNSIGNED_INT16},
     {CL_RG,     CL_SNORM_INT16},
-    {CL_RG,     CL_SIGNED_INT16},
-    {CL_RG,     CL_UNSIGNED_INT32},
-    {CL_RG,     CL_SIGNED_INT32},
-    //  {CL_RG,     CL_HALF_FLOAT},
-    {CL_RG,     CL_FLOAT},
 
     // CL_RA
     {CL_RA,     CL_UNORM_INT8},

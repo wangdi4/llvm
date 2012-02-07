@@ -62,7 +62,6 @@ declare double @_Z8distanceU8__vector4dS_(<4 x double>, <4 x double>)
 
 declare double @_Z8distanceU8__vector2dS_(<2 x double>, <2 x double>)
 
-declare i32 @get_global_id(i32)
 ;CHECK: fmul double
 ;CHECK: fmul double
 ;CHECK: fmul double

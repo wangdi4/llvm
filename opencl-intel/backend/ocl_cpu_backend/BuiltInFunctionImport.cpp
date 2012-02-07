@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -20,13 +20,16 @@ File Name:  BuiltInFunctionImport.cpp
 
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
+#include <llvm/Linker.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/Constants.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Instruction.h>
+#include <llvm/Linker.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+
 
 #include <list>
 #include <map>
@@ -34,10 +37,6 @@ File Name:  BuiltInFunctionImport.cpp
 
 using namespace llvm;
 using namespace std;
-
-bool LinkFunctionBody(Function *Dest, Function *Src,
-                             ValueToValueMapTy &ValueMap,
-                             std::string *Err);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -103,7 +102,7 @@ bool BIImport::Preporcessor(Module* pModule, TImportListType& impLst, ValueToVal
 		TGlobalsLst::iterator glbIt, glbE;
 		for (glbIt=glbLst.begin(), glbE = glbLst.end(); glbIt!=glbE; ++glbIt)
 		{
-			const GlobalVariable* SGV = dyn_cast<GlobalVariable>(*glbIt);
+			GlobalVariable* SGV = const_cast<GlobalVariable*>(dyn_cast<GlobalVariable>(*glbIt));
 			if ( SGV )
 			{
 				if ( ValueMap.find(SGV) != ValueMap.end() )
@@ -209,9 +208,28 @@ bool BIImport::runOnModule(Module &M)
 		// Copy attributes
 		impIt->first->setAttributes(impIt->second->getAttributes());
 
-		// Only provide the function body if there isn't one already.
-		LinkFunctionBody( impIt->first, pClone, ValueMap, NULL );
-		delete pClone;
+        //TODO: I am not sure that this is the correct API to use. 
+        // Make sure that the old function is deleted.
+
+       // Only provide the function body if there isn't one already.
+       //LinkFunctionBody( impIt->first, pClone, ValueMap, NULL );
+       SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
+
+       // Map the src and target arguments
+       Function *Src = pClone;
+       Function *Dst = impIt->first;
+       Function::arg_iterator it_src = Src->arg_begin();
+       Function::arg_iterator it_dst = Dst->arg_begin();;
+       Function::arg_iterator ite_src = Src->arg_end();;
+       Function::arg_iterator ite_dst = Dst->arg_end();;
+       for (; it_src != ite_src; ++it_src,++it_dst ) {
+          ValueMap[it_src] = it_dst;
+       }
+       assert(it_dst == ite_dst && 
+         "Src and Dst have a differetn number of args");
+
+       CloneFunctionInto(Dst, Src, ValueMap, false, Returns);
+       delete pClone;
 
 	}
 

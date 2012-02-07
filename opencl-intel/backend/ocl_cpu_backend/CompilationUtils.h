@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2011).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -25,6 +25,7 @@ File Name:  CompilationUtils.h
 
 #include "llvm/Module.h"
 #include "llvm/Function.h"
+#include "llvm/Constants.h"
 
 #include <set>
 #include <vector>
@@ -76,13 +77,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///         OpenCL level arguments
     /// @param pModule    The module
     /// @param pFunc      The kernel for which to create argument vector
-    /// @param args       The args string ectracted from pFunc metadata
     /// @param arguments  OUT param, the cl_kernel_argument which represent pFunc's
     ///                   OpenCL level argument
-    static void parseKernelArguments( Module* pModule, 
-                                      Function* pFunc, 
-                                      const std::string& args,
-                                      std::vector<cl_kernel_argument>& /* OUT */ arguments);
+    static void parseKernelArguments(  Module* pModule, 
+                                              Function* pFunc, 
+                                              std::vector<cl_kernel_argument>& /* OUT */ arguments);
     
     /// @brief  maps between kernels (both scalar and vectorized) and their metdata
     /// @param pModule          The module

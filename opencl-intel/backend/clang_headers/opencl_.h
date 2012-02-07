@@ -21,17 +21,7 @@
 #ifndef _OPENCL_H_
 #define _OPENCL_H_
 
-// address space qualifiers
-
-#define __private   __attribute__((address_space(0)))
-#define __global    __attribute__((address_space(1)))
-#define __constant  __attribute__((address_space(2)))
-#define __local     __attribute__((address_space(3)))
-
-#define private     __attribute__((address_space(0)))
-#define global      __attribute__((address_space(1)))
-#define constant    __attribute__((address_space(2)))
-#define local       __attribute__((address_space(3)))
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 // Optimizations
 
@@ -60,18 +50,16 @@ typedef unsigned int uint;
 typedef unsigned long ulong;
 
 /**
- * A 16-bit float. The half data type must conform to the IEEE 754-
- * 2008 half precision storage format.
- */
-typedef short half;
-
-/**
  * The unsigned integer type of the result of the sizeof operator. This
  * is a 32-bit unsigned integer if CL_DEVICE_ADDRESS_BITS
  * defined in table 4.3 is 32-bits and is a 64-bit unsigned integer if
  * CL_DEVICE_ADDRESS_BITS is 64-bits.
  */
-typedef __typeof__(sizeof(int)) size_t;
+#if defined(__i386__) || defined(i386) || defined(_M_IX86)
+typedef uint size_t;
+#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
+typedef ulong size_t;
+#endif
 
 /**
  * A signed integer type that is the result of subtracting two pointers.
@@ -79,7 +67,11 @@ typedef __typeof__(sizeof(int)) size_t;
  * defined in table 4.3 is 32-bits and is a 64-bit signed integer if
  * CL_DEVICE_ADDRESS_BITS is 64-bits.
  */
-typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
+#if defined(__i386__) || defined(i386) || defined(_M_IX86)
+typedef uint ptrdiff_t;
+#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
+typedef ulong ptrdiff_t;
+#endif
 
 /**
  * A signed integer type with the property that any valid pointer to
@@ -312,7 +304,7 @@ typedef struct _cl_image_format_t {
  * clEnqueueNDRangeKernel.
  * For clEnqueueTask, this returns 1.
  */
-uint const_func get_work_dim();
+uint const_func get_work_dim(void);
 
 /**
  * Returns the number of global work-items specified for
@@ -1353,12 +1345,12 @@ double3 __attribute__((overloadable)) lgamma_r(double3 x, __private int3 *signp)
 double4 __attribute__((overloadable)) lgamma_r(double4 x, __private int4 *signp);
 double8 __attribute__((overloadable)) lgamma_r(double8 x, __private int8 *signp);
 double16 __attribute__((overloadable)) lgamma_r(double16 x, __private int16 *signp);
-half const_func __attribute__((overloadable)) lgamma(half x);
-half2 const_func __attribute__((overloadable)) lgamma(half2 x);
-half3 const_func __attribute__((overloadable)) lgamma(half3 x);
-half4 const_func __attribute__((overloadable)) lgamma(half4 x);
-half8 const_func __attribute__((overloadable)) lgamma(half8 x);
-half16 const_func __attribute__((overloadable)) lgamma(half16 x);
+//half const_func __attribute__((overloadable)) lgamma(half x);
+//half2 const_func __attribute__((overloadable)) lgamma(half2 x);
+//half3 const_func __attribute__((overloadable)) lgamma(half3 x);
+//half4 const_func __attribute__((overloadable)) lgamma(half4 x);
+//half8 const_func __attribute__((overloadable)) lgamma(half8 x);
+//half16 const_func __attribute__((overloadable)) lgamma(half16 x);
 //half __attribute__((overloadable)) lgamma_r(half x, __global int *signp);
 //half2 __attribute__((overloadable)) lgamma_r(half2 x, __global int2 *signp);
 //half3 __attribute__((overloadable)) lgamma_r(half3 x, __global int3 *signp);
@@ -6541,15 +6533,6 @@ unsigned int __attribute__((overloadable)) atom_xor(__local unsigned int *p, uns
 	__attribute__((work_group_size_hint(X, 1, 1))) \
 	__attribute__((vec_type_hint(typen)))
 
-// Access qualifiers (section 6.6)
-
-#define __rd __attribute__((annotate("__rd")))  
-#define __wr __attribute__((annotate("__wr")))  
-#define __read_only __attribute__((annotate("__rd")))  
-#define read_only __attribute__((annotate("__rd")))  
-#define __write_only __attribute__((annotate("__wr")))  
-#define write_only __attribute__((annotate("__wr")))  
-
 // Miscellaneous vector functions
 
 /**
@@ -7502,75 +7485,82 @@ void __attribute__((overloadable)) write_imageui(image2d_array_t image_array, in
  * Reinterprets a data type as another data type of the same size
  */
 
-#define as_char     __builtin_as_char
-#define as_char2    __builtin_as_char2
-#define as_char3    __builtin_as_char3
-#define as_char4    __builtin_as_char4
-#define as_char8    __builtin_as_char8
-#define as_char16   __builtin_as_char16
+#define as_char(x) __builtin_astype((x), char)
+#define as_char2(x) __builtin_astype((x), char2)
+#define as_char3(x) __builtin_astype((x), char3)
+#define as_char4(x) __builtin_astype((x), char4)
+#define as_char8(x) __builtin_astype((x), char8)
+#define as_char16(x) __builtin_astype((x), char16)
 
-#define as_uchar    __builtin_as_uchar
-#define as_uchar2   __builtin_as_uchar2
-#define as_uchar3   __builtin_as_uchar3
-#define as_uchar4   __builtin_as_uchar4
-#define as_uchar8   __builtin_as_uchar8
-#define as_uchar16  __builtin_as_uchar16
+#define as_uchar(x) __builtin_astype((x), uchar)
+#define as_uchar2(x) __builtin_astype((x), uchar2)
+#define as_uchar3(x) __builtin_astype((x), uchar3)
+#define as_uchar4(x) __builtin_astype((x), uchar4)
+#define as_uchar8(x) __builtin_astype((x), uchar8)
+#define as_uchar16(x) __builtin_astype((x), uchar16)
 
-#define as_short    __builtin_as_short
-#define as_short2   __builtin_as_short2
-#define as_short3   __builtin_as_short3
-#define as_short4   __builtin_as_short4
-#define as_short8   __builtin_as_short8
-#define as_short16  __builtin_as_short16
+#define as_short(x) __builtin_astype((x), short)
+#define as_short2(x) __builtin_astype((x), short2)
+#define as_short3(x) __builtin_astype((x), short3)
+#define as_short4(x) __builtin_astype((x), short4)
+#define as_short8(x) __builtin_astype((x), short8)
+#define as_short16(x) __builtin_astype((x), short16)
 
-#define as_ushort   __builtin_as_ushort
-#define as_ushort2  __builtin_as_ushort2
-#define as_ushort3  __builtin_as_ushort3
-#define as_ushort4  __builtin_as_ushort4
-#define as_ushort8  __builtin_as_ushort8
-#define as_ushort16 __builtin_as_ushort16
+#define as_ushort(x) __builtin_astype((x), ushort)
+#define as_ushort2(x) __builtin_astype((x), ushort2)
+#define as_ushort3(x) __builtin_astype((x), ushort3)
+#define as_ushort4(x) __builtin_astype((x), ushort4)
+#define as_ushort8(x) __builtin_astype((x), ushort8)
+#define as_ushort16(x) __builtin_astype((x), ushort16)
 
-#define as_int      __builtin_as_int
-#define as_int2     __builtin_as_int2
-#define as_int3     __builtin_as_int3
-#define as_int4     __builtin_as_int4
-#define as_int8     __builtin_as_int8
-#define as_int16    __builtin_as_int16
+#define as_int(x) __builtin_astype((x), int)
+#define as_int2(x) __builtin_astype((x), int2)
+#define as_int3(x) __builtin_astype((x), int3)
+#define as_int4(x) __builtin_astype((x), int4)
+#define as_int8(x) __builtin_astype((x), int8)
+#define as_int16(x) __builtin_astype((x), int16)
 
-#define as_uint     __builtin_as_uint
-#define as_uint2    __builtin_as_uint2
-#define as_uint3    __builtin_as_uint3
-#define as_uint4    __builtin_as_uint4
-#define as_uint8    __builtin_as_uint8
-#define as_uint16   __builtin_as_uint16
+#define as_uint(x) __builtin_astype((x), uint)
+#define as_uint2(x) __builtin_astype((x), uint2)
+#define as_uint3(x) __builtin_astype((x), uint3)
+#define as_uint4(x) __builtin_astype((x), uint4)
+#define as_uint8(x) __builtin_astype((x), uint8)
+#define as_uint16(x) __builtin_astype((x), uint16)
 
-#define as_long     __builtin_as_long
-#define as_long2    __builtin_as_long2
-#define as_long3    __builtin_as_long3
-#define as_long4    __builtin_as_long4
-#define as_long8    __builtin_as_long8
-#define as_long16   __builtin_as_long16
+#define as_long(x) __builtin_astype((x), long)
+#define as_long2(x) __builtin_astype((x), long2)
+#define as_long3(x) __builtin_astype((x), long3)
+#define as_long4(x) __builtin_astype((x), long4)
+#define as_long8(x) __builtin_astype((x), long8)
+#define as_long16(x) __builtin_astype((x), long16)
 
-#define as_ulong    __builtin_as_ulong
-#define as_ulong2   __builtin_as_ulong2
-#define as_ulong3   __builtin_as_ulong3
-#define as_ulong4   __builtin_as_ulong4
-#define as_ulong8   __builtin_as_ulong8
-#define as_ulong16  __builtin_as_ulong16
+#define as_ulong(x) __builtin_astype((x), ulong)
+#define as_ulong2(x) __builtin_astype((x), ulong2)
+#define as_ulong3(x) __builtin_astype((x), ulong3)
+#define as_ulong4(x) __builtin_astype((x), ulong4)
+#define as_ulong8(x) __builtin_astype((x), ulong8)
+#define as_ulong16(x) __builtin_astype((x), ulong16)
 
-#define as_float    __builtin_as_float
-#define as_float2   __builtin_as_float2
-#define as_float3   __builtin_as_float3
-#define as_float4   __builtin_as_float4
-#define as_float8   __builtin_as_float8
-#define as_float16  __builtin_as_float16
+#define as_half(x) __builtin_astype((x), half)
+#define as_half2(x) __builtin_astype((x), half2)
+#define as_half3(x) __builtin_astype((x), half3)
+#define as_half4(x) __builtin_astype((x), half4)
+#define as_half8(x) __builtin_astype((x), half8)
+#define as_half16(x) __builtin_astype((x), half16)
 
-#define as_double   __builtin_as_double
-#define as_double2  __builtin_as_double2
-#define as_double3  __builtin_as_double3
-#define as_double4  __builtin_as_double4
-#define as_double8  __builtin_as_double8
-#define as_double16 __builtin_as_double16
+#define as_float(x) __builtin_astype((x), float)
+#define as_float2(x) __builtin_astype((x), float2)
+#define as_float3(x) __builtin_astype((x), float3)
+#define as_float4(x) __builtin_astype((x), float4)
+#define as_float8(x) __builtin_astype((x), float8)
+#define as_float16(x) __builtin_astype((x), float16)
+
+#define as_double(x) __builtin_astype((x), double)
+#define as_double2(x) __builtin_astype((x), double2)
+#define as_double3(x) __builtin_astype((x), double3)
+#define as_double4(x) __builtin_astype((x), double4)
+#define as_double8(x) __builtin_astype((x), double8)
+#define as_double16(x) __builtin_astype((x), double16)
 
 // Explicit conversions
 
@@ -13623,5 +13613,7 @@ double16 const_func __attribute__((overloadable)) convert_double16_rtn(double16)
 double16 const_func __attribute__((overloadable)) convert_double16_sat_rtn(double16);
 double16 const_func __attribute__((overloadable)) convert_double16(double16);
 double16 const_func __attribute__((overloadable)) convert_double16_sat(double16);
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : disable
 
 #endif

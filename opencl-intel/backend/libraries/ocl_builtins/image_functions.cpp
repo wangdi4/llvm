@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -35,10 +35,13 @@ extern "C" {
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #else
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 #endif
 
 #include "cl_image_declaration.h"
+
+#define LLVM30_WORKAROUND
 
 #if !defined(_MSC_VER) && !defined(__INTEL_COMPILER)
 
@@ -111,11 +114,15 @@ _4i32 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image3d
 
 void* extract_pixel_2D(image2d_t image, int2 coord)
 {
+#ifndef LLVM30_WORKAROUND
     // Calculate required pixel offset
 #ifdef __SSE4_1__
-    int4 offset = _mm_load_si128((__m128i*)(&((image_aux_data*)image)->offset));
+    int4 offset = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->offset));
 #else
     int4 offset=(int4)(0,0,0,0);
+#endif
+#else
+    int4 offset = *(int4*)(((image_aux_data*)image)->offset);
 #endif
     void* pixel = (void*)((image_aux_data*)image)->pData+coord.x * offset.x + coord.y * offset.y;
     return pixel;
@@ -125,10 +132,15 @@ void* extract_pixel_2D(image2d_t image, int2 coord)
 
 uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sampler, int2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
-    int4 coord4=_mm_loadl_epi64((__m128i*)&coord);
+    int4 coord4 = (int4)_mm_loadl_epi64((__m128i*)&coord);
 #else
     int4 coord4=(int4)(coord.x, coord.y, 0,0);
+#endif
+#else
+    int4 coord4 = (int4)(0, 0, 0, 0);
+    coord4.lo = coord;
 #endif
     Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
@@ -146,10 +158,15 @@ uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sam
 
 uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sampler, float2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
     __m128 coord4 = _mm_castsi128_ps(_mm_loadl_epi64((__m128i *)&coord));
 #else
     float4 coord4=(float4)(coord.x, coord.y, 0.0,0.0);
+#endif
+#else
+    float4 coord4 = (float4)(0.f, 0.f ,0.f ,0.f);
+    coord4.lo = coord;
 #endif
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
@@ -177,10 +194,15 @@ void  __attribute__((overloadable)) write_imageui(image2d_t image, int2 coord, u
 
 int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampler, int2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
-    int4 coord4=_mm_loadl_epi64((__m128i*)&coord);
+    int4 coord4 = (int4)_mm_loadl_epi64((__m128i*)&coord);
 #else
-    int4 coord4=(int4)(coord.x, coord.y, 0,0);
+    int4 coord4 = (int4)(coord.x, coord.y, 0,0);
+#endif
+#else
+    int4 coord4 = (int4)(0, 0, 0, 0);
+    coord4.lo = coord;
 #endif
     Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
@@ -198,10 +220,15 @@ int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampl
 
 int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampler, float2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
     __m128 coord4 = _mm_castsi128_ps(_mm_loadl_epi64((__m128i *)&coord));
 #else
     float4 coord4=(float4)(coord.x, coord.y, 0.0,0.0);
+#endif
+#else
+    float4 coord4 = (float4)(0.f, 0.f, 0.f, 0.f);
+    coord4.lo = coord;
 #endif
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
@@ -230,10 +257,15 @@ void  __attribute__((overloadable)) write_imagei(image2d_t image, int2 coord, in
 
 float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, int2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
-    int4 coord4=_mm_loadl_epi64((__m128i*)&coord);
+    int4 coord4 = (int4)_mm_loadl_epi64((__m128i*)&coord);
 #else
     int4 coord4=(int4)(coord.x, coord.y, 0,0);
+#endif
+#else
+    int4 coord4 = (int4)(0.f, 0.f, 0.f, 0.f);
+    coord4.lo = coord;
 #endif
     Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
@@ -251,10 +283,15 @@ float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sam
 
 float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, float2 coord)
 {
+#ifndef LLVM30_WORKAROUND
 #ifdef __SSE4_1__
     __m128 coord4 = _mm_castsi128_ps(_mm_loadl_epi64((__m128i *)&coord));
 #else
     float4 coord4=(float4)(coord.x, coord.y, 0.0,0.0);
+#endif
+#else
+    float4 coord4 = (float4)(0.f, 0.f, 0.f, 0.f);
+    coord4.lo = coord;
 #endif
     Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];

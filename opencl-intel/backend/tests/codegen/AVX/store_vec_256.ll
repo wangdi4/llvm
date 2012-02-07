@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s
+; RUN: llc -mcpu=corei7-avx < %s
 
 
 define void @foo_8f(<8 x float>* %p, <8 x float> %x) nounwind {

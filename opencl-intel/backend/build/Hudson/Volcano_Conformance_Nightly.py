@@ -47,7 +47,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_HOUR)
         
         runTest = SimpleTest('API', self.conformance_dir, os.path.join('api','test_api'))
-        self.addTask(runTest, timeout = TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 2 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Compiler', os.path.join(self.conformance_dir,'compiler'), 'test_compiler')
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
@@ -83,10 +83,10 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Allocations single maximum', self.conformance_dir, os.path.join('allocations','test_allocations') + ' single 5 all')
-        self.addTask(runTest, timeout = 3 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 6 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Allocations total maximum', self.conformance_dir, os.path.join('allocations','test_allocations') + ' multiple 5 all ')
-        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 20 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('VecAlign', self.conformance_dir, os.path.join('vec_align','test_vecalign'))
         self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
@@ -108,10 +108,10 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-Kernel', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' CL_FILTER_NEAREST')
-        self.addTask(runTest, timeout = TIMEOUT_HOUR)
+        self.addTask(runTest, timeout = TIMEOUT_HOURANDHALF)
 
         runTest = SimpleTest('Images-Kernel pitch', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' use_pitches CL_FILTER_NEAREST')
-        self.addTask(runTest, timeout = TIMEOUT_HOUR)
+        self.addTask(runTest, timeout = 2 * TIMEOUT_HOUR)
 
         runTest = SimpleTest('Images-Kernel max size', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' max_images CL_FILTER_NEAREST')
         self.addTask(runTest, timeout = 5 * TIMEOUT_HOUR, skiplist=[['.*']])
@@ -120,10 +120,10 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clCopyImage small', self.conformance_dir, os.path.join('images/clCopyImage','test_cl_copy_images') + ' small_images')
-        self.addTask(runTest, timeout = TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 2 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clCopyImage max size', self.conformance_dir, os.path.join('images/clCopyImage','test_cl_copy_images') + ' max_images ')
-        self.addTask(runTest, timeout = 5* TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clReadWriteImage', self.conformance_dir, os.path.join('images/clReadWriteImage','test_cl_read_write_images'))
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
@@ -132,7 +132,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clReadWriteImage max size', self.conformance_dir, os.path.join('images/clReadWriteImage','test_cl_read_write_images') + ' max_images ')
-        self.addTask(runTest, timeout = 5 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
 
             
         # #########################################    
@@ -158,10 +158,10 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         # CPU is required to pass linear and normalized image filtering    
         # #########################################    
         runTest = SimpleTest('Images-Kernel CL_FILTER_LINEAR', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' CL_FILTER_LINEAR')
-        self.addTask(runTest, timeout = TIMEOUT_HALFHOUR)
+        self.addTask(runTest, timeout = TIMEOUT_HOURANDHALF)
 
         runTest = SimpleTest('Images-Kernel CL_FILTER_LINEAR pitch', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' use_pitches CL_FILTER_LINEAR')
-        self.addTask(runTest, timeout = TIMEOUT_HALFHOUR)
+        self.addTask(runTest, timeout = TIMEOUT_HOURANDHALF)
 
         runTest = SimpleTest('Images-Kernel CL_FILTER_LINEAR max size', self.conformance_dir, os.path.join('images/kernel_read_write','test_image_streams') + ' max_images CL_FILTER_LINEAR')
         self.addTask(runTest, timeout = 3* TIMEOUT_HOUR, skiplist=[['.*']])
@@ -180,7 +180,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = 4 * TIMEOUT_HOUR)
 
         runTest = SimpleTest('Conversions', self.conformance_dir, os.path.join('conversions','test_conversions' ) + ' -w')
-        self.addTask(runTest, timeout = TIMEOUT_HOUR)
+        self.addTask(runTest, timeout = TIMEOUT_HOURANDHALF)
 
         runTest = SimpleTest('Contractions', self.conformance_dir, os.path.join('contractions','contractions'))
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
@@ -189,7 +189,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_HALFHOUR)
 
         runTest = SimpleTest('Integer Ops', self.conformance_dir, os.path.join('integer_ops','test_integer_ops'))
-        self.addTask(runTest, timeout = 4 * TIMEOUT_HOUR)
+        self.addTask(runTest, timeout = 5 * TIMEOUT_HOUR)
 
         runTest = SimpleTest('Half Ops', self.conformance_dir, os.path.join('half','test_half') + ' -w')
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)

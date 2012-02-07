@@ -1,10 +1,11 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "Scalarize.h"
+#include "llvm/Constants.h"
 
 namespace intel {
 
@@ -213,7 +214,7 @@ void ScalarizeFunction::scalarizeInstruction(BinaryOperator *BI, bool supportsWr
 {
   V_PRINT(scalarizer, "\t\tBinary instruction\n");
   V_ASSERT(BI && "instruction type dynamic cast failed");
-  const VectorType *instType = dyn_cast<VectorType>(BI->getType());
+  VectorType *instType = dyn_cast<VectorType>(BI->getType());
   // Only need handling for vector binary ops
   if (!instType) return;
 
@@ -263,7 +264,7 @@ void ScalarizeFunction::scalarizeInstruction(CmpInst *CI)
 {
   V_PRINT(scalarizer, "\t\tCompare instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  const VectorType *instType = dyn_cast<VectorType>(CI->getType());
+  VectorType *instType = dyn_cast<VectorType>(CI->getType());
   // Only need handling for vector compares
   if (!instType) return;
 
@@ -309,12 +310,12 @@ void ScalarizeFunction::scalarizeInstruction(CastInst *CI)
 {
   V_PRINT(scalarizer, "\t\tCast instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  const VectorType *instType = dyn_cast<VectorType>(CI->getType());
+  VectorType *instType = dyn_cast<VectorType>(CI->getType());
   
   // For BitCast - we only scalarize if src and dst types have same vector length
   if (isa<BitCastInst>(CI)) {
     if (!instType) return recoverNonScalarizableInst(CI);
-    const VectorType *srcType = dyn_cast<VectorType>(CI->getOperand(0)->getType());
+    VectorType *srcType = dyn_cast<VectorType>(CI->getOperand(0)->getType());
     if (!srcType || (instType->getNumElements() != srcType->getNumElements()))
       return recoverNonScalarizableInst(CI);
   }
@@ -341,7 +342,7 @@ void ScalarizeFunction::scalarizeInstruction(CastInst *CI)
   if (op0IsConst) return;
 
   // Obtain type, which ever scalar cast will cast-to
-  const Type *scalarDestType = instType->getElementType();
+  Type *scalarDestType = instType->getElementType();
 
   // Generate new (scalar) instructions
   Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
@@ -367,7 +368,7 @@ void ScalarizeFunction::scalarizeInstruction(PHINode *PI)
 {
   V_PRINT(scalarizer, "\t\tPHI instruction\n");
   V_ASSERT(PI && "instruction type dynamic cast failed");
-  const VectorType *instType = dyn_cast<VectorType>(PI->getType());
+  VectorType *instType = dyn_cast<VectorType>(PI->getType());
   // Only need handling for vector PHI
   if (!instType) return;
 
@@ -375,7 +376,7 @@ void ScalarizeFunction::scalarizeInstruction(PHINode *PI)
   SCMEntry *newEntry = getSCMEntry(PI);
 
   // Get additional info from instruction
-  const Type *scalarType = instType->getElementType();
+  Type *scalarType = instType->getElementType();
   unsigned numElements = instType->getNumElements();
   V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
@@ -386,8 +387,7 @@ void ScalarizeFunction::scalarizeInstruction(PHINode *PI)
   Value *newScalarizedPHI[MAX_INPUT_VECTOR_WIDTH];
   for (unsigned i = 0; i < numElements; i++)
   {
-    newScalarizedPHI[i] = PHINode::Create(scalarType, PI->getName(), PI);
-    cast<PHINode>(newScalarizedPHI[i])->reserveOperandSpace(numValues);
+    newScalarizedPHI[i] = PHINode::Create(scalarType, numValues, PI->getName(), PI);
   }
 
   // Iterate over incoming values in vector PHI, and fill scalar PHI's accordingly
@@ -418,7 +418,7 @@ void ScalarizeFunction::scalarizeInstruction(SelectInst * SI)
 {
   V_PRINT(scalarizer, "\t\tSelect instruction\n");
   V_ASSERT(SI && "instruction type dynamic cast failed");
-  const VectorType *instType = dyn_cast<VectorType>(SI->getType());
+  VectorType *instType = dyn_cast<VectorType>(SI->getType());
   // Only need handling for vector select
   if (!instType) return;
 
@@ -533,7 +533,7 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
   if (isa<UndefValue>(sourceVectorValue))
   {
     // Scalarize the undef value (generate a scalar undef)
-    const VectorType *inputVectorType = dyn_cast<VectorType>(sourceVectorValue->getType());
+    VectorType *inputVectorType = dyn_cast<VectorType>(sourceVectorValue->getType());
     V_ASSERT(inputVectorType && "expected vector argument");
     UndefValue *undefVal = UndefValue::get(inputVectorType->getElementType());
 
@@ -569,7 +569,7 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
   // Grab input vectors types and width
   Value *sourceVector0Value = SI->getOperand(0);
   Value *sourceVector1Value = SI->getOperand(1);
-  const VectorType *inputType = dyn_cast<VectorType>(sourceVector0Value->getType());
+  VectorType *inputType = dyn_cast<VectorType>(sourceVector0Value->getType());
   V_ASSERT (inputType && inputType == sourceVector1Value->getType() && "vector input error");
   unsigned sourceVectorWidth = inputType->getNumElements();
 
@@ -715,7 +715,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   for (unsigned dup = 0; dup < vectorWidth; ++dup)
   {
     newFuncCalls[dup] = CallInst::Create(scalarFunction,
-      newArgs[dup].begin(), newArgs[dup].end(), CI->getName(), CI);
+      ArrayRef<Value*>(newArgs[dup]), CI->getName(), CI);
   }
 
   // Make sure all vector arguments which weren't used as scalarized, still have their
@@ -791,7 +791,7 @@ void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
   }
 
   // handling case when return type is vector
-  const Type* scalarizeRetType = ScalarFunctionType->getReturnType();
+  Type* scalarizeRetType = ScalarFunctionType->getReturnType();
   if (scalarizeRetType->isVectorTy()){ 
     handleScalarRetVector(CI);
   }
@@ -829,7 +829,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
                                                Value *origValue, Instruction *origInst)
 {
   V_PRINT(scalarizer, "\t\t\tObtaining scalar value... " << *origValue << "\n");
-  const VectorType *origType = dyn_cast<VectorType>(origValue->getType());
+  VectorType *origType = dyn_cast<VectorType>(origValue->getType());
   V_ASSERT(origType && "Must have a vector type!");
   unsigned width = origType->getNumElements();
   
@@ -879,7 +879,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     // Instruction not found in SCM. Means it will be defined in a following basic block.
     // Generate a DRL: dummy values, which will be resolved after all scalarization is complete.
     V_PRINT(scalarizer, "\t\t\t*** Not found. Setting DRL. \n");
-    const PointerType *dummyType = origType->getElementType()->getPointerTo();
+    PointerType *dummyType = origType->getElementType()->getPointerTo();
     Constant *dummyPtr = ConstantPointerNull::get(dummyType);
     DRLEntry newDRLEntry;
     newDRLEntry.unresolvedInst = origValue;
@@ -991,7 +991,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
 Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *loc)
 {
   // Assemble a vector from the scalarized values.
-  const VectorType *vType = dyn_cast<VectorType>(vectorVal->getType());
+  VectorType *vType = dyn_cast<VectorType>(vectorVal->getType());
   V_ASSERT(vType && "param must be a vector");
   Value *assembledVector = UndefValue::get(vType);
   unsigned width = vType->getNumElements();
@@ -1091,7 +1091,7 @@ void ScalarizeFunction::resolveDeferredInstructions ()
         "\tDRL Going to fix value of orig inst: " << *current.unresolvedInst << "\n");
     Instruction *vectorInst = dyn_cast<Instruction>(current.unresolvedInst);
     V_ASSERT(vectorInst && "DRL only handles unresolved instructions");
-    const VectorType *currType = dyn_cast<VectorType>(vectorInst->getType());
+    VectorType *currType = dyn_cast<VectorType>(vectorInst->getType());
     V_ASSERT(currType && "Cannot have DRL of non-vector value");
     unsigned width = currType->getNumElements();
 

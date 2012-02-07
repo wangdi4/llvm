@@ -49,7 +49,7 @@ FrameworkTestsNames = [
 class VolcanoConformanceFramework(VolcanoTestSuite):
     def __init__(self, config):
         VolcanoTestSuite.__init__(self,"Framework")
-        self.generate_children_report = False
+        #self.generate_children_report = False
 
         for testname in FrameworkTestsNames:
             test = SimpleTest(testname, config.bin_dir,  os.path.join( 'validation', 'framework_test_type', 'framework_test_type') + ' --gtest_filter=FrameworkTestType.' + testname)
@@ -59,3 +59,4 @@ class VolcanoConformanceFramework(VolcanoTestSuite):
         self.updateTask("Test_opencl_printf_test", skiplist = [['.*','SLES64'],['.*','RH64']])
         self.updateTask("Test_VecTypeHintTest", skiplist = [[".*",".*",".*",".*","1"]])
         self.updateTask("Test_clFinishTest", skiplist = [[".*"]])
+        self.updateTask("Test_MT_execution", skiplist = [[".*"]])

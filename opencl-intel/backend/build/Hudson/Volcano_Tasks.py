@@ -92,8 +92,4 @@ class VectorizerTest(VolcanoCmdTask):
     def startUp(self):
         shutil.copy(os.path.join(self.tests_path, self.vectorizer_test_cmd), self.config.bin_dir)
         shutil.copy(os.path.join(self.tests_path, self.vectorizer_test_bat), self.config.bin_dir)
-    
-        
-    
-        
-    
+

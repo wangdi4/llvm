@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -27,7 +27,7 @@ File Name:  IBLTMapFiller.h
 namespace Validation {
 namespace OCLBuiltins {
 
-    typedef llvm::GenericValue (*PBLTFunc)(const llvm::FunctionType *, const std::vector<llvm::GenericValue> &);
+    typedef llvm::GenericValue (*PBLTFunc)(llvm::FunctionType *, const std::vector<llvm::GenericValue> &);
     class IBLTMapFiller {
     public:
         virtual void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames) = 0;

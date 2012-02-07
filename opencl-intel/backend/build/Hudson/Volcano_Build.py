@@ -208,6 +208,35 @@ class FixCSharpProject(VolcanoTestTask):
         os.rename( tmpfile_name, self.sln_name )
         return(True, "")
             
+class FixCSharpProject(VolcanoTestTask):
+    """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""
+    def __init__(self, name, config, sln_name, prj_name):
+        VolcanoTestTask.__init__(self, name)
+        self.config   = config
+        self.sln_name = sln_name
+        self.prj_name = prj_name
+    
+    def runTest(self, observer, config):
+        tmpfile_name = self.sln_name + '.tmp'
+        oldfile_name = self.sln_name + '.orig'
+        CXX_UUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
+        C_SHARP_UUID = '{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}'
+
+        with open(self.sln_name, 'r') as f:
+            with open(tmpfile_name, 'w') as tmpfile:
+                pattern = re.compile('^Project.+"' + self.prj_name + '".+')
+                for line in f:
+                    if pattern.search(line):
+                        line = re.sub(CXX_UUID,C_SHARP_UUID,line)
+                    tmpfile.write(line)
+
+        if os.path.isfile( oldfile_name ):
+            os.remove(oldfile_name)
+
+        os.rename( self.sln_name, oldfile_name )
+        os.rename( tmpfile_name, self.sln_name )
+        return(True, "")
+            
 class VolcanoBuilderConfig:
     CFG_NAME = "BuildConfig"
     def __init__(self,  volcano_only    = False, 

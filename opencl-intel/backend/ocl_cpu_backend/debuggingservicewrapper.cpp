@@ -1,5 +1,5 @@
 #include "debuggingservicewrapper.h"
-#include "llvm/System/DynamicLibrary.h"
+#include "llvm/Support/DynamicLibrary.h"
 #include <string>
 #include <cassert>
 #include <cstdlib>

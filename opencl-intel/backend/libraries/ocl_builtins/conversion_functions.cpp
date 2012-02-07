@@ -1,4 +1,5 @@
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -89,6 +90,7 @@ extern "C" {
 #include "cl_types2.h"
 #endif
 #else
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h> 
 #if defined(__AVX__)
 #include <avxintrin.h>
@@ -100,6 +102,9 @@ extern "C" {
 #endif
 
 #include "conversions_workaround.h"
+
+// Load the declarations of our LL intrinsic library.
+#include "ll_intrinsics.h"
 
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 
@@ -199,22 +204,38 @@ CONVERSIONS_FUNC_DECL __m128 double2ToFloat4Round(double2 x, int rMode)
 } 
 
 #if defined(__AVX__)
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 CONVERSIONS_FUNC_DECL __m128 double4ToFloat4Round(__m256d x, int rMode) 
+#else
+CONVERSIONS_FUNC_DECL __m128 double4ToFloat4Round(double4 x, int rMode) 
+#endif
 {
   int rm = _mm_getcsr();
   _mm_setcsr((rm& ~_MM_ROUND_MASK) | rMode);
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
   __m128 res = _mm256_cvtpd_ps(x);
+#else
+  __m128 res = _mm256_cvtpd_ps(__builtin_astype(x,__m256d));
+#endif
   _mm_setcsr(rm);
   return res;
 } 
 #endif // defined(__AVX__)
 
 #if defined(__AVX__)
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 CONVERSIONS_FUNC_DECL __m256i float8ToInt8Round(__m256 param, int rMode)
+#else
+CONVERSIONS_FUNC_DECL __m256i float8ToInt8Round(float8 param, int rMode)
+#endif
 {
 	int rm = _mm_getcsr();
 	_mm_setcsr((rm& ~_MM_ROUND_MASK) | rMode);
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 	__m256i res = _mm256_cvtps_epi32(param);
+#else
+	__m256i res = _mm256_cvtps_epi32((__m256)param);
+#endif
 	_mm_setcsr(rm);
 	return res;
 }
@@ -285,12 +306,20 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		return res;
 	}
 #if defined(__AVX__)
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
     CONVERSIONS_FUNC_DECL __m256 intToFloat8Round(__m256i param, int rMode)
+#else
+    CONVERSIONS_FUNC_DECL __m256 intToFloat8Round(int8 param, int rMode)
+#endif
 	{
         int crm = _mm_getcsr();
         // ROUND_MODE is not needed here since Intel Compiler correctly obtains argument from stack
         _mm_setcsr((crm& ~_MM_ROUND_MASK) | rMode);
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
         __m256 res = _mm256_cvtepi32_ps(param);
+#else
+        __m256 res = _mm256_cvtepi32_ps((__m256i)param);
+#endif
         _mm_setcsr(crm);
         return res;
 	}
@@ -361,7 +390,11 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         return (mask & 0xFF) != 0;
     }
 
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
     CONVERSIONS_FUNC_DECL __m256i float8ToUint8Round(__m256 param, int rMode)
+#else
+    CONVERSIONS_FUNC_DECL __m256i float8ToUint8Round(float8 param, int rMode)
+#endif
     {
         int crm = _mm_getcsr();
         // ROUND_MODE is not needed here since Intel Compiler correctly obtains argument from stack
@@ -370,13 +403,21 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         __m256i res;
         const ALIGN32 float mth_INT_MAX_32f[8] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f, 
                                                    2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f};
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
         __m256 mask_gt= _mm256_cmp_ps(param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
+#else
+        __m256 mask_gt= _mm256_cmp_ps((__m256)param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
+#endif
          
         if(_any8(mask_gt))
         {
             ALIGN32 float t[8];
             ALIGN32 int d[8];
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
             _mm256_store_ps(t, param);
+#else
+            _mm256_store_ps(t, (__m256)param);
+#endif
             d[0] = (_1u32)t[0];
             d[1] = (_1u32)t[1];
             d[2] = (_1u32)t[2];
@@ -389,7 +430,11 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         }
         else
         {
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
             res =   _mm256_cvtps_epi32(param);
+#else
+            res =   _mm256_cvtps_epi32((__m256)param);
+#endif
         }
 
         _mm_setcsr(crm);
@@ -414,7 +459,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 
 	/// !!! This function is copy-pasted to images module.
 	/// In case of any changes they should also be applied to image_callback_functions.cpp
-	CONVERSIONS_FUNC_DECL float4 float2half_rte(float4 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rte(float4 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
@@ -499,14 +544,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
 		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
 
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8(eq, *((__m128i *)_4x32to4x16)));
+		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
 		
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return eq1;
 	}
 
-	CONVERSIONS_FUNC_DECL float4 float2half_rtz(float4 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtz(float4 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -593,14 +638,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq0 = _mm_andnot_si128(dflt, eq0);
 		eq  = _mm_or_si128(eq, eq0);
 
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8(eq, *((__m128i *)_4x32to4x16)));
+		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return eq1;
 	}
 
-	CONVERSIONS_FUNC_DECL float4 float2half_rtp(float4 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtp(float4 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -711,14 +756,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq2 = _mm_andnot_si128(dflt, eq2);
 		eq  = _mm_or_si128(eq, eq2); 
 
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8(eq, *((__m128i *)_4x32to4x16)));
+		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return eq1;
 	}
 
-	CONVERSIONS_FUNC_DECL float4 float2half_rtn(float4 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtn(float4 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -830,13 +875,13 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq2 = _mm_andnot_si128(dflt, eq2);
 		eq  = _mm_or_si128(eq, eq2); 
 
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8(eq, *((__m128i *)_4x32to4x16)));
+		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
 
 		_MM_SET_ROUNDING_MODE(rm);
 		return eq1;
 	}
 
-	CONVERSIONS_FUNC_DECL float4 double2ToHalf2_rte(double2 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rte(double2 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
@@ -928,14 +973,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		res = _mm_andnot_pd(_mm_castsi128_pd(dflt), res);
 		eq = _mm_or_si128(eq, _mm_castpd_si128(res));
 
-		eq1 = SHUFFLE_EPI8(eq, *((__m128i *)_2x64to2x16));
+		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return _mm_castsi128_ps(eq1);
 	}
 
-	CONVERSIONS_FUNC_DECL float4 double2ToHalf2_rtz(double2 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtz(double2 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -1016,14 +1061,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq0 = _mm_andnot_si128(dflt, eq0);
 		eq  = _mm_or_si128(eq, eq0);
 	    
-		eq1 = SHUFFLE_EPI8(eq, *((__m128i *)_2x64to2x16));
+		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return _mm_castsi128_ps(eq1);
 	}
 
-	CONVERSIONS_FUNC_DECL float4 double2ToHalf2_rtp(double2 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtp(double2 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -1145,14 +1190,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq2 = _mm_andnot_si128(dflt, eq2);
 		eq  = _mm_or_si128(eq, eq2); 
 
-		eq1 = SHUFFLE_EPI8(eq, *((__m128i *)_2x64to2x16));
+		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
 		return _mm_castsi128_ps(eq1);
 	}
 
-	CONVERSIONS_FUNC_DECL float4 double2ToHalf2_rtn(double2 param)
+	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtn(double2 param)
 	{
 		int rm = _MM_GET_ROUNDING_MODE();
 		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
@@ -1274,7 +1319,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		eq2 = _mm_andnot_si128(dflt, eq2);
 		eq  = _mm_or_si128(eq, eq2); 
 
-		eq1 = SHUFFLE_EPI8(eq, *((__m128i *)_2x64to2x16));
+		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
 
 		_MM_SET_ROUNDING_MODE(rm);
 
@@ -1312,10 +1357,10 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
     _4u32 float4ToUint4Round(float4 param, int rMode);
 
 #if defined(__AVX__)
-    __m256 intToFloat8Round(__m256i param, int rMode);
-    __m256i float8ToInt8Round(__m256 param, int rMode);
-    __m128 double4ToFloat4Round(__m256d param, int rm);
-    __m256i float8ToUint8Round(__m256 param, int rMode);
+    __m256 intToFloat8Round(int8 param, int rMode);
+    __m256i float8ToInt8Round(float8 param, int rMode);
+    __m128 double4ToFloat4Round(double4 param, int rm);
+    __m256i float8ToUint8Round(float8 param, int rMode);
 #endif
 
 #define _LONG_TO_INT   0x88
@@ -1453,8 +1498,8 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		t1 = _mm_and_si128(t1, *((__m128i *)maxIntVal32));
 		t2 = _mm_and_si128(t2, *((__m128i *)minIntVal32));
 		t = _mm_andnot_si128(t, float4ToInt4(param, dummy) );
-		_4i32 res = _mm_or_si128(t1, t2);
-		res = _mm_or_si128(res, t);
+		_4i32 res = as_int4(_mm_or_si128(t1, t2));
+		res = as_int4(_mm_or_si128(__builtin_astype(res,__m128i), t));
 		return res;
 	}
 
@@ -1466,8 +1511,8 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		t1 = _mm_and_si128(t1, *((__m128i *)maxIntVal32));
 		t2 = _mm_and_si128(t2, *((__m128i *)minIntVal32));
 		t = _mm_andnot_si128(t, float4ToInt4Round(param, rMode) );
-		_4i32 res = _mm_or_si128(t1, t2);
-		res = _mm_or_si128(res, t);
+		_4i32 res = as_int4(_mm_or_si128(t1, t2));
+		res = as_int4(_mm_or_si128(__builtin_astype(res,__m128i), t));
 		return res;
 	}
 
@@ -1488,7 +1533,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		if(param <= -2147483648.0) return -2147483648.0;
 		double2 t;
 		t.lo = param;
-		_4i32 res = double2ToInt4(t, rMode);
+		_4i32 res = as_int4(double2ToInt4(t, rMode));
 		return res.s0;
 	}
 
@@ -1513,7 +1558,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{
         _4u32 res;
         const ALIGN16 float mth_INT_MAX_32f[4] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f};
-        _4i32 mask_gt= _mm_cmpgt_ps(param,  *(__m128*)mth_INT_MAX_32f);
+        _4i32 mask_gt= as_int4(_mm_cmpgt_ps(param,  *(__m128*)mth_INT_MAX_32f));
          
         if(_any4(mask_gt))
         {
@@ -1524,7 +1569,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         }
         else
         {
-            res =  _mm_cvttps_epi32(param);
+            res =  as_uint4(_mm_cvttps_epi32(param));
         }
         return res;
     }
@@ -1541,7 +1586,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         _8u32 res;
         const ALIGN32 float mth_INT_MAX_32f[8] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f, 
                                                    2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f};
-        _8i32 mask_gt= _mm256_cmp_ps(param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
+        _8i32 mask_gt= (_8i32)_mm256_cmp_ps(param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
          
         if(_any8(mask_gt))
         {
@@ -1556,7 +1601,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         }
         else
         {
-            res =   _mm256_cvttps_epi32(param);
+            res =   (_8u32)_mm256_cvttps_epi32(param);
         }
         return res;
     }
@@ -1583,13 +1628,13 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 
 	float4 intToFloat(_4i32 param, int dummy)
 	{
-		return _mm_cvtepi32_ps(param);
+		return as_float4(_mm_cvtepi32_ps(__builtin_astype(param,__m128i)));
 	}
 
 #if defined(__AVX__)
     float8 intToFloat8(_8i32 param, int dummy)
 	{
-        return _mm256_cvtepi32_ps(param);
+        return (float8)_mm256_cvtepi32_ps((__m256i)param);
 	}
 #endif
 
@@ -1637,41 +1682,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char2##RMODE(_2##TI##16 x)\
 	{\
-	_16##TO##8 res;\
-	_8##TI##16 param;\
-	param.s01 = x;\
-	res = _mm_shuffle_epi8(param, *((_16i8 *)_8x16to8x8));\
-	return res.s01;\
+	return __builtin_astype( trunc_v2i16_v2i8(__builtin_astype(x, _2i16)), _2##TO##8); \
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(TINAME##short3 x)\
 	{\
-	_16##TO##8 res;\
-	_8##TI##16 param;\
-	param.lo = as_##TINAME##short4(x);\
-	res = _mm_shuffle_epi8(param, *((_16i8 *)_8x16to8x8));\
-	return as_##TONAME##char3(res.s0123);\
+	return __builtin_astype( trunc_v3i16_v3i8(__builtin_astype(x, _3i16)), _3##TO##8); \
 	}\
 	_4##TO##8 __attribute__((overloadable)) convert_##TONAME##char4##RMODE(_4##TI##16 x)\
 	{\
-	_16##TO##8 res;\
-	_8##TI##16 param;\
-	param.lo = x;\
-	res = _mm_shuffle_epi8(param, *((_16i8 *)_8x16to8x8));\
-	return res.s0123;\
+	return __builtin_astype( trunc_v4i16_v4i8(__builtin_astype(x, _4i16)), _4##TO##8); \
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(_8##TI##16 x)\
 	{\
-	_16##TO##8 res;\
-	res = _mm_shuffle_epi8(x, *((_16i8 *)_8x16to8x8));\
-	return res.lo;\
+	return __builtin_astype( trunc_v8i16_v8i8(__builtin_astype(x, _8i16)), _8##TO##8); \
 	}\
 	_16##TO##8 __attribute__((overloadable)) convert_##TONAME##char16##RMODE(_16##TI##16 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo, *((_16i8 *)_8x16to8x8));\
-	temp2 = _mm_shuffle_epi8(x.hi, *((_16i8 *)_8x16to8x8));\
-	res = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v16i16_v16i8(__builtin_astype(x, _16i16)), _16##TO##8); \
 	}\
 
 #define DEF_INT_PROTO8_32(TI, TO, TINAME, TONAME, RMODE)\
@@ -1681,43 +1708,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char2##RMODE(_2##TI##32 x)\
 	{\
-	_16##TO##8 res;\
-	_4##TI##32 param;\
-	param.lo = x;\
-	res = _mm_shuffle_epi8(param, *((_16i8 *)_4x32to4x8));\
-	return res.s01;\
+	return __builtin_astype( trunc_v2i32_v2i8(__builtin_astype(x, _2i32)), _2##TO##8); \
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(TINAME##int3 x)\
 	{\
-	_16##TO##8 res;\
-	res = _mm_shuffle_epi8(as_##TINAME##int4(x), *((_16i8 *)_4x32to4x8));\
-	return as_##TONAME##char3(res.s0123);\
+	return __builtin_astype( trunc_v3i32_v3i8(__builtin_astype(x, _3i32)), TONAME##char3); \
 	}\
 	_4##TO##8 __attribute__((overloadable)) convert_##TONAME##char4##RMODE(_4##TI##32 x)\
 	{\
-	_16##TO##8 res;\
-	res = _mm_shuffle_epi8(x, *((_16i8 *)_4x32to4x8));\
-	return res.s0123;\
+	return __builtin_astype( trunc_v4i32_v4i8(__builtin_astype(x, _4i32)), _4##TO##8); \
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(_8##TI##32 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo, *((_16i8 *)_4x32to4x8));\
-	temp2 = _mm_shuffle_epi8(x.hi, *((_16i8 *)_4x32to4x8));\
-	res = _mm_unpacklo_epi32(temp1, temp2);\
-	return res.lo;\
+	return __builtin_astype( trunc_v8i32_v8i8(__builtin_astype(x, _8i32)), _8##TO##8); \
 	}\
 	_16##TO##8 __attribute__((overloadable)) convert_##TONAME##char16##RMODE(_16##TI##32 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo, *((_16i8 *)_4x32to4x8));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi, *((_16i8 *)_4x32to4x8));\
-	res = _mm_unpacklo_epi32(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo, *((_16i8 *)_4x32to4x8));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi, *((_16i8 *)_4x32to4x8));\
-	temp1 = _mm_unpacklo_epi32(temp1, temp2);\
-	res = _mm_unpacklo_epi64(res, temp1);\
-	return res;\
+	return __builtin_astype( trunc_v16i32_v16i8(__builtin_astype(x, _16i32)), _16##TO##8); \
 	}\
 
 #define DEF_INT_PROTO8_64(TI, TO, TINAME, TONAME, RMODE)\
@@ -1727,58 +1734,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##8 __attribute__((overloadable)) convert_##TONAME##char2##RMODE(_2##TI##64 x)\
 	{\
-	_16##TO##8 res;\
-	res = _mm_shuffle_epi8(x, *((_16i8 *)_2x64to2x8));\
-	return res.s01;\
+	return __builtin_astype( trunc_v2i64_v2i8(__builtin_astype(x, _2i64)), _2##TO##8);\
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(TINAME##long3 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	TINAME##long4 y = as_##TINAME##long4(x);\
-	temp1 = _mm_shuffle_epi8(y.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(y.hi, *((_16i8 *)_2x64to2x8));\
-	res = _mm_unpacklo_epi16(temp1, temp2);\
-	return as_##TONAME##char3(res.s0123);\
+	return __builtin_astype( trunc_v3i64_v3i8(__builtin_astype(x, _3i64)), TONAME##char3); \
 	}\
 	_4##TO##8 __attribute__((overloadable)) convert_##TONAME##char4##RMODE(_4##TI##64 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.hi, *((_16i8 *)_2x64to2x8));\
-	res = _mm_unpacklo_epi16(temp1, temp2);\
-	return res.s0123;\
+	return __builtin_astype( trunc_v4i64_v4i8(__builtin_astype(x, _4i64)), _4##TO##8); \
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(_8##TI##64 x)\
 	{\
-	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi, *((_16i8 *)_2x64to2x8));\
-	res = _mm_unpacklo_epi16(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi, *((_16i8 *)_2x64to2x8));\
-	temp1 = _mm_unpacklo_epi16(temp1, temp2);\
-	res = _mm_unpacklo_epi32(res, temp1);\
-	return res.lo;\
+	return __builtin_astype( trunc_v8i64_v8i8(__builtin_astype(x, _8i64)), _8##TO##8); \
 	}\
 	_16##TO##8 __attribute__((overloadable)) convert_##TONAME##char16##RMODE(_16##TI##64 x)\
 	{\
-	_16##TO##8 res, temp1, temp2, temp3;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.lo.lo.hi, *((_16i8 *)_2x64to2x8));\
-	res = _mm_unpacklo_epi16(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.lo.hi.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi.hi, *((_16i8 *)_2x64to2x8));\
-	temp1 = _mm_unpacklo_epi16(temp1, temp2);\
-	res = _mm_unpacklo_epi32(res, temp1);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.hi.lo.hi, *((_16i8 *)_2x64to2x8));\
-	temp3 = _mm_unpacklo_epi16(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.hi.lo, *((_16i8 *)_2x64to2x8));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi.hi, *((_16i8 *)_2x64to2x8));\
-	temp1 = _mm_unpacklo_epi16(temp1, temp2);\
-	temp3 = _mm_unpacklo_epi32(temp3, temp1);\
-	res = _mm_unpacklo_epi64(res, temp3);\
-	return res;\
+	return __builtin_astype( trunc_v16i64_v16i8(__builtin_astype(x, _16i64)), _16##TO##8); \
 	}
 
 #define DEF_INT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, FLAG)\
@@ -1792,30 +1764,29 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{\
 	float4 param;\
 	param.lo = x;\
-	_16##TO##8 res = float4ToInt4##FLAG(param, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x8));\
+	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(param, RMODEVAL), _16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(float3 x)\
 	{\
-	_16##TO##8 res = float4ToInt4##FLAG(as_float4(x), RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x8));\
+	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(as_float4(x), RMODEVAL),_16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	return as_##TONAME##char3(res.s0123);\
 	}\
 	_4##TO##8 __attribute__((overloadable)) convert_##TONAME##char4##RMODE(float4 x)\
 	{\
-	_16##TO##8 res = float4ToInt4##FLAG(x, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x8));\
-	return res.s0123;\
+	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(x, RMODEVAL),_16##TO##8);\
+	return __builtin_astype( trunc_v4i32_v4i8(__builtin_astype(res, _4i32)), _4##TO##8); \
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(float8 x)\
 	{\
 	_16##TO##8 res;\
-	_16##TO##8 t1 =  float4ToInt4##FLAG(x.lo, RMODEVAL);\
-	_16##TO##8 t2 =  float4ToInt4##FLAG(x.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x8));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x8));\
-	res = _mm_unpacklo_epi32(t1, t2);\
+	_16##TO##8 t1 =  __builtin_astype(float4ToInt4##FLAG(x.lo, RMODEVAL), _16##TO##8);\
+	_16##TO##8 t2 =  __builtin_astype(float4ToInt4##FLAG(x.hi, RMODEVAL), _16##TO##8);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
+	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)), _16##TO##8);\
 	return res.lo;\
 	}\
 	_16##TO##8 __attribute__((overloadable)) convert_##TONAME##char16##RMODE(float16 x)\
@@ -1831,49 +1802,49 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{\
 	double2 param;\
 	param.lo = x;\
-	_4i32 res = double2ToInt4(param, RMODEVAL);\
+	_4i32 res = __builtin_astype(double2ToInt4(param, RMODEVAL),_4i32);\
 	return res.s0;\
 	}\
 	_2##TO##8 __attribute__((overloadable)) convert_##TONAME##char2##RMODE(double2 x)\
 	{\
-	_16##TO##8 res = double2ToInt4(x, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x8));\
+	_16##TO##8 res = __builtin_astype(double2ToInt4(x, RMODEVAL),_16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(double3 x)\
 	{\
 	double4 y;\
 	y.s012 = x;\
-	_16##TO##8 t1 = double2ToInt4(y.lo, RMODEVAL);\
-	_16##TO##8 t2 = double2ToInt4(y.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x8));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x8));\
-	_16##TO##8 res = _mm_unpacklo_epi16(t1, t2);\
+	_16##TO##8 t1 = __builtin_astype(double2ToInt4(y.lo, RMODEVAL),_16##TO##8);\
+	_16##TO##8 t2 = __builtin_astype(double2ToInt4(y.hi, RMODEVAL),_16##TO##8);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	_16##TO##8 res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
 	return res.s012;\
 	}\
 	_4##TO##8  __attribute__((overloadable)) convert_##TONAME##char4##RMODE(double4 x)\
 	{\
-	_16##TO##8 t1 = double2ToInt4(x.lo, RMODEVAL);\
-	_16##TO##8 t2 = double2ToInt4(x.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x8));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x8));\
-	_16##TO##8 res = _mm_unpacklo_epi16(t1, t2);\
+	_16##TO##8 t1 = __builtin_astype(double2ToInt4(x.lo, RMODEVAL),_16##TO##8);\
+	_16##TO##8 t2 = __builtin_astype(double2ToInt4(x.hi, RMODEVAL),_16##TO##8);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	_16##TO##8 res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
 	return res.s0123;\
 	}\
 	_8##TO##8  __attribute__((overloadable)) convert_##TONAME##char8##RMODE(double8 x)\
 	{\
 	_16##TO##8 res;\
-	_16##TO##8 t1 =  double2ToInt4(x.lo.lo, RMODEVAL);\
-	_16##TO##8 t2 =  double2ToInt4(x.lo.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x8));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x8));\
-	res = _mm_unpacklo_epi16(t1, t2);\
-	t1 =  double2ToInt4(x.hi.lo, RMODEVAL);\
-	t2 =  double2ToInt4(x.hi.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x8));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x8));\
-	t1 = _mm_unpacklo_epi16(t1, t2);\
-	res = _mm_unpacklo_epi32(res, t1);\
+	_16##TO##8 t1 =  __builtin_astype(double2ToInt4(x.lo.lo, RMODEVAL),_16##TO##8);\
+	_16##TO##8 t2 =  __builtin_astype(double2ToInt4(x.lo.hi, RMODEVAL),_16##TO##8);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
+	t1 =  __builtin_astype(double2ToInt4(x.hi.lo, RMODEVAL),_16##TO##8);\
+	t2 =  __builtin_astype(double2ToInt4(x.hi.hi, RMODEVAL),_16##TO##8);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
+	t1 = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
+	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)),_16##TO##8);\
 	return res.lo;\
 	}\
 	_16##TO##8  __attribute__((overloadable)) convert_##TONAME##char16##RMODE(double16 x)\
@@ -1886,49 +1857,30 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 
 
 	// 16 bits
-#define DEF_INT_PROTO16_8(TI, TO, TINAME, TONAME, RMODE)\
+#define DEF_INT_PROTO16_8(_CC, TI, TO, TINAME, TONAME, RMODE)\
 	_1##TO##16 __attribute__((overloadable)) convert_##TONAME##short##RMODE(_1##TI##8 x)\
 	{\
 	return (_1##TO##16)x;\
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(_2##TI##8 x)\
 	{\
-	_8##TO##16 res;\
-	_16##TI##8 param;\
-	param.s01 = x;\
-	res = _mm_cvtep##TI##8_epi16(param);\
-	return res.s01;\
+	return __builtin_astype( _CC##ext_v2i8_v2i16(__builtin_astype(x, _2i8)), _2##TO##16); \
 	}\
 	TONAME##short3 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(TINAME##char3 x)\
 	{\
-	_8##TO##16 res;\
-	_16##TI##8 param;\
-	param.s0123 = as_##TINAME##char4(x);\
-	res = _mm_cvtep##TI##8_epi16(param);\
-	return as_##TONAME##short3(res.s0123);\
+	return __builtin_astype( _CC##ext_v3i8_v3i16(__builtin_astype(x, _3i8)), _3##TO##16); \
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(_4##TI##8 x)\
 	{\
-	_8##TO##16 res;\
-	_16##TI##8 param;\
-	param.s0123 = x;\
-	res = _mm_cvtep##TI##8_epi16(param);\
-	return res.s0123;\
+	return __builtin_astype( _CC##ext_v4i8_v4i16(__builtin_astype(x, _4i8)), _4##TO##16); \
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(_8##TI##8 x)\
 	{\
-	_8##TO##16 res;\
-	_16##TI##8 param;\
-	param.lo = x;\
-	res = _mm_cvtep##TI##8_epi16(param);\
-	return res;\
+	return __builtin_astype( _CC##ext_v8i8_v8i16(__builtin_astype(x, _8i8)), _8##TO##16); \
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(_16##TI##8 x)\
 	{\
-	_16##TO##16 res;\
-	res.lo = _mm_cvtep##TI##8_epi16(x);\
-	res.hi = _mm_cvtep##TI##8_epi16(_mm_srli_si128(x, 8));\
-	return res;\
+	return __builtin_astype( _CC##ext_v16i8_v16i16(__builtin_astype(x, _16i8)), _16##TO##16); \
 	}\
 
 #define DEF_INT_PROTO16_16(TI, TO, TINAME, TONAME, RMODE)\
@@ -1946,43 +1898,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(_2##TI##32 x)\
 	{\
-	_8##TO##16 res;\
-	_4##TI##32 param;\
-	param.lo = x;\
-	res = _mm_shuffle_epi8(param, *((__m128i *)_4x32to4x16));\
-	return res.s01;\
+	return __builtin_astype( trunc_v2i32_v2i16(__builtin_astype(x, _2i32)), _2##TO##16); \
 	}\
 	TONAME##short3 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(TINAME##int3 x)\
 	{\
-	_8##TO##16 res;\
-	res = _mm_shuffle_epi8(as_##TINAME##int4(x), *((__m128i *)_4x32to4x16));\
-	return as_##TONAME##short3(res.s0123);\
+	return __builtin_astype( trunc_v3i32_v3i16(__builtin_astype(x, _3i32)), _3##TO##16); \
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(_4##TI##32 x)\
 	{\
-	_8##TO##16 res;\
-	res = _mm_shuffle_epi8(x, *((__m128i *)_4x32to4x16));\
-	return res.s0123;\
+	return __builtin_astype( trunc_v4i32_v4i16(__builtin_astype(x, _4i32)), _4##TO##16); \
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(_8##TI##32 x)\
 	{\
-	_8##TO##16 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo, *((__m128i *)_4x32to4x16));\
-	temp2 = _mm_shuffle_epi8(x.hi, *((__m128i *)_4x32to4x16));\
-	res = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v8i32_v8i16(__builtin_astype(x, _8i32)), _8##TO##16); \
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(_16##TI##32 x)\
 	{\
-	_16##TO##16 res;\
-	_8##TO##16 temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo, *((__m128i *)_4x32to4x16));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi, *((__m128i *)_4x32to4x16));\
-	res.lo = _mm_unpacklo_epi64(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo, *((__m128i *)_4x32to4x16));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi, *((__m128i *)_4x32to4x16));\
-	res.hi = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v16i32_v16i16(__builtin_astype(x, _16i32)), _16##TO##16); \
 	}\
 
 #define DEF_INT_PROTO16_64(TI, TO, TINAME, TONAME, RMODE)\
@@ -1992,58 +1924,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(_2##TI##64 x)\
 	{\
-	_8##TO##16 res;\
-	res = _mm_shuffle_epi8(x, *((__m128i *)_2x64to2x16));\
-	return res.s01;\
+	return __builtin_astype( trunc_v2i64_v2i16(__builtin_astype(x, _2i64)), _2##TO##16); \
 	}\
 	TONAME##short3 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(TINAME##long3 x)\
 	{\
-	_8##TO##16 res, temp1, temp2;\
-	TINAME##long4 y = as_##TINAME##long4(x);\
-	temp1 = _mm_shuffle_epi8(y.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(y.hi, *((__m128i *)_2x64to2x16));\
-	res = _mm_unpacklo_epi32(temp1, temp2);\
-	return as_##TONAME##short3(res.lo);\
+	return __builtin_astype( trunc_v3i64_v3i16(__builtin_astype(x, _3i64)), _3##TO##16); \
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(_4##TI##64 x)\
 	{\
-	_8##TO##16 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.hi, *((__m128i *)_2x64to2x16));\
-	res = _mm_unpacklo_epi32(temp1, temp2);\
-	return res.lo;\
+	return __builtin_astype( trunc_v4i64_v4i16(__builtin_astype(x, _4i64)), _4##TO##16); \
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(_8##TI##64 x)\
 	{\
-	_8##TO##16 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi, *((__m128i *)_2x64to2x16));\
-	res = _mm_unpacklo_epi32(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi, *((__m128i *)_2x64to2x16));\
-	temp1 = _mm_unpacklo_epi32(temp1, temp2);\
-	res = _mm_unpacklo_epi64(res, temp1);\
-	return res;\
+	return __builtin_astype( trunc_v8i64_v8i16(__builtin_astype(x, _8i64)), _8##TO##16); \
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(_16##TI##64 x)\
 	{\
-	_16##TO##16 res;\
-	_8##TO##16 temp1, temp2;\
-	temp1 = _mm_shuffle_epi8(x.lo.lo.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.lo.lo.hi, *((__m128i *)_2x64to2x16));\
-	res.lo = _mm_unpacklo_epi32(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.lo.hi.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.lo.hi.hi, *((__m128i *)_2x64to2x16));\
-	temp1 = _mm_unpacklo_epi32(temp1, temp2);\
-	res.lo = _mm_unpacklo_epi64(res.lo, temp1);\
-	temp1 = _mm_shuffle_epi8(x.hi.lo.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.hi.lo.hi, *((__m128i *)_2x64to2x16));\
-	res.hi = _mm_unpacklo_epi32(temp1, temp2);\
-	temp1 = _mm_shuffle_epi8(x.hi.hi.lo, *((__m128i *)_2x64to2x16));\
-	temp2 = _mm_shuffle_epi8(x.hi.hi.hi, *((__m128i *)_2x64to2x16));\
-	temp1 = _mm_unpacklo_epi32(temp1, temp2);\
-	res.hi = _mm_unpacklo_epi64(res.hi, temp1);\
-	return res;\
+	return __builtin_astype( trunc_v16i64_v16i16(__builtin_astype(x, _16i64)), _16##TO##16); \
 	}\
 
 #define DEF_INT_PROTO16_F(TO, TONAME, RMODE, RMODEVAL, FLAG)\
@@ -2060,32 +1957,32 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_8##TO##16 res;\
 	float4 param;\
 	param.lo = x;\
-	res = float4ToInt4##FLAG(param, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	res = __builtin_astype(float4ToInt4##FLAG(param, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.s01;\
 	}\
 	TONAME##short3 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(float3 x)\
 	{\
 	_8##TO##16 res;\
-	res = float4ToInt4##FLAG(as_float4(x), RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	res = __builtin_astype(float4ToInt4##FLAG(as_float4(x), RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return as_##TONAME##short3(res.lo);\
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(float4 x)\
 	{\
 	_8##TO##16 res;\
-	res = float4ToInt4##FLAG(x, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	res = __builtin_astype(float4ToInt4##FLAG(x, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.lo;\
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(float8 x)\
 	{\
 	_8##TO##16 res;\
-	_8##TO##16 t1 = float4ToInt4##FLAG(x.lo, RMODEVAL);\
-	_8##TO##16 t2 = float4ToInt4##FLAG(x.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x16));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x16));\
-	res = _mm_unpacklo_epi64(t1, t2);\
+	_8##TO##16 t1 = __builtin_astype(float4ToInt4##FLAG(x.lo, RMODEVAL),_8##TO##16);\
+	_8##TO##16 t2 = __builtin_astype(float4ToInt4##FLAG(x.hi, RMODEVAL),_8##TO##16);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
 	return res;\
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(float16 x)\
@@ -2101,49 +1998,49 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{\
 	double2 param;\
 	param.s0 = x;\
-	_4i32 res = double2ToInt4(param, RMODEVAL);\
+	_4i32 res = __builtin_astype(double2ToInt4(param, RMODEVAL),_4i32);\
 	return res.s0;\
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(double2 x)\
 	{\
 	_8##TO##16 res;\
-	res = double2ToInt4(x, RMODEVAL);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	res = __builtin_astype(double2ToInt4(x, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.s01;\
 	}\
 	_3##TO##16 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(double3 x)\
 	{\
 	_8##TO##16 res, t1, t2;\
 	double4 y = as_double4(x);\
-	t1 = double2ToInt4(y.lo, RMODEVAL);\
-	t2 = double2ToInt4(y.hi, RMODEVAL);\
-	res = _mm_unpacklo_epi64(t1, t2);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	t1 = __builtin_astype(double2ToInt4(y.lo, RMODEVAL),_8##TO##16);\
+	t2 = __builtin_astype(double2ToInt4(y.hi, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return as_##TONAME##short3(res.lo);\
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(double4 x)\
 	{\
 	_8##TO##16 res, t1, t2;\
-	t1 = double2ToInt4(x.lo, RMODEVAL);\
-	t2 = double2ToInt4(x.hi, RMODEVAL);\
-	res = _mm_unpacklo_epi64(t1, t2);\
-	res = _mm_shuffle_epi8(res, *((__m128i *)_4x32to4x16));\
+	t1 = __builtin_astype(double2ToInt4(x.lo, RMODEVAL),_8##TO##16);\
+	t2 = __builtin_astype(double2ToInt4(x.hi, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.lo;\
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(double8 x)\
 	{\
 	_8##TO##16 res;\
-	_8##TO##16 t1 = double2ToInt4(x.lo.lo, RMODEVAL);\
-	_8##TO##16 t2 = double2ToInt4(x.lo.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x16));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x16));\
-	res = _mm_unpacklo_epi32(t1, t2);\
-	t1 = double2ToInt4(x.hi.lo, RMODEVAL);\
-	t2 = double2ToInt4(x.hi.hi, RMODEVAL);\
-	t1 = _mm_shuffle_epi8(t1, *((__m128i *)_4x32to4x16));\
-	t2 = _mm_shuffle_epi8(t2, *((__m128i *)_4x32to4x16));\
-	t1 = _mm_unpacklo_epi32(t1, t2);\
-	res = _mm_unpacklo_epi64(res, t1);\
+	_8##TO##16 t1 = __builtin_astype(double2ToInt4(x.lo.lo, RMODEVAL),_8##TO##16);\
+	_8##TO##16 t2 = __builtin_astype(double2ToInt4(x.lo.hi, RMODEVAL),_8##TO##16);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+	t1 = __builtin_astype(double2ToInt4(x.hi.lo, RMODEVAL),_8##TO##16);\
+	t2 = __builtin_astype(double2ToInt4(x.hi.hi, RMODEVAL),_8##TO##16);\
+	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
+	t1 = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)),_8##TO##16);\
 	return res;\
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(double16 x)\
@@ -2156,95 +2053,56 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 
 
 	// 32 bits
-#define DEF_INT_PROTO32_8(TI, TO, TINAME, TONAME, RMODE)\
+#define DEF_INT_PROTO32_8( _CC, TI, TO, TINAME, TONAME, RMODE)\
 	_1##TO##32 __attribute__((overloadable)) convert_##TONAME##int##RMODE(_1##TI##8 x)\
 	{\
 	return (_1##TO##32)x;\
 	}\
 	_2##TO##32 __attribute__((overloadable)) convert_##TONAME##int2##RMODE(_2##TI##8 x)\
 	{\
-	_4##TO##32 res;\
-	_16##TI##8 param;\
-	param.s01 = x;\
-	res =  _mm_cvtep##TI##8_epi32(param);\
-	return res.lo;\
+	return __builtin_astype( _CC##ext_v2i8_v2i32(__builtin_astype(x, _2i8)), _2##TO##32); \
 	}\
 	TONAME##int3 __attribute__ ((overloadable)) convert_##TONAME##int3##RMODE(TINAME##char3 x)\
 	{\
-	_4##TO##32 res;\
-	_16##TI##8 param;\
-	param.s0123 = as_##TINAME##char4(x);\
-	res =  _mm_cvtep##TI##8_epi32(param);\
-	return as_##TONAME##int3(res);\
+	return __builtin_astype( _CC##ext_v3i8_v3i32(__builtin_astype(x, _3i8)), _3##TO##32); \
 	}\
 	_4##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int4##RMODE(_4##TI##8 x)\
 	{\
-	_4##TO##32 res;\
-	_16##TI##8 param;\
-	param.s0123 = x;\
-	res =  _mm_cvtep##TI##8_epi32(param);\
-	return res;\
+	return __builtin_astype( _CC##ext_v4i8_v4i32(__builtin_astype(x, _4i8)), _4##TO##32); \
 	}\
 	_8##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int8##RMODE(_8##TI##8 x)\
 	{\
-	_8##TO##32 res;\
-	_16##TI##8 param;\
-	param.lo = x;\
-	res.lo = _mm_cvtep##TI##8_epi32(param);\
-	res.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(param, 4));\
-	return res;\
+	return __builtin_astype( _CC##ext_v8i8_v8i32(__builtin_astype(x, _8i8)), _8##TO##32); \
 	}\
 	_16##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int16##RMODE(_16##TI##8 x)\
 	{\
-	_16##TO##32 res;\
-	res.lo.lo = _mm_cvtep##TI##8_epi32(x);\
-	res.lo.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 4));\
-	res.hi.lo = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 8));\
-	res.hi.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 12));\
-	return res;\
+	return __builtin_astype( _CC##ext_v16i8_v16i32(__builtin_astype(x, _16i8)), _16##TO##32); \
 	}\
 
-#define DEF_INT_PROTO32_16(TI, TO, TINAME, TONAME, RMODE)\
+#define DEF_INT_PROTO32_16( _CC, TI, TO, TINAME, TONAME, RMODE)\
 	_1##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int##RMODE(_1##TI##16 x)\
 	{\
 	return (_1##TO##32)x;\
 	}\
 	_2##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int2##RMODE(_2##TI##16 x)\
 	{\
-	_4##TO##32 res;\
-	_8##TI##16 param;\
-	param.s01 = x;\
-	res = _mm_cvtep##TI##16_epi32(param);\
-	return res.lo;\
+	return __builtin_astype( _CC##ext_v2i16_v2i32(__builtin_astype(x, _2i16)), _2##TO##32); \
 	}\
 	TONAME##int3 __attribute__ ((overloadable)) convert_##TONAME##int3##RMODE(TINAME##short3 x)\
 	{\
-	_8##TI##16 param;\
-	param.lo = as_##TINAME##short4(x);\
-	TONAME##int4 res = _mm_cvtep##TI##16_epi32(param);\
-	return as_##TONAME##int3(res);\
+	return __builtin_astype( _CC##ext_v3i16_v3i32(__builtin_astype(x, _3i16)), _3##TO##32); \
 	}\
 	_4##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int4##RMODE(_4##TI##16 x)\
 	{\
-	_8##TI##16 param;\
-	param.lo = x;\
-	return _mm_cvtep##TI##16_epi32(param);\
+	return __builtin_astype( _CC##ext_v4i16_v4i32(__builtin_astype(x, _4i16)), _4##TO##32); \
 	}\
 	_8##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int8##RMODE(_8##TI##16 x)\
 	{\
-	_8##TO##32 res;\
-	res.lo = _mm_cvtep##TI##16_epi32(x);\
-	res.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x, 8));\
-	return res;\
+	return __builtin_astype( _CC##ext_v8i16_v8i32(__builtin_astype(x, _8i16)), _8##TO##32); \
 	}\
 	_16##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int16##RMODE(_16##TI##16 x)\
 	{\
-	_16##TO##32 res;\
-	res.lo.lo = _mm_cvtep##TI##16_epi32(x.lo);\
-	res.lo.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x.lo, 8));\
-	res.hi.lo = _mm_cvtep##TI##16_epi32(x.hi);\
-	res.hi.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x.hi, 8));\
-	return res;\
+	return __builtin_astype( _CC##ext_v16i16_v16i32(__builtin_astype(x, _16i16)), _16##TO##32); \
 	}
 
 #define DEF_INT_PROTO32_32(TI, TO, TINAME, TONAME, RMODE)\
@@ -2262,56 +2120,23 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}\
 	_2##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int2##RMODE(_2##TI##64 x)\
 	{\
-	_4##TO##32 res;\
-	res = _mm_shuffle_epi32(x, _LONG_TO_INT);\
-	return res.lo;\
+	return __builtin_astype( trunc_v2i64_v2i32(__builtin_astype(x, _2i64)), _2##TO##32); \
 	}\
 	TONAME##int3 __attribute__ ((overloadable)) convert_##TONAME##int3##RMODE(TINAME##long3 x)\
 	{\
-	_4##TO##32 res, temp1, temp2;\
-	TINAME##long4 y = as_##TINAME##long4(x);\
-	temp1 = _mm_shuffle_epi32(y.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(y.hi, _LONG_TO_INT);\
-	res = _mm_unpacklo_epi64(temp1, temp2);\
-	return as_##TONAME##int3(res);\
+	return __builtin_astype( trunc_v3i64_v3i32(__builtin_astype(x, _3i64)), _3##TO##32); \
 	}\
 	_4##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int4##RMODE(_4##TI##64 x)\
 	{\
-	_4##TO##32 res, temp1, temp2;\
-	temp1 = _mm_shuffle_epi32(x.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.hi, _LONG_TO_INT);\
-	res = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v4i64_v4i32(__builtin_astype(x, _4i64)), _4##TO##32); \
 	}\
 	_8##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int8##RMODE(_8##TI##64 x)\
 	{\
-	_8##TO##32 res;\
-	_4##TO##32 temp1, temp2;\
-	temp1 = _mm_shuffle_epi32(x.lo.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.lo.hi, _LONG_TO_INT);\
-	res.lo = _mm_unpacklo_epi64(temp1, temp2);\
-	temp1 = _mm_shuffle_epi32(x.hi.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.hi.hi, _LONG_TO_INT);\
-	res.hi = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v8i64_v8i32(__builtin_astype(x, _8i64)), _8##TO##32); \
 	}\
 	_16##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int16##RMODE(_16##TI##64 x)\
 	{\
-	_16##TO##32 res;\
-	_4##TO##32 temp1, temp2;\
-	temp1 = _mm_shuffle_epi32(x.lo.lo.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.lo.lo.hi, _LONG_TO_INT);\
-	res.lo.lo = _mm_unpacklo_epi64(temp1, temp2);\
-	temp1 = _mm_shuffle_epi32(x.lo.hi.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.lo.hi.hi, _LONG_TO_INT);\
-	res.lo.hi = _mm_unpacklo_epi64(temp1, temp2);\
-	temp1 = _mm_shuffle_epi32(x.hi.lo.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.hi.lo.hi, _LONG_TO_INT);\
-	res.hi.lo = _mm_unpacklo_epi64(temp1, temp2);\
-	temp1 = _mm_shuffle_epi32(x.hi.hi.lo, _LONG_TO_INT);\
-	temp2 = _mm_shuffle_epi32(x.hi.hi.hi, _LONG_TO_INT);\
-	res.hi.hi = _mm_unpacklo_epi64(temp1, temp2);\
-	return res;\
+	return __builtin_astype( trunc_v16i64_v16i32(__builtin_astype(x, _16i64)), _16##TO##32); \
 	}\
 
 #define DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE, RMODEVAL, FLAG)       \
@@ -2328,19 +2153,19 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_4i32 res;\
 	float4 param;\
 	param.lo = x;\
-	res = float4ToInt4##FLAG(param, RMODEVAL);\
+	res = as_int4(float4ToInt4##FLAG(param, RMODEVAL));\
 	return res.lo;\
 	}\
 	int3 __attribute__ ((overloadable)) convert_int3##RMODE(float3 x)\
 	{\
 	int4 res;\
-	res = float4ToInt4##FLAG(as_float4(x), RMODEVAL);\
+	res = as_int4(float4ToInt4##FLAG(as_float4(x), RMODEVAL));\
 	return as_int3(res);\
 	}\
 	_4i32 __attribute__ ((overloadable)) convert_int4##RMODE(float4 x)\
 	{\
 	_4i32 res;\
-	res = float4ToInt4##FLAG(x, RMODEVAL);\
+	res = as_int4(float4ToInt4##FLAG(x, RMODEVAL));\
 	return res;\
 	}\
 
@@ -2349,17 +2174,17 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_8i32 __attribute__ ((overloadable)) convert_int8##RMODE(float8 x)\
 	{\
 	_8i32 res;\
-	res.lo = float4ToInt4##FLAG(x.lo, RMODEVAL);\
-	res.hi = float4ToInt4##FLAG(x.hi, RMODEVAL);\
+	res.lo = as_int4(float4ToInt4##FLAG(x.lo, RMODEVAL));\
+	res.hi = as_int4(float4ToInt4##FLAG(x.hi, RMODEVAL));\
 	return res;\
 	}\
 	_16i32 __attribute__ ((overloadable)) convert_int16##RMODE(float16 x)\
 	{\
 	_16i32 res;\
-	res.lo.lo = float4ToInt4##FLAG(x.lo.lo, RMODEVAL);\
-    res.lo.hi = float4ToInt4##FLAG(x.lo.hi, RMODEVAL);\
-	res.hi.lo = float4ToInt4##FLAG(x.hi.lo, RMODEVAL);\
-    res.hi.hi = float4ToInt4##FLAG(x.hi.hi, RMODEVAL);\
+	res.lo.lo = as_int4(float4ToInt4##FLAG(x.lo.lo, RMODEVAL));\
+    res.lo.hi = as_int4(float4ToInt4##FLAG(x.lo.hi, RMODEVAL));\
+	res.hi.lo = as_int4(float4ToInt4##FLAG(x.hi.lo, RMODEVAL));\
+    res.hi.hi = as_int4(float4ToInt4##FLAG(x.hi.hi, RMODEVAL));\
 	return res;\
 	}
 
@@ -2367,14 +2192,14 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_8i32 __attribute__ ((overloadable)) convert_int8##RMODE(float8 x)\
 	{\
 	_8i32 res;\
-	res = float8ToInt8##FLAG(x, RMODEVAL);\
+	res = as_int8(float8ToInt8##FLAG(x, RMODEVAL));\
 	return res;\
 	}\
 	_16i32 __attribute__ ((overloadable)) convert_int16##RMODE(float16 x)\
 	{\
 	_16i32 res;\
-	res.lo = float8ToInt8##FLAG(x.lo, RMODEVAL);\
-	res.hi = float8ToInt8##FLAG(x.hi, RMODEVAL);\
+	res.lo = as_int8(float8ToInt8##FLAG(x.lo, RMODEVAL));\
+	res.hi = as_int8(float8ToInt8##FLAG(x.hi, RMODEVAL));\
 	return res;\
 	}
 
@@ -2391,22 +2216,22 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #define DEF_INT_PROTOU32_F_F1234(RMODE, RMODEVAL, FLAG)\
 	_1u32 __attribute__ ((overloadable)) convert_uint##RMODE(float x)\
 	{\
-    _1u32 res = floatToUint##FLAG(x, RMODEVAL);\
+    _1u32 res = as_uint(floatToUint##FLAG(x, RMODEVAL));\
 	return res;\
 	}\
 	_2u32 __attribute__ ((overloadable)) convert_uint2##RMODE(float2 x)\
 	{\
 	_4u32 res;\
-	res.s0 = floatToUint##FLAG(x.lo, RMODEVAL);\
-	res.s1 = floatToUint##FLAG(x.hi, RMODEVAL);\
+	res.s0 = as_uint(floatToUint##FLAG(x.lo, RMODEVAL));\
+	res.s1 = as_uint(floatToUint##FLAG(x.hi, RMODEVAL));\
 	return res.lo;\
 	}\
 	uint3 __attribute__ ((overloadable)) convert_uint3##RMODE(float3 x)\
 	{\
 	_4u32 res;\
-	res.s0 = floatToUint##FLAG(x.s0, RMODEVAL);\
-	res.s1 = floatToUint##FLAG(x.s1, RMODEVAL);\
-	res.s2 = floatToUint##FLAG(x.s2, RMODEVAL);\
+	res.s0 = as_uint(floatToUint##FLAG(x.s0, RMODEVAL));\
+	res.s1 = as_uint(floatToUint##FLAG(x.s1, RMODEVAL));\
+	res.s2 = as_uint(floatToUint##FLAG(x.s2, RMODEVAL));\
 	return as_uint3(res);\
 	}\
 	_4u32 __attribute__ ((overloadable)) convert_uint4##RMODE(float4 x)\
@@ -2438,7 +2263,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
     _8u32 __attribute__ ((overloadable)) convert_uint8##RMODE(float8 x)\
 	{\
 	_8u32 res;\
-	res = float8ToUint8##FLAG(x, RMODEVAL);\
+	res = (uint8)float8ToUint8##FLAG(x, RMODEVAL);\
 	return res;\
 	}\
 	_16u32 __attribute__ ((overloadable)) convert_uint16##RMODE(float16 x)\
@@ -2465,29 +2290,29 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_4i32 res;\
 	double2 param;\
 	param.lo = x;\
-	res = double2ToInt4(param, RMODEVAL);\
+	res = as_int4(double2ToInt4(param, RMODEVAL));\
 	return res.s0;\
 	}\
 	_2i32 __attribute__((overloadable)) convert_int2##RMODE(double2 x)\
 	{\
 	_4i32 res;\
-	res = double2ToInt4(x, RMODEVAL);\
+	res = as_int4(double2ToInt4(x, RMODEVAL));\
 	return res.lo;\
 	}\
 	int3 __attribute__((overloadable)) convert_int3##RMODE(double3 x)\
 	{\
 	_4i32 t1, t2, res;\
-	t1 = double2ToInt4(x.lo, RMODEVAL);\
-	t2 = double2ToInt4(x.hi, RMODEVAL);\
-	res = _mm_unpacklo_epi64(t1, t2);\
+	t1 = as_int4(double2ToInt4(x.lo, RMODEVAL));\
+	t2 = as_int4(double2ToInt4(x.hi, RMODEVAL));\
+	res = as_int4(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
 	return as_int3(res);\
 	}\
 	_4i32 __attribute__((overloadable)) convert_int4##RMODE(double4 x)\
 	{\
 	_4i32 t1, t2, res;\
-	t1 = double2ToInt4(x.lo, RMODEVAL);\
-	t2 = double2ToInt4(x.hi, RMODEVAL);\
-	res = _mm_unpacklo_epi64(t1, t2);\
+	t1 = as_int4(double2ToInt4(x.lo, RMODEVAL));\
+	t2 = as_int4(double2ToInt4(x.hi, RMODEVAL));\
+	res = as_int4(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
 	return res;\
 	}\
 	_8i32 __attribute__((overloadable)) convert_int8##RMODE(double8 x)\
@@ -2519,7 +2344,7 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	_2u32 __attribute__((overloadable)) convert_uint2##RMODE(double2 x)\
 	{\
-    double4 y = {1.0}; /* Use a normal value, to avoid worst case(denormal, NaN,,,) */ \
+    double4 y = (double4)(1.0); /* Use a normal value, to avoid worst case(denormal, NaN,,,) */ \
 	y.lo = x;\
 	uint4 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##nosat4(y);\
 	return res.lo;\
@@ -2558,7 +2383,7 @@ we need to report this to Nikita and get a fix for this.
 	_2##TO##64 res;\
 	_16##TI##8 param;\
 	param.s01 = x;\
-	res =  _mm_cvtep##TI##8_epi64(param);\
+	res = __builtin_astype(_mm_cvtep##TI##8_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
 	return res;\
 	}\
 	TONAME##long3 __attribute__ ((overloadable)) convert_##TONAME##long3##RMODE(TINAME##char3 x)\
@@ -2566,8 +2391,8 @@ we need to report this to Nikita and get a fix for this.
 	_4##TO##64 res;\
 	_16##TI##8 param;\
 	param.s0123 = as_##TINAME##char4(x);\
-	res.lo =  _mm_cvtep##TI##8_epi64(param);\
-	res.hi =  _mm_cvtep##TI##8_epi64(_mm_srli_si128(param, 2));\
+	res.lo =  __builtin_astype(_mm_cvtep##TI##8_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
+	res.hi =  __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)),_2##TO##64);\
 	return as_##TONAME##long3(res);\
 	}\
 	_4##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long4##RMODE(_4##TI##8 x)\
@@ -2575,8 +2400,8 @@ we need to report this to Nikita and get a fix for this.
 	_4##TO##64 res;\
 	_16##TI##8 param;\
 	param.s0123 = x;\
-	res.lo =  _mm_cvtep##TI##8_epi64(param);\
-	res.hi =  _mm_cvtep##TI##8_epi64(_mm_srli_si128(param, 2));\
+	res.lo =  __builtin_astype(_mm_cvtep##TI##8_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
+	res.hi =  __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)),_2##TO##64);\
 	return res;\
 	}\
 	_8##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long8##RMODE(_8##TI##8 x)\
@@ -2584,23 +2409,23 @@ we need to report this to Nikita and get a fix for this.
 	_8##TO##64 res;\
 	_16##TI##8 param;\
 	param.lo = x;\
-	res.lo.lo = _mm_cvtep##TI##8_epi64(param);\
-	res.lo.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(param, 2));\
-	res.hi.lo = _mm_cvtep##TI##8_epi64(_mm_srli_si128(param, 4));\
-	res.hi.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(param, 6));\
+	res.lo.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
+	res.lo.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)),_2##TO##64);\
+	res.hi.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)),_2##TO##64);\
+	res.hi.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 6)),_2##TO##64);\
 	return res;\
 	}\
 	_16##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long16##RMODE(_16##TI##8 x)\
 	{\
 	_16##TO##64 res;\
-	res.lo.lo.lo = _mm_cvtep##TI##8_epi64(x);\
-	res.lo.lo.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 2));\
-	res.lo.hi.lo = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 4));\
-	res.lo.hi.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 6));\
-	res.hi.lo.lo = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 8));\
-	res.hi.lo.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 10));\
-	res.hi.hi.lo = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 12));\
-	res.hi.hi.hi = _mm_cvtep##TI##8_epi64(_mm_srli_si128(x, 14));\
+	res.lo.lo.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(__builtin_astype(x,__m128i)),_2##TO##64);\
+	res.lo.lo.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 2)),_2##TO##64);\
+	res.lo.hi.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 4)),_2##TO##64);\
+	res.lo.hi.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 6)),_2##TO##64);\
+	res.hi.lo.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_2##TO##64);\
+	res.hi.lo.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 10)),_2##TO##64);\
+	res.hi.hi.lo = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 12)),_2##TO##64);\
+	res.hi.hi.hi = __builtin_astype(_mm_cvtep##TI##8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 14)),_2##TO##64);\
 	return res;\
 	}\
 
@@ -2614,7 +2439,7 @@ we need to report this to Nikita and get a fix for this.
 	_2##TO##64 res;\
 	_8##TI##16 param;\
 	param.s01 = x;\
-	res = _mm_cvtep##TI##16_epi64(param);\
+	res = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
 	return res;\
 	}\
 	TONAME##long3 __attribute__ ((overloadable)) convert_##TONAME##long3##RMODE(TINAME##short3 x)\
@@ -2622,8 +2447,8 @@ we need to report this to Nikita and get a fix for this.
 	_8##TI##16 param;\
 	_4##TO##64 res;\
 	param.lo =as_##TINAME##short4(x);\
-	res.lo = _mm_cvtep##TI##16_epi64(param);\
-	res.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(param, 4));\
+	res.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
+	res.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)),_2##TO##64);\
 	return as_##TONAME##long3(res);\
 	}\
 	_4##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long4##RMODE(_4##TI##16 x)\
@@ -2631,30 +2456,30 @@ we need to report this to Nikita and get a fix for this.
 	_8##TI##16 param;\
 	_4##TO##64 res;\
 	param.lo = x;\
-	res.lo = _mm_cvtep##TI##16_epi64(param);\
-	res.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(param, 4));\
+	res.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
+	res.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)),_2##TO##64);\
 	return res;\
 	}\
 	_8##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long8##RMODE(_8##TI##16 x)\
 	{\
 	_8##TO##64 res;\
-	res.lo.lo = _mm_cvtep##TI##16_epi64(x);\
-	res.lo.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x, 4));\
-	res.hi.lo = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x, 8));\
-	res.hi.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x, 12));\
+	res.lo.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(x,__m128i)),_2##TO##64);\
+	res.lo.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 4)),_2##TO##64);\
+	res.hi.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_2##TO##64);\
+	res.hi.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 12)),_2##TO##64);\
 	return res;\
 	}\
 	_16##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long16##RMODE(_16##TI##16 x)\
 	{\
 	_16##TO##64 res;\
-	res.lo.lo.lo = _mm_cvtep##TI##16_epi64(x.lo);\
-	res.lo.lo.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.lo, 4));\
-	res.lo.hi.lo = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.lo, 8));\
-	res.lo.hi.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.lo, 12));\
-	res.hi.lo.lo = _mm_cvtep##TI##16_epi64(x.hi);\
-	res.hi.lo.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.hi, 4));\
-	res.hi.hi.lo = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.hi, 8));\
-	res.hi.hi.hi = _mm_cvtep##TI##16_epi64(_mm_srli_si128(x.hi, 12));\
+	res.lo.lo.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(x.lo,__m128i)),_2##TO##64);\
+	res.lo.lo.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 4)),_2##TO##64);\
+	res.lo.hi.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 8)),_2##TO##64);\
+	res.lo.hi.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 12)),_2##TO##64);\
+	res.hi.lo.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(__builtin_astype(x.hi,__m128i)),_2##TO##64);\
+	res.hi.lo.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 4)),_2##TO##64);\
+	res.hi.hi.lo = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 8)),_2##TO##64);\
+	res.hi.hi.hi = __builtin_astype(_mm_cvtep##TI##16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 12)),_2##TO##64);\
 	return res;\
 	}\
 
@@ -2668,43 +2493,43 @@ we need to report this to Nikita and get a fix for this.
 	_2##TO##64 res;\
 	_4##TI##32 param;\
 	param.lo = x;\
-	res = _mm_cvtep##TI##32_epi64(param);\
+	res = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(param,__m128i)),_2##TO##64);\
 	return res;\
 	}\
 	TONAME##long3 __attribute__ ((overloadable)) convert_##TONAME##long3##RMODE(TINAME##int3 x)\
 	{\
 	_4##TO##64 res;\
-	res.lo = _mm_cvtep##TI##32_epi64(as_##TONAME##int4(x));\
-	res.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(as_##TONAME##int4(x), 8));\
+	res.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(as_##TONAME##int4(x),__m128i)),_2##TO##64);\
+	res.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(as_##TONAME##int4(x),__m128i), 8)),_2##TO##64);\
 	return as_##TONAME##long3(res);\
 	}\
 	_4##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long4##RMODE(_4##TI##32 x)\
 	{\
 	_4##TO##64 res;\
-	res.lo = _mm_cvtep##TI##32_epi64(x);\
-	res.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x, 8));\
+	res.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x,__m128i)),_2##TO##64);\
+	res.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_2##TO##64);\
 	return res;\
 	}\
 	_8##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long8##RMODE(_8##TI##32 x)\
 	{\
 	_8##TO##64 res;\
-	res.lo.lo = _mm_cvtep##TI##32_epi64(x.lo);\
-	res.lo.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.lo, 8));\
-	res.hi.lo = _mm_cvtep##TI##32_epi64(x.hi);\
-	res.hi.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.hi, 8));\
+	res.lo.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.lo,__m128i)),_2##TO##64);\
+	res.lo.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 8)),_2##TO##64);\
+	res.hi.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.hi,__m128i)),_2##TO##64);\
+	res.hi.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 8)),_2##TO##64);\
 	return res;\
 	}\
 	_16##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long16##RMODE(_16##TI##32 x)\
 	{\
 	_16##TO##64 res;\
-	res.lo.lo.lo = _mm_cvtep##TI##32_epi64(x.lo.lo);\
-	res.lo.lo.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.lo.lo, 8));\
-	res.lo.hi.lo = _mm_cvtep##TI##32_epi64(x.lo.hi);\
-	res.lo.hi.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.lo.hi, 8));\
-	res.hi.lo.lo = _mm_cvtep##TI##32_epi64(x.hi.lo);\
-	res.hi.lo.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.hi.lo, 8));\
-	res.hi.hi.lo = _mm_cvtep##TI##32_epi64(x.hi.hi);\
-	res.hi.hi.hi = _mm_cvtep##TI##32_epi64(_mm_srli_si128(x.hi.hi, 8));\
+	res.lo.lo.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.lo.lo,__m128i)),_2##TO##64);\
+	res.lo.lo.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.lo.lo,__m128i), 8)),_2##TO##64);\
+	res.lo.hi.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.lo.hi,__m128i)),_2##TO##64);\
+	res.lo.hi.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.lo.hi,__m128i), 8)),_2##TO##64);\
+	res.hi.lo.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.hi.lo,__m128i)),_2##TO##64);\
+	res.hi.lo.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.hi.lo,__m128i), 8)),_2##TO##64);\
+	res.hi.hi.lo = __builtin_astype(_mm_cvtep##TI##32_epi64(__builtin_astype(x.hi.hi,__m128i)),_2##TO##64);\
+	res.hi.hi.hi = __builtin_astype(_mm_cvtep##TI##32_epi64(_mm_srli_si128(__builtin_astype(x.hi.hi,__m128i), 8)),_2##TO##64);\
 	return res;\
 	}\
 
@@ -2724,8 +2549,8 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	_2##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long2##RMODE(float2 x)\
 	{\
-    _4##TO##64 res = {0};\
-    float4 ftmp = {1.0};\
+    _4##TO##64 res = (TONAME##long4)(0);\
+    float4 ftmp = (float4)(1.0);\
     ftmp.lo = x;\
     res = __ocl_svml_##CPUTYPE##_cvtfpto##TO##64##RMODEVAL##nosatf4(ftmp);\
 	return res.lo;\
@@ -2760,8 +2585,8 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	_2##TO##64 __attribute__((overloadable)) convert_##TONAME##long2##RMODE(double2 x)\
 	{\
-    _4##TO##64 res = {0};\
-    double4 ftmp = {1.0};\
+    _4##TO##64 res = (TONAME##long4)(0);\
+    double4 ftmp = (double4)(1.0);\
     ftmp.lo = x;\
 	res = __ocl_svml_##CPUTYPE##_cvtfpto##TO##64##RSVML##nosat4(ftmp);\
 	return res.lo;\
@@ -2798,38 +2623,38 @@ we need to report this to Nikita and get a fix for this.
 	_16##TI##8 param;\
 	param.s01 = x;\
 	_4i32 t = convert_int4##RMODE(param.s0123);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return res.lo;\
 	}\
 	float3 __attribute__ ((overloadable)) convert_float3##RMODE(TINAME##char3 x)\
 	{\
 	TINAME##char4 y = as_##TINAME##char4(x);\
 	_4i32 t = convert_int4##RMODE(y);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return as_float3(res);\
 	}\
 	float4 __attribute__ ((overloadable)) convert_float4##RMODE(_4##TI##8 x)\
 	{\
 	_4i32 t = convert_int4##RMODE(x);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return res;\
 	}\
 	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8##TI##8 x)\
 	{\
 	float8 res;\
 	_8i32 t = convert_int8##RMODE(x);\
-	res.lo = _mm_cvtepi32_ps(t.lo);\
-	res.hi = _mm_cvtepi32_ps(t.hi);\
+	res.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo,__m128i)));\
+	res.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi,__m128i)));\
 	return res;\
 	}\
 	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16##TI##8 x)\
 	{\
 	float16 res;\
 	_16i32 t = convert_int16##RMODE(x);\
-	res.lo.lo = _mm_cvtepi32_ps(t.lo.lo);\
-	res.lo.hi = _mm_cvtepi32_ps(t.lo.hi);\
-	res.hi.lo = _mm_cvtepi32_ps(t.hi.lo);\
-	res.hi.hi = _mm_cvtepi32_ps(t.hi.hi);\
+	res.lo.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.lo,__m128i)));\
+	res.lo.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.hi,__m128i)));\
+	res.hi.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.lo,__m128i)));\
+	res.hi.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.hi,__m128i)));\
 	return res;\
 	}\
 
@@ -2843,38 +2668,38 @@ we need to report this to Nikita and get a fix for this.
 	_8##TI##16 param;\
 	param.s01 = x;\
 	_4i32 t = convert_int4##RMODE(param.s0123);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return res.lo;\
 	}\
 	float3 __attribute__ ((overloadable)) convert_float3##RMODE(TINAME##short3 x)\
 	{\
 	TINAME##short4 y = as_##TINAME##short4(x);\
 	_4i32 t = convert_int4##RMODE(y);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return as_float3(res);\
 	}\
 	float4 __attribute__ ((overloadable)) convert_float4##RMODE(_4##TI##16 x)\
 	{\
 	_4i32 t = convert_int4##RMODE(x);\
-	float4 res = _mm_cvtepi32_ps(t);\
+	float4 res = as_float4(_mm_cvtepi32_ps(__builtin_astype(t,__m128i)));\
 	return res;\
 	}\
 	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8##TI##16 x)\
 	{\
 	float8 res;\
 	_8i32 t = convert_int8##RMODE(x);\
-	res.lo = _mm_cvtepi32_ps(t.lo);\
-	res.hi = _mm_cvtepi32_ps(t.hi);\
+	res.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo,__m128i)));\
+	res.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi,__m128i)));\
 	return res;\
 	}\
 	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16##TI##16 x)\
 	{\
 	float16 res;\
 	_16i32 t = convert_int16##RMODE(x);\
-	res.lo.lo = _mm_cvtepi32_ps(t.lo.lo);\
-	res.lo.hi = _mm_cvtepi32_ps(t.lo.hi);\
-	res.hi.lo = _mm_cvtepi32_ps(t.hi.lo);\
-	res.hi.hi = _mm_cvtepi32_ps(t.hi.hi);\
+	res.lo.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.lo,__m128i)));\
+	res.lo.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.hi,__m128i)));\
+	res.hi.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.lo,__m128i)));\
+	res.hi.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.hi,__m128i)));\
 	return res;\
 	}\
 
@@ -3002,8 +2827,8 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	float2 __attribute__((overloadable)) convert_float2##RMODE(_2##TI##64 x)\
 	{\
-    float4 res = {0};\
-    _4##TI##64 ftmp = {0};\
+    float4 res = (float4)(0.f);\
+    _4##TI##64 ftmp = (TINAME##long4)(0);\
     ftmp.lo = x;\
 	res = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##f4(ftmp);\
 	return res.lo;\
@@ -3203,7 +3028,7 @@ we need to report this to Nikita and get a fix for this.
 	_16##TI##8 param;\
 	param.s01 = x;\
 	_4i32 t = convert_int4##RMODE(param.s0123);\
-	double2 res = _mm_cvtepi32_pd(t);\
+	double2 res = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
 	return res;\
 	}\
 	double3 __attribute__((overloadable)) convert_double3##RMODE(TINAME##char3 x)\
@@ -3211,18 +3036,18 @@ we need to report this to Nikita and get a fix for this.
 	TINAME##char4 y = as_##TINAME##char4(x);\
 	_4i32 t = convert_int4##RMODE(y);\
 	double4 res;\
-	res.lo = _mm_cvtepi32_pd(t);\
-	t = _mm_srli_si128(t, 8);\
-	res.hi = _mm_cvtepi32_pd(t);\
+	res.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
+	t = as_int4(_mm_srli_si128(__builtin_astype(t,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
 	return as_double3(res);\
 	}\
 	double4 __attribute__((overloadable)) convert_double4##RMODE(_4##TI##8 x)\
 	{\
 	_4i32 t = convert_int4##RMODE(x);\
 	double4 res;\
-	res.lo = _mm_cvtepi32_pd(t);\
-	t = _mm_srli_si128(t, 8);\
-	res.hi = _mm_cvtepi32_pd(t);\
+	res.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
+	t = as_int4(_mm_srli_si128(__builtin_astype(t,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
 	return res;\
 	}\
 	double8 __attribute__((overloadable)) convert_double8##RMODE(_8##TI##8 x)\
@@ -3251,7 +3076,7 @@ we need to report this to Nikita and get a fix for this.
 	double2 res;\
 	param.s01 = x;\
 	_4i32 t = convert_int4##RMODE(param.s0123);\
-	res = _mm_cvtepi32_pd(t);\
+	res = as_double2(_mm_cvtepi32_pd(__builtin_astype(t,__m128i)));\
 	return res;\
 	}\
 	double3 __attribute__((overloadable)) convert_double3##RMODE(TINAME##short3 x)\
@@ -3292,7 +3117,7 @@ we need to report this to Nikita and get a fix for this.
 	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
 	_4i32 param;\
 	param.s0 = x;\
-	res =  _mm_cvtepi32_pd(param);\
+	res =  as_double2(_mm_cvtepi32_pd(__builtin_astype(param,__m128i)));\
 	setRound(rm);\
 	return res.lo;\
 	}\
@@ -3303,7 +3128,7 @@ we need to report this to Nikita and get a fix for this.
 	param.lo = x;\
 	int rm = getRound();\
 	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res = _mm_cvtepi32_pd(param);\
+	res = as_double2(_mm_cvtepi32_pd(__builtin_astype(param,__m128i)));\
 	setRound(rm);\
 	return res;\
 	}\
@@ -3313,9 +3138,9 @@ we need to report this to Nikita and get a fix for this.
 	int rm = getRound();\
 	int4 y = as_int4(x);\
 	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.lo = _mm_cvtepi32_pd(y);\
-	y = _mm_srli_si128(y, 8);\
-	res.hi = _mm_cvtepi32_pd(y);\
+	res.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(y,__m128i)));\
+	y = as_int4(_mm_srli_si128(__builtin_astype(y,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(y,__m128i)));\
 	setRound(rm);\
 	return as_double3(res);\
 	}\
@@ -3324,9 +3149,9 @@ we need to report this to Nikita and get a fix for this.
 	double4 res;\
 	int rm = getRound();\
 	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.lo = _mm_cvtepi32_pd(x);\
-	x = _mm_srli_si128(x, 8);\
-	res.hi = _mm_cvtepi32_pd(x);\
+	res.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(x,__m128i)));\
+	x = as_int4(_mm_srli_si128(__builtin_astype(x,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(x,__m128i)));\
 	setRound(rm);\
 	return res;\
 	}\
@@ -3335,12 +3160,12 @@ we need to report this to Nikita and get a fix for this.
 	double8 res;\
 	int rm = getRound();\
 	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.lo.lo = _mm_cvtepi32_pd(x.lo);\
-	x.lo = _mm_srli_si128(x.lo, 8);\
-	res.lo.hi = _mm_cvtepi32_pd(x.lo);\
-	res.hi.lo = _mm_cvtepi32_pd(x.hi);\
-	x.hi = _mm_srli_si128(x.hi, 8);\
-	res.hi.hi = _mm_cvtepi32_pd(x.hi);\
+	res.lo.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(x.lo,__m128i)));\
+	x.lo = as_int4(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 8));\
+	res.lo.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(x.lo,__m128i)));\
+	res.hi.lo = as_double2(_mm_cvtepi32_pd(__builtin_astype(x.hi,__m128i)));\
+	x.hi = as_int4(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 8));\
+	res.hi.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(x.hi,__m128i)));\
 	setRound(rm);\
 	return res;\
 	}\
@@ -3401,7 +3226,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}\
 	double2 __attribute__((overloadable)) convert_double2##RMODE(_2##TI##64 x)\
 	{\
-    _4##TI##64 param = {0};\
+    _4##TI##64 param = (TINAME##long4)(0);\
 	param.lo=x;\
 	double4 res = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##4(param);\
 	return res.lo;\
@@ -3450,17 +3275,17 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	{\
 	double4 res;\
 	float4 y = as_float4(x);\
-	res.lo = _mm_cvtps_pd(y);\
-	y = _mm_srli_si128(y, 8);\
-	res.hi = _mm_cvtps_pd(y);\
+	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
+	y = as_float4(_mm_srli_si128(__builtin_astype(y,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
 	return as_double3(res);\
 	}\
 	double4 __attribute__((overloadable)) convert_double4##RMODE(float4 x)\
 	{\
 	double4 res;\
-	res.lo = _mm_cvtps_pd(x);\
-	x = _mm_srli_si128(x, 8);\
-	res.hi = _mm_cvtps_pd(x);\
+	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
+	x = as_float4(_mm_srli_si128(__builtin_astype(x,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
 	return res;\
 	}\
 	double8 __attribute__((overloadable)) convert_double8##RMODE(float8 x)\
@@ -3499,7 +3324,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8i16 param;\
 	param.s01 = x;\
-	res = _mm_pack##TONAME##s_epi16(param, param);\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(param,__m128i), __builtin_astype(param,__m128i)));\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__ ((overloadable)) convert_##TONAME##char3_sat##RMODE(short3 x)\
@@ -3507,7 +3332,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8i16 param;\
 	param.lo = as_short4(x);\
-	res = _mm_pack##TONAME##s_epi16(param, param);\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(param,__m128i), __builtin_astype(param,__m128i)));\
 	return as_##TONAME##char3(res.s0123);\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(_4i16 x)\
@@ -3515,19 +3340,19 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8i16 param;\
 	param.lo = x;\
-	res = _mm_pack##TONAME##s_epi16(param, param);\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(param,__m128i), __builtin_astype(param,__m128i)));\
 	return res.s0123;\
 	}\
 	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(_8i16 x)\
 	{\
 	_16##TO##8 res;\
-	res = _mm_pack##TONAME##s_epi16(x, x);\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(x,__m128i), __builtin_astype(x,__m128i)));\
 	return res.lo;\
 	}\
 	_16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(_16i16 x)\
 	{\
 	_16##TO##8 res, temp1, temp2;\
-	res = _mm_pack##TONAME##s_epi16(x.lo, x.hi);\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(x.lo,__m128i), __builtin_astype(x.hi,__m128i)));\
 	return res;\
 	}\
 
@@ -3543,38 +3368,38 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_4i32 param;\
 	param.lo = x;\
-	res = _mm_packs_epi32(param, param);\
-	res = _mm_pack##TONAME##s_epi16(res, res);\
+	res = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(param,__m128i), __builtin_astype(param,__m128i)));\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(res,__m128i), __builtin_astype(res,__m128i)));\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__ ((overloadable)) convert_##TONAME##char3_sat##RMODE(int3 x)\
 	{\
 	_16##TO##8 res;\
 	int4 y = as_int4(x);\
-	res = _mm_packs_epi32(y, y);\
-	res = _mm_pack##TONAME##s_epi16(res, res);\
+	res = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(y,__m128i), __builtin_astype(y,__m128i)));\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(res,__m128i), __builtin_astype(res,__m128i)));\
 	return as_##TONAME##char3(res.s0123);\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(_4i32 x)\
 	{\
 	_16##TO##8 res;\
-	res = _mm_packs_epi32(x, x);\
-	res = _mm_pack##TONAME##s_epi16(res, res);\
+	res = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(x,__m128i), __builtin_astype(x,__m128i)));\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(res,__m128i), __builtin_astype(res,__m128i)));\
 	return res.s0123;\
 	}\
 	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(_8i32 x)\
 	{\
 	_16##TO##8 res;\
-	res = _mm_packs_epi32(x.lo, x.hi);\
-	res = _mm_pack##TONAME##s_epi16(res, res);\
+	res = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(x.lo,__m128i), __builtin_astype(x.hi,__m128i)));\
+	res = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(res,__m128i), __builtin_astype(res,__m128i)));\
 	return res.lo;\
 	}\
 	_16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(_16i32 x)\
 	{\
 	_16##TO##8 res, temp1, temp2;\
-	temp1 = _mm_packs_epi32(x.lo.lo, x.lo.hi);\
-	temp2 = _mm_packs_epi32(x.hi.lo, x.hi.hi);\
-	res   = _mm_pack##TONAME##s_epi16(temp1, temp2);\
+	temp1 = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(x.lo.lo,__m128i), __builtin_astype(x.lo.hi,__m128i)));\
+	temp2 = as_##TONAME##char16(_mm_packs_epi32(__builtin_astype(x.hi.lo,__m128i), __builtin_astype(x.hi.hi,__m128i)));\
+	res   = as_##TONAME##char16(_mm_pack##TONAME##s_epi16(__builtin_astype(temp1,__m128i), __builtin_astype(temp2,__m128i)));\
 	return res;\
 	}\
 
@@ -3730,7 +3555,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TI##16 tmp;\
 	_16##TI##8 param;\
 	param.s01 = x;\
-	tmp = _mm_cvtep##TI##8_epi16(param);\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(__builtin_astype(param,__m128i)),_8##TI##16);\
 	res = convert_##TONAME##short8##RMODE(tmp);\
 	return res.s01;\
 	}\
@@ -3740,7 +3565,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TI##8 param;\
 	_8##TI##16 tmp;\
 	param.s012 = x;\
-	tmp = _mm_cvtep##TI##8_epi16(param);\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(__builtin_astype(param,__m128i)),_8##TI##16);\
 	res = convert_##TONAME##short8##RMODE(tmp);\
 	return res.s012;\
 	}\
@@ -3750,7 +3575,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TI##8 param;\
 	_8##TI##16 tmp;\
 	param.s0123 = x;\
-	tmp = _mm_cvtep##TI##8_epi16(param);\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(__builtin_astype(param,__m128i)),_8##TI##16);\
 	res = convert_##TONAME##short8##RMODE(tmp);\
 	return res.s0123;\
 	}\
@@ -3760,7 +3585,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TI##8 param;\
 	_8##TI##16 tmp;\
 	param.lo = x;\
-	tmp = _mm_cvtep##TI##8_epi16(param);\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(__builtin_astype(param,__m128i)),_8##TI##16);\
 	res = convert_##TONAME##short8##RMODE(tmp);\
 	return res;\
 	}\
@@ -3768,9 +3593,9 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	{\
 	_16##TO##16 res;\
 	_8##TI##16 tmp;\
-	tmp = _mm_cvtep##TI##8_epi16(x);\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(__builtin_astype(x,__m128i)),_8##TI##16);\
 	res.lo = convert_##TONAME##short8##RMODE(tmp);\
-	tmp = _mm_cvtep##TI##8_epi16(_mm_srli_si128(x, 8));\
+	tmp = __builtin_astype(_mm_cvtep##TI##8_epi16(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_8##TI##16);\
 	res.hi = convert_##TONAME##short8##RMODE(tmp);\
 	return res;\
 	}\
@@ -3787,33 +3612,33 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TO##16 res;\
 	_4i32 param;\
 	param.lo = x;\
-	res = _mm_pack##TONAME##s_epi32(param, param);\
+	res = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(param,__m128i), __builtin_astype(param,__m128i)),_8##TO##16);\
 	return res.s01;\
 	}\
 	TONAME##short3 __attribute__ ((overloadable)) convert_##TONAME##short3_sat##RMODE(int3 x)\
 	{\
 	_8##TO##16 res;\
 	int4 y = as_int4(x);\
-	res = _mm_pack##TONAME##s_epi32(y, y);\
+	res = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(y,__m128i), __builtin_astype(y,__m128i)),_8##TO##16);\
 	return as_##TONAME##short3(res.lo);\
 	}\
 	_4##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short4_sat##RMODE(_4i32 x)\
 	{\
 	_8##TO##16 res;\
-	res = _mm_pack##TONAME##s_epi32(x, x);\
+	res = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(x,__m128i), __builtin_astype(x,__m128i)),_8##TO##16);\
 	return res.lo;\
 	}\
 	_8##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short8_sat##RMODE(_8i32 x)\
 	{\
 	_8##TO##16 res;\
-	res = _mm_pack##TONAME##s_epi32(x.lo, x.hi);\
+	res = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(x.lo,__m128i), __builtin_astype(x.hi,__m128i)),_8##TO##16);\
 	return res;\
 	}\
 	_16##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short16_sat##RMODE(_16i32 x)\
 	{\
 	_16##TO##16 res;\
-	res.lo = _mm_pack##TONAME##s_epi32(x.lo.lo, x.lo.hi);\
-	res.hi = _mm_pack##TONAME##s_epi32(x.hi.lo, x.hi.hi);\
+	res.lo = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(x.lo.lo,__m128i), __builtin_astype(x.lo.hi,__m128i)),_8##TO##16);\
+	res.hi = __builtin_astype(_mm_pack##TONAME##s_epi32(__builtin_astype(x.hi.lo,__m128i), __builtin_astype(x.hi.hi,__m128i)),_8##TO##16);\
 	return res;\
 	}\
 
@@ -4104,13 +3929,13 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8u16 param;\
 	param.s01 = x;\
-	_8##TO##16 t1 = _mm_cmpgt_epi16(_mm_setzero_si128(), param);\
-	_8##TO##16 t2 = _mm_cmpgt_epi16(param, *((_8##TO##16*)max##TO##Char16));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_8##TO##16*)max##TO##Char16) );\
-	t1 = _mm_andnot_si128(t1, param);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_16##TO##8 *) _8x16to8x8));\
+	_8##TO##16 t1 = as_##TONAME##short8(_mm_cmpgt_epi16(_mm_setzero_si128(), __builtin_astype(param,__m128i)));\
+	_8##TO##16 t2 = as_##TONAME##short8(_mm_cmpgt_epi16(__builtin_astype(param,__m128i), *((__m128i*)max##TO##Char16)));\
+	t1 = as_##TONAME##short8(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i))); \
+	res = as_##TONAME##char16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char16) ));\
+	t1 = as_##TONAME##short8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(param,__m128i)));\
+	res = as_##TONAME##char16(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)));\
+	res = as_##TONAME##char16(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _8x16to8x8)));\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__ ((overloadable)) convert_##TONAME##char3_sat##RMODE(ushort3 x)\
@@ -4118,13 +3943,13 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8u16 param;\
 	param.lo = as_ushort4(x);\
-	_8##TO##16 t1 = _mm_cmpgt_epi16(_mm_setzero_si128(), param);\
-	_8##TO##16 t2 = _mm_cmpgt_epi16(param, *((_8##TO##16*)max##TO##Char16));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_8##TO##16*)max##TO##Char16) );\
-	t1 = _mm_andnot_si128(t1, param);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_16##TO##8 *) _8x16to8x8));\
+	_8##TO##16 t1 = as_##TONAME##short8(_mm_cmpgt_epi16(_mm_setzero_si128(), __builtin_astype(param,__m128i)));\
+	_8##TO##16 t2 = as_##TONAME##short8(_mm_cmpgt_epi16(__builtin_astype(param,__m128i), *((__m128i*)max##TO##Char16)));\
+	t1 = as_##TONAME##short8(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i))); \
+	res = as_##TONAME##char16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char16) ));\
+	t1 = as_##TONAME##short8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(param,__m128i)));\
+	res = as_##TONAME##char16(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)));\
+	res = as_##TONAME##char16(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _8x16to8x8)));\
 	return res.s012;\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(_4u16 x)\
@@ -4132,25 +3957,25 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_8u16 param;\
 	param.lo = x;\
-	_8##TO##16 t1 = _mm_cmpgt_epi16(_mm_setzero_si128(), param);\
-	_8##TO##16 t2 = _mm_cmpgt_epi16(param, *((_8##TO##16*)max##TO##Char16));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_8##TO##16*)max##TO##Char16) );\
-	t1 = _mm_andnot_si128(t1, param);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_16##TO##8 *) _8x16to8x8));\
+	_8##TO##16 t1 = as_##TONAME##short8(_mm_cmpgt_epi16(_mm_setzero_si128(), __builtin_astype(param,__m128i)));\
+	_8##TO##16 t2 = as_##TONAME##short8(_mm_cmpgt_epi16(__builtin_astype(param,__m128i), *((__m128i*)max##TO##Char16)));\
+	t1 = as_##TONAME##short8(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i))); \
+	res = as_##TONAME##char16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char16) ));\
+	t1 = as_##TONAME##short8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(param,__m128i)));\
+	res = as_##TONAME##char16(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)));\
+	res = as_##TONAME##char16(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _8x16to8x8)));\
 	return res.s0123;\
 	}\
 	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(_8u16 x)\
 	{\
 	_16##TO##8 res;\
-	_8u16 t1 = _mm_cmpgt_epi16(_mm_setzero_si128(), x);\
-	_8u16 t2 = _mm_cmpgt_epi16(x, *((_8##TO##16*)max##TO##Char16));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_8##TO##16*)max##TO##Char16) );\
-	t1 = _mm_andnot_si128(t1, x);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_16##TO##8 *) _8x16to8x8));\
+	_8u16 t1 = as_ushort8(_mm_cmpgt_epi16(_mm_setzero_si128(), __builtin_astype(x,__m128i)));\
+	_8u16 t2 = as_ushort8(_mm_cmpgt_epi16(__builtin_astype(x,__m128i), *((__m128i*)max##TO##Char16)));\
+	t1 = as_ushort8(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i))); \
+	res = as_##TONAME##char16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char16) ));\
+	t1 = as_ushort8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	res = as_##TONAME##char16(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)));\
+	res = as_##TONAME##char16(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _8x16to8x8)));\
 	return res.lo;\
 	}\
 	_16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(_16u16 x)\
@@ -4172,38 +3997,38 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16##TO##8 res;\
 	_4u32 param;\
 	param.lo = x;\
-	_4i32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), param);\
-	_4i32 t2 = _mm_cmpgt_epi32(param, *((_4##TO##32*)max##TO##Char32));\
-	t1 = _mm_or_si128(t1, t2);\
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Char32) );\
-	t1 = _mm_andnot_si128(t1, param);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_4##TO##32 *) _4x32to4x8));\
+	_4i32 t1 = as_int4(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(param,__m128i)));\
+	_4i32 t2 = as_int4(_mm_cmpgt_epi32(__builtin_astype(param,__m128i), *((__m128i*)max##TO##Char32)));\
+	t1 = as_int4(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char32) ),_16##TO##8);\
+	t1 = as_int4(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(param,__m128i)));\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x8)),_16##TO##8);\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__ ((overloadable)) convert_##TONAME##char3_sat##RMODE(uint3 x)\
 	{\
 	_16##TO##8 res;\
 	uint4 y = as_uint4(x);\
-	_4i32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), y);\
-	_4i32 t2 = _mm_cmpgt_epi32(y, *((_4##TO##32*)max##TO##Char32));\
-	t1 = _mm_or_si128(t1, t2);\
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Char32) );\
-	t1 = _mm_andnot_si128(t1, y);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_4##TO##32 *) _4x32to4x8));\
+	_4i32 t1 = as_int4(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(y,__m128i)));\
+	_4i32 t2 = as_int4(_mm_cmpgt_epi32(__builtin_astype(y,__m128i), *((__m128i*)max##TO##Char32)));\
+	t1 = as_int4(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char32) ),_16##TO##8);\
+	t1 = as_int4(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(y,__m128i)));\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x8)),_16##TO##8);\
 	return res.s012;\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(_4u32 x)\
 	{\
 	_16##TO##8 res;\
-	_4i32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), x);\
-	_4i32 t2 = _mm_cmpgt_epi32(x, *((_4##TO##32*)max##TO##Char32));\
-	t1 = _mm_or_si128(t1, t2);\
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Char32) );\
-	t1 = _mm_andnot_si128(t1, x);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((_4##TO##32 *) _4x32to4x8));\
+	_4i32 t1 = as_int4(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(x,__m128i)));\
+	_4i32 t2 = as_int4(_mm_cmpgt_epi32(__builtin_astype(x,__m128i), *((__m128i*)max##TO##Char32)));\
+	t1 = as_int4(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Char32) ),_16##TO##8);\
+	t1 = as_int4(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_16##TO##8);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x8)),_16##TO##8);\
 	return res.s0123;\
 	}\
 	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(_8u32 x)\
@@ -4275,38 +4100,38 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TO##16 res;\
 	_4u32 param;\
 	param.lo = x;\
-	_4##TO##32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), param);\
-	_4##TO##32 t2 = _mm_cmpgt_epi32(param, *((_4##TO##32*)max##TO##Short32));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Short32) );\
-	t1 = _mm_andnot_si128(t1, param);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((__m128i *) _4x32to4x16));\
+	_4##TO##32 t1 = __builtin_astype(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(param,__m128i)),_4##TO##32);\
+	_4##TO##32 t2 = __builtin_astype(_mm_cmpgt_epi32(__builtin_astype(param,__m128i), *((__m128i*)max##TO##Short32)),_4##TO##32);\
+	t1 = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_4##TO##32); \
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Short32) ),_8##TO##16);\
+	t1 = __builtin_astype(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(param,__m128i)),_4##TO##32);\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x16)),_8##TO##16);\
 	return res.s01;\
 	}\
 	TONAME##short3 __attribute__ ((overloadable)) convert_##TONAME##short3_sat##RMODE(uint3 x)\
 	{\
 	_8##TO##16 res;\
 	uint4 y = as_uint4(x);\
-	_4##TO##32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), y);\
-	_4##TO##32 t2 = _mm_cmpgt_epi32(y, *((_4##TO##32*)max##TO##Short32));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Short32) );\
-	t1 = _mm_andnot_si128(t1, y);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((__m128i *) _4x32to4x16));\
+	_4##TO##32 t1 = __builtin_astype(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(y,__m128i)),_4##TO##32);\
+	_4##TO##32 t2 = __builtin_astype(_mm_cmpgt_epi32(__builtin_astype(y,__m128i), *((__m128i*)max##TO##Short32)),_4##TO##32);\
+	t1 = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_4##TO##32); \
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Short32) ),_8##TO##16);\
+	t1 = __builtin_astype(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(y,__m128i)),_4##TO##32);\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x16)),_8##TO##16);\
 	return res.s012;\
 	}\
 	_4##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short4_sat##RMODE(_4u32 x)\
 	{\
 	_8##TO##16 res;\
-	_4##TO##32 t1 = _mm_cmpgt_epi32(_mm_setzero_si128(), x);\
-	_4##TO##32 t2 = _mm_cmpgt_epi32(x, *((_4##TO##32*)max##TO##Short32));\
-	t1 = _mm_or_si128(t1, t2); \
-	res = _mm_and_si128(t1, *((_4##TO##32*)max##TO##Short32) );\
-	t1 = _mm_andnot_si128(t1, x);\
-	res = _mm_or_si128(t1, res);\
-	res = _mm_shuffle_epi8(res, *((__m128i *) _4x32to4x16));\
+	_4##TO##32 t1 = __builtin_astype(_mm_cmpgt_epi32(_mm_setzero_si128(), __builtin_astype(x,__m128i)),_4##TO##32);\
+	_4##TO##32 t2 = __builtin_astype(_mm_cmpgt_epi32(__builtin_astype(x,__m128i), *((__m128i*)max##TO##Short32)),_4##TO##32);\
+	t1 = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_4##TO##32); \
+	res = __builtin_astype(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i*)max##TO##Short32) ),_8##TO##16);\
+	t1 = __builtin_astype(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)),_4##TO##32);\
+	res = __builtin_astype(_mm_or_si128(__builtin_astype(t1,__m128i), __builtin_astype(res,__m128i)),_8##TO##16);\
+	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *) _4x32to4x16)),_8##TO##16);\
 	return res.s0123;\
 	}\
 	_8##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short8_sat##RMODE(_8u32 x)\
@@ -4378,7 +4203,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4##TO##32 res;\
 	_16##TI##8 param;\
 	param.s01 = x;\
-	res =  _mm_cvtep##TI##8_epi32(param);\
+	res =  __builtin_astype(_mm_cvtep##TI##8_epi32(__builtin_astype(param,__m128i)),_4##TO##32);\
 	res = convert_##TONAME##int4##RMODE((_4##TI##32)res);\
 	return res.lo;\
 	}\
@@ -4387,7 +4212,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4##TO##32 res;\
 	_16##TI##8 param;\
 	param.s012 = x;\
-	res =  _mm_cvtep##TI##8_epi32(param);\
+	res =  __builtin_astype(_mm_cvtep##TI##8_epi32(__builtin_astype(param,__m128i)),_4##TO##32);\
 	res = convert_##TONAME##int4##RMODE((_4##TI##32)res);\
 	return res.s012;\
 	}\
@@ -4396,7 +4221,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4##TO##32 res;\
 	_16##TI##8 param;\
 	param.s0123 = x;\
-	res =  _mm_cvtep##TI##8_epi32(param);\
+	res =  __builtin_astype(_mm_cvtep##TI##8_epi32(__builtin_astype(param,__m128i)),_4##TO##32);\
 	res = convert_##TONAME##int4##RMODE((_4##TI##32)res);\
 	return res;\
 	}\
@@ -4405,22 +4230,22 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TO##32 res;\
 	_16##TI##8 param;\
 	param.lo = x;\
-	res.lo = _mm_cvtep##TI##8_epi32(param);\
+	res.lo = __builtin_astype(_mm_cvtep##TI##8_epi32(__builtin_astype(param,__m128i)),_4##TO##32);\
 	res.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo);\
-	res.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(param, 4));\
+	res.hi = __builtin_astype(_mm_cvtep##TI##8_epi32(_mm_srli_si128(__builtin_astype(param,__m128i), 4)),_4##TO##32);\
 	res.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi);\
 	return res;\
 	}\
 	_16##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int16##RMODE(_16##TI##8 x)\
 	{\
 	_16##TO##32 res;\
-	res.lo.lo = _mm_cvtep##TI##8_epi32(x);\
+	res.lo.lo = __builtin_astype(_mm_cvtep##TI##8_epi32(__builtin_astype(x,__m128i)),_4##TO##32);\
 	res.lo.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo.lo);\
-	res.lo.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 4));\
+	res.lo.hi = __builtin_astype(_mm_cvtep##TI##8_epi32(_mm_srli_si128(__builtin_astype(x,__m128i), 4)),_4##TO##32);\
 	res.lo.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo.hi);\
-	res.hi.lo = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 8));\
+	res.hi.lo = __builtin_astype(_mm_cvtep##TI##8_epi32(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_4##TO##32);\
 	res.hi.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi.lo);\
-	res.hi.hi = _mm_cvtep##TI##8_epi32(_mm_srli_si128(x, 12));\
+	res.hi.hi = __builtin_astype(_mm_cvtep##TI##8_epi32(_mm_srli_si128(__builtin_astype(x,__m128i), 12)),_4##TO##32);\
 	res.hi.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi.hi);\
 	return res;\
 	}\
@@ -4436,7 +4261,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4##TO##32 res;\
 	_8##TI##16 param;\
 	param.s01 = x;\
-	res = _mm_cvtep##TI##16_epi32(param);\
+	res = __builtin_astype(_mm_cvtep##TI##16_epi32(__builtin_astype(param,__m128i)),_4##TO##32);\
 	res = convert_##TONAME##int4##RMODE((_4##TI##32)res);\
 	return res.lo;\
 	}\
@@ -4444,34 +4269,34 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	{\
 	_8##TI##16 param;\
 	param.s012 = x;\
-	TONAME##int4 res = convert_##TONAME##int4##RMODE((_4##TI##32)_mm_cvtep##TI##16_epi32(param));\
+	TONAME##int4 res = convert_##TONAME##int4##RMODE((_4##TI##32)_mm_cvtep##TI##16_epi32(__builtin_astype(param,__m128i)));\
 	return res.s012;\
 	}\
 	_4##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int4##RMODE(_4##TI##16 x)\
 	{\
 	_8##TI##16 param;\
 	param.lo = x;\
-	return convert_##TONAME##int4##RMODE((_4##TI##32)_mm_cvtep##TI##16_epi32(param));\
+	return convert_##TONAME##int4##RMODE((_4##TI##32)_mm_cvtep##TI##16_epi32(__builtin_astype(param,__m128i)));\
 	}\
 	_8##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int8##RMODE(_8##TI##16 x)\
 	{\
 	_8##TO##32 res;\
-	res.lo = _mm_cvtep##TI##16_epi32(x);\
+	res.lo = __builtin_astype(_mm_cvtep##TI##16_epi32(__builtin_astype(x,__m128i)),_4##TO##32);\
 	res.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo);\
-	res.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x, 8));\
+	res.hi = __builtin_astype(_mm_cvtep##TI##16_epi32(_mm_srli_si128(__builtin_astype(x,__m128i), 8)),_4##TO##32);\
 	res.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi);\
 	return res;\
 	}\
 	_16##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int16##RMODE(_16##TI##16 x)\
 	{\
 	_16##TO##32 res;\
-	res.lo.lo = _mm_cvtep##TI##16_epi32(x.lo);\
+	res.lo.lo = __builtin_astype(_mm_cvtep##TI##16_epi32(__builtin_astype(x.lo,__m128i)),_4##TO##32);\
 	res.lo.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo.lo);\
-	res.lo.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x.lo, 8));\
+	res.lo.hi = __builtin_astype(_mm_cvtep##TI##16_epi32(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 8)),_4##TO##32);\
 	res.lo.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.lo.hi);\
-	res.hi.lo = _mm_cvtep##TI##16_epi32(x.hi);\
+	res.hi.lo = __builtin_astype(_mm_cvtep##TI##16_epi32(__builtin_astype(x.hi,__m128i)),_4##TO##32);\
 	res.hi.lo = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi.lo);\
-	res.hi.hi = _mm_cvtep##TI##16_epi32(_mm_srli_si128(x.hi, 8));\
+	res.hi.hi = __builtin_astype(_mm_cvtep##TI##16_epi32(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 8)),_4##TO##32);\
 	res.hi.hi = convert_##TONAME##int4##RMODE((_4##TI##32)res.hi.hi);\
 	return res;\
 	}
@@ -4586,7 +4411,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}\
 	_2u32 __attribute__((overloadable)) convert_uint2_sat##RMODE(double2 x)\
 	{\
-    double4 param = {0.0};\
+    double4 param = (double4)(0.0);\
     param.lo=x;\
     _4u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat4(param);\
 	return res.lo;\
@@ -4626,7 +4451,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_2u64 res;\
 	_16i8 param;\
 	param.s01 = x;\
-	res =  _mm_cvtepi8_epi64(param);\
+	res =  as_ulong2(_mm_cvtepi8_epi64(__builtin_astype(param,__m128i)));\
 	res =  convert_ulong2##RMODE((_2i64)res);\
 	return res;\
 	}\
@@ -4635,8 +4460,8 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4u64 res;\
 	_16i8 param;\
 	param.s012 = x;\
-	res.lo =  _mm_cvtepi8_epi64(param);\
-	res.hi =  _mm_cvtepi8_epi64(_mm_srli_si128(param, 2));\
+	res.lo =  as_ulong2(_mm_cvtepi8_epi64(__builtin_astype(param,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return as_ulong3(res);\
 	}\
@@ -4645,8 +4470,8 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4u64 res;\
 	_16i8 param;\
 	param.s0123 = x;\
-	res.lo =  _mm_cvtepi8_epi64(param);\
-	res.hi =  _mm_cvtepi8_epi64(_mm_srli_si128(param, 2));\
+	res.lo =  as_ulong2(_mm_cvtepi8_epi64(__builtin_astype(param,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return res;\
 	}\
@@ -4655,24 +4480,24 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8u64 res;\
 	_16i8 param;\
 	param.lo = x;\
-	res.lo.lo = _mm_cvtepi8_epi64(param);\
-	res.lo.hi = _mm_cvtepi8_epi64(_mm_srli_si128(param, 2));\
-	res.hi.lo = _mm_cvtepi8_epi64(_mm_srli_si128(param, 4));\
-	res.hi.hi = _mm_cvtepi8_epi64(_mm_srli_si128(param, 6));\
+	res.lo.lo = as_ulong2(_mm_cvtepi8_epi64(__builtin_astype(param,__m128i)));\
+	res.lo.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 2)));\
+	res.hi.lo = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)));\
+	res.hi.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 6)));\
 	res = convert_ulong8##RMODE((_8i64)res);\
 	return res;\
 	}\
 	_16u64 __attribute__ ((overloadable)) convert_ulong16##RMODE(_16i8 x)\
 	{\
 	_16u64 res;\
-	res.lo.lo.lo = _mm_cvtepi8_epi64(x);\
-	res.lo.lo.hi = _mm_cvtepi8_epi64(_mm_srli_si128(x, 2));\
-	res.lo.hi.lo = _mm_cvtepi8_epi64(_mm_srli_si128(x, 4));\
-	res.lo.hi.hi = _mm_cvtepi8_epi64(_mm_srli_si128(x, 6));\
-	res.hi.lo.lo = _mm_cvtepi8_epi64(_mm_srli_si128(x, 8));\
-	res.hi.lo.hi = _mm_cvtepi8_epi64(_mm_srli_si128(x, 10));\
-	res.hi.hi.lo = _mm_cvtepi8_epi64(_mm_srli_si128(x, 12));\
-	res.hi.hi.hi = _mm_cvtepi8_epi64(_mm_srli_si128(x, 14));\
+	res.lo.lo.lo = as_ulong2(_mm_cvtepi8_epi64(__builtin_astype(x,__m128i)));\
+	res.lo.lo.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 2)));\
+	res.lo.hi.lo = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 4)));\
+	res.lo.hi.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 6)));\
+	res.hi.lo.lo = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)));\
+	res.hi.lo.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 10)));\
+	res.hi.hi.lo = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 12)));\
+	res.hi.hi.hi = as_ulong2(_mm_cvtepi8_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 14)));\
 	res = convert_ulong16##RMODE((_16i64)res);\
 	return res;\
 	}\
@@ -4688,7 +4513,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_2u64 res;\
 	_8i16 param;\
 	param.s01 = x;\
-	res =  _mm_cvtepi16_epi64(param);\
+	res =  as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(param,__m128i)));\
 	res =  convert_ulong2##RMODE((_2i64)res);\
 	return res;\
 	}\
@@ -4697,8 +4522,8 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4u64 res;\
 	_8i16 param;\
 	param.s012 = x;\
-	res.lo =  _mm_cvtepi16_epi64(param);\
-	res.hi =  _mm_cvtepi16_epi64(_mm_srli_si128(param, 4));\
+	res.lo =  as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(param,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return as_ulong3(res);\
 	}\
@@ -4707,32 +4532,32 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4u64 res;\
 	_8i16 param;\
 	param.lo = x;\
-	res.lo =  _mm_cvtepi16_epi64(param);\
-	res.hi =  _mm_cvtepi16_epi64(_mm_srli_si128(param, 4));\
+	res.lo =  as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(param,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(param,__m128i), 4)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return res;\
 	}\
 	_8u64 __attribute__ ((overloadable)) convert_ulong8##RMODE(_8i16 x)\
 	{\
 	_8u64 res;\
-	res.lo.lo = _mm_cvtepi16_epi64(x);\
-	res.lo.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x, 4));\
-	res.hi.lo = _mm_cvtepi16_epi64(_mm_srli_si128(x, 8));\
-	res.hi.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x, 12));\
+	res.lo.lo = as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(x,__m128i)));\
+	res.lo.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 4)));\
+	res.hi.lo = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)));\
+	res.hi.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 12)));\
 	res = convert_ulong8##RMODE((_8i64)res);\
 	return res;\
 	}\
 	_16u64 __attribute__ ((overloadable)) convert_ulong16##RMODE(_16i16 x)\
 	{\
 	_16u64 res;\
-	res.lo.lo.lo = _mm_cvtepi16_epi64(x.lo);\
-	res.lo.lo.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x.lo, 4));\
-	res.lo.hi.lo = _mm_cvtepi16_epi64(_mm_srli_si128(x.lo, 8));\
-	res.lo.hi.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x.lo, 12));\
-	res.hi.lo.lo = _mm_cvtepi16_epi64(x.hi);\
-	res.hi.lo.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x.hi, 4));\
-	res.hi.hi.lo = _mm_cvtepi16_epi64(_mm_srli_si128(x.hi, 8));\
-	res.hi.hi.hi = _mm_cvtepi16_epi64(_mm_srli_si128(x.hi, 12));\
+	res.lo.lo.lo = as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(x.lo,__m128i)));\
+	res.lo.lo.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 4)));\
+	res.lo.hi.lo = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 8)));\
+	res.lo.hi.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.lo,__m128i), 12)));\
+	res.hi.lo.lo = as_ulong2(_mm_cvtepi16_epi64(__builtin_astype(x.hi,__m128i)));\
+	res.hi.lo.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 4)));\
+	res.hi.hi.lo = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 8)));\
+	res.hi.hi.hi = as_ulong2(_mm_cvtepi16_epi64(_mm_srli_si128(__builtin_astype(x.hi,__m128i), 12)));\
 	res = convert_ulong16##RMODE((_16i64)res);\
 	return res;\
 	}\
@@ -4748,7 +4573,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_2u64 res;\
 	_4i32 param;\
 	param.lo = x;\
-	res =  _mm_cvtepi32_epi64(param);\
+	res =  as_ulong2(_mm_cvtepi32_epi64(__builtin_astype(param,__m128i)));\
 	res =  convert_ulong2##RMODE((_2i64)res);\
 	return res;\
 	}\
@@ -4756,16 +4581,16 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	{\
 	_4u64 res;\
 	int4 y = as_int4(x);\
-	res.lo =  _mm_cvtepi32_epi64(y);\
-	res.hi =  _mm_cvtepi32_epi64(_mm_srli_si128(y, 8));\
+	res.lo =  as_ulong2(_mm_cvtepi32_epi64(__builtin_astype(y,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi32_epi64(_mm_srli_si128(__builtin_astype(y,__m128i), 8)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return as_ulong3(res);\
 	}\
 	_4u64 __attribute__ ((overloadable)) convert_ulong4##RMODE(_4i32 x)\
 	{\
 	_4u64 res;\
-	res.lo =  _mm_cvtepi32_epi64(x);\
-	res.hi =  _mm_cvtepi32_epi64(_mm_srli_si128(x, 8));\
+	res.lo =  as_ulong2(_mm_cvtepi32_epi64(__builtin_astype(x,__m128i)));\
+	res.hi =  as_ulong2(_mm_cvtepi32_epi64(_mm_srli_si128(__builtin_astype(x,__m128i), 8)));\
 	res = convert_ulong4##RMODE((_4i64)res);\
 	return res;\
 	}\
@@ -4792,7 +4617,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}\
 	_2##TO##64 __attribute__ ((overloadable)) convert_##TONAME##long2_sat##RMODE(float2 x)\
 	{\
-    float4 param = {0.0};\
+    float4 param = (float4)(0.f);\
 	param.lo=x;\
 	_4##TO##64 res = __ocl_svml_##CPUTYPE##_cvtfpto##TO##64##RMODEVAL##satf4(param);\
 	return res.lo;\
@@ -4830,7 +4655,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}\
 	_2##TO##64 __attribute__((overloadable)) convert_##TONAME##long2_sat##RMODE(double2 x)\
 	{\
-    double4 param = {0.0};\
+    double4 param = (double4)(0.0);\
 	param.lo=x;\
 	_4##TO##64 res = __ocl_svml_##CPUTYPE##_cvtfpto##TO##64##RSVML##sat4(param);\
 	return res.lo;\
@@ -4869,10 +4694,10 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16u8 __attribute__ ((overloadable)) convert_uchar16_sat##RMODE(_16##TI##8 x)\
 	{\
 	_16u8 res;\
-	_16u8 t1 = _mm_cmpgt_epi8(*((__m128i *)minuChar8), x);\
-	res = _mm_andnot_si128(t1, x);\
-	t1 = _mm_and_si128(t1, *((__m128i *)minuCharVal8));\
-	res = _mm_or_si128(res, t1);\
+	_16u8 t1 = as_uchar16(_mm_cmpgt_epi8(*((__m128i *)minuChar8), __builtin_astype(x,__m128i)));\
+	res = as_uchar16(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	t1 = as_uchar16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i *)minuCharVal8)));\
+	res = as_uchar16(_mm_or_si128(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)));\
 	return res;\
 	}\
 	_2u8 __attribute__ ((overloadable)) convert_uchar2_sat##RMODE(_2##TI##8 x)\
@@ -4917,10 +4742,10 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_16i8 __attribute__ ((overloadable)) convert_char16_sat##RMODE(_16##TI##8 x)\
 	{\
 	_16i8 res;\
-	_16i8 t1 = _mm_cmpgt_epi8(*((__m128i *)minuChar8), x);\
-	res = _mm_andnot_si128(t1, x);\
-	t1 = _mm_and_si128(t1, *((__m128i *)miniCharVal8));\
-	res = _mm_or_si128(res, t1);\
+	_16i8 t1 = as_char16(_mm_cmpgt_epi8(*((__m128i *)minuChar8), __builtin_astype(x,__m128i)));\
+	res = as_char16(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	t1 = as_char16(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i *)miniCharVal8)));\
+	res = as_char16(_mm_or_si128(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)));\
 	return res;\
 	}\
 	_2i8 __attribute__ ((overloadable)) convert_char2_sat##RMODE(_2##TI##8 x)\
@@ -4966,10 +4791,10 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8u16 __attribute__ ((overloadable)) convert_ushort8_sat##RMODE(_8i16 x)\
 	{\
 	_8u16 res;\
-	_8i16 t1 = _mm_cmpgt_epi16(*((_8i16 *)minuShort16), x);\
-	res = _mm_andnot_si128(t1, x);\
-	t1 = _mm_and_si128(t1, *((_8i16 *)minuShort16));\
-	res = _mm_or_si128(res, t1);\
+	_8i16 t1 = as_short8(_mm_cmpgt_epi16(*((__m128i *)minuShort16), __builtin_astype(x,__m128i)));\
+	res = as_ushort8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	t1 = as_short8(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i *)minuShort16)));\
+	res = as_ushort8(_mm_or_si128(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)));\
 	return res;\
 	}\
 	_2u16 __attribute__ ((overloadable)) convert_ushort2_sat##RMODE(_2i16 x)\
@@ -5013,10 +4838,10 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8i16 __attribute__ ((overloadable)) convert_short8_sat##RMODE(_8u16 x)\
 	{\
 	_8i16 res;\
-	_8i16 t1 = _mm_cmpgt_epi16(*((_8i16 *)minuShort16), x);\
-	res = _mm_andnot_si128(t1, x);\
-	t1 = _mm_and_si128(t1, *((_8i16 *)maxiShort16));\
-	res = _mm_or_si128(res, t1);\
+	_8i16 t1 = as_short8(_mm_cmpgt_epi16(*((__m128i *)minuShort16), __builtin_astype(x,__m128i)));\
+	res = as_short8(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	t1 = as_short8(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i *)maxiShort16)));\
+	res = as_short8(_mm_or_si128(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)));\
 	return res;\
 	}\
 	_2i16 __attribute__ ((overloadable)) convert_short2_sat##RMODE(_2u16 x)\
@@ -5060,8 +4885,8 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4u32 __attribute__ ((overloadable)) convert_uint4_sat##RMODE(_4i32 x)\
 	{\
 	_4u32 res;\
-	_4u32 t1 = _mm_cmpgt_epi32(*((__m128i *)minuInt32), x);\
-	res = _mm_andnot_si128(t1, x);\
+	_4u32 t1 = as_uint4(_mm_cmpgt_epi32(*((__m128i *)minuInt32), __builtin_astype(x,__m128i)));\
+	res = as_uint4(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
 	return res;\
 	}\
 	_2u32 __attribute__ ((overloadable)) convert_uint2_sat##RMODE(_2i32 x)\
@@ -5104,10 +4929,10 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4i32 __attribute__ ((overloadable)) convert_int4_sat##RMODE(_4u32 x)\
 	{\
 	_4i32 res;\
-	_4i32 t1 = _mm_cmpgt_epi32(*((__m128i *)minuInt32), x);\
-	res = _mm_andnot_si128(t1, x);\
-	t1 = _mm_and_si128(t1, *((__m128i *)maxiInt32));\
-	res = _mm_or_si128(res, t1);\
+	_4i32 t1 = as_int4(_mm_cmpgt_epi32(*((__m128i *)minuInt32), __builtin_astype(x,__m128i)));\
+	res = as_int4(_mm_andnot_si128(__builtin_astype(t1,__m128i), __builtin_astype(x,__m128i)));\
+	t1 = as_int4(_mm_and_si128(__builtin_astype(t1,__m128i), *((__m128i *)maxiInt32)));\
+	res = as_int4(_mm_or_si128(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)));\
 	return res;\
 	}\
 	_2i32 __attribute__ ((overloadable)) convert_int2_sat##RMODE(_2u32 x)\
@@ -5222,19 +5047,19 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 
 	//out short in all with RMODE
 #define DEF_OUT_SHORT_RTX(RMODE, RMODEVAL, FLAG)\
-	DEF_INT_PROTO16_8(u, u, u, u, RMODE)\
+	DEF_INT_PROTO16_8(z, u, u, u, u, RMODE)\
 	DEF_INT_PROTO16_32(u, u, u, u, RMODE)\
 	DEF_INT_PROTO16_16(u, u, u, u, RMODE)\
 	DEF_INT_PROTO16_64(u, u, u, u, RMODE)\
-	DEF_INT_PROTO16_8(u, i, u, , RMODE)\
+	DEF_INT_PROTO16_8(z, u, i, u, , RMODE)\
 	DEF_INT_PROTO16_16(u, i, u, , RMODE)\
 	DEF_INT_PROTO16_32(u, i, u, , RMODE)\
 	DEF_INT_PROTO16_64(u, i, u, , RMODE)\
-	DEF_INT_PROTO16_8(i, u, , u, RMODE)\
+	DEF_INT_PROTO16_8(s, i, u, , u, RMODE)\
 	DEF_INT_PROTO16_16(i, u, , u, RMODE)\
 	DEF_INT_PROTO16_32(i, u, , u, RMODE)\
 	DEF_INT_PROTO16_64(i, u, , u, RMODE)\
-	DEF_INT_PROTO16_8(i, i, , , RMODE)\
+	DEF_INT_PROTO16_8(s, i, i, , , RMODE)\
 	DEF_INT_PROTO16_16(i, i, , , RMODE)\
 	DEF_INT_PROTO16_32(i, i, , , RMODE)\
 	DEF_INT_PROTO16_64(i, i, , , RMODE)\
@@ -5253,14 +5078,14 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 
 	//out int in all with RMODE
 #define DEF_OUT_INT_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAG)\
-	DEF_INT_PROTO32_8(u, u, u, u, RMODE)\
-	DEF_INT_PROTO32_8(u, i, u, , RMODE)\
-	DEF_INT_PROTO32_8(i, u, , u, RMODE)\
-	DEF_INT_PROTO32_8(i, i, , , RMODE)\
-	DEF_INT_PROTO32_16(u, u, u, u, RMODE)\
-	DEF_INT_PROTO32_16(u, i, u, , RMODE)\
-	DEF_INT_PROTO32_16(i, u, , u, RMODE)\
-	DEF_INT_PROTO32_16(i, i, , , RMODE)\
+	DEF_INT_PROTO32_8(z, u, u, u, u, RMODE)\
+	DEF_INT_PROTO32_8(z, u, i, u, , RMODE)\
+	DEF_INT_PROTO32_8(s, i, u, , u, RMODE)\
+	DEF_INT_PROTO32_8(s, i, i, , , RMODE)\
+	DEF_INT_PROTO32_16(z, u, u, u, u, RMODE)\
+	DEF_INT_PROTO32_16(z, u, i, u, , RMODE)\
+	DEF_INT_PROTO32_16(s, i, u, , u, RMODE)\
+	DEF_INT_PROTO32_16(s, i, i, , , RMODE)\
 	DEF_INT_PROTO32_32(u, u, u, u, RMODE)\
 	DEF_INT_PROTO32_32(u, i, u, , RMODE)\
 	DEF_INT_PROTO32_32(i, u, , u, RMODE)\
@@ -5392,16 +5217,16 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_SAT_PROTOI16(RMODE)\
 	DEF_INT_PROTO16_16(u, u, u, u, _sat##RMODE)\
 	DEF_INT_PROTO16_16(i, i, , , _sat##RMODE)\
-	DEF_INT_PROTO16_8(u, u, u, u, _sat##RMODE)\
+	DEF_INT_PROTO16_8(z, u, u, u, u, _sat##RMODE)\
 	DEF_SAT_PROTO16_I32(u, u, RMODE, 65535, 0)\
 	DEF_SAT_PROTO16_I64(u, u, RMODE, 65535, 0)\
-	DEF_INT_PROTO16_8(u, i, u, , _sat##RMODE)\
+	DEF_INT_PROTO16_8(z, u, i, u, , _sat##RMODE)\
 	DEF_SAT_PROTO16_I32(i, , RMODE, 32767, -32768)\
 	DEF_SAT_PROTO16_I64(i, , RMODE, 32767, -32768)\
 	DEF_SAT_PROTO16_8(i, u, , u, _sat##RMODE)\
 	DEF_SAT_PROTO16_U32(u, u, RMODE, 65535)\
 	DEF_SAT_PROTO16_U64(u, u, RMODE, 65535)\
-	DEF_INT_PROTO16_8(i, i, , , _sat##RMODE)\
+	DEF_INT_PROTO16_8(s, i, i, , , _sat##RMODE)\
 	DEF_SAT_PROTO16_U32(i, , RMODE, 32767)\
 	DEF_SAT_PROTO16_U64(i, , RMODE, 32767)\
 	DEF_SAT_PROTO16_F(i, , RMODE, RMODEVAL, FLAG)\
@@ -5420,14 +5245,14 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 #define DEF_OUT_INT_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAG)\
 	DEF_SAT_PROTOU32(RMODE)\
 	DEF_SAT_PROTOI32(RMODE)\
-	DEF_INT_PROTO32_8(u, u, u, u, _sat##RMODE)\
-	DEF_INT_PROTO32_8(u, i, u, , _sat##RMODE)\
+	DEF_INT_PROTO32_8( z, u, u, u, u, _sat##RMODE)\
+	DEF_INT_PROTO32_8( z, u, i, u, , _sat##RMODE)\
 	DEF_SAT_PROTOU32_I8(i, u, , u, _sat##RMODE)\
-	DEF_INT_PROTO32_8(i, i, , , _sat##RMODE)\
-	DEF_INT_PROTO32_16(u, u, u , u, _sat##RMODE)\
-	DEF_INT_PROTO32_16(u, i, u, , _sat##RMODE)\
+	DEF_INT_PROTO32_8( s, i, i, , , _sat##RMODE)\
+	DEF_INT_PROTO32_16(z, u, u, u , u, _sat##RMODE)\
+	DEF_INT_PROTO32_16(z, u, i, u, , _sat##RMODE)\
 	DEF_SAT_PROTOU32_I16(i, u, , u, _sat##RMODE)\
-	DEF_INT_PROTO32_16(i, i, , , _sat##RMODE)\
+	DEF_INT_PROTO32_16(s, i, i, , , _sat##RMODE)\
 	DEF_SAT_PROTO32_I64(u, u, RMODE, _UINT_MAX, 0)\
 	DEF_SAT_PROTO32_I64(i, , RMODE, _INT_MAX, _INT_MIN)\
 	DEF_SAT_PROTO32_U64(u, u, RMODE, _UINT_MAX)\

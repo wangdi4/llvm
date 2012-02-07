@@ -32,7 +32,13 @@ class Predicator : public FunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  Predicator() : FunctionPass(ID) {}
+  Predicator() : FunctionPass(ID) {
+    initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+    initializeDominanceFrontierPass(*PassRegistry::getPassRegistry());
+    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
+    initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
+    initializeRegionInfoPass(*PassRegistry::getPassRegistry());
+  }
 
 private:
   /// Declare the type of our small isntruction vector
@@ -112,7 +118,7 @@ private:
   /// @brief Return name of pointee in string representation
   /// @param tp pointer to consider
   /// @return name of type
-  std::string getNameFromPointerType(const Type* tp);
+  std::string getNameFromPointerType(Type* tp);
   /// @brief Create a functions call which represents a predicated instructions
   //  of the given type.
   /// @param inst Instruction to predicate

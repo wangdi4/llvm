@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -28,7 +28,6 @@ File Name:  Optimizer.cpp
 #include "InstToFuncCall.h"
 #include "llvm/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
@@ -40,6 +39,8 @@ extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule, c
 extern "C" int getVectorizerWidths(llvm::Pass *V, llvm::SmallVectorImpl<int> &Widths);
 extern "C" llvm::Pass *createBarrierMainPass(bool isDBG);
 extern "C" unsigned int getBarrierStrideSize(llvm::Pass *pPass);
+extern "C" llvm::Pass *createPreventDivisionCrashesPass();
+extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -56,6 +57,109 @@ llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Functi
 
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
 
+
+  /// createStandardModulePasses - Add the standard module passes.  This is
+  /// expected to be run after the standard function passes.
+  static inline void createStandardVolcanoModulePasses(PassManagerBase *PM,
+                                                unsigned OptimizationLevel,
+                                                bool OptimizeSize,
+                                                bool UnitAtATime,
+                                                bool UnrollLoops,
+                                                bool SimplifyLibCalls,
+                                                bool HaveExceptions,
+                                                Pass *InliningPass) {
+    if (OptimizationLevel == 0) {
+      if (InliningPass)
+        PM->add(InliningPass);
+      return;
+    }
+    
+    if (UnitAtATime) {
+      PM->add(createGlobalOptimizerPass());     // Optimize out global vars
+      
+      PM->add(createIPSCCPPass());              // IP SCCP
+      PM->add(createDeadArgEliminationPass());  // Dead argument elimination
+    }
+    PM->add(createInstructionSimplifierPass());
+    PM->add(createInstructionCombiningPass());  // Clean up after IPCP & DAE
+    PM->add(createCFGSimplificationPass());     // Clean up after IPCP & DAE
+    
+    // Start of CallGraph SCC passes.
+    if (UnitAtATime && HaveExceptions)
+      PM->add(createPruneEHPass());           // Remove dead EH info
+    if (InliningPass)
+      PM->add(InliningPass);
+    if (UnitAtATime)
+      PM->add(createFunctionAttrsPass());       // Set readonly/readnone attrs
+    if (OptimizationLevel > 2)
+      PM->add(createArgumentPromotionPass());   // Scalarize uninlined fn args
+    
+    // Start of function pass.
+    PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
+    if (SimplifyLibCalls)
+      PM->add(createSimplifyLibCallsPass());    // Library Call Optimizations
+    PM->add(createEarlyCSEPass());              // Catch trivial redundancies
+    PM->add(createInstructionSimplifierPass());
+    PM->add(createInstructionCombiningPass());  // Cleanup for scalarrepl.
+    PM->add(createJumpThreadingPass());         // Thread jumps.
+    PM->add(createCorrelatedValuePropagationPass()); // Propagate conditionals
+    PM->add(createCFGSimplificationPass());     // Merge & remove BBs
+    PM->add(createInstructionCombiningPass());  // Combine silly seq's
+    
+    PM->add(createTailCallEliminationPass());   // Eliminate tail calls
+    PM->add(createCFGSimplificationPass());     // Merge & remove BBs
+    PM->add(createReassociatePass());           // Reassociate expressions
+    PM->add(createLoopRotatePass());            // Rotate Loop
+    PM->add(createLICMPass());                  // Hoist loop invariants
+    PM->add(createLoopUnswitchPass(OptimizeSize || OptimizationLevel < 3));
+    PM->add(createInstructionCombiningPass());  
+    PM->add(createInstructionSimplifierPass());
+    PM->add(createIndVarSimplifyPass());        // Canonicalize indvars
+    PM->add(createLoopDeletionPass());          // Delete dead loops
+    if (UnrollLoops)
+      PM->add(createLoopUnrollPass());          // Unroll small loops
+    PM->add(createInstructionCombiningPass());  // Clean up after the unroller
+    PM->add(createInstructionSimplifierPass());
+    if (OptimizationLevel > 1)
+      PM->add(createGVNPass());                 // Remove redundancies
+    PM->add(createMemCpyOptPass());             // Remove memcpy / form memset
+    PM->add(createSCCPPass());                  // Constant prop with SCCP
+  
+    // Run instcombine after redundancy elimination to exploit opportunities
+    // opened up by them.
+    PM->add(createInstructionCombiningPass());
+    PM->add(createJumpThreadingPass());         // Thread jumps
+    PM->add(createCorrelatedValuePropagationPass());
+    PM->add(createDeadStoreEliminationPass());  // Delete dead stores
+    PM->add(createAggressiveDCEPass());         // Delete dead instructions
+    PM->add(createCFGSimplificationPass());     // Merge & remove BBs
+    PM->add(createInstructionCombiningPass());  // Clean up after everything.
+
+    if (UnitAtATime) {
+      PM->add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+
+      // GlobalOpt already deletes dead functions and globals, at -O3 try a
+      // late pass of GlobalDCE.  It is capable of deleting dead cycles.
+      if (OptimizationLevel > 2)
+        PM->add(createGlobalDCEPass());         // Remove dead fns and globals.
+    
+      if (OptimizationLevel > 1)
+        PM->add(createConstantMergePass());       // Merge dup global constants
+    }
+  }
+
+  static inline void createStandardVolcanoFunctionPasses(PassManagerBase *PM,
+                                                  unsigned OptimizationLevel) {
+    if (OptimizationLevel > 0) {
+      PM->add(createCFGSimplificationPass());
+      if (OptimizationLevel == 1)
+        PM->add(createPromoteMemoryToRegisterPass());
+      else
+        PM->add(createScalarReplAggregatesPass(256));
+      PM->add(createInstructionCombiningPass());
+      PM->add(createInstructionSimplifierPass());
+    }
+  }
 
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
@@ -76,10 +180,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
-
   
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
+  m_funcPasses.add(new llvm::TargetData(pModule));
 
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
@@ -93,7 +197,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     uiOptLevel = 3;
   }
 
-  llvm::createStandardFunctionPasses(&m_funcPasses, uiOptLevel);
+  createStandardVolcanoFunctionPasses(&m_funcPasses, uiOptLevel);
 
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
@@ -101,7 +205,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // When running the standard optimization passes, do not change the loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for barriers.
-  llvm::createStandardModulePasses(
+  createStandardVolcanoModulePasses(
       &m_modulePasses,
       uiOptLevel,
       has_bar, // This parameter controls the unswitch pass
@@ -113,6 +217,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       );
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
+ 
   
   if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG) {
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
@@ -127,11 +232,25 @@ Optimizer::Optimizer( llvm::Module* pModule,
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
     }
+    if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
+        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
+               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
+    }
   }
 #ifdef _DEBUG
   m_modulePasses.add(llvm::createVerifierPass());
 #endif
 
+  // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer 
+  // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
+  // shift in this module.
+  m_modulePasses.add(createShiftZeroUpperBitsPass());
+  m_modulePasses.add(createPreventDivisionCrashesPass());
+  // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
+  // to optimize redundancy entroduced by those passes
+  m_modulePasses.add(llvm::createInstructionCombiningPass());
+  m_modulePasses.add(llvm::createGVNPass());
+  
   if ( isDBG ) {
     // DebugInfo pass must run before Barrier pass!
     m_modulePasses.add(createDebugInfoPass(&pModule->getContext(), pRtlModule));
@@ -205,12 +324,15 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
 
   if ( !isDBG ) {
-    // TODO : uncomment these passes when code generation bug CSSD100007274 will be fixed
+    // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
     m_modulePasses.add(llvm::createFunctionInliningPass());           // Inline
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
     m_modulePasses.add(llvm::createCFGSimplificationPass());          // Simplify CFG
     m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
     m_modulePasses.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
+    m_modulePasses.add(llvm::createBlockPlacementPass());
+    m_modulePasses.add(llvm::createEarlyCSEPass());
+    m_modulePasses.add(llvm::createGVNPass());
     
 #ifdef _DEBUG
     m_modulePasses.add(llvm::createVerifierPass());

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loopsimplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlSepia_rgb.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -42,7 +42,7 @@ entry:
   store i32 %call3, i32* %wgNumOf
   store i32 4, i32* %pixelComponentNum
   %tmp6 = bitcast [4 x [4 x float]]* %transMat to i8* ; <i8*> [#uses=1]
-  call void @llvm.memcpy.i32(i8* %tmp6, i8* bitcast ([4 x [4 x float]]* @sepia_clamp.transMat to i8*), i32 64, i32 4)
+  call void @llvm_memcpy_i32(i8* %tmp6, i8* bitcast ([4 x [4 x float]]* @sepia_clamp.transMat to i8*), i32 64, i32 4, i1 false)
   store i32 1024, i32* %imagePixelWidth
   store i32 0, i32* %irow
   br label %for.cond
@@ -171,4 +171,4 @@ declare i32 @get_global_id(i32)
 
 declare i32 @get_global_size(i32)
 
-declare void @llvm.memcpy.i32(i8* nocapture, i8* nocapture, i32, i32) nounwind
+declare void @llvm_memcpy_i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind

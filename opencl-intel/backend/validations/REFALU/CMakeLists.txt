@@ -1,4 +1,6 @@
 include_directories(${BACKEND_ROOT_DIR}/../cl_api .)
+set(LLVM_REQUIRES_EH 1)
+set(LLVM_REQUIRES_EH 1)
 
 set(REFALU_HEADERS
   ../Common/FloatOperations.h

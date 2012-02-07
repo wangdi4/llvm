@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s | FileCheck %s
+; RUN: llc -mcpu=corei7-avx < %s | FileCheck %s
 
 define <2 x double> @test1(<2 x double>* nocapture %f) nounwind readonly {
 ; CHECK: test1

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -31,7 +31,7 @@
 	float __##FUNC##f2as4(float4 x);\
 	float __attribute__((overloadable)) FUNC(float2 x)\
 	{\
-        float4	tempX = {0};\
+        float4	tempX = (float4)(0);\
 		tempX.lo = x;\
 		return __##FUNC##f2as4(tempX);\
 	}
@@ -41,7 +41,7 @@
 #define DEF_GEOM_PROTO_F3_F(FUNC) \
 	float __attribute__((overloadable)) FUNC(float3 x)\
 	{\
-		float4	tempX = {0};\
+		float4	tempX = (float4)(0);\
 		tempX.s012 = x;\
 		return FUNC(tempX);\
 	}
@@ -49,7 +49,7 @@
 #define DEF_GEOM_PROTO_D3_D(FUNC) \
 	double __attribute__((overloadable)) FUNC(double3 x)\
 	{\
-		double4	tempX = {0};\
+		double4	tempX = (double4)(0);\
 		tempX.s012 = x;\
 		return FUNC(tempX);\
 	}
@@ -66,9 +66,9 @@
 	float __##FUNC##f2as4(float4 x, float4 y);\
 	float __attribute__((overloadable)) FUNC(float2 x, float2 y)\
 	{\
-		float4	tempX = {0};\
+		float4	tempX = (float4)(0);\
 		tempX.lo = x;\
-		float4	tempY = {0};\
+		float4	tempY = (float4)(0);\
 		tempY.lo = y;\
 		return __##FUNC##f2as4(tempX, tempY);\
 	}
@@ -78,8 +78,8 @@
 #define DEF_GEOM_PROTO_F3_F3_F(FUNC) \
 	float __attribute__((overloadable)) FUNC(float3 x, float3 y)\
 	{\
-		float4	tempX = {0};\
-		float4	tempY = {0};\
+		float4	tempX = (float4)(0);\
+		float4	tempY = (float4)(0);\
 		tempX.s012 = x;\
 		tempY.s012 = y;\
 		return FUNC(tempX, tempY);\
@@ -88,8 +88,8 @@
 #define DEF_GEOM_PROTO_D3_D3_D(FUNC) \
 	double __attribute__((overloadable)) FUNC(double3 x, double3 y)\
 	{\
-		double4	tempX = {0};\
-		double4	tempY = {0};\
+		double4	tempX = (double4)(0);\
+		double4	tempY = (double4)(0);\
 		tempX.s012 = x;\
 		tempY.s012 = y;\
 		return FUNC(tempX, tempY);\
@@ -103,7 +103,7 @@
 	float4 __##FUNC##f2as4(float4 x);\
 	float2 __attribute__((overloadable)) FUNC(float2 x)\
 	{\
-		float4	tempX = {0};\
+		float4	tempX = (float4)(0);\
 		tempX.lo = x;\
 		tempX = __##FUNC##f2as4(tempX);\
 		return tempX.lo;\
@@ -114,7 +114,7 @@
 #define DEF_GEOM_PROTO_F3_F3(FUNC) \
 	float3 __attribute__((overloadable)) FUNC(float3 x)\
 	{\
-		float4	tempX = {0};\
+		float4	tempX = (float4)(0);\
 		float4	res;\
 		tempX.s012 = x;\
 		res = FUNC(tempX);\
@@ -124,7 +124,7 @@
 #define DEF_GEOM_PROTO_D3_D3(FUNC) \
 	double3 __attribute__((overloadable)) FUNC(double3 x)\
 	{\
-		double4	tempX = {0};\
+		double4	tempX = (double4)(0);\
 		double4	res;\
 		tempX.s012 = x;\
 		res = FUNC(tempX);\
@@ -138,8 +138,8 @@
 #define DEF_GEOM_PROTO_F3_F3_F3(FUNC)\
 	float3 __attribute__((overloadable)) FUNC(float3 x, float3 y)\
 	{\
-		float4	tempX = {0};\
-		float4	tempY = {0};\
+		float4	tempX = (float4)(0);\
+		float4	tempY = (float4)(0);\
 		float4	res;\
 		tempX.s012 = x;\
 		tempY.s012 = y;\
@@ -150,8 +150,8 @@
 #define DEF_GEOM_PROTO_D3_D3_D3(FUNC)\
 	double3 __attribute__((overloadable)) FUNC(double3 x, double3 y)\
 	{\
-		double4	tempX = {0};\
-		double4	tempY = {0};\
+		double4	tempX = (double4)(0);\
+		double4	tempY = (double4)(0);\
 		double4	res;\
 		tempX.s012 = x;\
 		tempY.s012 = y;\

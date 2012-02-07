@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -27,7 +27,7 @@ File Name:  OCLBuiltins.h
 namespace Validation {
 namespace OCLBuiltins {
 
-    void FillOCLBuiltins (std::map<std::string, llvm::GenericValue (*)(const llvm::FunctionType *, const std::vector<llvm::GenericValue> &)>& funcNames);
+    void FillOCLBuiltins (std::map<std::string, llvm::GenericValue (*)(llvm::FunctionType *, const std::vector<llvm::GenericValue> &)>& funcNames);
 
 } // namespace OCLBuiltins
 } // namespace Validation

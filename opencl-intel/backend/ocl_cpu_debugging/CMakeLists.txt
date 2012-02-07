@@ -173,7 +173,6 @@ endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 set (LLVM_LIBS    
     # LLVM libs
     LLVMCore
-    LLVMSystem
     LLVMSupport
     LLVMAnalysis
 )

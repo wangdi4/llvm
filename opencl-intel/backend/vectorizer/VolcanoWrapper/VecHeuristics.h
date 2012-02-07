@@ -25,6 +25,11 @@ namespace intel {
       FunctionPass(ID), m_preferedVectorSize(0), m_hasBarrier(false),
       m_mayVectorize(false), m_featureSupport(featureSupport), m_cpuid(cpuId),
       m_WIAnalysisPass(0) {
+
+      initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+      initializeDominatorTreePass(*PassRegistry::getPassRegistry());
+      initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
+
       assert((!isMic() || !hasAVX()) && "illegal configuration!");
       // Check if heuristics are disabled thru environment variable
       const char *useHeuristicsEnv = getenv("CL_CONFIG_VECTORIZER_HEURISTICS");

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,7 +36,7 @@ using std::vector;
 namespace Validation {
 namespace OCLBuiltins {
 
-void FillOCLBuiltins (map<string, GenericValue (*)(const FunctionType *, const vector<GenericValue> &)>& funcNames)
+void FillOCLBuiltins (map<string, GenericValue (*)(FunctionType *, const vector<GenericValue> &)>& funcNames)
 {
     // Adding work-item built-in functions to the map.
     WorkItemMapFiller wiBuiltins;

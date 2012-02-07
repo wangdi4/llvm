@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -29,7 +29,7 @@ ProgramContainerMemoryBuffer::ProgramContainerMemoryBuffer( const cl_prog_contai
     const char* pIR = (const char*)pHeader+sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
     size_t size = pHeader->container_size - sizeof(cl_llvm_prog_header);
     
-    llvm::MemoryBuffer::init( pIR, pIR + size);
+    llvm::MemoryBuffer::init( pIR, pIR + size, false);
 }
 
 ProgramContainerMemoryBuffer* ProgramContainerMemoryBuffer::Create( const cl_prog_container_header* pHeader )

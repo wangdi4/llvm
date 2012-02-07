@@ -35,7 +35,7 @@ WorkItemInterfaceSetter * WorkItemInterfaceSetter::m_pInst = NULL;
 // it is needed since come workgroup built-ins returns size_t
 const uint32_t SizeTInBits = sizeof(size_t) * 8;
 
-GenericValue lle_X_get_work_dim(const FunctionType *FT,
+GenericValue lle_X_get_work_dim(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
  
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
@@ -46,7 +46,7 @@ GenericValue lle_X_get_work_dim(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_global_size(const FunctionType *FT,
+GenericValue lle_X_get_global_size(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -60,7 +60,7 @@ GenericValue lle_X_get_global_size(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_global_id(const FunctionType *FT,
+GenericValue lle_X_get_global_id(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
  
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
@@ -76,7 +76,7 @@ GenericValue lle_X_get_global_id(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_local_size(const FunctionType *FT,
+GenericValue lle_X_get_local_size(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -91,7 +91,7 @@ GenericValue lle_X_get_local_size(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_local_id(const FunctionType *FT,
+GenericValue lle_X_get_local_id(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -106,7 +106,7 @@ GenericValue lle_X_get_local_id(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_num_groups(const FunctionType *FT,
+GenericValue lle_X_get_num_groups(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
   GenericValue gv;
@@ -121,7 +121,7 @@ GenericValue lle_X_get_num_groups(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_group_id(const FunctionType *FT,
+GenericValue lle_X_get_group_id(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
   GenericValue gv;
@@ -136,7 +136,7 @@ GenericValue lle_X_get_group_id(const FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_global_offset(const FunctionType *FT,
+GenericValue lle_X_get_global_offset(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
   GenericValue gv;

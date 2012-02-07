@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -31,7 +31,7 @@ File Name:  KernelUpdate.cpp
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Target/TargetData.h>
-#include <llvm/System/DynamicLibrary.h>
+#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/raw_ostream.h>
 // debug macros
 #include "llvm/Support/Debug.h"
@@ -121,6 +121,9 @@ namespace Validation {
         // the kernel are translated
         //
         static const char* builtin_printf_name;
+        Type* m_struct_PaddedDimId;
+        Type* m_struct_WorkDim;
+
     };
 
     const char* OCLReferenceKernelUpdate::builtin_printf_name = "opencl_printf";
@@ -208,48 +211,7 @@ namespace Validation {
             RunOnKernel(m_nonInlinedFunctions[i], NULL);
         }
 
-        while(!m_fixupCalls.empty())
-        {
-            CallInst* pCall     = m_fixupCalls.begin()->first;
-            Value**   pCallArgs = m_fixupCalls.begin()->second;
-            m_fixupCalls.erase(m_fixupCalls.begin());
-
-            Function *pCallee = pCall->getCalledFunction();
-
-            BasicBlock::iterator inst_it = pCall->getParent()->begin();
-            while ( inst_it != pCall->getParent()->end() )
-            {
-                assert(dyn_cast<Instruction>(inst_it) && dyn_cast<Instruction>(pCall));
-                if(dyn_cast<Instruction>(inst_it) == dyn_cast<Instruction>(pCall))
-                {
-                    break;
-                }
-                inst_it++;
-            }
-
-            assert(inst_it != pCall->getParent()->end());
-
-            SmallVector<Value*, 4> params;
-            // Create new call instruction with extended parameters
-            params.clear();
-            for(unsigned int i = 0; i < pCall->getNumArgOperands(); i++ )
-            {
-                params.push_back(pCall->getArgOperand(i));
-            }
-            params.push_back(pCallArgs[0]);
-            params.push_back(pCallArgs[1]);
-            params.push_back(pCallArgs[2]);
-            params.push_back(pCallArgs[3]);
-
-            CallInst *newCall = CallInst::Create(pCallee, params.begin(), params.end(), "", pCall);
-
-            delete [] pCallArgs;
-
-            pCall->uncheckedReplaceAllUsesWith(newCall);
-
-            inst_it = removeInstruction(pCall->getParent(), inst_it);
-        }
-
+        assert(m_fixupCalls.empty());
         return true;
     }
 
@@ -269,15 +231,14 @@ namespace Validation {
                 if (Val == From) Val = To;
                 Indices.push_back(Val);
             }
-            Replacement = GetElementPtrInst::Create(Pointer, Indices.begin(), Indices.end());
+            Replacement = GetElementPtrInst::Create(Pointer, ArrayRef<Value*>(Indices));
         }
         else if (pCE->getOpcode() == Instruction::ExtractValue)
         {
             Value *Agg = pCE->getOperand(0);
             if (Agg == From) Agg = To;
 
-            const SmallVector<unsigned, 4> &Indices = pCE->getIndices();
-            Replacement = ExtractValueInst::Create(Agg,	Indices.begin(), Indices.end());
+            Replacement = ExtractValueInst::Create(Agg, pCE->getIndices());
         }
         else if (pCE->getOpcode() == Instruction::InsertValue)
         {
@@ -286,8 +247,7 @@ namespace Validation {
             if (Agg == From) Agg = To;
             if (Val == From) Val = To;
 
-            const SmallVector<unsigned, 4> &Indices = pCE->getIndices();
-            Replacement = InsertValueInst::Create(Agg, Val, Indices.begin(), Indices.end());
+            Replacement = InsertValueInst::Create(Agg, Val, pCE->getIndices());
         }
         else if (pCE->isCast())
         {
@@ -510,7 +470,7 @@ namespace Validation {
             params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
             params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
             GetElementPtrInst* pDimCntAddr =
-                GetElementPtrInst::Create(pWorkInfo, params.begin(), params.end(), "", pCall);
+                GetElementPtrInst::Create(pWorkInfo, ArrayRef<Value*>(params), "", pCall);
             // Load the Value
             pResult = new LoadInst(pDimCntAddr, "", pCall);
             return pResult;
@@ -530,7 +490,7 @@ namespace Validation {
             params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), iTableInx));
             params.push_back(pCall->getArgOperand(0));
             GetElementPtrInst* pSizeAddr =
-                GetElementPtrInst::Create(pWorkInfo, params.begin(), params.end(), "", pCall);
+                GetElementPtrInst::Create(pWorkInfo, ArrayRef<Value*>(params), "", pCall);
             // Load the Value
             pResult = new LoadInst(pSizeAddr, "", pCall);
             return pResult;
@@ -543,7 +503,7 @@ namespace Validation {
             params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
             params.push_back(pCall->getArgOperand(0));
             GetElementPtrInst* pIdAddr =
-                GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", pCall);
+                GetElementPtrInst::Create(pLocalId, ArrayRef<Value*>(params), "", pCall);
             // Load the Value
             pResult = new LoadInst(pIdAddr, "", pCall);
             return pResult;
@@ -593,7 +553,7 @@ namespace Validation {
         }
 
         GetElementPtrInst* pLclIdAddr =
-            GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", nextInst);
+            GetElementPtrInst::Create(pLocalId, ArrayRef<Value*>(params), "", nextInst);
         // Load the value of local id
         Value* pLocalIdVal = new LoadInst(pLclIdAddr, "", nextInst);
 
@@ -619,7 +579,7 @@ namespace Validation {
         // It's the next address after LocalId's
         params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), MAX_WORK_DIM));
 
-        m_pCtxPtr = GetElementPtrInst::Create(pLocalId, params.begin(), params.end(), "", pCall->getParent()->getParent()->getEntryBlock().begin());
+        m_pCtxPtr = GetElementPtrInst::Create(pLocalId, ArrayRef<Value*>(params), "", pCall->getParent()->getParent()->getEntryBlock().begin());
     }
 
     Value* OCLReferenceKernelUpdate::UpdatePrintf(CallInst* pCall, Argument* pLocalId)
@@ -649,8 +609,8 @@ namespace Validation {
 
         // Types used in several places
         //
-        const IntegerType* int32_type = IntegerType::get(*m_pLLVMContext, 32);
-        const IntegerType* int8_type = IntegerType::get(*m_pLLVMContext, 8);
+        IntegerType* int32_type = IntegerType::get(*m_pLLVMContext, 32);
+        IntegerType* int8_type = IntegerType::get(*m_pLLVMContext, 8);
 
         // Create the alloca instruction for allocating the buffer on the stack.
         // Also, handle the special case where printf got no vararg arguments:
@@ -684,10 +644,10 @@ namespace Validation {
             // be placed
             //
             GetElementPtrInst* gep_instr = GetElementPtrInst::CreateInBounds(
-                buf_alloca_inst, index_args.begin(), index_args.end(), "", pCall);
+                buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
             Value* arg = pCall->getArgOperand(numarg);
-            const Type* argtype = arg->getType();
+            Type* argtype = arg->getType();
 
             // bitcast from generic i8* address to a pointer to the argument's type
             //
@@ -713,7 +673,7 @@ namespace Validation {
         index_args.push_back(ConstantInt::get(int32_type, 0));
 
         GetElementPtrInst* ptr_to_buf = GetElementPtrInst::CreateInBounds(
-            buf_alloca_inst, index_args.begin(), index_args.end(), "", pCall);
+            buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
         // Finally create the call to opencl_printf
         //
@@ -724,7 +684,7 @@ namespace Validation {
         params.push_back(pCall->getArgOperand(0));
         params.push_back(ptr_to_buf);
         params.push_back(m_pCtxPtr);
-        Value* res = CallInst::Create(pFunc, params.begin(), params.end(), "translated_opencl_printf_call", pCall);
+        Value* res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
         return res;
     }
 
@@ -774,7 +734,7 @@ namespace Validation {
             pNewAsyncCopy = m_pModule->getFunction(pPTy->getAddressSpace() == 3 ? "lasync_wg_copy_g2l" : "lasync_wg_copy_l2g");
         }
 
-        Value* res = CallInst::Create(pNewAsyncCopy, params.begin(), params.end(), "", pCall);
+        Value* res = CallInst::Create(pNewAsyncCopy, ArrayRef<Value*>(params), "", pCall);
         return res;
     }
 
@@ -792,7 +752,7 @@ namespace Validation {
         params.push_back(pCall->getArgOperand(1));
         params.push_back(m_pCtxPtr);
         Function* pNewWait = m_pModule->getFunction("lwait_group_events");
-        CallInst::Create(pNewWait, params.begin(), params.end(), "", pCall);
+        CallInst::Create(pNewWait, ArrayRef<Value*>(params), "", pCall);
     }
 
     void OCLReferenceKernelUpdate::UpdatePrefetch(llvm::CallInst* pCall)
@@ -821,7 +781,7 @@ namespace Validation {
         }
         params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
         Function* pPrefetch = m_pModule->getFunction("lprefetch");
-        CallInst::Create(pPrefetch, params.begin(), params.end(), "", pCall);
+        CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
     }
 
     BasicBlock::iterator removeInstruction(BasicBlock* pBB, BasicBlock::iterator it)
@@ -1013,7 +973,7 @@ namespace Validation {
 
     Function *OCLReferenceKernelUpdate::RunOnKernel(Function *pFunc, NamedMDNode *localsAnchor)
     {
-        std::vector<const llvm::Type *> newArgsVec;
+        std::vector<llvm::Type *> newArgsVec;
 
         Function::ArgumentListType::iterator argIt = pFunc->getArgumentList().begin();
         while(argIt != pFunc->getArgumentList().end())
@@ -1024,20 +984,22 @@ namespace Validation {
 
         unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
-        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
+        newArgsVec.push_back(PointerType::get(m_struct_WorkDim, 0));
+//        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
         newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
         newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.LocalId"), 0));
+        newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
+//        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.LocalId"), 0));
 
-        FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
+        FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),ArrayRef<llvm::Type*>(newArgsVec), false);
 
         Function *NewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
         NewF->setCallingConv(CallingConv::C);
 
-        ValueMap<const Value*, Value*> ValueMap;
+        ValueToValueMapTy ValueMap;
 
         Function::arg_iterator DestI = NewF->arg_begin();
-        for (Function::const_arg_iterator I = pFunc->arg_begin(), E = pFunc->arg_end(); I != E; ++I, ++DestI)
+        for (Function::arg_iterator I = pFunc->arg_begin(), E = pFunc->arg_end(); I != E; ++I, ++DestI)
         {
             DestI->setName(I->getName());
             ValueMap[I] = DestI;
@@ -1098,7 +1060,7 @@ namespace Validation {
                             Value *pNewRes = SubstituteWIcall(pCall, pWorkDim, pWGId, pBaseGlbId, pLocalId);
                             if ( NULL != pNewRes)
                             {
-                                pCall->uncheckedReplaceAllUsesWith(pNewRes);
+                                pCall->replaceAllUsesWith(pNewRes);
                                 inst_it = removeInstruction(bb_it, inst_it);
                             } else
                             {
@@ -1175,13 +1137,65 @@ namespace Validation {
             ++bb_it;
         }
 
-        m_mapKernelInfo[NewF] = m_sInfo;
 
-        pFunc->uncheckedReplaceAllUsesWith(NewF);
+        for (Value::use_iterator it = pFunc->use_begin(), e = pFunc->use_end();
+            it != e; ++it)
+        {
+            CallInst *CI = dyn_cast<CallInst>(*it);
+            // We do not handle non CallInst users. Is this okay ?
+            if (!CI) continue;
+
+            std::vector<Value*> arguments;
+            // Push existing arguments
+            for (unsigned i=0; i < CI->getNumArgOperands(); ++i)
+                arguments.push_back(CI->getArgOperand(i));
+
+            // Push undefs for new arguments
+            for (unsigned i=0; i < 4; i++) {
+                arguments.push_back(m_fixupCalls[CI][i]);
+            }
+            m_fixupCalls.erase(CI);
+
+            // Replace the original function with a call 
+            CallInst::Create(NewF, ArrayRef<Value*>(arguments), NewF->getName(), CI);
+            CI->removeFromParent();
+        }
+
+        //pFunc->replaceAllUsesWith(NewF);
         pFunc->setName("__" + pFunc->getName() + "_original");
         m_pModule->getFunctionList().push_back(NewF);
 
         pFunc->deleteBody();
+
+        m_mapKernelInfo[NewF] = m_sInfo;
+
+        Module *pModule = pFunc->getParent();
+        Module::named_metadata_iterator MDIter = pModule->named_metadata_begin();
+        Module::named_metadata_iterator EndMDIter = pModule->named_metadata_end();
+
+        for(;MDIter != EndMDIter; MDIter++)
+        {
+            for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++)
+            { 
+                // Replace metadata with metada containing information about the wrapper
+                MDNode* pMetadata = MDIter->getOperand(ui);
+
+                SmallVector<Value *, 16> values;
+                for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
+                    Value *elem = pMetadata->getOperand(i);
+
+                    if(pFunc == dyn_cast<Function>(elem))
+                        elem = NewF;
+
+                    values.push_back(elem);
+                }
+
+                // &(values[0]) gets the pointer to the metadata values array
+                MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
+                if (pMetadata != pNewMetadata)
+                    pMetadata->replaceAllUsesWith(pNewMetadata);
+            }
+        }
 
         return NewF;
     }
@@ -1198,10 +1212,12 @@ namespace Validation {
         };
         */
         // Create Work Group/Work Item info structures
-        std::vector<const Type*> members;
+        std::vector<Type*> members;
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Local Id's
-        StructType* pLocalId = StructType::get(*m_pLLVMContext, members, true);
-        m_pModule->addTypeName("struct.LocalId", pLocalId);
+        StructType* pLocalId = StructType::get(*m_pLLVMContext, ArrayRef<Type*>(members), true);
+        //m_pModule->addTypeName("struct.LocalId", pLocalId);
+        m_struct_PaddedDimId = pLocalId;
+
 
         /*
         struct sWorkInfo
@@ -1220,7 +1236,8 @@ namespace Validation {
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // WG size/Local size
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Number of groups
         StructType* pWorkDimType = StructType::get(*m_pLLVMContext, members, false);
-        m_pModule->addTypeName("struct.WorkDim", pWorkDimType);
+        //m_pModule->addTypeName("struct.WorkDim", pWorkDimType);
+        m_struct_WorkDim = pWorkDimType;
     }
 
     void OCLReferenceKernelUpdate::AddAsyncCopyDeclaration()
@@ -1232,14 +1249,14 @@ namespace Validation {
 
         //event_t async_work_group_copy(void* pDst, void* pSrc, size_t numElem, event_t event,
         //							   size_t elemSize, LLVMExecMultipleWIWithBarrier* *ppExec);
-        std::vector<const Type*> params;
+        std::vector<Type*> params;
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-        FunctionType* pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), params, false);
+        FunctionType* pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), ArrayRef<Type*>(params), false);
         Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_l2g", m_pModule);
         Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_g2l", m_pModule);
 
@@ -1253,7 +1270,7 @@ namespace Validation {
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-        pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), params, false);
+        pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), ArrayRef<Type*>(params), false);
         Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_strided_l2g", m_pModule);
         Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lasync_wg_copy_strided_g2l", m_pModule);
 
@@ -1263,7 +1280,7 @@ namespace Validation {
         params.push_back(IntegerType::get(*m_pLLVMContext, 32));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-        FunctionType* pWaitType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), params, false);
+        FunctionType* pWaitType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), ArrayRef<Type*>(params), false);
         Function::Create(pWaitType, (GlobalValue::LinkageTypes)0, "lwait_group_events", m_pModule);
 
         m_bAsyncCopyDecl = true;
@@ -1277,12 +1294,12 @@ namespace Validation {
         // The prototype of opencl_printf is:
         // int opencl_printf(char* format, char* args, LLVMExecutable** ppExec)
         //
-        vector<const Type*> params;
+        vector<Type*> params;
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, sizeof(size_t) * BYTE_SIZE), 0));
 
-        FunctionType* pNewType = FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), params, false);
+        FunctionType* pNewType = FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), ArrayRef<Type*>(params), false);
         Function::Create(pNewType, Function::ExternalLinkage, builtin_printf_name, m_pModule);
 
         m_bPrintfDecl = true;
@@ -1295,14 +1312,14 @@ namespace Validation {
 
         unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
-        std::vector<const Type*> params;
+        std::vector<Type*> params;
         // Source Pointer
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
         // Number of elements
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         // Element size
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-        FunctionType* pNewType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), params, false);
+        FunctionType* pNewType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), ArrayRef<Type*>(params), false);
         Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lprefetch", m_pModule);
         m_bPrefetchDecl = true;
     }

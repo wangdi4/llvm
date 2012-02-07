@@ -14,6 +14,10 @@ def main():
                                  '',  # not used
                                  '1') # not used
     suite     = VolcanoLIT("LITTests", config)
+    
+    if env.getParam('BuildOrigin') != 'Nightly':
+        suite.removeTask('Clang_Conformance')
+    
     runner    = HudsonTestRunner(config, 'LIT_Tests')
     passed    = False
     

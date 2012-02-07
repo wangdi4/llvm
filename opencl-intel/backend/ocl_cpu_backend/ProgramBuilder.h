@@ -24,7 +24,8 @@ File Name:  ProgramBuilder.h
 #include "cl_dev_backend_api.h"
 #include "CompilationUtils.h"
 #include "IAbstractBackendFactory.h"
-#include "llvm/System/Mutex.h"
+#include "llvm/Support/Mutex.h"
+#include "Optimizer.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -85,7 +86,8 @@ protected:
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) = 0;
 
-    KernelProperties* CreateKernelProperties(const Program* pProgram, llvm::MDNode *elt, const TLLVMKernelInfo& info);
+    KernelProperties* CreateKernelProperties(const Program* pProgram, Function *func, const TLLVMKernelInfo& info);
+
 
 protected:
 

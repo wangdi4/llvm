@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=sandybridge < %s | FileCheck %s
+; RUN: llc -mcpu=corei7-avx < %s | FileCheck %s
 
 ; v4f64
 
