@@ -28,8 +28,8 @@ class VolcanoBAT(VolcanoTestSuite):
         self.addTask(vectorizerTest , skiplist=[['.*', '.*']])
 
         # Google tests
-        self.addTask(SimpleTest('ValidationTests', config.bin_dir, 'ValidationTests'))
-        self.addTask(SimpleTest('LLVMUnitTests', config.bin_dir, 'LLVMUnitTests' ))
+        self.addTask(SimpleTest('ValidationTests', config.bin_dir, 'ValidationTests'), skiplist=[['.*']])
+        self.addTask(SimpleTest('LLVMUnitTests', config.bin_dir, 'LLVMUnitTests' ), skiplist=[['.*']])
 
         # Running the performance suites in conformance mode
         #addPerformanceSuite(self, 'WOLF.25726', config)

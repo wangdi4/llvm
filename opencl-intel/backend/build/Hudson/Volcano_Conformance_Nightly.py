@@ -123,7 +123,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = 2 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clCopyImage max size', self.conformance_dir, os.path.join('images/clCopyImage','test_cl_copy_images') + ' max_images ')
-        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 20 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clReadWriteImage', self.conformance_dir, os.path.join('images/clReadWriteImage','test_cl_read_write_images'))
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
@@ -132,7 +132,7 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Images-clReadWriteImage max size', self.conformance_dir, os.path.join('images/clReadWriteImage','test_cl_read_write_images') + ' max_images ')
-        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 20 * TIMEOUT_MINUTE)
 
             
         # #########################################    
