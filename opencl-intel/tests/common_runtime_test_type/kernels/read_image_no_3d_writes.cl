@@ -327,7 +327,7 @@ __kernel void read_write_image2D_int4(
 			const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 			int4 input_element = read_imagei( input, samplerNearest, coord );
 			int4 expected_input_element = read_imagei( expected_input, samplerNearest, coord );
-			if(fabs(input_element.x-expected_input_element.x)>0.1f||fabs(input_element.y-expected_input_element.y)>0.1f||fabs(input_element.z-expected_input_element.z)>0.1f||fabs(input_element.w-expected_input_element.w)>0.1f){
+			if(abs(input_element.x-expected_input_element.x)>0.1f||abs(input_element.y-expected_input_element.y)>0.1f||abs(input_element.z-expected_input_element.z)>0.1f||abs(input_element.w-expected_input_element.w)>0.1f){
 				// input image is defferent from expected_input
 				result[0] = -5;
 				return;
@@ -385,7 +385,7 @@ __kernel void read_write_image2D_int4_first(
 			const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 			int4 input_element = read_imagei( input, samplerNearest, coord );
 			int4 expected_input_element = read_imagei( expected_input, samplerNearest, coord );
-			if(fabs(input_element.x-expected_input_element.x)>0.1f){
+			if(abs(input_element.x-expected_input_element.x)>0.1f){
 				// input image is defferent from expected_input
 				result[0] = -5;
 				return;
@@ -443,7 +443,7 @@ __kernel void read_write_image2D_int4_last(
 			const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 			int4 input_element = read_imagei( input, samplerNearest, coord );
 			int4 expected_input_element = read_imagei( expected_input, samplerNearest, coord );
-			if(fabs(input_element.w-expected_input_element.w)>0.1f){
+			if(abs(input_element.w-expected_input_element.w)>0.1f){
 				// input image is defferent from expected_input
 				result[0] = -5;
 				return;
@@ -501,7 +501,7 @@ __kernel void read_write_image2D_int4_first_two(
 			const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 			int4 input_element = read_imagei( input, samplerNearest, coord );
 			int4 expected_input_element = read_imagei( expected_input, samplerNearest, coord );
-			if(fabs(input_element.x-expected_input_element.x)>0.1f||fabs(input_element.y-expected_input_element.y)>0.1f){
+			if(abs(input_element.x-expected_input_element.x)>0.1f||abs(input_element.y-expected_input_element.y)>0.1f){
 				// input image is defferent from expected_input
 				result[0] = -5;
 				return;
