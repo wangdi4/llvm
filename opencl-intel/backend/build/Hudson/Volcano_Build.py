@@ -206,7 +206,7 @@ class FixCSharpProject(VolcanoTestTask):
 
         os.rename( self.sln_name, oldfile_name )
         os.rename( tmpfile_name, self.sln_name )
-        return(True, "")
+        return TestTaskResult.Passed
             
 class FixCSharpProject(VolcanoTestTask):
     """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""

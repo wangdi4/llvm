@@ -9,7 +9,7 @@ from framework.utils import NetworkEnvironment
 REPOSITORY_ROOT             = 'https://subversion.iil.intel.com/ssg-repos/MMS'
 IT_SAMBA_SERVER             = '//ismb014.iil.intel.com'
 VOLCANO_IDC_SAMBA_SERVER    = '//cvcc-ubu-01.iil.intel.com'
-VOLCANO_NN_SAMBA_SERVER     = '//nntavc216ew.ccr.corp.intel.com/CVCC_share'
+VOLCANO_NN_SAMBA_SERVER     = '//nntvolcano.ccr.corp.intel.com/Volcano'
 
 DX_PERFORMANCE_SHADERS_ROOT = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root/Performance/NoDcls/PerformanceCriticalShaders'
 DX_10_SHADERS_ROOT          = '/nfs/iil/disks/cvcc/testbase/Shaders/DX/root'
