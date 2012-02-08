@@ -268,7 +268,7 @@ TEST(IocTests, llvmAndAsmCreation){
 }
 
 
-TEST(IocTests, DISABLED_OptionSimd){
+TEST(IocTests, OptionSimd){
 	//const argument that you may change in the future
 	string const kernelName = "kernelSimd";
 	int const simdOptionLength = 3;
