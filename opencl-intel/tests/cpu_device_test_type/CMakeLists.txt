@@ -61,8 +61,8 @@ set( OUTPUT_FILE test.bc )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND clang -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm -c -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
+                    COMMAND clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -cl-kernel-arg-info -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang
                     COMMENT "Generate optimized ${OUTPUT_FILE}"
