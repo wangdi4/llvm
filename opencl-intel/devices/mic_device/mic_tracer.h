@@ -267,6 +267,12 @@ public:
 
 class HostTracer : public Tracer
 {
+public:
+
+	static HostTracer* getHostTracerInstace() 
+	{ 
+		return NULL;
+	};
 };
 
 class DeviceTracer : public Tracer
