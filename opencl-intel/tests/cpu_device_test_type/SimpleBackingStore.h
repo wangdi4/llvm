@@ -48,6 +48,7 @@ public:
 	const size_t*           GetPitch()       const {return m_pitches;}
     const cl_image_format&  GetFormat()      const {return m_format;}
     size_t                  GetElementSize() const {return m_element_size;}
+    void*                   GetUserProvidedHostMapPtr() const { return m_ptr; }
 
 	int AddPendency();
 	int RemovePendency();

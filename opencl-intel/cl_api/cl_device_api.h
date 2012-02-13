@@ -712,6 +712,9 @@ public:
 		\retval	The new pendency count
 	*/
 	virtual int RemovePendency() = 0;
+
+    //! Returns the pointer where the user should expect the data (NULL if used did not provide this pointer)
+    virtual void* GetUserProvidedHostMapPtr(void) const = 0;
 };
 
 /*!

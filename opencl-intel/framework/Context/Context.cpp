@@ -647,6 +647,8 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 	{
 		clFlags |= (pflags & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY));
 	}
+    // These flags cannot be specified in flags but are inherited from the corresponding memory access qualifiers associated with buffer.
+    clFlags |= pflags & (CL_MEM_COPY_HOST_PTR | CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR);
 
 
 	cl_err_code clErr;		

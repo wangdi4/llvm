@@ -944,7 +944,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		clFlags = m_clFlags;
 	}
 
-	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch, m_clMemObjectType );
+	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch, m_clMemObjectType, *this);
 	if ( NULL == pSubBuffer )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -1260,8 +1260,8 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 // SingleUnifiedSubBuffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType)
-	: GenericMemObject(pContext, pOclEntryPoints, clObjType)
+GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer)
+	: GenericMemObject(pContext, pOclEntryPoints, clObjType), m_rBuffer(buffer)
 {
 }
 
@@ -1332,6 +1332,56 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
     assert( CL_DEV_SUCCEEDED( err ) );
 
 	return IS_ALIGNED_ON(m_stOrigin[0], device_properties.alignment );
+}
+
+cl_err_code	GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
+{       
+    if ((NULL == pParamValue && NULL == pszParamValueSizeRet) || (NULL == pParamValue && iParamName != 0))
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    size_t szSize;
+    const void* pValue = NULL, *pHostPtr = NULL;
+    switch (iParamName)
+    {
+    case CL_MEM_HOST_PTR:
+        {
+            szSize = sizeof(void*);
+            pValue = &pHostPtr;
+            if (m_rBuffer.GetFlags() & CL_MEM_USE_HOST_PTR)
+            {
+                const IOCLDevBackingStore* pBackingStore, *pBufBackingStore;                
+
+                cl_dev_err_code err = m_rBuffer.GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBufBackingStore);
+                assert(CL_SUCCEEDED(err));
+                const void* const pUserHostPtr = pBufBackingStore->GetUserProvidedHostMapPtr();
+                assert(NULL != pUserHostPtr);
+                err = GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBackingStore);
+                assert(CL_SUCCEEDED(err));                
+                pHostPtr = (char*)pUserHostPtr + pBackingStore->GetDimentions()[0];
+            }           
+        }
+        break;
+    default:
+        return MemoryObject::GetInfo(iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    }
+
+    if (NULL != pParamValue && szParamValueSize < szSize)
+    {
+        LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize, szSize);
+        return CL_INVALID_VALUE;
+    }
+    // return param value size
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = szSize;
+    }
+    if (NULL != pParamValue && szSize > 0 && pValue)
+    {
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+    return CL_SUCCESS;
 }
 
 cl_err_code Image1DBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const

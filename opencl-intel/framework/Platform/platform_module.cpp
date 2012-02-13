@@ -55,13 +55,13 @@ const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
 #if defined (_WIN32)
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.1 WINDOWS";
+const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 WINDOWS";
 const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
 
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #else
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.1 LINUX";
+const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 LINUX";
 const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
 
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";

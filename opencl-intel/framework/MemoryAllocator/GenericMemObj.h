@@ -237,7 +237,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GenericMemObjectSubBuffer : public GenericMemObject
 	{
 	public:
-		GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
+		GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
 		cl_err_code Initialize(
 			cl_mem_flags		clMemFlags,
@@ -254,6 +254,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		bool IsSupportedByDevice(FissionableDevice* pDevice);
 
+        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+
 	protected:
 		virtual ~GenericMemObjectSubBuffer();
 
@@ -265,6 +267,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// do not implement
         GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer&);
         GenericMemObjectSubBuffer& operator=(const GenericMemObjectSubBuffer&);
+
+    private:
+        
+        const GenericMemObject& m_rBuffer;
+
 	};
 
 	class GenericMemObjectBackingStore : public IOCLDevBackingStore

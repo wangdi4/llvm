@@ -888,7 +888,14 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 		{
 			IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)(pKernelParams+stOffset));
-			memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(m_pLockedParams+stOffset));
+            if (NULL != memObj)
+            {
+			    memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(m_pLockedParams+stOffset));
+            }
+            else
+            {
+                *(cl_dev_memobj_handle*)(m_pLockedParams + stOffset) = NULL;
+            }
 			stOffset += sizeof(IOCLDevMemoryObject*);
 		}
 		else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)

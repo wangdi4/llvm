@@ -287,20 +287,26 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
 cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemoryObject* *ppMemObj)
 {
-	OclEvent* pObjEvent;
-	cl_err_code res = pMemObj->GetDeviceDescriptor(m_pDevice, ppMemObj, &pObjEvent);
-	if ( CL_FAILED(res) )
-	{
-		return res;
-	}
+    if (NULL == pMemObj)
+    {
+        ppMemObj = NULL;
+    }
+    else
+    {
+        OclEvent* pObjEvent;
+        cl_err_code res = pMemObj->GetDeviceDescriptor(m_pDevice, ppMemObj, &pObjEvent);
+        if ( CL_FAILED(res) )
+        {
+            return res;
+        }
 
-	// No Event was created, we have the descriptor
-	if ( CL_NOT_READY == res )
-	{
-		assert( NULL != pObjEvent);
-		m_Event.AddDependentOn(pObjEvent);
-	}
-
+        // No Event was created, we have the descriptor
+        if ( CL_NOT_READY == res )
+        {
+            assert( NULL != pObjEvent);
+            m_Event.AddDependentOn(pObjEvent);
+        }
+    }
 	return CL_SUCCESS;
 }
 
@@ -1718,16 +1724,18 @@ cl_err_code NDRangeKernelCommand::Init()
             szSize = sizeof(IOCLDevMemoryObject*);
             // Create buffer resources here if not available.
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
-            // Mark as used
-            pMemObj->AddPendency(this);
-            res = pMemObj->CreateDeviceResource(m_pDevice);
-            if( CL_FAILED(res))
+            if (NULL != pMemObj)    // NULL argument is allowed
             {
-				break;
+                // Mark as used
+                pMemObj->AddPendency(this);
+                res = pMemObj->CreateDeviceResource(m_pDevice);
+                if( CL_FAILED(res))
+                {
+                    break;
+                }                
+                m_MemOclObjects.push_back(pMemObj);
             }
-
             szCurrentLocation += szSize;
-            m_MemOclObjects.push_back(pMemObj);
         }
 		else if ( pArg->IsSampler() )
 		{

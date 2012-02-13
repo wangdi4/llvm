@@ -678,13 +678,20 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		{
 			// value is not NULL - get memory object from context
 			cl_mem clMemId = *((cl_mem*)(pValue));
-			clErr = pContext->GetMemObject(clMemId, &pMemObj);
-			if (CL_FAILED(clErr))
-			{
-				return CL_INVALID_MEM_OBJECT;
-			}
-			// TODO: check Memory properties
-			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj, clArg);
+            if (NULL == clMemId)
+            {
+                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
+            }
+            else
+            {
+                clErr = pContext->GetMemObject(clMemId, &pMemObj);
+                if (CL_FAILED(clErr))
+                {
+                    return CL_INVALID_MEM_OBJECT;
+                }
+                // TODO: check Memory properties
+                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj, clArg);
+            }
 		}
 		else
 		{

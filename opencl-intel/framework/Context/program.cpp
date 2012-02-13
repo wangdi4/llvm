@@ -203,6 +203,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	cl_context clContextParam = 0;
 	cl_device_id* clDevIds = NULL;
+    const cl_uint uiKernelsCnt = m_pKernels.Count();
 
 	switch ( (cl_program_info)param_name )
 	{
@@ -264,7 +265,10 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 			}
 			return CL_SUCCESS;
 		}
-
+    case CL_PROGRAM_NUM_KERNELS:
+        szParamValueSize = sizeof(size_t);
+        pValue = &uiKernelsCnt;
+        break;
 
 	case CL_PROGRAM_BINARIES:
 	case CL_PROGRAM_SOURCE:

@@ -155,10 +155,15 @@ void FrameworkProxy::InitOCLEntryPoints()
     OclEntryPoints.clCreateSubDevicesEXT = (KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT);
     OclEntryPoints.clRetainDeviceEXT = (KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT);
     OclEntryPoints.clReleaseDeviceEXT = (KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT);
+    OclEntryPoints.clEnqueueMigrateMemObjects = (KHRpfn_clEnqueueMigrateMemObjects)GET_ALIAS(clEnqueueMigrateMemObjects);
     OclEntryPoints.clCreateSubDevices = (KHRpfn_clCreateSubDevices)GET_ALIAS(clCreateSubDevices);
     OclEntryPoints.clRetainDevice = (KHRpfn_clRetainDevice)GET_ALIAS(clRetainDevice);
     OclEntryPoints.clReleaseDevice = (KHRpfn_clReleaseDevice)GET_ALIAS(clReleaseDevice);
-
+    OclEntryPoints.clEnqueueBarrierWithWaitList = (KHRpfn_clEnqueueBarrierWithWaitList)GET_ALIAS(clEnqueueBarrierWithWaitList);
+    OclEntryPoints.clCompileProgram = (KHRpfn_clCompileProgram)GET_ALIAS(clCompileProgram);
+    OclEntryPoints.clLinkProgram = (KHRpfn_clLinkProgram)GET_ALIAS(clLinkProgram);
+    OclEntryPoints.clEnqueueMarkerWithWaitList = (KHRpfn_clEnqueueMarkerWithWaitList)GET_ALIAS(clEnqueueMarkerWithWaitList);
+    
     /// Extra functions for Common Runtime
     OclEntryPoints.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
 #if defined DX9_MEDIA_SHARING

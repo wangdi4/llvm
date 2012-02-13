@@ -90,9 +90,9 @@ bool clGetPlatformInfoTest()
 	if (CL_SUCCEEDED(iRes))
 	{
 #ifdef _WIN32
-		bResult &= CheckStr(L"check value", "OpenCL 1.1 WINDOWS", platformInfoStr);
+		bResult &= CheckStr(L"check value", "OpenCL 1.2 WINDOWS", platformInfoStr);
 #else
-		bResult &= CheckStr(L"check value", "OpenCL 1.1 LINUX", platformInfoStr);
+		bResult &= CheckStr(L"check value", "OpenCL 1.2 LINUX", platformInfoStr);
 #endif
 	}
 	return bResult;
