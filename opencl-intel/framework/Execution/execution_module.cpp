@@ -2243,7 +2243,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
 	    return  errVal;
 	}
 
-    errVal = pWriteImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
