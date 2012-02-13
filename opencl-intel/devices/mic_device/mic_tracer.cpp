@@ -21,7 +21,6 @@ Tracer* Tracer::m_active = NULL;
 Tracer::Tracer()
 {
 	pthread_mutex_init(&m_mutex, NULL);
-	m_active = this;
 }
 
 Tracer::~Tracer()
@@ -31,6 +30,15 @@ Tracer::~Tracer()
 		delete m_cmdTracerDataArr[i];
 	}
 	pthread_mutex_destroy(&m_mutex);
+}
+
+Tracer* Tracer::createTracerInstance(Tracer* pNewTracer)
+{
+	if (false == __sync_bool_compare_and_swap(&m_active, NULL, pNewTracer))
+	{
+		delete pNewTracer;
+	}
+	return m_active;
 }
 
 void Tracer::insert(CommandTracer& cmdTracer)

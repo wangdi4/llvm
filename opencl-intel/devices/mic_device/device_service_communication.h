@@ -11,6 +11,7 @@
 #include <pthread.h>
 
 #include "cl_device_api.h"
+#include "mic_config.h"
 
 #include <common/COITypes_common.h>
 #include <source/COIPipeline_source.h>
@@ -26,7 +27,9 @@ public:
     /* Factory which create new DeviceServiceCommunication object and set it to *ppDeviceServiceCom
        The initialization of the device process and pipeline is performed on separate thread.
        return CL_DEV_SUCCESS if succeeded. */
-    static cl_dev_err_code deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom);
+    static cl_dev_err_code deviceSeviceCommunicationFactory(unsigned int uiMicId, 
+    														MICDeviceConfig *config,
+    														DeviceServiceCommunication** ppDeviceServiceCom);
 
     virtual ~DeviceServiceCommunication();
 
@@ -78,7 +81,7 @@ public:
 private:
 
     // private constructor in order to use factory only
-    DeviceServiceCommunication(unsigned int uiMicId);
+    DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config );
 
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
@@ -105,6 +108,8 @@ private:
     pthread_t m_initializerThread;
     mutable pthread_mutex_t m_mutex;
     mutable pthread_cond_t m_cond;
+
+	MICDeviceConfig* m_config;
 
 };
 

@@ -413,7 +413,7 @@ public:
 	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).
 	   Create the TLS structs.
 	   Do not delete those TLS structs - Because a worker thread can use its TLS data after this object destructor. - Memory leak. */
-	virtual bool init(unsigned int numOfWorkers) = 0;
+	virtual bool init() = 0;
 
 	virtual void release() = 0;
 
@@ -438,10 +438,17 @@ protected:
 
 	virtual ~ThreadPool();
 
+	/* initialize the m_orderHwThreadsIds list for the req. affinity order. */
+	bool initializeAffinityThreads();
+
+	/* Affinities the current thread. 
+	   Set affinity only if mic_exec_env_options.use_affinity = true*/
+	bool setAffinityForCurrentThread();
+
 	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
-	unsigned int getNextWorkerID() { assert((long)m_NextWorkerID <= MIC_NATIVE_MAX_WORKER_THREADS);
-	                                 assert((long)m_NextWorkerID <= m_numOfWorkers);
-	                                 return m_NextWorkerID++; };
+	unsigned int getNextWorkerID() { unsigned int myID = m_NextWorkerID++;
+									 assert(myID <= MIC_NATIVE_MAX_WORKER_THREADS);
+	                                 return myID; };
 
 	// The amount of worker threads.
 	unsigned int m_numOfWorkers;
@@ -450,6 +457,12 @@ protected:
 	AtomicCounterNative m_NextWorkerID;
 
 private:
+
+	// order list of HW threads IDs - Need it in order to affinities the worker threads. 
+	// (The order will be  - all the 1st HW threads of all cores, than all the 2nd, and so on... minus core 0 / last core if it set in "mic_exec_env_options" structure).
+	vector<unsigned int> m_orderHwThreadsIds;
+	// The next index in "m_orderHwThreadsIds" for affinity. (If m_nextAffinitiesThreadIndex == m_orderHwThreadsIds.size() ==> set m_nextAffinitiesThreadIndex = 0)
+	AtomicCounterNative m_nextAffinitiesThreadIndex;
 
 	// The singleton thread pool
 	static ThreadPool* m_singleThreadPool;
@@ -468,7 +481,7 @@ public:
 
 	virtual ~TBBThreadPool() { release(); };
 
-	virtual bool init(unsigned int numOfWorkers);
+	virtual bool init();
 
 	virtual void release();
 

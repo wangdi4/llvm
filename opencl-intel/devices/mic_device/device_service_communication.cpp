@@ -5,6 +5,7 @@
 #include "mic_common_macros.h"
 #include "mic_sys_info.h"
 #include "mic_device.h"
+#include "mic_device_interface.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
@@ -39,7 +40,8 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 #endif
 };
 
-DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
+DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config) 
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false), m_config(config)
 {
     pthread_mutex_init(&m_mutex, NULL);
     pthread_cond_init(&m_cond, NULL);
@@ -50,13 +52,15 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
     freeDevice(gSafeReleaseOfCoiObjects);
 }
 
-cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, DeviceServiceCommunication** ppDeviceServiceCom)
+cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, 
+                                                                             MICDeviceConfig *config,
+                                                                             DeviceServiceCommunication** ppDeviceServiceCom)
 {
 	// TODO The following sleep command purpose is to let device side process to release all its resources.
 	// REMOVE it when will change the reserved memory of COIProcess to 0.
 	sleep(2);
     // find the first unused device index
-    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
+    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId, config);
 	if (NULL == tDeviceServiceComm)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -120,10 +124,10 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 			assert(COI_SUCCESS == coiRes);
 
 			// Get device 0 freq.
-			unsigned long long freq = MICSysInfo::getInstance().getMaxClockFrequency(0) * 1000000;
+			unsigned long long freq = MICSysInfo::getInstance().getMaxClockFrequency(0);
 
 			// Write to file device trace
-			MICDevice::m_tracer.draw_device_to_file(devTrace, devTraceSize, freq);
+			MICDevice::m_tracer->draw_device_to_file(devTrace, devTraceSize, freq);
 
 			coiRes = COIBufferUnmap( mapInstance, 0, NULL, NULL);
 			assert(COI_SUCCESS == coiRes);
@@ -132,7 +136,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 		}
 
 		// Write to file host trace
-		MICDevice::m_tracer.draw_host_to_file();
+		MICDevice::m_tracer->draw_host_to_file(m_config);
 #endif
 		// Run release device function on device side
 		runServiceFunction(RELEASE_DEVICE, 0, NULL, 0, NULL, 0, NULL, NULL);
@@ -326,12 +330,28 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		// Run init device function on device side
 		// Get the amount of compute units in the device
 		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
+
+        mic_exec_env_options mic_device_options;
+        memset( &mic_device_options, 0, sizeof(mic_device_options) );
+        
+        mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
+        mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
+        mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
+        mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
+        mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
+        mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
+
+        if ((0 == mic_device_options.num_of_worker_threads) || (mic_device_options.num_of_worker_threads > numOfWorkers))
+        {
+            mic_device_options.num_of_worker_threads = numOfWorkers;
+        }
+
 		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
 		COIEVENT barrier;
 		result = COIPipelineRunFunction(pDevServiceComm->m_pipe, pDevServiceComm->m_device_functions[INIT_DEVICE],
 										0, NULL, NULL,
 										0, NULL,                    // dependecies
-										&numOfWorkers, sizeof(numOfWorkers),
+										&mic_device_options, sizeof(mic_device_options),
 										&err, sizeof(err),
 										&barrier);
 		assert(result == COI_SUCCESS);

@@ -12,11 +12,17 @@
 
 #include <malloc.h>
 #include <cstring>
+#include <map>
+#include <fstream>
 #include <assert.h>
  
 using namespace Intel::OpenCL::MICDeviceNative;
 
 extern DeviceTracer gTracer;
+
+namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+mic_exec_env_options gMicExecEnvOptions;
+}}}
 
 ///////////////////////////////////////////////////////
 // For testing only
@@ -49,6 +55,7 @@ void foo(char* blob)
 // For testing only
 //////////////////////////////////////////////////////
 
+
 // Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
 void init_device(uint32_t         in_BufferCount,
@@ -59,12 +66,21 @@ void init_device(uint32_t         in_BufferCount,
 				 void*            in_pReturnValue,
 				 uint16_t         in_ReturnValueLength)
 {
-	assert(in_MiscDataLength == sizeof(unsigned int));
+	assert(in_MiscDataLength == sizeof(mic_exec_env_options));
 	assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
 	ProgramService::createProgramService();
-	// The amount of worker threads.
-	unsigned int* numOfWorkers = (unsigned int*)in_pMiscData;
-	assert((*numOfWorkers > 0) && (*numOfWorkers < MIC_NATIVE_MAX_WORKER_THREADS));
+	// The mic_exec_env_options input.
+	mic_exec_env_options* tEnvOptions = (mic_exec_env_options*)in_pMiscData;
+	assert(tEnvOptions);
+	if (tEnvOptions->stop_at_load)
+	{
+		printf("********* DEVICE STOPPED PLEASE ATTACH TO PID = %d ************\n", getpid());
+		fflush(stdout);
+		while (true) {};
+	}
+	gMicExecEnvOptions = *tEnvOptions;
+	assert((gMicExecEnvOptions.num_of_worker_threads > 0) && (gMicExecEnvOptions.num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
+
 	cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
 	*pErr = CL_DEV_SUCCESS;
 	// Create thread pool singleton instance.
@@ -75,7 +91,7 @@ void init_device(uint32_t         in_BufferCount,
 		return;
 	}
 	// Initialize the thread pool with "numOfWorkers" workers.
-	if (false == pThreadPool->init(*numOfWorkers))
+	if (false == pThreadPool->init())
 	{
 		ThreadPool::releaseSingletonInstance();
 		*pErr = CL_DEV_ERROR_FAIL;
@@ -409,7 +425,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	struct TaskLoopBodyTrace {
 	public:
 		TaskLoopBodyTrace(CommandTracer* pCmdTracer, size_t numOfWorkGroups) : m_pCommandTracer(pCmdTracer), m_cpuId(0) { init(numOfWorkGroups); }
-		~TaskLoopBodyTrace()
+
+		void finish()
 		{
 			unsigned long long end = CommandTracer::_RDTSC();
 			unsigned long long delta = end - m_start;
@@ -438,7 +455,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		virtual ~TaskLoopBody1D() {}
 		void operator()(const tbb::blocked_range<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
-			TaskLoopBodyTrace(task->getCommandTracerPtr(), r.size());
+			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), r.size());
 #endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = r.size();
@@ -452,6 +469,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 					task->executeIteration(k, 0, 0, uiWorkerId);
 			task->detachFromThread(uiWorkerId);
+#ifdef ENABLE_MIC_TRACER
+			tTrace.finish();
+#endif
 		}
 	};
 
@@ -864,20 +884,22 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 	return NULL;
 #endif
 
+	unsigned int grainSize = gMicExecEnvOptions.use_TBB_grain_size;
+
 	// Set execution start for tracer
 	m_pTbbNDRangeTask->getCommandTracerPtr()->set_current_time_tbb_exe_in_device_time_start();
 
 	if (1 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0]), TaskLoopBody1D(m_pTbbNDRangeTask), tbb::auto_partitioner());
+		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 	else if (2 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
 		assert(m_region[1] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1],
-													0, (int)m_region[0]),
+		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize,
+													0, (int)m_region[0], grainSize),
 													TaskLoopBody2D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 	else
@@ -885,9 +907,9 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 		assert(m_region[0] <= CL_MAX_INT32);
 		assert(m_region[1] <= CL_MAX_INT32);
 		assert(m_region[2] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2],
-													0, (int)m_region[1],
-													0, (int)m_region[0]),
+		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize,
+													0, (int)m_region[1], grainSize,
+													0, (int)m_region[0], grainSize),
 													TaskLoopBody3D(m_pTbbNDRangeTask), tbb::auto_partitioner());
 	}
 
@@ -913,7 +935,7 @@ GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERI
 
 ThreadPool* ThreadPool::m_singleThreadPool = NULL;
 
-ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1)
+ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1), m_nextAffinitiesThreadIndex(0)
 {
 }
 
@@ -939,6 +961,117 @@ void ThreadPool::releaseSingletonInstance()
 		m_singleThreadPool = NULL;
 	}
 }
+
+bool ThreadPool::initializeAffinityThreads()
+{
+	if (false == gMicExecEnvOptions.use_affinity)
+	{
+		return true;
+	}
+	map< unsigned int, vector<unsigned int> > coreToThreadsMap;
+	map< unsigned int, vector<unsigned int> >::iterator it;
+	ifstream ifs("/proc/cpuinfo", ifstream::in);
+	if (ifs == NULL)
+	{
+		return false;
+	}
+	string title;
+	int coreID = -1;
+	int processorID = -1;
+    char buff[1024];
+	while (ifs.getline(buff,1024, ':'))
+	{
+		title = string(buff);
+		if (title.find("processor") != string::npos)
+		{
+			assert(-1 == processorID);
+			ifs.getline(buff,1024);
+			processorID = atoi(buff);
+			continue;
+		}
+		if (title.find("core id") != string::npos)
+		{
+			assert(-1 == coreID);
+			assert(processorID >= 0);
+			if ((coreID != -1) || (processorID < 0))
+			{
+				ifs.close();
+				return false;
+			}
+			ifs.getline(buff,1024);
+			coreID = atoi(buff);
+			it = coreToThreadsMap.find(coreID);
+			if (coreToThreadsMap.end() == it)
+			{
+				vector<unsigned int> tVec;
+				tVec.push_back(processorID);
+				coreToThreadsMap.insert( pair<unsigned int, vector<unsigned int> >(coreID, tVec) );
+			}
+			else
+			{
+				it->second.push_back(processorID);
+			}
+			coreID = -1;
+			processorID = -1;
+			continue;
+		}
+	}
+	ifs.close();
+
+	it = coreToThreadsMap.begin();
+	if (coreToThreadsMap.end() != it)
+	{
+		unsigned int numOfThreadsPerCore = it->second.size();
+		unsigned int firstCoreID = it->first;
+		map< unsigned int, vector<unsigned int> >::reverse_iterator rit;
+		rit = coreToThreadsMap.rbegin();
+		unsigned int lastCoreID = rit->first;
+		for (unsigned int i = 0; i < numOfThreadsPerCore; i++)
+		{
+			for (it = coreToThreadsMap.begin(); it != coreToThreadsMap.end(); it++)
+			{
+				if (((gMicExecEnvOptions.ignore_core_0) && (firstCoreID == it->first)) ||
+					((gMicExecEnvOptions.ignore_last_core) && (lastCoreID == it->first)))
+				{
+					continue;
+				}
+				assert(i < it->second.size());
+				if (i >= it->second.size())
+				{
+					return false;
+				}
+				m_orderHwThreadsIds.push_back(it->second[i]);
+			}
+		}
+	}
+
+	return true;
+}
+
+bool ThreadPool::setAffinityForCurrentThread()
+{
+	if (0 == m_orderHwThreadsIds.size())
+	{
+		return true;
+	}
+	cpu_set_t affinityMask;
+	// CPU_ZERO initializes all the bits in the mask to zero.
+	CPU_ZERO(&affinityMask);
+	
+	unsigned int index = m_nextAffinitiesThreadIndex++;
+	index = index % m_orderHwThreadsIds.size();
+
+	// CPU_SET sets only the bit corresponding to cpu.
+	CPU_SET(m_orderHwThreadsIds[index], &affinityMask);
+	
+	if (0 != sched_setaffinity( 0, sizeof(cpu_set_t), &affinityMask))
+	{
+		//Report Error
+		printf("WorkerThread SetThreadAffinityMask error: %d\n", errno);
+		return false;
+	}
+	return true;
+}
 	
 
 
@@ -947,14 +1080,19 @@ tbb::enumerable_thread_specific<unsigned int>*                          TBBThrea
 tbb::enumerable_thread_specific<tbb::task_scheduler_init*>*             TBBThreadPool::t_pScheduler = NULL;
 tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>*	TBBThreadPool::t_generic = NULL;
 
-bool TBBThreadPool::init(unsigned int numOfWorkers)
+bool TBBThreadPool::init()
 {
 	assert(m_numOfWorkers == 0);
-	assert(numOfWorkers > 0);
 
 	assert(NULL == t_uiWorkerId);
 	assert(NULL == t_pScheduler);
 	assert(NULL == t_generic);
+
+	// Initialize a order list of HW threads numbers for affinity.
+	if (false == initializeAffinityThreads())
+	{
+		return false;
+	}
 
 	// initialize the TLS objects.
 	if (NULL == t_uiWorkerId)
@@ -994,7 +1132,7 @@ bool TBBThreadPool::init(unsigned int numOfWorkers)
 		return false;
 	}
 
-	m_numOfWorkers = numOfWorkers;
+	m_numOfWorkers = gMicExecEnvOptions.num_of_worker_threads;
 	// Set tbb observe - true
 	observe(true);
 	// Create extra arena in order to avoid worker threads termination when the last command queue terminates
@@ -1020,6 +1158,7 @@ void TBBThreadPool::registerMasterThread()
 	// If the scheduler didn't set yet and I'm not a worker (I'm muster thread)
 	if ( (NULL == pScheduler) && (!isWorkerScheduler()) )
 	{
+		// TBB can create more thread than req.
 		setScheduler(new tbb::task_scheduler_init(m_numOfWorkers));
 	}
 }
@@ -1059,6 +1198,9 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 	{
 		uiWorkerId = getNextWorkerID();
 		setScheduler((tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
+		// Affinities this thread if needed
+		bool affRes = setAffinityForCurrentThread();
+		assert(affRes);
 	}
 	setWorkerID(uiWorkerId);
 	

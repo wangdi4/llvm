@@ -222,6 +222,17 @@ struct misc_data
 	cl_dev_err_code errCode;
 };
 
+
+struct mic_exec_env_options {
+	bool stop_at_load;
+    bool use_affinity;
+    uint32_t num_of_worker_threads;
+    bool ignore_core_0;
+    bool ignore_last_core;
+    uint32_t use_TBB_grain_size;
+};
+
+
 enum OPTIONAL_DISPATCH_BUFFERS
 {
 	DISPATCHER_DATA = 0,

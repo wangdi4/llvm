@@ -37,6 +37,16 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_USE_VECTORIZER        "CL_CONFIG_USE_VECTORIZER"       // bool
 #define    CL_CONFIG_USE_VTUNE             "CL_CONFIG_USE_VTUNE"            // bool
 
+// device setup
+#define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD        "CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"         // bool
+#define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY        "CL_CONFIG_MIC_DEVICE_USE_AFFINITY"         // bool
+#define    CL_CONFIG_MIC_DEVICE_NUM_WORKERS         "CL_CONFIG_MIC_DEVICE_NUM_WORKERS"          // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0       "CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE    "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
+#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB  "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB"   // unsigned int in MB
+#define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE      "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
+
+
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
     class MICDeviceConfig
@@ -52,6 +62,15 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         bool           UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
         bool           UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool           UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
+
+		// Device performance setup
+		bool           Device_StopAtLoad()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD, false); }
+		bool           Device_UseAffinity()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_USE_AFFINITY, true); }
+		unsigned int   Device_NumWorkers()      const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_WORKERS, 0); }
+		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, false); }
+		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, false); }
+		unsigned int   Device_2MB_BufferMinSizeInMB() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, 20); }
+		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
 
     private:
 

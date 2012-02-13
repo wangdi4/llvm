@@ -24,6 +24,7 @@
 
 #include "mic_device.h"
 #include "cl_sys_info.h"
+#include <stdlib.h>
 
 #include <libgen.h>
 
@@ -33,15 +34,28 @@ extern bool gSafeReleaseOfCoiObjects;
 
 extern char clMICDEVICE_CFG_PATH[];
 
+#define MICDEVICE_CFG_PATH_ENV_NAME "MIC_DEVICE_CFG_FILE"
+
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
 void dll_init(void)
 {
     char tBuff[PATH_MAX];
-    GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
-    safeStrCpy(clMICDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
-    safeStrCat(clMICDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
+
+    const char* env_value = getenv( MICDEVICE_CFG_PATH_ENV_NAME );
+
+    if (NULL != env_value)
+    {
+        safeStrCpy(clMICDEVICE_CFG_PATH, MAX_PATH-1, env_value);
+    }
+    else
+    {
+        GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
+        safeStrCpy(clMICDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
+        safeStrCat(clMICDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
+    }
+    
     MICDevice::loadingInit();
 	atexit(MICDevice::unloadRelease);
 }

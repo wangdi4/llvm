@@ -31,6 +31,7 @@
 #include <vector>
 #include <pthread.h>
 #include <stdio.h>
+#include "mic_config.h"
 
 using namespace std;
 
@@ -183,7 +184,10 @@ public:
 
 	void insert(CommandTracer& cmdTracer);
 
-	static Tracer* getTracerInstace() { return m_active; };
+	static Tracer* getTracerInstace() 
+	{ 
+		return (m_active) ? m_active : createTracerInstance(new Tracer()); 
+	};
 
 protected:
 
@@ -193,13 +197,20 @@ protected:
 	vector<CommandTracer::COMMAND_DATA*>	m_cmdTracerDataArr;
 
 	pthread_mutex_t			m_mutex;
+
+	static Tracer* createTracerInstance(Tracer* pNewTracer);
 };
 
 class HostTracer : public Tracer
 {
 public:
 
-	void draw_host_to_file();
+	static HostTracer* getHostTracerInstace() 
+	{ 
+		return (m_active) ? (HostTracer*)m_active : (HostTracer*)createTracerInstance(new HostTracer()); 
+	};
+
+	void draw_host_to_file(MICDeviceConfig* config);
 
 	void draw_device_to_file(void* cmdTracers, size_t sizeInBytes, unsigned long long freq);
 
@@ -207,7 +218,7 @@ private:
 
 	void draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t size, stringstream& headerStrStream, const char* fileName);
 
-	void prepare_header_host(stringstream& headerStrStream);
+	void prepare_header_host(stringstream& headerStrStream, MICDeviceConfig* config);
 
 	void prepare_header_device(stringstream& headerStrStream, unsigned long long freq);
 };
@@ -215,6 +226,11 @@ private:
 class DeviceTracer : public Tracer
 {
 public:
+
+	DeviceTracer() : Tracer()
+	{
+		m_active = this;
+	}
 
 	// Return trace size in bytes
 	size_t get_trace_size();

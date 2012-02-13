@@ -149,7 +149,7 @@ public:
 	size_t		clDevFEDeviceInfoSize() const;
 
 	// Add Tracer support
-	static HostTracer m_tracer;
+	static HostTracer* m_tracer;
 
 };
 

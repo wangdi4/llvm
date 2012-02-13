@@ -72,14 +72,16 @@ class RawTraceParser(object):
         self.__commandIdList = list()
         self.__hostFreq = 0
         self.__deviceFreq = 0
+        # configuration list (each item include pair of (title, value)
+        self.__configurationList = list()
 
     def parseHeaders(self, input1, input2):
         if False == self.__openInputFiles(input1, input2):
             return False
         # read host header
-        self.__hostFreq = self.__readHeader(self.__hostFile)
+        self.__hostFreq = self.__readHeader(self.__hostFile) / 1000.0
         # read device header
-        self.__deviceFreq = self.__readHeader(self.__deviceFile)
+        self.__deviceFreq = self.__readHeader(self.__deviceFile) / 1000.0
         return True
 
     def loadInputValues(self):
@@ -97,6 +99,9 @@ class RawTraceParser(object):
 
     def getRawCommand(self, commandID):
         return self.__commandIdToRawCommand[commandID]
+
+    def getConfigurationList(self):
+        return self.__configurationList
             
 
     def __openInputFiles(self, input1, input2):
@@ -121,6 +126,7 @@ class RawTraceParser(object):
         line = fileHeader.readline()
         readFreq = False
         readCounters = False
+        readConfiguration = False
         while (line <> '') and (line.find("End header") == -1):
             if readFreq:
                 freq = long(line)
@@ -132,10 +138,18 @@ class RawTraceParser(object):
                 commandName = line.split('[')[0].replace('\t', '')
                 numOfItems = int(line.split('[')[1].split(']')[0])
                 self.__countersNameToNumOfInstances[commandName] = numOfItems
+            if line.find("CONFIGURATION}") <> -1:
+                readConfiguration = False
+            if readConfiguration:
+                currConfPair = line.lstrip('\t').split('\t')
+                if len(currConfPair) == 2:
+                    self.__configurationList.append(currConfPair)
             if line.find("{FREQUENCY") <> -1:
                 readFreq = True
             if line.find("{COUNTERS") <> -1:
                 readCounters = True
+            if line.find("{CONFIGURATION") <> -1:
+                readConfiguration = True
             line = fileHeader.readline()
         return freq
 
@@ -158,7 +172,7 @@ class RawTraceParser(object):
                     if valueStr.isdigit():
                         if commandName.find("time") <> -1:
                             # save the value and the freq and do not divide it here in order to have better precision.
-                            value = (long(valueStr), long(freq))
+                            value = (long(valueStr), freq)
                         else:
                             value = int(valueStr)
                     else:
@@ -384,6 +398,14 @@ class PrintedTraceParser(object):
             print(e)
             return False
         csvWriter = csv.writer(outFile)
+
+        # Write the configuration to the 2 first raws of the trace csv file
+        confList = self.__parseRawData.getConfigurationList()
+        for i in range (0, 2):
+            configRaw = list()
+            for p in confList:
+                configRaw.append(p[i].rstrip('\n'))
+            csvWriter.writerow(configRaw)
 
         complexCounterIndex = 0
         threadsCountersContiniuesAmount = 1

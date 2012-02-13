@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::MICDevice;
 
 bool gSafeReleaseOfCoiObjects = true;
 
-HostTracer MICDevice::m_tracer;
+HostTracer* MICDevice::m_tracer = NULL;
 
 set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
 OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;
@@ -128,6 +128,7 @@ MICDevice::MICDevice(cl_uint uiDevId, cl_uint uiMicId, IOCLFrameworkCallbacks *d
 
 cl_dev_err_code MICDevice::Init()
 {
+	m_tracer = HostTracer::getHostTracerInstace();
     if ( NULL != m_pLogDescriptor )
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiOclDevId, L"MIC Device", &m_iLogHandle);
@@ -143,7 +144,7 @@ cl_dev_err_code MICDevice::Init()
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateDevice function enter"));
 
     // trying to upload next free device.
-    cl_dev_err_code result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, &m_pDeviceServiceComm);
+    cl_dev_err_code result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, m_pMICDeviceConfig, &m_pDeviceServiceComm);
     if (CL_DEV_FAILED(result))
     {
         return result;
@@ -172,19 +173,12 @@ cl_dev_err_code MICDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiOclDevId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
+    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiOclDevId, m_pLogDescriptor, m_pMICDeviceConfig, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
     if (NULL == m_pMemoryAllocator)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-
-// BUGBUG: DK - still OOO not supported
-//    cl_dev_err_code ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
-//    if (CL_DEV_SUCCESS != ret)
-//    {
-//        return CL_DEV_ERROR_FAIL;
-//    }
 
     // record Mic device in global set
     RegisterMicDevice( this );
@@ -601,11 +595,7 @@ void MICDevice::clDevCloseDeviceInt(void)
 
 	/* TODO remove the comment from the next command when m_defaultCommandList will initialize in Init() method
     clDevReleaseCommandList(m_defaultCommandList); */
-    if( NULL != m_pMICDeviceConfig)
-    {
-        delete m_pMICDeviceConfig;
-        m_pMICDeviceConfig = NULL;
-    }
+
     if ( 0 != m_iLogHandle)
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
@@ -634,6 +624,12 @@ void MICDevice::clDevCloseDeviceInt(void)
     {
         delete(m_pDeviceServiceComm);
         m_pDeviceServiceComm = NULL;
+    }
+
+	if( NULL != m_pMICDeviceConfig)
+    {
+        delete m_pMICDeviceConfig;
+        m_pMICDeviceConfig = NULL;
     }
 
     delete this;

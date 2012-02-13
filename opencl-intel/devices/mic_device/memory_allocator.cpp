@@ -38,6 +38,8 @@
 #include<stdlib.h>
 #include <alloca.h>
 
+#define MEGABYTE (1024*1024)
+
 // The flag below enables a check that allows only a single use of cl_mem objects
 // The "lock" on the memory object is obtained during the call to NDRange->Init() and is released when the kernel is done executing
 // This is useful only for debugging - it is not conformant to the spec
@@ -53,6 +55,7 @@ cl_uint          MemoryAllocator::m_instance_referencies = 0;
 MemoryAllocator* MemoryAllocator::getMemoryAllocator(
                                 cl_int devId,
                                 IOCLDevLogDescriptor *pLogDesc,
+                                MICDeviceConfig *config,
                                 unsigned long long maxBufferAllocSize )
 {
     MemoryAllocator* instance = NULL;
@@ -61,7 +64,7 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
 
     if (NULL == m_the_instance)
     {
-        m_the_instance = new MemoryAllocator( devId, pLogDesc, maxBufferAllocSize );
+        m_the_instance = new MemoryAllocator( devId, pLogDesc, config, maxBufferAllocSize );
         assert( NULL != m_the_instance && "Creating MIC MemoryAllocator singleton" );
     }
 
@@ -89,9 +92,11 @@ void MemoryAllocator::Release( void )
     }
 }
 
-MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MICDeviceConfig *config, unsigned long long maxAllocSize ):
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_config(config), m_maxAllocSize(maxAllocSize)
 {
+    m_2M_BufferMinSize = config->Device_2MB_BufferMinSizeInMB() * MEGABYTE;
+    
     if ( NULL != logDesc )
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, TEXT("MIC Device: Memory Allocator"), &m_iLogHandle);
@@ -319,7 +324,9 @@ cl_dev_err_code MICDevMemoryObject::Init()
     }
 
     COIRESULT coi_err = COIBufferCreateFromMemory(
-                                m_raw_size, COI_BUFFER_NORMAL, 0, m_objDescr.pData,
+                                m_raw_size, COI_BUFFER_NORMAL, 
+								m_Allocator.Use_2M_Pages(m_raw_size) ? COI_OPTIMIZE_HUGE_PAGE_SIZE : 0,
+                                m_objDescr.pData,
                                 active_procs_count, coi_processes,
                                 &m_coi_buffer);
 

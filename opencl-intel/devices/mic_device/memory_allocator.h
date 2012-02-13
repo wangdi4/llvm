@@ -38,6 +38,7 @@
 #include <common/COITypes_common.h>
 
 #include "cl_synch_objects.h"
+#include "mic_config.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -144,6 +145,7 @@ public:
     // singleton
     static MemoryAllocator* getMemoryAllocator( cl_int devId,
                                                 IOCLDevLogDescriptor *pLogDesc,
+                                                MICDeviceConfig *config,
                                                 unsigned long long maxBufferAllocSize );
 
     // delete singleton if required
@@ -164,6 +166,8 @@ public:
     static size_t CalculateOffset(cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
     static SMemMapParamsList* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParamsList*)pMapParams->map_handle; };
 
+    bool Use_2M_Pages( size_t size ) const { return (m_2M_BufferMinSize > 0) && (size >= m_2M_BufferMinSize); };
+
 private:
     friend class MICDevMemoryObject;
 
@@ -175,10 +179,13 @@ private:
     IOCLDevLogDescriptor*    m_pLogDescriptor;
     cl_int                   m_iLogHandle;
 
+	MICDeviceConfig* 		 m_config;
     size_t                   m_maxAllocSize;
 
+    size_t                   m_2M_BufferMinSize;
+
     // singleton
-    MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
+    MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, MICDeviceConfig *config, unsigned long long maxAllocSize );
     virtual ~MemoryAllocator();
 
     static OclMutex          m_instance_guard;

@@ -21,13 +21,16 @@ using namespace Intel::OpenCL::MICDevice;
 
 using namespace Intel::OpenCL::Utils;
 
-void HostTracer::draw_host_to_file()
+void HostTracer::draw_host_to_file(MICDeviceConfig* config)
 {
+	assert(config);
 	if (m_cmdTracerDataArr.size() > 0)
 	{
 		stringstream headerStrStream(stringstream::in | stringstream::out);
-		prepare_header_host(headerStrStream);
+		prepare_header_host(headerStrStream, config);
+		pthread_mutex_lock(&m_mutex);
 		draw_to_file((CommandTracer::COMMAND_DATA**)(&m_cmdTracerDataArr[0]), m_cmdTracerDataArr.size(), headerStrStream, "tracer_host.txt");
+		pthread_mutex_unlock(&m_mutex);
 	}
 }
 
@@ -57,12 +60,20 @@ void HostTracer::draw_device_to_file(void* cmdTracers, size_t sizeInBytes, unsig
 void HostTracer::draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t size, stringstream& headerStrStream, const char* fileName)
 {
 	// Get current process name
-	void* mainAppImage = dlopen(NULL, RTLD_LAZY);
-	void* mainFunc = dlsym(mainAppImage, "main");
-	Dl_info info;
-	dladdr(mainFunc, &info);
-	char* processName = basename((char*)info.dli_fname);
-	dlclose(mainAppImage);
+	char* processName = NULL;
+	char unknowProcessName [] = "UNKNOW_PROCESS_NAME";
+	char processPath[MAX_PATH];
+	ssize_t bytesWritten = 0;
+	bytesWritten = readlink("/proc/self/exe", processPath, MAX_PATH);
+	if ((bytesWritten > 0) && (bytesWritten < MAX_PATH))
+	{
+		processPath[bytesWritten] = 0;
+		processName = basename(processPath);
+	}
+	else
+	{
+		processName = unknowProcessName;
+	}
 
 	string processNameStr;
 
@@ -131,7 +142,7 @@ void HostTracer::draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t s
 	fStream.close();
 }
 
-void HostTracer::prepare_header_host(stringstream& headerStrStream)
+void HostTracer::prepare_header_host(stringstream& headerStrStream, MICDeviceConfig* config)
 {
 	if (0 == m_cmdTracerDataArr.size())
 	{
@@ -142,7 +153,7 @@ void HostTracer::prepare_header_host(stringstream& headerStrStream)
 	char b[64];
 	snprintf(b, 64, "%d", getpid() );
 	headerStrStream << "{PID" << endl << "\t" << b << endl << "PID}" << endl;
-	headerStrStream << "{FREQUENCY" << endl << "\t" << (MaxClockFrequency() * 1000000) << endl << "FREQUENCY}" << endl;
+	headerStrStream << "{FREQUENCY" << endl << "\t" << MaxClockFrequency() << endl << "FREQUENCY}" << endl;
 	headerStrStream << "{COUNTERS" << endl;
 	char* lastName = m_cmdTracerDataArr[0]->m_valuesArr[0].name;
 	unsigned int counter = 1;
@@ -163,6 +174,14 @@ void HostTracer::prepare_header_host(stringstream& headerStrStream)
 		headerStrStream << "\t" << lastName << "[" << counter << "];" << endl;
 	}
 	headerStrStream << "COUNTERS}" << endl;
+	headerStrStream << "{CONFIGURATION" << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_USE_AFFINITY" << "\t" << ((config->Device_UseAffinity() == true) ? "TRUE" : "FALSE") << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_NUM_WORKERS" << "\t" << config->Device_NumWorkers() << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0" << "\t" << ((config->Device_IgnoreCore0() == true) ? "TRUE" : "FALSE") << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE" << "\t" << ((config->Device_IgnoreLastCore() == true) ? "TRUE" : "FALSE") << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB" << "\t" << config->Device_2MB_BufferMinSizeInMB() << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE" << "\t" << config->Device_TbbGrainSize() << endl;
+	headerStrStream << "CONFIGURATION}" << endl;
 	headerStrStream << "End header" << endl;
 }
 

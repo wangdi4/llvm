@@ -36,7 +36,7 @@ m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceC
 
 CommandList::~CommandList()
 {
-    assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
+//    assert(m_refCounter == 0 && "Deleting CommandList while reference counter is larger than 0");
 	if ((gSafeReleaseOfCoiObjects) && (m_pipe))
 	{
 		cl_dev_err_code err = CL_DEV_SUCCESS;

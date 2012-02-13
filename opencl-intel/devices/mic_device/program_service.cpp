@@ -138,9 +138,6 @@ void MICBackendOptions::init( bool bUseVectorizer, bool bUseVtune )
 }
 
 // ICLDevBackendOptions interface
-// BUGBUG: DK remove this!
-#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION 1000
-#define CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE 1000
 
 bool MICBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
 {
@@ -154,7 +151,7 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
             return !m_bUseVectorizer ? TRANSPOSE_SIZE_1 : defaultValue;
 
-        case CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION_SIZE:
+        case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
             {
                 int size = getTargetDescriptionSize();
                 return (size <= 0) ? defaultValue : size;
@@ -179,7 +176,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
 
 bool MICBackendOptions::GetValue( int optionId, void* Value, size_t* pSize) const
 {
-    if ((CL_DEV_BACKEND_OPTION_TARGET_DESCRIPTION == optionId) && Value && pSize && (*pSize > 0) )
+    if ((CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB == optionId) && Value && pSize && (*pSize > 0) )
     {
         return getTargetDescription( Value, pSize );
     }
