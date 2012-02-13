@@ -125,9 +125,20 @@ bool clOutOfOrderTest()
     iRet = clEnqueueBarrier(queue1);
 	bResult &= Check(L"clEnqueueBarrier", CL_SUCCESS, iRet);	
 
-    // Read content and print
-    iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE, 0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
+    // Read content and print    
+    cl_event readBufferEvent;
+    iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_FALSE, 0, size*BUFFERS_LENGTH, dst, 0, NULL, &readBufferEvent);
     bResult &= Check(L"clEnqueueReadBuffer - dst", CL_SUCCESS, iRet);
+
+    cl_event markerEvent;
+    iRet = clEnqueueMarkerWithWaitList(queue1, 1, &readBufferEvent, &markerEvent);
+    bResult &= Check(L"clEnqueueMarkerWithWaitList", CL_SUCCESS, iRet);
+
+    iRet = clWaitForEvents(1, &markerEvent);
+    bResult &= Check(L"clWaitForEvents", CL_SUCCESS, iRet);
+
+    clReleaseEvent(readBufferEvent);
+    clReleaseEvent(markerEvent);
 
     //Print output
     printf("********** Output: \n");

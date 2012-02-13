@@ -64,7 +64,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
 		 return CL_OUT_OF_RESOURCES;
 	 }
 
-     Command* pDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch);
+     Command* pDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch, 0);
      if (NULL == pDepOnAll)
      {
          return CL_OUT_OF_HOST_MEMORY;
@@ -127,29 +127,39 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 	return CL_SUCCESS;
 }
 
-cl_err_code OutOfOrderCommandQueue::EnqueueBarrier(Command* cmd)
-{		
-    cl_err_code ret = CL_SUCCESS;
-	OclEvent* cmdEvent = cmd->GetEvent();
-	// Prevent barrier from firing until we're done enqueuing it to avoid races
-	cmdEvent->AddFloatingDependence();
-	cmdEvent->SetColor(EVENT_STATE_RED);
-	m_lastBarrier.exchange(cmd);
-	ret = AddDependentOnAll(cmd);		
-	cmdEvent->RemoveFloatingDependence();
-	return ret;
+cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
+{
+    OclEvent& cmdEvent = *marker->GetEvent();
+    if (!marker->IsDependentOnEvents())
+    {
+        // Prevent marker from firing until we're done enqueuing it to avoid races
+        cmdEvent.AddFloatingDependence();
+        cmdEvent.SetColor(EVENT_STATE_RED);
+        const cl_err_code ret = AddDependentOnAll(marker);
+        cmdEvent.RemoveFloatingDependence();
+        return ret;
+    }
+    cmdEvent.AddFloatingDependence();
+    cmdEvent.SetColor(EVENT_STATE_RED);
+    m_depOnAll->GetEvent()->AddDependentOn(&cmdEvent);
+    cmdEvent.RemoveFloatingDependence();
+    return CL_SUCCESS;
 }
 
-cl_err_code OutOfOrderCommandQueue::EnqueueMarker(Command* cmd)
+cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
 {
-    cl_err_code ret = CL_SUCCESS;
-	OclEvent* cmdEvent = cmd->GetEvent();
-	// Prevent marker from firing until we're done enqueuing it to avoid races
-    cmdEvent->AddFloatingDependence();
-	cmdEvent->SetColor(EVENT_STATE_RED);
-	ret = AddDependentOnAll(cmd);		
-	cmdEvent->RemoveFloatingDependence();
-	return ret;
+    OclEvent& cmdEvent = *barrier->GetEvent();
+    if (!barrier->IsDependentOnEvents())
+    {
+        // Prevent barrier from firing until we're done enqueuing it to avoid races
+        cmdEvent.AddFloatingDependence();
+        cmdEvent.SetColor(EVENT_STATE_RED);
+        m_lastBarrier.exchange(barrier);
+        const cl_err_code ret = AddDependentOnAll(barrier);		
+        cmdEvent.RemoveFloatingDependence();
+        return ret;
+    }
+    return EnqueueWaitForEvents(barrier);
 }
 
 cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
@@ -209,7 +219,7 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEv
 cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {
     assert(NULL != cmd);
-	Command* pNewDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch);
+	Command* pNewDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch, 0);
     if (NULL == pNewDepOnAll)
     {
         return CL_OUT_OF_HOST_MEMORY;

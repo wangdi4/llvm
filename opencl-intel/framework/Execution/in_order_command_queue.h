@@ -65,9 +65,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~InOrderCommandQueue();
 
 		virtual cl_err_code Enqueue(Command* cmd);
-		virtual cl_err_code EnqueueBarrier(Command* cmd)       {return EnqueueMarker(cmd);}
-		virtual cl_err_code EnqueueMarker(Command* cmd);
 		virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
+        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) { return Enqueue(marker); }
+        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) { return Enqueue(barrier); }
 
 		virtual cl_err_code Flush(bool bBlocking);
 		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor);

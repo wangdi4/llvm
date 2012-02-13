@@ -134,6 +134,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code	PrefixExecute()  { return CL_SUCCESS; }
 		virtual cl_err_code	PostfixExecute() { return CL_SUCCESS; }
 
+        // Returns whether this command has been created dependent on events that need to complete before it can be executed
+        virtual bool IsDependentOnEvents() const { return false; }
+
         // Debug functions
         virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
         
@@ -1025,7 +1028,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class RuntimeCommand : public Command
     {
     public:
-        RuntimeCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
+		RuntimeCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints,
+            bool bIsDependentOnEvents = false) : Command(cmdQueue, pOclEntryPoints),
+            m_bIsDependentOnEvents(bIsDependentOnEvents) {}
         virtual ~RuntimeCommand()                               {}
         virtual cl_err_code             Init()                  { return CL_SUCCESS; }
         virtual cl_err_code             Execute();
@@ -1034,6 +1039,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
         virtual const char*             GetCommandName() const  { return "CL_COMMAND_RUNTIME"; }
         virtual bool isControlCommand() const { return true; }
+        virtual bool IsDependentOnEvents() const { return m_bIsDependentOnEvents; }
+
+    private:
+
+        const bool m_bIsDependentOnEvents;
     };
     
     /******************************************************************
@@ -1043,7 +1053,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        MarkerCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : RuntimeCommand(cmdQueue, pOclEntryPoints) {}
+        MarkerCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
         virtual ~MarkerCommand() {}
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_MARKER;  }
@@ -1057,7 +1068,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        WaitForEventsCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : RuntimeCommand(cmdQueue, pOclEntryPoints) {}
+        WaitForEventsCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
         virtual ~WaitForEventsCommand() {}
         
         cl_command_type GetCommandType() const  { return CL_COMMAND_WAIT_FOR_EVENTS; }
@@ -1072,7 +1084,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        BarrierCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : RuntimeCommand(cmdQueue, pOclEntryPoints) {}
+        BarrierCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
         virtual ~BarrierCommand() {}
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }

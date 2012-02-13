@@ -1175,6 +1175,24 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
 }
 SET_ALIAS(clGetKernelArgInfo);
 
+cl_int CL_API_CALL clEnqueueMarkerWithWaitList(cl_command_queue command_queue,
+                                               cl_uint num_events_in_wait_list,
+                                               const cl_event *event_wait_list,
+                                               cl_event *event)
+{
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueMarkerWithWaitList);
+
+cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
+                                                cl_uint num_events_in_wait_list,
+                                                const cl_event *event_wait_list,
+                                                cl_event *event)
+{
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueBarrierWithWaitList);
+
 // the following functions are not implemented yet:
 
 cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
@@ -1188,15 +1206,6 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
     return CL_INVALID_OPERATION;
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
-
-cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
-                                                cl_uint num_events_in_wait_list,
-                                                const cl_event *event_wait_list,
-                                                cl_event *event)
-{
-    return CL_INVALID_OPERATION;
-}
-SET_ALIAS(clEnqueueBarrierWithWaitList);
 
 cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     cl_uint num_devices,
@@ -1226,11 +1235,3 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
 }
 SET_ALIAS(clLinkProgram);
 
-cl_int CL_API_CALL clEnqueueMarkerWithWaitList(cl_command_queue command_queue,
-                                               cl_uint num_events_in_wait_list,
-                                               const cl_event *event_wait_list,
-                                               cl_event *event)
-{
-    return CL_INVALID_HANDLE;
-}
-SET_ALIAS(clEnqueueMarkerWithWaitList);

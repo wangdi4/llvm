@@ -393,6 +393,88 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 	return bres ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
+/**
+ * @fn cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+ */
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+{
+    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);    
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
+
+    MarkerCommand* const pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch,
+        uiNumEvents > 0);
+    if (NULL == pMarkerCommand)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    cl_err_code err = pMarkerCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete pMarkerCommand;
+        return err;
+    }
+
+    QueueEvent& markerEvent = *pMarkerCommand->GetEvent();
+    m_pEventsManager->RegisterQueueEvent(&markerEvent, pEvent);
+    err = pCommandQueue->EnqueueMarkerWaitEvents(pMarkerCommand, uiNumEvents, pEventList);
+    if (CL_FAILED(err))
+    {
+        m_pEventsManager->ReleaseEvent(markerEvent.GetHandle());
+        pMarkerCommand->CommandDone();
+        delete pMarkerCommand;
+    }
+    return err;
+}
+
+/**
+ * @fn cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+ */
+cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+{
+    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
+    
+    BarrierCommand* const pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch,
+        uiNumEvents > 0);
+    if (NULL == pBarrierCommand)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    cl_err_code err = pBarrierCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete pBarrierCommand;
+        return err;
+    }
+
+    QueueEvent& barrierEvent = *pBarrierCommand->GetEvent();
+    m_pEventsManager->RegisterQueueEvent(&barrierEvent, pEvent);
+    err = pCommandQueue->EnqueueBarrierWaitEvents(pBarrierCommand, uiNumEvents, pEventList);
+    if (CL_FAILED(err))
+    {
+        m_pEventsManager->ReleaseEvent(barrierEvent.GetHandle());
+        pBarrierCommand->CommandDone();
+        delete pBarrierCommand;
+    }
+    return err;
+}
+
 /******************************************************************
  * 
  ******************************************************************/
@@ -411,7 +493,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	}
 
 	// Create Command
-	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch, 0);
 	if (NULL == pMarkerCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -427,7 +509,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	QueueEvent* pMarkerEvent = pMarkerCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
 
-	errVal = pCommandQueue->EnqueueMarker(pMarkerCommand);
+	errVal = pCommandQueue->EnqueueMarkerWaitForEvents(pMarkerCommand);
 	if(CL_FAILED(errVal))
 	{
 		m_pEventsManager->ReleaseEvent(pMarkerEvent->GetHandle());
@@ -457,7 +539,8 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 	
-	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch,
+        uiNumEvents > 0);
 	if (NULL == pWaitForEventsCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -494,7 +577,7 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	}
 
 	// Create Command
-	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch);
+	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch, 0);
 	if (NULL == pBarrierCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -510,7 +593,7 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	QueueEvent* pBarrierEvent = pBarrierCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
 
-	errVal = pCommandQueue->EnqueueBarrier(pBarrierCommand);
+	errVal = pCommandQueue->EnqueueBarrierWaitForEvents(pBarrierCommand);
 	if(CL_FAILED(errVal))
 	{
 		m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());

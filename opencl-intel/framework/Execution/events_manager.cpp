@@ -168,11 +168,16 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 
     // Wait on all events. Order doesn't matter since you always bonded to the longest event.
     // OclEvent wait on event that is done do nothing    
+    cl_err_code err = CL_SUCCESS;
     for ( cl_uint ui = 0 ; ui < uiNumEvents; ui++)
     {
         vOclEvents[ui]->Wait();
+        if (vOclEvents[ui]->GetReturnCode() < 0)
+        {
+            err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+        }
     }
-	cl_return CL_SUCCESS;
+	cl_return err;
 }
 
 /******************************************************************
@@ -356,7 +361,7 @@ cl_err_code EventsManager::SetEventCallBack(cl_event evt, cl_int execType, Intel
 	{
 		return CL_INVALID_VALUE;
 	}
-	if (execType != CL_COMPLETE)
+	if (execType != CL_SUBMITTED && execType != CL_RUNNING && execType != CL_COMPLETE)
 	{
 		return CL_INVALID_VALUE;
 	}

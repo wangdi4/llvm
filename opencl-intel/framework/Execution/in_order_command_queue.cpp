@@ -69,13 +69,6 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::EnqueueMarker(Command* cmd)
-{
-	//marker-ness guaranteed implicitly by the queue being in-order
-    Enqueue(cmd);
-	return CL_SUCCESS;
-}
-
 cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 {
 	SendCommandsToDevice();

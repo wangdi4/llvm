@@ -132,11 +132,23 @@ bool immediateExecutionTest()
     //
     // Execute commands - Write buffers
     //
-    iRet = clEnqueueWriteBuffer (queue1, buffer_src, false, 0, size* IMMEDIATE_EXECUTION_GLOBAL_SIZE, src, 0, NULL, NULL);
+    cl_event writeBufferEvent, markerEvent1, markerEvent2;
+    iRet = clEnqueueWriteBuffer (queue1, buffer_src, false, 0, size* IMMEDIATE_EXECUTION_GLOBAL_SIZE, src, 0, NULL, &writeBufferEvent);
     bResult &= SilentCheck(L"clEnqueueWriteBuffer - src", CL_SUCCESS, iRet);
 
-    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* IMMEDIATE_EXECUTION_GLOBAL_SIZE, dst, 0, NULL, NULL);
+    iRet = clEnqueueMarkerWithWaitList(queue1, 1, &writeBufferEvent, &markerEvent1);
+    bResult &= SilentCheck(L"clEnqueueMarkerWithWaitList - with wait list", CL_SUCCESS, iRet);
+
+    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* IMMEDIATE_EXECUTION_GLOBAL_SIZE, dst, 1, &markerEvent1, NULL);
     bResult &= SilentCheck(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
+
+    iRet = clEnqueueMarkerWithWaitList(queue1, 0, NULL, &markerEvent2);
+    bResult &= SilentCheck(L"clEnqueueMarkerWithWaitList - wait for all", CL_SUCCESS, iRet);
+
+    clReleaseEvent(writeBufferEvent);
+    clReleaseEvent(markerEvent1);
+    clReleaseEvent(markerEvent2);
+
     //
     // Execute kernel
     //
@@ -146,6 +158,9 @@ bool immediateExecutionTest()
     cl_event evt;
     iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &evt);
     bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+
+    iRet = clEnqueueBarrierWithWaitList(queue1, 1, &evt, NULL);
+    bResult &= SilentCheck(L"clEnqueueBarrierWithWaitList", CL_SUCCESS, iRet);
 
     cl_uint command_status; 
     iRet = clGetEventInfo(evt, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_uint), &command_status, NULL);

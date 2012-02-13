@@ -111,26 +111,44 @@ cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
     return cmd->Execute();
 }
 
-cl_err_code ImmediateCommandQueue::EnqueueMarker(Command* cmd)
+/**
+ * @fn cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
+ */
+cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
 {
-    cl_err_code ret; 
-    if (m_bProfilingEnabled)
+    if (marker->IsDependentOnEvents())
     {
-        cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-    }
-    if (!m_bOutOfOrderEnabled)
-    {
-        //Must block while commands are executed
-        m_CS.Lock();
-        ret = Enqueue(cmd);
-        m_CS.Unlock();
+        Enqueue(marker);
     }
     else
     {
-        ret = Enqueue(cmd);
+        cl_err_code ret; 
+        if (m_bProfilingEnabled)
+        {
+            marker->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+        }
+        if (!m_bOutOfOrderEnabled)
+        {
+            //Must block while commands are executed
+            m_CS.Lock();
+            ret = Enqueue(marker);
+            m_CS.Unlock();
+        }
+        else
+        {
+            ret = Enqueue(marker);
+        }
+        return ret;
     }
+    return CL_SUCCESS;
+}
 
-	return ret;
+/**
+ * @fn cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
+ */
+cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
+{
+    return EnqueueMarkerWaitForEvents(barrier);
 }
 
 cl_err_code ImmediateCommandQueue::Flush(bool bBlocking)
