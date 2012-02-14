@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 {
 	bool var_bool = true;

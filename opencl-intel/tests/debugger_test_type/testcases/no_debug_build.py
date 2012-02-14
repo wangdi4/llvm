@@ -29,4 +29,4 @@ class NoDebugBuild(DebuggerTestCase):
         self.client.start_session(0, 0, 0)
         
         bp = (self.CLNAME, 4)
-        self.client.debug_run_finish([bp])
+        self.client.debug_run_finish([bp], timeout=25)

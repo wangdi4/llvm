@@ -20,7 +20,7 @@ class TestVariableTypes(DebuggerTestCase):
     GLOBAL_VARAIBLE_AMOUNT = 1
     FUNCTION_VARAIBLE_AMOUNT = 7
     # these "defines" are for test_all_variable_types_are_available2
-    LAST_ROW = 141
+    LAST_ROW = 144
 
     def test_all_variable_types_are_available(self):
     #
@@ -36,11 +36,8 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in if block before while block
         bp = (self.CLNAME, self.IF_BLOCK_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.MAIN_VARAIBLE_AMOUNT + 
-            self.BLOCK_VARAIBLE_AMOUNT + self.GLOBAL_VARAIBLE_AMOUNT)
         # check if variables
         self.assertEqual(self.client.var_query_value('gb'), '1')
-        self.assertEqual(self.client.var_query_value('lb'), '2')
         self.assertEqual(self.client.var_query_value('pb'), '3')
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '5')
@@ -48,7 +45,6 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('globalInt'), '1')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
-        self.assertEqual(self.client.var_query_value('l'), '2')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
@@ -58,26 +54,20 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in while block before function call
         bp = (self.CLNAME, self.WHILE_BLOCK_ROW_BEFORE_FUNCTION)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.MAIN_VARAIBLE_AMOUNT + 
-            self.BLOCK_VARAIBLE_AMOUNT + self.SECOND_BLOCK_VARAIBLE_AMOUNT 
-            + self.GLOBAL_VARAIBLE_AMOUNT)
         # check while block variables
         self.assertEqual(self.client.var_query_value('gb2'), '1')
-        self.assertEqual(self.client.var_query_value('lb2'), '2')
         self.assertEqual(self.client.var_query_value('pb2'), '3')
         self.assertEqual(self.client.var_query_value('vb2'), '4')
         self.assertEqual(self.client.var_query_value('ab2'), '5')
         self.assertEqual(self.client.var_query_value('rb2'), '6789')
         # check if block variables
         self.assertEqual(self.client.var_query_value('gb'), '1')
-        self.assertEqual(self.client.var_query_value('lb'), '2')
         self.assertEqual(self.client.var_query_value('pb'), '3')
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '6')
         self.assertEqual(self.client.var_query_value('rb'), '678')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
-        self.assertEqual(self.client.var_query_value('l'), '2')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
@@ -87,10 +77,8 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in function called from while block 
         bp = (self.CLNAME, self.FUNCTION_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.FUNCTION_VARAIBLE_AMOUNT  + self.GLOBAL_VARAIBLE_AMOUNT)
         # check function variables
         self.assertEqual(self.client.var_query_value('gf'), '1')
-        self.assertEqual(self.client.var_query_value('lf'), '2')
         self.assertEqual(self.client.var_query_value('pf'), '3')
         self.assertEqual(self.client.var_query_value('pff'), '3')
         self.assertEqual(self.client.var_query_value('vf'), '4')
@@ -102,26 +90,20 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in while block after function call
         bp = (self.CLNAME, self.WHILE_BLOCK_ROW_AFTER_FUNCTION)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.MAIN_VARAIBLE_AMOUNT + 
-            self.BLOCK_VARAIBLE_AMOUNT + self.SECOND_BLOCK_VARAIBLE_AMOUNT 
-            + self.GLOBAL_VARAIBLE_AMOUNT)
         # check while block variables
         self.assertEqual(self.client.var_query_value('gb2'), '1')
-        self.assertEqual(self.client.var_query_value('lb2'), '2')
         self.assertEqual(self.client.var_query_value('pb2'), '3')
         self.assertEqual(self.client.var_query_value('vb2'), '4')
         self.assertEqual(self.client.var_query_value('ab2'), '5')
         self.assertEqual(self.client.var_query_value('rb2'), '6789')
         # check if block variables
         self.assertEqual(self.client.var_query_value('gb'), '1')
-        self.assertEqual(self.client.var_query_value('lb'), '2')
         self.assertEqual(self.client.var_query_value('pb'), '3')
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '6')
         self.assertEqual(self.client.var_query_value('rb'), '678')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
-        self.assertEqual(self.client.var_query_value('l'), '2')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
@@ -131,11 +113,8 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in if block after while block
         bp = (self.CLNAME, self.IF_BLOCK_ROW2)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.MAIN_VARAIBLE_AMOUNT + 
-            self.BLOCK_VARAIBLE_AMOUNT + self.GLOBAL_VARAIBLE_AMOUNT)
         # check if variables
         self.assertEqual(self.client.var_query_value('gb'), '1')
-        self.assertEqual(self.client.var_query_value('lb'), '2')
         self.assertEqual(self.client.var_query_value('pb'), '3')
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '6')
@@ -143,7 +122,6 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('globalInt'), '1')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
-        self.assertEqual(self.client.var_query_value('l'), '2')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
@@ -153,10 +131,8 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in function 
         bp = (self.CLNAME, self.FUNCTION_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.FUNCTION_VARAIBLE_AMOUNT  + self.GLOBAL_VARAIBLE_AMOUNT)
         # check function variables
         self.assertEqual(self.client.var_query_value('gf'), '1')
-        self.assertEqual(self.client.var_query_value('lf'), '2')
         self.assertEqual(self.client.var_query_value('pf'), '3')
         self.assertEqual(self.client.var_query_value('pff'), '3')
         self.assertEqual(self.client.var_query_value('vf'), '4')
@@ -168,10 +144,8 @@ class TestVariableTypes(DebuggerTestCase):
         # check variables values in main
         bp = (self.CLNAME, self.MAIN_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        self.assertEqual(len(self.client.var_list()), self.MAIN_VARAIBLE_AMOUNT  + self.GLOBAL_VARAIBLE_AMOUNT)
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
-        self.assertEqual(self.client.var_query_value('l'), '2')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')

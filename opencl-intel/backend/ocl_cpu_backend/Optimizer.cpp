@@ -248,8 +248,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy entroduced by those passes
-  m_modulePasses.add(llvm::createInstructionCombiningPass());
-  m_modulePasses.add(llvm::createGVNPass());
+  if (! isDBG ) {
+    m_modulePasses.add(llvm::createInstructionCombiningPass());
+    m_modulePasses.add(llvm::createGVNPass());
+  }
   
   if ( isDBG ) {
     // DebugInfo pass must run before Barrier pass!
@@ -262,7 +264,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   if( pConfig->GetRelaxedMath() ) {
-      m_modulePasses.add(createRelaxedPass());
+    m_modulePasses.add(createRelaxedPass());
   }
 
   m_modulePasses.add(createInstToFuncCallPass());

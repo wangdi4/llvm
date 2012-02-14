@@ -94,8 +94,8 @@ private:
     //
     void insertDbgDeclaraLocalCall(CallInst* call_instr, const FunctionContext& fContext);
 
-    // Extract the subprogram descriptor metadata for the function from the
-    // global llvm.dbg.sp value. Return the address to its metadata.
+    // Extract the subprogram descriptor metadata for the function. Return
+    // the address to its metadata.
     //
     Value* extractSubprogramDescriptorMetadata(Function* pFunc);
 
@@ -131,6 +131,8 @@ private:
     LLVMContext* m_llvm_context;
     const Module* m_pRTModule;
 
+    DebugInfoFinder m_DbgInfoFinder;
+
     // Names of the debugging info builtins 
     //
     static const char* BUILTIN_DBG_DECLARE_LOCAL_NAME;
@@ -159,6 +161,12 @@ ModulePass* createDebugInfoPass(LLVMContext* llvm_context,
 bool DebugInfoPass::runOnModule(Module& M)
 {
     m_pModule = &M;
+
+    // Prime a DebugInfoFinder that can be queried about various bits of
+    // debug information in the module.
+    m_DbgInfoFinder = DebugInfoFinder();
+    m_DbgInfoFinder.processModule(M);
+
     addGlobalIdDeclaration();
     addDebugBuiltinDeclarations();
 
@@ -301,7 +309,7 @@ void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fCo
 
 void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionContext& fContext)
 {
-    // Try to find this function in llvm.dbg.sp
+    // Try to find this function in the debug information metadata.
     // If it's not there - it's not a function the user compiled, so we
     // don't instrument it.
     //
@@ -389,17 +397,17 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
 
 Value* DebugInfoPass::extractSubprogramDescriptorMetadata(Function* pFunc)
 {
-    NamedMDNode* mdnode_sp = m_pModule->getNamedMetadata("llvm.dbg.sp");
-    assert(mdnode_sp);
-
-    for (unsigned n = 0; n < mdnode_sp->getNumOperands(); ++n) {
-        MDNode* sp_mdn = mdnode_sp->getOperand(n);
+    for (DebugInfoFinder::iterator sp_i = m_DbgInfoFinder.subprogram_begin(),
+         sp_end = m_DbgInfoFinder.subprogram_end(); 
+         sp_i != sp_end; ++sp_i) {
+        MDNode* sp_mdn = *sp_i;
         DISubprogram subprogram_descriptor(sp_mdn);
 
         if (subprogram_descriptor.describes(pFunc)) {
             return makeAddressValueFromPointer(static_cast<void*>(sp_mdn));
         }
     }
+
     return 0;
 }
 
@@ -418,7 +426,7 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
     assert(enter_function_func);
 
     Value* subprogram_md_addr = extractSubprogramDescriptorMetadata(pFunc);
-    assert(subprogram_md_addr && "Did not find descriptor in llvm.dbg.sp");
+    assert(subprogram_md_addr && "Did not find subprogram descriptor");
     
     vector<Value*> params;
     params.push_back(subprogram_md_addr);
@@ -431,21 +439,16 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
 
 void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionContext& fContext)
 {
-    // Obtain the llvm.dbg.gv metadata that's supposed to exist in the module,
-    // listing all the global variables.
-    //
-    NamedMDNode* mdnode_gv = m_pModule->getNamedMetadata("llvm.dbg.gv");
-    if (!mdnode_gv)
-        return;
-
     Function* declare_global_func = m_pModule->getFunction(BUILTIN_DBG_DECLARE_GLOBAL_NAME);
     assert(declare_global_func);
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
 
-    // Generate the builtin call fro each global var listed in llvm.dbg.gv
+    // Generate the builtin call for each global var in the module
     //
-    for (unsigned n = 0; n < mdnode_gv->getNumOperands(); ++n) {
-        MDNode* gv_metadata = mdnode_gv->getOperand(n);
+    for (DebugInfoFinder::iterator gv_i = m_DbgInfoFinder.global_variable_begin(),
+         gv_end = m_DbgInfoFinder.global_variable_end();
+         gv_i != gv_end; ++gv_i) {
+        MDNode* gv_metadata = *gv_i;
 
         // Take the var address from the metadata as a Value, and bitcast it 
         // to i8*.
@@ -543,7 +546,7 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
     assert(exit_function_func);
 
     Value* subprogram_md_addr = extractSubprogramDescriptorMetadata(pFunc);
-    assert(subprogram_md_addr && "Did not find descriptor in llvm.dbg.sp");
+    assert(subprogram_md_addr && "Did not find subprogram descriptor");
 
     vector<Value*> params;
     params.push_back(subprogram_md_addr);

@@ -189,7 +189,7 @@ class ClientSimulator(object):
         """
         protocol.send_message(self.socket, message)
     
-    def get_message_from_server(self, timeout=0.5):
+    def get_message_from_server(self, timeout=8):
         """ Get a ServerToClientMessage from the server.
         
             Message receiving will always be done with a timeout, which is 
@@ -221,7 +221,7 @@ class ClientSimulator(object):
         self.sizeof_size_t = reply.start_session_ack_msg.sizeof_size_t
         debuginfo.set_sizeof_size_t(self.sizeof_size_t)
     
-    def debug_run(self, breakpoints, timeout=2):
+    def debug_run(self, breakpoints, timeout=10):
         """ Issue a RUN command to the server, with the given breakpoints - list
             of (cl_file_name, line_num) pairs. A timeout for receiving a reply
             can be specified optionally. For the first RUN sent, the timeout
@@ -238,7 +238,7 @@ class ClientSimulator(object):
         """
         self._send_run_message(breakpoints)
         if self.num_run_commands == 1:
-            timeout += 20
+            timeout += 40
         
         try:
             reply = self.get_message_from_server(timeout)
@@ -252,14 +252,14 @@ class ClientSimulator(object):
         self.last_stack_trace_info = None # irrelevant now
         return str(os.path.split(bp_info.file)[1]), bp_info.lineno
     
-    def debug_run_finish(self, breakpoints=[], timeout=2):
+    def debug_run_finish(self, breakpoints=[], timeout=10):
         """ Issue a RUN command to the server, with the given breakpoints. 
             Expects the subprocess to finish running with return code 0 (exit
             cleanly). Otherwise, raises SimulatorError.
         """
         self._send_run_message(breakpoints)
         if self.num_run_commands == 1:
-            timeout += 10
+            timeout += 40
         
         try:
             rc, stderr = timelimited(timeout, self.wait_for_debuggee_exit)
@@ -270,19 +270,19 @@ class ClientSimulator(object):
             raise SimulatorError('Server exited with rc = %s. Stderr: \n%s' % 
                     (rc, str(stderr)))
     
-    def debug_step_in(self, timeout=2):
+    def debug_step_in(self, timeout=10):
         """ Issue a SINGLE_STEP_IN command to the server. Return the file, line
             where execution stopped after the step.
         """
         return self._debug_step(ClientToServerMessage.SINGLE_STEP_IN, timeout)
     
-    def debug_step_over(self, timeout=2):
+    def debug_step_over(self, timeout=10):
         """ Issue a SINGLE_STEP_OVER command to the server. Return the file, line
             where execution stopped after the step.
         """
         return self._debug_step(ClientToServerMessage.SINGLE_STEP_OVER, timeout)
     
-    def debug_step_out(self, timeout=2):
+    def debug_step_out(self, timeout=10):
         """ Issue a SINGLE_STEP_OUT command to the server. Return the file, line
             where execution stopped after the step.
         """
@@ -384,7 +384,7 @@ class ClientSimulator(object):
         self.send_message_to_server(msg)
         self.num_run_commands += 1
     
-    def _debug_step(self, kind, timeout=2):
+    def _debug_step(self, kind, timeout=10):
         """ Issue a SINGLE_STEP_* command to the server. Return the file, line
             where execution stopped after the step.
             

@@ -16,7 +16,7 @@ class StartWithStep(DebuggerTestCase):
         
         # First send a SINGLE_STEP_IN
         # Increase timeout since this is the initial run
-        self.assertEqual(self.client.debug_step_in(timeout=15), (self.CLNAME, 9))
+        self.assertEqual(self.client.debug_step_in(timeout=45), (self.CLNAME, 9))
         
         # Now send a RUN
         bp = (self.CLNAME, 16)

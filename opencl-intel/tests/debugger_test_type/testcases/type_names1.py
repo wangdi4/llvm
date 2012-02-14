@@ -14,7 +14,7 @@ class TypeNames(DebuggerTestCase):
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
         
-        bps = [(self.CLNAME, 40)]
+        bps = [(self.CLNAME, 42)]
         
         file, line = self.client.debug_run(bps)
         self.assertEqual((file, line), bps[0])

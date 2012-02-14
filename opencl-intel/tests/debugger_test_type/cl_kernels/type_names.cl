@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 {
   // Typedef
@@ -33,7 +35,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
   char3 cc3 = (char3)('a', 'b', 'c');
   short16 ss16;
   
-  uint** ppuii = 0x80;
+  uint** ppuii;
   uint uuaa[3][4];
   uint auarr[4] = {90, 10, 30, 40};
   

@@ -8,7 +8,7 @@ class TestVariableTypesInSeveralKernels(DebuggerTestCase):
     CLNAME2 = 'several_kernels_no_global_variables.cl'
     CLNAME3 = 'several_kernels_only_argument_variables.cl'
     # these "defines" are for test_global_variable_several_kernels
-    INNER_KERNEL_ROW = 7
+    INNER_KERNEL_ROW = 6
     # these "defines" are for test_no_global_variable_several_kernels
     INNER_KERNEL_ROW2 = 6
     # these "defines" are for test_only_arguments_variables_several_kernels

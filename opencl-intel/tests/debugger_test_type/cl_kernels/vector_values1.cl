@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 {
     char2 cc2 = (char2)('a', 'b');
@@ -39,8 +41,6 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
     
     
     
-
-
 
     buf_out[0] = 0;
 }

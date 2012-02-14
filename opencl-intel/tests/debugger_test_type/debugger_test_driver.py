@@ -169,7 +169,7 @@ if __name__ == "__main__":
     #~ dlls_path = r'C:\work\1.5-gold\win32\__bin\bin.win32\Release'
     #~ dlls_path = r'C:\work\sdk-2012\win64debug\__bin\bin.win64\Debug'
     #~ dlls_path = r'C:\work\debugger_merge_sdk2013\install\win64\Debug\bin'
-    dlls_path = r'C:\work\trunk\install\win64\Release\bin'
+    #~ dlls_path = r'C:\work\trunk\install\win64\Release\bin'
     #~ dlls_path = r'C:\work\sdk-2012\win64\__bin\bin.win64\Release'
     
     # Add extra DLL path if needed

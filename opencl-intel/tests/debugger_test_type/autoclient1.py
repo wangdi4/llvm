@@ -99,6 +99,7 @@ def get_msg_from_server(sock):
 
 def main():
     try:
+        # This should *always* be in lowercase for Windows
         CLNAME = '/tmp/ebenders/debug_server_code_reorg/install/Linux64/Release/bin/validation/debugger_test_type/cl_kernels/vector_values1.cl'
         server_port = 56203
         sock = make_socket(server_port)

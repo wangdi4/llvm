@@ -310,10 +310,9 @@ static VarTypeDescriptor GenerateVarTypeTypedef(
 {
     VarTypeDescriptor descriptor;
 
-    if (!static_cast<MDNode*>(di_derived_from)) {
-        // Vectors are currently represented in Clang as derived typedef types but
-        // without the "derived from" information, only a name.
-        // So if the derived_from information is missing, this is a vector.
+    if (!static_cast<MDNode*>(di_derived_from) ||
+        di_derived_from.getTag() == dwarf::DW_TAG_vector_type) {
+        // A vector typedef
         //
         VarTypeVector vector_descriptor;
         vector_descriptor.set_name(di_type.getName());
