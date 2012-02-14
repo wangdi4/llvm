@@ -46,7 +46,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Program(Context * pContext, ocl_entry_points * pOclEntryPoints);
 
 		// return the context to which the program belongs
-		const Context * GetContext() const { return m_pContext; }
+		Context * GetContext() const { return m_pContext; }
 
 		// create new kernel object
 		virtual cl_err_code CreateKernel(const char * pscKernelName, Kernel ** ppKernel);
@@ -67,21 +67,64 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			void * pParamValue, 
 			size_t * pszParamValueSizeRet);
 
-		// build the program for the given set of devices
-		cl_err_code Build(cl_uint	uiNumDevices,
-			const cl_device_id *	pclDeviceList,
-			const char *			pcOptions,
-			pfnNotifyBuildDone      pfn,
-			void *					pUserData);
-
 		// Implement the common queries. Specific queries like binaries or source go to implementing classes
 		virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
+
+        // Returns a read only pointer to internal binary, used for build stages by program service
+        const char*     GetBinaryInternal(cl_device_id clDevice);
+
+        // Returns internal binary size, used for build stages by program service
+        size_t          GetBinarySizeInternal(cl_device_id clDevice);
+
+        // Sets the binary for a specific device, used for build stages by program service
+        cl_err_code     SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void* pBinary);
+
+        // Clears the current build log, called in the beginning of each build sequence
+		cl_err_code   ClearBuildLogInternal(cl_device_id clDevice);
+
+        // Set the program build log for a specific device, used for build stages by program service
+		cl_err_code   SetBuildLogInternal(cl_device_id clDevice, const char* szBuildLog);
+
+        // Returns a read only pointer to internal source, used for build stages by program service
+        virtual const char*     GetSourceInternal() { return NULL; };
+
+        // set the program's build options
+		// Creates a copy of the input
+		// Returns CL_SUCCESS if nothing unexpected happened
+        cl_err_code   SetBuildOptionsInternal(cl_device_id clDevice, const char* szBuildOptions);
+
+        // get the latest program's build options for a specific device
+        const char*   GetBuildOptionsInternal(cl_device_id clDevice);
+
+        // Set the program state
+        cl_err_code   SetStateInternal(cl_device_id clDevice, EDeviceProgramState state);
+
+        // Get the program state
+        EDeviceProgramState   GetStateInternal(cl_device_id clDevice);
+
+        // Sets device handle, used for build stages by program service
+        cl_err_code     SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_program programHandle);
+
+        // Get the number of associated devices
+        cl_uint         GetNumDevices();
+
+        // Fill in ppDeviceID with associated devices, assuming ppDeviceID has at least the number of cells returned from GetNumDevices
+        cl_err_code     GetDevices(cl_device_id* pDeviceID);
+
+        // Get the number of kernels
+        cl_uint         GetNumKernels();
+
+        // Returns true if the object can be safely worked on for the specified device and false otherwise
+		bool Acquire(cl_device_id clDevice);
+
+		// Notifies that we're done working with this object
+		void Unacquire(cl_device_id clDevice);
 
 	protected:
 		virtual ~Program();
 
-		DeviceProgram* GetDeviceProgram(cl_device_id clDeviceId);
-        DeviceProgram* InternalGetDeviceProgram(cl_device_id clDeviceId);
+		DeviceProgram*  GetDeviceProgram(cl_device_id clDeviceId);
+        DeviceProgram*  InternalGetDeviceProgram(cl_device_id clDeviceId);
 
 		Context*        m_pContext;
 		DeviceProgram** m_ppDevicePrograms;

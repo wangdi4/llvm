@@ -209,6 +209,8 @@ sizeof(Intel::OpenCL::CPUDevice::supportedImageFormats)/sizeof(cl_image_format);
 
 using namespace Intel::OpenCL::CPUDevice;
 
+const char* Intel::OpenCL::CPUDevice::BUILT_IN_KERNELS = "";
+
 const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 // We put it here, because just here all the required macros are defined.
@@ -1036,6 +1038,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_PRINTF_BUFFER_SIZE):
+        {
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(size_t*)paramVal = CPU_MAX_PRINTF_BUFFER_SIZE;
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_mem_cache_type);
@@ -1165,20 +1181,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_COMPILER_AVAILABLE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-                //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_bool*)paramVal = CL_TRUE;
-            }
-            return CL_DEV_SUCCESS;
-        }
         case( CL_DEVICE_HOST_UNIFIED_MEMORY):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
@@ -1294,6 +1296,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             return CL_DEV_SUCCESS;
 
         }
+        case( CL_DEVICE_BUILT_IN_KERNELS):
+        {
+            *pinternalRetunedValueSize = strlen(BUILT_IN_KERNELS) + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, valSize, BUILT_IN_KERNELS);
+            }
+            return CL_DEV_SUCCESS;
+        }
+        
 
         case CL_DEVICE_PARTITION_PROPERTIES:
             *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
@@ -1959,10 +1976,10 @@ clDevBuildProgram
     Call programService to build program
 **********************************************************************************************************************/
 
-cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData )
+cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevBuildProgram Function enter"));
-    return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, userData);
+    return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
 
 /*******************************************************************************************************************

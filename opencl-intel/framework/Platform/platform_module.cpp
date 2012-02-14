@@ -525,6 +525,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 	Device * pDevice = NULL;
 	cl_err_code clErrRet = CL_SUCCESS;
 	size_t szParamSize = 0;
+    cl_bool bBoolValue = CL_TRUE;
 	void * pValue = NULL;
 
 	switch(clParamName)
@@ -533,6 +534,12 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		szParamSize = sizeof(cl_platform_id);
 		pValue = &m_clPlatformId.object;
 		break;
+    case( CL_DEVICE_LINKER_AVAILABLE):
+    case( CL_DEVICE_COMPILER_AVAILABLE):
+        szParamSize = sizeof(cl_bool);
+        bBoolValue = CL_TRUE;
+        pValue = &bBoolValue;
+        break;
 	default:
 		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice, (OCLObject<_cl_device_id_int>**)(&pDevice));
 		if (CL_FAILED(clErrRet))
@@ -543,21 +550,22 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}
 
-	if (NULL != pszParamValueSizeRet)
-	{
-		*pszParamValueSizeRet = szParamSize;
-	}
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = szParamSize;
+    }
 
-	if (szParamValueSize < szParamSize)
-	{
-		LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
-		return CL_INVALID_VALUE;
-	}
+    if (NULL != pParamValue)
+    {
+        if (szParamValueSize < szParamSize)
+        {
+            LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
+            return CL_INVALID_VALUE;
+        }
 
-	if (NULL != pParamValue)
-	{
-		MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
-	}
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
+    }
+
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -34,7 +34,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class IFrontendBuildDoneObserver;
 	/**********************************************************************************************
 	* Class name:	FECompiler
 	*
@@ -76,20 +75,51 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void		FreeResources();
 
-		/******************************************************************************************
-		* Function: 	BuildProgram    
-		* Description:	Build source code and return binary data
-		* Arguments:	
+        /******************************************************************************************
+		* Function: 	CompileProgram    
+		* Description:	Compile source code and headers and return binary data
+		* Arguments:	szProgramSource - the main program source string
+        *               uiNumInputHeaders - the number of input headers in pszInputHeaders
+        *               pszInputHeaders - an array of input headers strings
+        *               pszInputHeadersNames - array of headers names corresponding to pszInputHeaders
+        *               szOptions - compile options string
+        * Output:       ppBinary - the compiled binary container
+        *               puiBinarySize - pBinary size in bytes
+        *               pszCompileLog - compile log string
 		* Return value:	CL_SUCCESS - The operation succeeded
-		* Author:		Uri Levy
-		* Date:			March 2008
+		* Author:		Sagi Shahar
+		* Date:			January 2012
 		******************************************************************************************/
-		cl_err_code	BuildProgram(	cl_device_id		devId,
-									cl_uint				uiStcStrCount,
-									const char **		ppcSrcStrArr,
-									size_t *			pszSrcStrLengths,
-									const char *		psOptions,
-									IFrontendBuildDoneObserver *	pBuildDoneObserver);
+		cl_err_code	CompileProgram(	const char*		    szProgramSource,
+                                    unsigned int        uiNumInputHeaders,
+                                    const char**        pszInputHeaders,
+                                    const char**        pszInputHeadersNames, 
+									const char *		szOptions,
+									OUT char**          ppBinary,
+                                    OUT size_t*         puiBinarySize,
+                                    OUT char**          pszCompileLog) const;
+
+        /******************************************************************************************
+		* Function: 	LinkProgram    
+		* Description:	Compile source code and return binary data
+		* Arguments:	ppBinaries - array of binary containers to be link together
+        *               uiNumInputBinaries - num containers in ppBinaries
+        *               puiBinariesSizes - sizes of the containers in ppBinaries
+        *               szOptions - link options string
+        * Output:       pBinary - the linked binary container
+        *               uiBinarySize - pBinary size in bytes
+        *               szCompileLog - link log string
+		* Return value:	CL_SUCCESS - The operation succeeded
+		* Author:		Sagi Shahar
+		* Date:			January 2012
+		******************************************************************************************/
+		cl_err_code	LinkProgram(	const void**		ppBinaries,
+                                    unsigned int        uiNumInputBinaries,
+                                    const size_t*       puiBinariesSizes,
+									const char *		szOptions,
+									OUT char**          ppBinary,
+                                    OUT size_t*         puiBinarySize,
+                                    OUT char**          pszLinkLog) const;
 
 		/******************************************************************************************
 		* Function: 	GetModuleName    

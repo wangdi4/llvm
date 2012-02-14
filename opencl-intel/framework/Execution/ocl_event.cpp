@@ -45,6 +45,12 @@ OclEvent::~OclEvent()
 void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
 {
     assert(!m_complete);
+
+    if (!pDependsOnEvent)
+    {
+        return;
+    }
+
 	//Must increase dependency list length before adding as listener
 	//The other event may have completed already, in which case our callback will be called immediately
 	//Which will decrease the depListLength.
@@ -156,6 +162,7 @@ void OclEvent::NotifyReady(OclEvent* pEvent)
 ******************************************************************/
 void OclEvent::Wait()
 {
+    AddPendency(NULL);
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
 	WaitSpin();
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_YIELD
@@ -165,6 +172,7 @@ void OclEvent::Wait()
 #else
 #error "Please define which wait method OclEvent should use. See ocl_event.h"
 #endif
+    RemovePendency(NULL);
 }
 
 void OclEvent::WaitSpin()

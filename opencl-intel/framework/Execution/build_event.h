@@ -35,7 +35,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class BuildEvent : public OclEvent
 	{
 	public:
-		BuildEvent( cl_context context );
+        BuildEvent(cl_context context);
 
 		cl_context  GetContextHandle() const { return m_context;    }
 		cl_int      GetReturnCode() const    { return m_returnCode; }

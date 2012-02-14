@@ -6,58 +6,83 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet, ocl_entry_points * pOclEntryPoints) : Program(pContext, pOclEntryPoints)
+ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet, ocl_entry_points * pOclEntryPoints) : Program(pContext, pOclEntryPoints), m_szSourceString(NULL)
 {
-	cl_int err = CL_SUCCESS;
+    if ((0 == uiNumStrings) || (NULL == pSources))
+    {
+        if (piRet)
+	    {
+		    *piRet = CL_INVALID_VALUE;
+	    }
+        return;
+    }
+
+    for ( unsigned int i = 0; i < uiNumStrings; ++i)
+    {
+        if (NULL == pSources[i])
+        {
+            if (piRet)
+	        {
+		        *piRet = CL_INVALID_VALUE;
+	        }
+            return;
+        }
+    }
 
 	FissionableDevice** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
 	m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
-	m_pSourceStrings = NULL;
-	m_pszStringLengths = NULL;
+
 	if (!m_ppDevicePrograms)
 	{
-		err = CL_OUT_OF_HOST_MEMORY;
+        if (piRet)
+	    {
+		    *piRet = CL_OUT_OF_HOST_MEMORY;
+	    }
+        return;
 	}
-	else
+
+	if (!CopySourceStrings(uiNumStrings, pSources, pszLengths))
 	{
-		if (!CopySourceStrings(uiNumStrings, pSources, pszLengths))
-		{
-			err = CL_OUT_OF_HOST_MEMORY;
-			delete[] m_ppDevicePrograms;
-			m_ppDevicePrograms = NULL;
-		}
-		else
-		{
-			for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-			{
-                m_ppDevicePrograms[i] = new DeviceProgram();
-                if (NULL == m_ppDevicePrograms[i])
-                {
-                    err = CL_OUT_OF_HOST_MEMORY;
-                    for (size_t j = 0; j < i; ++j)
-                    {
-                        delete m_ppDevicePrograms[j];
-                    }
-                    delete[] m_ppDevicePrograms;
-                    m_ppDevicePrograms = NULL;
-                    break;
-                }
-                else
-                {
-                    m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
-                    m_ppDevicePrograms[i]->SetHandle(GetHandle());
-                    m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-                    m_ppDevicePrograms[i]->SetSource(m_uiNumStrings, m_pszStringLengths, const_cast<const char**>(m_pSourceStrings));
-                }
-			}
-		}
+		delete[] m_ppDevicePrograms;
+		m_ppDevicePrograms = NULL;
+
+        if (piRet)
+	    {
+		    *piRet = CL_OUT_OF_HOST_MEMORY;
+	    }
+        return;
 	}
+
+	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+	{
+        m_ppDevicePrograms[i] = new DeviceProgram();
+        if (NULL == m_ppDevicePrograms[i])
+        {
+            for (size_t j = 0; j < i; ++j)
+            {
+                delete m_ppDevicePrograms[j];
+            }
+            delete[] m_ppDevicePrograms;
+            m_ppDevicePrograms = NULL;
+
+            if (piRet)
+	        {
+		        *piRet = CL_OUT_OF_HOST_MEMORY;
+	        }
+            return;
+        }
+
+        m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
+        m_ppDevicePrograms[i]->SetHandle(GetHandle());
+        m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
+        m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_SOURCE);
+	}
+
 
 	if (piRet)
 	{
-		*piRet = err;
+        *piRet = CL_SUCCESS;
 	}
-
 }
 
 ProgramWithSource::~ProgramWithSource()
@@ -72,16 +97,10 @@ ProgramWithSource::~ProgramWithSource()
 		m_ppDevicePrograms = NULL;
 	}
 
-	if (m_pSourceStrings)
+	if (m_szSourceString)
 	{
-		for (size_t i = 0; i < m_uiNumStrings; ++i)
-		{
-			delete[] m_pSourceStrings[i];
-		}
-		delete[] m_pSourceStrings;
-		delete[] m_pszStringLengths;
-		m_pSourceStrings   = NULL;
-		m_pszStringLengths = NULL;
+		delete[] m_szSourceString;
+		m_szSourceString   = NULL;
 	}
 }
 
@@ -90,56 +109,18 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 	LOG_DEBUG(TEXT("ProgramWithSource::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"), 
 		param_name, param_value_size, param_value, param_value_size_ret);
 
-	cl_err_code clErrRet = CL_SUCCESS;
 	if (NULL == param_value && NULL == param_value_size_ret)
 	{
 		return CL_INVALID_VALUE;
 	}
 	size_t szParamValueSize = 0;
 
-	size_t uiParam = 0;
 	switch ( (cl_program_info)param_name )
 	{
-	case CL_PROGRAM_BINARIES:
-		{
-			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
-			char ** pParamValue = static_cast<char **>(param_value);
-			// get  data
-			if (NULL != pParamValue)
-			{
-				if (param_value_size < szParamValueSize)
-				{
-					return CL_INVALID_VALUE;
-				}
-				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-				{
-					clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, &uiParam);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-					clErrRet = m_ppDevicePrograms[i]->GetBinary(uiParam, pParamValue[i], &uiParam);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-				}
-			}
-			// get  size
-			if (NULL != param_value_size_ret)
-			{
-				*param_value_size_ret = szParamValueSize;
-			}
-			return CL_SUCCESS;
-		}
-
 	case CL_PROGRAM_SOURCE:
 		{
-			szParamValueSize = 1;
-			for (cl_uint ui = 0; ui < m_uiNumStrings; ++ui)
-			{
-				szParamValueSize += m_pszStringLengths[ui];
-			}
+            // Note: according to spec section 5.4.5, the length returned should include the null terminator
+			szParamValueSize = strlen(m_szSourceString) + 1;
 
 			if (NULL != param_value)
 			{
@@ -147,14 +128,8 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 				{
 					return CL_INVALID_VALUE;
 				}
-				char* pSourceCode = static_cast<char *>(param_value);
-				MEMCPY_S(pSourceCode, m_pszStringLengths[0], m_pSourceStrings[0], m_pszStringLengths[0]);
-				for (cl_uint ui = 1; ui < m_uiNumStrings; ++ui)
-				{
-					MEMCPY_S(pSourceCode + m_pszStringLengths[ui-1], m_pszStringLengths[ui], m_pSourceStrings[ui], m_pszStringLengths[ui]);
-				}
-				// Note: according to spec section 5.4.5, the length returned should include the null terminator
-				pSourceCode[szParamValueSize - 1] = 0;
+
+				MEMCPY_S(param_value, szParamValueSize, m_szSourceString, szParamValueSize);
 			}
 			if (param_value_size_ret)
 			{
@@ -171,49 +146,45 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 
 bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths)
 {
-	m_uiNumStrings     = uiNumStrings;
-	m_pszStringLengths = new size_t[m_uiNumStrings];
-	if (NULL == m_pszStringLengths)
-	{
-		return false;
-	}
+    size_t uiTotalLength = 1;
+    size_t* puiStringLengths = new size_t[uiNumStrings];
+    if (!puiStringLengths)
+    {
+        return false;
+    }
 
-	for(cl_uint ui = 0; ui < m_uiNumStrings; ++ui)
+	for(cl_uint ui = 0; ui < uiNumStrings; ++ui)
 	{
 		if ( (NULL == pszLengths) || (0 == pszLengths[ui]) )
 		{
-			m_pszStringLengths[ui] = strlen(pSources[ui]);
+            puiStringLengths[ui] = strlen(pSources[ui]);
 		}
 		else
 		{
-			m_pszStringLengths[ui] = pszLengths[ui];
+            puiStringLengths[ui] = pszLengths[ui];
 		}
+
+        uiTotalLength += puiStringLengths[ui];
 	}
 
-	m_pSourceStrings = new char* [m_uiNumStrings];
+    m_szSourceString = new char[uiTotalLength];
+    if (!m_szSourceString)
+    {
+        delete[] puiStringLengths;
+        return false;
+    }
 
-	for (cl_uint ui = 0; ui < m_uiNumStrings; ++ui)
+    char* szSourceString = m_szSourceString;
+    MEMCPY_S(szSourceString, puiStringLengths[0], pSources[0], puiStringLengths[0]);
+
+	for (cl_uint ui = 1; ui < uiNumStrings; ++ui)
 	{
-		m_pSourceStrings[ui] = new char[m_pszStringLengths[ui] + 1];
-		if (NULL == m_pSourceStrings[ui])
-		{
-			// free all previous strings
-			for (cl_uint uj = 0; uj < ui; ++uj)
-			{
-				delete[] m_pSourceStrings[uj];
-			}
-			delete[] m_pSourceStrings;
-			m_pSourceStrings = NULL;
-			delete[] m_pszStringLengths;
-			m_pszStringLengths = NULL;
-			return false;
-		}
-		if (0 != m_pszStringLengths[ui])
-		{
-			MEMCPY_S(m_pSourceStrings[ui], m_pszStringLengths[ui], pSources[ui], m_pszStringLengths[ui]);
-		}
-		//NULL terminate regardless of length
-		m_pSourceStrings[ui][m_pszStringLengths[ui]] = 0; 
+        szSourceString += puiStringLengths[ui - 1];
+		MEMCPY_S(szSourceString, puiStringLengths[ui], pSources[ui], puiStringLengths[ui]);
 	}
+
+	m_szSourceString[uiTotalLength - 1] = '\0'; //uiTotalLength includes the NULL terminator
+
+    delete[] puiStringLengths;
 	return true;
 }

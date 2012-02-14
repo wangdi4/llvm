@@ -83,7 +83,7 @@ using namespace std;
 // Declare logger client
 DECLARE_LOGGER_CLIENT;
 
-OclMutex ClangFECompilerBuildTask::s_serializingMutex;
+OclMutex ClangFECompilerCompileTask::s_serializingMutex;
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
@@ -92,25 +92,6 @@ void LLVMErrorHandler(void *UserData, const std::string &Message) {
 
   // We cannot recover from llvm errors.
   exit(1);
-}
-
-// ClangFECompilerBuildTask calls implementation
-ClangFECompilerBuildTask::ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions)
-: m_pSource(pSources), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
-{
-}
-
-ClangFECompilerBuildTask::~ClangFECompilerBuildTask()
-{
-	if ( NULL != m_pOutIR )
-	{
-		delete []m_pOutIR;
-	}
-
-	if ( NULL != m_pLogString )
-	{
-		delete []m_pLogString;
-	}
 }
 
 // Tokenize a string into tokens separated by any char in 'delims'. 
@@ -206,7 +187,27 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
     return ret;
 }
 
-void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
+
+// ClangFECompilerCompileTask calls implementation
+ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions)
+: m_pProgDesc(pProgDesc), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+{
+}
+
+ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
+{
+	if ( NULL != m_pOutIR )
+	{
+		delete []m_pOutIR;
+	}
+
+	if ( NULL != m_pLogString )
+	{
+		delete []m_pLogString;
+	}
+}
+
+void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
 {
 	// Reset options
 	OptDebugInfo = false;
@@ -416,7 +417,7 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
   list.push_back("-cl-kernel-arg-info");
 }
 
-int ClangFECompilerBuildTask::Build()
+int ClangFECompilerCompileTask::Compile()
 {
 	LOG_INFO(TEXT("%s"), TEXT("enter"));
 
@@ -425,7 +426,7 @@ int ClangFECompilerBuildTask::Build()
 	ArgListType ArgList;
 	ArgListType IgnoredArgs;
 
-	PrepareArgumentList(ArgList, IgnoredArgs, m_pSource->pszOptions);
+	PrepareArgumentList(ArgList, IgnoredArgs, m_pProgDesc->pszOptions);
 
 	const char **argArray = new const char *[ArgList.size()];
 	ArgListType::iterator iter = ArgList.begin();
@@ -480,7 +481,7 @@ int ClangFECompilerBuildTask::Build()
 	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
 	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(
-        m_pSource->pInput, 
+        m_pProgDesc->pProgramSource, 
         m_source_filename);
 	Clang->SetInputBuffer(SB);
 
@@ -629,7 +630,7 @@ int ClangFECompilerBuildTask::Build()
 		memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
 		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
 		pHeader->container_type = CL_PROG_CNT_PRIVATE;
-		pHeader->description.bin_type = CL_PROG_BIN_LLVM;
+		pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
 		pHeader->description.bin_ver_major = 1;
 		pHeader->description.bin_ver_minor = 1;
 		// Fill options
@@ -651,3 +652,46 @@ int ClangFECompilerBuildTask::Build()
 	return CL_SUCCESS;
 }
 
+
+// ClangFECompilerLinkTask calls implementation
+ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc)
+: m_pProgDesc(pProgDesc), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+{
+}
+
+ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
+{
+    if ( NULL != m_pOutIR )
+	{
+		delete []m_pOutIR;
+	}
+
+	if ( NULL != m_pLogString )
+	{
+		delete []m_pLogString;
+	}
+}
+
+int ClangFECompilerLinkTask::Link()
+{
+    if (1 == m_pProgDesc->uiNumBinaries)
+    {
+        m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
+
+        m_pOutIR = new char[m_pProgDesc->puiBinariesSizes[0]];
+        if ( NULL == m_pOutIR )
+		{
+			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+            m_stOutIRSize = 0;
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+    
+        MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
+
+        cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+        pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+
+        return CL_SUCCESS;
+    }
+    return CL_SUCCESS;
+}

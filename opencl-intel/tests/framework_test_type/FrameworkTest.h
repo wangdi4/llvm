@@ -45,6 +45,7 @@ bool clGetDeviceInfoTest();
 bool clGetDeviceIDsTest();
 bool clBuildProgramWithSourceTest();
 bool clBuildProgramWithBinaryTest();
+bool clLinkProgramTest();
 bool clCreateKernelTest();
 bool clExecutionTest();
 bool clCreateBufferTest();

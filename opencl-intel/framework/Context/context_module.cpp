@@ -620,6 +620,101 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 	return CL_SUCCESS;
 }
 //////////////////////////////////////////////////////////////////////////
+// ContextModule::CompileProgram
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::CompileProgram(cl_program clProgram, 
+                                     cl_uint uiNumDevices, 
+                                     const cl_device_id * pclDeviceList, 
+                                     const char * pcOptions, 
+                                     cl_uint num_input_headers, 
+                                     const cl_program* pclInputHeaders, 
+                                     const char **header_include_names, 
+                                     void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), 
+                                     void * pUserData)
+{
+	LOG_INFO(TEXT("CompileProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, num_input_headers=%d, pclInputHeaders=%d, header_include_names=%d, pUserData=%d"), 
+		clProgram, uiNumDevices, pclDeviceList, pcOptions, num_input_headers, pclInputHeaders, header_include_names, pUserData);
+
+	// get program from programs map list
+	Program * pProgram = NULL;
+	cl_err_code clErrRet = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram, (OCLObject<_cl_program_int>**)&pProgram);
+	if (CL_FAILED(clErrRet) || NULL == pProgram)
+	{
+		LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+		return CL_INVALID_PROGRAM;
+	}
+
+    Context* pContext = pProgram->GetContext();
+    cl_int clErr = pContext->CompileProgram(clProgram, uiNumDevices, pclDeviceList, num_input_headers, pclInputHeaders, header_include_names, pcOptions, pfn_notify, pUserData);
+
+	return clErr;
+}
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::LinkProgram
+//////////////////////////////////////////////////////////////////////////
+cl_program ContextModule::LinkProgram(cl_context clContext, 
+                                      cl_uint uiNumDevices, 
+                                      const cl_device_id * pclDeviceList, 
+                                      const char * pcOptions, 
+                                      cl_uint uiNumInputPrograms, 
+                                      const cl_program* pclInputPrograms, 
+                                      void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), 
+                                      void * pUserData, 
+                                      cl_int *pErrcodeRet)
+{
+	LOG_INFO(TEXT("LinkProgram enter. clContext=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, uiNumInputPrograms=%d, pclInputPrograms=%d, pUserData=%d"), 
+		clContext, uiNumDevices, pclDeviceList, pcOptions, uiNumInputPrograms, pclInputPrograms, pUserData);
+
+    // get context from contexts map list
+	Context * pContext = NULL;
+    cl_err_code clErrRet = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+	if (CL_FAILED(clErrRet) || NULL == pContext)
+	{
+		LOG_ERROR(TEXT("context %d isn't valid context"), clContext);
+        if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+		}
+        return CL_INVALID_HANDLE;
+	}
+
+    Program *pProgram = NULL;
+    clErrRet = pContext->CreateProgramForLink(uiNumDevices, pclDeviceList, &pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	clErrRet = m_mapPrograms.AddObject((OCLObject<_cl_program_int>*)pProgram, false);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+    clErrRet = pContext->LinkProgram(pProgram->GetHandle(), uiNumDevices, pclDeviceList, uiNumInputPrograms, pclInputPrograms, pcOptions, pfn_notify, pUserData);
+    if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+    if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_SUCCESS;
+	}
+	return pProgram->GetHandle();
+}
+//////////////////////////////////////////////////////////////////////////
 // ContextModule::BuildProgram
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::BuildProgram(cl_program clProgram, 
@@ -629,8 +724,6 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 								   void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), 
 								   void * pUserData)
 {
-	//cl_start;
-
 	LOG_INFO(TEXT("BuildProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, pUserData=%d"), 
 		clProgram, uiNumDevices, pclDeviceList, pcOptions, pUserData);
 
@@ -643,9 +736,10 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
 		return CL_INVALID_PROGRAM;
 	}
 
-	cl_int clErr = pProgram->Build(uiNumDevices, pclDeviceList, pcOptions, pfn_notify, pUserData);
-	//cl_return clErr;
-	return clErr;
+    Context* pContext = pProgram->GetContext();
+    cl_int clErr = pContext->BuildProgram(clProgram, uiNumDevices, pclDeviceList, pcOptions, pfn_notify, pUserData);
+	
+    return clErr;
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetProgramInfo

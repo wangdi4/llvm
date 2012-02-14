@@ -76,7 +76,7 @@ bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 	memcpy((void*)pCont->mask, _CL_CONTAINER_MASK_, sizeof(pCont->mask));
 
 	pCont->container_type = CL_PROG_CNT_PRIVATE;
-	pCont->description.bin_type = CL_PROG_BIN_LLVM;
+	pCont->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
 	pCont->description.bin_ver_major = 1;
 	pCont->description.bin_ver_minor = 1;
 	pIRfile = NULL;
@@ -90,12 +90,12 @@ bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 
 	cl_int rc = dev_entry->clDevCreateProgram(uiContSize, pCont, CL_DEV_BINARY_USER, prog);
 	g_bBuildDone = false;
-	rc = dev_entry->clDevBuildProgram(*prog, NULL, NULL);
+    cl_build_status     build_status;
+	rc = dev_entry->clDevBuildProgram(*prog, NULL, &build_status);
 
-	while (CL_DEV_SUCCEEDED(rc) && !g_bBuildDone)
-	{
-		SLEEP(1);
-	}
+    printf(">>>>>>> The program %x was built, status%X\n", prog, build_status);
+	g_bBuildDone = true;
+
 	free(pCont);
 
 	return CL_DEV_SUCCEEDED(rc);

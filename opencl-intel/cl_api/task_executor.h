@@ -98,7 +98,7 @@ public:
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
     // Releases task object, shall be called instead of delete operator.
-    virtual void	Release() = 0;
+    virtual long	Release() = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////

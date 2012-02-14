@@ -55,7 +55,9 @@ extern "C" {
 enum cl_prog_binary_type
 {
 	CL_PROG_BIN_DASHER,				//!< Containers holds Intel DASHER intermediate
-	CL_PROG_BIN_LLVM,				//!< Container holds Apple OCL LLVM intermediate
+	CL_PROG_BIN_COMPILED_LLVM,		//!< Container holds compiled Apple OCL LLVM intermediate
+    CL_PROG_BIN_LINKED_LLVM,        //!< Container holds linked Apple OCL LLVM intermediate
+    CL_PROG_BIN_EXECUTABLE_LLVM,    //!< Container holds executable Apple OCL LLVM intermediate
 	CL_PROG_DLL_X86,				//!< Container is a dynamically loaded library name
 	CL_PROG_OBJ_X86,				//!< Container holds x86 object code (.obj)
 	CL_PROG_BIN_X86,				//!< Container holds x86 binary code
@@ -619,18 +621,6 @@ public:
 											cl_int			IN completion_result,
 											cl_ulong		IN timer
 											) = 0;
-
-	//! This function is called during build process of the specific program. Currently this function
-	//!	is called when program build is finished.
-	/*!
-		\param[in]	prog			Identifier of the notified program. That was returned with clDevBuildProgram().
-		\param[in]	data			A pointer to buffer that was passed to clDevBuildProgram().
-		\param[in]	status			An updated status of build process
-	*/
-	virtual void clDevBuildStatusUpdate( cl_dev_program	prog,
-										  void*			IN data,
-										  cl_build_status IN status
-										) = 0;
 };
 
 /*!
@@ -1092,7 +1082,7 @@ public:
 		\param[in]	prog							Program handle to be built
 		\param[in]	options							A pointer to a string that describes the build options to be used for building the program executable.
 													The list of supported options is described in section 5.4.3 in OCL spec. document.
-		\param[in]	user_data						This value will be passed as an argument when clDevBuildFinished is called. Can be NULL.
+		\param[out]	buildStatus						This value will be updated with the build status after build is done
 		\retval		CL_DEV_SUCCESS					The function was executed successfully.
 		\retval		CL_DEV_INVALID_PROGRAM			Invalid program object was specified.
 		\retval		CL_DEV_INVALID_BUILD_OPTIONS	If build options for back-end compiler specified by options are invalid.
@@ -1101,7 +1091,7 @@ public:
 	*/
 	virtual cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog,
 										   const char* IN options,
-										   void* IN user_data
+										   cl_build_status* OUT buildStatus
 										   ) = 0;
 
 	//!	Deletes previously created program object and releases all related resources.
