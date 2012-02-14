@@ -128,5 +128,11 @@ install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 
+if (WIN32)
+    file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)	
+	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+endif(WIN32)
+
 add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 add_llvm_definitions( -D__STDC_CONSTANT_MACROS )
