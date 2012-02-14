@@ -38,7 +38,7 @@ File Name:  Optimizer.cpp
 extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule, const intel::OptimizerConfig* pConfig);
 extern "C" int getVectorizerWidths(llvm::Pass *V, llvm::SmallVectorImpl<int> &Widths);
 extern "C" llvm::Pass *createBarrierMainPass(bool isDBG);
-extern "C" unsigned int getBarrierStrideSize(llvm::Pass *pPass);
+extern "C" void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
 
@@ -361,11 +361,10 @@ bool Optimizer::hasBarriers(llvm::Module *pModule)
     return false;
 }
 
-size_t Optimizer::getPrivateMemorySize()
+void Optimizer::getPrivateMemorySize(std::map<std::string, unsigned int>& bufferStrideMap)
 {
-    return (size_t)getBarrierStrideSize(m_barrierPass);
+    getBarrierStrideSize(m_barrierPass, bufferStrideMap);
 }
-
 
 bool Optimizer::hasUndefinedExternals() const 
 { 

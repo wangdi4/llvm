@@ -68,8 +68,7 @@ namespace intel {
         //Initialize CallInst argument offsets to negative number
         //to indicate a bad offset
         argsCall.assign(numOfArgsWithReturnValue, m_badOffset);
-        //Increment number of function uses by one
-        m_dataPerFuncMap[&F].m_numberOfUses++;
+        bool isCurrCallNeedToBeFixed = false;
         for ( unsigned int i = 0; i < numOfArgsWithReturnValue; ++i ) {
           Value *pVal = (i == numOfArgs) ?
             pCallInst : pCallInst->getArgOperand(i);
@@ -77,6 +76,9 @@ namespace intel {
             //If reach here, means that this function has at least
             //one caller with argument value in special buffer
             hasArgFromSpecialBuffer = true;
+            //If reach here, means that this caller has at least
+            //one argument value in special buffer
+            isCurrCallNeedToBeFixed = true;
             //Increment number function calls with argument value
             //stored in special buffer by one
             argsFunction[i]++;
@@ -84,6 +86,10 @@ namespace intel {
             //stored in special buffer
             argsCall[i] = m_pDataPerValue->getOffset(pVal);
           }
+        }
+        if( isCurrCallNeedToBeFixed ) {
+          //Increment number of function uses by one
+          m_dataPerFuncMap[&F].m_numberOfUses++;
         }
     }
 
@@ -112,6 +118,7 @@ namespace intel {
         for ( Value::use_iterator ui = pFunc->use_begin(),
           ue = pFunc->use_end(); ui != ue; ++ui ) {
             CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+            assert(pCallInst && "Something other than CallInst is using function!");
             Function *pCallerFunc = pCallInst->getParent()->getParent();
             if ( functionsToHandle.count(pCallerFunc) ) {
               isRoot = false;

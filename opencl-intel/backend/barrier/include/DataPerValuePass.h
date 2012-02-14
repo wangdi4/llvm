@@ -94,20 +94,33 @@ namespace intel {
       return ( 0 != m_valueToOffsetMap.count(pVal) );
     }
 
-    /// @brief return total size in bytes of special buffer per one WI
-    ///  after allocating place for all alloca and special values
-    /// @returns special buffer total size in bytes
-    unsigned int getTotalSize() {
-      return m_bufferTotalSize;
-    }
-
-    /// @brief return stride size per work item in special buffer
+    /// @brief return stride size per work item in special buffer for given function
+    /// @param pFunc the given function
     /// @returns stride size per work item in special buffer
-    unsigned int getStrideSize() {
-      return m_bufferTotalSize;
+    unsigned int getStrideSize(Function *pFunc) {
+      assert( m_functionToEntryMap.count(pFunc) &&
+        "no structure stride data entry for pFunc!" );
+      unsigned int entry = m_functionToEntryMap[pFunc];
+      assert( m_entryToBufferDataMap.count(entry) &&
+        "no structure stride data for pFunc entry!" );
+      return m_entryToBufferDataMap[entry].m_bufferTotalSize;
     }
 
   private:
+    struct SpecialBufferData{
+      /// This will indecates the next empty offset in the buffer structure.
+      unsigned int m_currentOffset;
+      /// The allignment of buffer structure depends on
+      /// largest alignment needed by any type in the buffer.
+      unsigned int m_maxAlignment;
+      /// Special buffer total size in bytes per one WI
+      unsigned int m_bufferTotalSize;
+
+      SpecialBufferData() : m_currentOffset(0), m_maxAlignment(0), m_bufferTotalSize(0) {}
+    };
+    typedef std::map<Function*, unsigned int> TFunctionToEntryMap;
+    typedef std::map<unsigned int, SpecialBufferData> TEntryToBufferDataMap;
+
     /// @brief execute pass on given function
     /// @param F function to analyze
     /// @returns True if function was modified
@@ -142,10 +155,23 @@ namespace intel {
     /// @brief return offset of given Type in special buffer stride
     /// @param pType pointer to Type
     /// @param allocaAlignment alignment of alloca instruction (0 if it is not alloca)
+    /// @param bufferData reference to structure that contains special buffer data
     /// @returns offset of given Type in special buffer stride
-    unsigned int getValueOffset(Type *pType, unsigned int allocaAlignment);
+    unsigned int getValueOffset(Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData);
+
+    /// @brief Find all connected function into disjoint groups on given module
+    /// @param M module to analyze
+    void CalculateConnectedGraph(Module &M);
+
+    /// @brief replace all entry value equal to "from" in m_functionToEntryMap with value "to"
+    /// @param from - the entry value to replace
+    /// @param to - the entry value to replace with
+    void FixEntryMap(unsigned int from, unsigned int to);
 
   private:
+    /// This is barrier utility class
+    BarrierUtils m_util;
+
     // Internal Data used to calculate user Analysis Data
     /// This holds DataPerBarrier analysis pass
     DataPerBarrier *m_pDataPerBarrier;
@@ -156,12 +182,6 @@ namespace intel {
     /// This holds TargetData of processed module
     TargetData *m_pTD;
 
-    /// This will indecates the next empty offset in the buffer structure.
-    unsigned int m_currentOffset;
-    /// The allignment of buffer structure depends on
-    /// largest alignment needed by any type in the buffer.
-    unsigned int m_maxAlignment;
-
     // Analysis Data for pass user
     /// This holds a map between function and its values of Group-A
     TValuesPerFunctionMap m_allocaValuesPerFuncMap;
@@ -169,11 +189,13 @@ namespace intel {
     TValuesPerFunctionMap m_specialValuesPerFuncMap;
     /// This holds a map between function and its values of Group-B.2
     TValuesPerFunctionMap m_crossBarrierValuesPerFuncMap;
-    /// This holds a map between value and it offset in Special Buffer structure
+    /// This holds a map between value and its offset in Special Buffer structure
     TValueToOffsetMap     m_valueToOffsetMap;
 
-    /// Special buffer total size in bytes per one WI
-    unsigned int m_bufferTotalSize;
+    /// This holds a map between function and its entry in buffer data map
+    TFunctionToEntryMap m_functionToEntryMap;
+    /// This holds a map between unique entry and buffer data
+    TEntryToBufferDataMap m_entryToBufferDataMap;
 
   };
 

@@ -204,8 +204,12 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
                                                                                         pWrapperFunc,
                                                                                         buildResult.GetKernelsInfo()[pFunc]));
 
+        // Private memory size contains the max size between
+        // the needed size for scalar and needed size for vectorized versions.
+        unsigned int privateMemorySize = buildResult.GetPrivateMemorySize()[pWrapperFunc->getNameStr()];
         // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-        spKernelProps->SetPrivateMemorySize(ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, buildResult.GetPrivateMemorySize())));
+        privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
+        spKernelProps->SetPrivateMemorySize( privateMemorySize );
 
         // Create a kernel 
         std::auto_ptr<Kernel>           spKernel( CreateKernel( pFunc, 

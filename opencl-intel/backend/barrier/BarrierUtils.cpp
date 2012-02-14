@@ -264,6 +264,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       m_getCurrWIFunc = createFunctionDeclaration(
         GET_CURR_WI, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getCurrWIFunc);
     }
     return CallInst::Create(m_getCurrWIFunc, "pCurrWI", pInsertBefore);
   }
@@ -281,6 +282,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       m_getSpecialBufferFunc = createFunctionDeclaration(
         GET_SPECIAL_BUFFER, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getSpecialBufferFunc);
     }
     return CallInst::Create(m_getSpecialBufferFunc, "pSB", pInsertBefore);
   }
@@ -297,6 +299,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       m_getIterationCountFunc = createFunctionDeclaration(
         GET_ITERATION_COUNT, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getIterationCountFunc);
     }
     return CallInst::Create(m_getIterationCountFunc, GET_ITER_COUNT, pInsertBefore);
   }
@@ -351,6 +354,7 @@ namespace intel {
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
       m_getNewLIDFunc = 
         createFunctionDeclaration(GET_NEW_LID_NAME, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getNewLIDFunc);
     }
     Value *args[2] = {pArg1, pArg2};
     return CallInst::Create(m_getNewLIDFunc, ArrayRef<Value*>(args, 2), "newLID", pInsertBefore);
@@ -370,6 +374,7 @@ namespace intel {
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
       m_getNewGIDFunc = 
         createFunctionDeclaration(GET_NEW_GID_NAME, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getNewGIDFunc);
     }
     Value *args[2] = {pArg1, pArg2};
     return CallInst::Create(m_getNewGIDFunc, ArrayRef<Value*>(args, 2), "newGID", pInsertBefore);
@@ -454,7 +459,18 @@ namespace intel {
     pNewFunc->setAttributes(barrier_Func_PAL);
 
     assert( pNewFunc && "Failed to create new function declaration" );
+
     return pNewFunc;
+  }
+
+  void BarrierUtils::SetFunctionAttributeReadNone(Function* pFunc) {
+    AttrListPtr func_factorial_PAL;
+    SmallVector<AttributeWithIndex, 4> Attrs;
+    AttributeWithIndex PAWI;
+    PAWI.Index = 4294967295U; PAWI.Attrs = 0  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
+    Attrs.push_back(PAWI);
+    func_factorial_PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
+    pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel
 

@@ -34,6 +34,8 @@ namespace intel {
   class Barrier : public ModulePass {
 
   public:
+    typedef std::map<std::string, unsigned int> TMapFunctionNameToBufferStride;
+
     static char ID;
 
     /// @brief C'tor
@@ -59,10 +61,11 @@ namespace intel {
       AU.addRequired<DataPerInternalFunction>();
     }
 
-    /// @brief return stride size per work item in special buffer
-    /// @returns stride size per work item in special buffer
-    unsigned int getStrideSize() {
-      return getAnalysis<DataPerValue>().getStrideSize();
+    /// @brief return special buffer stride size map
+    /// @param bufferStrideMap - the map to output all data into
+    void getStrideMap(std::map<std::string, unsigned int>& bufferStrideMap) {
+      bufferStrideMap.clear();
+      bufferStrideMap.insert(m_bufferStrideMap.begin(), m_bufferStrideMap.end());
     }
 
   private:
@@ -151,6 +154,10 @@ namespace intel {
     /// @brief Remove all instructions in m_toRemoveInstructions
     void eraseAllToRemoveInstructions();
 
+    /// @brief Update Map with structure stride size for each kernel
+    /// @param M module to optimize
+    void updateStructureStride(Module &M);
+
   private:
     /// This is barrier utility class
     BarrierUtils m_util;
@@ -205,6 +212,9 @@ namespace intel {
     typedef std::map<BasicBlock*, BasicBlock*> TMapBasicBlockToBasicBlock;
     /// This holds a map between sync basic block and previous pre sync loop header basic block
     TMapBasicBlockToBasicBlock m_preSyncLoopHeader;
+
+    /// This holds a map between kernel function name and buffer stride size
+    TMapFunctionNameToBufferStride m_bufferStrideMap;
   };
 
 } // namespace intel

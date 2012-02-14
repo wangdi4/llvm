@@ -196,6 +196,10 @@ namespace intel {
     /// @returns Function new declared function
     Function* createFunctionDeclaration(const llvm::Twine& name, Type *pResult, std::vector<Type*>& funcTyArgs);
 
+    /// @brief Add ReadNone attribute to given function.
+    /// @param pFunc the given function.
+    void SetFunctionAttributeReadNone(Function* pFunc);
+
   private:
     /// Pointer to current processed module
     Module    *m_pModule;

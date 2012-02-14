@@ -13,7 +13,7 @@
 ;;      1. Data was collected only for function "foo" with the following outputs
 ;;         a. need to be fixed: 1
 ;;         b. number of usages: 1
-;;         c. In special buffer counters: ( 1, 0 )
+;;         c. In special buffer counters: ( 1, 1 )
 ;;  Data collected on calls analysis data collected as follow
 ;;      2. Data was collected only for "call void @foo(i32 %y)" with the following outputs
 ;;         a. Offsets in special buffer: ( 0, BAD_OFFSET )
@@ -70,11 +70,11 @@ L4:
 
 ; CHECK: Data collected on functions
 ; CHECK: foo
-; CHECK: need to be fixed: 1     number of usages: 1     In special buffer counters: ( 1, 0 )
+; CHECK: need to be fixed: 1     number of usages: 1     In special buffer counters: ( 1, 1 )
 
 ; CHECK: Data collected on calls
 ; CHECK: ret = call i32 @foo(i32 %y)
-; CHECK: Offsets in special buffer: ( 0, BAD_OFFSET )
+; CHECK: Offsets in special buffer: ( 0, 4 )
 
 ; CHECK: Ordered functions to fix
 ; CHECK-NOT: main

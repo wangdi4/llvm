@@ -125,6 +125,7 @@ bool OpenclRuntime::isKnownUniformFunc(std::string &func_name) const {
   if (0 == func_name.compare("get_local_size")) return true;
   if (0 == func_name.compare("get_global_size")) return true;
   if (0 == func_name.compare("get_group_id")) return true;
+  if (0 == func_name.compare("get_num_groups")) return true;
   if (0 == func_name.compare("get_work_dim")) return true;
   if (0 == func_name.compare("barrier")) return true;
   return false;

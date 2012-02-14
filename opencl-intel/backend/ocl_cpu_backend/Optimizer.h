@@ -58,7 +58,7 @@ public:
 
     bool hasBarriers(llvm::Module *pModule);
 
-    size_t getPrivateMemorySize();
+    void getPrivateMemorySize(std::map<std::string, unsigned int>& bufferStrideMap);
 
     bool hasUndefinedExternals() const;
 

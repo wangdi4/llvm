@@ -54,7 +54,12 @@ L2:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size: 0
+; CHECK: Buffer Total Size:
+; CHECK-NOT: +
+; CHECK: +main : [0]
+; CHECK-NOT: +
+; CHECK-NOT: entry
+; CHECK: DONE
 
 declare i32 @get_local_id(i32)
 

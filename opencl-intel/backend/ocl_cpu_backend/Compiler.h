@@ -104,9 +104,7 @@ public:
 
     KernelsInfoMap& GetKernelsInfo();
 
-    void SetPrivateMemorySize( size_t size);
-
-    size_t GetPrivateMemorySize() const;
+    std::map<std::string, unsigned int>& GetPrivateMemorySize();
 
 private:
     cl_dev_err_code m_result;
@@ -114,7 +112,7 @@ private:
     mutable llvm::raw_string_ostream m_logStream;
     FunctionWidthVector* m_pFunctionWidths; 
     KernelsInfoMap*      m_pKernelsInfo;
-    size_t               m_privateMemorySize;
+    std::map<std::string, unsigned int> m_privateMemorySizeMap;
 };
 
 //*****************************************************************************************
