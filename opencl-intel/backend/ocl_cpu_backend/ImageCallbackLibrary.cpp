@@ -95,7 +95,7 @@ bool ImageCallbackLibrary::LoadExecutable()
 ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CPUCompiler* pCompiler)
 {
     // Total number of coordinate translation callbacks
-    const int TRANS_CBK_COUNT = 23;
+    const int TRANS_CBK_COUNT = 20;
     // last index should be equal to
     const int INT_FORMATS_COUNT = 18;
     const int INT_CBK_PER_FORMAT = 3;
@@ -110,58 +110,54 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
 
     // List of function names to retrieve from images module
     const char* funcNames[FUNCTIONS_COUNT]={
-        "_Z34trans_coord_int_NONE_FALSE_NEARESTP10_image2d_tDv4_i",                //1
-        "_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTP10_image2d_tDv4_i",            //2
-        "_Z25trans_coord_int_UNDEFINEDP10_image2d_tDv4_i",                            //3
-
-        "_Z36trans_coord_float_NONE_FALSE_NEARESTP10_image2d_tDv4_f",                //4
-        "_Z43trans_coord_float_CLAMPTOEDGE_FALSE_NEARESTP10_image2d_tDv4_f",        //5
+        "_Z36trans_coord_float_NONE_FALSE_NEARESTP10_image2d_tDv4_f",                //1
+        "_Z43trans_coord_float_CLAMPTOEDGE_FALSE_NEARESTP10_image2d_tDv4_f",        //2
 
         "_Z35trans_coord_float_NONE_TRUE_NEARESTP10_image2d_tDv4_f",
         "_Z42trans_coord_float_CLAMPTOEDGE_TRUE_NEARESTP10_image2d_tDv4_f",
         "_Z37trans_coord_float_REPEAT_TRUE_NEARESTP10_image2d_tDv4_f",
         "_Z39trans_coord_float_MIRRORED_TRUE_NEARESTP10_image2d_tDv4_f",
 
-        "_Z42trans_coord_float_float_NONE_FALSE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",    //10
+        "_Z42trans_coord_float_float_NONE_FALSE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",    //7
         "_Z49trans_coord_float_float_CLAMPTOEDGE_FALSE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",
 
         "_Z41trans_coord_float_float_NONE_TRUE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",
         "_Z48trans_coord_float_float_CLAMPTOEDGE_TRUE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",
         "_Z43trans_coord_float_float_REPEAT_TRUE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",
-        "_Z45trans_coord_float_float_MIRRORED_TRUE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",   //15
+        "_Z45trans_coord_float_float_MIRRORED_TRUE_NEARESTP10_image2d_tDv4_fPDv4_iS3_",   //12
 
         "_Z35trans_coord_float_NONE_FALSE_LINEARP10_image2d_tDv4_fPDv4_iS3_",
         "_Z42trans_coord_float_CLAMPTOEDGE_FALSE_LINEARP10_image2d_tDv4_fPDv4_iS3_",
 
         "_Z34trans_coord_float_NONE_TRUE_LINEARP10_image2d_tDv4_fPDv4_iS3_",
         "_Z41trans_coord_float_CLAMPTOEDGE_TRUE_LINEARP10_image2d_tDv4_fPDv4_iS3_",
-        "_Z36trans_coord_float_REPEAT_TRUE_LINEARP10_image2d_tDv4_fPDv4_iS3_",                //20
+        "_Z36trans_coord_float_REPEAT_TRUE_LINEARP10_image2d_tDv4_fPDv4_iS3_",                //17
         "_Z38trans_coord_float_MIRRORED_TRUE_LINEARP10_image2d_tDv4_fPDv4_iS3_",            
         "_Z27trans_coord_float_UNDEFINEDP10_image2d_tDv4_f",
         "_Z33trans_coord_float_float_UNDEFINEDP10_image2d_tDv4_fPDv4_iS3_",
 
         "_Z38read_sample_NEAREST_NOCLAMP_RGBA_UINT8P10_image2d_tDv4_i",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_UINT8P10_image2d_tDv4_i",              //25
+        "_Z36read_sample_NEAREST_CLAMP_RGBA_UINT8P10_image2d_tDv4_i",              //22
         "_Z23write_sample_RGBA_UINT8PvDv4_j",
 
         "_Z39read_sample_NEAREST_NOCLAMP_RGBA_UINT16P10_image2d_tDv4_i",            
         "_Z37read_sample_NEAREST_CLAMP_RGBA_UINT16P10_image2d_tDv4_i",
         "_Z24write_sample_RGBA_UINT16PvDv4_j",
 
-        "_Z39read_sample_NEAREST_NOCLAMP_RGBA_UINT32P10_image2d_tDv4_i",             //30
+        "_Z39read_sample_NEAREST_NOCLAMP_RGBA_UINT32P10_image2d_tDv4_i",             //27
         "_Z37read_sample_NEAREST_CLAMP_RGBA_UINT32P10_image2d_tDv4_i",
         "_Z24write_sample_RGBA_UINT32PvDv4_j",                        
 
         "_Z37read_sample_NEAREST_NOCLAMP_RGBA_INT8P10_image2d_tDv4_i",
         "_Z35read_sample_NEAREST_CLAMP_RGBA_INT8P10_image2d_tDv4_i",
-        "_Z22write_sample_RGBA_INT8PvDv4_i",                            //35
+        "_Z22write_sample_RGBA_INT8PvDv4_i",                            //32
 
         "_Z38read_sample_NEAREST_NOCLAMP_RGBA_INT16P10_image2d_tDv4_i",
         "_Z36read_sample_NEAREST_CLAMP_RGBA_INT16P10_image2d_tDv4_i",                
         "_Z23write_sample_RGBA_INT16PvDv4_i",
 
         "_Z38read_sample_NEAREST_NOCLAMP_RGBA_INT32P10_image2d_tDv4_i",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_INT32P10_image2d_tDv4_i",                      //40
+        "_Z36read_sample_NEAREST_CLAMP_RGBA_INT32P10_image2d_tDv4_i",                      //37
         "_Z23write_sample_RGBA_INT32PvDv4_i",
 
         "_Z35read_sample_NEAREST_NOCLAMP_R_UINT8P10_image2d_tDv4_i",
@@ -433,36 +429,32 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
 
     //////////////////  Fill in translate callback pointers  //////////////////
     // indexes used here correspond to indexes in list funcNames
-    m_fpINoneFalseNearest.Init(funcPointers[0]);
-    m_fpIClampToEdgeFalseNearest.Init(funcPointers[1]);
-    m_fpIUndefTrans.Init(funcPointers[2]);
-
-    m_fpFNoneFalseNearest.Init(funcPointers[3]);
-    m_fpFClampToEdgeFalseNearest.Init(funcPointers[4]);
+    m_fpFNoneFalseNearest.Init(funcPointers[0]);
+    m_fpFClampToEdgeFalseNearest.Init(funcPointers[1]);
     
-    m_fpFNoneTrueNearest.Init(funcPointers[5]);
-    m_fpFClampToEdgeTrueNearest.Init(funcPointers[6]);
-    m_fpFRepeatTrueNearest.Init(funcPointers[7]);
-    m_fpFMirroredTrueNearest.Init(funcPointers[8]);
+    m_fpFNoneTrueNearest.Init(funcPointers[2]);
+    m_fpFClampToEdgeTrueNearest.Init(funcPointers[3]);
+    m_fpFRepeatTrueNearest.Init(funcPointers[4]);
+    m_fpFMirroredTrueNearest.Init(funcPointers[5]);
 
-    m_fpFFNoneFalseNearest.Init(funcPointers[9]);
-    m_fpFFClampToEdgeFalseNearest.Init(funcPointers[10]);
+    m_fpFFNoneFalseNearest.Init(funcPointers[6]);
+    m_fpFFClampToEdgeFalseNearest.Init(funcPointers[7]);
 
-    m_fpFFNoneTrueNearest.Init(funcPointers[11]);
-    m_fpFFClampToEdgeTrueNearest.Init(funcPointers[12]);
-    m_fpFFRepeatTrueNearest.Init(funcPointers[13]);
-    m_fpFFMirroredTrueNearest.Init(funcPointers[14]);
+    m_fpFFNoneTrueNearest.Init(funcPointers[8]);
+    m_fpFFClampToEdgeTrueNearest.Init(funcPointers[9]);
+    m_fpFFRepeatTrueNearest.Init(funcPointers[10]);
+    m_fpFFMirroredTrueNearest.Init(funcPointers[11]);
 
-    m_fpFNoneFalseLinear.Init(funcPointers[15]);
-    m_fpFClampToEdgeFalseLinear.Init(funcPointers[16]);
+    m_fpFNoneFalseLinear.Init(funcPointers[12]);
+    m_fpFClampToEdgeFalseLinear.Init(funcPointers[13]);
 
-    m_fpFNoneTrueLinear.Init(funcPointers[17]);
-    m_fpFClampToEdgeTrueLinear.Init(funcPointers[18]);
-    m_fpFRepeatTrueLinear.Init(funcPointers[19]);
-    m_fpFMirroredTrueLinear.Init(funcPointers[20]);
-    m_fpFUndefTrans.Init(funcPointers[21]);
-    m_fpFFUndefTrans.Init(funcPointers[22]);
-    assert(TRANS_CBK_COUNT == 23);
+    m_fpFNoneTrueLinear.Init(funcPointers[14]);
+    m_fpFClampToEdgeTrueLinear.Init(funcPointers[15]);
+    m_fpFRepeatTrueLinear.Init(funcPointers[16]);
+    m_fpFMirroredTrueLinear.Init(funcPointers[17]);
+    m_fpFUndefTrans.Init(funcPointers[18]);
+    m_fpFFUndefTrans.Init(funcPointers[19]);
+    assert(TRANS_CBK_COUNT == 20);
 
     ////////////////// Fill in read callback pointers //////////////////
 

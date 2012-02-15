@@ -433,24 +433,6 @@ float4 Half4ToFloat4(_8i16 xmm0)
 
 #endif
 
-/************************Integer coordinate translations*************************************/
-
-int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(image2d_t image, int4 coord)
-{
-    //not testing if coords are OOB - this mode doesn't guarantee safeness!
-    return coord;
-}
-
-int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(image2d_t image, int4 coord)
-{
-    return ProjectToEdgeInt(image,coord);
-}
-
-int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(image2d_t image, int4 coord)
-{
-    return UndefCoordInt;   //will be background color, but it's a "don't care" situtation
-}
-
 /************************Float coordinate translations*************************************/
 
 int4 __attribute__((overloadable)) trans_coord_float_NONE_FALSE_NEAREST(image2d_t image, float4 coord)

@@ -49,6 +49,96 @@ extern "C" {
 
 const int fVec4FloatZeroCoordMask3D[4] ALIGN16 = {0xffffffff, 0xffffffff, 0xffffffff, 0};
 
+ALIGN16 const int4 UndefCoordInt={-1,-1, -1, -1};
+
+int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord);
+
+/************************Integer coordinate translations*************************************/
+
+int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord)
+{
+	//not testing if coords are OOB - this mode doesn't guarantee safeness!
+	return coord;
+}
+
+int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord)
+{
+	return ProjectToEdgeInt((image2d_t)image, coord);
+}
+
+int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(void* image, int4 coord)
+{
+	return UndefCoordInt;   //will be background color, but it's a "don't care" situtation
+}
+
+
+// Following table used to belong to image_aux_data similar to coord_translate_f_callback,
+// but was moved here statically to facilitate inlining. It relies on the enumeration of samplers:
+//
+// !!!IMPORTANT!!! These defines should be the same as in ImageCallbackLibrary.h and cl_image_declaration.h
+//#define NONE_FALSE_NEAREST 0x00
+//#define CLAMP_FALSE_NEAREST 0x01
+//#define CLAMPTOEDGE_FALSE_NEAREST 0x02
+//    pImageAuxData->coord_translate_i_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpINoneFalseNearest;
+//    pImageAuxData->coord_translate_i_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->m_fpINoneFalseNearest;
+//    pImageAuxData->coord_translate_i_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIClampToEdgeFalseNearest;
+//    pImageAuxData->coord_translate_i_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIUndefTrans;    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
+//    pImageAuxData->coord_translate_i_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->m_fpIUndefTrans;    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
+//    Normalized and bilinear modes are not defined with integer coordinates
+// and all remaining entries are undefined.
+
+// coordinates callback for integer input
+typedef int4 (*Image_I_COORD_CBK) (void*, int4);
+
+Image_I_COORD_CBK const			coord_translate_i_callback[32] = {
+	trans_coord_int_NONE_FALSE_NEAREST,
+	trans_coord_int_NONE_FALSE_NEAREST,
+	trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED,
+	trans_coord_int_UNDEFINED
+};    //the list of integer coordinate translation callback
+
+int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
+{
+#ifdef __SSE4_1__
+    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+#else
+	int4 upper=(int4)(0,0,0,0);
+#endif
+	int4 lower = (int4)(0, 0, 0, 0);
+	
+	int4 correctCoord=min(coord, upper);
+	correctCoord=max(correctCoord,lower);
+	return correctCoord;
+}
+
 int __attribute__((overloadable)) __attribute__((const)) get_image_width(image2d_t img)
 {
 	return ((image_aux_data*)img)->dim[0];
@@ -142,7 +232,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
 #endif
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord4);
     return read_cbk((void*)image, trans_position);
@@ -150,7 +240,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
 
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, int4 coord)
 {
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord);
     return read_cbk((void*)image, trans_position);
@@ -204,7 +294,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
 #endif
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord4);
     return read_cbk((void*)image, trans_position);
@@ -212,7 +302,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
 
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, int4 coord)
 {
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord);
     return read_cbk((void*)image, trans_position);
@@ -267,7 +357,7 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     int4 coord4 = (int4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
 #endif
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord4);
     return read_cbk((void*)image, trans_position);
@@ -275,7 +365,7 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
 
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, int4 coord)
 {
-    Image_I_COORD_CBK coord_cbk=(Image_I_COORD_CBK)((image_aux_data*)image)->coord_translate_i_callback[sampler];
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback[sampler];
     int4 trans_position=coord_cbk((void*)image, coord);
     return read_cbk((void*)image, trans_position);

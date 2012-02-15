@@ -31,6 +31,9 @@ class VolcanoLIT(VolcanoTestSuite):
         # Barriers suite
         self.addTask(LitTest('Barriers', 'check_barrier', config, solution_name))
 		
+        # Images suite
+        self.addTask(LitTest('Images', 'check_images', config, solution_name))
+		
 		# OCL backend passes suite
         self.addTask(LitTest('Check_OCL_Backend_Passes', 'check_ocl_backend_passes', config, solution_name))
         

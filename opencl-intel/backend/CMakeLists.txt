@@ -207,6 +207,8 @@ set_target_properties( check_barrier PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Te
 set_target_properties( check_barrier.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
 set_target_properties( check_codegen PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
 set_target_properties( check_codegen.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
+set_target_properties( check_images PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
+set_target_properties( check_images.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
 set_target_properties( check_ocl_backend_passes PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
 set_target_properties( check_ocl_backend_passes.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
 set_target_properties( check_ocl_ref PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )

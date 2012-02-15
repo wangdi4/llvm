@@ -124,7 +124,6 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     //supplementing additional data
     unsigned int TOIndex=TYPE_ORDER_TO_INDEX(pImageAuxData->format.image_channel_data_type, pImageAuxData->format.image_channel_order);
     memset(pImageAuxData->read_img_callback, 0, sizeof(pImageAuxData->read_img_callback));
-    memset(pImageAuxData->coord_translate_i_callback, 0, sizeof(pImageAuxData->coord_translate_i_callback));
     memset(pImageAuxData->coord_translate_f_callback, 0, sizeof(pImageAuxData->coord_translate_f_callback));
     memset(pImageAuxData->dim,0,sizeof(pImageAuxData->dim));
     memset(pImageAuxData->pitch, 0, sizeof(pImageAuxData->pitch));
@@ -148,20 +147,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 
     pImageAuxData->dimmask = (1<<(pImageAuxData->dim_count*4))-1;
     
-    ////////////////The integer coordinate callbacks
-
     ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_ArchId, m_ArchFeatures);
-
-    pImageAuxData->coord_translate_i_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetINoneFalseNearest();
-    pImageAuxData->coord_translate_i_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetINoneFalseNearest();
-    pImageAuxData->coord_translate_i_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetIClampToEdgeFalseNearest();
-    pImageAuxData->coord_translate_i_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetIUndefTrans();    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
-    pImageAuxData->coord_translate_i_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetIUndefTrans();    //REPEAT+UI COORDINATES MODE IS NOT DEFINED
-
-    //Normalized and bilinear modes are not defined with integer coordinates
-
-    for (unsigned int i=MIRRORED_FALSE_NEAREST+1;i<32;i++)
-        pImageAuxData->coord_translate_i_callback[i] = pImageCallbackFuncs->GetIUndefTrans();
 
     //////////////////The float coordinates callbacks
 

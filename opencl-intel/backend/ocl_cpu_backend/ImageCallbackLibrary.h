@@ -136,11 +136,6 @@ public:\
         return m_fp##NAME[idx].GetPtr(m_pCompiler);\
     }
 
-    //integer coordinate translate callbacks
-    DECLARE_IMAGE_CALLBACK(INoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(IClampToEdgeFalseNearest)
-    DECLARE_IMAGE_CALLBACK(IUndefTrans)
-
     //float coordinate translation callbacks
     DECLARE_IMAGE_CALLBACK(FNoneFalseNearest)
     DECLARE_IMAGE_CALLBACK(FClampToEdgeFalseNearest)

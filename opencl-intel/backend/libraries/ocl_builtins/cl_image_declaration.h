@@ -65,8 +65,6 @@ extern "C" {
 // calback functions types definitions
 
 // Coordinate callback typedefs
-// coordinates callback for integer input
-typedef int4 (*Image_I_COORD_CBK) (void*, int4);
 // coordinates callback for float input
 typedef int4 (*Image_F_COORD_CBK) (void*, float4);
 /// coordinates callback should return coordinates of pixel and
@@ -104,7 +102,6 @@ typedef struct _image_aux_data
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
 	
-	void*			coord_translate_i_callback[32];    //the list of integer coordinate translation callback
 	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
 	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback

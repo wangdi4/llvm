@@ -147,7 +147,6 @@ typedef ALIGN16 struct _image_aux_data
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
 	
-	void*			coord_translate_i_callback[32];    //the list of integer coordinate translation callback
 	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
 	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback

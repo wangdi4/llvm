@@ -574,7 +574,6 @@ DEF_LOAD_ALL(c,2)
 DEF_STORE_ALL( ,0)
 DEF_STORE_ALL(l,3)
 DEF_STORE_ALL(g,1)
-DEF_STORE_ALL(c,2)
 
 #ifdef __cplusplus
 }
