@@ -383,7 +383,7 @@ inline bool is_unsigned_specifier(char c)
 //    precision, length and specifier (all optional except the last).
 //
 //
-static int formatted_output(OutputAccumulator& output, const char* format, char* args)
+static int formatted_output(OutputAccumulator& output, const char* format, const char* args)
 {
     // Reject NULL format
     //
@@ -484,6 +484,26 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
             precision = -1;
         }
 
+        // Parse vector modifier (OpenCL specific).
+        // vector_len = 1 means no vector modifier. Otherwise, it specifies
+        // the vector length requested.
+        //
+        unsigned vector_len = 1;
+        if (c == 'v') {
+            // the number after 'v' can consist of one or two digits
+            //
+            c = *++format;
+            if (isdigit(c)) {
+                vector_len = c - '0';
+                c = *++format;
+
+                if (isdigit(c)) {
+                    vector_len = vector_len * 10 + (c - '0');
+                    c = *++format;
+                }
+            }
+        }
+
         // Parse length modifier.
         //
         LengthModifier modifier = MODIFIER_NONE;
@@ -493,6 +513,9 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
                 c = *++format;
                 if (c == 'h') {
                     modifier = MODIFIER_CHAR;
+                    c = *++format;
+                } else if (c == 'l'){
+                    modifier = MODIFIER_INTMAX;
                     c = *++format;
                 }
                 break;
@@ -524,27 +547,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
                 break;
         }
 
-        // Parse vector modifier (OpenCL specific).
-        // vector_len = 1 means no vector modifier. Otherwise, it specifies
-        // the vector length requested.
-        //
-        unsigned vector_len = 1;
-        if (c == 'v') {
-            // the number after 'v' can consist of one or two digits
-            //
-            c = *++format;
-            if (isdigit(c)) {
-                vector_len = c - '0';
-                c = *++format;
-
-                if (isdigit(c)) {
-                    vector_len = vector_len * 10 + (c - '0');
-                    c = *++format;
-                }
-            }
-        }
-
-        // At this point the following variables specify all the state parsed 
+           // At this point the following variables specify all the state parsed 
         // prior to this specifier:
         //   unsigned conversion_flags
         //   int width
@@ -575,7 +578,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
         // The following are temp vars for taking arguments from the args list
         //
         char char_val;
-        char* str_val;
+        const char* str_val;
         uint64_t int_val;
         double float_val;
         char charbuf[2] LLVM_BACKEND_UNUSED = {0};
@@ -605,7 +608,15 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
                 }
                 break;
             case 's':
-                str_val = NEXT_ARG(args, char*);
+                if ('\0' != ((unsigned long)*args & 0xffff))
+                  str_val = NEXT_ARG(args, char*);
+                else{
+                  //a 'fatalic' case, in which the string pointer is NULL.
+                  //We print the null string, and advancing the buffer pointer
+                  //by 4 bytes.
+                  str_val = "(null)";
+                  args += sizeof(int);
+                }
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, str_val)) >= cbuflen)
                     return -1;
                 output.append(cbuf);
@@ -712,24 +723,21 @@ static int formatted_output(OutputAccumulator& output, const char* format, char*
 //
 static llvm::sys::Mutex m_lock;
 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, DeviceBackend::Executable* pExec)
-{
-    // execute under lock
-    llvm::MutexGuard locked(m_lock);
-    StreamOutputAccumulator output(stdout);
+static int printFormatCommon(OutputAccumulator& output, const char* format, const char* args){
     int rc = formatted_output(output, format, args);
     output.finalize();
-
     return rc < 0 ? rc : output.output_count();
 }
 
+extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, DeviceBackend::Executable* pExec)
+{
+    llvm::MutexGuard locked(m_lock);
+    StreamOutputAccumulator output(stdout);
+    return printFormatCommon(output, format, args);
+}
 
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, DeviceBackend::Executable* pExec)
 {
     StringOutputAccumulator output(outstr, size);
-
-    int rc = formatted_output(output, format, args);
-    output.finalize();
-    return rc < 0 ? rc : output.output_count();
+    return printFormatCommon(output, format, args);
 }
-
