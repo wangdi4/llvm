@@ -984,6 +984,54 @@ float8 __attribute__((overloadable)) fract(float8 x, float8 *iptr)
 }
 #endif // defined(__AVX__)
 
+//sqrt
+float __attribute__((overloadable)) sqrt(float x)
+{
+    float res;
+    __m128 xVec = _mm_load_ss((float*)&x);
+
+    __m128 res1 = _mm_sqrt_ss( xVec );
+
+    _mm_store_ss(&res, res1);
+    return res;
+}
+
+float4 __attribute__((overloadable)) sqrt(float4 x)
+{
+    return _mm_sqrt_ps( x );
+}
+
+#if defined(__AVX__)
+float8 __attribute__((overloadable)) sqrt(float8 x)
+{
+    return _mm256_sqrt_ps( x );
+}
+#endif // defined(__AVX__)
+
+double __attribute__((overloadable)) sqrt(double x)
+{
+    double res;
+    __m128 xVec = (__m128)_mm_load_sd((double*)&x);
+
+    __m128 res1 = (__m128)_mm_sqrt_sd( (__m128d)xVec,(__m128d)xVec );
+
+    _mm_store_sd(&res, (__m128d)res1);
+    return res;
+}
+
+double2 __attribute__((overloadable)) sqrt(double2 x)
+{
+    return _mm_sqrt_pd( x );
+}
+
+#if defined(__AVX__)
+double4 __attribute__((overloadable)) sqrt(double4 x)
+{
+    return _mm256_sqrt_pd( x );
+}
+#endif // defined(__AVX__)
+
+
 /* ****************************
 ** RELAXED EXTENSION
 ** MATH FUNCTION DECLARED IN
@@ -1753,7 +1801,7 @@ float __attribute__((overloadable)) native_sqrt(float x)
 
 float4 __attribute__((overloadable)) native_sqrt(float4 x)
 {
-	return _mm_sqrt_ps( x );
+    return _mm_sqrt_ps( x );
 }
 
 #if defined(__AVX__)

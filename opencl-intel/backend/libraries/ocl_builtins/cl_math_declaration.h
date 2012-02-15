@@ -3644,7 +3644,13 @@ OCL_SVML_P1_vFvF_ALL(logb)
 
 OCL_SVML_P1_vFvF_ALL(lgamma)
 OCL_SVML_P1_vFvF_ALL(tgamma)
-OCL_SVML_P1_vFvF_ALL(sqrt)
+
+#if defined(__AVX__)
+OCL_INTR_P1_vFvF_INTR_vDvD_ALL_AS_F8_D4(sqrt)
+#else // defined(__AVX__)
+OCL_INTR_P1_vFvF_INTR_vDvD_ALL_AS_F1(sqrt)
+#endif // defined(__AVX__)
+
 OCL_SP_INTR_DP_SVML_P1_vFvF_ALL(rsqrt)
 OCL_SVML_P1_vFvF_ALL(erf)
 OCL_SVML_P1_vFvF_ALL(erfc)
