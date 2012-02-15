@@ -62,7 +62,7 @@ public:
                                        );
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,
-                                        cl_build_status* OUT buildStatus
+                                        void* IN userData
                                        );
     cl_dev_err_code ReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code UnloadCompiler();

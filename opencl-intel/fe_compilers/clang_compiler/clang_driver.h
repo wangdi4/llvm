@@ -32,27 +32,27 @@
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
+	class ClangFECompilerBuildTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBuildProgramResult
 	{
 	public:
-		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions);
-		
-		int Compile();
+		typedef std::list<std::string> ArgListType;
 
-		// IOCLFEBinaryResult
+		ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions);
+
+		void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
+		
+		int Build();
+
+		// IOCLFEBuildProgramResult
 		size_t	GetIRSize() {return m_stOutIRSize;}
 		const void*	GetIR() { return m_pOutIR;}
 		const char* GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0; }
+		// release result
+		void Release() { delete this;}
 
 	protected:
-        ~ClangFECompilerCompileTask();
-        
-        typedef std::list<std::string> ArgListType;		
-
-        void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
-
-		Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
+		~ClangFECompilerBuildTask();
+		Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* m_pSource;
 		const char* m_pszDeviceExtensions;
 
 		bool OptDebugInfo;
@@ -66,32 +66,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
 
+
 		// Static members
 		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
-	};
-
-
-    class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
-	{
-	public:
-		ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
-		
-		int Link();
-
-		// IOCLFEBinaryResult
-		size_t	GetIRSize() {return m_stOutIRSize;}
-		const void*	GetIR() { return m_pOutIR;}
-		const char* GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0;}
-
-	protected:
-        ~ClangFECompilerLinkTask();
-
-		Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
-
-		char*	m_pOutIR;				// Output IR
-		size_t	m_stOutIRSize;
-		char*	m_pLogString;			// Output log
-		size_t	m_stLogSize;
 	};
 }}}

@@ -81,8 +81,6 @@ static void host_multi_ndrange_internal(
         cl::NDRange(ndrange_global_size),
         cl::NDRange(ndrange_local_size));
 
-	queue.finish();
-		 
     DTT_LOG("Executing kernel2 in NDRange...");
     queue.enqueueNDRangeKernel(
         kernel2,

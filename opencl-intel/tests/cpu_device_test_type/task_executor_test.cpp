@@ -91,10 +91,9 @@ public:
 		assert( 0==m_attached && "m_attached != 0");
 		*m_pDone = 1;
 	}
-	long	Release()
+	void	Release()
 	{
 		delete this;
-        return 0;
 	}
 };
 

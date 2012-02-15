@@ -58,14 +58,133 @@ Program::~Program()
 
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	const DeviceProgram* pDeviceProgram = GetDeviceProgram(clDevice);
+	DeviceProgram* pDeviceProgram = GetDeviceProgram(clDevice);
 	if (!pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
-
-    return pDeviceProgram->GetBuildInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+	return pDeviceProgram->GetBuildInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
+
+cl_err_code Program::Build(cl_uint	    uiNumDevices,
+				  const cl_device_id *	pclDeviceList,
+				  const char *			pcOptions,
+				  pfnNotifyBuildDone    pfn,
+				  void *				pUserData)
+{
+	cl_err_code ret = CL_SUCCESS;
+
+	if (0 == m_szNumAssociatedDevices)
+	{
+		return CL_INVALID_DEVICE;
+	}
+
+	if (m_pKernels.Count() > 0)
+	{
+		return CL_INVALID_OPERATION;
+	}
+
+	size_t* indices = new size_t[m_szNumAssociatedDevices];
+
+	if (uiNumDevices > 0)
+	{
+		//Phase one: get indices of the appropriate deviceProgram objects, and attempt to acquire all of them
+
+		for (cl_uint i = 0; i < uiNumDevices; ++i)
+		{
+			cl_device_id curDeviceId = pclDeviceList[i];
+            bool bFound = false;
+			for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
+			{
+				DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+				if (curDeviceId == pDeviceProgram->GetDeviceId())
+				{
+					bFound = true;
+					if (!pDeviceProgram->Acquire()) //Oops, someone else is trying to build this program for that device
+					{
+						//Release all accesses already acquired
+						for (cl_uint j = i; j > 0; --j)
+						{
+							m_ppDevicePrograms[indices[j-1]]->Unacquire();
+						}
+
+						delete[] indices;
+						return CL_INVALID_OPERATION;
+					}
+					else
+					{
+						indices[i] = deviceProg;
+						break;
+					}
+				}
+            }
+			if (!bFound) //We've been given a device not in the device list associated with program
+			{
+				//Release all accesses already acquired
+				for (cl_uint j = i; j > 0; --j)
+				{
+					m_ppDevicePrograms[indices[j-1]]->Unacquire();
+				}
+				delete[] indices;
+				return CL_INVALID_DEVICE;
+			}
+		}
+	}
+	else //build for all devices
+	{
+		//Phase one: acquire DeviceProgram objects on all associated devices
+		for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
+		{
+			DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+			if (!pDeviceProgram->Acquire()) //Oops, someone else is trying to build this program for that device
+			{
+				//Release all accesses already acquired
+				for (size_t j = deviceProg; j > 0; --j)
+				{
+					m_ppDevicePrograms[j-1]->Unacquire();
+				}
+
+				delete[] indices;
+				return CL_INVALID_OPERATION;
+			}
+			else
+			{
+				indices[deviceProg] = deviceProg;
+			}
+
+		}
+	}
+
+	//Todo: is it guaranteed to with simultaneous calls to clBuildProgram for a device, exactly one succeeds and all else return CL_INVALID_OPERATION?
+
+	size_t numDevicesToBuildFor = m_szNumAssociatedDevices;
+	if (uiNumDevices > 0)
+	{
+		numDevicesToBuildFor = uiNumDevices;
+	}
+	//At this point, indices 0 to numDevicesToBuildFor in the indices array are indices in m_pDevicePrograms that represent programs 
+	//that need to be built and that we are guaranteed exclusive access to
+
+	//Phase 2: build them
+	for (size_t i = 0; i < numDevicesToBuildFor; ++i)
+	{
+		ret = m_ppDevicePrograms[indices[i]]->Build(pcOptions, pfn, pUserData);
+		if (!CL_SUCCEEDED(ret))
+		{
+			break;
+		}
+	}
+
+	//Release access on all programs. Further accesses while they're building should fail in the call to Build
+	for (size_t i = 0; i < numDevicesToBuildFor; ++i)
+	{
+		m_ppDevicePrograms[indices[i]]->Unacquire();
+	}
+
+	delete[] indices;
+	return ret;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program::GetInfo
@@ -84,8 +203,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	cl_context clContextParam = 0;
 	cl_device_id* clDevIds = NULL;
-    size_t* puiNumKernels = NULL;
-    char* szKernelsNames = NULL;
+    const cl_uint uiKernelsCnt = m_pKernels.Count();
 
 	switch ( (cl_program_info)param_name )
 	{
@@ -147,195 +265,16 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 			}
 			return CL_SUCCESS;
 		}
+    case CL_PROGRAM_NUM_KERNELS:
+        szParamValueSize = sizeof(size_t);
+        pValue = &uiKernelsCnt;
+        break;
 
 	case CL_PROGRAM_BINARIES:
-		{
-			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
-			char ** pParamValue = static_cast<char **>(param_value);
-            size_t uiParam = 0;
-			// get  data
-			if (NULL != pParamValue)
-			{
-				if (param_value_size < szParamValueSize)
-				{
-					return CL_INVALID_VALUE;
-				}
-				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-				{
-					cl_int clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, &uiParam);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-					clErrRet = m_ppDevicePrograms[i]->GetBinary(uiParam, pParamValue[i], &uiParam);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-				}
-			}
-			// get  size
-			if (NULL != param_value_size_ret)
-			{
-				*param_value_size_ret = szParamValueSize;
-			}
-			return CL_SUCCESS;
-		}
-
 	case CL_PROGRAM_SOURCE:
-		{
-			szParamValueSize = 0;
-            pValue = NULL;
-		}
-
-    case CL_PROGRAM_NUM_KERNELS:
-        {
-            bool found = false;
-
-            for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
-            {
-                DeviceProgram* pDevProg = m_ppDevicePrograms[i];
-
-                if (CL_BUILD_SUCCESS == pDevProg->GetBuildStatus())
-		        {
-                    found = true;
-
-                    cl_uint uiNumKernels = 0;
-                    cl_int clErrRet = pDevProg->GetNumKernels(&uiNumKernels);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-
-                    puiNumKernels = new size_t;
-			        szParamValueSize = sizeof(size_t);
-		            puiNumKernels[0] = (size_t)uiNumKernels;
-                    pValue = puiNumKernels;
-		            break;
-		        }
-            }
-
-            if (!found)
-            {
-                // No successful build on any device
-                return CL_INVALID_PROGRAM_EXECUTABLE;
-            }
-
-            break;
-        }
-
-    case CL_PROGRAM_KERNEL_NAMES:
-        {
-            bool found = false;
-
-            for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
-            {
-                DeviceProgram* pDevProg = m_ppDevicePrograms[i];
-
-                if (CL_BUILD_SUCCESS == pDevProg->GetBuildStatus())
-		        {
-                    found = true;
-                    size_t total_length = 0;
-
-                    // first get the number of kernels
-                    cl_uint uiNumKernels = 0;
-                    cl_int clErrRet = pDevProg->GetNumKernels(&uiNumKernels);
-					if (CL_FAILED(clErrRet))
-					{
-						return clErrRet;
-					}
-
-                    if (0 == uiNumKernels)
-                    {
-                        // should't happen but try to get names from next device
-                        found = false;
-                        break;
-                    }
-
-                    // now get the length of each kernel name
-                    size_t* puiKernelNameLengths = new size_t[uiNumKernels];
-	                if (!puiKernelNameLengths)
-	                {
-		                return CL_OUT_OF_HOST_MEMORY;
-	                }
-	                clErrRet = pDevProg->GetKernelNames(NULL, puiKernelNameLengths, uiNumKernels);
-	                if (CL_FAILED(clErrRet))
-	                {
-		                delete[] puiKernelNameLengths;
-		                return clErrRet;
-	                }
-	                char** pszKernelNames = new char*[uiNumKernels];
-	                if (!pszKernelNames)
-	                {
-		                delete[] puiKernelNameLengths;
-		                return CL_OUT_OF_HOST_MEMORY;
-	                }
-	                for (size_t i = 0; i < uiNumKernels; ++i)
-	                {
-                        total_length += puiKernelNameLengths[i];
-		                pszKernelNames[i] = new char[puiKernelNameLengths[i]];
-		                if (!pszKernelNames[i])
-		                {
-			                for (size_t j = 0; j < i; ++j)
-			                {
-				                delete[] pszKernelNames[j];
-			                }
-			                delete[] pszKernelNames;
-			                delete[] puiKernelNameLengths;
-			                return CL_OUT_OF_HOST_MEMORY;
-		                }
-	                }
-
-                    // and finaly get the names
-	                clErrRet = pDevProg->GetKernelNames(pszKernelNames, puiKernelNameLengths, uiNumKernels);
-	                if (CL_FAILED(clErrRet))
-	                {
-		                for (size_t i = 0; i < uiNumKernels; ++i)
-		                {
-			                delete[] pszKernelNames[i];
-		                }
-		                delete[] pszKernelNames;
-		                delete[] puiKernelNameLengths;
-		                return clErrRet;
-	                }
-
-                    // once we have the actual names, we need to concatenate them
-                    assert(total_length > 0);
-                    szKernelsNames = new char[total_length];
-                    if (!szKernelsNames)
-                    {
-                        for (size_t i = 0; i < uiNumKernels; ++i)
-	                    {
-		                    delete[] pszKernelNames[i];
-	                    }
-	                    delete[] pszKernelNames;
-	                    delete[] puiKernelNameLengths;
-                        return CL_OUT_OF_HOST_MEMORY;
-                    }
-
-                    // There is at least one kernel
-                    STRCPY_S(szKernelsNames, total_length, pszKernelNames[0]);
-                    
-                    for (size_t i = 1; i < uiNumKernels; ++i)
-                    {
-                        STRCAT_S(szKernelsNames, total_length, ";");
-                        STRCAT_S(szKernelsNames, total_length, pszKernelNames[i]);  
-                    }
-
-			        szParamValueSize = sizeof(char) * total_length;
-                    pValue = szKernelsNames;
-		            break;
-		        }
-            }
-
-            if (!found)
-            {
-                // No successful build on any device
-                return CL_INVALID_PROGRAM_EXECUTABLE;
-            }
-
-            break;
-        }
+		//All should have been handled in implementing classes
+		assert(0 && "Invalid PROGRAM query case");
+		//Intentional fall through into default
 		
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), param_name);
@@ -350,14 +289,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		{
 			delete[] clDevIds;
 		}
-        if (puiNumKernels)
-        {
-            delete puiNumKernels;
-        }
-        if (szKernelsNames)
-        {
-            delete[] szKernelsNames;
-        }
 		return CL_INVALID_VALUE;
 	}
 
@@ -375,146 +306,8 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	{
 		delete[] clDevIds;
 	}
-    if (puiNumKernels)
-    {
-        delete puiNumKernels;
-    }
-    if (szKernelsNames)
-    {
-        delete[] szKernelsNames;
-    }
 
 	return CL_SUCCESS;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::GetBinaryInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-const char* Program::GetBinaryInternal(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return NULL;
-	}
-    return pDeviceProgram->GetBinaryInternal();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::GetBinarySizeInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return 0;
-	}
-    return pDeviceProgram->GetBinarySizeInternal();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::SetBinaryInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void *pBinary)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return CL_INVALID_DEVICE;
-	}
-    return pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::ClearBuildLogInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::ClearBuildLogInternal(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return CL_INVALID_DEVICE;
-	}
-    return pDeviceProgram->ClearBuildLogInternal();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::SetBuildLogInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetBuildLogInternal(cl_device_id clDevice, const char *szBuildLog)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return CL_INVALID_DEVICE;
-	}
-    return pDeviceProgram->SetBuildLogInternal(szBuildLog);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::SetBuildOptionsInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetBuildOptionsInternal(cl_device_id clDevice, const char* szBuildOptions)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return CL_INVALID_DEVICE;
-	}
-    return pDeviceProgram->SetBuildOptionsInternal(szBuildOptions);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::GetBuildOptionsInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-const char* Program::GetBuildOptionsInternal(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return NULL;
-	}
-    return pDeviceProgram->GetBuildOptionsInternal();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::SetStateInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState state)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return NULL;
-	}
-    return pDeviceProgram->SetStateInternal(state);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::GetStateInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-EDeviceProgramState Program::GetStateInternal(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return DEVICE_PROGRAM_INVALID;
-	}
-    return pDeviceProgram->GetStateInternal();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Program::GetStateInternal
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_program programHandle)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return NULL;
-	}
-    return pDeviceProgram->SetDeviceHandleInternal(programHandle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -742,45 +535,7 @@ DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)
     return NULL;
 }
 
-cl_uint Program::GetNumDevices()
-{
-    return m_szNumAssociatedDevices;
-}
 
-cl_err_code Program::GetDevices(cl_device_id* pDeviceID)
-{
-    for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
-    {
-        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
-        pDeviceID[i] = pDeviceProgram->GetDeviceId();
-    }
 
-    return CL_SUCCESS;
-}
 
-cl_uint Program::GetNumKernels()
-{
-    return m_pKernels.Count();
-}
 
-bool Program::Acquire(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return false;
-	}
-
-    return pDeviceProgram->Acquire();
-}
-
-void Program::Unacquire(cl_device_id clDevice)
-{
-    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
-	{
-		return;
-	}
-
-    return pDeviceProgram->Unacquire();
-}

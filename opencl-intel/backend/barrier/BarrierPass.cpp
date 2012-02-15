@@ -28,9 +28,6 @@ namespace intel {
     m_uiSizeT = M.getPointerSize()*32;
     m_sizeTType = IntegerType::get(*m_pContext, m_uiSizeT);
 
-    //Update Map with structure stride size for each kernel
-    updateStructureStride(M);
-
     //Run over module functions and for such with synchronize instruction:
     // 1. Handle Values from Group-A, Group-B.1 and Group-B.2
     // 2. Hanlde synchronize instructions
@@ -59,7 +56,7 @@ namespace intel {
     m_pAllocaValues = &m_pDataPerValue->getAllocaValuesToHandle(&F);
     m_pCrossBarrierValues = &m_pDataPerValue->getUniformValuesToHandle(&F);
 
-    unsigned int structureSize = m_pDataPerValue->getStrideSize(&F);
+    unsigned int structureSize = m_pDataPerValue->getTotalSize();
     m_pStructureSizeValue = ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, structureSize));
 
     //Clear container for new iteration on new function
@@ -513,7 +510,7 @@ namespace intel {
         newArgsVec.push_back(ai->getType());
     }
 
-    //Add extra parameter of size_t type for offsets in special buffer
+    //Add extra parameter of i32 type for offsets in special buffer
     unsigned int numOfArgs = pFuncToFix->getFunctionType()->getNumParams();
     bool hasReturnValue = !pFuncToFix->getFunctionType()->getReturnType()->isVoidTy();
     //Keep one last argument for return value
@@ -594,7 +591,7 @@ namespace intel {
     m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pNewFunc->begin()->begin());
 
     m_pBadOffsetValue = ConstantInt::get(
-      m_sizeTType, DataPerInternalFunction::m_badOffset);
+      IntegerType::getInt32Ty(*m_pContext), DataPerInternalFunction::m_badOffset);
     //Use offsets instead of original parameters
     unsigned int currNewIndex = numOfArgs;
     for ( unsigned int i = 0; i < numOfArgs; ++i ) {
@@ -828,33 +825,6 @@ namespace intel {
     }
   }
 
-  void Barrier::updateStructureStride(Module & M) {
-    llvm::NamedMDNode *pModuleMetadata = M.getNamedMetadata("opencl.kernels");
-    if ( !pModuleMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
-      return;
-    }
-
-    for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) {
-      //Obtain kernel function from annotation
-      llvm::MDNode *elt = pModuleMetadata->getOperand(i);
-      Function* pFunc = dyn_cast<Function>(elt->getOperand(0));
-      assert( pFunc && "MetaData first operand is not of type Function!" );
-      unsigned int strideScalar = m_pDataPerValue->getStrideSize(pFunc);
-      unsigned int strideVectorized = 0;
-      //Check if there is a vectorized version of this kernel
-      std::string vectorizedKernelName = 
-        std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().data();
-      Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
-      if ( pVectorizedKernelFunc ) {
-        strideVectorized = m_pDataPerValue->getStrideSize(pVectorizedKernelFunc);
-      }
-      //For each kernel save the max stride between scalar and vectorized version
-      unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);
-      m_bufferStrideMap[pFunc->getNameStr()] = strideSize;
-    }
-  }
-
   //Register this pass...
   static RegisterPass<Barrier> BP("B-Barrier",
     "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs",
@@ -870,7 +840,7 @@ extern "C" {
     return new intel::Barrier();
   }
 
-  void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {
-    ((intel::Barrier*)pPass)->getStrideMap(bufferStrideMap);
+  unsigned int getBarrierPassStrideSize(Pass *pPass) {
+    return ((intel::Barrier*)pPass)->getStrideSize();
   }
 }

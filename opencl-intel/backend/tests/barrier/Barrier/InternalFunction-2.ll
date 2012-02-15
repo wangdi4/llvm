@@ -61,7 +61,7 @@ L2:
 ; CHECK: ret i32 %x
 }
 
-; CHECK: @foo_New(i32 %x, i32 %offset, i32 %offset1)
+; CHECK: @foo_New(i32 %x, i32 %offset)
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @barrier
 ; CHECK: xor

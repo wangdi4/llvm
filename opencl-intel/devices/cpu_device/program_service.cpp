@@ -49,7 +49,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 static cl_prog_binary_desc gSupportedBinTypes[] =
 {
     {CL_PROG_DLL_X86, 0, 0},
-    {CL_PROG_BIN_EXECUTABLE_LLVM, 0, 0},
+    {CL_PROG_BIN_LLVM, 0, 0},
 };
 static  unsigned int    UNUSED(gSupportedBinTypesCount) = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
 
@@ -216,7 +216,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
     switch ( pProgCont->description.bin_type )
     {
     // Supported program binaries
-    case CL_PROG_BIN_EXECUTABLE_LLVM:          // The container should contain valid LLVM-IR
+    case CL_PROG_BIN_LLVM:          // The container should contain valid LLVM-IR
         break;
 
     case CL_PROG_OBJ_X86:           // The container should contain binary buffer of object file
@@ -291,7 +291,11 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     cl_dev_err_code ret;
     switch(pProgCont->description.bin_type)
     {
-    case CL_PROG_BIN_EXECUTABLE_LLVM:
+// Deprecated
+//  case CL_PROG_DLL_X86:
+//      pEntry->pProgram = new DLLProgram;
+//      break;
+    case CL_PROG_BIN_LLVM:
         assert(m_pBackendCompiler);
         ret = m_pBackendCompiler->CreateProgram(pProgCont, &pEntry->pProgram);
         break;
@@ -346,10 +350,71 @@ clDevBuildProgram
         CL_DEV_INVALID_BINARY           If the back-end compiler failed to process binary.
         CL_DEV_OUT_OF_MEMORY            If the device failed to allocate memory for the program
 ***********************************************************************************************************************/
+// Program Build supporting task
+namespace Intel { namespace OpenCL { namespace CPUDevice {
+class ProgramBuildTask : public Intel::OpenCL::TaskExecutor::ITask
+{
+public:
+    ProgramBuildTask(ICLDevBackendCompilationService* pCompileService,
+                     ProgramService::TProgramEntry* pProgEntry, 
+                     const char* pOptions,
+                     IOCLFrameworkCallbacks* pCallBack, 
+                     cl_dev_program progId, 
+                     void* pUserData,
+                     IOCLDevLogDescriptor*  pDescriptor, 
+                     int iLogHandle):
+            m_pCompileService(pCompileService),
+            m_pProgEntry(pProgEntry), m_pOptions(pOptions), m_pCallBack(pCallBack),
+            m_progId(progId), m_pUserData(pUserData),
+            m_pLogDescriptor(pDescriptor), m_iLogHandle(iLogHandle)
+    {
+        assert(m_pCompileService && "Must be initialized with valid compiler service");     
+    }
+
+    // ITask interface
+    bool Execute()
+    {
+        CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
+
+        cl_dev_err_code ret = m_pCompileService->BuildProgram(m_pProgEntry->pProgram, NULL);
+
+        CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
+
+        cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
+        m_pProgEntry->clBuildStatus = status;
+        
+
+        // if the user requested -dump-opt-llvm, print this module
+        if( CL_DEV_SUCCEEDED(ret) && (NULL != m_pOptions) && !strncmp(m_pOptions, "-dump-opt-llvm=", 15))
+        {
+            assert( m_pProgEntry->pProgram && "Program must be created already");
+            ProgramDumpConfig dumpOptions(m_pOptions);
+            m_pCompileService->DumpCodeContainer( m_pProgEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+        }
+
+		m_pCallBack->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
+        CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+		return true;
+    }
+
+    void        Release() {delete this;}
+protected:
+    // Program to be built
+    ICLDevBackendCompilationService* m_pCompileService;
+    ProgramService::TProgramEntry*  m_pProgEntry;
+    const char*                     m_pOptions;
+    // Data to be passed to the calling party
+    IOCLFrameworkCallbacks*         m_pCallBack;
+    cl_dev_program                  m_progId;
+    void*                           m_pUserData;
+    IOCLDevLogDescriptor*           m_pLogDescriptor;
+    cl_int                          m_iLogHandle;
+};
+}}}
 
 cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     const char* IN options,
-                                    cl_build_status* OUT buildStatus
+                                    void* IN userData
                                    )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram enter"));
@@ -391,29 +456,31 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         return CL_DEV_INVALID_OPERATION;
     }
 
+    // Create building thread
     pEntry->clBuildStatus = CL_BUILD_IN_PROGRESS;
-
-    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Starting build"));
-
-    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, NULL);
-
-    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
-
-    cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
-    pEntry->clBuildStatus = status;
-    
-    // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && !strncmp(options, "-dump-opt-llvm=", 15))
+    ProgramBuildTask* pBuildTask = new ProgramBuildTask(m_pBackendCompiler,
+                                                        pEntry, 
+                                                        options, 
+                                                        m_pCallBacks, 
+                                                        prog, 
+                                                        userData,
+                                                        m_pLogDescriptor, 
+                                                        m_iLogHandle);
+    if ( NULL == pBuildTask )
     {
-        assert( pEntry->pProgram && "Program must be created already");
-        ProgramDumpConfig dumpOptions(options);
-        m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create Backend Build task"));
+        pEntry->clBuildStatus = CL_BUILD_ERROR;
+        return CL_DEV_OUT_OF_MEMORY;
     }
 
-	if ( NULL != buildStatus )
-	{
-		*buildStatus = status;
-	}
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Submitting BuildTask"));
+    int iRet = GetTaskExecutor()->Execute(pBuildTask);
+    if ( 0 != iRet )
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Submission failed (%0X)"), iRet);
+        pEntry->clBuildStatus = CL_BUILD_ERROR;
+        return CL_DEV_ERROR_FAIL;
+    }
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
     return CL_DEV_SUCCESS;

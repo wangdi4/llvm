@@ -223,7 +223,7 @@ void OpenCLProgram::setContainer()
   memcpy((void*)pContainer->mask, _CL_CONTAINER_MASK_, sizeof(pContainer->mask));
 
   pContainer->container_type = CL_PROG_CNT_PRIVATE;
-  pContainer->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+  pContainer->description.bin_type = CL_PROG_BIN_LLVM;
   pContainer->description.bin_ver_major = 1;
   pContainer->description.bin_ver_minor = 1;
 }

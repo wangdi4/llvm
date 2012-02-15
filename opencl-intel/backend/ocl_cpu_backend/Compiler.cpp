@@ -158,9 +158,14 @@ KernelsInfoMap& ProgramBuildResult::GetKernelsInfo()
     return *m_pKernelsInfo;
 }
 
-std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
+void ProgramBuildResult::SetPrivateMemorySize( size_t size)
 {
-    return m_privateMemorySizeMap;
+    m_privateMemorySize = size;
+}
+
+size_t ProgramBuildResult::GetPrivateMemorySize() const
+{
+    return m_privateMemorySize;    
 }
 
 /*
@@ -273,8 +278,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     optimizer.GetKernelsInfo( *kernelsMap.get());
 
     if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
-      //Set PrivateMemorySize of pResult
-      optimizer.getPrivateMemorySize(pResult->GetPrivateMemorySize());
+      pResult->SetPrivateMemorySize(optimizer.getPrivateMemorySize());
       pResult->SetFunctionsWidths( vectorizedFunctions.release() );
       pResult->SetKernelsInfo( kernelsMap.release());
     }

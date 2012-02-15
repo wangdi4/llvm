@@ -29,8 +29,6 @@
 #include "Device.h"
 #include "program_with_source.h"
 #include "program_with_binary.h"
-#include "program_for_link.h"
-#include "program_service.h"
 #include "sampler.h"
 #include "cl_sys_defines.h"
 #include "context_module.h"
@@ -55,7 +53,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
-	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_programService(this), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
+	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -370,15 +368,11 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 		LOG_ERROR(TEXT("%S"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
 		return CL_INVALID_VALUE;
 	}
-	cl_err_code clErrRet = CL_SUCCESS;
+	cl_err_code clErrRet;
 	// create new program object
 	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
 	if (!pProgram)
 	{
-        if (CL_SUCCESS != clErrRet)
-        {
-            return clErrRet;
-        }
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -395,119 +389,6 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	m_mapPrograms.AddObject((OCLObject<_cl_program_int>*)pProgram);
 	*ppProgram = pProgram;
 	return CL_SUCCESS;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::CreateProgramForLink
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices, 
-							              const cl_device_id *	IN  pclDeviceList, 
-								          Program **			OUT ppProgram)
-{
-    LOG_DEBUG(TEXT("CreateProgramFromLink enter. uiNumDevices=%d, pclDeviceList=%d, ppProgram=%d"), uiNumDevices, pclDeviceList, ppProgram);
-	
-    cl_err_code clErrRet = CL_SUCCESS;
-
-    // check input parameters
-	if (NULL == ppProgram)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
-		return CL_INVALID_VALUE;
-	}
-
-    if (NULL == pclDeviceList || 0 == uiNumDevices)
-	{
-		// invalid input args
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
-		return CL_INVALID_VALUE;
-	}
-
-    // get devices
-	FissionableDevice ** ppDevices = new FissionableDevice *[uiNumDevices];
-	if (NULL == ppDevices)
-	{
-		// can't allocate memory for devices
-		LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-	// check devices
-	bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
-	if (false == bRes)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
-		delete[] ppDevices;
-		return CL_INVALID_DEVICE;
-	}
-
-    // create program object
-	Program* pProgram = new ProgramForLink(this, uiNumDevices, ppDevices, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
-	delete[] ppDevices;
-
-	if (!pProgram)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
-	
-	m_mapPrograms.AddObject(pProgram);
-	*ppProgram = pProgram;
-	return clErrRet;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::CompileProgram
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CompileProgram(cl_program			IN  clProgram, 
-                           cl_uint				IN  uiNumDevices,
-						   const cl_device_id*	IN  pclDeviceList, 
-                           cl_uint				IN  uiNumHeaders,
-                           const cl_program*	IN  pclHeaders, 
-                           const char**         IN  pszHeadersNames, 
-                           const char*          IN  szOptions, 
-                           pfnNotifyBuildDone   IN  pfn_notify,
-                           void*                IN  user_data)
-{
-    return CL_COMPILE_PROGRAM_FAILURE;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::LinkProgram
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::LinkProgram(cl_program				IN  clProgram, 
-                                cl_uint					IN  uiNumDevices,
-								const cl_device_id*	    IN  pclDeviceList, 
-                                cl_uint					IN  uiNumBinaries,
-                                const cl_program*		IN  pclBinaries, 
-                                const char*             IN  szOptions, 
-                                pfnNotifyBuildDone      IN  pfn_notify,
-                                void*                   IN  user_data)
-{
-    return CL_LINK_PROGRAM_FAILURE;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::BuildProgram
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::BuildProgram(cl_program			IN  clProgram, 
-                                  cl_uint				IN  uiNumDevices,
-								  const cl_device_id*   IN  pclDeviceList, 
-                                  const char*           IN  szOptions, 
-                                  pfnNotifyBuildDone    IN  pfn_notify,
-                                  void*                 IN  user_data)
-{
-    Program* pProg;
-    cl_err_code clErrRet = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram, (OCLObject<_cl_program_int>**)&pProg);
-    if (CL_FAILED(clErrRet) || NULL == pProg)
-	{
-		LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
-		return CL_INVALID_PROGRAM;
-	}
-
-    cl_int clErr = m_programService.BuildProgram(pProg, uiNumDevices, pclDeviceList, szOptions, pfn_notify, user_data);
-    
-    return clErr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

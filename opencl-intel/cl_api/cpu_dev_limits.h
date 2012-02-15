@@ -56,7 +56,6 @@
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
 #define CPU_MIN_VECTOR_SIZE				16				// Minimum vector size, XMM == 16bytes
-#define CPU_MAX_PRINTF_BUFFER_SIZE		1024*1024
 
 // Minimum memory size allocate for single WI instance
 #define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*sizeof(size_t))

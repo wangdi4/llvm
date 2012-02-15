@@ -51,10 +51,6 @@ TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
     EXPECT_TRUE(clBuildProgramWithSourceTest());
 }
 
-//TEST(FrameworkTestType, Test_clLinkProgramTest)
-//{
-//    EXPECT_TRUE(clLinkProgramTest());
-//}
 
 TEST(FrameworkTestType, Test_clCreateKernelTest)
 {

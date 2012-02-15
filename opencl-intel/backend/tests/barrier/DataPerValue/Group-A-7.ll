@@ -72,11 +72,7 @@ L2:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK-NOT: entry
-; CHECK: entry(0) : (96)
-; CHECK-NOT: entry
-; CHECK: DONE
+; CHECK: Buffer Total Size: 96
 
 declare void @barrier(i32)
 declare void @dummybarrier.()

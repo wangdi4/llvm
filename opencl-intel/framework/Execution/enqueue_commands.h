@@ -1124,7 +1124,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// ITask interface
 		bool Execute();
-		long Release(); 
+		void Release(); 
 
 	private:
 		PrePostFixRuntimeCommand*			m_owner;

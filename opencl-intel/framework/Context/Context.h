@@ -27,7 +27,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
 
-#include "program_service.h"
 #include "cl_object.h"
 #include "cl_objects_map.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
@@ -41,8 +40,6 @@
 #include "cl_heap.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
-
-    typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
 
 	class Sampler;
     class Device;
@@ -125,68 +122,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											const unsigned char **	IN  ppBinaries, 
 											cl_int *				OUT piBinaryStatus, 
 											Program **				OUT ppProgram);
-
-        /******************************************************************************************
-		* Function: 	CreateProgramForLink    
-		* Description:	creates an empty program
-		* Arguments:	
-		* Return value:	
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code CreateProgramForLink(cl_uint				IN  uiNumDevices, 
-										 const cl_device_id *	IN  pclDeviceList, 
-										 Program **			OUT ppProgram);
-
-        /******************************************************************************************
-		* Function: 	CompileProgram  
-		* Description:	Compile program from a set of source and headers
-		* Arguments:	
-		* Return value:	
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code CompileProgram(cl_program			IN  clProgram, 
-                                   cl_uint				IN  uiNumDevices,
-								   const cl_device_id*	IN  pclDeviceList, 
-                                   cl_uint				IN  uiNumHeaders,
-                                   const cl_program*	IN  pclHeaders, 
-                                   const char**         IN  pszHeadersNames, 
-                                   const char*          IN  szOptions, 
-                                   pfnNotifyBuildDone   IN  pfn_notify,
-                                   void*                IN  user_data);
-
-        /******************************************************************************************
-		* Function: 	LinkProgram  
-		* Description:	Link program from a set of binaries
-		* Arguments:	
-		* Return value:	
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code LinkProgram(cl_program				IN  clProgram, 
-                                cl_uint					IN  uiNumDevices,
-								const cl_device_id*	    IN  pclDeviceList, 
-                                cl_uint					IN  uiNumBinaries,
-                                const cl_program*		IN  pclBinaries, 
-                                const char*             IN  szOptions, 
-                                pfnNotifyBuildDone      IN  pfn_notify,
-                                void*                   IN  user_data);
-
-        /******************************************************************************************
-		* Function: 	BuildProgram  
-		* Description:	Build program from source or executable binary
-		* Arguments:	
-		* Return value:	
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code BuildProgram(cl_program				IN  clProgram, 
-                                 cl_uint				IN  uiNumDevices,
-								 const cl_device_id*	IN  pclDeviceList, 
-                                 const char*            IN  szOptions, 
-                                 pfnNotifyBuildDone     IN  pfn_notify,
-                                 void*                  IN  user_data);
 
 
 		// get the number of devices
@@ -335,8 +270,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_program_int>			m_mapPrograms;			// holds the programs that related to this context
 		OCLObjectsMap<_cl_mem_int>				m_mapMemObjects;		// holds the memory objects that belongs to the context
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;			// holds the sampler objects that belongs to the context
-
-        Intel::OpenCL::Framework::ProgramService                          m_programService;
 
 		cl_context_properties *					m_pclContextProperties; // context properties
 //		std::map<cl_context_properties, cl_context_properties>

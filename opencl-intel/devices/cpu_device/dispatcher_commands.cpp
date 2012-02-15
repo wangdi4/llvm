@@ -720,7 +720,7 @@ m_pMemBuffSizes(NULL)
 //	QueryPerformanceFrequency(&freq);
 }
 
-long NDRange::Release()
+void NDRange::Release()
 {
 	if ( NULL != m_pBinary )
 	{
@@ -731,8 +731,6 @@ long NDRange::Release()
 		delete []m_pMemBuffSizes;
 	}
 	delete this;
-
-    return 0;
 }
 
 cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
