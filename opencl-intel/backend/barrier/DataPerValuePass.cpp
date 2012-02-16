@@ -20,11 +20,15 @@ namespace intel {
     m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
     m_pWIRelatedValue = &getAnalysis<WIRelatedValue>();
 
-    m_currentOffset = 0;
-    m_maxAlignment = 0;
+    //Initialize barrier utils class with current module
+    m_util.init(&M);
+
     //Create instance of TargetData for this module
     m_pTD = new TargetData(&M);
     assert( m_pTD && "Failed to create new instance of TargetData!" );
+
+    // Find and sort all connected function into disjointed groups
+    CalculateConnectedGraph(M);
 
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       runOnFunction(*fi);
@@ -33,10 +37,15 @@ namespace intel {
     delete m_pTD;
 
     //Check that stide size is aligned with max alignment
-    if ( m_maxAlignment != 0 && (m_currentOffset % m_maxAlignment) != 0 ) {
-      m_currentOffset = (m_currentOffset + m_maxAlignment) & (~(m_maxAlignment-1));
+    for ( TEntryToBufferDataMap::iterator di = m_entryToBufferDataMap.begin(),
+      de = m_entryToBufferDataMap.end(); di != de; ++di ) {
+        unsigned int maxAlignment = di->second.m_maxAlignment;
+        unsigned int currentOffset = di->second.m_currentOffset;
+      if ( maxAlignment != 0 && (currentOffset % maxAlignment) != 0 ) {
+        currentOffset = (currentOffset + maxAlignment) & (~(maxAlignment-1));
+      }
+      di->second.m_bufferTotalSize = currentOffset;
     }
-    m_bufferTotalSize = m_currentOffset;
     return false;
   }
 
@@ -60,6 +69,19 @@ namespace intel {
         //It is an alloca value, add it to Group_A container
         m_allocaValuesPerFuncMap[&F].push_back(pInst);
         continue;
+      }
+      CallInst *pCallInst = dyn_cast<CallInst>(pInst);
+      if ( pCallInst ) {
+        Function *pCalledFunc = pCallInst->getCalledFunction();
+        if ( pCalledFunc && !pCalledFunc->getReturnType()->isVoidTy() &&
+          m_pDataPerBarrier->hasSyncInstruction(pCalledFunc) ) {
+            // Call instructions to functions that contains barriers
+            // need to be stored in the special buffer.
+            assert(m_pWIRelatedValue->isWIRelated(pInst)
+              && "Must be work-item realted value!");
+            m_specialValuesPerFuncMap[&F].push_back(pInst);
+            continue;
+        }
       }
       switch ( isSpecialValue(pInst, m_pWIRelatedValue->isWIRelated(pInst)) ) {
         case SPECIAL_VALUE_TYPE_B1:
@@ -136,8 +158,8 @@ namespace intel {
             //Found value usage "u" and barrier "i" such that
             //BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors
 
-            if ( isWIRelated ) {
-              //pVal depends on work item id and crosses a barrier
+            if ( isWIRelated && !m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
+              //pVal depends on work item id and crosses a barrier that is not in a loop
               return SPECIAL_VALUE_TYPE_B1;
             }
 
@@ -172,6 +194,11 @@ namespace intel {
   }
 
   bool DataPerValue::isCrossedByBarrier(BasicBlock *pValUsageBB, BasicBlock *pValBB) {
+    if ( pValUsageBB == pValBB ) {
+      //This can happen when pValUsage is a PHINode
+      return false;
+    }
+
     DataPerBarrier::TBasicBlocksSet perdecessors;
     std::vector<BasicBlock*> basicBlocksToHandle;
 
@@ -208,13 +235,15 @@ namespace intel {
   void DataPerValue::calculateOffsets(Function &F) {
 
     TValueVector &specialValues = m_specialValuesPerFuncMap[&F];
+    unsigned int entry = m_functionToEntryMap[&F];
+    SpecialBufferData& bufferData = m_entryToBufferDataMap[entry];
 
     //Run over all special values in function
     for ( TValueVector::iterator vi = specialValues.begin(),
       ve = specialValues.end(); vi != ve; ++vi ) {
         Value *pVal = dyn_cast<Value>(*vi);
         //Get Offset of special value type
-        m_valueToOffsetMap[pVal] = getValueOffset(pVal->getType(), 0);
+        m_valueToOffsetMap[pVal] = getValueOffset(pVal->getType(), 0, bufferData);
     }
 
     TValueVector &allocaValues = m_allocaValuesPerFuncMap[&F];
@@ -226,11 +255,13 @@ namespace intel {
         AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(pVal);
         //Get Offset of alloca instruction contained type
         m_valueToOffsetMap[pVal] = getValueOffset(
-          pVal->getType()->getContainedType(0), pAllocaInst->getAlignment());
+          pVal->getType()->getContainedType(0), pAllocaInst->getAlignment(), bufferData);
     }
   }
 
-  unsigned int DataPerValue::getValueOffset(Type *pType, unsigned int allocaAlignment) {
+  unsigned int DataPerValue::getValueOffset(
+    Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData) {
+
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pTD->getABITypeAlignment(pType);
     unsigned int alignment = (allocaAlignment) ?
@@ -245,25 +276,79 @@ namespace intel {
     assert( sizeInBytes && "sizeInBytes is 0" );
 
     //Update max alignment
-    if ( alignment > m_maxAlignment ) {
-      m_maxAlignment = alignment;
+    if ( alignment > bufferData.m_maxAlignment ) {
+      bufferData.m_maxAlignment = alignment;
     }
 
-    if ( (m_currentOffset % alignment) != 0 ) {
+    if ( (bufferData.m_currentOffset % alignment) != 0 ) {
       //Offset is not aligned on value size
       assert( ((alignment & (alignment-1)) == 0) && "alignment is not power of 2!" );
       //TODO: check what to do with the following assert - it fails on
       //      test_basic.exe kernel_memory_alignment_private
       //assert( (alignment <= 32) && "alignment is bigger than 32 bytes (should we align to more than 32 bytes?)" );
-      m_currentOffset = (m_currentOffset + alignment) & (~(alignment-1));
+      bufferData.m_currentOffset = (bufferData.m_currentOffset + alignment) & (~(alignment-1));
     }
-    assert( (m_currentOffset % alignment) == 0 && "Offset is not aligned on value size!" );
+    assert( (bufferData.m_currentOffset % alignment) == 0 && "Offset is not aligned on value size!" );
     //Found offset of given type
-    unsigned int offset = m_currentOffset;
+    unsigned int offset = bufferData.m_currentOffset;
     //Increment current available offset with pVal size
-    m_currentOffset += sizeInBytes;
+    bufferData.m_currentOffset += sizeInBytes;
 
     return offset;
+  }
+
+  void DataPerValue::CalculateConnectedGraph(Module &M) {
+    unsigned int currEntry = 0;
+
+    //Run on all functions in module
+    for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
+      Function* pFunc = dyn_cast<Function>(fi);
+      if ( pFunc->isDeclaration() ) {
+        //Skip non defined functions
+        continue;
+      }
+      if ( m_functionToEntryMap.count(pFunc) ) {
+        //pFunc already has an entry number, 
+        //replace all appears of it with the current entry number.
+        FixEntryMap(m_functionToEntryMap[pFunc], currEntry);
+      } else {
+        //pFunc has no entry number yet, give it the current entry number
+        m_functionToEntryMap[pFunc] = currEntry;
+      }
+      for ( Value::use_iterator ui = pFunc->use_begin(),
+        ue = pFunc->use_end(); ui != ue; ++ui ) {
+          CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+          assert( pCallInst && "usage of pFunc is not a CallInst!" );
+          if( !pCallInst ) {
+            // usage of pFunc is not a CallInst
+            continue;
+          }
+          Function *pCallerFunc = pCallInst->getParent()->getParent();
+          if ( m_functionToEntryMap.count(pCallerFunc) ) {
+            //pCallerFunc already has an entry number, 
+            //replace all appears of it with the current entry number.
+            FixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
+          } else {
+            //pCallerFunc has no entry number yet, give it the current entry number
+            m_functionToEntryMap[pCallerFunc] = currEntry;
+          }
+      }
+      currEntry++;
+    }
+  }
+
+  void DataPerValue::FixEntryMap(unsigned int from, unsigned int to) {
+    if ( from == to ) {
+      //No need to fix anything
+      return;
+    }
+    //Replace all apears of value "from" with value "to"
+    for ( TFunctionToEntryMap::iterator ei = m_functionToEntryMap.begin(),
+      ee = m_functionToEntryMap.end(); ei != ee; ++ ei ) {
+        if ( ei->second == from ) {
+          ei->second = to;
+        }
+    }
   }
 
   void DataPerValue::print(raw_ostream &OS, const Module *M) const {
@@ -336,7 +421,20 @@ namespace intel {
       }
       OS << "*" << "\n";
     }
-    OS << "Buffer Total Size: " << m_bufferTotalSize << "\n";
+
+    OS << "Buffer Total Size: ";
+    for ( TFunctionToEntryMap::const_iterator ei = m_functionToEntryMap.begin(),
+      ee = m_functionToEntryMap.end(); ei != ee; ++ei ) {
+        //Print function name & its entry
+        OS << "+" << ei->first->getNameStr() << " : [" << ei->second << "]\n";
+    }
+    for ( TEntryToBufferDataMap::const_iterator di = m_entryToBufferDataMap.begin(),
+      de = m_entryToBufferDataMap.end(); di != de; ++di ) {
+      //Print entry & its structure stride
+      OS << "entry(" << di->first << ") : (" << di->second.m_bufferTotalSize << ")\n";
+    }
+
+    OS << "DONE\n";
   }
 
   //Register this pass...

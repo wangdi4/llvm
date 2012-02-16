@@ -57,7 +57,7 @@ L2:
 ; CHECK: Data collected on functions
 ; CHECK-NOT: main
 ; CHECK: foo
-; CHECK: need to be fixed: 0     number of usages: 1     In special buffer counters: ( 0, 0 )
+; CHECK: need to be fixed: 0     number of usages: 0     In special buffer counters: ( 0, 0 )
 ; CHECK-NOT: main
 
 ; CHECK: Data collected on calls

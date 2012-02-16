@@ -1,0 +1,1 @@
+This folder should contain LIT tests that related to barrier but are not related to barrier passes!

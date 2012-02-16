@@ -23,7 +23,7 @@ extern "C" {
   //void* createDataPerValuePass();
   void* createBarrierPass();
 
-  unsigned int getBarrierPassStrideSize(Pass *pPass);
+  void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
 
 
@@ -32,7 +32,7 @@ namespace intel {
   char intel::BarrierMain::ID = 0;
 
   BarrierMain::BarrierMain(bool isDBG) :
-    ModulePass(ID), m_isDBG(isDBG), m_strideSize(0) {}
+    ModulePass(ID), m_isDBG(isDBG) {}
 
   bool BarrierMain::runOnModule(Module &M) {
     PassManager barrierModulePM;
@@ -63,7 +63,7 @@ namespace intel {
     //Run module passes
     barrierModulePM.run(M);
 
-    m_strideSize = getBarrierPassStrideSize(pBarrierPass);
+    getBarrierPassStrideSize(pBarrierPass, m_bufferStrideMap);
 
     return true;
   }
@@ -82,7 +82,7 @@ extern "C" {
     return new intel::BarrierMain(isDBG);
   }
 
-  unsigned int getBarrierStrideSize(Pass *pPass) {
-    return ((intel::BarrierMain*)pPass)->getStrideSize();
+  void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {
+    ((intel::BarrierMain*)pPass)->getStrideMap(bufferStrideMap);
   }
 }
