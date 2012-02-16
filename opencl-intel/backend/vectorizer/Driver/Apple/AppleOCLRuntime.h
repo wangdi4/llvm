@@ -58,6 +58,12 @@ public:
   virtual bool hasNoSideEffect(std::string &func_name) const;
 
 
+  /// @brief retruns number of Jit dimensions.
+  virtual unsigned getNumJitDimensions() const;
+
+  // @brief retrun name of builtin to retrieve base global id for this work group.
+  virtual const char *getBaseGIDName() const;
+
 private:
 
   /// @breif hold names of builtins that require replacement with fake function

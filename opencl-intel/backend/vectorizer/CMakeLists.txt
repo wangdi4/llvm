@@ -9,9 +9,10 @@ include_directories(BEFORE "Resolver")
 include_directories(BEFORE "VolcanoWrapper")
 include_directories(BEFORE "AppleWrapper")
 include_directories(BEFORE "PreVectorization")
+include_directories(BEFORE "LoopHandler")
 include_directories(../arch_headers)
 
-add_llvm_library(LLVMVectorizer
+add_llvm_library( LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
@@ -42,5 +43,10 @@ add_llvm_library(LLVMVectorizer
   Utils/VectorizerUtils.cpp
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
   PreVectorization/OCLBuiltinPreVectorizationPass.cpp
+  LoopHandler/KernelAnalysis.cpp
+  LoopHandler/LoopUtils.cpp
+  LoopHandler/CLWGLoopCreator.cpp
+  LoopHandler/CLWGLoopBoundaries.cpp
+  LoopHandler/CLWGBoundDecoder.cpp
   ${headers}
 )

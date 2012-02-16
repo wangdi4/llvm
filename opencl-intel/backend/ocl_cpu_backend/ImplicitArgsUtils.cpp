@@ -107,28 +107,30 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
   const size_t* pGlobalId = &(pExecutable->m_GlobalId[0]);
   implicitArgument[3].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pGlobalId)));
 
-  // Initialize and Set Local ids
-  size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + pExecutable->m_pBinary->GetAlignedKernelParametersSize());
-  initWILocalIds(pExecutable, pWIids);
-  implicitArgument[4].setValue(reinterpret_cast<char *>(&pWIids));
-
   // Setup Context pointer
   implicitArgument[5].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pExecutable)));
 
-  // Setup iterCount
-  assert( uiWICount > 0 && "uiWICount is zero!" );
-  size_t iterCounter = uiWICount - 1;
-  implicitArgument[6].setValue(reinterpret_cast<char *>(&iterCounter)); /*set iter count*/;
+  // Initialize Barrier WI ids variables only if jit is not creating the ids.
+  if (!pExecutable->m_pBinary->m_bJitCreateWIids) {
+    // Initialize and Set Local ids
+    size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + pExecutable->m_pBinary->GetAlignedKernelParametersSize());
+    initWILocalIds(pExecutable, pWIids);
+    implicitArgument[4].setValue(reinterpret_cast<char *>(&pWIids));
 
-  char* pPrivateBuffer  = ((char*)pWGStackFrame) + 
+    // Setup iterCount
+    assert( uiWICount > 0 && "uiWICount is zero!" );
+    size_t iterCounter = uiWICount - 1;
+    implicitArgument[6].setValue(reinterpret_cast<char *>(&iterCounter)); /*set iter count*/;
+
+    char* pPrivateBuffer  = ((char*)pWGStackFrame) + 
     pExecutable->m_pBinary->GetAlignedKernelParametersSize() + pExecutable->m_pBinary->GetLocalWIidsSize();
-  // Setup pPrivateBuffer 
-  implicitArgument[7].setValue(reinterpret_cast<char *>(&pPrivateBuffer)) ; /*set pSB*/;
+    // Setup pPrivateBuffer 
+    implicitArgument[7].setValue(reinterpret_cast<char *>(&pPrivateBuffer)) ; /*set pSB*/;
 
-  // Setup pCurrWI
-  const unsigned int * pCurrWI = &(pExecutable->m_CurrWI);
-  implicitArgument[8].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pCurrWI))) /*set pCurrWI*/;
-
+    // Setup pCurrWI
+    const unsigned int * pCurrWI = &(pExecutable->m_CurrWI);
+    implicitArgument[8].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pCurrWI))) /*set pCurrWI*/;
+  }
 }
 
 void ImplicitArgsUtils::setImplicitArgsPerWG(std::vector<ImplicitArgument>& implicitArgument, void* pParams) {

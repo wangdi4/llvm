@@ -33,9 +33,6 @@ namespace llvm {
 
 char intel::Vectorizer::ID = 0;
 
-extern "C" void* createOpenclRuntimeSupport(const Module *runtimeModule);
-extern "C" void* destroyOpenclRuntimeSupport();
-
 extern "C" FunctionPass* createScalarizerPass();
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
@@ -69,21 +66,23 @@ char intel::PrintIRPass::ID = 0;
 namespace intel {
 
 
-Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) : 
+Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig,
+                       SmallVectorImpl<Function*> &optimizerFunctions,
+                       SmallVectorImpl<int> &optimizerWidths) : 
 ModulePass(ID),
 m_runtimeModule(rt),
 m_numOfKernels(0),
 m_isModuleVectorized(false),
-m_pConfig(pConfig)
+m_pConfig(pConfig),
+m_optimizerFunctions(&optimizerFunctions),
+m_optimizerWidths(&optimizerWidths)
 {
   // init debug prints
   V_INIT_PRINT;
-  createOpenclRuntimeSupport(m_runtimeModule);
 }
 
 Vectorizer::~Vectorizer()
 {
-    destroyOpenclRuntimeSupport();
     // Close the debug log elegantly
     V_DESTROY_PRINT;
 }
@@ -354,8 +353,11 @@ bool Vectorizer::runOnModule(Module &M)
             m_targetFunctionsList[i] = NULL;
             m_scalarFuncsList[i] = NULL;
           }
-        }
 
+          m_optimizerFunctions->push_back(m_targetFunctionsList[i]);
+          m_optimizerWidths->push_back(m_targetFunctionsWidth[i]);
+        }
+        
         {
           PassManager mpm;
           mpm.add(createSpecialCaseBuiltinResolverPass());
@@ -370,51 +372,6 @@ bool Vectorizer::runOnModule(Module &M)
 }
 
 
-int Vectorizer::getVectorizerFunctions(SmallVectorImpl<Function*> &Functions)
-{
-    V_PRINT(wrapper, "Runtime queried for Vectorized functions\n");
-    if (m_isModuleVectorized)
-    {
-        for (unsigned i = 0; i < m_numOfKernels; i++)
-        {
-            if (m_scalarFuncsList[i])
-            {
-                V_PRINT(wrapper, "\t" << m_scalarFuncsList[i]->getName() << " -> "
-                    << m_targetFunctionsList[i]->getName() << "\n");
-            }
-        }
-        Functions = m_targetFunctionsList; // Copy list of vectorized kernels
-    }
-    else
-    {
-        for (unsigned i = 0; i < m_numOfKernels; i++)
-        {
-            Functions.push_back(NULL); // report all kernels as failed vectorization
-        }
-    }
-    return 0;
-}
-
-
-int Vectorizer::getVectorizerWidths(SmallVectorImpl<int> &Widths)
-{
-    V_PRINT(wrapper, "Runtime queried for Vectorized function widths\n");
-
-    if (m_isModuleVectorized)
-    {
-        Widths = m_targetFunctionsWidth;
-    }
-    else
-    {
-        for (unsigned i = 0; i < m_numOfKernels; i++)
-        {
-            Widths.push_back(0); // report all kernels as failed vectorization
-        }
-    }
-    return 0;
-}
-
-
 } // Namespace intel
 
 
@@ -422,20 +379,11 @@ int Vectorizer::getVectorizerWidths(SmallVectorImpl<int> &Widths)
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 extern "C"
-Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig)
+Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig, 
+                           SmallVectorImpl<Function*> &optimizerFunctions,
+                           SmallVectorImpl<int> &optimizerWidths)
 {    
-    return new intel::Vectorizer(runtimeModule, pConfig);
-}
-
-extern "C"
-int getVectorizerFunctions(Pass *V, SmallVectorImpl<Function*> &Functions)
-{
-    return ((intel::Vectorizer*)V)->getVectorizerFunctions(Functions);
-}
-
-extern "C"
-int getVectorizerWidths(Pass *V, SmallVectorImpl<int> &Widths)
-{
-    return ((intel::Vectorizer*)V)->getVectorizerWidths(Widths);
+    return new intel::Vectorizer(runtimeModule, pConfig,
+                                 optimizerFunctions, optimizerWidths);
 }
 

@@ -197,7 +197,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetDAZ( pProgram->GetDAZ());
     pProps->SetCpuId( GetCompiler()->GetSelectedCPU() );
     pProps->SetCpuFeatures( GetCompiler()->GetSelectedCPUFeatures() );
-
     return pProps;
 }
 

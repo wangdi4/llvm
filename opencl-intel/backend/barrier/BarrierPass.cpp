@@ -7,7 +7,9 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/InstIterator.h"
+#include <set>
 
+extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 namespace intel {
 
   char Barrier::ID = 0;
@@ -835,19 +837,28 @@ namespace intel {
       return;
     }
 
+    // Get the kernels using the barrier for work group loops.
+    std::set<std::string> NoBarrier;
+    fillNoBarrierPathSet(&M, NoBarrier);
     for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) {
       //Obtain kernel function from annotation
       llvm::MDNode *elt = pModuleMetadata->getOperand(i);
       Function* pFunc = dyn_cast<Function>(elt->getOperand(0));
       assert( pFunc && "MetaData first operand is not of type Function!" );
-      unsigned int strideScalar = m_pDataPerValue->getStrideSize(pFunc);
+      unsigned int strideScalar = 1; // default value can not be 0
       unsigned int strideVectorized = 0;
-      //Check if there is a vectorized version of this kernel
-      std::string vectorizedKernelName = 
-        std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().data();
-      Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
-      if ( pVectorizedKernelFunc ) {
-        strideVectorized = m_pDataPerValue->getStrideSize(pVectorizedKernelFunc);
+      std::string funcName = pFunc->getNameStr();
+      // Need to get the stride size only for kernel using the barrier for work
+      // group loops
+      if (!NoBarrier.count(funcName)) {
+        strideScalar = m_pDataPerValue->getStrideSize(pFunc);
+        //Check if there is a vectorized version of this kernel
+        std::string vectorizedKernelName = 
+          std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().data();
+        Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
+        if ( pVectorizedKernelFunc ) {
+          strideVectorized = m_pDataPerValue->getStrideSize(pVectorizedKernelFunc);
+        }
       }
       //For each kernel save the max stride between scalar and vectorized version
       unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);

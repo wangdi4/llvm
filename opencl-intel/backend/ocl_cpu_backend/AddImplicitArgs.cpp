@@ -27,18 +27,16 @@ File Name:  AddImplicitArgs.cpp
 extern "C" int getVectorizerFunctions(Pass *V, SmallVectorImpl<Function*> &Functions);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  
   /// @brief Creates new AddImplicitArgs module pass
   /// @returns new AddImplicitArgs module pass  
-  ModulePass* createAddImplicitArgsPass(Pass *pVect, SmallVectorImpl<Function*> &vectFunctions) {
-    return new AddImplicitArgs(pVect, vectFunctions);
+  ModulePass* createAddImplicitArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
+    return new AddImplicitArgs(vectFunctions);
   }
 
   char AddImplicitArgs::ID = 0;
 
-  AddImplicitArgs::AddImplicitArgs(
-    Pass *pVectorizer, SmallVectorImpl<Function*> &vectFunctions) :
-    ModulePass(ID), m_pVectorizer(pVectorizer), m_pVectFunctions(&vectFunctions) {
+  AddImplicitArgs::AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions) :
+    ModulePass(ID), m_pVectFunctions(&vectFunctions) {
   }
 
   bool AddImplicitArgs::runOnModule(Module &M) {
@@ -52,11 +50,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Add WI structure declarations to the module
     addWIInfoDeclarations();
 
-    // Check that vectorizer pass is enabled
-    if ( m_pVectorizer ) {
-      // Get vectorized functions from vectorizer pass
-      getVectorizerFunctions(m_pVectorizer, *m_pVectFunctions);
-    }
     std::set<Function*> kernelsFunctionSet;
     CompilationUtils::getAllScalarKernels(kernelsFunctionSet, m_pModule);
     //Now add all vectorized kernels
@@ -82,20 +75,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         runOnFunction(pFunc, isAKernel);
     }
 
-    // Check that vectorizer pass is enabled
-    if ( m_pVectorizer ) {
-      // Get vectorized functions from vectorizer pass
-      getVectorizerFunctions(m_pVectorizer, *m_pVectFunctions);
-      // Update vectorized functions with the new functions
-      for ( unsigned int i=0; i < m_pVectFunctions->size(); ++i  ) {
-        // Check if this function is a vectorized function
+    
+    // Update vectorized functions with the new functions
+    for ( unsigned int i=0; i < m_pVectFunctions->size(); ++i  ) {
+      // Check if this function is a vectorized function
         Function *pVecFunc = (*m_pVectFunctions)[i];
-        if ( pVecFunc ) {
-          // It is a vectorized function, update it with its new function
+      if ( pVecFunc ) {
+        // It is a vectorized function, update it with its new function
           (*m_pVectFunctions)[i] = m_oldToNewFunctionMap[pVecFunc];
-        }
       }
     }
+    
 
     // Go over all call instructions that need to be changed
     // and add implicit arguments to them

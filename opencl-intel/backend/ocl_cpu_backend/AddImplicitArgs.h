@@ -36,13 +36,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   ///         of all function of the module (that are defined inside the module)
   /// @Author Marina Yatsina
   class AddImplicitArgs : public ModulePass {
-
+     
   public:
     /// Pass identification, replacement for typeid
     static char ID;
 
     /// @brief Constructor
-    AddImplicitArgs(Pass *pVectorizer, SmallVectorImpl<Function*> &vectFunctions);
+    AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions);
 
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
@@ -81,9 +81,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Maps call instructions to the implicit arguments needed to patch up the call
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
-
-    /// @brief The Vectorizer pass needed to get the vectorized functions
-    Pass                       *m_pVectorizer;
 
     /// @brief A pointer to the vectorized functions set gotten from the vectorizer pass
     SmallVectorImpl<Function*> *m_pVectFunctions;

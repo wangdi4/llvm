@@ -19,7 +19,6 @@
 using namespace llvm;
 
 namespace intel {
-
 class OptimizerConfig;
 
 /// @brief Vectorizer pass is used to abstract all the Vectorizer's work
@@ -27,11 +26,14 @@ class OptimizerConfig;
 class Vectorizer : public ModulePass {
 private:
     typedef SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> funcsVector;
+    
 public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    Vectorizer(const Module * rt, const OptimizerConfig* pConfig);
+    Vectorizer(const Module * rt, const OptimizerConfig* pConfig,
+    SmallVectorImpl<Function*> &optimizerFunctions,
+    SmallVectorImpl<int> &optimizerWidths);
     /// @brief D'tor
     ~Vectorizer();
     /// @brief Provides name of pass
@@ -63,20 +65,6 @@ public:
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const { AU.addRequired<LoopInfo>(); }
 
-    /// @brief Function for querying the vectorization results
-    /// @param Functions vector to be filled with pointers of vectorized
-    ///  functions. Order is same as kernels list in the module metadata.
-    ///  For non-vectorized kernel, a NULL pointer is inserted.
-    /// @returns 0 if successful, non-zero value otherwise
-    int getVectorizerFunctions(SmallVectorImpl<Function*> &Functions);
-
-    /// @brief Function for querying the vectorization result widths
-    /// @param Widths vector to be filled with packetization width of vectorized
-    ///  functions. Order is same as kernels list in the module metadata.
-    ///  For non-vectorized kernel, value "1" is inserted.
-    /// @returns 0 if successful, non-zero value otherwise
-    int getVectorizerWidths(SmallVectorImpl<int> &Widths);
-
 private:
     Vectorizer(); // Do not implement
 
@@ -99,6 +87,12 @@ private:
 
     /// Configuration options
     const OptimizerConfig* m_pConfig;
+
+    /// @brief pointer to optimizer vecorized functions buffer.
+    SmallVectorImpl<Function*> *m_optimizerFunctions;
+    
+    /// @brief pointer to optimizer vector widths buffer.
+    SmallVectorImpl<int> *m_optimizerWidths;
 };
 
 } // namespace intel

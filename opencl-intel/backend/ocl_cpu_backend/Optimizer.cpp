@@ -35,19 +35,29 @@ File Name:  Optimizer.cpp
 #include "llvm/Analysis/Verifier.h"
 #include "PrintIRPass.h"
 
-extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule, const intel::OptimizerConfig* pConfig);
-extern "C" int getVectorizerWidths(llvm::Pass *V, llvm::SmallVectorImpl<int> &Widths);
+extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
+                                            const intel::OptimizerConfig* pConfig,
+                                            llvm::SmallVectorImpl<Function*> &optimizerFunctions,
+                                            llvm::SmallVectorImpl<int> &optimizerWidths);
 extern "C" llvm::Pass *createBarrierMainPass(bool isDBG);
 extern "C" void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
+
+extern "C" llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<Function*> *optimizerFunctions,
+                                                       llvm::SmallVectorImpl<int> *optimizerWidths);
+extern "C" llvm::ModulePass* createCLWGLoopBoundariesPass();
+
+extern "C" void* createOpenclRuntimeSupport(const Module *runtimeModule);
+extern "C" void* destroyOpenclRuntimeSupport();
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
+extern "C" llvm::ModulePass *createKernelAnalysisPass();
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 llvm::ModulePass *createRelaxedPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
-llvm::ModulePass *createAddImplicitArgsPass(llvm::Pass* pVect, llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
@@ -161,6 +171,11 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     }
   }
 
+Optimizer::~Optimizer() 
+{
+  destroyOpenclRuntimeSupport();
+}  
+  
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
@@ -170,6 +185,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_pModule(pModule),
     m_localBuffersPass(NULL)
 {
+  createOpenclRuntimeSupport(pRtlModule);
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
   bool isDBG = pConfig->GetDebugInfoFlag();
@@ -217,7 +233,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
       );
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
- 
+  
+  if ( !isDBG && !pConfig->GetLibraryModule()) {
+    m_modulePasses.add(createKernelAnalysisPass());
+    m_modulePasses.add(createCLWGLoopBoundariesPass());
+    m_modulePasses.add(llvm::createDeadCodeEliminationPass());
+    m_modulePasses.add(llvm::createCFGSimplificationPass());
+
+  }
   
   if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG) {
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
@@ -225,7 +248,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
     if(pRtlModule != NULL) {
-        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig);
+        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig, 
+                                                m_vectFunctions, m_vectWidths);
         m_modulePasses.add(m_vectorizerPass);
     }
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
@@ -259,6 +283,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   if (!pConfig->GetLibraryModule()){
+    m_modulePasses.add(createCLWGLoopCreatorPass(&m_vectFunctions, &m_vectWidths));
     m_barrierPass = createBarrierMainPass(isDBG);
     m_modulePasses.add(m_barrierPass);
   }
@@ -273,7 +298,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // must run before createBuiltInImportPass!
   if(!pConfig->GetLibraryModule())
   {
-    m_modulePasses.add(createAddImplicitArgsPass(m_vectorizerPass, m_vectFunctions));
+    m_modulePasses.add(createAddImplicitArgsPass(m_vectFunctions));
     m_modulePasses.add(createResolveWICallPass());
     m_localBuffersPass = createLocalBuffersPass();
     m_modulePasses.add(m_localBuffersPass);
@@ -344,6 +369,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
+    m_vectFunctions.clear();
+    m_vectWidths.clear();
     for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
         m_funcPasses.run(*i);
     }
@@ -385,13 +412,8 @@ void Optimizer::GetVectorizedFunctions(FunctionWidthVector& vector)
     if( NULL == m_vectorizerPass )
         return;
 
-    llvm::SmallVector<int, 16>       vectWidths;
-
-    getVectorizerWidths(m_vectorizerPass, vectWidths);
-    assert(m_vectFunctions.size() == vectWidths.size());
-
     for(unsigned int i=0; i < m_vectFunctions.size(); i++) {
-        vector.push_back(FunctionWidthPair(m_vectFunctions[i], vectWidths[i]));
+        vector.push_back(FunctionWidthPair(m_vectFunctions[i], m_vectWidths[i]));
     }
 }
 

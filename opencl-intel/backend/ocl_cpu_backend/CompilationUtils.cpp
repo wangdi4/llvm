@@ -27,6 +27,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const unsigned int CompilationUtils::NUMBER_IMPLICIT_ARGS = 9;
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
+  const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
   const std::string CompilationUtils::NAME_GET_GID = "get_new_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_new_local_id.";
   const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";

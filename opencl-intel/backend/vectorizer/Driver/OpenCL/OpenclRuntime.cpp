@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright Â© 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -112,6 +112,14 @@ unsigned OpenclRuntime::getPacketizationWidth() const {
   return m_packetizationWidth;
 }
 
+unsigned OpenclRuntime::getNumJitDimensions() const {
+  return 3;
+}
+
+const char *OpenclRuntime::getBaseGIDName() const {
+  return "get_base_global_id.";
+}
+
 void OpenclRuntime::setPacketizationWidth(unsigned width) {
   m_packetizationWidth = width;
 }
@@ -122,6 +130,7 @@ bool OpenclRuntime::isSyncFunc(const std::string &func_name) const {
 }
 
 bool OpenclRuntime::isKnownUniformFunc(std::string &func_name) const {
+  if (0 == func_name.compare("get_base_global_id.")) return true;
   if (0 == func_name.compare("get_local_size")) return true;
   if (0 == func_name.compare("get_global_size")) return true;
   if (0 == func_name.compare("get_group_id")) return true;
@@ -132,6 +141,14 @@ bool OpenclRuntime::isKnownUniformFunc(std::string &func_name) const {
 }
 
 bool OpenclRuntime::hasNoSideEffect(std::string &func_name) const {
+  if (0 == func_name.compare("get_global_id")) return true;
+  if (0 == func_name.compare("get_local_id")) return true;
+  if (0 == func_name.compare("get_base_global_id.")) return true;
+  if (0 == func_name.compare("get_local_size")) return true;
+  if (0 == func_name.compare("get_global_size")) return true;
+  if (0 == func_name.compare("get_group_id")) return true;
+  if (0 == func_name.compare("get_num_groups")) return true;
+  if (0 == func_name.compare("get_work_dim")) return true;
   const RuntimeServices::funcEntry foundFunction = m_vfh.findFunctionInHash(func_name);
   if (foundFunction.first) return true;
   return false;

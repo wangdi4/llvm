@@ -95,6 +95,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       case ICT_GET_LOCAL_ID:
       case ICT_GET_GLOBAL_ID:
+      case ICT_GET_BASE_GLOBAL_ID:
       case ICT_GET_WORK_DIM:
       case ICT_GET_GLOBAL_SIZE:
       case ICT_GET_LOCAL_SIZE:
@@ -185,6 +186,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     switch( type ) {
     case ICT_GET_LOCAL_ID:
     case ICT_GET_GLOBAL_ID:
+    case ICT_GET_BASE_GLOBAL_ID:
     case ICT_GET_GROUP_ID:
     case ICT_GET_GLOBAL_OFFSET:
       break;
@@ -298,8 +300,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     if ( type == ICT_GET_GLOBAL_ID ) {
       return calcGlobalId(pCall, pInsertBefore);
     }
+    if ( type == ICT_GET_BASE_GLOBAL_ID ) {
+      return calcBaseGlobalId(pCall, pInsertBefore);
+    }
     assert( false && "Unhandled internal call type!" );
     return NULL; // This to avoid compilation warning
+  }
+
+  Value* ResolveWICall::calcBaseGlobalId(CallInst *pCall, Instruction *pInsertBefore) {
+    SmallVector<Value*, 4> params;
+    // base global values
+    params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
+    params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), 0));
+    params.push_back(pCall->getArgOperand(0));
+
+    // Calculate the address of base global value
+    GetElementPtrInst *pGlbBaseAddr =
+      GetElementPtrInst::Create(m_pBaseGlbId, ArrayRef<Value*>(params), "", pInsertBefore);
+    // Load the value of base global
+    Value *pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", pInsertBefore);
+    return pBaseGlbIdVal;
   }
 
   Value* ResolveWICall::calcGlobalId(CallInst *pCall, Instruction *pInsertBefore) {
@@ -614,6 +634,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     if( calledFuncName == CompilationUtils::NAME_GET_GID ) {
       return ICT_GET_GLOBAL_ID;
+    }
+    if( calledFuncName == CompilationUtils::NAME_GET_BASE_GID ) {
+      return ICT_GET_BASE_GLOBAL_ID;
     }
     if( calledFuncName == CompilationUtils::NAME_GET_ITERATION_COUNT ) {
       return ICT_GET_ITER_COUNT;

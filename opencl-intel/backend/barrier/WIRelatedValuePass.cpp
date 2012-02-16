@@ -209,7 +209,6 @@ namespace intel {
 
   bool WIRelatedValue::calculate_dep(InsertValueInst *pInst) {
     //TODO: why should we always return related?
-    assert( false && "This is a reachable place, handle it right" );
     return true;
   }
 
@@ -299,7 +298,6 @@ namespace intel {
 
   bool WIRelatedValue::calculate_dep(ExtractValueInst *pInst) {
     //TODO: why should we always return related?
-    assert( false && "This is a reachable place, handle it right" );
     return true;
   }
 

@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright � 2010, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -56,6 +56,14 @@ AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
     m_needPreVectorizationSet.insert(*preVecPtr);
     ++preVecPtr;
   }
+}
+
+unsigned AppleOpenclRuntime::getNumJitDimensions() const {
+  return 1;
+}
+
+const char *AppleOpenclRuntime::getBaseGIDName() const {
+  return GET_GID_NAME;
 }
 
 bool AppleOpenclRuntime::needPreVectorizationFakeFunction(std::string &funcName) const{

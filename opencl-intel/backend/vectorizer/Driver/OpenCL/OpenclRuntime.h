@@ -112,6 +112,12 @@ public:
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(std::string &func_name) const;
 
+  /// @brief retruns number of Jit dimensions.
+  virtual unsigned getNumJitDimensions() const;
+
+  /// @brief retrun name of builtin to retrieve base global id for this work group.
+  virtual const char *getBaseGIDName() const;
+
 protected:
   
   OpenclRuntime(); // Do not implement

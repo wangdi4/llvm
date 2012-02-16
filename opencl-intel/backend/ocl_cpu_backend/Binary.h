@@ -124,6 +124,7 @@ private:
     bool                    m_DAZ;
     unsigned int            m_cpuId;
     unsigned int            m_cpuFeatures;
+    bool                    m_bJitCreateWIids;
     // Vectorizer data
     bool                    m_bVectorized;
     unsigned int            m_uiVectorWidth;

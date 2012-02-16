@@ -54,6 +54,8 @@ public:
                llvm::Module* pRtlModule,
                const intel::OptimizerConfig* pConfig);
 
+    ~Optimizer();
+
     void Optimize();
 
     bool hasBarriers(llvm::Module *pModule);
@@ -79,6 +81,7 @@ private:
     llvm::ModulePass* m_localBuffersPass;
 
     llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
+    llvm::SmallVector<int, 16> m_vectWidths;
     std::vector<std::string> m_undefinedExternalFunctions;
 };
 

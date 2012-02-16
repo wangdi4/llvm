@@ -111,6 +111,7 @@ public:
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetCpuId( unsigned int cpuId ) { m_cpuId = cpuId; }
     void SetCpuFeatures( unsigned int cpuFeatures ) { m_cpuFeatures = cpuFeatures; }
+    void SetJitCreateWIids (bool value) { m_bJitCreateWIids = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -118,6 +119,7 @@ public:
     bool          GetDAZ()            const { return m_DAZ; }
     unsigned int  GetCpuId()          const { return m_cpuId; }
     unsigned int  GetCpuFeatures()    const { return m_cpuFeatures; }
+    bool          GetJitCreateWIids() const { return m_bJitCreateWIids;}
 
 protected:
     bool m_DAZ;
@@ -128,6 +130,7 @@ protected:
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation
     size_t m_totalImplSize;
     size_t m_privateMemorySize;
+    bool m_bJitCreateWIids;
 
 };
 

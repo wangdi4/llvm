@@ -9,6 +9,9 @@
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
 
+#include <set>
+
+extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 namespace intel {
 
 
@@ -180,12 +183,17 @@ namespace intel {
       //Module contains no kernels
       return m_kernelFunctions;
     }
-
-    //List all kernels in module
+    
+    //list all kernel not marked as no-barrier.
+    std::set<std::string> NoBarrier;
+    fillNoBarrierPathSet(m_pModule, NoBarrier);
     for ( unsigned int i = 0, e = numOfKernels; i != e; ++i ) {
       MDNode *elt = pOpenCLMetadata->getOperand(i);
       Value *field0 = elt->getOperand(0)->stripPointerCasts();
-      if ( Function *pKernelFunc = dyn_cast<Function>(field0) ) {
+      if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
+        std::string kernelName = pKernelFunc->getNameStr();
+        if (NoBarrier.count(kernelName)) continue;
+         
         //Add kernel to the list
         //Currently no check if kernel already added to the list!
         m_kernelFunctions.push_back(pKernelFunc);

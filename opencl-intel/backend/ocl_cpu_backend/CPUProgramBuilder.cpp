@@ -15,7 +15,7 @@ Copyright (c) Intel Corporation (2010).
 File Name:  CPUProgramBuilder.cpp
 
 \*****************************************************************************/
-
+#include <set>
 #include <vector>
 #include <string>
 #include "cl_types.h"
@@ -57,6 +57,7 @@ File Name:  CPUProgramBuilder.cpp
 #include "CompilationUtils.h"
 
 using std::string;
+extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -177,6 +178,9 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
     }
 
     std::vector<FunctionWidthPair>::const_iterator vecIter = buildResult.GetFunctionsWidths().begin();
+    std::set<std::string> noBarrier;
+    fillNoBarrierPathSet(pModule, noBarrier);
+
     for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) 
     {
         // Obtain kernel function from annotation
@@ -203,6 +207,11 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( pModule,
                                                                                         pWrapperFunc,
                                                                                         buildResult.GetKernelsInfo()[pFunc]));
+        // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
+        // This also means that this a 1-sise Jit (no vector kernel)
+        std::string wrapperName = pWrapperFunc->getNameStr();
+        bool bJitCreateWIids = noBarrier.count(wrapperName);
+        spKernelProps->SetJitCreateWIids(bJitCreateWIids);
 
         // Private memory size contains the max size between
         // the needed size for scalar and needed size for vectorized versions.
@@ -239,25 +248,29 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
         if( !buildResult.GetFunctionsWidths().empty())
         {
             assert(vecIter != buildResult.GetFunctionsWidths().end());
+            assert( !(bJitCreateWIids && vecIter->first) &&
+                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
             if(NULL != vecIter->first && !dontVectorize)
             {
-                //
                 // Create the vectorized kernel - no need to pass argument list here
                 std::auto_ptr<KernelJITProperties>  spVKernelProps(CreateKernelJITProperties(pModule, 
                                                                                       vecIter->first,
                                                                                       buildResult.GetKernelsInfo()[vecIter->first]));
                 spVKernelProps->SetVectorSize(vecIter->second);
                 AddKernelJIT( spKernel.get(), pModule, vecIter->first, spVKernelProps.release());
-
-                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+                
             }
-            if ( NULL == vecIter->first )
+            if ( dontVectorize )
+            {
+                buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
+            }
+            else if ( 0 == vecIter->second )
             {
                 buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
             }
-            else if ( dontVectorize )
+            else 
             {
-                buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
+                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
             }
             vecIter++;
         }

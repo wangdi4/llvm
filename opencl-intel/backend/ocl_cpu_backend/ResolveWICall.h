@@ -32,6 +32,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_NONE,
     ICT_GET_LOCAL_ID,
     ICT_GET_GLOBAL_ID,
+    ICT_GET_BASE_GLOBAL_ID,
     ICT_GET_ITER_COUNT,
     ICT_GET_SPECIAL_BUFFER,
     ICT_GET_CURR_WI,
@@ -91,6 +92,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pInsterBefore The instruction to insert new instructions before
     /// @returns The result value of the work item function call
     Value* calcGlobalId(CallInst *pCall, Instruction *pInsterBefore);
+
+    /// @brief Calculates the base global id (first global id in the work group)
+    /// @param pCall         The call instruction that calls a work item function
+    /// @param pInsterBefore The instruction to insert new instructions before
+    /// @returns The result value of the work item function call
+    Value* calcBaseGlobalId(CallInst *pCall, Instruction *pInsterBefore);
 
     /// @brief Returns Internal Call Type for given function name
     /// @param calledFuncName given function name

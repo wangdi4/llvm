@@ -101,6 +101,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// that were in origin kernel local variable!
     static const unsigned int LOCL_VALUE_ADDRESS_SPACE;
 
+    static const std::string NAME_GET_BASE_GID;
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
     static const std::string NAME_GET_ITERATION_COUNT;
