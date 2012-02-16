@@ -158,7 +158,10 @@ typedef cpu_set_t                      affinityMask_t;
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
     void* t = NULL;
-    posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
+    if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
+    {
+        t = NULL;
+    }
     return t;
 }
 
