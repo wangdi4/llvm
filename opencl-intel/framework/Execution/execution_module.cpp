@@ -493,7 +493,8 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	}
 
 	// Create Command
-	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch, 0);
+
+	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), 0);
 	if (NULL == pMarkerCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -539,8 +540,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 	
-	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch,
-        uiNumEvents > 0);
+	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(),uiNumEvents > 0);
 	if (NULL == pWaitForEventsCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -577,7 +577,8 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 	}
 
 	// Create Command
-	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int *)pCommandQueue->GetHandle())->dispatch, 0);
+
+	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), 0);
 	if (NULL == pBarrierCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;

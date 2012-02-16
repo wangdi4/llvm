@@ -45,9 +45,7 @@ Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 	m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
 	m_pFrontEndCompiler = NULL;
 
-	LOG_DEBUG(TEXT("%S"), TEXT("Device constructor enter"));
-
-	m_handle.dispatch = NULL;
+	LOG_DEBUG(TEXT("%S"), TEXT("Device constructor enter"));	
 	m_handle.object   = this;
 
 	m_hGLContext = 0;
@@ -170,7 +168,7 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 {
 	LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 
-	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
+    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
 
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 	if (!m_dlModule.Load(psDeviceAgentDllPath))
@@ -557,7 +555,7 @@ m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_
     m_pRootDevice = m_pParentDevice->GetRootDevice();
     m_pParentDevice->AddPendency(this);
     m_handle.object   = this;
-    m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
+    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	    
     CacheFissionProperties(props);
     //Todo: handle more intelligently
     m_pRootDevice->CreateInstance();
@@ -601,7 +599,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     //Todo: handle these
     case CL_DEVICE_PARENT_DEVICE:
         szParamValueSize = sizeof(cl_device_id);
-        clDevIdVal = m_pParentDevice->GetHandle();
+        clDevIdVal = (cl_device_id)m_pParentDevice->GetHandle();
         pValue = &clDevIdVal;
         break;
 

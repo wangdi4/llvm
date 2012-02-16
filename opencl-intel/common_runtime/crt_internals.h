@@ -148,7 +148,7 @@ struct CrtProgram: public CrtObject
     std::vector<cl_device_id>   m_assocDevices;
     CrtContext*                 m_contextCRT;
     cl_program                  m_program_handle;
-
+    std::string                 m_options;
     cl_int                      Release();
 };
 
@@ -342,6 +342,11 @@ size_t  GetImageElementSize(const cl_image_format * format);
 class CrtImage: public CrtMemObject
 {
 public:
+    // Image Descriptor; augumenting all image params
+    // I liked the idea of image descriptor so i adopted that 
+    // for internal implementation too;
+    // Since this isn't gonna be available for OCL 1.1 headers;
+    // i duplicated this structure definition internally.
     struct CrtImageDesc {
         cl_mem_object_type      image_type;
         size_t                  image_width;
@@ -549,6 +554,11 @@ struct CrtEventCallBackData
 
 struct CrtBuildCallBackData
 {
+    CrtBuildCallBackData( cl_program prog, prog_logging_fn pfn_notify, void* user_data ):
+        m_pfnNotify( pfn_notify ),
+        m_userData( user_data ),
+        m_clProgramHandle( prog ) {};
+
     prog_logging_fn                     m_pfnNotify;
     void *                              m_userData;
     long                                m_numBuild;

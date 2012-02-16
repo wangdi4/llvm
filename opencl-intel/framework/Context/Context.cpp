@@ -199,7 +199,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
 
 	m_handle.object   = this;
-	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
+    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 
 	*pclErr = CL_SUCCESS;
 }
@@ -370,7 +370,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	}
 	cl_err_code clErrRet;
 	// create new program object
-	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
+	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet, (ocl_entry_points*)&m_handle);
 	if (!pProgram)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -516,7 +516,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 
 	// create program object
-	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
+	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet, (ocl_entry_points*)&m_handle);
 	delete[] ppDevices;
 
 	if (!pProgram)
@@ -954,7 +954,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 #endif
 
 	Sampler * pSampler = new Sampler();
-	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)m_handle.dispatch);
+	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)&m_handle);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new Sampler, returned: %S"), ClErrTxt(clErr));

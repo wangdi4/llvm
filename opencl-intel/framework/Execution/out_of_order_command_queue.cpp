@@ -64,7 +64,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
 		 return CL_OUT_OF_RESOURCES;
 	 }
 
-     Command* pDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch, 0);
+     Command* pDepOnAll = new MarkerCommand(this, (ocl_entry_points*)&m_handle,0);
      if (NULL == pDepOnAll)
      {
          return CL_OUT_OF_HOST_MEMORY;
@@ -219,7 +219,8 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEv
 cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {
     assert(NULL != cmd);
-	Command* pNewDepOnAll = new MarkerCommand(this, (ocl_entry_points*)m_handle.dispatch, 0);
+
+	Command* pNewDepOnAll = new MarkerCommand(this, (ocl_entry_points*)&m_handle,0);
     if (NULL == pNewDepOnAll)
     {
         return CL_OUT_OF_HOST_MEMORY;

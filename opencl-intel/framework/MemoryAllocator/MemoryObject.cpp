@@ -50,7 +50,7 @@ MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoint
 	m_mapMappedRegions.clear();
 
 	m_handle.object   = this;
-	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
+	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 }
 
 MemoryObject::~MemoryObject()

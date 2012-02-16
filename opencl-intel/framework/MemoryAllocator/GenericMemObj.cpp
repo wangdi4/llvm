@@ -944,7 +944,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		clFlags = m_clFlags;
 	}
 
-	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, (ocl_entry_points*)m_handle.dispatch, m_clMemObjectType, *this);
+	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, (ocl_entry_points*)&m_handle, m_clMemObjectType, *this);
 	if ( NULL == pSubBuffer )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
