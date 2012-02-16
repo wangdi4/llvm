@@ -30,6 +30,7 @@
 
 #include <cl_dev_backend_api.h>
 #include <cl_dynamic_lib.h>
+#include <task_executor.h>
 
 #include "mic_dev_limits.h"
 #include "mic_common_macros.h"
@@ -48,13 +49,14 @@
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::DeviceBackend;
 
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] =
 {
     {CL_PROG_DLL_X86, 0, 0},
-    {CL_PROG_BIN_EXECUTABLE_LLVM, 0, 0},
+    {CL_PROG_BIN_LLVM, 0, 0},
 };
 static    unsigned int    UNUSED(gSupportedBinTypesCount) = ARRAY_ELEMENTS(gSupportedBinTypes);
 
@@ -135,19 +137,6 @@ void MICBackendOptions::init( bool bUseVectorizer, bool bUseVtune )
     m_bUseVtune      = bUseVtune;
 }
 
-void MICBackendOptions::init_for_dump( const char* options )
-{
-    // extract string withing quotas and assume it is a file name
-    std::string fname(options);
-    std::string::size_type pos1 = fname.find("\"", 0);
-    std::string::size_type pos2 = fname.find("\"", pos1+1);
-
-    if((pos1 != string::npos) && (pos2 != string::npos))
-    {
-         m_dump_file_name = fname.substr(pos1 + 1, pos2 - pos1 - 1);
-    }
-}
-
 // ICLDevBackendOptions interface
 
 bool MICBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
@@ -179,9 +168,6 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
     {
         case CL_DEV_BACKEND_OPTION_CPU_ARCH:
             return "auto-remote";
-
-        case CL_DEV_BACKEND_OPTION_DUMPFILE:
-            return m_dump_file_name.c_str();
 
         default:
             return defaultValue;
@@ -530,7 +516,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
     switch ( pProgCont->description.bin_type )
     {
     // Supported program binaries
-    case CL_PROG_BIN_EXECUTABLE_LLVM:// The container should contain valid LLVM-IR
+    case CL_PROG_BIN_LLVM:            // The container should contain valid LLVM-IR
         break;
 
     case CL_PROG_OBJ_X86:            // The container should contain binary buffer of object file
@@ -606,7 +592,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     cl_dev_err_code ret;
     switch(pProgCont->description.bin_type)
     {
-    case CL_PROG_BIN_EXECUTABLE_LLVM:
+    case CL_PROG_BIN_LLVM:
         {
             ICLDevBackendCompilationService* compiler = GetCompilationService();
             if (NULL == compiler)
@@ -661,9 +647,71 @@ clDevBuildProgram
         CL_DEV_INVALID_BINARY            If the back-end compiler failed to process binary.
         CL_DEV_OUT_OF_MEMORY            If the device failed to allocate memory for the program
 ***********************************************************************************************************************/
+// Program Build supporting task
+namespace Intel { namespace OpenCL { namespace MICDevice {
+class ProgramBuildTask : public Intel::OpenCL::TaskExecutor::ITask
+{
+public:
+    ProgramBuildTask(ProgramService::TProgramEntry* pProgEntry, const char* pOptions,
+        cl_dev_program progId, void* pUserData, ProgramService& service) :
+            m_pProgEntry(pProgEntry), m_pOptions(pOptions),
+            m_progId(progId), m_pUserData(pUserData), m_ProgramService(service)
+    {
+    }
+
+    // ITask interface
+    bool Execute()
+    {
+		CommandTracer cmdTracer;
+		cmdTracer.set_command_type((char*)"Build");
+		cmdTracer.set_current_time_command_host_time_start();
+        MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Enter"));
+
+        ICLDevBackendCompilationService* compiler = m_ProgramService.GetCompilationService();
+
+        cl_build_status status = CL_BUILD_ERROR;
+        cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
+
+        if (NULL != compiler)
+        {
+            ret = compiler->BuildProgram(m_pProgEntry->pProgram, NULL);
+            MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("Build Done (%d)"), ret);
+        }
+
+        if (CL_DEV_SUCCEEDED(ret))
+        {
+            m_pProgEntry->copy_to_device_ok = m_ProgramService.BuildKernelData( m_pProgEntry );
+            if (m_pProgEntry->copy_to_device_ok)
+            {
+                status = CL_BUILD_SUCCESS;
+            }
+        }
+
+		cmdTracer.set_command_id((uint64_t)m_pProgEntry);
+        m_pProgEntry->clBuildStatus = status;
+        m_ProgramService.m_pCallBacks->clDevBuildStatusUpdate(m_progId, m_pUserData, status);
+        MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+		cmdTracer.set_current_time_command_host_time_end();
+        return true;
+    }
+
+    void        Release() {delete this;}
+protected:
+    // Program to be built
+    ProgramService::TProgramEntry*      m_pProgEntry;
+    const char*                         m_pOptions;
+
+    // Data to be passed to the calling party
+    cl_dev_program                      m_progId;
+    void*                               m_pUserData;
+
+    ProgramService&                     m_ProgramService;
+};
+}}}
+
 cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     const char* IN options,
-                                    cl_build_status* OUT buildStatus
+                                    void* IN userData
                                    )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram enter"));
@@ -699,55 +747,28 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         return CL_DEV_INVALID_OPERATION;
     }
 
+    // Create building thread
     pEntry->clBuildStatus = CL_BUILD_IN_PROGRESS;
-    MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Starting build"));
+    ProgramBuildTask* pBuildTask = new ProgramBuildTask(pEntry, options, prog, userData, *this );
 
-    CommandTracer cmdTracer;
-    cmdTracer.set_command_type((char*)"Build");
-    cmdTracer.set_current_time_command_host_time_start();
-    
-    ICLDevBackendCompilationService* compiler = GetCompilationService();
-    
-    cl_build_status status = CL_BUILD_ERROR;
-    cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
-    
-    if (NULL != compiler)
+    if ( NULL == pBuildTask )
     {
-        ret = compiler->BuildProgram(pEntry->pProgram, NULL);
-        MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
-    }
-    
-    if (CL_DEV_SUCCEEDED(ret))
-    {
-        pEntry->copy_to_device_ok = BuildKernelData( pEntry );
-        if (pEntry->copy_to_device_ok)
-        {
-            status = CL_BUILD_SUCCESS;
-        }
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create Backend Build task"));
+        pEntry->clBuildStatus = CL_BUILD_ERROR;
+        return CL_DEV_OUT_OF_MEMORY;
     }
 
-    pEntry->clBuildStatus = status;
-    
-    cmdTracer.set_command_id((uint64_t)pEntry);
-    cmdTracer.set_current_time_command_host_time_end();
-
-    // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && !strncmp(options, "-dump-opt-llvm=", 15))
+    MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Submitting BuildTask"));
+    int iRet = GetTaskExecutor()->Execute(pBuildTask);
+    if ( 0 != iRet )
     {
-        assert( pEntry->pProgram && "Program must be created already");
-        
-        MICBackendOptions dumpOptions( m_DevService );
-        dumpOptions.init_for_dump(options);
-        
-        compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Submission failed (%0X)"), iRet);
+        pEntry->clBuildStatus = CL_BUILD_ERROR;
+        delete pBuildTask;
+        return CL_DEV_ERROR_FAIL;
     }
 
-    if ( NULL != buildStatus )
-    {
-        *buildStatus = status;
-    }
-
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram Exit"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
     return CL_DEV_SUCCESS;
 }
 

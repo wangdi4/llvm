@@ -457,10 +457,10 @@ clDevBuildProgram
     Call programService to build program
 **********************************************************************************************************************/
 
-cl_dev_err_code MICDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus )
+cl_dev_err_code MICDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevBuildProgram Function enter"));
-    return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
+    return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, userData);
 }
 
 /*******************************************************************************************************************

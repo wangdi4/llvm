@@ -58,7 +58,6 @@ public:
     MICBackendOptions( DeviceServiceCommunication& dev_service );
 
     void init( bool bUseVectorizer, bool bUseVtune );
-    void init_for_dump( const char* options );
 
     // ICLDevBackendOptions interface
     bool GetBooleanValue( int optionId, bool defaultValue) const;
@@ -70,7 +69,6 @@ private:
     DeviceServiceCommunication& m_dev_service;
     bool                        m_bUseVectorizer;
     bool                        m_bUseVtune;
-    string                      m_dump_file_name;
 
     int getTargetDescriptionSize( void ) const;
     bool getTargetDescription( void* Value, size_t* pSize) const;
@@ -95,7 +93,7 @@ public:
                                        );
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,
-                                        cl_build_status* OUT buildStatus
+                                        void* IN userData
                                        );
     cl_dev_err_code ReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code UnloadCompiler();
@@ -136,6 +134,8 @@ public:
 
 
 private:
+    friend class ProgramBuildTask;
+
     DeviceServiceCommunication&             m_DevService;
 
     // compiler interfaces. Initialized on the first access
