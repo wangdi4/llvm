@@ -187,7 +187,7 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
     pAllocProp->alignment            = MIC_DEV_MAXIMUM_ALIGN;
     pAllocProp->preferred_alignment  = PAGE_4K_SIZE;
     pAllocProp->maxBufferSize        = m_maxAllocSize;
-    pAllocProp->imagesSupported      = true;
+    pAllocProp->imagesSupported      = (MIC_IMAGES_SUPPORT == CL_TRUE);
     pAllocProp->DXSharing            = false;
     pAllocProp->GLSharing            = false;
 

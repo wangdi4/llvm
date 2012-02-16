@@ -11,14 +11,15 @@ OutOfOrderCommandSynchHandler	CommandSynchHandler::m_singletonOuOfOrderCommandSy
 Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
 m_pCommandList(pCommandList), m_pFrameworkCallBacks(pFrameworkCallBacks)
 {
-	m_pCommandSynchHandler = NULL;
-	// Get CommandSynchHandler singleton according to Queue type.
-	m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
-	assert(m_pCommandSynchHandler);
 	// Set command id for the tracer.
 	m_commandTracer.set_command_id((size_t)(pCmd->id));
 	// Set start execution time for the tracer.
 	m_commandTracer.set_current_time_command_host_time_start();
+
+	m_pCommandSynchHandler = NULL;
+	// Get CommandSynchHandler singleton according to Queue type.
+	m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
+	assert(m_pCommandSynchHandler);
 }
 
 Command::~Command()

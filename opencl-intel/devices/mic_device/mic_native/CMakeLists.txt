@@ -162,6 +162,10 @@ list( APPEND MIC_FLAGS
                 -I ${COI_SDK_PATH}/include
                 -I ${MIC_TBB_HEADERS_PATH}
                 )
+				
+list( APPEND MIC_FLAGS
+                -DDEVICE_NATIVE
+    )				
 
 if ( MIC_TESTING_MODE )
     list( APPEND MIC_FLAGS

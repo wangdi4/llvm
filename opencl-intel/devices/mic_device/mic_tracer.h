@@ -43,7 +43,11 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
 #ifdef ENABLE_MIC_TRACER
 
-#define RDTSC(X) X=_RDTSC()
+#ifdef DEVICE_NATIVE
+	#define RDTSC(X) X=_RDTSC()
+#else
+	#define RDTSC(X) X=_gettime()
+#endif
 
 #define TRACE_COMMAND_GENERAL(TYPE, NAME, NUM_OF_COUNTERS, INDEX) private: \
 														static const unsigned int next_to_use_##NAME = INDEX + NUM_OF_COUNTERS; \
@@ -172,6 +176,14 @@ public:
 		 __asm__ __volatile__("rdtsc" : "=a" (a), "=d" (d));
 		 return (((unsigned_long_long)a) | (((unsigned_long_long)d) << 32));
 	}
+
+	static inline unsigned_long_long _gettime(void)
+	{
+		struct timespec tp;
+		clock_gettime(CLOCK_MONOTONIC, &tp);
+		return (unsigned long long)(tp.tv_sec * 1000000000 + tp.tv_nsec);	
+	}
+
 };
 
 class Tracer

@@ -86,7 +86,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_IMAGE3D_MAX_DEPTH,            size_t,                         MIC_IMAGE3D_MAX_DIM_SIZE        ),
 //    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,        size_t,                         65536   /*min*/                ),
 //    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_ARRAY_SIZE,         size_t,                         2048    /*min*/                ),
-    SCAL_VALUE( CL_DEVICE_IMAGE_SUPPORT,                cl_bool,                        CL_TRUE                         ),
+    SCAL_VALUE( CL_DEVICE_IMAGE_SUPPORT,                cl_bool,                        MIC_IMAGES_SUPPORT              ),
     SCAL_VALUE( CL_DEVICE_MAX_PARAMETER_SIZE,           size_t,                         MIC_MAX_PARAMETER_SIZE          ),
     FUNC_VALUE( CL_DEVICE_MAX_SAMPLERS,                                                 get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_MEM_BASE_ADDR_ALIGN,          cl_uint,                        MIC_MEM_BASE_ADDR_ALIGN         ),

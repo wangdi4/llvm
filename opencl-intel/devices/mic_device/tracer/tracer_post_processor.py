@@ -80,6 +80,8 @@ class RawTraceParser(object):
             return False
         # read host header
         self.__hostFreq = self.__readHeader(self.__hostFile) / 1000.0
+        # set host freq to 1 because I implement it with clock gettime
+        self.__hostFreq = 1.0
         # read device header
         self.__deviceFreq = self.__readHeader(self.__deviceFile) / 1000.0
         return True
