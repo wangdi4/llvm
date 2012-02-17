@@ -40,7 +40,8 @@ using namespace Intel::OpenCL::Framework;
 Sampler::Sampler() : OCLObject<_cl_sampler_int>("Sampler")
 {
 	INIT_LOGGER_CLIENT(L"Sampler",LL_DEBUG);
-		
+	
+	m_handle.dispatch = NULL;
 	m_handle.object = this;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,7 +111,7 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 		return CL_INVALID_VALUE;
 	}
 
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	return CL_SUCCESS;
 }

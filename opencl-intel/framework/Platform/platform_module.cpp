@@ -196,7 +196,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	m_pOclEntryPoints = pOclEntryPoints;
 
 	m_clPlatformId.object = &m_clPlatformId;
-    *((ocl_entry_points*)(&m_clPlatformId)) = *m_pOclEntryPoints;	
+	m_clPlatformId.dispatch = m_pOclEntryPoints;
 
 	// initialize devices
 	m_pDefaultDevice = NULL;

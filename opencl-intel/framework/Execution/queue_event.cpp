@@ -61,7 +61,7 @@ OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue
 	}
 
 	m_handle.object = this;
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 
 	m_pGPAData = cmdQueue->GetGPAData();
 }

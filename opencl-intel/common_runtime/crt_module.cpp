@@ -28,7 +28,7 @@
 using namespace OCLCRT;
 
 #define REGISTER_DISPATCH_ENTRYPOINT(__NAME__,__ADDRESS__) \
-    m_icdDispatchTable.##__NAME__ = (__ADDRESS__);
+    m_crtDispatchTable.##__NAME__ = (__ADDRESS__);
 
 namespace OCLCRT
 {
@@ -118,8 +118,6 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT(clGetSupportedImageFormats,clGetSupportedImageFormats);
     REGISTER_DISPATCH_ENTRYPOINT(clUnloadCompiler,clUnloadCompiler);
 
-    // 1.2 functions
-    REGISTER_DISPATCH_ENTRYPOINT(clGetExtensionFunctionAddressForPlatform,clGetExtensionFunctionAddressForPlatform);
     // Extensions
     REGISTER_DISPATCH_ENTRYPOINT(clGetGLContextInfoKHR,clGetGLContextInfoKHR);
     REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D10KHR,clGetDeviceIDsFromD3D10KHR);
@@ -139,22 +137,22 @@ crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDi
     if (origDispatchTable)
         *(origDispatchTable) = *(inDeviceId->dispatch);
 
-    inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
-    inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
-    inDeviceId->dispatch->clCreateSubDevicesEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevicesEXT;
-    inDeviceId->dispatch->clReleaseDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDeviceEXT;
-    inDeviceId->dispatch->clRetainDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDeviceEXT;
-    inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
-    inDeviceId->dispatch->clReleaseDevice    = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDevice;
-    inDeviceId->dispatch->clRetainDevice     = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDevice;
+    inDeviceId->dispatch->clCreateContext    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateContext;
+    inDeviceId->dispatch->clGetDeviceInfo    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clGetDeviceInfo;
+    inDeviceId->dispatch->clCreateSubDevicesEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateSubDevicesEXT;
+    inDeviceId->dispatch->clReleaseDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clReleaseDeviceEXT;
+    inDeviceId->dispatch->clRetainDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clRetainDeviceEXT;
+    inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clCreateSubDevices;
+    inDeviceId->dispatch->clReleaseDevice    = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clReleaseDevice;
+    inDeviceId->dispatch->clRetainDevice     = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clRetainDevice;
     return CRT_SUCCESS;
 }
 
 crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDispatch* origDispatchTable)
 {
-    inContextId->dispatch->clGetContextInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetContextInfo;
-    inContextId->dispatch->clReleaseContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseContext;
-    inContextId->dispatch->clRetainContext  = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainContext;
+    inContextId->dispatch->clGetContextInfo = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clGetContextInfo;
+    inContextId->dispatch->clReleaseContext = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clReleaseContext;
+    inContextId->dispatch->clRetainContext  = crt_ocl_module.m_icdDispatchMgr.m_crtDispatchTable.clRetainContext;
     return CRT_SUCCESS;
 }
 
@@ -346,8 +344,8 @@ crt_err_code CrtModule::Initialize()
                 // Loaded platforms support different OpenCL API levels
                 if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion != curPlatVer )
                 {
-                    //res = CRT_FAIL;
-                    //break;
+                    res = CRT_FAIL;
+                    break;
                 }
             }
 

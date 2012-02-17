@@ -269,7 +269,7 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevice
 	//Todo: or here?
 
 	m_handle.object   = this;
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor

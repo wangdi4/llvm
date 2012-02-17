@@ -377,7 +377,7 @@ cl_err_code MemoryCommand::CopyToHost(
 	size_t rowPitch, slicePitch;
 	pSrcMemObj->GetLayout(region, &rowPitch, &slicePitch);
 
-	MemoryCommand* pReadMemObjCmd = new ReadMemObjCommand(m_pCommandQueue, (ocl_entry_points*)m_pCommandQueue->GetHandle(), pSrcMemObj, origin, region, rowPitch, slicePitch, pData);
+	MemoryCommand* pReadMemObjCmd = new ReadMemObjCommand(m_pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)m_pCommandQueue->GetHandle())->dispatch, pSrcMemObj, origin, region, rowPitch, slicePitch, pData);
 	if (!pReadMemObjCmd)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -471,7 +471,7 @@ cl_err_code MemoryCommand::CopyFromHost(
 	}
 	else
 	{
-		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(m_pCommandQueue, (ocl_entry_points*)m_pCommandQueue->GetHandle(),
+		MemoryCommand* pWriteMemObjCmd = new WriteMemObjCommand(m_pCommandQueue, (ocl_entry_points*)(((_cl_command_queue_int*)m_pCommandQueue->GetHandle())->dispatch),
 			false, pDstMemObj, pDstOrigin, pRegion, szDstRowPitch, szDstSlicePitch, pSrcData, pSrcOrigin, szSrcRowPitch, szSrcSlicePitch);
 		if (!pWriteMemObjCmd)
 		{

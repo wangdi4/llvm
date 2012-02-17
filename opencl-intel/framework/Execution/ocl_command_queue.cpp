@@ -72,7 +72,7 @@ OclCommandQueue::OclCommandQueue(
 	m_pGPAData = m_pContext->GetGPAData();
 
 	m_handle.object   = this;
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
+	m_handle.dispatch = (KHRicdVendorDispatch*)pOclEntryPoints;
 }
 
 /******************************************************************

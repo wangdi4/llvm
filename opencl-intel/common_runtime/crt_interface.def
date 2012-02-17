@@ -70,10 +70,8 @@ EXPORTS
     clEnqueueBarrier
     clEnqueueWaitForEvents
     clGetEventProfilingInfo
-    clCreateEventFromGLsyncKHR
     clFlush
     clFinish
-    clGetExtensionFunctionAddressForPlatform
     clCreateSubDevices
     clReleaseDevice
     clRetainDevice

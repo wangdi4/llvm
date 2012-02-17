@@ -89,8 +89,8 @@ bool operator<(const cl_image_format &rhs1, const cl_image_format &rhs2)
 
 struct _cl_gpu_context
 {
-    SOCLEntryPointsTable      dispatch;
-    cl_bool              isSharedContext;
+    KHRicdVendorDispatch *dispatch;
+    cl_bool              LinearImageAccess;
 };
 
 /// ------------------------------------------------------------------------------
@@ -295,7 +295,7 @@ m_context_handle(context_handle)
 
         if( devInfo->m_devType == CL_DEVICE_TYPE_GPU )
         {
-            ( ( _cl_gpu_context* ) ctx )->isSharedContext = CL_TRUE;
+            ( ( _cl_gpu_context* ) ctx )->LinearImageAccess = CL_TRUE;
         }
 
         for (cl_uint j=0; j < matchDevices; j++)
@@ -908,10 +908,9 @@ CrtImage::CrtImage(
     const CrtImageDesc *    image_desc,
     cl_mem_flags            flags,
     void*                   host_ptr,
-    CrtContext*             ctx):
-CrtMemObject( flags, host_ptr, ctx ),
-m_imageFormat( *image_format ),
-m_dimCount( 0 )
+    CrtContext*             ctx): CrtMemObject(flags, host_ptr, ctx),
+    m_imageFormat(*image_format)
+
 {
     m_imageDesc = *image_desc;
 
@@ -944,7 +943,6 @@ m_dimCount( 0 )
     switch( m_imageDesc.image_type )
     {
         case CL_MEM_OBJECT_IMAGE1D:
-        case CL_MEM_OBJECT_IMAGE1D_BUFFER:
             m_dimCount = 1;
             break;
         case CL_MEM_OBJECT_IMAGE2D:
@@ -966,11 +964,14 @@ m_dimCount( 0 )
         assert( 0 && "Image sharing requires GPU device" );
     }
 
-    SOCLEntryPointsTable* gpuDispatch = (SOCLEntryPointsTable*)gpuDevice;
-    cl_int RetVal = gpuDispatch->crtDispatch->clGetImageParamsINTEL(
+     CrtKHRicdVendorDispatch* gpuDispatch = (CrtKHRicdVendorDispatch*)( gpuDevice->dispatch );
+    cl_int RetVal = gpuDispatch->clGetImageParamsINTEL(
                                          ctx->GetContextByDeviceID(gpuDevice),
                                          &m_imageFormat,
-                                         ( cl_image_desc* )( &m_imageDesc ),
+                                         m_imageDesc.image_type,
+                                         m_imageDesc.image_width,
+                                         m_imageDesc.image_height,
+                                         m_imageDesc.image_depth,
                                          &m_imageDesc.image_row_pitch,
                                          &m_imageDesc.image_slice_pitch );
 }
@@ -1072,7 +1073,7 @@ cl_int CrtImage::Create(size_t rowPitch, size_t slicePitch, CrtMemObject**  imag
         m_size = m_imageDesc.image_slice_pitch * m_imageDesc.image_depth * m_imageDesc.image_array_size;
         m_hostPtrRowPitch = rowPitch ? rowPitch: ( (cl_uint)m_imageDesc.image_width * GetImageElementSize(&m_imageFormat) );
         m_hostPtrSlicePitch = slicePitch ? slicePitch : ( m_hostPtrRowPitch * m_imageDesc.image_height );
-        hostPtrSize = m_hostPtrSlicePitch * m_imageDesc.image_depth * m_imageDesc.image_array_size;
+        hostPtrSize = m_hostPtrSlicePitch * m_imageDesc.image_depth;
         break;
     }
 
@@ -1197,6 +1198,11 @@ cl_int CrtImage::Create(size_t rowPitch, size_t slicePitch, CrtMemObject**  imag
         }
         else
         {
+            cl_device_id cpu_dev = m_pContext->GetDeviceByType( CL_DEVICE_TYPE_CPU );
+            if( m_pContext->m_DeviceToContext[ cpu_dev ] == ctx )
+            {
+                continue;
+            }
             memObj = ctx->dispatch->clCreateImage(
                 ctx,
                 crtCreateFlags,
@@ -1318,6 +1324,7 @@ size_t GetImageElementSize(const cl_image_format *  format)
         default:
                 assert(0);
     }
+
     return stChannels*stChSize;
 }
 /// ------------------------------------------------------------------------------
@@ -1351,13 +1358,12 @@ cl_int CrtContext::CreateImage(
 
     cl_uint validMemObjTypes =
         CL_MEM_OBJECT_IMAGE1D |
-        CL_MEM_OBJECT_IMAGE1D_BUFFER |
         CL_MEM_OBJECT_IMAGE2D |
         CL_MEM_OBJECT_IMAGE3D |
         CL_MEM_OBJECT_IMAGE1D_ARRAY |
         CL_MEM_OBJECT_IMAGE2D_ARRAY;
 
-    if( image_desc->image_type & ( ~validMemObjTypes ) )
+    if( ( image_desc->image_type & validMemObjTypes ) == 0 )
     {
         return CL_INVALID_VALUE;
     }
@@ -1371,12 +1377,6 @@ cl_int CrtContext::CreateImage(
     {
         CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)image_desc->buffer)->object);
         host_ptr = crtBuffer->m_pBstPtr;
-    }
-   
-    if( ( host_ptr == NULL ) &&
-        ( flags & CL_MEM_USE_HOST_PTR ) )
-    {
-        return CL_INVALID_HOST_PTR;
     }
 
     CrtImage* image = new CrtImage(
@@ -1516,9 +1516,8 @@ CrtKernel::~CrtKernel()
     m_programCRT->DecPendencyCnt();
 }
 
-CrtProgram::CrtProgram( CrtContext* ctx )
-:m_contextCRT(ctx),
-m_options("")
+CrtProgram::CrtProgram(CrtContext* ctx)
+:m_contextCRT(ctx)
 {
     m_contextCRT->IncPendencyCnt();
 }
