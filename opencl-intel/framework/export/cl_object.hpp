@@ -6,7 +6,9 @@
 ///////////////////////////////////////////////////////////
 
 template <class HandleType>
-OCLObject<HandleType>::OCLObject(const std::string& typeName) :  OCLObjectBase(typeName), m_iId(0), m_uiRefCount(1), m_uiPendency(1) , m_pLoggerClient(NULL)
+OCLObject<HandleType>::OCLObject(const std::string& typeName) : 
+	OCLObjectBase(typeName), m_iId(0), m_uiRefCount(1), m_uiPendency(1) ,
+	m_bTerminate(false), m_pLoggerClient(NULL)
 {
 	memset(&m_handle, 0, sizeof(HandleType));
 }

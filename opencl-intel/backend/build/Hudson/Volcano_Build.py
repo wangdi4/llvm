@@ -1,6 +1,7 @@
 import os,sys,platform,errno,shutil,re
 import framework.cmdtool
 import framework.resultPrinter
+import framework.logger
 
 from optparse import OptionParser
 from framework.tasks import SimpleTest, DirCleanup
@@ -43,7 +44,7 @@ class CMakeBuilder(VolcanoCmdTask):
             self.command += " -D " + k + "=" + v 
 
         # Install directory
-            
+
         if config.target_os == 'Windows':
             self.command += " -D CMAKE_INSTALL_PREFIX:PATH=\"" + os.path.join(config.root_dir, 'install',  config.target_type) + "/\\${BUILD_TYPE}\""
             self.command += " -D LLVM_TARGETS_TO_BUILD:STRING=\"X86\"" 
@@ -77,6 +78,9 @@ class CMakeBuilder(VolcanoCmdTask):
                 raise
                 
 class VolcanoCMakeBuilder( CMakeBuilder ):
+    """
+    Volcano specific cmake builder. Responsible for building just a Volcano project
+    """
     def __init__(self, name, config):
         defs = {}
         cmake_config = config.sub_configs[CMakeConfig.CFG_NAME]
@@ -86,6 +90,9 @@ class VolcanoCMakeBuilder( CMakeBuilder ):
         CMakeBuilder.__init__(self, name, config, config.besrc_dir, defs)
 
 class OCLCMakeBuilder( CMakeBuilder ):
+    """
+    OCL specific cmake builder. Responsible for building the whole OCL project
+    """
     CONFORMANCE_TESTS='"test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_d3d9 test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep"'
 
     def __init__(self, name, config):
@@ -116,7 +123,7 @@ class OCLCMakeBuilder( CMakeBuilder ):
         CMakeBuilder.__init__(self, name, config, config.src_dir, defs)
                 
 class VSProjectBuilder(VolcanoCmdTask):
-    """ Runs the VS solution build """
+    """ Runs the general VS solution build """
     def __init__(self, name, config, sln_name, vc_version, rebuild):
         VolcanoCmdTask.__init__(self, name)
 
@@ -143,6 +150,9 @@ class MakeBuilder(VolcanoCmdTask):
         self.command = 'make install -j 8 -B' 
         
 class FixWolfWorkloads(VolcanoTestTask):
+    """
+    Run SED for fixing the WOLF tests configurations
+    """
     def __init__(self, name, config):
         VolcanoTestTask.__init__(self, name)
         self.workdir = os.path.join( config.bin_dir, 'Workloads')
@@ -180,7 +190,9 @@ class FixWolfWorkloads(VolcanoTestTask):
 
 
 class FixCSharpProject(VolcanoTestTask):
-    """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""
+    """ 
+    Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution
+    """
     def __init__(self, name, config, sln_name, prj_name):
         VolcanoTestTask.__init__(self, name)
         self.config   = config
@@ -207,37 +219,11 @@ class FixCSharpProject(VolcanoTestTask):
         os.rename( self.sln_name, oldfile_name )
         os.rename( tmpfile_name, self.sln_name )
         return TestTaskResult.Passed
-            
-class FixCSharpProject(VolcanoTestTask):
-    """ Fix the bug in cmake and update the correct GUID in the given C# project inside the given solution"""
-    def __init__(self, name, config, sln_name, prj_name):
-        VolcanoTestTask.__init__(self, name)
-        self.config   = config
-        self.sln_name = sln_name
-        self.prj_name = prj_name
-    
-    def runTest(self, observer, config):
-        tmpfile_name = self.sln_name + '.tmp'
-        oldfile_name = self.sln_name + '.orig'
-        CXX_UUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
-        C_SHARP_UUID = '{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}'
 
-        with open(self.sln_name, 'r') as f:
-            with open(tmpfile_name, 'w') as tmpfile:
-                pattern = re.compile('^Project.+"' + self.prj_name + '".+')
-                for line in f:
-                    if pattern.search(line):
-                        line = re.sub(CXX_UUID,C_SHARP_UUID,line)
-                    tmpfile.write(line)
-
-        if os.path.isfile( oldfile_name ):
-            os.remove(oldfile_name)
-
-        os.rename( self.sln_name, oldfile_name )
-        os.rename( tmpfile_name, self.sln_name )
-        return(True, "")
-            
 class VolcanoBuilderConfig:
+    """
+    Volcano builder task configuration
+    """
     CFG_NAME = "BuildConfig"
     def __init__(self,  volcano_only    = False, 
                         include_cnf     = True , 
@@ -252,6 +238,9 @@ class VolcanoBuilderConfig:
                 include_crt, include_java, include_dbg, include_svn, enable_warnings)
         
 class VolcanoBuilder(VolcanoTestSuite):
+    """
+    Build suite for Volcano&OCL project
+    """
     def __init__(self, name, config, rebuild = True, skip_build = False):
         VolcanoTestSuite.__init__(self, name)
         self.generate_children_report = False
@@ -290,6 +279,9 @@ class VolcanoBuilder(VolcanoTestSuite):
             self.addTask(MakeBuilder('MKBuild', config), stop_on_failure=True, skiplist=skiplist)
 
 class VolcanoBinaryCopy(VolcanoTestSuite):
+    """
+    Suite for unarchiving the Volcano&OCL binaries 
+    """
     def __init__(self, name, config):
         VolcanoTestSuite.__init__(self, name)
         self.generate_children_report = False
@@ -316,11 +308,12 @@ def main():
     parser.add_option("--ndbg",            dest="include_dbg",  action="store_false", help="Exclude the debugger engine from solution. Default")
     parser.add_option("--no-svn",          dest="include_svn",  action="store_false",  help="Do not use svn revision to create package version. Useful if you are not building from an SVN working copy.", default=True)
     parser.add_option("-d", "--demo",      dest="demo_mode",    action="store_true",  help="Do not execute the commands, just print them. Default: False", default=False)
-    
-   
+    parser.add_option(      "--nocolor",   dest="use_color",    action="store_false", help="Do not use console color output", default=True)
+
     (options, args) = parser.parse_args()
 
     framework.cmdtool.demo_mode = options.demo_mode 
+    framework.logger.gLog.enableColor(options.use_color) 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
@@ -342,7 +335,7 @@ def main():
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
     printer= framework.resultPrinter.ResultPrinter()
-    suite.visit(printer)
+    printer.PrintResults(suite)
     
     if not passed:
         return 1

@@ -305,11 +305,11 @@ class HudsonTestRunner(VolcanoTestRunner):
     
     def OnAfterTaskExecution(self, task):
         VolcanoTestRunner.OnAfterTaskExecution(self, task)
-        self.ProcessExecutionResult(task, task.result, task.stdout)
+        self.ProcessExecutionResult(task, task.result, task.getLog())
 
     def OnAfterSuiteExecution(self, suite):
         VolcanoTestRunner.OnAfterSuiteExecution(self, suite)
-        self.ProcessExecutionResult(suite, suite.result, suite.stdout)
+        self.ProcessExecutionResult(suite, suite.result, suite.getLog())
 
     def publishResults(self):
         self.formatter.updateCounts(self.fail_count, self.skip_count, self.pass_count)

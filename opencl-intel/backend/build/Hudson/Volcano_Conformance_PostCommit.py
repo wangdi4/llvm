@@ -1,5 +1,6 @@
 import os, sys, platform
 import framework.cmdtool
+import framework.resultPrinter
 from optparse import OptionParser
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR, TIMEOUT_HOUR, TIMEOUT_HOURANDHALF
 from framework.utils import EnvironmentValue
@@ -57,7 +58,7 @@ def main():
     parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
     parser.add_option("-c", "--cpu",       action="store",      choices=SUPPORTED_CPUS,    dest="cpu",          default="auto",    help="CPU Type: " + str(SUPPORTED_CPUS) + ". [Default: %default]")
     parser.add_option("-f", "--cpu-features", dest="cpu_features", help="CPU features", default="")
-    parser.add_option("-v", "--vec", dest="tranpose_size", help="Tranpose Size:0(auto),1,4,8,16", default="0")    
+    parser.add_option("-v", "--vec", dest="transpose_size", help="Tranpose Size:0(auto),1,4,8,16", default="0")    
     parser.add_option("-d", "--demo", action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
     
     (options, args) = parser.parse_args()
@@ -73,7 +74,9 @@ def main():
     suite  = VolcanoConformancePostCommit("Conformance", config)
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
-    
+    printer= framework.resultPrinter.ResultPrinter()
+    printer.PrintResults(suite)
+
     if not passed:
         return 1
     return 0

@@ -3,6 +3,9 @@ Simple test framework
 """
 import sys, os.path, platform, re, time, traceback
 import cmdtool
+import logger
+from logger import gLog, STYLE
+from StringIO import StringIO
 from datetime import timedelta
 from utils import TimeOutException, EnvironmentValue
 import glob
@@ -41,6 +44,15 @@ class TestTaskResult:
         Skipped:  'Skipped',
         TimedOut: 'TimedOut'
     }
+
+    StyleMap = {
+        NotRun:   STYLE.NORMAL,
+        Passed:   STYLE.PASS,
+        Failed:   STYLE.ERROR,
+        Skipped:  STYLE.WARN,
+        TimedOut: STYLE.ERROR
+    }
+
     
     BooleanMap = {
       True:  Passed,
@@ -54,6 +66,11 @@ class TestTaskResult:
     @staticmethod 
     def resultName(result):
         return TestTaskResult.NameMap[result]
+
+    @staticmethod 
+    def resultStyle(result):
+        return TestTaskResult.StyleMap[result]
+
     
 class VolcanoTestTask:
     """Base task class. All Volcano tests must be inherited from VolcanoTestTask"""
@@ -64,8 +81,8 @@ class VolcanoTestTask:
         self.generate_report = True
         self.elapsed = 0
         self.result  = TestTaskResult.NotRun
-        self.stdout  = ''
-        self.stdout_raw = ''
+        self.stdout  = StringIO()
+        self.stdout_raw = StringIO()
         
     def fullName(self):
         if( self.parent != None ):
@@ -92,13 +109,13 @@ class VolcanoTestTask:
         try:
             self.startUp()
             if( cmdtool.demo_mode ):
-                self.logAndPrint("Demo mode output")
+                self.logAndPrint(STYLE.NORMAL + "Demo mode output")
                 self.result = TestTaskResult.Passed
             else:
                 self.result = self.runTest(observer, config)
         except Exception as e:
             self.result = TestTaskResult.fromBoolean(False)
-            self.logAndPrint( '!!! Exception raised during task execution:' + str(e) + "\n" + traceback.format_exc() )
+            self.logAndPrint(STYLE.ERROR +  '!!! Exception raised during task execution:' + str(e) + "\n" + traceback.format_exc() )
         finally:
             self.tearDown()
             ended  = time.time()
@@ -114,14 +131,26 @@ class VolcanoTestTask:
         visitor.OnVisitTask(self)
         
     def log(self, str):
-        self.stdout += str + '\n'
-        self.stdout_raw += str + '\n'
+        gLog.write_stripped(self.stdout, str + '\n')
+        gLog.write_stripped(self.stdout_raw , str + '\n')
             
     def logAndPrint(self, str):
-        self.stdout += str + '\n'
-        print str
-        
+        gLog.write_stripped(self.stdout, str + '\n')
+        gLog.write(sys.stdout, str + '\n')
 
+    def getLog(self):
+        try:
+            self.stdout.seek(0, os.SEEK_SET)
+            return self.stdout.read()
+        finally:
+            self.stdout.seek(0, os.SEEK_END)
+
+    def getLogRaw(self):
+        try:
+            self.stdout_raw.seek(0, os.SEEK_SET)
+            return self.stdout_raw.read()
+        finally:
+            self.stdout_raw.seek(0, os.SEEK_END)
     
 class VolcanoCmdTask(VolcanoTestTask):
     """Base task class for executing the single command"""
@@ -136,7 +165,7 @@ class VolcanoCmdTask(VolcanoTestTask):
         if not os.path.exists(self.workdir):
             self.result = TestTaskResult.Failed
             self.return_code = -1
-            self.logAndPrint("Command Execution Error: Working directory doesn't exist: '" + self.workdir + "' while executing command: " + self.command)
+            self.logAndPrint(STYLE.ERROR + "Command Execution Error: Working directory doesn't exist: '" + self.workdir + "' while executing command: " + self.command)
             return TestTaskResult.Failed 
             
         os.chdir(self.workdir)
@@ -168,7 +197,7 @@ class VolcanoTestTaskInfo:
             match   = pattern.match(confstr)
             if( match != None):
                 if(match):
-                    self.task.logAndPrint('Ignored conf(' + confstr + '), pattern (' + pattern_str + ')')
+                    self.task.logAndPrint(STYLE.INFO + 'Ignored conf(' + confstr + '), pattern (' + pattern_str + ')')
                     return True
         return False;
 
@@ -244,16 +273,16 @@ class VolcanoTestSuite(VolcanoTestTask):
                     t.task.result = TestTaskResult.Skipped
 
                 t.task.onAfterExecution(observer)
-                self.log( t.task.stdout )
+                self.log( t.task.getLog() )
                         
                 if not suitePassed and t.stop_on_failure:
                     break
                     
         except TimeOutException:
-            self.logAndPrint("!!! Suite '" + self.name + "' has timed out (" + str(self.timeout) + " sec) and was terminated")
+            self.logAndPrint(STYLE.ERROR + "!!! Suite '" + self.name + "' has timed out (" + str(self.timeout) + " sec) and was terminated")
             suitePassed = False
         except Exception as e:
-            self.logAndPrint('!!! Exception raised during suite execution:' + str(e) + "\n" + traceback.format_exc())
+            self.logAndPrint(STYLE.ERROR + '!!! Exception raised during suite execution:' + str(e) + "\n" + traceback.format_exc())
             suitePassed = False
         finally:
             self.tearDown()    
@@ -287,31 +316,32 @@ class VolcanoTestRunner:
         pass
 
     def OnBeforeTaskExecution(self, task):
-        task.logAndPrint('=-----------------------------------------------------------------------------')
-        task.logAndPrint( 'Task:' +  task.name)
+        task.logAndPrint(STYLE.INFO + '=-----------------------------------------------------------------------------' + STYLE.NORMAL )
+        task.logAndPrint(STYLE.HIGH + 'Task:' + STYLE.NORMAL + task.name)
         if isinstance(task, VolcanoCmdTask):
-            task.logAndPrint('Command:' + task.command)
-            task.logAndPrint('WorkDir:' + task.workdir)
+            task.logAndPrint(STYLE.HIGH + 'Command:' + STYLE.NORMAL + task.command)
+            task.logAndPrint(STYLE.HIGH + 'WorkDir:' + STYLE.NORMAL + task.workdir)
     
     def OnAfterTaskExecution(self, task):
         t = timedelta(seconds=task.elapsed)
-        task.logAndPrint('Task ' + TestTaskResult.resultName(task.result) + ': ' + task.name)
-        task.logAndPrint('Elapsed: ' + str(t) )
+        task.logAndPrint(TestTaskResult.resultStyle(task.result) + 
+                         'Task ' + 
+                         TestTaskResult.resultName(task.result) + ': ' + STYLE.NORMAL + task.name)
+        task.logAndPrint(STYLE.HIGH + 'Elapsed: ' + STYLE.NORMAL + str(t) )
         
         if TestTaskResult.Failed == task.result:
             if isinstance(task, VolcanoCmdTask):
-                task.logAndPrint('Return Code: ' + str(task.return_code) )
-        sys.stdout.flush()
+                task.logAndPrint(STYLE.HIGH + 'Return Code: ' + STYLE.NORMAL + str(task.return_code) )
             
     def OnBeforeSuiteExecution(self, suite):
-        suite.logAndPrint('==============================================================================')
-        suite.logAndPrint('Suite:' + suite.name)
+        suite.logAndPrint(STYLE.INFO + '==============================================================================' + STYLE.NORMAL )
+        suite.logAndPrint(STYLE.HIGH + 'Suite:' + STYLE.NORMAL + suite.name)
 
     def OnAfterSuiteExecution(self, suite):
         t = timedelta(seconds=suite.elapsed)
-        suite.logAndPrint('==============================================================================')
-        suite.logAndPrint('Suite ' + TestTaskResult.resultName(suite.result) + ': ' + suite.name)
-        suite.logAndPrint('Elapsed: '  + str(t) )
+        suite.logAndPrint(STYLE.INFO + '==============================================================================' + STYLE.NORMAL )
+        suite.logAndPrint(TestTaskResult.resultStyle(suite.result) + 'Suite ' + TestTaskResult.resultName(suite.result) + STYLE.NORMAL + ': ' + suite.name)
+        suite.logAndPrint(STYLE.HIGH + 'Elapsed: '  + STYLE.NORMAL + str(t) )
 
 
 

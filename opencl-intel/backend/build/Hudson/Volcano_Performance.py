@@ -1363,7 +1363,7 @@ class PerformanceTestRunner(VolcanoTestRunner):
         if( isinstance(task,PerformanceTask)):
             if  TestTaskResult.Passed == task.result:
                 with open(self.csv_filename, 'a') as csv_file:
-                    print >> csv_file, task.stdout.rstrip()
+                    print >> csv_file, task.getLogRaw().rstrip()
                     
 class PerformanceTask(VolcanoCmdTask):
     def __init__(self, suite_name, suite_path, wl_name, build_iterations, execute_iterations, config):

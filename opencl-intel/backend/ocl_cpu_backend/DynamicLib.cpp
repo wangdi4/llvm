@@ -37,11 +37,11 @@ DynamicLib::~DynamicLib(void)
 	Close();
 }
 
-bool DynamicLib::Load(const char* pLibName)
+void DynamicLib::Load(const char* pLibName)
 {
 	if ( NULL != m_hLibrary )
 	{
-		return false;
+		return;
 	}
 
 	// Load library
@@ -53,30 +53,40 @@ bool DynamicLib::Load(const char* pLibName)
 
 	if ( NULL == m_hLibrary )
 	{
-		return false;
-	}
-
-	// Library was succefully loaded
-#if 0
-	BYTE *hMod = (BYTE*)m_hLibrary;
-	IMAGE_NT_HEADERS *pnt = (IMAGE_NT_HEADERS*)&hMod[PIMAGE_DOS_HEADER(hMod)->e_lfanew];
-	IMAGE_EXPORT_DIRECTORY *exp = (IMAGE_EXPORT_DIRECTORY*)&hMod[pnt->OptionalHeader.DataDirectory->VirtualAddress];
+        throw Exceptions::DynamicLibException(
+            std::string("Can't load dynamic library:") + pLibName
+#if !defined(_WIN32)
+            + std::string(":") + dlerror()
 #endif
-	return true;
+              );
+	}
 }
 
 void* DynamicLib::GetFuncPtr(const char* funcName)
 {
 	if ( NULL == m_hLibrary )
 	{
-		return NULL;
+        throw Exceptions::DynamicLibException("Dynamic library is not loaded");
 	}
+
+    void* fp = 
 #if defined(_WIN32)
-	return GetProcAddress((HMODULE)m_hLibrary, funcName);
+    GetProcAddress((HMODULE)m_hLibrary, funcName);
 #else
-    return dlsym(m_hLibrary, funcName);
+    dlsym(m_hLibrary, funcName);
 #endif
 
+    if( NULL == fp )
+    {
+        throw Exceptions::DynamicLibException(
+            std::string("Can't get address for:") + funcName
+#if !defined(_WIN32)
+            + std::string(":") + dlerror()
+#endif
+              );
+    }
+
+    return fp;
 }
 
 void DynamicLib::Close()

@@ -1,6 +1,8 @@
 import os, sys, platform
 import framework.cmdtool
 from framework.core import VolcanoTestRunner, VolcanoTestSuite
+import framework.resultPrinter
+import framework.logger
 from optparse import OptionParser
 from Volcano_Common import VolcanoRunConfig, SUPPORTED_TARGETS, SUPPORTED_BUILDS, DEFAULT_OCL_SOLUTION, CPU_MAP
 from Volcano_Build import VolcanoBuilder, VolcanoBuilderConfig
@@ -61,6 +63,7 @@ def main():
     parser.add_option("--volcano",         action="store_true", dest="volcano_only", help="Build the Volcano solution.", default=False)
     parser.add_option("--ocl",             action="store_false",dest="volcano_only", help="Build the OCL solution. Default")
     parser.add_option("-d", "--demo",      action="store_true", dest="demo_mode", help="Do not execute the command, just print them", default=False)
+    parser.add_option(      "--nocolor",   action="store_false",dest="use_color",  help="Do not use console color output", default=True)
     
     (options, args) = parser.parse_args()
 
@@ -69,6 +72,7 @@ def main():
         skiplist=[['.*']]
     
     framework.cmdtool.demo_mode = options.demo_mode 
+    framework.logger.gLog.enableColor(options.use_color) 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
@@ -87,6 +91,8 @@ def main():
 
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
+    printer= framework.resultPrinter.ResultPrinter()
+    printer.PrintResults(suite)
     
     if not passed:
         return 1

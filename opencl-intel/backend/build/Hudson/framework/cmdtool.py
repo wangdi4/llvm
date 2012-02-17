@@ -3,6 +3,7 @@ Simple test framework
 """
 import killableprocess, platform, threading, traceback, sys, subprocess
 from StringIO import StringIO
+from logger import gLog, STYLE
 
 if platform.system() == 'Windows':
     TIMEOUT_RETCODE = 127
@@ -18,6 +19,8 @@ class CommandLineTool:
         self.out = StringIO()
         self.finished = False
         self.stdout = None
+        self.print_output = print_output # by default initialize with global value
+        self.print_cmd = print_cmd
 
     def _readerthread(self):
         while True:
@@ -27,8 +30,8 @@ class CommandLineTool:
                     break;
             else:
                 self.out.write(line)
-                if( print_output ):
-                    sys.stdout.write( '\t' + line.rstrip() + '\n')
+                if( self.print_output ):
+                    gLog.write(sys.stdout, '\t' + line.rstrip() + '\n')
 
     def runCommand(self, command, timeout=-1 ):
         """Returns errorcode, stdout"""
@@ -42,8 +45,8 @@ class CommandLineTool:
         stdout_thread = None
         
         try:
-            if( print_cmd):
-                sys.stdout.write('Running:' + command + '\n')
+            if( self.print_cmd):
+                gLog.write(sys.stdout, 'Running:' + command + '\n')
         
             proc = killableprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=useShell)
             self.stdout = proc.stdout
@@ -65,10 +68,10 @@ class CommandLineTool:
             if stdout_thread != None:
                 stdout_thread.join()
             if errstr != '':
-                if( print_output):
-                    sys.stdout.write(errstr + '\n')
+                if( self.print_output):
+                    gLog.write(sys.stdout, errstr + '\n')
                 self.out.write(errstr)
-            if( print_output):    
+            if( self.print_output):    
                 sys.stdout.flush()
         
         self.out.seek(0)

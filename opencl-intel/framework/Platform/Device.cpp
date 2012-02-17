@@ -237,7 +237,10 @@ cl_err_code Device::CloseDeviceInstance()
     LOG_DEBUG(TEXT("%S"), TEXT("CloseDeviceInstance enter"));
 	if (0 == --m_pDeviceRefCount)
 	{
-	    m_pDevice->clDevCloseDevice();
+		if ( !m_bTerminate )
+		{
+			m_pDevice->clDevCloseDevice();
+		}
 		m_pDevice = NULL;
 	}
 	assert(m_pDeviceRefCount>=0);
@@ -569,14 +572,15 @@ SubDevice::~SubDevice()
 	{
 		delete []m_cachedFissionMode;
 	}
-    IOCLDeviceAgent* pRoot = GetDeviceAgent();
-    if (NULL != pRoot)
+    IOCLDeviceAgent* pRootAgent = GetDeviceAgent();
+    if ( !m_bTerminate && (NULL != pRootAgent) )
     {
-        pRoot->clDevReleaseSubdevice(m_deviceId);
+        pRootAgent->clDevReleaseSubdevice(m_deviceId);
     }
-    m_pParentDevice->RemovePendency(this);
     //Todo: handle more intelligently
     m_pRootDevice->CloseDeviceInstance();
+
+    m_pParentDevice->RemovePendency(this);
 }
 
 cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const

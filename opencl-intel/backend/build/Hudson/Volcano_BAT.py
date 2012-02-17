@@ -2,6 +2,7 @@ from optparse import OptionParser
 import os, sys, platform
 import framework.cmdtool
 import framework.resultPrinter
+import framework.logger
 import Volcano_Performance
 from framework.core import VolcanoTestRunner, VolcanoTestSuite, TIMEOUT_HALFHOUR
 from framework.utils import EnvironmentValue
@@ -83,10 +84,12 @@ def main():
     parser.add_option("-v", "--vec",          dest="transpose_size", help="Tranpose Size: " + str(SUPPORTED_VECTOR_SIZES), default="0")
     parser.add_option("-s", "--skipbuild",    action="store_true",   dest="skip_build", help="skip the build", default=False)
     parser.add_option("-d", "--demo",         action="store_true",   dest="demo_mode",  help="Do not execute the command, just print them", default=False)
+    parser.add_option(      "--nocolor",      action="store_false",  dest="use_color",  help="Do not use console color output", default=True)
     
     (options, args) = parser.parse_args()
 
-    framework.cmdtool.demo_mode = options.demo_mode 
+    framework.cmdtool.demo_mode = options.demo_mode
+    framework.logger.gLog.enableColor(options.use_color) 
 
     config = VolcanoRunConfig(options.root_dir, 
                               options.target_type, 
@@ -100,7 +103,7 @@ def main():
     runner = VolcanoTestRunner()
     passed = runner.runTask(suite, config)
     printer= framework.resultPrinter.ResultPrinter()
-    suite.visit(printer)
+    printer.PrintResults(suite)
     
     if not passed:
         return 1

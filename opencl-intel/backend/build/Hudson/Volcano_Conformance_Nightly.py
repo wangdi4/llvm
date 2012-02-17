@@ -83,10 +83,10 @@ class VolcanoConformanceNightly(VolcanoTestSuite):
         self.addTask(runTest, timeout = TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Allocations single maximum', self.conformance_dir, os.path.join('allocations','test_allocations') + ' single 5 all')
-        self.addTask(runTest, timeout = 6 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('Allocations total maximum', self.conformance_dir, os.path.join('allocations','test_allocations') + ' multiple 5 all ')
-        self.addTask(runTest, timeout = 20 * TIMEOUT_MINUTE)
+        self.addTask(runTest, timeout = 40 * TIMEOUT_MINUTE)
 
         runTest = SimpleTest('VecAlign', self.conformance_dir, os.path.join('vec_align','test_vecalign'))
         self.addTask(runTest, timeout = 10 * TIMEOUT_MINUTE)

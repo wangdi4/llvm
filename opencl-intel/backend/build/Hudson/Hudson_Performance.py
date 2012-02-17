@@ -31,7 +31,7 @@ class HudsonPerformanceTestRunner(HudsonTestRunner):
         if( isinstance(task,PerformanceTask)):
             if  TestTaskResult.Passed == task.result:
                 with open(self.csv_filename, 'a') as csv_file:
-                    print >> csv_file, task.stdout_raw.rstrip()
+                    print >> csv_file, task.getLogRaw().rstrip()
                             
     def OnBeforeSuiteExecution(self, suite):
         HudsonTestRunner.OnBeforeSuiteExecution(self, suite)

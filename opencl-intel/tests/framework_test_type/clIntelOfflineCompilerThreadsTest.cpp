@@ -106,11 +106,8 @@ protected:
 		OutFile.copy(OutFileC,OutFile.length());
 		string archType = (sizeof(void*) == 8) ? "64" : "32";
 
-#if defined _WIN32
 		string exec("ioc" + archType + " -input=" + fileName + ".cl -ir=" + OutFile);
-#else
-		string exec("../../ioc" + archType + " -input=" + fileName + ".cl -ir=" + OutFile);
-#endif
+
 		char execute[CBUFF_SIZE]={0};
 		exec.copy(execute,exec.length());
 		

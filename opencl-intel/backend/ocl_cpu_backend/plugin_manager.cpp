@@ -92,26 +92,20 @@ void PluginManager::LoadPlugin( const std::string& filename)
 {
     std::auto_ptr<PluginInfo> pInfo(new PluginInfo());
 
-    if( !pInfo->m_dll.Load(filename.c_str()) )
+    try
     {
-        throw Exceptions::PluginManagerException("Plugin Load failed");
+        pInfo->m_dll.Load(filename.c_str());
+
+        PLUGIN_CREATE_FUNCPTR pCreatePluginFunc = (PLUGIN_CREATE_FUNCPTR)(intptr_t)pInfo->m_dll.GetFuncPtr("CreatePlugin");
+
+        pInfo->m_pReleaseFunc = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)pInfo->m_dll.GetFuncPtr("ReleasePlugin");
+
+        pInfo->m_pPlugin = pCreatePluginFunc();
     }
-
-    PLUGIN_CREATE_FUNCPTR pCreatePluginFunc = (PLUGIN_CREATE_FUNCPTR)(intptr_t)pInfo->m_dll.GetFuncPtr("CreatePlugin");
-
-    if( NULL == pCreatePluginFunc )
+    catch( Exceptions::DynamicLibException& e )
     {
-        throw Exceptions::PluginManagerException("Failed to get the plugin's factory function");
+        throw Exceptions::PluginManagerException(e.what());
     }
-
-    pInfo->m_pReleaseFunc = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)pInfo->m_dll.GetFuncPtr("ReleasePlugin");
-
-    if( NULL == pInfo->m_pReleaseFunc )
-    {
-        throw Exceptions::PluginManagerException("Failed to get the plugin's release function");
-    }
-
-    pInfo->m_pPlugin = pCreatePluginFunc();
 
     m_plugins.insert( pInfo.release() );
 }

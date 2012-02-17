@@ -105,7 +105,7 @@ add_definitions(${VIRTUAL_DISTRUCTOR_WARNING})
 # Linker switches
 set (INIT_LINKER_FLAGS        "-Wl,--enable-new-dtags" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
 set (ADD_LINKER_FLAGS_DEBUG        )
-set (ADD_LINKER_FLAGS_RELEASE "-s ")
+set (ADD_LINKER_FLAGS_RELEASE " ")
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #

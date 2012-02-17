@@ -151,6 +151,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }        
 
+		/******************************************************************************************
+		* Function: 	SetTerminate    
+		* Description:	set the terminate flag (process shutdown)
+		* Arguments:	bTerminate - is true if process terminate sequence is running
+		* Return value:	void
+		* Author:		Uri Levy
+		* Date:			July 2009
+		******************************************************************************************/
+		void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate;}
+
 	protected:
 		
 		/******************************************************************************************
@@ -171,6 +181,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											                    // for deletion
 
 		HandleType	m_handle;			// the OpenCL handle of the object        
+
+		bool		m_bTerminate;
 
 		DECLARE_LOGGER_CLIENT;
 

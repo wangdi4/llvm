@@ -3,14 +3,16 @@ import os, sys, platform, re
 import framework.cmdtool
 import framework.resultPrinter
 import framework.svn_utils
-import framework.hudson.utils 
+import framework.hudson.utils
+import framework.logger 
 
 from Volcano_Common import REPOSITORY_ROOT
 from Hudson_Common import VOLCANO_JENKINS_URL
 from getpass import getuser
+from framework.logger import gLog, STYLE
 
 SANITY_BRANCHES_ROOT = 'OpenCL/branches/sanity'
-SANITY_HUDSON_JOB    = 'PrivatePreCommit'
+SANITY_HUDSON_JOB    = 'PersonalBuild'
 
 class ConfigError(Exception):
     def __init__(self, value):
@@ -64,20 +66,20 @@ def create_branch(svntool, branch_name, force_remove, reuse_branch):
     "Make the required branch directories and commit current tree to the branch"
     if svntool.test_branch_exists(branch_name):
         if force_remove :
-            print 'Removing existing branch:' + branch_name
+            gLog.prints( 'Removing existing branch:' + branch_name)
             svntool.remove_branch(branch_name)
         elif reuse_branch :
-            print 'Reusing existing branch. Local changes in your working copy will NOT be submitted'
+            gLog.prints( 'Reusing existing branch. Local changes in your working copy will NOT be submitted')
             return
         else:
             raise LogicError("You already have a branch called:\n\t"+ branch_name +"\n\tTo remove it rerun sanity, using the --force option. To reuse it use the --reuse option.")
     else:
         #Make sure that parent branch exists
         parent_branch_name = branch_name.rpartition('/')[0]
-        print 'Making sure that the parent branch exist: ' + parent_branch_name
+        gLog.prints( 'Making sure that the parent branch exist: ' + parent_branch_name)
         svntool.test_and_make_branch(parent_branch_name)
 
-    print 'Copying local working copy to the target branch: ' + branch_name
+    gLog.prints( 'Copying local working copy to the target branch: ' + branch_name)
     svntool.copy_to_branch(branch_name)
 
 def main():
@@ -91,8 +93,11 @@ def main():
     parser.add_option("--username",           action="store",        dest="username",      default="",       help="User name used for SVN authentication. Default: current username")
     parser.add_option("--password",           action="store",        dest="password",      default="",       help="Password for SVN authentication. Default: used cached")
     parser.add_option("--non-interactive",    action="store_false",  dest="interactive",   default=True,     help="Do no interactive prompting. Default: interactive")
+    parser.add_option("--nocolor",            action="store_false",  dest="use_color",     default=True,     help="Use console color output")
 
     (options, args) = parser.parse_args()
+
+    framework.logger.gLog.enableColor(options.use_color) 
 
     # Process the command line options
     if re.search(r"[.]",options.branch_name):
@@ -107,7 +112,6 @@ def main():
             email = os.environ['USEREMAIL']
         else:
             parser.error("Please supply the e-mail address (-e option) for job run result notification. It can't be detected from your environment")
-    
 
     # Configure the environment
     framework.cmdtool.print_cmd    = int(options.verbose_level) > 0
@@ -130,40 +134,40 @@ def main():
 
         branch_url = '/'.join([local_root, config.branch_name_full])
 
-        print 'Personal build'
-        print '--------------'
-        print '[WORKCOPY ROOT] :' + config.root_dir
-        print '[SVN ROOT]      :' + local_root
-        print '[SVN URL]       :' + local_url
-        print '[TARGET BRANCH] :' + branch_url
+        gLog.prints( 'Personal build')
+        gLog.prints( '--------------')
+        gLog.prints( STYLE.PASS + '[WORKCOPY ROOT] :' + STYLE.NORMAL + config.root_dir + STYLE.NORMAL)
+        gLog.prints( STYLE.PASS + '[SVN ROOT]      :' + STYLE.NORMAL + local_root + STYLE.NORMAL)
+        gLog.prints( STYLE.PASS + '[SVN URL]       :' + STYLE.NORMAL + local_url + STYLE.NORMAL)
+        gLog.prints( STYLE.PASS + '[TARGET BRANCH] :' + STYLE.NORMAL + branch_url + STYLE.NORMAL)
 
         # then create a branch in there
-        print '[PREPARING BRANCH]'
+        gLog.prints( STYLE.PASS + '[PREPARING BRANCH]' + STYLE.NORMAL)
         create_branch(svntool, branch_url, options.force_remove, options.reuse_branch)
 
         # prepare the job parameters
-        print '[START JENKINS JOB]'
+        gLog.prints( STYLE.PASS + '[START JENKINS JOB]'+ STYLE.NORMAL)
         jobparams = { "SVN_Requested_Url": branch_url,
                       "EmailReceipients":email}
         framework.hudson.utils.startJob(VOLCANO_JENKINS_URL, SANITY_HUDSON_JOB, jobparams)
-        print '[FINISHED]      :The job notification will be sent to: ' + email
+        gLog.prints( STYLE.PASS + '[FINISHED]' + STYLE.NORMAL + '      :The job notification will be sent to: ' + email + STYLE.NORMAL)
     except LogicError as e:
-        print "Error." + e.value
-        print "[ABORTED]"
+        gLog.prints( STYLE.ERROR + "Error:" + STYLE.NORMAL + e.value + STYLE.NORMAL)
+        gLog.prints( STYLE.ERROR + "[ABORTED]" + STYLE.NORMAL )
         return 1
     except ConfigError as e:
-        print "Configuration Error."  + e.value
-        print "[ABORTED]"
+        gLog.prints( STYLE.ERROR + "Configuration Error:" + STYLE.NORMAL + e.value + STYLE.NORMAL)
+        gLog.prints( STYLE.ERROR + "[ABORTED]" + STYLE.NORMAL )
         return 1
     except framework.svn_utils.SvnError as e:
-        print "SVN Error: " + e.value
+        gLog.prints( STYLE.ERROR + "SVN Error:" + STYLE.NORMAL + e.value + STYLE.NORMAL)
         if options.verbose_level < 2 :
-            print "Consider increasing the verbosity level (-v) option to get more information"
-        print "[ABORTED]"
+            gLog.prints( "Consider increasing the verbosity level (-v) option to get more information")
+        gLog.prints( STYLE.ERROR + "[ABORTED]" + STYLE.NORMAL )
         return 1
     except framework.hudson.utils.HudsonError as e:
-        print "Hudson Error: " + e.value
-        print "[ABORTED]"
+        gLog.prints( STYLE.ERROR + "Hudson Error:" + STYLE.NORMAL + e.value + STYLE.NORMAL)
+        gLog.prints( STYLE.ERROR + "[ABORTED]" + STYLE.NORMAL )
         return 1
     except:
         raise
