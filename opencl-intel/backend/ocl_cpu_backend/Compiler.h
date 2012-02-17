@@ -117,7 +117,7 @@ private:
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
-// 
+//
 class Compiler
 {
 public:
@@ -128,8 +128,8 @@ public:
     virtual ~Compiler();
 
     /**
-     * Initializes the LLVM environment. 
-     * Must be called from single threaded environment, before any 
+     * Initializes the LLVM environment.
+     * Must be called from single threaded environment, before any
      * instance of Compiler class are created
      */
     static void Init();
@@ -143,9 +143,9 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
+    llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                       const CompilerBuildOptions* pOptions,
-                      ProgramBuildResult* pResult);
+                      ProgramBuildResult* pResult) const;
 
     ECPU GetSelectedCPU() const
     {
@@ -157,9 +157,10 @@ public:
         return m_selectedCpuFeatures;
     }
 
-    virtual void CreateExecutionEngine(llvm::Module* m) = 0;
+    // TODO: make this method non-constant after re-design
+    virtual void CreateExecutionEngine(llvm::Module* m) const = 0;
 
-    virtual unsigned int GetTypeAllocSize(llvm::Type* pType) = 0;
+    virtual unsigned int GetTypeAllocSize(llvm::Type* pType) const = 0;
 
 protected:
     /**
@@ -167,9 +168,9 @@ protected:
      */
     virtual llvm::Module* GetRtlModule() const = 0;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
 
-    llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary);
+    llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
 
 protected:
     CompilerConfig         m_config;

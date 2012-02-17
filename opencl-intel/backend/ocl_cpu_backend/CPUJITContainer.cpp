@@ -25,7 +25,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 CPUJITContainer::CPUJITContainer(const void* pFuncCode,
                                  llvm::Function* pFunction,
                                  llvm::Module* pModule,
-                                 CPUCompiler* pCompiler,
+                                 const CPUCompiler* pCompiler,
                                  KernelJITProperties* pProps):
     m_pFuncCode(pFuncCode),
     m_pFunction(pFunction),

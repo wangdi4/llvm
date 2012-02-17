@@ -87,16 +87,16 @@ ProgramBuilder::~ProgramBuilder()
 {
 }
 
-cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions)
+cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions) const
 {
     assert(pProgram && "Program parameter must not be NULL");
     ProgramBuildResult buildResult;
 
     try
     {
-		llvm::MutexGuard lock(m_buildLock);	
+        llvm::MutexGuard lock(m_buildLock);
 
-        Compiler* pCompiler = GetCompiler();
+        const Compiler* pCompiler = GetCompiler();
 
 
         CompilerBuildOptions buildOptions( pProgram->GetDebugInfoFlag(),
@@ -131,7 +131,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
 
 KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
                                                    Function *func, 
-                                                   const TLLVMKernelInfo& info)
+                                                   const TLLVMKernelInfo& info) const
 {
     // Set optimal WG size
     unsigned int optWGSize = 0;

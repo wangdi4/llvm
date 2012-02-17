@@ -140,7 +140,7 @@ MICCompiler::MICCompiler(const MICCompilerConfig& config):
     }
 }
 
-void MICCompiler::CreateExecutionEngine(llvm::Module* m)
+void MICCompiler::CreateExecutionEngine(llvm::Module* m) const
 {
 #if MICJIT_ENABLE 
     m_pCGEngine = CreateMICCodeGenerationEngine( m );
@@ -163,30 +163,30 @@ MICCompiler::~MICCompiler()
 #endif
 }
 
-unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType)
+unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
 {
 #if MICJIT_ENABLE 
     assert(m_pCGEngine);
     return m_pCGEngine->sizeOf(pType);
 #else
-	return 0;
+    return 0;
 #endif
 }
 
-const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module)
+const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module) const
 {
 #if MICJIT_ENABLE 
     assert(m_pCGEngine);
     return m_pCGEngine->getModuleHolder(module);
 #else
-	return NULL;
+    return NULL;
 #endif
 }
 
-llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule )
+llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const
 {
 #if MICJIT_ENABLE 
-	std::string MTriple = pRtlModule->getTargetTriple();
+    std::string MTriple = pRtlModule->getTargetTriple();
     std::string MCPU    = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
     std::string MArch   = "x86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs;

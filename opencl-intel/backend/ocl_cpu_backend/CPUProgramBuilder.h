@@ -63,29 +63,29 @@ public:
     ~CPUProgramBuilder();
 protected:
 
-    Compiler* GetCompiler()
+    const Compiler* GetCompiler() const
     {
         return &m_compiler;
     }
 
     KernelSet* CreateKernels(const Program* pProgram,
                              llvm::Module* pModule, 
-                             ProgramBuildResult& buildResult);
+                             ProgramBuildResult& buildResult) const;
 
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) { }
+    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const { }
 
 private:
 
     KernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
                                                    llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info);
+                                                   const TLLVMKernelInfo& info) const;
 
-    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps);
+    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
 
-    size_t ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc);
+    size_t ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc) const;
 
-    void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps);
+    void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
     // Klockwork Issue
     CPUProgramBuilder ( const CPUProgramBuilder& x );

@@ -74,27 +74,27 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions);
+    cl_dev_err_code BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions) const;
 
 protected:
 
-    virtual Compiler* GetCompiler()= 0;
+    virtual const Compiler* GetCompiler() const = 0;
 
-    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) = 0;
+    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const = 0;
 
     virtual KernelSet* CreateKernels(const Program* pProgram,
                              llvm::Module* pModule, 
-                             ProgramBuildResult& buildResult) = 0;
+                             ProgramBuildResult& buildResult) const = 0;
 
-    KernelProperties* CreateKernelProperties(const Program* pProgram, Function *func, const TLLVMKernelInfo& info);
+    KernelProperties* CreateKernelProperties(const Program* pProgram, Function *func, const TLLVMKernelInfo& info) const;
 
 
 protected:
 
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory; 
-	// temporary solution for MT build problem on OCL SDK	
-	llvm::sys::Mutex       m_buildLock;
+    // temporary solution for MT build problem on OCL SDK	
+    mutable llvm::sys::Mutex       m_buildLock;
 };
 
 }}}

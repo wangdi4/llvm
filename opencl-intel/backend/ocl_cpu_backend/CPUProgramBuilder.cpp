@@ -111,7 +111,7 @@ CPUProgramBuilder::~CPUProgramBuilder()
    
 
 
-Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps)
+Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
 {
 std::vector<cl_kernel_argument> arguments;
 
@@ -121,7 +121,7 @@ std::vector<cl_kernel_argument> arguments;
     return m_pBackendFactory->CreateKernel( funcName, arguments, pProps );
 }
 
-size_t CPUProgramBuilder::ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc)
+size_t CPUProgramBuilder::ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc) const
 {
     // Required stack
     size_t stStack = 0;
@@ -165,13 +165,13 @@ size_t CPUProgramBuilder::ResolveFunctionCalls(llvm::Module* pModule, llvm::Func
 
 KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
                                     llvm::Module* pModule, 
-                                    ProgramBuildResult& buildResult)
+                                    ProgramBuildResult& buildResult) const
 {
     buildResult.LogS() << "Build started\n";
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
 
     llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
-	llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
+    llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
     if ( !pModuleMetadata ) {
       //Module contains no MetaData, thus it contains no kernels
       return spKernels.release();
@@ -185,7 +185,7 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
     {
         // Obtain kernel function from annotation
         llvm::MDNode *elt = pModuleMetadata->getOperand(i);
-		llvm::MDNode *welt = WrapperMD->getOperand(i);
+        llvm::MDNode *welt = WrapperMD->getOperand(i);
         llvm::Function *pFunc = llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
         // The wrapper function that receives a single buffer as argument is the last node in the metadata
         llvm::Function *pWrapperFunc = llvm::dyn_cast<llvm::Function>(
@@ -289,7 +289,7 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
 
 KernelJITProperties* CPUProgramBuilder::CreateKernelJITProperties(llvm::Module* pModule, 
                                                          llvm::Function* pFunc,
-                                                         const TLLVMKernelInfo& info)
+                                                         const TLLVMKernelInfo& info) const
 {
     // TODO : I don't think we use this information since adding the barriers
     // This calculation may be not correct When pFunc is the wrapper function
@@ -366,7 +366,7 @@ KernelJITProperties* CPUProgramBuilder::CreateKernelJITProperties(llvm::Module* 
     return pProps;
 }
 
-void CPUProgramBuilder::AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps)
+void CPUProgramBuilder::AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
     IKernelJITContainer* pJIT = new CPUJITContainer( m_compiler.GetPointerToFunction(pFunc),
                                            pFunc,

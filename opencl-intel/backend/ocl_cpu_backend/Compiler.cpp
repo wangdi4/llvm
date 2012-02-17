@@ -228,7 +228,7 @@ Compiler::~Compiler()
 
 llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
                                            const CompilerBuildOptions* pOptions,
-                                           ProgramBuildResult* pResult)
+                                           ProgramBuildResult* pResult) const
 {
     assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
     assert(pResult && "Build results pointer must not be NULL");
@@ -288,7 +288,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     return spModule.release();
 }
 
-llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
+llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const
 {
     //
     // Parse the module IR 
@@ -302,7 +302,7 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
-llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary)
+llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 {
     llvm::MemoryBuffer* pRtlBuffer = pLibrary->GetRtlBuffer();
     std::auto_ptr<llvm::Module> spModule(llvm::ParseBitcodeFile(pRtlBuffer, *m_pLLVMContext));

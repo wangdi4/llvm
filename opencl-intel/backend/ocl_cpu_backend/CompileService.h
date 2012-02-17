@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2010-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -46,8 +46,8 @@ public:
      */
     virtual cl_dev_err_code CreateProgram(
         const cl_prog_container_header* pByteCodeContainer, 
-        ICLDevBackendProgram_** ppProgram);
-        
+        ICLDevBackendProgram_** ppProgram) const;
+
     /**
      * Builds the program
      *
@@ -66,8 +66,7 @@ public:
      */
     virtual cl_dev_err_code BuildProgram(
         ICLDevBackendProgram_* pProgram, 
-        const ICLDevBackendOptions* pOptions );
-
+        const ICLDevBackendOptions* pOptions ) const;
 
     /**
      * Dumps the content of the given code container 
@@ -103,7 +102,7 @@ public:
             const std::string baseDirectory) const;
 
 protected:
-    virtual ProgramBuilder* GetProgramBuilder() = 0;
+    virtual const ProgramBuilder* GetProgramBuilder() const = 0;
 
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_backendFactory;

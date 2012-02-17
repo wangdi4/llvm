@@ -217,31 +217,31 @@ CPUCompiler::~CPUCompiler()
     delete m_pExecEngine;
 }
 
-unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType)
+unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType) const
 {
     assert(m_pExecEngine);
     return m_pExecEngine->getTargetData()->getTypeAllocSize(pType);
 }
 
-void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
+void *CPUCompiler::GetPointerToFunction(llvm::Function *pf) const
 {
     assert(m_pExecEngine);
     return m_pExecEngine->getPointerToFunction(pf);
 }
 
-uint64_t CPUCompiler::GetJitFunctionStackSize(const llvm::Function* pf)
+uint64_t CPUCompiler::GetJitFunctionStackSize(const llvm::Function* pf) const
 {
     assert(m_pExecEngine);
     return 0;//m_pExecEngine->getJitFunctionStackSize(pf); missing in LLVM 3.0
 }
 
-void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf)
+void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
 {
     assert(m_pExecEngine);
     m_pExecEngine->freeMachineCodeForFunction(pf);
 }
 
-unsigned int CPUCompiler::GetJitFunctionSize(const llvm::Function* pf)
+unsigned int CPUCompiler::GetJitFunctionSize(const llvm::Function* pf) const
 {
     assert(m_pExecEngine);
     return 0;// m_pExecEngine->getJitFunctionSize(pf); missing in LLVM 3.0 
@@ -279,20 +279,20 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     m_selectedCpuFeatures = Utils::SelectCpuFeatures( m_selectedCpuId, m_forcedCpuFeatures );
 }
 
-void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
+void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule) const
 {
     // pModule is owned by created execution engine
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 }
 
-llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule )
+llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
 {
     // Leaving MArch blank implies using auto-detect
     llvm::StringRef MCPU  = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
     llvm::StringRef MArch = "";
 
     string strErr;
-    bool AllocateGVsWithCode = true;  
+    bool AllocateGVsWithCode = true;
 
     llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
                   .setEngineKind(llvm::EngineKind::JIT)
@@ -304,12 +304,11 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
                   .setMCPU(MCPU)
                   .setMAttrs(m_forcedCpuFeatures)
                   .create();
-
     if ( NULL == pExecEngine )
     {
         throw Exceptions::CompilerException("Failed to create execution engine");
     }
-    
+
     return pExecEngine;
 }
 

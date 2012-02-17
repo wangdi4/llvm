@@ -85,7 +85,7 @@ MICProgramBuilder::~MICProgramBuilder()
 
 
 
-MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps)
+MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps) const
 {
     std::vector<cl_kernel_argument> arguments;
 
@@ -97,7 +97,7 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
 
 MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Module* pModule, 
                                                          llvm::Function* pFunc,
-                                                         const TLLVMKernelInfo& info)
+                                                         const TLLVMKernelInfo& info) const
 {
     unsigned int stackSize = 0;
 
@@ -178,7 +178,7 @@ MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Modul
 
 KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
                                     llvm::Module* pModule, 
-                                    ProgramBuildResult& buildResult)
+                                    ProgramBuildResult& buildResult) const
 {
     buildResult.LogS() << "Build started\n";
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
@@ -299,7 +299,7 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
     return spKernels.release();
 }
 
-void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps)
+void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps) const
 {
     IKernelJITContainer* pJIT = new MICJITContainer( pProgram->GetModuleJITHolder(),
                                            (unsigned long long int)pFunc,
@@ -307,7 +307,7 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
     pKernel->AddKernelJIT( pJIT );
 }
 
-void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule)
+void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const
 {
 #if 0
     assert(spModule && "Invalid module for post optimization processing.");

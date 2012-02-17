@@ -53,7 +53,7 @@ CompileService::CompileService()
 {}
 
 cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* pByteCodeContainer, 
-                                               ICLDevBackendProgram_** ppProgram)
+                                               ICLDevBackendProgram_** ppProgram) const
 {
     try
     {
@@ -77,9 +77,9 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
         return CL_DEV_OUT_OF_MEMORY; 
     }
 }
-    
-cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram, 
-                                              const ICLDevBackendOptions* pOptions )
+
+cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
+                                              const ICLDevBackendOptions* pOptions ) const
 {
     try
     {

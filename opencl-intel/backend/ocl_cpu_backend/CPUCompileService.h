@@ -31,7 +31,7 @@ public:
     CPUCompileService(const CompilerConfig& config);
     virtual ~CPUCompileService() { }
 
-    ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
+    const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
 
 private:
     CPUProgramBuilder m_programBuilder;

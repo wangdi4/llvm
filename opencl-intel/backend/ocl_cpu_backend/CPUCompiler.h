@@ -52,24 +52,25 @@ public:
     CPUCompiler(const CompilerConfig& pConfig);
     virtual ~CPUCompiler();
 
-    unsigned int GetTypeAllocSize(llvm::Type* pType);
+    unsigned int GetTypeAllocSize(llvm::Type* pType) const;
 
     // Returns pointer to jitted function if function hasn't been compiled
     // Otherwise function is jitted and pointer is returned
-    void *GetPointerToFunction(llvm::Function *pf);
+    void *GetPointerToFunction(llvm::Function *pf) const;
 
     // TODO: Hack. Need redesign.
     // Execution engine can be created with Built-ins module or images module.
     // By default execution engine is created in constructor for built-ins module
     // In order to skip built-ins module creation in images we need
     // to expose that interface and createExecution engine after constuctor is called.
-    virtual void CreateExecutionEngine( llvm::Module* pModule );
+    // TODO: make this method non-constant after re-design
+    virtual void CreateExecutionEngine( llvm::Module* pModule ) const;
 
-    uint64_t GetJitFunctionStackSize(const llvm::Function* pf);
+    uint64_t GetJitFunctionStackSize(const llvm::Function* pf) const;
 
-    unsigned int GetJitFunctionSize(const llvm::Function* pf);
+    unsigned int GetJitFunctionSize(const llvm::Function* pf) const;
 
-    virtual void freeMachineCodeForFunction(llvm::Function* pf);
+    virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
 
 protected:
 
@@ -78,17 +79,18 @@ protected:
      */
     llvm::Module* GetRtlModule() const;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
 
-    llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule );
+    llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
 private:
     CompilerConfig         m_config;
     BuiltinModule*         m_pBuiltinModule;
-    llvm::ExecutionEngine* m_pExecEngine;
+    // TODO: remove mutable after re-design
+    mutable llvm::ExecutionEngine* m_pExecEngine;
 };
 
 }}}

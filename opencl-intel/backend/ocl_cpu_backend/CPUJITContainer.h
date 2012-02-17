@@ -36,7 +36,7 @@ public:
     CPUJITContainer(const void* pFuncCode,
                  llvm::Function* pFunction,
                  llvm::Module* pModule,
-                 CPUCompiler* pCompiler,
+                 const CPUCompiler* pCompiler,
                  KernelJITProperties* pProps);
     ~CPUJITContainer();
 
@@ -63,7 +63,7 @@ private:
     llvm::Function*        m_pFunction;
     llvm::Module*          m_pModule; // not owned by the class 
 
-    CPUCompiler*              m_pCompiler; //not owned by the class
+    const CPUCompiler*     m_pCompiler; //not owned by the class
     KernelJITProperties*   m_pProps;
 
     // Klockwork Issue

@@ -8,7 +8,7 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class ICLDevBackendOptions;
-    
+
 /**
  * This interface class is responsible for the compilation services which should be
  * loaded at the Host side and Device side, programs can be created and compiled 
@@ -34,8 +34,8 @@ public:
      */
     virtual cl_dev_err_code CreateProgram(
         const cl_prog_container_header* pByteCodeContainer, 
-        ICLDevBackendProgram_** ppProgram) = 0;
-		
+        ICLDevBackendProgram_** ppProgram) const = 0;
+
     /**
      * Builds the program
      *
@@ -52,10 +52,9 @@ public:
      *	CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory 
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
-	virtual cl_dev_err_code BuildProgram(
-        ICLDevBackendProgram_* pProgram, 
-        const ICLDevBackendOptions* pOptions ) = 0;
-    
+    virtual cl_dev_err_code BuildProgram(
+        ICLDevBackendProgram_* pProgram,
+        const ICLDevBackendOptions* pOptions ) const = 0;
 
     /**
      * Dumps the content of the given code container 

@@ -85,9 +85,9 @@ public:
     MICCompiler(const MICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
-    unsigned int GetTypeAllocSize(llvm::Type* pType);
+    unsigned int GetTypeAllocSize(llvm::Type* pType) const;
 
-    const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module);
+    const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module) const;
 
 protected:
     /**
@@ -95,20 +95,20 @@ protected:
      */
     llvm::Module* GetRtlModule() const;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
 
     // !! WORKAROUND !!
     // Execution engine can be created with Built-ins module or images module.
     // By default execution engine is created in constructor for built-ins module
     // In order to skip built-ins module creation in images we need
     // to expose that interface and createExecution engine after constuctor is called.
-    virtual void CreateExecutionEngine( llvm::Module* pModule );
+    virtual void CreateExecutionEngine( llvm::Module* pModule ) const;
 
 
 private:
     void SelectMICConfiguration(const CompilerConfig& config);
 
-    llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule );
+    llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const;
 
 
 private:

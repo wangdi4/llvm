@@ -54,25 +54,25 @@ public:
 
 protected:
 
-    Compiler* GetCompiler()
+    const Compiler* GetCompiler() const
     {
         return &m_compiler;
     }
 
     KernelSet* CreateKernels(const Program* pProgram,
                              llvm::Module* pModule, 
-                             ProgramBuildResult& buildResult);
+                             ProgramBuildResult& buildResult) const;
 
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule);
+    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const;
 
 private:
     MICKernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
                                                    llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info);
+                                                   const TLLVMKernelInfo& info) const;
 
-    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps);
+    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps) const;
 
-    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps);
+    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps) const;
 
 
     // Klockwork Issue
