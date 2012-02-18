@@ -55,19 +55,30 @@ OpenCLBackendWrapper::~OpenCLBackendWrapper(void)
 
 void OpenCLBackendWrapper::LoadDll()
 {
-    try
+    if( !m_dll.Load(szOclCpuBackendDllName) )
     {
-        m_dll.Load(szOclCpuBackendDllName);
-
-        m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("InitDeviceBackend");
-
-        m_funcTerminate = (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("TerminateDeviceBackend");
-
-        m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("GetDeviceBackendFactory");
+        throw Exception::GeneralException("Can't load the backend library");
     }
-    catch( Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException& e )
+
+    m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("InitDeviceBackend");
+
+    if( NULL == m_funcInit)
     {
-        throw Exception::GeneralException(e.what());
+        throw Exception::GeneralException("'Init' export function is not found in OCL Backend library");
+    }
+
+    m_funcTerminate = (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("TerminateDeviceBackend");
+
+    if( NULL == m_funcTerminate)
+    {
+        throw Exception::GeneralException("'Terminate' export function is not found in OCL Backend library");
+    }
+
+    m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("GetDeviceBackendFactory");
+
+    if( NULL == m_funcGetFactory )
+    {
+        throw Exception::GeneralException("'GetDeviceBackendFactory' export function is not found in OCL Backend library");
     }
 }
 

@@ -7,11 +7,11 @@ cmake_minimum_required(VERSION 2.8.4)
 
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 32 bit
-    set (PLATFORM 32)
+	# 32 bit
+	set (PLATFORM 32)
 else( CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # 64 bit
-    set (PLATFORM 64)
+	# 64 bit
+	set (PLATFORM 64)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -48,10 +48,10 @@ function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
 endfunction ( SET_LINUX_EXPORTS_FILE )
 
 # configure immediate dependencies search path at run time for non-standard libs
-    SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+	SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
+	SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
+	SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
+	SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 # Warning level
 set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
@@ -74,7 +74,7 @@ set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
 set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS} ")
 
 set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
-set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
+set (ADD_C_FLAGS_RELEASE "-O2 -g0 ")
 
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( ${WARNING_LEVEL} )
@@ -176,8 +176,8 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
             set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
 
             if (CMAKE_ASM_OUTPUT_NAME_FLAG)
-                                set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-                        endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
+								set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
+						endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
 
             add_custom_command(OUTPUT ${OBJ_FILE}
                                COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
@@ -204,48 +204,48 @@ endmacro( CREATE_ASM_RULES )
 
 # Create target utils project
 set (OCL_UTILS_INCLUDE_FILES
-    AddImplicitArgs.h
-    CompilationUtils.h
-    CPUDetect.h
-    DynamicLib.h
-    exceptions.h
-    ExplicitArgument.h
-    ExplicitLocalMemArgument.h
-    ExplicitGlobalMemArgument.h
-    FunctionArgument.h
-    IArgument.h
-    ImplicitArgProperties.h
-    ImplicitArgsUtils.h
-    ImplicitArgument.h
-    LocalBuffers.h
-    LocalBuffersAnalysis.h
-    PrepareKernelArgs.h
-    ResolveWICall.h
-    ShiftZeroUpperBits.h
-    SystemInfo.h
-    TLLVMKernelInfo.h
-    TypeAlignment.h
-    UndefinedExternalFunctions.h
-    PreventDivisionCrashes.h
+	AddImplicitArgs.h
+	CompilationUtils.h
+	CPUDetect.h
+	DynamicLib.h
+	exceptions.h
+	ExplicitArgument.h
+	ExplicitLocalMemArgument.h
+	ExplicitGlobalMemArgument.h
+	FunctionArgument.h
+	IArgument.h
+	ImplicitArgProperties.h
+	ImplicitArgsUtils.h
+	ImplicitArgument.h
+	LocalBuffers.h
+	LocalBuffersAnalysis.h
+	PrepareKernelArgs.h
+	ResolveWICall.h
+	ShiftZeroUpperBits.h
+	SystemInfo.h
+	TLLVMKernelInfo.h
+	TypeAlignment.h
+	UndefinedExternalFunctions.h
+	PreventDivisionCrashes.h
   )
   
 set (OCL_UTILS_SOURCE_FILES
-    AddImplicitArgs.cpp
-    BuiltInFunctionImport.cpp
-    CompilationUtils.cpp
-    CPUDetect.cpp
-    DynamicLib.cpp
-    FunctionArgument.cpp
-    ImplicitArgsUtils.cpp
-    LocalBuffers.cpp
-    LocalBuffersAnalysis.cpp
-    PrepareKernelArgs.cpp
-    ResolveWICall.cpp
-    ShiftZeroUpperBits.cpp
-    SystemInfo.cpp
-    TypeAlignment.cpp
-    UndefinedExternalFunctions.cpp
-    PreventDivisionCrashes.cpp
+	AddImplicitArgs.cpp
+	BuiltInFunctionImport.cpp
+	CompilationUtils.cpp
+	CPUDetect.cpp
+	DynamicLib.cpp
+	FunctionArgument.cpp
+	ImplicitArgsUtils.cpp
+	LocalBuffers.cpp
+	LocalBuffersAnalysis.cpp
+	PrepareKernelArgs.cpp
+	ResolveWICall.cpp
+	ShiftZeroUpperBits.cpp
+	SystemInfo.cpp
+	TypeAlignment.cpp
+	UndefinedExternalFunctions.cpp
+	PreventDivisionCrashes.cpp
   )
 
 # Create target project
@@ -381,57 +381,61 @@ if (ENABLE_SDE)
   )
 endif()
   
-if (WIN32)    
-    # Resources
-    set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
-    #SVML call wrapper is specific for Win64 calling conventions 
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        list (APPEND OCL_CPU_BACKEND_SOURCE_FILES WrapSvml.cpp)
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+ if (WIN32)	
+ set (OCL_CPU_BACKEND_RESOURCE_FILES
+	# Resources
+	llvm_backend.rc
+	)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        #SVML call wrapper is specific for Win64 calling conventions 
+	    list (APPEND OCL_CPU_BACKEND_SOURCE_FILES WrapSvml.cpp)
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 else (WIN32)
-    set (OCL_CPU_BACKEND_RESOURCE_FILES)
-endif (WIN32)    
-    
+set (OCL_CPU_BACKEND_RESOURCE_FILES
+  )
+endif (WIN32)	
+	
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if (WIN32)
-        set (ASM_SOURCES kernel_execute_64.asm svml_thunk.asm)
-    else (WIN32)
-        set (ASM_SOURCES linux64_utils.s)
-    endif (WIN32)
-    CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
+if (WIN32)
+    set (ASM_SOURCES kernel_execute_64.asm svml_thunk.asm)
+else (WIN32)
+    set (ASM_SOURCES linux64_utils.s)
+endif (WIN32)
+CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
 include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS} 
-    ${OCL_CPU_BACKEND_EXPORT_DIR} 
-    )
+	${OCL_CPU_BACKEND_EXPORT_DIR} 
+	)
 
 # Add additional lib direcories
 link_directories (
-    ${OCL_CPU_BACKEND_LIB_DIR} 
+	${OCL_CPU_BACKEND_LIB_DIR} 
 ) 
 
 # Create DLL
 add_library (${TARGET_NAME} SHARED 
-    ${OCL_CPU_BACKEND_INCLUDE_FILES}
-    ${OCL_CPU_BACKEND_SOURCE_FILES}
-    ${OCL_CPU_BACKEND_RESOURCE_FILES}
-    ${ASM_ADD_TO_SOURCES_LIST}
-    )
+	${OCL_CPU_BACKEND_INCLUDE_FILES}
+	${OCL_CPU_BACKEND_SOURCE_FILES}
+	${OCL_CPU_BACKEND_RESOURCE_FILES}
+	${ASM_ADD_TO_SOURCES_LIST}
+	)
 add_library(${TARGET_UTILS_NAME}
     ${OCL_UTILS_INCLUDE_FILES}
-    ${OCL_UTILS_SOURCE_FILES}
-    ${ASM_ADD_TO_SOURCES_LIST}
+	${OCL_UTILS_SOURCE_FILES}
+	${ASM_ADD_TO_SOURCES_LIST}
 )
 
 if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
+	SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
 endif (NOT WIN32)
 
 #For OCL SDK - Shared libraries should be in the same location as executables
 if ((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    set_target_properties(${TARGET_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${RT_OUTPUT_DIRECTORY})
+	get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
+	set_target_properties(${TARGET_NAME} PROPERTIES
+				LIBRARY_OUTPUT_DIRECTORY ${RT_OUTPUT_DIRECTORY})
 endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -439,38 +443,38 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "/EXPORT:SvmlThunk")
 endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 
-set (LLVM_LIBS
-    
-    # LLVM libs
+ set (LLVM_LIBS
+	
+	# LLVM libs
 
-    LLVMLinker
-    LLVMX86AsmParser
-    LLVMX86AsmPrinter
-    LLVMX86CodeGen
-    LLVMX86Disassembler
-    LLVMX86Info
-    LLVMTransformUtils
-    LLVMCore
-    LLVMTarget
-    LLVMExecutionEngine
-    LLVMJIT
-    LLVMCodeGen
-    LLVMBitReader
-    LLVMBitWriter
-    LLVMSupport
-    LLVMAnalysis
-    LLVMAsmPrinter
-    LLVMInstCombine    
-    LLVMipo
-    LLVMMC
-    LLVMScalarOpts
-    LLVMSelectionDAG
-    LLVMVectorizer
-    LLVMBarrier
-    LLVMipa
-    LLVMX86AsmPrinter
-    LLVMMC
-    )
+	LLVMLinker
+	LLVMX86AsmParser
+	LLVMX86AsmPrinter
+	LLVMX86CodeGen
+	LLVMX86Disassembler
+	LLVMX86Info
+	LLVMTransformUtils
+	LLVMCore
+	LLVMTarget
+	LLVMExecutionEngine
+	LLVMJIT
+	LLVMCodeGen
+	LLVMBitReader
+	LLVMBitWriter
+	LLVMSupport
+	LLVMAnalysis
+	LLVMAsmPrinter
+	LLVMInstCombine	
+	LLVMipo
+	LLVMMC
+	LLVMScalarOpts
+	LLVMSelectionDAG
+	LLVMVectorizer
+	LLVMBarrier
+	LLVMipa
+	LLVMX86AsmPrinter
+	LLVMMC
+	)
 # the following targets are necessary for successful build of OCL Back-End shared library outside of OCL SDK framework
 # they are about C/C++ backends for LLVM (not to be confused with OCL backend)
 if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
@@ -481,7 +485,7 @@ if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
         LLVMCppBackendInfo
       )
 endif ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
-    
+	
 # Link with appropriate libs
 if (WIN32)
     set( SOCKETLIB ws2_32 )
@@ -492,24 +496,25 @@ endif (WIN32)
 set( JITPROFLIB JITProfiling)
 
 target_link_libraries (${TARGET_NAME} 
-    # Internal libs
-    ${JITPROFLIB} 
-    
-    # Utils lib
-    ${TARGET_UTILS_NAME}
-    
-    # LLVM LIBS
-    ${LLVM_LIBS}
-    ) 
+	# Internal libs
+	${JITPROFLIB} 
+	
+	# Utils lib
+	${TARGET_UTILS_NAME}
+	
+	# LLVM LIBS
+	${LLVM_LIBS}
+	) 
+
 
 add_dependencies(${TARGET_NAME} 
-    # Utils lib
-    ${TARGET_UTILS_NAME}
-    
-    # LLVM PROJECTS
-    ${LLVM_LIBS}
-    ) 
-    
+	# Utils lib
+	${TARGET_UTILS_NAME}
+	
+	# LLVM PROJECTS
+	${LLVM_LIBS}
+	) 
+	
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 

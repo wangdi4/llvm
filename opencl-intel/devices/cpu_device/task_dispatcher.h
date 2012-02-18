@@ -80,7 +80,6 @@ protected:
 	CPUDeviceConfig*			m_pCPUDeviceConfig;
 	ITaskExecutor*				m_pTaskExecutor;
     unsigned int				m_uiNumThreads;
-	bool						m_bTEActivated;
 
 	// Contexts required for execution of NDRange
 	WGContext*						m_pWGContexts;

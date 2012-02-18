@@ -62,6 +62,33 @@ extern const char* CPU_ARCH_AUTO;
  */
 namespace Utils 
 {
+ 
+/**
+ * Class used to block the final termination
+ *
+ * The problem is that the compiler destruction out of the application
+ * main() boundaries could be problematic and we would like to better
+ * leak the memory then try to destroy the class normally, risking the
+ * access violation or yet worse problems. 
+ * So we introduce some late initialization static object (TerminationBlocker)
+ * the will be initialized last and de-initialized first in LIFO order 
+ *
+ * Upon termination such static object will set its static state to
+ * 'triggered' state, so that regular classes termination sequence could
+ * inspect this state and abort its termination sequences
+ */
+// TODO[MA]: not  clear what is this !?!
+class CPUTerminationBlocker
+{
+public:
+    ~CPUTerminationBlocker() { s_released = true; }
+    static bool IsReleased() { return s_released; }
+private:
+    static bool s_released;
+};
+bool CPUTerminationBlocker::s_released = false;
+
+
 /**
  * Return the CPU identifier (from CPUDetect enumeration) given the CPU name.
  * CPU Name may be equal to 'auto', in this case the CPU detection will be performed
@@ -162,6 +189,9 @@ CPUCompiler::CPUCompiler(const CompilerConfig& config):
     m_pBuiltinModule(NULL),
     m_pExecEngine(NULL)
 {
+    // WORKAROUND!!! See the notes in TerminationBlocker description
+    static Utils::CPUTerminationBlocker blocker;
+
     SelectCpu( config.GetCpuArch(), config.GetCpuFeatures());
 
     // Initialize the BuiltinModule
@@ -180,7 +210,7 @@ CPUCompiler::CPUCompiler(const CompilerConfig& config):
 CPUCompiler::~CPUCompiler()
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
-    if( Utils::TerminationBlocker::IsReleased() )
+    if( Utils::CPUTerminationBlocker::IsReleased() )
         return;
     if( m_pBuiltinModule)
         delete m_pBuiltinModule;

@@ -56,7 +56,7 @@ EventsManager::~EventsManager()
     // the manager is deleted before all events had been released.
 	if (m_pEvents)
 	{
-		m_pEvents->ReleaseAllObjects(false);
+		m_pEvents->ReleaseAllObjects();
 		delete m_pEvents;
 	}
 }

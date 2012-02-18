@@ -214,13 +214,12 @@ cl_err_code OCLObjectsMap<HandleType>::ReleaseObject(HandleType* hObject)
 }
 
 template <class HandleType>
-void OCLObjectsMap<HandleType>::ReleaseAllObjects(bool bTerminate)
+void OCLObjectsMap<HandleType>::ReleaseAllObjects()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	HandleTypeMapIterator it = m_mapObjects.begin();
 	while (it != m_mapObjects.end())
 	{
-		it->second->SetTerminate(bTerminate);
 		it->second->Release();
 		it->second->RemovePendency(this);
 		++it;

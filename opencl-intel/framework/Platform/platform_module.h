@@ -192,7 +192,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code InitDevices(const std::vector<std::string>& devices, const std::string& defaultDevice);
 
-		cl_err_code ReleaseFECompilers(bool bTerminate);
+		cl_err_code ReleaseFECompilers();
 
         cl_err_code AddDevices(FissionableDevice** ppDevices, unsigned int count);
 

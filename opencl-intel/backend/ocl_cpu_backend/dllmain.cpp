@@ -47,7 +47,7 @@ static int s_init_count = 0;
 // initialization result
 static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 // flag used to disable the termination sequence
-bool s_ignore_termination = false;
+static bool s_ignore_termination = false;
 
 
 #if defined(_WIN32)
@@ -60,6 +60,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
+        Compiler::Init();
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
@@ -72,6 +73,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             // could be in non-stable state
             s_ignore_termination = true;
         }
+        else
+            Compiler::Terminate();
+
         break;
     }
     return TRUE;
@@ -79,14 +83,18 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #else
 void __attribute__ ((constructor)) dll_init(void)
 {
+        Compiler::Init();
 }
-
 void __attribute__ ((destructor)) dll_fini(void)
 {
-    if( s_init_count > 0 )
-    {
-        s_ignore_termination = true;
-    }
+        if( s_init_count > 0 )
+        {
+            s_ignore_termination = true;
+        }
+        else
+        {
+            //Compiler::Terminate();
+        }
 }
 #endif
 
@@ -114,7 +122,6 @@ extern "C"
 
         try
         {
-            Compiler::Init();
             BackendConfiguration::Init(pBackendOptions);
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
@@ -170,7 +177,6 @@ extern "C"
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();
         BackendConfiguration::Terminate();
-        Compiler::Terminate();
     }
 
     LLVM_BACKEND_API ICLDevBackendServiceFactory* GetDeviceBackendFactory()

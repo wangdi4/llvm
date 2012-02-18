@@ -67,6 +67,39 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 extern const char* CPU_ARCH_AUTO;
 
+/*
+ * Utility methods
+ */
+namespace Utils 
+{
+ 
+/**
+ * Class used to block the final termination
+ *
+ * The problem is that the compiler destruction out of the application
+ * main() boundaries could be problematic and we would like to better
+ * leak the memory then try to destroy the class normally, risking the
+ * access violation or yet worse problems. 
+ * So we introduce some late initialization static object (TerminationBlocker)
+ * the will be initialized last and de-initialized first in LIFO order 
+ *
+ * Upon termination such static object will set its static state to
+ * 'triggered' state, so that regular classes termination sequence could
+ * inspect this state and abort its termination sequences
+ */
+// TODO[MA]: not  clear what is this !?!
+class MICTerminationBlocker
+{
+public:
+    ~MICTerminationBlocker() { s_released = true; }
+    static bool IsReleased() { return s_released; }
+private:
+    static bool s_released;
+};
+bool MICTerminationBlocker::s_released = false;
+
+}
+
 void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
 {
     // TODO[MA]: change this later
@@ -82,6 +115,9 @@ MICCompiler::MICCompiler(const MICCompilerConfig& config):
 #endif
     m_config(config)
 {
+    // WORKAROUND!!! See the notes in TerminationBlocker description
+    static Utils::MICTerminationBlocker blocker;
+
     SelectMICConfiguration(config);
 
     if(config.GetLoadBuiltins())
@@ -114,7 +150,7 @@ void MICCompiler::CreateExecutionEngine(llvm::Module* m) const
 MICCompiler::~MICCompiler()
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
-    if( Utils::TerminationBlocker::IsReleased() )
+    if( Utils::MICTerminationBlocker::IsReleased() )
         return;
 
     if(m_pBuiltinModule)

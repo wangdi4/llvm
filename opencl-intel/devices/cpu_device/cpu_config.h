@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 		bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
 		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
-		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      true ); }
+		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
 
 	private:
 

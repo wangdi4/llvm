@@ -180,9 +180,9 @@ cl_err_code PlatformModule::InitFECompiler(Device* pRootDevice)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::ReleaseFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::ReleaseFECompilers(bool bTerminate)
+cl_err_code PlatformModule::ReleaseFECompilers()
 {
-	m_mapFECompilers.ReleaseAllObjects(bTerminate);
+	m_mapFECompilers.ReleaseAllObjects();
 	return CL_SUCCESS;
 }
 
@@ -231,10 +231,10 @@ cl_err_code	PlatformModule::Release(bool bTerminate)
 	LOG_INFO(TEXT("%S"), TEXT("Enter Release"));
 
 	// release front-end compilers
-	ReleaseFECompilers(bTerminate);
+	ReleaseFECompilers();
 
 	// release devices
-	m_mapDevices.ReleaseAllObjects(bTerminate);
+	m_mapDevices.ReleaseAllObjects();
 	m_pDefaultDevice = NULL;
 
 	if (NULL != m_ppRootDevices)

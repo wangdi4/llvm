@@ -120,8 +120,11 @@ try
 	char exec[]= XSTR(EXECUTE);
 	std::string execString;
 	std::string archType = (sizeof(void*) == 8) ? "64" : "32";
-
+#if defined _WIN32
 	execString = "ioc";
+#else
+	execString = "../../ioc";
+#endif
 	execString += archType + " ";
 	execString += exec;
 
