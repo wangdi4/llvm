@@ -45,6 +45,7 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE    "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
 #define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB  "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB"   // unsigned int in MB
 #define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE      "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER       "CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
 
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
@@ -71,6 +72,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, false); }
 		unsigned int   Device_2MB_BufferMinSizeInMB() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, 20); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
+		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, true); }
 
     private:
 

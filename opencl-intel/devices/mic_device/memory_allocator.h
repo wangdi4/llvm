@@ -167,6 +167,7 @@ public:
     static SMemMapParamsList* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParamsList*)pMapParams->map_handle; };
 
     bool Use_2M_Pages( size_t size ) const { return (m_2M_BufferMinSize > 0) && (size >= m_2M_BufferMinSize); };
+    bool ImmediateTransferForced( void ) const { return m_force_immediate_transfer; };
 
 private:
     friend class MICDevMemoryObject;
@@ -183,6 +184,7 @@ private:
     size_t                   m_maxAllocSize;
 
     size_t                   m_2M_BufferMinSize;
+    bool                     m_force_immediate_transfer;
 
     // singleton
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, MICDeviceConfig *config, unsigned long long maxAllocSize );
@@ -221,6 +223,16 @@ public:
 
 	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
+    //
+    // internal methods
+    //
+
+    // return new count in both inc/dec
+    unsigned long   IncWriteMapsCount( void )       { return (unsigned long)(++m_write_maps_count); };
+    unsigned long   DecWriteMapsCount( void )       { return (unsigned long)(--m_write_maps_count); };
+    unsigned long   GetWriteMapsCount( void ) const { return (unsigned long)(m_write_maps_count); };
+    bool            ImmediateTransferForced( void ) const { return m_Allocator.ImmediateTransferForced(); };
+    
 protected:
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
             m_nodeId(NULL), m_memFlags(0), m_coi_buffer(0) {}
@@ -238,6 +250,7 @@ protected:
     size_t                      m_raw_size;
 
     COIBUFFER                   m_coi_buffer;
+    AtomicCounter               m_write_maps_count;
 
 private:
     ~MICDevMemoryObject() {};

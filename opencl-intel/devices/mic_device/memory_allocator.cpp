@@ -95,7 +95,8 @@ void MemoryAllocator::Release( void )
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MICDeviceConfig *config, unsigned long long maxAllocSize ):
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_config(config), m_maxAllocSize(maxAllocSize)
 {
-    m_2M_BufferMinSize = config->Device_2MB_BufferMinSizeInMB() * MEGABYTE;
+    m_2M_BufferMinSize         = config->Device_2MB_BufferMinSizeInMB() * MEGABYTE;
+    m_force_immediate_transfer = !(config->Device_LazyTransfer());
     
     if ( NULL != logDesc )
     {

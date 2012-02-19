@@ -56,9 +56,6 @@ cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(uns
                                                                              MICDeviceConfig *config,
                                                                              DeviceServiceCommunication** ppDeviceServiceCom)
 {
-	// TODO The following sleep command purpose is to let device side process to release all its resources.
-	// REMOVE it when will change the reserved memory of COIProcess to 0.
-	sleep(2);
     // find the first unused device index
     DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId, config);
 	if (NULL == tDeviceServiceComm)
@@ -266,7 +263,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 										 0, NULL,													// argc, argv
 										 false, NULL,												// duplicate env, additional env vars
 										 MIC_DEV_IO_PROXY_TO_HOST, NULL,							// I/O proxy required + host root
-                                         MIC_AVAILABLE_PROCESS_MEMORY(pDevServiceComm->m_uiMicId),  // reserve buffer space
+                                         0,															// reserve buffer space
 										 nativeDirName,												// a path to locate dynamic libraries dependencies for the sink application
 										 &pDevServiceComm->m_process);
 		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");

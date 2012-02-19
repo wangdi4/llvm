@@ -252,6 +252,28 @@ void BufferCommands::CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, Pro
 	}
 }
 
+COIEVENT BufferCommands::ForceTransferToDevice( const MICDevMemoryObject* mem_obj, COIEVENT& last_chunk_event )
+{
+    if (false == mem_obj->ImmediateTransferForced())
+    {
+        return last_chunk_event;
+    }
+
+    COIEVENT transfer_event;
+
+    COIRESULT coi_result = COIBufferSetState( 
+                        mem_obj->clDevMemObjGetCoiBufferHandler(),  // Buffer to transfer
+                        m_pCommandList->getDeviceProcess(),         // Target Device process 
+                        COI_BUFFER_VALID,                           // Desired state in the target process
+                        COI_BUFFER_MOVE,                            // Force data movement if required
+                        1, &last_chunk_event,                       // array of dependencies
+                        &transfer_event );                          // event to be signaled on completion
+
+    assert( (COI_SUCCESS == coi_result) && "Wrong params for COIBufferSetState" );
+
+    // this is an optimization - if failed, nothing to do
+    return ((COI_SUCCESS == coi_result) ? transfer_event : last_chunk_event);
+}
 
 class ReadWriteMemoryChunk : public ProcessCommonMemoryChunk
 {
@@ -417,6 +439,12 @@ cl_dev_err_code ReadWriteMemObject::execute()
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
+
+        if (0 == pMicMemObj->GetWriteMapsCount())
+        {
+            m_completionBarrier = ForceTransferToDevice( pMicMemObj, m_completionBarrier );
+        }
+        
         m_lastError = CL_DEV_SUCCESS;
 
     } while (0);
@@ -593,6 +621,12 @@ cl_dev_err_code CopyMemObject::execute()
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
+        
+        if (0 == pMicMemObjDst->GetWriteMapsCount())
+        {
+            m_completionBarrier = ForceTransferToDevice( pMicMemObjDst, m_completionBarrier );
+        }
+
         m_lastError = CL_DEV_SUCCESS;
 
 	}
@@ -750,6 +784,7 @@ cl_dev_err_code MapMemObject::execute()
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = copier.get_last_event();
+        pMicMemObj->IncWriteMapsCount();
         m_lastError = CL_DEV_SUCCESS;
 	}
 	while (0);
@@ -800,6 +835,14 @@ cl_dev_err_code UnmapMemObject::Create(CommandList* pCommandList, IOCLFrameworkC
 cl_dev_err_code UnmapMemObject::execute()
 {
 	cl_dev_cmd_param_map*	cmdParams = (cl_dev_cmd_param_map*)(m_pCmd->params);
+	MICDevMemoryObject*     pMicMemObj;
+
+	// Request access on default device
+	cl_dev_err_code err = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObj);
+	if (CL_DEV_SUCCESS != err)
+	{
+		return err;
+	}
 
 	notifyCommandStatusChanged(CL_RUNNING);
 
@@ -870,6 +913,12 @@ cl_dev_err_code UnmapMemObject::execute()
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
         m_completionBarrier = unmapper.get_last_event();
+        
+        if (0 == pMicMemObj->DecWriteMapsCount())
+        {
+            m_completionBarrier = ForceTransferToDevice( pMicMemObj, m_completionBarrier );
+        }
+        
         m_lastError = CL_DEV_SUCCESS;
 	}
 	while (0);

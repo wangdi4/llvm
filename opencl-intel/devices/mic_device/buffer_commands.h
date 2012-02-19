@@ -29,6 +29,8 @@ using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
+class MICDevMemoryObject;
+
 /* Template class which process memory chunks, T is a chunk which must have the following methods:
       - bool isReadyToFire() - return true if this chunk is ready for process.
 	  - void reset() - reset the current chunk. (Call it after firing this chunk) */
@@ -195,7 +197,11 @@ protected:
 	virtual ~BufferCommands();
 
 	void CopyRegion( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
+
+    COIEVENT ForceTransferToDevice( const MICDevMemoryObject* mem_obj, COIEVENT& last_chunk_event );
+
 private:
+
 	void CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
 
 };
