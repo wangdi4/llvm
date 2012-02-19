@@ -32,7 +32,11 @@ public:
 
 	TRACE_COMMAND_SIMPLE(unsigned_long_long, command_id, 1, command_type);
 
-	TRACE_COMMAND_TIMER(unsigned_long_long, build_serialize_time_start, 1, command_id);
+	TRACE_COMMAND_TIMER(unsigned_long_long, build_program_time_start, 1, command_id);
+
+	TRACE_COMMAND_TIMER(unsigned_long_long, build_program_time_end, 1, build_program_time_start);
+
+	TRACE_COMMAND_TIMER(unsigned_long_long, build_serialize_time_start, 1, build_program_time_end);
 
 	TRACE_COMMAND_TIMER(unsigned_long_long, build_serialize_time_end, 1, build_serialize_time_start);
 
@@ -86,6 +90,8 @@ private:
 	{
 		init_command_type();
 		init_command_id();
+		init_build_program_time_start();
+		init_build_program_time_end();
 		init_build_serialize_time_start();
 		init_build_serialize_time_end();
 		init_build_deserialize_time_start();

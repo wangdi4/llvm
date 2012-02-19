@@ -674,7 +674,9 @@ public:
 
         if (NULL != compiler)
         {
+			cmdTracer.set_current_time_build_program_time_start();
             ret = compiler->BuildProgram(m_pProgEntry->pProgram, NULL);
+			cmdTracer.set_current_time_build_program_time_end();
             MicDbgLog(m_ProgramService.m_pLogDescriptor, m_ProgramService.m_iLogHandle, TEXT("Build Done (%d)"), ret);
         }
 
