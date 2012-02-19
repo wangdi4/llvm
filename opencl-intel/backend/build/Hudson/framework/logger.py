@@ -44,7 +44,7 @@ class Logger:
             deinit()
         
         if platform.system() == 'Windows' and not colorama_loaded:
-            self.colorEnabled = false
+            self.colorEnabled = False
         else:
             self.colorEnabled = enable
 
