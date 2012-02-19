@@ -10,6 +10,7 @@
 
 #ifdef WIN32
     #include <intrin.h>
+    #include <limits.h>
 #else
 	#ifdef __AVX__
 		// immintrin is a meta header that includes Intel headers, but it is new
@@ -41,7 +42,6 @@
 
 #include "conversion_rules.h"
 
-
 // to overcome WinDef.h problem of min/max macro:
 #define OCL_MIN(x, y) (x < y) ? x : y
 
@@ -72,6 +72,12 @@
     #define NOOPTIMIZE
 #endif
 
+
+/**
+ * The SIMD HALF conversion function DOES NOT WORK properly at the moment. Will fix it in the future.
+ */
+//#define FLOAT2HALF_SIMD 1
+#undef FLOAT2HALF_SIMD
 
 ALIGN16 int ones[] = {1, 1, 1, 1};
 
@@ -120,16 +126,15 @@ template<> cl_short4 NOOPTIMIZE sat<cl_short4>(const __m128i &intVal)
 template<> cl_ushort4 NOOPTIMIZE sat<cl_ushort4>(const __m128i &intVal)
 {
     cl_ushort4 trgt;
+    cl_int4 *cl_intVal = (cl_int4 *)&intVal;
 
+    /*
 	//if AVX: __m128i ushortVal = _mm_packus_epi32(intVal, (__m128i)allzero);
     // no single command to convert to unsigned, so value is signed.
-	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
-    //cl_short8 *t = (cl_short8*)&shortVal;
-    cl_short4 t = {{0,0,0,0}};
-    _mm_storel_epi64((__m128i*)&t, shortVal);
+    */
     for (int i = 0 ; i < 4 ; ++i)
     {
-        trgt.s[i] = t.s[i] > 0 ? t.s[i] : 0;
+        trgt.s[i] = CLAMP(cl_intVal->s[i], 0, USHRT_MAX);
     }
 	return trgt;
 }
@@ -179,156 +184,227 @@ TargetIntVect floatVec2IntVec(const cl_float4 val, const float multiplier)
 }
 
 
-__m128 float2half_rte(__m128 param)
+#define MASK_AS_128i(val) _mm_set1_epi32(val)
+#define MASK_AS_128(val) _mm_set1_ps(val)
+
+__m128 float2half_rte_simd(__m128 param)
 {
     // _mm_cvtps_epi32 _m128 --> _m128i
     // _mm_cvtepi32_ps _m128i --> _m128
 
     int rm = _MM_GET_ROUNDING_MODE();
-	_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
+    _MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
 
-	//cl_uint sign = (u.u >> 16) & 0x8000;
-	__m128i temp = (__m128i)_mm_srli_epi32(_mm_cvtps_epi32(param), 0x10);
-	__m128i signs = (__m128i)_mm_and_si128((__m128i)temp,(__m128i) *((__m128i *)0x8000));
-	__m128 absParam = _mm_cvtepi32_ps(_mm_and_si128(_mm_cvtps_epi32(param),(__m128i) *((__m128i *)0x7fffffff)));
+    //cl_uint sign = (u.u >> 16) & 0x8000;
+    __m128i temp = (__m128i)_mm_srli_epi32(_mm_cvtps_epi32(param), 0x10);
+    __m128i signs = (__m128i)_mm_and_si128((__m128i)temp, MASK_AS_128i(0x8000));
+    
+    __m128 absParam = _mm_cvtepi32_ps(_mm_and_si128(_mm_cvtps_epi32(param), MASK_AS_128i(0x7fffffff)));
 
-	//Nan
-	//if( x != x )
-	__m128i eq0 = _mm_cvtps_epi32(_mm_cmpneq_ps(absParam, absParam));
-	__m128i eq = _mm_and_si128(_mm_cvtps_epi32(absParam),(__m128i) eq0);
-	//u.u >>= (24-11);
-	eq = (__m128i) _mm_srli_epi32((__m128i)eq, 0x0d);
-	//u.u &= 0x7fff;
-	eq = (__m128i) _mm_and_si128((__m128i)eq,(__m128i) *((__m128i *)0x7fff));
-	//u.u |= 0x0200;   -- silence the NaN
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) *((__m128i *)0x0200));
-	//return u.u | sign;
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) signs);
-	eq = (__m128i) _mm_and_si128((__m128i)eq,(__m128i) eq0);
-	__m128i dflt = eq0;
+    //Nan
+    //if( x != x )
+    __m128i eq0 = _mm_cvtps_epi32(_mm_cmpneq_ps(absParam, absParam));
+    __m128i eq = _mm_and_si128(_mm_cvtps_epi32(absParam),(__m128i) eq0);
+    //u.u >>= (24-11);
+    eq = (__m128i) _mm_srli_epi32((__m128i)eq, 0x0d);
+    //u.u &= 0x7fff;
+    eq = (__m128i) _mm_and_si128((__m128i)eq, MASK_AS_128i(0x7fff));
+    //u.u |= 0x0200;   -- silence the NaN
+    eq = (__m128i) _mm_or_si128((__m128i)eq, MASK_AS_128i(0x0200));
+    //return u.u | sign;
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) signs);
+    eq = (__m128i) _mm_and_si128((__m128i)eq,(__m128i) eq0);
+    __m128i dflt = eq0;
 
-	// overflow
-	//if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
-	//return 0x7c00 | sign;
+    // overflow
+    //if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
+    //return 0x7c00 | sign;
+    __m128 eq1 = _mm_cmpge_ps(absParam, MASK_AS_128(0x477ff000));
+    eq0 = _mm_and_si128(_mm_cvtps_epi32(eq1), MASK_AS_128i(0x7c00));
+    eq0 = (__m128i) _mm_or_si128((__m128i)signs,(__m128i) eq0);
+    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
 
-	__m128 eq1 = _mm_cmpge_ps(absParam, *((__m128 *)0x477ff000));
-	eq0 = _mm_and_si128(_mm_cvtps_epi32(eq1),(__m128i) *((__m128i *)0x7c00));
-	eq0 = (__m128i) _mm_or_si128((__m128i)signs,(__m128i) eq0);
-	eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-	dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
-
-	// underflow
-	//	if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
-	// return sign
-	eq1 = _mm_cmple_ps(absParam, *((__m128 *)0x33000000));
-	eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1),(__m128i) signs);
-	eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-	dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+    // underflow
+    //  if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
+    // return sign
+    
+    eq1 = _mm_cmple_ps(absParam, MASK_AS_128(0x33000000));
+    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1),(__m128i) signs);
+    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
 
 
-	// very small
-	//	if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
-	// return sign | 1;
-	eq1 = _mm_cmplt_ps(absParam, *((__m128 *)0x33c00000));
-	eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) *((__m128i *)ones)));
-	eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-	dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+    // very small
+    //  if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
+    // return sign | 1;
+    eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x33c00000));
+    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) *((__m128i *)ones)));
+    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
 
-	// half denormal
-	//  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-	//	x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
-	//  return sign | x;
-	eq1 = _mm_cmplt_ps(absParam, *((__m128 *)0x38800000));
-	__m128 eq2 = _mm_mul_ps(absParam, *((__m128 *)0x01000000));  //x
-	eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) _mm_cvtps_epi32(eq2)));
-	eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-	dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+    // half denormal
+    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    //  x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
+    //  return sign | x;
+    eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x38800000));
+    __m128 eq2 = _mm_mul_ps(absParam, MASK_AS_128(0x01000000));  //x
+    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) _mm_cvtps_epi32(eq2)));
+    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
 
-	// u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
-	// u.u &= 0x7f800000;
-	// x += u.f;
-	// u.f = x - u.f;
-	// u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
-	// return (u.u >> (24-11)) | sign;
-	//int rm = _MM_GET_ROUNDING_MODE();
-	//_MM_SET_ROUNDING_MODE(0x6000);
+    // u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
+    // u.u &= 0x7f800000;
+    // x += u.f;
+    // u.f = x - u.f;
+    // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
+    // return (u.u >> (24-11)) | sign;
+    //int rm = _MM_GET_ROUNDING_MODE();
+    //_MM_SET_ROUNDING_MODE(0x6000);
 
-	eq1 = _mm_mul_ps(param, *((__m128 *)0x46000000));
-	eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1),(__m128i) *((__m128i *)0x7f800000)); //u
-	eq1 = _mm_add_ps( _mm_cvtepi32_ps(eq0) ,absParam); //x
-	eq1 = _mm_sub_ps(eq1, _mm_cvtepi32_ps(eq0)); //u
-	eq1 = _mm_mul_ps(eq1, *((__m128 *)0x07800000));
-	eq0 = (__m128i) _mm_srli_epi32(_mm_cvtps_epi32(eq1), 0x0d);
-	eq0 = (__m128i) _mm_or_si128((__m128i)eq0,(__m128i) signs);
-	eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-	eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    eq1 = _mm_mul_ps(param, MASK_AS_128(0x46000000));
+    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), MASK_AS_128i(0x7f800000)); //u
+    eq1 = _mm_add_ps( _mm_cvtepi32_ps(eq0) ,absParam); //x
+    eq1 = _mm_sub_ps(eq1, _mm_cvtepi32_ps(eq0)); //u
+    eq1 = _mm_mul_ps(eq1, MASK_AS_128(0x07800000));
+    eq0 = (__m128i) _mm_srli_epi32(_mm_cvtps_epi32(eq1), 0x0d);
+    eq0 = (__m128i) _mm_or_si128((__m128i)eq0,(__m128i) signs);
+    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
 
-	eq1 = _mm_castsi128_ps( SHUFFLE_EPI8(eq, _4x32to4x16) );
+    eq1 = _mm_castsi128_ps( SHUFFLE_EPI8(eq, _4x32to4x16) );
 
-	_MM_SET_ROUNDING_MODE(rm);
+    _MM_SET_ROUNDING_MODE(rm);
 
-	return eq1;
+    return eq1;
 }
 
 
-template <typename VecType, typename SingleType>
-cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
-		const cl_channel_order channelOrder, VecType* trgt,
-		const cl_float multiplier)
+#if defined(_WIN32) && defined (_MSC_VER)
+    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+    #define MAKE_HEX_DOUBLE(x,y,z) ldexp( (double)(y), z)
+    #define MAKE_HEX_LONG(x,y,z)   ((long double) ldexp( (long double)(y), z))
+#else
+    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+    #define MAKE_HEX_DOUBLE(x,y,z) ldexp( (double)(y), z)
+    #define MAKE_HEX_LONG(x,y,z)   ((long double) ldexp( (long double)(y), z))
+#endif
+cl_ushort float2half_rte( float f )
 {
-	assert(sizeof(VecType) == 4 * sizeof(SingleType));
+    union{ float f; cl_uint u; } u = {f};
+    cl_uint sign = (u.u >> 16) & 0x8000;
+    float x = fabsf(f);
+    
+    //Nan
+    if( x != x )
+    {
+        u.u >>= (24-11);
+        u.u &= 0x7fff;
+        u.u |= 0x0200;      //silence the NaN
+        return u.u | sign;
+    }
+        
+    // overflow
+    if( x >= MAKE_HEX_FLOAT(0x1.ffep15f, 0x1ffeL, 3) )
+        return 0x7c00 | sign;
+    
+    // underflow
+    if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
+        return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
+    
+    // very small
+    if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
+        return sign | 1;
 
-	VecType modcolor = floatVec2IntVec<VecType>(*color, multiplier);
-	//#define MAP_CHANNEL(src, dst) trgt->s[dst] = f2i<VecType>(color->s[src] * multiplier);
-	#define MAP_CHANNEL(src, dst) trgt->s[dst] = modcolor.s[src];
+    // half denormal
+    if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    {
+        u.f = x * MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
+        return sign | u.u;
+    }
 
-	switch(channelOrder)
-	{
-		case CL_RGBA:
-			MAP_CHANNEL(3, 3);
-		case CL_RGB:
-			MAP_CHANNEL(2, 2);
-		case CL_RG:
-			MAP_CHANNEL(1, 1);
-		case CL_R:
-			MAP_CHANNEL(0, 0);
-			break;
-
-		case CL_RA:
-			MAP_CHANNEL(0, 0);
-		case CL_A:
-			MAP_CHANNEL(3, 3);
-			break;
-
-		case CL_BGRA:
-			MAP_CHANNEL(0, 2);
-			MAP_CHANNEL(1, 1);
-			MAP_CHANNEL(2, 0);
-			MAP_CHANNEL(3, 3);
-			break;
-
-		case CL_ARGB:
-			MAP_CHANNEL(0, 1);
-			MAP_CHANNEL(1, 2);
-			MAP_CHANNEL(2, 3);
-			MAP_CHANNEL(3, 0);
-			break;
-
-		case CL_INTENSITY:
-			break;
-
-		case CL_LUMINANCE:
-			break;
-
-		default:
-			return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-	}
-	return CL_SUCCESS;
+    u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
+    u.u &= 0x7f800000;
+    x += u.f;
+    u.f = x - u.f;
+    u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
+    
+    return (u.u >> (24-11)) | sign;
 }
+
+
+template <typename VecType>
+cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, const cl_channel_order channelOrder)
+{
+    // start by cleaning target:
+    //memset(trgtColor, 0, sizeof(VecType));
+    memcpy(trgtColor, srcColor, sizeof(VecType));
+    
+    #define MAP_CHANNEL(dst, src) trgtColor->s[dst] = srcColor->s[src];
+    
+    switch(channelOrder)
+    {
+        case CL_RGBA:
+        case CL_RGBx:
+            MAP_CHANNEL(3, 3);
+        case CL_RGB:
+        case CL_RGx:
+            MAP_CHANNEL(2, 2);
+        case CL_RG:
+        case CL_Rx:
+            MAP_CHANNEL(1, 1);
+        case CL_R:
+            MAP_CHANNEL(0, 0);
+            break;
+            
+        case CL_RA:
+            MAP_CHANNEL(0, 0);
+            MAP_CHANNEL(1, 3);
+            break;
+            
+        case CL_A:
+            MAP_CHANNEL(0, 3);
+            break;
+            
+        case CL_BGRA:
+            MAP_CHANNEL(0, 2);
+            MAP_CHANNEL(1, 1);
+            MAP_CHANNEL(2, 0);
+            MAP_CHANNEL(3, 3);
+            break;
+            
+        case CL_ARGB:
+            MAP_CHANNEL(0, 3);
+            MAP_CHANNEL(1, 0);
+            MAP_CHANNEL(2, 1);
+            MAP_CHANNEL(3, 2);
+            break;
+            
+        case CL_INTENSITY:
+        case CL_LUMINANCE:
+            MAP_CHANNEL(0, 0);
+            break;
+            
+        default:
+            return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+    }
+    return CL_SUCCESS;
+}
+
+
+template <typename VecType>
+cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
+                         const cl_channel_order channelOrder, VecType* trgt,
+                         const cl_float multiplier)
+{
+    VecType modcolor = floatVec2IntVec<VecType>(*color, multiplier);
+    return __arrange_by_channel_order<VecType>(trgt, &modcolor, channelOrder);
+}
+
 
 /**
  * Convert RGBA floating point color to image format requested.
@@ -350,34 +426,27 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
 {
     assert(trgtColor);
 
-	#define VERIFY_INPUT_SIZE(type) if (trgtLength != sizeof(type)) return CL_INVALID_ARG_SIZE;
-    
     switch (channelType)
     {
         case CL_SNORM_INT8:
-        	VERIFY_INPUT_SIZE(cl_char4);
-        	return __RGBA_fp_to_NORM<cl_char4, cl_char>(color, channelOrder, (cl_char4*)trgtColor, 127.0);
+        	return __RGBA_fp_to_NORM<cl_char4>(color, channelOrder, (cl_char4*)trgtColor, 127.0);
             break;
         case CL_SNORM_INT16:
-        	VERIFY_INPUT_SIZE(cl_short4);
-        	return __RGBA_fp_to_NORM<cl_short4, cl_short>(color, channelOrder, (cl_short4*)trgtColor, 65535.0);
+        	return __RGBA_fp_to_NORM<cl_short4>(color, channelOrder, (cl_short4*)trgtColor, 65535.0);
             break;
         case CL_UNORM_INT8:
-        	VERIFY_INPUT_SIZE(cl_uchar4);
-        	return __RGBA_fp_to_NORM<cl_uchar4, cl_uchar>(color, channelOrder, (cl_uchar4*)trgtColor, 255.0);
+        	return __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, (cl_uchar4*)trgtColor, 255.0);
             break;
         case CL_UNORM_INT16:
-        	VERIFY_INPUT_SIZE(cl_ushort4);
-        	return __RGBA_fp_to_NORM<cl_ushort4, cl_ushort>(color, channelOrder, (cl_ushort4*)trgtColor, 65535.0);
+        	return __RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder, (cl_ushort4*)trgtColor, 65535.0);
             break;
         case CL_UNORM_INT_101010:
         	{
-        		VERIFY_INPUT_SIZE(cl_uint);
         		// convert to cl_ushort, and from there round down.
         		cl_ushort4 tempColor;
     			cl_uint &trgt = *(cl_uint*)trgtColor; // output is 32 bit
 
-    			__RGBA_fp_to_NORM<cl_ushort4, cl_ushort>(color, channelOrder, &tempColor, 1023.0);
+    			__RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder, &tempColor, 1023.0);
     			trgt = 0;
 				trgt |= OCL_MIN(tempColor.s[0], TEN_BIT_MAX);
 				trgt <<= 10;
@@ -389,39 +458,53 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
         case CL_FLOAT:
         	{
 				// same as input.
-        		VERIFY_INPUT_SIZE(cl_float4);
 				cl_float4 *trgt = (cl_float4 *)trgtColor;
-				trgt->s[0] = color->s[0];
-				trgt->s[1] = color->s[1];
-				trgt->s[2] = color->s[2];
-				trgt->s[3] = color->s[3];
+                __arrange_by_channel_order<cl_float4>(trgt, color, channelOrder);
         	}
         	break;
         case CL_HALF_FLOAT:
 			{
-				VERIFY_INPUT_SIZE(cl_float2);
-				cl_float2 *trgt = static_cast<cl_float2 *>(trgtColor); // needed for bit operations
-				cl_float4 tmpTrgt;
+				cl_ushort4 *trgt = (cl_ushort4 *)trgtColor;
+                
+                cl_float4 orderedFloat; // start by rearranging channel order.
+                __arrange_by_channel_order<cl_float4>(&orderedFloat, color, channelOrder);
 
-				/* TODO: find x86 intrinsics/ASM code
-				__m128i tmpRes = _mm_cvtps_ph(color, 0);
-				*/
+#ifdef FLOAT2HALF_SIMD
+                // using SIMD intrinsics:
 			    __m128 tmpColor;
-				tmpColor = float2half_rte(_mm_loadu_ps(color->s));
-				_mm_storeu_ps(tmpTrgt.s, tmpColor);
-				trgt->s[0] = tmpTrgt.s[0];
-				trgt->s[1] = tmpTrgt.s[1];
+                cl_float4 tmpFloat;
+				tmpColor = float2half_rte_simd(_mm_loadu_ps(orderedFloat.s));
+				_mm_storeu_ps(tmpFloat.s, tmpColor);
+                memcpy(trgt, &tmpFloat, sizeof(cl_ushort4));
+#else // FLOAT2HALF_SIMD                
+                // using function taken from 1.2 conformance:
+                cl_ushort* dest = (cl_ushort*)trgt->s;
+                for (size_t i=0 ; i < 4 ; ++i)
+                {
+                    cl_ushort res = float2half_rte(orderedFloat.s[i]);
+                    dest[i] = res;
+                    //memcpy(dest + (i*halfSize), &res, halfSize);
+                }
+#endif// FLOAT2HALF_SIMD
+                /*
+                fprintf( stderr, "Float to Half (order: %d  type: %d), original float: %f,%f,%f,%f swizelled: %f,%f,%f,%f "
+                            "Converted to half: %02x,%02x,%02x,%02x\n",
+                            channelOrder, channelType,
+                            color->s[0], color->s[1], color->s[2], color->s[3],
+                            orderedFloat.s[0], orderedFloat.s[1], orderedFloat.s[2], orderedFloat.s[3],
+                            trgt->s[0], trgt->s[1], trgt->s[2], trgt->s[3]
+                        );
+                */
 
 			}
         	break;
         case CL_UNORM_SHORT_565:
 			{
-				VERIFY_INPUT_SIZE(cl_short);
 				// convert to uint8, and from there round down.
 				cl_uchar4 tempColor;
 				cl_ushort &trgt = *(static_cast<cl_ushort*>(trgtColor)); // output is 16 bit
 
-				__RGBA_fp_to_NORM<cl_uchar4, cl_uchar>(color, channelOrder, &tempColor, 255.0);
+				__RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
 				trgt = 0;
 				trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
 				trgt <<=6;
@@ -432,12 +515,11 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
 			break;
         case CL_UNORM_SHORT_555:
 			{
-				VERIFY_INPUT_SIZE(cl_short);
 				// convert to uint8, and from there round down.
 				cl_uchar4 tempColor;
 				cl_ushort &trgt = *(static_cast<cl_ushort*>(trgtColor)); // output is 16 bit
 
-				__RGBA_fp_to_NORM<cl_uchar4, cl_uchar>(color, channelOrder, &tempColor, 255.0);
+				__RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
 				trgt = 0;
 				trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
 				trgt <<= 5;
@@ -454,29 +536,15 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
 }
 
 
-template <typename OrigVecType, typename VecType, typename SingleType>
+template <typename OrigVecType, typename VecType>
 cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_channel_order order)
 {
-	assert(sizeof(VecType) == 4 * sizeof(SingleType));
-
-	VecType *trgt = (VecType *)trgtPtr;
-
-	/* No order conversion.
-	switch (order)
-	{
-	case CL_RGBA:
-		break;
-	case CL_ARGB:
-		break;
-	default:
-		return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-	}*/
-
-	__m128i color128;
+    __m128i color128;
 	memcpy(&color128, color->s, sizeof(OrigVecType));
-	*trgt = sat<VecType>(color128);
-
-	return CL_SUCCESS;
+    VecType tmpColor = sat<VecType>(color128);
+    
+    VecType *trgt = (VecType *)trgtPtr;
+    return __arrange_by_channel_order<VecType>(trgt, &tmpColor, order);
 }
 
 /**
@@ -499,27 +567,22 @@ cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(const cl_int4 *color, 
 {
     assert(trgtColor);
 
-	#define VERIFY_INPUT_SIZE(type) if (trgtLength != sizeof(type)) return CL_INVALID_ARG_SIZE;
-
     switch (channelType)
     {
     case CL_SIGNED_INT8:
     	{
-    		VERIFY_INPUT_SIZE(cl_char4);
-    		return __ANYINT_to_ANYINT<cl_int4, cl_char4, cl_char>(color, trgtColor, channelOrder);
+    		return __ANYINT_to_ANYINT<cl_int4, cl_char4>(color, trgtColor, channelOrder);
     	}
     	break;
     case CL_SIGNED_INT16:
 		{
-	    	VERIFY_INPUT_SIZE(cl_short4);
-	    	return __ANYINT_to_ANYINT<cl_int4, cl_short4, cl_short>(color, trgtColor, channelOrder);
+	    	return __ANYINT_to_ANYINT<cl_int4, cl_short4>(color, trgtColor, channelOrder);
 		}
 		break;
     case CL_SIGNED_INT32:
 		{
 			// same as input
-			VERIFY_INPUT_SIZE(cl_int4);
-    		return __ANYINT_to_ANYINT<cl_int4, cl_int4, cl_int>(color, trgtColor, channelOrder);
+    		return __ANYINT_to_ANYINT<cl_int4, cl_int4>(color, trgtColor, channelOrder);
 		}
 		break;
     default:
@@ -550,27 +613,22 @@ cl_int Intel::OpenCL::Framework::non_norm_unsigned_to_image(const cl_uint4 *colo
 {
     assert(trgtColor);
 
-	#define VERIFY_INPUT_SIZE(type) if (trgtLength != sizeof(type)) return CL_INVALID_ARG_SIZE;
-
     switch (channelType)
     {
     case CL_UNSIGNED_INT8:
     	{
-    		VERIFY_INPUT_SIZE(cl_uchar4);
-    		return __ANYINT_to_ANYINT<cl_uint4, cl_uchar4, cl_uchar>(color, trgtColor, channelOrder);
+    		return __ANYINT_to_ANYINT<cl_uint4, cl_uchar4>(color, trgtColor, channelOrder);
     	}
     	break;
     case CL_UNSIGNED_INT16:
 		{
-	    	VERIFY_INPUT_SIZE(cl_ushort4);
-	    	return __ANYINT_to_ANYINT<cl_uint4, cl_ushort4, cl_ushort>(color, trgtColor, channelOrder);
+	    	return __ANYINT_to_ANYINT<cl_uint4, cl_ushort4>(color, trgtColor, channelOrder);
 		}
 		break;
     case CL_UNSIGNED_INT32:
 		{
 			// same as input
-			VERIFY_INPUT_SIZE(cl_uint4);
-    		return __ANYINT_to_ANYINT<cl_uint4, cl_uint4, cl_uint>(color, trgtColor, channelOrder);
+    		return __ANYINT_to_ANYINT<cl_uint4, cl_uint4>(color, trgtColor, channelOrder);
 		}
 		break;
     default:
@@ -578,62 +636,5 @@ cl_int Intel::OpenCL::Framework::non_norm_unsigned_to_image(const cl_uint4 *colo
 	}
 
 	return CL_SUCCESS;
-}
-
-
-/**
- * Allocate place for a single pixel, according to type. It is the caller's
- * responsibility to free the allocated area when done!
- * @param type
- * @param sz return size of allocated space.
- *
- * @return pointer to allocated area.
- */
-void *Intel::OpenCL::Framework::allocate_buffer_for_pixel(const cl_channel_type type, size_t &sz)
-{
-	sz = 0;
-
-	switch(type)
-	{
-	case CL_SNORM_INT8:
-	case CL_UNORM_INT8:
-	case CL_SIGNED_INT8:
-	case CL_UNSIGNED_INT8:
-		sz = sizeof(cl_uchar4);
-		break;
-
-	case CL_SNORM_INT16:
-	case CL_UNORM_INT16:
-	case CL_SIGNED_INT16:
-	case CL_UNSIGNED_INT16:
-		sz = sizeof(cl_ushort4);
-		break;
-
-	case CL_SIGNED_INT32:
-	case CL_UNSIGNED_INT32:
-		sz = sizeof(cl_uint4);
-		break;
-
-	case CL_UNORM_SHORT_565:
-	case CL_UNORM_SHORT_555:
-		sz = sizeof(cl_ushort);
-		break;
-
-	case CL_UNORM_INT_101010:
-		sz = sizeof(cl_uint);
-		break;
-
-	case CL_HALF_FLOAT:
-		sz = sizeof(cl_float2);
-		break;
-
-	case CL_FLOAT:
-		sz = sizeof(cl_float4);
-		break;
-
-	default:
-		return NULL;
-	}
-	return malloc(sz);
 }
 

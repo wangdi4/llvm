@@ -2592,7 +2592,7 @@ FillMemObjCommand::FillMemObjCommand(
 		const size_t    pattern_size
 	) :
 	Command(cmdQueue, pOclEntryPoints),
-	m_numOfDimms(numOfDimms), m_pattern(NULL), m_pattern_size(pattern_size),
+	m_numOfDimms(numOfDimms), m_pattern_size(pattern_size),
 	m_internalErr(CL_SUCCESS)
 {
 	m_commandType = CL_DEV_CMD_FILL_IMAGE;
@@ -2604,12 +2604,6 @@ FillMemObjCommand::FillMemObjCommand(
 		m_szRegion[i] = pszRegion[i];
     }
 
-    m_pattern = malloc(m_pattern_size);
-    if ( !m_pattern )
-    {
-    	m_internalErr = CL_OUT_OF_HOST_MEMORY;
-    	return;
-    }
     memcpy(m_pattern, pattern, m_pattern_size);
     m_pMemObj = pMemObj;
     m_pMemObj->AddPendency(this);
@@ -2625,7 +2619,7 @@ FillMemObjCommand::FillMemObjCommand(
             const size_t    pattern_size
         ) :
         Command(cmdQueue, pOclEntryPoints),
-        m_numOfDimms(1), m_pattern(NULL), m_pattern_size(pattern_size),
+        m_numOfDimms(1), m_pattern_size(pattern_size),
         m_internalErr(CL_SUCCESS)
 {
 	m_commandType = CL_DEV_CMD_FILL_BUFFER;
@@ -2634,12 +2628,6 @@ FillMemObjCommand::FillMemObjCommand(
 	m_szOffset[0] = pszOffset;
 	m_szRegion[0] = pszRegion;
 
-	m_pattern = malloc(m_pattern_size);
-	if ( !m_pattern )
-	{
-		m_internalErr = CL_OUT_OF_HOST_MEMORY;
-		return;
-	}
 	memcpy(m_pattern, pattern, m_pattern_size);
 	m_pMemObj = pMemObj;
 	m_pMemObj->AddPendency(this);
@@ -2650,7 +2638,6 @@ FillMemObjCommand::FillMemObjCommand(
  ******************************************************************/
 FillMemObjCommand::~FillMemObjCommand()
 {
-    if (NULL != m_pattern) free(m_pattern);
 	m_pMemObj->RemovePendency(this);
 }
 
@@ -2701,8 +2688,9 @@ cl_err_code FillMemObjCommand::Execute()
     	m_fillCmdParams.region[i] = m_szRegion[i];
     }
     // No need to copy m_pattern's content, since we are still in the host.
-	m_fillCmdParams.pattern      = m_pattern;
+    assert(MAX_PATTERN_SIZE	>= m_pattern_size && "Trying to use a pattern larger than possible");
 	m_fillCmdParams.pattern_size = m_pattern_size;
+    memcpy(m_fillCmdParams.pattern, m_pattern, m_fillCmdParams.pattern_size);
 
 	//FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 	m_DevCmd.type       = (m_commandType == CL_DEV_CMD_FILL_BUFFER) ? CL_DEV_CMD_FILL_BUFFER :

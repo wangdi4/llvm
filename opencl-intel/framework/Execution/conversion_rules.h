@@ -95,17 +95,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void* trgtColor,
             const size_t trgtLength
             );
-
-
-	/**
-	 * Allocate place for a single pixel, according to type. It is the caller's
-	 * responsibility to free the allocated area when done!
-	 * @param type
-	 * @param sz return size of allocated space.
-	 *
-	 * @return pointer to allocated area.
-	 */
-	void *allocate_buffer_for_pixel(const cl_channel_type type, size_t &sz);
 }}}
 
 

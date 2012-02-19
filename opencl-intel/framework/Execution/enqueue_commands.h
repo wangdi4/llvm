@@ -459,7 +459,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_uint         m_numOfDimms;
 
-        void*           m_pattern; /* pattern for fill */
+        char            m_pattern[MAX_PATTERN_SIZE]; /* pattern for fill */
 		size_t          m_pattern_size; /* fill pattern size in bytes */
 
         const void*     m_cpSrc;

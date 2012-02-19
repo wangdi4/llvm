@@ -505,6 +505,11 @@ struct	cl_dev_cmd_param_kernel
 
 
 /**
+ * Maximum is largest vector which is cl_double16
+ */
+#define MAX_PATTERN_SIZE (sizeof(cl_double16))
+
+/**
  * Used for fill image, and fill buffer commands.
  */
 struct cl_dev_cmd_param_fill
@@ -517,8 +522,8 @@ struct cl_dev_cmd_param_fill
     size_t          region[MAX_WORK_DIM];   //!< Defines multi-dimensional region of the memory object to be used.
     //!< region[0] is width of region ; region[1] is height of the region ;
     //!< region[2] is depth of the region.
-    const void*     pattern;                //!< Pointer to the host fill buffer
-    size_t          pattern_size;           //!< Size of fill buffer (in bytes)
+    char            pattern[MAX_PATTERN_SIZE];   //!< the fill buffer
+    size_t          pattern_size;                //!< Size of fill buffer (in bytes)
 } ;
 
 /**

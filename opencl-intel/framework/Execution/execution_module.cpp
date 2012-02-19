@@ -37,6 +37,7 @@
 #include "enqueue_commands.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "conversion_rules.h"
+#include "GenericMemObj.h"
 
 #if defined (_WIN32)
 #include "gl_mem_objects.h"
@@ -1420,27 +1421,20 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 /**
  * Allocate buffer, and convert origColor to the relevant format,
  * as described in clEnqueueFillImage
- * @param buf target buffer, will be allocated inside the function.
- * 	Freeing the buffer is responsibility of the caller.
- * @param bufLen length of allocated buffer.
+ * @param buf target buffer.
+ * @param bufLen length of expected return.
  * @param order
  * @param type
  * @param origColor pointer to original color (cl_float4, cl_int4, cl_uint4)
  * @return
  */
 static cl_uint buffer_from_converted_fill_color(
-		void *&buf,
-		size_t &bufLen,
+		cl_uchar         *buf,
+		size_t           &bufLen,
 		cl_channel_order order,
 		cl_channel_type  type,
 		const void *origColor)
 {
-	buf = Intel::OpenCL::Framework::allocate_buffer_for_pixel(type, bufLen);
-	if (NULL == buf)
-	{
-		return CL_DEV_INVALID_IMG_FORMAT;
-	}
-
 	switch (type)
 	{
 	case CL_SNORM_INT8:
@@ -1529,27 +1523,35 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
     }
 
 	cl_uint img_dim_count = 1;
-	size_t dim_sz = 0;
+    size_t dim_sz = 0;
+    
 	errVal = img->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(size_t), &dim_sz, NULL);
 	if (CL_SUCCESS == errVal)
 	{
 		if (dim_sz) ++img_dim_count;
-		errVal = img->GetImageInfo(CL_IMAGE_DEPTH, sizeof(size_t), &dim_sz, NULL);
-		if (dim_sz) ++img_dim_count;
-	}
-	if ( CL_SUCCESS != errVal )
-	{
-		return CL_INVALID_MEM_OBJECT;
-	}
+    } else return CL_INVALID_MEM_OBJECT;
 
-	void *pattern;
-	size_t pattern_size;
+    errVal = img->GetImageInfo(CL_IMAGE_DEPTH, sizeof(size_t), &dim_sz, NULL);
+    if (CL_SUCCESS == errVal)
+    {
+        if (dim_sz) ++img_dim_count;
+    } else return CL_INVALID_MEM_OBJECT;
+
+    errVal = img->GetImageInfo(CL_IMAGE_ARRAY_SIZE, sizeof(size_t), &dim_sz, NULL);
+    if (CL_SUCCESS == errVal)
+    {
+        if (dim_sz) ++img_dim_count;
+    } else return CL_INVALID_MEM_OBJECT;
+    
+	cl_uchar pattern[MAX_PATTERN_SIZE];
+	size_t pattern_size = GenericMemObjectBackingStore::get_element_size(&format);
+    assert(MAX_PATTERN_SIZE >= pattern_size && "Trying to assign a color format too big.");
+
 	errVal = buffer_from_converted_fill_color(pattern, pattern_size, format.image_channel_order,
 			format.image_channel_data_type, fillColor);
 
 	if (CL_SUCCESS != errVal)
 	{
-		if (pattern) { free(pattern); pattern = NULL; }
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
 
@@ -1557,14 +1559,12 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
 			img, pattern, pattern_size, img_dim_count, origin, region);
 	if (NULL == pFillBufferCmd)
 	{
-		if (pattern) { free(pattern); pattern = NULL; }
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
     errVal = pFillBufferCmd->Init();
 	if ( CL_FAILED(errVal) )
 	{
-		if (pattern) { free(pattern); pattern = NULL; }
 		delete pFillBufferCmd;
 	    return  errVal;
 	}
@@ -1573,11 +1573,9 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
     if(CL_FAILED(errVal))
     {
 		pFillBufferCmd->CommandDone();
-		if (pattern) { free(pattern); pattern = NULL; }
 		delete pFillBufferCmd;
     }
 
-    if (pattern) { free(pattern); pattern = NULL; }
     return  errVal;
 }
 

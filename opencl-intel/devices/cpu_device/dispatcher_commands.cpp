@@ -69,7 +69,12 @@ unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
 
 AtomicCounter NDRange::RGBTableCounter;
 
+/**
+ * Debug prints flag. Required for (weird) platforms like Linux, where our logger does not work.
+ */
 //#define _DEBUG_PRINT
+
+
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
 DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD) :
@@ -1293,14 +1298,23 @@ bool FillMemObject::Execute()
 	char* fillBuf = (char*)malloc(width);
 	if (NULL == fillBuf) return false;
 
-	for (char *fb = fillBuf ; fb < fillBuf + width ; fb += cmdParams->pattern_size)
+    for (size_t offset=0 ; offset < width ; offset += cmdParams->pattern_size)
 	{
-		memcpy(fb, cmdParams->pattern, cmdParams->pattern_size);
+		memcpy((fillBuf + offset), cmdParams->pattern, cmdParams->pattern_size);
 	}
 
-	//fprintf(stderr, "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len %lu bytes\n", cmdParams->offset[0], heightStart, depthStart,
-			//cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd, width);
-	size_t offset[MAX_WORK_DIM];
+#ifdef _DEBUG_PRINT
+	fprintf(stderr, "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len %lu bytes\n", cmdParams->offset[0], heightStart, depthStart,
+        cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd, width);
+    fprintf(stderr, "dim_count is %u ; pitches: %lu, %lu ; element size: %u ; color: ", cmdParams->dim_count, pMemObj->pitch[0], pMemObj->pitch[1], pMemObj->uiElementSize);
+    for (size_t i=0 ; i < cmdParams->pattern_size ; ++i)
+    {
+        fprintf(stderr, "%02x ", cmdParams->pattern[i]);
+    }
+    fprintf(stderr, "\n");
+#endif
+    
+    size_t offset[MAX_WORK_DIM];
 	offset[0] = cmdParams->offset[0];
 	for (size_t depth = depthStart ; depth < depthEnd ; ++depth)
 	{

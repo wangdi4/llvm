@@ -239,7 +239,7 @@ TEST_F(EnqueueFillTest, Buffer)
  */
 static cl_int getImgBufferSize(cl_mem img, size_t &size, size_t &element)
 {
-	size_t w, h, d;
+	size_t w, h, d, a;
 	cl_int iRet;
 	size = 0;
 
@@ -251,8 +251,10 @@ static cl_int getImgBufferSize(cl_mem img, size_t &size, size_t &element)
 	if (CL_SUCCESS != iRet) return iRet;
 	iRet = clGetImageInfo(img, CL_IMAGE_DEPTH, sizeof(size_t), &d, NULL);
 	if (CL_SUCCESS != iRet) return iRet;
+    iRet = clGetImageInfo(img, CL_IMAGE_ARRAY_SIZE, sizeof(size_t), &a, NULL);
+    if (CL_SUCCESS != iRet) return iRet;
 
-	size = w * (h?h:1) * (d?d:1) * element;
+	size = w * (h?h:1) * (d?d:1) * (a?a:1) * element;
 	return CL_SUCCESS;
 }
 
@@ -297,20 +299,22 @@ protected:
 /**
  * PRINT_BAD_PIXEL MACRO is used for debugging, please leave it here.
  */
-//#define PRINT_BAD_PIXEL(colorNum)  printBadPixel<ImgColorDataType>(w, h, d, listOfExpectedColors[colorNum], *theColor, colorNum)
+//#define PRINT_BAD_PIXEL(colorNum)  if (w<5 && h<5 && d<5) printBadPixel<ImgColorDataType>(w, h, d, listOfExpectedColors[colorNum], *theColor, colorNum)
 #define PRINT_BAD_PIXEL(colorNum)
 
 #define LOOP_AND_CHECK(_test_) \
 	clFlush(m_queue); \
-	iRet = clEnqueueReadImage(m_queue, img, CL_BLOCKING, origin_base, region_full, 0, 0, (void*)img_buf, 0, NULL, NULL); \
+	iRet = clEnqueueReadImage(m_queue, img, CL_BLOCKING, origin_base, region_full, 0, 0, img_buf, 0, NULL, NULL); \
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueReadImage = " << ClErrTxt(iRet); \
 	countFillErrors = 0; \
+	/*fprintf(stderr, "elementSize %lu, rowPitch %lu, slicePitch %lu\n", elementSize, rowPitch, slicePitch );*/ \
 	for (size_t d = 0 ; d < depth ; ++d) \
 	{ for (size_t h = 0 ; h < height ; ++h) \
 		{ for (size_t w = 0 ; w < width ; ++w) \
 			{ \
-				pos = w + (width*h) + (width*height*d); \
-				theColor = img_buf + pos; \
+				pos = (elementSize*w) + (rowPitch*h) + (slicePitch*d); \
+				/*if (w<5 && h<5 && d<5) fprintf(stderr, "pos %lu = %lu, %lu, %lu\n", pos, w, h, d);*/ \
+				theColor = (ImgColorDataType *)(size_t(img_buf) + pos); \
 				_test_; \
 			} \
 		} \
@@ -334,10 +338,14 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		}
 
 		// allocate buffer for reading the image.
-		size_t img_size;
-		size_t element;
+		size_t imgSize;
+		size_t elementSize;
 		size_t width  = m_imgDesc.image_width;
+        size_t rowPitch;
+        clGetImageInfo(img, CL_IMAGE_ROW_PITCH, sizeof(rowPitch), &rowPitch, NULL);
 		size_t height = 1;
+        size_t slicePitch;
+        clGetImageInfo(img, CL_IMAGE_SLICE_PITCH, sizeof(slicePitch), &slicePitch, NULL);
 		size_t depth = 1;
 
 		if (m_imgDesc.image_type == CL_MEM_OBJECT_IMAGE2D || m_imgDesc.image_type == CL_MEM_OBJECT_IMAGE3D)
@@ -346,11 +354,10 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		if (m_imgDesc.image_type == CL_MEM_OBJECT_IMAGE3D)
 			depth = m_imgDesc.image_depth;
 
-		iRet = getImgBufferSize(img, img_size, element);
+		iRet = getImgBufferSize(img, imgSize, elementSize);
 		EXPECT_EQ(CL_SUCCESS, iRet) << "getImgBufferSize img1" << ClErrTxt(iRet);
-		EXPECT_EQ((element*width*height*depth), img_size) << "getImgBufferSize img" << ClErrTxt(iRet);
 
-		ImgColorDataType *img_buf = (ImgColorDataType*)ALIGNED_MALLOC(img_size, 128);
+		void *img_buf = ALIGNED_MALLOC(imgSize, 128);
 
 		size_t origin_base[3] = {0, 0, 0};
 		size_t origin_mid[3] = {width/2, height/2, depth/2};
@@ -385,7 +392,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueFillImage = " << ClErrTxt(iRet);
 
 		LOOP_AND_CHECK(
-			if (0 != memcmp(theColor, &listOfExpectedColors[0], sizeof(ImgColorDataType))) {
+			if (0 != memcmp(theColor, &listOfExpectedColors[0], elementSize)) {
 				++countFillErrors;
                 PRINT_BAD_PIXEL(0);
             }
@@ -400,12 +407,12 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		LOOP_AND_CHECK(
 			if ((w < AT_LEAST1(width/2)) && (h < AT_LEAST1(height/2)) && (d < AT_LEAST1(depth/2)) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[1], sizeof(ImgColorDataType)) ) {
+				if (0 != memcmp(theColor, &listOfExpectedColors[1], elementSize) ) {
 					++countFillErrors;
                     PRINT_BAD_PIXEL(1);
 				}
 			} else {
-				if (0 != memcmp(theColor, &listOfExpectedColors[0], sizeof(ImgColorDataType)) ) {
+				if (0 != memcmp(theColor, &listOfExpectedColors[0], elementSize) ) {
 					++countFillErrors;
                     PRINT_BAD_PIXEL(0);
 				}
@@ -420,20 +427,20 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		LOOP_AND_CHECK(
 			if ((w >= width/2) && (h >= height/2) && (d >= depth/2) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[2], sizeof(ImgColorDataType)) ) {
+				if (0 != memcmp(theColor, &listOfExpectedColors[2], elementSize) ) {
 					++countFillErrors;
                     PRINT_BAD_PIXEL(2);
                 }
 			} else if ((w < AT_LEAST1(width/2)) && (h < AT_LEAST1(height/2)) && (d < AT_LEAST1(depth/2)) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[1], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[1], elementSize) )
                 {
 					++countFillErrors;
                     PRINT_BAD_PIXEL(1);
                 }
 			} else
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[0], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[0], elementSize) )
                 {
 					++countFillErrors;
                     PRINT_BAD_PIXEL(0);
@@ -451,19 +458,19 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 				 (h >= height/4) && (h < AT_LEAST1(3*height/4)) &&
 				 (d >= depth/4) && (d < AT_LEAST1(3*depth/4)) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[3], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[3], elementSize) )
 					++countFillErrors;
 			} else if ( (w >= width/2) && (h >= height/2) && (d >= depth/2) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[2], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[2], elementSize) )
 					++countFillErrors;
 			} else if ( (w < AT_LEAST1(width/2)) && (h < AT_LEAST1(height/2)) && (d < AT_LEAST1(depth/2)) )
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[1], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[1], elementSize) )
 					++countFillErrors;
 			} else
 			{
-				if (0 != memcmp(theColor, &listOfExpectedColors[0], sizeof(ImgColorDataType)) )
+				if (0 != memcmp(theColor, &listOfExpectedColors[0], elementSize) )
 					++countFillErrors;
 			}
 		);
@@ -497,9 +504,9 @@ TEST_F(ImageFillTestNorm, Image)
     m_imgDesc.image_depth  = IMG_D;
 
 
-    cl_float4 inputFormatColors[] = { {0,0,0,0}, {1,0,0,0}, {0,1,0,0}, {0,0,1,0}, {1,1,1,0} };
+    cl_float4 inputFormatColors[] = { {{0,0,0,0}}, {{1,0,0,0}}, {{0,1,0,0}}, {{0,0,1,0}}, {{1,1,1,0}} };
 
-    cl_uchar4 imgFormatColors_UNORM_INT8[] = { {0,0,0,0}, {255,0,0,0}, {0,255,0,0}, {0,0,255,0}, {255,255,255,0} };
+    cl_uchar4 imgFormatColors_UNORM_INT8[] = { {{0,0,0,0}}, {{255,0,0,0}}, {{0,255,0,0}}, {{0,0,255,0}}, {{255,255,255,0}} };
 
     {
         SCOPED_TRACE("CL_RGBA, CL_FLOAT, CL_MEM_OBJECT_IMAGE3D");
@@ -563,7 +570,7 @@ TEST_F(ImageFillTestNorm, Image)
     }
 #endif
 
-    cl_uchar4 imgFormatColors_UNORM_INT8_BGRA[] = { {0,0,0,0}, {0, 0, 255,0}, {0,255,0,0}, {255,0,0,0}, {255,255,255,0} };
+    cl_uchar4 imgFormatColors_UNORM_INT8_BGRA[] = { {{0,0,0,0}}, {{0,0,255,0}}, {{0,255,0,0}}, {{255,0,0,0}}, {{255,255,255,0}} };
 
 	{
 		SCOPED_TRACE("CL_BGRA, CL_UNORM_INT8, CL_MEM_OBJECT_IMAGE3D");
@@ -618,7 +625,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
     m_imgDesc.image_depth  = IMG_D;
 
 
-    cl_int4 inputFormatColors[] = { {0,0,0,0}, {255,0,0,0}, {0,255,0,0}, {0,0,255,0}, {255,255,255,0} };
+    cl_int4 inputFormatColors[] = { {{0,0,0,0}}, {{255,0,0,0}}, {{0,255,0,0}}, {{0,0,255,0}}, {{255,255,255,0}} };
 
 
     cl_int4 *imgFormatColors_UNORM_SIGNED_INT32 = inputFormatColors;
@@ -655,7 +662,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
     }
 #endif
 
-	cl_char4 imgFormatColors_UNORM_SIGNED_INT8[] = { {0,0,0,0}, {127,0,0,0}, {0,127,0,0}, {0,0,127,0}, {127,127,127,0} };
+	cl_char4 imgFormatColors_UNORM_SIGNED_INT8[] = { {{0,0,0,0}}, {{127,0,0,0}}, {{0,127,0,0}}, {{0,0,127,0}}, {{127,127,127,0}} };
 
     {
 		SCOPED_TRACE("CL_RGBA, CL_SIGNED_INT8, CL_MEM_OBJECT_IMAGE3D");
