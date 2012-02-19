@@ -141,11 +141,8 @@ void removeFiles(string files[], int num){
 void runIoc(string arguments){
 	std::string execString;
 	std::string archType = (sizeof(void*) == 8) ? "64" : "32";
-#if defined _WIN32
+
 	execString = "ioc";
-#else
-	execString = "../../ioc";
-#endif
 	execString += archType + " ";
 	execString += arguments;
 

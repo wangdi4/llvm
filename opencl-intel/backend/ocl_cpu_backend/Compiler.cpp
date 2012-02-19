@@ -97,6 +97,7 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
 }
 
+bool TerminationBlocker::s_released = false;
 
 } //namespace Utils 
 
@@ -204,6 +205,9 @@ Compiler::Compiler(const CompilerConfig& config):
     m_config(config),
     m_pLLVMContext( new llvm::LLVMContext )
 {
+    // WORKAROUND!!! See the notes in TerminationBlocker description
+   static Utils::TerminationBlocker blocker;
+
    if (!m_config.GetTimePasses().empty())
    {
         std::vector<char *> args;
@@ -223,6 +227,10 @@ Compiler::Compiler(const CompilerConfig& config):
 
 Compiler::~Compiler()
 {
+    // WORKAROUND!!! See the notes in TerminationBlocker description
+    if( Utils::TerminationBlocker::IsReleased() )
+        return;
+
     delete m_pLLVMContext;
 }
 

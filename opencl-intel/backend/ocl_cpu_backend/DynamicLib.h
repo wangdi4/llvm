@@ -18,8 +18,16 @@ File Name:  DynamicLib.h
 
 #pragma once
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
+#include "exceptions.h"
 
+
+
+
+namespace Intel { namespace OpenCL { namespace DeviceBackend { 
+
+DEFINE_EXCEPTION(DynamicLibException)
+
+namespace Utils {
 
 class DynamicLib
 {
@@ -33,7 +41,7 @@ public:
 	// Returns
 	//		true - if succesully loaded
 	//		false - if file doesn't exists or other error has occured
-	bool Load(const char* pLibName);
+	void Load(const char* pLibName);
 
 	// Release all allocated resourses and unloads the library
 	void Close();

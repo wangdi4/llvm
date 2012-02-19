@@ -1,10 +1,12 @@
 '''
 Defines the default logger 
 '''
-import sys,re
+import sys,platform,re
 # Try to import the colorama 
+colorama_loaded = False
 try:
     from colorama import Fore, Back, Style, init, deinit
+    colorama_loaded = True
 except Exception:
     from color import Fore, Back, Style, init, deinit
 
@@ -40,7 +42,11 @@ class Logger:
             init()
         elif self.colorEnabled and not enable:
             deinit()
-        self.colorEnabled = enable
+        
+        if platform.system() == 'Windows' and not colorama_loaded:
+            self.colorEnabled = false
+        else:
+            self.colorEnabled = enable
 
     def write_plain(self, stream, text, start, end):
         """
