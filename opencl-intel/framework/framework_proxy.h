@@ -34,6 +34,7 @@
 #include "ocl_config.h"
 #include "cl_synch_objects.h"
 #include "ocl_itt.h"
+#include <icd_dispatch.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -119,6 +120,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// static instance of the framework factory class
 		static  FrameworkProxy * m_pInstance;
 
+        static KHRicdVendorDispatch	    ICDDispatchTable;
+        static COCLCRTDispatchTable	    CRTDispatchTable;
 		static ocl_entry_points	 OclEntryPoints;
 
         static void InitOCLEntryPoints();

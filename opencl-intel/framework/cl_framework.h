@@ -37,57 +37,6 @@
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
 
-
-struct _cl_object
-{
-	void * object;
-};
-
-struct _cl_platform_id_int : public _cl_platform_id
-{
-	void * object;
-};
-
-struct _cl_device_id_int : public _cl_device_id
-{
-	void * object;
-};
-
-struct _cl_context_int : public _cl_context
-{
-	void * object;
-};
-
-struct _cl_command_queue_int : public _cl_command_queue
-{
-	void * object;
-};
-
-struct _cl_mem_int : public _cl_mem
-{
-	void * object;
-};
-
-struct _cl_program_int : public _cl_program
-{
-	void * object;
-};
-
-struct _cl_kernel_int : public _cl_kernel
-{
-	void * object;
-};
-
-struct _cl_event_int : public _cl_event
-{
-	void * object;
-};
-
-struct _cl_sampler_int : public _cl_sampler
-{
-	void * object;
-};
-
 extern "C" int IsCPUSupported(void);
 
 // SSE2   = 0x0001 (1)
@@ -247,13 +196,77 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 //// ------------------------------------
 //// vendor dispatch table structure
 //
-typedef struct: public KHRicdVendorDispatch
-{                            
+struct COCLCRTDispatchTable
+{
 #ifdef DX9_MEDIA_SHARING
-       KHRpfn_clGetDeviceIDsFromDX9INTEL           clGetDeviceIDsFromDX9INTEL;
-       KHRpfn_clCreateFromDX9MediaSurfaceINTEL     clCreateFromDX9MediaSurfaceINTEL;
-       KHRpfn_clEnqueueAcquireDX9ObjectsINTEL      clEnqueueAcquireDX9ObjectsINTEL;
-       KHRpfn_clEnqueueReleaseDX9ObjectsINTEL      clEnqueueReleaseDX9ObjectsINTEL;
+    KHRpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
+    KHRpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
+    KHRpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
+    KHRpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
 #endif
-    /// Add CPU specific Extra functions here
-} ocl_entry_points;
+};
+
+struct ocl_entry_points
+{
+    KHRicdVendorDispatch*                           icdDispatch;
+    COCLCRTDispatchTable*                           crtDispatch;
+};
+
+
+struct _cl_object 
+{    
+	void * object;
+};
+
+struct _cl_platform_id_int : public _cl_platform_id
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_device_id_int : public _cl_device_id
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_context_int : public _cl_context
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_command_queue_int : public _cl_command_queue
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_mem_int : public _cl_mem
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_program_int : public _cl_program
+{
+	void * object;
+};
+
+struct _cl_kernel_int : public _cl_kernel
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_event_int : public _cl_event
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};
+
+struct _cl_sampler_int : public _cl_sampler
+{
+    COCLCRTDispatchTable*       crtDispatch;
+	void * object;
+};

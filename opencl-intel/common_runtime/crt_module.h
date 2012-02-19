@@ -55,7 +55,7 @@ namespace OCLCRT
     {
     public:
         IcdDispatchMgr();
-        CrtKHRicdVendorDispatch m_crtDispatchTable;
+        KHRicdVendorDispatch    m_icdDispatchTable;        
     };
 
     typedef std::map<cl_device_id,  CrtDeviceInfo*>     DEV_INFO_MAP;
@@ -123,7 +123,6 @@ namespace OCLCRT
 
         static char*                            m_common_extensions;
 
-        // 10 - stands for OpenCL 1.0
         // 11 - stands for OpenCL 1.1
         // 12 - stands for OpenCL 1.2
         cl_uint                                 m_CrtPlatformVersion;

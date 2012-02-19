@@ -35,7 +35,7 @@ BuildEvent::BuildEvent( cl_context context ) : OclEvent(), m_context(context), m
 {
 	m_color = EVENT_STATE_RED;
 	m_handle.object   = this;
-	m_handle.dispatch = (KHRicdVendorDispatch*)m_context->dispatch;
+    *((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);		
 }
 
 BuildEvent::~BuildEvent()
