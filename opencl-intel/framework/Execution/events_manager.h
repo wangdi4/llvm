@@ -26,6 +26,7 @@
 ///////////////////////////////////////////////////////////
 #pragma once
 #include "cl_framework.h"
+#include "cl_objects_map.h"
 #include "event_callback.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -72,7 +73,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
 
     private:
-        OCLObjectsMap<_cl_event_int>* m_pEvents;     // Holds the set of clEvents that exist.
+        OCLObjectsMap<_cl_event_int> m_mapEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
 		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, OclEvent** vOclEvents );

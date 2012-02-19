@@ -1528,7 +1528,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
         return errVal;
     }
 
-	size_t img_dim_count = 1;
+	cl_uint img_dim_count = 1;
 	size_t dim_sz = 0;
 	errVal = img->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(size_t), &dim_sz, NULL);
 	if (CL_SUCCESS == errVal)

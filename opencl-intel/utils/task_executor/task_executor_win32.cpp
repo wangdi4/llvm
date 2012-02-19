@@ -193,4 +193,10 @@ TASK_EXECUTOR_API IThreadPoolPartitioner* Intel::OpenCL::TaskExecutor::CreateThr
 #endif
 }
 
+namespace Intel { namespace OpenCL{ namespace TaskExecutor {
+void RegisterReleaseSchedulerForMasterThread()
+{
+	// DO nothing on Windows. Function is called during DllMain(DLL_THREAD_DETACH)
+}
+}}}
 #endif

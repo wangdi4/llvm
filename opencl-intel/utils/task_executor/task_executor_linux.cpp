@@ -33,6 +33,7 @@
 #endif
 
 #include <stdio.h>
+#include <pthread.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -40,11 +41,21 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
+extern void ReleaseSchedulerForMasterThread();
 
 ITaskExecutor* g_pTaskExecutor = NULL;
+pthread_key_t thkShedMaster;
+
+static void thread_cleanup_callback(void* _NULL)
+{
+	ReleaseSchedulerForMasterThread();
+}
 
 void dll_init(void)
 {
+	thkShedMaster = 0;
+	pthread_key_create(&thkShedMaster, thread_cleanup_callback);
+
 #ifdef __TBB_EXECUTOR__
 	g_pTaskExecutor = new TBBTaskExecutor;
 #endif
@@ -55,10 +66,14 @@ void dll_init(void)
 
 void dll_fini(void)
 {
-	if (g_pTaskExecutor)
+	if ( NULL != g_pTaskExecutor)
 	{
 		delete ((PTR_CAST*)g_pTaskExecutor);
 		g_pTaskExecutor = NULL;
+	}
+	if ( thkShedMaster )
+	{
+		pthread_key_delete(thkShedMaster);
 	}
 }
 
@@ -76,5 +91,10 @@ TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(IAffinityChang
     return NULL;
 #endif
 }
-}}}
 
+void RegisterReleaseSchedulerForMasterThread()
+{
+	pthread_setspecific(thkShedMaster, NULL);
+}
+
+}}}

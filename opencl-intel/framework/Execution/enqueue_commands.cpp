@@ -776,15 +776,17 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(FissionableDevice* pDevice)
     // Color will be changed only when command is submitted in the device
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
+	m_Event.AddPendency(this);
+	m_pDstMemObj->AddPendency(this);
 	cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
-	if ( CL_DEV_FAILED(devErr) )
+	if ( CL_DEV_SUCCEEDED(devErr) )
 	{
-		return CL_OUT_OF_RESOURCES;
+		m_pDstMemObj->UpdateLocation(m_pDevice);
 	}
+	m_pDstMemObj->RemovePendency(this);
+	m_Event.RemovePendency(this);
 
-	m_pDstMemObj->UpdateLocation(m_pDevice);
-
-	return CL_SUCCESS;
+	return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************
@@ -1078,9 +1080,6 @@ cl_err_code MapMemObjCommand::Init()
  ******************************************************************/
 cl_err_code MapMemObjCommand::Execute()
 {
-	cl_err_code res = CL_SUCCESS;
-
-
 #ifdef USE_PREPARE_ON_DEVICE
     // TODO: Add support for multiple device.
     // What happens when data is not on the same device???
@@ -1116,9 +1115,16 @@ cl_err_code MapMemObjCommand::Execute()
     // Color will be changed only when command is submitted in the device
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 
-	res = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
-	m_pMemObj->UpdateLocation(m_pDevice);
-	return res;
+	m_Event.AddPendency(this);
+	m_pMemObj->AddPendency(this);
+	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	if ( CL_DEV_SUCCEEDED(errDev) )
+	{
+		m_pMemObj->UpdateLocation(m_pDevice);
+	}
+	m_pMemObj->RemovePendency(this);
+	m_Event.RemovePendency(this);
+	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************
@@ -1339,7 +1345,9 @@ cl_err_code UnmapMemObjectCommand::Execute()
     // In order to do this we override Command::NotifyCmdStatusChanged(CL_RUNNING)
     // which is called by device immediately before execution start.
 
-	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	
+	return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************
@@ -2290,7 +2298,7 @@ FillBufferCommand::~FillBufferCommand()
 /******************************************************************
  *  FillImageCommand
  ******************************************************************/
-FillImageCommand::FillImageCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points *    pOclEntryPoints, MemoryObject*   pImg, const void *pattern, size_t pattern_size, const size_t num_of_dimms, const size_t *offset, const size_t *size)
+FillImageCommand::FillImageCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points *    pOclEntryPoints, MemoryObject*   pImg, const void *pattern, size_t pattern_size, const cl_uint num_of_dimms, const size_t *offset, const size_t *size)
 : FillMemObjCommand(cmdQueue, pOclEntryPoints, pImg, offset, size, num_of_dimms, pattern, pattern_size)
 {
 	m_commandType = CL_COMMAND_FILL_IMAGE;
@@ -2527,15 +2535,17 @@ cl_err_code WriteMemObjCommand::Execute()
 	m_pDevCmd->profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_pDevCmd->data			= static_cast<ICmdStatusChangedObserver*>(this);
 
+	m_Event.AddPendency(this);
+	m_pMemObj->AddPendency(this);
 	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
-	if ( CL_DEV_FAILED(errDev) )
+	if ( CL_DEV_SUCCEEDED(errDev) )
 	{
-		return CL_OUT_OF_RESOURCES;
+		m_pMemObj->UpdateLocation(m_pDevice);
 	}
 
-	m_pMemObj->UpdateLocation(m_pDevice);
-
-	return CL_SUCCESS;
+	m_pMemObj->RemovePendency(this);
+	m_Event.RemovePendency(this);
+	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************
@@ -2577,7 +2587,7 @@ FillMemObjCommand::FillMemObjCommand(
 		MemoryObject*   pMemObj,
 		const size_t*   pszOffset,
 		const size_t*   pszRegion,
-		const size_t    numOfDimms,
+		const cl_uint   numOfDimms,
 		const void*     pattern,
 		const size_t    pattern_size
 	) :
@@ -2704,19 +2714,22 @@ cl_err_code FillMemObjCommand::Execute()
 	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
 	m_Event.SetEventQueue(m_pCommandQueue);
 	// Sending 1 command to the device where the buffer is located now
-	m_DevCmd.profiling = m_pCommandQueue->IsProfilingEnabled();
+	m_DevCmd.profiling = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_DevCmd.data      = static_cast<ICmdStatusChangedObserver*>(this);
 
 	cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
+
+	m_Event.AddPendency(this);
+	m_pMemObj->AddPendency(this);
 	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
-	if ( CL_DEV_FAILED(errDev) )
+	if ( CL_DEV_SUCCEEDED(errDev) )
 	{
-		return CL_OUT_OF_RESOURCES;
+		m_pMemObj->UpdateLocation(m_pDevice);
 	}
+	m_pMemObj->RemovePendency(this);
+	m_Event.RemovePendency(this);
 
-	m_pMemObj->UpdateLocation(m_pDevice);
-
-	return CL_SUCCESS;
+	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************
@@ -2806,6 +2819,8 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
 	}
 
 	related_event->RemovePendency( this );
+	
+	m_error_event.RemovePendency(this);
 
     LogDebugA("Command - DONE  : PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_iId);
 	return CL_SUCCESS;

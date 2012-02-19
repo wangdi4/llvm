@@ -44,7 +44,6 @@ using namespace Intel::OpenCL::Framework;
  ******************************************************************/
 EventsManager::EventsManager() 
 {
-    m_pEvents     = new OCLObjectsMap<_cl_event_int>();
 }
 
 /******************************************************************
@@ -52,13 +51,7 @@ EventsManager::EventsManager()
  ******************************************************************/
 EventsManager::~EventsManager()
 {
-     // Need to clean event list. There is a possibility that
-    // the manager is deleted before all events had been released.
-	if (m_pEvents)
-	{
-		m_pEvents->ReleaseAllObjects();
-		delete m_pEvents;
-	}
+	m_mapEvents.ReleaseAllObjects(false);
 }
 
 
@@ -70,7 +63,7 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
     cl_err_code res     = CL_SUCCESS;
 
     OCLObject<_cl_event_int>*  pOclObject = NULL;
-    res = m_pEvents->GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
+    res = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         pOclObject->Retain();
@@ -83,7 +76,7 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
  ******************************************************************/
 cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 {
-	return m_pEvents->ReleaseObject((_cl_event_int*)clEvent);
+	return m_mapEvents.ReleaseObject((_cl_event_int*)clEvent);
 }
 
 /******************************************************************
@@ -94,7 +87,7 @@ cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName,
     cl_err_code res         = CL_SUCCESS;
     OCLObject<_cl_event_int>*  pOclObject  = NULL;
 
-	res = m_pEvents->GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
+	res = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
 	if (CL_SUCCEEDED(res))
 	{
 		res = pOclObject->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
@@ -113,7 +106,7 @@ cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling
     cl_err_code res                    = CL_SUCCESS;
     OCLObject<_cl_event_int>*  pOclObject  = NULL;
 
-    res = m_pEvents->GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
+    res = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
     if (CL_SUCCEEDED(res))
     {
         QueueEvent* pEvent  = dynamic_cast<QueueEvent*>(pOclObject);
@@ -269,7 +262,7 @@ bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* even
 	}
     for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
     {
-        res = m_pEvents->GetOCLObject((_cl_event_int*)eventList[ui], &pOclObject);
+        res = m_mapEvents.GetOCLObject((_cl_event_int*)eventList[ui], &pOclObject);
         if(CL_FAILED(res))
         {
             // Not valid, return
@@ -286,7 +279,7 @@ OclEvent* EventsManager::GetEvent(cl_event clEvent)
 {
 	OCLObject<_cl_event_int>* pOclObject;
 
-	cl_int ret = m_pEvents->GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
+	cl_int ret = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
 	if (CL_FAILED(ret))
 	{
 		return NULL;
@@ -318,7 +311,7 @@ BuildEvent* EventsManager::GetBuildEvent(cl_event clEvent)
 void EventsManager::RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl)
 {
 	assert(pEvent);
-    m_pEvents->AddObject(pEvent);
+    m_mapEvents.AddObject(pEvent);
 	if (pEventHndl)
 	{
 		*pEventHndl = pEvent->GetHandle();
@@ -332,7 +325,7 @@ void EventsManager::RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl)
 UserEvent* EventsManager::CreateUserEvent(cl_context context)
 {
 	UserEvent* pUserEvent = new UserEvent(context);
-	m_pEvents->AddObject(pUserEvent);
+	m_mapEvents.AddObject(pUserEvent);
 	return pUserEvent;
 }
 
@@ -343,7 +336,7 @@ UserEvent* EventsManager::CreateUserEvent(cl_context context)
 BuildEvent* EventsManager::CreateBuildEvent(cl_context context)
 {
 	BuildEvent* pBuildEvent = new BuildEvent(context);
-	m_pEvents->AddObject(pBuildEvent);
+	m_mapEvents.AddObject(pBuildEvent);
 	return pBuildEvent;
 }
 

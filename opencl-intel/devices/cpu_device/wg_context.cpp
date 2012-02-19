@@ -41,7 +41,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::CPUDevice;
 
 WGContext::WGContext():
-	m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
+	m_pContext(NULL), m_lNDRangeId(-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
 	m_pLocalMem(NULL), m_pPrivateMem(NULL)
 {
 }
@@ -89,7 +89,7 @@ cl_dev_err_code	WGContext::Init()
 	return CL_DEV_SUCCESS;	
 }
 
-cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
+cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
@@ -97,12 +97,7 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	if ( NULL != m_pContext )
-	{
-		m_pContext->Release();
-		m_pContext = NULL;
-		m_cmdId = 0;
-	}
+	InvalidateContext();
 
 	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
 
@@ -129,7 +124,7 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	{
 		return CL_DEV_ERROR_FAIL;
 	}
-	m_cmdId = cmdId;
+	m_lNDRangeId = ndrCmdId;
 	return CL_DEV_SUCCESS;
 }
 
@@ -140,5 +135,5 @@ void WGContext::InvalidateContext()
         m_pContext->Release();
         m_pContext = NULL;
     }
-    m_cmdId = (cl_dev_cmd_id)-1;
+	m_lNDRangeId = -1;
 }

@@ -416,7 +416,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             MemoryObject*   pMemObj,
             const size_t*   pszOffset,
             const size_t*   pszRegion,
-            const size_t    numOfDimms,
+            const cl_uint   numOfDimms,
             const void*     pattern,
             const size_t    pattern_size
         );
@@ -457,7 +457,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MemoryObject*   m_pMemObj;
         size_t          m_szOffset[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
-        size_t          m_numOfDimms;
+        cl_uint         m_numOfDimms;
 
         void*           m_pattern; /* pattern for fill */
 		size_t          m_pattern_size; /* fill pattern size in bytes */
@@ -591,7 +591,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             MemoryObject*   pImg,
             const void *pattern,
             size_t pattern_size,
-            const size_t num_of_dimms,
+            const cl_uint num_of_dimms,
             const size_t *offset,
             const size_t *size);
 

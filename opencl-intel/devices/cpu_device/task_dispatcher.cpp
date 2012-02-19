@@ -55,6 +55,17 @@ __declspec(thread) WGContext* t_context = NULL;
 __thread WGContext* t_context = NULL;
 #endif
 
+extern void RegisterContextReleaseRoutine();
+
+void ReleaseThreadLocalContext()
+{
+	if ( NULL != t_context )
+	{
+		delete t_context;
+		t_context = NULL;
+	}
+}
+
 class InPlaceTaskList : public ITaskList
 {
 public:
@@ -157,7 +168,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_pWGContexts(NULL), m_pObserver(pObserver)
+		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver)
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL != logDesc )
@@ -176,7 +187,6 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 	m_pGPAData = m_pTaskExecutor->GetGPAData();
 
 	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
-
 }
 
 TaskDispatcher::~TaskDispatcher()
@@ -192,13 +202,9 @@ TaskDispatcher::~TaskDispatcher()
         delete t_context;
         t_context = NULL;
     }
-	if (NULL != m_pTaskExecutor)
+	if (m_bTEActivated)
 	{	
-		// ToDo: consult doron about this
-		// TBB dllmain is releasing this data already Per each thread
-		// no need here to do it gain
-
-		//m_pTaskExecutor->ReleasePerThreadData();
+		TaskExecutor::GetTaskExecutor()->Deactivate();
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)
@@ -209,7 +215,13 @@ TaskDispatcher::~TaskDispatcher()
 
 cl_dev_err_code TaskDispatcher::init()
 {
-	unsigned int uiNumThreads = TaskExecutor::GetTaskExecutor()->GetNumWorkingThreads();
+	m_bTEActivated = m_pTaskExecutor->Activate();
+	if ( !m_bTEActivated )
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+
+	unsigned int uiNumThreads = m_pTaskExecutor->GetNumWorkingThreads();
 	// Init WGContexts
 	// Allocate required number of working contexts
 	if ( 0 == m_uiNumThreads )
@@ -467,14 +479,15 @@ WGContext* TaskDispatcher::GetWGContext(unsigned int id)
     {
         if (NULL == t_context)
         {
- 		t_context = new WGContext();
-	 	if ( CL_DEV_FAILED(t_context->Init()) )
-		{
-			delete t_context;
-			t_context = NULL;		
-		}
+ 			t_context = new WGContext();
+	 		if ( CL_DEV_FAILED(t_context->Init()) )
+			{
+				delete t_context;
+				t_context = NULL;		
+			}
+			RegisterContextReleaseRoutine();
        }
-        return t_context;
+       return t_context;
     }
     return m_pWGContexts + (id - 1);
 }
@@ -744,8 +757,7 @@ int SubdeviceTaskDispatcherThread::Run()
 	{
 		// Task Dispatcher continue to exist, need to destroy local WGContext
 		assert(NULL != pLocalWGContext);
-		delete pLocalWGContext;
-		pLocalWGContext = NULL;
+		ReleaseThreadLocalContext();
 	}
 
 	return 0;

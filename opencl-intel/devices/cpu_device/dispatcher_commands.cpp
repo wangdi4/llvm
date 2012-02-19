@@ -679,6 +679,7 @@ bool UnmapMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Kernel execution
+Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
 cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
@@ -980,6 +981,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
 #endif
+	m_lNDRangeId = s_lGlbNDRangeId++;
 	return CL_DEV_SUCCESS;
 }
 
@@ -1036,116 +1038,65 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 #endif	
 		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
-	else if (m_pCmd->id == pCtx->GetCmdId() )
-	{
-		pCtx->GetExecutable()->PrepareThread();
 
-		// Start execution task
-#if defined(USE_GPA)
-		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	if (m_lNDRangeId != pCtx->GetNDRCmdId() )
+	{
+		cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+		if ( CL_DEV_FAILED(ret) )
 		{
-			__itt_set_track(NULL);
-
-			char pWGRangeString[GPA_RANGE_STRING_SIZE];
-
-			size_t uiWorkGroupSize = 1;
-			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
-			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-            const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-
-			switch(cmdParams->work_dim)
-			{
-			case 1:
-				sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
-				break;
-			case 2:
-				sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
-				break;
-			case 3:
-				sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
-				break;
-			}
-			
-            __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
-			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
-			// This coloring will be enabled in the future
-			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
-			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
-			{
-				uiWorkGroupSize *= pWGSize[i];
-			}
-			
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
-
-#if defined(_M_X64)
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
-#else
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
-#endif
-
-			__itt_metadata_str_addA(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
+			m_lastError = (int)ret;
+	#ifdef _DEBUG
+			--m_lAttaching ;
+	#endif
+			return (int)ret;
 		}
-#endif
-#ifdef _DEBUG
-	-- m_lAttaching;
-#endif
-		return CL_DEV_SUCCESS;
 	}
 
-	cl_dev_err_code ret = pCtx->CreateContext(m_pCmd->id,m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
-	if ( CL_DEV_FAILED(ret) )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
-		m_lastError = (int)ret;
-#ifdef _DEBUG
-		--m_lAttaching ;
-#endif
-		return (int)ret;
-	}
 	pCtx->GetExecutable()->PrepareThread();
 
 	// Start execution task
 #if defined(USE_GPA)
-		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	{
+		__itt_set_track(NULL);
+
+		char pWGRangeString[GPA_RANGE_STRING_SIZE];
+	
+		unsigned int uiWorkGroupSize = 1;
+		const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
+		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+        const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+
+
+		switch(cmdParams->work_dim)
 		{
-			__itt_set_track(NULL);
-
-			char pWGRangeString[GPA_RANGE_STRING_SIZE];
+		case 1:
+			sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
+			break;
+		case 2:
+			sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
+			break;
+		case 3:
+			sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
+			break;
+		}
 		
-			unsigned int uiWorkGroupSize = 1;
-			const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
-			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-            const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-
-
-			switch(cmdParams->work_dim)
-			{
-			case 1:
-				sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
-				break;
-			case 2:
-				sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
-				break;
-			case 3:
-				sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
-				break;
-			}
-			
-            __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
-			__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
-			// This coloring will be enabled in the future
-			//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
-			for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
-			{
-				uiWorkGroupSize *= (unsigned int)pWGSize[i];
-			}
-			
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
+        __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
+		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
+		// This coloring will be enabled in the future
+		//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
+		for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
+		{
+			uiWorkGroupSize *= (unsigned int)pWGSize[i];
+		}
+		
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
 
 #if defined(_M_X64)
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
 #else
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
 #endif
 
 			__itt_metadata_str_addA(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
@@ -1156,7 +1107,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	-- m_lAttaching;
 #endif
 
-	return ret;
+	return CL_DEV_SUCCESS;
 }
 
 int NDRange::DetachFromThread(unsigned int uiWorkerId)
@@ -1171,11 +1122,7 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 #endif
     WGContext* pCtx = GetWGContext(uiWorkerId);
     int ret = pCtx->GetExecutable()->RestoreThreadState();
-    //For application threads, must signify the context is no longer valid
-    if (0 == uiWorkerId)
-    {
-        pCtx->InvalidateContext();
-    }
+
     return ret;
 
 }

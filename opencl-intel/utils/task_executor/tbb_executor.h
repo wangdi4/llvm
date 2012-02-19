@@ -34,7 +34,8 @@
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	#define INVALID_WORKER_ID		0xFFFFFFFF
-	#define INVALID_SCHEDULER_ID	((tbb::task_scheduler_init*)(-1))
+	#define WORKER_SCHEDULER_ID	((tbb::task_scheduler_init*)(-1))
+	#define IMPLICIT_SCHEDULER_ID	((tbb::task_scheduler_init*)(-2))
 
 	class ThreadIDAllocator
 	{
@@ -62,18 +63,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	class ThreadIDAssigner : public tbb::task_scheduler_observer
 	{
-		struct thread_local_data
-		{
-			thread_local_data() : uiWorkerId(INVALID_WORKER_ID), pScheduler(INVALID_SCHEDULER_ID), pIDAllocator(NULL) {};
-			unsigned int				uiWorkerId;
-			tbb::task_scheduler_init*	pScheduler;
-			ThreadIDAllocator*			pIDAllocator;
-		};
-
-		static tbb::enumerable_thread_specific<thread_local_data>  *t_pThreadLocalData;
-
 		bool m_bUseTaskalyzer;
-		Intel::OpenCL::Utils::AtomicPointer<ThreadIDAllocator> m_pIdAllocator;
+		static Intel::OpenCL::Utils::AtomicPointer<ThreadIDAllocator> m_spIdAllocator;
+		static ThreadIDAssigner* _this;
 
 	public:
 
@@ -86,11 +78,21 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		static tbb::task_scheduler_init* GetScheduler();
 		static void SetScheduler(tbb::task_scheduler_init* init);
 		static bool IsWorkerScheduler();
+		static void StopObservation();
 
 		virtual void on_scheduler_entry( bool is_worker );
 		virtual void on_scheduler_exit( bool is_worker );
 
-		ThreadIDAllocator* SetThreadIdAllocator(ThreadIDAllocator* newIdAllocator);
+		static ThreadIDAllocator* SetThreadIdAllocator(ThreadIDAllocator* newIdAllocator);
+
+		struct thread_local_data_t
+		{
+			bool						bIsAvailable;
+			unsigned int				uiWorkerId;
+			tbb::task_scheduler_init*	pScheduler;
+			ThreadIDAllocator*			pIDAllocator;
+		};
+
 	};
 
 	class TBBTaskExecutor : public ITaskExecutor

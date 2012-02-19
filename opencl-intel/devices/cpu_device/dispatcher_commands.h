@@ -32,6 +32,7 @@
 #include "task_executor.h"
 #include "wg_context.h"
 #include "cl_synch_objects.h"
+
 #if defined(USE_GPA)    
     #include <ittnotify.h>
 #endif
@@ -183,8 +184,9 @@ protected:
     size_t                      m_MemBuffCount;
     size_t*                     m_pMemBuffSizes;
 
-
-//  LARGE_INTEGER start, stop, freq;
+	// Unique ID of the NDRange command
+	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
+	long										m_lNDRangeId;
 
 #if defined(USE_GPA)
     // This code was removed for the initial porting of TAL

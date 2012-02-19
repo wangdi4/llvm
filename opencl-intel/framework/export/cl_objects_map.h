@@ -195,7 +195,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Doron Singer
 		* Date:			July 2010
 		******************************************************************************************/	
-		void ReleaseAllObjects();
+		void ReleaseAllObjects(bool bTerminate);
 
 		/******************************************************************************************
 		* Function: 	Clear    

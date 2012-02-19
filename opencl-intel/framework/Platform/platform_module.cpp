@@ -138,8 +138,8 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		m_ppRootDevices[ui] = pDevice;
 
 		// The Root device was created with floating pendency. For root level devices we need
-		// to remove the floating pendency.
-		pDevice->RemovePendency(this);
+		// to remove the floating pendency. Thefore NULL
+		pDevice->RemovePendency(NULL);
 
 		if (defaultDevice != "" && defaultDevice == devices[ui])
 		{
@@ -180,9 +180,9 @@ cl_err_code PlatformModule::InitFECompiler(Device* pRootDevice)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::ReleaseFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::ReleaseFECompilers()
+cl_err_code PlatformModule::ReleaseFECompilers(bool bTerminate)
 {
-	m_mapFECompilers.ReleaseAllObjects();
+	m_mapFECompilers.ReleaseAllObjects(bTerminate);
 	return CL_SUCCESS;
 }
 
@@ -231,10 +231,10 @@ cl_err_code	PlatformModule::Release(bool bTerminate)
 	LOG_INFO(TEXT("%S"), TEXT("Enter Release"));
 
 	// release front-end compilers
-	ReleaseFECompilers();
+	ReleaseFECompilers(bTerminate);
 
 	// release devices
-	m_mapDevices.ReleaseAllObjects();
+	m_mapDevices.ReleaseAllObjects(bTerminate);
 	m_pDefaultDevice = NULL;
 
 	if (NULL != m_ppRootDevices)

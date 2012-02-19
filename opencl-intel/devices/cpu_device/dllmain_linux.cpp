@@ -28,18 +28,30 @@
 #include "cl_sys_info.h"
 
 #include <libgen.h>
+#include <pthread.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
-
+extern void ReleaseThreadLocalContext();
 extern char clCPUDEVICE_CFG_PATH[];
 
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
+pthread_key_t thkMasterContext;
+
+static void thread_cleanup_callback(void *_NULL)
+{
+	ReleaseThreadLocalContext();
+}
+
 void dll_init(void)
 {
 	char tBuff[PATH_MAX];
+
+	thkMasterContext = 0;
+	pthread_key_create(&thkMasterContext, thread_cleanup_callback);
+
 	GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
 	safeStrCpy(clCPUDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
 	safeStrCat(clCPUDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
@@ -47,6 +59,10 @@ void dll_init(void)
 
 void dll_fini(void)
 {
+	if ( thkMasterContext )
+	{
+		pthread_key_delete(thkMasterContext);
+	}
 }
 
 /************************************************************************************************************************
@@ -61,3 +77,7 @@ extern "C" cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param,
     return CPUDevice::clDevGetDeviceInfo(param, valSize, paramVal, paramValSizeRet);
 }
 
+void RegisterContextReleaseRoutine()
+{
+	pthread_setspecific(thkMasterContext, NULL);
+}

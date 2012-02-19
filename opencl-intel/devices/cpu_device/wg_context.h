@@ -38,8 +38,8 @@ public:
     WGContext();
     virtual ~WGContext();
 
-    cl_dev_err_code             CreateContext(cl_dev_cmd_id cmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
-    cl_dev_cmd_id               GetCmdId() const {return m_cmdId;}
+    cl_dev_err_code         CreateContext(long ndrCmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
+    long					GetNDRCmdId() const {return m_lNDRangeId;}
     Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* GetExecutable() const {return m_pContext;}
     // Initialize context internal memory
     cl_dev_err_code		Init();
@@ -49,10 +49,10 @@ public:
 
 protected:
     Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* m_pContext;
-    cl_dev_cmd_id               m_cmdId;
-    size_t                      m_stPrivMemAllocSize;
-    char*                       m_pLocalMem;
-    void*                       m_pPrivateMem;
+    long		m_lNDRangeId;
+    size_t		m_stPrivMemAllocSize;
+    char*		m_pLocalMem;
+    void*		m_pPrivateMem;
 };
 
 }}}

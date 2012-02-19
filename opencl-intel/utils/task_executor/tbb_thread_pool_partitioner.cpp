@@ -36,6 +36,9 @@
 using namespace Intel::OpenCL::TaskExecutor;
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
+extern void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitScheduler = false);
+extern void ReleaseSchedulerForMasterThread();
+
 class SpinBarrier
 {
     unsigned numThreads;
@@ -151,9 +154,8 @@ class MyObserver
 {
 public:
 	MyObserver( int numWorkers, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver )
-		: m_numWorkers(numWorkers), m_legalCoreIDs(legalCoreIDs), m_init(tbb::task_scheduler_init::deferred), m_pObserver(pObserver)
+		: m_numWorkers(numWorkers), m_legalCoreIDs(legalCoreIDs), m_pObserver(pObserver)
     {
-
 		m_trapper = new TbbWorkersTrapper((int)numWorkers, legalCoreIDs, m_pObserver);
 	}
 
@@ -168,14 +170,13 @@ public:
 
     bool Activate()
     {
-        m_init.initialize(m_numWorkers);
+		InitSchedulerForMasterThread(m_numWorkers, true);
 		if (NULL == m_trapper)
 		{
 			return false;
 		}
+
 		m_trapper->Activate();
-
-
 		return true;
     }
     void Deactivate()
@@ -184,13 +185,13 @@ public:
 		{
     		m_trapper->Deactivate();
 		}
-        m_init.terminate();
+
+        ReleaseSchedulerForMasterThread();
     }
 
 protected:
     int m_numWorkers;
 	unsigned int* m_legalCoreIDs;
-    tbb::task_scheduler_init m_init;
     TbbWorkersTrapper* m_trapper;
 	IAffinityChangeObserver* m_pObserver;
 };

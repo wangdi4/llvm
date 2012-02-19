@@ -2107,6 +2107,12 @@ void CPUDevice::clDevCloseDevice(void)
         m_pTaskDispatcher = NULL;
     }
 
+	if ( NULL != m_pCoreToThread )
+	{
+		delete[] m_pCoreToThread;
+		m_pCoreToThread = NULL;
+	}
+
 	if ( NULL != m_pComputeUnitMap)
 	{
 		delete[] m_pComputeUnitMap;

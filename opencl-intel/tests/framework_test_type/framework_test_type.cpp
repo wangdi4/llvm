@@ -237,7 +237,7 @@ TEST(FrameworkTestType, DISABLED_Test_clFinishTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_MT_order)
+TEST(FrameworkTestType, Test_MT_order)
 {
 	  //Disabling. The test exposes real problems. See: CSSD100012184 and CSSD100012035
     EXPECT_TRUE(MultithreadedOrderViolation());
