@@ -148,7 +148,7 @@ public:
         }
     }
 
-private:
+protected:
 
     ETransposeSize m_transposeSize;
     std::string    m_cpu;
@@ -219,7 +219,7 @@ public:
             memcpy(Value, m_pTargetDesc, m_targetDescSize);
             return true;
         default:
-            return BackendOptions::GetValue(optionId, defaultValue);
+            return BackendOptions::GetValue(optionId, Value, pSize);
         }
     }
 
@@ -230,7 +230,7 @@ private:
         return (0 == m_cpu.compare(0, 3, "knf"));
     }
 
-    void copy(const BackendOptions& options)
+    void copy(const SDEBackendOptions& options)
     {
         m_targetDescSize = options.m_targetDescSize;
         m_pTargetDesc = NULL;
@@ -245,7 +245,7 @@ private:
 private:
     size_t m_targetDescSize;
     char*  m_pTargetDesc;
-}
+};
 #endif // ENABLE_SDE
 
 /**
@@ -359,7 +359,12 @@ public:
         }
         DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
-        m_pContext->Execute(groupId, NULL, NULL);
+        cl_dev_err_code ret = m_pContext->Execute(groupId, NULL, NULL);
+        if (CL_DEV_FAILED(ret))
+        {
+            throw Exception::TestRunnerException("Execution failed.\n");
+        }
+
         DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y << ", " << z << " group.\n");
         if( m_config->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
         {
@@ -542,11 +547,11 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
 
     DEBUG(llvm::dbgs() << "Get execution service started.\n");
     cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
-    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create execution service failed\n");
     }
+    DEBUG(llvm::dbgs() << "Get execution service finished.\n");
 
 #ifdef ENABLE_SDE
     options.InitTargetDescriptionSession(spExecutionService.get());
@@ -554,7 +559,6 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
 
     DEBUG(llvm::dbgs() << "Get compilation service started.\n");
     ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
-    DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
         if (ret == CL_DEV_INVALID_OPERATION_MODE)
@@ -563,14 +567,15 @@ void OpenCLProgramRunner::Run(IRunResult* runResult,
         }
         throw Exception::TestRunnerException("Create compilation service failed\n");
     }
+    DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
 
     DEBUG(llvm::dbgs() << "Get image service started.\n");
     ret = m_pServiceFactory->GetImageService(NULL, spImageService.getOutPtr());
-    DEBUG(llvm::dbgs() << "Get image service finished.\n");
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create image service failed\n");
     }
+    DEBUG(llvm::dbgs() << "Get image service finished.\n");
 
     {
     //
@@ -656,16 +661,21 @@ void OpenCLProgramRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 
+    if ( CL_DEV_FAILED(ret) )
+    {
+        throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
+    }
+    if( runConfig->GetValue<bool>(RC_BR_PRINT_BUILD_LOG, false) )
+    {
+        llvm::outs() << "Build log:\n" << pProgram->GetBuildLog() << '\n';
+    }
+
     if( runConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
         Performance& perfResults = (Performance&)runResult->GetPerformance();
         perfResults.SetBuildTime(buildTime);
     }
 
-    if ( CL_DEV_FAILED(ret) )
-    {
-        throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
-    }
 }
 
 

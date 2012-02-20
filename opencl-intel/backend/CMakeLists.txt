@@ -12,13 +12,14 @@ set( OCL_BACKEND_STAND_ALONE ON CACHE STRING "")
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set_property( GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "__BUILD__")
 
-if( MSVC )
-  set(LLVM_TARGETS_TO_BUILD X86
-    CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
-else( MSVC )
-    set(LLVM_TARGETS_TO_BUILD X86;CBackend;CppBackend
-    CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
-endif( MSVC )
+set(LLVM_TARGETS_TO_BUILD X86
+  CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
+if (INCLUDE_MIC_DEVICE)
+    list ( APPEND LLVM_TARGETS_TO_BUILD Y86)
+endif ()
+if (NOT MSVC)
+    list( APPEND LLVM_TARGETS_TO_BUILD CBackend CppBackend)
+endif ()
 message ("LLVM_TARGETS_TO_BUILD: ${LLVM_TARGETS_TO_BUILD}")
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
@@ -26,6 +27,12 @@ set( BACKEND_FOLDER_NAME       Backend )
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
+
+# Define a macro which can be used to hide MIC symbols when we do not want to
+# expose IP
+if (INCLUDE_MIC_DEVICE)
+  add_definitions( -DINCLUDE_MIC_DEVICE )
+endif (INCLUDE_MIC_DEVICE)
 
 #
 # Settings for Linux compilation
@@ -167,6 +174,13 @@ set_target_properties( LLVMX86AsmPrinter PROPERTIES FOLDER ${BACKEND_FOLDER_NAME
 set_target_properties( LLVMX86CodeGen PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMX86Disassembler PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMX86Info PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+if ( INCLUDE_MIC_DEVICE )
+set_target_properties( LLVMY86AsmParser PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+set_target_properties( LLVMY86AsmPrinter PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+set_target_properties( LLVMY86CodeGen PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+set_target_properties( LLVMY86Disassembler PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+set_target_properties( LLVMY86Info PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+endif ()
 set_target_properties( ModuleMaker PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( not PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( opt PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )

@@ -42,6 +42,7 @@ namespace Validation
         RC_BR_TRANSPOSE_SIZE,
         RC_BR_USE_PIN_TRACE_MARKS,
         RC_BR_USE_VTUNE,
+        RC_BR_PRINT_BUILD_LOG,
         RC_BR_BUILD_ONLY,
         RC_BR_DUMP_IR_AFTER,
         RC_BR_DUMP_IR_BEFORE,
@@ -74,6 +75,7 @@ namespace Validation
         bool m_measurePerformance;
         bool m_useTraceMarks;
         bool m_useVTune;
+        bool m_printBuildLog;
         bool m_runSingleWG;
         bool m_buildOnly;
         uint32_t m_defaultLocalWGSize;

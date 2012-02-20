@@ -15,9 +15,11 @@ class CMakeConfig:
     """CMake specific configuration"""
     CFG_NAME = "CMAKECFG"
     
-    def __init__(self, vc_version, include_cnf = True, include_crt = False,
+    def __init__(self, vc_version, include_mic = False, enable_sde = False, include_cnf = True, include_crt = False,
             include_java = False, include_dbg = False, include_svn = True, enable_warnings = False):
         self.vc_version   = vc_version
+        self.include_mic  = include_mic
+        self.enable_sde   = enable_sde
         self.include_cnf  = include_cnf
         self.include_crt  = include_crt
         self.include_java = include_java
@@ -45,9 +47,15 @@ class CMakeBuilder(VolcanoCmdTask):
 
         # Install directory
 
+        if cmake_config.include_mic:
+          self.command += " -D INCLUDE_MIC_DEVICE:BOOL=ON "
+
+        if cmake_config.enable_sde:
+          self.command += " -D ENABLE_SDE:BOOL=ON "
+
         if config.target_os == 'Windows':
             self.command += " -D CMAKE_INSTALL_PREFIX:PATH=\"" + os.path.join(config.root_dir, 'install',  config.target_type) + "/\\${BUILD_TYPE}\""
-            self.command += " -D LLVM_TARGETS_TO_BUILD:STRING=\"X86\"" 
+            #self.command += " -D LLVM_TARGETS_TO_BUILD:STRING=\"X86\"" 
 
             if config.target_os_bit == 32:
                 self.command += ' -G "' + vsenv.CMakeGenerator() + '"'
@@ -99,6 +107,8 @@ class OCLCMakeBuilder( CMakeBuilder ):
         defs = {}
         cmake_config = config.sub_configs[CMakeConfig.CFG_NAME]
         
+        defs['INCLUDE_MIC_DEVICE:BOOL']        ='ON' if cmake_config.include_mic else 'OFF'
+        defs['ENABLE_SDE:BOOL']                ='ON' if cmake_config.enable_sde else 'OFF'
         defs['LLVM_ENABLE_WARNINGS:BOOL']      ='ON' if cmake_config.enable_warnings else 'OFF'
         defs['INCLUDE_CONFORMANCE_TESTS:BOOL'] ='ON' if cmake_config.include_cnf else 'OFF'
         defs['CONFORMANCE_LIST:STRING']        = OCLCMakeBuilder.CONFORMANCE_TESTS
@@ -226,6 +236,8 @@ class VolcanoBuilderConfig:
     """
     CFG_NAME = "BuildConfig"
     def __init__(self,  volcano_only    = False, 
+                        include_mic     = False,
+                        enable_sde      = False,
                         include_cnf     = True , 
                         include_crt     = False, 
                         include_java    = False, 
@@ -234,7 +246,7 @@ class VolcanoBuilderConfig:
                         enable_warnings = False):
         self.volcano_only = volcano_only
         self.solution_name= DEFAULT_VOLCANO_SOLUTION if volcano_only else DEFAULT_OCL_SOLUTION
-        self.cmake_config = CMakeConfig(DEFAULT_VS_VERSION, include_cnf,
+        self.cmake_config = CMakeConfig(DEFAULT_VS_VERSION, include_mic, enable_sde, include_cnf,
                 include_crt, include_java, include_dbg, include_svn, enable_warnings)
         
 class VolcanoBuilder(VolcanoTestSuite):
@@ -295,6 +307,10 @@ def main():
     parser.add_option("-t", "--target",    action="store",      choices=SUPPORTED_TARGETS, dest="target_type",  default="Win32",   help="Target type: " + str(SUPPORTED_TARGETS) + ". [Default: %default]")
     parser.add_option("-b", "--build_type",action="store",      choices=SUPPORTED_BUILDS,  dest="build_type",   default="Release", help="Build type: " + str(SUPPORTED_BUILDS) + ". [Default: %default]")
     parser.add_option("-s", "--cmake_only",dest="cmake_only",   action="store_true",  help="Do not run the build, just generate the project files. Default: False", default=False)
+    parser.add_option("-m", "--include-mic",
+                                           dest="include_mic",  action="store_true",  help="Include the MIC Device in the build.", default=False)
+    parser.add_option("-e", "--enable-sde",
+                                           dest="enable_sde",   action="store_true",  help="Enable SDE support", default=False)
     parser.add_option("--volcano",         dest="volcano_only", action="store_true",  help="Build the Volcano solution only.", default=False)
     parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")
     parser.add_option("--norebuild",       dest="rebuild",      action="store_false", help="Perform only regular build.", default=True )
@@ -322,6 +338,8 @@ def main():
                               '',
                               '1')
     config.sub_configs[VolcanoBuilderConfig.CFG_NAME]=VolcanoBuilderConfig( options.volcano_only,
+                                                                            options.include_mic,
+                                                                            options.enable_sde,
                                                                             options.include_cnf,
                                                                             options.include_crt,
                                                                             options.include_java,

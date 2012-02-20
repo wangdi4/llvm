@@ -21,8 +21,9 @@
 #ifndef __INTRIN_H__
 #define __INTRIN_H__
 
-#if defined (__KNF__)
-#include <knfintrin.h>
+#if defined (__MIC__) || defined(__MIC2__)
+#include <micintrin.h>
+#include <micintrin_mici64ext.h>
 #else
 #ifdef __MMX__
 #include <mmintrin.h>

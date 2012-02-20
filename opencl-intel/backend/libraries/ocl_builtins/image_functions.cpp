@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#if !defined (__MIC__) && !defined(__MIC2__)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -414,3 +415,5 @@ void  __attribute__((overloadable)) write_imagef(image2d_t image, int2 coord, fl
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined (__MIC__) || defined(__MIC2__)

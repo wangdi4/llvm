@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#if !defined (__MIC__) && !defined(__MIC2__)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -2272,3 +2273,6 @@ uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD(image2d_t image, 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined (__MIC__) || defined(__MIC2__)
+

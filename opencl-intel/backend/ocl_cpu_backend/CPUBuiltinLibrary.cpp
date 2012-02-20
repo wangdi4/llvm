@@ -81,8 +81,7 @@ void CPUBuiltinLibrary::Load()
 #endif
      
     llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
-    //assert(ret && "Unable to open file");
-    if( !m_pRtlBuffer )
+    if( !m_pRtlBuffer  || ret.value() != 0)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
     }

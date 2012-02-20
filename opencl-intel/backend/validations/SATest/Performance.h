@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  Performence.h
+File Name:  Performance.h
 
 \*****************************************************************************/
 #ifndef PERFORMANCE_H
@@ -99,8 +99,8 @@ namespace Validation
         std::vector<Sample> m_samples;
     };
 
-	
-    /// @brief This class enables test execution performence measurements.
+
+    /// @brief This class enables test execution performance measurements.
     /// The measurements consist of build time and execution time.
     class Performance : public IPerformance
     {

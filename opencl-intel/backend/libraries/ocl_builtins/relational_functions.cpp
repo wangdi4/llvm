@@ -21,6 +21,9 @@
 ///////////////////////////////////////////////////////////
 //  relational_functions.cpp
 ///////////////////////////////////////////////////////////
+
+#if !defined(__MIC__) && !defined(__MIC2__)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1560,3 +1563,5 @@ double __attribute__((overloadable)) select(double a, double b, _1u64 c)
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined(__MIC__) || defined(__MIC2__)

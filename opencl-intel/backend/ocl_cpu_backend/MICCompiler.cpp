@@ -40,8 +40,8 @@ File Name:  MICCompiler.cpp
 #include "llvm/Target/TargetData.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
-//#include "llvm/MICJITEngine/MICCodeGenerationEngine.h"
-//#include "llvm/MICJITEngine/ModuleJITHolder.h"
+#include "MICJITEngine/include/MICCodeGenerationEngine.h"
+#include "MICJITEngine/include/ModuleJITHolder.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -77,10 +77,8 @@ void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
 MICCompiler::MICCompiler(const MICCompilerConfig& config):
     Compiler(config),
     m_pBuiltinModule(NULL),
-#if MICJIT_ENABLE 
-    m_pCGEngine(NULL),
-#endif
-    m_config(config)
+    m_config(config),
+    m_pCGEngine(NULL)
 {
     SelectMICConfiguration(config);
 
@@ -90,25 +88,19 @@ MICCompiler::MICCompiler(const MICCompilerConfig& config):
         // TODO: fix target id in case of multi-MIC cards
         BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadMICLibrary(
             0, m_selectedCpuId, m_selectedCpuFeatures, &config.GetTargetDescription());
-#if MICJIT_ENABLE 
         m_ResolverWrapper.SetResolver(pLibrary);
-#endif
         std::auto_ptr<llvm::Module> spModule( CreateRTLModule(pLibrary) );
         m_pBuiltinModule = new BuiltinModule( spModule.get());
 
         // Initialize the ExecutionEngine
         // ExecutionEngine will own the pointer to the RT module, so we are releasing it here
-#if MICJIT_ENABLE 
         m_pCGEngine = CreateMICCodeGenerationEngine( spModule.release() );
-#endif
     }
 }
 
 void MICCompiler::CreateExecutionEngine(llvm::Module* m) const
 {
-#if MICJIT_ENABLE 
     m_pCGEngine = CreateMICCodeGenerationEngine( m );
-#endif
 }
 
 MICCompiler::~MICCompiler()
@@ -122,48 +114,34 @@ MICCompiler::~MICCompiler()
         delete m_pBuiltinModule->GetRtlModule();
         delete m_pBuiltinModule;
     }
-#if MICJIT_ENABLE 
     delete m_pCGEngine;
-#endif
 }
 
 unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
 {
-#if MICJIT_ENABLE 
     assert(m_pCGEngine);
     return m_pCGEngine->sizeOf(pType);
-#else
-    return 0;
-#endif
 }
 
 const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module) const
 {
-#if MICJIT_ENABLE 
     assert(m_pCGEngine);
     return m_pCGEngine->getModuleHolder(module);
-#else
-    return NULL;
-#endif
 }
 
 llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const
 {
-#if MICJIT_ENABLE 
-    std::string MTriple = pRtlModule->getTargetTriple();
-    std::string MCPU    = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
-    std::string MArch   = "x86-64"; //TODO[MA]: check why we need to send this !
+    llvm::StringRef MTriple = pRtlModule->getTargetTriple();
+    llvm::StringRef MCPU    = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
+    llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs;
 
     llvm::TargetMachine *TM = llvm::MICCodeGenerationEngine::selectTarget(pRtlModule,
-        MTriple, MArch, MCPU, 
-        MAttrs, &m_ErrorStr);
+        MArch, MCPU,
+        MAttrs, Reloc::PIC_, CodeModel::Small, &m_ErrorStr);
 
     llvm::CodeGenOpt::Level OLvl = llvm::CodeGenOpt::Aggressive;
     return new llvm::MICCodeGenerationEngine(*TM, OLvl, &m_ResolverWrapper);
-#else
-    return NULL;
-#endif
 }
 
 llvm::Module* MICCompiler::GetRtlModule() const

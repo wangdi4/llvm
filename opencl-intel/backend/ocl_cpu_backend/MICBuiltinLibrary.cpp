@@ -61,12 +61,11 @@ void MICBuiltinLibrary::Load()
 #endif
     
     
-    llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
-    assert(ret && "Unable to open file");
-    if( !m_pRtlBuffer )
+    if (llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer))
     {
-        throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
+        throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library: ") + ret.message());
     }
+    assert(m_pRtlBuffer && "Unexpected NULL buffer");
 }
 
 }}} // namespace

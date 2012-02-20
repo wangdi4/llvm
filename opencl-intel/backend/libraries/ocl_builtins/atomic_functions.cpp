@@ -21,6 +21,7 @@
 ///////////////////////////////////////////////////////////
 //  atomic_functions.cpp
 ///////////////////////////////////////////////////////////
+#if !defined (__MIC__) && !defined(__MIC2__)
 
 
 #ifdef __cplusplus
@@ -720,3 +721,5 @@ unsigned int  __attribute__((overloadable)) atomic_xor(__local volatile unsigned
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined (__MIC__) || defined(__MIC2__)

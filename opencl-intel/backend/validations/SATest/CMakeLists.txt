@@ -62,14 +62,14 @@ set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
 set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
 set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
-if (MIC_ENABLE)
-#set( COI_DIR                /opt/intel/mic/coi)
-set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi)
-set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
-set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
-endif (MIC_ENABLE)
-
 endif (NOT WIN32)
+
+if (INCLUDE_MIC_DEVICE)
+  #set( COI_DIR                /opt/intel/mic/coi)
+  set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi)
+  set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
+  set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
+endif (INCLUDE_MIC_DEVICE)
 
 include_directories(
 	${VALIDATIONS_ROOT}/SATest

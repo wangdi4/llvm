@@ -1,0 +1,587 @@
+; XFAIL: win32
+;
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:       -march=y86-64 -mcpu=knf
+;
+; RUNc: llc < %s -mtriple=x86_64-pc-linux \
+; RUNc:       -march=y86-64 -mcpu=knc
+;
+; ModuleID = 'Program'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.PaddedDimId = type <{ [4 x i64] }>
+%struct.WorkDim = type { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }
+
+declare void @__MulMAdd1_original(float addrspace(1)* nocapture, i32) nounwind
+
+declare i64 @get_global_id(i32)
+
+declare i64 @get_global_size(i32)
+
+declare void @dummybarrier.()
+
+declare void @barrier(i64)
+
+declare i8* @get_special_buffer.()
+
+declare i64 @get_iter_count.()
+
+declare i64 @get_new_global_id.(i32, i64)
+
+define void @__MulMAdd1_separated_args(float addrspace(1)* nocapture %data, i32 %nIters, i8 addrspace(3)* %pLocalMem, %struct.WorkDim* %pWorkDim, i64* %pWGId, %struct.PaddedDimId* %pBaseGlbId, %struct.PaddedDimId* %pLocalIds, i64* %contextpointer, i64 %iterCount, i8* %pSpecialBuf, i64* %pCurrWI) nounwind alwaysinline {
+FirstBB:
+  %0 = icmp sgt i32 %nIters, 0
+  br label %SyncBB3
+
+SyncBB3:                                          ; preds = %thenBB, %FirstBB
+  %CurrWI..0 = phi i64 [ 0, %FirstBB ], [ %"CurrWI++", %thenBB ]
+  %1 = getelementptr %struct.PaddedDimId* %pLocalIds, i64 %CurrWI..0, i32 0, i64 0
+  %2 = load i64* %1, align 8
+  %3 = getelementptr %struct.PaddedDimId* %pBaseGlbId, i64 0, i32 0, i64 0
+  %4 = load i64* %3, align 8
+  %5 = add i64 %2, %4
+  %sext = shl i64 %5, 32
+  %6 = ashr i64 %sext, 32
+  %7 = getelementptr inbounds float addrspace(1)* %data, i64 %6
+  %8 = load float addrspace(1)* %7, align 4
+  br i1 %0, label %bb.nph, label %._crit_edge
+
+bb.nph:                                           ; preds = %SyncBB3, %bb.nph
+  %j.02 = phi i32 [ %239, %bb.nph ], [ 0, %SyncBB3 ]
+  %s.01 = phi float [ %238, %bb.nph ], [ %8, %SyncBB3 ]
+  %9 = fpext float %s.01 to double
+  %10 = fmul double %9, 3.550000e-01
+  %11 = fsub double 3.750000e+00, %10
+  %12 = fmul double %11, %9
+  %13 = fptrunc double %12 to float
+  %14 = fpext float %13 to double
+  %15 = fmul double %14, 3.550000e-01
+  %16 = fsub double 3.750000e+00, %15
+  %17 = fmul double %16, %14
+  %18 = fptrunc double %17 to float
+  %19 = fpext float %18 to double
+  %20 = fmul double %19, 3.550000e-01
+  %21 = fsub double 3.750000e+00, %20
+  %22 = fmul double %21, %19
+  %23 = fptrunc double %22 to float
+  %24 = fpext float %23 to double
+  %25 = fmul double %24, 3.550000e-01
+  %26 = fsub double 3.750000e+00, %25
+  %27 = fmul double %26, %24
+  %28 = fptrunc double %27 to float
+  %29 = fpext float %28 to double
+  %30 = fmul double %29, 3.550000e-01
+  %31 = fsub double 3.750000e+00, %30
+  %32 = fmul double %31, %29
+  %33 = fptrunc double %32 to float
+  %34 = fpext float %33 to double
+  %35 = fmul double %34, 3.550000e-01
+  %36 = fsub double 3.750000e+00, %35
+  %37 = fmul double %36, %34
+  %38 = fptrunc double %37 to float
+  %39 = fpext float %38 to double
+  %40 = fmul double %39, 3.550000e-01
+  %41 = fsub double 3.750000e+00, %40
+  %42 = fmul double %41, %39
+  %43 = fptrunc double %42 to float
+  %44 = fpext float %43 to double
+  %45 = fmul double %44, 3.550000e-01
+  %46 = fsub double 3.750000e+00, %45
+  %47 = fmul double %46, %44
+  %48 = fptrunc double %47 to float
+  %49 = fpext float %48 to double
+  %50 = fmul double %49, 3.550000e-01
+  %51 = fsub double 3.750000e+00, %50
+  %52 = fmul double %51, %49
+  %53 = fptrunc double %52 to float
+  %54 = fpext float %53 to double
+  %55 = fmul double %54, 3.550000e-01
+  %56 = fsub double 3.750000e+00, %55
+  %57 = fmul double %56, %54
+  %58 = fptrunc double %57 to float
+  %59 = fpext float %58 to double
+  %60 = fmul double %59, 3.550000e-01
+  %61 = fsub double 3.750000e+00, %60
+  %62 = fmul double %61, %59
+  %63 = fptrunc double %62 to float
+  %64 = fpext float %63 to double
+  %65 = fmul double %64, 3.550000e-01
+  %66 = fsub double 3.750000e+00, %65
+  %67 = fmul double %66, %64
+  %68 = fptrunc double %67 to float
+  %69 = fpext float %68 to double
+  %70 = fmul double %69, 3.550000e-01
+  %71 = fsub double 3.750000e+00, %70
+  %72 = fmul double %71, %69
+  %73 = fptrunc double %72 to float
+  %74 = fpext float %73 to double
+  %75 = fmul double %74, 3.550000e-01
+  %76 = fsub double 3.750000e+00, %75
+  %77 = fmul double %76, %74
+  %78 = fptrunc double %77 to float
+  %79 = fpext float %78 to double
+  %80 = fmul double %79, 3.550000e-01
+  %81 = fsub double 3.750000e+00, %80
+  %82 = fmul double %81, %79
+  %83 = fptrunc double %82 to float
+  %84 = fpext float %83 to double
+  %85 = fmul double %84, 3.550000e-01
+  %86 = fsub double 3.750000e+00, %85
+  %87 = fmul double %86, %84
+  %88 = fptrunc double %87 to float
+  %89 = fpext float %88 to double
+  %90 = fmul double %89, 3.550000e-01
+  %91 = fsub double 3.750000e+00, %90
+  %92 = fmul double %91, %89
+  %93 = fptrunc double %92 to float
+  %94 = fpext float %93 to double
+  %95 = fmul double %94, 3.550000e-01
+  %96 = fsub double 3.750000e+00, %95
+  %97 = fmul double %96, %94
+  %98 = fptrunc double %97 to float
+  %99 = fpext float %98 to double
+  %100 = fmul double %99, 3.550000e-01
+  %101 = fsub double 3.750000e+00, %100
+  %102 = fmul double %101, %99
+  %103 = fptrunc double %102 to float
+  %104 = fpext float %103 to double
+  %105 = fmul double %104, 3.550000e-01
+  %106 = fsub double 3.750000e+00, %105
+  %107 = fmul double %106, %104
+  %108 = fptrunc double %107 to float
+  %109 = fpext float %108 to double
+  %110 = fmul double %109, 3.550000e-01
+  %111 = fsub double 3.750000e+00, %110
+  %112 = fmul double %111, %109
+  %113 = fptrunc double %112 to float
+  %114 = fpext float %113 to double
+  %115 = fmul double %114, 3.550000e-01
+  %116 = fsub double 3.750000e+00, %115
+  %117 = fmul double %116, %114
+  %118 = fptrunc double %117 to float
+  %119 = fpext float %118 to double
+  %120 = fmul double %119, 3.550000e-01
+  %121 = fsub double 3.750000e+00, %120
+  %122 = fmul double %121, %119
+  %123 = fptrunc double %122 to float
+  %124 = fpext float %123 to double
+  %125 = fmul double %124, 3.550000e-01
+  %126 = fsub double 3.750000e+00, %125
+  %127 = fmul double %126, %124
+  %128 = fptrunc double %127 to float
+  %129 = fpext float %128 to double
+  %130 = fmul double %129, 3.550000e-01
+  %131 = fsub double 3.750000e+00, %130
+  %132 = fmul double %131, %129
+  %133 = fptrunc double %132 to float
+  %134 = fpext float %133 to double
+  %135 = fmul double %134, 3.550000e-01
+  %136 = fsub double 3.750000e+00, %135
+  %137 = fmul double %136, %134
+  %138 = fptrunc double %137 to float
+  %139 = fpext float %138 to double
+  %140 = fmul double %139, 3.550000e-01
+  %141 = fsub double 3.750000e+00, %140
+  %142 = fmul double %141, %139
+  %143 = fptrunc double %142 to float
+  %144 = fpext float %143 to double
+  %145 = fmul double %144, 3.550000e-01
+  %146 = fsub double 3.750000e+00, %145
+  %147 = fmul double %146, %144
+  %148 = fptrunc double %147 to float
+  %149 = fpext float %148 to double
+  %150 = fmul double %149, 3.550000e-01
+  %151 = fsub double 3.750000e+00, %150
+  %152 = fmul double %151, %149
+  %153 = fptrunc double %152 to float
+  %154 = fpext float %153 to double
+  %155 = fmul double %154, 3.550000e-01
+  %156 = fsub double 3.750000e+00, %155
+  %157 = fmul double %156, %154
+  %158 = fptrunc double %157 to float
+  %159 = fpext float %158 to double
+  %160 = fmul double %159, 3.550000e-01
+  %161 = fsub double 3.750000e+00, %160
+  %162 = fmul double %161, %159
+  %163 = fptrunc double %162 to float
+  %164 = fpext float %163 to double
+  %165 = fmul double %164, 3.550000e-01
+  %166 = fsub double 3.750000e+00, %165
+  %167 = fmul double %166, %164
+  %168 = fptrunc double %167 to float
+  %169 = fpext float %168 to double
+  %170 = fmul double %169, 3.550000e-01
+  %171 = fsub double 3.750000e+00, %170
+  %172 = fmul double %171, %169
+  %173 = fptrunc double %172 to float
+  %174 = fpext float %173 to double
+  %175 = fmul double %174, 3.550000e-01
+  %176 = fsub double 3.750000e+00, %175
+  %177 = fmul double %176, %174
+  %178 = fptrunc double %177 to float
+  %179 = fpext float %178 to double
+  %180 = fmul double %179, 3.550000e-01
+  %181 = fsub double 3.750000e+00, %180
+  %182 = fmul double %181, %179
+  %183 = fptrunc double %182 to float
+  %184 = fpext float %183 to double
+  %185 = fmul double %184, 3.550000e-01
+  %186 = fsub double 3.750000e+00, %185
+  %187 = fmul double %186, %184
+  %188 = fptrunc double %187 to float
+  %189 = fpext float %188 to double
+  %190 = fmul double %189, 3.550000e-01
+  %191 = fsub double 3.750000e+00, %190
+  %192 = fmul double %191, %189
+  %193 = fptrunc double %192 to float
+  %194 = fpext float %193 to double
+  %195 = fmul double %194, 3.550000e-01
+  %196 = fsub double 3.750000e+00, %195
+  %197 = fmul double %196, %194
+  %198 = fptrunc double %197 to float
+  %199 = fpext float %198 to double
+  %200 = fmul double %199, 3.550000e-01
+  %201 = fsub double 3.750000e+00, %200
+  %202 = fmul double %201, %199
+  %203 = fptrunc double %202 to float
+  %204 = fpext float %203 to double
+  %205 = fmul double %204, 3.550000e-01
+  %206 = fsub double 3.750000e+00, %205
+  %207 = fmul double %206, %204
+  %208 = fptrunc double %207 to float
+  %209 = fpext float %208 to double
+  %210 = fmul double %209, 3.550000e-01
+  %211 = fsub double 3.750000e+00, %210
+  %212 = fmul double %211, %209
+  %213 = fptrunc double %212 to float
+  %214 = fpext float %213 to double
+  %215 = fmul double %214, 3.550000e-01
+  %216 = fsub double 3.750000e+00, %215
+  %217 = fmul double %216, %214
+  %218 = fptrunc double %217 to float
+  %219 = fpext float %218 to double
+  %220 = fmul double %219, 3.550000e-01
+  %221 = fsub double 3.750000e+00, %220
+  %222 = fmul double %221, %219
+  %223 = fptrunc double %222 to float
+  %224 = fpext float %223 to double
+  %225 = fmul double %224, 3.550000e-01
+  %226 = fsub double 3.750000e+00, %225
+  %227 = fmul double %226, %224
+  %228 = fptrunc double %227 to float
+  %229 = fpext float %228 to double
+  %230 = fmul double %229, 3.550000e-01
+  %231 = fsub double 3.750000e+00, %230
+  %232 = fmul double %231, %229
+  %233 = fptrunc double %232 to float
+  %234 = fpext float %233 to double
+  %235 = fmul double %234, 3.550000e-01
+  %236 = fsub double 3.750000e+00, %235
+  %237 = fmul double %236, %234
+  %238 = fptrunc double %237 to float
+  %239 = add nsw i32 %j.02, 1
+  %exitcond = icmp eq i32 %239, %nIters
+  br i1 %exitcond, label %._crit_edge, label %bb.nph
+
+._crit_edge:                                      ; preds = %bb.nph, %SyncBB3
+  %s.0.lcssa = phi float [ %8, %SyncBB3 ], [ %238, %bb.nph ]
+  store float %s.0.lcssa, float addrspace(1)* %7, align 4
+  %check.WI.iter = icmp ult i64 %CurrWI..0, %iterCount
+  br i1 %check.WI.iter, label %thenBB, label %SyncBB
+
+thenBB:                                           ; preds = %._crit_edge
+  %"CurrWI++" = add nuw i64 %CurrWI..0, 1
+  br label %SyncBB3
+
+SyncBB:                                           ; preds = %._crit_edge
+  ret void
+}
+
+define void @MulMAdd1(i8* %pBuffer) {
+entry:
+  %0 = bitcast i8* %pBuffer to float addrspace(1)**
+  %1 = load float addrspace(1)** %0, align 8
+  %2 = getelementptr i8* %pBuffer, i64 8
+  %3 = bitcast i8* %2 to i32*
+  %4 = load i32* %3, align 4
+  %5 = getelementptr i8* %pBuffer, i64 40
+  %6 = bitcast i8* %5 to %struct.PaddedDimId**
+  %7 = load %struct.PaddedDimId** %6, align 8
+  %8 = getelementptr i8* %pBuffer, i64 48
+  %9 = bitcast i8* %8 to %struct.PaddedDimId**
+  %10 = load %struct.PaddedDimId** %9, align 8
+  %11 = getelementptr i8* %pBuffer, i64 64
+  %12 = bitcast i8* %11 to i64*
+  %13 = load i64* %12, align 8
+  %14 = icmp sgt i32 %4, 0
+  br label %SyncBB3.i
+
+SyncBB3.i:                                        ; preds = %thenBB.i, %entry
+  %CurrWI..0.i = phi i64 [ 0, %entry ], [ %"CurrWI++.i", %thenBB.i ]
+  %15 = getelementptr %struct.PaddedDimId* %10, i64 %CurrWI..0.i, i32 0, i64 0
+  %16 = load i64* %15, align 8
+  %17 = getelementptr %struct.PaddedDimId* %7, i64 0, i32 0, i64 0
+  %18 = load i64* %17, align 8
+  %19 = add i64 %16, %18
+  %sext.i = shl i64 %19, 32
+  %20 = ashr i64 %sext.i, 32
+  %21 = getelementptr inbounds float addrspace(1)* %1, i64 %20
+  %22 = load float addrspace(1)* %21, align 4
+  br i1 %14, label %bb.nph.i, label %._crit_edge.i
+
+bb.nph.i:                                         ; preds = %bb.nph.i, %SyncBB3.i
+  %j.02.i = phi i32 [ %253, %bb.nph.i ], [ 0, %SyncBB3.i ]
+  %s.01.i = phi float [ %252, %bb.nph.i ], [ %22, %SyncBB3.i ]
+  %23 = fpext float %s.01.i to double
+  %24 = fmul double %23, 3.550000e-01
+  %25 = fsub double 3.750000e+00, %24
+  %26 = fmul double %25, %23
+  %27 = fptrunc double %26 to float
+  %28 = fpext float %27 to double
+  %29 = fmul double %28, 3.550000e-01
+  %30 = fsub double 3.750000e+00, %29
+  %31 = fmul double %30, %28
+  %32 = fptrunc double %31 to float
+  %33 = fpext float %32 to double
+  %34 = fmul double %33, 3.550000e-01
+  %35 = fsub double 3.750000e+00, %34
+  %36 = fmul double %35, %33
+  %37 = fptrunc double %36 to float
+  %38 = fpext float %37 to double
+  %39 = fmul double %38, 3.550000e-01
+  %40 = fsub double 3.750000e+00, %39
+  %41 = fmul double %40, %38
+  %42 = fptrunc double %41 to float
+  %43 = fpext float %42 to double
+  %44 = fmul double %43, 3.550000e-01
+  %45 = fsub double 3.750000e+00, %44
+  %46 = fmul double %45, %43
+  %47 = fptrunc double %46 to float
+  %48 = fpext float %47 to double
+  %49 = fmul double %48, 3.550000e-01
+  %50 = fsub double 3.750000e+00, %49
+  %51 = fmul double %50, %48
+  %52 = fptrunc double %51 to float
+  %53 = fpext float %52 to double
+  %54 = fmul double %53, 3.550000e-01
+  %55 = fsub double 3.750000e+00, %54
+  %56 = fmul double %55, %53
+  %57 = fptrunc double %56 to float
+  %58 = fpext float %57 to double
+  %59 = fmul double %58, 3.550000e-01
+  %60 = fsub double 3.750000e+00, %59
+  %61 = fmul double %60, %58
+  %62 = fptrunc double %61 to float
+  %63 = fpext float %62 to double
+  %64 = fmul double %63, 3.550000e-01
+  %65 = fsub double 3.750000e+00, %64
+  %66 = fmul double %65, %63
+  %67 = fptrunc double %66 to float
+  %68 = fpext float %67 to double
+  %69 = fmul double %68, 3.550000e-01
+  %70 = fsub double 3.750000e+00, %69
+  %71 = fmul double %70, %68
+  %72 = fptrunc double %71 to float
+  %73 = fpext float %72 to double
+  %74 = fmul double %73, 3.550000e-01
+  %75 = fsub double 3.750000e+00, %74
+  %76 = fmul double %75, %73
+  %77 = fptrunc double %76 to float
+  %78 = fpext float %77 to double
+  %79 = fmul double %78, 3.550000e-01
+  %80 = fsub double 3.750000e+00, %79
+  %81 = fmul double %80, %78
+  %82 = fptrunc double %81 to float
+  %83 = fpext float %82 to double
+  %84 = fmul double %83, 3.550000e-01
+  %85 = fsub double 3.750000e+00, %84
+  %86 = fmul double %85, %83
+  %87 = fptrunc double %86 to float
+  %88 = fpext float %87 to double
+  %89 = fmul double %88, 3.550000e-01
+  %90 = fsub double 3.750000e+00, %89
+  %91 = fmul double %90, %88
+  %92 = fptrunc double %91 to float
+  %93 = fpext float %92 to double
+  %94 = fmul double %93, 3.550000e-01
+  %95 = fsub double 3.750000e+00, %94
+  %96 = fmul double %95, %93
+  %97 = fptrunc double %96 to float
+  %98 = fpext float %97 to double
+  %99 = fmul double %98, 3.550000e-01
+  %100 = fsub double 3.750000e+00, %99
+  %101 = fmul double %100, %98
+  %102 = fptrunc double %101 to float
+  %103 = fpext float %102 to double
+  %104 = fmul double %103, 3.550000e-01
+  %105 = fsub double 3.750000e+00, %104
+  %106 = fmul double %105, %103
+  %107 = fptrunc double %106 to float
+  %108 = fpext float %107 to double
+  %109 = fmul double %108, 3.550000e-01
+  %110 = fsub double 3.750000e+00, %109
+  %111 = fmul double %110, %108
+  %112 = fptrunc double %111 to float
+  %113 = fpext float %112 to double
+  %114 = fmul double %113, 3.550000e-01
+  %115 = fsub double 3.750000e+00, %114
+  %116 = fmul double %115, %113
+  %117 = fptrunc double %116 to float
+  %118 = fpext float %117 to double
+  %119 = fmul double %118, 3.550000e-01
+  %120 = fsub double 3.750000e+00, %119
+  %121 = fmul double %120, %118
+  %122 = fptrunc double %121 to float
+  %123 = fpext float %122 to double
+  %124 = fmul double %123, 3.550000e-01
+  %125 = fsub double 3.750000e+00, %124
+  %126 = fmul double %125, %123
+  %127 = fptrunc double %126 to float
+  %128 = fpext float %127 to double
+  %129 = fmul double %128, 3.550000e-01
+  %130 = fsub double 3.750000e+00, %129
+  %131 = fmul double %130, %128
+  %132 = fptrunc double %131 to float
+  %133 = fpext float %132 to double
+  %134 = fmul double %133, 3.550000e-01
+  %135 = fsub double 3.750000e+00, %134
+  %136 = fmul double %135, %133
+  %137 = fptrunc double %136 to float
+  %138 = fpext float %137 to double
+  %139 = fmul double %138, 3.550000e-01
+  %140 = fsub double 3.750000e+00, %139
+  %141 = fmul double %140, %138
+  %142 = fptrunc double %141 to float
+  %143 = fpext float %142 to double
+  %144 = fmul double %143, 3.550000e-01
+  %145 = fsub double 3.750000e+00, %144
+  %146 = fmul double %145, %143
+  %147 = fptrunc double %146 to float
+  %148 = fpext float %147 to double
+  %149 = fmul double %148, 3.550000e-01
+  %150 = fsub double 3.750000e+00, %149
+  %151 = fmul double %150, %148
+  %152 = fptrunc double %151 to float
+  %153 = fpext float %152 to double
+  %154 = fmul double %153, 3.550000e-01
+  %155 = fsub double 3.750000e+00, %154
+  %156 = fmul double %155, %153
+  %157 = fptrunc double %156 to float
+  %158 = fpext float %157 to double
+  %159 = fmul double %158, 3.550000e-01
+  %160 = fsub double 3.750000e+00, %159
+  %161 = fmul double %160, %158
+  %162 = fptrunc double %161 to float
+  %163 = fpext float %162 to double
+  %164 = fmul double %163, 3.550000e-01
+  %165 = fsub double 3.750000e+00, %164
+  %166 = fmul double %165, %163
+  %167 = fptrunc double %166 to float
+  %168 = fpext float %167 to double
+  %169 = fmul double %168, 3.550000e-01
+  %170 = fsub double 3.750000e+00, %169
+  %171 = fmul double %170, %168
+  %172 = fptrunc double %171 to float
+  %173 = fpext float %172 to double
+  %174 = fmul double %173, 3.550000e-01
+  %175 = fsub double 3.750000e+00, %174
+  %176 = fmul double %175, %173
+  %177 = fptrunc double %176 to float
+  %178 = fpext float %177 to double
+  %179 = fmul double %178, 3.550000e-01
+  %180 = fsub double 3.750000e+00, %179
+  %181 = fmul double %180, %178
+  %182 = fptrunc double %181 to float
+  %183 = fpext float %182 to double
+  %184 = fmul double %183, 3.550000e-01
+  %185 = fsub double 3.750000e+00, %184
+  %186 = fmul double %185, %183
+  %187 = fptrunc double %186 to float
+  %188 = fpext float %187 to double
+  %189 = fmul double %188, 3.550000e-01
+  %190 = fsub double 3.750000e+00, %189
+  %191 = fmul double %190, %188
+  %192 = fptrunc double %191 to float
+  %193 = fpext float %192 to double
+  %194 = fmul double %193, 3.550000e-01
+  %195 = fsub double 3.750000e+00, %194
+  %196 = fmul double %195, %193
+  %197 = fptrunc double %196 to float
+  %198 = fpext float %197 to double
+  %199 = fmul double %198, 3.550000e-01
+  %200 = fsub double 3.750000e+00, %199
+  %201 = fmul double %200, %198
+  %202 = fptrunc double %201 to float
+  %203 = fpext float %202 to double
+  %204 = fmul double %203, 3.550000e-01
+  %205 = fsub double 3.750000e+00, %204
+  %206 = fmul double %205, %203
+  %207 = fptrunc double %206 to float
+  %208 = fpext float %207 to double
+  %209 = fmul double %208, 3.550000e-01
+  %210 = fsub double 3.750000e+00, %209
+  %211 = fmul double %210, %208
+  %212 = fptrunc double %211 to float
+  %213 = fpext float %212 to double
+  %214 = fmul double %213, 3.550000e-01
+  %215 = fsub double 3.750000e+00, %214
+  %216 = fmul double %215, %213
+  %217 = fptrunc double %216 to float
+  %218 = fpext float %217 to double
+  %219 = fmul double %218, 3.550000e-01
+  %220 = fsub double 3.750000e+00, %219
+  %221 = fmul double %220, %218
+  %222 = fptrunc double %221 to float
+  %223 = fpext float %222 to double
+  %224 = fmul double %223, 3.550000e-01
+  %225 = fsub double 3.750000e+00, %224
+  %226 = fmul double %225, %223
+  %227 = fptrunc double %226 to float
+  %228 = fpext float %227 to double
+  %229 = fmul double %228, 3.550000e-01
+  %230 = fsub double 3.750000e+00, %229
+  %231 = fmul double %230, %228
+  %232 = fptrunc double %231 to float
+  %233 = fpext float %232 to double
+  %234 = fmul double %233, 3.550000e-01
+  %235 = fsub double 3.750000e+00, %234
+  %236 = fmul double %235, %233
+  %237 = fptrunc double %236 to float
+  %238 = fpext float %237 to double
+  %239 = fmul double %238, 3.550000e-01
+  %240 = fsub double 3.750000e+00, %239
+  %241 = fmul double %240, %238
+  %242 = fptrunc double %241 to float
+  %243 = fpext float %242 to double
+  %244 = fmul double %243, 3.550000e-01
+  %245 = fsub double 3.750000e+00, %244
+  %246 = fmul double %245, %243
+  %247 = fptrunc double %246 to float
+  %248 = fpext float %247 to double
+  %249 = fmul double %248, 3.550000e-01
+  %250 = fsub double 3.750000e+00, %249
+  %251 = fmul double %250, %248
+  %252 = fptrunc double %251 to float
+  %253 = add nsw i32 %j.02.i, 1
+  %exitcond.i = icmp eq i32 %253, %4
+  br i1 %exitcond.i, label %._crit_edge.i, label %bb.nph.i
+
+._crit_edge.i:                                    ; preds = %bb.nph.i, %SyncBB3.i
+  %s.0.lcssa.i = phi float [ %22, %SyncBB3.i ], [ %252, %bb.nph.i ]
+  store float %s.0.lcssa.i, float addrspace(1)* %21, align 4
+  %check.WI.iter.i = icmp ult i64 %CurrWI..0.i, %13
+  br i1 %check.WI.iter.i, label %thenBB.i, label %__MulMAdd1_separated_args.exit
+
+thenBB.i:                                         ; preds = %._crit_edge.i
+  %"CurrWI++.i" = add nuw i64 %CurrWI..0.i, 1
+  br label %SyncBB3.i
+
+__MulMAdd1_separated_args.exit:                   ; preds = %._crit_edge.i
+  ret void
+}
+
+!opencl.kernels = !{!0}
+
+!0 = metadata !{void (float addrspace(1)*, i32, i8 addrspace(3)*, %struct.WorkDim*, i64*, %struct.PaddedDimId*, %struct.PaddedDimId*, i64*, i64, i8*, i64*)* @__MulMAdd1_separated_args, metadata !1, metadata !1, metadata !"", metadata !"float __attribute__((address_space(1))) *, int", metadata !"opencl_MulMAdd1_locals_anchor", void (i8*)* @MulMAdd1}
+!1 = metadata !{i32 0, i32 0, i32 0}

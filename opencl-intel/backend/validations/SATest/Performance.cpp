@@ -12,7 +12,7 @@ Copyright (c) Intel Corporation (2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  Performence.cpp
+File Name:  Performance.cpp
 
 \*****************************************************************************/
 #include "Performance.h"

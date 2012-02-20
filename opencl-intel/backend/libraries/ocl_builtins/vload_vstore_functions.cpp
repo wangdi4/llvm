@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#if !defined (__MIC__) && !defined(__MIC2__)
 #define _INTERNAL_DEBUG
 
 #ifdef __cplusplus
@@ -578,3 +579,5 @@ DEF_STORE_ALL(g,1)
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !defined (__MIC__) && !defined(__MIC2__)

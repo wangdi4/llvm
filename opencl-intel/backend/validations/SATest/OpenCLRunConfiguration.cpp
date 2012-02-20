@@ -69,6 +69,9 @@ DetailedStat;
 extern llvm::cl::opt<bool>
 UseVTune;
 
+extern llvm::cl::opt<bool>
+PrintBuildLog;
+
 extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
 PrintIRAfter;
 
@@ -90,6 +93,7 @@ namespace Validation
         m_measurePerformance(::TestMode==PERFORMANCE),
         m_useTraceMarks(::TraceMarks),
         m_useVTune(::UseVTune),
+        m_printBuildLog(::PrintBuildLog),
         m_runSingleWG(::RunSingleWG),
         m_buildOnly(::TestMode==BUILD),
         m_defaultLocalWGSize(::DefaultLocalWGSize),
@@ -118,6 +122,8 @@ namespace Validation
             return m_useTraceMarks;
         case RC_BR_USE_VTUNE :
             return m_useVTune;
+        case RC_BR_PRINT_BUILD_LOG :
+            return m_printBuildLog;
         case RC_BR_MEASURE_PERFORMANCE :
             return m_measurePerformance;
         case RC_BR_BUILD_ONLY :
@@ -210,6 +216,7 @@ namespace Validation
         m_buildOnly = (::TestMode == BUILD);
         m_runSingleWG = ::RunSingleWG;
         m_useVTune = ::UseVTune;
+        m_printBuildLog = ::PrintBuildLog;
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
         m_optimizedLLVMIRDumpFile = ::OptimizedLLVMIRDumpFile;
         m_PrintIRAfter = ::PrintIRAfter;

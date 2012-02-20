@@ -199,7 +199,7 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 	m_CPUPrefixes[CPU_COREI7] = "n8";
 	m_CPUPrefixes[CPU_SANDYBRIDGE] = "g9";
 	m_CPUPrefixes[CPU_HASWELL] = "g9";
-    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "knf";
+    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "b1";
 #else
 	m_CPUPrefixes[CPU_PENTIUM] = "unknown";
 	m_CPUPrefixes[CPU_NOCONA] = "e7";
@@ -208,7 +208,7 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 	m_CPUPrefixes[CPU_COREI7] = "h8";
 	m_CPUPrefixes[CPU_SANDYBRIDGE] = "e9";
 	m_CPUPrefixes[CPU_HASWELL] = "e9";
-    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "knf";
+    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "b1";
 #endif
 }
 

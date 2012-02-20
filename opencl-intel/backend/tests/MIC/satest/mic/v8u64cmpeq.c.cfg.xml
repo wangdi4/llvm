@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <ByteCodeFile>v8u64cmpeq.c.bc</ByteCodeFile>
+  <KernelConfiguration Name="test_v8u64cmpeq">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>3</LocalWorkSize>
+    <GlobalWorkSize>3</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>v8u64cmpeq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>v8u64cmpeq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>v8u64cmpeq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

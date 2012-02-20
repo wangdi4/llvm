@@ -483,8 +483,6 @@ namespace Validation
         throw Exception::ValidationExceptionBase("Can't find the given kernel in context");
     }
 
-
-
     void OCLRecorder::AddNewProgramContext(const ICLDevBackendProgram_* pProgram, RecorderContext* pContext)
     {
         llvm::MutexGuard lock(m_contextsLock);
@@ -500,7 +498,6 @@ namespace Validation
 
         m_contexts.erase( itContext );
     }
-
 
     void OCLRecorder::OnCreateBinary(const ICLDevBackendKernel_* pKernel,
                                      const _cl_work_description_type* pWorkDesc,

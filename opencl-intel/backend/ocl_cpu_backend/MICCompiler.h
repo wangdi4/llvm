@@ -16,7 +16,6 @@ File Name: MICCompiler.h
 
 \*****************************************************************************/
 #pragma once
-#define MICJIT_ENABLE 0
 
 #include <assert.h>
 #include <string>
@@ -27,9 +26,7 @@ File Name: MICCompiler.h
 #include "MICKernel.h"
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
-#if MICJIT_ENABLE 
-#include "llvm/MICJITEngine/IFunctionAddressResolver.h"
-#endif 
+#include "MICJITEngine/include/IFunctionAddressResolver.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -50,7 +47,6 @@ class MICCompilerConfig;
 //*****************************************************************************************
 // Wrapper of the Backend interface IDynamicFunctionsResolver to behave as 
 // llvm::IFunctionAddressResolver
-#if MICJIT_ENABLE 
 
 class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
 {
@@ -71,7 +67,6 @@ private:
     // not owned by the class
     IDynamicFunctionsResolver* m_pFuncResolver;
 };
-#endif
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
@@ -114,11 +109,9 @@ private:
 private:
     BuiltinModule*           m_pBuiltinModule;
     MICCompilerConfig        m_config;
-    std::string              m_ErrorStr;
-#if MICJIT_ENABLE 
-    llvm::MICCodeGenerationEngine* m_pCGEngine;
+    mutable std::string              m_ErrorStr;
+    mutable llvm::MICCodeGenerationEngine* m_pCGEngine;
     FunctionResolverWrapper  m_ResolverWrapper;
-#endif
 };
 
 }}}

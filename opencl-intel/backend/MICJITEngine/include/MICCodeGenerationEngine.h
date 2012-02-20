@@ -27,21 +27,30 @@ class ModuleJITHolder;
 class MICCodeGenerationEngine {
 public:
 
-  static TargetMachine *selectTarget(Module *mod,
+ static TargetMachine *selectTarget(Module *Mod,
+                              StringRef MArch,
+                              StringRef MCPU,
+                              const SmallVectorImpl<std::string>& MAttrs,
+                              Reloc::Model RM,
+                              CodeModel::Model CM,
+                              std::string *ErrorStr);
+#if 0
+ static TargetMachine *selectTarget(Module *mod,
                                       StringRef triple,
                                       StringRef arch,
                                       StringRef cpu,
                                       const SmallVectorImpl<std::string>& attrs,
                                       std::string *err);
+#endif
 
-  MICCodeGenerationEngine(TargetMachine &tm, CodeGenOpt::Level optlvl, IFunctionAddressResolver* resolver);
+  MICCodeGenerationEngine(TargetMachine &tm, CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver);
 
   virtual ~MICCodeGenerationEngine();
 
   /////////////////////////////////////////
   //Return: the size(in bits) of the given type
   /////////////////////////////////////////
-  size_t sizeOf(const llvm::Type* t) const;
+  size_t sizeOf(llvm::Type* t) const;
 
   /////////////////////////////////////////////////////////////////////
   //Return: A ModuleJITHolder which holds the JIT code and other 

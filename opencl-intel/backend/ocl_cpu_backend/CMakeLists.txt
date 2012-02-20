@@ -404,7 +404,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS} 
     ${OCL_CPU_BACKEND_EXPORT_DIR} 
-    )
+    ..)
 
 # Add additional lib direcories
 link_directories (
@@ -460,7 +460,7 @@ set (LLVM_LIBS
     LLVMSupport
     LLVMAnalysis
     LLVMAsmPrinter
-    LLVMInstCombine    
+    LLVMInstCombine
     LLVMipo
     LLVMMC
     LLVMScalarOpts
@@ -470,6 +470,7 @@ set (LLVM_LIBS
     LLVMipa
     LLVMX86AsmPrinter
     LLVMMC
+    LLVMMICCodeGenerationEngine
     )
 # the following targets are necessary for successful build of OCL Back-End shared library outside of OCL SDK framework
 # they are about C/C++ backends for LLVM (not to be confused with OCL backend)

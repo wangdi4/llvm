@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <ByteCodeFile>scalar-icmp-ge.c.bc</ByteCodeFile>
+  <KernelConfiguration Name="test_int8">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i8-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-i8-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-i8-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint8">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u8-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-u8-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-u8-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int16">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i16-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-i16-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-i16-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint16">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u16-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-u16-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-u16-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int32">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i32-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-i32-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-i32-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint32">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u32-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-u32-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-u32-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int64">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i64-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-i64-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-i64-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint64">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u64-ge.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-icmp-u64-ge.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-icmp-u64-ge.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

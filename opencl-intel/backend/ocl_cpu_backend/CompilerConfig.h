@@ -38,7 +38,7 @@ public:
     ~CompilerConfig(){}
 
     // CompilerConfig interface methods
-	const std::string& GetBackendMode() const { return m_backendMode; }
+    const std::string& GetBackendMode() const { return m_backendMode; }
     const std::string& GetCpuArch() const     { return m_cpuArch; }
     const std::string& GetCpuFeatures() const { return m_cpuFeatures; }
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
@@ -71,7 +71,7 @@ public:
     const std::string& GetTimePasses() const { return m_TimePasses; }
 
 protected:
-	std::string m_backendMode;
+    std::string m_backendMode;
     std::string m_cpuArch;
     std::string m_cpuFeatures;
     ETransposeSize m_transposeSize;

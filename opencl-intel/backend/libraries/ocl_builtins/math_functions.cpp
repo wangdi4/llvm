@@ -22,6 +22,8 @@
 //  svml_naive_functions.cpp
 ///////////////////////////////////////////////////////////
 
+#if !defined (__MIC__) && !defined(__MIC2__)
+
 // Compiled with Clang as LLVM module
 #define ALIGN16 __attribute__((aligned(16)))
 #define ALIGN32 __attribute__((aligned(32)))
@@ -1852,4 +1854,4 @@ OCL_INTR_P1_F8_F8_PROXY(native_logb)
 }
 #endif
 
-
+#endif // !defined (__MIC__) && !defined(__MIC2__)

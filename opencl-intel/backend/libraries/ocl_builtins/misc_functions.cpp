@@ -21,6 +21,10 @@
 ///////////////////////////////////////////////////////////
 //  relational_functions.cpp
 ///////////////////////////////////////////////////////////
+
+#if defined (__MIC__) || defined(__MIC2__)
+//knf implementation
+#else
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -3010,3 +3014,5 @@ void write_mem_fence(cl_mem_fence_flags flags)
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined (__MIC__) || defined(__MIC2__)

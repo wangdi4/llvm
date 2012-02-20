@@ -333,7 +333,7 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 #if defined(_M_X64)
     spModule->setTargetTriple( "x86_64-pc-win32");
 #elif defined(__LP64__)
-    spModule->setTargetTriple( "amd64");
+    spModule->setTargetTriple( "x86_64-pc-linux");
 #else
     spModule->setTargetTriple( "i686-pc-win32");
 #endif 

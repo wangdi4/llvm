@@ -154,6 +154,12 @@ UseVTune("vtune",
         llvm::cl::desc("Enable VTune support in Volcano."),
         llvm::cl::init(false));
 
+// Enable printing Volcano build log.
+llvm::cl::opt<bool>
+PrintBuildLog("build-log",
+        llvm::cl::desc("Enable printing Volcano build log."),
+        llvm::cl::init(false));
+
 // turn on printing bytecode instructions after
 llvm::cl::list<IRDumpOptions>
 PrintIRAfter("dump-IR-after",

@@ -1,6 +1,10 @@
 #
 # Create native MIC Execution engine using icc compiler
 #
+if (NOT INCLUDE_MIC_DEVICE)
+    message (FATAL_ERROR "Entered this file without INCLUDE_MIC_DEVICE ON")
+endif ()
+
 set( TARGET_NAME OclDeviceExecutor )
 
 set( LIB_FILE_EXTENSION .a )

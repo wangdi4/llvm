@@ -24,8 +24,8 @@ namespace Intel {
     CFS_SSE41   = 1 << 3,
     CFS_SSE42   = 1 << 4,
     CFS_AVX1	  = 1 << 5,
-	  CFS_AVX2    = 1 << 6,
-	  CFS_FMA     = 1 << 7
+    CFS_AVX2    = 1 << 6,
+    CFS_FMA     = 1 << 7
   };
 }
 #endif

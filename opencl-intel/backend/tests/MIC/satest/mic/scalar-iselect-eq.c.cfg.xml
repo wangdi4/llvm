@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <ByteCodeFile>scalar-iselect-eq.c.bc</ByteCodeFile>
+  <KernelConfiguration Name="test_int8">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i8-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-i8-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-i8-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint8">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u8-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-u8-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-u8-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int16">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i16-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-i16-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-i16-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint16">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u16-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-u16-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-u16-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int32">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i32-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-i32-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-i32-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint32">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u32-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-u32-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-u32-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_int64">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-i64-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-i64-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-i64-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+  <KernelConfiguration Name="test_uint64">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>5</LocalWorkSize>
+    <GlobalWorkSize>5</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>scalar-icmp-u64-eq.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>scalar-iselect-u64-eq.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>scalar-iselect-u64-eq.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

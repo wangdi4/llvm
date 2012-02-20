@@ -1,4 +1,5 @@
 
+#if !defined (__MIC__) && !defined(__MIC2__)
 
 #ifdef __cplusplus
 extern "C" {
@@ -5373,3 +5374,5 @@ DEF_SAT_DOUBLE()
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined (__MIC__) || defined(__MIC2__)

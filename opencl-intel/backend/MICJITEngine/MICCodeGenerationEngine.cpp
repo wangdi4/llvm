@@ -13,25 +13,98 @@
 #include "llvm/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
-#include "llvm/CodeGen/LinkAllCodegenComponents.h"
+//#include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
+//#include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Target/SubtargetFeature.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
 #include "MICJITEngine/include/ModuleJITHolder.h"
 #include "stdlib.h"
 
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include <memory>
 
 using namespace llvm;
 
 /// selectTarget - Pick a target either via -march or by guessing the native
 /// arch.  Add any CPU features specified via -mcpu or -mattr.
+TargetMachine *MICCodeGenerationEngine::selectTarget(Module *Mod,
+                              StringRef MArch,
+                              StringRef MCPU,
+                              const SmallVectorImpl<std::string>& MAttrs,
+                              Reloc::Model RM,
+                              CodeModel::Model CM,
+                              std::string *ErrorStr) {
+#if 1
+
+return llvm::EngineBuilder::selectTarget(Mod, MArch, MCPU, MAttrs, RM, CM, ErrorStr);    
+#else
+    Triple TheTriple(Mod->getTargetTriple());
+  if (TheTriple.getTriple().empty())
+    TheTriple.setTriple(sys::getHostTriple());
+
+  // Adjust the triple to match what the user requested.
+  const Target *TheTarget = 0;
+  if (!MArch.empty()) {
+    for (TargetRegistry::iterator it = TargetRegistry::begin(),
+           ie = TargetRegistry::end(); it != ie; ++it) {
+      if (MArch == it->getName()) {
+        TheTarget = &*it;
+        break;
+      }
+    }
+
+    if (!TheTarget) {
+      *ErrorStr = "No available targets are compatible with this -march, "
+        "see -version for the available targets.\n";
+      return 0;
+    }
+
+    // Adjust the triple to match (if known), otherwise stick with the
+    // module/host triple.
+    Triple::ArchType Type = Triple::getArchTypeForLLVMName(MArch);
+    if (Type != Triple::UnknownArch)
+      TheTriple.setArch(Type);
+  } else {
+    std::string Error;
+    TheTarget = TargetRegistry::lookupTarget(TheTriple.getTriple(), Error);
+    if (TheTarget == 0) {
+      if (ErrorStr)
+        *ErrorStr = Error;
+      return 0;
+    }
+  }
+
+  if (!TheTarget->hasJIT()) {
+    errs() << "WARNING: This target JIT is not designed for the host you are"
+           << " running.  If bad things happen, please choose a different "
+           << "-march switch.\n";
+  }
+
+  // Package up features to be passed to target/subtarget
+  std::string FeaturesStr;
+  if (!MAttrs.empty()) {
+    SubtargetFeatures Features;
+    for (unsigned i = 0; i != MAttrs.size(); ++i)
+      Features.AddFeature(MAttrs[i]);
+    FeaturesStr = Features.getString();
+  }
+
+  // Allocate a target...
+  TargetMachine *Target = TheTarget->createTargetMachine(TheTriple.getTriple(),
+                                                         MCPU, FeaturesStr,
+                                                         RM, CM);
+  assert(Target && "Could not allocate target machine!");
+  return Target;
+#endif
+}
+#if 0
 TargetMachine *
 MICCodeGenerationEngine::selectTarget(Module *Mod,
                                StringRef MTriple,
@@ -99,14 +172,15 @@ MICCodeGenerationEngine::selectTarget(Module *Mod,
   Target->setCodeModel(CodeModel::Small);
   return Target;
 }
+#endif
 
 MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm, 
-    CodeGenOpt::Level optlvl, IFunctionAddressResolver* resolver) :
+    CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver) :
     TM(tm), optLevel(optlvl) {}
 
 MICCodeGenerationEngine::~MICCodeGenerationEngine() {}
 
-size_t MICCodeGenerationEngine::sizeOf(const Type* t) const{
+size_t MICCodeGenerationEngine::sizeOf(Type* t) const{
   assert(t && "type is null");
   return(size_t)TM.getTargetData()->getTypeSizeInBits(t);
 }

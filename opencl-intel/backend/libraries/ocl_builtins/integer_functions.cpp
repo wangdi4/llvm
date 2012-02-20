@@ -22,6 +22,8 @@
 //  integer_naive_functions.cpp
 ///////////////////////////////////////////////////////////
 
+#if !defined (__MIC__) && !defined(__MIC2__)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -2709,3 +2711,5 @@ _4u64  __attribute__((overloadable)) upsample(_4u32 x, _4u32 y)
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !defined (__MIC__) && !defined(__MIC2__)

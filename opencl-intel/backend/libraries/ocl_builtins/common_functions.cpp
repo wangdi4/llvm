@@ -22,6 +22,8 @@
 //  svml_naive_functions.cpp
 ///////////////////////////////////////////////////////////
 
+#if !defined (__MIC__) && !defined(__MIC2__)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -758,3 +760,5 @@ double4  __attribute__((overloadable)) sign(double4 x)
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !defined (__MIC__) && !defined(__MIC2__)
