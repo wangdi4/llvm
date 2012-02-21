@@ -1193,7 +1193,7 @@ cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
 }
 SET_ALIAS(clEnqueueBarrierWithWaitList);
 
-// the following functions are not implemented yet:
+
 
 cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
                                               cl_uint num_mem_objects,
@@ -1203,9 +1203,12 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
                                               const cl_event *event_wait_list,
                                               cl_event *event)
 {
-    return CL_INVALID_OPERATION;
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
+        num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event));
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
+
+// the following functions are not implemented yet:
 
 cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     cl_uint num_devices,

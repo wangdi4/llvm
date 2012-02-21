@@ -505,19 +505,19 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
     return CL_DEV_SUCCESS;
 }
 
-size_t CPUDevice::GetMinSupportedPixelSize()
+size_t CPUDevice::GetMaxSupportedPixelSize()
 { 
-    size_t i = 0, szMinPixelSize = 0;
+    size_t i = 0, szMaxPixelSize = 0;
 
     for (; i < sizeof(supportedImageFormats) / sizeof(supportedImageFormats[0]); i++)
     {
         const size_t szPixelSize = clGetPixelBytesCount(&supportedImageFormats[i]);
-        if (0 == szMinPixelSize || szPixelSize < szMinPixelSize)
+        if (szPixelSize > szMaxPixelSize)
         {
-            szMinPixelSize = szPixelSize;
+            szMaxPixelSize = szPixelSize;
         }
     }
-    return szMinPixelSize;
+    return szMaxPixelSize;
 }
 
 // Device entry points
@@ -1246,7 +1246,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    STRCPY_S((char*)paramVal, valSize, "OpenCL C 1.1 ");
+                    STRCPY_S((char*)paramVal, valSize, "OpenCL C 1.2 ");
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -1260,7 +1260,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, "OpenCL 1.1 ");
+                STRCPY_S((char*)paramVal, valSize, "OpenCL 1.2 ");
                 STRCAT_S((char*)paramVal, valSize, BUILDVERSIONSTR);
             }
             return CL_DEV_SUCCESS;
@@ -1353,8 +1353,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
             if (NULL != paramVal)
             {
-                // we want to support the maximum buffer when the pixel size is minimal
-                const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / GetMinSupportedPixelSize();
+                // we want to support the maximum buffer when the pixel size is maximal
+                const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / GetMaxSupportedPixelSize();
                 if (iImgMaxBufSize < (size_t)-1)
                 {
                     *(size_t*)paramVal = (size_t)iImgMaxBufSize;

@@ -487,7 +487,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
         localImgDesc.buffer = clBigBuf;
         localImgDesc.image_width = szImgMaxBufSize + 1;
         clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-        CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+        CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
     }
 
     // invalid bounds

@@ -740,6 +740,72 @@ cl_err_code ExecutionModule::SetEventCallback(cl_event evt, cl_int status, void 
 	return m_pEventsManager->SetEventCallBack(evt, status, fn, userData);
 }
 
+/**
+ * @fn cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommandQueue, cl_uint uiNumMemObjects, const cl_mem* pMemObjects, cl_mem_migration_flags clFlags, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
+ */
+cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommandQueue,
+                                                      cl_uint uiNumMemObjects,
+                                                      const cl_mem* pMemObjects,
+                                                      cl_mem_migration_flags clFlags,
+                                                      cl_uint uiNumEventsInWaitList,
+                                                      const cl_event* pEventWaitList,
+                                                      cl_event* pEvent)
+{
+    if ((NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
+    if (0 == uiNumMemObjects || NULL == pMemObjects || 0 != (clFlags & ~(CL_MIGRATE_MEM_OBJECT_HOST | CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }    
+    
+    Context* const pQueueContext = m_pContextModule->GetContext(pCommandQueue->GetContextHandle());
+    assert(NULL != pQueueContext);
+    for (cl_uint i = 0; i < uiNumMemObjects; i++)
+    {
+        const MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pMemObjects[i]);
+        if (NULL == pMemObjects)
+        {
+            return CL_INVALID_MEM_OBJECT;
+        }
+        if (pMemObj->GetContext() != pQueueContext)
+        {
+            return CL_INVALID_CONTEXT;
+        }
+    }
+
+    // currently we do a dummy implementation that just puts a marker
+    MarkerCommand* const pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch, false);
+    if (NULL == pMarkerCommand)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    cl_err_code err = pMarkerCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete pMarkerCommand;
+        return err;
+    }
+
+    QueueEvent& markerEvent = *pMarkerCommand->GetEvent();
+    m_pEventsManager->RegisterQueueEvent(&markerEvent, pEvent);
+    err = pCommandQueue->EnqueueMarkerWaitEvents(pMarkerCommand, uiNumEventsInWaitList, pEventWaitList);
+    if (CL_FAILED(err))
+    {
+        m_pEventsManager->ReleaseEvent(markerEvent.GetHandle());
+        pMarkerCommand->CommandDone();
+        delete pMarkerCommand;
+    }
+    return err;
+}
 
 /******************************************************************
  * 
@@ -2389,7 +2455,7 @@ static bool AreImageDimsSupportedByDevice(const MemoryObject& img, const Fission
             IsImageDimSupportedByDevice(img, dev, CL_IMAGE_ARRAY_SIZE, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
     case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH) &&
-            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE3D_MAX_HEIGHT) &&
+            IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE2D_MAX_HEIGHT) &&
             IsImageDimSupportedByDevice(img, dev, CL_IMAGE_ARRAY_SIZE, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
     default:
         assert(0);
