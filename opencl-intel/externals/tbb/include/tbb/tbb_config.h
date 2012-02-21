@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -49,7 +49,8 @@
     #define __TBB_DECLSPEC_ALIGN_PRESENT 1
 #endif
 
-#if (__TBB_GCC_VERSION >= 40102) && !defined(__INTEL_COMPILER)
+/* TODO: change the version back to 4.1.2 once macro __TBB_WORD_SIZE become optional */
+#if (__TBB_GCC_VERSION >= 40306) && !defined(__INTEL_COMPILER)
     /** built-in atomics available in GCC since 4.1.2 **/
     #define __TBB_GCC_BUILTIN_ATOMICS_PRESENT 1
 #endif

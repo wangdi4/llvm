@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -260,6 +260,13 @@ public:
     void pop( T& destination ) {
         internal_pop( &destination );
     }
+
+#if TBB_USE_EXCEPTIONS
+    //! Abort all pending queue operations
+    void abort() {
+        internal_abort();
+    }
+#endif
 
     //! Enqueue an item at tail of queue if queue is not already full.
     /** Does not wait for queue to become not full.

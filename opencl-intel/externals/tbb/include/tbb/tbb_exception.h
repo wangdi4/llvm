@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -53,6 +53,12 @@ public:
     /*override*/ const char* what() const throw();
 };
 
+//! Exception for user-initiated abort
+class user_abort : public std::exception {
+public:
+    /*override*/ const char* what() const throw();
+};
+
 //! Exception for missing wait on structured_task_group
 class missing_wait : public std::exception {
 public:
@@ -87,6 +93,7 @@ enum exception_id {
     eid_invalid_swap,
     eid_reservation_length_error,
     eid_invalid_key,
+    eid_user_abort,
     //! The last enumerator tracks the number of defined IDs. It must remain the last one.
     /** When adding new IDs, place them immediately _before_ this comment (that is
         _after_ all the existing IDs. NEVER insert new IDs between the existing ones. **/

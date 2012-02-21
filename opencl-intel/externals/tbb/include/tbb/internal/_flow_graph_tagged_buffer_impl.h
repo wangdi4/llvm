@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -65,16 +65,11 @@ private:
 
     size_t mask() { return my_size - 1; }
 
-// #define ABYSMAL 1
     static size_t hash(TagType t) {
-#if ABYSMAL
-        return (size_t)1;
-#else
 #if __TBB_WORDSIZE == 4
         return uintptr_t(t)*0x9E3779B9;
 #else
         return uintptr_t(t)*0x9E3779B97F4A7C15;
-#endif
 #endif
     }
 
