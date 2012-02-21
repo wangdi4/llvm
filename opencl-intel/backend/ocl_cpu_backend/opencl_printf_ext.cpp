@@ -67,9 +67,14 @@ const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 // taken off the buffer is sizeof(int) - this is guaranteed by the default
 // argument promotion rules of C99.
 //
-#define INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
-#define NEXT_ARG(args, type) (*(type*)((args += INTSIZEOF(type)) - INTSIZEOF(type)))
+#define INTSIZEOF(n) (std::max(8uL, (sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1)))
 
+template<typename T>
+T NEXT_ARG(const char*& buffer){
+  T ret = *(T*)buffer;
+  buffer += INTSIZEOF(T);
+  return ret;
+}
 
 class OutputAccumulator
 {
@@ -445,7 +450,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             // Note: according to C99, a negative width argument means a '-'
             // flag followed by a positive width.
             //
-            width = NEXT_ARG(args, int);
+            width = NEXT_ARG<int>(args);
             if (width < 0) {
                 width = -width;
                 conversion_flags |= FLAG_MINUS;
@@ -468,7 +473,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         if (c == '.') {
             c = *++format;    // skip the dot
             if (c == '*') {
-                precision = NEXT_ARG(args, int);
+                precision = NEXT_ARG<int>(args);
                 c = *++format;
             } 
             else {
@@ -597,7 +602,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 break;
             case 'c': 
                 for (unsigned i = 0; i < vector_len; ++i) {
-                    char_val = NEXT_ARG(args, char);
+                    char_val = NEXT_ARG<char>(args);
 
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, char_val)) >= cbuflen)
                         return -1;
@@ -608,21 +613,18 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
             case 's':
-                if ('\0' != ((unsigned long)*args & 0xffff))
-                  str_val = NEXT_ARG(args, char*);
+                if (NULL != (char*)*args)
+                  str_val = NEXT_ARG<char*>(args);
                 else{
-                  //a 'fatalic' case, in which the string pointer is NULL.
-                  //We print the null string, and advancing the buffer pointer
-                  //by 4 bytes.
-                  str_val = "(null)";
-                  args += sizeof(int);
+                  str_val = "(null)"; 
+                  args += sizeof(char*);
                 }
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, str_val)) >= cbuflen)
                     return -1;
                 output.append(cbuf);
                 break;
             case 'p':
-                voidptr = NEXT_ARG(args, void*);
+                voidptr = NEXT_ARG<void*>(args);
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, voidptr)) >= cbuflen)
                     return -1;
                 output.append(cbuf);
@@ -637,15 +639,15 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     switch (modifier) {
                         case MODIFIER_CHAR:
                             if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_uchar);
+                                int_val = NEXT_ARG<cl_uchar>(args);
                             else
-                                int_val = NEXT_ARG(args, cl_char);
+                                int_val = NEXT_ARG<cl_char>(args);
                             break;
                         case MODIFIER_SHORT:
                             if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_ushort);
+                                int_val = NEXT_ARG<cl_ushort>(args);
                             else
-                                int_val = NEXT_ARG(args, cl_short);
+                                int_val = NEXT_ARG<cl_short>(args);
                             break;
                         case MODIFIER_LONG:
                         case MODIFIER_LONGLONG:
@@ -656,21 +658,21 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                             // supported, so we keep them as 'long'.
                             //
                             if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, uint64_t);
+                                int_val = NEXT_ARG<uint64_t>(args);
                             else
-                                int_val = NEXT_ARG(args, int64_t);
+                                int_val = NEXT_ARG<int64_t>(args);
                             break;
                         case MODIFIER_PTRDIFF:
-                            int_val = NEXT_ARG(args, ptrdiff_t);
+                            int_val = NEXT_ARG<ptrdiff_t>(args);
                             break;
                         case MODIFIER_SIZE_T:
-                            int_val = NEXT_ARG(args, size_t);
+                            int_val = NEXT_ARG<size_t>(args);
                             break;
                         default:
                             if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_uint);
+                                int_val = NEXT_ARG<cl_uint>(args);
                             else
-                                int_val = NEXT_ARG(args, cl_int);
+                                int_val = NEXT_ARG<cl_int>(args);
                             break;
                     }
 
@@ -696,7 +698,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     // Practically, the LONGDOUBLE modifier is ignored since OpenCL
                     // has no such type. 
                     // 
-                    float_val = NEXT_ARG(args, double);
+                    float_val = NEXT_ARG<double>(args);
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, float_val)) >= cbuflen)
                         return -1;
                     output.append(cbuf);
