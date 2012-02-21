@@ -112,7 +112,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures |= CFS_AVX1;
     }
 
-    if( cpuId >= (unsigned int)Utils::CPUDetect::GetInstance()->GetCPUByName("haswell"))
+    if( cpuId >= (unsigned int)Utils::CPUDetect::GetInstance()->GetCPUByName("core-avx2"))
     {
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
@@ -245,6 +245,9 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
 
     if (!DisableAVX && (m_selectedCpuId == Intel::CPU_SANDYBRIDGE))
       m_forcedCpuFeatures.push_back("+avx");
+
+    if (!DisableAVX && (m_selectedCpuId == Intel::CPU_HASWELL))
+      m_forcedCpuFeatures.push_back("+avx2");
 
     m_selectedCpuFeatures = Utils::SelectCpuFeatures( m_selectedCpuId, m_forcedCpuFeatures );
 }

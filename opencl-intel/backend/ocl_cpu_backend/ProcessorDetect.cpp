@@ -28,7 +28,7 @@ ProcessorDetect::ProcessorDetect()
 	m_CPUNames[CPU_PENRYN]      = "penryn";
 	m_CPUNames[CPU_COREI7]      = "corei7";
 	m_CPUNames[CPU_SANDYBRIDGE] = "sandybridge";
-	m_CPUNames[CPU_HASWELL]     = "haswell";
+	m_CPUNames[CPU_HASWELL]     = "core-avx2";
     m_CPUNames[MIC_KNIGHTSFERRY] = "knf";
 
 #if !defined(_M_X64) && !defined(__LP64__)

@@ -164,17 +164,19 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 			if ((XCRInfo[0] & 0x00000006) == 0x00000006)
 			{
 				m_uiCPUFeatures |= CFS_AVX1;
-        /*
+        
         if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
         {
           m_uiCPUFeatures |= CFS_FMA;
-        }*/
+        }
         // AVX2 support
         viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
         __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
         if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
         {
           m_uiCPUFeatures |= CFS_AVX2;
+          m_CPU = CPU_HASWELL;
+
         }
       }
 		}
@@ -188,7 +190,7 @@ CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
 	m_CPUNames[CPU_PENRYN]      = "penryn";
 	m_CPUNames[CPU_COREI7]      = "corei7";
 	m_CPUNames[CPU_SANDYBRIDGE] = "corei7-avx";
-	m_CPUNames[CPU_HASWELL]     = "haswell";
+	m_CPUNames[CPU_HASWELL]     = "core-avx2";
     m_CPUNames[MIC_KNIGHTSFERRY] = "knf";
 
 #if !defined(_M_X64) && !defined(__LP64__)
