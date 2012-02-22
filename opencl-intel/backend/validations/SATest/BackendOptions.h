@@ -19,9 +19,6 @@ File Name:  BackendOptions.h
 #define BACKEND_OPTIONS_H
 
 #include "OpenCLRunConfiguration.h"
-#if defined(INCLUDE_MIC_TARGET)
-#include "DeviceCommunicationService.h"
-#endif // INCLUDE_MIC_TARGET
 #include "Exception.h"
 
 #include "cl_dev_backend_api.h"
@@ -129,7 +126,7 @@ protected:
     std::string m_TimePasses;
 };
 
-#if defined(INCLUDE_MIC_TARGET)
+#if defined(INCLUDE_MIC_DEVICE)
 class MICBackendOptions: public ICLDevBackendOptions
 {
 public:
@@ -238,7 +235,7 @@ private:
     bool           m_useVTune;
     std::string    m_fileName;
 };
-#endif // INCLUDE_MIC_TARGET
+#endif // INCLUDE_MIC_DEVICE
 
 /**
  * Description of ENABLE_SDE mode for MIC:

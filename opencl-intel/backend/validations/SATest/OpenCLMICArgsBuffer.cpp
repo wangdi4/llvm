@@ -29,15 +29,6 @@ File Name:  OpenCLMICArgsBuffer.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 
-#define CHECK_COI_RESULT(_COIFUNC)                                                  \
-    {                                                                               \
-    COIRESULT result = _COIFUNC;                                                    \
-    if (COI_SUCCESS != result)                                                      \
-    {                                                                               \
-        std::cerr << #_COIFUNC" retruned " << COIResultGetName(result) << std::endl;\
-    }                                                                               \
-}
-
 using namespace Validation;
 
 OpenCLMICArgsBuffer::OpenCLMICArgsBuffer(const cl_kernel_argument * pKernelArgs, 

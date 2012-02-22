@@ -79,7 +79,7 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
     MICBackendOptions options;
     options.InitFromRunConfiguration(*pOCLRunConfig);
 
-    options.InitTargetDescriptionSession(m_targetDescSize, m_pTargetDesc);
+    options.InitTargetDescriptionSession(m_targetDescSize, m_pTargetDesc.get());
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
 
     cl_dev_err_code ret = m_pServiceFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -148,12 +148,13 @@ OpenCLMICBackendRunner::OpenCLMICBackendRunner(const IRunComponentConfiguration*
     m_pTargetDesc(NULL),
     m_targetDescSize(0)
 {
+    const BERunOptions *pRunConfig = static_cast<const BERunOptions *>(pRunConfiguration);
     DEBUG(llvm::dbgs()<< "Initializing OpenCLMICBackendRunner.\n");
     COIENGINE engine;
     uint32_t num_engines = 0;
     // Make sure there is a MIC device available
     CHECK_COI_RESULT(
-        COIEngineGetCount(GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), &num_engines));
+        COIEngineGetCount(m_procAndPipe.GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), &num_engines));
     if (num_engines < 1)
     {
         throw Exception::GeneralException("COIERROR: Need at least one engine");
@@ -161,7 +162,7 @@ OpenCLMICBackendRunner::OpenCLMICBackendRunner(const IRunComponentConfiguration*
 
     // Get a handle to the "first" MIC engine
     CHECK_COI_RESULT(
-        COIEngineGetHandle(GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), 0, &engine));
+        COIEngineGetHandle(m_procAndPipe.GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), 0, &engine));
 
     m_procAndPipe.Create(engine, pRunConfig);
 
@@ -331,8 +332,8 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
 
 void OpenCLMICBackendRunner::PrepareInputData( BufferContainerList& input,
                                                   char **kernelNameAndArgs,
-                                                  ICLDevBackendProgram_* pProgram,
-                                                  OpenCLKernelConfiguration *const& pKernelConfig,
+                                                  const ICLDevBackendProgram_* pProgram,
+                                                  const OpenCLKernelConfiguration *const& pKernelConfig,
                                                   IRunResult* runResult,
                                                   DispatcherData& dispatcherData )
 {
@@ -391,9 +392,9 @@ void OpenCLMICBackendRunner::PrepareInputData( BufferContainerList& input,
 }
 
 void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
-                                            OpenCLProgramConfiguration *pProgramConfig,
-                                            IRunResult* pRunResult,
-                                            ICLDevBackendProgram_* pProgram)
+                                        const OpenCLProgramConfiguration *pProgramConfig,
+                                        IRunResult* pRunResult,
+                                        const ICLDevBackendProgram_* pProgram)
 {
     uint64_t numOfKernels = (uint64_t)pProgramConfig->GetNumberOfKernelConfigurations();
     DEBUG(llvm::dbgs()<< "OpenCLMICBackendRunner runs " << numOfKernels << " test kernels.\n");

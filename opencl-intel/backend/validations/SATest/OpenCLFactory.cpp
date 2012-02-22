@@ -24,7 +24,7 @@ File Name:  OpenCLFactory.cpp
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLComparator.h"
-#if defined(INCLUDE_MIC_TARGET)
+#if defined(INCLUDE_MIC_DEVICE)
 #include "OpenCLMICBackendRunner.h"
 #endif
 
@@ -67,7 +67,7 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
 
 IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-#if defined(INCLUDE_MIC_TARGET)
+#if defined(INCLUDE_MIC_DEVICE)
     const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
     std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
     bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);

@@ -89,9 +89,9 @@ namespace Validation
 
     private:
         void RunKernels(const BERunOptions *pRunConfig,
-                        OpenCLProgramConfiguration *programConfig,
+                        const OpenCLProgramConfiguration *programConfig,
                         IRunResult* runResult,
-                        Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_* pProgram);
+                        const Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_* pProgram);
         void SerializeProgram(Intel::OpenCL::DeviceBackend::ICLDevBackendSerializationService* pSerializer,
             Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_* pProgram);
 
@@ -104,8 +104,8 @@ namespace Validation
         /// @param dispatcherData  [OUT] keeps details about data layout in COI buffers.
         void PrepareInputData( BufferContainerList& input,
             char **kernelArgValues,
-            ICLDevBackendProgram_* pProgram,
-            OpenCLKernelConfiguration *const& pKernelConfig,
+            const ICLDevBackendProgram_* pProgram,
+            const OpenCLKernelConfiguration *const& pKernelConfig,
             IRunResult* runResult,
             DispatcherData& dispatcherData);
 

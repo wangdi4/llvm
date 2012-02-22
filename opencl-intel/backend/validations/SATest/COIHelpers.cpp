@@ -18,6 +18,7 @@ File Name:  COIHelpers.cpp
 
 #include "COIHelpers.h"
 #include "SATestException.h"
+#include "CPUDetect.h"
 
 #include <iostream>
 #include <assert.h>
@@ -29,16 +30,6 @@ File Name:  COIHelpers.cpp
 #include "llvm/Support/Debug.h"
 
 using namespace Validation;
-
-// Device side functions used as entry points
-// WARINING! This array must be in line with enum DEVICE_SIDE_FUNCTION declared in DeviceCommunicationService.h.
-const char* DeviceCommunicationService::m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT] =
-{
-    "initDevice",                       // INIT_DEVICE
-    "getBackendTargetDescriptionSize",  // GET_BACKEND_TARGET_DESCRIPTION_SIZE
-    "getBackendTargetDescription",      // GET_BACKEND_TARGET_DESCRIPTION
-    "executeKernels"                    // EXECUTE_KERNELS
-};
 
 #define CHECK_COI_RESULT(_COIFUNC)                                                  \
     {                                                                               \
@@ -117,7 +108,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
       std::string(SVML_LIBRARY_PATH) :
       //std::string(SVML_LIBRARY_PATH);
       pathName;
-    
+
     Intel::ECPU cpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUByName(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "").c_str());
     const char* pCPUPrefix = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUPrefix(cpuId);
     std::string svmlFileName = std::string("__ocl_svml_") + pCPUPrefix + ".so";

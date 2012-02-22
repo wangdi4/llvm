@@ -20,7 +20,7 @@ File Name:  OpenCLMICArgsBuffer.h
 
 #include "IRunResult.h"
 #include "IBufferContainerList.h"
-#include "DeviceCommunicationService.h"
+#include "COIHelpers.h"
 #include "MICNative/common.h"
 #include "source/COIBuffer_source.h"
 #include "source/COIProcess_source.h"

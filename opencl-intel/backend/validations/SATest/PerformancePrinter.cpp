@@ -50,7 +50,7 @@ void PerformancePrinter::OnKernelSample(
               << buildSDMean << ","
               << executionTicks << ","
               << executionSDMean << ","
-#ifdef INCLUDE_MIC_TARGET
+#ifdef INCLUDE_MIC_DEVICE
               << serializationTicks << ","
               << serializationSDMean << ","
               << deserializationTicks << ","

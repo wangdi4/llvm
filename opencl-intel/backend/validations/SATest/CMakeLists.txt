@@ -158,7 +158,7 @@ set (SATest_SOURCE_FILES
     OpenCLMICArgsBuffer.cpp
     COIHelpers.cpp
     )
-add_definitions( -DINCLUDE_MIC_TARGET )
+add_definitions( -DINCLUDE_MIC_DEVICE )
 set( SATEST_NATIVE_NAME     SATestNative.bin)
 list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
 list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
