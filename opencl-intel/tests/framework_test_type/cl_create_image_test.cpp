@@ -483,11 +483,14 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     if (szMaxMemAllocSize > szImgMaxBufSize * IMAGE_ELEM_SIZE)
     {
         clMemWrapper clBigBuf = clCreateBuffer(context, 0, szMaxMemAllocSize <= (size_t)-1 ? (size_t)szMaxMemAllocSize : (size_t)-1, NULL, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
-        localImgDesc.buffer = clBigBuf;
-        localImgDesc.image_width = szImgMaxBufSize + 1;
-        clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-        CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
+        if (CL_OUT_OF_HOST_MEMORY != iRet)
+        {
+            CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+            localImgDesc.buffer = clBigBuf;
+            localImgDesc.image_width = szImgMaxBufSize + 1;
+            clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
+            CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
+        }
     }
 
     // invalid bounds

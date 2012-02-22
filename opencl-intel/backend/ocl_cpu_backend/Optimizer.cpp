@@ -357,7 +357,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createCFGSimplificationPass());          // Simplify CFG
     m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
     m_modulePasses.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
-    m_modulePasses.add(llvm::createBlockPlacementPass());
     m_modulePasses.add(llvm::createEarlyCSEPass());
     m_modulePasses.add(llvm::createGVNPass());
     

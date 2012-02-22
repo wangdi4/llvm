@@ -23,7 +23,6 @@ File Name:  ResolveWICall.cpp
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Target/TargetData.h"
-#include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -419,21 +418,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       //
       BitCastInst *cast_instr = new BitCastInst(gep_instr, PointerType::getUnqual(argtype), "", pCall);
 
-      // store argument into address. Alignment forced to 8 for the following reason:
-      // when printf is called like: printf("%s", 0) on 64 bit machines there is an anigma.
-      // from one hand, we expect the parameter to be 64 bit in width, since this is the size of char* types.
-      // On the other hand, the actual argument is '0', which is only 4 bytes in width.
-      // The solution is to store all types in 8 byte alignment. 
+      // store argument into address. Alignment forced to 1 to make vector
+      // stores safe.
       //
-      const unsigned ALIGNMENT = 8;
-      (void) new StoreInst(arg, cast_instr, false, ALIGNMENT, pCall);
+      (void) new StoreInst(arg, cast_instr, false, 1, pCall);
 
       // This argument occupied some space in the buffer. 
       // Advance the buffer pointer offset by its size to know where the next
       // argument should be placed.
       // 
       unsigned argsize = TD.getTypeSizeInBits(arg->getType()) / 8;
-      buf_pointer_offset += std::max(ALIGNMENT, argsize);
+      buf_pointer_offset += argsize;        
     }
 
     // Create a pointer to the buffer, in order to pass it to the function
