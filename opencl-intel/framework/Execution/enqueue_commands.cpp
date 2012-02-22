@@ -1281,8 +1281,9 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
  ******************************************************************/
 cl_err_code UnmapMemObjectCommand::Init()
 {
-    // First check the the region has been mapped
-    cl_err_code err = m_pMemObject->GetMappedRegionInfo(m_pDevice, m_pMappedPtr, &m_pMappedRegion);
+    /* First check the the region has been mapped - just get the 1st mapped region, the user should
+        handle code with multiple map/unmap commands */
+    cl_err_code err = m_pMemObject->GetMappedRegionInfo(m_pDevice, m_pMappedPtr, &m_pMappedRegion, true);
 
 	// check whether postfix command should be run to update user mirror area
 	if (CL_SUCCEEDED(err)															  && 
@@ -2164,6 +2165,7 @@ cl_err_code ReadMemObjCommand::Execute()
 		m_returnCode = CL_SUCCESS;
 		m_Event.SetColor(EVENT_STATE_BLACK);
 		m_Event.RemovePendency(NULL);
+        CommandDone();
 		return CL_SUCCESS;
 	}
 

@@ -54,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_dev_cmd_param_map	cmd_param_map;
 		const FissionableDevice*							pDevice;
 		size_t												refCount;
+        bool isValid;
 	};
 
 	typedef std::pair<mem_dtor_fn,void*> MemDtorNotifyData;
@@ -244,7 +245,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			void*                 OUT *pHostMapDataPtr
 			);
 
-		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo);
+		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo,
+            bool invalidateRegion = false);
 
 		// Release the region pointed by mappedPtr from clDeviceId.
 		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
@@ -319,7 +321,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			Intel::OpenCL::Utils::OclSpinMutex		m_muNotifiers;			// Mutex for accessing m_pfnNotifiers
 			Intel::OpenCL::Utils::AtomicCounter		m_mapCount;	            // A counter for the number of times an object has been mapped
 			FissionableDevice*						m_pLocation;			// A pointer to device where the latest updated data is located
-			std::map<void*, MapParamPerPtr*>		m_mapMappedRegions;		// A map for storage of Mapped Regions
+			std::multimap<void*, MapParamPerPtr*>	m_mapMappedRegions;		// A map for storage of Mapped Regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes
 	};

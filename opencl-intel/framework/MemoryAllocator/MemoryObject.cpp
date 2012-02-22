@@ -263,7 +263,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.begin();
+	multimap<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.begin();
 	while ( it != m_mapMappedRegions.end() )
 	{
 		pclDevCmdParamMap = it->second;
@@ -273,7 +273,8 @@ cl_err_code MemoryObject::CreateMappedRegion(
 		for (size_t st=0; st<m_uiNumDim; ++st)
 		{
 			bMatch &= (pOrigin[st] == pclDevCmdParamMap->cmd_param_map.origin[st]) &&
-				(pRegion[st] == pclDevCmdParamMap->cmd_param_map.region[st]);
+				(pRegion[st] == pclDevCmdParamMap->cmd_param_map.region[st]) &&
+                clMapFlags == pclDevCmdParamMap->cmd_param_map.flags && pclDevCmdParamMap->isValid;
 		}
 		if ( bMatch )
 		{
@@ -310,6 +311,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	pclDevCmdParamMap->cmd_param_map.dim_count = m_uiNumDim;
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.origin, sizeof(size_t[MAX_WORK_DIM]), pOrigin, sizeof(size_t)*m_uiNumDim);
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.region, sizeof(size_t[MAX_WORK_DIM]), pRegion, sizeof(size_t)*m_uiNumDim);
+    pclDevCmdParamMap->cmd_param_map.flags = clMapFlags;
 
 	cl_err_code err = MemObjCreateDevMappedRegion(pDevice, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
 	if (CL_FAILED(err))
@@ -319,29 +321,35 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
 	pclDevCmdParamMap->refCount = 1;
 	pclDevCmdParamMap->pDevice = pDevice;
+    pclDevCmdParamMap->isValid = true;
     AssignPitches(*this, pImageRowPitch, pImageSlicePitch, *pclDevCmdParamMap);
 
-	m_mapMappedRegions[*pHostMapDataPtr] = pclDevCmdParamMap;
+	m_mapMappedRegions.insert(multimap<void*, MapParamPerPtr*>::value_type(*pHostMapDataPtr, pclDevCmdParamMap));
 	m_mapCount++;
 
 	*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
 	return CL_SUCCESS;
 }
 
-cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo)
+cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo,
+                                              bool invalidateRegion)
 {
 	LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"), pDevice, mappedPtr);
 	assert(NULL!=pMapInfo);
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(mappedPtr);
+	multimap<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(mappedPtr);
 	if ( it == m_mapMappedRegions.end() )
 	{
 		return CL_INVALID_VALUE;
 	}
-
+    // just return the 1st region
 	*pMapInfo = &(it->second->cmd_param_map);
+    if (invalidateRegion)
+    {
+        it->second->isValid = false;
+    }
 	return CL_SUCCESS;
 }
 cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
@@ -351,7 +359,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	map<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(pHostMapDataPtr);
+	multimap<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(pMapInfo->ptr);
 	if ( it == m_mapMappedRegions.end() )
 	{
 		return CL_INVALID_VALUE;
