@@ -236,11 +236,16 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
     EEremove->removePredecessor(entry);
     Br->eraseFromParent();
     BranchInst::Create(EEsucc, entry);
-    // Collect TID info for the code successor block.
-    CollcectBlockData(EEsucc); 
-    if (MergeBlockIntoPredecessor(EEsucc)) {
-      // blocks were merged means we might have another early exit oppurunity.
-      return true;
+    // If the successor has the entry as unique predecessor than we might find 
+    // the succsessor is not in a loop and it is safe to scan it for new early
+    // exit opportunities.
+    if (EEsucc->getUniquePredecessor()) {
+      // Collect TID info for the code successor block.
+      // Since the entry is the only pred the successor is not part of a loop.
+      CollcectBlockData(EEsucc); 
+      // Try to Merge the block into it's pred.
+      // If the blocks were merged we might have another early exit oppurunity.
+      if (MergeBlockIntoPredecessor(EEsucc)) return true;
     }
   }
 
