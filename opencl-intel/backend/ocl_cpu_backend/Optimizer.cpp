@@ -31,6 +31,7 @@ File Name:  Optimizer.cpp
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "PrintIRPass.h"
@@ -199,6 +200,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
+  m_modulePasses.add(createBasicAliasAnalysisPass());
   m_funcPasses.add(new llvm::TargetData(pModule));
 
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
