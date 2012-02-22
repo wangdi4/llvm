@@ -227,6 +227,7 @@ set (OCL_UTILS_INCLUDE_FILES
     TypeAlignment.h
     UndefinedExternalFunctions.h
     PreventDivisionCrashes.h
+    ProcessorDetect.h
   )
   
 set (OCL_UTILS_SOURCE_FILES
@@ -246,12 +247,12 @@ set (OCL_UTILS_SOURCE_FILES
     TypeAlignment.cpp
     UndefinedExternalFunctions.cpp
     PreventDivisionCrashes.cpp
+    ProcessorDetect.cpp
   )
 
 # Create target project
     
 set (OCL_CPU_BACKEND_INCLUDE_FILES
-    ProcessorDetect.h
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
     CPUDeviceBackendFactory.h
@@ -317,7 +318,6 @@ if (ENABLE_SDE)
 endif()
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
-    ProcessorDetect.cpp
     CPUDeviceBackendFactory.cpp
     MICDeviceBackendFactory.cpp
     builtin_functions.cpp

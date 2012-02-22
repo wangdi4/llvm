@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010, 2011).
+Copyright (c) Intel Corporation (2010-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -300,13 +300,13 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
     }
 }
 
-void OpenCLArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerList * input, const char* kernelName)
+void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferContainerList *input)
 {
     size_t stLocMemSize = 0;
     size_t offset = 0;
 
-    IBufferContainer * bufferContainer = runResult->GetOutput(kernelName).CreateBufferContainer();
-    IBufferContainer * pOutBC = input->GetBufferContainer(0);
+    IBufferContainer *bufferContainer = output.CreateBufferContainer();
+    IBufferContainer *pOutBC = input->GetBufferContainer(0);
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
         const IMemoryObjectDesc * pMemObjDesc = pOutBC->GetMemoryObject(i)->GetMemoryObjectDesc();

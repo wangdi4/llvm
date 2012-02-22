@@ -1,1 +1,1 @@
-; RUN: sde -- SATest -force_ref -detailed_stat -cpuarch=knf -tsize=0 -single_wg -trace=false -vtune=false -cpufeatures= -config=/Volcano/Conformance/framework_test_type/Test_MT_release.10.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Conformance/framework_test_type/Test_MT_release.10.cfg

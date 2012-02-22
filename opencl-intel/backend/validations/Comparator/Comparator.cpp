@@ -15,7 +15,6 @@ Copyright (c) Intel Corporation (2011).
 File Name:  Comparator.cpp
 
 \*****************************************************************************/
-#include "llvm/Support/raw_ostream.h"
 #include "IComparisonResults.h"
 #include "Comparator.h"
 #include "NEATValue.h"

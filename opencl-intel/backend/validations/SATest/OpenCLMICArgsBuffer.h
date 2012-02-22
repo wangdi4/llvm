@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,29 +26,12 @@ File Name:  OpenCLMICArgsBuffer.h
 #include "source/COIProcess_source.h"
 #include "source/COIPipeline_source.h"
 
+#include "auto_ptr_ex.h"
 #include "cl_types.h"
-#include "CL/cl.h"
-#include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 
 namespace Validation
 {
-    /// @brief Fills ocl_backend's cl_mem_obj_descriptor structure from DataManager's
-    /// BufferDesc and pointer to data
-    /// @param [OUT] mem_desc output structure
-    /// @param [IN] buffer_desc DataManager's buffer descriptor
-    /// @param [IN] pData pointer to data stored in Buffer
-    void FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, 
-        const BufferDesc& buffer_desc, void* pData);
-    
-    /// @brief Fills ocl_backend's cl_mem_obj_descriptor structure from DataManager's
-    /// ImageDesc and pointer to data
-    /// @param [OUT] mem_desc output structure
-    /// @param [IN] image_desc DataManager's image descriptor
-    /// @param [IN] pData pointer to data stored in image
-    void FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, 
-        const ImageDesc& image_desc, void* pData);
-
   /// @brief This class is responsible for handling the arguments buffer need for creation of kernel binary
   class OpenCLMICArgsBuffer
   {
@@ -62,7 +45,6 @@ namespace Validation
       OpenCLMICArgsBuffer(const cl_kernel_argument * pKernelArgs,
           cl_uint kernelNumArgs,
           IBufferContainerList * input,
-          DispatcherData* dispatcher,
           COIBuffersWrapper& coiBuffers,
           const COIPROCESS& deviceProcess);
 
@@ -88,6 +70,8 @@ namespace Validation
         return m_directives;
     }
 
+    /// Adds first buffer container from intput buffer container list into the output buffer container list.
+    void CopyFirstBC(IBufferContainerList *output, const IBufferContainerList * input);
   private:
     /// @brief Calculates the kernel arguments buffer size
     /// @return Size in bytes of the kernel arguments buffer
@@ -103,7 +87,7 @@ namespace Validation
   private:
 
     // Kernel arguments buffer
-    uint8_t* m_pArgsBuffer;
+    auto_ptr_ex<uint8_t, ArrayDP<uint8_t> > m_pArgsBuffer;
     // Size in bytes of kernel arguments buffer
     size_t m_argsBufferSize;
 
@@ -112,7 +96,6 @@ namespace Validation
     // Number of kernel arguments
     cl_uint m_kernelNumArgs;
 
-    DispatcherData* m_dispatcher;
     std::vector<BufferDirective> m_directives;
 
   };

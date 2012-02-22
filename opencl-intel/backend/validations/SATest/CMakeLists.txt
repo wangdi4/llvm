@@ -5,17 +5,12 @@ else(WIN32)
 endif(WIN32)
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-	# 32 bit
-	set (PLATFORM 32)
+    # 32 bit
+    set (PLATFORM 32)
 else( CMAKE_SIZEOF_VOID_P EQUAL 4)
-	# 64 bit
-	set (PLATFORM 64)
+    # 64 bit
+    set (PLATFORM 64)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
-
-if (ENABLE_SDE)
-    message("-- Enabling SDE version ... ")
-    add_definitions( -DENABLE_SDE )
-endif (ENABLE_SDE)
 
 #
 # Settings for Linux compilation
@@ -65,27 +60,25 @@ set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${A
 endif (NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
-  #set( COI_DIR                /opt/intel/mic/coi)
-  set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi)
-  set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
-  set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
+#set( COI_DIR                /opt/intel/mic/coi)
+set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi)
 endif (INCLUDE_MIC_DEVICE)
 
 include_directories(
-	${VALIDATIONS_ROOT}/SATest
-	${VALIDATIONS_ROOT}/DataManager
-	${VALIDATIONS_ROOT}/NEAT
-	${VALIDATIONS_ROOT}/Comparator
-	${VALIDATIONS_ROOT}/Common
-	${VALIDATIONS_ROOT}/OCLBuiltins
-	${VALIDATIONS_ROOT}/../external/tinyxml
-	${BACKEND_ROOT_DIR}/../cl_api
-	${VALIDATIONS_ROOT}/../ocl_cpu_backend
-	${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
+    ${VALIDATIONS_ROOT}/SATest
+    ${VALIDATIONS_ROOT}/DataManager
+    ${VALIDATIONS_ROOT}/NEAT
+    ${VALIDATIONS_ROOT}/Comparator
+    ${VALIDATIONS_ROOT}/Common
+    ${VALIDATIONS_ROOT}/OCLBuiltins
+    ${VALIDATIONS_ROOT}/../external/tinyxml
+    ${BACKEND_ROOT_DIR}/../cl_api
+    ${VALIDATIONS_ROOT}/../ocl_cpu_backend
+    ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
     ${BACKEND_ROOT_DIR}/arch_headers
-	${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
-	${VALIDATIONS_ROOT}/InterpreterPluggable
-	${VALIDATIONS_ROOT}/PlugInNEAT
+    ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
+    ${VALIDATIONS_ROOT}/InterpreterPluggable
+    ${VALIDATIONS_ROOT}/PlugInNEAT
 )
 
 set (SATest_INCLUDE_FILES
@@ -118,6 +111,11 @@ set (SATest_INCLUDE_FILES
     DXRunConfiguration.h
     DXProgramConfiguration.h
     WorkItemStorage.h
+    OpenCLArgsBuffer.h
+    OpenCLCPUBackendRunner.h
+    OpenCLFactory.h
+    BackendOptions.h
+    OpenCLBackendRunner.h
 )
 
 set (SATest_SOURCE_FILES
@@ -141,65 +139,48 @@ set (SATest_SOURCE_FILES
     OpenCLProgramConfiguration.cpp
     OpenCLBackendWrapper.cpp
     OpenCLComparator.cpp
+    OpenCLArgsBuffer.cpp
+    OpenCLCPUBackendRunner.cpp
+    OpenCLFactory.cpp
+    OpenCLBackendRunner.cpp
     )
 
-if(MIC_ENABLE)
-
+if (INCLUDE_MIC_DEVICE)
 set (SATest_INCLUDE_FILES
     ${SATest_INCLUDE_FILES}
     OpenCLMICBackendRunner.h
-    OpenCLMICBackendWrapper.h
-    OpenCLMICFactory.h
     OpenCLMICArgsBuffer.h
-    DeviceCommunicationService.h
+    COIHelpers.h
     )
-
 set (SATest_SOURCE_FILES
     ${SATest_SOURCE_FILES}
     OpenCLMICBackendRunner.cpp
-    OpenCLMICBackendWrapper.cpp
-    OpenCLMICFactory.cpp
     OpenCLMICArgsBuffer.cpp
-    DeviceCommunicationService.cpp
+    COIHelpers.cpp
     )
-
-add_definitions(-DMIC_ENABLE)
-
+add_definitions( -DINCLUDE_MIC_TARGET )
 set( SATEST_NATIVE_NAME     SATestNative.bin)
 list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
-list (APPEND SATestMICDefs "SVML_LIBRARY_NAME=__ocl_svml_knf.so")
 list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
 include_directories(${COI_DIR}/include)
 link_directories(${COI_DIR}/host-linux-release/lib)
-
-else(MIC_ENABLE)
-
-set (SATest_INCLUDE_FILES
-    ${SATest_INCLUDE_FILES}
-    OpenCLArgsBuffer.h
-    OpenCLProgramRunner.h
-    OpenCLFactory.h
-    )
-
-set (SATest_SOURCE_FILES
-    ${SATest_SOURCE_FILES}
-    OpenCLArgsBuffer.cpp
-    OpenCLProgramRunner.cpp
-    OpenCLFactory.cpp
-    )
-
-
-endif(MIC_ENABLE)
+set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
+set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
+endif (INCLUDE_MIC_DEVICE)
 
 add_executable(SATest
     ${SATest_INCLUDE_FILES}
     ${SATest_SOURCE_FILES}
 )
 
-if(MIC_ENABLE)
+if (INCLUDE_MIC_DEVICE)
 set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
 target_link_libraries(SATest coi_host)
-endif(MIC_ENABLE)
+# Copy libcoi_host.so and libcoi_host.so.0 to the bin directory, so no need
+# adding ${COI_DIR}/host-linux-release/lib to the LD_LIBRARY_PATH directory.
+install(FILES ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION bin)
+install(FILES ${COI_DIR}/host-linux-release/lib/libcoi_host.so.0 DESTINATION bin)
+endif (INCLUDE_MIC_DEVICE)
 
 set (LLVM_LIBS
     # LLVM libs
@@ -245,10 +226,11 @@ add_dependencies(SATest
     OclCpuBackEnd
     )
 
-if(MIC_ENABLE)
-if (NOT WIN32)
+if (INCLUDE_MIC_DEVICE)
 add_subdirectory(MICNative)
-endif(NOT WIN32)
-endif(MIC_ENABLE)
+add_dependencies(SATest
+    OclDeviceExecutor
+    )
+endif (INCLUDE_MIC_DEVICE)
 
 install(TARGETS SATest RUNTIME DESTINATION bin)

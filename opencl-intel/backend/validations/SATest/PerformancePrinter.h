@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -36,14 +36,12 @@ private:
     void OnKernelSample(const std::string& kernel,  
                         cl_long buildTicks, 
                         double buildSDMean,
-#ifdef MIC_ENABLE
+                        cl_long executionTicks,
+                        double executionSDMean,
                         cl_long serializationTicks,
                         double serializationSDMean,
                         cl_long deserializationTicks,
-                        double deserializationSDMean,
-#endif //MIC_ENABLE
-                        cl_long executionTicks,
-                        double executionSDMean
+                        double deserializationSDMean
                         );
 private:
     std::string m_IRFilename;

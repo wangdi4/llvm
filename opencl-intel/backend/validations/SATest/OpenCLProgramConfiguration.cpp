@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -282,11 +282,6 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
     {
         stringstream value(element.GetText());
         value >> m_useVectorizer;
-    }
-
-    else // Unrecognized configuration option
-    {
-        DEBUG(llvm::dbgs()<<"[OpenCL program configuration] unrecognized option is found: " << element.ValueStr() << "\n");
     }
 
     return true;

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -21,12 +21,19 @@ File Name:  OpenCLMICNative.cpp
 #include <sink/COIProcess_sink.h>
 #include <common/COIMacros_common.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "cl_dev_backend_api.h"
 #include "mic_dev_limits.h"
 #include "WGContext.h"
 #include "common.h"
 #include "Performance.h"
+
+#if defined(__LP64__)
+#include <sys/mman.h>
+#endif
+
+#define PAGE_SIZE 4096 // move this
 
 //#define DEVICE_DEBUG
 #ifdef DEVICE_DEBUG
@@ -45,16 +52,63 @@ File Name:  OpenCLMICNative.cpp
     }                                                           \
 }
 
-ICLDevBackendSerializationService *serializer;
-ICLDevBackendExecutionService *executor;
+ICLDevBackendSerializationService *serializer = NULL;
+ICLDevBackendExecutionService *executor = NULL;
 
 // execution memory allocator required by Device Backend
 class MICNativeBackendExecMemoryAllocator : public ICLDevBackendJITAllocator
 {
 public:
-    void* AllocateExecutable(size_t size, size_t alignment){return NULL;}
-    void FreeExecutable(void* ptr){}
+    void* AllocateExecutable(size_t size, size_t alignment);
+    void FreeExecutable(void* ptr);
 };
+
+void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_t alignment)
+{
+    size_t required_size = (size % PAGE_SIZE == 0) ? size : ((size_t)(size/PAGE_SIZE) + 1)*PAGE_SIZE;
+    
+    size_t aligned_size = 
+        required_size +    // required size
+        (alignment - 1) +  // for alignment 
+        sizeof(void*) +    // for the free ptr
+        sizeof(size_t);    // to save the original size (for mprotect)
+    void* pMem = malloc(aligned_size);
+    if(NULL == pMem) return NULL;
+    
+    char* pAligned = ((char*)pMem) + aligned_size - required_size;
+    pAligned = (char*)(((size_t)pAligned) & ~(alignment - 1));
+    ((void**)pAligned)[-1] = pMem;
+    void* pSize = (void*)(((char*)pAligned) - sizeof(void*));
+    ((size_t*)pSize)[-1] = required_size;
+    
+#if defined(__LP64__)
+    int ret = mprotect( (void*)pAligned, required_size, PROT_READ | PROT_WRITE | PROT_EXEC );
+    if (0 != ret)
+    {
+        free(pMem);
+        return NULL;
+    }
+#else
+    assert(false && "Not implemented");
+#endif
+    
+    return pAligned;
+}
+
+void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
+{
+    void* pMem  = ((void**)ptr)[-1];
+    void* pSize = (void*)(((char*)ptr) - sizeof(void*));
+    size_t size = ((size_t*)pSize)[-1];
+    
+#if defined(__LP64__)
+    mprotect( (void*)ptr, size, PROT_READ | PROT_WRITE );
+#else
+    assert(false && "Not implemented");
+#endif
+
+    free(pMem);
+}
 
 // kernel printf filler required by Device Backend
 class MICNativeBackendPrintfFiller //: public ICLDevBackendPrintf
@@ -105,42 +159,6 @@ int main(int argc, char** argv)
     UNREFERENCED_PARAM (argc);
     UNREFERENCED_PARAM (argv);
 
-    MICNativeBackendOptions options;
-
-    cl_dev_err_code err = CL_DEV_SUCCESS;
-    err = InitDeviceBackend( NULL );
-    if (CL_DEV_FAILED( err ))
-    {
-        printf("InitDeviceBackend failed\n"); fflush(0);
-        return -1;
-    }
-
-    // load Backend Compiler
-    ICLDevBackendServiceFactory* be_factory = GetDeviceBackendFactory();
-
-    if (NULL == be_factory)
-    {
-        printf("GetDeviceBackendFactory failed\n"); fflush(0);
-        return -1;
-    }
-
-    err = be_factory->GetExecutionService( &options, &executor );
-    if (CL_DEV_FAILED( err ))
-    {
-        printf("GetExecutionService failed\n"); fflush(0);
-        return -1;
-    }
-
-    err = be_factory->GetSerializationService( &options, &serializer );
-
-    if (CL_DEV_FAILED( err ))
-    {
-        printf("GetSerializationService failed\n"); fflush(0);
-        executor->Release();
-        executor = NULL;
-        return -1;
-    }
-
     // Functions enqueued on the sink side will not start executing until
     // you call COIPipelineStartExecutingRunFunctions(). This call is to 
     // synchronize any initialization required on the sink side.
@@ -149,10 +167,16 @@ int main(int argc, char** argv)
     if ( COI_SUCCESS != result )
     {
         printf("COIPipelineStartExecutingRunFunctions failed\n"); fflush(0);
-        executor->Release();
-        executor = NULL;
-        serializer->Release();
-        serializer = NULL;
+        if (executor)
+        {
+            executor->Release();
+            executor = NULL;
+        }
+        if (serializer)
+        {
+            serializer->Release();
+            serializer = NULL;
+        }
         return -1;
     }
 
@@ -163,11 +187,27 @@ int main(int argc, char** argv)
     // exit gracefully.
     COIProcessWaitForShutdown();
 
-    executor->Release();
-    executor = NULL;
-    serializer->Release();
-    serializer = NULL;
-
+    if (executor)
+    {
+        executor->Release();
+        executor = NULL;
+    }
+    else
+    {
+        // executor can't be NULL pointer here! Return error value.
+        return -1;
+    }
+    if (serializer)
+    {
+        serializer->Release();
+        serializer = NULL;
+    }
+    else
+    {
+        // serializer can't be NULL pointer here! Return error value.
+        return -1;
+    }
+    TerminateDeviceBackend();
     return 0;
 }
 
@@ -216,12 +256,16 @@ void executeKernels(uint32_t         in_BufferCount,
     UNREFERENCED_PARAM(in_ReturnValueLength);
 
     DEBUG_PRINT("Program execution has started on the MIC side!\n");
+    DEBUG_PRINT("Number of Buffers: %d\n", in_BufferCount);
 
     Validation::Sample deserializationTimer; 
     deserializationTimer.Start();
     // 0 buffer contains test program.
     ICLDevBackendProgram_ *pProgram;
     DEBUG_PRINT("Program deserialization has started ...\n");
+    DEBUG_PRINT("Program blob: %p, blob size: %d\n", in_ppBufferPointers[0], uint32_t(in_pBufferLengths[0]));
+    DEBUG_PRINT("First blob simbol: %s\n", (char*)in_ppBufferPointers[0]);
+   
     CHECK_RESULT(serializer->DeSerializeProgram(&pProgram, in_ppBufferPointers[0], size_t(in_pBufferLengths[0])));
     DEBUG_PRINT("done.\n");
     deserializationTimer.Stop();
@@ -230,14 +274,15 @@ void executeKernels(uint32_t         in_BufferCount,
 
     uint64_t numOfKernels = *(uint64_t*)in_pMiscData;
     // Last buffer contains dispatcher data.    
-    DispatcherData *dispatchers = (DispatcherData *)(in_ppBufferPointers[in_BufferCount-1]);
+    DispatcherData *dispatchers = (DispatcherData*)(in_ppBufferPointers[in_BufferCount - 1]);
     ExecutionOptions *exeOptions = (ExecutionOptions*)(dispatchers + numOfKernels);
-    uint64_t kernelsArgIndex = 0;
+    uint64_t kernelsArgIndex = 1;
     DEBUG_PRINT("Number of kernels to execute = %d\n", (int)numOfKernels);
     WGContext context;
     for (uint64_t i = 0; i < numOfKernels; ++i)
     {
-        kernelsArgIndex += dispatchers[i].preExeDirectivesCount + 1;
+        kernelsArgIndex += dispatchers[i].preExeDirectivesCount;
+        DEBUG_PRINT("Number of pre-execution directives = %d\n", (int)dispatchers[i].preExeDirectivesCount);
         DEBUG_PRINT("Running \"%s\" kernel\n", (const char *)(in_ppBufferPointers[kernelsArgIndex]));
         DEBUG_PRINT("Kernel arguments index = %d\n", (int)kernelsArgIndex);
         // First we have the name of kernel followed by '\0' character.
@@ -250,6 +295,23 @@ void executeKernels(uint32_t         in_BufferCount,
         dispatchers[i].workDesc.convertToClWorkDescriptionType(&workDesc);
         DEBUG_PRINT("\nWork space params:\nDimension:\t%d\nGlobal work size:\t[%d, %d, %d]\nGlobal work offset:\t[%d, %d, %d]\nLocal work size:\t[%d, %d, %d]\n", workDesc.workDimension, (int)workDesc.globalWorkSize[0], (int)workDesc.globalWorkSize[1], (int)workDesc.globalWorkSize[2], (int)workDesc.globalWorkOffset[0], (int)workDesc.globalWorkOffset[1], (int)workDesc.globalWorkOffset[2], (int)workDesc.localWorkSize[0], (int)workDesc.localWorkSize[1], (int)workDesc.localWorkSize[2]);
         DEBUG_PRINT("Kernel arguments size = %d\n", (int)dispatchers[i].kernelArgSize);
+        // adjust the local work group sized in case we are running
+        // in validation mode. Adjusting is mainly selecting the appropriate
+        // local work group size if one was not selected by user. We need
+        // to adjust to be able to use the same value as a reference runner.
+        // In Performance mode no adjustment is needed and we let the Volcano
+        // engine to select one
+        if( !exeOptions->measurePerformance )
+        {
+            for (size_t dim = 0; dim < workDesc.workDimension; ++dim)
+            {
+                if(workDesc.localWorkSize[dim] == 0)
+                {
+                    workDesc.localWorkSize[dim] = std::min<uint32_t>( workDesc.globalWorkSize[dim], exeOptions->defaultLocalWGSize);
+                }
+            }
+        }
+
         char *kernelsArgs = new char[dispatchers[i].kernelArgSize];
         memcpy(kernelsArgs, (void*)((char*)(in_ppBufferPointers[kernelsArgIndex]) + dispatchers[i].kernelDirective.kernelNameSize), dispatchers[i].kernelArgSize);
         DEBUG_PRINT("Float value = %f\n", *(float*)(kernelsArgs + 24));
@@ -351,6 +413,64 @@ void executeKernels(uint32_t         in_BufferCount,
 }
 
 COINATIVELIBEXPORT
+void initDevice(
+    uint32_t         in_BufferCount,
+    void**           in_ppBufferPointers,
+    uint64_t*        in_pBufferLengths,
+    void*            in_pMiscData,
+    uint16_t         in_MiscDataLength,
+    void*            in_pReturnValue,
+    uint16_t         in_ReturnValueLength)
+{
+    MICNativeBackendOptions options;
+
+    // Return value is assumed to be the 32-bit signed integer value.
+    assert(in_ReturnValueLength == 4);
+    int32_t* retVal = reinterpret_cast<int32_t*>(in_pReturnValue);
+
+    cl_dev_err_code err = CL_DEV_SUCCESS;
+    err = InitDeviceBackend( NULL );
+    if (CL_DEV_FAILED( err ))
+    {
+        printf("InitDeviceBackend failed\n"); fflush(0);
+        *retVal = -1;
+        return;
+    }
+
+    // load Backend Compiler
+    ICLDevBackendServiceFactory* be_factory = GetDeviceBackendFactory();
+    if (NULL == be_factory)
+    {
+        TerminateDeviceBackend();
+        printf("GetDeviceBackendFactory failed\n"); fflush(0);
+        *retVal = -1;
+        return;
+    }
+
+    err = be_factory->GetExecutionService( &options, &executor );
+    if (CL_DEV_FAILED( err ))
+    {
+        TerminateDeviceBackend();
+        printf("GetExecutionService failed\n"); fflush(0);
+        *retVal = -1;
+        return;
+    }
+
+    err = be_factory->GetSerializationService( &options, &serializer );
+
+    if (CL_DEV_FAILED( err ))
+    {
+        TerminateDeviceBackend();
+        printf("GetSerializationService failed\n"); fflush(0);
+        executor->Release();
+        executor = NULL;
+        *retVal = -1;
+        return;
+    }
+    *retVal = 0;
+}
+
+COINATIVELIBEXPORT
 void getBackendTargetDescriptionSize(
     uint32_t         in_BufferCount,
     void**           in_ppBufferPointers,
@@ -381,10 +501,9 @@ void getBackendTargetDescription(
     assert( 1 == in_BufferCount && "SINK: get_backend_target_description() should receive 1 buffer" );
     assert( sizeof(uint64_t) == in_ReturnValueLength && "SINK: get_backend_target_description() should receive return-value as uint64_t" );
 
-    size_t filled_size = 0;
 
-    filled_size = executor->GetTargetMachineDescription( in_ppBufferPointers[0], (size_t)in_pBufferLengths[0] );
+    cl_dev_err_code ret = executor->GetTargetMachineDescription( in_ppBufferPointers[0], (size_t)in_pBufferLengths[0] );
 
-    *((uint64_t*)in_pReturnValue) = (uint64_t)filled_size;
+    *((uint64_t*)in_pReturnValue) = (uint64_t)ret;
 }
 

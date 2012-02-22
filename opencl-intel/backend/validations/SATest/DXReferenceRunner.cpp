@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,20 +26,17 @@ DXReferenceRunner::DXReferenceRunner(void)
 DXReferenceRunner::~DXReferenceRunner(void)
 {
 }
-
-
-void DXReferenceRunner::Run(IRunResult*, 
-                            IProgram*,
-                            IProgramConfiguration*, 
+void DXReferenceRunner::Run(IRunResult*,
+                            const IProgram*,
+                            const IProgramConfiguration*,
                             const IRunComponentConfiguration*)
 {
-
 }
 
-void DXReferenceRunner::LoadOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig)
+void DXReferenceRunner::LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig)
 {
 }
 
-void DXReferenceRunner::StoreOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig)
+void DXReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const
 {
 }

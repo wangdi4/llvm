@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010, 2011).
+Copyright (c) Intel Corporation (2010-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -82,6 +82,11 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
     std::auto_ptr<IRunResultComparator> spComparator(
         m_factory.CreateComparator(m_pProgramConfiguration, pRunConfiguration));
 
+    if (m_pProgramConfiguration->GetNumberOfKernelConfigurations() == 0)
+    {
+        std::cout << "WARNING! There are no kernels to execute in validation mode!\n";
+    }
+
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram,
         m_pProgramConfiguration, pRunConfiguration->GetBackendRunnerConfiguration());
@@ -104,13 +109,18 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 
 void SATest::RunPerformance(const IRunComponentConfiguration* pRunConfiguration)
 {
+    if (m_pProgramConfiguration->GetNumberOfKernelConfigurations() == 0)
+    {
+        std::cout << "WARNING! There are no kernels to execute in performance mode!\n";
+    }
+
     std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);
-	
+
     PerformancePrinter printer(m_pProgramConfiguration, pRunConfiguration);
-	runResult.GetPerformance().Visit(&printer);
+    runResult.GetPerformance().Visit(&printer);
 }
 
 void SATest::RunReference(const IRunComponentConfiguration* pRunConfiguration)

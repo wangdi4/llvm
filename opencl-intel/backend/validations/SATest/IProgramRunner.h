@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -38,20 +38,20 @@ namespace Validation
         /// @param [IN] program Test program to execute
         /// @param [IN] programConfig Test program configuration options
         /// @param [IN] runConfig Configuration of the test run.
-        virtual void Run(IRunResult* pRunResult, 
-                         IProgram * pProgram, 
-                         IProgramConfiguration* programConfig, 
+        virtual void Run(IRunResult* pRunResult,
+                         const IProgram * pProgram,
+                         const IProgramConfiguration* programConfig,
                          const IRunComponentConfiguration* runConfig) = 0;
-    
+
         /// @brief Load pre-computed test output data from the file specified in program configuration.
         /// @param [OUT] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void LoadOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig) = 0;
+        virtual void LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig) = 0;
 
         /// @brief Saves test execution results to the file specified in program configuration.
         /// @param [IN] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void StoreOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig) = 0;
+        virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const = 0;
     };
 }
 

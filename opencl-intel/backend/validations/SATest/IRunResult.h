@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -48,10 +48,12 @@ namespace Validation
         /// @brief Returns test execution output
         /// @return Test output
         virtual IBufferContainerList& GetOutput(const char* kernelName) = 0;
+        virtual const IBufferContainerList& GetOutput(const char * name) const = 0;
 
         /// @brief Returns test execution NEAT output
         /// @return NEAT output
         virtual IBufferContainerList& GetNEATOutput(const char* kernelName) = 0;
+        virtual const IBufferContainerList& GetNEATOutput(const char* name) const = 0;
 
         /// @brief Returns vector of flags signaling comparator to omit corresponding argument.
         virtual const std::vector<bool>* GetComparatorIgnoreList(const char* kernelName) = 0;

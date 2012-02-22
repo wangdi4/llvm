@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -66,7 +66,7 @@ TransposeSize("tsize",
 
 llvm::cl::opt<std::string> 
 CPUArch("cpuarch",
-         llvm::cl::desc("CPU Architecture: auto, corei7, sandybridge, haswell, knf"),
+         llvm::cl::desc("CPU Architecture: auto, corei7, corei7-avx, haswell, auto-remote, knf"),
          llvm::cl::init("auto")
          );
 
@@ -85,6 +85,11 @@ llvm::cl::opt<bool>
 FlagForceRunReference("force_ref",
                    llvm::cl::desc("Force running reference"),
                    llvm::cl::init(false));
+
+llvm::cl::opt<bool>
+SDEEnabled("sde",
+      llvm::cl::desc("Enables SDE version of SATest."),
+      llvm::cl::init(false));
 
 llvm::cl::opt<bool>
 TraceMarks("trace",
@@ -111,10 +116,10 @@ ExecuteIterations("execute-iterations",
 llvm::cl::opt<TEST_MODE>
 TestMode(llvm::cl::desc("Test mode:"),
          llvm::cl::values(
-         clEnumValN(VALIDATION, "VAL", "Validation mode"),
-         clEnumValN(REFERENCE, "REF", "Reference mode"),
-         clEnumValN(PERFORMANCE, "PERF", "Performance mode"),
-         clEnumValN(BUILD, "BUILD", "Build only mode"),
+         clEnumValN(VALIDATION,  "VAL",   "Validation mode"),
+         clEnumValN(REFERENCE,   "REF",   "Reference mode"),
+         clEnumValN(PERFORMANCE, "PERF",  "Performance mode"),
+         clEnumValN(BUILD,       "BUILD", "Build only mode"),
          clEnumValEnd));
 
 // turn on running single work group

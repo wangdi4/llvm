@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -278,7 +278,6 @@ void Performance::Visit(IPerformanceVisitor* pVisitor) const
     double  buildSD    = m_buildSample.StandardDeviation();
     double  buildSDMean= buildSD / buildMean;
 
-#ifdef MIC_ENABLE
     cl_long serializationTicks = m_serializationSample.MinimalSample().TotalTicks();
     double  serializationMean  = m_serializationSample.Mean();
     double  serializationSD    = m_serializationSample.StandardDeviation();
@@ -288,7 +287,6 @@ void Performance::Visit(IPerformanceVisitor* pVisitor) const
     double  deserializationMean  = m_deserializationSample.Mean();
     double  deserializationSD    = m_deserializationSample.StandardDeviation();
     double  deserializationSDMean= deserializationSD / deserializationMean;
-#endif // MIC_ENABLE
 
     for( Samples::const_iterator it = m_executionSamples.begin();
          it != m_executionSamples.end();
@@ -301,13 +299,11 @@ void Performance::Visit(IPerformanceVisitor* pVisitor) const
         pVisitor->OnKernelSample(it->first,  
                                  buildTicks, 
                                  buildSDMean,
-            #ifdef MIC_ENABLE
+                                 it->second.MinimalSample().TotalTicks(),
+                                 sdmean,
                                  serializationTicks,
                                  serializationSDMean,
                                  deserializationTicks,
-                                 deserializationSDMean,
-            #endif //MIC_ENABLE
-                                 it->second.MinimalSample().TotalTicks(),
-                                 sdmean);
+                                 deserializationSDMean);
     }
 }

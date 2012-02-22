@@ -97,6 +97,11 @@ if(PYTHONINTERP_FOUND)
     @ONLY)
 
   add_custom_target(check_workloads
+    COMMAND sed -e "s#\@LLVM_BINARY_DIR\@#${LLVM_BINARY_DIR}#"
+                -e "s#\@LLVM_TOOLS_DIR\@#${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}#"
+                ${ADDITIONAL_SED_OPTIONS}
+                ${CMAKE_CURRENT_SOURCE_DIR}/../SATest.py.in >
+                ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/SATest.py
     COMMAND ${PYTHON_EXECUTABLE}
                 ${LLVM_SOURCE_DIR}/utils/lit/lit.py
                 --param llvm_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
@@ -104,6 +109,7 @@ if(PYTHONINTERP_FOUND)
                 --param build_config=${CMAKE_CFG_INTDIR}
                 --param build_mode=${RUNTIME_BUILD_MODE}
                 ${LIT_ARGS}
+                ${ADDITIONAL_LIT_OPTIONS}
                 ${CMAKE_CURRENT_BINARY_DIR}
                 COMMENT "Running OpenCL workloads tests")
   set_target_properties(check_workloads PROPERTIES FOLDER "Tests")

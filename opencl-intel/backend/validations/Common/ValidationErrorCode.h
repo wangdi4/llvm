@@ -26,7 +26,7 @@ namespace Validation
     enum VALIDATION_ERROR_CODE
     {
         VALIDATION_SUCCESS				= 0,			//!< Function call or query call succeeded
-        VALIDATION_ERROR_FAIL			= 0x80000000,	//!< Internal unspecified error
+        VALIDATION_ERROR_FAIL			= 0x80000001,	//!< Internal unspecified error
         VALIDATION_INVALID_OPERATION_MODE//,				//!< Invalid cpu/mic architecture was set.
         //VALIDATION_INVALID_VALUE,						//!< Invalid value was passed to the function.
         //VALIDATION_INVALID_PROPERTIES,					//!< Properties might be valid but not supported

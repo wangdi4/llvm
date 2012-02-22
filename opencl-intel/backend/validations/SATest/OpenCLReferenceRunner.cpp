@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010, 2011).
+Copyright (c) Intel Corporation (2010-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -114,11 +114,11 @@ OpenCLReferenceRunner::~OpenCLReferenceRunner(void)
 
 
 void OpenCLReferenceRunner::Run(IRunResult* runResult,
-                                IProgram* program,
-                                IProgramConfiguration* programConfig,
+                                const IProgram* program,
+                                const IProgramConfiguration* programConfig,
                                 const IRunComponentConfiguration* runConfig)
 {
-    OpenCLProgramConfiguration *pProgramConfig = static_cast<OpenCLProgramConfiguration *>(programConfig);
+    const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     ParseToModule(program);
@@ -132,9 +132,9 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     }
 }
 
-void OpenCLReferenceRunner::LoadOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig)
+void OpenCLReferenceRunner::LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig)
 {
-    OpenCLProgramConfiguration *pProgramConfig = static_cast<OpenCLProgramConfiguration *>(pConfig);
+    const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(pConfig);
 
     for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
         it != pProgramConfig->endKernels();
@@ -150,11 +150,11 @@ void OpenCLReferenceRunner::LoadOutput(IRunResult* pRunResult, IProgramConfigura
     }
 }
 
-void OpenCLReferenceRunner::StoreOutput(IRunResult* pRunResult, IProgramConfiguration* pConfig)
+void OpenCLReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const
 {
     typedef std::map<std::string, uint32_t> BcIdxMap;
 
-    OpenCLProgramConfiguration *pProgramConfig = static_cast<OpenCLProgramConfiguration *>(pConfig);
+    const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(pConfig);
 
     /// Map to track how many buffer containers were saved to files for different kernels
     BcIdxMap bcIndex;
@@ -187,15 +187,15 @@ void OpenCLReferenceRunner::StoreOutput(IRunResult* pRunResult, IProgramConfigur
         /// Create Buffer container list for current kernel name and
         /// Execution index
         ContainerCopier cc;
-        IBufferContainerList* pBcl = &pRunResult->GetOutput( kernelName.c_str() );
-        std::auto_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(pBcl, bcIdx));
+        const IBufferContainerList& pBcl = pRunResult->GetOutput( kernelName.c_str() );
+        std::auto_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(&pBcl, bcIdx));
         /// Save it to file
         WriteReferenceBuffer( *it, pNewBcl.get());
 
         if( m_bUseNEAT )
         {
-            pBcl = &pRunResult->GetNEATOutput( kernelName.c_str() );
-            std::auto_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(pBcl, bcIdx));
+            const IBufferContainerList& neatBCL = pRunResult->GetNEATOutput( kernelName.c_str() );
+            std::auto_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(&neatBCL, bcIdx));
             WriteNEATBuffer(*it, pNewBclNeat.get());
         }
     }
@@ -226,7 +226,7 @@ void OpenCLReferenceRunner::ReadBufferContainer(const std::string& filename,
 
 void OpenCLReferenceRunner::WriteBufferContainer(const std::string& filename,
                                                  DataFileType filetype,
-                                                 IContainer* pContainer)
+                                                 IContainer* pContainer) const
 {
     switch( filetype )
     {
@@ -293,7 +293,7 @@ void OpenCLReferenceRunner::ReadNEATBuffer(OpenCLKernelConfiguration* pKernelCon
 
 
 
-void OpenCLReferenceRunner::WriteReferenceBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer )
+void OpenCLReferenceRunner::WriteReferenceBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer ) const
 {
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
@@ -307,7 +307,7 @@ void OpenCLReferenceRunner::WriteReferenceBuffer(OpenCLKernelConfiguration* pKer
                          pContainer);
 }
 
-void OpenCLReferenceRunner::WriteNEATBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer )
+void OpenCLReferenceRunner::WriteNEATBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer ) const
 {
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
@@ -397,7 +397,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                 // Kernel execution assumes all buffer arguments are aligned
                 // If we do not align the buffer the execution crashes
                 auto_ptr_ex<cl_mem_obj_descriptor> spMemDesc((cl_mem_obj_descriptor*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
-                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL);
+                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL );
                 currArg.PointerVal = spMemDesc.get();
                 // push pointer to scratch memory
                 m_ClMemObjScratchMemList.push_back(spMemDesc.release());

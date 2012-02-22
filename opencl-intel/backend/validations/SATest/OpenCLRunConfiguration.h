@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -40,6 +40,7 @@ namespace Validation
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
         RC_BR_TRANSPOSE_SIZE,
+        RC_BR_USE_SDE,
         RC_BR_USE_PIN_TRACE_MARKS,
         RC_BR_USE_VTUNE,
         RC_BR_PRINT_BUILD_LOG,
@@ -73,6 +74,7 @@ namespace Validation
         }
     private:
         bool m_measurePerformance;
+        bool m_useSDE;
         bool m_useTraceMarks;
         bool m_useVTune;
         bool m_printBuildLog;

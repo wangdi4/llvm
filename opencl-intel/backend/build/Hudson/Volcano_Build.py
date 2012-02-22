@@ -315,7 +315,7 @@ def main():
     parser.add_option("--ocl",             dest="volcano_only", action="store_false", help="Build the OCL solution. Default")
     parser.add_option("--norebuild",       dest="rebuild",      action="store_false", help="Perform only regular build.", default=True )
     parser.add_option("--cnf",             dest="include_cnf",  action="store_true",  help="Include the conformance tests into solution. Default", default=True)
-    parser.add_option("--ncnf",            dest="include_cnf",  action="store_false", help="Exclude the conformance tests into solution." )
+    parser.add_option("--ncnf",            dest="include_cnf",  action="store_false", help="Exclude the conformance tests from solution." )
     parser.add_option("--crt",             dest="include_crt",  action="store_true",  help="Include the Common Runtime into solution. Default", default=True)
     parser.add_option("--ncrt",            dest="include_crt",  action="store_false", help="Exclude the Common Runtime from solution.")
     parser.add_option("--java",            dest="include_java", action="store_true",  help="Include java code. ", default=False)

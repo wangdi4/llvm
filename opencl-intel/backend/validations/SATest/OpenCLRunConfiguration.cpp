@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,6 +26,9 @@ TestMode;
 
 extern llvm::cl::opt<bool>
 NoRef;
+
+extern llvm::cl::opt<bool>
+SDEEnabled;
 
 extern llvm::cl::opt<bool>
 TraceMarks;
@@ -91,6 +94,7 @@ namespace Validation
 {
     BERunOptions::BERunOptions():
         m_measurePerformance(::TestMode==PERFORMANCE),
+        m_useSDE(::SDEEnabled),
         m_useTraceMarks(::TraceMarks),
         m_useVTune(::UseVTune),
         m_printBuildLog(::PrintBuildLog),
@@ -118,6 +122,8 @@ namespace Validation
         {
         case RC_COMMON_RUN_SINGLE_WG :
             return m_runSingleWG;
+        case RC_BR_USE_SDE :
+            return m_useSDE;
         case RC_BR_USE_PIN_TRACE_MARKS :
             return m_useTraceMarks;
         case RC_BR_USE_VTUNE :
@@ -212,6 +218,7 @@ namespace Validation
         m_transposeSize = ::TransposeSize;
         m_cpuArch = ::CPUArch;
         m_cpuFeatures = ::CPUFeatures;
+        m_useSDE = ::SDEEnabled;
         m_useTraceMarks = ::TraceMarks;
         m_buildOnly = (::TestMode == BUILD);
         m_runSingleWG = ::RunSingleWG;

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -17,9 +17,6 @@ File Name:  RunnerFactoryGenerator.cpp
 \*****************************************************************************/
 #include "RunnerFactoryGenerator.h"
 #include "OpenCLFactory.h"
-#ifdef MIC_ENABLE
-#include "OpenCLMICFactory.h"
-#endif
 #include "DXFactory.h"
 
 using namespace Validation;
@@ -39,11 +36,7 @@ IRunnerFactory& RunnerFactory::GetInstance(PROGRAM_TYPE programType)
     {
         if( NULL == s_oclFactory)
         {
-#ifdef MIC_ENABLE
-            s_oclFactory = new OpenCLMICFactory();
-#else
             s_oclFactory = new OpenCLFactory();
-#endif
         }
         return *s_oclFactory;
     } else if (programType == DIRECT_X) 

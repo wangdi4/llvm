@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -20,7 +20,7 @@ File Name:  auto_ptr_ex.h
 
 #include <memory>
 
-namespace Validation { 
+namespace Validation {
 
     template<class T> struct DefaultDP
     {

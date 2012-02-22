@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010, 2011).
+Copyright (c) Intel Corporation (2010-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -16,6 +16,7 @@ File Name:  OpenCLMICArgsBuffer.cpp
 
 \*****************************************************************************/
 #include "OpenCLMICArgsBuffer.h"
+#include "OpenCLArgsBuffer.h"
 #include "Buffer.h"
 #include "Image.h"
 #include "SATestException.h"
@@ -42,90 +43,28 @@ using namespace Validation;
 OpenCLMICArgsBuffer::OpenCLMICArgsBuffer(const cl_kernel_argument * pKernelArgs, 
                                    cl_uint kernelNumArgs, 
                                    IBufferContainerList * input,
-                                   DispatcherData* dispatcher,
                                    COIBuffersWrapper& coiBuffers,
                                    const COIPROCESS& deviceProcess):
-m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_dispatcher(dispatcher)
+m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs)
 {
     m_argsBufferSize = CalcArgsBufferSize();
 
-    m_dispatcher->kernelArgSize = m_argsBufferSize;
-    m_pArgsBuffer = new uint8_t[m_argsBufferSize];
+    m_pArgsBuffer.reset(new uint8_t[m_argsBufferSize]);
     FillArgsBuffer(input, coiBuffers, deviceProcess);
 }
 
 OpenCLMICArgsBuffer::~OpenCLMICArgsBuffer(void)
 {
-    delete [] m_pArgsBuffer;
 }
 
 uint8_t* OpenCLMICArgsBuffer::GetArgsBuffer()
 {
-    return m_pArgsBuffer;
+    return m_pArgsBuffer.get();
 }
 
 size_t OpenCLMICArgsBuffer::GetArgsBufferSize()
 {
     return m_argsBufferSize;
-}
-
-// TODO: Share one implementation between OpenCLMICArgsBuffer and OpenCLArgsBuffer.
-void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const BufferDesc& buffer_desc, void* pData)
-{
-    mem_desc.dim_count = 1;
-    mem_desc.dimensions.dim[0] = buffer_desc.GetBufferSizeInBytes();
-    mem_desc.pData = pData;
-}
-
-void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const ImageDesc& image_desc, void* pData)
-{
-    mem_desc.dim_count = image_desc.GetNumOfDimensions();
-    ImageSizes imSizes = image_desc.GetSizes();
-    mem_desc.dimensions.dim[0] = imSizes.width;
-    mem_desc.dimensions.dim[1] = imSizes.height;
-    mem_desc.dimensions.dim[2] = imSizes.depth;
-    mem_desc.pitch[0] = imSizes.row;
-    mem_desc.pitch[1] = imSizes.slice;
-    ImageChannelDataTypeVal dataType = image_desc.GetImageChannelDataType();
-    switch (dataType)
-    {
-    case OpenCL_SNORM_INT8:         mem_desc.format.image_channel_data_type = CLK_SNORM_INT8; break;
-    case OpenCL_SNORM_INT16:        mem_desc.format.image_channel_data_type = CLK_SNORM_INT16; break;
-    case OpenCL_UNORM_INT8:         mem_desc.format.image_channel_data_type = CLK_UNORM_INT8; break;
-    case OpenCL_UNORM_INT16:        mem_desc.format.image_channel_data_type = CLK_UNORM_INT16; break;
-    case OpenCL_UNORM_SHORT_565:    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_565; break;
-    case OpenCL_UNORM_SHORT_555:    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_555; break;
-    case OpenCL_UNORM_INT_101010:   mem_desc.format.image_channel_data_type = CLK_UNORM_INT_101010; break;
-    case OpenCL_SIGNED_INT8:        mem_desc.format.image_channel_data_type = CLK_SIGNED_INT8; break;
-    case OpenCL_SIGNED_INT16:       mem_desc.format.image_channel_data_type = CLK_SIGNED_INT16; break;
-    case OpenCL_SIGNED_INT32:       mem_desc.format.image_channel_data_type = CLK_SIGNED_INT32; break;
-    case OpenCL_UNSIGNED_INT8:      mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT8; break;
-    case OpenCL_UNSIGNED_INT16:     mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT16; break;
-    case OpenCL_UNSIGNED_INT32:     mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT32; break;
-    case OpenCL_HALF_FLOAT:         mem_desc.format.image_channel_data_type = CLK_HALF_FLOAT; break;
-    case OpenCL_FLOAT:              mem_desc.format.image_channel_data_type = CLK_FLOAT; break;
-    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown Image channel data type");
-    }
-    ImageChannelOrderVal order = image_desc.GetImageChannelOrder();
-    switch (order)
-    {
-    case OpenCL_R:          mem_desc.format.image_channel_order = CLK_R; break;
-    case OpenCL_Rx:         mem_desc.format.image_channel_order = CL_Rx; throw; break;
-    case OpenCL_A:          mem_desc.format.image_channel_order = CLK_A; break;
-    case OpenCL_INTENSITY:  mem_desc.format.image_channel_order = CLK_INTENSITY; break;
-    case OpenCL_LUMINANCE:  mem_desc.format.image_channel_order = CLK_LUMINANCE; break;
-    case OpenCL_RG:         mem_desc.format.image_channel_order = CLK_RG; break;
-    case OpenCL_RGx:        mem_desc.format.image_channel_order = CL_RGx; throw; break;
-    case OpenCL_RA:         mem_desc.format.image_channel_order = CLK_RA; break;
-    case OpenCL_RGB:        mem_desc.format.image_channel_order = CLK_RGB; break;
-    case OpenCL_RGBx:       mem_desc.format.image_channel_order = CL_RGBx; throw; break;
-    case OpenCL_RGBA:       mem_desc.format.image_channel_order = CLK_RGBA; break;
-    case OpenCL_ARGB:       mem_desc.format.image_channel_order = CLK_ARGB; break;
-    case OpenCL_BGRA:       mem_desc.format.image_channel_order = CLK_BGRA; break;
-    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown Image pixel data type");
-    }
-    mem_desc.uiElementSize = image_desc.GetElementSize();
-    mem_desc.pData = pData;
 }
 
 void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
@@ -139,7 +78,9 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
         IMemoryObject* pMemObj = input->GetBufferContainer(0)->GetMemoryObject(i);
         void * pData = pMemObj->GetDataPtr();
 
-        if (CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type || CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
+        switch (m_pKernelArgs[i].type) {
+        case CL_KRNL_ARG_PTR_IMG_2D:
+        case CL_KRNL_ARG_PTR_IMG_3D:
         {
             DEBUG(llvm::dbgs()<< "Filling image data.\n");
             // TODO: This code is almost identical to the next branch. Rewrite it using common function.
@@ -151,7 +92,7 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             buffDirective.bufferIndex = coiBuffers.GetNumberOfBuffers();
             buffDirective.offset_in_blob = offset;
 
-            FillMemObjDescriptor( buffDirective.mem_obj_desc, imageDesc, NULL);
+            FillMemObjDescriptor( buffDirective.mem_obj_desc, imageDesc, NULL, NULL);
 
             // Create buffer with dispatcher data for all kernels.
 
@@ -159,8 +100,10 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             m_directives.push_back(buffDirective);
 
             offset += sizeof(void *);
+            break;
         }
-        else if ( CL_KRNL_ARG_PTR_GLOBAL == m_pKernelArgs[i].type || CL_KRNL_ARG_PTR_CONST == m_pKernelArgs[i].type )
+        case CL_KRNL_ARG_PTR_GLOBAL:
+        case CL_KRNL_ARG_PTR_CONST:
         {
             DEBUG(llvm::dbgs()<< "Filling pointer data.\n");
             // Kernel argument is a buffer - need to pass a pointer in the arguments buffer
@@ -186,13 +129,14 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             }
 
             m_directives.push_back(buffDirective);
-            DEBUG(llvm::dbgs() << "Buffer size = " << bufferSize << "Buffer index = " << 
+            DEBUG(llvm::dbgs() << "Buffer size = " << bufferSize << "\tBuffer index = " << 
                 m_directives[m_directives.size() - 1].bufferIndex << "\tOffset in blob = " << 
                 m_directives[m_directives.size() - 1].offset_in_blob << "\n");
 
             offset += sizeof(void *);
+            break;
         }
-        else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].type)
+        case CL_KRNL_ARG_PTR_LOCAL:
         {
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
@@ -200,13 +144,12 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
             size_t origSize = bufferDesc.GetBufferSizeInBytes();
             size_t locSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(origSize); 
-            *(size_t *)(m_pArgsBuffer + offset) = locSize;
+            *(size_t *)(m_pArgsBuffer.get() + offset) = locSize;
             stLocMemSize += locSize;
             offset += sizeof(void *);
-
-            // Values are assigned in CreateExecutableContext
+            break;
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        case CL_KRNL_ARG_VECTOR:
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
@@ -214,29 +157,32 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             unsigned int uiSize = m_pKernelArgs[i].size_in_bytes;
             uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 
-            void* pBufferArg = (void *)(m_pArgsBuffer + offset);
+            void* pBufferArg = (void *)(m_pArgsBuffer.get() + offset);
             memcpy(pBufferArg, pData, uiSize);
 
             offset += uiSize;
+            break;
         }
-        else if (CL_KRNL_ARG_SAMPLER == m_pKernelArgs[i].type)
+        case CL_KRNL_ARG_SAMPLER:
         {
             // Kernel argument is a sampler
             // Need to pass sampler flags
 
-            cl_int* pBufferArg = (cl_int *)(m_pArgsBuffer + offset);
+            cl_int* pBufferArg = (cl_int *)(m_pArgsBuffer.get() + offset);
             *pBufferArg = ((cl_int *)pData)[0];
 
             offset += sizeof(cl_int);
+            break;
         }
-        else
+        default:
         {
             // Kernel argument is a simple type (int/float/...)
             // Need to pass the value itself in the arguments buffer
 
-            void* pBufferArg = (void *)(m_pArgsBuffer + offset);
+            void* pBufferArg = (void *)(m_pArgsBuffer.get() + offset);
             memcpy(pBufferArg, pData, m_pKernelArgs[i].size_in_bytes);
             offset += m_pKernelArgs[i].size_in_bytes;
+        }
         }
     }
 }
@@ -250,6 +196,7 @@ void OpenCLMICArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerLis
     IBufferContainer * pOutBC = input->GetBufferContainer(0);
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
+        // TODO: rewrite with switch
         const IMemoryObjectDesc * pMemObjDesc = pOutBC->GetMemoryObject(i)->GetMemoryObjectDesc();
         if ( CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type || CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type )
         {
@@ -291,7 +238,7 @@ void OpenCLMICArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerLis
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
 
-            size_t origSize = (size_t)*(((void**)(m_pArgsBuffer + offset)));
+            size_t origSize = (size_t)*(((void**)(m_pArgsBuffer.get() + offset)));
             size_t locSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(origSize); 
             stLocMemSize += locSize;
             offset += sizeof(void*);
@@ -314,7 +261,7 @@ void OpenCLMICArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerLis
             // Kernel argument is a sampler
             // Need to pass sampler flags
 
-            cl_int* pBufferArg = (cl_int *)(m_pArgsBuffer + offset);
+            cl_int* pBufferArg = (cl_int *)(m_pArgsBuffer.get() + offset);
             ((cl_int *)pData)[0] = *pBufferArg;
 
             offset += sizeof(cl_int);
@@ -324,9 +271,47 @@ void OpenCLMICArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerLis
             // Kernel argument is a simple type (int/float/...)
             // Need to pass the value itself in the arguments buffer
 
-            void* pBufferArg = (void *)(m_pArgsBuffer + offset);
+            void* pBufferArg = (void *)(m_pArgsBuffer.get() + offset);
             memcpy(pData, pBufferArg, m_pKernelArgs[i].size_in_bytes);
             offset += m_pKernelArgs[i].size_in_bytes;
+        }
+    }
+}
+
+void OpenCLMICArgsBuffer::CopyFirstBC(IBufferContainerList *output, const IBufferContainerList * input)
+{
+    IBufferContainer * pInputBC = input->GetBufferContainer(0);
+    IBufferContainer * pOutputBC = output->CreateBufferContainer();
+    for (unsigned int i = 0; i < pInputBC->GetMemoryObjectCount(); ++i)
+    {
+        const IMemoryObjectDesc * pMemObjDesc = pInputBC->GetMemoryObject(i)->GetMemoryObjectDesc();
+        if (pMemObjDesc->GetName() == ImageDesc::GetImageDescName())
+        {
+            // Create image object in output buffer container.
+            ImageDesc imageDesc = GetImageDescription(pMemObjDesc);
+            IMemoryObject *image = pOutputBC->CreateImage(imageDesc);
+
+            // Copy data.
+            void *pData = image->GetDataPtr();
+            size_t imageSize = imageDesc.GetImageSizeInBytes();
+            void *pImageArgData = pInputBC->GetMemoryObject(i)->GetDataPtr();
+            memcpy(pData, pImageArgData, imageSize);
+        }
+        else if (pMemObjDesc->GetName() == BufferDesc::GetBufferDescName())
+        {
+            // Create buffer object in output buffer container.
+            BufferDesc bufferDesc = GetBufferDescription(pMemObjDesc);
+            IMemoryObject * buffer = pOutputBC->CreateBuffer(bufferDesc);
+
+            // Copy data.
+            void *pData = buffer->GetDataPtr();
+            size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
+            void *pBufferArgData = pInputBC->GetMemoryObject(i)->GetDataPtr();
+            memcpy(pData, pBufferArgData, bufferSize);
+        }
+        else
+        {
+            throw Exception::InvalidArgument("Unknow memory object in BufferContainer.");
         }
     }
 }
@@ -337,6 +322,7 @@ size_t OpenCLMICArgsBuffer::CalcArgsBufferSize()
 
     for (unsigned int i =0; i < m_kernelNumArgs; i++)
     {
+        // TODO: rewrite with switch
         if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].type )
         {
             // Kernel argument is a buffer

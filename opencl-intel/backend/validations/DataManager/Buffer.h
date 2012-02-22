@@ -19,7 +19,7 @@ File Name:  Buffer.h
 #define __BUFFER_H__
 
 #include <assert.h>
-#include "IMemoryObject.h"                    // IMemoryObject declaration
+#include "IMemoryObject.h"              // IMemoryObject declaration
 #include "llvm/Support/DataTypes.h"      // llvm data types
 #include "Exception.h"
 
@@ -117,18 +117,6 @@ namespace Validation
 
           inline void SetElem(const std::size_t in_vecIndex, const std::size_t in_offset, const T& newVal)
           {
-// TODO: switch to DEBUG when done with debugging WOLF
-#ifdef DEBUG1
-              {
-                  // check we were constructed for the same BufferDesc params
-                  // significantly slows element access in buffer
-                  BufferDesc desc;
-                  desc = GetBufferDescription(m_buf.GetMemoryObjectDesc());
-                  assert(m_buf.GetDataPtr() == m_data);
-                  assert(desc.GetElementDescription().GetSizeInBytes() == m_SizeOfVector);
-              }
-#endif
-
               // Calculate address
               T* dataPointer = reinterpret_cast<T*>(
                   reinterpret_cast<char*>(m_data) + 

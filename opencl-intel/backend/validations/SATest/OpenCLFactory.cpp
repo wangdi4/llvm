@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -19,11 +19,19 @@ File Name:  OpenCLFactory.cpp
 
 #include "RunResult.h"
 #include "OpenCLProgram.h"
-#include "OpenCLProgramRunner.h"
+#include "OpenCLCPUBackendRunner.h"
 #include "OpenCLReferenceRunner.h"
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLComparator.h"
+#if defined(INCLUDE_MIC_TARGET)
+#include "OpenCLMICBackendRunner.h"
+#endif
+
+#define DEBUG_TYPE "OpenCLFactory"
+// debug macros
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace Validation;
 using std::string;
@@ -59,7 +67,21 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
 
 IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-    return new OpenCLProgramRunner();
+#if defined(INCLUDE_MIC_TARGET)
+    const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
+    std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
+    bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);
+    if ((std::string("auto-remote") == cpuArch ||
+        std::string("knc") == cpuArch ||
+        std::string("knf") == cpuArch) &&
+        !isSDEmode
+        )
+    {
+        DEBUG(llvm::dbgs() << "CreateProgramRunner created back-end runner for MIC!" << "\n");
+        return new OpenCLMICBackendRunner(pRunConfiguration);
+    }
+#endif
+    return new OpenCLCPUBackendRunner();
 }
 
 IProgramRunner * OpenCLFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)

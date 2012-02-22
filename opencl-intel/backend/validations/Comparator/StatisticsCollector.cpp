@@ -85,9 +85,9 @@ std::string StatisticsCollector::ToString()
 {
     Finalize();
     std::stringstream ss;
-    for(StatMap::iterator e = m_values.end(),
-        it = m_values.begin();
-        it!=e;++it)
+    for(StatMap::iterator e = m_values.end(), it = m_values.begin();
+        it != e;
+        ++it)
     {
         ss << (it->first) << " : ";
         switch(it->second.type)

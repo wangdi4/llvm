@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -18,19 +18,17 @@ File Name:  RunResult.h
 #ifndef RUN_RESULTS_H
 #define RUN_RESULTS_H
 
-#include <map>
-#include <vector>
 #include "IRunResult.h"
-#include "OpenCLProgram.h"
-#include "OpenCLProgramConfiguration.h"
-#include "OpenCLRunConfiguration.h"
+#include "IComparisonResults.h"
+#include "IBufferContainerList.h"
+#include "IPerformance.h"
+
 #include "BufferContainerList.h"
 #include "Performance.h"
-#include "IComparisonResults.h"
-#include "cl_device_api.h"
-#include "cl_dev_backend_api.h"
 
-using namespace Intel::OpenCL::DeviceBackend;
+#include <map>
+#include <vector>
+#include <string>
 
 namespace Validation
 {
@@ -75,10 +73,12 @@ namespace Validation
         /// @brief Returns test execution output
         /// @return Test output
         virtual IBufferContainerList& GetOutput(const char * name);
+        virtual const IBufferContainerList& GetOutput(const char * name) const;
 
         /// @brief Returns test execution NEAT output
         /// @return Test NEAT output
         virtual IBufferContainerList& GetNEATOutput(const char* name);
+        virtual const IBufferContainerList& GetNEATOutput(const char* name) const;
 
         /// @brief Returns pointer to the list of boolean values that signal comparator if it can omit corresponding kernel argument.
         /// @param name Name of the kernel.

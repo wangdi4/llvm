@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -15,15 +15,11 @@ Copyright (c) Intel Corporation (2011).
 File Name:  RunResult.cpp
 
 \*****************************************************************************/
-#include "Comparator.h"
 #include "RunResult.h"
-#include "IComparisonResults.h"
-#include "ComparisonResults.h"
-#include "llvm/Support/CommandLine.h"
-#include "OpenCLProgramRunner.h"
+#include "Exception.h"
 
-// Command line options
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace Validation;
 
@@ -59,6 +55,15 @@ RunResult::~RunResult(void)
 {
 }
 
+const IBufferContainerList& RunResult::GetOutput(const char * kernelName) const
+{
+    if( m_refOutputs.find( kernelName ) == m_refOutputs.end() )
+    {
+        throw Exception::InvalidArgument(std::string("There are no run results for the kernel: ") + kernelName);
+    }
+    return *m_refOutputs.find(kernelName)->second;
+}
+
 IBufferContainerList& RunResult::GetOutput(const char * kernelName)
 {
     if( m_refOutputs.find( kernelName ) == m_refOutputs.end() )
@@ -66,6 +71,15 @@ IBufferContainerList& RunResult::GetOutput(const char * kernelName)
         m_refOutputs[kernelName] = new BufferContainerList();
     }
     return *m_refOutputs[kernelName];
+}
+
+const IBufferContainerList& RunResult::GetNEATOutput(const char * kernelName) const
+{
+    if( m_neatOutputs.find( kernelName ) == m_neatOutputs.end() )
+    {
+        throw Exception::InvalidArgument(std::string("There are no run NEAT results for the kernel: ") + kernelName);
+    }
+    return *m_neatOutputs.find(kernelName)->second;
 }
 
 IBufferContainerList& RunResult::GetNEATOutput(const char * kernelName)

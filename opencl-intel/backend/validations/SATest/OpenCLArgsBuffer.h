@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -48,9 +48,7 @@ namespace Validation
   /// @brief This class is responsible for handling the arguments buffer need for creation of kernel binary
   class OpenCLArgsBuffer
   {
-
   public:
-
     /// @brief Constructor
     /// @param [IN] pKernelArgs Kernel arguments description
     /// @param [IN] kernelNumArgs Number of kernel arguments
@@ -64,10 +62,9 @@ namespace Validation
     ~OpenCLArgsBuffer(void);
 
     /// @brief Copies output from the kernel arguments buffer into run result output buffers
-    /// @param [OUT] runResult This method updates runResult execution time
+    /// @param [OUT] output BufferContainer will be filled with output data.
     /// @param [IN] input Input buffers for the test program, used for creation of the run result output buffers
-    /// @param [IN] kernelName name of the kernel to copy the results for
-    void CopyOutput(IRunResult * runResult, IBufferContainerList * input, const char* kernelName);
+    void CopyOutput(IBufferContainerList &output, const IBufferContainerList * input);
 
     /// @brief Returns the kernel arguments buffer
     /// @return Kernel arguments buffer

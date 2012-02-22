@@ -8,8 +8,6 @@ include_directories( ${LLVM_BINARY_DIR}/include )
 include_directories( ${LLVM_INCLUDE_DIR} )
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/Common )
 
-#set (MIC_ENABLE ON)
-
 add_subdirectory(DataManager)
 add_subdirectory(DataGenerator)
 add_subdirectory(Comparator)

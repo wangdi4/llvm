@@ -5,6 +5,7 @@ get_filename_component( TARGET_NAME ${SATEST_NATIVE_NAME} NAME_WE )
 
 get_filename_component( EXE_FILE_EXTENSION ${SATEST_NATIVE_NAME} EXT )
 set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
+set( OUTPUT_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR} )
 set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE   MIC )
@@ -14,6 +15,23 @@ if (WIN32)
     message( WARNING "MIC native server creation is not supported on Windows yet!")
 else ()
     # Linux
+    set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
+
+    if (NOT TMP_ICC_INSTALL_DIR)
+        if (EXISTS /opt/intel/composerxe_mic)
+            set( TMP_ICC_INSTALL_DIR /opt/intel/composerxe_mic )
+        endif ()
+    endif (NOT TMP_ICC_INSTALL_DIR)
+
+    if (TMP_ICC_INSTALL_DIR)
+        # if environment ICC_INSTALL_DIR is set
+        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/bin/compilervars.sh" )
+        message("MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
+    else ()
+        message( FATAL_ERROR "ICC is not found! Set ICC_MIC_COMPILER_PATH environment variable to point to the ICC with MIC support" )
+    endif (TMP_ICC_INSTALL_DIR)
+    unset( TMP_ICC_INSTALL_DIR )
+
     set( DEVICE_COMPILER_SCRIPT compile.sh )
     set( DEVICE_LINKER_SCRIPT   link.sh )
 
@@ -84,7 +102,7 @@ endfunction ( LINK_DEVICE_EXE )
 #
 function ( add_device_executable TARGET_NAME )
 
-    set( EXE_FILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
+    set( EXE_FILE ${OUTPUT_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
     set( OBJ_LIST )
 
     if (${ARGC} GREATER  1)
@@ -101,7 +119,11 @@ function ( add_device_executable TARGET_NAME )
         LINK_DEVICE_EXE( ${EXE_FILE} ${OBJ_LIST} )
 
         add_custom_target( ${TARGET_NAME} ALL DEPENDS ${EXE_FILE} )
+        #add_custom_target( ${TARGET_NAME} ALL DEPENDS ${EXE_FILE} OclDeviceExecutor )
         install( FILES ${EXE_FILE} DESTINATION bin)
+        # copy coi libraries to build subdirectory
+        file(COPY ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION ${OUTPUT_DIR})
+        file(COPY ${COI_DIR}/host-linux-release/lib/libcoi_host.so.0 DESTINATION ${OUTPUT_DIR})
     else ()
         message( FATAL_ERROR "No input files specified for ${TARGET_NAME}" )
     endif (${ARGC} GREATER 1)
@@ -119,17 +141,22 @@ if (NOT EXISTS ${BIN_DIR})
         file(MAKE_DIRECTORY "${BIN_DIR}")
 endif()
 
+if (NOT EXISTS ${OUTPUT_DIR})
+        file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+endif()
+
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
 #                -std=c++0x
-                -fstack-security-check
-                -use-msasm
-                -mCG_lrb_rex_workaround=F
-                -mCG_insert_nops_between_gathers_scatters=F
-                -mCG_lrb_vgather_b2b_warns=F
-                -mCG_lrb_workaround_vgather_vscatter_pairing=F
-                -mCG_lrb_dp_workaround=F
-                -sox
+                #-fstack-security-check
+                #-use-msasm
+                #-mCG_lrb_rex_workaround=F 
+                #-mCG_insert_nops_between_gathers_scatters=F 
+                #-mCG_lrb_vgather_b2b_warns=F 
+                #-mCG_lrb_workaround_vgather_vscatter_pairing=F 
+                #-mCG_lrb_dp_workaround=F 
+                #-sox 
+                -fPIC
                 -wd279
             )
 
@@ -141,9 +168,9 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../../Common
-                -I ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend
-                -I ${CMAKE_SOURCE_DIR}/../ocl_cpu_backend/export
-                -I ${CMAKE_SOURCE_DIR}/../cl_api
+                -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend
+                -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
+                -I ${BACKEND_ROOT_DIR}/../cl_api
                 -I ${COI_DIR}/include
                 )
 
@@ -154,6 +181,7 @@ set( MIC_LINK_FLAGS      )
 list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_DIR}/device-linux-release/lib
+                #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
                 -L ${BACKEND_SDK_PATH}/lib/Lin64_Debug
 
                 # libs to link
@@ -212,4 +240,6 @@ set(TARGET_SOURCES
 )
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
+
+#add_dependencies(${TARGET_NAME} OclDeviceExecutor)
 

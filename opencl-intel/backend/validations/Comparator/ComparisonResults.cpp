@@ -55,15 +55,15 @@ void ComparisonResults::ReportDetail()
 {
     if(!mismatches.empty())
     {
-        std::cout<<"Detailed statistics:"<<std::endl;
-        std::cout<<mismatches.size() <<" mismatches:" << std::endl;
+        std::cout << "Detailed statistics:" << std::endl;
+        std::cout << mismatches.size() << " mismatches:" << std::endl;
         for(uint32_t i = 0; i<mismatches.size(); i++)
         {
-            std::cout<<mismatches[i].ToString()<<std::endl;
+            std::cout << mismatches[i].ToString() << std::endl;
         }
-        std::cout<<"------"<<std::endl;
+        std::cout << "------" << std::endl;
     }
-    std::cout<< GetStatistics()->ToString() << std::endl;
+    std::cout << GetStatistics()->ToString() << std::endl;
 }
 
 void ComparisonResults::Clear()

@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -33,33 +33,31 @@ PerformancePrinter::PerformancePrinter(const IProgramConfiguration * pProgramCon
 }
 
 void PerformancePrinter::OnKernelSample(
-                    const std::string& kernel,  
+                    const std::string& kernel,
                     cl_long buildTicks, 
                     double buildSDMean,
-#ifdef MIC_ENABLE
+                    cl_long executionTicks,
+                    double executionSDMean,
                     cl_long serializationTicks,
                     double serializationSDMean,
                     cl_long deserializationTicks,
-                    double deserializationSDMean,
-#endif //MIC_ENABLE
-                    cl_long executionTicks,
-                    double executionSDMean
+                    double deserializationSDMean
                     )
-{    
+{
     std::cout << m_programName << "."
               << kernel << ","
               << buildTicks << ","
               << buildSDMean << ","
-#ifdef MIC_ENABLE
+              << executionTicks << ","
+              << executionSDMean << ","
+#ifdef INCLUDE_MIC_TARGET
               << serializationTicks << ","
               << serializationSDMean << ","
               << deserializationTicks << ","
               << deserializationSDMean << ","
-#endif //MIC_ENABLE
-              << executionTicks << ","
-              << executionSDMean << ","
+#endif
               << "0" << "," // Actualy vector size
               << m_IRFilename << ","
               << m_JITFilename 
-              << std::endl;        
-}                                
+              << std::endl;
+}
