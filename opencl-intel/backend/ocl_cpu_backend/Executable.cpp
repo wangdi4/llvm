@@ -27,6 +27,8 @@ File Name:  Executable.cpp
 #include <stdlib.h>
 #include <cassert>
 
+#include <pmmintrin.h>
+
 using namespace Intel::OpenCL::DeviceBackend;
 
 
@@ -85,9 +87,11 @@ cl_dev_err_code Executable::Init( void* *pLocalMemoryBuffers, void* pWGStackFram
 
   // Set CSR flags
   m_uiCSRMask |= _MM_FLUSH_ZERO_MASK;
+  m_uiCSRMask |= _MM_DENORMALS_ZERO_MASK;
 
   if ( m_DAZ ) {
-    m_uiCSRFlags |= _MM_FLUSH_ZERO_ON;  // OFF is default
+    m_uiCSRFlags |= _MM_FLUSH_ZERO_ON;     // OFF is default
+    m_uiCSRFlags |= _MM_DENORMALS_ZERO_ON; // OFF is default
   }
   m_uiCSRMask |= _MM_ROUND_MASK;
   m_uiCSRFlags |= _MM_ROUND_NEAREST;  // Default

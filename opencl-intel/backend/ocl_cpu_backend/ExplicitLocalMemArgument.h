@@ -35,7 +35,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///                       of the arguments buffer
     ExplicitLocalMemArgument(const cl_kernel_argument& arg, size_t bufferSize, size_t offset)
     // During construction we do not have a valid pValue
-    : ExplicitArgument(NULL, arg), m_bufferSize(ADJUST_SIZE_TO_MAXIMUM_ALIGN(bufferSize)), m_offset(offset) { }
+    : ExplicitArgument(NULL, arg), m_bufferSize(ADJUST_SIZE_TO_MAXIMUM_ALIGN(bufferSize)),
+      m_offset(TypeAlignment::align(m_alignment, offset)) {
+        // Add alignment of offset, this will indicate the alignment that will be
+        // in the arguments buffer
+        m_alignedSize += (m_offset - offset);
+      }
     
     /// @brief Sets the pointer to the local memory buffer
     /// @param pParmasBase     A pointer to the base parameters buffers
