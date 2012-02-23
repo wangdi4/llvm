@@ -22,9 +22,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi )
-set( BACKEND_SDK_PATH_RELATIVE BackEnd_SDK )
-set( BACKEND_SDK_PATH       ${CMAKE_CURRENT_SOURCE_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
-set( MIC_BACKEND_DLL_NAME   OclMicBackEnd)
+set( MIC_BACKEND_DLL_NAME   OclCpuBackEnd)
 set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
 set( MIC_NATIVE_SUBDIR_NAME mic_native )
@@ -67,7 +65,6 @@ link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
                     ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
-                    ${BACKEND_SDK_PATH}/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}/
                 )
 
 if(WIN32)
@@ -82,15 +79,6 @@ link_directories(
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )
-
-    file( GLOB MIC_BACKEND_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${BACKEND_SDK_PATH_RELATIVE}/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}/?*.* )
-	foreach(FILE ${MIC_BACKEND_FILES})
-        if ( FILE MATCHES svml )
-            list(APPEND MIC_BACKEND_SVML_LIBS_TO_COPY ${FILE})
-		else ( FILE MATCHES svml )
-		    list(APPEND MIC_BACKEND_LIBS_TO_COPY ${FILE})
-        endif ( FILE MATCHES svml )
-    endforeach(FILE)
 endif(WIN32)
 
 if (WIN32)
@@ -110,8 +98,7 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-install(FILES ${COI_LIBS} ${MIC_BACKEND_LIBS_TO_COPY} DESTINATION bin)
-install(FILES ${MIC_BACKEND_SVML_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME})
+install(FILES ${COI_LIBS} DESTINATION bin)
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils

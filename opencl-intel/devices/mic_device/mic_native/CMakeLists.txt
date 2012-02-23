@@ -9,6 +9,16 @@ set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE   MIC )
 
+#
+# Set Backend dependencies
+#
+set( BACKEND_LIB            OclDeviceExecutor )
+set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/backend/llvm/lib )
+set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
+set( BACKEND_FILES_TO_COPY
+                            ${BACKEND_SVML_DIR}/__ocl_svml_b1.so
+                           )
+
 if (WIN32)
     # Windows
     message( WARNING "MIC native server creation is not supported on Windows yet!")
@@ -192,12 +202,12 @@ set( MIC_LINK_FLAGS      )
 list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
-                -L ${BACKEND_SDK_PATH}/lib/Lin64_${INSTALL_SUBDIR}
+                -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
 
                 # libs to link
                 -lcoi_device
-                -lOclDeviceExecutor
+                -l${BACKEND_LIB}
                 -l${TBB_LIBS_TO_LINK}
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
@@ -255,7 +265,8 @@ list(APPEND HEADER_FILES ../mic_tracer_counters.h ../mic_tracer.h)
 CALCULATE_TARGET_SOURCES()
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
-install(PROGRAMS ${FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} )
 
 file( GLOB MIC_TBB_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${MIC_TBB_LIB_PATH}/*.so )
 install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )

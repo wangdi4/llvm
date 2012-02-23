@@ -44,6 +44,8 @@ endif (SVN_REVISIONS)
 
 message("Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
 
+option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
+
 # vars
 set( OCL_MAKE_UTILS_DIR ${OCL_SOURCE_DIR}/cmake_utils )
 
@@ -127,7 +129,6 @@ add_subdirectory( utils )
 add_subdirectory( backend )
 
 #devices
-option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 add_subdirectory( devices )
 
 #FE compilers
