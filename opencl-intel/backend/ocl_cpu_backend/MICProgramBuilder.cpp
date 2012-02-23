@@ -53,7 +53,6 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
-#include "VTune/JITProfiling.h"
 #include "MICProgramBuilder.h"
 #include "ModuleJITHolder.h"
 #include "MICJITContainer.h"
@@ -99,80 +98,8 @@ MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Modul
                                                          llvm::Function* pFunc,
                                                          const TLLVMKernelInfo& info) const
 {
-    unsigned int stackSize = 0;
-
-  // The following code roughly assume stack size needed for calls to
-  // external functions (like printf, asyncopy and barrier)
-  // TODO: Get rid of this ugly workaround by solving CSSD100006552
-    if ( /*info.bDbgPrint*/ false )
-    {
-#if (!defined(_M_X64) && !defined(__LP64__))
-        stackSize = std::max<unsigned int>(1024*32, stackSize);    // We need large stack here
-#else
-        stackSize = std::max<unsigned int>(1024*64, stackSize);    // We need large stack here
-#endif
-    } else
-    {
-        if ( /*info.bAsynCopy*/ false )
-        {
-#if (!defined(_M_X64) && !defined(__LP64__))
-            stackSize = std::max<unsigned int>(1024*16, stackSize);
-#else
-            stackSize = std::max<unsigned int>(1024*32, stackSize);
-#endif
-        }
-    }
-    // THIS PROPORTY (STACK SIZE) NEED TO BE REMOVED ! NOT NEEDED
-
-    // compile the function if needed - just to be able to get its stack size later
-    void * pFuncAddr = NULL; //m_pExecEngine->getPointerToFunction(pFunc);
-    uint64_t jitStackSize = 0; //m_pExecEngine->getJitFunctionStackSize(pFunc);
-    //assert(((uint64_t)-1) != jitStackSize && "Check that the pFunc was actually compiled succesfully");
-    
-    
-    stackSize = std::max<unsigned int>(CPU_DEV_MIN_WI_PRIVATE_SIZE, stackSize);
-    // JIT generated get info from function
-    // Deciphering of the magic numbers in length expression below: 
-    // 64 stands for guard, 32 stands for Win64-ABI required 32-byte buffer in the caller stack frame
-    stackSize = (unsigned int)(stackSize + jitStackSize + 64 + 32);
-
-    unsigned int uiVTuneId = -1;
-    if( m_config.GetUseVTune() && iJIT_SAMPLING_ON == iJIT_IsProfilingActive() )
-    {
-        uiVTuneId = iJIT_GetNewMethodID();
-
-        iJIT_Method_Load ML;
-
-        memset(&ML, 0, sizeof(iJIT_Method_Load));
-
-        //Parameters
-        ML.method_id = uiVTuneId;                                     // uniq method ID - can be any uniq value, (such as the mb)
-        ML.method_name = const_cast<char *>(pFunc->getName().data()); // method name (can be with or without the class and signature, in any case the class name will be added to it)
-        ML.method_load_address = pFuncAddr;                           // virtual address of that method  - This determines the method range for the iJVM_EVENT_TYPE_ENTER/LEAVE_METHOD_ADDR events
-        // TODO: DEAL WITH THIS LATER
-        ML.method_size = 0 ; //m_pExecEngine->getJitFunctionSize(pFunc);    // Size in memory - Must be exact
-
-        
-#if 0
-        // Used of DebugInfo
-        // Constants in this example
-        ML.line_number_size = 0;        // Line Table size in number of entries - Zero if none
-        ML.line_number_table = NULL;    // Pointer to the begining of the line numbers info array
-        ML.class_id = 0;                // uniq class ID
-        ML.class_file_name = NULL;      // class file name 
-        ML.source_file_name = NULL;     // source file name
-        ML.user_data = NULL;            // bits supplied by the user for saving in the JIT file...
-        ML.user_data_size = 0;          // the size of the user data buffer
-        ML.env = iJDE_JittingAPI;
-#endif /* 0 */
-        iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &ML);
-    }
-
-
     MICKernelJITProperties* pProps = static_cast<MICKernelJITProperties*>(m_pBackendFactory->CreateKernelJITProperties());
     pProps->SetUseVTune(m_config.GetUseVTune());
-    pProps->SetVTuneId(uiVTuneId);
-    pProps->SetStackSize(stackSize);
     return pProps;
 }
 

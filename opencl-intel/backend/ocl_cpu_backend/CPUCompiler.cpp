@@ -36,6 +36,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -47,7 +48,6 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
-#include "VTune/JITProfiling.h"
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -156,11 +156,12 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 
 }
 
+
 CPUCompiler::CPUCompiler(const CompilerConfig& config):
     Compiler(config),
-    m_config(config),
     m_pBuiltinModule(NULL),
-    m_pExecEngine(NULL)
+    m_pExecEngine(NULL),
+    m_pVTuneListener(NULL)
 {
     SelectCpu( config.GetCpuArch(), config.GetCpuFeatures());
 
@@ -175,6 +176,13 @@ CPUCompiler::CPUCompiler(const CompilerConfig& config):
         // ExecutionEngine will own the pointer to the RT module, so we are releasing it here
         m_pExecEngine = CreateCPUExecutionEngine( spModule.release() );
     }
+
+    // Register the VTune listener
+    if(config.GetUseVTune() && m_pExecEngine)
+    {
+        m_pVTuneListener = llvm::createIntelJITEventListener();
+        m_pExecEngine->RegisterJITEventListener(m_pVTuneListener);
+    }
 }
 
 CPUCompiler::~CPUCompiler()
@@ -185,6 +193,7 @@ CPUCompiler::~CPUCompiler()
     if( m_pBuiltinModule)
         delete m_pBuiltinModule;
     delete m_pExecEngine;
+    delete m_pVTuneListener;
 }
 
 unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType) const
@@ -199,22 +208,10 @@ void *CPUCompiler::GetPointerToFunction(llvm::Function *pf) const
     return m_pExecEngine->getPointerToFunction(pf);
 }
 
-uint64_t CPUCompiler::GetJitFunctionStackSize(const llvm::Function* pf) const
-{
-    assert(m_pExecEngine);
-    return 0;//m_pExecEngine->getJitFunctionStackSize(pf); missing in LLVM 3.0
-}
-
 void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
 {
     assert(m_pExecEngine);
     m_pExecEngine->freeMachineCodeForFunction(pf);
-}
-
-unsigned int CPUCompiler::GetJitFunctionSize(const llvm::Function* pf) const
-{
-    assert(m_pExecEngine);
-    return 0;// m_pExecEngine->getJitFunctionSize(pf); missing in LLVM 3.0 
 }
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )

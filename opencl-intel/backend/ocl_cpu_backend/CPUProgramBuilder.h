@@ -83,8 +83,6 @@ private:
     Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
 
-    size_t ResolveFunctionCalls(llvm::Module* pModule, llvm::Function* pFunc) const;
-
     void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
     // Klockwork Issue

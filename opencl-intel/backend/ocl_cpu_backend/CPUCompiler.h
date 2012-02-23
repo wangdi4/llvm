@@ -27,11 +27,13 @@ File Name: CPUCompiler.h
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
 
+
 namespace llvm {
     class ExecutionEngine;
     class Module;
     class MemoryBuffer;
     class Type;
+    class JITEventListener;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -66,10 +68,6 @@ public:
     // TODO: make this method non-constant after re-design
     virtual void CreateExecutionEngine( llvm::Module* pModule ) const;
 
-    uint64_t GetJitFunctionStackSize(const llvm::Function* pf) const;
-
-    unsigned int GetJitFunctionSize(const llvm::Function* pf) const;
-
     virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
 
 protected:
@@ -87,10 +85,11 @@ private:
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
 private:
-    CompilerConfig         m_config;
     BuiltinModule*         m_pBuiltinModule;
     // TODO: remove mutable after re-design
     mutable llvm::ExecutionEngine* m_pExecEngine;
+
+    llvm::JITEventListener* m_pVTuneListener;
 };
 
 }}}

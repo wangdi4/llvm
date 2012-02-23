@@ -53,7 +53,6 @@ File Name:  MICCompiler.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
-#include "VTune/JITProfiling.h"
 #include "MICProgramBuilder.h"
 #include "ModuleJITHolder.h"
 #include "MICJITContainer.h"

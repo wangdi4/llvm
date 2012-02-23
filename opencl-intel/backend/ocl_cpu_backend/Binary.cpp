@@ -64,7 +64,6 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
      m_stFormalParamSize(0),
      m_stKernelParamSize(0),
      m_stAlignedKernelParamSize(0),
-     m_stStackSize(0),
      m_stPrivateMemorySize(pKernelProperties->GetPrivateMemorySize()),
      m_pLocalParams(NULL), 
      m_totalImplSize(pKernelProperties->GetImplicitLocalMemoryBufferSize()),
@@ -86,9 +85,6 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
 
     InitParams(args, pArgsBuffer);
 
-    //TODO: move this information from Binary to KernelProperties
-    size_t jitStackSize = pScalarJIT->GetProps()->GetStackSize();
-
     if( NULL != pVectorJIT )
     {
         m_bVectorized = true;
@@ -96,15 +92,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
         m_uiVectorWidth = pVectorJIT->GetProps()->GetVectorSize();
 
         assert (m_pVectEntryPoint);
-
-        jitStackSize = std::max<size_t>(jitStackSize, pVectorJIT->GetProps()->GetStackSize());
     }
-
-    m_stStackSize = (jitStackSize +                        // Kernel stack area
-                     sizeof(void*) +                       // Return address
-                     m_stKernelParamSize +                 // Kernel call stack size
-                     0x1F) & ~0x1F;                        // alignment up to 32 bytes
-
 
     if(m_bVectorized && (m_WorkInfo.LocalSize[0] % m_uiVectorWidth)) {
         // Disable vectorization for workgroup sizes that are not

@@ -16,11 +16,10 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # The directory 'cl_api' below is used by OCL BE only when compiling outside of OCL SDK, otherwise OCL SDK overrides that setting
-set(OCL_CPU_BACKEND_IMPORT_DIRS 
-  ${BACKEND_ROOT_DIR}/../cl_api 
+set(OCL_CPU_BACKEND_IMPORT_DIRS
+  ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
   ${OCL_CPU_BACKEND_DIR}
-  ${OCL_CPU_BACKEND_DIR}/import
   ${OCL_CPU_BACKEND_DIR}/../arch_headers
   ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
   ${OCL_CPU_BACKEND_DIR}/../ocl_mic_executor)
@@ -36,7 +35,7 @@ if (NOT WIN32)
 #
 # Usage
 #     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
-# This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols 
+# This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols
 # externally (except functions which are explicitely listed in version script
 
 function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
@@ -48,10 +47,10 @@ function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
 endfunction ( SET_LINUX_EXPORTS_FILE )
 
 # configure immediate dependencies search path at run time for non-standard libs
-    SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
+set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
+set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 # Warning level
 set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
@@ -85,7 +84,7 @@ set (ADD_LINKER_FLAGS_DEBUG   )
 set (ADD_LINKER_FLAGS_RELEASE )
 
 include(FindThreads)
-set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" ) 
+set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" )
 
 # C switches
 set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
@@ -106,9 +105,6 @@ set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_L
 set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
 set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
 set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
-# Target directory
-set(OCL_CPU_BACKEND_LIB_DIR ${OCL_CPU_BACKEND_DIR}/lib/Linux${PLATFORM})
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #
@@ -131,10 +127,10 @@ set(OCL_CPU_BACKEND_LIB_DIR ${OCL_CPU_BACKEND_DIR}/lib/Linux${PLATFORM})
 #   Security issue 1: if EXE/DLL is marked as set-uid or set-gid, $ORIGIN is ignored.
 #   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
 #
-SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
+set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
+set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 endif (NOT WIN32)
 
@@ -149,10 +145,6 @@ set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
 set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
 set( CMAKE_ASM_LINK_FLAG "/nologo")
-
-
-# Target directory
-set(OCL_CPU_BACKEND_LIB_DIR ${OCL_CPU_BACKEND_DIR}/lib/Win${PLATFORM})
 
 # Linker flags
 set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
@@ -229,7 +221,7 @@ set (OCL_UTILS_INCLUDE_FILES
     PreventDivisionCrashes.h
     ProcessorDetect.h
   )
-  
+
 set (OCL_UTILS_SOURCE_FILES
     AddImplicitArgs.cpp
     BuiltInFunctionImport.cpp
@@ -251,7 +243,7 @@ set (OCL_UTILS_SOURCE_FILES
   )
 
 # Create target project
-    
+
 set (OCL_CPU_BACKEND_INCLUDE_FILES
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
@@ -308,14 +300,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     debuggingservicewrapper.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
   )
-  
-if (ENABLE_SDE)
-  set(OCL_CPU_BACKEND_INCLUDE_FILES ${OCL_CPU_BACKEND_INCLUDE_FILES}
-    ../ocl_mic_executor/MICDetect.h
-    ../ocl_mic_executor/DynamicLibraryLoader.h
-    MICExecutionService.h
-  )
-endif()
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUDeviceBackendFactory.cpp
@@ -374,24 +358,29 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
   )
 
 if (ENABLE_SDE)
+  set(OCL_CPU_BACKEND_INCLUDE_FILES ${OCL_CPU_BACKEND_INCLUDE_FILES}
+    ../ocl_mic_executor/MICDetect.h
+    ../ocl_mic_executor/DynamicLibraryLoader.h
+    MICExecutionService.h
+  )
   set(OCL_CPU_BACKEND_SOURCE_FILES ${OCL_CPU_BACKEND_SOURCE_FILES}
     ../ocl_mic_executor/MICDetect.cpp
     ../ocl_mic_executor/DynamicLibraryLoader.cpp
     MICExecutionService.cpp
   )
 endif()
-  
-if (WIN32)    
+
+if (WIN32)
     # Resources
     set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
-    #SVML call wrapper is specific for Win64 calling conventions 
+    #SVML call wrapper is specific for Win64 calling conventions
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         list (APPEND OCL_CPU_BACKEND_SOURCE_FILES WrapSvml.cpp)
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 else (WIN32)
     set (OCL_CPU_BACKEND_RESOURCE_FILES)
-endif (WIN32)    
-    
+endif (WIN32)
+
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         set (ASM_SOURCES kernel_execute_64.asm svml_thunk.asm)
@@ -402,17 +391,17 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
-include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS} 
-    ${OCL_CPU_BACKEND_EXPORT_DIR} 
+include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
+    ${OCL_CPU_BACKEND_EXPORT_DIR}
     ..)
 
 # Add additional lib direcories
-link_directories (
-    ${OCL_CPU_BACKEND_LIB_DIR} 
-) 
+if( LLVM_USE_INTEL_JITEVENTS )
+    link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
+endif( LLVM_USE_INTEL_JITEVENTS )
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED 
+add_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
     ${OCL_CPU_BACKEND_SOURCE_FILES}
     ${OCL_CPU_BACKEND_RESOURCE_FILES}
@@ -435,14 +424,12 @@ if ((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    #SVML call wrapper is specific for Win64 calling conventions 
+    #SVML call wrapper is specific for Win64 calling conventions
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "/EXPORT:SvmlThunk")
 endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 set (LLVM_LIBS
-    
     # LLVM libs
-
     LLVMLinker
     LLVMX86AsmParser
     LLVMX86AsmPrinter
@@ -493,7 +480,7 @@ if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
         LLVMCppBackendInfo
       )
 endif ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
-    
+
 # Link with appropriate libs
 if (WIN32)
     set( SOCKETLIB ws2_32 )
@@ -501,27 +488,28 @@ else (WIN32)
     set( SOCKETLIB "" )
 endif (WIN32)
 
-set( JITPROFLIB JITProfiling)
+set( JITPROFLIB jitprofiling)
 
-target_link_libraries (${TARGET_NAME} 
-    # Internal libs
-    ${JITPROFLIB} 
-    
+target_link_libraries (${TARGET_NAME}
     # Utils lib
     ${TARGET_UTILS_NAME}
-    
+
     # LLVM LIBS
     ${LLVM_LIBS}
-    ) 
 
-add_dependencies(${TARGET_NAME} 
+    # Internal libs
+    ${JITPROFLIB}
+
+    )
+
+add_dependencies(${TARGET_NAME}
     # Utils lib
     ${TARGET_UTILS_NAME}
-    
+
     # LLVM PROJECTS
     ${LLVM_LIBS}
-    ) 
-    
+    )
+
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 
@@ -531,14 +519,14 @@ if (ENABLE_SDE)
 endif (ENABLE_SDE)
 
 if (WIN32)
-	set_target_properties(${TARGET_NAME} PROPERTIES
-							LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-							LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-						  )
-	install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+    set_target_properties(${TARGET_NAME} PROPERTIES
+                            LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                            LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                          )
+    install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 endif(WIN32)
 
-install( TARGETS ${TARGET_NAME} ${TARGET_UTILS_NAME} 
+install( TARGETS ${TARGET_NAME} ${TARGET_UTILS_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)

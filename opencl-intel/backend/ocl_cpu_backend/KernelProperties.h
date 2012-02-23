@@ -31,13 +31,9 @@ public:
     KernelJITProperties();
 
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
-    void SetStackSize(unsigned int size) { m_stackSize = size;}
-    void SetVTuneId(unsigned int id) { m_VTuneId = id; }
     void SetUseVTune(bool value) { m_useVTune = value; }
 
     unsigned int GetVectorSize() const{ return m_vectorSize;}
-    unsigned int GetStackSize() const { return m_stackSize;}
-    unsigned int GetVTuneId() const   { return m_VTuneId; }
     bool GetUseVTune() const          { return m_useVTune;}
 
 protected:

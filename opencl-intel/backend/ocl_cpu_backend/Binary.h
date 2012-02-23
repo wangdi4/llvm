@@ -87,7 +87,6 @@ public:
     size_t GetKernelParametersSize() const {return m_stKernelParamSize;}
     size_t GetAlignedKernelParametersSize() const {return m_stAlignedKernelParamSize;}
     size_t GetLocalWIidsSize() const {return m_stWIidsBufferSize;}
-    size_t GetStackSize() const            {return m_stStackSize;}
     size_t GetPrivateMemorySize() const    {return m_stPrivateMemorySize;}
     bool   GetDAZ() const                  {return m_DAZ; }
     unsigned int GetCpuId() const          {return m_cpuId; }
@@ -113,7 +112,6 @@ private:
     size_t                  m_stKernelParamSize;
     size_t                  m_stAlignedKernelParamSize;
     size_t                  m_stWIidsBufferSize;
-    size_t                  m_stStackSize;
     size_t                  m_stPrivateMemorySize;
     sWorkInfo               m_WorkInfo;
     char*                   m_pLocalParams;

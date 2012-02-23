@@ -56,7 +56,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
-#include "VTune/JITProfiling.h"
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

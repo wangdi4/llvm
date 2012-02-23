@@ -107,15 +107,17 @@ class OCLCMakeBuilder( CMakeBuilder ):
         defs = {}
         cmake_config = config.sub_configs[CMakeConfig.CFG_NAME]
         
+        defs['SVN_REVISIONS']                  ='ON' if cmake_config.include_svn     else 'OFF'
         defs['INCLUDE_MIC_DEVICE:BOOL']        ='ON' if cmake_config.include_mic else 'OFF'
         defs['ENABLE_SDE:BOOL']                ='ON' if cmake_config.enable_sde else 'OFF'
         defs['LLVM_ENABLE_WARNINGS:BOOL']      ='ON' if cmake_config.enable_warnings else 'OFF'
-        defs['INCLUDE_CONFORMANCE_TESTS:BOOL'] ='ON' if cmake_config.include_cnf else 'OFF'
+        defs['INCLUDE_CONFORMANCE_TESTS:BOOL'] ='ON' if cmake_config.include_cnf     else 'OFF'
         defs['CONFORMANCE_LIST:STRING']        = OCLCMakeBuilder.CONFORMANCE_TESTS
-        defs['BUILD_JAVA:BOOL']                ='ON' if cmake_config.include_java else 'OFF'
-        defs['BUILD_X64:BOOL']                 ='ON' if 64 == config.target_os_bit else 'OFF'
+        defs['BUILD_JAVA:BOOL']                ='ON' if cmake_config.include_java    else 'OFF'
+        defs['BUILD_X64:BOOL']                 ='ON' if 64 == config.target_os_bit   else 'OFF'
         defs['CMAKE_BUILD_TYPE:STRING']        = '"' +config.build_type + '"'
         defs['CMAKE_COLOR_MAKEFILE:BOOL']      ='ON'
+        defs['LLVM_USE_INTEL_JITEVENTS:BOOL']  ='ON'
         
         if config.target_os == 'Windows':
             defs['INCLUDE_CMRT:BOOL']                  ='ON' if cmake_config.include_crt else 'OFF'
@@ -128,7 +130,6 @@ class OCLCMakeBuilder( CMakeBuilder ):
             defs['TARGET_CPU:STRING']                  = '"x86"'
             defs['INTEL_COMPILER:BOOL']                = 'OFF'
 
-        defs['SVN_REVISIONS'] = 'ON' if cmake_config.include_svn else 'OFF'
     
         CMakeBuilder.__init__(self, name, config, config.src_dir, defs)
                 
