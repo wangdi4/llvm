@@ -19,8 +19,6 @@ File Name:  exceptions.h
 #pragma once
 #include <stdexcept>
 #include "cl_device_api.h"
-#include "llvm/Support/Errno.h"
-#include "llvm/Support/system_error.h"
 
 #ifndef LLVM_BACKEND_UNUSED
 	#if defined(_WIN32)

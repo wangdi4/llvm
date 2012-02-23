@@ -19,6 +19,8 @@ File Name:  DynamicLib.h
 #pragma once
 
 #include "exceptions.h"
+#include "llvm/Support/Errno.h"
+#include "llvm/Support/system_error.h"
 
 
 

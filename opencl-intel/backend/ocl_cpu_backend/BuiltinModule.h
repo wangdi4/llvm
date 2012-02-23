@@ -18,6 +18,8 @@ File Name:  BuiltinModule.h
 #pragma once // <--- TODO: Add proper INCLUDE_GUARD
 
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/Support/Errno.h"
+#include "llvm/Support/system_error.h"
 #include <assert.h>
 #include <string>
 #include "cl_dev_backend_api.h"
