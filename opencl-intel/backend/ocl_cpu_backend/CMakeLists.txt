@@ -472,6 +472,17 @@ set (LLVM_LIBS
     LLVMMC
     LLVMMICCodeGenerationEngine
     )
+if (INCLUDE_MIC_DEVICE)
+  list(APPEND LLVM_LIBS
+        LLVMY86AsmParser
+        LLVMY86AsmPrinter
+        LLVMY86CodeGen
+        LLVMY86Disassembler
+        LLVMY86Info
+        LLVMY86AsmPrinter
+       )
+endif (INCLUDE_MIC_DEVICE)
+
 # the following targets are necessary for successful build of OCL Back-End shared library outside of OCL SDK framework
 # they are about C/C++ backends for LLVM (not to be confused with OCL backend)
 if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
