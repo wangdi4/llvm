@@ -23,6 +23,11 @@ class SelectLower : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
     SelectLower() : FunctionPass(ID) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "SelectLower";
+    }
+
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed

@@ -22,6 +22,11 @@ class Namer : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
     Namer() : FunctionPass(ID) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "Namer";
+    }
+
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed

@@ -47,6 +47,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Constructor
     ShiftZeroUpperBits() : FunctionPass(ID) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "ShiftZeroUpperBits";
+    }
+
     /// @brief    LLVM Function pass entry
     /// @param F  Function to transform
     /// @returns  true if changed

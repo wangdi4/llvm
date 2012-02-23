@@ -40,6 +40,11 @@ public:
     initializeRegionInfoPass(*PassRegistry::getPassRegistry());
   }
 
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "Predicator";
+  }
+
 private:
   /// Declare the type of our small isntruction vector
   typedef SmallVector<Instruction*, 8> SmallInstVector;

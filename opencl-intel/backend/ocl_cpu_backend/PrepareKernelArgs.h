@@ -49,6 +49,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Constructor
     PrepareKernelArgs(SmallVectorImpl<Function*> &vectFunctions);
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "PrepareKernelArgs";
+    }
+
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed

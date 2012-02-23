@@ -27,6 +27,12 @@ public:
   static char ID;
   /// @brief C'tor
   FuncResolver() : FunctionPass(ID) {}
+
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "FuncResolver";
+  }
+
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
   /// @return True if changed

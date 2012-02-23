@@ -33,6 +33,11 @@ public:
       V_ASSERT(m_rtServices && "Runtime services were not initialized!");
     }
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "WIAnalysis";
+    }
+
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed

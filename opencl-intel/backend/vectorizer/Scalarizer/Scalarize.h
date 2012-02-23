@@ -39,6 +39,11 @@ public:
   ScalarizeFunction();
   ~ScalarizeFunction();
 
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "ScalarizeFunction";
+  }
+
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
   }

@@ -44,6 +44,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Constructor
     AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions);
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "AddImplicitArgs";
+    }
+
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed

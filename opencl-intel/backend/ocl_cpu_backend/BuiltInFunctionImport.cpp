@@ -59,6 +59,11 @@ public:
     BuildRTModuleFunc2Globals();
   }
 
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "BIImport";
+  }
+
   bool runOnModule(Module &M);
 
 protected:

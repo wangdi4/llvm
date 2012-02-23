@@ -36,6 +36,11 @@ namespace intel {
       m_shouldUseHeuristics = (!(useHeuristicsEnv && (StringRef(useHeuristicsEnv) == "false")));
     }
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "VectorizationHeuristics";
+    }
+
     //  Detect Irreducible Control flow
     bool runOnFunction(Function &F);
 

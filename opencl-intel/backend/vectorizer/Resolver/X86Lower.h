@@ -40,6 +40,11 @@ class X86Lower : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
     X86Lower(Arch arch = SSE4): FunctionPass(ID), m_arch(arch) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "X86Lower";
+    }
+
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed

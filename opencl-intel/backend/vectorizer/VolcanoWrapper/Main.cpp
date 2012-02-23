@@ -48,6 +48,12 @@ namespace intel {
   public:
     static char ID; // Pass identification, replacement for typeid
     PrintIRPass() : FunctionPass(ID) {}
+
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "PrintIRPass";
+    }
+
     virtual bool runOnFunction(Function &F) {
       F.dump();
       return false;

@@ -31,6 +31,12 @@ public:
     initializeDominatorTreePass(*PassRegistry::getPassRegistry());
     initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
   }
+
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "PhiCanon";
+  }
+
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
   /// @return True if changed

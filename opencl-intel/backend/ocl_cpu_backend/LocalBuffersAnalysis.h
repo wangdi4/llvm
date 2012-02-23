@@ -48,6 +48,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief  Constructor
     LocalBuffersAnalysis() : ModulePass(ID) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "LocalBuffersAnalysis";
+    }
+
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns True if changed

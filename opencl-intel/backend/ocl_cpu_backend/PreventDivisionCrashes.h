@@ -43,6 +43,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Constructor
     PreventDivisionCrashes() : FunctionPass(ID) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "PreventDivisionCrashes";
+    }
+
     /// @brief    LLVM Function pass entry
     /// @param F  Function to transform
     /// @returns  true if changed

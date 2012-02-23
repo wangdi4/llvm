@@ -43,6 +43,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions), 
         m_RuntimeModules(runtimeModules) {}
 
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "UndefExternalFunctions";
+    }
+
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed

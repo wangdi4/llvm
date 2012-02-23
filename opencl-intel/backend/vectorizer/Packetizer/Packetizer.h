@@ -66,6 +66,12 @@ public:
   static char ID; // Pass identification, replacement for typeid
   PacketizeFunction();
   ~PacketizeFunction();
+
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "PacketizeFunction";
+  }
+
   virtual bool runOnFunction(Function &F);
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
