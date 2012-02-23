@@ -27,7 +27,10 @@
 extern "C" {
 #endif
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
+
+
 #include "mic_defines.h"
 #include "mic_cl_geometry_declaration.h"
 
@@ -93,7 +96,7 @@ double __attribute__((overloadable)) dot(double2 x, double2 y)
   double8 y_reg = (double)0;
   x_reg.s01 = x;
   y_reg.s01 = y;
-  __m512 data = cast_reg(x_reg*y_reg);
+  __m512d data = cast_dreg(x_reg*y_reg);
   half_quar_reduce_add_pd(data);
 
   return ((double8)data).s0;
@@ -105,7 +108,7 @@ double __attribute__((overloadable)) dot(double3 x, double3 y)
   double8 y_reg = (double)0;
   x_reg.s012 = x;
   y_reg.s012 = y;
-  __m512 data = cast_reg(x_reg*y_reg);
+  __m512d data = cast_dreg(x_reg*y_reg);
   quar_reduce_add_pd(data);
 
   return ((double8)data).s0;
@@ -117,7 +120,7 @@ double __attribute__((overloadable)) dot(double4 x, double4 y)
   double8 y_reg = (double)0;
   x_reg.s0123 = x;
   y_reg.s0123 = y;
-  __m512 data = cast_reg(x_reg*y_reg);
+  __m512d data = cast_dreg(x_reg*y_reg);
   quar_reduce_add_pd(data);
 
   return ((double8)data).s0;
@@ -136,12 +139,13 @@ float  __attribute__((overloadable)) length(float2 x)
 
 float __attribute__((overloadable)) length(float16 x)
 {
-  __m512 data = _mm512_cvtl_ps2pd(cast_reg(x));
-  data = _mm512_mul_ps(data, data);
+  __m512d data = _mm512_cvtl_ps2pd(cast_reg(x));
+  data = _mm512_mul_pd(data, data);
   quar_reduce_add_pd(data);
-  data = _mm512_cvtl_pd2ps(data, data, RC_RUN_DOWN);
+  __m512 res = _mm512_undefined_ps();
+  res = _mm512_cvtl_pd2ps(res, data, RC_RUN_DOWN);
   
-  float sum = ((float16)data).s0;
+  float sum = ((float16)res).s0;
 
   return sqrt(sum);
 }
@@ -194,7 +198,7 @@ double __attribute__((overloadable)) length(double8 data)
     denorm  = (double8)exp_upper;
   }
 
-  data = _mm512_mul_pd(data, cast_reg(norm));
+  data = _mm512_mul_pd(data, cast_dreg(norm));
   data = _mm512_mul_pd(data, data);
 
   quar_reduce_add_pd(data);
@@ -236,7 +240,7 @@ float16  __attribute__((overloadable)) normalize_mask(float16 x)
   float16 all_nan = (float16)SP_NAN; // SP NAN
 
   // one_vector=( x >0)?1.0:-1.0
-  __m512i sign_mask = _mm512_and_pi(x, cast_ireg(const_vector_msb));
+  __m512i sign_mask = _mm512_and_pi((__m512i)x, cast_ireg(const_vector_msb));
   __m512i one_vector = _mm512_or_pi(cast_ireg(one), sign_mask); // 1 *sign_bit(x)
 
   // data = isinf(x)?one:data
@@ -283,7 +287,7 @@ double8  __attribute__((overloadable)) normalize_mask(double8 x)
   double8 all_nan = (double8)DP_NAN; // DP NAN
 
   // one_vector=( x >0)?1.0:-1.0
-  __m512i sign_mask = _mm512_and_pq(x, cast_ireg(const_vector_long_msb));
+  __m512i sign_mask = _mm512_and_pq((__m512i)x, cast_ireg(const_vector_long_msb));
   __m512i one_vector = _mm512_or_pq(cast_ireg(one), sign_mask); // 1 *sign_bit(x)
 
   // data = isinf(x)?one:data
@@ -296,7 +300,7 @@ double8  __attribute__((overloadable)) normalize_mask(double8 x)
   if (any(ifnan))
     return all_nan;
 
-  __mmask16 equal = _mm512_cmpeq_pd(x, cast_reg((double8)0.0));
+  __mmask16 equal = _mm512_cmpeq_pd(x, cast_dreg((double8)0.0));
   int flag;
 
   // <Caveat> Use a more efficient 4-element length since normalize only support up to 4 elements
@@ -391,31 +395,31 @@ double4 __attribute__((overloadable)) cross(double4 x, double4 y)
 //
 double3 __attribute__((overloadable)) cross(double3 x, double3 y)
 {
-  __m512 zeros;
-  __m512 result;
+  __m512d zeros;
+  __m512d result;
   double8 f_result = (double8)0.0;
-  __m512 x_reg, y_reg;
+  __m512d x_reg, y_reg;
   __mmask16 k;
 
-  zeros = cast_reg((double8)0);
+  zeros = cast_dreg((double8)0);
 
   f_result.s012 = x;
-  x_reg = cast_reg(f_result);
+  x_reg = cast_dreg(f_result);
   s120_s012_pd(x_reg, zeros, k);
 
   f_result.s012 = y;
-  y_reg = cast_reg(f_result);
+  y_reg = cast_dreg(f_result);
   s201_s012_pd(y_reg, zeros, k);
 
   x_reg = _mm512_mul_pd(x_reg, y_reg);
   result = x_reg;
 
   f_result.s012 = x;
-  x_reg = cast_reg(f_result);
+  x_reg = cast_dreg(f_result);
   s201_s012_pd(x_reg, zeros, k);
 
   f_result.s012 = y;
-  y_reg = cast_reg(f_result);
+  y_reg = cast_dreg(f_result);
   s120_s012_pd(y_reg, zeros, k); // imply k <--0x7
 
   y_reg = _mm512_mul_pd(y_reg, x_reg);
@@ -524,7 +528,7 @@ float16  __attribute__((overloadable)) fast_normalize_mask(float16 x)
   float16 zeros = (float16)0.0f;
   __mmask16 small_val = _mm512_cmpeq_ps(ref, cast_reg(zeros));
   temp = (__m512)x;
-  temp = _mm512_mask_and_pi(temp, small_val, cast_ireg(zeros), cast_ireg(zeros));
+  temp = (__m512)_mm512_mask_and_pi(cast_ireg(temp), small_val, cast_ireg(zeros), cast_ireg(zeros));
   temp = _mm512_mul_ps(temp, temp);
   quar_reduce_add_ps(temp);
   sum = ((float16)temp).s0;
@@ -542,7 +546,7 @@ float16  __attribute__((overloadable)) fast_normalize_mask(float16 x)
 DEF_SP(fast_normalize)
 
 #ifdef __cplusplus
-  }
+}
 #endif
 
 #endif // defined (__MIC__) || defined(__MIC2__)

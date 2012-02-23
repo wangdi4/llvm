@@ -659,7 +659,6 @@ add_subdirectory (penryn)
 #add_subdirectory (prescott)
 add_subdirectory (sandybridge)
 if (INCLUDE_MIC_DEVICE)
-    # Disable build for now...
-    #  add_subdirectory (knf)
+  add_subdirectory (knf)
 endif()
 

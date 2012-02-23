@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #define INRNL_PI        3.14159265358979323846264338327950288   /* pi */
@@ -281,21 +282,21 @@ float16  __attribute__((overloadable)) mask_sign(ushort m16, float16 x)
 double8  __attribute__((overloadable)) sign(double8 x)
 {
     __mmask8 k1 = _mm512_cmpneq_pd(x, x);
-    __m512d res = _mm512_mask_mov_pd(x, k1, (float16)FLOAT(0.0));
-    __mmask8 k2 = _mm512_cmple_pd((float16)FLOAT(0.0), x);
-    res = _mm512_mask_mov_pd(res, k2, (float16)FLOAT(1.0));
-    __mmask8 k3 = _mm512_cmple_pd(x, (float16)FLOAT(0.0));
-    res = _mm512_mask_mov_pd(res, k3, (float16)FLOAT(-1.0));
+    __m512d res = _mm512_mask_mov_pd(x, k1, (double8)DOUBLE(0.0));
+    __mmask8 k2 = _mm512_cmple_pd((double8)DOUBLE(0.0), x);
+    res = _mm512_mask_mov_pd(res, k2, (double8)DOUBLE(1.0));
+    __mmask8 k3 = _mm512_cmple_pd(x, (double8)DOUBLE(0.0));
+    res = _mm512_mask_mov_pd(res, k3, (double8)DOUBLE(-1.0));
     return res;
 }
 double8  __attribute__((overloadable)) mask_sign(uchar m8, double8 x)
 {
     __mmask8 k1 = _mm512_mask_cmpneq_pd(m8, x, x);
-    __m512d res = _mm512_mask_mov_pd(x, k1, (float16)FLOAT(0.0));
-    __mmask8 k2 = _mm512_mask_cmple_pd(m8, (float16)FLOAT(0.0), x);
-    res = _mm512_mask_mov_pd(res, k2, (float16)FLOAT(1.0));
-    __mmask8 k3 = _mm512_mask_cmple_pd(m8, x, (float16)FLOAT(0.0));
-    res = _mm512_mask_mov_pd(res, k3, (float16)FLOAT(-1.0));
+    __m512d res = _mm512_mask_mov_pd(x, k1, (double8)DOUBLE(0.0));
+    __mmask8 k2 = _mm512_mask_cmple_pd(m8, (double8)DOUBLE(0.0), x);
+    res = _mm512_mask_mov_pd(res, k2, (double8)DOUBLE(1.0));
+    __mmask8 k3 = _mm512_mask_cmple_pd(m8, x, (double8)DOUBLE(0.0));
+    res = _mm512_mask_mov_pd(res, k3, (double8)DOUBLE(-1.0));
     return res;
 }
 

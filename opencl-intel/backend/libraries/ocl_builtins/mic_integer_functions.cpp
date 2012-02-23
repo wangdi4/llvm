@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #include "mic_cl_integer_declaration.h"
@@ -204,7 +205,7 @@ _mask8z16o(uchar m8) // odd
 uchar __attribute__((__always_inline__, overloadable))
 _cmplt_zero(long8 x)
 {
-    ushort m16 = _mm512_mask_cmplt_pi(0x55, _mm512_swizzle_epi32(x, _MM_SWIZ_REG_CDAB), (int16)0);
+    ushort m16 = _mm512_mask_cmplt_pi(0x55, _mm512_swizzle_epi32(x, _MM_SWIZ_REG_CDAB), (__m512i)(int16)0);
     return _mask16z8(m16);
 }
 
@@ -212,7 +213,7 @@ _cmplt_zero(long8 x)
 uchar __attribute__((__always_inline__, overloadable))
 _cmpgt_zero(long8 x)
 {
-    ushort m16 = _mm512_mask_cmplt_pi(0x55, (int16)0, _mm512_swizzle_epi32(x, _MM_SWIZ_REG_CDAB));
+    ushort m16 = _mm512_mask_cmplt_pi(0x55, (__m512i)(int16)0, _mm512_swizzle_epi32(x, _MM_SWIZ_REG_CDAB));
     return _mask16z8(m16);
 }
 
@@ -221,8 +222,8 @@ long8 __attribute__((__always_inline__, overloadable))
 _addsetc(long8 x, long8 y, uchar *cout)
 {
     ushort c16 = 0;
-    uint16 r = _mm512_mask_addsetc_epi32(x, 0x55, c16, y, &c16);
-    r = _mm512_mask_adc_epi32(r, 0xAA, c16 << 1, y, &c16);
+    uint16 r = as_uint16(_mm512_mask_addsetc_epi32(x, 0x55, c16, y, &c16));
+    r = as_uint16(_mm512_mask_adc_epi32((__m512i)r, 0xAA, c16 << 1, y, &c16));
     *cout = _mask16z8(c16);
     return as_long8(r);
 }
@@ -237,8 +238,8 @@ long8 __attribute__((__always_inline__, overloadable))
 _adc(long8 x, uchar cin, long8 y, uchar *cout)
 {
     ushort c16 = _mask8z16e(cin);
-    uint16 r = _mm512_mask_adc_epi32(x, 0x55, c16, y, &c16);
-    r = _mm512_mask_adc_epi32(x, 0xAA, c16 << 1, y, &c16);
+    uint16 r = as_uint16(_mm512_mask_adc_epi32((__m512i)x, 0x55, c16, y, &c16));
+    r = as_uint16(_mm512_mask_adc_epi32((__m512i)x, 0xAA, c16 << 1, y, &c16));
     *cout = _mask16z8(c16);
     return as_long8(r);
 }
@@ -251,8 +252,8 @@ _adc(ulong8 x, uchar cin, ulong8 y, uchar *cout)
 /// abs
 uint16 __attribute__((overloadable)) abs(int16 x)
 {
-    ushort m16 = _mm512_cmplt_pi(x, (int16)0);  // x < 0
-    return _mm512_mask_mov_epi32(x, m16, -x);   // x < 0 ? -x : x
+    ushort m16 = _mm512_cmplt_pi((__m512i)x, (__m512i)(int16)0);  // x < 0
+    return as_uint16(_mm512_mask_mov_epi32((__m512i)x, m16, (__m512i)(-x)));   // x < 0 ? -x : x
 }
 uint16 __attribute__((overloadable)) mask_abs(ushort m16, int16 x)
 {
@@ -271,7 +272,7 @@ uint16 __attribute__((overloadable)) mask_abs(ushort m16, uint16 x)
 ulong8 __attribute__((overloadable)) abs(long8 x)
 {
     uchar m8 = _cmplt_zero(x);
-    return _mm512_mask_mov_epi64(x, m8, -x);        // x < 0 ? -x : x
+    return as_ulong8(_mm512_mask_mov_epi64((__m512i)x, m8, (__m512i)(-x)));        // x < 0 ? -x : x
 }
 ulong8 __attribute__((overloadable)) mask_abs(uchar m8, long8 x)
 {
@@ -328,10 +329,10 @@ ulong8 __attribute__((overloadable)) mask_abs_diff(uchar m8, ulong8 x, ulong8 y)
 int16 __attribute__((overloadable)) add_sat(int16 x, int16 y)
 {
     ushort s16;
-    int16 r = _mm512_addsets_epi32(x, y, &s16);
-    ushort p16 = _mm512_cmplt_pi((int16)0, x | y) & s16; // both x and y > 0 but sign bit is set
-    ushort n16 = _mm512_cmplt_pi(x & y, (int16)0) & (~s16); // both x and y < 0 but sign bit is not set
-    return _mm512_mask_mov_epi32(_mm512_mask_mov_epi32(r, p16, (int16)INT_MAX), n16, (int16)INT_MIN);
+    int16 r = as_int16(_mm512_addsets_epi32((__m512i)x, (__m512i)y, &s16));
+    ushort p16 = _mm512_cmplt_pi((__m512i)(int16)0, (__m512i)(x | y)) & s16; // both x and y > 0 but sign bit is set
+    ushort n16 = _mm512_cmplt_pi((__m512i)(x & y), (__m512i)(int16)0) & (~s16); // both x and y < 0 but sign bit is not set
+    return as_int16(_mm512_mask_mov_epi32(_mm512_mask_mov_epi32((__m512i)r, p16, (__m512i)(int16)INT_MAX), n16, (__m512i)(int16)INT_MIN));
 }
 int16 __attribute__((overloadable)) mask_add_sat(ushort m16, int16 x, int16 y)
 {
@@ -341,8 +342,8 @@ int16 __attribute__((overloadable)) mask_add_sat(ushort m16, int16 x, int16 y)
 uint16 __attribute__((overloadable)) add_sat(uint16 x, uint16 y)
 {
     ushort c16;
-    uint16 r = _mm512_addsetc_epi32(x, y, &c16);
-    return _mm512_mask_mov_epi32(r, c16, (uint16)UINT_MAX);
+    uint16 r = as_uint16(_mm512_addsetc_epi32((__m512i)x, (__m512i)y, &c16));
+    return as_uint16(_mm512_mask_mov_epi32((__m512i)r, c16, (__m512i)(uint16)UINT_MAX));
 }
 uint16 __attribute__((overloadable)) mask_add_sat(ushort m16, uint16 x, uint16 y)
 {
@@ -365,7 +366,7 @@ ulong8 __attribute__((overloadable)) add_sat(ulong8 x, ulong8 y)
 {
     uchar c8;
     ulong8 r = _addsetc(x, y, &c8);
-    return _mm512_mask_mov_epi64(r, c8, (ulong8)ULONG_MAX);
+    return as_ulong8(_mm512_mask_mov_epi64((__m512i)r, c8, (__m512i)(ulong8)ULONG_MAX));
 }
 ulong8 __attribute__((overloadable)) mask_add_sat(uchar m8, ulong8 x, ulong8 y)
 {
@@ -425,10 +426,10 @@ ulong8 __attribute__((overloadable)) mask_hadd(uchar m8, ulong8 x, ulong8 y)
 int16 __attribute__((overloadable)) rhadd(int16 x, int16 y)
 {
     ushort c16;
-    int16 r = _mm512_adc_epi32(x, _MM_K0_REG, y, &c16);
-    r = _mm512_srl_pi(r, (int16)1);
-    int16 c = _mm512_mask_mov_epi32((int16)0, c16, (int16)0x80000000);
-    return _mm512_or_epi32(r, c);
+    int16 r = as_int16(_mm512_adc_epi32((__m512i)x, _MM_K0_REG, (__m512i)y, &c16));
+    r = as_int16(_mm512_srl_pi((__m512i)r, (__m512i)(int16)1));
+    int16 c = as_int16(_mm512_mask_mov_epi32((__m512i)(int16)0, c16, (__m512i)(int16)0x80000000));
+    return as_int16(_mm512_or_epi32((__m512i)r, (__m512i)c));
 }
 int16 __attribute__((overloadable)) mask_rhadd(ushort m16, int16 x, int16 y)
 {
@@ -517,10 +518,10 @@ int16 __attribute__((overloadable)) mask_clz(ushort m16, int16 x)
 
 uint16 __attribute__((overloadable)) clz(uint16 x)
 {
-    x = _mm512_andnot_epi32(x, x >> 1);
-    float16 f = _mm512_cvt_pi2ps(x, _MM_EXPADJ_NONE);
+    x = as_uint16(_mm512_andnot_epi32((__m512i)x, (__m512i)(x >> 1)));
+    float16 f = as_float16(_mm512_cvt_pi2ps((__m512i)x, _MM_EXPADJ_NONE));
     x = 158 - (as_uint16(f) >> 23);
-    return _mm512_min_epi32(x, (uint16)32);
+    return as_uint16(_mm512_min_epi32((__m512i)x, (__m512i)(uint16)32));
 }
 uint16 __attribute__((overloadable)) mask_clz(ushort m16, uint16 x)
 {
@@ -539,9 +540,9 @@ long8 __attribute__((overloadable)) mask_clz(uchar m8, long8 x)
 ulong8 __attribute__((overloadable)) clz(ulong8 x)
 {
     uint16 lz = clz(as_uint16(x));
-    ushort m16 = _mm512_mask_cmplt_pi(0xAA, lz, (uint16)32);
-    uint16 r = _mm512_mask_add_epi32((uint16)0, 0x55, lz, _mm512_swizzle_epi32(lz, _MM_SWIZ_REG_CDAB));
-    return _mm512_mask_mov_epi32(r, m16 >> 1, _mm512_swizzle_epi32(lz, _MM_SWIZ_REG_CDAB));
+    ushort m16 = _mm512_mask_cmplt_pi(0xAA, (__m512i)lz, (__m512i)(uint16)32);
+    uint16 r = as_uint16(_mm512_mask_add_epi32((__m512i)(uint16)0, 0x55, (__m512i)lz, _mm512_swizzle_epi32((__m512i)lz, _MM_SWIZ_REG_CDAB)));
+    return as_ulong8(_mm512_mask_mov_epi32((__m512i)r, m16 >> 1, _mm512_swizzle_epi32((__m512i)lz, _MM_SWIZ_REG_CDAB)));
 }
 ulong8 __attribute__((overloadable)) mask_clz(uchar m8, ulong8 x)
 {
@@ -588,16 +589,16 @@ ulong8 __attribute__((overloadable)) mask_mad_hi(uchar m8, ulong8 x, ulong8 y, u
 // mad_sat
 int16 __attribute__((overloadable)) mad_sat(int16 x, int16 y, int16 z)
 {
-    int16 pl = _mm512_mullo_epi32(x, y);
-    int16 ph = _mm512_mulhi_epi32(x, y);
+    int16 pl = as_int16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
+    int16 ph = as_int16(_mm512_mulhi_epi32((__m512i)x, (__m512i)y));
     ushort c16;
-    int16 s = _mm512_addsetc_epi32(z, pl, &c16);
-    ph = _mm512_adc_epi32(ph, c16, (int16)0, &c16);
-    ushort p16 = _mm512_cmplt_pi((int16)0, ph) |
-                 (_mm512_cmpeq_pi(ph, (int16)0) & _mm512_cmplt_pi(s, (int16)0));
-    ushort n16 = _mm512_cmplt_pi(ph, (int16)0) |
-                 (_mm512_cmpeq_pi(ph, (int16)-1) & _mm512_cmplt_pi((int16)0, s));
-    return _mm512_mask_mov_epi32(_mm512_mask_mov_epi32(s, p16, (int16)INT_MAX), n16, (int16)INT_MIN);
+    int16 s = as_int16(_mm512_addsetc_epi32((__m512i)z, (__m512i)pl, &c16));
+    ph = as_int16(_mm512_adc_epi32((__m512i)ph, c16, (__m512i)(int16)0, &c16));
+    ushort p16 = _mm512_cmplt_pi((__m512i)(int16)0, (__m512i)ph) |
+                 (_mm512_cmpeq_pi((__m512i)ph, (__m512i)(int16)0) & _mm512_cmplt_pi((__m512i)s, (__m512i)(int16)0));
+    ushort n16 = _mm512_cmplt_pi((__m512i)ph, (__m512i)(int16)0) |
+                 (_mm512_cmpeq_pi((__m512i)ph, (__m512i)(int16)-1) & _mm512_cmplt_pi((__m512i)(int16)0, (__m512i)s));
+    return as_int16(_mm512_mask_mov_epi32(_mm512_mask_mov_epi32((__m512i)s, p16, (__m512i)(int16)INT_MAX), n16, (__m512i)(int16)INT_MIN));
 }
 int16 __attribute__((overloadable)) mask_mad_sat(ushort m16, int16 x, int16 y, int16 z)
 {
@@ -606,13 +607,13 @@ int16 __attribute__((overloadable)) mask_mad_sat(ushort m16, int16 x, int16 y, i
 
 uint16 __attribute__((overloadable)) mad_sat(uint16 x, uint16 y, uint16 z)
 {
-    uint16 pl = _mm512_mullo_epi32(x, y);
-    uint16 ph = _mm512_mulhi_epu32(x, y);
+    uint16 pl = as_uint16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
+    uint16 ph = as_uint16(_mm512_mulhi_epu32((__m512i)x, (__m512i)y));
     ushort c16;
-    uint16 s = _mm512_addsetc_epi32(z, pl, &c16);
-    ph = _mm512_adc_epi32(ph, c16, (uint16)0, &c16);
-    c16 = _mm512_cmplt_pu((uint16)0, ph);
-    return _mm512_mask_mov_epi32(s, c16, (uint16)UINT_MAX);
+    uint16 s = as_uint16(_mm512_addsetc_epi32((__m512i)z, (__m512i)pl, &c16));
+    ph = as_uint16(_mm512_adc_epi32((__m512i)ph, c16, (__m512i)(uint16)0, &c16));
+    c16 = _mm512_cmplt_pu((__m512i)(uint16)0, (__m512i)ph);
+    return as_uint16(_mm512_mask_mov_epi32((__m512i)s, c16, (__m512i)(uint16)UINT_MAX));
 }
 uint16 __attribute__((overloadable)) mask_mad_sat(ushort m16, uint16 x, uint16 y, uint16 z)
 {
@@ -621,7 +622,7 @@ uint16 __attribute__((overloadable)) mask_mad_sat(ushort m16, uint16 x, uint16 y
 
 long8 __attribute__((overloadable)) mad_sat(long8 x, long8 y, long8 z)
 {
-    long8 pl = _mm512_mullo_epi64(x, y);
+    long8 pl = as_long8(_mm512_mullo_epi64((__m512i)x, (__m512i)y));
     long8 ph = mul_hi(x, y);
     uchar c8;
     long8 s = _addsetc(z, pl, &c8);
@@ -639,13 +640,13 @@ long8 __attribute__((overloadable)) mask_mad_sat(uchar m8, long8 x, long8 y, lon
 
 ulong8 __attribute__((overloadable)) mad_sat(ulong8 x, ulong8 y, ulong8 z)
 {
-    ulong8 pl = _mm512_mullo_epi64(x, y);
+    ulong8 pl = as_ulong8(_mm512_mullo_epi64((__m512i)x, (__m512i)y));
     ulong8 ph = mul_hi(x, y);
     uchar c8;
     ulong8 s = _addsetc(z, pl, &c8);
     ph = _adc(ph, c8, (ulong8)0, &c8);
-    c8 = _mm512_cmplt_epu64((ulong8)0, ph);
-    return _mm512_mask_mov_epi64(s, c8, (ulong8)ULONG_MAX);
+    c8 = _mm512_cmplt_epu64((__m512i)(ulong8)0, (__m512i)ph);
+    return as_ulong8(_mm512_mask_mov_epi64((__m512i)s, c8, (__m512i)(ulong8)ULONG_MAX));
 }
 ulong8 __attribute__((overloadable)) mask_mad_sat(uchar m8, ulong8 x, ulong8 y, ulong8 z)
 {
@@ -655,7 +656,7 @@ ulong8 __attribute__((overloadable)) mask_mad_sat(uchar m8, ulong8 x, ulong8 y, 
 // max
 int16 __attribute__((overloadable)) max(int16 x, int16 y)
 {
-    return _mm512_max_epi32(x, y);
+    return as_int16(_mm512_max_epi32((__m512i)x, (__m512i)y));
 }
 int16 __attribute__((overloadable)) mask_max(ushort m16, int16 x, int16 y)
 {
@@ -664,7 +665,7 @@ int16 __attribute__((overloadable)) mask_max(ushort m16, int16 x, int16 y)
 
 uint16 __attribute__((overloadable)) max(uint16 x, uint16 y)
 {
-    return _mm512_max_epu32(x, y);
+    return as_uint16(_mm512_max_epu32((__m512i)x, (__m512i)y));
 }
 uint16 __attribute__((overloadable)) mask_max(ushort m16, uint16 x, uint16 y)
 {
@@ -673,7 +674,7 @@ uint16 __attribute__((overloadable)) mask_max(ushort m16, uint16 x, uint16 y)
 
 long8 __attribute__((overloadable)) max(long8 x, long8 y)
 {
-    return _mm512_max_epi64(x, y);
+    return as_long8(_mm512_max_epi64((__m512i)x, (__m512i)y));
 }
 long8 __attribute__((overloadable)) mask_max(uchar m8, long8 x, long8 y)
 {
@@ -682,7 +683,7 @@ long8 __attribute__((overloadable)) mask_max(uchar m8, long8 x, long8 y)
 
 ulong8 __attribute__((overloadable)) max(ulong8 x, ulong8 y)
 {
-    return _mm512_max_epu64(x, y);
+    return as_ulong8(_mm512_max_epu64((__m512i)x, (__m512i)y));
 }
 ulong8 __attribute__((overloadable)) mask_max(uchar m8, ulong8 x, ulong8 y)
 {
@@ -692,7 +693,7 @@ ulong8 __attribute__((overloadable)) mask_max(uchar m8, ulong8 x, ulong8 y)
 // min
 int16 __attribute__((overloadable)) min(int16 x, int16 y)
 {
-    return _mm512_min_epi32(x, y);
+    return as_int16(_mm512_min_epi32((__m512i)x, (__m512i)y));
 }
 int16 __attribute__((overloadable)) mask_min(ushort m16, int16 x, int16 y)
 {
@@ -701,7 +702,7 @@ int16 __attribute__((overloadable)) mask_min(ushort m16, int16 x, int16 y)
 
 uint16 __attribute__((overloadable)) min(uint16 x, uint16 y)
 {
-    return _mm512_min_epu32(x, y);
+    return as_uint16(_mm512_min_epu32((__m512i)x, (__m512i)y));
 }
 uint16 __attribute__((overloadable)) mask_min(ushort m16, uint16 x, uint16 y)
 {
@@ -710,7 +711,7 @@ uint16 __attribute__((overloadable)) mask_min(ushort m16, uint16 x, uint16 y)
 
 long8 __attribute__((overloadable)) min(long8 x, long8 y)
 {
-    return _mm512_min_epi64(x, y);
+    return as_long8(_mm512_min_epi64((__m512i)x, (__m512i)y));
 }
 long8 __attribute__((overloadable)) mask_min(uchar m8, long8 x, long8 y)
 {
@@ -719,7 +720,7 @@ long8 __attribute__((overloadable)) mask_min(uchar m8, long8 x, long8 y)
 
 ulong8 __attribute__((overloadable)) min(ulong8 x, ulong8 y)
 {
-    return _mm512_min_epu64(x, y);
+    return as_ulong8(_mm512_min_epu64((__m512i)x, (__m512i)y));
 }
 ulong8 __attribute__((overloadable)) mask_min(uchar m8, ulong8 x, ulong8 y)
 {
@@ -729,7 +730,7 @@ ulong8 __attribute__((overloadable)) mask_min(uchar m8, ulong8 x, ulong8 y)
 // mul_hi
 int16 __attribute__((overloadable)) mul_hi(int16 x, int16 y)
 {
-    return _mm512_mulhi_epi32(x, y);
+    return as_int16(_mm512_mulhi_epi32((__m512i)x, (__m512i)y));
 }
 int16 __attribute__((overloadable)) mask_mul_hi(ushort m16, int16 x, int16 y)
 {
@@ -738,7 +739,7 @@ int16 __attribute__((overloadable)) mask_mul_hi(ushort m16, int16 x, int16 y)
 
 uint16 __attribute__((overloadable)) mul_hi(uint16 x, uint16 y)
 {
-    return _mm512_mulhi_epu32(x, y);
+    return as_uint16(_mm512_mulhi_epu32((__m512i)x, (__m512i)y));
 }
 uint16 __attribute__((overloadable)) mask_mul_hi(ushort m16, uint16 x, uint16 y)
 {
@@ -759,26 +760,26 @@ long8 __attribute__((overloadable)) mul_hi(long8 x, long8 y)
     // p3_h, p3_l
     // ----------------------
     // hi = ((p0_h + p1_l + p2_l) + ((p1_h + p2_h + p3_l) << 32) + (p3_h << 64)) >> 32
-    int16 p30l = _mm512_mullo_epi32(x, y);
-    int16 p30h = _mm512_mulhi_epi32(x, y);
-    int16 p21l = _mm512_mullo_epi32(x, _mm512_swizzle_epi32(y, _MM_SWIZ_REG_CDAB));
-    int16 p21h = _mm512_mulhi_epi32(x, _mm512_swizzle_epi32(y, _MM_SWIZ_REG_CDAB));
+    int16 p30l = as_int16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
+    int16 p30h = as_int16(_mm512_mulhi_epi32((__m512i)x, (__m512i)y));
+    int16 p21l = as_int16(_mm512_mullo_epi32((__m512i)x, _mm512_swizzle_epi32((__m512i)y, _MM_SWIZ_REG_CDAB)));
+    int16 p21h = as_int16(_mm512_mulhi_epi32((__m512i)x, _mm512_swizzle_epi32((__m512i)y, _MM_SWIZ_REG_CDAB)));
     ushort c0, c1;
     int16 ah, al;
     c0 = c1 = 0;
     // = p1_l + p0_h
-    al = _mm512_mask_addsetc_epi32(p30h, 0x55, c0, p21l, &c0);
+    al = as_int16(_mm512_mask_addsetc_epi32((__m512i)p30h, 0x55, c0, (__m512i)p21l, &c0));
     // = p2_l + a0
-    ah = _mm512_mask_addsetc_epi32(al, 0x55, c1, _mm512_swizzle_epi32(p21l, _MM_SWIZ_REG_CDAB), &c1);
+    ah = as_int16(_mm512_mask_addsetc_epi32((__m512i)al, 0x55, c1, _mm512_swizzle_epi32((__m512i)p21l, _MM_SWIZ_REG_CDAB), &c1));
     // al = p2_h + p3_l + c0
-    al = _mm512_mask_adc_epi32(p30l, 0xAA, c0 << 1, p21h, &c0);
+    al = as_int16(_mm512_mask_adc_epi32((__m512i)p30l, 0xAA, c0 << 1, (__m512i)p21h, &c0));
     // al = p1_h + al + c1
-    al = _mm512_mask_adc_epi32(al, 0xAA, c1 << 1, _mm512_swizzle_epi32(p21h, _MM_SWIZ_REG_CDAB), &c1);
+    al = as_int16(_mm512_mask_adc_epi32((__m512i)al, 0xAA, c1 << 1, _mm512_swizzle_epi32((__m512i)p21h, _MM_SWIZ_REG_CDAB), &c1));
     // ah = p3_h + c0 + c1
-    ah = _mm512_mask_adc_epi32(p30h, 0xAA, c0, (int16)0, &c0);
-    ah = _mm512_mask_adc_epi32(ah, 0xAA, c1, (int16)0, &c1);
+    ah = as_int16(_mm512_mask_adc_epi32((__m512i)p30h, 0xAA, c0, (__m512i)(int16)0, &c0));
+    ah = as_int16(_mm512_mask_adc_epi32((__m512i)ah, 0xAA, c1, (__m512i)(int16)0, &c1));
     // (ah, al)
-    return _mm512_mask_mov_epi32(ah, 0x55, _mm512_swizzle_epi32(al, _MM_SWIZ_REG_CDAB));
+    return as_long8(_mm512_mask_mov_epi32((__m512i)ah, 0x55, _mm512_swizzle_epi32((__m512i)al, _MM_SWIZ_REG_CDAB)));
 }
 long8 __attribute__((overloadable)) mask_mul_hi(uchar m8, long8 x, long8 y)
 {
@@ -799,26 +800,26 @@ ulong8 __attribute__((overloadable)) mul_hi(ulong8 x, ulong8 y)
     // p3_h, p3_l
     // ----------------------
     // hi = ((p0_h + p1_l + p2_l) + ((p1_h + p2_h + p3_l) << 32) + (p3_h << 64)) >> 32
-    uint16 p30l = _mm512_mullo_epi32(x, y);
-    uint16 p30h = _mm512_mulhi_epu32(x, y);
-    uint16 p21l = _mm512_mullo_epi32(x, _mm512_swizzle_epi32(y, _MM_SWIZ_REG_CDAB));
-    uint16 p21h = _mm512_mulhi_epu32(x, _mm512_swizzle_epi32(y, _MM_SWIZ_REG_CDAB));
+    uint16 p30l = as_uint16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
+    uint16 p30h = as_uint16(_mm512_mulhi_epu32((__m512i)x, (__m512i)y));
+    uint16 p21l = as_uint16(_mm512_mullo_epi32((__m512i)x, _mm512_swizzle_epi32((__m512i)y, _MM_SWIZ_REG_CDAB)));
+    uint16 p21h = as_uint16(_mm512_mulhi_epu32((__m512i)x, _mm512_swizzle_epi32((__m512i)y, _MM_SWIZ_REG_CDAB)));
     ushort c0, c1;
     uint16 ah, al;
     c0 = c1 = 0;
     // = p1_l + p0_h
-    al = _mm512_mask_addsetc_epi32(p30h, 0x55, c0, p21l, &c0);
+    al = as_uint16(_mm512_mask_addsetc_epi32((__m512i)p30h, 0x55, c0, (__m512i)p21l, &c0));
     // = p2_l + a0
-    ah = _mm512_mask_addsetc_epi32(al, 0x55, c1, _mm512_swizzle_epi32(p21l, _MM_SWIZ_REG_CDAB), &c1);
+    ah = as_uint16(_mm512_mask_addsetc_epi32((__m512i)al, 0x55, c1, _mm512_swizzle_epi32((__m512i)p21l, _MM_SWIZ_REG_CDAB), &c1));
     // al = p2_h + p3_l + c0
-    al = _mm512_mask_adc_epi32(p30l, 0xAA, c0 << 1, p21h, &c0);
+    al = as_uint16(_mm512_mask_adc_epi32((__m512i)p30l, 0xAA, c0 << 1, (__m512i)p21h, &c0));
     // al = p1_h + al + c1
-    al = _mm512_mask_adc_epi32(al, 0xAA, c1 << 1, _mm512_swizzle_epi32(p21h, _MM_SWIZ_REG_CDAB), &c1);
+    al = as_uint16(_mm512_mask_adc_epi32((__m512i)al, 0xAA, c1 << 1, _mm512_swizzle_epi32((__m512i)p21h, _MM_SWIZ_REG_CDAB), &c1));
     // ah = p3_h + c0 + c1
-    ah = _mm512_mask_adc_epi32(p30h, 0xAA, c0, (uint16)0, &c0);
-    ah = _mm512_mask_adc_epi32(ah, 0xAA, c1, (uint16)0, &c1);
+    ah = as_uint16(_mm512_mask_adc_epi32((__m512i)p30h, 0xAA, c0, (__m512i)(uint16)0, &c0));
+    ah = as_uint16(_mm512_mask_adc_epi32((__m512i)ah, 0xAA, c1, (__m512i)(uint16)0, &c1));
     // (ah, al)
-    return _mm512_mask_mov_epi32(ah, 0x55, _mm512_swizzle_epi32(al, _MM_SWIZ_REG_CDAB));
+    return as_ulong8(_mm512_mask_mov_epi32((__m512i)ah, 0x55, _mm512_swizzle_epi32((__m512i)al, _MM_SWIZ_REG_CDAB)));
 }
 ulong8 __attribute__((overloadable)) mask_mul_hi(uchar m8, ulong8 x, ulong8 y)
 {
@@ -828,7 +829,7 @@ ulong8 __attribute__((overloadable)) mask_mul_hi(uchar m8, ulong8 x, ulong8 y)
 // rotate
 int16 __attribute__((overloadable)) rotate(int16 x, int16 y)
 {
-    return _mm512_sll_pi(x, y) | _mm512_srl_pi(x, (int16)32 - y);
+    return as_int16(_mm512_sll_pi((__m512i)x, (__m512i)y)) | as_int16(_mm512_srl_pi((__m512i)x, (__m512i)((int16)32 - y)));
 }
 int16 __attribute__((overloadable)) mask_rotate(ushort m16, int16 x, int16 y)
 {
@@ -846,7 +847,7 @@ uint16 __attribute__((overloadable)) mask_rotate(ushort m16, uint16 x, uint16 y)
 
 long8 __attribute__((overloadable)) rotate(long8 x, long8 y)
 {
-    return _mm512_sll_epi64(x, y) | _mm512_srl_epi64(x, (int16)64 - y);
+    return as_long8(_mm512_sll_epi64((__m512i)x, (__m512i)y)) | as_long8(_mm512_srl_epi64((__m512i)x, (__m512i)((long8)64 - y)));
 }
 long8 __attribute__((overloadable)) mask_rotate(uchar m8, long8 x, long8 y)
 {
@@ -875,8 +876,8 @@ int16 __attribute__((overloadable)) mask_sub_sat(ushort m16, int16 x, int16 y)
 uint16 __attribute__((overloadable)) sub_sat(uint16 x, uint16 y)
 {
     ushort b16;
-    uint16 r = _mm512_subsetb_epi32(x, y, &b16);
-    return _mm512_mask_mov_epi32(r, b16, (uint16)0);
+    uint16 r = as_uint16(_mm512_subsetb_epi32((__m512i)x, (__m512i)y, &b16));
+    return as_uint16(_mm512_mask_mov_epi32((__m512i)r, b16, (__m512i)(uint16)0));
 }
 uint16 __attribute__((overloadable)) mask_sub_sat(ushort m16, uint16 x, uint16 y)
 {
@@ -895,10 +896,10 @@ long8 __attribute__((overloadable)) mask_sub_sat(uchar m8, long8 x, long8 y)
 ulong8 __attribute__((overloadable)) sub_sat(ulong8 x, ulong8 y)
 {
     ushort b16;
-    uint16 r = _mm512_mask_subsetb_epi32(x, 0x55, b16, y, &b16);
-    r = _mm512_mask_sbb_epi32(r, 0xAA, b16 << 1, y, &b16);
+    uint16 r = as_uint16(_mm512_mask_subsetb_epi32((__m512i)x, 0x55, b16, (__m512i)y, &b16));
+    r = as_uint16(_mm512_mask_sbb_epi32((__m512i)r, 0xAA, b16 << 1, (__m512i)y, &b16));
     uchar b8 = _mask16z8(b16);
-    return _mm512_mask_mov_epi64(r, b8, (ulong8)0);
+    return as_ulong8(_mm512_mask_mov_epi64((__m512i)r, b8, (__m512i)(ulong8)0));
 }
 ulong8 __attribute__((overloadable)) mask_sub_sat(uchar m8, ulong8 x, ulong8 y)
 {
@@ -914,11 +915,11 @@ long8 __attribute__((overloadable)) upsample(int8 hi, int8 lo)
     // Note that both KNF & KNC are in-order core without register renaming.
     // The following instructions are independent as their mask values have no
     // overlap and hence has the shorter latency.
-    long8 r = _mm512_undefined_epi64();
-    r = _mm512_mask_shuf128x32(r, 0x0A0A, val, _MM_PERM_DDCC, _MM_PERM_BDAC);
-    r = _mm512_mask_shuf128x32(r, 0xA0A0, val, _MM_PERM_DDCC, _MM_PERM_DBCA);
-    r = _mm512_mask_shuf128x32(r, 0x0505, val, _MM_PERM_BBAA, _MM_PERM_DBCA);
-    r = _mm512_mask_shuf128x32(r, 0x5050, val, _MM_PERM_BBAA, _MM_PERM_BDAC);
+    long8 r = as_long8(_mm512_undefined_epi64());
+    r = as_long8(_mm512_mask_shuf128x32((__m512)r, 0x0A0A, (__m512)val, _MM_PERM_DDCC, _MM_PERM_BDAC));
+    r = as_long8(_mm512_mask_shuf128x32((__m512)r, 0xA0A0, (__m512)val, _MM_PERM_DDCC, _MM_PERM_DBCA));
+    r = as_long8(_mm512_mask_shuf128x32((__m512)r, 0x0505, (__m512)val, _MM_PERM_BBAA, _MM_PERM_DBCA));
+    r = as_long8(_mm512_mask_shuf128x32((__m512)r, 0x5050, (__m512)val, _MM_PERM_BBAA, _MM_PERM_BDAC));
     return r;
 }
 long8 __attribute__((overloadable)) mask_upsample(uchar m8, int8 hi, int8 lo)
@@ -956,7 +957,7 @@ uint16 __attribute__((overloadable)) mask_popcount(ushort m16, uint16 x)
     // The following 'switch' will be removed during incluing this function
     // with constant mask. As a result, the final builtin on narrow vector
     // won't have branches.
-    _mm512_mask_stored(&t[0], m16, x, _MM_DOWNC_NONE, _MM_SUBSET32_16, _MM_HINT_NONE);
+    _mm512_mask_stored(&t[0], m16, (__m512)x, _MM_DOWNC_NONE, _MM_SUBSET32_16, _MM_HINT_NONE);
     switch (m16) {
         case 0xFFFF:
             t[15] = _mm_countbits_32(t[15]);
@@ -983,7 +984,7 @@ uint16 __attribute__((overloadable)) mask_popcount(ushort m16, uint16 x)
         default:
             break;
     }
-    return _mm512_loadd(&t[0], _MM_FULLUPC_NONE, _MM_BROADCAST32_NONE, _MM_HINT_NONE);
+    return as_uint16(_mm512_loadd(&t[0], _MM_FULLUPC_NONE, _MM_BROADCAST32_NONE, _MM_HINT_NONE));
 }
 
 long8 __attribute__((overloadable)) popcount(long8 x)
@@ -1006,7 +1007,7 @@ ulong8 __attribute__((overloadable)) mask_popcount(uchar m8, ulong8 x)
     // The following 'switch' will be removed during incluing this function
     // with constant mask. As a result, the final builtin on narrow vector
     // won't have branches.
-    _mm512_mask_storeq(&t[0], m8, x, _MM_DOWNC64_NONE, _MM_SUBSET64_8, _MM_HINT_NONE);
+    _mm512_mask_storeq(&t[0], m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_SUBSET64_8, _MM_HINT_NONE);
     switch (m8) {
         case 0xFF:
             t[7] = _mm_countbits_64(t[7]);
@@ -1024,13 +1025,13 @@ ulong8 __attribute__((overloadable)) mask_popcount(uchar m8, ulong8 x)
         default:
             break;
     }
-    return _mm512_loadq(&t[0], _MM_FULLUPC64_NONE, _MM_BROADCAST64_NONE, _MM_HINT_NONE);
+    return as_ulong8(_mm512_loadq(&t[0], _MM_FULLUPC64_NONE, _MM_BROADCAST64_NONE, _MM_HINT_NONE));
 }
 
 // mad24
 int16 __attribute__((overloadable)) mad24(int16 x, int16 y, int16 z)
 {
-    return _mm512_madd231_pi(z, x, y);
+    return as_int16(_mm512_madd231_pi((__m512i)z, (__m512i)x, (__m512i)y));
 }
 int16 __attribute__((overloadable)) mask_mad24(ushort m16, int16 x, int16 y, int16 z)
 {
@@ -1039,7 +1040,7 @@ int16 __attribute__((overloadable)) mask_mad24(ushort m16, int16 x, int16 y, int
 
 uint16 __attribute__((overloadable)) mad24(uint16 x, uint16 y, uint16 z)
 {
-    return _mm512_madd231_pi(z, x, y);
+    return as_uint16(_mm512_madd231_pi((__m512i)z, (__m512i)x, (__m512i)y));
 }
 uint16 __attribute__((overloadable)) mask_mad24(ushort m16, uint16 x, uint16 y, uint16 z)
 {
@@ -1049,7 +1050,7 @@ uint16 __attribute__((overloadable)) mask_mad24(ushort m16, uint16 x, uint16 y, 
 // mul24
 int16 __attribute__((overloadable)) mul24(int16 x, int16 y)
 {
-    return _mm512_mullo_epi32(x, y);
+    return as_int16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
 }
 int16 __attribute__((overloadable)) mask_mul24(ushort m16, int16 x, int16 y)
 {
@@ -1058,7 +1059,7 @@ int16 __attribute__((overloadable)) mask_mul24(ushort m16, int16 x, int16 y)
 
 uint16 __attribute__((overloadable)) mul24(uint16 x, uint16 y)
 {
-    return _mm512_mullo_epi32(x, y);
+    return as_uint16(_mm512_mullo_epi32((__m512i)x, (__m512i)y));
 }
 uint16 __attribute__((overloadable)) mask_mul24(ushort m16, uint16 x, uint16 y)
 {

@@ -24,6 +24,7 @@
 
 #if defined (__MIC__) || defined(__MIC2__)
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #include "mic_cl_math_declaration.h"

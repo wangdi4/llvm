@@ -27,6 +27,7 @@
 extern "C" {
 #endif
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 #include "mic_cl_relational_declaration.h"
 
@@ -112,7 +113,7 @@ int16 __attribute__((overloadable)) isfinite (float16 x)
 int16 __attribute__((overloadable)) isinf (float16 x)
 {
   __m512i zeros = (__m512i)_mm512_setzero();
-  __m512i ones = cast_reg((int16)(0xFFFFFFFF));
+  __m512i ones = cast_ireg((int16)(0xFFFFFFFF));
 
   __m512i no_sign = _mm512_and_pi(cast_ireg(x), pcast_ireg(const_vector_nosign));
   __mmask16 equal = _mm512_cmpeq_pi(no_sign, pcast_ireg(const_vector_exp));
@@ -156,7 +157,7 @@ int16  __attribute__((overloadable)) isordered (float16 x, float16 y)
   __m512i zeros = (__m512i)_mm512_setzero();
   __m512i ones = cast_ireg((int16)(0xFFFFFFFF));
 
-  __mmask16 equal = _mm512_cmpord_ps(cast_ireg(x), cast_ireg(x));
+  __mmask16 equal = _mm512_cmpord_ps(cast_reg(x), cast_reg(x));
 
   zeros = _mm512_mask_or_pi(zeros, equal, ones, ones);
   return (int16)zeros;
@@ -221,7 +222,7 @@ int any_char(char16 vector_reg, __mmask16 k1)
   __m512i zeros = (__m512i)_mm512_setzero();
   __m512 x_reg = ext_from_s8(vector_reg);
 
-  x_reg = _mm512_mask_and_pi(x_reg, k1, zeros, zeros);
+  x_reg = cast_reg(_mm512_mask_and_pi(cast_ireg(x_reg), k1, zeros, zeros));
   __m512i no_sign = _mm512_and_pi(cast_ireg(x_reg), pcast_ireg(const_vector_msb));
   __mmask16 equal = _mm512_cmpeq_pi(no_sign, zeros);
   int all_zero = _mm512_kortestz(equal, equal);
@@ -274,7 +275,7 @@ int any_short(short16 vector_reg, __mmask16 k1)
   __m512i zeros = (__m512i)_mm512_setzero();
   __m512 x_reg = ext_from_s16(vector_reg);
 
-  x_reg = _mm512_mask_and_pi(x_reg, k1, zeros, zeros);
+  x_reg = cast_reg(_mm512_mask_and_pi(cast_ireg(x_reg), k1, zeros, zeros));
   __m512i no_sign = _mm512_and_pi(cast_ireg(x_reg), pcast_ireg(const_vector_msb));
   __mmask16 equal = _mm512_cmpeq_pi(no_sign, zeros);
   int all_zero = _mm512_kortestz(equal, equal);
@@ -328,7 +329,7 @@ int any_int(int16 vector_reg, __mmask16 k1)
   __m512i zeros = (__m512i)_mm512_setzero();
   __m512 x_reg = cast_reg(vector_reg);
 
-  x_reg = _mm512_mask_and_pi(x_reg, k1, zeros, zeros);
+  x_reg = cast_reg(_mm512_mask_and_pi(cast_ireg(x_reg), k1, zeros, zeros));
   __m512i no_sign = _mm512_and_pi(cast_ireg(x_reg), pcast_ireg(const_vector_msb));
   __mmask16 equal = _mm512_cmpeq_pi(no_sign, zeros);
   int all_zero = _mm512_kortestz(equal, equal);

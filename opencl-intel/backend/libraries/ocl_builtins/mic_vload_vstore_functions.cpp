@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #include "mic_cl_vloadvstore_declaration.h"
@@ -105,7 +106,7 @@ int16 __attribute__((overloadable)) vload16(size_t offset, const __private int *
 }
 int16 __attribute__((overloadable)) mask_vload16(ushort m16, size_t offset, const __private int *p)
 {
-    int16 r = _mm512_undefined_epi32();
+    __m512 r = _mm512_undefined_ps();
     switch (m16) {
         case 0xFFFF:
             r = _mm512_loadunpackld(r, p + (offset * 16), _MM_FULLUPC_NONE, _MM_HINT_NONE);
@@ -131,7 +132,7 @@ int16 __attribute__((overloadable)) mask_vload16(ushort m16, size_t offset, cons
             r = _mm512_loadd(p + offset, _MM_FULLUPC_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
             break;
     }
-    return r;
+    return as_int16(r);
 }
 
 uint16 __attribute__((overloadable)) vload16(size_t offset, const __private uint *p)
@@ -149,7 +150,7 @@ long8 __attribute__((overloadable)) vload8(size_t offset, const __private long *
 }
 long8 __attribute__((overloadable)) mask_vload8(uchar m8, size_t offset, const __private long *p)
 {
-    long8 r = _mm512_undefined_epi64();
+    __m512d r = _mm512_undefined_pd();
     switch (m8) {
         case 0xFF:
             r = _mm512_loadunpacklq(r, p + (offset * 8), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
@@ -171,7 +172,7 @@ long8 __attribute__((overloadable)) mask_vload8(uchar m8, size_t offset, const _
             r = _mm512_loadq(p + offset, _MM_FULLUPC64_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
             break;
     }
-    return r;
+    return as_long8(r);
 }
 
 ulong8 __attribute__((overloadable)) vload8(size_t offset, const __private ulong *p)
@@ -209,27 +210,27 @@ void __attribute__((overloadable)) mask_vstore16(ushort m16, int16 x, size_t off
 {
     switch (m16) {
         case 0xFFFF:
-            _mm512_packstoreld(p + (offset * 16), x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_packstorehd(p + (offset * 16), x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_packstoreld(p + (offset * 16), (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_packstorehd(p + (offset * 16), (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
             break;
         case 0x00FF:
-            _mm512_mask_packstoreld(p + (offset * 8), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 8), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
             break;
         case 0x000F:
-            _mm512_mask_packstoreld(p + (offset * 4), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 4), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
             break;
         case 0x0007:
-            _mm512_mask_packstoreld(p + (offset * 3), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 3), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
             break;
         case 0x0003:
-            _mm512_mask_packstoreld(p + (offset * 2), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 2), m16, x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_NONE, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_stored(p + offset, x, _MM_DOWNC_NONE, _MM_SUBSET32_1, _MM_HINT_NONE);
+            _mm512_stored(p + offset, (__m512)x, _MM_DOWNC_NONE, _MM_SUBSET32_1, _MM_HINT_NONE);
             break;
     }
 }
@@ -251,23 +252,23 @@ void __attribute__((overloadable)) mask_vstore8(uchar m8, long8 x, size_t offset
 {
     switch (m8) {
         case 0xFF:
-            _mm512_packstoreld(p + (offset * 8), x, _MM_DOWNC_NONE, _MM_HINT_NONE);
-            _mm512_packstorehd(p + (offset * 8), x, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_packstorelq(p + (offset * 8), (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_packstorehq(p + (offset * 8), (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
             break;
         case 0x0F:
-            _mm512_mask_packstorelq(p + (offset * 4), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehq(p + (offset * 4), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorelq(p + (offset * 4), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq(p + (offset * 4), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
             break;
         case 0x07:
-            _mm512_mask_packstorelq(p + (offset * 3), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehq(p + (offset * 3), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorelq(p + (offset * 3), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq(p + (offset * 3), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
             break;
         case 0x03:
-            _mm512_mask_packstorelq(p + (offset * 2), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
-            _mm512_mask_packstorehq(p + (offset * 2), m8, x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorelq(p + (offset * 2), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq(p + (offset * 2), m8, (__m512d)x, _MM_DOWNC64_NONE, _MM_HINT_NONE);
             break;
         case 0x01:
-            _mm512_storeq(p + offset, x, _MM_DOWNC64_NONE, _MM_SUBSET64_1, _MM_HINT_NONE);
+            _mm512_storeq(p + offset, (__m512d)x, _MM_DOWNC64_NONE, _MM_SUBSET64_1, _MM_HINT_NONE);
             break;
     }
 }
@@ -305,7 +306,7 @@ float16 __attribute__((overloadable)) vload_half16(size_t offset, const __privat
 }
 float16 __attribute__((overloadable)) mask_vload_half16(ushort m16, size_t offset, const __private half *p)
 {
-    float16 r = _mm512_undefined_ps();
+    __m512 r = _mm512_undefined_ps();
     switch (m16) {
         case 0xFFFF:
             r = _mm512_loadunpackld(r, p + (offset * 16), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
@@ -331,7 +332,7 @@ float16 __attribute__((overloadable)) mask_vload_half16(ushort m16, size_t offse
             r = _mm512_loadd(p + offset, _MM_FULLUPC_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
             break;
     }
-    return r;
+    return as_float16(r);
 }
 
 void __attribute__((overloadable)) vstore_half16(float16 x, size_t offset, __private half *p)
@@ -351,27 +352,27 @@ void __attribute__((overloadable)) mask_vstore_half16_rte(ushort m16, float16 x,
 {
     switch (m16) {
         case 0xFFFF:
-            _mm512_packstoreld(p + (offset * 16), x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
-            _mm512_packstorehd(p + (offset * 16), x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_packstoreld(p + (offset * 16), (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_packstorehd(p + (offset * 16), (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
-            _mm512_mask_packstoreld(p + (offset * 8), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 8), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
-            _mm512_mask_packstoreld(p + (offset * 4), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 4), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
-            _mm512_mask_packstoreld(p + (offset * 3), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 3), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
-            _mm512_mask_packstoreld(p + (offset * 2), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 2), m16, x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_stored(p + offset, x, _MM_DOWNC_FLOAT16, _MM_SUBSET32_1, _MM_HINT_NONE);
+            _mm512_stored(p + offset, (__m512)x, _MM_DOWNC_FLOAT16, _MM_SUBSET32_1, _MM_HINT_NONE);
             break;
     }
 }
@@ -384,27 +385,27 @@ void __attribute__((overloadable)) mask_vstore_half16_rtz(ushort m16, float16 x,
 {
     switch (m16) {
         case 0xFFFF:
-            _mm512_packstoreld(p + (offset * 16), x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
-            _mm512_packstorehd(p + (offset * 16), x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_packstoreld(p + (offset * 16), (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_packstorehd(p + (offset * 16), (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
             break;
         case 0xFF:
-            _mm512_mask_packstoreld(p + (offset * 8), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 8), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 8), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
             break;
         case 0x0F:
-            _mm512_mask_packstoreld(p + (offset * 4), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 4), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 4), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
             break;
         case 0x07:
-            _mm512_mask_packstoreld(p + (offset * 3), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 3), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 3), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
             break;
         case 0x03:
-            _mm512_mask_packstoreld(p + (offset * 2), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
-            _mm512_mask_packstorehd(p + (offset * 2), m16, x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstoreld(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd(p + (offset * 2), m16, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
             break;
         case 0x01:
-            _mm512_stored(p + offset, x, _MM_DOWNC_FLOAT16RZ, _MM_SUBSET32_1, _MM_HINT_NONE);
+            _mm512_stored(p + offset, (__m512)x, _MM_DOWNC_FLOAT16RZ, _MM_SUBSET32_1, _MM_HINT_NONE);
             break;
     }
 }
@@ -426,12 +427,12 @@ void __attribute__((overloadable)) mask_vstore_half16_rtp(ushort m16, float16 x,
     // r bit M11
     // s bit M10-0
     ushort g16, r16, s16;
-    g16 = _mm512_mask_test_epi32(p16, x, (uint16)(1U << 12));
-    r16 = _mm512_mask_test_epi32(p16, x, (uint16)(1U << 11));
-    s16 = _mm512_mask_test_epi32(p16, x, (uint16)((1U << 11) - 1U));
+    g16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)(1U << 12));
+    r16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)(1U << 11));
+    s16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)((1U << 11) - 1U));
     // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
     // will be rounded in round-nearest-even.)
-    x = _mm512_mask_or_epi32(x, g16 | r16 | s16, x, (uint16)(7U << 10));
+    x = as_float16(_mm512_mask_or_epi32((__m512i)x, g16 | r16 | s16, (__m512i)x, (__m512i)(uint16)(7U << 10)));
     mask_vstore_half16_rte(m16, x, offset, p);
 }
 
@@ -452,12 +453,12 @@ void __attribute__((overloadable)) mask_vstore_half16_rtn(ushort m16, float16 x,
     // r bit M11
     // s bit M10-0
     ushort g16, r16, s16;
-    g16 = _mm512_mask_test_epi32(n16, x, (uint16)(1U << 12));
-    r16 = _mm512_mask_test_epi32(n16, x, (uint16)(1U << 11));
-    s16 = _mm512_mask_test_epi32(n16, x, (uint16)((1U << 11) - 1U));
+    g16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)(1U << 12));
+    r16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)(1U << 11));
+    s16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)((1U << 11) - 1U));
     // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
     // will be rounded in round-nearest-even.)
-    x = _mm512_mask_or_epi32(x, g16 | r16 | s16, x, (uint16)(7U << 10));
+    x = as_float16(_mm512_mask_or_epi32((__m512i)x, g16 | r16 | s16, (__m512i)x, (__m512i)(uint16)(7U << 10)));
     mask_vstore_half16_rte(m16, x, offset, p);
 }
 
@@ -476,8 +477,9 @@ void __attribute__((overloadable)) vstore_half8_rte(double8 x, size_t offset, __
 }
 void __attribute__((overloadable)) mask_vstore_half8_rte(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_NEAREST);
-    mask_vstore_half16_rte((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_NEAREST);
+    mask_vstore_half16_rte((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstore_half8_rtz(double8 x, size_t offset, __private half *p)
@@ -486,8 +488,9 @@ void __attribute__((overloadable)) vstore_half8_rtz(double8 x, size_t offset, __
 }
 void __attribute__((overloadable)) mask_vstore_half8_rtz(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_TOWARD_ZERO);
-    mask_vstore_half16_rtz((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_TOWARD_ZERO);
+    mask_vstore_half16_rtz((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstore_half8_rtp(double8 x, size_t offset, __private half *p)
@@ -496,8 +499,9 @@ void __attribute__((overloadable)) vstore_half8_rtp(double8 x, size_t offset, __
 }
 void __attribute__((overloadable)) mask_vstore_half8_rtp(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_UP);
-    mask_vstore_half16_rtp((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_UP);
+    mask_vstore_half16_rtp((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstore_half8_rtn(double8 x, size_t offset, __private half *p)
@@ -506,8 +510,9 @@ void __attribute__((overloadable)) vstore_half8_rtn(double8 x, size_t offset, __
 }
 void __attribute__((overloadable)) mask_vstore_half8_rtn(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_DOWN);
-    mask_vstore_half16_rtn((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_DOWN);
+    mask_vstore_half16_rtn((ushort)m8, as_float16(r), offset, p);
 }
 
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __private half *p)
@@ -518,7 +523,7 @@ float16 __attribute__((overloadable)) mask_vloada_half16(ushort m16, size_t offs
 {
     // NOTE: loadunpackhd is not necessary as (p+offset*m) must be aligned to
     // sizeof(half{n}), where m = 1, 2, 4, 4, 8, and 16 if n = 1, 2, 3, 4, 8, and 16.
-    float16 r = _mm512_undefined_ps();
+    __m512 r = _mm512_undefined_ps();
     switch (m16) {
         case 0xFFFF:
             r = _mm512_loadunpackld(r, p + (offset * 16), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
@@ -539,7 +544,7 @@ float16 __attribute__((overloadable)) mask_vloada_half16(ushort m16, size_t offs
             r = _mm512_loadd(p + offset, _MM_FULLUPC_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
             break;
     }
-    return r;
+    return as_float16(r);
 }
 
 void __attribute__((overloadable)) vstorea_half16(float16 x, size_t offset, __private half *p)
@@ -628,12 +633,12 @@ void __attribute__((overloadable)) mask_vstorea_half16_rtp(ushort m16, float16 x
     // r bit M11
     // s bit M10-0
     ushort g16, r16, s16;
-    g16 = _mm512_mask_test_epi32(p16, x, (uint16)(1U << 12));
-    r16 = _mm512_mask_test_epi32(p16, x, (uint16)(1U << 11));
-    s16 = _mm512_mask_test_epi32(p16, x, (uint16)((1U << 11) - 1U));
+    g16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)(1U << 12));
+    r16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)(1U << 11));
+    s16 = _mm512_mask_test_epi32(p16, (__m512i)x, (__m512i)(uint16)((1U << 11) - 1U));
     // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
     // will be rounded in round-nearest-even.)
-    x = _mm512_mask_or_epi32(x, g16 | r16 | s16, x, (uint16)(7U << 10));
+    x = as_float16(_mm512_mask_or_epi32((__m512i)x, g16 | r16 | s16, (__m512i)x, (__m512i)(uint16)(7U << 10)));
     mask_vstorea_half16_rte(m16, x, offset, p);
 }
 
@@ -654,12 +659,12 @@ void __attribute__((overloadable)) mask_vstorea_half16_rtn(ushort m16, float16 x
     // r bit M11
     // s bit M10-0
     ushort g16, r16, s16;
-    g16 = _mm512_mask_test_epi32(n16, x, (uint16)(1U << 12));
-    r16 = _mm512_mask_test_epi32(n16, x, (uint16)(1U << 11));
-    s16 = _mm512_mask_test_epi32(n16, x, (uint16)((1U << 11) - 1U));
+    g16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)(1U << 12));
+    r16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)(1U << 11));
+    s16 = _mm512_mask_test_epi32(n16, (__m512i)x, (__m512i)(uint16)((1U << 11) - 1U));
     // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
     // will be rounded in round-nearest-even.)
-    x = _mm512_mask_or_epi32(x, g16 | r16 | s16, x, (uint16)(7U << 10));
+    x = as_float16(_mm512_mask_or_epi32((__m512i)x, g16 | r16 | s16, (__m512i)x, (__m512i)(uint16)(7U << 10)));
     mask_vstorea_half16_rte(m16, x, offset, p);
 }
 
@@ -678,8 +683,9 @@ void __attribute__((overloadable)) vstorea_half8_rte(double8 x, size_t offset, _
 }
 void __attribute__((overloadable)) mask_vstorea_half8_rte(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_NEAREST);
-    mask_vstorea_half16_rte((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_NEAREST);
+    mask_vstorea_half16_rte((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstorea_half8_rtz(double8 x, size_t offset, __private half *p)
@@ -688,8 +694,9 @@ void __attribute__((overloadable)) vstorea_half8_rtz(double8 x, size_t offset, _
 }
 void __attribute__((overloadable)) mask_vstorea_half8_rtz(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_TOWARD_ZERO);
-    mask_vstorea_half16_rtz((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_TOWARD_ZERO);
+    mask_vstorea_half16_rtz((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstorea_half8_rtp(double8 x, size_t offset, __private half *p)
@@ -698,8 +705,9 @@ void __attribute__((overloadable)) vstorea_half8_rtp(double8 x, size_t offset, _
 }
 void __attribute__((overloadable)) mask_vstorea_half8_rtp(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_UP);
-    mask_vstorea_half16_rtp((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_UP);
+    mask_vstorea_half16_rtp((ushort)m8, as_float16(r), offset, p);
 }
 
 void __attribute__((overloadable)) vstorea_half8_rtn(double8 x, size_t offset, __private half *p)
@@ -708,8 +716,9 @@ void __attribute__((overloadable)) vstorea_half8_rtn(double8 x, size_t offset, _
 }
 void __attribute__((overloadable)) mask_vstorea_half8_rtn(uchar m8, double8 x, size_t offset, __private half *p)
 {
-    float16 r = _mm512_mask_cvtl_pd2ps(x, m8, x, _MM_ROUND_MODE_DOWN);
-    mask_vstorea_half16_rtn((ushort)m8, r, offset, p);
+    __m512 r = _mm512_undefined_ps();
+    r = _mm512_mask_cvtl_pd2ps(r, m8, (__m512d)x, _MM_ROUND_MODE_DOWN);
+    mask_vstorea_half16_rtn((ushort)m8, as_float16(r), offset, p);
 }
 
 #ifdef __cplusplus
