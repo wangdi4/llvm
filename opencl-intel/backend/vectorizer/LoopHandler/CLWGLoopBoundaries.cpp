@@ -165,37 +165,43 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
   // Adding all Instructions leading to the boundry to reconstruct set.
   // Creating a clone for each instruction on the path.
   VVec toAdd = roots; //hard copy of roots
-  SmallPtrSet<Instruction *, 4> reconstruct;
   BasicBlock *entry = &m_F->getEntryBlock();
   while (toAdd.size()) {
     Value *cur = toAdd.back();
     toAdd.pop_back();
+    // value was already mapped no need to do anything.
+    if (valueMap.count(cur)) continue;
+
     Instruction *I = dyn_cast<Instruction>(cur);
-    // If the value is not an instruction (argument, global) than it was
-    // already mapped.
-    if (!I || reconstruct.count(I)) continue;
+    // If the value is not an instruction (global ,constant) than it
+    // should be mapped.to itself.
+    if (!I) {
+      assert (!isa<Argument>(cur) && "arguments are supposed to be mapped");
+      valueMap[cur] = cur;
+      continue;
+    }
 
     assert(I->getParent() == entry && "Instruction not in the entry block");
     valueMap[I] = I->clone();
-    reconstruct.insert(I);
     for (User::op_iterator op=I->op_begin(), opE=I->op_end(); 
          op!=opE; ++op) {
       toAdd.push_back(*op);
     }
   }
 
-  // Running according to the order and of the original entry block, and
-  // connecting it to the operands in the new function. The order of the 
+  // Running according to the order of the original entry block, and connecting
+  // each instruction to the operands in the new function. The order of the 
   // original function ensures the corretness of the order of the inserted 
   // Instructions.
   for (BasicBlock::iterator I=entry->begin(), E=entry->end(); I!=E ; ++I) {
-    if (reconstruct.count(I)) {
+    if (valueMap.count(I)) {
       Instruction *clone = cast<Instruction>(valueMap[I]);
       BB->getInstList().push_back(clone);
       for (User::op_iterator op=clone->op_begin(), opE=clone->op_end(); 
            op!=opE; ++op) {
-         Value *&VMSlot = valueMap[*op];
-         if (VMSlot) *op = VMSlot;
+        Value *&VMSlot = valueMap[*op];
+        assert(VMSlot && "all operands should be mapped");
+        if (VMSlot) *op = VMSlot;
       }
     }
   }  
