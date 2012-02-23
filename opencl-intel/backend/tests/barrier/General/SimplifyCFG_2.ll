@@ -4,7 +4,8 @@
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.
-;; The case: kernel with barrier instructions (just before if()/if()-else basic blocks)
+;; The case: kernel with call to internal function with barrier instructions
+;;           (just before if()/if()-else basic blocks)
 ;; Related CQ ticket: CSSD100007107
 ;; TODO: reduce this test
 ;; The expected result:
@@ -12,14 +13,14 @@
 ;;*****************************************************************************
 
 ; CHECK: @spmv_csr_vector_kernel
-; CHECK-NOT: barrier(i64 1)
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK: call void @barrier(i64 1) nounwind
-; CHECK-NOT: barrier(i64 1)
+; CHECK-NOT: foo(i64 1)
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK: call void @foo(i64 1) nounwind
+; CHECK-NOT: foo(i64 1)
 ; CHECK: !opencl.kernels
 
 ; ModuleID = 'Program'
@@ -94,7 +95,7 @@ bb.nph:                                           ; preds = %16
 ._crit_edge:                                      ; preds = %26, %16
   %mySum.0.lcssa = phi float [ 0.000000e+000, %16 ], [ %33, %26 ]
   volatile store float %mySum.0.lcssa, float addrspace(3)* %14, align 4
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   %35 = icmp ult i32 %3, 16
   br i1 %35, label %36, label %43
 
@@ -109,7 +110,7 @@ bb.nph:                                           ; preds = %16
   br label %43
 
 ; <label>:43                                      ; preds = %36, %._crit_edge
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   %44 = icmp ult i32 %3, 8
   br i1 %44, label %45, label %52
 
@@ -124,7 +125,7 @@ bb.nph:                                           ; preds = %16
   br label %52
 
 ; <label>:52                                      ; preds = %45, %43
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   %53 = icmp ult i32 %3, 4
   br i1 %53, label %54, label %61
 
@@ -139,7 +140,7 @@ bb.nph:                                           ; preds = %16
   br label %61
 
 ; <label>:61                                      ; preds = %54, %52
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   %62 = icmp ult i32 %3, 2
   br i1 %62, label %63, label %70
 
@@ -154,7 +155,7 @@ bb.nph:                                           ; preds = %16
   br label %70
 
 ; <label>:70                                      ; preds = %63, %61
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   %71 = icmp eq i32 %3, 0
   br i1 %71, label %72, label %79
 
@@ -170,7 +171,7 @@ bb.nph:                                           ; preds = %16
 
 ; <label>:79                                      ; preds = %72, %70
   %.pr = phi i1 [ %71, %72 ], [ false, %70 ]
-  tail call void @barrier(i64 1) nounwind
+  tail call void @foo(i64 1) nounwind
   br i1 %.pr, label %80, label %83
 
 ; <label>:80                                      ; preds = %79
@@ -186,7 +187,10 @@ bb.nph:                                           ; preds = %16
 
 
 
-
+define void @foo(i64 %x) nounwind {
+  tail call void @barrier(i64 %x) nounwind;
+  ret void;
+}
 
 
 declare i64 @get_local_id(i32)
