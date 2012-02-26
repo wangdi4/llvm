@@ -182,7 +182,7 @@ list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_DIR}/device-linux-release/lib
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-                -L ${BACKEND_SDK_PATH}/lib/Lin64_Debug
+                -L ${OCL_BINARY_DIR}/backend/llvm/lib
 
                 # libs to link
                 -lcoi_device
@@ -241,5 +241,5 @@ set(TARGET_SOURCES
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
 
-#add_dependencies(${TARGET_NAME} OclDeviceExecutor)
+add_dependencies(${TARGET_NAME} OclDeviceExecutor)
 
