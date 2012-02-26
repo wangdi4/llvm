@@ -84,7 +84,7 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 
     if (m_pProgramConfiguration->GetNumberOfKernelConfigurations() == 0)
     {
-        std::cout << "WARNING! There are no kernels to execute in validation mode!\n";
+        std::cerr << "WARNING! There are no kernels to execute in validation mode!\n";
     }
 
     RunResult runResult;
@@ -111,7 +111,7 @@ void SATest::RunPerformance(const IRunComponentConfiguration* pRunConfiguration)
 {
     if (m_pProgramConfiguration->GetNumberOfKernelConfigurations() == 0)
     {
-        std::cout << "WARNING! There are no kernels to execute in performance mode!\n";
+        std::cerr << "WARNING! There are no kernels to execute in performance mode!\n";
     }
 
     std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
