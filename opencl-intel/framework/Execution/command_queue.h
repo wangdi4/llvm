@@ -51,7 +51,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
-		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor ) = 0;
+		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
 	};
 
 	class IOclCommandQueueBase : public ICommandQueue, public OclCommandQueue

@@ -38,7 +38,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		UserEvent( cl_context context );
 
 		cl_context  GetContextHandle() const { return m_context;    }
-		cl_int      GetReturnCode() const    { return m_returnCode; }
 
 		// OCLObject implementation
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
@@ -49,7 +48,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~UserEvent();        
 
 		cl_context   m_context;
-		cl_int       m_returnCode;
 
 		// A UserEvent object cannot be copied
 		UserEvent(const UserEvent&);           // copy constructor

@@ -83,7 +83,7 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
 			m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
 	}
 	cmd->SetDevCmdListId(m_clDevCmdListId);
-	cmd->GetEvent()->SetColor(EVENT_STATE_LIME);
+	cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
 	cl_err_code res = cmd->Execute();
 	if (CL_SUCCEEDED(res))
 	{
@@ -98,8 +98,8 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
 	{
 		if (res == CL_DONE_ON_RUNTIME )
 		{
+			cmd->GetEvent()->SetEventState(EVENT_STATE_DONE);
 			cmd->CommandDone();
-			cmd->GetEvent()->SetColor(EVENT_STATE_BLACK);
 		}
 		else
 		{
@@ -118,12 +118,10 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
 	}
 
-  //Todo: get rid of the WHITE->RED->YELLOW color cycle by changing event's listener behaviour
+	//Todo: get rid of the WHITE->RED->YELLOW color cycle by changing event's listener behaviour
     cmdEvent->AddFloatingDependence();
-	cmdEvent->SetColor(EVENT_STATE_RED);
+	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     cmdEvent->RemoveFloatingDependence();
-		//Todo: remove
-
 	return CL_SUCCESS;
 }
 
@@ -134,13 +132,13 @@ cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
     {
         // Prevent marker from firing until we're done enqueuing it to avoid races
         cmdEvent.AddFloatingDependence();
-        cmdEvent.SetColor(EVENT_STATE_RED);
+        cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
         const cl_err_code ret = AddDependentOnAll(marker);
         cmdEvent.RemoveFloatingDependence();
         return ret;
     }
     cmdEvent.AddFloatingDependence();
-    cmdEvent.SetColor(EVENT_STATE_RED);
+    cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     m_depOnAll->GetEvent()->AddDependentOn(&cmdEvent);
     cmdEvent.RemoveFloatingDependence();
     return CL_SUCCESS;
@@ -153,7 +151,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
     {
         // Prevent barrier from firing until we're done enqueuing it to avoid races
         cmdEvent.AddFloatingDependence();
-        cmdEvent.SetColor(EVENT_STATE_RED);
+        cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
         m_lastBarrier.exchange(barrier);
         const cl_err_code ret = AddDependentOnAll(barrier);		
         cmdEvent.RemoveFloatingDependence();
@@ -166,7 +164,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 {		
 	OclEvent* cmdEvent = cmd->GetEvent();
     cmdEvent->AddFloatingDependence();
-	cmdEvent->SetColor(EVENT_STATE_RED);
+	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
 	if (prev_barrier)
@@ -189,16 +187,16 @@ cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;	
 }
 
-cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
+cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
 {	
-	if (EVENT_STATE_YELLOW == newColor)
+	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
 		Command* cmd = pEvent->GetCommand();
 		if ( cmd->isControlCommand() )
 		{
 			bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());
 			// Control command is Ready
-			pEvent->SetColor(EVENT_STATE_LIME);
+			pEvent->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
 			cmd->Execute(); // CommandDone() and color change are applied inside Execute() call.
 
 			if ( !isMarker )
@@ -237,7 +235,7 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 	Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
     QueueEvent* pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
 	pOldDepOnAllEvent->AddFloatingDependence();
-	pOldDepOnAllEvent->SetColor(EVENT_STATE_RED);
+	pOldDepOnAllEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
 	pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;

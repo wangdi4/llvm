@@ -32,12 +32,13 @@
 
 using namespace Intel::OpenCL::Framework;
 
-UserEvent::UserEvent( cl_context context ) : OclEvent(), m_context(context), m_returnCode(0xdead)
+UserEvent::UserEvent( cl_context context ) : OclEvent(), m_context(context)
 {
 	//User events start as CL_SUBMITTED
-	m_color = EVENT_STATE_RED;
+	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	m_handle.object   = this;
 	*((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);
+	m_returnCode = 0xdead;
 }
 
 UserEvent::~UserEvent()
@@ -46,9 +47,8 @@ UserEvent::~UserEvent()
 
 void UserEvent::SetComplete(cl_int returnCode)
 {
-	m_color = EVENT_STATE_BLACK;
 	m_returnCode = returnCode;
-	OclEvent::NotifyComplete(returnCode);
+	SetEventState(EVENT_STATE_DONE);
 }
 
 cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void *paramValue, size_t *szParamValueSizeRet) const
@@ -83,7 +83,7 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 		outputValueSize = sizeof(cl_uint);
 		break;
 	case CL_EVENT_COMMAND_EXECUTION_STATUS:
-		if (EVENT_STATE_BLACK == m_color)
+		if (EVENT_STATE_DONE == GetEventState())
 		{
 			eventStatus = m_returnCode;
 		}

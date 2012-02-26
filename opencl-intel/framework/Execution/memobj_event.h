@@ -47,8 +47,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 			{return CL_INVALID_OPERATION;}
 
-		// IEventDoneObserver
-		cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+		// IEventObserver
+		cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
 
 	protected:
 		virtual ~MemoryObjectEvent();        

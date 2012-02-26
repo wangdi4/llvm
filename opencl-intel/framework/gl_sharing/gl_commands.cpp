@@ -72,7 +72,7 @@ cl_err_code SyncGLObjects::Execute()
     }
 
     // Set event to RED
-    m_Event.SetColor(EVENT_STATE_LIME);
+    m_Event.SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
     QueueUserAPC((PAPCFUNC)ExecGLSync, m_hCallingThread, (ULONG_PTR)this);
     return CL_NOT_READY;
 }

@@ -2,6 +2,18 @@
 #ifndef __PROVISIONAL_MALLOC_H_
 #define  __PROVISIONAL_MALLOC_H_
 
+
+/**
+ * This is a utility to register all dynamically allocated objects,
+ * and free/keep them (in reverse order) using a single command.
+ *
+ * It can be used instead of goto: statements, or ugly/buggy cleanup sequences on exit.
+ *
+ * For C malloc, it simply frees it (note that aligned malloc is treated specially).
+ * For C++ there is a special mechanism that allows for special cleanup,
+ * besides just calling delete. It is used, for instance, on CL objects.
+ */
+
 #ifdef WIN32
 	#define IGNORE_GCC_UNUSED
 #else
@@ -30,12 +42,10 @@
 class ProvisionalNewBase
 {
 public:
-    ProvisionalNewBase(const char *strCreation) : m_strObjCreation(strCreation)
+    ProvisionalNewBase()
     {}
 
 	virtual void deleteObject() = 0;
-
-    const char *m_strObjCreation;
 };
 
 template <typename DataP>
@@ -48,8 +58,7 @@ template <typename DataP>
 class ProvisionalNew : public ProvisionalNewBase
 {
 public:
-	ProvisionalNew(DataP data, const char *strCreation) : 
-      ProvisionalNewBase(strCreation),
+	ProvisionalNew(DataP data) :
       m_data(data)
 	{
         //PROV_DEBUG_PRINT("ProvisionalNew::CTOR (%s)\n", m_strObjCreation);
@@ -75,8 +84,7 @@ template <typename DataP>
 class ProvisionalArrNew : public ProvisionalNewBase
 {
 public:
-	ProvisionalArrNew(DataP data, const char *strCreation) : 
-      ProvisionalNewBase(strCreation),
+	ProvisionalArrNew(DataP data) :
       m_data(data)
 	{
 		//PROV_DEBUG_PRINT("ProvisionalArrNew::CTOR (%s)\n", m_strObjCreation);
@@ -93,122 +101,164 @@ protected:
 
 #endif // __cplusplus
 
+typedef struct _PROVISONAL_SingleData_ {
+	bool         isCPP;
+	void        *data;
+	const char  *str;
+	size_t       line;
+	bool         aligned;
+#ifdef __cplusplus
+	ProvisionalNewBase    *cppData;
+#else
+	void                  *cppData;
+#endif
+} _PROVISONAL_SingleData_t;
+
 typedef struct _PROVISONAL_MallocArray_ {
 	size_t  maxSize;
 	size_t  mallocated_pos;
-	void   *mallocated[PROVISIONAL_MALLOC_SIZE];
-    bool    aligned[PROVISIONAL_MALLOC_SIZE];
-    const char  *mallocated_str[PROVISIONAL_MALLOC_SIZE];
-#ifdef __cplusplus
-	ProvisionalNewBase    *newlocated[PROVISIONAL_MALLOC_SIZE];
-#endif
+	_PROVISONAL_SingleData_t mallocArr[PROVISIONAL_MALLOC_SIZE];
 } _PROVISONAL_MallocArray_t;
 
 
 #define PROV_INIT_MALLOCARRAY_T(arr, sz) \
     arr.maxSize = sz; \
     arr.mallocated_pos = -1; \
-    memset(arr.mallocated, 0, sizeof(void*)*sz); \
-	memset(arr.aligned, 0, sizeof(void*)*sz);
+    memset(arr.mallocArr, 0, sizeof(arr.mallocArr));
 
 	
 
-static void IGNORE_GCC_UNUSED *mallocAndRegister(_PROVISONAL_MallocArray_t *mallocArr, size_t sz, const char *strCreation)
+static void IGNORE_GCC_UNUSED *mallocAndRegister(_PROVISONAL_MallocArray_t *base, size_t sz,
+		const char *strCreation, const size_t lineNum)
 {
-	assert(mallocArr && "You must provide a malloc array!");
-	if (mallocArr->mallocated_pos + 1 >= mallocArr->maxSize)
+	assert(base && "You must provide a malloc base!");
+	if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to malloc too many memory objects!");
 		return NULL;
 	}
-	mallocArr->mallocated[++mallocArr->mallocated_pos] = malloc(sz);
-	mallocArr->aligned[mallocArr->mallocated_pos] = false;
-    mallocArr->mallocated_str[mallocArr->mallocated_pos] = strCreation;
-    //PROV_DEBUG_PRINT("Allocating and registring ( %s ) at position %lu\n", mallocArr->mallocated_str[mallocArr->mallocated_pos],
-        // mallocArr->mallocated_pos);
-	return mallocArr->mallocated[mallocArr->mallocated_pos];
+	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
+	m.isCPP   = false;
+	m.data    = malloc(sz);
+	m.aligned = false;
+	m.str     = strCreation;
+	m.line    = lineNum;
+	m.cppData = NULL;
+    PROV_DEBUG_PRINT("Allocating and registring ( %s ) in line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
+	return m.data;
 }
 
-static void IGNORE_GCC_UNUSED *alignedMallocAndRegister(_PROVISONAL_MallocArray_t *mallocArr, size_t sz, size_t align, const char *strCreation)
+static void IGNORE_GCC_UNUSED *alignedMallocAndRegister(_PROVISONAL_MallocArray_t *base, size_t sz, size_t align,
+		const char *strCreation, const size_t lineNum)
 {
-	assert(mallocArr && "You must provide a malloc array!");
-	if (mallocArr->mallocated_pos + 1 >= mallocArr->maxSize)
+	assert(base && "You must provide a malloc base!");
+	if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to malloc too many memory objects!");
 		return NULL;
 	}
-	mallocArr->mallocated[++mallocArr->mallocated_pos] = ALIGNED_MALLOC(sz, align);
-	mallocArr->aligned[mallocArr->mallocated_pos] = true;
-    mallocArr->mallocated_str[mallocArr->mallocated_pos] = strCreation;
-	return mallocArr->mallocated[mallocArr->mallocated_pos];
+
+	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
+	m.isCPP   = true;
+	m.data    = malloc(sz);
+	m.aligned = true;
+	m.str     = strCreation;
+	m.line    = lineNum;
+	m.cppData = NULL;
+    PROV_DEBUG_PRINT("Allocating Aligned and registering ( %s ) in line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
+	return m.data;
 }
 
 #ifdef __cplusplus
 
 template <typename DataP>
-DataP registerObject(_PROVISONAL_MallocArray_t *mallocArr, DataP obj, const char *creationStr)
+DataP registerObject(_PROVISONAL_MallocArray_t *base, DataP obj, const char *creationStr, const size_t line)
 {
-	assert(mallocArr && "You must provide a malloc array!");
+	assert(base && "You must provide a malloc base!");
 	if (!obj) return obj;
 
-	ProvisionalNewBase *wrapper = new ProvisionalNew<DataP>(obj, creationStr);
-    if (mallocArr->mallocated_pos + 1 >= mallocArr->maxSize)
+	ProvisionalNewBase *wrapper = new ProvisionalNew<DataP>(obj);
+    if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to construct too many objects!");
 		wrapper->deleteObject();
 		return NULL;
 	}
-    mallocArr->newlocated[++mallocArr->mallocated_pos] = wrapper;
-    //PROV_DEBUG_PRINT("registerObject ( %s ) at position %lu\n", creationStr, mallocArr->mallocated_pos);
+
+	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
+	m.isCPP   = true;
+	m.data    = NULL;
+	m.aligned = true;
+	m.str     = creationStr;
+	m.line    = line;
+	m.cppData = wrapper;
+    PROV_DEBUG_PRINT("registerObject < %s > from line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return obj;
 }
 
 template <typename DataP>
-DataP registerNewArr(_PROVISONAL_MallocArray_t *mallocArr, DataP arr, const char *creationStr)
+DataP registerNewArr(_PROVISONAL_MallocArray_t *base, DataP arr, const char *creationStr, const size_t line)
 {
-	assert(mallocArr && "You must provide a malloc array!");
+	assert(base && "You must provide a malloc base!");
 	if (!arr) return arr;
 
-	ProvisionalNewBase *wrapper = new ProvisionalArrNew<DataP>(arr, creationStr);
-	if (mallocArr->mallocated_pos + 1 >= mallocArr->maxSize)
+	ProvisionalNewBase *wrapper = new ProvisionalArrNew<DataP>(arr);
+	if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to construct too many objects!");
 		wrapper->deleteObject();
 		return NULL;
 	}
-	mallocArr->newlocated[++mallocArr->mallocated_pos] = wrapper;
-	//PROV_DEBUG_PRINT("registerNewArr ( %s ) at position %lu\n", creationStr, mallocArr->mallocated_pos);
+
+	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
+	m.isCPP   = true;
+	m.data    = NULL;
+	m.aligned = false;
+	m.str     = creationStr;
+	m.line    = line;
+	m.cppData = wrapper;
+	PROV_DEBUG_PRINT("registerNewArr < %s > from line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return arr;
 }
 
 #endif // __cplusplus
 
-static void finalizeMalloc(_PROVISONAL_MallocArray_t *arr, const bool keep)
+static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 {
-	for (int i=arr->mallocated_pos ; i >= 0 ; --i)
+	for (int i=base->mallocated_pos ; i >= 0 ; --i)
 	{
-        if (arr->mallocated[i])
+    	_PROVISONAL_SingleData_t m = base->mallocArr[i];
+        if (!m.isCPP)
         {
             if (!keep)
             {
-            	PROV_DEBUG_PRINT("finalizeMalloc freeing ( %s ) at position %d\n", arr->mallocated_str[i], i);
-            	if (arr->aligned[i])
+
+            	PROV_DEBUG_PRINT("finalizeMalloc freeing ( %s ) from line %u at position %d\n",
+            			m.str, (cl_uint)m.line, i);
+            	if (m.aligned)
             	{
-            		ALIGNED_FREE(arr->mallocated[i]);
-            		arr->aligned[i] = false;
+            		ALIGNED_FREE(m.data);
+            		m.aligned = false;
             	} else {
-            		free(arr->mallocated[i]);
+            		free(m.data);
             	}
+            	m.data  = NULL;
+            	m.isCPP = false;
             }
         }
         #ifdef __cplusplus
         else 
         {
+        	ProvisionalNewBase *mcpp = m.cppData;
+        	assert(mcpp);
             if (!keep) {
-            	PROV_DEBUG_PRINT("finalizeMalloc deleting ( %s ) at position %d\n", arr->newlocated[i]->m_strObjCreation, i);
-                arr->newlocated[i]->deleteObject();
+            	PROV_DEBUG_PRINT("finalizeMalloc deleting ( %s ) from line %u at position %d\n",
+            			m.str, (cl_uint)m.line, i);
+            	mcpp->deleteObject();
 	        }
-	        delete arr->newlocated[i];
+	        delete mcpp;
+	        m.isCPP = false;
+	        m.cppData = NULL;
         }
         #endif // __cplusplus
     }
@@ -238,7 +288,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *arr, const bool keep)
  * char *buf = (char *)PROV_MALLOC(sizeof(char) * 1024);
  */
 #define PROV_MALLOC(sz) \
-    mallocAndRegister(&PROV_ARRAY_NAME, sz, #sz)
+    mallocAndRegister(&PROV_ARRAY_NAME, sz, #sz, __LINE__)
 
 /**
  * Call this macro instead of aligned malloc.
@@ -246,7 +296,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *arr, const bool keep)
  * char *buf = (char *)PROV_ALIGNED_MALLOC(sizeof(char) * 1024, 128);
  */
 #define PROV_ALIGNED_MALLOC(sz, align) \
-    alignedMallocAndRegister(&PROV_ARRAY_NAME, sz, align, #sz" aligned at: "#align)
+    alignedMallocAndRegister(&PROV_ARRAY_NAME, sz, align, #sz" aligned at: "#align, __LINE__)
 
 /**
  * Call this macro when exiting your function, if all is OK, and
@@ -272,7 +322,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *arr, const bool keep)
  * CMyClass *c = MAKE_OBJ_PROVISIONAL( new(CMyClass::special_new) CMyClass(1, 2, "abc") );
  */
 #define PROV_OBJ(obj_declaration_with_allocation) \
-	registerObject(&PROV_ARRAY_NAME, obj_declaration_with_allocation, #obj_declaration_with_allocation)
+	registerObject(&PROV_ARRAY_NAME, obj_declaration_with_allocation, #obj_declaration_with_allocation, __LINE__)
 
 /**
  * Call this macro to make a (new) allocated array provisional. Use it for arrays
@@ -280,7 +330,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *arr, const bool keep)
  * CMyClass arr[] = MAKE_OBJARR_PROVISIONAL( new(CMyClass::special_new) CMyClass[5] );
  */
 #define PROV_ARR(objarr_declaration_with_allocation) \
-		registerNewArr(&PROV_ARRAY_NAME, objarr_declaration_with_allocation, #objarr_declaration_with_allocation)
+		registerNewArr(&PROV_ARRAY_NAME, objarr_declaration_with_allocation, #objarr_declaration_with_allocation, __LINE__)
 
 #endif // __cplusplus
 	

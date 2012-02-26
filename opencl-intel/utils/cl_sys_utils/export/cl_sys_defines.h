@@ -1,6 +1,4 @@
 /////////////////////////////////////////////////////////////////////////
-// cl_sys_defines.h
-/////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
 // Copyright 2007-2008 Intel Corporation All Rights Reserved.
 //
@@ -66,7 +64,7 @@
 #define API_FUNCTION
 #define ASM_FUNCTION
 #define CDECL   __attribute((cdecl))
-#define STDCALL __attribute((stdcall))
+#define STDCALL
 
 #define PACKED  __attribute ((packed))
 #define PACK_ON
@@ -87,8 +85,6 @@ typedef int errno_t;
 #include <limits.h>
 #define MAX_PATH PATH_MAX
 #endif
-
-#define STDCALL __attribute((stdcall))
 
 #define FALSE	0
 

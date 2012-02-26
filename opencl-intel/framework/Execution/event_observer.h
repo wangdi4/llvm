@@ -19,8 +19,8 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  event_done_observer.h
-//  Implementation of the Class IEventDoneObserver
+//  event_observer.h
+//  Implementation of the Class IEventObserver
 //  Created on:      23-Dec-2008 3:23:02 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
@@ -38,12 +38,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
      * Pure interface class 
      * 
     ************************************************************************/     
-    class IEventDoneObserver
+    class IEventObserver
     {
-
     public:
-        virtual ~IEventDoneObserver(){};
-        virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS) = 0;
+    	IEventObserver()
+    	{}
+
+    	virtual ~IEventObserver()
+        {}
+
+        virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS) = 0;
+
+        virtual cl_int  GetExpectedExecState() const = 0;
     };
 
 }}}    // Intel::OpenCL::Framework

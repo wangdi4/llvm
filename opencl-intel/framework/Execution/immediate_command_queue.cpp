@@ -106,7 +106,7 @@ cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }				
-    pQueueEvent->SetColor(EVENT_STATE_YELLOW);
+    pQueueEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
     cmd->SetDevCmdListId(m_clDevCmdListId);
     return cmd->Execute();
 }
@@ -156,7 +156,7 @@ cl_err_code ImmediateCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code ImmediateCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
+cl_err_code ImmediateCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
 {
 	return CL_SUCCESS;
 }

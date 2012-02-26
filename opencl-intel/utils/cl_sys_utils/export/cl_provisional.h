@@ -40,5 +40,12 @@ inline void provisionalDeleteObjectByType<cl_kernel>(cl_kernel data)
     clReleaseKernel(data);
 }
 
+template <>
+inline void provisionalDeleteObjectByType<cl_event>(cl_event data)
+{
+	PROV_DEBUG_PRINT("deleteObjectByType<cl_event> calling clReleaseEvent\n");
+	clReleaseEvent(data);
+}
+
 #endif // __CL_PROVISIONAL_H__
 

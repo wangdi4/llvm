@@ -358,11 +358,11 @@ cl_err_code EventsManager::SetEventCallBack(cl_event evt, cl_int execType, Intel
 	{
 		return CL_INVALID_VALUE;
 	}
-	EventCallback* pNewCallback = new EventCallback(fn, pUserData);
+	EventCallback* pNewCallback = new EventCallback(fn, pUserData, execType);
 	if (!pNewCallback)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	pEvent->AddCompleteListener(pNewCallback);
+	pEvent->AddObserver(pNewCallback);
 	return CL_SUCCESS;
 }

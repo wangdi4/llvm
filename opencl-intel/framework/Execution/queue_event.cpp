@@ -109,7 +109,7 @@ cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * 
 		outputValueSize = sizeof(cl_command_type);
 		break;
 	case CL_EVENT_COMMAND_EXECUTION_STATUS:
-		eventStatus = GetEventCurrentStatus();
+		eventStatus = GetEventExecState();
 		localParamValue = &eventStatus;
 		outputValueSize = sizeof(cl_int); 
 		break;
@@ -156,7 +156,7 @@ cl_err_code QueueEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t s
 		return CL_PROFILING_INFO_NOT_AVAILABLE;
 	}
 
-	cl_int eventStatus = GetEventCurrentStatus();
+	cl_int eventStatus = GetEventExecState();
 
 	switch (clParamName)
 	{
@@ -293,16 +293,17 @@ void QueueEvent::IncludeProfilingInfo( const QueueEvent* other )
 /******************************************************************
 *
 ******************************************************************/
-cl_err_code QueueEvent::NotifyEventDone(Intel::OpenCL::Framework::OclEvent *pEvent, cl_int returnCode)
+cl_err_code QueueEvent::ObservedEventStateChanged(Intel::OpenCL::Framework::OclEvent *pEvent, cl_int returnCode)
 {
-	if (CL_SUCCESS != returnCode)
+	if (CL_SUCCESS > returnCode)
 	{
+		// in case of error or finish
 		m_pCommand->NotifyCmdStatusChanged(0, CL_COMPLETE, returnCode, Intel::OpenCL::Utils::HostTime());
 		//Everything else will be handled from the command routine
 		return CL_SUCCESS;
 	}
 	//Else, fall back on regular routine
-	return OclEvent::NotifyEventDone(pEvent, returnCode);
+	return OclEvent::ObservedEventStateChanged(pEvent, returnCode);
 }
 
 long QueueEvent::RemovePendency(OCLObjectBase* pObj)
@@ -320,11 +321,11 @@ long QueueEvent::RemovePendency(OCLObjectBase* pObj)
 	return newVal;
 }
 
-OclEventStateColor QueueEvent::SetColor(OclEventStateColor newColor)
+OclEventState QueueEvent::SetEventState(OclEventState newColor)
 {
-	OclEventStateColor retval = OclEvent::SetColor(newColor);
+	OclEventState retval = OclEvent::SetEventState(newColor);
 #if defined(USE_GPA)
-	if (EVENT_STATE_YELLOW == newColor)
+	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{	
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
@@ -353,11 +354,11 @@ OclEventStateColor QueueEvent::SetColor(OclEventStateColor newColor)
 	return retval;
 }
 
-void QueueEvent::NotifyReady(OclEvent* pEvent)
+void QueueEvent::DoneWithDependencies(OclEvent* pEvent)
 {
-    if (EVENT_STATE_RED == m_color)
+    if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {
-        m_color = EVENT_STATE_YELLOW;
+        SetEventState(EVENT_STATE_READY_TO_EXECUTE);
 
 		QueueEvent *pQEvent = dynamic_cast<QueueEvent*>(pEvent);
         //See if I have to notify my queue or not
@@ -374,14 +375,14 @@ void QueueEvent::NotifyReady(OclEvent* pEvent)
             }
         }
         //else, I have to notify the queue myself
-        m_pEventQueue->NotifyStateChange(this, EVENT_STATE_RED, EVENT_STATE_YELLOW);
+        m_pEventQueue->NotifyStateChange(this, EVENT_STATE_HAS_DEPENDENCIES, EVENT_STATE_READY_TO_EXECUTE);
     }
 }
 
 void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
 {
     OclEvent::NotifyComplete(returnCode);
-    m_pEventQueue->NotifyStateChange(this, EVENT_STATE_GREEN, EVENT_STATE_BLACK);
+    m_pEventQueue->NotifyStateChange(this, EVENT_STATE_EXECUTING_ON_DEVICE, EVENT_STATE_DONE);
 }
 
 cl_context QueueEvent::GetContextHandle() const

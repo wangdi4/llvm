@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cl_types.h>
-#include "event_done_observer.h"
+#include "event_observer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -9,16 +9,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class OclEvent;
 
-	class EventCallback : public IEventDoneObserver
+	class EventCallback : public IEventObserver
 	{
 	public:
-		EventCallback(eventCallbackFn callback, void* pUserData) : m_callback(callback), m_pUserData(pUserData) {}
+		EventCallback(eventCallbackFn callback, void* pUserData, const cl_int expectedExecState);
+
 		virtual ~EventCallback() {}
 
-		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+
+		cl_int GetExpectedExecState() const { return m_eventCallbackExecState; }
 
 	private:
 		eventCallbackFn  m_callback;
 		void*            m_pUserData;
+		const cl_int     m_eventCallbackExecState;
 	};
 }}}    // Intel::OpenCL::Framework

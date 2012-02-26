@@ -724,7 +724,7 @@ cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 		return CL_INVALID_VALUE;
 	}
 
-	if (pUserEvent->GetEventCurrentStatus() != CL_SUBMITTED)
+	if (pUserEvent->GetEventExecState() != CL_SUBMITTED)
 	{
 		return CL_INVALID_OPERATION;
 	}

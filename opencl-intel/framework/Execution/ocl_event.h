@@ -28,11 +28,12 @@
 
 #pragma once
 
+#include <list>
+
 #include "cl_framework.h"
 #include <cl_object.h>
 #include <cl_synch_objects.h>
-#include "event_done_observer.h"
-#include <list>
+#include "event_observer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -42,13 +43,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	typedef enum
 	{
-		EVENT_STATE_WHITE,			// The command is just created
-		EVENT_STATE_RED,			// The command is dependent on 1 or more other commands
-		EVENT_STATE_YELLOW,			// The command is ready to be executed - no deps.
-		EVENT_STATE_LIME,			// The command is issued to the device, but is not processed yet.
-		EVENT_STATE_GREEN,			// The command is been executed on the device.
-		EVENT_STATE_BLACK			// Command is done and ready for deletion.
-	} OclEventStateColor;
+		EVENT_STATE_CREATED,				// The command was just created.
+		EVENT_STATE_HAS_DEPENDENCIES,		// The command is dependent on at least one other event.
+		EVENT_STATE_READY_TO_EXECUTE,		// The command is ready to be executed - no dependencies.
+		EVENT_STATE_ISSUED_TO_DEVICE,		// The command was issued to the device, but is not being processed yet.
+		EVENT_STATE_EXECUTING_ON_DEVICE,	// The command is currently executing on the device.
+		EVENT_STATE_DONE					// The command is done, and can be deleted.
+	} OclEventState;
 
 #define OCL_EVENT_WAIT_SPIN         0
 #define OCL_EVENT_WAIT_YIELD        1
@@ -99,49 +100,83 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	*      OclEvent controls the dependencies between execution commands. The queue implementation
 	*      attaches an event to each command. 
 	*      The event holds the execution state of the command, which is one of the following:
-	*          - EVENT_STATE_RED:      The command is dependent on 1 or more other commands
-	*          - EVENT_STATE_YELLOW:   The command is ready to be executed - no deps.
-	*          - EVENT_STATE_LIME:     The command is issued to the device, but is not processed yet.
-	*          - EVENT_STATE_GREEN:    The command is been executed on the device.
-	*          - EVENT_STATE_BLACK:    Command is done and ready for deletion.
+	*          - EVENT_STATE_HAS_DEPENDENCIES:      The command is dependent on 1 or more other commands
+	*          - EVENT_STATE_READY_TO_EXECUTE:   The command is ready to be executed - no deps.
+	*          - EVENT_STATE_ISSUED_TO_DEVICE:     The command is issued to the device, but is not processed yet.
+	*          - EVENT_STATE_EXECUTING_ON_DEVICE:    The command is been executed on the device.
+	*          - EVENT_STATE_DONE:    Command is done and ready for deletion.
 	* 
 	* Author:		Doron Singer
 	* Date:		July 2010
 	**********************************************************************************************/	
-	class OclEvent : public IEventDoneObserver, public OCLObject<_cl_event_int>
+	class OclEvent : public IEventObserver, public OCLObject<_cl_event_int>
 	{
 	public:
 		OclEvent();
 
-		void                            AddCompleteListener(IEventDoneObserver* listener);
-		void                            AddDependentOn( OclEvent* pDependsOnEvent );
-		void                            AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
-		void                            AddFloatingDependence() { ++m_depListLength; }
-		void                            RemoveFloatingDependence() { if (0 == --m_depListLength) NotifyReady(NULL); }
-		virtual OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
+		/**
+		 * Add an event that will observe myself, depends on my state.
+		 * @param observer
+		 */
+		void                    AddObserver(IEventObserver* observer);
 
-		OclEventStateColor              GetColor() const                                    { return (OclEventStateColor)((long)m_color); }
-		bool                            HasDependencies() const                             { return m_depListLength > 0;}
+		/**
+		 * Add events to observe, to depend on their state.
+		 * Sugaring over AddDependentOnMulti.
+		 * @param pDependsOnEvent
+		 */
+		void                    AddDependentOn( OclEvent* pDependsOnEvent );
 
-		// Implementation IEventDoneObserver
-		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+		/**
+		 * Add events to observe, to depend on their state.
+		 * @param count
+		 * @param pDependencyList
+		 */
+		void                    AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
+
+		/**
+		 * Bogus dependency add.
+		 */
+		void                    AddFloatingDependence() { ++m_numOfDependencies; }
+		/**
+		 * Bogus dependency remove.
+		 */
+		void                    RemoveFloatingDependence() { if (0 == --m_numOfDependencies) DoneWithDependencies(NULL); }
+
+		OclEventState      SetEventState(const OclEventState newEventState); //returns the previous event state
+
+		OclEventState      GetEventState() const	{ return (OclEventState)m_eventState; }
+		bool               HasDependencies() const	{ return m_numOfDependencies > 0;}
+
+		// Implementation IEventObserver
+		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
 
 		// Blocking function, returns after NotifyComplete is done
 		virtual void    Wait();
 
-		cl_int GetEventCurrentStatus() const;
+		cl_int GetEventExecState() const;
 
+        virtual cl_int  GetExpectedExecState() const { return CL_COMPLETE; }
 
 		// Get the context to which the event belongs.
 		virtual cl_context GetContextHandle() const = 0;
 		// Get the return code of the command associated with the event.
-		virtual cl_int     GetReturnCode() const = 0; 
+		virtual cl_int     GetReturnCode() const		{ return m_returnCode; }
 
 	protected:
 		virtual ~OclEvent();
 
-		virtual void   NotifyReady(OclEvent* pEvent); 
+		virtual void   DoneWithDependencies(OclEvent* pEvent);
+
 		virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
+		virtual void   NotifySubmitted();
+		virtual void   NotifyRunning();
+
+		/**
+		 * Trigger all observers relevant to this state.
+		 * @param retCode exec state, or negative error code.
+		 */
+		void NotifyObservers(const cl_int retCode);
 
 		//Some implementations of possible methods for waiting 
 		void        WaitSpin();
@@ -152,16 +187,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OclEvent(const OclEvent&);           // copy constructor
 		OclEvent& operator=(const OclEvent&);// assignment operator
 
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventDoneObserver*>	m_CompleteListeners;
-		Intel::OpenCL::Utils::AtomicCounter								m_CompleteListenersGuard;
-		Intel::OpenCL::Utils::AtomicCounter								m_depListLength;
-		volatile bool													m_complete;
-		Intel::OpenCL::Utils::AtomicCounter								m_color;
+		//typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventObserver*> ObserversQ_t;
+		typedef std::list<IEventObserver*>  ObserversList_t;
+		ObserversList_t							m_CompleteObserversList;
+		ObserversList_t							m_RunningObserversList;
+		ObserversList_t							m_SubmittedObserversList;
+		Intel::OpenCL::Utils::OclMutex			m_ObserversListGuard;
+
+		Intel::OpenCL::Utils::AtomicCounter		m_numOfDependencies;
+		volatile bool							m_complete;
 		
+		cl_int                                  m_returnCode;
+
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		Intel::OpenCL::Utils::OclOsDependentEvent m_osEvent;
 #endif
 
+	private:
+		cl_int                                  m_eventState;
+
+		/**
+		 * Make sure the list is empty, and all related dependencies are released.
+		 * @param list the list to expunge.
+		 */
+		void ExpungeObservers(ObserversList_t &list);
+
+		/**
+		 * Trigger all observers in a single exec state list, and pass retCode as value.
+		 * NOTE: unsafe, this function does not lock the mutex. It should ONLY be called from thread-safe functions!
+		 * @param list
+		 * @param retCode can be a valid exec state, or a (negative) error code.
+		 */
+		void NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_int retCode);
 	};
 
 }}}    // Intel::OpenCL::Framework

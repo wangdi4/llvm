@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor);
+		virtual cl_err_code NotifyStateChange(QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor);
 		virtual cl_err_code SendCommandsToDevice();
 
 

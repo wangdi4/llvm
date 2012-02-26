@@ -228,14 +228,14 @@ bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
 	}
 	else
 	{
-		OclEventStateColor color = pEvent->GetColor();
+		OclEventState color = pEvent->GetEventState();
 
 		// If another master thread is running, need to wait for the thread slot
-		while ( EVENT_STATE_BLACK != color )
+		while ( EVENT_STATE_DONE != color )
 		{
 			clSleep(0);
 			ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
-			color = pEvent->GetColor();
+			color = pEvent->GetEventState();
 		}
 	}
 

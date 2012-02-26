@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
 
 		//Override to notify my command about failed events it depended on
-		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode); 
+		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode); 
 
 		// profiling support
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
@@ -80,14 +80,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
 		Command*                GetCommand() const                                  { return m_pCommand; }
 
-		OclEventStateColor      SetColor(OclEventStateColor newColor); //returns the previous color
+		OclEventState           SetEventState(OclEventState newColor); //returns the previous color
 
 
 	protected:
 		virtual ~QueueEvent();        
 
         //overrides from OclEvent
-        virtual void   NotifyReady(OclEvent* pEvent); 
+        virtual void   DoneWithDependencies(OclEvent* pEvent);
         virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
 		SProfilingInfo			m_sProfilingInfo;

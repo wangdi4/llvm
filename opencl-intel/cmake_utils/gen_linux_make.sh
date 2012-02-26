@@ -35,8 +35,9 @@ Usage: $0 [+cnf] [+cnf12] [--eclipse] [debug|release] [gcc|intel] [--icc_ver <ve
     working_dir         - working directory. Default - "build" dir in parallel to "src"
 
 
-Makefiles are created in the directory working_dir/$${target}$${compiler}$${trgtBit}bit parallel to top level src directory
-where: target=Debug/Release ; trgtBit=32/64 ; compiler=GNU/Intel
+Makefiles will be created in:       ${working_dir}/build/${trgtOS}${trgtBit}/${target}
+Installation will be to directory:  ${working_dir}/install/${trgtOS}${trgtBit}/${target} 
+where: trgtOS=Linux ; trgtBit=32/64 ; target=Debug/Release 
 Compilation output during build is copied to the directory bin/Debug or bin/Release
 parallel to the top level src directory
 

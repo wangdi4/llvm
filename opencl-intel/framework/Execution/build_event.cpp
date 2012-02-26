@@ -31,11 +31,13 @@
 
 using namespace Intel::OpenCL::Framework;
 
-BuildEvent::BuildEvent( cl_context context ) : OclEvent(), m_context(context), m_returnCode(0xdead)
+BuildEvent::BuildEvent( cl_context context ) : OclEvent(), m_context(context)
 {
-	m_color = EVENT_STATE_RED;
+	AddPendency(this);
+	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	m_handle.object   = this;
-    *((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);		
+    *((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);
+    m_returnCode = 0xdead;
 }
 
 BuildEvent::~BuildEvent()
@@ -45,6 +47,6 @@ BuildEvent::~BuildEvent()
 void BuildEvent::SetComplete(cl_int returnCode)
 {
 	m_returnCode = returnCode;
-	m_color = EVENT_STATE_BLACK;
-	OclEvent::NotifyComplete(returnCode);
+	SetEventState(EVENT_STATE_DONE);
+	RemovePendency(this);
 }

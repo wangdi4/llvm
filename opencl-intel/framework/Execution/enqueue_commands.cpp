@@ -177,7 +177,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     case CL_SUBMITTED:
 		// Nothing to do, not expected to be here at all
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
-        m_Event.SetColor(EVENT_STATE_LIME);
+        m_Event.SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
         LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_iId);
         break;
     case CL_RUNNING:
@@ -220,10 +220,10 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		}  
 #endif
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
-        m_Event.SetColor(EVENT_STATE_GREEN);
+        m_Event.SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
     case CL_COMPLETE:
-		assert(EVENT_STATE_BLACK != m_Event.GetColor());
+		assert(EVENT_STATE_DONE != m_Event.GetEventState());
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
 	    // Complete command,
 		// do that before set event, since side effect of SetEvent(black) may be deleting of this instance.
@@ -239,7 +239,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		}
 		m_returnCode = iCompletionResult;
         res = CommandDone();
-        m_Event.SetColor(EVENT_STATE_BLACK);
+        m_Event.SetEventState(EVENT_STATE_DONE);
 // Complete marker
 #if defined(USE_GPA)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
@@ -635,7 +635,7 @@ cl_err_code CopyMemObjCommand::Execute()
 	if (m_commandType == CL_COMMAND_MARKER)
 	{
 		m_returnCode = CL_SUCCESS;
-		m_Event.SetColor(EVENT_STATE_BLACK);
+		m_Event.SetEventState(EVENT_STATE_DONE);
 		m_Event.RemovePendency(NULL);
 		return CL_SUCCESS;
 	}
@@ -655,7 +655,7 @@ cl_err_code CopyMemObjCommand::Execute()
 	PrepareOnDevice(m_pDstMemObj, NULL, NULL, &pDepEvent);
 	if (pDepEvent)
 	{
-		m_pEvent->SetColor(EVENT_STATE_RED);
+		m_pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 		m_pEvent->AddDependentOn(pDepEvent);
 		m_pCommandQueue->GetEventsManager()->ReleaseEvent(pDepEvent->GetHandle());
 		return CL_NOT_READY;
@@ -677,7 +677,7 @@ cl_err_code CopyMemObjCommand::Execute()
 		CopyToHost(m_pSrcMemObj, &pDepEvent);
 		if (pDepEvent)
 		{
-			m_Event.SetColor(EVENT_STATE_RED);
+			m_Event.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 			m_Event.AddDependentOn(pDepEvent);
 			m_pCommandQueue->GetEventsManager()->ReleaseEvent(pDepEvent->GetHandle());
 			return CL_NOT_READY;
@@ -1090,7 +1090,7 @@ cl_err_code MapMemObjCommand::Execute()
 	if (pMemObjEvent)
 	{
 		m_pEvent->AddFloatingDependence();
-		m_pEvent->SetColor(EVENT_STATE_RED);
+		m_pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 		m_pEvent->AddDependentOn(pMemObjEvent);
 		m_pEvent->RemoveFloatingDependence();
 		m_pCommandQueue->GetEventsManager()->ReleaseEvent(pMemObjEvent->GetHandle());
@@ -1612,7 +1612,7 @@ cl_err_code NativeKernelCommand::Execute()
 			if (!hasDepends)
 			{
 				m_pEvent->AddFloatingDependence();
-				m_pEvent->SetColor(EVENT_STATE_RED);
+				m_pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 				hasDepends = true;
 			}
 			m_pEvent->AddDependentOn(pDepEvent);
@@ -1881,7 +1881,7 @@ cl_err_code NDRangeKernelCommand::Execute()
 			if (!hasDepends)
 			{
 				m_pEvent->AddFloatingDependence();
-				m_pEvent->SetColor(EVENT_STATE_RED);
+				m_pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 				hasDepends = true;
 			}
 			m_pEvent->AddDependentOn(pDepEvent);
@@ -2163,7 +2163,7 @@ cl_err_code ReadMemObjCommand::Execute()
 	if (m_commandType == CL_COMMAND_MARKER)
 	{
 		m_returnCode = CL_SUCCESS;
-		m_Event.SetColor(EVENT_STATE_BLACK);
+		m_Event.SetEventState(EVENT_STATE_DONE);
 		m_Event.RemovePendency(NULL);
         CommandDone();
 		return CL_SUCCESS;
@@ -2507,7 +2507,7 @@ cl_err_code WriteMemObjCommand::Execute()
 
 	if (pMemObjEvent)
 	{
-		m_pEvent->SetColor(EVENT_STATE_RED);
+		m_pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 		m_pEvent->AddDependentOn(pMemObjEvent);
 		m_pCommandQueue->GetEventsManager()->ReleaseEvent(pMemObjEvent->GetHandle());
 		return CL_NOT_READY;
@@ -2574,7 +2574,7 @@ cl_err_code RuntimeCommand::Execute()
 	m_returnCode = 0;
     LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_iId);
     CommandDone();
-	m_Event.SetColor(EVENT_STATE_BLACK);
+	m_Event.SetEventState(EVENT_STATE_DONE);
 	m_Event.RemovePendency(NULL);
     return CL_SUCCESS;
 }
@@ -2733,9 +2733,9 @@ cl_err_code FillMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code ErrorQueueEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode)
+cl_err_code ErrorQueueEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode)
 {
-	return m_owner->GetEvent()->NotifyEventDone( pEvent, m_owner->GetForcedErrorCode() ); 
+	return m_owner->GetEvent()->ObservedEventStateChanged( pEvent, m_owner->GetForcedErrorCode() ); 
 }
 
 /******************************************************************

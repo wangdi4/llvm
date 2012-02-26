@@ -35,14 +35,14 @@ using namespace Intel::OpenCL::Framework;
 MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject,FissionableDevice* pDevice) :
 	OclEvent(), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
 {
-	m_color = EVENT_STATE_RED;
+	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 }
 
 MemoryObjectEvent::~MemoryObjectEvent()
 {
 }
 
-cl_err_code MemoryObjectEvent::NotifyEventDone(OclEvent* pEvent, cl_int returnCode )
+cl_err_code MemoryObjectEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode )
 {
 	if ( returnCode == CL_SUCCESS )
 	{

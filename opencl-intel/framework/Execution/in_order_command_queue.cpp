@@ -60,10 +60,10 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
     {
         cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }				
-    cmd->GetEvent()->SetColor(EVENT_STATE_RED);
+    cmd->GetEvent()->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     if (!cmd->GetEvent()->HasDependencies())
     {
-        cmd->GetEvent()->SetColor(EVENT_STATE_YELLOW);
+        cmd->GetEvent()->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
     }
     m_submittedQueue.PushBack(cmd);
 	return CL_SUCCESS;
@@ -75,15 +75,15 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventStateColor prevColor, OclEventStateColor newColor )
+cl_err_code InOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
 {
-	if (EVENT_STATE_YELLOW == newColor)
+	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
 		//one of the commands became ready. Trigger a SendToDevice as it may be on top of the queue. Todo: this can probably be improved
 		SendCommandsToDevice();
 		return CL_SUCCESS;
 	} 
-	else if ( EVENT_STATE_BLACK == newColor )
+	else if ( EVENT_STATE_DONE == newColor )
 	{
 		--m_commandsInExecution;
 		SendCommandsToDevice();
@@ -108,8 +108,8 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 			while (!m_submittedQueue.IsEmpty())
 			{
 				Command* cmd = m_submittedQueue.Top();
-				OclEventStateColor color = cmd->GetEvent()->GetColor();
-				if (EVENT_STATE_YELLOW == color)
+				OclEventState color = cmd->GetEvent()->GetEventState();
+				if (EVENT_STATE_READY_TO_EXECUTE == color)
 				{
 					if ( RUNTIME_EXECUTION_TYPE == cmd->GetExecutionType() )
 					{
@@ -140,7 +140,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					//Ready for execution, schedule it
 					assert(m_pDefaultDevice == cmd->GetDevice());
 					cmd->SetDevCmdListId(m_clDevCmdListId);
-					cmd->GetEvent()->SetColor(EVENT_STATE_LIME);
+					cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
 					res = cmd->Execute();
 					if (CL_SUCCEEDED(res))
 					{
@@ -156,7 +156,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					{
 						// We have additional commands in execution
 						cmd->SetCommandType(CL_COMMAND_MARKER);
-						cmd->GetEvent()->SetColor(EVENT_STATE_YELLOW);
+						cmd->GetEvent()->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
 						if ( 0 == m_commandsInExecution )
 						{
 							continue;
@@ -171,15 +171,15 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 						m_submittedQueue.PopFront();						
 					}
 				}
-				else if (EVENT_STATE_RED == color)
+				else if (EVENT_STATE_HAS_DEPENDENCIES == color)
 				{
 					break;
 				}
-				else if ( (EVENT_STATE_LIME == color) && (RUNTIME_EXECUTION_TYPE == cmd->GetExecutionType()) )
+				else if ( (EVENT_STATE_ISSUED_TO_DEVICE == color) && (RUNTIME_EXECUTION_TYPE == cmd->GetExecutionType()) )
 				{
 					break; // Runtime command is still executing
 				}
-				else if ( EVENT_STATE_BLACK == color )
+				else if ( EVENT_STATE_DONE == color )
 				{
 					// We have completed command in the queue
 					// There is two reasons: 1. runtime command, 2. failed command(one of the dependencies failed)

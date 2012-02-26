@@ -1104,7 +1104,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
 		//Override to notify my command about failed events it depended on
-		virtual cl_err_code NotifyEventDone(OclEvent* pEvent, cl_int returnCode);
+		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode);
 		// Get the context to which the event belongs.
 		virtual cl_context GetContextHandle() const;
 		// Get the return code of the command associated with the event.
