@@ -355,14 +355,14 @@ bool CopyMemObject::Execute()
 	if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
 	{
 		//Buffer to image
-		if(1 == cmdParams->src_dim_count)
+		if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType)
 		{
 			uiSrcElementSize = uiDstElementSize;
 			sCpyParam.uiDimCount = cmdParams->dst_dim_count;
 			sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
 			sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
 		}
-		if( 1 == cmdParams->dst_dim_count)
+		if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType)
 		{
 			//When destination is buffer the memcpy will be done as if the buffer is an image with height=1
 			sCpyParam.uiDimCount = cmdParams->src_dim_count;
@@ -888,6 +888,10 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 		// Argument is buffer object or local memory size
 		if ( ( CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_CONST == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D_ARR == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D_BUF == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
 			)

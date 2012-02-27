@@ -30,5 +30,5 @@
 extern bool  imageTest(bool profiling);
 extern bool copyImage(bool profiling, IOCLDevMemoryObject* srcMemObj, IOCLDevMemoryObject* dstMemObj, cl_uint src_dim_count, 
 			   cl_uint dst_dim_count, size_t src_origin[MAX_WORK_DIM],  size_t dst_origin[MAX_WORK_DIM], size_t region[MAX_WORK_DIM]);
-extern bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, unsigned int dim_count, size_t width, size_t height, size_t depth);
-extern bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,unsigned int dim_count,size_t width, size_t height, size_t depth);
+extern bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, unsigned int dim_count, size_t width, size_t height, size_t depth, bool bIsBuffer);
+extern bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,unsigned int dim_count,size_t width, size_t height, size_t depth, bool bIsBuffer);

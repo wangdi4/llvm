@@ -84,7 +84,7 @@ float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord);
 int4 __attribute__((overloadable)) ProjectNearest(float4 coord);
 float4 __attribute__((overloadable)) frac(float4 coord);
 
-void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord);
+void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData);
 
 uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT8(void* pPixel);
 uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT16(void* pPixel);
@@ -143,6 +143,8 @@ float4 __attribute__((overloadable)) load_pixel_RG_FLOAT(void* pPixel);
 float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT8(void* pPixel);
 float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT16(void* pPixel);
 float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel);
+
+float4 SampleImage1DFloat(float4 Ti0, float4 Ti1, float4 frac);
 
 float4 SampleImage2DFloat(float4 Ti0j0, float4 Ti1j0, float4 Ti0j1, float4 Ti1j1, float4 frac);
 float4 SampleImage2DFloatCh1(float4 components, float4 frac);
@@ -673,18 +675,34 @@ float4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_LINEAR(imag
 
 /// Implements nearest callbacks for given image format and border color
 #define IMPLEMENT_READ_SAMPLE_NEAREST(FORMAT, RETURN_TYPE, BORDER_COLOR)\
-RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_NOCLAMP_##FORMAT(image2d_t image, int4 coord)\
+RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_NOCLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
 {\
-    void* pixel = extract_pixel_pointer_quad(image, coord);\
+    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }\
 \
-RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord)\
+RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
 {\
     int isOOB = isOutOfBoundsInt(image, coord);\
     if (isOOB)\
         return BORDER_COLOR;\
-    void* pixel = extract_pixel_pointer_quad(image, coord);\
+    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    return load_pixel_##FORMAT(pixel);\
+}
+
+#define IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(FORMAT, BORDER_COLOR)\
+float4 __attribute__((overloadable)) read_sample_NEAREST_NOCLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+{\
+    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    return load_pixel_##FORMAT(pixel);\
+}\
+\
+float4 __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+{\
+    int isOOB = isOutOfBoundsInt(image, coord);\
+    if (isOOB)\
+        return BORDER_COLOR;\
+    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }
 
@@ -694,59 +712,49 @@ IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UINT32, uint4, BorderColorNoAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT8,  int4, BorderColorNoAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT16, int4, BorderColorNoAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT32, int4, BorderColorNoAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UNORM_INT8,  float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UNORM_INT16, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_FLOAT, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_HALF_FLOAT, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(BGRA_UNORM_INT8, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(INTENSITY_FLOAT, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(INTENSITY_UNORM_INT8, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(INTENSITY_UNORM_INT16, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(INTENSITY_HALF_FLOAT, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(LUMINANCE_FLOAT, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(LUMINANCE_UNORM_INT8, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(LUMINANCE_UNORM_INT16, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(LUMINANCE_HALF_FLOAT, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_FLOAT, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_UNORM_INT8, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_UNORM_INT16, float4, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT8,  BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT16, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_HALF_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(BGRA_UNORM_INT8, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_UNORM_INT8, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_UNORM_INT16, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_HALF_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_UNORM_INT8, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_UNORM_INT16, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT8, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT16, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_INT8, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_INT16, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_INT32, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT8, uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT16, uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT32, uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_HALF_FLOAT, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(A_FLOAT, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(A_UNORM_INT8, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(A_UNORM_INT16, float4, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(A_HALF_FLOAT, float4, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_HALF_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_UNORM_INT8, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_UNORM_INT16, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_HALF_FLOAT, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT8,  uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT16, uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT32, uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT8,  int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT16, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT32, int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_UNORM_INT8,  float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_UNORM_INT16, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_FLOAT, float4, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_HALF_FLOAT, float4, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT8, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT16, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 
 void __attribute__((overloadable)) write_sample_RGBA_UINT8(void* pixel, uint4 color)
 {
 #ifdef __SSE4_1__
     color = min(color, (uint4)(UCHAR_MAX));
     *(char4*)pixel = trunc_v4i32_v4i8(*((int4*)&color));
-    /*const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
-    __m128i i4Val=(__m128i)color;
-    i4Val = _mm_min_epi32(i4Val, i4uint8Max);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-    i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-    i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-    i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);*/
 #else
     // This function should be copy-pasted from BI module
     (*(uchar4*)pixel)=convert_uchar4_sat(color);
@@ -1442,9 +1450,51 @@ float4 dummyFnc(float4 input)
 {
     return input;
 }
+
+
+#define IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(TYPE, POST_PROCESSING) \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR1D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+{\
+    int4 point0   = square0;\
+    int4 point1   = square1;\
+    \
+    float4 Ti0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point0, pData));\
+    float4 Ti1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point1, pData));\
+    \
+    float4 result=SampleImage1DFloat(Ti0, Ti1, fraction);\
+    return POST_PROCESSING(result);\
+}
+
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_UNORM_INT8, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(BGRA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
+
+
 // definition for linear read callbacks in case of one channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1454,10 +1504,10 @@ float4 dummyFnc(float4 input)
     int4 point11   = square1;\
     \
     float4 components;\
-    components.x = load_value_##TYPE(extract_pixel_pointer_quad(image, point00));\
-    components.y = load_value_##TYPE(extract_pixel_pointer_quad(image, point10));\
-    components.z = load_value_##TYPE(extract_pixel_pointer_quad(image, point01));\
-    components.w = load_value_##TYPE(extract_pixel_pointer_quad(image, point11));\
+    components.x = load_value_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
+    components.y = load_value_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
+    components.z = load_value_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
+    components.w = load_value_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
     \
     float4 result=SampleImage2DFloatCh1(components, fraction);\
     return POST_PROCESSING(result);\
@@ -1465,7 +1515,7 @@ float4 dummyFnc(float4 input)
 
 // definition for linear read callbacks in case of 4 channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1474,10 +1524,10 @@ float4 dummyFnc(float4 input)
     int4 point01   = (int4)(square0.x, square1.y, 0, 0);\
     int4 point11   = square1;\
     \
-    float4 Ti0j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point00));\
-    float4 Ti1j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point10));\
-    float4 Ti0j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point01));\
-    float4 Ti1j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point11));\
+    float4 Ti0j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
+    float4 Ti1j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
+    float4 Ti0j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
+    float4 Ti1j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
     \
     float4 result=SampleImage2DFloat(Ti0j0, Ti1j0, Ti0j1, Ti1j1, fraction);\
     return POST_PROCESSING(result);\
@@ -1509,8 +1559,9 @@ IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
 
+
 #define IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(TYPE, POST_PROCESSING) \
-float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenerate weights for pixels*/\
     \
@@ -1523,14 +1574,14 @@ float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_NOCLAMP_##TYPE(image2
     int4 point011   = (int4)(square0.x, square1.y, square1.z, 0);\
     int4 point111   = square1;\
 \
-    float4 Ti0j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point000));\
-    float4 Ti1j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point100));\
-    float4 Ti0j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point010));\
-    float4 Ti1j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point110));\
-    float4 Ti0j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point001));\
-    float4 Ti1j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point101));\
-    float4 Ti0j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point011));\
-    float4 Ti1j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point111));\
+    float4 Ti0j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point000, pData));\
+    float4 Ti1j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point100, pData));\
+    float4 Ti0j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point010, pData));\
+    float4 Ti1j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point110, pData));\
+    float4 Ti0j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point001, pData));\
+    float4 Ti1j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point101, pData));\
+    float4 Ti0j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point011, pData));\
+    float4 Ti1j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point111, pData));\
 \
     float4 result=SampleImage3DFloat(Ti0j0k0, Ti1j0k0, Ti0j1k0, Ti1j1k0, Ti0j0k1, Ti1j0k1, Ti0j1k1, Ti1j1k1, fraction);\
     return POST_PROCESSING(result);\
@@ -1562,8 +1613,50 @@ IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
 
+
+#define IMPLEMENT_read_sample_LINEAR1D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR1D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+{\
+    \
+    int4 point0   = square0;\
+    int4 point1   = square1;\
+    \
+    float4 Ti0 = isOutOfBoundsInt(image, point0)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point0, pData));\
+    float4 Ti1 = isOutOfBoundsInt(image, point1)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point1, pData));\
+    \
+    float4 result = SampleImage1DFloat(Ti0, Ti1, fraction);\
+    return POST_PROCESSING(result);\
+}
+
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_HALF_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(INTENSITY_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(INTENSITY_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(INTENSITY_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(INTENSITY_HALF_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_FLOAT, BorderColorAlphaFloat, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_UNORM_INT8, BorderColorAlphaFloat, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_UNORM_INT16, BorderColorAlphaFloat, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(BGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_HALF_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+
+
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1573,17 +1666,17 @@ IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
     int4 point11   = square1;\
     \
     float4 components;\
-    components.x = isOutOfBoundsInt(image, point00)   ? BORDER_COLOR.x : load_value_##TYPE(extract_pixel_pointer_quad(image, point00));\
-    components.y = isOutOfBoundsInt(image, point10)   ? BORDER_COLOR.y : load_value_##TYPE(extract_pixel_pointer_quad(image, point10));\
-    components.z = isOutOfBoundsInt(image, point01)   ? BORDER_COLOR.z : load_value_##TYPE(extract_pixel_pointer_quad(image, point01));\
-    components.w = isOutOfBoundsInt(image, point11)   ? BORDER_COLOR.w : load_value_##TYPE(extract_pixel_pointer_quad(image, point11));\
+    components.x = isOutOfBoundsInt(image, point00)   ? BORDER_COLOR.x : load_value_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
+    components.y = isOutOfBoundsInt(image, point10)   ? BORDER_COLOR.y : load_value_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
+    components.z = isOutOfBoundsInt(image, point01)   ? BORDER_COLOR.z : load_value_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
+    components.w = isOutOfBoundsInt(image, point11)   ? BORDER_COLOR.w : load_value_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
     \
     float4 result=SampleImage2DFloatCh1(components, fraction);\
     return POST_PROCESSING(result);\
 }
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     \
     int4 point00   = square0;\
@@ -1591,10 +1684,10 @@ IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
     int4 point01   = (int4)(square0.x, square1.y, 0, 0);\
     int4 point11   = square1;\
     \
-    float4 Ti0j0 = isOutOfBoundsInt(image, point00)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point00));\
-    float4 Ti1j0 = isOutOfBoundsInt(image, point10)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point10));\
-    float4 Ti0j1 = isOutOfBoundsInt(image, point01)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point01));\
-    float4 Ti1j1 = isOutOfBoundsInt(image, point11)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point11));\
+    float4 Ti0j0 = isOutOfBoundsInt(image, point00)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
+    float4 Ti1j0 = isOutOfBoundsInt(image, point10)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
+    float4 Ti0j1 = isOutOfBoundsInt(image, point01)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
+    float4 Ti1j1 = isOutOfBoundsInt(image, point11)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
     \
     float4 result = SampleImage2DFloat(Ti0j0, Ti1j0, Ti0j1, Ti1j1, fraction);\
     return POST_PROCESSING(result);\
@@ -1626,8 +1719,9 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_UNORM_INT8, BorderColorAlphaFloat, dummy
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 
+
 #define IMPLEMENT_read_sample_LINEAR3D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction)  \
+float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
 \
     int4 point000   = square0;\
@@ -1639,14 +1733,14 @@ float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_CLAMP_##TYPE(image2d_
     int4 point011   = (int4)(square0.x, square1.y, square1.z, 0);\
     int4 point111   = square1;\
 \
-    float4 Ti0j0k0 = isOutOfBoundsInt(image, point000)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point000));\
-    float4 Ti1j0k0 = isOutOfBoundsInt(image, point100)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point100));\
-    float4 Ti0j1k0 = isOutOfBoundsInt(image, point010)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point010));\
-    float4 Ti1j1k0 = isOutOfBoundsInt(image, point110)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point110));\
-    float4 Ti0j0k1 = isOutOfBoundsInt(image, point001)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point001));\
-    float4 Ti1j0k1 = isOutOfBoundsInt(image, point101)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point101));\
-    float4 Ti0j1k1 = isOutOfBoundsInt(image, point011)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point011));\
-    float4 Ti1j1k1 = isOutOfBoundsInt(image, point111)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point111));\
+    float4 Ti0j0k0 = isOutOfBoundsInt(image, point000)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point000, pData));\
+    float4 Ti1j0k0 = isOutOfBoundsInt(image, point100)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point100, pData));\
+    float4 Ti0j1k0 = isOutOfBoundsInt(image, point010)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point010, pData));\
+    float4 Ti1j1k0 = isOutOfBoundsInt(image, point110)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point110, pData));\
+    float4 Ti0j0k1 = isOutOfBoundsInt(image, point001)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point001, pData));\
+    float4 Ti1j0k1 = isOutOfBoundsInt(image, point101)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point101, pData));\
+    float4 Ti0j1k1 = isOutOfBoundsInt(image, point011)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point011, pData));\
+    float4 Ti1j1k1 = isOutOfBoundsInt(image, point111)   ? BORDER_COLOR : load_pixel_##TYPE(extract_pixel_pointer_quad(image, point111, pData));\
 \
     float4 result = SampleImage3DFloat(Ti0j0k0, Ti1j0k0, Ti0j1k0, Ti1j1k0, Ti0j0k1, Ti1j0k1, Ti0j1k1, Ti1j1k1, fraction);\
     return POST_PROCESSING(result);\
@@ -2115,7 +2209,7 @@ int4 __attribute__((overloadable)) load_pixel_RG_INT16(void* pPixel)
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord )
+void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
 {
     // Calculate required pixel offset
 #ifdef __SSE4_1__
@@ -2124,7 +2218,7 @@ void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, 
     int4 offset=(int4)(0,0,0,0);
 #endif
     int4 ocoord=coord*offset;
-    void* pixel = (void*)((image_aux_data*)image)->pData+ocoord.x + ocoord.y + ocoord.z;
+    void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
     return pixel;
 }
 
@@ -2138,7 +2232,7 @@ void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, 
 int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
 {
 #ifdef __SSE4_1__
-    __m128i	i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
+    __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
     // Prepare mask for compare mask extraction
     int iMask=((image_aux_data*)image)->dimmask;
     __m128i iCoord = _mm_max_epi32((__m128i)coord, (__m128i)UndefCoordInt);
@@ -2235,6 +2329,14 @@ float4 SampleImage2DFloatCh1(float4 components, float4 frac)
 
 }
 
+
+float4 SampleImage1DFloat(float4 Ti0, float4 Ti1, float4 frac)
+{
+    float a = frac.x;
+
+    return (1 - a) * Ti0 + a * Ti1;
+}
+
 float4 SampleImage2DFloat(float4 Ti0j0, float4 Ti1j0, float4 Ti0j1, float4 Ti1j1, float4 frac)
 {
     float a = frac.x;
@@ -2265,7 +2367,7 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 
 //general functions
 
-uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD(image2d_t image, int4 coord)
+uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD(image2d_t image, int4 coord, void* pData)
 {
     return BorderColorNoAlphaUint;  //a don't care result
 }

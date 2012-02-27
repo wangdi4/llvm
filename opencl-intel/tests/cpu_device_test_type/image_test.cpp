@@ -182,7 +182,7 @@ bool copyImage(bool profiling, IOCLDevMemoryObject* srcMemObj, IOCLDevMemoryObje
 	Enqueue a write buffer
 	Release command list
 *****************************************************************************************************************/
-bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, unsigned int dim_count, size_t width, size_t height, size_t depth)
+bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, unsigned int dim_count, size_t width, size_t height, size_t depth, bool bIsBuffer)
 {
 	cl_int iRes;
 	
@@ -215,7 +215,7 @@ bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, u
 	{
 		rwParams.origin[i] = 0;
 	}
-	if(dim_count > 1)
+	if (!bIsBuffer)
 	{
 		rwParams.pitch[0] = rwParams.region[0] * ELEMENT_SIZE;
 		rwParams.pitch[1] = rwParams.pitch[0] * height;
@@ -267,7 +267,7 @@ bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, u
 	Enqueue a read buffer
 	Release command list
 *****************************************************************************************************************/
-bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,unsigned int dim_count,size_t width, size_t height, size_t depth)
+bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,unsigned int dim_count,size_t width, size_t height, size_t depth, bool bIsBuffer)
 {
 	cl_int iRes;
 	
@@ -299,7 +299,7 @@ bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,uns
 	{
 		rwParams.origin[i] = 0;
 	}
-	if(dim_count > 1)
+	if (!bIsBuffer)
 	{
 		rwParams.pitch[0] = rwParams.region[0] * ELEMENT_SIZE;
 		rwParams.pitch[1] = rwParams.pitch[0] * height;
@@ -364,7 +364,7 @@ bool clReadWrite2DImage_Test(bool profiling)
 		return false;
 	}
 	//Create 2D Image Memory Object
-	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
@@ -389,14 +389,14 @@ bool clReadWrite2DImage_Test(bool profiling)
     
    //Write Host Image into the created memory image
    
-	if(!writeImage(profiling,memObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!writeImage(profiling,memObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 		return false;
 	}
 
 	//Read Image to the host pointer compare to original memory that was written
 
-	if(!readImage(profiling, memObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!readImage(profiling, memObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 		return false;
 	}
@@ -438,7 +438,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 	 
-	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -448,7 +448,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 
-	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 	iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -472,7 +472,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	}
     
 	//Write Host Image into the created memory image
-	if(!writeImage(profiling, srcMemObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!writeImage(profiling, srcMemObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 		free(hostReadImage);
 		free(hostWriteImage);
@@ -493,7 +493,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	}
 
   //Read the new image and check that memory is what was originally written
-	if(!readImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!readImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 		free(hostReadImage);
 		free(hostWriteImage);
@@ -512,7 +512,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	memset(hostReadImage, 0, IMAGE_HEIGHT * IMAGE_WIDTH * 2);
    //Write Host Image into the created memory image
 
-	if(!writeImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!writeImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 		free(hostReadImage);
 		free(hostWriteImage);
@@ -537,7 +537,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	}
 
 	//Read Image
-	if(!readImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+	if(!readImage(profiling, dstMemObj, hostReadImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 	{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -597,7 +597,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 
 		//Create 2D Image Memory Object
 
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -608,7 +608,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 
 		//Create Buffer Object
 		dim[0] = IMAGE_WIDTH * IMAGE_HEIGHT *ELEMENT_SIZE;
-		localRTMemService.SetupState( &format, 1, dim, NULL );
+		localRTMemService.SetupState( &format, 1, dim, NULL, CL_MEM_OBJECT_BUFFER);
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -641,7 +641,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
     
 		//Write Host Image into the created memory image
    
-		if(!writeImage(profiling, srcMemObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+		if(!writeImage(profiling, srcMemObj, hostWriteImage, 2, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 		{
 			return false;
 		}
@@ -657,7 +657,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 		}
 
 	   	//Read Buffer
-		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, IMAGE_WIDTH * IMAGE_HEIGHT *ELEMENT_SIZE, 1, 1))
+		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, IMAGE_WIDTH * IMAGE_HEIGHT *ELEMENT_SIZE, 1, 1, true))
 		{
 				return false;
 		}
@@ -699,7 +699,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 
 		//Create Source Buffer Memory Object
 		
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_BUFFER );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -710,7 +710,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 
 		//Create Destination Buffer Object
 
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_BUFFER );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -736,7 +736,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		}
     
 		//Write Host Buffer into the created memory image
-   		if(!writeImage(profiling, srcMemObj, hostWriteBuffer,1, BUFFER_SIZE, 1, 1))
+   		if(!writeImage(profiling, srcMemObj, hostWriteBuffer,1, BUFFER_SIZE, 1, 1, true))
 		{
 			return false;
 		}
@@ -755,7 +755,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		}
 
 	   	//Read Buffer
-		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, BUFFER_SIZE, 1, 1))
+		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, BUFFER_SIZE, 1, 1, true))
 		{
 			free(hostReadBuffer);
 			free(hostWriteBuffer);	
@@ -805,7 +805,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		return false;
 	}
 	 
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -815,7 +815,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 			return false;
 		}
 
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -842,7 +842,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 	    
 	   //Write Host Image into the created memory image
 	   
-		if(!writeImage(profiling, srcMemObj, hostWriteImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, srcMemObj, hostWriteImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -863,7 +863,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		}
 
 	  //Read the new image and check that memory is what was originally written
-		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -882,7 +882,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		memset(hostReadImage, 0, IMAGE_DEPTH * sliceSize);
 	   //Write Host Image into the created memory image
    
-		if(!writeImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -909,7 +909,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		}
 
 		//Read Image
-		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 				free(hostReadImage);
 				free(hostWriteImage);
@@ -971,7 +971,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 
 		//Create 3D Image Memory Object
 		
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -984,7 +984,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		uiBufferSize = uiImageSlizeSize * IMAGE_DEPTH;
 		dim[0] = uiBufferSize;
 
-		localRTMemService.SetupState( &format, 1, dim, NULL );
+		localRTMemService.SetupState( &format, 1, dim, NULL, CL_MEM_OBJECT_BUFFER );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1018,7 +1018,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
     
 		//Write Host Image into the created memory image
    
-		if(!writeImage(profiling, srcMemObj, hostWriteImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, srcMemObj, hostWriteImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			return false;
 		}
@@ -1034,7 +1034,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		}
 
 	   	//Read Buffer
-		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, uiBufferSize, 1, 1))
+		if(!readImage(profiling, dstMemObj, hostReadBuffer, 1, uiBufferSize, 1, 1, true))
 		{
 				return false;
 		}
@@ -1077,7 +1077,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 
 		//Create 3D Image Memory Object
 		
-		localRTMemService.SetupState( &format, dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1090,7 +1090,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		uiBufferSize = uiImageSlizeSize * IMAGE_DEPTH;
 		dim[0] = uiBufferSize;
 
-		localRTMemService.SetupState( &format, 1, dim, NULL );
+		localRTMemService.SetupState( &format, 1, dim, NULL, CL_MEM_OBJECT_BUFFER );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, 1, dim, &localRTMemService, &srcMemObj);
 		
 		if (CL_DEV_FAILED(iRes))
@@ -1124,7 +1124,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
     
 		//Write Host Buffer into the created memory buffer
    
-		if(!writeImage(profiling, srcMemObj, hostWriteBuffer, 1, uiBufferSize, 1, 1))
+		if(!writeImage(profiling, srcMemObj, hostWriteBuffer, 1, uiBufferSize, 1, 1, true))
 		{
 			return false;
 		}
@@ -1140,7 +1140,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		}
 
 	   	//Read Image
-		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!readImage(profiling, dstMemObj, hostReadImage, 3, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 				return false;
 		}
@@ -1189,7 +1189,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		return false;
 	}
 	 
-		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -1199,7 +1199,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 			return false;
 		}
 
-		localRTMemService.SetupState( &format, src_dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, src_dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -1225,7 +1225,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 	    
 	   //Write 3D Host Image into the created memory image
 	   
-		if(!writeImage(profiling, srcMemObj, hostWriteImage, src_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, srcMemObj, hostWriteImage, src_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -1246,7 +1246,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		}
 
 	  //Read the 2D image and check that memory is what was originally written
-		if(!readImage(profiling, dstMemObj, hostReadImage, dst_dim_count , IMAGE_WIDTH, IMAGE_HEIGHT, 1))
+		if(!readImage(profiling, dstMemObj, hostReadImage, dst_dim_count , IMAGE_WIDTH, IMAGE_HEIGHT, 1, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -1265,7 +1265,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		memset(hostReadImage, 0, ui2DImageSlizeSize);
 	   //Write Host Image into the 2D image
    
-		if(!writeImage(profiling, dstMemObj, hostReadImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 1))
+		if(!writeImage(profiling, dstMemObj, hostReadImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 1, false))
 		{
 			free(hostReadImage);
 			free(hostWriteImage);
@@ -1292,7 +1292,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		}
 
 		//Read Image
-		if(!readImage(profiling, dstMemObj, hostReadImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 1))
+		if(!readImage(profiling, dstMemObj, hostReadImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 1, false))
 		{
 				free(hostReadImage);
 				free(hostWriteImage);
@@ -1358,7 +1358,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		return false;
 	}
 	 
-		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, dst_dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -1368,7 +1368,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 			return false;
 		}
 
-		localRTMemService.SetupState( &format, src_dim_count, dim, NULL );
+		localRTMemService.SetupState( &format, src_dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE2D );
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
@@ -1380,7 +1380,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		//Write data to the source image
 
 		memset(hostDstImage, 0 , ui2DImageSlizeSize * IMAGE_DEPTH);
-		if(!writeImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostDstImage);
 			free(hostSourceImage);
@@ -1400,7 +1400,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		}
 	    
 	   //Write 2D Host Image into the created memory image 
-		if(!writeImage(profiling, srcMemObj, hostSourceImage, src_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 0))
+		if(!writeImage(profiling, srcMemObj, hostSourceImage, src_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, 0, false))
 		{
 			free(hostDstImage);
 			free(hostSourceImage);
@@ -1421,7 +1421,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		}
 
 	  //Read the 3D image and check that memory is what was originally written
-		if(!readImage(profiling, dstMemObj, hostDstImage, dst_dim_count , IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!readImage(profiling, dstMemObj, hostDstImage, dst_dim_count , IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostDstImage);
 			free(hostSourceImage);
@@ -1440,7 +1440,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		memset(hostDstImage, 0, ui2DImageSlizeSize * IMAGE_DEPTH);
 	   //Write Host Image into the 2D image
    
-		if(!writeImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!writeImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 			free(hostDstImage);
 			free(hostSourceImage);
@@ -1467,7 +1467,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		}
 
 		//Read Image
-		if(!readImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+		if(!readImage(profiling, dstMemObj, hostDstImage, dst_dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 		{
 				free(hostDstImage);
 				free(hostSourceImage);

@@ -72,15 +72,15 @@ typedef int4 (*Image_F_COORD_CBK) (void*, float4);
 typedef float4 (*Image_FF_COORD_CBK) (void*, float4, int4*, int4*);
 
 // Image reading callback typedefs
-// Reading from uint32_t image
-typedef uint4 (*Image_UI_READ_CBK) (void*, int4);
+// Reading from uint32_t image.
+typedef uint4 (*Image_UI_READ_CBK) (void* image, int4 coord, void* pData);
 // Raeding from signed int image
-typedef int4 (*Image_I_READ_CBK) (void*, int4);
+typedef int4 (*Image_I_READ_CBK) (void* image, int4 coord, void* pData);
 // read callback for float images and float coordinates takes
 // translated coordinates and i0,j0,k0,i1,j1,k1 components for interpolation
-typedef float4 (*Image_F_READ_CBK) (void*, int4, int4, float4);
+typedef float4 (*Image_F_READ_CBK) (void* image, int4 square0, int4 square1, float4 coord, void* pData);
 // read callback for float images and integer coordinates
-typedef float4 (*Image_FI_READ_CBK) (void*, int4);
+typedef float4 (*Image_FI_READ_CBK) (void* image, int4 coord, int4 dummy0, float4 dummy1, void* pData);
 
 // Write image callback typedefs
 typedef void (*Image_UI_WRITE_CBK) (void*, uint4);
@@ -113,6 +113,7 @@ typedef struct _image_aux_data
 	float dimf[MAX_WORK_DIM+1] ALIGN16;		// Float image size for each dimension.
 											// Used in coordinates computation to avoid
 											// int->float type conversion for each read call
+	int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
 	int dimmask;		// Mask for dimensions in images
 						// Contains ones at dim_count first bytes. Other bytes are zeros.
 						// Used for coordinates clamping

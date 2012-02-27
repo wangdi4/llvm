@@ -274,26 +274,38 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
             char dim = imgArg.at(13);
             // Setup image pointer
             ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i));
-            
+            /// TODO: Enable 1.2 images and filling type accordingly if this code will be enabled
             curArg.type = ('2' == dim ? CL_KRNL_ARG_PTR_IMG_2D : CL_KRNL_ARG_PTR_IMG_3D);
+            
+            curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
+        StructType *ST = dyn_cast<StructType>(PTy->getElementType());
+        if(ST) {
+          const std::string &imgArg = ST->getName();
+          if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
+          {
+            // Get dimension image type
+            if(imgArg.find("struct._image1d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
+            else if(imgArg.find("struct._image1d_array_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
+            else if(imgArg.find("struct._image1d_buffer_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
+            else if (imgArg.find("struct._image2d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+            else if (imgArg.find("struct._image2d_array_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+            else if(imgArg.find("struct._image3d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
+            else
+                // User may specify structure with _image.
+                // So continue if we didn't find anything
+                continue;
+            // Setup image pointer
+            ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i));
             
             curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
             break;
           }
-        }
-
-        //test for structs
-        llvm::Type *Ty = PTy->getContainedType(0);
-        if ( true == Ty->isStructTy() ) // struct or struct*
-        {
-          std::string TypeName = dyn_cast<MDString>(MDTypeName->getOperand(i))->getString().str();
-          int inx = TypeName.find("*");
-          if( -1 == inx ) //We're dealing with real struct and not struct pointer
-          {
-            llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
-            TargetData targetData(pModule);
-            curArg.size_in_bytes = targetData.getTypeAllocSize(STy);
-            curArg.type = CL_KRNL_ARG_COMPOSITE;
             break;
           }
         }

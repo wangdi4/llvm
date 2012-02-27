@@ -187,7 +187,7 @@ bool clMapBuffer_Test()
 
 	
 	//Create Buffer Memory Object
-	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_BUFFER );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
@@ -203,7 +203,7 @@ bool clMapBuffer_Test()
 	}
     
    //Write Host buffer into the created memory image
-	if(!writeImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1))
+	if(!writeImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
 	{
 		return false;
 	}
@@ -243,7 +243,7 @@ bool clMapBuffer_Test()
 	}
 
 	//Try to access the memory object 
-	if(readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1))
+	if(readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
 	{
 		printf("Read of Map region was succeed\n");
 	}
@@ -255,7 +255,7 @@ bool clMapBuffer_Test()
 
 	}
 	//The read should be OK now
-	if(!readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1))
+	if(!readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
 	{
 		printf("Read of region which was Mapped and Unmapped failed\n");
 	}
@@ -296,7 +296,7 @@ bool clMapImage_Test()
 	}
 	
 	//Create Image Memory Object
-	localRTMemService.SetupState( &format, dim_count, dim, NULL );
+	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_IMAGE3D );
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
 	
 	if (CL_DEV_FAILED(iRes))
@@ -320,7 +320,7 @@ bool clMapImage_Test()
 		}
 	    
    //Write Host buffer into the created memory image
-	if(!writeImage(false, memObj, image, dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH))
+	if(!writeImage(false, memObj, image, dim_count, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH, false))
 	{
 		free(image);
 		return false;

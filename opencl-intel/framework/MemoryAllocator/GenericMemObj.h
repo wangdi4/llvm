@@ -137,6 +137,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetDeviceAgentListSize() const;
 		const IOCLDeviceAgent* const *GetDeviceAgentList() const;
         virtual ~GenericMemObject();
+        cl_mem_object_type GetMemObjectType() const { return GetType(); }
 
     protected:
 		

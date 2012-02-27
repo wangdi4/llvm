@@ -80,15 +80,16 @@ public:
 	void SetupState(    const cl_image_format*	pclImageFormat,
 						unsigned int		    dim_count,
 						const size_t*	        dimension,
-						const size_t*           pitches)
+						const size_t*           pitches,
+                        cl_mem_object_type      memObjType)
 	{
 		m_pclImageFormat = pclImageFormat;
 		m_dim_count		 = dim_count;
 		m_pDimension	 = dimension;
 		m_pPitches		 = pitches;
+        m_memObjType     = memObjType;
 
-		// hack - this test assumes that if dim_count==1, pclImageFormat is ignored. In reality this is different.
-		if (1==dim_count)
+		if (CL_MEM_OBJECT_BUFFER == memObjType)
 		{
 			m_pclImageFormat = NULL;
 		}
@@ -120,9 +121,14 @@ public:
 		return (const IOCLDeviceAgent* const *)&dev_entry;
 	}
 
+    cl_mem_object_type GetMemObjectType() const
+    {
+        return m_memObjType;
+    }
 private:
 	const cl_image_format*	m_pclImageFormat;
 	unsigned int			m_dim_count;
 	const size_t*			m_pDimension;
 	const size_t*			m_pPitches;
+    cl_mem_object_type      m_memObjType;
 };

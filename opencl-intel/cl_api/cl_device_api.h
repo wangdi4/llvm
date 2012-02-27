@@ -103,7 +103,10 @@ enum cl_kernel_arg_type
 	CL_KRNL_ARG_PTR_CONST,		//!< Argument is a pointer to buffer declared in constant(global) memory
 	CL_KRNL_ARG_PTR_IMG_2D,		//!< Argument is a pointer to 2D image
 	CL_KRNL_ARG_PTR_IMG_3D,		//!< Argument is a pointer to 3D image
-    CL_KRNL_ARG_PTR_IMG_2D_ARR  //!< Argument is a pointer to a 2D image array
+	CL_KRNL_ARG_PTR_IMG_2D_ARR,	//!< Argument is a pointer to a 2D image array
+	CL_KRNL_ARG_PTR_IMG_1D,		//!< Argument is a pointer to 1D image
+	CL_KRNL_ARG_PTR_IMG_1D_ARR,	//!< Argument is a pointer to 1D image array
+	CL_KRNL_ARG_PTR_IMG_1D_BUF	//!< Argument is a pointer to 1D image buffer
 };
 
 /*! \struct cl_kernel_argument
@@ -758,6 +761,7 @@ public:
 
 	//!	Returns the list Device Agent sharing the runtime memory object
 	virtual const IOCLDeviceAgent* const *GetDeviceAgentList() const = 0;
+    virtual cl_mem_object_type GetMemObjectType() const = 0;
 };
 
 /*!

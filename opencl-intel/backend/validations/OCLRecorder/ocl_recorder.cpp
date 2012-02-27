@@ -677,7 +677,12 @@ namespace Validation
         llvm::Function::const_arg_iterator arg_it = kernelContext.getFuncPtr()->arg_begin();
         for(unsigned int i=0; i<argsCount; ++i)
         {
-            if ( CL_KRNL_ARG_PTR_IMG_2D <= pKernelArgs[i].type )
+            if (( CL_KRNL_ARG_PTR_IMG_2D == pKernelArgs[i].type ) ||
+                ( CL_KRNL_ARG_PTR_IMG_1D == pKernelArgs[i].type ) ||
+                ( CL_KRNL_ARG_PTR_IMG_1D_ARR == pKernelArgs[i].type ) ||
+                ( CL_KRNL_ARG_PTR_IMG_1D_BUF == pKernelArgs[i].type ) ||
+                ( CL_KRNL_ARG_PTR_IMG_2D_ARR == pKernelArgs[i].type ) ||
+                ( CL_KRNL_ARG_PTR_IMG_3D == pKernelArgs[i].type ))
             {
                 cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer+stArgsOffset);
                 // create image

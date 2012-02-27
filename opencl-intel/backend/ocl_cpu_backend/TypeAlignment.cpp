@@ -63,6 +63,15 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
   case CL_KRNL_ARG_PTR_CONST:
     return sizeof(void*);
 
+  case CL_KRNL_ARG_PTR_IMG_1D:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+    return sizeof(void*);
+
+  case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+    return sizeof(void*);
+
   case CL_KRNL_ARG_PTR_IMG_2D:
     return sizeof(void*);
 

@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
     // TODO: Remove this and replace it with a module which represents the images library
-    const unsigned int NumImageFunctions = 16;
+    const unsigned int NumImageFunctions = 33;
 
     static const std::string ImageFunctions[NumImageFunctions] = {
       "_Z12read_imageuiP10_image2d_tjDv2_i",
@@ -82,7 +82,27 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "_Z11read_imagefP10_image2d_tjDv2_i",
       "_Z11read_imagefP10_image3d_tjDv4_i",
       "_Z11read_imagefP10_image3d_tjDv4_i",
-      "_Z11read_imagefP10_image3d_tjDv4_f"
+      "_Z11read_imagefP10_image3d_tjDv4_f",
+// images 1.2 functions
+      "_Z11read_imagefP16_image2d_array_tjDv4_f",
+      "_Z11read_imageiP16_image2d_array_tjDv4_i",
+      "_Z11read_imageiP16_image2d_array_tjDv4_f",
+      "_Z12read_imageuiP16_image2d_array_tjDv4_i",
+      "_Z12read_imageuiP16_image2d_array_tjDv4_f",
+      "_Z11read_imagefP10_image1d_tji",
+      "_Z11read_imagefP10_image1d_tjf",
+      "_Z11read_imageiP10_image1d_tji",
+      "_Z11read_imageiP10_image1d_tjf",
+      "_Z12read_imageuiP10_image1d_tji",
+      "_Z12read_imageuiP10_image1d_tjf",
+      "_Z11read_imagefP16_image1d_array_tjDv2_i",
+      "_Z11read_imagefP16_image1d_array_tjDv2_f",
+      "_Z11read_imageiP16_image1d_array_tjDv2_i",
+      "_Z11read_imageiP16_image1d_array_tjDv2_f",
+      "_Z12read_imageuiP16_image1d_array_tjDv2_i",
+      "_Z12read_imageuiP16_image1d_array_tjDv2_f"
+//TODO: add sampler-less and writing
+
     };
 
     for( unsigned int i=0; i < NumImageFunctions ; i++ ) {

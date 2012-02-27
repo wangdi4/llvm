@@ -243,6 +243,7 @@ m_pBackingStore(NULL),  m_pImageService(pImageService)
 
 	m_objDecr.uiElementSize = (unsigned int)m_pBackingStore->GetElementSize();
 	m_objDecr.pData = NULL;
+    m_objDecr.memObjType = m_pRTMemObjService->GetMemObjectType();
 }
 
 CPUDevMemoryObject::~CPUDevMemoryObject()
@@ -257,7 +258,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 
 	//allocating the memory on the device by querying the backend for the size
 	void* auxObject = NULL;
-	if (m_objDecr.dim_count > 1)  //image - should be correctly established in another way!
+	if (m_objDecr.memObjType != CL_MEM_OBJECT_BUFFER)
 	{
 		size_t auxObjectSize=m_pImageService->GetAuxilarySize();
 		auxObject = ALIGNED_MALLOC( auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
@@ -367,7 +368,7 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 	// Update dimensions
 	m_objDecr.pData = MemoryAllocator::CalculateOffsetPointer(m_objDecr.pData, m_objDecr.dim_count, origin, m_objDecr.pitch, m_objDecr.uiElementSize);
 
-	if ( 1 == m_objDecr.dim_count )
+	if ( CL_MEM_OBJECT_BUFFER == m_objDecr.memObjType )
 	{
 		m_objDecr.dimensions.buffer_size = size[0];
 	}

@@ -111,12 +111,18 @@ typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
 #undef int32_t1
 #undef uint32_t1
 
+struct _image1d_t;
+struct _image1d_buffer_t;
 struct _image2d_t;
 struct _image3d_t;
 struct _image2d_array_t;
+struct _image1d_array_t;
+typedef struct _image1d_t* image1d_t;
+typedef struct _image1d_buffer_t* image1d_buffer_t;
 typedef struct _image2d_t* image2d_t;
 typedef struct _image3d_t* image3d_t;
 typedef struct _image2d_array_t* image2d_array_t;
+typedef struct _image1d_array_t* image1d_array_t;
 typedef uint sampler_t;
 
 // built-in vector data types:
@@ -7286,6 +7292,59 @@ int4 __attribute__((overloadable)) const_func read_imagei(image3d_t image, sampl
 uint4 __attribute__((overloadable)) const_func read_imageui(image3d_t image, sampler_t sampler, int4 coord);
 uint4 __attribute__((overloadable)) const_func read_imageui(image3d_t image, sampler_t sampler, float4 coord);
 
+// IMAGE 1.2 built-ins
+// with samplers and samplerless
+float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, int4 coord);
+float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, float4 coord);
+int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t sampler, int4 coord);
+int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t sampler, float4 coord);
+uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler_t sampler, int4 coord);
+uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler_t sampler, float4 coord);
+float4 __attribute__((overloadable)) read_imagef(image1d_t image, sampler_t sampler, int coord);
+float4 __attribute__((overloadable)) read_imagef(image1d_t image, sampler_t sampler, float coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_t image, sampler_t sampler, int coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_t image, sampler_t sampler, float coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_t image, sampler_t sampler, int coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_t image, sampler_t sampler, float coord);
+float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_t sampler, int2 coord);
+float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_t sampler, float2 coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t sampler, int2 coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t sampler, float2 coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_t sampler, int2 coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_t sampler, float2 coord);
+float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord);
+int4 __attribute__((overloadable)) read_imagei (image2d_t image, int2 coord);
+uint4 __attribute__((overloadable)) read_imageui (image2d_t image, int2 coord);
+float4 __attribute__((overloadable)) read_imagef (image3d_t image, int4 coord);
+int4 __attribute__((overloadable)) read_imagei (image3d_t image, int4 coord);
+uint4 __attribute__((overloadable)) read_imageui (image3d_t image, int4 coord);
+float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 coord);
+int4 __attribute__((overloadable)) read_imagei (image2d_array_t image, int4 coord);
+uint4 __attribute__((overloadable)) read_imageui (image2d_array_t image, int4 coord);
+float4 __attribute__((overloadable)) read_imagef (image1d_t image, int coord);
+float4 __attribute__((overloadable)) read_imagef (image1d_buffer_t image, int coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_t image, int coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_t image, int coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_buffer_t image, int coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_buffer_t image, int coord);
+float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, int2 coord);
+int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, int2 coord);
+uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, int2 coord);
+void __attribute__((overloadable)) write_imagef (image2d_array_t image, int4 coord, float4 color);
+void __attribute__((overloadable)) write_imagei (image2d_array_t image, int4 coord, int4 color);
+void __attribute__((overloadable)) write_imageui (image2d_array_t image, int4 coord, uint4 color);
+void __attribute__((overloadable)) write_imagef (image1d_t image, int coord, float4 color);
+void __attribute__((overloadable)) write_imagei (image1d_t image, int coord, int4 color);
+void __attribute__((overloadable)) write_imageui (image1d_t image, int coord, uint4 color);
+void __attribute__((overloadable)) write_imagef (image1d_buffer_t image, int coord, float4 color);
+void __attribute__((overloadable)) write_imagei (image1d_buffer_t image, int coord, int4 color);
+void __attribute__((overloadable)) write_imageui (image1d_buffer_t image, int coord, uint4 color);
+void __attribute__((overloadable)) write_imagef (image1d_array_t image, int2 coord, float4 color);
+void __attribute__((overloadable)) write_imagei (image1d_array_t image, int2 coord, int4 color);
+void __attribute__((overloadable)) write_imageui (image1d_array_t image, int2 coord, uint4 color);
+
+
+
 #ifdef __WRITE_IMAGE3D__
 /**
  * Write color value to location specified by coordinate
@@ -7331,14 +7390,19 @@ void __attribute__((overloadable)) write_imageui(image3d_t image, int4 coord, ui
 /**
  * Return the image width in pixels.
  */
+int const_func __attribute__((overloadable)) get_image_width(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_width(image1d_buffer_t image);
 int const_func __attribute__((overloadable)) get_image_width(image2d_t image);
 int const_func __attribute__((overloadable)) get_image_width(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_width(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_width(image2d_array_t image);
 
 /**
  * Return the image height in pixels.
  */
 int const_func __attribute__((overloadable)) get_image_height(image2d_t image);
 int const_func __attribute__((overloadable)) get_image_height(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_height(image2d_array_t image);
 
 /**
  * Return the image depth in pixels.
@@ -7393,8 +7457,12 @@ int const_func __attribute__((overloadable)) get_image_depth(image3d_t image);
 #define CLK_HALF_FLOAT			13
 #define CLK_FLOAT				14
 
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_buffer_t image);
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_t image);
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_array_t image);
 
 /**
  * Return the image channel order. Valid values are:
@@ -7412,8 +7480,12 @@ int const_func __attribute__((overloadable)) get_image_channel_data_type(image3d
  * CLK_INTENSITY
  * CLK_LUMINANCE
  */
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_buffer_t image);
 int const_func __attribute__((overloadable)) get_image_channel_order(image2d_t image);
 int const_func __attribute__((overloadable)) get_image_channel_order(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image2d_array_t image);
 
 /**
  * Return the 2D image width and height as an int2
@@ -7421,6 +7493,7 @@ int const_func __attribute__((overloadable)) get_image_channel_order(image3d_t i
  * the height in the y component.
  */
 int2 const_func __attribute__((overloadable)) get_image_dim(image2d_t image);
+int2 const_func __attribute__((overloadable)) get_image_dim(image2d_array_t image);
 
 /**
  * Return the 3D image width, height, and depth as an
@@ -7433,7 +7506,12 @@ int4 const_func __attribute__((overloadable)) get_image_dim(image3d_t image);
 /**
  * Return the number of images in the 2D image array.
  */
-size_t get_array_size(image2d_array_t image_array);
+size_t const_func __attribute__((overloadable)) get_image_array_size(image2d_array_t image_array);
+
+/**
+ * Return the number of images in the 1D image array.
+ */
+size_t const_func __attribute__((overloadable)) get_image_array_size(image1d_array_t image_array);
 
 /**
  *  Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.

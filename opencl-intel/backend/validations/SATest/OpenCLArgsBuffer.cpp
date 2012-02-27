@@ -58,6 +58,7 @@ size_t OpenCLArgsBuffer::GetArgsBufferSize()
 void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const BufferDesc& buffer_desc, void* pData)
 {
     mem_desc.dim_count = 1;
+    mem_desc.memObjType = CL_MEM_OBJECT_BUFFER;
     mem_desc.dimensions.dim[0] = buffer_desc.GetBufferSizeInBytes();
     mem_desc.pData = pData;
 }
@@ -70,6 +71,16 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
     assert(pImageService);
     // workaround for implementing OpenCL 1.2
     mem_desc.dim_count = image_desc.GetDimensionCount();
+    switch(image_desc.GetImageType())
+    {
+    case OpenCL_MEM_OBJECT_IMAGE1D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D; break;
+    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY:  mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_ARRAY; break;
+    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER: mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_BUFFER; break;
+    case OpenCL_MEM_OBJECT_IMAGE2D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D; break;
+    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY:  mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D_ARRAY; break;
+    case OpenCL_MEM_OBJECT_IMAGE3D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE3D; break;
+    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown image type");
+    }
     ImageSizeDesc imSizes = image_desc.GetSizesDesc();
     mem_desc.dimensions.dim[0] = imSizes.width;
     mem_desc.dimensions.dim[1] = imSizes.height;
@@ -142,7 +153,12 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
         IMemoryObject* pMemObj = input->GetBufferContainer(0)->GetMemoryObject(i);
         void * pData = pMemObj->GetDataPtr();
 
-        if (CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type || CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
+        if (CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
         {
             // TODO: This code is almost identical to the next branch. Rewrite it using common function.
             // Kernel argument is an image - need to pass a pointer in the arguments buffer
@@ -239,8 +255,12 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
     size_t offset = 0;
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
-        if (CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type || 
-            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
+        if (CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type)
         {   // images
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;
@@ -310,7 +330,12 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
         const IMemoryObjectDesc * pMemObjDesc = pOutBC->GetMemoryObject(i)->GetMemoryObjectDesc();
-        if ( CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type || CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type )
+        if ( CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
         {
             // Kernel argument is a image
             // Need to pass a pointer in the arguments buffer

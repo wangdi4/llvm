@@ -103,11 +103,25 @@ bool IsIntDataType(int dt)
     }
 }
 
+// returns true if specified object is image array. False otherwise
+bool IsImageArray(cl_mem_obj_descriptor* pImageObject)
+{
+    if( (pImageObject->memObjType == CL_MEM_OBJECT_IMAGE2D_ARRAY) ||
+        (pImageObject->memObjType == CL_MEM_OBJECT_IMAGE1D_ARRAY) )
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const
 {
 
   // make sure that object passed here is image. Otherwise
-    if (pImageObject->dim_count == 1){
+    if (pImageObject->memObjType == CL_MEM_OBJECT_BUFFER){
       pImageObject->imageAuxData=NULL;
       return CL_DEV_ERROR_FAIL;
     }
@@ -118,6 +132,13 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     pImageAuxData->dim_count = pImageObject->dim_count;
     pImageAuxData->format = pImageObject->format;
     pImageAuxData->uiElementSize = pImageObject->uiElementSize;
+    // workaround for image array
+    if(IsImageArray(pImageObject)){
+        pImageAuxData->array_size = pImageObject->dimensions.dim[pImageObject->dim_count - 1];
+        pImageAuxData->dim_count--;
+    }
+    else
+        pImageAuxData->array_size = -1;
 
 #define IMG_SET_CALLBACK(CALLBACK, FUNCTION) CALLBACK = FUNCTION;
 
@@ -140,7 +161,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     pImageAuxData->offset[1] = pImageAuxData->pitch[0];
     pImageAuxData->offset[3] = 0;
     
-    if (pImageAuxData->dim_count == 3)
+    if (pImageObject->memObjType == CL_MEM_OBJECT_IMAGE3D)
         pImageAuxData->offset[2] = pImageAuxData->pitch[1];
     else
         pImageAuxData->offset[2] = 0;
@@ -209,8 +230,14 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetNearestNoClamp(TOIndex);
     if( !IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
-        if(pImageAuxData->dim_count == 2)
+        if(pImageAuxData->dim_count == 1)
         {
+            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
+                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp1D(TOIndex);
+            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
+            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
+        } else if(pImageAuxData->dim_count == 2)
+        {           
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
                 pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp2D(TOIndex);
             IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));

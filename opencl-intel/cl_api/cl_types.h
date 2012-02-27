@@ -130,6 +130,7 @@ typedef struct _cl_mem_obj_descriptor
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
 	void*			imageAuxData;			//auxilary data kept for the image purposes
+    cl_mem_object_type memObjType;          // type of the memory object
 } cl_mem_obj_descriptor;
 
 #ifdef WIN32
@@ -158,6 +159,7 @@ typedef ALIGN16 struct _image_aux_data
 	ALIGN16 float dimf[MAX_WORK_DIM+1];		// Float image size for each dimension.
 											// Used in coordinates computation to avoid
 											// int->float type conversion for each read call
+    int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
 	int dimmask;		// Mask for dimensions in images
 						// Contains ones at dim_count first bytes. Other bytes are zeros.
 						// Used for coordinates clamping
@@ -166,6 +168,12 @@ typedef ALIGN16 struct _image_aux_data
 
 typedef image_aux_data* image2d_t;
 typedef image_aux_data* image3d_t;
+// Images 1.2 types
+typedef image_aux_data* image1d_t;
+typedef image_aux_data* image1d_buffer_t;
+typedef image_aux_data* image1d_array_t;
+typedef image_aux_data* image2d_array_t;
+
 
 typedef struct _cl_llvm_prog_header
 {
