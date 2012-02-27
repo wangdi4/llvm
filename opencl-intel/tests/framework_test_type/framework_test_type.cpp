@@ -328,7 +328,10 @@ TEST(FrameworkTestType, Test_clfissionByNamesTest)
 {
 	EXPECT_TRUE(fission_by_names_test());
 }
-
+TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
+{
+	EXPECT_TRUE(fission_read_buffer_between_device_test());
+}
 TEST(FrameworkTestType, Test_clapiTest)
 {
 	EXPECT_TRUE(api_test());

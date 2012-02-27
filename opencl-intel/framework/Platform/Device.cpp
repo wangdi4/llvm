@@ -90,7 +90,6 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
     cl_uint      one              = 1;
     const cl_bool clFalse         = CL_FALSE;
     
-    cl_device_partition_property emptyList[] = { 0 }; 
 	const void * pValue = NULL;
 
 	switch (param_name)
@@ -116,8 +115,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
         break;
 
     case CL_DEVICE_PARTITION_TYPE:
-        szParamValueSize = 1;
-        pValue           = &emptyList;
+        szParamValueSize = 0;
         break;
 
     case CL_DEVICE_PREFERRED_INTEROP_USER_SYNC:
@@ -154,11 +152,6 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 
 	if (NULL != param_value && szParamValueSize > 0)
 	{
-        //hack but the units defined for CL_DEVICE_PARTITION_STYLE_EXT are entries in the list
-        if (CL_DEVICE_PARTITION_TYPE == param_name)
-        {
-            szParamValueSize = sizeof(emptyList);
-        }
 		MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
 	}
 	return CL_SUCCESS;
@@ -594,6 +587,18 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
 
     switch (param_name)
     {
+    case CL_DEVICE_PARTITION_MAX_SUB_DEVICES: 
+        //If this was created by PARTITION_BY_NAMES, no more sub-devices allowed
+        if (CL_DEVICE_PARTITION_BY_NAMES_INTEL == m_fissionMode)
+        {
+            szParamValueSize = sizeof(cl_uint);
+            uValue = 0;
+            pValue = &uValue;
+            break;
+        }
+        //Else, just answer how many compute units you have
+        //Intentional fallthrough
+
     case CL_DEVICE_MAX_COMPUTE_UNITS:
         szParamValueSize = sizeof(cl_uint);
         uValue = (cl_uint)m_numComputeUnits;

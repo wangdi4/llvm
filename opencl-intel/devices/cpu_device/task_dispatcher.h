@@ -143,6 +143,7 @@ protected:
     SubdeviceTaskDispatcherThread*          m_thread;
 
 	OclBinarySemaphore      				m_threadInitComplete;
+	OclBinarySemaphore      				m_NonEmptyQueue;
 	volatile bool        					m_threadInitSuccessful;
 
 	OclSpinMutex							m_muDestructReady;

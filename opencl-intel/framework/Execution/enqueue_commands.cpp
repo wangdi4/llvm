@@ -2180,7 +2180,7 @@ cl_err_code ReadMemObjCommand::Execute()
 	}
 	else
 	{
-		assert( clDeviceDataLocation == m_pDevice && "Currently only same device is supported");
+        assert( clDeviceDataLocation == m_pDevice->GetRootDevice() && "Currently only same device is supported");
 
 		OclEvent* pObjEvent;
 		cl_err_code clErr = m_pMemObj->GetDeviceDescriptor(clDeviceDataLocation, &m_rwParams.memObj, &pObjEvent);

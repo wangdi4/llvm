@@ -589,6 +589,7 @@ void SubdeviceTaskDispatcher::Release()
 	{
 		// When release from application thread need to send notificaiton to worker thread
 		m_commandListsForFlushing.PushBack(NULL);
+                m_NonEmptyQueue.Signal();
 	}
 
 	// Must wait until SubDevice worker thread finishes shutdown sequence.
@@ -630,12 +631,14 @@ cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props
 cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN list)
 {
 	m_commandListsForFlushing.PushBack(list);
+        m_NonEmptyQueue.Signal();
 	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
 {
 	m_commandListsForFlushing.PushBack((void*)0x1);
+        m_NonEmptyQueue.Signal();
 	m_evWaitForCompletion.Wait();
 	return CL_DEV_SUCCESS;
 }
@@ -726,7 +729,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		cl_dev_cmd_list list;
 		while (!m_dispatcher->m_commandListsForFlushing.TryPop(list))
 		{
-			clSleep(0);
+                        m_dispatcher->m_NonEmptyQueue.Wait();
 		}
 
 		if ( NULL == list ) // Thread termination command

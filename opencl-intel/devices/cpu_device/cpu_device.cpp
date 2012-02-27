@@ -229,10 +229,7 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_partition_property CPU_SUPPORTED_AFFINITY_DOMAINS[] =
-    {
-        CL_DEVICE_AFFINITY_DOMAIN_NUMA
-    };
+static const cl_device_affinity_domain CPU_SUPPORTED_AFFINITY_DOMAINS = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
 
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
@@ -593,6 +590,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             return CL_DEV_SUCCESS;
         }
 
+        case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES): 
         case( CL_DEVICE_MAX_COMPUTE_UNITS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
@@ -1310,24 +1308,31 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
-#ifndef _WIN32 //Numa support disabled for windows machines
-                //No NUMA -> return a 0 sized array
-                if (0 == GetMaxNumaNode())
-#endif
-                {
-                    *pinternalRetunedValueSize = 0;
-                    return CL_DEV_SUCCESS;
-                }
-                //else, we support NUMA
-                *pinternalRetunedValueSize = 1;
+                *pinternalRetunedValueSize = sizeof(cl_device_affinity_domain);
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
+                if (NULL != paramValSizeRet)
+                {
+                    *paramValSizeRet = *pinternalRetunedValueSize;
+                }
+
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    *((cl_device_partition_property*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS[0];
+                    bool bNumaSupported = false;
+#ifndef _WIN32 //Numa support disabled for windows machines
+                    bNumaSupported = (0 < GetMaxNumaNode());
+#endif
+                    if (bNumaSupported)
+                    {
+                       *((cl_device_affinity_domain*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS;
+                    }
+                    else
+                    {
+                        *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
+                    }
                 }
                 return CL_DEV_SUCCESS;
             }

@@ -124,20 +124,15 @@ bool fission_deviceInfoSelectors_test(){
 	}
 
 	//CL_DEVICE_PARTITION_AFFINITY_DOMAIN
-	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_AFFINITY_DOMAIN, 20*sizeof(cl_device_partition_property), &prop, &actual_size);
+	cl_device_affinity_domain affinity_domain;
+	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_AFFINITY_DOMAIN, sizeof(cl_device_affinity_domain), &affinity_domain, &actual_size);
 	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
-	for (size_t i = 0; i < actual_size; i++)
+	if (affinity_domain & (~CL_DEVICE_AFFINITY_DOMAIN_NUMA))
 	{
-		switch (prop[i])
-		{
-		case CL_DEVICE_AFFINITY_DOMAIN_NUMA:
-			break;
-		default:
 			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN\n");
 			printf("\t\tinvalid property\n");
 			return false;
-		}
 	}
 
 	//CL_DEVICE_REFERENCE_COUNT_EXT for sub device
@@ -179,10 +174,10 @@ bool fission_deviceInfoSelectors_test(){
 	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	if ((0 != prop[0]) || (1 != actual_size))
+  if (!((0 == actual_size) || ((1 == actual_size) && (0 == prop[0]))))
 	{
 		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
-		printf("\t\texpected only one property: %d, result: %d properties - %d\n", properties[0], actual_size, prop[0]);
+		printf("\t\texpected size of zero or a single NULL property: %d, result: %d properties - %d\n", properties[0], actual_size, prop[0]);
 		return false;
 	}
 

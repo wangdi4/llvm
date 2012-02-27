@@ -280,7 +280,7 @@ cl_err_code GenericMemObject::Initialize(
     // TODO: DK: this is WRONG!!! need to support multiple owners
     // override GetLocation to get any acceptable and add check_copy_required to
     // check if copy to the given device is required
-	m_pLocation = pDevices[0];
+    m_pLocation = pDevices[0]->GetRootDevice();
 
 	// Now we should set backing store
 	// Get access to internal pointer
@@ -406,7 +406,7 @@ const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( Fissiona
     for(;it != it_end; ++it)
     {
         const DeviceDescriptor& desc = *it;
-        if (desc.m_pDevice == dev )
+        if (desc.m_pDevice->GetRootDevice() == dev->GetRootDevice() )
         {
             return &desc;
         }
@@ -423,7 +423,7 @@ cl_err_code GenericMemObject::UpdateLocation(FissionableDevice* pDevice)
     // TODO: DK: Add parametetr to specify W/R access
 	LOG_DEBUG(TEXT("Enter SetDataLocation (clDevice=%x)"), pDevice);
 
-	m_pLocation = pDevice;
+    m_pLocation = pDevice->GetRootDevice();
 	return CL_SUCCESS;
 }
 
