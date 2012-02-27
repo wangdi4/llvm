@@ -2034,7 +2034,11 @@ void DynamicLibraryLoader::Load()
     assert(false && "Not Implemented");
 #else
     // Load precompiled Built-in functions
+#ifdef ENABLE_SDE
+    snprintf( dynamicLibName, MAX_PATH, "__sde_svml_%s.so", pCPUPrefix);
+#else
     snprintf( dynamicLibName, MAX_PATH, "__ocl_svml_%s.so", pCPUPrefix);
+#endif
 
     m_pLibHandle = dlopen(dynamicLibName, RTLD_NOW);
     if(NULL == m_pLibHandle)

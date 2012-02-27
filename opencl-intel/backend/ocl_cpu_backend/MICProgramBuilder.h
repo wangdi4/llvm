@@ -70,7 +70,7 @@ private:
                                                    llvm::Function* pFunc,
                                                    const TLLVMKernelInfo& info) const;
 
-    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps) const;
+    MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps) const;
 

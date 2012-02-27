@@ -40,8 +40,8 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/Target/TargetData.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
-//#include "llvm/MICJITEngine/MICCodeGenerationEngine.h"
-//#include "llvm/MICJITEngine/ModuleJITHolder.h"
+#include "MICJITEngine/include/MICCodeGenerationEngine.h"
+#include "MICJITEngine/include/ModuleJITHolder.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -82,14 +82,12 @@ MICProgramBuilder::~MICProgramBuilder()
 {
 }
 
-
-
-MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, const std::string& args, KernelProperties* pProps) const
+MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
 {
     std::vector<cl_kernel_argument> arguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, /*args,*/ arguments);
+    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments);
 
     return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps ));
 }
@@ -111,6 +109,7 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
 
     llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
+    llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
     if ( !pModuleMetadata ) {
       //Module contains no MetaData, thus it contains no kernels
       return spKernels.release();
@@ -123,22 +122,17 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
     {
         // Obtain kernel function from annotation
         llvm::MDNode *elt = pModuleMetadata->getOperand(i);
+        llvm::MDNode *welt = WrapperMD->getOperand(i);
         llvm::Function *pFunc = llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
         // The wrapper function that receives a single buffer as argument is the last node in the metadata 
-        llvm::Function *pWrapperFunc = llvm::dyn_cast<llvm::Function>( 
-                                       elt->getOperand(elt->getNumOperands() - 1)->stripPointerCasts()); 
+        llvm::Function *pWrapperFunc = llvm::dyn_cast<llvm::Function>(
+                                       welt->getOperand(0)->stripPointerCasts());
 
         if ( NULL == pFunc )
         {
             continue;   // Not a function pointer
         }
         
-        // Obtain parameters definition
-        llvm::MDString *pFuncArgs = llvm::dyn_cast<llvm::MDString>(elt->getOperand(4));
-        if (NULL == pFuncArgs)
-        {
-            throw Exceptions::CompilerException( "Invalid argument's map", CL_DEV_BUILD_ERROR);
-        }
 
         // Create a kernel and kernel JIT properties 
         std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, pFunc, buildResult.GetKernelsInfo()[pFunc]));
@@ -161,7 +155,6 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
         // Create a kernel 
         std::auto_ptr<MICKernel>           spKernel( CreateKernel( pFunc, 
                                                                 pWrapperFunc->getName().str(),
-                                                                pFuncArgs->getString().str(),
                                                                 spMICKernelProps.release()));
         spKernel->SetKernelID(i);
 
@@ -214,7 +207,7 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
             vecIter++;
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS  
-        // Notify the plugin manager
+        // Notify the plugin managerModuleJITHolder
         PluginManager::Instance().OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
         spKernels->AddKernel(spKernel.release());
@@ -236,7 +229,6 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
 
 void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const
 {
-#if 0
     assert(spModule && "Invalid module for post optimization processing.");
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 
     std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule));
@@ -257,9 +249,8 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         kernelInfo.kernelSize   = it->second.size;
         KernelID kernelID = (const KernelID)it->first;
         pModuleJIT->RegisterKernel(kernelID, kernelInfo);
-	}
+    }
     static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
-#endif
 }
 
 }}} // namespace
