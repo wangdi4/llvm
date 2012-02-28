@@ -181,7 +181,7 @@ void DataGenerator::Read(IContainer* p)
     }
 
     // check output object supports IBufferContainerList interface
-    IBufferContainerList* pBCL = static_cast<IBufferContainerList*>(p);
+    IBufferContainerList* pBCL = dynamic_cast<IBufferContainerList*>(p);
 
     for(uint32_t j = 0; j < m_BufferContainerListFillMethod.size(); j++)
     {

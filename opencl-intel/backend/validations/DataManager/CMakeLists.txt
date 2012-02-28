@@ -1,5 +1,3 @@
-set(LLVM_REQUIRES_EH 1)
-
 # TinyXML library is used for serialization to XML.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 
@@ -38,7 +36,7 @@ set (DM_INCLUDE_FILES
   )
 
 # Data Manager Libarary
-add_llvm_library(DataManager
+add_library(DataManager STATIC
   ${DM_INCLUDE_FILES}
   VectorWidth.cpp
   DataType.cpp

@@ -21,9 +21,9 @@ link_directories(
 add_executable(${TARGET} ${TARGET_SOURCES})
 
 if (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl googletest pthread)
+  target_link_libraries(${TARGET} intelocl gtest pthread)
 else (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl googletest)
+  target_link_libraries(${TARGET} intelocl gtest)
 endif (NOT WIN32)
 
 #

@@ -39,7 +39,7 @@ CALCULATE_TARGET_SOURCES()
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 #add_dependencies( ${TARGET} cpu_device cl_sys_utils task_executor)
-target_link_libraries( ${TARGET}  cl_sys_utils cpu_device task_executor googletest)
+target_link_libraries( ${TARGET}  cl_sys_utils cpu_device task_executor gtest)
 
 set( CREATE_DIR_NAME bin/validation/cpu_device_test_type)
 
