@@ -877,7 +877,7 @@ double4 __attribute__((overloadable)) bitselect(double4 a, double4 b, double4 c)
 
 _1i32   __attribute__((overloadable)) bitselect(_1i32 a, _1i32 b, _1i32 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _4i32  __attribute__((overloadable)) bitselect(_4i32 a, _4i32 b, _4i32 c)
@@ -906,7 +906,7 @@ _8i32  __attribute__((overloadable)) bitselect(_8i32 a, _8i32 b, _8i32 c)
 
 _1i8   __attribute__((overloadable)) bitselect(_1i8 a, _1i8 b, _1i8 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _16i8   __attribute__((overloadable)) bitselect(_16i8 a, _16i8 b, _16i8 c)
@@ -918,7 +918,7 @@ _16i8   __attribute__((overloadable)) bitselect(_16i8 a, _16i8 b, _16i8 c)
 
 _1i16   __attribute__((overloadable)) bitselect(_1i16 a, _1i16 b, _1i16 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _8i16   __attribute__((overloadable)) bitselect(_8i16 a, _8i16 b, _8i16 c)
@@ -949,7 +949,7 @@ _16i16 __attribute__((overloadable)) bitselect(_16i16 a, _16i16 b, _16i16 c)
 
 _1i64   __attribute__((overloadable)) bitselect(_1i64 a, _1i64 b, _1i64 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 _2i64   __attribute__((overloadable)) bitselect(_2i64 a, _2i64 b, _2i64 c)
 {
@@ -974,7 +974,7 @@ _4i64   __attribute__((overloadable)) bitselect(_4i64 a, _4i64 b, _4i64 c)
 
 _1u32   __attribute__((overloadable)) bitselect(_1u32 a, _1u32 b, _1u32 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _4u32  __attribute__((overloadable)) bitselect(_4u32 a, _4u32 b, _4u32 c)
@@ -986,7 +986,7 @@ _4u32  __attribute__((overloadable)) bitselect(_4u32 a, _4u32 b, _4u32 c)
 
 _1u8   __attribute__((overloadable)) bitselect(_1u8 a, _1u8 b, _1u8 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _16u8   __attribute__((overloadable)) bitselect(_16u8 a, _16u8 b, _16u8 c)
@@ -1016,7 +1016,7 @@ _16u16 __attribute__((overloadable)) bitselect(_16u16 a, _16u16 b, _16u16 c)
 
 _1u16   __attribute__((overloadable)) bitselect(_1u16 a, _1u16 b, _1u16 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 
 _8u16   __attribute__((overloadable)) bitselect(_8u16 a, _8u16 b, _8u16 c)
@@ -1046,7 +1046,7 @@ _8u32  __attribute__((overloadable)) bitselect(_8u32 a, _8u32 b, _8u32 c)
 
 _1u64   __attribute__((overloadable)) bitselect(_1u64 a, _1u64 b, _1u64 c)
 {
-	return a & ~c | b & c;
+	return (a & ~c) | (b & c);
 }
 _2u64   __attribute__((overloadable)) bitselect(_2u64 a, _2u64 b, _2u64 c)
 {
