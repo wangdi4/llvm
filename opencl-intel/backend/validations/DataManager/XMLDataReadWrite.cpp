@@ -713,7 +713,7 @@ namespace Validation
 
     IContainer* XMLBufferContainerListReadWrite::ReadWriteBufferContainerList(IContainer *pContainer, TiXmlElement* pXml , const RWOperationType rwtype)
     {
-        IBufferContainerList * pBCL = dynamic_cast<IBufferContainerList*>(pContainer);
+        IBufferContainerList * pBCL = static_cast<IBufferContainerList*>(pContainer);
         if(NULL == pBCL)
             throw Exception::InvalidArgument("Invalid input/output IContainer object. Cannot cast to IBufferContainerList*");
 

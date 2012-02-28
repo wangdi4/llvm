@@ -1,7 +1,7 @@
-add_definitions(-DGTEST_HAS_RTTI=0)
-
+set(LLVM_REQUIRES_EH 1)
+set(TARGET_NAME ValidationTests)
 # unittests for validation
-add_llvm_executable(ValidationTests
+add_llvm_executable(${TARGET_NAME}
   DMTest.cpp
   DMImageTest.cpp
   CMPTest.cpp
@@ -46,8 +46,9 @@ set(UNIT_TEST_LIBS
   LLVMSupport # gtest needs it for raw_ostream.
 )
 
-target_link_libraries(ValidationTests ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
-add_dependencies(ValidationTests ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
-add_dependencies(UnitTests ValidationTests)
-set_target_properties(ValidationTests PROPERTIES FOLDER "Tests")
+target_link_libraries(${TARGET_NAME} ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
+add_dependencies(${TARGET_NAME} ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
+add_dependencies(UnitTests ${TARGET_NAME})
+set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
