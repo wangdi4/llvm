@@ -7,27 +7,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <assert.h>
 #include "llvm/Type.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/Triple.h"
-//#include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
-//#include "llvm/CodeGen/LinkAllCodegenComponents.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Target/PiggyBackAnalysis.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Scalar.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
 #include "MICJITEngine/include/ModuleJITHolder.h"
-#include "stdlib.h"
-
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include <cassert>
+#include <cstdio>
 #include <memory>
 
 using namespace llvm;
@@ -199,34 +198,62 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   else
     PM.add(new TargetData(&mod));
 
+  // This pointer will *magically* get updated during PM.run()
+  ModuleJITHolder* MJH = 0;
+
+
   // Override default to generate verbose assembly.
   TM.setAsmVerbosityDefault(true);
 
-  TargetMachine::CodeGenFileType FileType = TargetMachine::CGFT_AssemblyFile;
-  
   {
     // Open the file.
+    std::string PrintFilename("outf.s");
     std::string error;
-    std::auto_ptr<tool_output_file> spOut(new tool_output_file("outf.s",
-                                                   error, 0));
+    OwningPtr<tool_output_file> Out(new tool_output_file(PrintFilename.data(),
+                                    error, 0));
     if (!error.empty()) {
       errs() << error << '\n';
       return 0;
     }
-    formatted_raw_ostream FOS(spOut->os());
 
-    CodeGenOpt::Level OLvl = CodeGenOpt::Default;
+    FILE* OutF = 0;
+    if (!PrintFilename.empty()) {
+      OutF = fopen(PrintFilename.data(), "w");
+      if (!OutF) {
+        errs() << "Unable to open file " << PrintFilename << "\n";
+        return 0;
+      }
+    }
+
+    // need to do switch lowering before code generation
+    PM.add(createLowerSwitchPass());
+
+    // Add the piggy-back to communicate with the LLVM->PIL converter
+    //TODO: add support for printing assermbly, PIL, etc.
+    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF));
 
     // Ask the target to add backend passes as necessary.
-    if (TM.addPassesToEmitFile(PM, FOS, FileType, OLvl, false)) {
+    CodeGenOpt::Level OLvl = CodeGenOpt::Default;
+    LLVMTargetMachine &LTM = static_cast<LLVMTargetMachine&>(TM);
+    MCContext *MCC = 0;
+    if (LTM.addCommonCodeGenPasses(PM, OLvl, false, MCC, true)) {
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }
 
     PM.run(mod);
+
+    if (OutF)
+      fflush(OutF);
+    if (OutF != stderr && OutF != stdout)
+      fclose(OutF);
+    
+    // If we reached this far, keep the file
+    Out->keep();
+
   }
 
-  const ModuleJITHolder *MJH = ModuleJITStore::instance()->retrieveModule(&mod);
+  assert (MJH && "Compilation resulted with NULL Module JIT Holder");
   return MJH;
 
 }
