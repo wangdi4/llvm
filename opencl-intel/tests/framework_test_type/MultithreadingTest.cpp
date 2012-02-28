@@ -625,6 +625,10 @@ void OrderViolationThread::ThreadRoutine()
 	err = clEnqueueUnmapMemObject(m_queue, m_param, mapPtr, 0, NULL, NULL);
 	SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, err);
 
+    // the second unmap should fail
+    err = clEnqueueUnmapMemObject(m_queue, m_param, mapPtr, 0, NULL, NULL);
+    SilentCheck(L"clEnqueueUnmapMemObject", CL_INVALID_VALUE, err);
+
 	err = clEnqueueNDRangeKernel(m_queue, m_kernel1, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
 	SilentCheck(L"clEnqueueNDRangeKernel(1)", CL_SUCCESS, err);
 	err = clEnqueueNDRangeKernel(m_queue, m_kernel2, 1, NULL, &globalSize, NULL, 0, NULL, NULL);

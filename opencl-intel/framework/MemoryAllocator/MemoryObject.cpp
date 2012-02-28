@@ -338,18 +338,24 @@ cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevic
 	assert(NULL!=pMapInfo);
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
-	// check if the region was mapped before
-	multimap<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(mappedPtr);
-	if ( it == m_mapMappedRegions.end() )
-	{
-		return CL_INVALID_VALUE;
-	}
-    // just return the 1st region
-	*pMapInfo = &(it->second->cmd_param_map);
-    if (invalidateRegion)
+    // try to find a region that hasn't yet been invalidated
+    multimap<void*, MapParamPerPtr*>::iterator it = m_mapMappedRegions.find(mappedPtr);
+    for (; it != m_mapMappedRegions.end(); it++)
     {
-        it->second->isValid = false;
+        if (it->second->isValid)
+        {
+            *pMapInfo = &(it->second->cmd_param_map);
+            if (invalidateRegion)
+            {
+                it->second->isValid = false;
+            }
+            break;
+        }
     }
+    if (it == m_mapMappedRegions.end())
+    {
+        return CL_INVALID_VALUE;
+    }   
 	return CL_SUCCESS;
 }
 cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
