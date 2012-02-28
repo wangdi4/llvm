@@ -75,7 +75,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     ReadWriteMemObject(TaskDispatcher* pTD);
@@ -93,7 +93,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     CopyMemObject(TaskDispatcher* pTD);
@@ -110,7 +110,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     NativeFunction(TaskDispatcher* pTD);
@@ -129,7 +129,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     MapMemObject(TaskDispatcher* pTD);
@@ -146,7 +146,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     UnmapMemObject(TaskDispatcher* pTD);
@@ -171,7 +171,7 @@ public:
 	void    ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
     void    ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId);
 	void    Finish(FINISH_REASON reason);
-	void    Release();
+	long    Release();
 
 protected:
     NDRange(TaskDispatcher* pTD);
@@ -211,7 +211,7 @@ public:
 
     // ITask interface
     bool    Execute();
-    void    Release() {delete this;}
+    long    Release() {delete this; return 0;}
 
 protected:
     FillMemObject(TaskDispatcher* pTD);

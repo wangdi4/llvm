@@ -181,7 +181,8 @@ typedef struct _cl_llvm_prog_header
 	bool	bDisableOpt;
 	bool	bDebugInfo;
 	bool	bFastRelaxedMath;
-	bool	bDemorsAreZero;
+	bool	bDenormsAreZero;
+    bool    bEnableLinkOptions;
 } cl_llvm_prog_header;
 
 /*! \enum cl_dev_sampler_prop

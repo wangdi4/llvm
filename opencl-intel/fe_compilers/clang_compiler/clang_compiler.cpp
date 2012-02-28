@@ -115,21 +115,40 @@ ClangFECompiler::~ClangFECompiler()
 	}
 }
 
-int ClangFECompiler::BuildProgram(FEBuildProgramDescriptor* pProgDesc, IOCLFEBuildProgramResult* *pBuildResult)
+int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
 {
 	assert(NULL != pProgDesc);
-	assert(NULL != pBuildResult);
+	assert(NULL != pBinaryResult);
 
-	// Create new build task
-	ClangFECompilerBuildTask* pNewBuild = new ClangFECompilerBuildTask(pProgDesc, m_pszDeviceExtensions);
-	if ( NULL == pNewBuild )
+	// Create new compile task
+	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_pszDeviceExtensions);
+	if ( NULL == pCompileTask )
 	{
-		*pBuildResult = NULL;
+		*pBinaryResult = NULL;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	cl_err_code ret = pNewBuild->Build();
-	*pBuildResult = pNewBuild;
+    cl_err_code ret = pCompileTask->Compile();
+	*pBinaryResult = pCompileTask;
+	return ret;
+}
+
+int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
+                         Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult)
+{
+    assert(NULL != pProgDesc);
+	assert(NULL != pBinaryResult);
+
+	// Create new link task
+	ClangFECompilerLinkTask* pLinkTask = new ClangFECompilerLinkTask(pProgDesc);
+	if ( NULL == pLinkTask )
+	{
+		*pBinaryResult = NULL;
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+    cl_err_code ret = pLinkTask->Link();
+	*pBinaryResult = pLinkTask;
 	return ret;
 }
 

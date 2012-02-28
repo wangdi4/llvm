@@ -1220,7 +1220,8 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
                                     void *user_data)
 {
-    return CL_INVALID_OPERATION;
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options, 
+        num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
 }
 SET_ALIAS(clCompileProgram);
 
@@ -1234,7 +1235,8 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
                                      void *user_data,
                                      cl_int *errcode_ret)
 {
-    return CL_INVALID_HANDLE;
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options, 
+        num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
 }
 SET_ALIAS(clLinkProgram);
 

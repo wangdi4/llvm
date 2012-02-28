@@ -668,7 +668,7 @@ public:
 
 	// ITask interface
 	virtual bool	Execute() { m_bFired = true; return false;}
-	virtual void	Release() {}	//Persistent member, don't release
+	virtual long	Release() { return 0; }	//Persistent member, don't release
 
 protected:
 	volatile bool	m_bFired;

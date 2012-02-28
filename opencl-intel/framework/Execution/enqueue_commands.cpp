@@ -2902,7 +2902,8 @@ bool RuntimeCommandTask::Execute()
 /******************************************************************
  *
  ******************************************************************/
-void RuntimeCommandTask::Release() 
+long RuntimeCommandTask::Release() 
 {
 	m_owner->GetEvent()->RemovePendency(m_owner);
+    return 0;
 }

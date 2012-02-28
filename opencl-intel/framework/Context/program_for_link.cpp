@@ -1,16 +1,14 @@
 #include "Context.h"
-#include "program_with_binary.h"
+#include "program_for_link.h"
 #include "cl_logger.h"
 #include "cl_sys_defines.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, const size_t* pszLengths, const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
+ProgramForLink::ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
 : Program(pContext, pOclEntryPoints)
 {
-	cl_int err = CL_SUCCESS;
-	cl_int ret = CL_SUCCESS;
 	m_szNumAssociatedDevices = uiNumDevices;
     m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
     if (!m_ppDevicePrograms)
@@ -42,36 +40,18 @@ ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, Fi
             return;
         }
 
-
         m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
         m_ppDevicePrograms[i]->SetHandle(GetHandle());
         m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-		cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
-		err = m_ppDevicePrograms[i]->SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
-        if (CL_SUCCESS != err)
-		{
-			if (CL_INVALID_BINARY == err)
-			{
-				ret = CL_INVALID_BINARY;
-				// Must continue loading binaries for the rest of the devices
-			}
-			else
-			{
-				ret = err;
-				break;
-			}
-		}
-        
-        m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LOADED_IR);
 	}
 
 	if (piRet)
 	{
-		*piRet = ret;
+		*piRet = CL_SUCCESS;
 	}
 }
 
-ProgramWithBinary::~ProgramWithBinary()
+ProgramForLink::~ProgramForLink()
 {
     if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
     {

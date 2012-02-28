@@ -24,7 +24,6 @@
 
 #include "stdafx.h"
 
-//#include "llvm/Exception.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/ArgList.h"
@@ -40,23 +39,30 @@
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/FrontendTool/Utils.h"
+#include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/Module.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
-//#include "llvm/System/DynamicLibrary.h"
-//#include "llvm/Target/TargetSelect.h"
-//#include "llvm/System/Threading.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/SystemUtils.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/Path.h"
 
 #include "clang_driver.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
 #include <cl_cpu_detect.h>
-//#include "cl_types.h"
-//#include "cl_sys_defines.h"
 
 #include <string>
 #include <list>
@@ -83,7 +89,7 @@ using namespace std;
 // Declare logger client
 DECLARE_LOGGER_CLIENT;
 
-OclMutex ClangFECompilerBuildTask::s_serializingMutex;
+OclMutex ClangFECompilerCompileTask::s_serializingMutex;
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
@@ -92,25 +98,6 @@ void LLVMErrorHandler(void *UserData, const std::string &Message) {
 
   // We cannot recover from llvm errors.
   exit(1);
-}
-
-// ClangFECompilerBuildTask calls implementation
-ClangFECompilerBuildTask::ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions)
-: m_pSource(pSources), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
-{
-}
-
-ClangFECompilerBuildTask::~ClangFECompilerBuildTask()
-{
-	if ( NULL != m_pOutIR )
-	{
-		delete []m_pOutIR;
-	}
-
-	if ( NULL != m_pLogString )
-	{
-		delete []m_pLogString;
-	}
 }
 
 // Tokenize a string into tokens separated by any char in 'delims'. 
@@ -206,7 +193,27 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
     return ret;
 }
 
-void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
+
+// ClangFECompilerCompileTask calls implementation
+ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions)
+: m_pProgDesc(pProgDesc), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+{
+}
+
+ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
+{
+	if ( NULL != m_pOutIR )
+	{
+		delete []m_pOutIR;
+	}
+
+	if ( NULL != m_pLogString )
+	{
+		delete []m_pLogString;
+	}
+}
+
+void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
 {
 	// Reset options
 	OptDebugInfo = false;
@@ -416,7 +423,7 @@ void ClangFECompilerBuildTask::PrepareArgumentList(ArgListType &list, ArgListTyp
   list.push_back("-cl-kernel-arg-info");
 }
 
-int ClangFECompilerBuildTask::Build()
+int ClangFECompilerCompileTask::Compile()
 {
 	LOG_INFO(TEXT("%s"), TEXT("enter"));
 
@@ -425,7 +432,7 @@ int ClangFECompilerBuildTask::Build()
 	ArgListType ArgList;
 	ArgListType IgnoredArgs;
 
-	PrepareArgumentList(ArgList, IgnoredArgs, m_pSource->pszOptions);
+	PrepareArgumentList(ArgList, IgnoredArgs, m_pProgDesc->pszOptions);
 
 	const char **argArray = new const char *[ArgList.size()];
 	ArgListType::iterator iter = ArgList.begin();
@@ -480,9 +487,15 @@ int ClangFECompilerBuildTask::Build()
 	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
 	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(
-        m_pSource->pInput, 
+        m_pProgDesc->pProgramSource, 
         m_source_filename);
 	Clang->SetInputBuffer(SB);
+
+    for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
+    {
+        llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i]);
+        Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
+    }
 
 	//prepare output buffer
 	SmallVector<char, 4096>	IRbinary;
@@ -629,15 +642,16 @@ int ClangFECompilerBuildTask::Build()
 		memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
 		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
 		pHeader->container_type = CL_PROG_CNT_PRIVATE;
-		pHeader->description.bin_type = CL_PROG_BIN_LLVM;
+		pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
 		pHeader->description.bin_ver_major = 1;
 		pHeader->description.bin_ver_minor = 1;
 		// Fill options
 		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
 		pProgHeader->bDebugInfo = OptDebugInfo;
 		pProgHeader->bDisableOpt = Opt_Disable;
-		pProgHeader->bDemorsAreZero = Denorms_Are_Zeros;
+		pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
 		pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+        pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
 		void *pIR = (void*)(pProgHeader+1);
 		// Copy IR
 		MEMCPY_S(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
@@ -651,3 +665,374 @@ int ClangFECompilerBuildTask::Build()
 	return CL_SUCCESS;
 }
 
+
+// ClangFECompilerLinkTask calls implementation
+ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc)
+: m_pProgDesc(pProgDesc), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+{
+}
+
+ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
+{
+    if ( NULL != m_pOutIR )
+	{
+		delete []m_pOutIR;
+	}
+
+	if ( NULL != m_pLogString )
+	{
+		delete []m_pLogString;
+	}
+}
+
+int ClangFECompilerLinkTask::Link()
+{
+    if (0 == m_pProgDesc->uiNumBinaries)
+    {
+        return CL_SUCCESS;
+    }
+
+    ParseOptions(m_pProgDesc->pszOptions);
+    ResolveFlags();
+
+    if (1 == m_pProgDesc->uiNumBinaries)
+    {
+        m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
+
+        m_pOutIR = new char[m_pProgDesc->puiBinariesSizes[0]];
+        if ( NULL == m_pOutIR )
+		{
+			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+            m_stOutIRSize = 0;
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+    
+        MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
+
+        cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+        pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+
+        cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+
+        pProgHeader->bDebugInfo = bDebugInfoFlag;
+        pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
+        pProgHeader->bDisableOpt = bDisableOptFlag;
+        pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
+        pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
+
+        return CL_SUCCESS;
+    }
+
+    // We have more the one binary so we need to link
+    
+    SMDiagnostic Err;
+    string ErrorMessage;
+    LLVMContext &Context = getGlobalContext();
+
+    // Initialize the module with the first binary
+    cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
+
+    cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+
+    size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+
+    char* pBinary = (char*)pHeader + 
+                    sizeof(cl_prog_container_header) + // Skip the container
+                    sizeof(cl_llvm_prog_header); //Skip the build flags for now
+
+    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
+           
+    std::auto_ptr<Module> composite(ParseIR(pBinBuff, Err, Context));
+
+    if (composite.get() == 0) 
+    {
+        ErrorMessage = Err.getMessage();
+        if ( !ErrorMessage.empty() )
+	    {
+            m_pLogString = new char[ErrorMessage.length() + 1];
+		    if ( m_pLogString != NULL )
+		    {
+                MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
+			    m_pLogString[ErrorMessage.length()] = '\0';
+		    }
+	    }
+
+        m_stOutIRSize = 0;
+        m_pOutIR = NULL;
+
+        return CL_LINK_PROGRAM_FAILURE;
+    }
+
+    // Now go over the rest of the binaries and add them
+    for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
+    {
+        pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+
+        pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+
+        uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+
+        char* pBinary = (char*)pHeader + 
+                        sizeof(cl_prog_container_header) + // Skip the container
+                        sizeof(cl_llvm_prog_header); //Skip the build flags for now
+
+        MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
+               
+        std::auto_ptr<Module> M(ParseIR(pBinBuff, Err, Context));
+        if (M.get() == 0) 
+        {
+            ErrorMessage = Err.getMessage();
+            if ( !ErrorMessage.empty() )
+	        {
+                m_pLogString = new char[ErrorMessage.length() + 1];
+		        if ( m_pLogString != NULL )
+		        {
+                    MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
+			        m_pLogString[ErrorMessage.length()] = '\0';
+		        }
+	        }
+
+            m_stOutIRSize = 0;
+            m_pOutIR = NULL;
+
+            return CL_LINK_PROGRAM_FAILURE;
+        }
+
+        if( Linker::LinkModules(composite.get(), M.get(), Linker::PreserveSource, &ErrorMessage))
+        {
+            // apparently LinkModules returns true on failure and false on success
+            if ( !ErrorMessage.empty() )
+	        {
+                m_pLogString = new char[ErrorMessage.length() + 1];
+		        if ( m_pLogString != NULL )
+		        {
+                    MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
+			        m_pLogString[ErrorMessage.length()] = '\0';
+		        }
+	        }
+
+            m_stOutIRSize = 0;
+            m_pOutIR = NULL;
+
+            return CL_LINK_PROGRAM_FAILURE;
+        }
+    }
+
+
+    std::vector<unsigned char> Buffer;
+    BitstreamWriter Stream(Buffer);
+
+    Buffer.reserve(256*1024);
+
+    WriteBitcodeToStream( composite.get(), Stream );
+
+    m_stOutIRSize = sizeof(cl_prog_container_header) + 
+                    sizeof(cl_llvm_prog_header) + 
+                    Buffer.size();
+
+    m_pOutIR = new char[m_stOutIRSize];
+    if ( NULL == m_pOutIR )
+    {
+	    LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        m_stOutIRSize = 0;
+	    return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    pHeader = (cl_prog_container_header*) m_pOutIR;
+
+    pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+
+    pBinary = (char*)pProgHeader + sizeof(cl_llvm_prog_header);
+
+    MEMCPY_S(pBinary, Buffer.size(), &Buffer.front(), Buffer.size());
+
+    memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
+	pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
+	pHeader->container_type = CL_PROG_CNT_PRIVATE;
+	pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+	pHeader->description.bin_ver_major = 1;
+	pHeader->description.bin_ver_minor = 1;
+
+    pProgHeader->bDebugInfo = bDebugInfoFlag;
+    pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
+    pProgHeader->bDisableOpt = bDisableOptFlag;
+    pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
+    pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
+
+    return CL_SUCCESS;
+}
+
+void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
+{
+    // Reset options
+	bCreateLibrary = false;
+    bEnableLinkOptions = false;
+
+    bDenormsAreZero = false;
+    bNoSignedZeroes = false;
+    bUnsafeMath = false;
+    bFiniteMath = false;
+    bFastRelaxedMath = false;
+	
+    if (!buildOpts)
+        buildOpts = "";
+
+    // Parse the build options - handle the ones we understand and ignore the rest.
+    //
+    vector<string> opts = quoted_tokenize(buildOpts, " \t", '"', '\x00');
+    vector<string>::const_iterator opt_i = opts.begin();
+
+    while (opt_i != opts.end()) {
+        if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) 
+        {
+            if (opt_i->length() == 2) 
+            {
+                // Definition is separated from the flag, so, we need to discard
+                // the next token
+                //
+                if (++opt_i == opts.end()) 
+                {
+                    continue;
+                }
+            }
+        }
+        else if (*opt_i == "-s") 
+        {
+            // Expect the file name as the next token and discard it
+            //
+            if (++opt_i == opts.end()) 
+            {
+                continue;
+            }
+        }
+        else if (*opt_i == "-cl-denorms-are-zero") 
+        {
+            bDenormsAreZero = true;
+        }
+        else if (*opt_i == "-cl-no-signed-zeroes") 
+        {
+            bNoSignedZeroes = true;
+        }
+        else if (*opt_i == "-cl-unsafe-math-optimizations") 
+        {
+            bUnsafeMath = true;
+        }
+        else if (*opt_i == "-cl-finite-math-only") 
+        {
+            bFiniteMath = true;
+        }
+        else if (*opt_i == "-cl-fast-relaxed-math") 
+        {
+            bFastRelaxedMath = true;
+        }
+        else if (*opt_i == "-create-library") 
+        {
+            bCreateLibrary = true;
+        }
+        else if (*opt_i == "-enable-link-options") 
+        {
+            bEnableLinkOptions = true;
+        }
+
+        ++opt_i;
+    }
+}
+
+
+void ClangFECompilerLinkTask::ResolveFlags()
+{
+    bDebugInfoFlag = false;
+    bDenormsAreZeroFlag = false;
+    bDisableOptFlag = false;
+    bFastRelaxedMathFlag = false;
+    bEnableLinkOptionsFlag = false;
+
+    cl_uint uiNumBinaries = m_pProgDesc->uiNumBinaries;
+    const char** ppBinaries = (const char**)m_pProgDesc->pBinaryContainers;
+    cl_llvm_prog_header* pProgHeader = NULL;
+
+    if (bCreateLibrary && bEnableLinkOptions)
+    {
+        bEnableLinkOptionsFlag = true;
+    }
+
+    // Check denorms are zero
+    bDenormsAreZeroFlag = true;
+
+    for (cl_uint i = 0; i < uiNumBinaries; ++i)
+    {
+        pProgHeader = (cl_llvm_prog_header*)(ppBinaries[i] + sizeof(cl_prog_container_header));
+        if (pProgHeader->bDenormsAreZero)
+        {
+            // If the flag is true we can move on to the next one
+            continue;
+        }
+
+        // else, see if it can be override
+        if ( pProgHeader->bEnableLinkOptions && bDenormsAreZero )
+        {
+            continue;
+        }
+
+        // else, don't use the flag
+        bDenormsAreZeroFlag = false;
+        break;
+    }
+
+    
+    // Check fase relaxed math
+    bFastRelaxedMathFlag = true;
+
+    for (cl_uint i = 0; i < uiNumBinaries; ++i)
+    {
+        pProgHeader = (cl_llvm_prog_header*)(ppBinaries[i] + sizeof(cl_prog_container_header));
+        if (pProgHeader->bFastRelaxedMath)
+        {
+            // If the flag is true we can move on to the next one
+            continue;
+        }
+
+        // else, see if it can be override
+        if ( pProgHeader->bEnableLinkOptions && bFastRelaxedMath )
+        {
+            continue;
+        }
+
+        // else, don't use the flag
+        bFastRelaxedMathFlag = false;
+        break;
+    }
+
+    
+    // Check disable optimization
+    bDisableOptFlag = false;
+
+    for (cl_uint i = 0; i < uiNumBinaries; ++i)
+    {
+        pProgHeader = (cl_llvm_prog_header*)(ppBinaries[i] + sizeof(cl_prog_container_header));
+        if (pProgHeader->bDisableOpt)
+        {
+            // If the flag is true we enable it for everyone
+            bDisableOptFlag = true;
+            break;
+        }
+    }
+    
+
+    // Check debug info
+    bDebugInfoFlag = true;
+
+    for (cl_uint i = 0; i < uiNumBinaries; ++i)
+    {
+        pProgHeader = (cl_llvm_prog_header*)(ppBinaries[i] + sizeof(cl_prog_container_header));
+        if (pProgHeader->bDebugInfo)
+        {
+            // If the flag is true we can move on to the next one
+            continue;
+        }
+
+        // else, don't use the flag
+        bDebugInfoFlag = false;
+        break;
+    }
+}

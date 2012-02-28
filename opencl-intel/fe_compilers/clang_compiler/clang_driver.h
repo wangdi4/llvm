@@ -32,27 +32,27 @@
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-	class ClangFECompilerBuildTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBuildProgramResult
+	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
 	{
 	public:
-		typedef std::list<std::string> ArgListType;
-
-		ClangFECompilerBuildTask(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pSources, const char* pszDeviceExtensions);
-
-		void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
+		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions);
 		
-		int Build();
+		int Compile();
 
-		// IOCLFEBuildProgramResult
+		// IOCLFEBinaryResult
 		size_t	GetIRSize() {return m_stOutIRSize;}
 		const void*	GetIR() { return m_pOutIR;}
 		const char* GetErrorLog() {return m_pLogString;}
-		// release result
-		void Release() { delete this;}
+		long Release() { delete this; return 0; }
 
 	protected:
-		~ClangFECompilerBuildTask();
-		Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* m_pSource;
+        ~ClangFECompilerCompileTask();
+        
+        typedef std::list<std::string> ArgListType;		
+
+        void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
+
+		Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
 		const char* m_pszDeviceExtensions;
 
 		bool OptDebugInfo;
@@ -66,8 +66,51 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
 
-
 		// Static members
 		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
+	};
+
+
+    class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
+	{
+	public:
+		ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
+		
+		int Link();
+
+		// IOCLFEBinaryResult
+		size_t	GetIRSize() {return m_stOutIRSize;}
+		const void*	GetIR() { return m_pOutIR;}
+		const char* GetErrorLog() {return m_pLogString;}
+		long Release() { delete this; return 0;}
+        bool IsLibrary() {return bCreateLibrary;}
+
+	protected:
+        ~ClangFECompilerLinkTask();
+
+        void ParseOptions(const char *buildOpts);
+        void ResolveFlags();
+
+		Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
+
+		char*	m_pOutIR;				// Output IR
+		size_t	m_stOutIRSize;
+		char*	m_pLogString;			// Output log
+		size_t	m_stLogSize;
+
+        bool bCreateLibrary;
+        bool bEnableLinkOptions;
+
+        bool bDenormsAreZero;
+        bool bNoSignedZeroes;
+        bool bUnsafeMath;
+        bool bFiniteMath;
+        bool bFastRelaxedMath;
+
+        bool bDebugInfoFlag;
+        bool bDenormsAreZeroFlag;
+        bool bDisableOptFlag;
+        bool bFastRelaxedMathFlag;
+        bool bEnableLinkOptionsFlag;
 	};
 }}}

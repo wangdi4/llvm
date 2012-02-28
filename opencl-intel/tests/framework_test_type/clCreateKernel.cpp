@@ -122,7 +122,7 @@ bool clCreateKernelTest()
 	memcpy((void*)pCont->mask, _CL_CONTAINER_MASK_, sizeof(pCont->mask));
 
 	pCont->container_type = CL_PROG_CNT_PRIVATE;
-	pCont->description.bin_type = CL_PROG_BIN_LLVM;
+	pCont->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
 	pCont->description.bin_ver_major = 1;
 	pCont->description.bin_ver_minor = 1;
 	pCont->container_size = (unsigned int)GET_FPOS_T(fileSize)+sizeof(cl_llvm_prog_header);

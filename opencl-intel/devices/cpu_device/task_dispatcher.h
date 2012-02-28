@@ -103,7 +103,7 @@ protected:
 
 		// ITask interface
 		bool	Execute();
-		void	Release() {delete this;}
+		long	Release() {delete this; return 0;}
 	protected:
 		TaskDispatcher*			m_pTaskDispatcher;
 		const cl_dev_cmd_desc*	m_pCmd;
@@ -181,7 +181,7 @@ public:
 	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
 	void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId) {}
 	void	Finish(FINISH_REASON reason) {};
-	void    Release() { delete this;}
+	long    Release() { delete this; return 0;}
 
 protected:
 	unsigned int						m_numThreads;

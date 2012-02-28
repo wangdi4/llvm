@@ -324,6 +324,7 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 ******************************************************************/
 void OclEvent::Wait()
 {
+    AddPendency(NULL);
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
 	WaitSpin();
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_YIELD
@@ -333,6 +334,7 @@ void OclEvent::Wait()
 #else
 #error "Please define which wait method OclEvent should use. See ocl_event.h"
 #endif
+    RemovePendency(NULL);
 }
 
 void OclEvent::WaitSpin()

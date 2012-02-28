@@ -36,23 +36,26 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
-
     class Device;
     class FissionableDevice;
 
 	enum EDeviceProgramState
 	{
-		DEVICE_PROGRAM_INVALID,      // Object was just created or build failed
-		DEVICE_PROGRAM_SOURCE,		 // Source loaded
-		DEVICE_PROGRAM_FE_BUILDING,	 // Currently building with BE compiler
-		DEVICE_PROGRAM_EXTERNAL_BIN, // Binaries Loaded
-		DEVICE_PROGRAM_INTERNAL_IR,  // IR Built from supplied source
-		DEVICE_PROGRAM_BE_BUILDING,	 // Currently building with BE compiler
-		DEVICE_PROGRAM_MACHINE_CODE // Build complete, executable code ready
+		DEVICE_PROGRAM_INVALID,         // Object was just created
+		DEVICE_PROGRAM_SOURCE,		    // Source loaded
+		DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
+		DEVICE_PROGRAM_COMPILED,        // Compiled IR
+        DEVICE_PROGRAM_COMPILE_FAILED,  // Compilation failed
+        DEVICE_PROGRAM_FE_LINKING,      // Currently linking with FE compiler
+        DEVICE_PROGRAM_LINKED,          // Linked IR
+        DEVICE_PROGRAM_LINK_FAILED,     // Linking failed
+        DEVICE_PROGRAM_LOADED_IR,       // Loaded IR
+		DEVICE_PROGRAM_BE_BUILDING,	    // Currently building with BE compiler
+		DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
+        DEVICE_PROGRAM_BUILD_FAILED     // Build failed
 	};
 
-	class DeviceProgram : public OCLObjectBase, IFrontendBuildDoneObserver, IBuildDoneObserver
+	class DeviceProgram : public OCLObjectBase
 	{
 	public:
 		DeviceProgram();
@@ -66,14 +69,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void           SetHandle(cl_program handle)   { m_parentProgramHandle = handle; }
 		void           SetContext(cl_context context) { m_parentProgramContext = context;}
 
-		// Sets the source-related data members of this program
-		// No copying is done, as program source is immutable in OCL1.0/1 and Program instance will copy it for us
-		void          SetSource(cl_uint uiNumStrings, size_t* pszLengths, const char** pSourceStrings);
 
-		// Attempts to attach the given binary to the device associated with this program
+        // Attempts to attach the given binary to the device associated with this program
 		// Creates a copy of the input
 		// Returns CL_SUCCESS if nothing unexpected happened -- note that iBinaryStatus can still be CL_INVALID_BINARY
-		cl_err_code   SetBinary(size_t szBinarySize, const unsigned char* pBinary, cl_int* iBinaryStatus);
+		cl_err_code   SetBinary(size_t uiBinarySize, const unsigned char* pBinary, cl_int* piBinaryStatus);
 
 		// Attempts to return a binary associated with this program
 		// If the program was built, the resulting binary
@@ -81,13 +81,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Otherwise, return error
 		cl_err_code   GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet);
 
-		// Builds the program for the associated device
-		cl_err_code Build( const char * pcOptions, pfnNotifyBuildDone pfn, void* pUserData);
-
-		cl_err_code GetBuildInfo(cl_program_build_info clParamName, 
-			                     size_t                szParamValueSize, 
+		cl_err_code GetBuildInfo (cl_program_build_info clParamName, 
+			                     size_t                uiParamValueSize, 
 			                     void *                pParamValue, 
-			                     size_t *              pzsParamValueSizeRet);
+			                     size_t *              puiParamValueSizeRet) const;
 
 		cl_build_status GetBuildStatus() const;
 
@@ -100,18 +97,52 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Notifies that we're done working with this object
 		void Unacquire() { m_currentAccesses--; }
 
-		//observer interfaces
-		virtual cl_err_code NotifyFEBuildDone(cl_device_id device, size_t szBinSize, const void * pBinData, const char *pBuildLog);
-		virtual cl_err_code NotifyBuildDone(cl_device_id device, cl_build_status build_status);
+        ///////////////////////////////////////////////////////////
+        // Get/Set function used by program service for building //
+        ///////////////////////////////////////////////////////////
+
+        // Returns a read only pointer to internal binary
+        const char*   GetBinaryInternal() { return m_pBinaryBits; };
+
+        // Returns internal binary size
+        size_t        GetBinarySizeInternal() { return m_uiBinaryBitsSize; };
+
+        // Set the program binary for a specific device
+        // Creates a copy of the input
+		// Returns CL_SUCCESS if nothing unexpected happened
+		cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary);
 
 
-	protected:
+        // Clears the current build log, called in the beginning of each build sequence
+		// Returns CL_SUCCESS if nothing unexpected happened
+		cl_err_code   ClearBuildLogInternal();
 
-		cl_err_code FeBuild();
-		cl_err_code BeBuild();
+        // Set the program build log for a specific device
+        // If build log already exists input is concatenated
+        // Creates a copy of the input
+		// Returns CL_SUCCESS if nothing unexpected happened
+		cl_err_code   SetBuildLogInternal(const char* szBuildLog);
 
-		cl_err_code CopyBinary(size_t szBinarySize, const unsigned char* pBinary);
-		cl_err_code CopyBuildOptions(const char* pcBuildOptions);
+        // set the program's build options
+		// Creates a copy of the input
+		// Returns CL_SUCCESS if nothing unexpected happened
+        cl_err_code   SetBuildOptionsInternal(const char* szBuildOptions);
+
+        // get the latest program's build options
+        const char*   GetBuildOptionsInternal();
+
+        // Set the program state
+        cl_err_code   SetStateInternal(EDeviceProgramState state);
+
+        // Get the program state
+        EDeviceProgramState   GetStateInternal() { return m_state; };
+
+        // Set device handle
+        cl_err_code   SetDeviceHandleInternal(cl_dev_program programHandle);
+
+    protected:
+
+        bool CheckProgramBinary(size_t uiBinSize, const void* pBinary);
 
 		// Current program state
 		EDeviceProgramState m_state;
@@ -126,30 +157,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_program          m_parentProgramHandle;
 		cl_context          m_parentProgramContext;
 
-		// Build-specific members
-		void*               m_pUserData;
-		pfnNotifyBuildDone  m_pfn;
-		char*               m_pBuildOptions;
-		// Events used for waiting on builds
-		BuildEvent*         m_pBuildEvent;
-
-		// Source-related members
-		// Will be zeros and NULLs for programs created from binaries
-		cl_uint             m_uiNumStrings;
-		size_t*             m_pszStringLengths;
-		const char**        m_pSourceStrings;
-
 		// FE build log container
-		size_t              m_szBuildLog;
-		char*               m_pBuildLog;
+		size_t              m_uiBuildLogSize;
+		char*               m_szBuildLog;
 		char                m_emptyString;
+
+        // Build options
+        char*               m_szBuildOptions;
 
 		// Binary-related members
 		char*               m_pBinaryBits;
-		size_t              m_szBinaryBitsSize;
+		size_t              m_uiBinaryBitsSize;
 		
 		// Ensure the object is multi-thread safe
-		Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
+		mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
 	};
 }}}
 

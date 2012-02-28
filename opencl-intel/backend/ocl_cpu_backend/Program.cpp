@@ -141,7 +141,7 @@ bool Program::GetFastRelaxedMath() const
 bool Program::GetDAZ() const
 {
     assert(m_pCodeContainer && "code container should be initialized by now");
-    return m_pCodeContainer->GetProgramHeader()->bDemorsAreZero;
+    return m_pCodeContainer->GetProgramHeader()->bDenormsAreZero;
 }
 
 

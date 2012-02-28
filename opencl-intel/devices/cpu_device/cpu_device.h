@@ -43,6 +43,8 @@ extern const char* CPU_STRING;
 extern const char* VENDOR_STRING;
 extern const cl_image_format supportedImageFormats[];
 extern const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS;
+extern const char* BUILT_IN_KERNELS;
+
 
 class ProgramService;
 class MemoryAllocator;
@@ -119,7 +121,7 @@ public:
 							IOCLDevMemoryObject* OUT *memObj);
 	cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
 	cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
-	cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, void* IN userData);
+	cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus);
 	cl_dev_err_code clDevReleaseProgram( cl_dev_program IN prog );
 	cl_dev_err_code clDevUnloadCompiler();
 	cl_dev_err_code clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet );

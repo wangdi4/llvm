@@ -57,7 +57,6 @@ RTMemObjService localRTMemService;
 // Static variables for testing
 static TestKernel_param_t	gNativeKernelParam;
 volatile bool	gExecDone = true; 
-volatile bool	g_bBuildDone = true;
 
 class CPUTestCallbacks : public IOCLFrameworkCallbacks
 {
@@ -86,13 +85,6 @@ public:
 		{
 			profile_run = timer;
 		}
-	}
-
-	void clDevBuildStatusUpdate(cl_dev_program IN prog, void* user_data, cl_build_status status)
-	{
-		printf(">>>>>>> The program %x was built, status%X\n", prog, status);
-
-		g_bBuildDone = true;
 	}
 };
 

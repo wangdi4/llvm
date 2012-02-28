@@ -40,34 +40,6 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::TaskExecutor;
 
-struct FECompileTask : public ITask
-{
-	cl_device_id					devId;
-	FEBuildProgramDescriptor		BuildDesc;
-	IFrontendBuildDoneObserver *	pFEObserver;
-	LoggerClient *					m_pLoggerClient;
-	IOCLFECompiler*					pFECompiler;
-
-	bool	Execute()
-	{
-		IOCLFEBuildProgramResult*	pResult;
-		int err = pFECompiler->BuildProgram(&BuildDesc, &pResult);
-		if ( 0 != err )
-		{
-			LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
-		}
-		pFEObserver->NotifyFEBuildDone(devId, pResult->GetIRSize(), pResult->GetIR(), pResult->GetErrorLog());
-		pResult->Release();
-		return true;
-	};
-
-	void	Release()
-	{
-		delete []BuildDesc.pInput;
-		delete this;
-	}
-};
-
 FrontEndCompiler::FrontEndCompiler() : OCLObject<_cl_object>("FrontEndCompiler"), m_pszModuleName(NULL), m_pFECompiler(NULL), m_pLoggerClient(NULL)
 {
 }
@@ -113,7 +85,10 @@ void FrontEndCompiler::FreeResources()
 
 	if ( NULL != m_pFECompiler )
 	{
-		m_pFECompiler->Release();
+        if (!m_bTerminate)
+        {
+		    m_pFECompiler->Release();
+        }
 		m_pFECompiler = NULL;
 	}
 
@@ -126,66 +101,131 @@ void FrontEndCompiler::FreeResources()
 	}
 }
 
-cl_err_code FrontEndCompiler::BuildProgram(	cl_device_id			devId,
-										cl_uint						uiStrCount,
-										const char **				ppcSrcStrArr,
-										size_t *					pszSrcStrLengths,
-										const char *				psOptions,
-										IFrontendBuildDoneObserver*	pBuildDoneObserver)
+
+cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource, 
+                                             unsigned int   uiNumInputHeaders, 
+                                             const char**   pszInputHeaders, 
+                                             const char**   pszInputHeadersNames, 
+                                             const char*    szOptions, 
+                                             OUT char**     ppBinary, 
+                                             OUT size_t*    puiBinarySize, 
+                                             OUT char**     pszCompileLog) const
 {
-	//cl_start;
-	LOG_DEBUG(TEXT("Enter BuildProgram(devId=%d, uiStcStrCount=%d, ppcSrcStrArr=%d, pszSrcStrLengths=%d, psOptions=%d, pBuildDoneObserver=%d)"),
-		devId, uiStrCount, ppcSrcStrArr, pszSrcStrLengths, psOptions, pBuildDoneObserver);
+	LOG_DEBUG(TEXT("Enter CompileProgram(szProgramSource=%d, uiNumInputHeaders=%d, pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+		szProgramSource, uiNumInputHeaders, pszInputHeaders, pszInputHeadersNames, szOptions, ppBinary, puiBinarySize, pszCompileLog);
 	
-	FECompileTask* pTask = new FECompileTask;
-	if ( NULL == pTask )
+    IOCLFEBinaryResult*	        pResult;
+    FECompileProgramDescriptor  compileDesc;
+
+    compileDesc.pProgramSource = szProgramSource;
+    compileDesc.uiNumInputHeaders = uiNumInputHeaders;
+    compileDesc.pInputHeaders = pszInputHeaders;
+    compileDesc.pszInputHeadersNames = pszInputHeadersNames;
+    compileDesc.pszOptions = szOptions;
+
+    int err = m_pFECompiler->CompileProgram(&compileDesc, &pResult);
+		
+    if ( 0 != err )
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("FECompileTask* pTask = new FECompileTask = NULL"));
-		return CL_OUT_OF_HOST_MEMORY;
+	    LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
 	}
 
-	pTask->devId = devId;
-	pTask->pFEObserver = pBuildDoneObserver;
-	pTask->m_pLoggerClient = GET_LOGGER_CLIENT;
-	pTask->pFECompiler = m_pFECompiler;
+    const char* errLog = pResult->GetErrorLog();
 
-	// Fill build descriptor
-	pTask->BuildDesc.pszOptions = psOptions;
-
-	size_t stTotalSize = 0;
-	for(unsigned int i=0; i<uiStrCount; ++i)
+    if (NULL != errLog)
 	{
-		stTotalSize += pszSrcStrLengths[i];
+        *pszCompileLog = new char[strlen(errLog) + 1];
+		if (NULL != *pszCompileLog)
+		{
+            MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
+		}
+        else
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
 	}
 
-	// Prepare input buffer
-	pTask->BuildDesc.pInput = new char[stTotalSize+1];	// Allocate another symbol for '\0'
-	if ( NULL == pTask->BuildDesc.pInput )
+    *puiBinarySize = pResult->GetIRSize();
+
+    if (0 != *puiBinarySize)
+    {
+        assert(pResult->GetIR() != 0);
+        *ppBinary = new char[*puiBinarySize];
+        if (NULL != *ppBinary)
+		{
+            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
+		}
+        else
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
+	return CL_SUCCESS;
+}
+
+cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries, 
+                                          unsigned int  uiNumInputBinaries, 
+                                          const size_t* puiBinariesSizes, 
+                                          const char*   szOptions, 
+                                          OUT char**    ppBinary, 
+                                          OUT size_t*   puiBinarySize, 
+                                          OUT char**    pszLinkLog,
+                                          OUT bool*     pbIsLibrary) const
+{
+    LOG_DEBUG(TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszLinkLog=%d)"),
+		ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary, puiBinarySize, pszLinkLog);
+	
+    IOCLFEBinaryResult*	        pResult;
+    FELinkProgramsDescriptor    linkDesc;
+
+    linkDesc.pBinaryContainers = ppBinaries;
+    linkDesc.uiNumBinaries = uiNumInputBinaries;
+    linkDesc.puiBinariesSizes = puiBinariesSizes;
+    linkDesc.pszOptions = szOptions;
+
+    int err = m_pFECompiler->LinkPrograms(&linkDesc, &pResult);
+		
+    if ( 0 != err )
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pTask->BuildDesc.pInput"));
-		delete pTask;
-		return CL_OUT_OF_HOST_MEMORY;
+	    LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
 	}
 
-	// Copy sources to the new buffer
-	char*	pBegin = (char*)pTask->BuildDesc.pInput;
-	for(unsigned int i=0; i<uiStrCount; ++i)
-	{
-		MEMCPY_S(pBegin, stTotalSize, ppcSrcStrArr[i], pszSrcStrLengths[i]);
-		stTotalSize -= pszSrcStrLengths[i];
-		pBegin += pszSrcStrLengths[i];
-	}
-	*pBegin = '\0';
+    const char* errLog = pResult->GetErrorLog();
 
-	unsigned int teErr =  TaskExecutor::GetTaskExecutor()->Execute(pTask);
-	if ( 0 != teErr )
+    if (NULL != errLog)
 	{
-		LOG_ERROR(TEXT("%d == TaskExecutor::GetTaskExecutor()->Execute(pTask)"), teErr);
-		pTask->Release();
-		return CL_OUT_OF_RESOURCES;
+        *pszLinkLog = new char[strlen(errLog) + 1];
+		if (NULL != *pszLinkLog)
+		{
+            MEMCPY_S(*pszLinkLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
+		}
+        else
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
 	}
 
-	LOG_DEBUG(TEXT("%S"), TEXT("BuildProgram succeeded!"));
-	//cl_return CL_SUCCESS;
+    *puiBinarySize = pResult->GetIRSize();
+
+    if (0 != *puiBinarySize)
+    {
+        assert(pResult->GetIR() != 0);
+        *ppBinary = new char[*puiBinarySize];
+        if (NULL != *ppBinary)
+		{
+            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
+		}
+        else
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
+    if (NULL != pbIsLibrary)
+    {
+        *pbIsLibrary = pResult->IsLibrary();
+    }
+
 	return CL_SUCCESS;
 }

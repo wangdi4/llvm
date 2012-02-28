@@ -332,7 +332,6 @@ UserEvent* EventsManager::CreateUserEvent(cl_context context)
 /******************************************************************
 * This function creates a build event object. 
 ******************************************************************/
-
 BuildEvent* EventsManager::CreateBuildEvent(cl_context context)
 {
 	BuildEvent* pBuildEvent = new BuildEvent(context);

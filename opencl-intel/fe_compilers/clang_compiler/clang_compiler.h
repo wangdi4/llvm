@@ -19,8 +19,12 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		ClangFECompiler(const char* pszDeviceExtensions);
 
 		// IOCLFECompiler
-		int BuildProgram(Intel::OpenCL::FECompilerAPI::FEBuildProgramDescriptor* pProgDesc,
-									Intel::OpenCL::FECompilerAPI::IOCLFEBuildProgramResult* *pBuildResult);
+        int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+                           Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
+
+        int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
+                         Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
+
 		void Release()
 		{
 			delete this;

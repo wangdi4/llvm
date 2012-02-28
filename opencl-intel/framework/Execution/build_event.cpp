@@ -50,3 +50,4 @@ void BuildEvent::SetComplete(cl_int returnCode)
 	SetEventState(EVENT_STATE_DONE);
 	RemovePendency(this);
 }
+
