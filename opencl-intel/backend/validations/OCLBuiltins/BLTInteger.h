@@ -379,6 +379,32 @@ namespace OCLBuiltins {
         return R;
     }
 
+    //we allways zero extend to unsinged long, thus 
+    static int populationCount(unsigned long long x){
+      int ret = 0;
+      const unsigned long long mask = 1;
+      while(x){
+        if (mask&x) ++ret;
+        x = x>>1;
+      }
+      return ret;
+    }
+
+    template<typename T, int n>
+    llvm::GenericValue lle_X_popcount(llvm::FunctionType *FT,
+        const std::vector<llvm::GenericValue> &Args) {
+        assert(1 == Args.size() && "popcount should receives exactly one argument");
+        llvm::GenericValue arg0 = Args[0];
+        llvm::GenericValue ret;
+        ret.AggregateVal.resize(n);
+        for (int i = 0; i < n; i++) {
+            typename Validation::OCLBuiltins::unsignedT<T>::type current;
+            current = (typename Validation::OCLBuiltins::unsignedT<T>::type)getVal<T,n>(arg0, i);
+            int numBits = populationCount(current);
+            getRef<T,n>(ret, i) = llvm::APInt(sizeof(T)*8, numBits, isSignedType<T>());
+        }
+        return ret;
+    }
 
 } // namespace OCLBuiltins
 } // namespace Validation

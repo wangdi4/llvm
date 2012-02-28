@@ -1254,6 +1254,8 @@
 
 DEF_INT_PROTO_X_Y(abs, i, u)
 DEF_INT_PROTO_X_Y(abs, u, u)
+DEF_INT_PROTO_X_Y(popcount, i, i);
+DEF_INT_PROTO_X_Y(popcount, u, u);
 DEF_INT_PROTO_X_X_Y(abs_diff, i, i, u)
 DEF_INT_PROTO_X_X_Y(abs_diff, u, u, u)
 DEF_INT_PROTO_X_X_Y(add_sat, i, i, i)

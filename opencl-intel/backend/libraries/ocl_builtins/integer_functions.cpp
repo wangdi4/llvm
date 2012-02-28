@@ -74,6 +74,14 @@ ALIGN16 const int   qwordIntMin[4]      = {INT_MIN, 0xFFFFFFFF, INT_MIN, 0xFFFFF
 ALIGN16 const int   dwordEvenMask[4]    = {0xFFFFFFFF, 0, 0xFFFFFFFF, 0};
 ALIGN16 const int   dwordOddMask[4]     = {0, 0xFFFFFFFF, 0, 0xFFFFFFFF};
 
+//"magic nuimbers" for popcount parallel algorithm
+ALIGN16 const int S[] = {1, 2, 4, 8, 16, 32};
+ALIGN16 const char B8[] = {0x55, 0x33, 0x0F};
+ALIGN16 const short B16[] = {0x5555, 0x3333, 0x0F0F, 0x00FF};
+ALIGN16 const int B32[] = {0x55555555, 0x33333333, 0x0F0F0F0F, 0x00FF00FF, 0x0000FFFF};
+ALIGN16 const long B64[] = {0x5555555555555555, 0x3333333333333333, 0x0F0F0F0F0F0F0F0F
+                         , 0x00FF00FF00FF00FF, 0x0000FFFF0000FFFF, 0x00000000FFFFFFFF};
+
 #define FORCEINLINE __attribute__((__always_inline__, __nodebug__))
 
 
@@ -1041,6 +1049,94 @@ _1i64	__attribute__((overloadable)) clz(_1i64 x)
 _1u64	__attribute__((overloadable)) clz( _1u64 x)
 {
 	return __builtin_clzl(x);
+}
+
+////////////////////////////////////////////////////
+//gen_type popcount(gentype x)
+//returns the #of bits set in x
+////////////////////////////////////////////////////
+_1i8 	__attribute__((overloadable)) popcount(_1i8 x){
+  return __builtin_popcount((_1u8)x);
+}
+
+_1u8 	__attribute__((overloadable)) popcount(_1u8 x){
+  return __builtin_popcount(x);
+}
+
+_16i8 	__attribute__((overloadable)) popcount(_16i8 x){
+  return (_16i8)popcount((_16u8)x);
+}
+
+//parallel bit-count from:
+//http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+_16u8   __attribute__((overloadable)) popcount(_16u8 x){
+  _16u8 ret = x - ((x >> 1) & B16[0]);
+  ret = ((ret >> S[1]) & B16[1]) + (ret & B16[1]);
+  ret = ((ret >> S[2]) + ret) & B16[2];
+  return ret;
+}
+
+_1i16 	__attribute__((overloadable)) popcount(_1i16 x){
+  return (_1i16)__builtin_popcount((_1u16)x);
+}
+
+_1u16 	__attribute__((overloadable)) popcount(_1u16 x){
+  return __builtin_popcount(x);
+}
+
+_8i16 	__attribute__((overloadable)) popcount(_8i16 x){
+  return (_8i16)popcount((_8u16)x);
+}
+
+_8u16   __attribute__((overloadable)) popcount(_8u16 x){
+  _8u16 ret = x - ((x >> 1) & B16[0]);
+  ret = ((ret >> S[1]) & B16[1]) + (ret & B16[1]);
+  ret = ((ret >> S[2]) + ret) & B16[2];
+  ret = ((ret >> S[3]) + ret) & B16[3];
+  return ret;
+}
+
+_1i32 	__attribute__((overloadable)) popcount(_1i32 x){
+  return __builtin_popcount((_1u32)x);
+}
+
+_4i32   __attribute__((overloadable)) popcount(_4i32 x){
+  return (_4i32)popcount((_4u32)x);
+}
+
+_1u32 	__attribute__((overloadable)) popcount(_1u32 x){
+  return __builtin_popcount(x);
+}
+
+_4u32   __attribute__((overloadable)) popcount(_4u32 x){
+  _4u32 ret = x - ((x >> 1) & B32[0]);
+  ret = ((ret >> S[1]) & B32[1]) + (ret & B32[1]);
+  ret = ((ret >> S[2]) + ret) & B32[2];
+  ret = ((ret >> S[3]) + ret) & B32[3];
+  ret = ((ret >> S[4]) + ret) & B32[4];
+  return ret;
+}
+
+_1i64 	__attribute__((overloadable)) popcount(_1i64 x){
+  return __builtin_popcountl((_1u64)x);
+}
+
+_1u64 	__attribute__((overloadable)) popcount(_1u64 x){
+  return __builtin_popcountl(x);
+}
+
+_2i64   __attribute__((overloadable)) popcount(_2i64 x){
+  return (_2i64)popcount((_2u64)x);
+}
+
+_2u64   __attribute__((overloadable)) popcount(_2u64 x){
+  _2u64 ret = x - ((x >> 1) & B64[0]);
+  ret = ((ret >> S[1]) & B64[1]) + (ret & B64[1]);
+  ret = ((ret >> S[2]) + ret) & B64[2];
+  ret = ((ret >> S[3]) + ret) & B64[3];
+  ret = ((ret >> S[4]) + ret) & B64[4];
+  ret = ((ret >> S[5]) + ret) & B64[5];
+  return ret;
 }
 
 ////////////////////////////////////////////////////

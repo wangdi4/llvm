@@ -3042,6 +3042,58 @@ ulong8 const_func __attribute__((overloadable)) clz(ulong8 x);
 long16 const_func __attribute__((overloadable)) clz(long16 x);
 ulong16 const_func __attribute__((overloadable)) clz(ulong16 x);
 
+/*
+ * popcount(x): returns the number of set bit in x
+ */
+char const_func __attribute__((overloadable)) popcount(char x);
+uchar const_func __attribute__((overloadable)) popcount(uchar x);
+char2 const_func __attribute__((overloadable)) popcount(char2 x);
+uchar2 const_func __attribute__((overloadable)) popcount(uchar2 x);
+char3 const_func __attribute__((overloadable)) popcount(char3 x);
+uchar3 const_func __attribute__((overloadable)) popcount(uchar3 x);
+char4 const_func __attribute__((overloadable)) popcount(char4 x);
+uchar4 const_func __attribute__((overloadable)) popcount(uchar4 x);
+char8 const_func __attribute__((overloadable)) popcount(char8 x);
+uchar8 const_func __attribute__((overloadable)) popcount(uchar8 x);
+char16 const_func __attribute__((overloadable)) popcount(char16 x);
+uchar16 const_func __attribute__((overloadable)) popcount(uchar16 x);
+short const_func __attribute__((overloadable)) popcount(short x);
+ushort const_func __attribute__((overloadable)) popcount(ushort x);
+short2 const_func __attribute__((overloadable)) popcount(short2 x);
+ushort2 const_func __attribute__((overloadable)) popcount(ushort2 x);
+short3 const_func __attribute__((overloadable)) popcount(short3 x);
+ushort3 const_func __attribute__((overloadable)) popcount(ushort3 x);
+short4 const_func __attribute__((overloadable)) popcount(short4 x);
+ushort4 const_func __attribute__((overloadable)) popcount(ushort4 x);
+short8 const_func __attribute__((overloadable)) popcount(short8 x);
+ushort8 const_func __attribute__((overloadable)) popcount(ushort8 x);
+short16 const_func __attribute__((overloadable)) popcount(short16 x);
+ushort16 const_func __attribute__((overloadable)) popcount(ushort16 x);
+int const_func __attribute__((overloadable)) popcount(int x);
+uint const_func __attribute__((overloadable)) popcount(uint x);
+int2 const_func __attribute__((overloadable)) popcount(int2 x);
+uint2 const_func __attribute__((overloadable)) popcount(uint2 x);
+int3 const_func __attribute__((overloadable)) popcount(int3 x);
+uint3 const_func __attribute__((overloadable)) popcount(uint3 x);
+int4 const_func __attribute__((overloadable)) popcount(int4 x);
+uint4 const_func __attribute__((overloadable)) popcount(uint4 x);
+int8 const_func __attribute__((overloadable)) popcount(int8 x);
+uint8 const_func __attribute__((overloadable)) popcount(uint8 x);
+int16 const_func __attribute__((overloadable)) popcount(int16 x);
+uint16 const_func __attribute__((overloadable)) popcount(uint16 x);
+long const_func __attribute__((overloadable)) popcount(long x);
+ulong const_func __attribute__((overloadable)) popcount(ulong x);
+long2 const_func __attribute__((overloadable)) popcount(long2 x);
+ulong2 const_func __attribute__((overloadable)) popcount(ulong2 x);
+long3 const_func __attribute__((overloadable)) popcount(long3 x);
+ulong3 const_func __attribute__((overloadable)) popcount(ulong3 x);
+long4 const_func __attribute__((overloadable)) popcount(long4 x);
+ulong4 const_func __attribute__((overloadable)) popcount(ulong4 x);
+long8 const_func __attribute__((overloadable)) popcount(long8 x);
+ulong8 const_func __attribute__((overloadable)) popcount(ulong8 x);
+long16 const_func __attribute__((overloadable)) popcount(long16 x);
+ulong16 const_func __attribute__((overloadable)) popcount(ulong16 x);
+
 /**
  * Returns mul_hi(a, b) + c.
  */

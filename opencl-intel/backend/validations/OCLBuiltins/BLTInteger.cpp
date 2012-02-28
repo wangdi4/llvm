@@ -915,7 +915,57 @@ void IntegerMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z5mul24Dv8_jS_"]      = lle_X_mul24<uint32_t,8>;
     funcNames["lle_X__Z5mul24Dv16_iS_"]     = lle_X_mul24<int32_t,16>;
     funcNames["lle_X__Z5mul24Dv16_jS_"]     = lle_X_mul24<uint32_t,16>;
-
+    //
+    //popcount
+    //
+    funcNames["lle_X__Z8popcountc"]          = lle_X_popcount<int8_t,1>;
+    funcNames["lle_X__Z8popcounth"]          = lle_X_popcount<uint8_t,1>;
+    funcNames["lle_X__Z8popcountDv2_c"]      = lle_X_popcount<int8_t,2>;
+    funcNames["lle_X__Z8popcountDv2_h"]      = lle_X_popcount<uint8_t,2>;
+    funcNames["lle_X__Z8popcountDv3_c"]      = lle_X_popcount<int8_t,3>;
+    funcNames["lle_X__Z8popcountDv3_h"]      = lle_X_popcount<uint8_t,3>;
+    funcNames["lle_X__Z8popcountDv4_c"]      = lle_X_popcount<int8_t,4>;
+    funcNames["lle_X__Z8popcountDv4_h"]      = lle_X_popcount<uint8_t,4>;
+    funcNames["lle_X__Z8popcountDv8_c"]      = lle_X_popcount<int8_t,8>;
+    funcNames["lle_X__Z8popcountDv8_h"]      = lle_X_popcount<uint8_t,8>;
+    funcNames["lle_X__Z8popcountDv16_c"]     = lle_X_popcount<int8_t,16>;
+    funcNames["lle_X__Z8popcountDv16_h"]     = lle_X_popcount<uint8_t,16>;
+    funcNames["lle_X__Z8popcounts"]          = lle_X_popcount<int16_t,1>;
+    funcNames["lle_X__Z8popcountt"]          = lle_X_popcount<uint16_t,1>;
+    funcNames["lle_X__Z8popcountDv2_s"]      = lle_X_popcount<int16_t,2>;
+    funcNames["lle_X__Z8popcountDv2_t"]      = lle_X_popcount<uint16_t,2>;
+    funcNames["lle_X__Z8popcountDv3_s"]      = lle_X_popcount<int16_t,3>;
+    funcNames["lle_X__Z8popcountDv3_t"]      = lle_X_popcount<uint16_t,3>;
+    funcNames["lle_X__Z8popcountDv4_s"]      = lle_X_popcount<int16_t,4>;
+    funcNames["lle_X__Z8popcountDv4_t"]      = lle_X_popcount<uint16_t,4>;
+    funcNames["lle_X__Z8popcountDv8_s"]      = lle_X_popcount<int16_t,8>;
+    funcNames["lle_X__Z8popcountDv8_t"]      = lle_X_popcount<uint16_t,8>;
+    funcNames["lle_X__Z8popcountDv16_s"]     = lle_X_popcount<int16_t,16>;
+    funcNames["lle_X__Z8popcountDv16_t"]     = lle_X_popcount<uint16_t,16>;
+    funcNames["lle_X__Z8popcounti"]          = lle_X_popcount<int32_t,1>;
+    funcNames["lle_X__Z8popcountj"]          = lle_X_popcount<uint32_t,1>;
+    funcNames["lle_X__Z8popcountDv2_i"]      = lle_X_popcount<int32_t,2>;
+    funcNames["lle_X__Z8popcountDv2_j"]      = lle_X_popcount<uint32_t,2>;
+    funcNames["lle_X__Z8popcountDv3_i"]      = lle_X_popcount<int32_t,3>;
+    funcNames["lle_X__Z8popcountDv3_j"]      = lle_X_popcount<uint32_t,3>;
+    funcNames["lle_X__Z8popcountDv4_i"]      = lle_X_popcount<int32_t,4>;
+    funcNames["lle_X__Z8popcountDv4_j"]      = lle_X_popcount<uint32_t,4>;
+    funcNames["lle_X__Z8popcountDv8_i"]      = lle_X_popcount<int32_t,8>;
+    funcNames["lle_X__Z8popcountDv8_j"]      = lle_X_popcount<uint32_t,8>;
+    funcNames["lle_X__Z8popcountDv16_i"]     = lle_X_popcount<int32_t,16>;
+    funcNames["lle_X__Z8popcountDv16_j"]     = lle_X_popcount<uint32_t,16>;
+    funcNames["lle_X__Z8popcountl"]          = lle_X_popcount<int64_t,1>;
+    funcNames["lle_X__Z8popcountm"]          = lle_X_popcount<uint64_t,1>;
+    funcNames["lle_X__Z8popcountDv2_l"]      = lle_X_popcount<int64_t,2>;
+    funcNames["lle_X__Z8popcountDv2_m"]      = lle_X_popcount<uint64_t,2>;
+    funcNames["lle_X__Z8popcountDv3_l"]      = lle_X_popcount<int64_t,3>;
+    funcNames["lle_X__Z8popcountDv3_m"]      = lle_X_popcount<uint64_t,3>;
+    funcNames["lle_X__Z8popcountDv4_l"]      = lle_X_popcount<int64_t,4>;
+    funcNames["lle_X__Z8popcountDv4_m"]      = lle_X_popcount<uint64_t,4>;
+    funcNames["lle_X__Z8popcountDv8_l"]      = lle_X_popcount<int64_t,8>;
+    funcNames["lle_X__Z8popcountDv8_m"]      = lle_X_popcount<uint64_t,8>;
+    funcNames["lle_X__Z8popcountDv16_l"]     = lle_X_popcount<int64_t,16>;
+    funcNames["lle_X__Z8popcountDv16_m"]     = lle_X_popcount<uint64_t,16>;
 }
 
 }
