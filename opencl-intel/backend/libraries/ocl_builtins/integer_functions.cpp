@@ -1070,9 +1070,9 @@ _16i8 	__attribute__((overloadable)) popcount(_16i8 x){
 //parallel bit-count from:
 //http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 _16u8   __attribute__((overloadable)) popcount(_16u8 x){
-  _16u8 ret = x - ((x >> 1) & B16[0]);
-  ret = ((ret >> S[1]) & B16[1]) + (ret & B16[1]);
-  ret = ((ret >> S[2]) + ret) & B16[2];
+  _16u8 ret = x - ((x >> (uchar)1) & (uchar)B16[0]);
+  ret = ((ret >> (uchar)S[1]) & (uchar)B16[1]) + (ret & (uchar)B16[1]);
+  ret = ((ret >> (uchar)S[2]) + ret) & (uchar)B16[2];
   return ret;
 }
 
@@ -1089,10 +1089,10 @@ _8i16 	__attribute__((overloadable)) popcount(_8i16 x){
 }
 
 _8u16   __attribute__((overloadable)) popcount(_8u16 x){
-  _8u16 ret = x - ((x >> 1) & B16[0]);
-  ret = ((ret >> S[1]) & B16[1]) + (ret & B16[1]);
-  ret = ((ret >> S[2]) + ret) & B16[2];
-  ret = ((ret >> S[3]) + ret) & B16[3];
+  _8u16 ret = x - ((x >> (ushort)1) & B16[0]);
+  ret = ((ret >> (ushort)S[1]) & B16[1]) + (ret & B16[1]);
+  ret = ((ret >> (ushort)S[2]) + ret) & B16[2];
+  ret = ((ret >> (ushort)S[3]) + ret) & B16[3];
   return ret;
 }
 
