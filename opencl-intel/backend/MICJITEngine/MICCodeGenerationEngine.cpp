@@ -175,7 +175,7 @@ MICCodeGenerationEngine::selectTarget(Module *Mod,
 
 MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm, 
     CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver) :
-    TM(tm), optLevel(optlvl) {}
+    TM(tm), optLevel(optlvl), Resolver(resolver) {}
 
 MICCodeGenerationEngine::~MICCodeGenerationEngine() {}
 

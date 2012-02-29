@@ -63,7 +63,7 @@ public:
 private:
   TargetMachine &TM;
   CodeGenOpt::Level optLevel;
-  IFunctionAddressResolver* Resolver;
+  const IFunctionAddressResolver* Resolver;
 
 };
 

@@ -137,7 +137,7 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
 
     llvm::TargetMachine *TM = llvm::MICCodeGenerationEngine::selectTarget(pRtlModule,
         MArch, MCPU,
-        MAttrs, Reloc::PIC_, CodeModel::Small, &m_ErrorStr);
+        MAttrs, Reloc::Default, CodeModel::Small, &m_ErrorStr);
 
     llvm::CodeGenOpt::Level OLvl = llvm::CodeGenOpt::Aggressive;
     return new llvm::MICCodeGenerationEngine(*TM, OLvl, &m_ResolverWrapper);
