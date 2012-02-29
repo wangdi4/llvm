@@ -34,8 +34,9 @@
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	#define INVALID_WORKER_ID		0xFFFFFFFF
-	#define WORKER_SCHEDULER_ID	((tbb::task_scheduler_init*)(-1))
+	#define WORKER_SCHEDULER_ID		((tbb::task_scheduler_init*)(-1))
 	#define IMPLICIT_SCHEDULER_ID	((tbb::task_scheduler_init*)(-2))
+	#define MAX_BATCH_SIZE			128 
 
 	class ThreadIDAllocator
 	{
@@ -115,10 +116,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void ReleasePerThreadData();
 
 		ocl_gpa_data* GetGPAData() const;
+
+		tbb::task_group_context*	GetTBBGroupContext() {return m_pGrpContext;}
 	protected:
 		Intel::OpenCL::Utils::OclMutex		m_muActivate;
 
-		friend class						base_command_list;
 		tbb::task_group_context*			m_pGrpContext;
 
 		long								m_lActivateCount;

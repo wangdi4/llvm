@@ -267,7 +267,7 @@ void ReleaseSchedulerForMasterThread()
 		glTaskSchedCounter--;
 		ThreadIDAssigner::SetScheduler(NULL);
 
-		if ( 0 == glTaskSchedCounter )
+		if ( (0 == glTaskSchedCounter) && (IMPLICIT_SCHEDULER_ID != pScheduler))
 		{
 			ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
 			assert(NULL != prev && "The old ThreadID allocator is NULL");
@@ -677,13 +677,13 @@ protected:
 typedef OclNaiveConcurrentQueue<ITaskBase*> ConcurrentTaskQueue;
 typedef std::vector<ITaskBase*>           TaskVector;
 
-class base_command_list : public ITaskList
+template<class cExecTaskClass> class base_command_list : public ITaskList
 {
 public:
 	base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) :
 		m_subdevice(subdevice), m_pTBBExecutor(pTBBExec)
 	{
-		m_pListRootTask = new (tbb::task::allocate_root(*m_pTBBExecutor->m_pGrpContext)) base_list_root_task();
+		m_pListRootTask = new (tbb::task::allocate_root(*m_pTBBExecutor->GetTBBGroupContext())) base_list_root_task();
 		m_pListRootTask->set_ref_count(1);
 
 		m_execTaskRequests = 0;
@@ -708,6 +708,11 @@ public:
 	te_wait_result WaitForCompletion()
 	{
 		InitSchedulerForMasterThread();
+
+		if ( ThreadIDAssigner::GetScheduler() == WORKER_SCHEDULER_ID )
+		{
+			return TE_WAIT_NOT_SUPPORTED;
+		}
 
 		bool bVal = m_bMasterRunning.compare_and_swap(true, false);
 		if (bVal)
@@ -789,8 +794,39 @@ protected:
 		return !m_quIncomingWork.IsEmpty();
 	}
 
-	// Ordered and OOO command lists have different task objects operating on them
-	virtual unsigned int LaunchExecutorTask(bool blocking) = 0;
+	unsigned int LaunchExecutorTask(bool blocking)
+	{
+		m_refCount++;
+		if (!m_subdevice)
+		{
+			InitSchedulerForMasterThread();
+
+			m_pListRootTask->increment_ref_count();
+			tbb::task* executor = new (m_pListRootTask->allocate_child()) cExecTaskClass(this);
+			assert(executor && "Can't create executor task");
+			if ( NULL == executor )
+			{
+				m_pListRootTask->decrement_ref_count();
+				m_execTaskRequests = 0;
+				return 0;
+			}
+			
+			if (!blocking)
+			{
+				tbb::task::enqueue(*executor);
+				return 1;
+			}
+
+			m_pListRootTask->spawn_and_wait_for_all(*executor);
+		}
+		else
+		{
+			cExecTaskClass	queueTask(this);
+			queueTask.execute();
+		}
+
+		return 0;
+	}
 
 	inline unsigned int InternalFlush(bool blocking)
 	{
@@ -893,14 +929,14 @@ static bool execute_command(ITaskBase* cmd)
 class in_order_executor_task : public tbb::task
 {
 public:
-	in_order_executor_task(base_command_list* list) : m_list(list){}
-
+	in_order_executor_task(base_command_list<in_order_executor_task>* list) : m_list(list){}
+	
 	tbb::task* execute()
 	{
 		assert(m_list);
 		ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 		assert(work);
-		TaskVector forDeletion;
+		TaskVector currentCommandBatch;
 		ITaskBase* currentTask;
 		bool mustExit = false;
 
@@ -913,15 +949,17 @@ public:
 			{
 				mustExit = !execute_command(currentTask); //stop requested
 
-				forDeletion.push_back(currentTask);
+				currentCommandBatch.push_back(currentTask);
+
+				if ( currentCommandBatch.size() >= MAX_BATCH_SIZE )
+				{
+					// When we excide maximum allowed command batch
+					// We need to release, prevent memory overflow
+					FreeCommandBatch(&currentCommandBatch);
+				}
 			}
 
-			//release all executed tasks
-			for (TaskVector::const_iterator it = forDeletion.begin(); it != forDeletion.end(); ++it)
-			{
-				(*it)->Release();
-			}
-			forDeletion.clear();
+			FreeCommandBatch(&currentCommandBatch);
 
 			if ( mustExit )
 			{
@@ -940,46 +978,16 @@ public:
 	}
 
 protected:
-	base_command_list* m_list;
-};
+	base_command_list<in_order_executor_task>* m_list;
 
-class ordered_command_list : public base_command_list
-{
-public:
-	ordered_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) : base_command_list(subdevice, pTBBExec)	{}
-
-	virtual unsigned int LaunchExecutorTask(bool blocking)
+	void FreeCommandBatch(TaskVector* pCmdBatch)
 	{
-		m_refCount++;
-		if (!m_subdevice)
+		//release all executed tasks
+		for (TaskVector::const_iterator it = pCmdBatch->begin(); it != pCmdBatch->end(); ++it)
 		{
-			InitSchedulerForMasterThread();
-
-			m_pListRootTask->increment_ref_count();
-			tbb::task* executor = new (m_pListRootTask->allocate_child()) in_order_executor_task(this);
-			
-			assert(executor && "Can't create executor task");
-			if ( NULL == executor )
-			{
-				m_execTaskRequests = 0;
-				return 0;
-			}
-			
-			if (!blocking)
-			{
-				tbb::task::enqueue(*executor);
-				return 1;
-			}
-
-			m_pListRootTask->spawn_and_wait_for_all(*executor);
+			(*it)->Release();
 		}
-		else
-		{
-			in_order_executor_task queueTask(this);
-			queueTask.execute();
-		}
-
-		return 0;
+		pCmdBatch->clear();
 	}
 };
 
@@ -1010,7 +1018,7 @@ struct ExecuteContainerBody
 class unorder_executor_task : public tbb::task
 {
 public:
-	unorder_executor_task(base_command_list* list) : m_list(list) {}
+	unorder_executor_task(base_command_list<unorder_executor_task>* list) : m_list(list) {}
 
 	tbb::task* execute()
 	{
@@ -1022,7 +1030,7 @@ public:
 		while (true)
 		{
 			size_t size = FillWork(work);
-			if ( size > 0 )
+			while ( size > 0 )
 			{
 
 				//Todo: handle small sizes without parallel for
@@ -1032,11 +1040,13 @@ public:
 
 				work.clear();
 
-				if ( mustExit )
-				{
-					m_list->m_execTaskRequests.fetch_and_store(0);
-					break;
-				}
+				size = FillWork(work);
+			}
+
+			if ( mustExit )
+			{
+				m_list->m_execTaskRequests.fetch_and_store(0);
+				break;
 			}
 
 			if ( 1 == m_list->m_execTaskRequests-- )
@@ -1054,54 +1064,17 @@ protected:
 	// Todo: currently this is serial, see if we can parallelize it somehow
 	size_t FillWork(TaskVector& workList)
 	{
+		unsigned int uiBatchSize = 0;
 		ITaskBase* current;
-		while (m_list->GetExecutingContainer()->TryPop(current))
+		while ( (uiBatchSize<MAX_BATCH_SIZE) && m_list->GetExecutingContainer()->TryPop(current) )
 		{
 			workList.push_back(current);
+			++uiBatchSize;
 		}
 		return workList.size();
 	}
 
-	base_command_list* m_list;
-};
-
-class unordered_command_list : public base_command_list
-{
-public:
-    unordered_command_list(bool subdevice, TBBTaskExecutor* pTBBExec) : base_command_list(subdevice, pTBBExec) {}
-
-	virtual unsigned int LaunchExecutorTask(bool blocking)
-	{
-		m_refCount++;
-		if (!m_subdevice)
-		{
-			InitSchedulerForMasterThread();
-
-			m_pListRootTask->increment_ref_count();
-			tbb::task* executor = new (m_pListRootTask->allocate_child()) unorder_executor_task(this);
-			assert(executor && "Can't create executor task");
-			if ( NULL == executor)
-			{
-				m_execTaskRequests = 0;
-				return 0;
-			}
-			if ( !blocking )
-			{
-				tbb::task::enqueue(*executor);
-				return 1;
-			}
-
-			m_pListRootTask->spawn_and_wait_for_all(*executor);
-		}
-		else
-		{
-			// Always blocking
-			unorder_executor_task queueTask(this);
-			queueTask.execute();
-		}
-
-		return 0;
-	}
+	base_command_list<unorder_executor_task>* m_list;
 };
 
 /////////////// TaskExecutor //////////////////////
@@ -1225,7 +1198,7 @@ bool TBBTaskExecutor::Activate()
 		return false;
 	}
 
-	m_pExecutorList = new ordered_command_list(false, this);
+	m_pExecutorList = new base_command_list<in_order_executor_task>(false, this); // TODO: Why not unordered
 	if ( NULL == m_pExecutorList )
 	{
 		delete m_pGrpContext;
@@ -1299,11 +1272,11 @@ ITaskList* TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param)
 	ITaskList *pList = NULL;
 	if (OOO) 
 	{
-		pList = new unordered_command_list(subdevice, this);
+		pList = new base_command_list<unorder_executor_task>(subdevice, this);
 	}
 	else
 	{
-		pList = new ordered_command_list(subdevice, this);
+		pList = new base_command_list<in_order_executor_task>(subdevice, this);
 	}
 
 	return pList;
