@@ -2839,9 +2839,7 @@ void * ExecutionModule::EnqueueMapImage(
     *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(*pErrcodeRet))
     {
-        // Enqueue failed, free resources
-        pMapImageCmd->CommandDone();
-        delete pMapImageCmd;
+        // command done has already been called, so it has already been deleted.
         return NULL;
     }
 

@@ -162,6 +162,18 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
+     * @fn FissionableDevice* GraphicsApiMemoryObject::GetLocation() const
+     */
+    FissionableDevice* GraphicsApiMemoryObject::GetLocation() const
+    {
+        if (NULL == m_pChildObject)
+        {
+            return NULL;
+        }
+        return m_pChildObject->GetLocation();
+    }
+
+    /**
      * @fn  cl_err_code GraphicsApiMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
      */
 

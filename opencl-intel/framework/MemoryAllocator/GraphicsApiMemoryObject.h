@@ -105,6 +105,8 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
+        virtual FissionableDevice* GetLocation() const;
+
     protected:
 
         /**

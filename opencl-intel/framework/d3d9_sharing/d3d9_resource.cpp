@@ -131,19 +131,6 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  FissionableDevice* D3D9Resource::GetLocation() const
-     */
-
-    FissionableDevice* D3D9Resource::GetLocation() const
-    {
-        if (NULL == m_pChildObject)
-        {
-            return NULL;
-        }
-        return m_pChildObject->GetLocation();
-    }
-
-    /**
      * @fn  void D3D9Resource::AcquireD3D9()
      */
 

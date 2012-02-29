@@ -249,9 +249,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);
 
         virtual cl_err_code WriteData(const void* pOutData, const size_t* pszOrigin,
-            const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);
-
-        virtual FissionableDevice* GetLocation() const;
+            const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);        
 
         cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const;
 

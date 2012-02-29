@@ -182,6 +182,9 @@ static void TestImageMapping(cl_command_queue queue, cl_mem clImg, const size_t*
     size_t szRowPitch, szSlicePitch;
     cl_int iRet;
 
+    clEnqueueMapImage(queue, clImg, CL_TRUE, 0, origin, region, &szRowPitch, &szSlicePitch, 1, NULL, NULL, &iRet);
+    CheckException(L"clEnqueueMapImage", CL_INVALID_EVENT_WAIT_LIST, iRet);
+
     const void* const pMappedData = clEnqueueMapImage(queue, clImg, CL_TRUE, 0, origin, region, &szRowPitch, &szSlicePitch, 1, &clCopyEvent, NULL, &iRet);
     CheckException(L"clEnqueueMapImage", CL_SUCCESS, iRet);
     CheckException(L"szExpectedRowPitch", szExpectedRowPitch, szRowPitch);
