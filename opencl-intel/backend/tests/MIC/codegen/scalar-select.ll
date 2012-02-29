@@ -10,7 +10,7 @@ target datalayout = "e-p:64:64"
 define <16 x float> @test0(i1 %x, <16 x float> %v1, <16 x float> %v2) nounwind readnone {
 entry:
 ; KNF: test0:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+{%k[1-9]}}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+{%k[1-9]}}}
 	%.0 = select i1 %x, <16 x float> %v1, <16 x float> %v2		; <i32> [#uses=1]
 	ret <16 x float> %.0
 }
@@ -18,7 +18,7 @@ entry:
 define float @test11(i1 %x, float %v1, float %v2) nounwind readnone {
 entry:
 ; KNF: test11:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, float %v1, float %v2		; <i32> [#uses=1]
 	ret float %.0
 }
@@ -26,7 +26,7 @@ entry:
 define float @test12(i1 %x, float %v1, float %v2) nounwind readnone {
 entry:
 ; KNF: test12:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, float %v2, float %v1		; <i32> [#uses=1]
 	ret float %.0
 }
@@ -34,7 +34,7 @@ entry:
 define float @test21(i1 %x, float %v0) nounwind readnone {
 entry:
 ; KNF: test21:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, float 12.0, float %v0
 	ret float %.0
 }
@@ -42,7 +42,7 @@ entry:
 define float @test22(i1 %x, float %v0) nounwind readnone {
 entry:
 ; KNF: test22:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, float %v0, float 12.0
 	ret float %.0
 }
@@ -50,7 +50,7 @@ entry:
 define float @test31(i1 %x, float %v1, float* %vp2) nounwind readonly {
 entry:
 ; KNF: test31:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
   %v2 = load float* %vp2
 	%.0 = select i1 %x, float %v1, float %v2		; <i32> [#uses=1]
 	ret float %.0
@@ -59,7 +59,7 @@ entry:
 define float @test32(i1 %x, float %v1, float* %vp2) nounwind readonly {
 entry:
 ; KNF: test32:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
   %v2 = load float* %vp2
 	%.0 = select i1 %x, float %v2, float %v1		; <i32> [#uses=1]
 	ret float %.0
@@ -98,7 +98,7 @@ entry:
 define double @testd11(i1 %x, double %v1, double %v2) nounwind readnone {
 entry:
 ; KNF: testd11:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, double %v1, double %v2		; <i32> [#uses=1]
 	ret double %.0
 }
@@ -106,7 +106,7 @@ entry:
 define double @testd12(i1 %x, double %v1, double %v2) nounwind readnone {
 entry:
 ; KNF: testd12:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, double %v2, double %v1		; <i32> [#uses=1]
 	ret double %.0
 }
@@ -115,7 +115,7 @@ define double @testd21(i1 %x, double %v0) nounwind readnone {
 entry:
 
 ; KNF: testd21:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, double 4.5e+15, double %v0
 	ret double %.0
 }
@@ -124,7 +124,7 @@ define double @testd22(i1 %x, double %v0) nounwind readnone {
 entry:
 
 ; KNF: testd22:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 	%.0 = select i1 %x, double %v0, double 4.5e+15
 	ret double %.0
 }
@@ -133,7 +133,7 @@ define double @testd31(i1 %x, double %v1, double* %vp2) nounwind readonly {
 entry:
 
 ; KNF: testd31:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
   %v2 = load double* %vp2
 	%.0 = select i1 %x, double %v1, double %v2		; <i32> [#uses=1]
 	ret double %.0
@@ -143,7 +143,7 @@ define double @testd32(i1 %x, double %v1, double* %vp2) nounwind readonly {
 entry:
 
 ; KNF: testd32:
-; KNF: vorpi {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vorp{{i|q}} {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
   %v2 = load double* %vp2
 	%.0 = select i1 %x, double %v2, double %v1		; <i32> [#uses=1]
 	ret double %.0

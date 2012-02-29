@@ -26,8 +26,8 @@ entry:
 
 define <8 x i64> @mul2(<8 x i64>* nocapture %a, <8 x i64> %b) nounwind readonly ssp {
 entry:
-; CHECK: vmulhpu
 ; CHECK: vmullpi
+; CHECK: vmulhpu
 ; CHECK: vmadd231pi
 ; CHECK: vmadd231pi
   %tmp1 = load <8 x i64>* %a, align 64
@@ -37,8 +37,8 @@ entry:
 
 define <8 x i64> @mul3(<8 x i64> %a, <8 x i64>* nocapture %b) nounwind readonly ssp {
 entry:
-; CHECK: vmulhpu
 ; CHECK: vmullpi
+; CHECK: vmulhpu
 ; CHECK: vmadd231pi
 ; CHECK: vmadd231pi
   %tmp2 = load <8 x i64>* %b, align 64
@@ -48,8 +48,8 @@ entry:
 
 define <8 x i64> @mul4(<8 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: vmulhpu
 ; CHECK: vmullpi
+; CHECK: vmulhpu
 ; CHECK: vmadd231pi
 ; CHECK: vmadd231pi
   %tmp1 = load <8 x i64>* @gb, align 64
@@ -59,8 +59,8 @@ entry:
 
 define <8 x i64> @mul5(<8 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: vmulhpu
 ; CHECK: vmullpi
+; CHECK: vmulhpu
 ; CHECK: vmadd231pi
 ; CHECK: vmadd231pi
   %tmp1 = load <8 x i64>** @pgb, align 8
