@@ -1,0 +1,271 @@
+// vim:ts=2:sw=2:et:
+//===- OclBuiltinEmitter.h - Generate OCL builtin impl ----------*- C++ -*-===//
+//
+// Copyright (c) 2012 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend is responsible for emitting OCL builtin
+// implementations.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef OCLBUILTIN_EMITTER_H
+#define OCLBUILTIN_EMITTER_H
+
+#include "llvm/TableGen/TableGenBackend.h"
+
+#include <map>
+#include <vector>
+
+namespace llvm {
+
+class OclBuiltin;
+class OclBuiltinDB;
+
+/// OclType
+class OclType {
+public:
+  explicit OclType(const OclBuiltinDB&, const Record*);
+
+  virtual const std::string& getGenType(const std::string&) const { return m_Name; }
+
+  std::string getCPattern() const;
+
+  std::string getCMask() const;
+
+  std::string getCVecLength() const;
+
+  std::string getCBitWidth() const;
+
+  std::string getExpandLoCPattern() const;
+
+  std::string getExpandHiCPattern() const;
+
+  std::string getCType(const OclBuiltin*, bool = false) const;
+
+  std::string getNativeCType(const OclBuiltin*) const;
+
+  const std::string& getBaseCType() const { return m_BaseCType; }
+
+  const std::string& getName() const { return m_Name; }
+
+  const std::string& getSuffix() const { return m_Suffix; }
+
+  const std::string& getSVMLSuffix() const { return m_SVMLSuffix; }
+
+  int getVecLength() const { return m_VecLength; }
+
+  bool isPointer() const { return m_IsPtr; }
+
+  bool isNative() const { return m_Native; }
+
+  void setNative(bool native) { m_Native = native; }
+
+protected:
+  const OclBuiltinDB& m_DB;
+  const Record* m_Record;
+  std::string m_Name;
+  std::string m_CType;
+  std::string m_BaseCType;
+  int m_VecLength;
+  int m_BitWidth;
+  std::string m_Suffix;
+  std::string m_SVMLSuffix;
+  bool m_IsPtr;
+  bool m_Native;
+};
+
+/// OclGenType
+class OclGenType : public OclType {
+public:
+  explicit OclGenType(const OclBuiltinDB&, const Record*);
+
+  virtual const std::string& getGenType(const std::string&) const;
+
+protected:
+  std::map<std::string, std::string> m_GenMap;
+};
+
+/// OclBuiltinAttr
+class OclBuiltinAttr {
+public:
+  explicit OclBuiltinAttr(const Record*);
+
+  const std::string& getCAttr() const { return m_CAttribute; }
+
+protected:
+  std::string m_CAttribute;
+};
+
+/// OclBuiltin
+class OclBuiltin {
+public:
+  explicit OclBuiltin(const OclBuiltinDB&, const Record*);
+  virtual ~OclBuiltin();
+
+  std::string getReturnCType(const std::string&) const;
+
+  std::string getReturnCName(const std::string&) const;
+
+  std::string getArgumentCType(unsigned, const std::string&) const;
+
+  std::string getArgumentCVecType(unsigned, const std::string&, int) const;
+
+  std::string getArgumentCNoASType(unsigned, const std::string&) const;
+
+  std::string getArgumentCName(unsigned, const std::string&) const;
+
+  std::string getCFunc(const std::string&) const;
+
+  std::string getNativeReturnCType(const std::string&) const;
+
+  std::string getNativeArgumentCType(unsigned, const std::string&) const;
+
+  std::string getNativeCFunc(const std::string&) const;
+
+  std::string getExpandLoCFunc(const std::string&) const;
+
+  std::string getExpandHiCFunc(const std::string&) const;
+
+  std::string getCProto(const std::string&, bool isDecl = false) const;
+
+  typedef std::vector<const OclType*>::const_iterator const_type_iterator;
+
+  inline const_type_iterator  type_begin() const { return m_Types.begin(); }
+  inline const_type_iterator    type_end() const { return m_Types.end(); }
+
+  bool isValidType(const std::string&) const;
+
+  const std::string& getName() const { return m_Name; }
+
+  bool isDeclOnly() const { return m_IsDeclOnly; }
+
+  bool needForwardDecl() const { return m_NeedForwardDecl; }
+
+  const std::string& getAS() const { return m_AS; }
+
+  bool hasConst() const { return m_HasConst; }
+
+protected:
+  const OclBuiltinDB& m_DB;
+  const Record* m_Record;
+  std::string m_Name;
+  std::string m_CFunc;
+  bool m_IsDeclOnly;
+  bool m_NeedForwardDecl;
+  std::string m_AS;
+  bool m_HasConst;
+  std::vector<const OclType*> m_Types;
+  std::vector<const OclBuiltinAttr*> m_Attrs;
+  std::vector<std::pair<const OclType*, std::string> > m_Outputs;
+  std::vector<std::pair<const OclType*, std::string> > m_Inputs;
+};
+
+/// OclBuiltinImpl
+class OclBuiltinImpl {
+public:
+  explicit OclBuiltinImpl(const OclBuiltinDB&, const Record*);
+  virtual ~OclBuiltinImpl();
+
+  std::string getCImpl(const std::string&) const;
+
+  void appendImpl(const Record*);
+
+  const OclBuiltin* getOclBuiltin() const { return m_Proto; }
+
+protected:
+  const OclBuiltinDB& m_DB;
+  const OclBuiltin* m_Proto;
+
+
+  struct Impl {
+    const Record* m_Record;
+    std::vector<const OclType*> m_Types;
+    std::string m_Code;
+    bool m_IsDeclOnly;
+  };
+  std::vector<Impl*> m_Impls;
+};
+
+/// OclBuiltinDB
+class OclBuiltinDB {
+public:
+  explicit OclBuiltinDB(RecordKeeper&);
+  virtual ~OclBuiltinDB();
+
+  std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&) const;
+
+  std::string getNextNativeType(const std::string&) const;
+
+  std::string getVecType(const std::string&, int len) const;
+
+  std::string getExpandLoType(const std::string&) const;
+
+  std::string getExpandHiType(const std::string&) const;
+
+  const OclType* getOclType(const std::string&) const;
+
+  const OclBuiltin* getOclBuiltin(const std::string&) const;
+
+  const OclBuiltinImpl* getOclBuiltinImpl(const OclBuiltin*) const;
+
+  typedef std::map<std::string, OclBuiltin*>::const_iterator const_proto_iterator;
+
+  inline const_proto_iterator proto_begin() const { return m_ProtoMap.begin(); }
+  inline const_proto_iterator   proto_end() const { return m_ProtoMap.end(); }
+
+  const RecordKeeper& getRecords() const { return m_Records; }
+
+  const Record* getRecord() const { return m_Record; }
+
+  const std::string& getTarget() const { return m_Target; }
+
+  const std::string& getProlog() const { return m_Prolog; }
+
+  const std::string& getEpilog() const { return m_Epilog; }
+
+protected:
+  RecordKeeper& m_Records;
+  const Record* m_Record;
+  std::string m_Target;
+  std::string m_Prolog;
+  std::string m_Epilog;
+  std::map<std::string, OclType*> m_TypeMap;
+  std::map<std::string, OclBuiltin*> m_ProtoMap;
+  std::map<const OclBuiltin*, OclBuiltinImpl*> m_ImplMap;
+};
+
+/// OclBuiltinEmitter
+class OclBuiltinEmitter : public TableGenBackend {
+public:
+  explicit OclBuiltinEmitter(RecordKeeper&);
+
+  void run(raw_ostream&);
+
+protected:
+  RecordKeeper& m_Records;
+  OclBuiltinDB m_DB;
+};
+
+} // End namespace llvm
+
+#endif // OCLBUILTIN_EMITTER_H

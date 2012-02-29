@@ -56,6 +56,8 @@ endif ()
 # Project directories
 #
 
+add_subdirectory (utils/TableGen)
+
 # Implicit:
 #  cl_builtins_SOURCE_DIR - points to the top src directory
 #  cl_builtins_BINARY_DIR - points to the build directory
