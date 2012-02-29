@@ -240,6 +240,7 @@ set (OCL_UTILS_SOURCE_FILES
     UndefinedExternalFunctions.cpp
     PreventDivisionCrashes.cpp
     ProcessorDetect.cpp
+    ModuleCleanup.cpp
   )
 
 # Create target project

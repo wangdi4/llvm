@@ -65,6 +65,7 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> 
 llvm::ModulePass *createLocalBuffersPass();
 llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
 llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
 
@@ -366,6 +367,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createVerifierPass());
 #endif
   }
+
+    // Remove unneeded functions from the module. Currently run only under MIC
+    // *** keep this optimization last, or at least after function inlining! ***
+    if (!pConfig->GetLibraryModule() && pConfig->GetCpuId() == Intel::MIC_KNIGHTSFERRY)
+      m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 }
 
 void Optimizer::Optimize()
