@@ -215,6 +215,8 @@ ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
 {
+  bool cl_std_set = false;
+
 	// Reset options
 	OptDebugInfo = false;
 	Opt_Disable = false;
@@ -309,6 +311,21 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
             list.push_back("__FAST_RELAXED_MATH__=1");
             Fast_Relaxed_Math = true;
         }
+        else if (*opt_i == "-cl-kernel-arg-info") {
+          list.push_back("-cl-kernel-arg-info");
+        }
+        else if (*opt_i == "-cl-std=CL1.1") {
+          cl_std_set = true;
+          list.push_back("-cl-std=CL1.1");
+          list.push_back("-D");
+	        list.push_back("__OPENCL_C_VERSION__=110");
+        }
+        else if (*opt_i == "-cl-std=CL1.2") {
+          cl_std_set = true;
+          list.push_back("-cl-std=CL1.2");
+          list.push_back("-D");
+	        list.push_back("__OPENCL_C_VERSION__=120");
+        }
         else {
             ignored.push_back(*opt_i);
         }
@@ -317,6 +334,12 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     }
 
 	// Add standard OpenCL options
+
+  if(!cl_std_set) {
+    list.push_back("-cl-std=CL1.2");
+    list.push_back("-D");
+    list.push_back("__OPENCL_C_VERSION__=120");
+  }
 
 	list.push_back("-x");
 	list.push_back("cl");
@@ -377,11 +400,13 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
 	//Add OpenCL predefined macros
 	list.push_back("-D");
-	list.push_back("__OPENCL_VERSION__=110");
+	list.push_back("__OPENCL_VERSION__=120");
 	list.push_back("-D");
 	list.push_back("CL_VERSION_1_0=100");
 	list.push_back("-D");
 	list.push_back("CL_VERSION_1_1=110");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_2=120");
 	list.push_back("-D");
 	list.push_back("__ENDIAN_LITTLE__=1");
 	list.push_back("-D");
@@ -419,8 +444,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 	list.push_back("-triple");
 	list.push_back("x86_64-unknown-linux-gnu");
 #endif
-
-  list.push_back("-cl-kernel-arg-info");
 }
 
 int ClangFECompilerCompileTask::Compile()

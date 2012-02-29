@@ -142,18 +142,33 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     Module *pModule = func->getParent();
 
-    NamedMDNode *WGSH = pModule->getNamedMetadata("opencl.work_group_size_hints");
-        
-    if(WGSH) {
-      for(int i = 0, e = WGSH->getNumOperands() ; i < e ; i++ ) {
-        MDNode *elem = WGSH->getOperand(i);
-        if(func == dyn_cast<Function>(elem->getOperand(1))) {
-          hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(2))->getValue().getZExtValue();
-          hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(3))->getValue().getZExtValue();
-          hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(4))->getValue().getZExtValue();
-        }
+    NamedMDNode *KernelsMD = pModule->getNamedMetadata("opencl.kernels");
+
+    MDNode *FuncInfo = NULL; 
+    for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) {
+      FuncInfo = KernelsMD->getOperand(i);
+      Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
+
+      if(func == dyn_cast<Function>(field0))
+        break;
+    }
+
+    MDNode *MDWGSH = NULL;
+    //look for work group size hint metadata
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+      
+      if (tag->getString() == "work_group_size_hint") {
+        MDWGSH = tmpMD;
+        break;
       }
+    }
         
+    if(MDWGSH) {
+      hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(1))->getValue().getZExtValue();
+      hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(2))->getValue().getZExtValue();
+      hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(3))->getValue().getZExtValue();
       if(hintWGSize[0])
       {
         optWGSize = 1;
@@ -164,19 +179,24 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       }
     }
 
+
     // Set required WG size
-    NamedMDNode *RWGS = pModule->getNamedMetadata("opencl.reqd_work_group_sizes");
-        
-    if(RWGS) {
-      for(int i = 0, e = RWGS->getNumOperands() ; i < e ; i++ ) {
-        MDNode *elem = RWGS->getOperand(i);
-        if(func == dyn_cast<Function>(elem->getOperand(1))) {
-          reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(2))->getValue().getZExtValue();
-          reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(3))->getValue().getZExtValue();
-          reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(elem->getOperand(4))->getValue().getZExtValue();
-        }
+    MDNode *MDRWGS = NULL;
+    //look for work group size hint metadata
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+      
+      if (tag->getString() == "reqd_work_group_size") {
+        MDRWGS = tmpMD;
+        break;
       }
+    }
         
+    if(MDRWGS) {
+      reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(1))->getValue().getZExtValue();
+      reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(2))->getValue().getZExtValue();
+      reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(3))->getValue().getZExtValue();
       if(reqdWGSize[0])
       {
         optWGSize = 1;

@@ -1,5 +1,5 @@
 __constant int myglob = 333;
-__constant float hisglob;
+__constant float hisglob = 1.f;
 
 
 

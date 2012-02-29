@@ -84,11 +84,6 @@ extern "C" {
 
 #endif
 
-#define __global    __attribute__((address_space(1)))
-#define __constant  __attribute__((address_space(2)))
-#define __local     __attribute__((address_space(3)))
-
-
 
 #define OCL_SVML_P1_vFvF_ALL_MANUAL(func,svmlfunc)	\
 	OCL_SVML_P1_F1_F1(func,svmlfunc)				\

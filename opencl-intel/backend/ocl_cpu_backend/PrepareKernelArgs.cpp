@@ -46,6 +46,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_pLLVMContext = &M.getContext();
 
     NamedMDNode *KernelsMD = m_pModule->getNamedMetadata("opencl.kernels");
+
+    if (!KernelsMD)
+      return false;
+
     NamedMDNode *WrapperMD = m_pModule->getOrInsertNamedMetadata("opencl.wrappers");
     for(int i = 0, e = KernelsMD->getNumOperands(); i < e ; i++) {
       MDNode *elem = KernelsMD->getOperand(i);

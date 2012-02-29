@@ -109,7 +109,6 @@ set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1
 					  -x cl
 					  -O0
-					  -cl-kernel-arg-info
 					  -emit-pch 
 					  -I ${OCL_CLANG_HEADERS}
 					  )

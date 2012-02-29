@@ -161,276 +161,48 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-// Trunk version of parsing commented. Differences in arguments handling
-#if 0
-void CompilationUtils::parseKernelArguments(  Module* pModule, 
-                                              Function* pFunc, 
-                                              const std::string& args,
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments) {
-  // Check maximum number of arguments to kernel
-  unsigned int count = 0;
-
-  if(!args.empty())
-  {
-    std::string::size_type pos = 0;
-
-    pos = args.find(", ", 0);
-    while(pos != std::string::npos)
-    {
-      count++;
-      pos = args.find(", ", pos+1);
-      }
-    count ++;
-    }
-
-  // Check maximum number of arguments to kernel
-  NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.cl_kernel_arg_info");
-  
-  MDNode *FuncInfo = NULL; 
-  for(int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
-    FuncInfo = MDArgInfo->getOperand(i);
-    Value *field1 = FuncInfo->getOperand(1)->stripPointerCasts();
-
-    if(pFunc == dyn_cast<Function>(field1))
-      break;
-  }
- 
-  assert(FuncInfo);
-
-
-  MDNode *MDImgAccess = dyn_cast<MDNode>(FuncInfo->getOperand(3));
-  MDNode *MDTypeName  = dyn_cast<MDNode>(FuncInfo->getOperand(4));
-
-  if ( (CPU_KERNEL_MAX_ARG_COUNT + NUMBER_IMPLICIT_ARGS) < count )
-  {
-    throw Exceptions::CompilerException(std::string("Too many arguments in kernel<") + pFunc->getName().str() + ">" , CL_DEV_BUILD_ERROR);
-  }
-
-  size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
-  unsigned int localMemCount = 0;
-  std::string remArgString(args);
-  std::string currArgString;
-
-  llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
-  for (unsigned i=0; i<argsCount; ++i)
-  {
-    cl_kernel_argument curArg;
-
-    std::string::size_type pos = remArgString.find(", ", 0);
-    if(pos == std::string::npos)
-    {
-        currArgString = remArgString;
-        remArgString.clear();
-    }
-    else
-    {
-        currArgString = remArgString.substr(0, pos);
-        remArgString = remArgString.substr(pos + 2);
-    }
-
-    llvm::Argument* pArg = arg_it;
-    // Set argument sizes
-    switch (arg_it->getType()->getTypeID())
-    {
-    case llvm::Type::FloatTyID:
-        curArg.type = CL_KRNL_ARG_FLOAT;
-        curArg.size_in_bytes = sizeof(float);
-        break;
-
-    case llvm::Type::StructTyID:
-        {
-            llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
-            curArg.type = CL_KRNL_ARG_COMPOSITE;
-            TargetData targetData(pModule);
-            curArg.size_in_bytes = targetData.getTypeAllocSize(STy);
-            break;
-        }
-    case llvm::Type::PointerTyID:
-      {
-        const llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
-        if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
-        {
-          // Check by pointer vector passing, used in long16 and double16
-          const llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
-          unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
-          unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
-          if ( (uiElemSize*uiNumElem) > 4*16 )
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = uiNumElem & 0xFFFF;
-            curArg.size_in_bytes |= (uiElemSize << 16);
-            break;
-          }
-        }
-        curArg.size_in_bytes = 0;
-        // Detect pointer qualifier
-        StructType *ST = dyn_cast<StructType>(PTy->getElementType());
-        if(ST) {
-          const std::string &imgArg = ST->getName();
-          int inx = imgArg.find("struct._image");
-          if ( -1 != inx )    // Image identifier was found
-          {
-            // Get dimension of the image strlen("struct._image")
-            char dim = imgArg.at(13);
-            // Setup image pointer
-            ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i));
-            /// TODO: Enable 1.2 images and filling type accordingly if this code will be enabled
-            curArg.type = ('2' == dim ? CL_KRNL_ARG_PTR_IMG_2D : CL_KRNL_ARG_PTR_IMG_3D);
-            
-            curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
-        StructType *ST = dyn_cast<StructType>(PTy->getElementType());
-        if(ST) {
-          const std::string &imgArg = ST->getName();
-          if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
-          {
-            // Get dimension image type
-            if(imgArg.find("struct._image1d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-            else if(imgArg.find("struct._image1d_array_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-            else if(imgArg.find("struct._image1d_buffer_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-            else if (imgArg.find("struct._image2d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if (imgArg.find("struct._image2d_array_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if(imgArg.find("struct._image3d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
-            else
-                // User may specify structure with _image.
-                // So continue if we didn't find anything
-                continue;
-            // Setup image pointer
-            ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i));
-            
-            curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
-            break;
-          }
-            break;
-          }
-        }
-
-        switch (PTy->getAddressSpace())
-        {
-        case 0: case 1: // Global Address space
-          curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
-          //assert( ('2' == strArgs[i]) || ('1' == strArgs[i]) );
-          break;
-        case 2:
-          curArg.type = CL_KRNL_ARG_PTR_CONST;
-          //assert('8' == strArgs[i]);
-          break;
-        case 3: // Local Address space
-          curArg.type = CL_KRNL_ARG_PTR_LOCAL;
-          ++localMemCount;
-          //assert('9' == strArgs[i]);
-          break;
-
-        default:
-          assert(0);
-        }}
-        break;
-
-    case llvm::Type::IntegerTyID:
-        {
-          if (currArgString.find("sampler_t") != std::string::npos)
-          {
-            curArg.type = CL_KRNL_ARG_SAMPLER;
-            curArg.size_in_bytes = 0;
-          }
-#if (defined(_M_X64) || defined(__LP64__))
-      // In llvm 2.7 & 2.8 there is a workaroung passing short2/ushort2 as kernel parameters  (we pass them as i64)
-      // This is the conversion from i64 kernel parameter createwd bny clang instead of short2/ushort2 
-      // to the actual short2/ushort2 parameter
-          else if (currArgString.find("short2") != std::string::npos) // also works for ushort2
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = 2; // num elements
-            curArg.size_in_bytes |= sizeof(short) << 16; // size of single element
-          }
-      // In llvm 2.7 & 2.8 there is a workaroung passing char4/uchar4 as kernel parameters  (we pass them as i64)
-      // This is the conversion from i64 kernel parameter createwd bny clang instead of char4/uchar4 
-      // to the actual char4/uchar4 parameter
-          else if (currArgString.find("char4") != std::string::npos) // also works for uchar4
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = 4; // num elements
-            curArg.size_in_bytes |= sizeof(char) << 16; // size of single element
-          }
-#endif /*(defined(_M_X64) || defined(__LP64__) */
-          else
-          {
-            const llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
-            curArg.type = CL_KRNL_ARG_INT;
-            curArg.size_in_bytes = ITy->getBitWidth()/8;
-          }
-        }
-        break;
-
-    case llvm::Type::DoubleTyID:
-      curArg.type = CL_KRNL_ARG_DOUBLE;
-      curArg.size_in_bytes = sizeof(double);
-      break;
-
-    case llvm::Type::VectorTyID:
-      {
-        const llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
-        curArg.type = CL_KRNL_ARG_VECTOR;
-        curArg.size_in_bytes = (unsigned int)pVector->getNumElements();
-        curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
-      }
-      break;
-
-    default:
-      assert(0 && "Unhelded parameter type");
-    }
-    arguments.push_back(curArg);
-    ++arg_it;
-  }
-
-  if ( localMemCount > CPU_MAX_LOCAL_ARGS )
-  {
-      throw Exceptions::CompilerException("Too much local arguments count", CL_DEV_BUILD_ERROR);
-  }
-}
-
-#endif
-
-// Comment out current version of parsing. Use trunk instead
 void CompilationUtils::parseKernelArguments(  Module* pModule, 
                                               Function* pFunc, 
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments) {
   // Check maximum number of arguments to kernel
-  NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.cl_kernel_arg_info");
+  NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
 
   // TODO: this hack is ugly, need to find the right way to get arg info
   // for the vectorized functions (Guy)
-  if(pFunc->getName().startswith("____Vectorized_.")) {
+  if (pFunc->getName().startswith("____Vectorized_.")) {
     std::string scalarFuncName = pFunc->getName().slice(16,llvm::StringRef::npos).str();
     pFunc=pFunc->getParent()->getFunction("__" + scalarFuncName);
   }  
 
   MDNode *FuncInfo = NULL; 
-  for(int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
+  for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
     FuncInfo = MDArgInfo->getOperand(i);
-    Value *field1 = FuncInfo->getOperand(1)->stripPointerCasts();
+    Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
 
-    if(pFunc == dyn_cast<Function>(field1))
+    if(pFunc == dyn_cast<Function>(field0))
       break;
   }
  
   assert(FuncInfo);
 
-  //MDNode *MDAddrSpace = dyn_cast<MDNode>(FuncInfo->getOperand(2)); unused variable
-  MDNode *MDImgAccess = dyn_cast<MDNode>(FuncInfo->getOperand(3));
-  MDNode *MDTypeName  = dyn_cast<MDNode>(FuncInfo->getOperand(4));
-
-  if ( (CPU_KERNEL_MAX_ARG_COUNT + NUMBER_IMPLICIT_ARGS) < MDTypeName->getNumOperands() )
-  {
-    throw Exceptions::CompilerException(std::string("Too many arguments in kernel<") + pFunc->getName().str() + ">" , CL_DEV_BUILD_ERROR);
+  MDNode *MDImgAccess = NULL;
+  //look for image access metadata
+  for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+    MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+    MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+    
+    if (tag->getString() == "image_access_qualifier") {
+      MDImgAccess = tmpMD;
+      break;
+    }
   }
 
   size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
+
+  // This check is wrong - CPU_KERNEL_MAX_ARG_COUNT is meaningless.
+  //if (CPU_KERNEL_MAX_ARG_COUNT < argsCount)
+  //  throw Exceptions::CompilerException(std::string("Too many arguments in kernel<") + pFunc->getName().str() + ">" , CL_DEV_BUILD_ERROR);
+
   unsigned int localMemCount = 0;
 
   llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
@@ -479,18 +251,31 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         StructType *ST = dyn_cast<StructType>(PTy->getElementType());
         if(ST) {
           const std::string &imgArg = ST->getName();
-          int inx = imgArg.find("struct._image");
-          if ( -1 != inx )    // Image identifier was found
+          if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
           {
-            // Get dimension of the image strlen("struct._image")
-            char dim = imgArg.at(13);
+            curArg.type = CL_KRNL_ARG_INT;
+
+            // Get dimension image type
+            if(imgArg.find("struct._image1d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
+            else if(imgArg.find("struct._image1d_array_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
+            else if(imgArg.find("struct._image1d_buffer_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
+            else if (imgArg.find("struct._image2d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+            else if (imgArg.find("struct._image2d_array_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+            else if(imgArg.find("struct._image3d_t") != std::string::npos)
+                curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
+
             // Setup image pointer
-            ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i));
-            
-            curArg.type = ('2' == dim ? CL_KRNL_ARG_PTR_IMG_2D : CL_KRNL_ARG_PTR_IMG_3D);
-            
-            curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
-            break;
+            if(curArg.type != CL_KRNL_ARG_INT) {
+              ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
+              
+              curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
+              break;
+            }
           }
         }
 
@@ -498,9 +283,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         llvm::Type *Ty = PTy->getContainedType(0);
         if ( true == Ty->isStructTy() ) // struct or struct*
         {
-          std::string TypeName = dyn_cast<MDString>(MDTypeName->getOperand(i))->getString().str();
-          int inx = TypeName.find("*");
-          if( -1 == inx ) //We're dealing with real struct and not struct pointer
+          if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
           {
             llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
             TargetData targetData(pModule);
@@ -514,16 +297,13 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         {
         case 0: case 1: // Global Address space
           curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
-          //assert( ('2' == strArgs[i]) || ('1' == strArgs[i]) );
           break;
         case 2:
           curArg.type = CL_KRNL_ARG_PTR_CONST;
-          //assert('8' == strArgs[i]);
           break;
         case 3: // Local Address space
           curArg.type = CL_KRNL_ARG_PTR_LOCAL;
           ++localMemCount;
-          //assert('9' == strArgs[i]);
           break;
 
         default:
@@ -533,32 +313,12 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
     case llvm::Type::IntegerTyID:
         {
-          std::string TypeName = dyn_cast<MDString>(MDTypeName->getOperand(i))->getString().str();
-          if (TypeName.find("sampler_t") != std::string::npos)
+          ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
+          if (access->getValue().getSExtValue() == -1) //sampler_t
           {
             curArg.type = CL_KRNL_ARG_SAMPLER;
             curArg.size_in_bytes = 0;
           }
-#if (defined(_M_X64) || defined(__LP64__))
-      // In llvm 2.7 & 2.8 there is a workaroung passing short2/ushort2 as kernel parameters  (we pass them as i64)
-      // This is the conversion from i64 kernel parameter createwd bny clang instead of short2/ushort2 
-      // to the actual short2/ushort2 parameter
-          else if (TypeName.find("short2") != std::string::npos) // also works for ushort2
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = 2; // num elements
-            curArg.size_in_bytes |= sizeof(short) << 16; // size of single element
-          }
-      // In llvm 2.7 & 2.8 there is a workaroung passing char4/uchar4 as kernel parameters  (we pass them as i64)
-      // This is the conversion from i64 kernel parameter createwd bny clang instead of char4/uchar4 
-      // to the actual char4/uchar4 parameter
-          else if (TypeName.find("char4") != std::string::npos) // also works for uchar4
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = 4; // num elements
-            curArg.size_in_bytes |= sizeof(char) << 16; // size of single element
-          }
-#endif /*(defined(_M_X64) || defined(__LP64__) */
           else
           {
             llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());

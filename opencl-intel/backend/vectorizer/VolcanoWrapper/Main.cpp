@@ -120,49 +120,42 @@ bool Vectorizer::runOnModule(Module &M)
       return false;
     }
 
-    NamedMDNode *pVecTypeMetadata = M.getNamedMetadata("opencl.vec_type_hints");
- 
-        // List all kernels in module
-        for (unsigned i = 0, e = m_numOfKernels; i != e; ++i)
-        {
-            MDNode *elt = pOpenCLMetadata->getOperand(i);
-            Value *field0 = elt->getOperand(0)->stripPointerCasts();
-            if (Function *F = dyn_cast<Function>(field0))
-            {
-                // Check for existance of vector-width hint
-                bool disableVect = false;
-                if(pVecTypeMetadata)
-                {
-                    for(unsigned j = 0, e2 = pVecTypeMetadata->getNumOperands(); j != e2; ++j)
-                    {
-                        MDNode *VTelt = pVecTypeMetadata->getOperand(j);
-                        Value *field1 = VTelt->getOperand(1)->stripPointerCasts();
-                        if(F == dyn_cast<Function>(field1))
-                        {
-                            MDString *VTHMDStr = dyn_cast<MDString>(VTelt->getOperand(2));
-                            std::string vecTypeHint = VTHMDStr->getString().str();
-                            disableVect = ((vecTypeHint != "")      && 
-                                           (vecTypeHint != "int")   && (vecTypeHint !="uint")    && 
-                                           (vecTypeHint != "float") &&
-                                           (vecTypeHint != "char")  && (vecTypeHint != "uchar")  && 
-                                           (vecTypeHint != "short") && (vecTypeHint != "ushort") && 
-                                           (vecTypeHint != "long")  && (vecTypeHint != "ulong")  &&
-                                           (vecTypeHint != "double"));
-                        }
-                    }
-                }
+    NamedMDNode *KernelsMD = M.getNamedMetadata("opencl.kernels");
 
-                // Only add kernels to list, if they have scalar vec-type hint (or none)
-                if (!disableVect)
-                {
-                    m_scalarFuncsList.push_back(F);
-                }
-                else
-                {
-                    m_scalarFuncsList.push_back(NULL);
-                }
-            }
+    for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) {
+      MDNode *FuncInfo = KernelsMD->getOperand(i);
+      Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
+      Function *F = dyn_cast<Function>(field0);
+      bool disableVect = false;
+
+      //look for vector type hint metadata
+      for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+        MDNode *MDVTH = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+        MDString *tag = dyn_cast<MDString>(MDVTH->getOperand(0));
+        
+        if (tag->getString() == "vec_type_hint") {
+          // extract type
+          Type *VTHTy = MDVTH->getOperand(1)->getType();
+
+          if (!VTHTy->isFloatTy()     &&
+              !VTHTy->isDoubleTy()    &&
+              !VTHTy->isIntegerTy(8)  &&
+              !VTHTy->isIntegerTy(16) &&
+              !VTHTy->isIntegerTy(32) &&
+              !VTHTy->isIntegerTy(64)) {
+            disableVect = true;
+          }
+          break;
         }
+      }
+
+      // Only add kernels to list, if they have scalar vec-type hint (or none)
+      if (!disableVect)
+        m_scalarFuncsList.push_back(F);
+      else
+        m_scalarFuncsList.push_back(NULL);
+    }
+
 
         // Clone all kernels
         funcsVector::iterator fi = m_scalarFuncsList.begin();

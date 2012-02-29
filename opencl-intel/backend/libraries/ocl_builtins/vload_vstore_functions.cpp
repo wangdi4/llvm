@@ -230,7 +230,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 }
 
 #define DEF_VLOADVSTORE_PROTOV_X_X_Y(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, VEC)\
-	_##VEC##TI##NUM __attribute__((overloadable)) FUNC##VEC(size_t offset,const SIGN SIZ __attribute__((address_space(ADR))) *ptr)\
+	_##VEC##TI##NUM __attribute__((overloadable)) FUNC##VEC(size_t offset,const ADR SIGN SIZ *ptr)\
 	{\
 		void* pSrc = ((char*)ptr + (offset * VEC * sizeof(SIZ)));\
 		_##VEC##TI##NUM res;\
@@ -246,7 +246,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	DEF_VLOADVSTORE_PROTOV_X_X_Y(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, 16)
 
 #define DEF_VLOADVSTORE_PROTOFV_X_X_Y(FUNC, TYP, ADR, VEC)\
-	float##VEC __attribute__((overloadable)) FUNC##VEC(size_t offset, const float __attribute__((address_space(ADR))) *ptr)\
+	float##VEC __attribute__((overloadable)) FUNC##VEC(size_t offset, const ADR float *ptr)\
 	{\
 		const void *pSrc = ((char*)ptr + (offset * VEC * sizeof(float)));\
 		float##VEC res;\
@@ -255,7 +255,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	}
 
 #define DEF_VLOADVSTORE_PROTODV_X_X_Y(FUNC, TYP, ADR, VEC)\
-	double##VEC __attribute__((overloadable)) FUNC##VEC(size_t offset, const double __attribute__((address_space(ADR))) *ptr)\
+	double##VEC __attribute__((overloadable)) FUNC##VEC(size_t offset, const ADR double *ptr)\
 	{\
 		const void *pSrc = ((char*)ptr + (offset * VEC * sizeof(double)));\
 		double##VEC res;\
@@ -276,15 +276,15 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	DEF_VLOADVSTORE_PROTODV_X_X_Y(FUNC, TYP, ADR, 16)
 
 #define DEF_VLOADVSTORE_PROTO_HALF_X_X_Y(A, TYP, ADR, Alligned)\
-	float __attribute__((overloadable))  vload##A##_half(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float __attribute__((overloadable))  vload##A##_half(size_t offset,const ADR half *ptr)\
 	{\
 		return HalfToFloat(ptr[offset]);\
 	}\
-	float4 __attribute__((overloadable))  vload##A##_half4(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float4 __attribute__((overloadable))  vload##A##_half4(size_t offset,const ADR half *ptr)\
 	{\
 		return Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)(ptr + 4*offset)));\
 	}\
-	float3 __attribute__((overloadable))  vload##A##_half3(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float3 __attribute__((overloadable))  vload##A##_half3(size_t offset,const ADR half *ptr)\
 	{\
 		if( Alligned )\
 		{\
@@ -297,24 +297,24 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 			return temp.s012;\
 		}\
 	}\
-	float2 __attribute__((overloadable))  vload##A##_half2(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float2 __attribute__((overloadable))  vload##A##_half2(size_t offset,const ADR half *ptr)\
 	{\
 		float4 temp = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)(ptr + 2*offset)));\
 		return temp.lo;\
 	}\
-	float8 __attribute__((overloadable))  vload##A##_half8(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float8 __attribute__((overloadable))  vload##A##_half8(size_t offset,const ADR half *ptr)\
 	{\
 		float8 res;\
-		const half __attribute__((address_space(ADR))) *p = ptr + (offset * 8);\
+		const ADR half *p = ptr + (offset * 8);\
 		res.lo = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
 		p = p + 4;\
 		res.hi = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
 		return res;\
 	}\
-	float16 __attribute__((overloadable))  vload##A##_half16(size_t offset,const half __attribute__((address_space(ADR))) *ptr)\
+	float16 __attribute__((overloadable))  vload##A##_half16(size_t offset,const ADR half *ptr)\
 	{\
 		float16 res;\
-		const half __attribute__((address_space(ADR))) *p = ptr + (offset * 16);\
+		const ADR half *p = ptr + (offset * 16);\
 		res.lo.lo = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
 		p = p + 4;\
 		res.lo.hi = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
@@ -326,7 +326,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	}
 
 #define DEF_VLOADVSTORE_PROTO8V_X_X_X(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, VEC)\
-	void __attribute__((overloadable)) FUNC##VEC(_##VEC##TI##NUM data, size_t offset, SIGN SIZ __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable)) FUNC##VEC(_##VEC##TI##NUM data, size_t offset, ADR SIGN SIZ *ptr)\
 	{\
 		void* pDst = ((char*)ptr + (offset * VEC * sizeof(SIZ)));\
 		memcpy(pDst, (const void*)&data, VEC * sizeof(SIZ));\
@@ -340,14 +340,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	DEF_VLOADVSTORE_PROTO8V_X_X_X(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, 16)
 
 #define DEF_VLOADVSTORE_PROTOFV_X_X_X(FUNC, TYP, ADR, VEC)\
-	void __attribute__((overloadable)) FUNC##VEC(float##VEC data, size_t offset, float __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable)) FUNC##VEC(float##VEC data, size_t offset, ADR float *ptr)\
 	{\
 		void* pDst = ((char*)ptr + (offset * VEC * sizeof(float)));\
 		memcpy(pDst, (const void*)&data, VEC * sizeof(float));\
 	}
 
 #define DEF_VLOADVSTORE_PROTODV_X_X_X(FUNC, TYP, ADR, VEC)\
-	void __attribute__((overloadable)) FUNC##VEC(double##VEC data, size_t offset, double __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable)) FUNC##VEC(double##VEC data, size_t offset, ADR double *ptr)\
 	{\
 		void* pDst = ((char*)ptr + (offset * VEC * sizeof(double)));\
 		memcpy(pDst, (const void*)&data, VEC * sizeof(double));\
@@ -366,14 +366,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	DEF_VLOADVSTORE_PROTODV_X_X_X(FUNC, TYP, ADR, 16)
 
 #define DEF_VLOADVSTORE_PROTO_RTX_HALF_X_X_X(RMODE, A, TYP, ADR, Alligned)\
-	void __attribute__((overloadable))  vstore##A##_half##RMODE(float data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half##RMODE(float data, size_t offset, ADR half *ptr)\
 	{\
 		float4 f4;\
 		f4.s0 = data;\
 		f4 = _intel_ocl_float2half##RMODE(f4);\
 		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half2##RMODE(float2 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half2##RMODE(float2 data, size_t offset, ADR half *ptr)\
 	{\
 		float4 f4;\
 		f4.lo = data;\
@@ -381,7 +381,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		f4 = _intel_ocl_float2half##RMODE(f4);\
 		*((float*)ptr) = f4.s0;\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half3##RMODE(float3 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half3##RMODE(float3 data, size_t offset, ADR half *ptr)\
 	{\
 		float4 f4;\
 		f4.s012 = data;\
@@ -400,13 +400,13 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	}\
 	/* !!! This function is copy-pasted to images module
 	In case of any changes they should also be done in image_callback_functions.cpp */\
-	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
 		data = _intel_ocl_float2half##RMODE(data);\
 		*((float2 *)ptr) = data.lo;\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half8##RMODE(float8 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half8##RMODE(float8 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*8);\
 		data.lo = _intel_ocl_float2half##RMODE(data.lo);\
@@ -417,7 +417,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		else\
 			_mm_storeu_ps((float*)ptr, data.lo);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half16##RMODE(float16 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half16##RMODE(float16 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*16);\
 		data.lo.lo = _intel_ocl_float2half##RMODE(data.lo.lo);\
@@ -436,20 +436,20 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		else\
 		_mm_storeu_ps((float*)ptr, data.hi.lo);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half##RMODE(double data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half##RMODE(double data, size_t offset, ADR half *ptr)\
 	{\
 		double2 d2 = (double2)(0.0);\
 		d2.x = data;\
 		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(d2);\
 		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half2##RMODE(double2 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half2##RMODE(double2 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*2);\
 		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(data);\
 		*((float*)ptr) = f4.s0;\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half3##RMODE(double3 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half3##RMODE(double3 data, size_t offset, ADR half *ptr)\
 	{\
 		float4 t1, t2, f4;\
 		t1 = _intel_ocl_double2ToHalf2##RMODE(data.xy);\
@@ -468,7 +468,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 			((short *)ptr)[2] = (short)_mm_extract_epi16( (__m128i)f4, 2);\
 		}\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half4##RMODE(double4 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half4##RMODE(double4 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
 		float4 t1, t2, f4;\
@@ -478,7 +478,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		f4.y = t2.x;\
 		_mm_storel_epi64((__m128i*)ptr, (__m128i)f4);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half8##RMODE(double8 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half8##RMODE(double8 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*8);\
 		float8 f8;\
@@ -496,7 +496,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		else\
 			_mm_storeu_ps((float*)ptr, f8.lo);\
 	}\
-	void __attribute__((overloadable))  vstore##A##_half16##RMODE(double16 data, size_t offset, half __attribute__((address_space(ADR))) *ptr)\
+	void __attribute__((overloadable))  vstore##A##_half16##RMODE(double16 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*16);\
 		float16 f16;\
@@ -567,14 +567,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	DEF_VLOADVSTORE_PROTO_RTX_HALF_X_X_X(_rtp, a, TYP, ADR, true)
 
 
-DEF_LOAD_ALL( ,0)
-DEF_LOAD_ALL(l,3)
-DEF_LOAD_ALL(g,1)
-DEF_LOAD_ALL(c,2)
+DEF_LOAD_ALL( , )
+DEF_LOAD_ALL(l,__local)
+DEF_LOAD_ALL(g,__global)
+DEF_LOAD_ALL(c,__constant)
 
-DEF_STORE_ALL( ,0)
-DEF_STORE_ALL(l,3)
-DEF_STORE_ALL(g,1)
+DEF_STORE_ALL( , )
+DEF_STORE_ALL(l,__local)
+DEF_STORE_ALL(g,__global)
 
 #ifdef __cplusplus
 }

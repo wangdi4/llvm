@@ -1,4 +1,3 @@
-;XFAIL: *
 ;RUN: python %S/../test_deploy.py %s.cl .
 ;RUN: python %S/../test_deploy.py ../../lib/libOclCpuBackEnd.so ../../bin
 ;RUN: SATest -OCL -BUILD -config=%s.cfg
