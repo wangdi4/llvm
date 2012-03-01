@@ -5,8 +5,9 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+cnf] [+cnf12] [-cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] [build_type]
+rem    gen_vc_project [+smpls] [+cnf] [+cnf12] [-cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] [build_type]
 rem
+rem  +smpls         - include samples tests
 rem  +cnf           - include conformance 1.1 tests into solution
 rem  +cnf12         - include conformance 1.2 tests into solution
 rem  -cmrt          - remove Common Runtime from the solution
@@ -28,6 +29,7 @@ cd "%script_dir%\..\..\"
 set top_dir= %CD%
 
 
+set incl_smpls=OFF
 set incl_conf=OFF
 set incl_conf12=OFF
 set incl_cmrt=ON
@@ -47,9 +49,12 @@ set build_type=
 	) else if x%1 == x+cnf12 (
 		set incl_cnf12=ON
 		echo Include CNF 1.2
-	)else if x%1 == x-cmrt (
+	) else if x%1 == x-cmrt (
 		set incl_cmrt=OFF
 		echo Include GEN
+    ) else if x%1 == x+smpls (
+		set incl_smpls=ON
+		echo Include Samples
 	) else if x%1 == x+java (
 		set incl_java=ON
 		echo Include Java
@@ -111,7 +116,7 @@ if %use_x64% == ON set BUILD_CONFIG=win64
 
 set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_d3d9 test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
 
-cmake -G %GEN_VERSION% -D PYTHON_EXECUTABLE="C:\Python27\python.exe" -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type%  -DLLVM_USE_INTEL_JITEVENTS:BOOL=ON -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ %top_dir%\src
+cmake -G %GEN_VERSION% -D PYTHON_EXECUTABLE="C:\Python27\python.exe" -D INCLUDE_SMPLS=%incl_smpls% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type%  -DLLVM_USE_INTEL_JITEVENTS:BOOL=ON -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ %top_dir%\src
 if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
