@@ -27,3 +27,8 @@ if (WIN32 AND INCLUDE_CMRT)
     add_subdirectory ( common_runtime_test_type )
 endif(WIN32 AND INCLUDE_CMRT)
 
+#Samples
+option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
+if (INCLUDE_SMPLS)
+    add_subdirectory( samples_tests )
+endif(INCLUDE_SMPLS)
