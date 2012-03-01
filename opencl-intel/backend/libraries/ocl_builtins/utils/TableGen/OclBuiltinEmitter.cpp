@@ -268,8 +268,9 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Outs = R->getValueAsDag("Outs");
     assert(Outs && "Invalid OclBuiltin record without outs.");
 
-    DefInit* OutOp = dynamic_cast<DefInit*>(Outs->getOperator());
-    assert(OutOp && OutOp->getDef()->getName() == "outs" && "Invalid OclBuiltin record with invalid outputs.");
+    assert(dynamic_cast<DefInit*>(Outs->getOperator()) && 
+      dynamic_cast<DefInit*>(Outs->getOperator())->getDef()->getName() == "outs" && 
+      "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Outs->getArg(i))->getDef()->getName());
@@ -283,8 +284,9 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Ins = R->getValueAsDag("Ins");
     assert(Ins && "Invalid OclBuiltin record without ins.");
 
-    DefInit* InOp = dynamic_cast<DefInit*>(Ins->getOperator());
-    assert(InOp && InOp->getDef()->getName() == "ins" && "Invalid OclBuiltin record with invalid outputs.");
+    assert(dynamic_cast<DefInit*>(Ins->getOperator()) && 
+      dynamic_cast<DefInit*>(Ins->getOperator())->getDef()->getName() == "ins" && 
+      "Invalid OclBuiltin record with invalid outputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Ins->getArg(i))->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
