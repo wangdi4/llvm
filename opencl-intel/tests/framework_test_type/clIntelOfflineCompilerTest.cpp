@@ -257,7 +257,7 @@ TEST(IocTests, llvmAndAsmCreation){
 	
 	runIoc("-input=" + kernelName + ".cl -asm -llvm");
 	
-	string files[] = {kernelName + ".asm", kernelName + ".bc"};
+	string files[] = {kernelName + ".asm", kernelName + ".ll"};
 	ASSERT_NO_FATAL_FAILURE(validateSubstringInFile(files[0], inAsm, true));
 	ASSERT_NO_FATAL_FAILURE(validateSubstringInFile(files[1], inLlvm, true));
 	
