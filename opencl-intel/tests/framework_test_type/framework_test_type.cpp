@@ -61,6 +61,10 @@ TEST(FrameworkTestType, Test_clCreateKernelTest)
     EXPECT_TRUE(clCreateKernelTest());
 }
 
+TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
+{
+    EXPECT_TRUE(clGetKernelArgInfoTest());
+}
 
 TEST(FrameworkTestType, Test_clCreateBufferTest)
 {

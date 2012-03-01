@@ -25,6 +25,10 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
                          Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
 
+        int GetKernelArgInfo(const void*        pBin,
+                             const char*        szKernelName,
+                             Intel::OpenCL::FECompilerAPI::FEKernelArgInfo*   *pArgInfo);
+
 		void Release()
 		{
 			delete this;

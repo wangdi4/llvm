@@ -21,8 +21,25 @@
 #pragma once
 
 #include <stddef.h>
+#include <CL/cl.h>
 
 namespace Intel { namespace OpenCL { namespace FECompilerAPI {
+
+#define CL_FE_INTERNAL_ERROR_OHNO -1    //thanks to doron for the awesome name
+
+class FEKernelArgInfo
+{
+public:
+    virtual unsigned int getNumArgs() const = 0;
+    virtual const char* getArgName(unsigned int index) const = 0;
+    virtual const char* getArgTypeName(unsigned int index) const = 0;
+    virtual cl_kernel_arg_address_qualifier getArgAdressQualifier(unsigned int index) const = 0;
+    virtual cl_kernel_arg_access_qualifier getArgAccessQualifier(unsigned int index) const = 0;
+    virtual cl_kernel_arg_type_qualifier getArgTypeQualifier(unsigned int index) const = 0;
+
+    // release result
+	virtual long Release() = 0;
+};
 
 // Compile task descriptor, contains FE compilation info
 struct	FECompileProgramDescriptor
@@ -70,17 +87,29 @@ public:
 class IOCLFECompiler
 {
 public:
-    // Syncronious function
+    // Synchronous function
 	// Input: pProgDesc - descriptor of the program to compile
 	// Output: The inerface to build result
 	// Returns: Compile status
     virtual int CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
-    // Syncronious function
+    // Synchronous function
 	// Input: pProgDesc - descriptor of the programs to link
 	// Output: The inerface to link result
 	// Returns: Link status
     virtual int LinkPrograms(FELinkProgramsDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
+
+    // Synchronous function
+	// Input: pBin - the program's binary including the header
+    //        szKernelName - the name of the kernel for which we query the arg info
+	// Output: The interface to kernelArgInfo result
+	// Returns: CL_SUCCESS in case of success
+    //          CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
+    //          CL_OUT_OF_HOST_MEMORY for out of host memory
+    //          CL_FE_INTERNAL_ERROR_OHNO for internal errors (should never happen)
+    virtual int GetKernelArgInfo(const void*        pBin,
+                                 const char*        szKernelName,
+                                 FEKernelArgInfo*   *pArgInfo) = 0;
 
 	// release compiler instance
 	virtual void Release() = 0;

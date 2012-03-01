@@ -29,6 +29,7 @@
 #include "Context.h"
 #include "program.h"
 #include "cl_sys_defines.h"
+#include "fe_compiler.h"
 #include <cl_objects_map.h>
 #include <Device.h>
 #include <assert.h>
@@ -58,6 +59,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
     m_sKernelPrototype.m_psKernelName = NULL;
 	m_sKernelPrototype.m_uiArgsCount  = 0;
 	m_sKernelPrototype.m_pArgs        = NULL;
+    m_sKernelPrototype.m_pArgsInfo    = NULL;
 
 	if (NULL == m_pKernel || NULL == m_pDevice || NULL == psKernelName || CL_INVALID_HANDLE == devProgramId)
 	{
@@ -116,7 +118,28 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 	{
 		*pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
 		return;
-	}
+    }
+    
+    const FrontEndCompiler* pFECompiler = m_pDevice->GetRootDevice()->GetFrontEndCompiler();
+    cl_device_id devID = (cl_device_id)m_pDevice->GetHandle();
+    const char* pBin = m_pKernel->m_pProgram->GetBinaryInternal(devID);
+
+    cl_err_code clErrCode = pFECompiler->GetKernelArgInfo(pBin, psKernelName, &m_sKernelPrototype.m_pArgsInfo, NULL);
+    if (CL_KERNEL_ARG_INFO_NOT_AVAILABLE == clErrCode)
+    {
+        // No kernel arg info, so just ignore.
+        m_sKernelPrototype.m_pArgsInfo = NULL;
+        return;
+    }
+
+    if (CL_OUT_OF_HOST_MEMORY == clErrCode)
+    {
+        m_sKernelPrototype.m_pArgsInfo = NULL;
+        *pErr = CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+
+    assert((CL_SUCCESS == clErrCode) && "other error codes indicates logical errors and should never accure");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -840,6 +863,35 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	size_t stParamSize;
 	const void* pValue;
 
+    CL_KERNEL_ARG_INFO* pKernelArgInfo = NULL;
+
+    // find a valid device kernel
+    for (cl_uint i = 0; i < m_szAssociatedDevices; ++i)
+    {
+        if (NULL == m_ppDeviceKernels[i])
+        {
+            continue;
+        }
+
+        if (NULL == m_ppDeviceKernels[i]->GetPrototype().m_pArgsInfo)
+        {
+            continue;
+        }
+
+        if (argIndx >= m_ppDeviceKernels[i]->GetPrototype().m_uiArgsCount)
+        {
+            return CL_INVALID_ARG_INDEX;
+        }
+
+        pKernelArgInfo = m_ppDeviceKernels[i]->GetPrototype().m_pArgsInfo;
+        break;
+    }
+
+    if (!pKernelArgInfo)
+    {
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+    }
+
     if  (!pszParamValueSizeRet && !pParamValue)
     {
         return CL_INVALID_VALUE;
@@ -852,9 +904,25 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	// Initial implementation requried by the common runtime
 	switch ( paramName )
 	{
-	case CL_KERNEL_ARG_TYPE_NAME:
-		pValue = g_szArgTypeNames[m_sKernelPrototype.m_pArgs[argIndx].type];
-		stParamSize = strlen((const char*)pValue);      
+	case CL_KERNEL_ARG_NAME:
+        pValue = pKernelArgInfo[argIndx].name;
+		stParamSize = strlen((const char*)pValue) + 1;      
+		break;
+    case CL_KERNEL_ARG_TYPE_NAME:
+        pValue = pKernelArgInfo[argIndx].typeName;
+		stParamSize = strlen((const char*)pValue) + 1;      
+		break;
+    case CL_KERNEL_ARG_ADDRESS_QUALIFIER:
+        pValue = &(pKernelArgInfo[argIndx].adressQualifier);
+		stParamSize = sizeof(cl_kernel_arg_address_qualifier);      
+		break;
+    case CL_KERNEL_ARG_ACCESS_QUALIFIER:
+        pValue = &(pKernelArgInfo[argIndx].accessQualifier);
+		stParamSize = sizeof(cl_kernel_arg_access_qualifier);       
+		break;
+    case CL_KERNEL_ARG_TYPE_QUALIFIER:
+        pValue = &(pKernelArgInfo[argIndx].typeQualifier);
+        stParamSize = sizeof(cl_kernel_arg_type_qualifier);      
 		break;
 	default:
 		return CL_INVALID_VALUE;        
@@ -862,10 +930,9 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
     
     if (NULL != pParamValue)
     {
-	    if (szParamValueSize >= (stParamSize+1))
+	    if (szParamValueSize >= stParamSize)
 	    {
 		    MEMCPY_S(pParamValue, szParamValueSize, pValue, stParamSize);
-            ((char*)pParamValue)[stParamSize] = '\0';
 	    }
         else
         {
@@ -875,7 +942,8 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	
     if ( NULL != pszParamValueSizeRet )
 	{
-		*pszParamValueSizeRet = stParamSize+1;
+		*pszParamValueSizeRet = stParamSize;
 	}
+
 	return CL_SUCCESS;
 }

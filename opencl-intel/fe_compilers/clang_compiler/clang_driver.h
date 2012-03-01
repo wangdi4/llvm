@@ -32,6 +32,15 @@
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
+    struct ARG_INFO
+    {
+        char* name;
+        char* typeName;
+        cl_kernel_arg_address_qualifier adressQualifier;
+        cl_kernel_arg_access_qualifier accessQualifier;
+        cl_kernel_arg_type_qualifier typeQualifier;
+    };
+
 	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
 	{
 	public:
@@ -113,4 +122,27 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool bFastRelaxedMathFlag;
         bool bEnableLinkOptionsFlag;
 	};
+    class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo
+    {
+    public:
+        ClangFECompilerGetKernelArgInfoTask();
+
+        int GetKernelArgInfo(const void*    pBin,
+                             const char*    szKernelName);
+
+        unsigned int getNumArgs() const { return m_numArgs; }
+        const char* getArgName(unsigned int index) const { return m_argsInfo[index].name; }
+        const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName; }
+        cl_kernel_arg_address_qualifier getArgAdressQualifier(unsigned int index) const { return m_argsInfo[index].adressQualifier; }
+        cl_kernel_arg_access_qualifier getArgAccessQualifier(unsigned int index) const { return m_argsInfo[index].accessQualifier; }
+        cl_kernel_arg_type_qualifier getArgTypeQualifier(unsigned int index) const { return m_argsInfo[index].typeQualifier; }
+
+        long Release() { delete this; return 0;}
+    protected:
+        ~ClangFECompilerGetKernelArgInfoTask();
+
+        unsigned int    m_numArgs;
+        ARG_INFO*       m_argsInfo;
+    };
+
 }}}

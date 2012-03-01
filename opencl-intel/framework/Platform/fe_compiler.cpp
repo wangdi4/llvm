@@ -229,3 +229,126 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 
 	return CL_SUCCESS;
 }
+
+
+cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin, 
+                                               const char*          szKernelName, 
+                                               CL_KERNEL_ARG_INFO** ppArgInfo,
+                                               unsigned int*        puiNumArgs) const
+{
+    LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%d, szKernelName=%d, ppArgInfo=%d, puiNumArgs=%d)"),
+		pBin, szKernelName, ppArgInfo, puiNumArgs);
+
+    if (NULL == pBin)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    if (NULL == szKernelName)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    if ((NULL == ppArgInfo) && (NULL == puiNumArgs))
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    FEKernelArgInfo* pResult;
+
+    int err = m_pFECompiler->GetKernelArgInfo(pBin, szKernelName, &pResult);
+
+    if ( CL_SUCCESS != err )
+	{
+        if (NULL != puiNumArgs)
+        {
+            *puiNumArgs = 0;
+        }
+
+        if (NULL != ppArgInfo)
+        {
+            *ppArgInfo = NULL;
+        }
+
+        pResult->Release();
+
+        return err;
+	}
+
+    unsigned int uiNumArgs = pResult->getNumArgs();
+
+    if (NULL != puiNumArgs)
+    {
+        *puiNumArgs = uiNumArgs;
+    }
+
+    if (NULL != ppArgInfo)
+    {
+        CL_KERNEL_ARG_INFO* pKernelArgInfo = new CL_KERNEL_ARG_INFO[uiNumArgs];
+        if (NULL == pKernelArgInfo)
+        {
+            *ppArgInfo = NULL;
+            pResult->Release();
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+
+        bool bFail = false;
+
+        for (unsigned int i = 0; i < uiNumArgs; ++i)
+        {
+            pKernelArgInfo[i].adressQualifier = pResult->getArgAdressQualifier(i);
+            pKernelArgInfo[i].accessQualifier = pResult->getArgAccessQualifier(i);
+            pKernelArgInfo[i].typeQualifier = pResult->getArgTypeQualifier(i);
+
+            size_t uiNameLength = strlen(pResult->getArgName(i)) + 1;
+            size_t uiTypeNameLength = strlen(pResult->getArgTypeName(i)) + 1;
+
+            pKernelArgInfo[i].name = new char[uiNameLength];
+            if (!pKernelArgInfo[i].name)
+            {
+                bFail = true;
+                break;
+            }
+
+            pKernelArgInfo[i].typeName = new char[uiTypeNameLength];
+            if (!pKernelArgInfo[i].typeName)
+            {
+                bFail = true;
+                break;
+            }
+
+            STRCPY_S(pKernelArgInfo[i].name, uiNameLength, pResult->getArgName(i));
+            STRCPY_S(pKernelArgInfo[i].typeName, uiTypeNameLength, pResult->getArgTypeName(i));
+        }
+
+        if (bFail)
+        {
+            for (unsigned int i = 0; i < uiNumArgs; ++i)
+            {
+                if (pKernelArgInfo[i].name)
+                {
+                    delete[] pKernelArgInfo[i].name;
+                    pKernelArgInfo[i].name = NULL;
+                }
+
+                if (pKernelArgInfo[i].typeName)
+                {
+                    delete[] pKernelArgInfo[i].typeName;
+                    pKernelArgInfo[i].typeName = NULL;
+                }
+            }
+
+            delete[] pKernelArgInfo;
+            *ppArgInfo = NULL;
+            pResult->Release();
+
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+
+        *ppArgInfo = pKernelArgInfo;
+    }
+
+    pResult->Release();
+
+    return CL_SUCCESS;
+}

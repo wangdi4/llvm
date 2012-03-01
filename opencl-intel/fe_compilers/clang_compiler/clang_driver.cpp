@@ -39,6 +39,7 @@
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/FrontendTool/Utils.h"
+#include "llvm/Constants.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
@@ -1058,4 +1059,229 @@ void ClangFECompilerLinkTask::ResolveFlags()
         bDebugInfoFlag = false;
         break;
     }
+}
+ClangFECompilerGetKernelArgInfoTask::ClangFECompilerGetKernelArgInfoTask()
+: m_numArgs(0), m_argsInfo(NULL)
+{
+}
+
+ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
+{
+    if (NULL != m_argsInfo)
+    {
+        for (unsigned int i = 0; i < m_numArgs; ++i)
+        {
+            if (m_argsInfo[i].name)
+            {
+                delete[] m_argsInfo[i].name;
+                m_argsInfo[i].name = NULL;
+            }
+
+            if (m_argsInfo[i].typeName)
+            {
+                delete[] m_argsInfo[i].typeName;
+                m_argsInfo[i].typeName = NULL;
+            }
+        }
+
+        delete[] m_argsInfo;
+        m_argsInfo = NULL;
+    }
+}
+
+int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, const char *szKernelName)
+{
+    SMDiagnostic Err;
+    string ErrorMessage;
+    LLVMContext &Context = getGlobalContext();
+
+    cl_prog_container_header* pHeader = (cl_prog_container_header*) pBin;
+
+    size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+
+    char* pBinary = (char*)pHeader + 
+                    sizeof(cl_prog_container_header) + // Skip the container
+                    sizeof(cl_llvm_prog_header); //Skip the build flags
+
+    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
+           
+    std::auto_ptr<Module> module(ParseIR(pBinBuff, Err, Context));
+
+    if (module.get() == 0) 
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    NamedMDNode* pKernels = module->getNamedMetadata("opencl.kernels");
+    if (!pKernels)
+    {
+        assert(false && "couldn't find any kernels in the metadata");
+        return CL_FE_INTERNAL_ERROR_OHNO;
+    }
+
+    unsigned int uiNumKernels = pKernels->getNumOperands();
+
+    MDNode* pKernel = NULL;
+    bool bFoundKernel = false;
+
+    // go over the kernels and search for ours
+    for (unsigned int i = 0; i < uiNumKernels; ++i)
+    {
+        pKernel = pKernels->getOperand(i);
+        StringRef szCurrKernelName = pKernel->getOperand(0)->getName();
+
+        if (0 == szCurrKernelName.compare(szKernelName))
+        {
+            // We found our kernel
+            bFoundKernel = true;
+            break;
+        }
+    }
+
+    if (!bFoundKernel)
+    {
+        assert(false && "couldn't find our kernel in the metadata");
+        return CL_FE_INTERNAL_ERROR_OHNO;
+    }
+
+    MDNode* pKernelArgsInfo = NULL;
+    bool bFoundKernelArgsInfo = false;
+
+    // Go over the kernel metadata and see if it has a kernel_arg_info
+    for (unsigned int i = 0; i < pKernel->getNumOperands(); ++i)
+    {
+        pKernelArgsInfo = dynamic_cast<MDNode*>(pKernel->getOperand(i));
+        if (NULL == pKernelArgsInfo)
+        {
+            continue;
+        }
+
+        MDString* pName = dynamic_cast<MDString*>(pKernelArgsInfo->getOperand(0));
+        if (NULL == pName)
+        {
+            continue;
+        }
+
+        if (0 == pName->getString().compare("cl_kernel_arg_info"))
+        {
+            // Kernel has kernel arg info
+            bFoundKernelArgsInfo = true;
+            break;
+        }
+    }
+
+    if (!bFoundKernelArgsInfo)
+    {
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+    }
+      
+    MDNode* pAddressQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(1));
+    MDNode* pAccessQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(2));
+    MDNode* pTypeNames = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(3));
+    MDNode* pTypeQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(4));
+    MDNode* pArgNames = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(5));
+
+    // all of the above must be valid
+    assert(pAddressQualifiers && "pAddressQualifiers is NULL");
+    assert(pAccessQualifiers && "pAccessQualifiers is NULL");
+    assert(pTypeNames && "pTypeNames is NULL");
+    assert(pTypeQualifiers && "pTypeQualifiers is NULL");
+    assert(pArgNames && "pArgNames is NULL");
+
+    m_numArgs = pAddressQualifiers->getNumOperands();
+
+    m_argsInfo = new ARG_INFO[m_numArgs];
+    if (!m_argsInfo)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+        
+    for (unsigned int i = 0; i < m_numArgs; ++i)
+    {
+        // Adress qualifier
+        ConstantInt* pAddressQualifier = dynamic_cast<ConstantInt*>(pAddressQualifiers->getOperand(i));
+        assert(pAddressQualifier && "pAddressQualifier is not a valid ConstantInt*");
+
+        uint64_t uiAddressQualifier = pAddressQualifier->getZExtValue();
+        switch( uiAddressQualifier )
+        {
+        case 0:
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            break;
+        case 1:
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+            break;
+        case 2:
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+            break;
+        case 3:
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            break;
+        }
+
+        // Access qualifier
+        ConstantInt* pAccessQualifier = dynamic_cast<ConstantInt*>(pAccessQualifiers->getOperand(i));
+        assert(pAccessQualifier && "pAccessQualifier is not a valid ConstantInt*");
+
+        uint64_t uiAccessQualifier = pAccessQualifier->getZExtValue();
+        switch( uiAccessQualifier )
+        {
+        case 0:
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+            break;
+        case 1:
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+            break;
+        case 2:
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+            break;
+        case 3:
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            break;
+        }
+
+        // Type qualifier
+        ConstantInt* pTypeQualifier = dynamic_cast<ConstantInt*>(pTypeQualifiers->getOperand(i));
+        assert(pTypeQualifier && "pTypeQualifier is not a valid ConstantInt*");
+        uint64_t uiTypeQualifier = pTypeQualifier->getZExtValue();
+        m_argsInfo[i].typeQualifier = 0;
+        if (uiTypeQualifier & (1 << 0))
+        {
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+        }
+        if (uiTypeQualifier & (1 << 1))
+        {
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+        }
+        if (uiTypeQualifier & (1 << 2))
+        {
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+        }
+
+        // Type name
+        MDString* pTypeName = dynamic_cast<MDString*>(pTypeNames->getOperand(i));
+        assert(pTypeName && "pTypeName is not a valid MDString*");
+
+        string szTypeName = pTypeName->getString().str();
+        m_argsInfo[i].typeName = new char[szTypeName.length() + 1];
+        if (!m_argsInfo[i].typeName)
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        STRCPY_S(m_argsInfo[i].typeName, szTypeName.length() + 1, szTypeName.c_str());
+
+        // Parameter name
+        MDString* pArgName = dynamic_cast<MDString*>(pArgNames->getOperand(i));
+        assert(pArgName && "pArgName is not a valid MDString*");
+
+        string szArgName = pArgName->getString().str();
+        m_argsInfo[i].name = new char[szArgName.length() + 1];
+        if (!m_argsInfo[i].name)
+        {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        STRCPY_S(m_argsInfo[i].name, szArgName.length() + 1, szArgName.c_str());
+    }
+
+    return CL_SUCCESS;
 }

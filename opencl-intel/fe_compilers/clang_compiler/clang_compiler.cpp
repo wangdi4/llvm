@@ -152,6 +152,27 @@ int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDe
 	return ret;
 }
 
+int ClangFECompiler::GetKernelArgInfo(const void*       pBin, 
+                                      const char*       szKernelName, 
+                                      FEKernelArgInfo*  *pArgInfo)
+{
+    assert(NULL != pBin);
+	assert(NULL != szKernelName);
+    assert(NULL != pArgInfo);
+
+	// Create new GetKernelArgInfo task
+	ClangFECompilerGetKernelArgInfoTask* pGetKernelArgInfoTask = new ClangFECompilerGetKernelArgInfoTask();
+	if ( NULL == pGetKernelArgInfoTask )
+	{
+		*pArgInfo = NULL;
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+    cl_err_code ret = pGetKernelArgInfoTask->GetKernelArgInfo(pBin, szKernelName);
+	*pArgInfo = pGetKernelArgInfoTask;
+	return ret;
+}
+
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
 {
 	assert(NULL != pFECompiler);

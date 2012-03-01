@@ -110,6 +110,7 @@ bool clCreateImageTest();
 bool MultithreadedBuildTest();
 bool EventDependenciesTest();
 bool CreateReleaseOOOQueueTest();
+bool clGetKernelArgInfoTest();
 //#define CUDA_DEVICE
 
 

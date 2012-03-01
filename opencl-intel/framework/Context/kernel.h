@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class DeviceProgram;
 	class Kernel;
 	class Context;
+    struct CL_KERNEL_ARG_INFO;
 
 	/**********************************************************************************************
 	* Class name:	SKernelPrototype
@@ -54,9 +55,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	**********************************************************************************************/	
 	struct SKernelPrototype
 	{
-		char *					m_psKernelName;
-		cl_uint					m_uiArgsCount;
-		cl_kernel_argument*		m_pArgs;
+		char *				m_psKernelName;
+		cl_uint				m_uiArgsCount;
+		cl_kernel_argument*	m_pArgs;
+        CL_KERNEL_ARG_INFO* m_pArgsInfo;
 	};
 
 	/**********************************************************************************************
@@ -293,6 +295,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										size_t      szParamValueSize,
 										void *      pParamValue,
 										size_t *    pszParamValueSizeRet);
+
+        // needed so that DeviceKernel can access the raw program's binary (no const)
+        friend class DeviceKernel;
 
 	protected:
 		/******************************************************************************************
