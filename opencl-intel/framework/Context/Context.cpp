@@ -441,7 +441,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
 	}
 
     // create program object
-	Program* pProgram = new ProgramForLink(this, uiNumDevices, ppDevices, &clErrRet, (ocl_entry_points*)m_handle.dispatch);
+	Program* pProgram = new ProgramForLink(this, uiNumDevices, ppDevices, &clErrRet, (ocl_entry_points*)&m_handle);
 	delete[] ppDevices;
 
 	if (!pProgram)

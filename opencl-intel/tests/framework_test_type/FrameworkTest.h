@@ -95,6 +95,7 @@ bool fission_options_test();
 bool fission_logic_test();
 bool fission_thread_test();
 bool fission_buildSubDevice_test();
+bool fission_buildMultipleSubDevices_test();
 bool fission_deviceInfoSelectors_test();
 bool fission_commandQ_test();
 bool fission_numa_test();

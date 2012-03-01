@@ -297,6 +297,11 @@ TEST(FrameworkTestType, Test_clfissionBuildTest)
 	EXPECT_TRUE(fission_buildSubDevice_test());
 }
 
+TEST(FrameworkTestType, Test_clfissionBuildMultipleTest)
+{
+	EXPECT_TRUE(fission_buildMultipleSubDevices_test());
+}
+
 TEST(FrameworkTestType, Test_clfissionDeviceInfoTest)
 {
 	EXPECT_TRUE(fission_deviceInfoSelectors_test());
