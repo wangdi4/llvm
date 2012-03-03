@@ -5,7 +5,7 @@ rem
 rem Build Visual Studio 9 2008 projects for OpenCL
 rem
 rem Usage:
-rem    gen_vc_project [+smpls] [+cnf] [+cnf12] [-cmrt] [+java] [+dbg] [-x64] [vc|intel] [build_path] [build_type]
+rem    gen_vc_project [+smpls] [+cnf] [+cnf12] [-cmrt] [+java] [+dbg] [-x64] [-single] [vc|intel] [build_path] [build_type]
 rem
 rem  +smpls         - include samples tests
 rem  +cnf           - include conformance 1.1 tests into solution
@@ -17,6 +17,7 @@ rem  vc|intel       - use VC or Intel compiler. Default - VC.
 rem  build_path     - working directory. Default - "build" dir in parallel to "src"
 rem  build_type     - debug or release.
 rem  -x64 	        - build 64-bit version (default is 32-bit)
+rem  -single        - create single solution (do not create a separate solution for Conformance)
 rem
 rem  VC project is created in the directory build_path parallel to top level src directory
 rem  Compilation output during build is copied to the directory bin\Debug or bin\Release
@@ -37,6 +38,7 @@ set incl_java=OFF
 set incl_dbg=OFF
 set use_x64=OFF
 set use_vc=1
+set single=
 set build_path=
 set build_type=
 
@@ -64,6 +66,9 @@ set build_type=
 	) else if x%1 == x-x64 (
 		set use_x64=ON
 		echo 64bit mode
+    ) else if x%1 == x-single (
+        set single=ON
+        echo Generate single solution
 	) else if x%1 == xintel (
 		set use_vc=0
 		echo Use Intel compiler
@@ -114,9 +119,67 @@ if %use_x64% == ON set GEN_VERSION="Visual Studio 9 2008 Win64"
 if %use_x64% == ON  call "%VS90COMNTOOLS:\=/%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat"  
 if %use_x64% == ON set BUILD_CONFIG=win64
 
-set conformance_list=test_allocations test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_d3d9 test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep
+set conformance_list=^
+    clconf_harness ^
+    bruteforce ^
+    computeinfo ^
+    contractions ^
+    test_allocations ^
+    test_api ^
+    test_atomics ^
+    test_basic ^
+    test_buffers ^
+    test_cl_copy_images ^
+    test_cl_fill_images ^
+    test_cl_get_info ^
+    test_cl_gl_h ^
+    test_cl_h ^
+    test_cl_platform_h ^
+    test_cl_read_write_images ^
+    test_commonfns ^
+    test_compiler ^
+    test_conversions ^
+    test_device_partition ^
+    test_events ^
+    test_geometrics ^
+    test_d3d9 ^
+    test_d3d10 ^
+    test_d3d11 ^
+    test_gl ^
+    test_headers ^
+    test_half ^
+    test_image_streams ^
+    test_integer_ops ^
+    test_kernel_image_methods ^
+    test_mem_host_flags ^
+    test_multiples ^
+    test_opencl_h ^
+    test_printf ^
+    test_profiling ^
+    test_relationals ^
+    test_samplerless_reads ^
+    test_select ^
+    test_thread_dimensions ^
+    test_vecalign ^
+    test_vecstep
 
-cmake -G %GEN_VERSION% -D PYTHON_EXECUTABLE="C:\Python27\python.exe" -D INCLUDE_SMPLS=%incl_smpls% -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% -D INCLUDE_CMRT=%incl_cmrt% -D BUILD_JAVA=%incl_java% -D INCLUDE_DEBUGGER=%incl_dbg% -D CONFORMANCE_LIST="%conformance_list%" -D BUILD_X64=%use_x64% -D CMAKE_BUILD_TYPE=%build_type%  -DLLVM_USE_INTEL_JITEVENTS:BOOL=ON -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ %top_dir%\src
+cmake ^
+    -G %GEN_VERSION% ^
+    -D PYTHON_EXECUTABLE="C:\Python27\python.exe" ^
+    -D INCLUDE_SMPLS=%incl_smpls% ^
+    -D UNITED_CONFORMANCE=%single% ^
+    -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% ^
+    -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% ^
+    -D INCLUDE_CMRT=%incl_cmrt% ^
+    -D BUILD_JAVA=%incl_java% ^
+    -D INCLUDE_DEBUGGER=%incl_dbg% ^
+    -D CONFORMANCE_LIST="%conformance_list%" ^
+    -D BUILD_X64=%use_x64% ^
+    -D CMAKE_BUILD_TYPE=%build_type%  ^
+    -DLLVM_USE_INTEL_JITEVENTS:BOOL=ON ^
+    -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ ^
+    %top_dir%\src
+
 if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
