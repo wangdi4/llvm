@@ -1,7 +1,7 @@
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux -march=y86-64 -mcpu=knf \
-; RUN:     | FileCheck %s
+; RUN:     | FileCheck %s -check-prefix=KNF
 
 target datalayout = "e-p:64:64"
 
