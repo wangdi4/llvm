@@ -17,6 +17,7 @@ File Name:  XMLDataReadWrite.cpp
 \*****************************************************************************/
 #include <string>
 #include <iostream>
+#include <sstream>
 
 #include "Exception.h"
 #include "XMLDataReader.h"
@@ -321,7 +322,11 @@ namespace Validation
                 {
                     if (IXMLReadWriteBase::READ == rwtype && VecStr.eof())
                     {
-                        throw Exception::IOError("It's not enough data for aggregate (vector) data type.");
+                        std::stringstream stringStream;
+                        stringStream << "(row " << xmlVec->Row();
+                        stringStream << " columm " << xmlVec->Column();
+                        stringStream << "): vector data does not fit its declared size";
+                        throw Exception::IOError(stringStream.str());
                     }
                     ReadWriteValueToStr<T>(VecStr, &ba.GetElem(cntVec, cntElem), rwtype);
                 }

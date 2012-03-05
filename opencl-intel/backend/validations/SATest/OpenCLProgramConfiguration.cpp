@@ -28,6 +28,7 @@ File Name:  OpenCLProgramConfiguration.cpp
 #define TIXML_USE_STL
 #include "tinyxml.h"
 
+#include <sstream>
 #include <string>
 #include <stdlib.h>
 
@@ -57,9 +58,6 @@ namespace Utils
 }
 
 OpenCLKernelConfiguration::OpenCLKernelConfiguration(const TiXmlElement& root, const string& baseDirectory ):
-        m_pGlobalWorkOffeset(NULL),
-        m_pGlobalWorkSize(NULL),
-        m_pLocalWorkSize(NULL),
         m_workDimension(0),
         m_inputFileType(Binary),
         m_baseDirectory(baseDirectory)
@@ -68,18 +66,10 @@ OpenCLKernelConfiguration::OpenCLKernelConfiguration(const TiXmlElement& root, c
 
     stringstream value(root.FirstChildElement("WorkDimention")->GetText());
     value >> m_workDimension;
-
-    if (1 <= m_workDimension && m_workDimension <= 3)
-    {
-        m_pLocalWorkSize = new size_t[m_workDimension];
-        m_pGlobalWorkSize = new size_t[m_workDimension];
-        m_pGlobalWorkOffeset = new size_t[m_workDimension];
-    }
-    else
-    {
+    for( int i=0 ; i<MAX_WORK_DIM ; i++)
+        m_arrGlobalWorkOffset[i] = m_arrLocalWorkSize[i] = m_arrGlobalWorkSize[i] = 0;
+    if ( m_workDimension < 1 || m_workDimension > 3)
         throw Exception::InvalidArgument("Work dimension is not one of: 1, 2, 3");
-    }
-
     root.Accept(this);
 }
 
@@ -91,7 +81,7 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
         for (unsigned i = 0; i < m_workDimension; ++i)
         {
-            value >> m_pLocalWorkSize[i];
+            value >> m_arrLocalWorkSize[i];
         }
     }
 
@@ -101,7 +91,7 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
         for (unsigned i = 0; i < m_workDimension; ++i)
         {
-            value >> m_pGlobalWorkSize[i];
+            value >> m_arrGlobalWorkSize[i];
         }
     }
 
@@ -111,7 +101,7 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
         for (unsigned i = 0; i < m_workDimension; ++i)
         {
-            value >> m_pGlobalWorkOffeset[i];
+            value >> m_arrGlobalWorkOffset[i];
         }
     }
 
@@ -263,6 +253,14 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
         if ((UNKNOWN != m_format) && (CL_LL_BC == m_format))
         {
             throw Exception::InvalidArgument("Configuration file error: test program was already set.");
+        }
+        else if ( NULL == element.GetText() )
+        {
+            std::stringstream stringStream;
+            stringStream << "Configuration file error(";
+            stringStream << "row " << element.Row() << " column "  << element.Column() << "):";
+            stringStream << " no program file has been given!";
+            throw Exception::InvalidArgument( stringStream.str() );
         }
         m_programFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
         m_format = CL_LL_BC;

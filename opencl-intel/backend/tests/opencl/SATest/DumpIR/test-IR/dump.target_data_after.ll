@@ -1,315 +1,359 @@
 ; ModuleID = 'Program'
-target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
-target triple = "i686-pc-win32"
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 define void @intel_median(<4 x i8> addrspace(1)* %pSrc, i32 addrspace(1)* %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
 entry:
   %iPixels = alloca [9 x <4 x i32>], align 16
-  %call = call i32 @get_global_id(i32 0) nounwind readnone
+  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %conv = trunc i64 %call to i32
   br label %for.cond
 
-for.cond:                                         ; preds = %for.end66, %entry
-  %x.0 = phi i32 [ 0, %entry ], [ %inc78, %for.end66 ]
+for.cond:                                         ; preds = %for.end83, %entry
+  %x.0 = phi i32 [ 0, %entry ], [ %inc96, %for.end83 ]
   %cmp = icmp slt i32 %x.0, %iImageWidth
-  br i1 %cmp, label %for.body, label %for.end79
+  br i1 %cmp, label %for.body, label %for.end97
 
 for.body:                                         ; preds = %for.cond
-  br label %for.cond1
+  br label %for.cond2
 
-for.cond1:                                        ; preds = %for.body3, %for.body
-  %iPixelCount.0 = phi i32 [ 0, %for.body ], [ %inc27, %for.body3 ]
-  %iRow.0 = phi i32 [ -1, %for.body ], [ %inc28, %for.body3 ]
-  %cmp2 = icmp slt i32 %iRow.0, 2
-  br i1 %cmp2, label %for.body3, label %for.end
+for.cond2:                                        ; preds = %for.body5, %for.body
+  %iPixelCount.0 = phi i32 [ 0, %for.body ], [ %inc41, %for.body5 ]
+  %iRow.0 = phi i32 [ -1, %for.body ], [ %inc42, %for.body5 ]
+  %cmp3 = icmp slt i32 %iRow.0, 2
+  br i1 %cmp3, label %for.body5, label %for.end
 
-for.body3:                                        ; preds = %for.cond1
-  %add = add nsw i32 %call, %iRow.0
-  %add4 = add nsw i32 %add, 2
-  %mul = mul nsw i32 %add4, %iImageWidth
-  %add5 = add nsw i32 %mul, %x.0
-  %sub = add nsw i32 %add5, -1
-  %arrayidx = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %sub
+for.body5:                                        ; preds = %for.cond2
+  %add = add nsw i32 %conv, %iRow.0
+  %add6 = add nsw i32 %add, 2
+  %mul = mul nsw i32 %add6, %iImageWidth
+  %add7 = add nsw i32 %mul, %x.0
+  %sub = add nsw i32 %add7, -1
+  %idxprom = sext i32 %sub to i64
+  %arrayidx = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i64 %idxprom
   %0 = load <4 x i8> addrspace(1)* %arrayidx, align 4
   %1 = extractelement <4 x i8> %0, i32 0
-  %conv = zext i8 %1 to i32
-  %arrayidx6 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %iPixelCount.0
-  %2 = load <4 x i32>* %arrayidx6, align 16
-  %3 = insertelement <4 x i32> %2, i32 %conv, i32 0
+  %conv8 = zext i8 %1 to i32
+  %idxprom9 = sext i32 %iPixelCount.0 to i64
+  %arrayidx10 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom9
+  %2 = load <4 x i32>* %arrayidx10, align 16
+  %3 = insertelement <4 x i32> %2, i32 %conv8, i32 0
+  store <4 x i32> %3, <4 x i32>* %arrayidx10, align 16
   %4 = extractelement <4 x i8> %0, i32 1
-  %conv7 = zext i8 %4 to i32
-  %5 = insertelement <4 x i32> %3, i32 %conv7, i32 1
-  %6 = extractelement <4 x i8> %0, i32 2
-  %conv9 = zext i8 %6 to i32
-  %arrayidx10 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %iPixelCount.0
-  %7 = insertelement <4 x i32> %5, i32 %conv9, i32 2
-  store <4 x i32> %7, <4 x i32>* %arrayidx10, align 16
+  %conv11 = zext i8 %4 to i32
+  %idxprom12 = sext i32 %iPixelCount.0 to i64
+  %arrayidx13 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom12
+  %5 = load <4 x i32>* %arrayidx13, align 16
+  %6 = insertelement <4 x i32> %5, i32 %conv11, i32 1
+  store <4 x i32> %6, <4 x i32>* %arrayidx13, align 16
+  %7 = extractelement <4 x i8> %0, i32 2
+  %conv14 = zext i8 %7 to i32
+  %idxprom15 = sext i32 %iPixelCount.0 to i64
+  %arrayidx16 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom15
+  %8 = load <4 x i32>* %arrayidx16, align 16
+  %9 = insertelement <4 x i32> %8, i32 %conv14, i32 2
+  store <4 x i32> %9, <4 x i32>* %arrayidx16, align 16
   %inc = add nsw i32 %iPixelCount.0, 1
-  %arrayidx11 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %add5
-  %8 = load <4 x i8> addrspace(1)* %arrayidx11, align 4
-  %9 = extractelement <4 x i8> %8, i32 0
-  %conv12 = zext i8 %9 to i32
-  %arrayidx13 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc
-  %10 = load <4 x i32>* %arrayidx13, align 16
-  %11 = insertelement <4 x i32> %10, i32 %conv12, i32 0
-  %12 = extractelement <4 x i8> %8, i32 1
-  %conv14 = zext i8 %12 to i32
-  %13 = insertelement <4 x i32> %11, i32 %conv14, i32 1
-  %14 = extractelement <4 x i8> %8, i32 2
-  %conv16 = zext i8 %14 to i32
-  %arrayidx17 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc
-  %15 = insertelement <4 x i32> %13, i32 %conv16, i32 2
-  store <4 x i32> %15, <4 x i32>* %arrayidx17, align 16
-  %inc18 = add nsw i32 %iPixelCount.0, 2
-  %add19 = add nsw i32 %add5, 1
-  %arrayidx20 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i32 %add19
-  %16 = load <4 x i8> addrspace(1)* %arrayidx20, align 4
-  %17 = extractelement <4 x i8> %16, i32 0
-  %conv21 = zext i8 %17 to i32
-  %arrayidx22 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc18
-  %18 = load <4 x i32>* %arrayidx22, align 16
-  %19 = insertelement <4 x i32> %18, i32 %conv21, i32 0
-  %20 = extractelement <4 x i8> %16, i32 1
-  %conv23 = zext i8 %20 to i32
-  %21 = insertelement <4 x i32> %19, i32 %conv23, i32 1
-  %22 = extractelement <4 x i8> %16, i32 2
-  %conv25 = zext i8 %22 to i32
-  %arrayidx26 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc18
-  %23 = insertelement <4 x i32> %21, i32 %conv25, i32 2
-  store <4 x i32> %23, <4 x i32>* %arrayidx26, align 16
-  %inc27 = add nsw i32 %iPixelCount.0, 3
-  %inc28 = add nsw i32 %iRow.0, 1
-  br label %for.cond1
+  %idxprom17 = sext i32 %add7 to i64
+  %arrayidx18 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i64 %idxprom17
+  %10 = load <4 x i8> addrspace(1)* %arrayidx18, align 4
+  %11 = extractelement <4 x i8> %10, i32 0
+  %conv19 = zext i8 %11 to i32
+  %idxprom20 = sext i32 %inc to i64
+  %arrayidx21 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom20
+  %12 = load <4 x i32>* %arrayidx21, align 16
+  %13 = insertelement <4 x i32> %12, i32 %conv19, i32 0
+  store <4 x i32> %13, <4 x i32>* %arrayidx21, align 16
+  %14 = extractelement <4 x i8> %10, i32 1
+  %conv22 = zext i8 %14 to i32
+  %idxprom23 = sext i32 %inc to i64
+  %arrayidx24 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom23
+  %15 = load <4 x i32>* %arrayidx24, align 16
+  %16 = insertelement <4 x i32> %15, i32 %conv22, i32 1
+  store <4 x i32> %16, <4 x i32>* %arrayidx24, align 16
+  %17 = extractelement <4 x i8> %10, i32 2
+  %conv25 = zext i8 %17 to i32
+  %idxprom26 = sext i32 %inc to i64
+  %arrayidx27 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom26
+  %18 = load <4 x i32>* %arrayidx27, align 16
+  %19 = insertelement <4 x i32> %18, i32 %conv25, i32 2
+  store <4 x i32> %19, <4 x i32>* %arrayidx27, align 16
+  %inc28 = add nsw i32 %iPixelCount.0, 2
+  %add29 = add nsw i32 %add7, 1
+  %idxprom30 = sext i32 %add29 to i64
+  %arrayidx31 = getelementptr inbounds <4 x i8> addrspace(1)* %pSrc, i64 %idxprom30
+  %20 = load <4 x i8> addrspace(1)* %arrayidx31, align 4
+  %21 = extractelement <4 x i8> %20, i32 0
+  %conv32 = zext i8 %21 to i32
+  %idxprom33 = sext i32 %inc28 to i64
+  %arrayidx34 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom33
+  %22 = load <4 x i32>* %arrayidx34, align 16
+  %23 = insertelement <4 x i32> %22, i32 %conv32, i32 0
+  store <4 x i32> %23, <4 x i32>* %arrayidx34, align 16
+  %24 = extractelement <4 x i8> %20, i32 1
+  %conv35 = zext i8 %24 to i32
+  %idxprom36 = sext i32 %inc28 to i64
+  %arrayidx37 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom36
+  %25 = load <4 x i32>* %arrayidx37, align 16
+  %26 = insertelement <4 x i32> %25, i32 %conv35, i32 1
+  store <4 x i32> %26, <4 x i32>* %arrayidx37, align 16
+  %27 = extractelement <4 x i8> %20, i32 2
+  %conv38 = zext i8 %27 to i32
+  %idxprom39 = sext i32 %inc28 to i64
+  %arrayidx40 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom39
+  %28 = load <4 x i32>* %arrayidx40, align 16
+  %29 = insertelement <4 x i32> %28, i32 %conv38, i32 2
+  store <4 x i32> %29, <4 x i32>* %arrayidx40, align 16
+  %inc41 = add nsw i32 %iPixelCount.0, 3
+  %inc42 = add nsw i32 %iRow.0, 1
+  br label %for.cond2
 
-for.end:                                          ; preds = %for.cond1
-  br label %for.cond29
+for.end:                                          ; preds = %for.cond2
+  br label %for.cond43
 
-for.cond29:                                       ; preds = %for.end54, %for.end
-  %iMax.0 = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %for.end ], [ %or62, %for.end54 ]
-  %iMin.0 = phi <4 x i32> [ zeroinitializer, %for.end ], [ %or, %for.end54 ]
-  %iYes.0 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %for.end ], [ %shr, %for.end54 ]
-  %iSearch.0 = phi i32 [ 0, %for.end ], [ %inc65, %for.end54 ]
-  %cmp30 = icmp slt i32 %iSearch.0, 8
-  br i1 %cmp30, label %for.body32, label %for.end66
+for.cond43:                                       ; preds = %for.end71, %for.end
+  %iMax.0 = phi <4 x i32> [ <i32 255, i32 255, i32 255, i32 255>, %for.end ], [ %or79, %for.end71 ]
+  %iMin.0 = phi <4 x i32> [ zeroinitializer, %for.end ], [ %or, %for.end71 ]
+  %iYes.0 = phi <4 x i32> [ <i32 128, i32 128, i32 128, i32 128>, %for.end ], [ %shr, %for.end71 ]
+  %iSearch.0 = phi i32 [ 0, %for.end ], [ %inc82, %for.end71 ]
+  %cmp44 = icmp slt i32 %iSearch.0, 8
+  br i1 %cmp44, label %for.body46, label %for.end83
 
-for.body32:                                       ; preds = %for.cond29
-  br label %for.cond34
+for.body46:                                       ; preds = %for.cond43
+  br label %for.cond48
 
-for.cond34:                                       ; preds = %for.body37, %for.body32
-  %iPixelCount.1 = phi i32 [ 0, %for.body32 ], [ %inc51, %for.body37 ]
-  %iHighCount.0 = phi <4 x i32> [ zeroinitializer, %for.body32 ], [ %add50, %for.body37 ]
-  %iRow33.0 = phi i32 [ -1, %for.body32 ], [ %inc53, %for.body37 ]
-  %cmp35 = icmp slt i32 %iRow33.0, 2
-  br i1 %cmp35, label %for.body37, label %for.end54
+for.cond48:                                       ; preds = %for.body51, %for.body46
+  %iPixelCount.1 = phi i32 [ 0, %for.body46 ], [ %inc68, %for.body51 ]
+  %iHighCount.0 = phi <4 x i32> [ zeroinitializer, %for.body46 ], [ %add67, %for.body51 ]
+  %iRow47.0 = phi i32 [ -1, %for.body46 ], [ %inc70, %for.body51 ]
+  %cmp49 = icmp slt i32 %iRow47.0, 2
+  br i1 %cmp49, label %for.body51, label %for.end71
 
-for.body37:                                       ; preds = %for.cond34
-  %arrayidx38 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %iPixelCount.1
-  %24 = load <4 x i32>* %arrayidx38, align 16
-  %cmp39 = icmp slt <4 x i32> %iYes.0, %24
-  %sext = sext <4 x i1> %cmp39 to <4 x i32>
-  %add40 = add <4 x i32> %iHighCount.0, %sext
-  %inc41 = add nsw i32 %iPixelCount.1, 1
-  %arrayidx42 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc41
-  %25 = load <4 x i32>* %arrayidx42, align 16
-  %cmp43 = icmp slt <4 x i32> %iYes.0, %25
-  %sext44 = sext <4 x i1> %cmp43 to <4 x i32>
-  %add45 = add <4 x i32> %add40, %sext44
-  %inc46 = add nsw i32 %iPixelCount.1, 2
-  %arrayidx47 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i32 0, i32 %inc46
-  %26 = load <4 x i32>* %arrayidx47, align 16
-  %cmp48 = icmp slt <4 x i32> %iYes.0, %26
-  %sext49 = sext <4 x i1> %cmp48 to <4 x i32>
-  %add50 = add <4 x i32> %add45, %sext49
-  %inc51 = add nsw i32 %iPixelCount.1, 3
-  %inc53 = add nsw i32 %iRow33.0, 1
-  br label %for.cond34
+for.body51:                                       ; preds = %for.cond48
+  %idxprom52 = sext i32 %iPixelCount.1 to i64
+  %arrayidx53 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom52
+  %30 = load <4 x i32>* %arrayidx53, align 16
+  %cmp54 = icmp slt <4 x i32> %iYes.0, %30
+  %sext = sext <4 x i1> %cmp54 to <4 x i32>
+  %add55 = add <4 x i32> %iHighCount.0, %sext
+  %inc56 = add nsw i32 %iPixelCount.1, 1
+  %idxprom57 = sext i32 %inc56 to i64
+  %arrayidx58 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom57
+  %31 = load <4 x i32>* %arrayidx58, align 16
+  %cmp59 = icmp slt <4 x i32> %iYes.0, %31
+  %sext60 = sext <4 x i1> %cmp59 to <4 x i32>
+  %add61 = add <4 x i32> %add55, %sext60
+  %inc62 = add nsw i32 %iPixelCount.1, 2
+  %idxprom63 = sext i32 %inc62 to i64
+  %arrayidx64 = getelementptr inbounds [9 x <4 x i32>]* %iPixels, i64 0, i64 %idxprom63
+  %32 = load <4 x i32>* %arrayidx64, align 16
+  %cmp65 = icmp slt <4 x i32> %iYes.0, %32
+  %sext66 = sext <4 x i1> %cmp65 to <4 x i32>
+  %add67 = add <4 x i32> %add61, %sext66
+  %inc68 = add nsw i32 %iPixelCount.1, 3
+  %inc70 = add nsw i32 %iRow47.0, 1
+  br label %for.cond48
 
-for.end54:                                        ; preds = %for.cond34
-  %sub55 = sub <4 x i32> zeroinitializer, %iHighCount.0
-  %cmp56 = icmp sgt <4 x i32> %sub55, <i32 4, i32 4, i32 4, i32 4>
-  %sext57 = sext <4 x i1> %cmp56 to <4 x i32>
-  %and = and <4 x i32> %iYes.0, %sext57
-  %neg = xor <4 x i32> %sext57, <i32 -1, i32 -1, i32 -1, i32 -1>
-  %and58 = and <4 x i32> %iMin.0, %neg
-  %or = or <4 x i32> %and, %and58
-  %neg59 = xor <4 x i32> %sext57, <i32 -1, i32 -1, i32 -1, i32 -1>
-  %and60 = and <4 x i32> %iYes.0, %neg59
-  %and61 = and <4 x i32> %iMax.0, %sext57
-  %or62 = or <4 x i32> %and60, %and61
-  %add63 = add <4 x i32> %or62, %or
-  %shr = ashr <4 x i32> %add63, <i32 1, i32 1, i32 1, i32 1>
-  %inc65 = add nsw i32 %iSearch.0, 1
-  br label %for.cond29
+for.end71:                                        ; preds = %for.cond48
+  %sub72 = sub <4 x i32> zeroinitializer, %iHighCount.0
+  %cmp73 = icmp sgt <4 x i32> %sub72, <i32 4, i32 4, i32 4, i32 4>
+  %sext74 = sext <4 x i1> %cmp73 to <4 x i32>
+  %and = and <4 x i32> %iYes.0, %sext74
+  %neg = xor <4 x i32> %sext74, <i32 -1, i32 -1, i32 -1, i32 -1>
+  %and75 = and <4 x i32> %iMin.0, %neg
+  %or = or <4 x i32> %and, %and75
+  %neg76 = xor <4 x i32> %sext74, <i32 -1, i32 -1, i32 -1, i32 -1>
+  %and77 = and <4 x i32> %iYes.0, %neg76
+  %and78 = and <4 x i32> %iMax.0, %sext74
+  %or79 = or <4 x i32> %and77, %and78
+  %add80 = add <4 x i32> %or79, %or
+  %shr = ashr <4 x i32> %add80, <i32 1, i32 1, i32 1, i32 1>
+  %inc82 = add nsw i32 %iSearch.0, 1
+  br label %for.cond43
 
-for.end66:                                        ; preds = %for.cond29
-  %27 = extractelement <4 x i32> %iYes.0, i32 0
-  %and67 = and i32 %27, 255
-  %28 = extractelement <4 x i32> %iYes.0, i32 1
-  %shl = shl i32 %28, 8
-  %and68 = and i32 %shl, 65280
-  %or69 = or i32 %and67, %and68
-  %29 = extractelement <4 x i32> %iYes.0, i32 2
-  %shl70 = shl i32 %29, 16
-  %and71 = and i32 %shl70, 16711680
-  %or72 = or i32 %or69, %and71
-  %add73 = add nsw i32 %call, 2
-  %mul74 = mul nsw i32 %add73, %iImageWidth
-  %add75 = add nsw i32 %mul74, %x.0
-  %arrayidx76 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %add75
-  store i32 %or72, i32 addrspace(1)* %arrayidx76, align 4
-  %inc78 = add nsw i32 %x.0, 1
+for.end83:                                        ; preds = %for.cond43
+  %33 = extractelement <4 x i32> %iYes.0, i32 0
+  %and84 = and i32 %33, 255
+  %34 = extractelement <4 x i32> %iYes.0, i32 1
+  %shl = shl i32 %34, 8
+  %and85 = and i32 %shl, 65280
+  %or86 = or i32 %and84, %and85
+  %35 = extractelement <4 x i32> %iYes.0, i32 2
+  %shl87 = shl i32 %35, 16
+  %and88 = and i32 %shl87, 16711680
+  %or89 = or i32 %or86, %and88
+  %add90 = add nsw i32 %conv, 2
+  %mul91 = mul nsw i32 %add90, %iImageWidth
+  %add92 = add nsw i32 %mul91, %x.0
+  %idxprom93 = sext i32 %add92 to i64
+  %arrayidx94 = getelementptr inbounds i32 addrspace(1)* %pDst, i64 %idxprom93
+  store i32 %or89, i32 addrspace(1)* %arrayidx94, align 4
+  %inc96 = add nsw i32 %x.0, 1
   br label %for.cond
 
-for.end79:                                        ; preds = %for.cond
+for.end97:                                        ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i64 @get_global_id(i32) nounwind readnone
 
 define void @intel_median_scalar(i8 addrspace(1)* %pSrc, i32 addrspace(1)* %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
 entry:
-  %iResult = alloca [4 x i32], align 4
-  %iPixels = alloca [9 x i32], align 4
-  %call = call i32 @get_global_id(i32 0) nounwind readnone
+  %iResult = alloca [4 x i32], align 16
+  %iPixels = alloca [9 x i32], align 16
+  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %conv = trunc i64 %call to i32
   br label %for.cond
 
-for.cond:                                         ; preds = %for.end68, %entry
-  %x.0 = phi i32 [ 0, %entry ], [ %inc81, %for.end68 ]
+for.cond:                                         ; preds = %for.end81, %entry
+  %x.0 = phi i32 [ 0, %entry ], [ %inc95, %for.end81 ]
   %cmp = icmp slt i32 %x.0, %iImageWidth
-  br i1 %cmp, label %for.body, label %for.end82
+  br i1 %cmp, label %for.body, label %for.end96
 
 for.body:                                         ; preds = %for.cond
-  br label %for.cond1
+  br label %for.cond2
 
-for.cond1:                                        ; preds = %for.end64, %for.body
-  %ch.0 = phi i32 [ 0, %for.body ], [ %inc67, %for.end64 ]
-  %cmp2 = icmp slt i32 %ch.0, 3
-  br i1 %cmp2, label %for.body3, label %for.end68
+for.cond2:                                        ; preds = %for.end76, %for.body
+  %ch.0 = phi i32 [ 0, %for.body ], [ %inc80, %for.end76 ]
+  %cmp3 = icmp slt i32 %ch.0, 3
+  br i1 %cmp3, label %for.body5, label %for.end81
 
-for.body3:                                        ; preds = %for.cond1
-  br label %for.cond4
+for.body5:                                        ; preds = %for.cond2
+  br label %for.cond6
 
-for.cond4:                                        ; preds = %for.body6, %for.body3
-  %iPixelCount.0 = phi i32 [ 0, %for.body3 ], [ %inc24, %for.body6 ]
-  %iRow.0 = phi i32 [ -1, %for.body3 ], [ %inc25, %for.body6 ]
-  %cmp5 = icmp slt i32 %iRow.0, 2
-  br i1 %cmp5, label %for.body6, label %for.end
+for.cond6:                                        ; preds = %for.body9, %for.body5
+  %iPixelCount.0 = phi i32 [ 0, %for.body5 ], [ %inc33, %for.body9 ]
+  %iRow.0 = phi i32 [ -1, %for.body5 ], [ %inc34, %for.body9 ]
+  %cmp7 = icmp slt i32 %iRow.0, 2
+  br i1 %cmp7, label %for.body9, label %for.end
 
-for.body6:                                        ; preds = %for.cond4
-  %add = add nsw i32 %call, %iRow.0
-  %add7 = add nsw i32 %add, 2
-  %mul = mul nsw i32 %add7, %iImageWidth
-  %add8 = add nsw i32 %mul, %x.0
-  %sub = shl i32 %add8, 2
-  %mul9 = add i32 %sub, -4
-  %add10 = add nsw i32 %mul9, %ch.0
-  %arrayidx = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add10
-  %0 = load i8 addrspace(1)* %arrayidx, align 1
-  %conv = zext i8 %0 to i32
-  %arrayidx11 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %iPixelCount.0
-  store i32 %conv, i32* %arrayidx11, align 4
-  %inc = add nsw i32 %iPixelCount.0, 1
-  %mul12 = shl nsw i32 %add8, 2
+for.body9:                                        ; preds = %for.cond6
+  %add = add nsw i32 %conv, %iRow.0
+  %add10 = add nsw i32 %add, 2
+  %mul = mul nsw i32 %add10, %iImageWidth
+  %add11 = add nsw i32 %mul, %x.0
+  %sub = shl i32 %add11, 2
+  %mul12 = add i32 %sub, -4
   %add13 = add nsw i32 %mul12, %ch.0
-  %arrayidx14 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add13
-  %1 = load i8 addrspace(1)* %arrayidx14, align 1
-  %conv15 = zext i8 %1 to i32
-  %arrayidx16 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %inc
-  store i32 %conv15, i32* %arrayidx16, align 4
-  %inc17 = add nsw i32 %iPixelCount.0, 2
-  %add18 = shl i32 %add8, 2
-  %mul19 = add i32 %add18, 4
-  %add20 = add nsw i32 %mul19, %ch.0
-  %arrayidx21 = getelementptr inbounds i8 addrspace(1)* %pSrc, i32 %add20
-  %2 = load i8 addrspace(1)* %arrayidx21, align 1
-  %conv22 = zext i8 %2 to i32
-  %arrayidx23 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %inc17
-  store i32 %conv22, i32* %arrayidx23, align 4
-  %inc24 = add nsw i32 %iPixelCount.0, 3
-  %inc25 = add nsw i32 %iRow.0, 1
-  br label %for.cond4
+  %idxprom = sext i32 %add13 to i64
+  %arrayidx = getelementptr inbounds i8 addrspace(1)* %pSrc, i64 %idxprom
+  %0 = load i8 addrspace(1)* %arrayidx, align 1
+  %conv14 = zext i8 %0 to i32
+  %idxprom15 = sext i32 %iPixelCount.0 to i64
+  %arrayidx16 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom15
+  store i32 %conv14, i32* %arrayidx16, align 4
+  %inc = add nsw i32 %iPixelCount.0, 1
+  %mul17 = shl nsw i32 %add11, 2
+  %add18 = add nsw i32 %mul17, %ch.0
+  %idxprom19 = sext i32 %add18 to i64
+  %arrayidx20 = getelementptr inbounds i8 addrspace(1)* %pSrc, i64 %idxprom19
+  %1 = load i8 addrspace(1)* %arrayidx20, align 1
+  %conv21 = zext i8 %1 to i32
+  %idxprom22 = sext i32 %inc to i64
+  %arrayidx23 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom22
+  store i32 %conv21, i32* %arrayidx23, align 4
+  %inc24 = add nsw i32 %iPixelCount.0, 2
+  %add25 = shl i32 %add11, 2
+  %mul26 = add i32 %add25, 4
+  %add27 = add nsw i32 %mul26, %ch.0
+  %idxprom28 = sext i32 %add27 to i64
+  %arrayidx29 = getelementptr inbounds i8 addrspace(1)* %pSrc, i64 %idxprom28
+  %2 = load i8 addrspace(1)* %arrayidx29, align 1
+  %conv30 = zext i8 %2 to i32
+  %idxprom31 = sext i32 %inc24 to i64
+  %arrayidx32 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom31
+  store i32 %conv30, i32* %arrayidx32, align 4
+  %inc33 = add nsw i32 %iPixelCount.0, 3
+  %inc34 = add nsw i32 %iRow.0, 1
+  br label %for.cond6
 
-for.end:                                          ; preds = %for.cond4
-  br label %for.cond26
+for.end:                                          ; preds = %for.cond6
+  br label %for.cond35
 
-for.cond26:                                       ; preds = %for.end52, %for.end
-  %iYes.0 = phi i32 [ 128, %for.end ], [ %shr, %for.end52 ]
-  %iMin.0 = phi i32 [ 0, %for.end ], [ %cond, %for.end52 ]
-  %iMax.0 = phi i32 [ 255, %for.end ], [ %cond60, %for.end52 ]
-  %iSearch.0 = phi i32 [ 0, %for.end ], [ %inc63, %for.end52 ]
-  %cmp27 = icmp slt i32 %iSearch.0, 8
-  br i1 %cmp27, label %for.body29, label %for.end64
+for.cond35:                                       ; preds = %for.end64, %for.end
+  %iYes.0 = phi i32 [ 128, %for.end ], [ %shr, %for.end64 ]
+  %iMin.0 = phi i32 [ 0, %for.end ], [ %cond, %for.end64 ]
+  %iMax.0 = phi i32 [ 255, %for.end ], [ %cond72, %for.end64 ]
+  %iSearch.0 = phi i32 [ 0, %for.end ], [ %inc75, %for.end64 ]
+  %cmp36 = icmp slt i32 %iSearch.0, 8
+  br i1 %cmp36, label %for.body38, label %for.end76
 
-for.body29:                                       ; preds = %for.cond26
-  br label %for.cond31
+for.body38:                                       ; preds = %for.cond35
+  br label %for.cond40
 
-for.cond31:                                       ; preds = %for.body34, %for.body29
-  %iPixelCount.1 = phi i32 [ 0, %for.body29 ], [ %inc49, %for.body34 ]
-  %iHighCount.0 = phi i32 [ 0, %for.body29 ], [ %add48, %for.body34 ]
-  %iRow30.0 = phi i32 [ -1, %for.body29 ], [ %inc51, %for.body34 ]
-  %cmp32 = icmp slt i32 %iRow30.0, 2
-  br i1 %cmp32, label %for.body34, label %for.end52
+for.cond40:                                       ; preds = %for.body43, %for.body38
+  %iPixelCount.1 = phi i32 [ 0, %for.body38 ], [ %inc61, %for.body43 ]
+  %iHighCount.0 = phi i32 [ 0, %for.body38 ], [ %add60, %for.body43 ]
+  %iRow39.0 = phi i32 [ -1, %for.body38 ], [ %inc63, %for.body43 ]
+  %cmp41 = icmp slt i32 %iRow39.0, 2
+  br i1 %cmp41, label %for.body43, label %for.end64
 
-for.body34:                                       ; preds = %for.cond31
-  %arrayidx35 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %iPixelCount.1
-  %3 = load i32* %arrayidx35, align 4
-  %cmp36 = icmp slt i32 %iYes.0, %3
-  %conv37 = zext i1 %cmp36 to i32
-  %add38 = add nsw i32 %iHighCount.0, %conv37
-  %inc39 = add nsw i32 %iPixelCount.1, 1
-  %arrayidx40 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %inc39
-  %4 = load i32* %arrayidx40, align 4
-  %cmp41 = icmp slt i32 %iYes.0, %4
-  %conv42 = zext i1 %cmp41 to i32
-  %add43 = add nsw i32 %add38, %conv42
-  %inc44 = add nsw i32 %iPixelCount.1, 2
-  %arrayidx45 = getelementptr inbounds [9 x i32]* %iPixels, i32 0, i32 %inc44
-  %5 = load i32* %arrayidx45, align 4
-  %cmp46 = icmp slt i32 %iYes.0, %5
+for.body43:                                       ; preds = %for.cond40
+  %idxprom44 = sext i32 %iPixelCount.1 to i64
+  %arrayidx45 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom44
+  %3 = load i32* %arrayidx45, align 4
+  %cmp46 = icmp slt i32 %iYes.0, %3
   %conv47 = zext i1 %cmp46 to i32
-  %add48 = add nsw i32 %add43, %conv47
-  %inc49 = add nsw i32 %iPixelCount.1, 3
-  %inc51 = add nsw i32 %iRow30.0, 1
-  br label %for.cond31
+  %add48 = add nsw i32 %iHighCount.0, %conv47
+  %inc49 = add nsw i32 %iPixelCount.1, 1
+  %idxprom50 = sext i32 %inc49 to i64
+  %arrayidx51 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom50
+  %4 = load i32* %arrayidx51, align 4
+  %cmp52 = icmp slt i32 %iYes.0, %4
+  %conv53 = zext i1 %cmp52 to i32
+  %add54 = add nsw i32 %add48, %conv53
+  %inc55 = add nsw i32 %iPixelCount.1, 2
+  %idxprom56 = sext i32 %inc55 to i64
+  %arrayidx57 = getelementptr inbounds [9 x i32]* %iPixels, i64 0, i64 %idxprom56
+  %5 = load i32* %arrayidx57, align 4
+  %cmp58 = icmp slt i32 %iYes.0, %5
+  %conv59 = zext i1 %cmp58 to i32
+  %add60 = add nsw i32 %add54, %conv59
+  %inc61 = add nsw i32 %iPixelCount.1, 3
+  %inc63 = add nsw i32 %iRow39.0, 1
+  br label %for.cond40
 
-for.end52:                                        ; preds = %for.cond31
-  %cmp53 = icmp sgt i32 %iHighCount.0, 4
-  %cond = select i1 %cmp53, i32 %iYes.0, i32 %iMin.0
-  %cmp55 = icmp slt i32 %iHighCount.0, 5
-  %cond60 = select i1 %cmp55, i32 %iYes.0, i32 %iMax.0
-  %add61 = add nsw i32 %cond60, %cond
-  %shr = ashr i32 %add61, 1
-  %inc63 = add nsw i32 %iSearch.0, 1
-  br label %for.cond26
+for.end64:                                        ; preds = %for.cond40
+  %cmp65 = icmp sgt i32 %iHighCount.0, 4
+  %cond = select i1 %cmp65, i32 %iYes.0, i32 %iMin.0
+  %cmp67 = icmp slt i32 %iHighCount.0, 5
+  %cond72 = select i1 %cmp67, i32 %iYes.0, i32 %iMax.0
+  %add73 = add nsw i32 %cond72, %cond
+  %shr = ashr i32 %add73, 1
+  %inc75 = add nsw i32 %iSearch.0, 1
+  br label %for.cond35
 
-for.end64:                                        ; preds = %for.cond26
-  %arrayidx65 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 %ch.0
-  store i32 %iYes.0, i32* %arrayidx65, align 4
-  %inc67 = add nsw i32 %ch.0, 1
-  br label %for.cond1
+for.end76:                                        ; preds = %for.cond35
+  %idxprom77 = sext i32 %ch.0 to i64
+  %arrayidx78 = getelementptr inbounds [4 x i32]* %iResult, i64 0, i64 %idxprom77
+  store i32 %iYes.0, i32* %arrayidx78, align 4
+  %inc80 = add nsw i32 %ch.0, 1
+  br label %for.cond2
 
-for.end68:                                        ; preds = %for.cond1
-  %arrayidx69 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 0
-  %6 = load i32* %arrayidx69, align 4
+for.end81:                                        ; preds = %for.cond2
+  %arrayidx82 = getelementptr inbounds [4 x i32]* %iResult, i64 0, i64 0
+  %6 = load i32* %arrayidx82, align 16
   %and = and i32 %6, 255
-  %arrayidx70 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 1
-  %7 = load i32* %arrayidx70, align 4
+  %arrayidx83 = getelementptr inbounds [4 x i32]* %iResult, i64 0, i64 1
+  %7 = load i32* %arrayidx83, align 4
   %shl = shl i32 %7, 8
-  %and71 = and i32 %shl, 65280
-  %or = or i32 %and, %and71
-  %arrayidx72 = getelementptr inbounds [4 x i32]* %iResult, i32 0, i32 2
-  %8 = load i32* %arrayidx72, align 4
-  %shl73 = shl i32 %8, 16
-  %and74 = and i32 %shl73, 16711680
-  %or75 = or i32 %or, %and74
-  %add76 = add nsw i32 %call, 2
-  %mul77 = mul nsw i32 %add76, %iImageWidth
-  %add78 = add nsw i32 %mul77, %x.0
-  %arrayidx79 = getelementptr inbounds i32 addrspace(1)* %pDst, i32 %add78
-  store i32 %or75, i32 addrspace(1)* %arrayidx79, align 4
-  %inc81 = add nsw i32 %x.0, 1
+  %and84 = and i32 %shl, 65280
+  %or = or i32 %and, %and84
+  %arrayidx85 = getelementptr inbounds [4 x i32]* %iResult, i64 0, i64 2
+  %8 = load i32* %arrayidx85, align 8
+  %shl86 = shl i32 %8, 16
+  %and87 = and i32 %shl86, 16711680
+  %or88 = or i32 %or, %and87
+  %add89 = add nsw i32 %conv, 2
+  %mul90 = mul nsw i32 %add89, %iImageWidth
+  %add91 = add nsw i32 %mul90, %x.0
+  %idxprom92 = sext i32 %add91 to i64
+  %arrayidx93 = getelementptr inbounds i32 addrspace(1)* %pDst, i64 %idxprom92
+  store i32 %or88, i32 addrspace(1)* %arrayidx93, align 4
+  %inc95 = add nsw i32 %x.0, 1
   br label %for.cond
 
-for.end82:                                        ; preds = %for.cond
+for.end96:                                        ; preds = %for.cond
   ret void
 }
 

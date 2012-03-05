@@ -24,6 +24,7 @@ File Name:  OpenCLProgramConfiguration.h
 #define TIXML_USE_STL
 #include "tinyxml.h"
 #include <list>
+#include <cl_device_api.h>
 
 namespace Validation
 {
@@ -59,25 +60,25 @@ namespace Validation
         /// @brief Returns global work offset
         /// @return Global work offset
         // More details about global work offset at end of file
-        size_t * GetGlobalWorkOffset() const
+        const size_t * GetGlobalWorkOffset() const
         {
-            return m_pGlobalWorkOffeset;
+            return m_arrGlobalWorkOffset;
         }
 
         /// @brief Returns global work size
         /// @return Global work size
         // More details about global work size at end of file
-        size_t * GetGlobalWorkSize() const
+        const size_t * GetGlobalWorkSize() const
         {
-            return m_pGlobalWorkSize;
+            return m_arrGlobalWorkSize;
         }
 
         /// @brief Returns local work size
         /// @return Local work size
         // More details about local work size at end of file
-        size_t * GetLocalWorkSize() const
+        const size_t * GetLocalWorkSize() const
         {
-            return m_pLocalWorkSize;
+            return m_arrLocalWorkSize;
         }
 
         /// @brief Returns name of kernel to run.
@@ -130,15 +131,15 @@ namespace Validation
     private:
         // Global work offset
         // More details about global work offset at end of file
-        size_t * m_pGlobalWorkOffeset;
+        size_t m_arrGlobalWorkOffset[MAX_WORK_DIM];
 
         // Global work Size
         // More details about global work size at end of file
-        size_t * m_pGlobalWorkSize;
+        size_t m_arrGlobalWorkSize[MAX_WORK_DIM];
 
         // Local work size
         // More details about local work size at end of file
-        size_t * m_pLocalWorkSize;
+        size_t m_arrLocalWorkSize[MAX_WORK_DIM];
 
         // Work dimension
         // More details about work dimension at end of file
@@ -324,11 +325,11 @@ namespace Validation
 
         //then:
         //m_workDimension = 2
-        //m_pGlobalWorkOffeset[0] = the id of the square on X radix
-        //m_pGlobalWorkOffeset[1] = the id of the square on Y radix
-        //m_pGlobalWorkSize[0] = total number of squares on X radix
-        //m_pGlobalWorkSize[1] = total number of squares on Y radix
-        //m_pLocalWorkSize[0] = size of square on X radix
-        //m_pLocalWorkSize[1] = size of square on Y radix
+        //m_arrGlobalWorkOffeset[0] = the id of the square on X radix
+        //m_arrGlobalWorkOffeset[1] = the id of the square on Y radix
+        //m_arrGlobalWorkSize[0] = total number of squares on X radix
+        //m_arrGlobalWorkSize[1] = total number of squares on Y radix
+        //m_arrLocalWorkSize[0] = size of square on X radix
+        //m_arrLocalWorkSize[1] = size of square on Y radix
 }
 
