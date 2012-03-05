@@ -1,268 +1,258 @@
 ; ModuleID = 'Program'
-target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
+target triple = "i686-pc-win32"
 
 %struct._image2d_t.0 = type opaque
 
 define void @wlSimpleBoxBlur_GPU(<4 x float> addrspace(1)* nocapture %input, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %buffer_size) nounwind {
 entry:
-  %call1 = tail call i64 @get_global_id(i32 0) nounwind readnone
-  %call2 = tail call i64 @get_global_id(i32 1) nounwind readnone
-  %call5 = tail call i64 @get_global_size(i32 0) nounwind readnone
-  %call6 = tail call i64 @get_global_size(i32 1) nounwind readnone
-  %conv11 = zext i32 %width to i64
-  %mul = mul i64 %call2, %conv11
-  %add = add i64 %mul, %call1
-  %sub = add i64 %call2, -1
-  %mul13 = mul i64 %sub, %conv11
-  %add14 = add i64 %mul13, %call1
-  %add15 = add i64 %call2, 1
-  %mul17 = mul i64 %add15, %conv11
-  %add18 = add i64 %mul17, %call1
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add
+  %call1 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call2 = tail call i32 @get_global_id(i32 1) nounwind readnone
+  %call5 = tail call i32 @get_global_size(i32 0) nounwind readnone
+  %call6 = tail call i32 @get_global_size(i32 1) nounwind readnone
+  %mul = mul i32 %call2, %width
+  %add = add i32 %mul, %call1
+  %sub = add i32 %call2, -1
+  %mul11 = mul i32 %sub, %width
+  %add12 = add i32 %mul11, %call1
+  %add13 = add i32 %call2, 1
+  %mul14 = mul i32 %add13, %width
+  %add15 = add i32 %mul14, %call1
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add
   %0 = load <4 x float> addrspace(1)* %arrayidx, align 16
-  %cmp = icmp eq i64 %call1, 0
+  %cmp = icmp eq i32 %call1, 0
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %sub20 = add i64 %add, -1
-  %arrayidx21 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub20
-  %1 = load <4 x float> addrspace(1)* %arrayidx21, align 16
-  %add22 = fadd <4 x float> %0, %1
+  %sub16 = add i32 %add, -1
+  %arrayidx17 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub16
+  %1 = load <4 x float> addrspace(1)* %arrayidx17, align 16
+  %add18 = fadd <4 x float> %0, %1
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
-  %colorAccumulator.0 = phi <4 x float> [ %add22, %if.then ], [ %0, %entry ]
-  %sub23 = add i64 %call5, -1
-  %cmp24 = icmp ult i64 %call1, %sub23
-  br i1 %cmp24, label %if.then26, label %if.end30
+  %colorAccumulator.0 = phi <4 x float> [ %add18, %if.then ], [ %0, %entry ]
+  %sub19 = add i32 %call5, -1
+  %cmp20 = icmp ult i32 %call1, %sub19
+  br i1 %cmp20, label %if.then21, label %if.end25
 
-if.then26:                                        ; preds = %if.end
-  %add27 = add i64 %add, 1
-  %arrayidx28 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add27
-  %2 = load <4 x float> addrspace(1)* %arrayidx28, align 16
-  %add29 = fadd <4 x float> %colorAccumulator.0, %2
-  br label %if.end30
+if.then21:                                        ; preds = %if.end
+  %add22 = add i32 %add, 1
+  %arrayidx23 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add22
+  %2 = load <4 x float> addrspace(1)* %arrayidx23, align 16
+  %add24 = fadd <4 x float> %colorAccumulator.0, %2
+  br label %if.end25
 
-if.end30:                                         ; preds = %if.then26, %if.end
-  %colorAccumulator.1 = phi <4 x float> [ %add29, %if.then26 ], [ %colorAccumulator.0, %if.end ]
-  %cmp31 = icmp eq i64 %call2, 0
-  br i1 %cmp31, label %if.end51, label %if.then33
+if.end25:                                         ; preds = %if.then21, %if.end
+  %colorAccumulator.1 = phi <4 x float> [ %add24, %if.then21 ], [ %colorAccumulator.0, %if.end ]
+  %cmp26 = icmp eq i32 %call2, 0
+  br i1 %cmp26, label %if.end43, label %if.then27
 
-if.then33:                                        ; preds = %if.end30
-  %arrayidx34 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add14
-  %3 = load <4 x float> addrspace(1)* %arrayidx34, align 16
-  %add35 = fadd <4 x float> %colorAccumulator.1, %3
-  br i1 %cmp, label %if.end42, label %if.then38
+if.then27:                                        ; preds = %if.end25
+  %arrayidx28 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add12
+  %3 = load <4 x float> addrspace(1)* %arrayidx28, align 16
+  %add29 = fadd <4 x float> %colorAccumulator.1, %3
+  br i1 %cmp, label %if.end35, label %if.then31
 
-if.then38:                                        ; preds = %if.then33
-  %sub39 = add i64 %add14, -1
-  %arrayidx40 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub39
-  %4 = load <4 x float> addrspace(1)* %arrayidx40, align 16
-  %add41 = fadd <4 x float> %add35, %4
-  br label %if.end42
+if.then31:                                        ; preds = %if.then27
+  %sub32 = add i32 %add12, -1
+  %arrayidx33 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub32
+  %4 = load <4 x float> addrspace(1)* %arrayidx33, align 16
+  %add34 = fadd <4 x float> %add29, %4
+  br label %if.end35
 
-if.end42:                                         ; preds = %if.then33, %if.then38
-  %colorAccumulator.2 = phi <4 x float> [ %add41, %if.then38 ], [ %add35, %if.then33 ]
-  br i1 %cmp24, label %if.then46, label %if.end51
+if.end35:                                         ; preds = %if.then27, %if.then31
+  %colorAccumulator.2 = phi <4 x float> [ %add34, %if.then31 ], [ %add29, %if.then27 ]
+  br i1 %cmp20, label %if.then38, label %if.end43
 
-if.then46:                                        ; preds = %if.end42
-  %add47 = add i64 %add14, 1
-  %arrayidx48 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add47
-  %5 = load <4 x float> addrspace(1)* %arrayidx48, align 16
-  %add49 = fadd <4 x float> %colorAccumulator.2, %5
-  br label %if.end51
+if.then38:                                        ; preds = %if.end35
+  %add39 = add i32 %add12, 1
+  %arrayidx40 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add39
+  %5 = load <4 x float> addrspace(1)* %arrayidx40, align 16
+  %add41 = fadd <4 x float> %colorAccumulator.2, %5
+  br label %if.end43
 
-if.end51:                                         ; preds = %if.end30, %if.end42, %if.then46
-  %colorAccumulator.3 = phi <4 x float> [ %add49, %if.then46 ], [ %colorAccumulator.2, %if.end42 ], [ %colorAccumulator.1, %if.end30 ]
-  %sub52 = add i64 %call6, -1
-  %cmp53 = icmp ult i64 %call2, %sub52
-  br i1 %cmp53, label %if.then55, label %if.end73
+if.end43:                                         ; preds = %if.end25, %if.end35, %if.then38
+  %colorAccumulator.3 = phi <4 x float> [ %add41, %if.then38 ], [ %colorAccumulator.2, %if.end35 ], [ %colorAccumulator.1, %if.end25 ]
+  %sub44 = add i32 %call6, -1
+  %cmp45 = icmp ult i32 %call2, %sub44
+  br i1 %cmp45, label %if.then46, label %if.end62
 
-if.then55:                                        ; preds = %if.end51
-  %arrayidx56 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add18
-  %6 = load <4 x float> addrspace(1)* %arrayidx56, align 16
-  %add57 = fadd <4 x float> %colorAccumulator.3, %6
-  br i1 %cmp, label %if.end64, label %if.then60
+if.then46:                                        ; preds = %if.end43
+  %arrayidx47 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add15
+  %6 = load <4 x float> addrspace(1)* %arrayidx47, align 16
+  %add48 = fadd <4 x float> %colorAccumulator.3, %6
+  br i1 %cmp, label %if.end54, label %if.then50
 
-if.then60:                                        ; preds = %if.then55
-  %sub61 = add i64 %add18, -1
-  %arrayidx62 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub61
-  %7 = load <4 x float> addrspace(1)* %arrayidx62, align 16
-  %add63 = fadd <4 x float> %add57, %7
-  br label %if.end64
+if.then50:                                        ; preds = %if.then46
+  %sub51 = add i32 %add15, -1
+  %arrayidx52 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub51
+  %7 = load <4 x float> addrspace(1)* %arrayidx52, align 16
+  %add53 = fadd <4 x float> %add48, %7
+  br label %if.end54
 
-if.end64:                                         ; preds = %if.then55, %if.then60
-  %colorAccumulator.4 = phi <4 x float> [ %add63, %if.then60 ], [ %add57, %if.then55 ]
-  br i1 %cmp24, label %if.then68, label %if.end73
+if.end54:                                         ; preds = %if.then46, %if.then50
+  %colorAccumulator.4 = phi <4 x float> [ %add53, %if.then50 ], [ %add48, %if.then46 ]
+  br i1 %cmp20, label %if.then57, label %if.end62
 
-if.then68:                                        ; preds = %if.end64
-  %add69 = add i64 %add18, 1
-  %arrayidx70 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add69
-  %8 = load <4 x float> addrspace(1)* %arrayidx70, align 16
-  %add71 = fadd <4 x float> %colorAccumulator.4, %8
-  br label %if.end73
+if.then57:                                        ; preds = %if.end54
+  %add58 = add i32 %add15, 1
+  %arrayidx59 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add58
+  %8 = load <4 x float> addrspace(1)* %arrayidx59, align 16
+  %add60 = fadd <4 x float> %colorAccumulator.4, %8
+  br label %if.end62
 
-if.end73:                                         ; preds = %if.end64, %if.then68, %if.end51
-  %colorAccumulator.5 = phi <4 x float> [ %add71, %if.then68 ], [ %colorAccumulator.4, %if.end64 ], [ %colorAccumulator.3, %if.end51 ]
+if.end62:                                         ; preds = %if.end54, %if.then57, %if.end43
+  %colorAccumulator.5 = phi <4 x float> [ %add60, %if.then57 ], [ %colorAccumulator.4, %if.end54 ], [ %colorAccumulator.3, %if.end43 ]
   %div = fdiv <4 x float> %colorAccumulator.5, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx74 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %add
-  store <4 x float> %div, <4 x float> addrspace(1)* %arrayidx74, align 16
+  %arrayidx63 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add
+  store <4 x float> %div, <4 x float> addrspace(1)* %arrayidx63, align 16
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i32 @get_global_id(i32) nounwind readnone
 
-declare i64 @get_global_size(i32) nounwind readnone
+declare i32 @get_global_size(i32) nounwind readnone
 
 define void @wlSimpleBoxBlur_CPU(<4 x float> addrspace(1)* nocapture %input, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %buffer_size) nounwind {
 entry:
-  %call1 = tail call i64 @get_global_id(i32 0) nounwind readnone
-  %call5 = tail call i64 @get_global_size(i32 0) nounwind readnone
-  %call6 = tail call i64 @get_global_size(i32 1) nounwind readnone
-  %conv11 = zext i32 %width to i64
-  %div = udiv i64 %conv11, %call5
-  %conv12 = zext i32 %height to i64
-  %div13 = udiv i64 %conv12, %call6
-  %mul = mul i64 %call1, %conv11
-  %div15 = udiv i64 %mul, %call5
-  %conv16 = trunc i64 %div15 to i32
-  %call2 = tail call i64 @get_global_id(i32 1) nounwind readnone
-  %mul18 = mul i64 %call2, %conv12
-  %div19 = udiv i64 %mul18, %call6
-  %conv20 = trunc i64 %div19 to i32
-  %cmp261 = icmp eq i64 %div, 0
-  %sub43 = add i32 %width, -1
-  %sub72 = add i32 %height, -1
-  br label %for.cond24.preheader
+  %call1 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call5 = tail call i32 @get_global_size(i32 0) nounwind readnone
+  %call6 = tail call i32 @get_global_size(i32 1) nounwind readnone
+  %div = udiv i32 %width, %call5
+  %div11 = udiv i32 %height, %call6
+  %mul = mul i32 %call1, %width
+  %div12 = udiv i32 %mul, %call5
+  %call2 = tail call i32 @get_global_id(i32 1) nounwind readnone
+  %mul13 = mul i32 %call2, %height
+  %div14 = udiv i32 %mul13, %call6
+  %cmp171 = icmp eq i32 %div, 0
+  %sub29 = add i32 %width, -1
+  %sub54 = add i32 %height, -1
+  br label %for.cond16.preheader
 
-for.cond24.preheader:                             ; preds = %entry, %for.inc97
-  %i.06 = phi i32 [ 0, %entry ], [ %inc98, %for.inc97 ]
-  %index_y.05 = phi i32 [ %conv20, %entry ], [ %inc99.pre-phi, %for.inc97 ]
-  br i1 %cmp261, label %for.cond24.preheader.for.inc97_crit_edge, label %for.body28.lr.ph
+for.cond16.preheader:                             ; preds = %entry, %for.inc76
+  %i.06 = phi i32 [ 0, %entry ], [ %inc77, %for.inc76 ]
+  %index_y.05 = phi i32 [ %div14, %entry ], [ %inc78.pre-phi, %for.inc76 ]
+  br i1 %cmp171, label %for.cond16.preheader.for.inc76_crit_edge, label %for.body18.lr.ph
 
-for.cond24.preheader.for.inc97_crit_edge:         ; preds = %for.cond24.preheader
-  %inc99.pre = add i32 %index_y.05, 1
-  br label %for.inc97
+for.cond16.preheader.for.inc76_crit_edge:         ; preds = %for.cond16.preheader
+  %inc78.pre = add i32 %index_y.05, 1
+  br label %for.inc76
 
-for.body28.lr.ph:                                 ; preds = %for.cond24.preheader
-  %mul29 = mul i32 %index_y.05, %width
+for.body18.lr.ph:                                 ; preds = %for.cond16.preheader
+  %mul19 = mul i32 %index_y.05, %width
   %sub = add i32 %index_y.05, -1
-  %mul31 = mul i32 %sub, %width
-  %add34 = add i32 %index_y.05, 1
-  %mul35 = mul i32 %add34, %width
-  %cmp51 = icmp eq i32 %index_y.05, 0
-  %cmp73 = icmp ult i32 %index_y.05, %sub72
-  br label %for.body28
+  %mul20 = mul i32 %sub, %width
+  %add22 = add i32 %index_y.05, 1
+  %mul23 = mul i32 %add22, %width
+  %cmp36 = icmp eq i32 %index_y.05, 0
+  %cmp55 = icmp ult i32 %index_y.05, %sub54
+  br label %for.body18
 
-for.body28:                                       ; preds = %for.body28.lr.ph, %if.end93
-  %index_x23.03 = phi i32 [ %conv16, %for.body28.lr.ph ], [ %inc96, %if.end93 ]
-  %j.02 = phi i32 [ 0, %for.body28.lr.ph ], [ %inc, %if.end93 ]
-  %add = add i32 %index_x23.03, %mul29
-  %conv30 = zext i32 %add to i64
-  %add32 = add i32 %index_x23.03, %mul31
-  %conv33 = zext i32 %add32 to i64
-  %add36 = add i32 %index_x23.03, %mul35
-  %conv37 = zext i32 %add36 to i64
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv30
+for.body18:                                       ; preds = %for.body18.lr.ph, %if.end72
+  %index_x15.03 = phi i32 [ %div12, %for.body18.lr.ph ], [ %inc75, %if.end72 ]
+  %j.02 = phi i32 [ 0, %for.body18.lr.ph ], [ %inc, %if.end72 ]
+  %add = add i32 %index_x15.03, %mul19
+  %add21 = add i32 %index_x15.03, %mul20
+  %add24 = add i32 %index_x15.03, %mul23
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add
   %0 = load <4 x float> addrspace(1)* %arrayidx, align 16
-  %cmp38 = icmp eq i32 %index_x23.03, 0
-  br i1 %cmp38, label %if.end, label %if.then
+  %cmp25 = icmp eq i32 %index_x15.03, 0
+  br i1 %cmp25, label %if.end, label %if.then
 
-if.then:                                          ; preds = %for.body28
-  %sub40 = add i64 %conv30, -1
-  %arrayidx41 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub40
-  %1 = load <4 x float> addrspace(1)* %arrayidx41, align 16
-  %add42 = fadd <4 x float> %0, %1
+if.then:                                          ; preds = %for.body18
+  %sub26 = add i32 %add, -1
+  %arrayidx27 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub26
+  %1 = load <4 x float> addrspace(1)* %arrayidx27, align 16
+  %add28 = fadd <4 x float> %0, %1
   br label %if.end
 
-if.end:                                           ; preds = %for.body28, %if.then
-  %colorAccumulator.0 = phi <4 x float> [ %add42, %if.then ], [ %0, %for.body28 ]
-  %cmp44 = icmp ult i32 %index_x23.03, %sub43
-  br i1 %cmp44, label %if.then46, label %if.end50
+if.end:                                           ; preds = %for.body18, %if.then
+  %colorAccumulator.0 = phi <4 x float> [ %add28, %if.then ], [ %0, %for.body18 ]
+  %cmp30 = icmp ult i32 %index_x15.03, %sub29
+  br i1 %cmp30, label %if.then31, label %if.end35
 
-if.then46:                                        ; preds = %if.end
-  %add47 = add i64 %conv30, 1
-  %arrayidx48 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add47
-  %2 = load <4 x float> addrspace(1)* %arrayidx48, align 16
-  %add49 = fadd <4 x float> %colorAccumulator.0, %2
-  br label %if.end50
+if.then31:                                        ; preds = %if.end
+  %add32 = add i32 %add, 1
+  %arrayidx33 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add32
+  %2 = load <4 x float> addrspace(1)* %arrayidx33, align 16
+  %add34 = fadd <4 x float> %colorAccumulator.0, %2
+  br label %if.end35
 
-if.end50:                                         ; preds = %if.then46, %if.end
-  %colorAccumulator.1 = phi <4 x float> [ %add49, %if.then46 ], [ %colorAccumulator.0, %if.end ]
-  br i1 %cmp51, label %if.end71, label %if.then53
+if.end35:                                         ; preds = %if.then31, %if.end
+  %colorAccumulator.1 = phi <4 x float> [ %add34, %if.then31 ], [ %colorAccumulator.0, %if.end ]
+  br i1 %cmp36, label %if.end53, label %if.then37
 
-if.then53:                                        ; preds = %if.end50
-  %arrayidx54 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv33
-  %3 = load <4 x float> addrspace(1)* %arrayidx54, align 16
-  %add55 = fadd <4 x float> %colorAccumulator.1, %3
-  br i1 %cmp38, label %if.end62, label %if.then58
+if.then37:                                        ; preds = %if.end35
+  %arrayidx38 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add21
+  %3 = load <4 x float> addrspace(1)* %arrayidx38, align 16
+  %add39 = fadd <4 x float> %colorAccumulator.1, %3
+  br i1 %cmp25, label %if.end45, label %if.then41
 
-if.then58:                                        ; preds = %if.then53
-  %sub59 = add i64 %conv33, -1
-  %arrayidx60 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub59
-  %4 = load <4 x float> addrspace(1)* %arrayidx60, align 16
-  %add61 = fadd <4 x float> %add55, %4
-  br label %if.end62
+if.then41:                                        ; preds = %if.then37
+  %sub42 = add i32 %add21, -1
+  %arrayidx43 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub42
+  %4 = load <4 x float> addrspace(1)* %arrayidx43, align 16
+  %add44 = fadd <4 x float> %add39, %4
+  br label %if.end45
 
-if.end62:                                         ; preds = %if.then53, %if.then58
-  %colorAccumulator.2 = phi <4 x float> [ %add61, %if.then58 ], [ %add55, %if.then53 ]
-  br i1 %cmp44, label %if.then66, label %if.end71
+if.end45:                                         ; preds = %if.then37, %if.then41
+  %colorAccumulator.2 = phi <4 x float> [ %add44, %if.then41 ], [ %add39, %if.then37 ]
+  br i1 %cmp30, label %if.then48, label %if.end53
 
-if.then66:                                        ; preds = %if.end62
-  %add67 = add i64 %conv33, 1
-  %arrayidx68 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add67
-  %5 = load <4 x float> addrspace(1)* %arrayidx68, align 16
-  %add69 = fadd <4 x float> %colorAccumulator.2, %5
-  br label %if.end71
+if.then48:                                        ; preds = %if.end45
+  %add49 = add i32 %add21, 1
+  %arrayidx50 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add49
+  %5 = load <4 x float> addrspace(1)* %arrayidx50, align 16
+  %add51 = fadd <4 x float> %colorAccumulator.2, %5
+  br label %if.end53
 
-if.end71:                                         ; preds = %if.end50, %if.end62, %if.then66
-  %colorAccumulator.3 = phi <4 x float> [ %add69, %if.then66 ], [ %colorAccumulator.2, %if.end62 ], [ %colorAccumulator.1, %if.end50 ]
-  br i1 %cmp73, label %if.then75, label %if.end93
+if.end53:                                         ; preds = %if.end35, %if.end45, %if.then48
+  %colorAccumulator.3 = phi <4 x float> [ %add51, %if.then48 ], [ %colorAccumulator.2, %if.end45 ], [ %colorAccumulator.1, %if.end35 ]
+  br i1 %cmp55, label %if.then56, label %if.end72
 
-if.then75:                                        ; preds = %if.end71
-  %arrayidx76 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv37
-  %6 = load <4 x float> addrspace(1)* %arrayidx76, align 16
-  %add77 = fadd <4 x float> %colorAccumulator.3, %6
-  br i1 %cmp38, label %if.end84, label %if.then80
+if.then56:                                        ; preds = %if.end53
+  %arrayidx57 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add24
+  %6 = load <4 x float> addrspace(1)* %arrayidx57, align 16
+  %add58 = fadd <4 x float> %colorAccumulator.3, %6
+  br i1 %cmp25, label %if.end64, label %if.then60
 
-if.then80:                                        ; preds = %if.then75
-  %sub81 = add i64 %conv37, -1
-  %arrayidx82 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %sub81
-  %7 = load <4 x float> addrspace(1)* %arrayidx82, align 16
-  %add83 = fadd <4 x float> %add77, %7
-  br label %if.end84
+if.then60:                                        ; preds = %if.then56
+  %sub61 = add i32 %add24, -1
+  %arrayidx62 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub61
+  %7 = load <4 x float> addrspace(1)* %arrayidx62, align 16
+  %add63 = fadd <4 x float> %add58, %7
+  br label %if.end64
 
-if.end84:                                         ; preds = %if.then75, %if.then80
-  %colorAccumulator.4 = phi <4 x float> [ %add83, %if.then80 ], [ %add77, %if.then75 ]
-  br i1 %cmp44, label %if.then88, label %if.end93
+if.end64:                                         ; preds = %if.then56, %if.then60
+  %colorAccumulator.4 = phi <4 x float> [ %add63, %if.then60 ], [ %add58, %if.then56 ]
+  br i1 %cmp30, label %if.then67, label %if.end72
 
-if.then88:                                        ; preds = %if.end84
-  %add89 = add i64 %conv37, 1
-  %arrayidx90 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add89
-  %8 = load <4 x float> addrspace(1)* %arrayidx90, align 16
-  %add91 = fadd <4 x float> %colorAccumulator.4, %8
-  br label %if.end93
+if.then67:                                        ; preds = %if.end64
+  %add68 = add i32 %add24, 1
+  %arrayidx69 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add68
+  %8 = load <4 x float> addrspace(1)* %arrayidx69, align 16
+  %add70 = fadd <4 x float> %colorAccumulator.4, %8
+  br label %if.end72
 
-if.end93:                                         ; preds = %if.end84, %if.then88, %if.end71
-  %colorAccumulator.5 = phi <4 x float> [ %add91, %if.then88 ], [ %colorAccumulator.4, %if.end84 ], [ %colorAccumulator.3, %if.end71 ]
-  %div94 = fdiv <4 x float> %colorAccumulator.5, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx95 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %conv30
-  store <4 x float> %div94, <4 x float> addrspace(1)* %arrayidx95, align 16
+if.end72:                                         ; preds = %if.end64, %if.then67, %if.end53
+  %colorAccumulator.5 = phi <4 x float> [ %add70, %if.then67 ], [ %colorAccumulator.4, %if.end64 ], [ %colorAccumulator.3, %if.end53 ]
+  %div73 = fdiv <4 x float> %colorAccumulator.5, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx74 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add
+  store <4 x float> %div73, <4 x float> addrspace(1)* %arrayidx74, align 16
   %inc = add i32 %j.02, 1
-  %inc96 = add i32 %index_x23.03, 1
-  %conv25 = zext i32 %inc to i64
-  %cmp26 = icmp ult i64 %conv25, %div
-  br i1 %cmp26, label %for.body28, label %for.inc97
+  %inc75 = add i32 %index_x15.03, 1
+  %cmp17 = icmp ult i32 %inc, %div
+  br i1 %cmp17, label %for.body18, label %for.inc76
 
-for.inc97:                                        ; preds = %if.end93, %for.cond24.preheader.for.inc97_crit_edge
-  %inc99.pre-phi = phi i32 [ %inc99.pre, %for.cond24.preheader.for.inc97_crit_edge ], [ %add34, %if.end93 ]
-  %inc98 = add i32 %i.06, 1
-  %conv21 = zext i32 %inc98 to i64
-  %cmp = icmp ult i64 %conv21, %div13
-  br i1 %cmp, label %for.cond24.preheader, label %for.end100
+for.inc76:                                        ; preds = %if.end72, %for.cond16.preheader.for.inc76_crit_edge
+  %inc78.pre-phi = phi i32 [ %inc78.pre, %for.cond16.preheader.for.inc76_crit_edge ], [ %add22, %if.end72 ]
+  %inc77 = add i32 %i.06, 1
+  %cmp = icmp ult i32 %inc77, %div11
+  br i1 %cmp, label %for.cond16.preheader, label %for.end79
 
-for.end100:                                       ; preds = %for.inc97
+for.end79:                                        ; preds = %for.inc76
   ret void
 }
 
@@ -276,41 +266,44 @@ declare <4 x float> @_Z11read_imagefP10_image2d_tjDv2_i(%struct._image2d_t.0*, i
 
 define void @wlSimpleBoxBlur_image2d(%struct._image2d_t.0* %inputImage, <4 x float> addrspace(1)* nocapture %output, i32 %rowCountPerGlobalID) nounwind {
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
-  %conv = trunc i64 %call to i32
-  %mul = mul i32 %conv, %rowCountPerGlobalID
+  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %mul = mul i32 %call, %rowCountPerGlobalID
   %call1 = tail call <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t.0* %inputImage) nounwind readnone
   %add = add nsw i32 %mul, %rowCountPerGlobalID
   %0 = extractelement <2 x i32> %call1, i32 1
   %call2 = tail call i32 @_Z3minii(i32 %add, i32 %0) nounwind readnone
   %1 = extractelement <2 x i32> %call1, i32 0
   %cmp22 = icmp slt i32 %mul, %call2
-  br i1 %cmp22, label %for.body.lr.ph, label %for.end40
+  br i1 %cmp22, label %for.body.lr.ph, label %for.end38
 
 for.body.lr.ph:                                   ; preds = %entry
-  %mul3 = mul nsw i32 %mul, %1
-  %cmp111 = icmp sgt i32 %1, 0
+  %mul3 = mul nsw i32 %1, %mul
+  %cmp101 = icmp sgt i32 %1, 0
   br label %for.body
 
-for.cond.loopexit:                                ; preds = %for.body13, %for.body
-  %lowRightCrd.1.lcssa = phi <2 x i32> [ %10, %for.body ], [ %21, %for.body13 ]
-  %lowLeftCrd.1.lcssa = phi <2 x i32> [ %9, %for.body ], [ %20, %for.body13 ]
-  %lowCrd.1.lcssa = phi <2 x i32> [ %8, %for.body ], [ %19, %for.body13 ]
-  %upRightCrd.1.lcssa = phi <2 x i32> [ %7, %for.body ], [ %18, %for.body13 ]
-  %upLeftCrd.1.lcssa = phi <2 x i32> [ %6, %for.body ], [ %17, %for.body13 ]
-  %index.1.lcssa = phi i32 [ %index.027, %for.body ], [ %12, %for.body13 ]
-  %upCrd.1.lcssa = phi <2 x i32> [ %5, %for.body ], [ %16, %for.body13 ]
-  %curCrd.1.lcssa = phi <2 x i32> [ %2, %for.body ], [ %13, %for.body13 ]
-  %curLeftCrd.1.lcssa = phi <2 x i32> [ %3, %for.body ], [ %14, %for.body13 ]
-  %curRightCrd.1.lcssa = phi <2 x i32> [ %4, %for.body ], [ %15, %for.body13 ]
-  %exitcond42 = icmp eq i32 %add7, %call2
-  br i1 %exitcond42, label %for.end40, label %for.body
+for.cond9.for.cond.loopexit_crit_edge:            ; preds = %for.body11
+  %2 = add i32 %1, %index.027
+  br label %for.cond.loopexit
+
+for.cond.loopexit:                                ; preds = %for.cond9.for.cond.loopexit_crit_edge, %for.body
+  %lowRightCrd.1.lcssa = phi <2 x i32> [ %20, %for.cond9.for.cond.loopexit_crit_edge ], [ %11, %for.body ]
+  %lowLeftCrd.1.lcssa = phi <2 x i32> [ %19, %for.cond9.for.cond.loopexit_crit_edge ], [ %10, %for.body ]
+  %lowCrd.1.lcssa = phi <2 x i32> [ %18, %for.cond9.for.cond.loopexit_crit_edge ], [ %9, %for.body ]
+  %upRightCrd.1.lcssa = phi <2 x i32> [ %17, %for.cond9.for.cond.loopexit_crit_edge ], [ %8, %for.body ]
+  %upLeftCrd.1.lcssa = phi <2 x i32> [ %16, %for.cond9.for.cond.loopexit_crit_edge ], [ %7, %for.body ]
+  %index.1.lcssa = phi i32 [ %2, %for.cond9.for.cond.loopexit_crit_edge ], [ %index.027, %for.body ]
+  %upCrd.1.lcssa = phi <2 x i32> [ %15, %for.cond9.for.cond.loopexit_crit_edge ], [ %6, %for.body ]
+  %curCrd.1.lcssa = phi <2 x i32> [ %12, %for.cond9.for.cond.loopexit_crit_edge ], [ %3, %for.body ]
+  %curLeftCrd.1.lcssa = phi <2 x i32> [ %13, %for.cond9.for.cond.loopexit_crit_edge ], [ %4, %for.body ]
+  %curRightCrd.1.lcssa = phi <2 x i32> [ %14, %for.cond9.for.cond.loopexit_crit_edge ], [ %5, %for.body ]
+  %exitcond42 = icmp eq i32 %add6, %call2
+  br i1 %exitcond42, label %for.end38, label %for.body
 
 for.body:                                         ; preds = %for.cond.loopexit, %for.body.lr.ph
   %lowRightCrd.033 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %lowRightCrd.1.lcssa, %for.cond.loopexit ]
   %lowLeftCrd.032 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %lowLeftCrd.1.lcssa, %for.cond.loopexit ]
   %lowCrd.031 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %lowCrd.1.lcssa, %for.cond.loopexit ]
-  %row.030 = phi i32 [ %mul, %for.body.lr.ph ], [ %add7, %for.cond.loopexit ]
+  %row.030 = phi i32 [ %mul, %for.body.lr.ph ], [ %add6, %for.cond.loopexit ]
   %upRightCrd.029 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %upRightCrd.1.lcssa, %for.cond.loopexit ]
   %upLeftCrd.028 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %upLeftCrd.1.lcssa, %for.cond.loopexit ]
   %index.027 = phi i32 [ %mul3, %for.body.lr.ph ], [ %index.1.lcssa, %for.cond.loopexit ]
@@ -318,50 +311,47 @@ for.body:                                         ; preds = %for.cond.loopexit, 
   %curCrd.025 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %curCrd.1.lcssa, %for.cond.loopexit ]
   %curLeftCrd.024 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %curLeftCrd.1.lcssa, %for.cond.loopexit ]
   %curRightCrd.023 = phi <2 x i32> [ undef, %for.body.lr.ph ], [ %curRightCrd.1.lcssa, %for.cond.loopexit ]
-  %2 = insertelement <2 x i32> %curCrd.025, i32 %row.030, i32 1
-  %3 = insertelement <2 x i32> %curLeftCrd.024, i32 %row.030, i32 1
-  %4 = insertelement <2 x i32> %curRightCrd.023, i32 %row.030, i32 1
+  %3 = insertelement <2 x i32> %curCrd.025, i32 %row.030, i32 1
+  %4 = insertelement <2 x i32> %curLeftCrd.024, i32 %row.030, i32 1
+  %5 = insertelement <2 x i32> %curRightCrd.023, i32 %row.030, i32 1
   %sub = add nsw i32 %row.030, -1
-  %5 = insertelement <2 x i32> %upCrd.026, i32 %sub, i32 1
-  %6 = insertelement <2 x i32> %upLeftCrd.028, i32 %sub, i32 1
-  %7 = insertelement <2 x i32> %upRightCrd.029, i32 %sub, i32 1
-  %add7 = add nsw i32 %row.030, 1
-  %8 = insertelement <2 x i32> %lowCrd.031, i32 %add7, i32 1
-  %9 = insertelement <2 x i32> %lowLeftCrd.032, i32 %add7, i32 1
-  %10 = insertelement <2 x i32> %lowRightCrd.033, i32 %add7, i32 1
-  br i1 %cmp111, label %for.body13.lr.ph, label %for.cond.loopexit
+  %6 = insertelement <2 x i32> %upCrd.026, i32 %sub, i32 1
+  %7 = insertelement <2 x i32> %upLeftCrd.028, i32 %sub, i32 1
+  %8 = insertelement <2 x i32> %upRightCrd.029, i32 %sub, i32 1
+  %add6 = add nsw i32 %row.030, 1
+  %9 = insertelement <2 x i32> %lowCrd.031, i32 %add6, i32 1
+  %10 = insertelement <2 x i32> %lowLeftCrd.032, i32 %add6, i32 1
+  %11 = insertelement <2 x i32> %lowRightCrd.033, i32 %add6, i32 1
+  br i1 %cmp101, label %for.body11, label %for.cond.loopexit
 
-for.body13.lr.ph:                                 ; preds = %for.body
-  %11 = sext i32 %index.027 to i64
-  %12 = add i32 %1, %index.027
-  br label %for.body13
-
-for.body13:                                       ; preds = %for.body13, %for.body13.lr.ph
-  %indvars.iv = phi i64 [ %11, %for.body13.lr.ph ], [ %indvars.iv.next, %for.body13 ]
-  %col.012 = phi i32 [ 0, %for.body13.lr.ph ], [ %add15, %for.body13 ]
-  %lowRightCrd.111 = phi <2 x i32> [ %10, %for.body13.lr.ph ], [ %21, %for.body13 ]
-  %lowLeftCrd.110 = phi <2 x i32> [ %9, %for.body13.lr.ph ], [ %20, %for.body13 ]
-  %lowCrd.19 = phi <2 x i32> [ %8, %for.body13.lr.ph ], [ %19, %for.body13 ]
-  %upRightCrd.18 = phi <2 x i32> [ %7, %for.body13.lr.ph ], [ %18, %for.body13 ]
-  %upLeftCrd.17 = phi <2 x i32> [ %6, %for.body13.lr.ph ], [ %17, %for.body13 ]
-  %upCrd.15 = phi <2 x i32> [ %5, %for.body13.lr.ph ], [ %16, %for.body13 ]
-  %curCrd.14 = phi <2 x i32> [ %2, %for.body13.lr.ph ], [ %13, %for.body13 ]
-  %curLeftCrd.13 = phi <2 x i32> [ %3, %for.body13.lr.ph ], [ %14, %for.body13 ]
-  %curRightCrd.12 = phi <2 x i32> [ %4, %for.body13.lr.ph ], [ %15, %for.body13 ]
-  %13 = insertelement <2 x i32> %curCrd.14, i32 %col.012, i32 0
-  %sub14 = add nsw i32 %col.012, -1
-  %14 = insertelement <2 x i32> %curLeftCrd.13, i32 %sub14, i32 0
-  %add15 = add nsw i32 %col.012, 1
-  %15 = insertelement <2 x i32> %curRightCrd.12, i32 %add15, i32 0
-  %16 = insertelement <2 x i32> %upCrd.15, i32 %col.012, i32 0
-  %17 = insertelement <2 x i32> %upLeftCrd.17, i32 %sub14, i32 0
-  %18 = insertelement <2 x i32> %upRightCrd.18, i32 %add15, i32 0
-  %19 = insertelement <2 x i32> %lowCrd.19, i32 %col.012, i32 0
-  %20 = insertelement <2 x i32> %lowLeftCrd.110, i32 %sub14, i32 0
-  %21 = insertelement <2 x i32> %lowRightCrd.111, i32 %add15, i32 0
-  %call20 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %13)
+for.body11:                                       ; preds = %for.body, %for.body11
+  %col.012 = phi i32 [ %add13, %for.body11 ], [ 0, %for.body ]
+  %lowRightCrd.111 = phi <2 x i32> [ %20, %for.body11 ], [ %11, %for.body ]
+  %lowLeftCrd.110 = phi <2 x i32> [ %19, %for.body11 ], [ %10, %for.body ]
+  %lowCrd.19 = phi <2 x i32> [ %18, %for.body11 ], [ %9, %for.body ]
+  %upRightCrd.18 = phi <2 x i32> [ %17, %for.body11 ], [ %8, %for.body ]
+  %upLeftCrd.17 = phi <2 x i32> [ %16, %for.body11 ], [ %7, %for.body ]
+  %index.16 = phi i32 [ %inc, %for.body11 ], [ %index.027, %for.body ]
+  %upCrd.15 = phi <2 x i32> [ %15, %for.body11 ], [ %6, %for.body ]
+  %curCrd.14 = phi <2 x i32> [ %12, %for.body11 ], [ %3, %for.body ]
+  %curLeftCrd.13 = phi <2 x i32> [ %13, %for.body11 ], [ %4, %for.body ]
+  %curRightCrd.12 = phi <2 x i32> [ %14, %for.body11 ], [ %5, %for.body ]
+  %12 = insertelement <2 x i32> %curCrd.14, i32 %col.012, i32 0
+  %sub12 = add nsw i32 %col.012, -1
+  %13 = insertelement <2 x i32> %curLeftCrd.13, i32 %sub12, i32 0
+  %add13 = add nsw i32 %col.012, 1
+  %14 = insertelement <2 x i32> %curRightCrd.12, i32 %add13, i32 0
+  %15 = insertelement <2 x i32> %upCrd.15, i32 %col.012, i32 0
+  %16 = insertelement <2 x i32> %upLeftCrd.17, i32 %sub12, i32 0
+  %17 = insertelement <2 x i32> %upRightCrd.18, i32 %add13, i32 0
+  %18 = insertelement <2 x i32> %lowCrd.19, i32 %col.012, i32 0
+  %19 = insertelement <2 x i32> %lowLeftCrd.110, i32 %sub12, i32 0
+  %20 = insertelement <2 x i32> %lowRightCrd.111, i32 %add13, i32 0
+  %call18 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %12)
+  %call19 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %13)
+  %add20 = fadd <4 x float> %call18, %call19
   %call21 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %14)
-  %add22 = fadd <4 x float> %call20, %call21
+  %add22 = fadd <4 x float> %add20, %call21
   %call23 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %15)
   %add24 = fadd <4 x float> %add22, %call23
   %call25 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %16)
@@ -374,17 +364,14 @@ for.body13:                                       ; preds = %for.body13, %for.bo
   %add32 = fadd <4 x float> %add30, %call31
   %call33 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %20)
   %add34 = fadd <4 x float> %add32, %call33
-  %call35 = tail call <4 x float> @evaluatePixel(%struct._image2d_t.0* %inputImage, <2 x i32> %21)
-  %add36 = fadd <4 x float> %add34, %call35
-  %div = fdiv <4 x float> %add36, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %indvars.iv.next = add i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %indvars.iv
+  %div = fdiv <4 x float> %add34, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %inc = add nsw i32 %index.16, 1
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %index.16
   store <4 x float> %div, <4 x float> addrspace(1)* %arrayidx, align 16
-  %lftr.wideiv = trunc i64 %indvars.iv.next to i32
-  %exitcond = icmp eq i32 %lftr.wideiv, %12
-  br i1 %exitcond, label %for.cond.loopexit, label %for.body13
+  %exitcond = icmp eq i32 %add13, %1
+  br i1 %exitcond, label %for.cond9.for.cond.loopexit_crit_edge, label %for.body11
 
-for.end40:                                        ; preds = %for.cond.loopexit, %entry
+for.end38:                                        ; preds = %for.cond.loopexit, %entry
   ret void
 }
 
@@ -394,669 +381,652 @@ declare i32 @_Z3minii(i32, i32) nounwind readnone
 
 define void @wlSimpleBoxBlur_Optimized_CPU(<4 x float> addrspace(1)* %input, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %buffer_size) nounwind {
 entry:
-  %call1 = tail call i64 @get_global_id(i32 0) nounwind readnone
-  %call2 = tail call i64 @get_global_id(i32 1) nounwind readnone
-  %call3 = tail call i64 @get_global_size(i32 0) nounwind readnone
-  %call4 = tail call i64 @get_global_size(i32 1) nounwind readnone
-  %conv5 = zext i32 %height to i64
-  %div = udiv i64 %conv5, %call4
-  %conv6 = zext i32 %width to i64
-  %div7 = udiv i64 %conv6, %call3
-  %mul = mul i64 %call1, %conv6
-  %div9 = udiv i64 %mul, %call3
-  %conv10 = trunc i64 %div9 to i32
-  %mul12 = mul i64 %call2, %conv5
-  %div13 = udiv i64 %mul12, %call4
-  %conv14 = trunc i64 %div13 to i32
-  %conv15 = and i64 %div13, 4294967295
-  %add = add i64 %div, 1
-  %add16 = add i64 %add, %conv15
-  %cmp = icmp ult i64 %add16, %conv5
+  %call1 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call2 = tail call i32 @get_global_id(i32 1) nounwind readnone
+  %call3 = tail call i32 @get_global_size(i32 0) nounwind readnone
+  %call4 = tail call i32 @get_global_size(i32 1) nounwind readnone
+  %div = udiv i32 %height, %call4
+  %div5 = udiv i32 %width, %call3
+  %mul = mul i32 %call1, %width
+  %div6 = udiv i32 %mul, %call3
+  %mul7 = mul i32 %call2, %height
+  %div8 = udiv i32 %mul7, %call4
+  %add = add i32 %div, 1
+  %add9 = add i32 %add, %div8
+  %cmp = icmp ult i32 %add9, %height
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %sub = add i32 %height, -1
-  %sub19 = sub i32 %sub, %conv14
-  %conv20 = zext i32 %sub19 to i64
+  %sub10 = sub i32 %sub, %div8
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
-  %count_y.0 = phi i64 [ %conv20, %if.then ], [ %div, %entry ]
+  %count_y.0 = phi i32 [ %sub10, %if.then ], [ %div, %entry ]
   %bottomEdge.0 = phi i1 [ true, %if.then ], [ false, %entry ]
-  %conv21 = and i64 %div9, 4294967295
-  %add22 = add i64 %div7, 1
-  %add23 = add i64 %add22, %conv21
-  %cmp25 = icmp ult i64 %add23, %conv6
-  br i1 %cmp25, label %if.end31, label %if.then27
+  %add11 = add i32 %div5, 1
+  %add12 = add i32 %add11, %div6
+  %cmp13 = icmp ult i32 %add12, %width
+  br i1 %cmp13, label %if.end17, label %if.then14
 
-if.then27:                                        ; preds = %if.end
-  %sub28 = add i32 %width, -1
-  %sub29 = sub i32 %sub28, %conv10
-  %conv30 = zext i32 %sub29 to i64
-  br label %if.end31
+if.then14:                                        ; preds = %if.end
+  %sub15 = add i32 %width, -1
+  %sub16 = sub i32 %sub15, %div6
+  br label %if.end17
 
-if.end31:                                         ; preds = %if.end, %if.then27
-  %count_x.0 = phi i64 [ %conv30, %if.then27 ], [ %div7, %if.end ]
-  %rightEdge.0 = phi i1 [ true, %if.then27 ], [ false, %if.end ]
-  %cmp32 = icmp eq i32 %conv14, 0
-  %index_y.0 = select i1 %cmp32, i32 1, i32 %conv14
-  %cmp37 = icmp eq i32 %conv10, 0
-  %index_x.0 = select i1 %cmp37, i32 1, i32 %conv10
-  %sub42 = add i32 %index_y.0, -1
-  %mul43 = mul i32 %sub42, %width
-  %add44 = add i32 %index_x.0, -1
-  %sub45 = add i32 %add44, %mul43
-  %conv46 = zext i32 %sub45 to i64
-  %sub40 = sext i1 %cmp37 to i64
-  %sub35 = sext i1 %cmp32 to i64
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv46
+if.end17:                                         ; preds = %if.end, %if.then14
+  %count_x.0 = phi i32 [ %sub16, %if.then14 ], [ %div5, %if.end ]
+  %rightEdge.0 = phi i1 [ true, %if.then14 ], [ false, %if.end ]
+  %cmp18 = icmp eq i32 %div8, 0
+  %index_y.0 = select i1 %cmp18, i32 1, i32 %div8
+  %cmp22 = icmp eq i32 %div6, 0
+  %index_x.0 = select i1 %cmp22, i32 1, i32 %div6
+  %sub26 = add i32 %index_y.0, -1
+  %mul27 = mul i32 %sub26, %width
+  %add28 = add i32 %index_x.0, -1
+  %sub29 = add i32 %add28, %mul27
+  %sub24 = sext i1 %cmp22 to i32
+  %sub20 = sext i1 %cmp18 to i32
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub29
   %0 = load <4 x float> addrspace(1)* %arrayidx, align 16
-  %add49 = fadd <4 x float> %0, zeroinitializer
-  %add50 = add i64 %conv46, 1
-  %arrayidx51 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add50
-  %1 = load <4 x float> addrspace(1)* %arrayidx51, align 16
-  %add52 = fadd <4 x float> %add49, %1
-  %add53 = add i64 %conv46, 2
-  %arrayidx54 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add53
-  %2 = load <4 x float> addrspace(1)* %arrayidx54, align 16
-  %add55 = fadd <4 x float> %add52, %2
-  %add57 = add i64 %conv46, %conv6
-  %arrayidx.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add57
+  %add31 = fadd <4 x float> %0, zeroinitializer
+  %add32 = add i32 %index_x.0, %mul27
+  %arrayidx33 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add32
+  %1 = load <4 x float> addrspace(1)* %arrayidx33, align 16
+  %add34 = fadd <4 x float> %add31, %1
+  %add35 = add i32 %sub29, 2
+  %arrayidx36 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add35
+  %2 = load <4 x float> addrspace(1)* %arrayidx36, align 16
+  %add37 = fadd <4 x float> %add34, %2
+  %add38 = add i32 %sub29, %width
+  %arrayidx.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add38
   %3 = load <4 x float> addrspace(1)* %arrayidx.1, align 16
-  %add49.1 = fadd <4 x float> %add55, %3
-  %add50.1 = add i64 %add57, 1
-  %arrayidx51.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add50.1
-  %4 = load <4 x float> addrspace(1)* %arrayidx51.1, align 16
-  %add52.1 = fadd <4 x float> %add49.1, %4
-  %add53.1 = add i64 %add57, 2
-  %arrayidx54.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add53.1
-  %5 = load <4 x float> addrspace(1)* %arrayidx54.1, align 16
-  %add55.1 = fadd <4 x float> %add52.1, %5
-  %add57.1 = add i64 %add57, %conv6
-  %arrayidx.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add57.1
+  %add31.1 = fadd <4 x float> %add37, %3
+  %add32.1 = add i32 %add38, 1
+  %arrayidx33.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add32.1
+  %4 = load <4 x float> addrspace(1)* %arrayidx33.1, align 16
+  %add34.1 = fadd <4 x float> %add31.1, %4
+  %add35.1 = add i32 %add38, 2
+  %arrayidx36.1 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add35.1
+  %5 = load <4 x float> addrspace(1)* %arrayidx36.1, align 16
+  %add37.1 = fadd <4 x float> %add34.1, %5
+  %add38.1 = add i32 %add38, %width
+  %arrayidx.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add38.1
   %6 = load <4 x float> addrspace(1)* %arrayidx.2, align 16
-  %add49.2 = fadd <4 x float> %add55.1, %6
-  %add50.2 = add i64 %add57.1, 1
-  %arrayidx51.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add50.2
-  %7 = load <4 x float> addrspace(1)* %arrayidx51.2, align 16
-  %add52.2 = fadd <4 x float> %add49.2, %7
-  %add53.2 = add i64 %add57.1, 2
-  %arrayidx54.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add53.2
-  %8 = load <4 x float> addrspace(1)* %arrayidx54.2, align 16
-  %add55.2 = fadd <4 x float> %add52.2, %8
-  %sub35.count_y.0 = add i64 %count_y.0, %sub35
-  %sub40.count_x.0 = add i64 %count_x.0, %sub40
-  %mul58 = mul i32 %index_y.0, %width
-  %add59 = add i32 %mul58, %index_x.0
-  %conv60 = zext i32 %add59 to i64
-  %div61 = fdiv <4 x float> %add55.2, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx62 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %conv60
-  store <4 x float> %div61, <4 x float> addrspace(1)* %arrayidx62, align 16
-  %sourceIndex.035 = add i64 %conv60, 1
-  %sub76 = add i64 %sub35.count_y.0, -1
-  %cmp7736 = icmp eq i64 %sub76, 0
-  br i1 %cmp7736, label %if.end31.for.cond147.preheader_crit_edge, label %for.cond81.preheader.lr.ph
+  %add31.2 = fadd <4 x float> %add37.1, %6
+  %add32.2 = add i32 %add38.1, 1
+  %arrayidx33.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add32.2
+  %7 = load <4 x float> addrspace(1)* %arrayidx33.2, align 16
+  %add34.2 = fadd <4 x float> %add31.2, %7
+  %add35.2 = add i32 %add38.1, 2
+  %arrayidx36.2 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add35.2
+  %8 = load <4 x float> addrspace(1)* %arrayidx36.2, align 16
+  %add37.2 = fadd <4 x float> %add34.2, %8
+  %sub20.count_y.0 = add i32 %count_y.0, %sub20
+  %sub24.count_x.0 = add i32 %count_x.0, %sub24
+  %mul39 = mul i32 %index_y.0, %width
+  %add40 = add i32 %mul39, %index_x.0
+  %div41 = fdiv <4 x float> %add37.2, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx42 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add40
+  store <4 x float> %div41, <4 x float> addrspace(1)* %arrayidx42, align 16
+  %sourceIndex.030 = add i32 %add40, 1
+  %cmp5431 = icmp eq i32 %sub20.count_y.0, 1
+  br i1 %cmp5431, label %if.end17.for.cond114.preheader_crit_edge, label %for.cond57.preheader.lr.ph
 
-if.end31.for.cond147.preheader_crit_edge:         ; preds = %if.end31
-  %cmp14923.pre = icmp ugt i64 %sub40.count_x.0, 1
-  br i1 %cmp14923.pre, label %for.body151, label %for.end180
+if.end17.for.cond114.preheader_crit_edge:         ; preds = %if.end17
+  %cmp11518.pre = icmp ugt i32 %sub24.count_x.0, 1
+  br i1 %cmp11518.pre, label %for.body116.lr.ph, label %for.end141
 
-for.cond81.preheader.lr.ph:                       ; preds = %if.end31
-  %add69 = add i32 %index_y.0, 1
-  %mul70 = mul i32 %add69, %width
-  %sub72 = add i32 %add44, %mul70
-  %conv73 = zext i32 %sub72 to i64
-  %cmp8329 = icmp ugt i64 %sub40.count_x.0, 1
-  br label %for.cond81.preheader
+for.cond57.preheader.lr.ph:                       ; preds = %if.end17
+  %add48 = add i32 %index_y.0, 1
+  %mul49 = mul i32 %add48, %width
+  %sub51 = add i32 %add28, %mul49
+  %cmp5824 = icmp ugt i32 %sub24.count_x.0, 1
+  %9 = icmp ugt i32 %div6, 1
+  %umax52 = select i1 %9, i32 %div6, i32 1
+  %10 = add i32 %count_x.0, %umax52
+  %11 = icmp ugt i32 %div8, 1
+  %umax53 = select i1 %11, i32 %div8, i32 1
+  %12 = mul i32 %umax53, %width
+  %13 = add i32 %10, %12
+  %14 = add i32 %13, %sub24
+  %15 = add i32 %count_y.0, %umax53
+  %16 = add i32 %15, %sub20
+  %17 = add i32 %16, -2
+  %18 = mul i32 %17, %width
+  %19 = add i32 %umax52, %18
+  %20 = add i32 %16, -1
+  %21 = mul i32 %20, %width
+  %22 = add i32 %umax52, %21
+  %23 = add i32 %sub20.count_y.0, -1
+  br label %for.cond57.preheader
 
-for.cond81.preheader:                             ; preds = %for.cond81.preheader.lr.ph, %for.end114
-  %add8043 = phi i64 [ %add53, %for.cond81.preheader.lr.ph ], [ %add80, %for.end114 ]
-  %sourceIndex.042 = phi i64 [ %sourceIndex.035, %for.cond81.preheader.lr.ph ], [ %sourceIndex.0, %for.end114 ]
-  %row.041 = phi i32 [ 0, %for.cond81.preheader.lr.ph ], [ %inc117, %for.end114 ]
-  %bottomRowIndex.040 = phi i64 [ %conv73, %for.cond81.preheader.lr.ph ], [ %add116, %for.end114 ]
-  %topRowIndex.039 = phi i64 [ %conv46, %for.cond81.preheader.lr.ph ], [ %add143, %for.end114 ]
-  %firstBlockAccumulator.138 = phi <4 x float> [ %add55.2, %for.cond81.preheader.lr.ph ], [ %add133, %for.end114 ]
-  br i1 %cmp8329, label %for.body85, label %for.end114
+for.cond57.preheader:                             ; preds = %for.end84, %for.cond57.preheader.lr.ph
+  %indvars.iv = phi i32 [ %14, %for.cond57.preheader.lr.ph ], [ %indvars.iv.next, %for.end84 ]
+  %add5638 = phi i32 [ %add35, %for.cond57.preheader.lr.ph ], [ %add56, %for.end84 ]
+  %sourceIndex.037 = phi i32 [ %sourceIndex.030, %for.cond57.preheader.lr.ph ], [ %sourceIndex.0, %for.end84 ]
+  %row.036 = phi i32 [ 0, %for.cond57.preheader.lr.ph ], [ %inc86, %for.end84 ]
+  %bottomRowIndex.035 = phi i32 [ %sub51, %for.cond57.preheader.lr.ph ], [ %add85, %for.end84 ]
+  %topRowIndex.034 = phi i32 [ %sub29, %for.cond57.preheader.lr.ph ], [ %add110, %for.end84 ]
+  %firstBlockAccumulator.133 = phi <4 x float> [ %add37.2, %for.cond57.preheader.lr.ph ], [ %add102, %for.end84 ]
+  br i1 %cmp5824, label %for.body59, label %for.end84
 
-for.cond147.preheader:                            ; preds = %for.end114
-  br i1 %cmp8329, label %for.body151, label %for.end180
+for.cond114.preheader:                            ; preds = %for.end84
+  %24 = add i32 %19, 1
+  %25 = add i32 %22, 1
+  %26 = add i32 %19, -1
+  br i1 %cmp5824, label %for.body116.lr.ph, label %for.end141
 
-for.body85:                                       ; preds = %for.cond81.preheader, %for.body85
-  %column.034 = phi i32 [ %inc113, %for.body85 ], [ 1, %for.cond81.preheader ]
-  %colorAccumulator.133 = phi <4 x float> [ %add106, %for.body85 ], [ %firstBlockAccumulator.138, %for.cond81.preheader ]
-  %sourceIndex.132 = phi i64 [ %inc110, %for.body85 ], [ %sourceIndex.042, %for.cond81.preheader ]
-  %leftColumnIndex.031 = phi i64 [ %inc111, %for.body85 ], [ %topRowIndex.039, %for.cond81.preheader ]
-  %rightColumnIndex.030 = phi i64 [ %inc86, %for.body85 ], [ %add8043, %for.cond81.preheader ]
-  %inc86 = add i64 %rightColumnIndex.030, 1
-  %arrayidx87 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %leftColumnIndex.031
-  %9 = load <4 x float> addrspace(1)* %arrayidx87, align 16
-  %sub88 = fsub <4 x float> %colorAccumulator.133, %9
-  %add90 = add i64 %leftColumnIndex.031, %conv6
-  %arrayidx91 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %inc86
-  %10 = load <4 x float> addrspace(1)* %arrayidx91, align 16
-  %add92 = fadd <4 x float> %sub88, %10
-  %add94 = add i64 %inc86, %conv6
-  %arrayidx95 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add90
-  %11 = load <4 x float> addrspace(1)* %arrayidx95, align 16
-  %sub96 = fsub <4 x float> %add92, %11
-  %add98 = add i64 %add90, %conv6
-  %arrayidx99 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add94
-  %12 = load <4 x float> addrspace(1)* %arrayidx99, align 16
-  %add100 = fadd <4 x float> %sub96, %12
-  %add102 = add i64 %add94, %conv6
-  %arrayidx103 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add98
-  %13 = load <4 x float> addrspace(1)* %arrayidx103, align 16
-  %sub104 = fsub <4 x float> %add100, %13
-  %arrayidx105 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add102
-  %14 = load <4 x float> addrspace(1)* %arrayidx105, align 16
-  %add106 = fadd <4 x float> %sub104, %14
-  %div108 = fdiv <4 x float> %add106, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx109 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %sourceIndex.132
-  store <4 x float> %div108, <4 x float> addrspace(1)* %arrayidx109, align 16
-  %inc110 = add i64 %sourceIndex.132, 1
-  %inc111 = add i64 %leftColumnIndex.031, 1
-  %inc113 = add i32 %column.034, 1
-  %conv82 = zext i32 %inc113 to i64
-  %cmp83 = icmp ult i64 %conv82, %sub40.count_x.0
-  br i1 %cmp83, label %for.body85, label %for.end114
+for.body116.lr.ph:                                ; preds = %if.end17.for.cond114.preheader_crit_edge, %for.cond114.preheader
+  %firstBlockAccumulator.1.lcssa64 = phi <4 x float> [ %add37.2, %if.end17.for.cond114.preheader_crit_edge ], [ %add102, %for.cond114.preheader ]
+  %topRowIndex.0.lcssa63 = phi i32 [ %sub29, %if.end17.for.cond114.preheader_crit_edge ], [ %26, %for.cond114.preheader ]
+  %sourceIndex.0.lcssa62 = phi i32 [ %sourceIndex.030, %if.end17.for.cond114.preheader_crit_edge ], [ %25, %for.cond114.preheader ]
+  %add56.lcssa61 = phi i32 [ %add35, %if.end17.for.cond114.preheader_crit_edge ], [ %24, %for.cond114.preheader ]
+  %27 = add i32 %count_x.0, %sourceIndex.0.lcssa62
+  %28 = add i32 %27, %sub24
+  %29 = add i32 %28, -1
+  br label %for.body116
 
-for.end114:                                       ; preds = %for.body85, %for.cond81.preheader
-  %add116 = add i64 %bottomRowIndex.040, %conv6
-  %inc117 = add i32 %row.041, 1
-  %arrayidx118 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %topRowIndex.039
-  %15 = load <4 x float> addrspace(1)* %arrayidx118, align 16
-  %sub119 = fsub <4 x float> %firstBlockAccumulator.138, %15
-  %inc120 = add i64 %topRowIndex.039, 1
-  %arrayidx121 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add116
-  %16 = load <4 x float> addrspace(1)* %arrayidx121, align 16
-  %add122 = fadd <4 x float> %sub119, %16
-  %inc123 = add i64 %add116, 1
-  %arrayidx124 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %inc120
-  %17 = load <4 x float> addrspace(1)* %arrayidx124, align 16
-  %sub125 = fsub <4 x float> %add122, %17
-  %arrayidx127 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %inc123
-  %18 = load <4 x float> addrspace(1)* %arrayidx127, align 16
-  %add128 = fadd <4 x float> %sub125, %18
-  %inc129 = add i64 %add116, 2
-  %arrayidx130 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add8043
-  %19 = load <4 x float> addrspace(1)* %arrayidx130, align 16
-  %sub131 = fsub <4 x float> %add128, %19
-  %arrayidx132 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %inc129
-  %20 = load <4 x float> addrspace(1)* %arrayidx132, align 16
-  %add133 = fadd <4 x float> %sub131, %20
-  %add134 = add i32 %inc117, %index_y.0
-  %mul135 = mul i32 %add134, %width
-  %add136 = add i32 %mul135, %index_x.0
-  %conv137 = zext i32 %add136 to i64
-  %div139 = fdiv <4 x float> %add133, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx140 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %conv137
-  store <4 x float> %div139, <4 x float> addrspace(1)* %arrayidx140, align 16
-  %add143 = add i64 %topRowIndex.039, %conv6
-  %sourceIndex.0 = add i64 %conv137, 1
-  %conv75 = zext i32 %inc117 to i64
-  %cmp77 = icmp ult i64 %conv75, %sub76
-  %add80 = add i64 %add143, 2
-  br i1 %cmp77, label %for.cond81.preheader, label %for.cond147.preheader
+for.body59:                                       ; preds = %for.cond57.preheader, %for.body59
+  %colorAccumulator.128 = phi <4 x float> [ %add76, %for.body59 ], [ %firstBlockAccumulator.133, %for.cond57.preheader ]
+  %sourceIndex.127 = phi i32 [ %inc80, %for.body59 ], [ %sourceIndex.037, %for.cond57.preheader ]
+  %leftColumnIndex.026 = phi i32 [ %inc81, %for.body59 ], [ %topRowIndex.034, %for.cond57.preheader ]
+  %rightColumnIndex.025 = phi i32 [ %inc60, %for.body59 ], [ %add5638, %for.cond57.preheader ]
+  %inc60 = add i32 %rightColumnIndex.025, 1
+  %arrayidx61 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %leftColumnIndex.026
+  %30 = load <4 x float> addrspace(1)* %arrayidx61, align 16
+  %sub62 = fsub <4 x float> %colorAccumulator.128, %30
+  %add63 = add i32 %leftColumnIndex.026, %width
+  %arrayidx64 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %inc60
+  %31 = load <4 x float> addrspace(1)* %arrayidx64, align 16
+  %add65 = fadd <4 x float> %sub62, %31
+  %add66 = add i32 %inc60, %width
+  %arrayidx67 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add63
+  %32 = load <4 x float> addrspace(1)* %arrayidx67, align 16
+  %sub68 = fsub <4 x float> %add65, %32
+  %add69 = add i32 %add63, %width
+  %arrayidx70 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add66
+  %33 = load <4 x float> addrspace(1)* %arrayidx70, align 16
+  %add71 = fadd <4 x float> %sub68, %33
+  %add72 = add i32 %add66, %width
+  %arrayidx73 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add69
+  %34 = load <4 x float> addrspace(1)* %arrayidx73, align 16
+  %sub74 = fsub <4 x float> %add71, %34
+  %arrayidx75 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add72
+  %35 = load <4 x float> addrspace(1)* %arrayidx75, align 16
+  %add76 = fadd <4 x float> %sub74, %35
+  %div78 = fdiv <4 x float> %add76, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx79 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %sourceIndex.127
+  store <4 x float> %div78, <4 x float> addrspace(1)* %arrayidx79, align 16
+  %inc80 = add i32 %sourceIndex.127, 1
+  %inc81 = add i32 %leftColumnIndex.026, 1
+  %exitcond54 = icmp eq i32 %inc80, %indvars.iv
+  br i1 %exitcond54, label %for.end84, label %for.body59
 
-for.body151:                                      ; preds = %for.cond147.preheader, %if.end31.for.cond147.preheader_crit_edge, %for.body151
-  %column146.028 = phi i32 [ %inc179, %for.body151 ], [ 1, %if.end31.for.cond147.preheader_crit_edge ], [ 1, %for.cond147.preheader ]
-  %colorAccumulator.227 = phi <4 x float> [ %add172, %for.body151 ], [ %add55.2, %if.end31.for.cond147.preheader_crit_edge ], [ %add133, %for.cond147.preheader ]
-  %sourceIndex.226 = phi i64 [ %inc176, %for.body151 ], [ %sourceIndex.035, %if.end31.for.cond147.preheader_crit_edge ], [ %sourceIndex.0, %for.cond147.preheader ]
-  %leftColumnIndex.125 = phi i64 [ %inc177, %for.body151 ], [ %conv46, %if.end31.for.cond147.preheader_crit_edge ], [ %add143, %for.cond147.preheader ]
-  %rightColumnIndex.124 = phi i64 [ %inc152, %for.body151 ], [ %add53, %if.end31.for.cond147.preheader_crit_edge ], [ %add80, %for.cond147.preheader ]
-  %inc152 = add i64 %rightColumnIndex.124, 1
-  %arrayidx153 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %leftColumnIndex.125
-  %21 = load <4 x float> addrspace(1)* %arrayidx153, align 16
-  %sub154 = fsub <4 x float> %colorAccumulator.227, %21
-  %add156 = add i64 %leftColumnIndex.125, %conv6
-  %arrayidx157 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %inc152
-  %22 = load <4 x float> addrspace(1)* %arrayidx157, align 16
-  %add158 = fadd <4 x float> %sub154, %22
-  %add160 = add i64 %inc152, %conv6
-  %arrayidx161 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add156
-  %23 = load <4 x float> addrspace(1)* %arrayidx161, align 16
-  %sub162 = fsub <4 x float> %add158, %23
-  %add164 = add i64 %add156, %conv6
-  %arrayidx165 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add160
-  %24 = load <4 x float> addrspace(1)* %arrayidx165, align 16
-  %add166 = fadd <4 x float> %sub162, %24
-  %add168 = add i64 %add160, %conv6
-  %arrayidx169 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add164
-  %25 = load <4 x float> addrspace(1)* %arrayidx169, align 16
-  %sub170 = fsub <4 x float> %add166, %25
-  %arrayidx171 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %add168
-  %26 = load <4 x float> addrspace(1)* %arrayidx171, align 16
-  %add172 = fadd <4 x float> %sub170, %26
-  %div174 = fdiv <4 x float> %add172, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx175 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %sourceIndex.226
-  store <4 x float> %div174, <4 x float> addrspace(1)* %arrayidx175, align 16
-  %inc176 = add i64 %sourceIndex.226, 1
-  %inc177 = add i64 %leftColumnIndex.125, 1
-  %inc179 = add i32 %column146.028, 1
-  %conv148 = zext i32 %inc179 to i64
-  %cmp149 = icmp ult i64 %conv148, %sub40.count_x.0
-  br i1 %cmp149, label %for.body151, label %for.end180
+for.end84:                                        ; preds = %for.body59, %for.cond57.preheader
+  %add85 = add i32 %bottomRowIndex.035, %width
+  %inc86 = add i32 %row.036, 1
+  %arrayidx87 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %topRowIndex.034
+  %36 = load <4 x float> addrspace(1)* %arrayidx87, align 16
+  %sub88 = fsub <4 x float> %firstBlockAccumulator.133, %36
+  %inc89 = add i32 %topRowIndex.034, 1
+  %arrayidx90 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add85
+  %37 = load <4 x float> addrspace(1)* %arrayidx90, align 16
+  %add91 = fadd <4 x float> %sub88, %37
+  %inc92 = add i32 %add85, 1
+  %arrayidx93 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %inc89
+  %38 = load <4 x float> addrspace(1)* %arrayidx93, align 16
+  %sub94 = fsub <4 x float> %add91, %38
+  %arrayidx96 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %inc92
+  %39 = load <4 x float> addrspace(1)* %arrayidx96, align 16
+  %add97 = fadd <4 x float> %sub94, %39
+  %inc98 = add i32 %add85, 2
+  %arrayidx99 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add5638
+  %40 = load <4 x float> addrspace(1)* %arrayidx99, align 16
+  %sub100 = fsub <4 x float> %add97, %40
+  %arrayidx101 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %inc98
+  %41 = load <4 x float> addrspace(1)* %arrayidx101, align 16
+  %add102 = fadd <4 x float> %sub100, %41
+  %add103 = add i32 %inc86, %index_y.0
+  %mul104 = mul i32 %add103, %width
+  %add105 = add i32 %mul104, %index_x.0
+  %div107 = fdiv <4 x float> %add102, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx108 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add105
+  store <4 x float> %div107, <4 x float> addrspace(1)* %arrayidx108, align 16
+  %add110 = add i32 %topRowIndex.034, %width
+  %sourceIndex.0 = add i32 %add105, 1
+  %add56 = add i32 %add110, 2
+  %indvars.iv.next = add i32 %indvars.iv, %width
+  %exitcond59 = icmp eq i32 %inc86, %23
+  br i1 %exitcond59, label %for.cond114.preheader, label %for.cond57.preheader
 
-for.end180:                                       ; preds = %for.body151, %if.end31.for.cond147.preheader_crit_edge, %for.cond147.preheader
-  %topEdge.0.not = xor i1 %cmp32, true
-  %leftEdge.0.not = xor i1 %cmp37, true
+for.body116:                                      ; preds = %for.body116, %for.body116.lr.ph
+  %colorAccumulator.222 = phi <4 x float> [ %firstBlockAccumulator.1.lcssa64, %for.body116.lr.ph ], [ %add133, %for.body116 ]
+  %sourceIndex.221 = phi i32 [ %sourceIndex.0.lcssa62, %for.body116.lr.ph ], [ %inc137, %for.body116 ]
+  %leftColumnIndex.120 = phi i32 [ %topRowIndex.0.lcssa63, %for.body116.lr.ph ], [ %inc138, %for.body116 ]
+  %rightColumnIndex.119 = phi i32 [ %add56.lcssa61, %for.body116.lr.ph ], [ %inc117, %for.body116 ]
+  %inc117 = add i32 %rightColumnIndex.119, 1
+  %arrayidx118 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %leftColumnIndex.120
+  %42 = load <4 x float> addrspace(1)* %arrayidx118, align 16
+  %sub119 = fsub <4 x float> %colorAccumulator.222, %42
+  %add120 = add i32 %leftColumnIndex.120, %width
+  %arrayidx121 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %inc117
+  %43 = load <4 x float> addrspace(1)* %arrayidx121, align 16
+  %add122 = fadd <4 x float> %sub119, %43
+  %add123 = add i32 %inc117, %width
+  %arrayidx124 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add120
+  %44 = load <4 x float> addrspace(1)* %arrayidx124, align 16
+  %sub125 = fsub <4 x float> %add122, %44
+  %add126 = add i32 %add120, %width
+  %arrayidx127 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add123
+  %45 = load <4 x float> addrspace(1)* %arrayidx127, align 16
+  %add128 = fadd <4 x float> %sub125, %45
+  %add129 = add i32 %add123, %width
+  %arrayidx130 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add126
+  %46 = load <4 x float> addrspace(1)* %arrayidx130, align 16
+  %sub131 = fsub <4 x float> %add128, %46
+  %arrayidx132 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add129
+  %47 = load <4 x float> addrspace(1)* %arrayidx132, align 16
+  %add133 = fadd <4 x float> %sub131, %47
+  %div135 = fdiv <4 x float> %add133, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx136 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %sourceIndex.221
+  store <4 x float> %div135, <4 x float> addrspace(1)* %arrayidx136, align 16
+  %inc137 = add i32 %sourceIndex.221, 1
+  %inc138 = add i32 %leftColumnIndex.120, 1
+  %exitcond51 = icmp eq i32 %inc137, %29
+  br i1 %exitcond51, label %for.end141, label %for.body116
+
+for.end141:                                       ; preds = %for.body116, %if.end17.for.cond114.preheader_crit_edge, %for.cond114.preheader
+  %topEdge.0.not = xor i1 %cmp18, true
+  %leftEdge.0.not = xor i1 %cmp22, true
   %brmerge = or i1 %topEdge.0.not, %leftEdge.0.not
-  br i1 %brmerge, label %if.end198, label %if.then184
+  br i1 %brmerge, label %if.end156, label %if.then143
 
-if.then184:                                       ; preds = %for.end180
-  %27 = load <4 x float> addrspace(1)* %input, align 16
-  %add186 = fadd <4 x float> %27, zeroinitializer
-  %arrayidx187 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 1
-  %28 = load <4 x float> addrspace(1)* %arrayidx187, align 16
-  %add188 = fadd <4 x float> %add186, %28
-  %arrayidx189 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv6
-  %29 = load <4 x float> addrspace(1)* %arrayidx189, align 16
-  %add190 = fadd <4 x float> %add188, %29
-  %add191 = add i32 %width, 1
-  %idxprom192 = zext i32 %add191 to i64
-  %arrayidx193 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom192
-  %30 = load <4 x float> addrspace(1)* %arrayidx193, align 16
-  %add194 = fadd <4 x float> %add190, %30
-  %div196 = fdiv <4 x float> %add194, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  store <4 x float> %div196, <4 x float> addrspace(1)* %output, align 16
-  br label %if.end198
+if.then143:                                       ; preds = %for.end141
+  %48 = load <4 x float> addrspace(1)* %input, align 16
+  %add145 = fadd <4 x float> %48, zeroinitializer
+  %arrayidx146 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 1
+  %49 = load <4 x float> addrspace(1)* %arrayidx146, align 16
+  %add147 = fadd <4 x float> %add145, %49
+  %arrayidx148 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %width
+  %50 = load <4 x float> addrspace(1)* %arrayidx148, align 16
+  %add149 = fadd <4 x float> %add147, %50
+  %add150 = add i32 %width, 1
+  %arrayidx151 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add150
+  %51 = load <4 x float> addrspace(1)* %arrayidx151, align 16
+  %add152 = fadd <4 x float> %add149, %51
+  %div154 = fdiv <4 x float> %add152, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  store <4 x float> %div154, <4 x float> addrspace(1)* %output, align 16
+  br label %if.end156
 
-if.end198:                                        ; preds = %for.end180, %if.then184
-  br i1 %cmp32, label %for.cond202.preheader, label %if.end271
+if.end156:                                        ; preds = %for.end141, %if.then143
+  br i1 %cmp18, label %for.cond160.preheader, label %if.end212
 
-for.cond202.preheader:                            ; preds = %if.end198
-  %conv20319 = sext i32 %index_x.0 to i64
-  %conv204 = zext i32 %index_x.0 to i64
-  %add205 = add i64 %sub40.count_x.0, %conv204
-  %cmp20620 = icmp ult i64 %conv20319, %add205
-  br i1 %cmp20620, label %for.body208, label %if.end241
+for.cond160.preheader:                            ; preds = %if.end156
+  %add161 = add i32 %sub24.count_x.0, %index_x.0
+  %cmp16216 = icmp ult i32 %index_x.0, %add161
+  br i1 %cmp16216, label %for.body163.lr.ph, label %if.end189
 
-for.body208:                                      ; preds = %for.cond202.preheader, %for.body208
-  %conv20322 = phi i64 [ %idxprom217, %for.body208 ], [ %conv20319, %for.cond202.preheader ]
-  %column201.021 = phi i32 [ %add216, %for.body208 ], [ %index_x.0, %for.cond202.preheader ]
-  %sub209 = add nsw i32 %column201.021, -1
-  %idxprom210 = sext i32 %sub209 to i64
-  %arrayidx211 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom210
-  %31 = load <4 x float> addrspace(1)* %arrayidx211, align 16
-  %add212 = fadd <4 x float> %31, zeroinitializer
-  %arrayidx214 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %conv20322
-  %32 = load <4 x float> addrspace(1)* %arrayidx214, align 16
-  %add215 = fadd <4 x float> %add212, %32
-  %add216 = add nsw i32 %column201.021, 1
-  %idxprom217 = sext i32 %add216 to i64
-  %arrayidx218 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom217
-  %33 = load <4 x float> addrspace(1)* %arrayidx218, align 16
-  %add219 = fadd <4 x float> %add215, %33
-  %add220 = add i32 %column201.021, %width
-  %sub221 = add i32 %add220, -1
-  %idxprom222 = zext i32 %sub221 to i64
-  %arrayidx223 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom222
-  %34 = load <4 x float> addrspace(1)* %arrayidx223, align 16
-  %add224 = fadd <4 x float> %add219, %34
-  %idxprom226 = zext i32 %add220 to i64
-  %arrayidx227 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom226
-  %35 = load <4 x float> addrspace(1)* %arrayidx227, align 16
-  %add228 = fadd <4 x float> %add224, %35
-  %add230 = add i32 %add220, 1
-  %idxprom231 = zext i32 %add230 to i64
-  %arrayidx232 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom231
-  %36 = load <4 x float> addrspace(1)* %arrayidx232, align 16
-  %add233 = fadd <4 x float> %add228, %36
-  %div235 = fdiv <4 x float> %add233, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx237 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %conv20322
-  store <4 x float> %div235, <4 x float> addrspace(1)* %arrayidx237, align 16
-  %cmp206 = icmp ult i64 %idxprom217, %add205
-  br i1 %cmp206, label %for.body208, label %if.end241
+for.body163.lr.ph:                                ; preds = %for.cond160.preheader
+  %52 = icmp ugt i32 %div6, 1
+  %umax49 = select i1 %52, i32 %div6, i32 1
+  %53 = add i32 %count_x.0, %umax49
+  %54 = add i32 %53, %sub24
+  br label %for.body163
 
-if.end241:                                        ; preds = %for.body208, %for.cond202.preheader
+for.body163:                                      ; preds = %for.body163, %for.body163.lr.ph
+  %column159.017 = phi i32 [ %index_x.0, %for.body163.lr.ph ], [ %add169, %for.body163 ]
+  %sub164 = add nsw i32 %column159.017, -1
+  %arrayidx165 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub164
+  %55 = load <4 x float> addrspace(1)* %arrayidx165, align 16
+  %add166 = fadd <4 x float> %55, zeroinitializer
+  %arrayidx167 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %column159.017
+  %56 = load <4 x float> addrspace(1)* %arrayidx167, align 16
+  %add168 = fadd <4 x float> %add166, %56
+  %add169 = add nsw i32 %column159.017, 1
+  %arrayidx170 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add169
+  %57 = load <4 x float> addrspace(1)* %arrayidx170, align 16
+  %add171 = fadd <4 x float> %add168, %57
+  %add172 = add i32 %column159.017, %width
+  %sub173 = add i32 %add172, -1
+  %arrayidx174 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub173
+  %58 = load <4 x float> addrspace(1)* %arrayidx174, align 16
+  %add175 = fadd <4 x float> %add171, %58
+  %arrayidx177 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add172
+  %59 = load <4 x float> addrspace(1)* %arrayidx177, align 16
+  %add178 = fadd <4 x float> %add175, %59
+  %add180 = add i32 %add172, 1
+  %arrayidx181 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add180
+  %60 = load <4 x float> addrspace(1)* %arrayidx181, align 16
+  %add182 = fadd <4 x float> %add178, %60
+  %div184 = fdiv <4 x float> %add182, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx185 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %column159.017
+  store <4 x float> %div184, <4 x float> addrspace(1)* %arrayidx185, align 16
+  %exitcond50 = icmp eq i32 %add169, %54
+  br i1 %exitcond50, label %if.end189, label %for.body163
+
+if.end189:                                        ; preds = %for.body163, %for.cond160.preheader
   %rightEdge.0.not = xor i1 %rightEdge.0, true
   %brmerge2 = or i1 %topEdge.0.not, %rightEdge.0.not
-  br i1 %brmerge2, label %if.end271, label %if.then247
+  br i1 %brmerge2, label %if.end212, label %if.then193
 
-if.then247:                                       ; preds = %if.end241
-  %sub248 = add i32 %width, -2
-  %idxprom249 = zext i32 %sub248 to i64
-  %arrayidx250 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom249
-  %37 = load <4 x float> addrspace(1)* %arrayidx250, align 16
-  %add251 = fadd <4 x float> %37, zeroinitializer
-  %sub252 = add i32 %width, -1
-  %idxprom253 = zext i32 %sub252 to i64
-  %arrayidx254 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom253
-  %38 = load <4 x float> addrspace(1)* %arrayidx254, align 16
-  %add255 = fadd <4 x float> %add251, %38
-  %add256 = shl i32 %width, 1
-  %sub257 = add i32 %add256, -2
-  %idxprom258 = zext i32 %sub257 to i64
-  %arrayidx259 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom258
-  %39 = load <4 x float> addrspace(1)* %arrayidx259, align 16
-  %add260 = fadd <4 x float> %add255, %39
-  %sub262 = add i32 %add256, -1
-  %idxprom263 = zext i32 %sub262 to i64
-  %arrayidx264 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom263
-  %40 = load <4 x float> addrspace(1)* %arrayidx264, align 16
-  %add265 = fadd <4 x float> %add260, %40
-  %div267 = fdiv <4 x float> %add265, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx270 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom253
-  store <4 x float> %div267, <4 x float> addrspace(1)* %arrayidx270, align 16
-  br label %if.end271
+if.then193:                                       ; preds = %if.end189
+  %sub194 = add i32 %width, -2
+  %arrayidx195 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub194
+  %61 = load <4 x float> addrspace(1)* %arrayidx195, align 16
+  %add196 = fadd <4 x float> %61, zeroinitializer
+  %sub197 = add i32 %width, -1
+  %arrayidx198 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub197
+  %62 = load <4 x float> addrspace(1)* %arrayidx198, align 16
+  %add199 = fadd <4 x float> %add196, %62
+  %add200 = shl i32 %width, 1
+  %sub201 = add i32 %add200, -2
+  %arrayidx202 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub201
+  %63 = load <4 x float> addrspace(1)* %arrayidx202, align 16
+  %add203 = fadd <4 x float> %add199, %63
+  %sub205 = add i32 %add200, -1
+  %arrayidx206 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub205
+  %64 = load <4 x float> addrspace(1)* %arrayidx206, align 16
+  %add207 = fadd <4 x float> %add203, %64
+  %div209 = fdiv <4 x float> %add207, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx211 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %sub197
+  store <4 x float> %div209, <4 x float> addrspace(1)* %arrayidx211, align 16
+  br label %if.end212
 
-if.end271:                                        ; preds = %if.end198, %if.end241, %if.then247
-  br i1 %cmp37, label %for.cond275.preheader, label %if.end321
+if.end212:                                        ; preds = %if.end156, %if.end189, %if.then193
+  br i1 %cmp22, label %for.cond216.preheader, label %if.end252
 
-for.cond275.preheader:                            ; preds = %if.end271
-  %conv27616 = sext i32 %index_y.0 to i64
-  %conv277 = zext i32 %index_y.0 to i64
-  %add278 = add i64 %sub35.count_y.0, %conv277
-  %cmp27917 = icmp ult i64 %conv27616, %add278
-  br i1 %cmp27917, label %for.body281, label %if.end321
+for.cond216.preheader:                            ; preds = %if.end212
+  %add217 = add i32 %sub20.count_y.0, %index_y.0
+  %cmp21814 = icmp ult i32 %index_y.0, %add217
+  br i1 %cmp21814, label %for.body219.lr.ph, label %if.end252
 
-for.body281:                                      ; preds = %for.cond275.preheader, %for.body281
-  %row274.018 = phi i32 [ %add291, %for.body281 ], [ %index_y.0, %for.cond275.preheader ]
-  %sub282 = add nsw i32 %row274.018, -1
-  %mul283 = mul i32 %sub282, %width
-  %idxprom284 = zext i32 %mul283 to i64
-  %arrayidx285 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom284
-  %41 = load <4 x float> addrspace(1)* %arrayidx285, align 16
-  %add286 = fadd <4 x float> %41, zeroinitializer
-  %mul287 = mul i32 %row274.018, %width
-  %idxprom288 = zext i32 %mul287 to i64
-  %arrayidx289 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom288
-  %42 = load <4 x float> addrspace(1)* %arrayidx289, align 16
-  %add290 = fadd <4 x float> %add286, %42
-  %add291 = add nsw i32 %row274.018, 1
-  %mul292 = mul i32 %add291, %width
-  %idxprom293 = zext i32 %mul292 to i64
-  %arrayidx294 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom293
-  %43 = load <4 x float> addrspace(1)* %arrayidx294, align 16
-  %add295 = fadd <4 x float> %add290, %43
-  %add298 = add i32 %mul283, 1
-  %idxprom299 = zext i32 %add298 to i64
-  %arrayidx300 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom299
-  %44 = load <4 x float> addrspace(1)* %arrayidx300, align 16
-  %add301 = fadd <4 x float> %add295, %44
-  %add303 = add i32 %mul287, 1
-  %idxprom304 = zext i32 %add303 to i64
-  %arrayidx305 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom304
-  %45 = load <4 x float> addrspace(1)* %arrayidx305, align 16
-  %add306 = fadd <4 x float> %add301, %45
-  %add309 = add i32 %mul292, 1
-  %idxprom310 = zext i32 %add309 to i64
-  %arrayidx311 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom310
-  %46 = load <4 x float> addrspace(1)* %arrayidx311, align 16
-  %add312 = fadd <4 x float> %add306, %46
-  %div314 = fdiv <4 x float> %add312, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx317 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom288
-  store <4 x float> %div314, <4 x float> addrspace(1)* %arrayidx317, align 16
-  %conv276 = sext i32 %add291 to i64
-  %cmp279 = icmp ult i64 %conv276, %add278
-  br i1 %cmp279, label %for.body281, label %if.end321
+for.body219.lr.ph:                                ; preds = %for.cond216.preheader
+  %65 = icmp ugt i32 %div8, 1
+  %umax47 = select i1 %65, i32 %div8, i32 1
+  %66 = add i32 %count_y.0, %umax47
+  %67 = add i32 %66, %sub20
+  br label %for.body219
 
-if.end321:                                        ; preds = %for.cond275.preheader, %for.body281, %if.end271
+for.body219:                                      ; preds = %for.body219, %for.body219.lr.ph
+  %row215.015 = phi i32 [ %index_y.0, %for.body219.lr.ph ], [ %add227, %for.body219 ]
+  %sub220 = add nsw i32 %row215.015, -1
+  %mul221 = mul i32 %sub220, %width
+  %arrayidx222 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %mul221
+  %68 = load <4 x float> addrspace(1)* %arrayidx222, align 16
+  %add223 = fadd <4 x float> %68, zeroinitializer
+  %mul224 = mul i32 %row215.015, %width
+  %arrayidx225 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %mul224
+  %69 = load <4 x float> addrspace(1)* %arrayidx225, align 16
+  %add226 = fadd <4 x float> %add223, %69
+  %add227 = add nsw i32 %row215.015, 1
+  %mul228 = mul i32 %add227, %width
+  %arrayidx229 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %mul228
+  %70 = load <4 x float> addrspace(1)* %arrayidx229, align 16
+  %add230 = fadd <4 x float> %add226, %70
+  %add233 = add i32 %mul221, 1
+  %arrayidx234 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add233
+  %71 = load <4 x float> addrspace(1)* %arrayidx234, align 16
+  %add235 = fadd <4 x float> %add230, %71
+  %add237 = add i32 %mul224, 1
+  %arrayidx238 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add237
+  %72 = load <4 x float> addrspace(1)* %arrayidx238, align 16
+  %add239 = fadd <4 x float> %add235, %72
+  %add242 = add i32 %mul228, 1
+  %arrayidx243 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add242
+  %73 = load <4 x float> addrspace(1)* %arrayidx243, align 16
+  %add244 = fadd <4 x float> %add239, %73
+  %div246 = fdiv <4 x float> %add244, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx248 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %mul224
+  store <4 x float> %div246, <4 x float> addrspace(1)* %arrayidx248, align 16
+  %exitcond48 = icmp eq i32 %add227, %67
+  br i1 %exitcond48, label %if.end252, label %for.body219
+
+if.end252:                                        ; preds = %for.cond216.preheader, %for.body219, %if.end212
   %bottomEdge.0.not = xor i1 %bottomEdge.0, true
   %brmerge4 = or i1 %bottomEdge.0.not, %leftEdge.0.not
-  br i1 %brmerge4, label %if.end356, label %if.then327
+  br i1 %brmerge4, label %if.end280, label %if.then256
 
-if.then327:                                       ; preds = %if.end321
-  %sub328 = add i32 %height, -2
-  %mul329 = mul i32 %sub328, %width
-  %idxprom330 = zext i32 %mul329 to i64
-  %arrayidx331 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom330
-  %47 = load <4 x float> addrspace(1)* %arrayidx331, align 16
-  %add332 = fadd <4 x float> %47, zeroinitializer
-  %add335 = add i32 %mul329, 1
-  %idxprom336 = zext i32 %add335 to i64
-  %arrayidx337 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom336
-  %48 = load <4 x float> addrspace(1)* %arrayidx337, align 16
-  %add338 = fadd <4 x float> %add332, %48
-  %sub339 = add i32 %height, -1
-  %mul340 = mul i32 %sub339, %width
-  %idxprom341 = zext i32 %mul340 to i64
-  %arrayidx342 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom341
-  %49 = load <4 x float> addrspace(1)* %arrayidx342, align 16
-  %add343 = fadd <4 x float> %add338, %49
-  %add346 = add i32 %mul340, 1
-  %idxprom347 = zext i32 %add346 to i64
-  %arrayidx348 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom347
-  %50 = load <4 x float> addrspace(1)* %arrayidx348, align 16
-  %add349 = fadd <4 x float> %add343, %50
-  %div351 = fdiv <4 x float> %add349, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx355 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom341
-  store <4 x float> %div351, <4 x float> addrspace(1)* %arrayidx355, align 16
-  br label %if.end356
+if.then256:                                       ; preds = %if.end252
+  %sub257 = add i32 %height, -2
+  %mul258 = mul i32 %sub257, %width
+  %arrayidx259 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %mul258
+  %74 = load <4 x float> addrspace(1)* %arrayidx259, align 16
+  %add260 = fadd <4 x float> %74, zeroinitializer
+  %add263 = add i32 %mul258, 1
+  %arrayidx264 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add263
+  %75 = load <4 x float> addrspace(1)* %arrayidx264, align 16
+  %add265 = fadd <4 x float> %add260, %75
+  %sub266 = add i32 %height, -1
+  %mul267 = mul i32 %sub266, %width
+  %arrayidx268 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %mul267
+  %76 = load <4 x float> addrspace(1)* %arrayidx268, align 16
+  %add269 = fadd <4 x float> %add265, %76
+  %add272 = add i32 %mul267, 1
+  %arrayidx273 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add272
+  %77 = load <4 x float> addrspace(1)* %arrayidx273, align 16
+  %add274 = fadd <4 x float> %add269, %77
+  %div276 = fdiv <4 x float> %add274, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx279 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %mul267
+  store <4 x float> %div276, <4 x float> addrspace(1)* %arrayidx279, align 16
+  br label %if.end280
 
-if.end356:                                        ; preds = %if.end321, %if.then327
-  br i1 %bottomEdge.0, label %for.cond360.preheader, label %if.end417
+if.end280:                                        ; preds = %if.end252, %if.then256
+  br i1 %bottomEdge.0, label %for.cond284.preheader, label %if.end331
 
-for.cond360.preheader:                            ; preds = %if.end356
-  %conv36113 = sext i32 %index_x.0 to i64
-  %conv362 = zext i32 %index_x.0 to i64
-  %add363 = add i64 %sub40.count_x.0, %conv362
-  %cmp36414 = icmp ult i64 %conv36113, %add363
-  br i1 %cmp36414, label %for.body366.lr.ph, label %if.end417
+for.cond284.preheader:                            ; preds = %if.end280
+  %add285 = add i32 %sub24.count_x.0, %index_x.0
+  %cmp28612 = icmp ult i32 %index_x.0, %add285
+  br i1 %cmp28612, label %for.body287.lr.ph, label %if.end331
 
-for.body366.lr.ph:                                ; preds = %for.cond360.preheader
-  %sub367 = add i32 %height, -2
-  %mul368 = mul i32 %sub367, %width
-  %sub387 = add i32 %height, -1
-  %mul388 = mul i32 %sub387, %width
-  %51 = icmp ugt i32 %conv10, 1
-  %umax = select i1 %51, i32 %conv10, i32 1
-  %52 = sext i32 %umax to i64
-  %53 = zext i32 %umax to i64
-  %54 = add i64 %sub40.count_x.0, %53
-  br label %for.body366
+for.body287.lr.ph:                                ; preds = %for.cond284.preheader
+  %sub288 = add i32 %height, -2
+  %mul289 = mul i32 %sub288, %width
+  %sub305 = add i32 %height, -1
+  %mul306 = mul i32 %sub305, %width
+  %78 = icmp ugt i32 %div6, 1
+  %umax45 = select i1 %78, i32 %div6, i32 1
+  %79 = add i32 %count_x.0, %umax45
+  %80 = add i32 %79, %sub24
+  br label %for.body287
 
-for.body366:                                      ; preds = %for.body366, %for.body366.lr.ph
-  %indvars.iv = phi i64 [ %52, %for.body366.lr.ph ], [ %indvars.iv.next, %for.body366 ]
-  %55 = trunc i64 %indvars.iv to i32
-  %add369 = add i32 %55, %mul368
-  %sub370 = add i32 %add369, -1
-  %idxprom371 = zext i32 %sub370 to i64
-  %arrayidx372 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom371
-  %56 = load <4 x float> addrspace(1)* %arrayidx372, align 16
-  %add373 = fadd <4 x float> %56, zeroinitializer
-  %idxprom377 = zext i32 %add369 to i64
-  %arrayidx378 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom377
-  %57 = load <4 x float> addrspace(1)* %arrayidx378, align 16
-  %add379 = fadd <4 x float> %add373, %57
-  %add383 = add i32 %add369, 1
-  %idxprom384 = zext i32 %add383 to i64
-  %arrayidx385 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom384
-  %58 = load <4 x float> addrspace(1)* %arrayidx385, align 16
-  %add386 = fadd <4 x float> %add379, %58
-  %add389 = add i32 %55, %mul388
-  %sub390 = add i32 %add389, -1
-  %idxprom391 = zext i32 %sub390 to i64
-  %arrayidx392 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom391
-  %59 = load <4 x float> addrspace(1)* %arrayidx392, align 16
-  %add393 = fadd <4 x float> %add386, %59
-  %idxprom397 = zext i32 %add389 to i64
-  %arrayidx398 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom397
-  %60 = load <4 x float> addrspace(1)* %arrayidx398, align 16
-  %add399 = fadd <4 x float> %add393, %60
-  %add403 = add i32 %add389, 1
-  %idxprom404 = zext i32 %add403 to i64
-  %arrayidx405 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom404
-  %61 = load <4 x float> addrspace(1)* %arrayidx405, align 16
-  %add406 = fadd <4 x float> %add399, %61
-  %div408 = fdiv <4 x float> %add406, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx413 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom397
-  store <4 x float> %div408, <4 x float> addrspace(1)* %arrayidx413, align 16
-  %indvars.iv.next = add i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, %54
-  br i1 %exitcond, label %if.end417, label %for.body366
+for.body287:                                      ; preds = %for.body287, %for.body287.lr.ph
+  %column283.013 = phi i32 [ %index_x.0, %for.body287.lr.ph ], [ %inc329, %for.body287 ]
+  %add290 = add i32 %column283.013, %mul289
+  %sub291 = add i32 %add290, -1
+  %arrayidx292 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub291
+  %81 = load <4 x float> addrspace(1)* %arrayidx292, align 16
+  %add293 = fadd <4 x float> %81, zeroinitializer
+  %arrayidx297 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add290
+  %82 = load <4 x float> addrspace(1)* %arrayidx297, align 16
+  %add298 = fadd <4 x float> %add293, %82
+  %add302 = add i32 %add290, 1
+  %arrayidx303 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add302
+  %83 = load <4 x float> addrspace(1)* %arrayidx303, align 16
+  %add304 = fadd <4 x float> %add298, %83
+  %add307 = add i32 %column283.013, %mul306
+  %sub308 = add i32 %add307, -1
+  %arrayidx309 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub308
+  %84 = load <4 x float> addrspace(1)* %arrayidx309, align 16
+  %add310 = fadd <4 x float> %add304, %84
+  %arrayidx314 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add307
+  %85 = load <4 x float> addrspace(1)* %arrayidx314, align 16
+  %add315 = fadd <4 x float> %add310, %85
+  %add319 = add i32 %add307, 1
+  %arrayidx320 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %add319
+  %86 = load <4 x float> addrspace(1)* %arrayidx320, align 16
+  %add321 = fadd <4 x float> %add315, %86
+  %div323 = fdiv <4 x float> %add321, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx327 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add307
+  store <4 x float> %div323, <4 x float> addrspace(1)* %arrayidx327, align 16
+  %inc329 = add nsw i32 %column283.013, 1
+  %exitcond46 = icmp eq i32 %inc329, %80
+  br i1 %exitcond46, label %if.end331, label %for.body287
 
-if.end417:                                        ; preds = %for.cond360.preheader, %for.body366, %if.end356
-  br i1 %rightEdge.0, label %for.cond421.preheader, label %if.end507
+if.end331:                                        ; preds = %for.cond284.preheader, %for.body287, %if.end280
+  br i1 %rightEdge.0, label %for.cond335.preheader, label %if.end404
 
-for.cond421.preheader:                            ; preds = %if.end417
-  %conv42210 = sext i32 %index_y.0 to i64
-  %conv423 = zext i32 %index_y.0 to i64
-  %add424 = add i64 %sub35.count_y.0, %conv423
-  %cmp42511 = icmp ult i64 %conv42210, %add424
-  br i1 %cmp42511, label %for.body427, label %if.end472
+for.cond335.preheader:                            ; preds = %if.end331
+  %add336 = add i32 %sub20.count_y.0, %index_y.0
+  %cmp33710 = icmp ult i32 %index_y.0, %add336
+  br i1 %cmp33710, label %for.body338.lr.ph, label %if.end376
 
-for.body427:                                      ; preds = %for.cond421.preheader, %for.body427
-  %row420.012 = phi i32 [ %add433, %for.body427 ], [ %index_y.0, %for.cond421.preheader ]
-  %mul428 = mul i32 %row420.012, %width
-  %sub429 = add i32 %mul428, -1
-  %idxprom430 = zext i32 %sub429 to i64
-  %arrayidx431 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom430
-  %62 = load <4 x float> addrspace(1)* %arrayidx431, align 16
-  %add432 = fadd <4 x float> %62, zeroinitializer
-  %add433 = add nsw i32 %row420.012, 1
-  %mul434 = mul i32 %add433, %width
-  %sub435 = add i32 %mul434, -1
-  %idxprom436 = zext i32 %sub435 to i64
-  %arrayidx437 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom436
-  %63 = load <4 x float> addrspace(1)* %arrayidx437, align 16
-  %add438 = fadd <4 x float> %add432, %63
-  %add439 = add nsw i32 %row420.012, 2
-  %mul440 = mul i32 %add439, %width
-  %sub441 = add i32 %mul440, -1
-  %idxprom442 = zext i32 %sub441 to i64
-  %arrayidx443 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom442
-  %64 = load <4 x float> addrspace(1)* %arrayidx443, align 16
-  %add444 = fadd <4 x float> %add438, %64
-  %sub446 = add i32 %mul428, -2
-  %idxprom447 = zext i32 %sub446 to i64
-  %arrayidx448 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom447
-  %65 = load <4 x float> addrspace(1)* %arrayidx448, align 16
-  %add449 = fadd <4 x float> %add444, %65
-  %sub452 = add i32 %mul434, -2
-  %idxprom453 = zext i32 %sub452 to i64
-  %arrayidx454 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom453
-  %66 = load <4 x float> addrspace(1)* %arrayidx454, align 16
-  %add455 = fadd <4 x float> %add449, %66
-  %sub458 = add i32 %mul440, -2
-  %idxprom459 = zext i32 %sub458 to i64
-  %arrayidx460 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom459
-  %67 = load <4 x float> addrspace(1)* %arrayidx460, align 16
-  %add461 = fadd <4 x float> %add455, %67
-  %div463 = fdiv <4 x float> %add461, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx468 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom436
-  store <4 x float> %div463, <4 x float> addrspace(1)* %arrayidx468, align 16
-  %conv422 = sext i32 %add433 to i64
-  %cmp425 = icmp ult i64 %conv422, %add424
-  br i1 %cmp425, label %for.body427, label %if.end472
+for.body338.lr.ph:                                ; preds = %for.cond335.preheader
+  %87 = icmp ugt i32 %div8, 1
+  %umax = select i1 %87, i32 %div8, i32 1
+  %88 = add i32 %count_y.0, %umax
+  %89 = add i32 %88, %sub20
+  br label %for.body338
 
-if.end472:                                        ; preds = %for.body427, %for.cond421.preheader
-  br i1 %bottomEdge.0, label %if.then478, label %if.end507
+for.body338:                                      ; preds = %for.body338, %for.body338.lr.ph
+  %row334.011 = phi i32 [ %index_y.0, %for.body338.lr.ph ], [ %add343, %for.body338 ]
+  %mul339 = mul i32 %row334.011, %width
+  %sub340 = add i32 %mul339, -1
+  %arrayidx341 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub340
+  %90 = load <4 x float> addrspace(1)* %arrayidx341, align 16
+  %add342 = fadd <4 x float> %90, zeroinitializer
+  %add343 = add nsw i32 %row334.011, 1
+  %mul344 = mul i32 %add343, %width
+  %sub345 = add i32 %mul344, -1
+  %arrayidx346 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub345
+  %91 = load <4 x float> addrspace(1)* %arrayidx346, align 16
+  %add347 = fadd <4 x float> %add342, %91
+  %add348 = add nsw i32 %row334.011, 2
+  %mul349 = mul i32 %add348, %width
+  %sub350 = add i32 %mul349, -1
+  %arrayidx351 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub350
+  %92 = load <4 x float> addrspace(1)* %arrayidx351, align 16
+  %add352 = fadd <4 x float> %add347, %92
+  %sub354 = add i32 %mul339, -2
+  %arrayidx355 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub354
+  %93 = load <4 x float> addrspace(1)* %arrayidx355, align 16
+  %add356 = fadd <4 x float> %add352, %93
+  %sub359 = add i32 %mul344, -2
+  %arrayidx360 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub359
+  %94 = load <4 x float> addrspace(1)* %arrayidx360, align 16
+  %add361 = fadd <4 x float> %add356, %94
+  %sub364 = add i32 %mul349, -2
+  %arrayidx365 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub364
+  %95 = load <4 x float> addrspace(1)* %arrayidx365, align 16
+  %add366 = fadd <4 x float> %add361, %95
+  %div368 = fdiv <4 x float> %add366, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx372 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %sub345
+  store <4 x float> %div368, <4 x float> addrspace(1)* %arrayidx372, align 16
+  %exitcond = icmp eq i32 %add343, %89
+  br i1 %exitcond, label %if.end376, label %for.body338
 
-if.then478:                                       ; preds = %if.end472
-  %sub479 = add i32 %height, -1
-  %mul480 = mul i32 %sub479, %width
-  %sub481 = add i32 %mul480, -2
-  %idxprom482 = zext i32 %sub481 to i64
-  %arrayidx483 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom482
-  %68 = load <4 x float> addrspace(1)* %arrayidx483, align 16
-  %add484 = fadd <4 x float> %68, zeroinitializer
-  %sub487 = add i32 %mul480, -1
-  %idxprom488 = zext i32 %sub487 to i64
-  %arrayidx489 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom488
-  %69 = load <4 x float> addrspace(1)* %arrayidx489, align 16
-  %add490 = fadd <4 x float> %add484, %69
-  %mul491 = mul i32 %height, %width
-  %sub492 = add i32 %mul491, -2
-  %idxprom493 = zext i32 %sub492 to i64
-  %arrayidx494 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom493
-  %70 = load <4 x float> addrspace(1)* %arrayidx494, align 16
-  %add495 = fadd <4 x float> %add490, %70
-  %sub497 = add i32 %mul491, -1
-  %idxprom498 = zext i32 %sub497 to i64
-  %arrayidx499 = getelementptr inbounds <4 x float> addrspace(1)* %input, i64 %idxprom498
-  %71 = load <4 x float> addrspace(1)* %arrayidx499, align 16
-  %add500 = fadd <4 x float> %add495, %71
-  %div502 = fdiv <4 x float> %add500, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
-  %arrayidx506 = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom498
-  store <4 x float> %div502, <4 x float> addrspace(1)* %arrayidx506, align 16
-  br label %if.end507
+if.end376:                                        ; preds = %for.body338, %for.cond335.preheader
+  br i1 %bottomEdge.0, label %if.then380, label %if.end404
 
-if.end507:                                        ; preds = %if.end472, %if.end417, %if.then478
+if.then380:                                       ; preds = %if.end376
+  %sub381 = add i32 %height, -1
+  %mul382 = mul i32 %sub381, %width
+  %sub383 = add i32 %mul382, -2
+  %arrayidx384 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub383
+  %96 = load <4 x float> addrspace(1)* %arrayidx384, align 16
+  %add385 = fadd <4 x float> %96, zeroinitializer
+  %sub388 = add i32 %mul382, -1
+  %arrayidx389 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub388
+  %97 = load <4 x float> addrspace(1)* %arrayidx389, align 16
+  %add390 = fadd <4 x float> %add385, %97
+  %mul391 = mul i32 %height, %width
+  %sub392 = add i32 %mul391, -2
+  %arrayidx393 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub392
+  %98 = load <4 x float> addrspace(1)* %arrayidx393, align 16
+  %add394 = fadd <4 x float> %add390, %98
+  %sub396 = add i32 %mul391, -1
+  %arrayidx397 = getelementptr inbounds <4 x float> addrspace(1)* %input, i32 %sub396
+  %99 = load <4 x float> addrspace(1)* %arrayidx397, align 16
+  %add398 = fadd <4 x float> %add394, %99
+  %div400 = fdiv <4 x float> %add398, <float 9.000000e+00, float 9.000000e+00, float 9.000000e+00, float 9.000000e+00>
+  %arrayidx403 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %sub396
+  store <4 x float> %div400, <4 x float> addrspace(1)* %arrayidx403, align 16
+  br label %if.end404
+
+if.end404:                                        ; preds = %if.end376, %if.end331, %if.then380
   ret void
 }
 
-define [7 x i64] @WG.boundaries.wlSimpleBoxBlur_GPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
+define [7 x i32] @WG.boundaries.wlSimpleBoxBlur_GPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
 entry:
-  %5 = call i64 @get_local_size(i32 0)
-  %6 = call i64 @get_base_global_id.(i32 0)
-  %7 = call i64 @get_local_size(i32 1)
-  %8 = call i64 @get_base_global_id.(i32 1)
-  %9 = call i64 @get_local_size(i32 2)
-  %10 = call i64 @get_base_global_id.(i32 2)
-  %11 = insertvalue [7 x i64] undef, i64 %5, 2
-  %12 = insertvalue [7 x i64] %11, i64 %6, 1
-  %13 = insertvalue [7 x i64] %12, i64 %7, 4
-  %14 = insertvalue [7 x i64] %13, i64 %8, 3
-  %15 = insertvalue [7 x i64] %14, i64 %9, 6
-  %16 = insertvalue [7 x i64] %15, i64 %10, 5
-  %17 = insertvalue [7 x i64] %16, i64 1, 0
-  ret [7 x i64] %17
+  %5 = call i32 @get_local_size(i32 0)
+  %6 = call i32 @get_base_global_id.(i32 0)
+  %7 = call i32 @get_local_size(i32 1)
+  %8 = call i32 @get_base_global_id.(i32 1)
+  %9 = call i32 @get_local_size(i32 2)
+  %10 = call i32 @get_base_global_id.(i32 2)
+  %11 = insertvalue [7 x i32] undef, i32 %5, 2
+  %12 = insertvalue [7 x i32] %11, i32 %6, 1
+  %13 = insertvalue [7 x i32] %12, i32 %7, 4
+  %14 = insertvalue [7 x i32] %13, i32 %8, 3
+  %15 = insertvalue [7 x i32] %14, i32 %9, 6
+  %16 = insertvalue [7 x i32] %15, i32 %10, 5
+  %17 = insertvalue [7 x i32] %16, i32 1, 0
+  ret [7 x i32] %17
 }
 
-declare i64 @get_local_size(i32)
+declare i32 @get_local_size(i32)
 
-declare i64 @get_base_global_id.(i32)
+declare i32 @get_base_global_id.(i32)
 
-define [7 x i64] @WG.boundaries.wlSimpleBoxBlur_CPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
+define [7 x i32] @WG.boundaries.wlSimpleBoxBlur_CPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
 entry:
-  %5 = call i64 @get_local_size(i32 0)
-  %6 = call i64 @get_base_global_id.(i32 0)
-  %7 = call i64 @get_local_size(i32 1)
-  %8 = call i64 @get_base_global_id.(i32 1)
-  %9 = call i64 @get_local_size(i32 2)
-  %10 = call i64 @get_base_global_id.(i32 2)
-  %11 = tail call i64 @get_global_size(i32 1) nounwind readnone
-  %12 = zext i32 %3 to i64
-  %13 = udiv i64 %12, %11
-  %14 = icmp eq i64 %13, 0
-  %15 = xor i1 %14, true
-  %16 = and i1 true, %15
-  %zext_cast = zext i1 %16 to i64
-  %17 = insertvalue [7 x i64] undef, i64 %5, 2
-  %18 = insertvalue [7 x i64] %17, i64 %6, 1
-  %19 = insertvalue [7 x i64] %18, i64 %7, 4
-  %20 = insertvalue [7 x i64] %19, i64 %8, 3
-  %21 = insertvalue [7 x i64] %20, i64 %9, 6
-  %22 = insertvalue [7 x i64] %21, i64 %10, 5
-  %23 = insertvalue [7 x i64] %22, i64 %zext_cast, 0
-  ret [7 x i64] %23
+  %5 = call i32 @get_local_size(i32 0)
+  %6 = call i32 @get_base_global_id.(i32 0)
+  %7 = call i32 @get_local_size(i32 1)
+  %8 = call i32 @get_base_global_id.(i32 1)
+  %9 = call i32 @get_local_size(i32 2)
+  %10 = call i32 @get_base_global_id.(i32 2)
+  %11 = tail call i32 @get_global_size(i32 1) nounwind readnone
+  %12 = udiv i32 %3, %11
+  %13 = icmp eq i32 %12, 0
+  %14 = xor i1 %13, true
+  %15 = and i1 true, %14
+  %zext_cast = zext i1 %15 to i32
+  %16 = insertvalue [7 x i32] undef, i32 %5, 2
+  %17 = insertvalue [7 x i32] %16, i32 %6, 1
+  %18 = insertvalue [7 x i32] %17, i32 %7, 4
+  %19 = insertvalue [7 x i32] %18, i32 %8, 3
+  %20 = insertvalue [7 x i32] %19, i32 %9, 6
+  %21 = insertvalue [7 x i32] %20, i32 %10, 5
+  %22 = insertvalue [7 x i32] %21, i32 %zext_cast, 0
+  ret [7 x i32] %22
 }
 
-define [7 x i64] @WG.boundaries.wlSimpleBoxBlur_image2d(%struct._image2d_t.0*, <4 x float> addrspace(1)*, i32) {
+define [7 x i32] @WG.boundaries.wlSimpleBoxBlur_image2d(%struct._image2d_t.0*, <4 x float> addrspace(1)*, i32) {
 entry:
-  %3 = call i64 @get_local_size(i32 0)
-  %4 = call i64 @get_base_global_id.(i32 0)
-  %5 = call i64 @get_local_size(i32 1)
-  %6 = call i64 @get_base_global_id.(i32 1)
-  %7 = call i64 @get_local_size(i32 2)
-  %8 = call i64 @get_base_global_id.(i32 2)
-  %9 = insertvalue [7 x i64] undef, i64 %3, 2
-  %10 = insertvalue [7 x i64] %9, i64 %4, 1
-  %11 = insertvalue [7 x i64] %10, i64 %5, 4
-  %12 = insertvalue [7 x i64] %11, i64 %6, 3
-  %13 = insertvalue [7 x i64] %12, i64 %7, 6
-  %14 = insertvalue [7 x i64] %13, i64 %8, 5
-  %15 = insertvalue [7 x i64] %14, i64 1, 0
-  ret [7 x i64] %15
+  %3 = call i32 @get_local_size(i32 0)
+  %4 = call i32 @get_base_global_id.(i32 0)
+  %5 = call i32 @get_local_size(i32 1)
+  %6 = call i32 @get_base_global_id.(i32 1)
+  %7 = call i32 @get_local_size(i32 2)
+  %8 = call i32 @get_base_global_id.(i32 2)
+  %9 = insertvalue [7 x i32] undef, i32 %3, 2
+  %10 = insertvalue [7 x i32] %9, i32 %4, 1
+  %11 = insertvalue [7 x i32] %10, i32 %5, 4
+  %12 = insertvalue [7 x i32] %11, i32 %6, 3
+  %13 = insertvalue [7 x i32] %12, i32 %7, 6
+  %14 = insertvalue [7 x i32] %13, i32 %8, 5
+  %15 = insertvalue [7 x i32] %14, i32 1, 0
+  ret [7 x i32] %15
 }
 
-define [7 x i64] @WG.boundaries.wlSimpleBoxBlur_Optimized_CPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
+define [7 x i32] @WG.boundaries.wlSimpleBoxBlur_Optimized_CPU(<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, i32) {
 entry:
-  %5 = call i64 @get_local_size(i32 0)
-  %6 = call i64 @get_base_global_id.(i32 0)
-  %7 = call i64 @get_local_size(i32 1)
-  %8 = call i64 @get_base_global_id.(i32 1)
-  %9 = call i64 @get_local_size(i32 2)
-  %10 = call i64 @get_base_global_id.(i32 2)
-  %11 = insertvalue [7 x i64] undef, i64 %5, 2
-  %12 = insertvalue [7 x i64] %11, i64 %6, 1
-  %13 = insertvalue [7 x i64] %12, i64 %7, 4
-  %14 = insertvalue [7 x i64] %13, i64 %8, 3
-  %15 = insertvalue [7 x i64] %14, i64 %9, 6
-  %16 = insertvalue [7 x i64] %15, i64 %10, 5
-  %17 = insertvalue [7 x i64] %16, i64 1, 0
-  ret [7 x i64] %17
+  %5 = call i32 @get_local_size(i32 0)
+  %6 = call i32 @get_base_global_id.(i32 0)
+  %7 = call i32 @get_local_size(i32 1)
+  %8 = call i32 @get_base_global_id.(i32 1)
+  %9 = call i32 @get_local_size(i32 2)
+  %10 = call i32 @get_base_global_id.(i32 2)
+  %11 = insertvalue [7 x i32] undef, i32 %5, 2
+  %12 = insertvalue [7 x i32] %11, i32 %6, 1
+  %13 = insertvalue [7 x i32] %12, i32 %7, 4
+  %14 = insertvalue [7 x i32] %13, i32 %8, 3
+  %15 = insertvalue [7 x i32] %14, i32 %9, 6
+  %16 = insertvalue [7 x i32] %15, i32 %10, 5
+  %17 = insertvalue [7 x i32] %16, i32 1, 0
+  ret [7 x i32] %17
 }
 
 !opencl.kernels = !{!0, !8, !9, !17}

@@ -1,6 +1,6 @@
 ; ModuleID = 'Program'
-target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
+target triple = "i686-pc-win32"
 
 define <4 x float> @evaluatePixel(<2 x float> %outCrd, <2 x float> %checkerSize, <4 x float> %color1, <4 x float> %color2) nounwind {
 entry:
@@ -34,28 +34,24 @@ declare <2 x i32> @_Z7isequalDv2_fS_(<2 x float>, <2 x float>) nounwind readnone
 
 define void @checkerboard2D(<4 x float> addrspace(1)* %output, <2 x float> %checkerSize, <4 x float> %color1, <4 x float> %color2) nounwind {
 entry:
-  %call = call i64 @get_global_id(i32 0) nounwind readnone
-  %conv = trunc i64 %call to i32
-  %call1 = call i64 @get_global_id(i32 1) nounwind readnone
-  %conv2 = trunc i64 %call1 to i32
-  %call3 = call i64 @get_global_size(i32 0) nounwind readnone
-  %conv4 = trunc i64 %call3 to i32
-  %mul = mul nsw i32 %conv2, %conv4
-  %add = add nsw i32 %mul, %conv
-  %conv5 = sitofp i32 %conv to float
-  %vecinit = insertelement <2 x float> undef, float %conv5, i32 0
-  %conv6 = sitofp i32 %conv2 to float
-  %vecinit7 = insertelement <2 x float> %vecinit, float %conv6, i32 1
-  %call8 = call <4 x float> @evaluatePixel(<2 x float> %vecinit7, <2 x float> %checkerSize, <4 x float> %color1, <4 x float> %color2)
-  %idxprom = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %output, i64 %idxprom
-  store <4 x float> %call8, <4 x float> addrspace(1)* %arrayidx, align 16
+  %call = call i32 @get_global_id(i32 0) nounwind readnone
+  %call1 = call i32 @get_global_id(i32 1) nounwind readnone
+  %call2 = call i32 @get_global_size(i32 0) nounwind readnone
+  %mul = mul nsw i32 %call1, %call2
+  %add = add nsw i32 %mul, %call
+  %conv = sitofp i32 %call to float
+  %vecinit = insertelement <2 x float> undef, float %conv, i32 0
+  %conv3 = sitofp i32 %call1 to float
+  %vecinit4 = insertelement <2 x float> %vecinit, float %conv3, i32 1
+  %call5 = call <4 x float> @evaluatePixel(<2 x float> %vecinit4, <2 x float> %checkerSize, <4 x float> %color1, <4 x float> %color2)
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 %add
+  store <4 x float> %call5, <4 x float> addrspace(1)* %arrayidx, align 16
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i32 @get_global_id(i32) nounwind readnone
 
-declare i64 @get_global_size(i32) nounwind readnone
+declare i32 @get_global_size(i32) nounwind readnone
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!8}
