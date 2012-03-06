@@ -233,7 +233,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 
 cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin, 
                                                const char*          szKernelName, 
-                                               CL_KERNEL_ARG_INFO** ppArgInfo,
+                                               KernelArgInfo**      ppArgInfo,
                                                unsigned int*        puiNumArgs) const
 {
     LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%d, szKernelName=%d, ppArgInfo=%d, puiNumArgs=%d)"),
@@ -284,7 +284,7 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin,
 
     if (NULL != ppArgInfo)
     {
-        CL_KERNEL_ARG_INFO* pKernelArgInfo = new CL_KERNEL_ARG_INFO[uiNumArgs];
+        KernelArgInfo* pKernelArgInfo = new KernelArgInfo[uiNumArgs];
         if (NULL == pKernelArgInfo)
         {
             *ppArgInfo = NULL;

@@ -41,7 +41,13 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         cl_kernel_arg_type_qualifier typeQualifier;
     };
 
-	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
+    class ClangFETask
+    {
+    protected:
+		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
+    };
+
+	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
 	{
 	public:
 		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions);
@@ -74,13 +80,10 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		size_t	m_stOutIRSize;
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
-
-		// Static members
-		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
 	};
 
 
-    class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult
+    class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
 	{
 	public:
 		ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
@@ -122,7 +125,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool bFastRelaxedMathFlag;
         bool bEnableLinkOptionsFlag;
 	};
-    class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo
+
+    class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo, ClangFETask
     {
     public:
         ClangFECompilerGetKernelArgInfoTask();

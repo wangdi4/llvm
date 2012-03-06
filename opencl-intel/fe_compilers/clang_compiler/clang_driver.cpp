@@ -90,7 +90,7 @@ using namespace std;
 // Declare logger client
 DECLARE_LOGGER_CLIENT;
 
-OclMutex ClangFECompilerCompileTask::s_serializingMutex;
+OclMutex ClangFETask::s_serializingMutex;
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
@@ -453,6 +453,8 @@ int ClangFECompilerCompileTask::Compile()
 
 	OclAutoMutex CS(&s_serializingMutex);
 
+    {   // create a new scope to make sure the mutex will be released last
+
 	ArgListType ArgList;
 	ArgListType IgnoredArgs;
 
@@ -687,6 +689,8 @@ int ClangFECompilerCompileTask::Compile()
 	delete []argArray;
 
 	return CL_SUCCESS;
+
+    }
 }
 
 
@@ -711,6 +715,10 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 
 int ClangFECompilerLinkTask::Link()
 {
+    OclAutoMutex CS(&s_serializingMutex);
+
+    {   // create a new scope to make sure the mutex will be released last
+
     if (0 == m_pProgDesc->uiNumBinaries)
     {
         return CL_SUCCESS;
@@ -884,6 +892,8 @@ int ClangFECompilerLinkTask::Link()
     pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
 
     return CL_SUCCESS;
+
+    }
 }
 
 void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
@@ -1091,6 +1101,10 @@ ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, const char *szKernelName)
 {
+    OclAutoMutex CS(&s_serializingMutex);
+
+    {   // create a new scope to make sure the mutex will be released last
+
     SMDiagnostic Err;
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
@@ -1284,4 +1298,6 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }
 
     return CL_SUCCESS;
+
+    }
 }

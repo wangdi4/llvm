@@ -34,7 +34,7 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    struct CL_KERNEL_ARG_INFO
+    struct KernelArgInfo
     {
         char*                           name;
         char*                           typeName;
@@ -146,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
         cl_err_code GetKernelArgInfo(   const void*             pBin,
                                         const char*             szKernelName,
-                                        OUT CL_KERNEL_ARG_INFO* *ppArgInfo,
+                                        OUT KernelArgInfo*      *ppArgInfo,
                                         OUT unsigned int*       puiNumArgs) const;
 
 		/******************************************************************************************

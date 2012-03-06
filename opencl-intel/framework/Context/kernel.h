@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class DeviceProgram;
 	class Kernel;
 	class Context;
-    struct CL_KERNEL_ARG_INFO;
+    struct KernelArgInfo;
 
 	/**********************************************************************************************
 	* Class name:	SKernelPrototype
@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		char *				m_psKernelName;
 		cl_uint				m_uiArgsCount;
 		cl_kernel_argument*	m_pArgs;
-        CL_KERNEL_ARG_INFO* m_pArgsInfo;
+        KernelArgInfo*      m_pArgsInfo;
 	};
 
 	/**********************************************************************************************

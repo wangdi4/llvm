@@ -863,7 +863,7 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	size_t stParamSize;
 	const void* pValue;
 
-    CL_KERNEL_ARG_INFO* pKernelArgInfo = NULL;
+    KernelArgInfo* pKernelArgInfo = NULL;
 
     // find a valid device kernel
     for (cl_uint i = 0; i < m_szAssociatedDevices; ++i)
