@@ -1,2 +1,0 @@
-; XFAIL: *
-; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Conformance/framework_test_type/Test_clIntegerExecuteTest.2.cfg

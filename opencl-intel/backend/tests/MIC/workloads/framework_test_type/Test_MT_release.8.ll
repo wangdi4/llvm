@@ -1,1 +1,0 @@
-; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Conformance/framework_test_type/Test_MT_release.8.cfg
