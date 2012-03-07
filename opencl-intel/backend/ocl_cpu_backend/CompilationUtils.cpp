@@ -185,6 +185,8 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
  
   assert(FuncInfo);
 
+  assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
+     " Are you running a workload recorded using old meta data format?");
   MDNode *MDImgAccess = NULL;
   //look for image access metadata
   for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
