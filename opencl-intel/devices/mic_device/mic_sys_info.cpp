@@ -307,15 +307,6 @@ cl_uint MICSysInfo::getNumOfComputeUnits(uint32_t deviceId)
     return 0;
 }
 
-cl_uint MICSysInfo::getMaxSamplers(uint32_t deviceId)
-{
-    if (initializedInfoStruct(deviceId))
-    {
-        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumTXS;
-    }
-    return 0;
-}
-
 cl_uint MICSysInfo::getGlobalMemCachelineSize(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
@@ -446,20 +437,6 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             if(NULL != buf)
             {
                 *(cl_uint*)buf = MAX((cl_uint)1, getNumOfComputeUnits(deviceId));
-            }
-            return CL_DEV_SUCCESS;
-        }
-
-        case( CL_DEVICE_MAX_SAMPLERS):
-        {
-            if(! process_info_params( sizeof(cl_uint), buf_size, buf, filled_buf_size ))
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
-            {
-                *(cl_uint*)buf = MAX(MIC_MAX_SAMPLERS, MAX((cl_uint)16, getMaxSamplers(deviceId)));
             }
             return CL_DEV_SUCCESS;
         }

@@ -39,10 +39,6 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
            If failed return 1 (According to OpenCL 1.1 spec the minimum value is 1)*/
         cl_uint getNumOfComputeUnits(uint32_t deviceId);
 
-        /* Return maximum number of samplers that can be used in the kernel
-           If failed return 16 (According to OpenCL 1.1 spec the minimum value is 16 if CL_DEVICE_IMAGE_SUPPORT is True)*/
-        cl_uint getMaxSamplers(uint32_t deviceId);
-
         /* Return size of global memory cache line in bytes
            If failed return 0.*/
         cl_uint getGlobalMemCachelineSize(uint32_t deviceId);
