@@ -382,19 +382,7 @@ float8  __attribute__((overloadable)) rint(float8 x)
 
 float  __attribute__((overloadable)) fmax(float x, float y)
 {
-	float res;
-	__m128 tmpX = _mm_load_ss(&x);
-	__m128 tmpY = _mm_load_ss(&y);
-
-	//if( isnan(y) )
-	//    return x;	
-	float4 nan = _mm_cmpneq_ss(tmpY, tmpY);
-	float4 res1 = _mm_max_ss(tmpX, tmpY);
-
-	res1 = BLEND_PS(res1, tmpX, nan);
-
-	_mm_store_ss(&res, res1);
-	return res;
+	return native_fmax(x, y);
 }
 
 float4  __attribute__((overloadable)) fmax(float4 x, float4 y)
@@ -423,19 +411,7 @@ float8  __attribute__((overloadable)) fmax(float8 x, float8 y)
 
 float  __attribute__((overloadable)) fmin(float x, float y)
 {
-	float res_t;
-	__m128 tmpX = _mm_load_ss(&x);
-	__m128 tmpY = _mm_load_ss(&y);
-
-	//if( isnan(y) )
-	//    return x;	
-	float4 nan = _mm_cmpneq_ss(tmpY, tmpY);
-	float4 res = _mm_min_ss(tmpX,tmpY);
-	
-	res = BLEND_PS(res, tmpX, nan);
-
-	_mm_store_ss(&res_t, res);
-	return res_t;
+	return native_fmin(x, y);
 }
 
 float4  __attribute__((overloadable)) fmin(float4 x, float4 y)
