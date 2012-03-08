@@ -28,25 +28,6 @@ File Name:  CompileService.cpp
 #include "llvm/Support/PathV2.h"
 #include "BitCodeContainer.h"
 
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/Support/MemoryObject.h"
-#include "llvm/MC/MCDisassembler.h"
-#include "llvm/MC/MCInstPrinter.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/PassManager.h"
-#include "llvm/PassManager.h"
-
-#include <sstream>
-
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CompileService::CompileService()
@@ -152,42 +133,7 @@ void CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCo
                     const std::string dumpJIT,
                     const std::string baseDirectory) const
 {
-    const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
-    llvm::Module* pModule = (llvm::Module*)pContainer->GetModule();
-    llvm::Triple triple(pModule->getTargetTriple());
-    std::string err;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
-    std::string FeaturesStr;
-    std::string CPU;
-    TargetMachine* TM = target->createTargetMachine(triple.getTriple(), CPU, FeaturesStr);
-    
-    // Build up all of the passes that we want to do to the module.
-    PassManager PM;
-
-    // Create the output file.
-    std::string fileName;
-    llvm::sys::Path filePath(dumpJIT.c_str(), dumpJIT.size());
-
-    if( !sys::path::is_absolute(filePath.c_str()) && !baseDirectory.empty())
-    {
-        llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
-        absFilePath.appendComponent(filePath.c_str());
-        fileName = absFilePath.str();
-    }
-    else
-    {
-        llvm::SmallString<128> filePathStr(filePath.c_str());
-        llvm::sys::fs::make_absolute(filePathStr);
-        fileName = filePathStr.c_str();
-    }
-    std::string errorInfo;
-    llvm::raw_fd_ostream out(fileName.c_str(), errorInfo,
-                llvm::raw_fd_ostream::F_Binary);
-    if (!errorInfo.empty()) { return; }
-    llvm::formatted_raw_ostream FOS(out);
-
-    TM->addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
-    PM.run(*pModule);
+    assert(false);
 }
 
 }}}

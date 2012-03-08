@@ -33,6 +33,10 @@ public:
 
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
 
+	void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                    const std::string dumpJIT,
+                    const std::string baseDirectory) const;
+
 private:
     CPUProgramBuilder m_programBuilder;
 };
