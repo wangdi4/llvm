@@ -12,7 +12,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 extern bool gSafeReleaseOfCoiObjects;
 
 NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd),
-m_printfBuffer(NULL)
+m_printfBuffer(NULL), m_kernel_locked(false)
 {
 }
 
@@ -101,6 +101,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 #ifndef NDRANGE_UNIT_TEST
 		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
 		dispatcherData.kernelDirective.kernelAddress = program_service->AcquireKernelOnDevice(cmdParams->kernel);
+        m_kernel_locked = (0 != dispatcherData.kernelDirective.kernelAddress);
 #else
 		// Only for unit test
 		dispatcherData.kernelDirective.kernelAddress = pKernel->GetKernelID();
@@ -189,7 +190,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			MICDevMemoryObject *memObj = (MICDevMemoryObject*)*((IOCLDevMemoryObject**)(pKernelParams+stOffset));
 			// Set the COIBUFFER of coiBuffsArr[currCoiBuffIndex] to be the COIBUFFER that hold the data of the buffer.
 			outCoiBuffsArr.push_back(memObj->clDevMemObjGetCoiBufferHandler());
-			// TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)
+			// TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)			
 			if ( CL_KRNL_ARG_PTR_CONST == pArgs[buffsInfoVector[i].index].type )
 			{
 				outAccessFlagArr.push_back(COI_SINK_READ);
@@ -197,23 +198,19 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			else
 			{
 				// Now check the memObj flags (The flags that the memObj created with)
-				switch ( memObj->clDevMemObjGetMemoryFlags() )
-				{
-				case CL_MEM_READ_ONLY:
-					{
-						outAccessFlagArr.push_back(COI_SINK_READ);
-						break;
-					}
-				case CL_MEM_WRITE_ONLY:
-					{
-						outAccessFlagArr.push_back(COI_SINK_WRITE_ENTIRE);
-						break;
-					}
-				default:
-					{
-						outAccessFlagArr.push_back(COI_SINK_WRITE);
-						break;
-					}
+				cl_mem_flags mem_flags = memObj->clDevMemObjGetMemoryFlags();
+
+                if (CL_MEM_READ_ONLY == (CL_MEM_READ_ONLY & mem_flags))
+                {
+                    outAccessFlagArr.push_back(COI_SINK_READ);
+                }
+                else if (CL_MEM_WRITE_ONLY == (CL_MEM_WRITE_ONLY & mem_flags))
+                {
+                    outAccessFlagArr.push_back(COI_SINK_WRITE_ENTIRE);
+                }
+                else
+                {
+					outAccessFlagArr.push_back(COI_SINK_WRITE);
 				}
 			}
 			assert(outCoiBuffsArr.size() == outAccessFlagArr.size());
@@ -359,6 +356,7 @@ cl_dev_err_code NDRange::execute()
 												  m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier));
 		if (result != COI_SUCCESS)
 		{
+            assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
 			m_lastError = CL_DEV_ERROR_FAIL;
 			break;
 		}
@@ -368,14 +366,25 @@ cl_dev_err_code NDRange::execute()
 	return executePostDispatchProcess(true);
 }
 
+inline void NDRange::releaseKernel( void )
+{
+    if (m_kernel_locked)
+    {
+        // Decrement the reference counter of this kernel program.
+        m_pCommandList->getProgramService()->releaseKernelOnDevice(((cl_dev_cmd_param_kernel*)m_pCmd->params)->kernel);        
+        m_kernel_locked = false;
+    }
+}
+
 void NDRange::fireCallBack(void* arg)
 {
 	// Set end coi execution time for the tracer. (Notification)
 	m_commandTracer.set_current_time_coi_execute_command_time_end();
-#ifndef NDRANGE_UNIT_TEST
-	// Decrement the reference counter of this kernel program.
-	m_pCommandList->getProgramService()->releaseKernelOnDevice(((cl_dev_cmd_param_kernel*)m_pCmd->params)->kernel);
-#endif
+
+    // Do release kernel here and not only in NDRange distructor in order to avoid races with 
+    // clReleaseProgram that may be called during notifyCommandStatusChanged() call
+    releaseKernel();
+
 	// If printf available
 	if (m_printfBuffer)
 	{
@@ -400,6 +409,9 @@ void NDRange::fireCallBack(void* arg)
 
 void NDRange::releaseResources(bool releaseCoiObjects)
 {
+    // release kernel for the case of running error
+    releaseKernel();
+    
 	m_dispatcherDatahandler.release();
 	m_miscDatahandler.release();
 	if (releaseCoiObjects)
@@ -412,3 +424,4 @@ void NDRange::releaseResources(bool releaseCoiObjects)
 		}
 	}
 }
+

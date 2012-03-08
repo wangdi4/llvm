@@ -45,6 +45,8 @@ DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MIC
 {
     pthread_mutex_init(&m_mutex, NULL);
     pthread_cond_init(&m_cond, NULL);
+
+    memset(m_device_functions, 0, sizeof(m_device_functions));
 }
 
 DeviceServiceCommunication::~DeviceServiceCommunication()
@@ -284,7 +286,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 			{
 				if (NULL != string_arr[i])
 				{
-					COILIBRARY lib_handle;
+					COILIBRARY lib_handle = NULL;
 					result = COIProcessLoadLibraryFromFile(
 										pDevServiceComm->m_process,             // in_Process
 										string_arr[i],                          // in_FileName

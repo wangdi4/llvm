@@ -704,7 +704,7 @@ bool MultithreadedOrderViolation()
 
 	for (size_t i = 0; i < numThreads; ++i)
 	{
-		params[i] = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(cl_char), &data[i], &iRet);
+		params[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(cl_char), &data[i], &iRet);
 		bResult &= SilentCheck(L"Build clCreateBuffer", CL_SUCCESS, iRet);
 
 	}

@@ -33,7 +33,11 @@ void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
 	{
 		timer = HostTime();
 	}
-	m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, uStatus, m_lastError, timer);
+	m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, 
+                                                 m_pCmd->data, 
+                                                 uStatus, 
+                                                 CL_DEV_SUCCEEDED( m_lastError ) ? CL_SUCCESS : CL_ERR_EXECUTION_FAILED, 
+                                                 timer);
 }
 
 cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr)

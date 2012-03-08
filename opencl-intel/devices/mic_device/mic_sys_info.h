@@ -11,6 +11,7 @@
 #include "cl_device_api.h"
 #include <source/COIEngine_source.h>
 #include <pthread.h>
+#include <string.h>
 #include <map>
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
@@ -168,6 +169,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             const InfoType2DataEntry*   data_table;
             COIENGINE                   engine_handle;
             COI_ENGINE_INFO             micDeviceInfoStruct;
+
+            engineInfo() : data_table(NULL), engine_handle(NULL) { memset( &micDeviceInfoStruct, 0, sizeof(micDeviceInfoStruct)); };
         };
 
         struct guardedInfo

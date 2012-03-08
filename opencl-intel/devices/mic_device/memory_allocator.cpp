@@ -291,6 +291,7 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
     m_objDescr.format        = m_pBackingStore->GetFormat();
     m_objDescr.uiElementSize = m_pBackingStore->GetElementSize();
     m_objDescr.pData         = m_pBackingStore->GetRawData();
+    m_objDescr.memObjType    = m_pRTMemObjService->GetMemObjectType();
 
     assert( (NULL != m_objDescr.pData) && (0 != m_raw_size) && "Runtime did not allocated raw data for backing store");
 }

@@ -74,12 +74,15 @@ private:
 
 	/* Release resources. */
 	void releaseResources(bool releaseCoiObjects = true);
+    void releaseKernel( void );
 
 	COIBUFFER m_printfBuffer;
 
 	MiscDataHandler m_miscDatahandler;
 
 	DispatcherDataHandler m_dispatcherDatahandler;
+
+    bool        m_kernel_locked;
 };
 
 }}}

@@ -797,16 +797,22 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     // Now we unregistered the program - remove it
     assert( 0 == pEntry->outanding_usages_count && "MICDevice: trying to remove program from device while kernels are still running" );
 
+    cl_dev_err_code dev_err_code;
+
     if (0 != pEntry->outanding_usages_count)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle,
             TEXT("MICDevice: trying to remove program from device while %d kernels are still running"), (long)pEntry->outanding_usages_count);
+        dev_err_code = CL_DEV_INVALID_PROGRAM;
+    }
+    else
+    {
+        RemoveProgramFromDevice( pEntry );
+        DeleteProgramEntry(pEntry);
+        dev_err_code = CL_DEV_SUCCESS;
     }
 
-    RemoveProgramFromDevice( pEntry );
-    DeleteProgramEntry(pEntry);
-
-    return CL_DEV_SUCCESS;
+    return dev_err_code;
 }
 
 /********************************************************************************************************************
