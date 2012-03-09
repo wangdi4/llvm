@@ -100,7 +100,7 @@ if(PYTHONINTERP_FOUND)
     COMMAND sed -e "s#\@LLVM_BINARY_DIR\@#${LLVM_BINARY_DIR}#"
                 -e "s#\@LLVM_TOOLS_DIR\@#${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}#"
                 ${ADDITIONAL_SED_OPTIONS}
-                ${CMAKE_CURRENT_SOURCE_DIR}/../SATest.py.in >
+                ${CMAKE_CURRENT_SOURCE_DIR}/../../SATest.py.in >
                 ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/SATest.py
     COMMAND ${PYTHON_EXECUTABLE}
                 ${LLVM_SOURCE_DIR}/utils/lit/lit.py
