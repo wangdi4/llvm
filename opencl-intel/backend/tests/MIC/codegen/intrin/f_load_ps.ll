@@ -9,9 +9,9 @@ declare <16 x float> @llvm.x86.mic.load.ps(i8 *, i32, i32, i32)
 
 define <16 x float> @f_load_ps(i8 * %arg0) {
 ; KNF: f_load_ps:
-; KNF: vloadd (%{{[a-z]+}}){sint8}{nt}
+; KNF: vloadd (%{{[a-z]+}}){sint16}{1to16}{nt}
 entry:
-; 5 = full up conversion from sint, 1 = broadcast 16to16 , 1 = non-temporal
+; 5 = full up conversion from sint16, 1 = broadcast 1to16 , 1 = non-temporal
   %ret = call <16 x float> @llvm.x86.mic.load.ps(i8 * %arg0, i32 5, i32 1, i32 1)
   ret <16 x float> %ret
 }
