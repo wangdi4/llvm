@@ -144,6 +144,7 @@ bool clCreateKernelTest()
 		return bResult;
 	}
 
+	g_bBuildFinished = false;
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, pfn_notify, NULL);
 	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
 

@@ -376,11 +376,6 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		return CL_INVALID_VALUE;
 	}
 
-	if (NULL != pszParamValueSizeRet)
-	{
-		*pszParamValueSizeRet = szParamSize;
-	}
-
 	if (NULL != pParamValue)
 	{
 		if (szParamValueSize < szParamSize)
@@ -391,6 +386,13 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		memset(pParamValue, 0, szParamValueSize);
 		MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
 	}
+
+	// The size should be return only if successful copy was completed (CSSD100011955)
+	if (NULL != pszParamValueSizeRet)
+	{
+		*pszParamValueSizeRet = szParamSize;
+	}
+
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
