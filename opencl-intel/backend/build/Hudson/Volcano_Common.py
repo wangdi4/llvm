@@ -20,7 +20,7 @@ DEFAULT_VS_VERSION          = 9
 DEFAULT_VOLCANO_SOLUTION    = 'Backend.sln'
 DEFAULT_OCL_SOLUTION        = 'OCL.sln'
 
-SUPPORTED_CPUS         = ['auto', 'corei7', 'sandybridge']
+SUPPORTED_CPUS         = ['auto', 'corei7', 'sandybridge','haswell']
 SUPPORTED_TARGETS      = ['Win32', 'Win64', 'SLES64', 'RH64']
 SUPPORTED_BUILDS       = ['Release', 'Debug']
 SUPPORTED_VECTOR_SIZES = ['0', '1', '4', '8', '16']
@@ -36,7 +36,9 @@ TARGETS_MAP = {
 # maps the volcano environment supported cpu names to the backend internal cpu names
 CPU_MAP = { 'auto': 'auto',
             'corei7': 'corei7',
-            'sandybridge': 'corei7-avx'}
+            'sandybridge': 'corei7-avx',
+            'haswell': 'core-avx2'
+          }
 
 DOMAIN_MAP = { 'ccr.corp.intel.com': VOLCANO_NN_SAMBA_SERVER, 
                'ger.corp.intel.com': VOLCANO_IDC_SAMBA_SERVER,
