@@ -94,6 +94,29 @@ private:
   /// @return True if truncation was done thru ShuffleVector, False otherwise
   static bool isShuffleVectorTruncate(ShuffleVectorInst *SI);
 
+  /// @brief check if I is obtained by series of insert element instructions to it's start.
+  /// @param I - instruction to check.
+  /// @param realType - target type to check.
+  /// @returns rooted smaller vector of Type realType if possible, NULL otherwise.
+  static Value *isInsertEltExtend(Instruction *I, Type *realType);
+
+  /// @brief checks if it is possible to convert v into real type using shuffle
+  ///        vector instruction.
+  /// @param v - value to convert.
+  /// @realType - type to convert into.
+  /// @param loc - location of conversion.
+  /// @returns converted val if possible, NULL otherwise.
+  static Instruction *convertUsingShuffle(Value *v, const Type *realType, Instruction *loc);
+
+  /// @brief checks if any of the values in ValInChain can be coverted into 
+  ///        realType using shuffle vector instruction.
+  /// @param valInChain - values to check.
+  /// @realType - type to convert into.
+  /// @param loc - location of conversion.
+  /// @returns converted val if possible, NULL otherwise.
+  static Value *canRootInputByShuffle(SmallVector<Value *, 4> &valInChain,
+                                      const Type * realType, Instruction *loc);
+
 };// VectorizerUtils
 
 } // namespace intel

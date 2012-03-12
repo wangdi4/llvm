@@ -1,6 +1,7 @@
 #include "VectorizerUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/InstIterator.h"
+#include "VectorizerCommon.h"
 #include "Logger.h"
 #include "llvm/Constants.h"
 
@@ -112,8 +113,10 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
   // use-def chain, until the value's root is found, or until reaching a non-instruction
   Value *currVal = arg;
   Instruction *inst;
+  SmallVector<Value *, 4> valInChain;
   while (currVal->getType() != rootType && (inst = dyn_cast<Instruction>(currVal)))
   {
+    valInChain.push_back(currVal);
     // Check for the "simple" BitCast and ZExt/SExt cases
     if ((inst = dyn_cast<BitCastInst>(currVal)) ||
       (inst = dyn_cast<ZExtInst>(currVal)) ||
@@ -127,18 +130,25 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     {
       // ExtractElement is allowed in a single case: ExtractElement <1 x Type>, 0
       currVal = EE->getVectorOperand();
-      if (EE->getVectorOperandType()->getNumElements() != 1) return NULL;
+      if (EE->getVectorOperandType()->getNumElements() != 1) 
+        return canRootInputByShuffle(valInChain, rootType, CI);
     }
     // Check for the more-complicated ShuffleVector cast
     else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(currVal))
     {
       currVal = isExtendedByShuffle(SV, rootType);
-      if (!currVal) return NULL;
+      if (!currVal) 
+        return canRootInputByShuffle(valInChain, rootType, CI);
     } 
+    else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(currVal)) 
+    {
+      currVal = isInsertEltExtend(IE, rootType);
+	  if (!currVal) 
+	    return canRootInputByShuffle(valInChain, rootType, CI);
+    }
     else
     {
-        // maybe we should return NULL ? I am not sure why we ever return NULL!!!
-        return NULL;    
+        return canRootInputByShuffle(valInChain, rootType, CI);
     }
     V_PRINT(utils, "climbing through use-def chain: " << *currVal << "\n");
   }
@@ -366,6 +376,10 @@ Instruction *VectorizerUtils::BitCastValToType(Value *orig, Type *targetType,
     // just bitcast from one to the other
     retVal = new BitCastInst(orig, targetType, "cast_val", insertPoint);
   }
+  else if (Instruction *shufConvert = convertUsingShuffle(orig, targetType, insertPoint))
+  {
+    return shufConvert;
+  }
   else 
   {
     Value *origInt = orig;
@@ -456,6 +470,118 @@ Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetTyp
   Instruction *castedInst = TruncValToType(CI, targetType, insertPoint);
   insertPoint->eraseFromParent();
   return castedInst;
+}
+
+// rooting a sequence like this:
+// %v0 = insertelement <4 x type> undef, type %scalar.0, i32 0 
+// %v1 = insertelement <4 x type> %v0,   type %scalar.1, i32 1
+// into
+// %u0 = insertelement <2 x type> undef, type %scalar.0, i32 0 
+// %u1 = insertelement <2 x type> %v0,   type %scalar.1, i32 1
+Value *VectorizerUtils::isInsertEltExtend(Instruction *I, Type *realType) {
+  // If I is an extension of vector by insert element then both I and the real
+  // type are vectors with the same element type.
+  const VectorType *origTy = dyn_cast<VectorType>(I->getType());
+  const VectorType *destTy = dyn_cast<VectorType>(realType);
+  if (!destTy || !origTy) return NULL;
+  const Type *origElTy = origTy->getElementType();
+  unsigned origNelts = origTy->getNumElements();
+  const Type *destElTy = destTy->getElementType();
+  unsigned destNelts = destTy->getNumElements();
+  if (origElTy != destElTy || origNelts <= destNelts) return NULL;
+
+  // If I is an extension of vector by insert element than the vector should
+  // be created by sequence of insert element instructions to the head of the 
+  // vector.
+  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> insertedVals;
+  insertedVals.assign(destNelts, NULL);
+  Value * val = I;
+  while (!isa<UndefValue>(val)) {
+    // val is insert element.
+    InsertElementInst * IEI = dyn_cast<InsertElementInst>(val);
+    if (!IEI) return NULL;
+    
+    // Index of insertion is constant < destination type number of elements.
+    Value* index = IEI->getOperand(2);
+    ConstantInt* C = dyn_cast<ConstantInt>(index);
+    if (!C) return NULL;
+    unsigned idx = C->getZExtValue();
+    V_ASSERT(idx < MAX_INPUT_VECTOR_WIDTH && "illegal vector type");
+    if (idx >= destNelts) return NULL;
+
+    // Consider only the last insertion to idx.
+    if (!insertedVals[idx]) { 
+      insertedVals[idx] = IEI->getOperand(1);
+    }
+    
+    // Continue to the next iteration with the vector operand.
+    val = IEI->getOperand(0);
+  }
+  
+  // Reconstruct the vector right after the original insert element.
+  V_ASSERT(I != I->getParent()->getTerminator() && 
+      "insert element can not be a terminator of basic block");
+  Instruction *loc = (++BasicBlock::iterator(I));
+  Value *gatherdVals = UndefValue::get(realType);
+  LLVMContext &context = val->getContext();
+  for (unsigned i=0; i<destNelts; ++i) {
+    Value *val = insertedVals[i];
+    if (!val) continue;
+    ConstantInt *index = ConstantInt::get(context, APInt(32, i));
+    gatherdVals = InsertElementInst::Create(gatherdVals, val, index, "", loc);
+  }
+  return gatherdVals;
+}
+
+Instruction *VectorizerUtils::convertUsingShuffle(Value *v, 
+                                                  const Type *realType,
+                                                  Instruction *loc) {
+  // In order to convert using shuffle both v and realType need to be vectors
+  // with the same element type.
+  const VectorType *destTy = dyn_cast<VectorType>(realType);
+  VectorType *vTy = dyn_cast<VectorType>(v->getType());	
+  if (!destTy || !vTy) return NULL;
+  const Type *destElTy = destTy->getElementType();
+  const Type *vElTy = vTy->getElementType();
+  if (vElTy != destElTy) return NULL;
+
+  // Generate the shuffle vector mask.
+  unsigned destNelts = destTy->getNumElements();
+  unsigned vNelts = vTy->getNumElements();
+  std::vector<Constant*> constants;
+  unsigned minWidth = destNelts > vNelts ? vNelts : destNelts;
+  LLVMContext &context = v->getContext();
+  for (unsigned j=0; j < minWidth; ++j) 	{
+    constants.push_back(ConstantInt::get(context, APInt(32, j)));
+  }
+  for (unsigned j=minWidth; j<destNelts; ++j) {
+    constants.push_back(UndefValue::get(IntegerType::get(context, 32)));
+  }
+  Constant *mask = ConstantVector::get(constants);
+  
+  // Return shuffle instruction.
+  UndefValue *undefVect = UndefValue::get(vTy);
+  return new ShuffleVectorInst(v, undefVect, mask, "", loc);
+}
+	
+Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChain,
+                                              const Type * realType,
+                                              Instruction *loc) {
+  // Run over the chain in reverse order so we try earlier values first.
+  unsigned destSize = realType->getPrimitiveSizeInBits();
+  for (unsigned i = 0, e = valInChain.size(); i < e; ++i) {
+    Value *curVal = valInChain[i];
+    // Argumetns can be converted only if the root is smaller than realType.
+    unsigned  curSize = curVal->getType()->getPrimitiveSizeInBits();
+    V_ASSERT(curSize >= destSize && "root is bigger than the value");
+    if (curSize < destSize) continue;
+
+    // Try rooting using shuffle.  
+    if (Instruction *shuffle = convertUsingShuffle(curVal, realType, loc)) {
+      return shuffle;
+    }
+  }
+  return NULL;
 }
 
 
