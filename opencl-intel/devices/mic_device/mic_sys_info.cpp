@@ -711,11 +711,6 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
 
-    //if both paramVal and paramValSize is NULL return error
-    if(NULL == paramVal && NULL == paramValSizeRet)
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
     //if OUT paramValSize_ret is NULL it should be ignored
     if(paramValSizeRet)
     {

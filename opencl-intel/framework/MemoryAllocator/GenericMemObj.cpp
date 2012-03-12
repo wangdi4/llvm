@@ -1336,11 +1336,6 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
 
 cl_err_code	GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {       
-    if ((NULL == pParamValue && NULL == pszParamValueSizeRet) || (NULL == pParamValue && iParamName != 0))
-    {
-        return CL_INVALID_VALUE;
-    }
-
     size_t szSize;
     const void* pValue = NULL, *pHostPtr = NULL;
     switch (iParamName)

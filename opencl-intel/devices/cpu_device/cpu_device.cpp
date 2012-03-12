@@ -545,11 +545,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
     size_t  *pinternalRetunedValueSize;
     int     viCPUInfo[4] = {-1};
 
-    //if both paramVal and paramValSize is NULL return error
-    if(NULL == paramVal && NULL == paramValSizeRet)
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
     {

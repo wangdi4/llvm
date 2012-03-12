@@ -81,10 +81,6 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 		param_name, param_value_size, param_value, param_value_size_ret);
 
 	int clDevErr = CL_DEV_SUCCESS;
-	if (NULL == param_value && NULL == param_value_size_ret)
-	{
-		return CL_INVALID_VALUE;
-	}
 	size_t       szParamValueSize = 0;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
@@ -576,10 +572,6 @@ SubDevice::~SubDevice()
 
 cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const
 {
-    if (NULL == param_value && NULL == param_value_size_ret)
-    {
-        return CL_INVALID_VALUE;
-    }
     size_t szParamValueSize = 0;
     cl_uint uValue = 0;
     cl_device_id clDevIdVal = 0;
@@ -653,6 +645,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     }
     return CL_SUCCESS;
 }
+
 void SubDevice::CacheFissionProperties(const cl_device_partition_property* props)
 {
     m_cachedFissionLength = 0;

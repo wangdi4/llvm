@@ -797,8 +797,8 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
 
     // Set value parameters
-    cl_uint stValSize;
-    unsigned long long ullValue;
+    cl_uint stValSize = 0;
+    unsigned long long ullValue = 0;
     const void* pValue;
     pValue = &ullValue;
 
@@ -848,35 +848,24 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         return CL_DEV_INVALID_VALUE;
     }
 
-    if ( (0 == value_size) && (NULL == value) )
+    if (NULL != value && value_size < stValSize)
     {
-        if ( NULL == valueSizeRet )
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
+    	return CL_DEV_INVALID_VALUE;
+    }
 
+    if ( valueSizeRet )
+    {
 		*valueSizeRet = stValSize;
-        return CL_DEV_SUCCESS;
     }
 
-	// BugFix: CSSD100011902, need first to check the error condition
-    if ( (NULL == value) || (value_size < stValSize) )
+    if ( NULL != value )
     {
-            return CL_DEV_INVALID_VALUE;
-    }
-
-    if ( NULL != pValue )
-    {
-        memcpy(value, pValue, stValSize);
-    }
-    else
-    {
-        memset(value, 0, stValSize);
-    }
-
-	if ( NULL != valueSizeRet )
-    {
-        *valueSizeRet = stValSize;
+    	if ( NULL != pValue )
+    	{
+    		memcpy(value, pValue, stValSize);
+    	} else {
+    		memset(value, 0, stValSize);
+    	}
     }
 
     return CL_DEV_SUCCESS;

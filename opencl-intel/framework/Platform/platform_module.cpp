@@ -289,14 +289,6 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 	LOG_INFO(TEXT("Enter GetPlatformInfo (clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-	// both param_value and param_value_size_ret are null pointers - in this case there is no
-	// meaning to do anything
-	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pParamValue || NULL == pszParamValueSizeRet"));
-		return CL_INVALID_VALUE;
-	}
-
 	if (false == CheckPlatformId(clPlatform))
 	{
 		LOG_ERROR(TEXT("Current platform id (%d) is not supported"), clPlatform);
@@ -516,14 +508,6 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 									  void* pParamValue,
 									  size_t* pszParamValueSizeRet)
 {
-	// both param_value and param_value_size_ret are null pointers - in this case there is no
-	// meaning to do anything
-	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pParamValue || NULL == pszParamValueSizeRet"));
-		return CL_INVALID_VALUE;
-	}
-
 	Device * pDevice = NULL;
 	cl_err_code clErrRet = CL_SUCCESS;
 	size_t szParamSize = 0;

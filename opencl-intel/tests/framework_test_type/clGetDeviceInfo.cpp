@@ -39,9 +39,9 @@ bool clGetDeviceInfoTest()
 	//iRes = clGetDeviceInfo((cl_device_id)-99, CL_DEVICE_TYPE, sizeof(cl_device_type), (void*)(&clDevType), NULL);
 	//bResult &= Check(L"CL_DEVICE_TYPE, invalid device", CL_INVALID_DEVICE, iRes);
 
-	// invalid args
+	// useless call (both returns are NULL) but allowed.
 	iRes = clGetDeviceInfo(devices[0], CL_DEVICE_TYPE, 0, NULL, NULL);
-	bResult &= Check(L"CL_DEVICE_TYPE, invalid args", CL_INVALID_VALUE, iRes);
+	bResult &= Check(L"CL_DEVICE_TYPE, invalid args", CL_SUCCESS, iRes);
 
 	// CL_DEVICE_TYPE
 	// return size only
@@ -119,9 +119,9 @@ bool clGetDeviceInfoTest()
 	iRes = clGetDeviceInfo((cl_device_id)-99, CL_DEVICE_TYPE, sizeof(cl_device_type), (void*)(&clDevType), NULL);
 	bResult &= Check(L"CL_DEVICE_TYPE, invalid device", CL_INVALID_DEVICE, iRes);
 
-	// invalid args
+	// useless call (both returns are NULL) but allowed.
 	iRes = clGetDeviceInfo(devices[0], CL_DEVICE_TYPE, 0, NULL, NULL);
-	bResult &= Check(L"CL_DEVICE_TYPE, invalid args", CL_INVALID_VALUE, iRes);
+	bResult &= Check(L"CL_DEVICE_TYPE, invalid args", CL_SUCCESS, iRes);
 
 	// CL_DEVICE_TYPE
 	// return size only

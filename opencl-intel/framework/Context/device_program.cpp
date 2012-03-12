@@ -263,14 +263,6 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 
 cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_t uiParamValueSize, void * pParamValue, size_t * puiParamValueSizeRet) const
 {
-	cl_err_code clErr = CL_SUCCESS;
-
-	if ((NULL == pParamValue && NULL == puiParamValueSizeRet)	||
-		(NULL == pParamValue && uiParamValueSize > 0))
-	{
-		return CL_INVALID_VALUE;
-	}
-
 	size_t uiParamSize = 0;
 	void * pValue = NULL;
 	cl_build_status clBuildStatus;
@@ -319,47 +311,64 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 
 		case DEVICE_PROGRAM_BUILD_DONE:
         case DEVICE_PROGRAM_BUILD_FAILED:
-			// still need to append the FE build log
-			// First of all calculate the size
-			clErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, 0, NULL, &uiParamSize);
-			if CL_DEV_FAILED(clErr)
 			{
-				return CL_INVALID_VALUE;
-			}
-			if ( NULL != m_szBuildLog )
-			{
-				uiParamSize += m_uiBuildLogSize;
-			}
-			if (NULL != pParamValue && uiParamSize > uiParamValueSize)
-			{
-				return CL_INVALID_VALUE;
-			}
-
-			// if pParamValue == NULL return param value size
-			if (NULL != puiParamValueSizeRet)
-			{
-				*puiParamValueSizeRet = uiParamSize;
-			}
-
-			// get the actual log
-			if (NULL != pParamValue)
-			{
+				cl_dev_err_code clDevErr = CL_DEV_SUCCESS;
+				// still need to append the FE build log
+				// First of all calculate the size
+				clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, 0, NULL, &uiParamSize);
+				if CL_DEV_FAILED(clDevErr)
+				{
+					if (CL_DEV_INVALID_PROGRAM == clDevErr)
+					{
+						return CL_INVALID_PROGRAM;
+					} else {
+						return CL_INVALID_VALUE;
+					}
+				}
 				if ( NULL != m_szBuildLog )
 				{
-					//Copy the FE log minus the terminating NULL
-					MEMCPY_S(pParamValue, uiParamValueSize, m_szBuildLog, m_uiBuildLogSize - 1);
-					// and let the device write the rest of the log
-					uiParamSize -= m_uiBuildLogSize;
-
-                    clErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, ((char*)pParamValue) + m_uiBuildLogSize - 1, NULL);
+					uiParamSize += m_uiBuildLogSize;
 				}
-                else
-                {
-                    clErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, (char*)pParamValue, NULL);
-                }	
+				if (NULL != pParamValue && uiParamSize > uiParamValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+
+				// if pParamValue == NULL return param value size
+				if (NULL != puiParamValueSizeRet)
+				{
+					*puiParamValueSizeRet = uiParamSize;
+				}
+
+				// get the actual log
+				if (NULL != pParamValue)
+				{
+					if ( NULL != m_szBuildLog )
+					{
+						//Copy the FE log minus the terminating NULL
+						MEMCPY_S(pParamValue, uiParamValueSize, m_szBuildLog, m_uiBuildLogSize - 1);
+						// and let the device write the rest of the log
+						uiParamSize -= m_uiBuildLogSize;
+
+						clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, ((char*)pParamValue) + m_uiBuildLogSize - 1, NULL);
+					}
+					else
+					{
+						clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, (char*)pParamValue, NULL);
+					}
+				}
+				if CL_DEV_FAILED(clDevErr)
+				{
+					if (CL_DEV_INVALID_PROGRAM == clDevErr)
+					{
+						return CL_INVALID_PROGRAM;
+					} else {
+						return CL_INVALID_VALUE;
+					}
+				}
+				return CL_SUCCESS;
+				break;
 			}
-			return clErr;
-			break;
 		}
 
 		break;

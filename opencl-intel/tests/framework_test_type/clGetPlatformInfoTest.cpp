@@ -33,9 +33,9 @@ bool clGetPlatformInfoTest()
 	}
 
 	// CL_PLATFORM_PROFILE
-	// all NULL
+	// all NULL is allowed, albeit useless.
 	iRes = clGetPlatformInfo(platform, CL_PLATFORM_PROFILE, 0, NULL, NULL);
-	bResult &= Check(L"CL_PLATFORM_PROFILE, all NULL", CL_INVALID_VALUE, iRes);
+	bResult &= Check(L"CL_PLATFORM_PROFILE, all NULL", CL_SUCCESS, iRes);
 
 	// CL_PLATFORM_PROFILE
 	// get size only
@@ -61,9 +61,9 @@ bool clGetPlatformInfoTest()
 	}
 
 	// CL_PLATFORM_VERSION
-	// all NULL
+	// all NULL is allowed, albeit useless.
 	iRes = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, NULL);
-	bResult &= Check(L"CL_PLATFORM_VERSION, all NULL", CL_INVALID_VALUE, iRes);
+	bResult &= Check(L"CL_PLATFORM_VERSION, all NULL", CL_SUCCESS, iRes);
 
 	// CL_PLATFORM_VERSION
 	// get size only

@@ -122,11 +122,6 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 	LOG_DEBUG(TEXT("Enter Sampler::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"), 
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-	if ((NULL == pParamValue && NULL == pszParamValueSizeRet) || 
-		(NULL == pParamValue && iParamName != 0))
-	{
-		return CL_INVALID_VALUE;
-	}
 	size_t szSize = 0;
 	volatile cl_context clContext = 0;
 	const void * pValue = NULL;

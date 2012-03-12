@@ -340,10 +340,6 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 	LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
 		iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
-	{
-		return CL_INVALID_VALUE;
-	}
 	size_t szParamSize = 0;
 	const void * pValue = NULL;
 	cl_ulong iParam = 0;
@@ -415,11 +411,6 @@ cl_err_code	Kernel::GetWorkGroupInfo(FissionableDevice* pDevice, cl_int iParamNa
 #endif
 
 	// check input parameters
-	if ( (NULL == pParamValue) && (NULL == pszParamValueSizeRet) )
-	{
-		return CL_INVALID_VALUE;
-	}
-
 	if ( (NULL == pDevice) && (m_szAssociatedDevices > 1) )
 	{
 		return CL_INVALID_DEVICE;

@@ -297,10 +297,6 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 {
 	LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"), param_name, param_value_size, param_value, param_value_size_ret);
 	
-	if (NULL == param_value && NULL == param_value_size_ret)
-	{
-		return CL_INVALID_VALUE;
-	}
 	size_t szParamValueSize = 0;
 	cl_uint uiVal;
 	const void * pValue = NULL;
