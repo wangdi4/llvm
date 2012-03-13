@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME gtest )
+set( TARGET_NAME googletest )
 
 include_directories( ../include 
 					 ../ )
