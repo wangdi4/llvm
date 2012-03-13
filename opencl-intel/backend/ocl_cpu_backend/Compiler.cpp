@@ -255,6 +255,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             m_config.GetIRDumpOptionsBefore(),
                                             m_config.GetDumpIRDir(),
                                             pOptions->GetDebugInfoFlag(),
+                                            pOptions->GetProfilingFlag(),
                                             pOptions->GetDisableOpt(),
                                             pOptions->GetRelaxedMath(),
                                             pOptions->GetlibraryModule());

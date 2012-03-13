@@ -177,12 +177,13 @@ typedef image_aux_data* image2d_array_t;
 
 typedef struct _cl_llvm_prog_header
 {
-	// The header contains compiler build options
-	bool	bDisableOpt;
-	bool	bDebugInfo;
-	bool	bFastRelaxedMath;
-	bool	bDenormsAreZero;
-    bool    bEnableLinkOptions;
+    // The header contains compiler build options
+    bool bDisableOpt;
+    bool bDebugInfo;
+    bool bProfiling;
+    bool bFastRelaxedMath;
+    bool bDenormsAreZero;
+    bool bEnableLinkOptions;
 } cl_llvm_prog_header;
 
 /*! \enum cl_dev_sampler_prop

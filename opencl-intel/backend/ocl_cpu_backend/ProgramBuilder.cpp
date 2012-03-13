@@ -98,9 +98,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
         const Compiler* pCompiler = GetCompiler();
 
 
-        CompilerBuildOptions buildOptions( pProgram->GetDebugInfoFlag(),
-                                               pProgram->GetDisableOpt(),
-                                               pProgram->GetFastRelaxedMath(), false);
+        CompilerBuildOptions buildOptions(pProgram->GetDebugInfoFlag(),
+                                          pProgram->GetProfilingFlag(),
+                                          pProgram->GetDisableOpt(),
+                                          pProgram->GetFastRelaxedMath(),
+                                          false);
 
         std::auto_ptr<llvm::Module> spModule( pCompiler->BuildProgram( Utils::GetProgramMemoryBuffer(pProgram),
                                                                        &buildOptions,

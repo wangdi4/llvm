@@ -75,28 +75,32 @@ private:
 }
 
 //*****************************************************************************************
-// Represent the buid specific options passed to the compiler upon BuildProgram call
+// Represent the build specific options passed to the compiler upon BuildProgram call
 // 
 class CompilerBuildOptions
 {
 public:
     CompilerBuildOptions( bool debugInfo,
+                          bool profiling,
                           bool disableOpt,
                           bool relaxedMath,
                           bool libraryModule):
       m_debugInfo(debugInfo),
+      m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
       m_libraryModule(libraryModule)
     {}
 
-    bool GetDisableOpt()    const { return m_debugInfo; }
-    bool GetDebugInfoFlag() const { return m_disableOpt; }
+    bool GetDisableOpt()    const { return m_disableOpt; }
+    bool GetProfilingFlag() const { return m_profiling; }
+    bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
-    bool GetlibraryModule()   const { return m_libraryModule; }
+    bool GetlibraryModule() const { return m_libraryModule; }
 
 private:
     bool m_debugInfo; 
+    bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
     // Sets whether optimized code is library module or a set of kernels

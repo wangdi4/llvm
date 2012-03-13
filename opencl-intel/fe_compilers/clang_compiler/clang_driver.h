@@ -70,10 +70,11 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
 		const char* m_pszDeviceExtensions;
 
-		bool OptDebugInfo;
-		bool Opt_Disable;
-		bool Denorms_Are_Zeros;
-		bool Fast_Relaxed_Math;
+        bool OptDebugInfo;
+        bool OptProfiling;
+        bool Opt_Disable;
+        bool Denorms_Are_Zeros;
+        bool Fast_Relaxed_Math;
         std::string m_source_filename;
 
 		char*	m_pOutIR;				// Output IR
@@ -120,6 +121,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool bFastRelaxedMath;
 
         bool bDebugInfoFlag;
+        bool bProfilingFlag;
         bool bDenormsAreZeroFlag;
         bool bDisableOptFlag;
         bool bFastRelaxedMathFlag;

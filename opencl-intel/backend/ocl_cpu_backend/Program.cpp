@@ -132,6 +132,12 @@ bool Program::GetDebugInfoFlag() const
     return m_pCodeContainer->GetProgramHeader()->bDebugInfo;
 }
 
+bool Program::GetProfilingFlag() const
+{
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bProfiling;
+}
+
 bool Program::GetFastRelaxedMath() const
 {
     assert(m_pCodeContainer && "code container should be initialized by now");

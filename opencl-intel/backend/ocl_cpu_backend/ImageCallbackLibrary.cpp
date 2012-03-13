@@ -77,7 +77,12 @@ void ImageCallbackLibrary::Load()
 
 bool ImageCallbackLibrary::Build()
 {
-    CompilerBuildOptions buildOptions(false, true, false, true);
+    CompilerBuildOptions buildOptions(false, // debugInfo
+                                      false, // profiling
+                                      true,  // disableOpt
+                                      false, // relaxedMath
+                                      true   // libraryModule
+                                      );
 
     ProgramBuildResult buildResult;  //what is this for?
     m_pModule = m_Compiler->BuildProgram(m_pRtlBuffer.get(),&buildOptions, &buildResult);

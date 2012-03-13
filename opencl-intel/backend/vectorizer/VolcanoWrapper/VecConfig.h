@@ -13,6 +13,7 @@ public:
             std::vector<int> dumpIROptionBefore,
             std::string dumpIRDir,
             bool debugInfo,
+            bool profiling,
             bool disableOpt,
             bool relaxedMath,
             bool libraryModule):
@@ -23,6 +24,7 @@ public:
       m_dumpIROptionsBefore(dumpIROptionBefore),
       m_dumpIRDir(dumpIRDir),
       m_debugInfo(debugInfo),
+      m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
       m_libraryModule(libraryModule)
@@ -35,8 +37,9 @@ public:
     const std::vector<int>* GetIRDumpOptionsAfter() const{ return &m_dumpIROptionsAfter; }
     const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
     const std::string& GetDumpIRDir() const{ return m_dumpIRDir; }
-    bool GetDisableOpt()    const { return m_debugInfo; }
-    bool GetDebugInfoFlag() const { return m_disableOpt; }
+    bool GetDisableOpt()    const { return m_disableOpt; }
+    bool GetDebugInfoFlag() const { return m_debugInfo; }
+    bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     // Sets whether optimized code is library module or not (contains kernels)
     // If this options is set to true then some optimization passes will be skipped
@@ -51,6 +54,7 @@ private:
     std::vector<int> m_dumpIROptionsBefore;
     const std::string m_dumpIRDir;
     bool m_debugInfo; 
+    bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
     // Sets whether optimized code is library module or not (contains kernels and barriers)

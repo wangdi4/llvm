@@ -58,6 +58,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 llvm::ModulePass *createRelaxedPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+llvm::ModulePass* createProfilingInfoPass();
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
@@ -191,6 +192,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
   bool isDBG = pConfig->GetDebugInfoFlag();
+  bool isProfiling = pConfig->GetProfilingFlag();
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
@@ -280,9 +282,15 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createGVNPass());
   }
   
-  if ( isDBG ) {
+  // The isDBG and isProfiling flags are mutually exclusive, with precedence
+  // given to isDBG.
+  //
+  if (isDBG) {
     // DebugInfo pass must run before Barrier pass!
     m_modulePasses.add(createDebugInfoPass(&pModule->getContext(), pRtlModule));
+  }
+  else if (isProfiling) {
+    m_modulePasses.add(createProfilingInfoPass());
   }
 
   if (!pConfig->GetLibraryModule()){

@@ -356,6 +356,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
     debuginfopass.cpp
+    profilinginfopass.cpp
   )
 
 if (ENABLE_SDE)

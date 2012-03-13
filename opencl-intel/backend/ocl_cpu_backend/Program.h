@@ -147,6 +147,7 @@ public:
 
     bool GetDebugInfoFlag() const;
 
+    bool GetProfilingFlag() const;
     bool GetFastRelaxedMath() const;
 
     bool GetDAZ() const;

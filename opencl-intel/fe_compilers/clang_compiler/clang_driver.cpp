@@ -218,11 +218,12 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 {
   bool cl_std_set = false;
 
-	// Reset options
-	OptDebugInfo = false;
-	Opt_Disable = false;
-	Denorms_Are_Zeros = false;
-	Fast_Relaxed_Math = false;
+    // Reset options
+    OptDebugInfo = false;
+    OptProfiling = false;
+    Opt_Disable = false;
+    Denorms_Are_Zeros = false;
+    Fast_Relaxed_Math = false;
 	
     if (!buildOpts)
         buildOpts = "";
@@ -237,7 +238,12 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
         if (*opt_i == "-g") {
             list.push_back(*opt_i);
             OptDebugInfo = true;
-        } 
+        }
+        else if (*opt_i == "-profiling") {
+            // Pass -g on to clang to make it generate debug info
+            list.push_back("-g");
+            OptProfiling = true;
+        }
         else if (*opt_i == "-w") {
             list.push_back(*opt_i);
         }
@@ -674,6 +680,7 @@ int ClangFECompilerCompileTask::Compile()
 		// Fill options
 		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
 		pProgHeader->bDebugInfo = OptDebugInfo;
+        pProgHeader->bProfiling = OptProfiling;
 		pProgHeader->bDisableOpt = Opt_Disable;
 		pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
 		pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
@@ -747,6 +754,7 @@ int ClangFECompilerLinkTask::Link()
         cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
         pProgHeader->bDebugInfo = bDebugInfoFlag;
+        pProgHeader->bProfiling = bProfilingFlag;
         pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
         pProgHeader->bDisableOpt = bDisableOptFlag;
         pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
@@ -886,6 +894,7 @@ int ClangFECompilerLinkTask::Link()
 	pHeader->description.bin_ver_minor = 1;
 
     pProgHeader->bDebugInfo = bDebugInfoFlag;
+    pProgHeader->bProfiling = bProfilingFlag;
     pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
     pProgHeader->bDisableOpt = bDisableOptFlag;
     pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
@@ -976,6 +985,7 @@ void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
 void ClangFECompilerLinkTask::ResolveFlags()
 {
     bDebugInfoFlag = false;
+    bProfilingFlag = false;
     bDenormsAreZeroFlag = false;
     bDisableOptFlag = false;
     bFastRelaxedMathFlag = false;
@@ -1014,7 +1024,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
     }
 
     
-    // Check fase relaxed math
+    // Check fast relaxed math
     bFastRelaxedMathFlag = true;
 
     for (cl_uint i = 0; i < uiNumBinaries; ++i)
@@ -1053,21 +1063,20 @@ void ClangFECompilerLinkTask::ResolveFlags()
     }
     
 
-    // Check debug info
+    // Check debug info and profiling flags
     bDebugInfoFlag = true;
+    bProfilingFlag = true;
 
     for (cl_uint i = 0; i < uiNumBinaries; ++i)
     {
         pProgHeader = (cl_llvm_prog_header*)(ppBinaries[i] + sizeof(cl_prog_container_header));
-        if (pProgHeader->bDebugInfo)
-        {
-            // If the flag is true we can move on to the next one
-            continue;
+        if (!pProgHeader->bDebugInfo) {
+            bDebugInfoFlag = false;
         }
 
-        // else, don't use the flag
-        bDebugInfoFlag = false;
-        break;
+        if (!pProgHeader->bProfiling) {
+            bProfilingFlag = false;
+        }
     }
 }
 ClangFECompilerGetKernelArgInfoTask::ClangFECompilerGetKernelArgInfoTask()
