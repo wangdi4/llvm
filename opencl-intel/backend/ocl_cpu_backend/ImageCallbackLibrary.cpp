@@ -69,7 +69,7 @@ void ImageCallbackLibrary::Load()
 
 //    m_pRtlBuffer = llvm::MemoryBuffer::getFile(szRTLibName);
     llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
-    if( NULL == m_pRtlBuffer )
+    if( !m_pRtlBuffer )
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the image callback rtl library"));
     }

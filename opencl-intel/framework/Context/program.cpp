@@ -482,7 +482,7 @@ cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
     if (!pDeviceProgram)
 	{
-		return NULL;
+		return CL_INVALID_DEVICE;
 	}
     return pDeviceProgram->SetStateInternal(state);
 }
@@ -508,7 +508,7 @@ cl_err_code Program::SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_progr
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
     if (!pDeviceProgram)
 	{
-		return NULL;
+		return CL_INVALID_DEVICE;
 	}
     return pDeviceProgram->SetDeviceHandleInternal(programHandle);
 }
