@@ -22,9 +22,9 @@ CALCULATE_TARGET_SOURCES()
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
-target_link_libraries( ${TARGET} OpenCL gtest pthread)
+target_link_libraries( ${TARGET} OpenCL googletest pthread)
 else (NOT WIN32)
-target_link_libraries( ${TARGET} OpenCL gtest)
+target_link_libraries( ${TARGET} OpenCL googletest)
 endif (NOT WIN32)
 
 

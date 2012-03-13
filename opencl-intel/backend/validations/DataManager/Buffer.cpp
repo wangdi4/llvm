@@ -58,7 +58,7 @@ namespace Validation
 
     BufferDesc GetBufferDescription( const IMemoryObjectDesc* iDesc )
     {
-        assert(NULL != dynamic_cast<const BufferDesc *>(iDesc) && "BufferDesc is expected");
+        //assert(NULL != dynamic_cast<const BufferDesc *>(iDesc) && "BufferDesc is expected");
         return *static_cast<const BufferDesc *>(iDesc);
     }
 

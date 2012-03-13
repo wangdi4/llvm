@@ -60,7 +60,7 @@ namespace Validation
         virtual void Write(const IContainer * pContainer)
         {
             IBufferContainerList * pBCL = const_cast<IBufferContainerList *>
-                (dynamic_cast<const IBufferContainerList*>(pContainer));
+                (static_cast<const IBufferContainerList*>(pContainer));
             if(NULL == pBCL)
                 throw Exception::InvalidArgument("XMLBufferContainerListWriter"
                 "::Write() Input object is NULL");

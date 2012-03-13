@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2010-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,6 +26,7 @@ File Name:  CMPTest.cpp
 #include "BufferContainer.h"
 #include "dxfloat.h"
 #include "NEATValue.h"
+#include "NEATALUUtils.h"
 #include "ALUTest.h"
 
 #include <gtest/gtest.h>
@@ -733,16 +734,21 @@ TEST(Comparator, StatisticsCollector)
 const uint32_t IMAGE_LINE_ALIGNMENT_BYTES = 16;
 
 template<ImageChannelDataTypeVal T1, ImageChannelOrderVal T2>
-void TestCompareSingleImage(const uint64_t& width, const uint64_t& height)
+void TestCompareSingleImage(ImageTypeVal imageType, const uint64_t& width, const uint64_t& height, const uint64_t& depth, const uint64_t& array_size)
 {
     Comparator cmp;
     ComparisonResults compRes;
     const size_t& pixSize = ImageDesc::CalcPixelSizeInBytes(T1, T2);
-    const uint64_t widthStep = ALIGN_UP(width * pixSize, IMAGE_LINE_ALIGNMENT_BYTES );
+    const uint64_t widthStep = ALIGN_UP(width * uint64_t(pixSize), IMAGE_LINE_ALIGNMENT_BYTES );
+    const uint64_t sliceStep = ALIGN_UP(widthStep * height, IMAGE_LINE_ALIGNMENT_BYTES );
 
-    
-    const ImageDesc desc = ImageDesc (2,
-        ImageSizes(width, height, widthStep),
+    typedef typename Validation::ImageChannelDataTypeValToCType<T1>::type pixtype;
+
+    ImageSizeDesc imageSize;
+    imageSize.Init(imageType, width, height, depth, widthStep, sliceStep, array_size);
+
+    const ImageDesc desc = ImageDesc (imageType,
+        imageSize,
         T1, 
         T2);
 
@@ -754,48 +760,116 @@ void TestCompareSingleImage(const uint64_t& width, const uint64_t& height)
     IBufferContainer* bcRef1 = listRef.CreateBufferContainer();
     IMemoryObject* imgRef1 = bcRef1->CreateImage(desc);
     
-    // set imgAct1 values to 1
-    ::memset(imgAct1->GetDataPtr(), 193, desc.GetImageSizeInBytes());
+    // set imgAct1 values
+    pixtype * pData = (pixtype*)imgAct1->GetDataPtr();
+    size_t numBytes = desc.GetImageSizeInBytes();
+    uint32_t numNumbers = uint32_t(numBytes/sizeof(pixtype));
+
+    DataTypeVal dataTypeVal = GetDataTypeVal<pixtype>();
+
+
+    GenerateRangedVectorsAutoSeed<pixtype>(dataTypeVal, pData, V1, numNumbers, pixtype(5), pixtype(100) );
     // copy to Reference
     ::memcpy(imgRef1->GetDataPtr(), imgAct1->GetDataPtr(), desc.GetImageSizeInBytes());
 
     // expect they are equal
     EXPECT_EQ(PASSED, cmp.Compare(compRes, NULL, listAct, &listRef, NULL));
 
-    // change first byte in Actual
-    ::memset(imgAct1->GetDataPtr(), 0, 1);
+    // change first data element in Actual
+    ::memset(imgAct1->GetDataPtr(), 1, sizeof(pixtype));
     // expect they images are not equal
     EXPECT_EQ(NOT_PASSED, cmp.Compare(compRes, NULL, listAct, &listRef, NULL));
 }
 
+class ComparatorImageTest : public ALUTest {
+};
+
 /// @brief Tests accurate mode of Comparator on Images
-TEST(Comparator, ImagesAccurate)
+TEST_F(ComparatorImageTest, ImagesAccurate1D)
 {
-    const uint64_t width = 123;
-    const uint64_t height = 243;
-    
-    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(width, height);
-    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(width, height);
-    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(width, height);
-    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(width, height);
-    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(width, height);
-    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(width, height);
-    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(width, height);
+    uint64_t width = 99;
+    ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE1D;
+
+    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(imageType, width, 0, 0, 0);
+    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, 0, 0, 0);
 }
 
+TEST_F(ComparatorImageTest, ImagesAccurate1D_arr)
+{
+    const uint64_t width = 99;
+    const uint64_t arrSize = 7;
+    ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE1D_ARRAY;
+
+    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(imageType, width, 0, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, 0, 0, arrSize);
+}
+
+TEST_F(ComparatorImageTest, ImagesAccurate2D)
+{
+    const uint64_t width = 99;
+    const uint64_t height = 11;
+    ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE2D;
+    
+    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(imageType, width, height, 0, 0);
+    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, height, 0, 0);
+}
+
+TEST_F(ComparatorImageTest, ImagesAccurate2D_arr)
+{
+    const uint64_t width = 99;
+    const uint64_t height = 11;
+    const uint64_t arrSize = 5;
+    ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE2D_ARRAY;
+
+    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(imageType, width, height, 0, arrSize);
+    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, height, 0, arrSize);
+}
+
+TEST_F(ComparatorImageTest, ImagesAccurate3D)
+{
+    const uint64_t width = 99;
+    const uint64_t height = 11;
+    const uint64_t depth = 5;
+    ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE3D;
+    
+    TestCompareSingleImage<OpenCL_SNORM_INT8, OpenCL_R>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_R>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGBA>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_UNSIGNED_INT32, OpenCL_R>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_FLOAT, OpenCL_RGB>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_UNORM_INT_101010, OpenCL_RGB>(imageType, width, height, depth, 0);
+    TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, height, depth, 0);
+}
 
 // class for creating random NEAT image
-template <typename T>
-class ComparatorImageTestNEAT;
 
-template <>
-class ComparatorImageTestNEAT<float> : public ALUTest
-{
+template <typename T>
+class ComparatorImageTestNEAT {
 public:
     
     // Intervals with test values for common functions arguments.
-    float * Arg1Min;
-    float * Arg1Max;
+    T* Arg1Min;
+    T* Arg1Max;
 
     BufferContainerList m_listNEAT;
     ImageDesc m_imgDescNEAT;
@@ -806,39 +880,47 @@ public:
     IMemoryObject* m_imgNEAT1;
     IMemoryObject * m_img;
 
-    ComparatorImageTestNEAT()
+    DataTypeVal dataTypeVal;
+
+    uint32_t numFloats;
+
+    ComparatorImageTestNEAT(ImageTypeVal imageTypeIn, uint64_t widthIn, uint64_t heightIn, uint64_t depthIn, uint64_t arraySize)
     {
-        const uint64_t ImageWidth = 234;
-        const uint64_t ImageHeight = 129;
+
         const ImageChannelDataTypeVal DataType = OpenCL_FLOAT;
         const ImageChannelOrderVal Order = OpenCL_RGBA;
         // Parameters for random data generator.
         const VectorWidth currWidth = V1;
-        const DataTypeVal dataTypeVal = F32; // float
+        
+        dataTypeVal = GetDataTypeVal<T>();
 
-        const std::size_t PixelSizeInBytes = ImageDesc::CalcPixelSizeInBytes(DataType, Order);
-        const std::size_t widthStep = ALIGN_UP( ImageWidth * PixelSizeInBytes, IMAGE_LINE_ALIGNMENT_BYTES );
-        const ImageSizes imSize(ImageWidth, ImageHeight, widthStep);
+        const size_t PixelSizeInBytes = ImageDesc::CalcPixelSizeInBytes(DataType, Order);
+        const uint64_t widthStep = ALIGN_UP( widthIn * uint64_t(PixelSizeInBytes), IMAGE_LINE_ALIGNMENT_BYTES );
+        const uint64_t sliceStep = ALIGN_UP( widthStep * heightIn, IMAGE_LINE_ALIGNMENT_BYTES );
 
-        m_imgDesc = ImageDesc(2, imSize, DataType, Order, false);
-        m_imgDescNEAT = ImageDesc(2, imSize, DataType, Order, true);
+        ImageSizeDesc imSize;
+        imSize.Init(imageTypeIn, widthIn, heightIn, depthIn, widthStep, sliceStep, arraySize);
+
+        m_imgDesc = ImageDesc(imageTypeIn, imSize, DataType, Order, false);
+        m_imgDescNEAT = ImageDesc(imageTypeIn, imSize, DataType, Order, true);
         
         std::size_t imSizeBytes = m_imgDesc.GetImageSizeInBytes();
 
-        Arg1Min =   (float * ) malloc(imSizeBytes);
-        Arg1Max =   (float * ) malloc(imSizeBytes);
+        Arg1Min = (T*) malloc(imSizeBytes);
+        Arg1Max = (T*) malloc(imSizeBytes);
         
         // how many floats in image (approx)
-        std::size_t numFloats = imSizeBytes / sizeof(float);
-        assert(!(imSizeBytes % sizeof(float) ));
+        numFloats = uint32_t(imSizeBytes / sizeof(T));
+        assert(!(imSizeBytes % sizeof(T) ));
         
         // Fill up argument values with random data
         GenerateRandomVectorsAutoSeed(dataTypeVal, &Arg1Min[0], currWidth, numFloats );
         GenerateRandomVectorsAutoSeed(dataTypeVal, &Arg1Max[0], currWidth, numFloats );
 
         // Make random data aligned with the names: Arg1Min must be <= Arg1Max
-        for (std::size_t i = 0; i < numFloats; ++i)
+        for (uint32_t i = 0; i < numFloats; ++i) {
             if (Arg1Min[i] > Arg1Max[i]) std::swap(Arg1Min[i], Arg1Max[i]);
+        }
 
         // create NEAT
         IBufferContainer* bcNEAT1 = m_listNEAT.CreateBufferContainer();
@@ -848,18 +930,37 @@ public:
         IBufferContainer* bc = m_list.CreateBufferContainer();
         m_img = bc->CreateImage(m_imgDesc);
 
-        float * pData = (float*) m_img->GetDataPtr();
+        T * pData = (T*) m_img->GetDataPtr();
         NEATValue* pNEAT1 = (NEATValue* ) m_imgNEAT1->GetDataPtr();
         
-        for(std::size_t cnt = 0; 
+        for(uint32_t cnt = 0; 
             cnt < numFloats;
             ++cnt)
         {
-            pNEAT1[cnt].SetIntervalVal<float>(Arg1Min[cnt], Arg1Max[cnt]);
+            pNEAT1[cnt].SetIntervalVal<T>(Arg1Min[cnt], Arg1Max[cnt]);
             // pixel val in the middle of NEAT interval
             pData[cnt] = (Arg1Min[cnt] + Arg1Max[cnt]) / 2.0f;
         }
+    }
 
+    void test() {
+        Comparator cmp;
+        ComparisonResults compRes;
+        // check float image fits into NEAT intervals
+        EXPECT_EQ(PASSED, cmp.Compare(compRes, NULL, m_list, NULL, &m_listNEAT));
+    
+        //check NEAT NOT PASSED
+        NEATValue* pNEAT1 = (NEATValue* ) m_imgNEAT1->GetDataPtr();
+        T * pData = (T*) m_img->GetDataPtr();
+
+        const uint32_t ELEM_NUM = 3;
+
+         Utils::FloatParts<T> ap(*(pNEAT1[ELEM_NUM].GetMin<T>()));
+         ap.AddUlps(-1);
+         pData[ELEM_NUM] = ap.val();
+
+        // check float image not fit into NEAT intervals
+        EXPECT_EQ(NOT_PASSED, cmp.Compare(compRes, NULL, m_list, NULL, &m_listNEAT));
     }
 
     virtual ~ComparatorImageTestNEAT()
@@ -869,29 +970,43 @@ public:
     }
 };
 
+template <typename T>
+class ComparatorImageTestNEATRun : public ALUTest {
+};
 
 typedef ::testing::Types<float> FloatTypes;
-TYPED_TEST_CASE(ComparatorImageTestNEAT, FloatTypes);
+TYPED_TEST_CASE(ComparatorImageTestNEATRun, FloatTypes);
 
-TYPED_TEST(ComparatorImageTestNEAT, Test1)
+
+TYPED_TEST(ComparatorImageTestNEATRun, Test1d)
 {
-    Comparator cmp;
-    ComparisonResults compRes;
-    // check float image fits into NEAT intervals
-    EXPECT_EQ(PASSED, cmp.Compare(compRes, NULL, this->m_list, NULL, &this->m_listNEAT));
-
-    //check NEAT NOT PASSED
-    NEATValue* pNEAT1 = (NEATValue* ) this->m_imgNEAT1->GetDataPtr();
-    float * pData = (float*) this->m_img->GetDataPtr();
-    const std::size_t ELEM_NUM = 10;
-    // make 10th pixel = NEAT min boundary -1 ULP
-    Utils::FloatParts<float> ap(*(pNEAT1[ELEM_NUM].GetMin<float>()));
-    ap.AddUlps(-1);
-    pData[ELEM_NUM] = ap.val();
-    // check float image not fit into NEAT intervals
-    EXPECT_EQ(NOT_PASSED, cmp.Compare(compRes, NULL, this->m_list, NULL, &this->m_listNEAT));
+    ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D, 99, 0, 0, 0);
+    test.test();
 }
 
+TYPED_TEST(ComparatorImageTestNEATRun, Test1dArr)
+{
+    ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D_ARRAY, 99, 0, 0, 11);
+    test.test();
+}
+
+TYPED_TEST(ComparatorImageTestNEATRun, Test2d)
+{
+    ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D, 99, 33, 0, 0);
+    test.test();
+}
+
+TYPED_TEST(ComparatorImageTestNEATRun, Test2dArr)
+{
+    ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D_ARRAY, 99, 33, 0, 7);
+    test.test();
+}
+
+TYPED_TEST(ComparatorImageTestNEATRun, Test3d)
+{
+    ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE3D, 99, 33, 7, 0);
+    test.test();
+}
 
 template<typename T>
 COMP_RESULT CompareNEATSpecialStatus(T bufOut, NEATValue::Status status, DataTypeVal valType)

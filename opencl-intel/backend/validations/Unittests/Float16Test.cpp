@@ -16,7 +16,9 @@
 using namespace Validation;
 using namespace Validation::Utils;
 
+#ifdef _WIN32
 #pragma warning( disable : 4723 )
+#endif
 
 TEST(Common, FloatToFloat16)
 {

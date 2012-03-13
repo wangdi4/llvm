@@ -21,9 +21,9 @@ link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUB
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
-target_link_libraries( ${TARGET} intelocl gtest pthread)
+target_link_libraries( ${TARGET} intelocl googletest pthread)
 else (NOT WIN32)
-target_link_libraries( ${TARGET} intelocl gtest)
+target_link_libraries( ${TARGET} intelocl googletest)
 endif (NOT WIN32)
 
 

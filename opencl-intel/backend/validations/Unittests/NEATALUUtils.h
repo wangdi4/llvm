@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2011-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -327,6 +327,8 @@ namespace Validation {
     template <typename T>
     static bool TestAccExpandedDotMix(T ref, NEATValue test, T ref4ulps, float ulps)
     {
+        // ref4ulps is used to calculate 1 ULP for functions mix and dot
+        // it is max abs value from input values
         bool res = true;
         typedef typename  downT<T>::type dT;
 
@@ -346,7 +348,7 @@ namespace Validation {
                 return false;
             if(! Utils::IsPInf(*test.GetAcc<dT>()))
                 return false;
-        } else if((ref == 0) && RefALU::GetFTZmode()) {
+        } else if((ref4ulps == 0) && RefALU::GetFTZmode()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed min and max should be zero
             if( min != 0 || max != 0)
@@ -397,6 +399,8 @@ namespace Validation {
     template <typename T>
     static bool TestIntExpandedDotMix(T refMinIn, T refMaxIn, NEATValue test, T ref4ulps, float ulps)
     {
+        // ref4ulps is used to calculate 1 ULP for functions mix and dot
+        // it is max abs value from input values
         typedef typename downT<T>::type dT;
 
         bool res = true;
@@ -424,7 +428,7 @@ namespace Validation {
         } else if (Utils::IsPInf(refMin)) {
             if(! Utils::IsPInf(min))
                 return false;
-        } else if((refMin == 0) && RefALU::GetFTZmode() ) {
+        } else if((ref4ulps == 0) && RefALU::GetFTZmode() ) {
             // one ulp for zero is denormal in float point precision
             // so, flushed min and max should be zero
             if( min != 0)
@@ -455,7 +459,7 @@ namespace Validation {
         } else if (Utils::IsPInf(refMax)) {
             if(! Utils::IsPInf(max))
                 return false;
-        } else if((refMax == 0) && RefALU::GetFTZmode()) {
+        } else if((ref4ulps == 0) && RefALU::GetFTZmode()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed max and max should be zero
             if( max != 0)

@@ -62,7 +62,7 @@ namespace Validation
         void Read(IContainer * pContainer)
         {
             IBufferContainerList * pBCL = 
-              dynamic_cast<IBufferContainerList*>(pContainer);
+              static_cast<IBufferContainerList*>(pContainer);
             if(NULL == pBCL)
                 throw Exception::InvalidArgument("XMLBufferContainerListReader"
                 "::Read Input object is NULL");
