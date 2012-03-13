@@ -653,7 +653,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
 
   // Declare function in current module (if not declared already)
   Constant *scalarFunctionConstant = m_currFunc->getParent()->getOrInsertFunction(
-    scalarFuncName, LibScalarFunc->getFunctionType());
+      scalarFuncName, LibScalarFunc->getFunctionType(), LibScalarFunc->getAttributes());
   V_ASSERT(scalarFunctionConstant && "Failed finding or generating function");
   Function *scalarFunction = dyn_cast<Function>(scalarFunctionConstant);
   V_ASSERT(scalarFunction && "Function type mismatch, caused a constant expression cast!");
