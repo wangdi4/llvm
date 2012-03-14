@@ -21,6 +21,10 @@ cmake_policy(SET CMP0011 OLD)
 
 project(cl_builtins)
 
+# Only MIC supports this flag so far. Remove this option as well as legacy code
+# for OCL builtin support when both CPU and MIC move to the new solution.
+option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
+
 # target name prefix to be used for generated binaries 
 set (TARGET_NAME_PREFIX clbltfn)
 
@@ -267,7 +271,7 @@ set (CLANG_COMPILER_PARAMS
   -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins
   -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
   -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -include opencl_.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -include opencl_.h
   )
 
 # llvm-opt
@@ -520,6 +524,19 @@ function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAM
   endif()
 endfunction( add_c_library )
 
+function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
+    string(REPLACE ".td" ".cpp" OFN ${IFN})
+    file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
+    add_custom_command(
+        OUTPUT ${OUTPUT_DIR}/${OFN}
+        COMMAND ${cl_builtins_TABLEGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
+        DEPENDS ${cl_builtins_TABLEGEN_EXE} ${depend_tds}
+        COMMENT "Generating ${OFN}..."
+        )
+    set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
+    set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
+endfunction(tblgenoclblt)
+
 #
 # create_target( PROC ARCH CPP_DEFINE AUX_COMPILE_OPT)
 #
@@ -539,9 +556,27 @@ function( create_target PROC ARCH CPP_DEFINE AUX_COMPILE_OPT )
 
   message ("Building target:   ${TARGET_NAME}")
 
+  # As far as only MIC support OCL builtin autogen, OCL_TABLEGEN_FILE is left
+  # as an optional argument.
+  # FIXME: when OCL builtin is autogened for all targets, add
+  # OCL_TABLEGEN_FILE as the last parameter and remove the following code
+  # fragment.
+  unset(OCL_TABLEGEN_FILE)
+  list(LENGTH ARGN ARGN_LEN)
+  if( ARGN_LEN GREATER 0 )
+    list(GET ARGN 0 OCL_TABLEGEN_FILE)
+  endif( )
+
   # intermediate directory for OpenCL and ICC compilation/link
   # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
+
+  # generate OCL builtin implementation
+  if( OCL_TABLEGEN_FILE )
+    # autogen OCL builtin implementation from tablegen file
+    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_TABLEGEN_FILE} -gen-ocl-bi)
+    list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+  endif( OCL_TABLEGEN_FILE )
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC}  FALSE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
@@ -580,21 +615,29 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   atomic_functions.cpp
   common_functions.cpp
-  mic_common_functions.cpp
   conversion_functions.cpp
   geometry_functions.cpp
-  mic_geometry_functions.cpp
   image_functions.cpp
   integer_functions.cpp
-  mic_integer_functions.cpp
   math_functions.cpp
-  mic_math_functions.cpp
   misc_functions.cpp
   relational_functions.cpp
-  mic_relational_functions.cpp
   vload_vstore_functions.cpp
-  mic_vload_vstore_functions.cpp
   )
+
+if( MIC_TARGET )
+  if( NOT AUTOGEN_OCL_BUILTIN )
+    list (APPEND OCL_SOURCE_FILES
+      mic_common_functions.cpp
+      mic_geometry_functions.cpp
+      mic_integer_functions.cpp
+      mic_math_functions.cpp
+      mic_misc_functions.cpp
+      mic_relational_functions.cpp
+      mic_vload_vstore_functions.cpp
+      )
+  endif( NOT AUTOGEN_OCL_BUILTIN )
+endif( MIC_TARGET )
 
 list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
   ${CL_BUILTIN_SOURCE_DIR}/image_callback_functions.cpp
