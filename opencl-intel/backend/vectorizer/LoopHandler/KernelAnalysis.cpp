@@ -41,49 +41,12 @@ KernelAnalysis::~KernelAnalysis()
 {
 }
 
-void KernelAnalysis::fillDirectUsers(FSet *funcs, FSet *userFuncs,
-                                     FSet *newUsers) {
-  // Go through all of the funcs.
-  for (FSet::iterator fit = funcs->begin(), fe = funcs->end();
-       fit!=fe ; ++fit) {
-    Function *F = *fit;
-    if (!F) continue;
-    // Go through all the users of the function.
-    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
-         ui != ue; ++ui ) {
-      // If the user is a call add the function contains it to userFuncs
-      CallInst *CI = dyn_cast<CallInst> (*ui);
-      if (!CI) continue;
-      Function *callingFunc = CI->getParent()->getParent();
-      if (userFuncs->insert(callingFunc).second) {
-        // If the function is new update the new user set.
-        newUsers->insert(callingFunc);
-      }
-    }
-  }
-}
-
-void KernelAnalysis::fillFuncUsersSet(FSet &roots, FSet &userFuncs) {
-  FSet newUsers1, newUsers2;
-  FSet *pNewUsers = &newUsers1;
-  FSet *pRoots = &newUsers2;
-  // First Get the direct users of the roots.
-  fillDirectUsers(&roots, &userFuncs, pNewUsers);
-  while (pNewUsers->size()) {
-    // iteratively swap between the new users sets, and use the current
-    // as the roots for the new direct users.
-    std::swap(pNewUsers, pRoots);
-    pNewUsers->clear();
-    fillDirectUsers(pRoots, &userFuncs, pNewUsers);
-  }
-}
-
 void KernelAnalysis::fillBarrierUsersFuncs() {
   Function *barrierDcl = m_M->getFunction(BARRIER_FUNC_NAME);
   if (barrierDcl) {
     FSet barrierRootSet;
     barrierRootSet.insert(barrierDcl);
-    fillFuncUsersSet(barrierRootSet, m_unsupportedFunc);
+    LoopUtils::fillFuncUsersSet(barrierRootSet, m_unsupportedFunc);
   }
 }
 
@@ -91,7 +54,7 @@ void KernelAnalysis::fillUnsupportedTIDFuncs() {
   FSet directTIDUsers;
   fillUnsupportedTIDFuncs(GET_LID_NAME, directTIDUsers);
   fillUnsupportedTIDFuncs(GET_GID_NAME, directTIDUsers);
-  fillFuncUsersSet(directTIDUsers, m_unsupportedFunc);
+  LoopUtils::fillFuncUsersSet(directTIDUsers, m_unsupportedFunc);
 }
 
 bool KernelAnalysis::isUnsupportedDim(Value *v) {
@@ -124,20 +87,24 @@ void KernelAnalysis::fillUnsupportedTIDFuncs(const char *name,
 void KernelAnalysis::fillKernelCallers() {
   for (unsigned i=0, e=m_kernels.size(); i<e; ++i) {
     Function *kernel = m_kernels[i];
-    // The kernel has users meaning it is called by another kernel.
+    if (!kernel) continue;
+    FSet kernelRootSet;
+    FSet kernelUsers;
+    kernelRootSet.insert(kernel);
+    LoopUtils::fillFuncUsersSet(kernelRootSet, kernelUsers); 
+    // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
     // multiple time (because of the WG loop of the calling kernel)
-    if (kernel && kernel->getNumUses()) {
-        m_unsupportedFunc.insert(kernel);
+    if (kernelUsers.size()) {
+      m_unsupportedFunc.insert(kernel);
     }
   }
   
   // Also can not use explicit loops on kernel callers since the barrier 
   // pass need to handle them in order to process the called kernels.
   FSet kernelSet (m_kernels.begin(), m_kernels.end());
-  fillFuncUsersSet(kernelSet, m_unsupportedFunc);
+  LoopUtils::fillFuncUsersSet(kernelSet, m_unsupportedFunc);
 }
-
 
 bool KernelAnalysis::runOnModule(Module& M) {
   m_M = &M;

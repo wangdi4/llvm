@@ -76,20 +76,6 @@ private:
   ///       dimension get***id calls, or indirect calls to get***id.
   void fillKernelCallers();
 
-  ///@brief fills the users function through call instructions of roots
-  ///       (also indirect users) into userFuncs.
-  ///@param roots - function to obtain their user functions.
-  ///@param userFuncs - set to fill with users of roots
-  void fillFuncUsersSet(FSet &roots, FSet &userFuncs);
-
-  ///@brief fills direct users through call of funcs into userFuncs. If a 
-  ///       function is introduced into userFuncs for the first time it will
-  ///       be inserted into newUsers also.
-  ///@param funcs - function to obtain direct users.
-  ///@param userFuncs - set of users functions to fills.
-  ///@param newUsers - set of newly found users.
-  void fillDirectUsers(FSet *funcs, FSet *userFuncs, FSet *newUsers);
-  
   ///@brief fills the unsupported set with function that have non constant
   ///       dimension get***id calls, and gets the direct users of the call
   ///       into TIDUsers.

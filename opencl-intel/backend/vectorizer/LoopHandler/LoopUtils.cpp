@@ -81,4 +81,69 @@ void LoopUtils::GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
 }
 
 
+void LoopUtils::fillDirectUsers(std::set<Function *> *funcs,
+             std::set<Function *> *userFuncs, std::set<Function *> *newUsers) {
+  // Go through all of the funcs.
+  SmallVector<Instruction *, 8> userInst;
+  for (std::set<Function *>::iterator fit = funcs->begin(), fe = funcs->end();
+       fit != fe ; ++fit) {
+    Function *F = *fit;
+    if (!F) continue;
+    
+    // Get the instruction users of the function, and insert their 
+    // parent functions to the userFuncs set.
+    userInst.clear();
+    fillInstructionUsers(F, userInst);
+    for (unsigned i = 0, e = userInst.size(); i < e; ++i ) {
+      Instruction *I = userInst[i];
+      Function *userFunc = I->getParent()->getParent();
+      assert(userFunc && "NULL parent function ?");
+      // If the user is a call add the function contains it to userFuncs
+      if (userFuncs->insert(userFunc).second) {
+        // If the function is new update the new user set.
+        newUsers->insert(userFunc);
+      }
+    }
+  }
+}
+
+void LoopUtils::fillFuncUsersSet(std::set<Function *> &roots,
+                                 std::set<Function *> &userFuncs) {
+  std::set<Function *> newUsers1, newUsers2;
+  std::set<Function *> *pNewUsers = &newUsers1;
+  std::set<Function *> *pRoots = &newUsers2;
+  // First Get the direct users of the roots.
+  fillDirectUsers(&roots, &userFuncs, pNewUsers);
+  while (pNewUsers->size()) {
+    // iteratively swap between the new users sets, and use the current
+    // as the roots for the new direct users.
+    std::swap(pNewUsers, pRoots);
+    pNewUsers->clear();
+    fillDirectUsers(pRoots, &userFuncs, pNewUsers);
+  }
+}
+
+void LoopUtils::fillInstructionUsers(Function *F,
+                                  SmallVectorImpl<Instruction *>  &userInsts) {
+    // Holds values to check.
+    SmallVector<Value *, 8> workList(F->use_begin(), F->use_end());
+    // Holds values that already been checked, in order to prevent 
+    // inifinite loops.
+    std::set<Value *> visited;
+    while (workList.size()) {
+      Value *user = workList.back();
+      workList.pop_back();
+      if (visited.count(user)) continue;
+      visited.insert(user);
+
+      // New value if it is an Instruction add to it to usedInsts Vec,
+      // otherwise check all it's users.
+      Instruction *I = dyn_cast<Instruction>(user);
+      if (I) {
+        userInsts.push_back(I);
+      } else {
+        workList.append(user->use_begin(), user->use_end());
+      }
+    }
+  }
 }//namespace intel

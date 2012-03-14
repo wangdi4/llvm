@@ -11,6 +11,7 @@
 #include "llvm/BasicBlock.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include <set>
 
 using namespace llvm;
 namespace intel {
@@ -58,6 +59,30 @@ public:
   ///@param M - module to search.
   ///@param kernels - vector to fill.
   static void GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels);
+
+  ///@brief fills the users function through instructions of functions in 
+  ///       roots set (also indirect users) into userFuncs.
+  ///@param roots - function to obtain their user functions.
+  ///@param userFuncs - set to fill with users of roots
+  static void fillFuncUsersSet(std::set<Function *> &roots, 
+                               std::set<Function *> &userFuncs);
+
+  ///@brief fills direct user functions through instructions of functions in 
+  ///       funcs set into userFuncs. If a function is introduced into 
+  ///       userFuncs for the first time it will be inserted into newUsers.
+  ///@param funcs - function to obtain direct users.
+  ///@param userFuncs - set of users functions to fills.
+  ///@param newUsers - set of newly found users.
+  static void fillDirectUsers(std::set<Function *> *funcs, 
+      std::set<Function *> *userFuncs, std::set<Function *> *newUsers);
+
+  /// @brief fill the user instructions (including users via other values)
+  ///        of the input Function into the input vector.
+  /// @param F function to get user instructions.
+  /// @param userInsts vector to fill.
+  static void fillInstructionUsers(Function *F,
+                                   SmallVectorImpl<Instruction *> &userInsts);
+  
 };//LoopUtils
 }// namespace intel
 
