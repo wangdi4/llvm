@@ -1,0 +1,536 @@
+// vim:ts=2:sw=2:et:
+
+def outs;
+def ins;
+
+class VectorSuffixString<int len> {
+  string Value = !if(!eq(len,  1),   "",
+                 !if(!eq(len,  2),  "2",
+                 !if(!eq(len,  3),  "3",
+                 !if(!eq(len,  4),  "4",
+                 !if(!eq(len,  8),  "8",
+                 !if(!eq(len, 16), "16",
+                 "__invalid__"))))));
+}
+
+class VectorSVMLSuffixString<string base, int len> {
+  string Length = !if(!eq(len,  1),  "1",
+                  !if(!eq(len,  2),  "2",
+                  !if(!eq(len,  3),  "3",
+                  !if(!eq(len,  4),  "4",
+                  !if(!eq(len,  8),  "8",
+                  !if(!eq(len, 16), "16",
+                  "__invalid__"))))));
+  string TypeName = !subst("double",  "",
+                    !subst("float",   "f",
+                      base));
+  string Value = !strconcat(TypeName, Length);
+}
+
+class OclType<string name, string base, int length, int width, bit ptr> {
+  string TypeName = name;
+  string BaseCTypeName = base;
+  int VecLength = length;
+  int BitWidth = width;
+  string Suffix = VectorSuffixString<VecLength>.Value;
+  string SVMLSuffix = VectorSVMLSuffixString<BaseCTypeName, VecLength>.Value;
+  string CTypeName = !strconcat(BaseCTypeName, Suffix);
+  bit IsPtr = ptr;
+}
+
+multiclass _OCLTYPE1_<string ss, int len, int width, string base> {
+  def  #NAME# : OclType<ss, base, len, width, 0>;
+  def p#NAME# : OclType<!strconcat("p", ss), base, len, width, 1>;
+}
+multiclass _OCLTYPE2_<string ss, int width, string base> {
+  defm  v1#NAME# : _OCLTYPE1_<!strconcat( "v1", ss),  1, width, base>;
+  defm  v2#NAME# : _OCLTYPE1_<!strconcat( "v2", ss),  2, width, base>;
+  defm  v3#NAME# : _OCLTYPE1_<!strconcat( "v3", ss),  3, width, base>;
+  defm  v4#NAME# : _OCLTYPE1_<!strconcat( "v4", ss),  4, width, base>;
+  defm  v8#NAME# : _OCLTYPE1_<!strconcat( "v8", ss),  8, width, base>;
+  defm v16#NAME# : _OCLTYPE1_<!strconcat("v16", ss), 16, width, base>;
+}
+defm i8  : _OCLTYPE2_<"i8",  8, "char">;
+defm u8  : _OCLTYPE2_<"u8",  8, "uchar">;
+defm i16 : _OCLTYPE2_<"i16", 16, "short">;
+defm u16 : _OCLTYPE2_<"u16", 16, "ushort">;
+defm i32 : _OCLTYPE2_<"i32", 32, "int">;
+defm u32 : _OCLTYPE2_<"u32", 32, "uint">;
+defm i64 : _OCLTYPE2_<"i64", 64, "long">;
+defm u64 : _OCLTYPE2_<"u64", 64, "ulong">;
+defm f16 : _OCLTYPE2_<"f16", 16, "half">;
+defm f32 : _OCLTYPE2_<"f32", 32, "float">;
+defm f64 : _OCLTYPE2_<"f64", 64, "double">;
+def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
+
+class TypeNameList<list<string> names> {
+  list<string> Names = names;
+}
+def ocl_types : TypeNameList<[
+   v1i8.TypeName,  v2i8.TypeName,  v3i8.TypeName,  v4i8.TypeName,  v8i8.TypeName,  v16i8.TypeName,
+   v1u8.TypeName,  v2u8.TypeName,  v3u8.TypeName,  v4u8.TypeName,  v8u8.TypeName,  v16u8.TypeName,
+  v1i16.TypeName, v2i16.TypeName, v3i16.TypeName, v4i16.TypeName, v8i16.TypeName, v16i16.TypeName,
+  v1u16.TypeName, v2u16.TypeName, v3u16.TypeName, v4u16.TypeName, v8u16.TypeName, v16u16.TypeName,
+  v1i32.TypeName, v2i32.TypeName, v3i32.TypeName, v4i32.TypeName, v8i32.TypeName, v16i32.TypeName,
+  v1u32.TypeName, v2u32.TypeName, v3u32.TypeName, v4u32.TypeName, v8u32.TypeName, v16u32.TypeName,
+  v1i64.TypeName, v2i64.TypeName, v3i64.TypeName, v4i64.TypeName, v8i64.TypeName, v16i64.TypeName,
+  v1u64.TypeName, v2u64.TypeName, v3u64.TypeName, v4u64.TypeName, v8u64.TypeName, v16u64.TypeName,
+  v1f16.TypeName, v2f16.TypeName, v3f16.TypeName, v4f16.TypeName, v8f16.TypeName, v16f16.TypeName,
+  v1f32.TypeName, v2f32.TypeName, v3f32.TypeName, v4f32.TypeName, v8f32.TypeName, v16f32.TypeName,
+  v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName
+]>;
+
+class OclGenType<string name>
+  : OclType<name, name, 1, 0, 0> {
+  list<string> Tin = ocl_types.Names;
+  string n; // dummy for !foreach
+}
+// gentype: 'vNtM' -> 'vNtM'
+def gentype : OclGenType<"gentype"> {
+  list<string> Tout = Tin;
+}
+// pgentype
+def pgentype : OclGenType<"pgentype"> {
+  list<string> T0 = !foreach(n, Tin, !strconcat("p", n));
+  list<string> Tout = T0;
+}
+// sgentype: 'vNtM' -> 'v1tM'
+def sgentype : OclGenType<"sgentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "v2", "v1", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v3", "v1", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v4", "v1", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v8", "v1", n));
+  list<string> T4 = !foreach(n,  T3, !subst("v16", "v1", n));
+  list<string> Tout = T4;
+}
+// psgentype 'vNtM' -> 'pv1tM'
+def psgentype : OclGenType<"psgentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "v2", "v1", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v3", "v1", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v4", "v1", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v8", "v1", n));
+  list<string> T4 = !foreach(n,  T3, !subst("v16", "v1", n));
+  list<string> T5 = !foreach(n,  T4, !strconcat("p", n));
+  list<string> Tout = T5;
+}
+// gentype2: 'vNtM' -> 'v2tM'
+def gentype2 : OclGenType<"gentype2"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "v2", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v3", "v2", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v4", "v2", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v8", "v2", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "vX", "v2", n));
+  list<string> Tout = T5;
+}
+// gentype4: 'vNtM' -> 'v4tM'
+def gentype4 : OclGenType<"gentype4"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "v4", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v2", "v4", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v3", "v4", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v8", "v4", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "vX", "v4", n));
+  list<string> Tout = T5;
+}
+// gentype8: 'vNtM' -> 'v8tM'
+def gentype8 : OclGenType<"gentype8"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "v8", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v2", "v8", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v3", "v8", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v4", "v8", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "vX", "v8", n));
+  list<string> Tout = T5;
+}
+// gentype16: 'vNtM' -> 'v16tM'
+def gentype16 : OclGenType<"gentype16"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "v16", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v2", "v16", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v3", "v16", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v4", "v16", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v8", "v16", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "vX", "v16", n));
+  list<string> Tout = T6;
+}
+// ugentype2: 'vNtM' -> 'v2uM'
+def ugentype2 : OclGenType<"ugentype2"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "u64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("v16", "vX", n));
+  list<string> T8 = !foreach(n,  T7, !subst( "v1", "v2", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v2", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v2", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v2", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v2", n));
+  list<string> Td = !foreach(n,  Tc, !subst( "vX", "v2", n));
+  list<string> Tout = Td;
+}
+// ugentype4: 'vNtM' -> 'v4uM'
+def ugentype4 : OclGenType<"ugentype4"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "u64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("v16", "vX", n));
+  list<string> T8 = !foreach(n,  T7, !subst( "v1", "v4", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v4", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v4", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v4", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v4", n));
+  list<string> Td = !foreach(n,  Tc, !subst( "vX", "v4", n));
+  list<string> Tout = Td;
+}
+// ugentype8: 'vNtM' -> 'v8uM'
+def ugentype8 : OclGenType<"ugentype8"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "u64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("v16", "vX", n));
+  list<string> T8 = !foreach(n,  T7, !subst( "v1", "v8", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v8", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v8", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v8", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v8", n));
+  list<string> Td = !foreach(n,  Tc, !subst( "vX", "v8", n));
+  list<string> Tout = Td;
+}
+// ugentype16: 'vNtM' -> 'v16uM'
+def ugentype16 : OclGenType<"ugentype16"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "u64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("v16", "vX", n));
+  list<string> T8 = !foreach(n,  T7, !subst( "v1", "v16", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v16", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v16", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v16", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v16", n));
+  list<string> Td = !foreach(n,  Tc, !subst( "vX", "v16", n));
+  list<string> Tout = Td;
+}
+// ugentype: 'vNiM' -> 'vNuM'
+def ugentype : OclGenType<"ugentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "u64", n));
+  list<string> Tout = T6;
+}
+// igentype: 'vNuM' -> 'vNiM'
+def igentype : OclGenType<"igentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "u8",  "i8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("u16", "i16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "i16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u32", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u64", "i64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "i64", n));
+  list<string> Tout = T6;
+}
+// i8gentype: 'vNtM' -> 'vNi8'
+def i8gentype : OclGenType<"i8gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "u8", "i8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "i8", n));
+  list<string> T2 = !foreach(n,  T1, !subst("u16", "i8", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "i8", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "i8", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "i8", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i8", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i8", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i8", n));
+  list<string> Tout = T8;
+}
+// u8gentype: 'vNtM' -> 'vNu8'
+def u8gentype : OclGenType<"u8gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "u8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "u8", n));
+  list<string> T2 = !foreach(n,  T1, !subst("u16", "u8", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u8", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "u8", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u8", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "u8", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "u8", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "u8", n));
+  list<string> Tout = T8;
+}
+// i16gentype: 'vNtM' -> 'vNi16'
+def i16gentype : OclGenType<"i16gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i16", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("u16", "i16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "i16", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "i16", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "i16", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i16", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i16", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i16", n));
+  list<string> Tout = T8;
+}
+// u16gentype: 'vNtM' -> 'vNu16'
+def u16gentype : OclGenType<"u16gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "u16", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "u16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "u16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("i32", "u16", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "u16", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u16", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "u16", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "u16", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "u16", n));
+  list<string> Tout = T8;
+}
+// i32gentype: 'vNtM' -> 'vNi32'
+def i32gentype : OclGenType<"i32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "i32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i32", n));
+  list<string> Tout = T8;
+}
+// pi32gentype : 'vNtM' -> 'pvNi32'
+def pi32gentype : OclGenType<"pi32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "i32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i32", n));
+  list<string> T9 = !foreach(n,  T8, !strconcat("p", n));
+  list<string> Tout = T9;
+}
+// si32gentype: 'vNtM' -> 'v1i32'
+def si32gentype : OclGenType<"si32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "i32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i32", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v1", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v1", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v1", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v1", n));
+  list<string> Td = !foreach(n,  Tc, !subst("v16", "v1", n));
+  list<string> Tout = Td;
+}
+// u32gentype: 'vNtM' -> 'vNu32'
+def u32gentype : OclGenType<"u32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "u32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "u32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "u32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "u32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "u32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "u32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "u32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "u32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "u32", n));
+  list<string> Tout = T8;
+}
+// i64gentype: 'vNtM' -> 'vNi64'
+def i64gentype : OclGenType<"i64gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i64", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "i64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "i64", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "i64", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u32", "i64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "i64", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "i64", n));
+  list<string> Tout = T8;
+}
+// u64gentype: 'vNtM' -> 'vNu64'
+def u64gentype : OclGenType<"u64gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "u64", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "u64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "u64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "u64", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "u64", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u32", "u64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("i64", "u64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f32", "u64", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "u64", n));
+  list<string> Tout = T8;
+}
+// rf2igentype: 'vNf32' -> 'vNi32', 'vNf64' -> 'vNi64', 'v1f32' -> 'v1i32', 'v1f64' -> 'v1i32'
+def rf2igentype : OclGenType<"rf2igentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("f32", "i32", n));
+  list<string> T1 = !foreach(n,  T0, !subst("f64", "i64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("v1i64", "v1i32", n));
+  list<string> Tout = T2;
+}
+// up_gentype: 'vNx8' -> 'vNx16', 'vNx16' -> 'vNx32', 'vNx32' -> 'vNx64'
+def up_gentype : OclGenType<"up_gentype"> {
+  // NOTE: The order is important to prevent a replaced string being replaced again!
+  list<string> T0 = !foreach(n, Tin, !subst("f32", "f64", n));
+  list<string> T1 = !foreach(n,  T0, !subst("f16", "f32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i32", "i64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u32", "u64", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i16", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u16", "u32", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "i8", "i16", n));
+  list<string> T7 = !foreach(n,  T6, !subst( "u8", "u16", n));
+  list<string> Tout = T7;
+}
+// up2_gentype: 'vNx8' -> 'vNx32', 'vNx16' -> 'vNx64'
+def up2_gentype : OclGenType<"up2_gentype"> {
+  // NOTE: The order is important to prevent a replaced string being replaced again!
+  list<string> T0 = !foreach(n, Tin, !subst("f16", "f64", n));
+  list<string> T1 = !foreach(n,  T0, !subst("i16", "i64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("u16", "u64", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "i8", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "u8", "u32", n));
+  list<string> Tout = T4;
+}
+
+// OclBuiltinAttr
+class OclBuiltinAttr<string attr> {
+  string Attr = attr;
+}
+
+def SVMLCC : OclBuiltinAttr<"__attribute__((svmlcc))">;
+def CONSTFUNC : OclBuiltinAttr<"__attribute__((const))">;
+def OVERLOADABLE : OclBuiltinAttr<"__attribute__((overloadable))">;
+
+// OclBuiltin
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs> {
+  string Name = name;
+  dag Outs = outs;
+  dag Ins = ins;
+  list<OclType> Types = types;
+  list<OclType> ExceptionTypes = [];
+  list<OclType> AdditionTypes = [];
+  list<OclBuiltinAttr> Attrs = attrs;
+  list<OclBuiltinAttr> ExceptionAttrs = [];
+  list<OclBuiltinAttr> AdditionAttrs = [];
+  bit IsDeclOnly = 0; // Just need declaration, e.g. SVML function prototype declaration.
+  bit NeedForwardDecl = 0; // Non OCL builtin function need forwarding declaration.
+}
+
+// Helper to add exception type list
+class Except<list<OclType> types> {
+  list<OclType> ExceptionTypes = types;
+}
+
+// Helper to add addition type list
+class Plus<list<OclType> types> {
+  list<OclType> AdditionTypes = types;
+}
+
+// Helper to add exception type list
+class ExceptAttr<list<OclBuiltinAttr> attrs> {
+  list<OclBuiltinAttr> ExceptionAttrs = attrs;
+}
+
+// Helper to add addition type list
+class PlusAttr<list<OclBuiltinAttr> attrs> {
+  list<OclBuiltinAttr> AdditionAttrs = attrs;
+}
+
+// Special property for the pointer type in OCLBuiltin prototype.
+class OclAddressSpace<string name, bit hasConst> {
+  string ASQualifier = name;
+  bit HasConst = hasConst;
+}
+class PRIVATE       : OclAddressSpace<"__private",  0>;
+class LOCAL         : OclAddressSpace<"__local",    0>;
+class GLOBAL        : OclAddressSpace<"__global",   0>;
+class CONSTANT      : OclAddressSpace<"__constant", 1>;
+class CONST_PRIVATE : OclAddressSpace<"__private",  1>;
+class CONST_LOCAL   : OclAddressSpace<"__local",    1>;
+class CONST_GLOBAL  : OclAddressSpace<"__global",   1>;
+
+// OclBuiltinImpl
+class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl> {
+  OclBuiltin Builtin = builtin;
+  list<OclType> Types = types;
+  code Impl = impl;
+  bit IsDeclOnly = isDeclOnly; // Just need declaration, for OCL builtin implementation defined somewhere else.
+}
+
+// TargetImpl
+class TargetImpl {
+  // Rewrite patterns
+  //
+  // $Target
+  //
+  // $Suffix
+  // $SVMLSuffix
+  //
+  // $Pattern
+  // $BitWidth
+  // $VecLength
+  // $Mask
+  // $Func
+  // $ReturnType
+  // $ReturnVarName
+  // $Arg0Type
+  // $Arg0VecType
+  // $Arg0NoASType
+  // $Arg0VarName
+  // $Arg1Type
+  // $Arg1VecType
+  // $Arg1NoASType
+  // $Arg1VarName
+  // ...
+  // $Arg9Type
+  // $Arg9VecType
+  // $Arg9NoASType
+  // $Arg9VarName
+  //
+  // $NativeFunc
+  // $NativeReturnType
+  // $NativeArg0Type
+  // $NativeArg1Type
+  // ..
+  // $NativeArg9Type
+  //
+  // $ExpandLoPattern
+  // $ExpandHiPattern
+  // $ExpandLoFunc
+  // $ExpandHiFunc
+  //
+  // FIXME: do we need them?
+  // $ExpandLoReturnType
+  // $ExpandHiReturnType
+  // $ExpandLoArg0Type
+  // $ExpandHiArg0Type
+  // $ExpandLoArg1Type
+  // $ExpandHiArg1Type
+  // ..
+  // $ExpandLoArg9Type
+  // $ExpandHiArg9Type
+  //
+}

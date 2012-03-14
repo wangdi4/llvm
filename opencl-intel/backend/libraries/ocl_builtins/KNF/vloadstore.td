@@ -1,0 +1,783 @@
+// vim:ts=2:sw=2:et:
+
+
+list<OclType> all_v16x64_types  = [v16i64, v16u64, v16f64];
+list<OclType> non_v16x64_types  = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                                    v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                                   v2i16, v3i16, v4i16, v8i16, v16i16,
+                                   v2u16, v3u16, v4u16, v8u16, v16u16,
+                                   v2i32, v3i32, v4i32, v8i32, v16i32,
+                                   v2u32, v3u32, v4u32, v8u32, v16u32,
+                                   v2i64, v3i64, v4i64, v8i64,
+                                   v2u64, v3u64, v4u64, v8u64,
+                                   v2f32, v3f32, v4f32, v8f32, v16f32,
+                                   v2f64, v3f64, v4f64, v8f64];
+
+// vload
+code MaskVLoadV16U8 = [{
+    // TODO: MASK_VLOAD_V16U8
+    return ($ReturnType)0;
+  }];
+OclBuiltinImpl mask_vload_gas_v16_u8 = OclBuiltinImpl<mask_vload_gas, [v16u8], 0, MaskVLoadV16U8>;
+OclBuiltinImpl mask_vload_cas_v16_u8 = OclBuiltinImpl<mask_vload_cas, [v16u8], 0, MaskVLoadV16U8>;
+OclBuiltinImpl mask_vload_las_v16_u8 = OclBuiltinImpl<mask_vload_las, [v16u8], 0, MaskVLoadV16U8>;
+OclBuiltinImpl mask_vload_pas_v16_u8 = OclBuiltinImpl<mask_vload_pas, [v16u8], 0, MaskVLoadV16U8>;
+
+code MaskVLoadV16I8 = [{
+    // TODO: MASK_VLOAD_V16I8
+    return ($ReturnType)0;
+  }];
+OclBuiltinImpl mask_vload_gas_v16_i8 = OclBuiltinImpl<mask_vload_gas, [v16i8], 0, MaskVLoadV16I8>;
+OclBuiltinImpl mask_vload_cas_v16_i8 = OclBuiltinImpl<mask_vload_cas, [v16i8], 0, MaskVLoadV16I8>;
+OclBuiltinImpl mask_vload_las_v16_i8 = OclBuiltinImpl<mask_vload_las, [v16i8], 0, MaskVLoadV16I8>;
+OclBuiltinImpl mask_vload_pas_v16_i8 = OclBuiltinImpl<mask_vload_pas, [v16i8], 0, MaskVLoadV16I8>;
+
+code MaskVLoadV16U16 = [{
+    // TODO: MASK_VLOAD_V16U16
+    return ($ReturnType)0;
+  }];
+OclBuiltinImpl mask_vload_gas_v16_u16 = OclBuiltinImpl<mask_vload_gas, [v16u16], 0, MaskVLoadV16U16>;
+OclBuiltinImpl mask_vload_cas_v16_u16 = OclBuiltinImpl<mask_vload_cas, [v16u16], 0, MaskVLoadV16U16>;
+OclBuiltinImpl mask_vload_las_v16_u16 = OclBuiltinImpl<mask_vload_las, [v16u16], 0, MaskVLoadV16U16>;
+OclBuiltinImpl mask_vload_pas_v16_u16 = OclBuiltinImpl<mask_vload_pas, [v16u16], 0, MaskVLoadV16U16>;
+
+code MaskVLoadV16I16 = [{
+    // TODO: MASK_VLOAD_V16I16
+    return ($ReturnType)0;
+  }];
+OclBuiltinImpl mask_vload_gas_v16_i16 = OclBuiltinImpl<mask_vload_gas, [v16i16], 0, MaskVLoadV16I16>;
+OclBuiltinImpl mask_vload_cas_v16_i16 = OclBuiltinImpl<mask_vload_cas, [v16i16], 0, MaskVLoadV16I16>;
+OclBuiltinImpl mask_vload_las_v16_i16 = OclBuiltinImpl<mask_vload_las, [v16i16], 0, MaskVLoadV16I16>;
+OclBuiltinImpl mask_vload_pas_v16_i16 = OclBuiltinImpl<mask_vload_pas, [v16i16], 0, MaskVLoadV16I16>;
+
+code MaskVLoadV16UI32 = [{
+    __m512 $ReturnVarName = _mm512_undefined_ps();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_loadunpackld($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_loadunpackhd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_loadd((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return as_$ReturnType($ReturnVarName);
+  }];
+OclBuiltinImpl mask_vload_gas_v16_i32 = OclBuiltinImpl<mask_vload_gas, [v16i32, v16u32], 0, MaskVLoadV16UI32>;
+OclBuiltinImpl mask_vload_cas_v16_i32 = OclBuiltinImpl<mask_vload_cas, [v16i32, v16u32], 0, MaskVLoadV16UI32>;
+OclBuiltinImpl mask_vload_las_v16_i32 = OclBuiltinImpl<mask_vload_las, [v16i32, v16u32], 0, MaskVLoadV16UI32>;
+OclBuiltinImpl mask_vload_pas_v16_i32 = OclBuiltinImpl<mask_vload_pas, [v16i32, v16u32], 0, MaskVLoadV16UI32>;
+
+code MaskVLoadV16F32 = [{
+    $ReturnType $ReturnVarName = _mm512_undefined_ps();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_loadunpackld($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_loadunpackhd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_loadd((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return $ReturnVarName;
+  }];
+OclBuiltinImpl mask_vload_gas_v16_f32 = OclBuiltinImpl<mask_vload_gas, [v16f32], 0, MaskVLoadV16F32>;
+OclBuiltinImpl mask_vload_cas_v16_f32 = OclBuiltinImpl<mask_vload_cas, [v16f32], 0, MaskVLoadV16F32>;
+OclBuiltinImpl mask_vload_las_v16_f32 = OclBuiltinImpl<mask_vload_las, [v16f32], 0, MaskVLoadV16F32>;
+OclBuiltinImpl mask_vload_pas_v16_f32 = OclBuiltinImpl<mask_vload_pas, [v16f32], 0, MaskVLoadV16F32>;
+
+code MaskVLoadV8UI64 = [{
+    __m512d $ReturnVarName = _mm512_undefined_pd();
+    switch ($Arg0VarName) {
+      case 0xFF:
+        $ReturnVarName = _mm512_loadunpacklq($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_loadunpackhq($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0F:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x07:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x03:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x01:
+        $ReturnVarName = _mm512_loadq((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC64_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
+        break;
+    }
+    return as_$ReturnType($ReturnVarName);
+  }];
+OclBuiltinImpl mask_vload_gas_v8_ui64 = OclBuiltinImpl<mask_vload_gas, [v8i64, v8u64], 0, MaskVLoadV8UI64>;
+OclBuiltinImpl mask_vload_cas_v8_ui64 = OclBuiltinImpl<mask_vload_cas, [v8i64, v8u64], 0, MaskVLoadV8UI64>;
+OclBuiltinImpl mask_vload_las_v8_ui64 = OclBuiltinImpl<mask_vload_las, [v8i64, v8u64], 0, MaskVLoadV8UI64>;
+OclBuiltinImpl mask_vload_pas_v8_ui64 = OclBuiltinImpl<mask_vload_pas, [v8i64, v8u64], 0, MaskVLoadV8UI64>;
+
+code MaskVLoadV8F64 = [{
+    $ReturnType $ReturnVarName = _mm512_undefined_pd();
+    switch ($Arg0VarName) {
+      case 0xFF:
+        $ReturnVarName = _mm512_loadunpacklq($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_loadunpackhq($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x0F:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x07:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x03:
+        $ReturnVarName = _mm512_mask_loadunpacklq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_loadunpackhq($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC64_NONE, _MM_HINT_NONE);
+        break;
+      case 0x01:
+        $ReturnVarName = _mm512_loadq((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC64_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
+        break;
+    }
+    return $ReturnVarName;
+  }];
+OclBuiltinImpl mask_vload_gas_v8_f64 = OclBuiltinImpl<mask_vload_gas, [v8f64], 0, MaskVLoadV8F64>;
+OclBuiltinImpl mask_vload_cas_v8_f64 = OclBuiltinImpl<mask_vload_cas, [v8f64], 0, MaskVLoadV8F64>;
+OclBuiltinImpl mask_vload_las_v8_f64 = OclBuiltinImpl<mask_vload_las, [v8f64], 0, MaskVLoadV8F64>;
+OclBuiltinImpl mask_vload_pas_v8_f64 = OclBuiltinImpl<mask_vload_pas, [v8f64], 0, MaskVLoadV8F64>;
+
+code VLoadPromote = [{
+    $NativeReturnType $ReturnVarName = mask_vload($Mask, $Arg0VarName, $Arg1VarName);
+    return $ReturnVarName$Pattern;
+  }];
+code VLoadExpand = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName, $Arg1VarName);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName, $Arg1VarName + $VecLength/2);
+    return $ReturnVarName;
+  }];
+OclBuiltinImpl vload_gas_promote  = OclBuiltinImpl<vload_gas, non_v16x64_types, 0, VLoadPromote>;
+OclBuiltinImpl vload_cas_promote  = OclBuiltinImpl<vload_cas, non_v16x64_types, 0, VLoadPromote>;
+OclBuiltinImpl vload_las_promote  = OclBuiltinImpl<vload_las, non_v16x64_types, 0, VLoadPromote>;
+OclBuiltinImpl vload_pas_promote  = OclBuiltinImpl<vload_pas, non_v16x64_types, 0, VLoadPromote>;
+OclBuiltinImpl vload_gas_expand   = OclBuiltinImpl<vload_gas, all_v16x64_types, 0, VLoadExpand>;
+OclBuiltinImpl vload_cas_expand   = OclBuiltinImpl<vload_cas, all_v16x64_types, 0, VLoadExpand>;
+OclBuiltinImpl vload_las_expand   = OclBuiltinImpl<vload_las, all_v16x64_types, 0, VLoadExpand>;
+OclBuiltinImpl vload_pas_expand   = OclBuiltinImpl<vload_pas, all_v16x64_types, 0, VLoadExpand>;
+
+// vstore
+code MaskVStoreV16U8 = [{
+    // TODO: MASK_VSTORE_V16U8
+  }];
+OclBuiltinImpl mask_vstore_gas_v16_u8 = OclBuiltinImpl<mask_vstore_gas, [v16u8], 0, MaskVStoreV16U8>;
+OclBuiltinImpl mask_vstore_las_v16_u8 = OclBuiltinImpl<mask_vstore_las, [v16u8], 0, MaskVStoreV16U8>;
+OclBuiltinImpl mask_vstore_pas_v16_u8 = OclBuiltinImpl<mask_vstore_pas, [v16u8], 0, MaskVStoreV16U8>;
+
+code MaskVStoreV16I8 = [{
+    // TODO: MASK_VSTORE_V16I8
+  }];
+OclBuiltinImpl mask_vstore_gas_v16_i8 = OclBuiltinImpl<mask_vstore_gas, [v16i8], 0, MaskVStoreV16I8>;
+OclBuiltinImpl mask_vstore_las_v16_i8 = OclBuiltinImpl<mask_vstore_las, [v16i8], 0, MaskVStoreV16I8>;
+OclBuiltinImpl mask_vstore_pas_v16_i8 = OclBuiltinImpl<mask_vstore_pas, [v16i8], 0, MaskVStoreV16I8>;
+
+code MaskVStoreV16U16 = [{
+    // TODO: MASK_VSTORE_V16U16
+  }];
+OclBuiltinImpl mask_vstore_gas_v16_u16 = OclBuiltinImpl<mask_vstore_gas, [v16u16], 0, MaskVStoreV16U16>;
+OclBuiltinImpl mask_vstore_las_v16_u16 = OclBuiltinImpl<mask_vstore_las, [v16u16], 0, MaskVStoreV16U16>;
+OclBuiltinImpl mask_vstore_pas_v16_u16 = OclBuiltinImpl<mask_vstore_pas, [v16u16], 0, MaskVStoreV16U16>;
+
+code MaskVStoreV16I16 = [{
+    // TODO: MASK_VSTORE_V16I16
+  }];
+OclBuiltinImpl mask_vstore_gas_v16_i16 = OclBuiltinImpl<mask_vstore_gas, [v16i16], 0, MaskVStoreV16I16>;
+OclBuiltinImpl mask_vstore_las_v16_i16 = OclBuiltinImpl<mask_vstore_las, [v16i16], 0, MaskVStoreV16I16>;
+OclBuiltinImpl mask_vstore_pas_v16_i16 = OclBuiltinImpl<mask_vstore_pas, [v16i16], 0, MaskVStoreV16I16>;
+
+code MaskVStoreV16UIF32 = [{
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 16)), (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 16)), (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_stored((void *)($Arg3VarName + $Arg2VarName), (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_SUBSET32_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+OclBuiltinImpl mask_vstore_gas_v16_uif32 = OclBuiltinImpl<mask_vstore_gas, [v16i32, v16u32, v16f32], 0, MaskVStoreV16UIF32>;
+OclBuiltinImpl mask_vstore_las_v16_uif32 = OclBuiltinImpl<mask_vstore_las, [v16i32, v16u32, v16f32], 0, MaskVStoreV16UIF32>;
+OclBuiltinImpl mask_vstore_pas_v16_uif32 = OclBuiltinImpl<mask_vstore_pas, [v16i32, v16u32, v16f32], 0, MaskVStoreV16UIF32>;
+
+code MaskVStoreV8UIF64 = [{
+    switch ($Arg0VarName) {
+        case 0xFF:
+            _mm512_packstorelq((void *)($Arg3VarName + ($Arg2VarName * 8)), (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_packstorehq((void *)($Arg3VarName + ($Arg2VarName * 8)), (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            break;
+        case 0x0F:
+            _mm512_mask_packstorelq((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            break;
+        case 0x07:
+            _mm512_mask_packstorelq((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            break;
+        case 0x03:
+            _mm512_mask_packstorelq((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            _mm512_mask_packstorehq((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_HINT_NONE);
+            break;
+        case 0x01:
+            _mm512_storeq((void *)($Arg3VarName + $Arg2VarName), (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_SUBSET64_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+OclBuiltinImpl mask_vstore_gas_v8_uif64 = OclBuiltinImpl<mask_vstore_gas, [v8i64, v8u64, v8f64], 0, MaskVStoreV8UIF64>;
+OclBuiltinImpl mask_vstore_las_v8_uif64 = OclBuiltinImpl<mask_vstore_las, [v8i64, v8u64, v8f64], 0, MaskVStoreV8UIF64>;
+OclBuiltinImpl mask_vstore_pas_v8_uif64 = OclBuiltinImpl<mask_vstore_pas, [v8i64, v8u64, v8f64], 0, MaskVStoreV8UIF64>;
+
+code VStorePromote = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreExpand = [{
+    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName, $Arg2VarName);
+    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName, $Arg2VarName + $VecLength/2);
+  }];
+OclBuiltinImpl vstore_gas_promote = OclBuiltinImpl<vstore_gas, non_v16x64_types, 0, VStorePromote>;
+OclBuiltinImpl vstore_las_promote = OclBuiltinImpl<vstore_las, non_v16x64_types, 0, VStorePromote>;
+OclBuiltinImpl vstore_pas_promote = OclBuiltinImpl<vstore_pas, non_v16x64_types, 0, VStorePromote>;
+OclBuiltinImpl vstore_gas_expand  = OclBuiltinImpl<vstore_gas, all_v16x64_types, 0, VStoreExpand>;
+OclBuiltinImpl vstore_las_expand  = OclBuiltinImpl<vstore_las, all_v16x64_types, 0, VStoreExpand>;
+OclBuiltinImpl vstore_pas_expand  = OclBuiltinImpl<vstore_pas, all_v16x64_types, 0, VStoreExpand>;
+
+// vload_half
+code MaskVLoadHalf = [{
+    $ReturnType $ReturnVarName = _mm512_undefined_ps();
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            $ReturnVarName = _mm512_loadunpackld($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_loadunpackhd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            $ReturnVarName = _mm512_loadd((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+            break;
+    }
+    return $ReturnVarName;
+  }];
+code MaskVLoadAHalf = [{
+    $ReturnType $ReturnVarName = _mm512_undefined_ps();
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            $ReturnVarName = _mm512_loadunpackld($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_loadunpackhd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            $ReturnVarName = _mm512_mask_loadunpackld($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_loadunpackhd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_FULLUPC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            $ReturnVarName = _mm512_loadd((void const *)($Arg2VarName + $Arg1VarName), _MM_FULLUPC_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+            break;
+    }
+    return $ReturnVarName;
+  }];
+OclBuiltinImpl mask_vload_half_gas_v16 = OclBuiltinImpl<mask_vload_half_gas, [v16f16], 0, MaskVLoadHalf>;
+OclBuiltinImpl mask_vload_half_cas_v16 = OclBuiltinImpl<mask_vload_half_cas, [v16f16], 0, MaskVLoadHalf>;
+OclBuiltinImpl mask_vload_half_las_v16 = OclBuiltinImpl<mask_vload_half_las, [v16f16], 0, MaskVLoadHalf>;
+OclBuiltinImpl mask_vload_half_pas_v16 = OclBuiltinImpl<mask_vload_half_pas, [v16f16], 0, MaskVLoadHalf>;
+OclBuiltinImpl mask_vloada_half_gas_v16 = OclBuiltinImpl<mask_vloada_half_gas, [v16f16], 0, MaskVLoadAHalf>;
+OclBuiltinImpl mask_vloada_half_cas_v16 = OclBuiltinImpl<mask_vloada_half_cas, [v16f16], 0, MaskVLoadAHalf>;
+OclBuiltinImpl mask_vloada_half_las_v16 = OclBuiltinImpl<mask_vloada_half_las, [v16f16], 0, MaskVLoadAHalf>;
+OclBuiltinImpl mask_vloada_half_pas_v16 = OclBuiltinImpl<mask_vloada_half_pas, [v16f16], 0, MaskVLoadAHalf>;
+
+code VLoadHalfPromote = [{
+    $NativeReturnType $ReturnVarName = mask_vload_half($Mask, $Arg0VarName, $Arg1VarName);
+    return $ReturnVarName$Pattern;
+  }];
+code VLoadAHalfPromote = [{
+    $NativeReturnType $ReturnVarName = mask_vloada_half($Mask, $Arg0VarName, $Arg1VarName);
+    return $ReturnVarName$Pattern;
+  }];
+OclBuiltinImpl vload_half_gas_promote = OclBuiltinImpl<vload_half_gas, vload_half_gas.Types, 0, VLoadHalfPromote>;
+OclBuiltinImpl vload_half_cas_promote = OclBuiltinImpl<vload_half_cas, vload_half_cas.Types, 0, VLoadHalfPromote>;
+OclBuiltinImpl vload_half_las_promote = OclBuiltinImpl<vload_half_las, vload_half_las.Types, 0, VLoadHalfPromote>;
+OclBuiltinImpl vload_half_pas_promote = OclBuiltinImpl<vload_half_pas, vload_half_pas.Types, 0, VLoadHalfPromote>;
+OclBuiltinImpl vloada_half_gas_promote = OclBuiltinImpl<vloada_half_gas, vloada_half_gas.Types, 0, VLoadAHalfPromote>;
+OclBuiltinImpl vloada_half_cas_promote = OclBuiltinImpl<vloada_half_cas, vloada_half_cas.Types, 0, VLoadAHalfPromote>;
+OclBuiltinImpl vloada_half_las_promote = OclBuiltinImpl<vloada_half_las, vloada_half_las.Types, 0, VLoadAHalfPromote>;
+OclBuiltinImpl vloada_half_pas_promote = OclBuiltinImpl<vloada_half_pas, vloada_half_pas.Types, 0, VLoadAHalfPromote>;
+
+// vstoref_half/vstored_half
+code MaskVStoreFHalf = [{
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreFHalfRTE = [{
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_stored((void *)($Arg3VarName + $Arg2VarName), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_SUBSET32_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+code MaskVStoreFHalfRTZ = [{
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_stored((void *)($Arg3VarName + $Arg2VarName), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_SUBSET32_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+code MaskVStoreFHalfRTP = [{
+    // Ignore NaN and negative values and handle positive values only.
+    // +infinity is fine as its mantissa is all 0s.
+    $Arg0Type p$Arg0VarName;
+    p$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, (float16)0, $Arg1VarName);
+    p$Arg0VarName = _mm512_mask_cmplt_ps(p$Arg0VarName, (float16)0, $Arg1VarName);
+    // float: S E8 M23
+    //  half: S E5 M10
+    // g bit M12
+    // r bit M11
+    // s bit M10-0
+    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
+    g$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
+    r$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
+    s$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
+    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
+    // will be rounded in round-nearest-even.)
+    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreFHalfRTN = [{
+    // Ignore NaN and positive values and handle negative values only.
+    // -infinity is fine as its mantissa is all 0s.
+    $Arg0Type n$Arg0VarName;
+    n$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, $Arg1VarName, (float16)0);
+    n$Arg0VarName = _mm512_mask_cmplt_ps(n$Arg0VarName, $Arg1VarName, (float16)0);
+    // float: S E8 M23
+    //  half: S E5 M10
+    // g bit M12
+    // r bit M11
+    // s bit M10-0
+    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
+    g$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
+    r$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
+    s$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
+    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
+    // will be rounded in round-nearest-even.)
+    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+OclBuiltinImpl mask_vstoref_half_gas_v16      = OclBuiltinImpl<mask_vstoref_half_gas,     [v16f16], 0, MaskVStoreFHalf>;
+OclBuiltinImpl mask_vstoref_half_las_v16      = OclBuiltinImpl<mask_vstoref_half_las,     [v16f16], 0, MaskVStoreFHalf>;
+OclBuiltinImpl mask_vstoref_half_pas_v16      = OclBuiltinImpl<mask_vstoref_half_pas,     [v16f16], 0, MaskVStoreFHalf>;
+OclBuiltinImpl mask_vstoref_half_rte_gas_v16  = OclBuiltinImpl<mask_vstoref_half_rte_gas, [v16f16], 0, MaskVStoreFHalfRTE>;
+OclBuiltinImpl mask_vstoref_half_rte_las_v16  = OclBuiltinImpl<mask_vstoref_half_rte_las, [v16f16], 0, MaskVStoreFHalfRTE>;
+OclBuiltinImpl mask_vstoref_half_rte_pas_v16  = OclBuiltinImpl<mask_vstoref_half_rte_pas, [v16f16], 0, MaskVStoreFHalfRTE>;
+OclBuiltinImpl mask_vstoref_half_rtz_gas_v16  = OclBuiltinImpl<mask_vstoref_half_rtz_gas, [v16f16], 0, MaskVStoreFHalfRTZ>;
+OclBuiltinImpl mask_vstoref_half_rtz_las_v16  = OclBuiltinImpl<mask_vstoref_half_rtz_las, [v16f16], 0, MaskVStoreFHalfRTZ>;
+OclBuiltinImpl mask_vstoref_half_rtz_pas_v16  = OclBuiltinImpl<mask_vstoref_half_rtz_pas, [v16f16], 0, MaskVStoreFHalfRTZ>;
+OclBuiltinImpl mask_vstoref_half_rtp_gas_v16  = OclBuiltinImpl<mask_vstoref_half_rtp_gas, [v16f16], 0, MaskVStoreFHalfRTP>;
+OclBuiltinImpl mask_vstoref_half_rtp_las_v16  = OclBuiltinImpl<mask_vstoref_half_rtp_las, [v16f16], 0, MaskVStoreFHalfRTP>;
+OclBuiltinImpl mask_vstoref_half_rtp_pas_v16  = OclBuiltinImpl<mask_vstoref_half_rtp_pas, [v16f16], 0, MaskVStoreFHalfRTP>;
+OclBuiltinImpl mask_vstoref_half_rtn_gas_v16  = OclBuiltinImpl<mask_vstoref_half_rtn_gas, [v16f16], 0, MaskVStoreFHalfRTN>;
+OclBuiltinImpl mask_vstoref_half_rtn_las_v16  = OclBuiltinImpl<mask_vstoref_half_rtn_las, [v16f16], 0, MaskVStoreFHalfRTN>;
+OclBuiltinImpl mask_vstoref_half_rtn_pas_v16  = OclBuiltinImpl<mask_vstoref_half_rtn_pas, [v16f16], 0, MaskVStoreFHalfRTN>;
+
+code MaskVStoreDHalf = [{
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreDHalfRTE = [{
+    // TODO: MASK_VSTORED_HALF_RTE
+  }];
+code MaskVStoreDHalfRTZ = [{
+    // TODO: MASK_VSTORED_HALF_RTZ
+  }];
+code MaskVStoreDHalfRTP = [{
+    // TODO: MASK_VSTORED_HALF_RTP
+  }];
+code MaskVStoreDHalfRTN = [{
+    // TODO: MASK_VSTORED_HALF_RTN
+  }];
+OclBuiltinImpl mask_vstored_half_gas_v16      = OclBuiltinImpl<mask_vstored_half_gas,     [ v8f16], 0, MaskVStoreDHalf>;
+OclBuiltinImpl mask_vstored_half_las_v16      = OclBuiltinImpl<mask_vstored_half_las,     [ v8f16], 0, MaskVStoreDHalf>;
+OclBuiltinImpl mask_vstored_half_pas_v16      = OclBuiltinImpl<mask_vstored_half_pas,     [ v8f16], 0, MaskVStoreDHalf>;
+OclBuiltinImpl mask_vstored_half_rte_gas_v16  = OclBuiltinImpl<mask_vstored_half_rte_gas, [ v8f16], 0, MaskVStoreDHalfRTE>;
+OclBuiltinImpl mask_vstored_half_rte_las_v16  = OclBuiltinImpl<mask_vstored_half_rte_las, [ v8f16], 0, MaskVStoreDHalfRTE>;
+OclBuiltinImpl mask_vstored_half_rte_pas_v16  = OclBuiltinImpl<mask_vstored_half_rte_pas, [ v8f16], 0, MaskVStoreDHalfRTE>;
+OclBuiltinImpl mask_vstored_half_rtz_gas_v16  = OclBuiltinImpl<mask_vstored_half_rtz_gas, [ v8f16], 0, MaskVStoreDHalfRTZ>;
+OclBuiltinImpl mask_vstored_half_rtz_las_v16  = OclBuiltinImpl<mask_vstored_half_rtz_las, [ v8f16], 0, MaskVStoreDHalfRTZ>;
+OclBuiltinImpl mask_vstored_half_rtz_pas_v16  = OclBuiltinImpl<mask_vstored_half_rtz_pas, [ v8f16], 0, MaskVStoreDHalfRTZ>;
+OclBuiltinImpl mask_vstored_half_rtp_gas_v16  = OclBuiltinImpl<mask_vstored_half_rtp_gas, [ v8f16], 0, MaskVStoreDHalfRTP>;
+OclBuiltinImpl mask_vstored_half_rtp_las_v16  = OclBuiltinImpl<mask_vstored_half_rtp_las, [ v8f16], 0, MaskVStoreDHalfRTP>;
+OclBuiltinImpl mask_vstored_half_rtp_pas_v16  = OclBuiltinImpl<mask_vstored_half_rtp_pas, [ v8f16], 0, MaskVStoreDHalfRTP>;
+OclBuiltinImpl mask_vstored_half_rtn_gas_v16  = OclBuiltinImpl<mask_vstored_half_rtn_gas, [ v8f16], 0, MaskVStoreDHalfRTN>;
+OclBuiltinImpl mask_vstored_half_rtn_las_v16  = OclBuiltinImpl<mask_vstored_half_rtn_las, [ v8f16], 0, MaskVStoreDHalfRTN>;
+OclBuiltinImpl mask_vstored_half_rtn_pas_v16  = OclBuiltinImpl<mask_vstored_half_rtn_pas, [ v8f16], 0, MaskVStoreDHalfRTN>;
+
+// vstoreaf_half/vstoread_half
+code MaskVStoreAFHalf = [{
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreAFHalfRTE = [{
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_stored((void *)($Arg3VarName + $Arg2VarName), $Arg1VarName, _MM_DOWNC_FLOAT16, _MM_SUBSET32_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+code MaskVStoreAFHalfRTZ = [{
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_packstoreld((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            _mm512_mask_packstorehd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_stored((void *)($Arg3VarName + $Arg2VarName), $Arg1VarName, _MM_DOWNC_FLOAT16RZ, _MM_SUBSET32_1, _MM_HINT_NONE);
+            break;
+    }
+  }];
+code MaskVStoreAFHalfRTP = [{
+    // Ignore NaN and negative values and handle positive values only.
+    // +infinity is fine as its mantissa is all 0s.
+    $Arg0Type p$Arg0VarName;
+    p$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, (float16)0, $Arg1VarName);
+    p$Arg0VarName = _mm512_mask_cmplt_ps(p$Arg0VarName, (float16)0, $Arg1VarName);
+    // float: S E8 M23
+    //  half: S E5 M10
+    // g bit M12
+    // r bit M11
+    // s bit M10-0
+    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
+    g$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
+    r$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
+    s$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
+    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
+    // will be rounded in round-nearest-even.)
+    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreAFHalfRTN = [{
+    // Ignore NaN and positive values and handle negative values only.
+    // -infinity is fine as its mantissa is all 0s.
+    $Arg0Type n$Arg0VarName;
+    n$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, $Arg1VarName, (float16)0);
+    n$Arg0VarName = _mm512_mask_cmplt_ps(n$Arg0VarName, $Arg1VarName, (float16)0);
+    // float: S E8 M23
+    //  half: S E5 M10
+    // g bit M12
+    // r bit M11
+    // s bit M10-0
+    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
+    g$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
+    r$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
+    s$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
+    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
+    // will be rounded in round-nearest-even.)
+    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+OclBuiltinImpl mask_vstoreaf_half_gas_v16     = OclBuiltinImpl<mask_vstoreaf_half_gas,      [v16f16], 0, MaskVStoreAFHalf>;
+OclBuiltinImpl mask_vstoreaf_half_las_v16     = OclBuiltinImpl<mask_vstoreaf_half_las,      [v16f16], 0, MaskVStoreAFHalf>;
+OclBuiltinImpl mask_vstoreaf_half_pas_v16     = OclBuiltinImpl<mask_vstoreaf_half_pas,      [v16f16], 0, MaskVStoreAFHalf>;
+OclBuiltinImpl mask_vstoreaf_half_rte_gas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rte_gas,  [v16f16], 0, MaskVStoreAFHalfRTE>;
+OclBuiltinImpl mask_vstoreaf_half_rte_las_v16 = OclBuiltinImpl<mask_vstoreaf_half_rte_las,  [v16f16], 0, MaskVStoreAFHalfRTE>;
+OclBuiltinImpl mask_vstoreaf_half_rte_pas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rte_pas,  [v16f16], 0, MaskVStoreAFHalfRTE>;
+OclBuiltinImpl mask_vstoreaf_half_rtz_gas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtz_gas,  [v16f16], 0, MaskVStoreAFHalfRTZ>;
+OclBuiltinImpl mask_vstoreaf_half_rtz_las_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtz_las,  [v16f16], 0, MaskVStoreAFHalfRTZ>;
+OclBuiltinImpl mask_vstoreaf_half_rtz_pas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtz_pas,  [v16f16], 0, MaskVStoreAFHalfRTZ>;
+OclBuiltinImpl mask_vstoreaf_half_rtp_gas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtp_gas,  [v16f16], 0, MaskVStoreAFHalfRTP>;
+OclBuiltinImpl mask_vstoreaf_half_rtp_las_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtp_las,  [v16f16], 0, MaskVStoreAFHalfRTP>;
+OclBuiltinImpl mask_vstoreaf_half_rtp_pas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtp_pas,  [v16f16], 0, MaskVStoreAFHalfRTP>;
+OclBuiltinImpl mask_vstoreaf_half_rtn_gas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtn_gas,  [v16f16], 0, MaskVStoreAFHalfRTN>;
+OclBuiltinImpl mask_vstoreaf_half_rtn_las_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtn_las,  [v16f16], 0, MaskVStoreAFHalfRTN>;
+OclBuiltinImpl mask_vstoreaf_half_rtn_pas_v16 = OclBuiltinImpl<mask_vstoreaf_half_rtn_pas,  [v16f16], 0, MaskVStoreAFHalfRTN>;
+
+code MaskVStoreADHalf = [{
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+code MaskVStoreADHalfRTE = [{
+    // TODO: MASK_VSTOREAD_HALF_RTE
+  }];
+code MaskVStoreADHalfRTZ = [{
+    // TODO: MASK_VSTOREAD_HALF_RTZ
+  }];
+code MaskVStoreADHalfRTP = [{
+    // TODO: MASK_VSTOREAD_HALF_RTP
+  }];
+code MaskVStoreADHalfRTN = [{
+    // TODO: MASK_VSTOREAD_HALF_RTN
+  }];
+OclBuiltinImpl mask_vstoread_half_gas_v16     = OclBuiltinImpl<mask_vstoread_half_gas,      [ v8f16], 0, MaskVStoreADHalf>;
+OclBuiltinImpl mask_vstoread_half_las_v16     = OclBuiltinImpl<mask_vstoread_half_las,      [ v8f16], 0, MaskVStoreADHalf>;
+OclBuiltinImpl mask_vstoread_half_pas_v16     = OclBuiltinImpl<mask_vstoread_half_pas,      [ v8f16], 0, MaskVStoreADHalf>;
+OclBuiltinImpl mask_vstoread_half_rte_gas_v16 = OclBuiltinImpl<mask_vstoread_half_rte_gas,  [ v8f16], 0, MaskVStoreADHalfRTE>;
+OclBuiltinImpl mask_vstoread_half_rte_las_v16 = OclBuiltinImpl<mask_vstoread_half_rte_las,  [ v8f16], 0, MaskVStoreADHalfRTE>;
+OclBuiltinImpl mask_vstoread_half_rte_pas_v16 = OclBuiltinImpl<mask_vstoread_half_rte_pas,  [ v8f16], 0, MaskVStoreADHalfRTE>;
+OclBuiltinImpl mask_vstoread_half_rtz_gas_v16 = OclBuiltinImpl<mask_vstoread_half_rtz_gas,  [ v8f16], 0, MaskVStoreADHalfRTZ>;
+OclBuiltinImpl mask_vstoread_half_rtz_las_v16 = OclBuiltinImpl<mask_vstoread_half_rtz_las,  [ v8f16], 0, MaskVStoreADHalfRTZ>;
+OclBuiltinImpl mask_vstoread_half_rtz_pas_v16 = OclBuiltinImpl<mask_vstoread_half_rtz_pas,  [ v8f16], 0, MaskVStoreADHalfRTZ>;
+OclBuiltinImpl mask_vstoread_half_rtp_gas_v16 = OclBuiltinImpl<mask_vstoread_half_rtp_gas,  [ v8f16], 0, MaskVStoreADHalfRTP>;
+OclBuiltinImpl mask_vstoread_half_rtp_las_v16 = OclBuiltinImpl<mask_vstoread_half_rtp_las,  [ v8f16], 0, MaskVStoreADHalfRTP>;
+OclBuiltinImpl mask_vstoread_half_rtp_pas_v16 = OclBuiltinImpl<mask_vstoread_half_rtp_pas,  [ v8f16], 0, MaskVStoreADHalfRTP>;
+OclBuiltinImpl mask_vstoread_half_rtn_gas_v16 = OclBuiltinImpl<mask_vstoread_half_rtn_gas,  [ v8f16], 0, MaskVStoreADHalfRTN>;
+OclBuiltinImpl mask_vstoread_half_rtn_las_v16 = OclBuiltinImpl<mask_vstoread_half_rtn_las,  [ v8f16], 0, MaskVStoreADHalfRTN>;
+OclBuiltinImpl mask_vstoread_half_rtn_pas_v16 = OclBuiltinImpl<mask_vstoread_half_rtn_pas,  [ v8f16], 0, MaskVStoreADHalfRTN>;
+
+code VStoreHalfPromote = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore_half($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreAHalfPromote = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstorea_half($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreHalfExpand = [{
+    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName, $Arg2VarName);
+    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName, $Arg2VarName + $VecLength/2);
+  }];
+OclBuiltinImpl vstoref_half_gas_promote       = OclBuiltinImpl<vstoref_half_gas,      vstoref_half_gas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_las_promote       = OclBuiltinImpl<vstoref_half_las,      vstoref_half_las.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_pas_promote       = OclBuiltinImpl<vstoref_half_pas,      vstoref_half_pas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rte_gas_promote   = OclBuiltinImpl<vstoref_half_rte_gas,  vstoref_half_rte_gas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rte_las_promote   = OclBuiltinImpl<vstoref_half_rte_las,  vstoref_half_rte_las.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rte_pas_promote   = OclBuiltinImpl<vstoref_half_rte_pas,  vstoref_half_rte_pas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtz_gas_promote   = OclBuiltinImpl<vstoref_half_rtz_gas,  vstoref_half_rtz_gas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtz_las_promote   = OclBuiltinImpl<vstoref_half_rtz_las,  vstoref_half_rtz_las.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtz_pas_promote   = OclBuiltinImpl<vstoref_half_rtz_pas,  vstoref_half_rtz_pas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtp_gas_promote   = OclBuiltinImpl<vstoref_half_rtp_gas,  vstoref_half_rtp_gas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtp_las_promote   = OclBuiltinImpl<vstoref_half_rtp_las,  vstoref_half_rtp_las.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtp_pas_promote   = OclBuiltinImpl<vstoref_half_rtp_pas,  vstoref_half_rtp_pas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtn_gas_promote   = OclBuiltinImpl<vstoref_half_rtn_gas,  vstoref_half_rtn_gas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtn_las_promote   = OclBuiltinImpl<vstoref_half_rtn_las,  vstoref_half_rtn_las.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rtn_pas_promote   = OclBuiltinImpl<vstoref_half_rtn_pas,  vstoref_half_rtn_pas.Types, 0, VStoreHalfPromote>;
+
+OclBuiltinImpl vstored_half_gas_promote       = OclBuiltinImpl<vstored_half_gas,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_las_promote       = OclBuiltinImpl<vstored_half_las,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_pas_promote       = OclBuiltinImpl<vstored_half_pas,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rte_gas_promote   = OclBuiltinImpl<vstored_half_rte_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rte_las_promote   = OclBuiltinImpl<vstored_half_rte_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rte_pas_promote   = OclBuiltinImpl<vstored_half_rte_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtz_gas_promote   = OclBuiltinImpl<vstored_half_rtz_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtz_las_promote   = OclBuiltinImpl<vstored_half_rtz_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtz_pas_promote   = OclBuiltinImpl<vstored_half_rtz_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtp_gas_promote   = OclBuiltinImpl<vstored_half_rtp_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtp_las_promote   = OclBuiltinImpl<vstored_half_rtp_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtp_pas_promote   = OclBuiltinImpl<vstored_half_rtp_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtn_gas_promote   = OclBuiltinImpl<vstored_half_rtn_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtn_las_promote   = OclBuiltinImpl<vstored_half_rtn_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rtn_pas_promote   = OclBuiltinImpl<vstored_half_rtn_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+
+OclBuiltinImpl vstored_half_gas_expand        = OclBuiltinImpl<vstored_half_gas,      [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_las_expand        = OclBuiltinImpl<vstored_half_las,      [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_pas_expand        = OclBuiltinImpl<vstored_half_pas,      [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rte_gas_expand    = OclBuiltinImpl<vstored_half_rte_gas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rte_las_expand    = OclBuiltinImpl<vstored_half_rte_las,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rte_pas_expand    = OclBuiltinImpl<vstored_half_rte_pas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtz_gas_expand    = OclBuiltinImpl<vstored_half_rtz_gas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtz_las_expand    = OclBuiltinImpl<vstored_half_rtz_las,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtz_pas_expand    = OclBuiltinImpl<vstored_half_rtz_pas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtp_gas_expand    = OclBuiltinImpl<vstored_half_rtp_gas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtp_las_expand    = OclBuiltinImpl<vstored_half_rtp_las,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtp_pas_expand    = OclBuiltinImpl<vstored_half_rtp_pas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtn_gas_expand    = OclBuiltinImpl<vstored_half_rtn_gas,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtn_las_expand    = OclBuiltinImpl<vstored_half_rtn_las,  [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstored_half_rtn_pas_expand    = OclBuiltinImpl<vstored_half_rtn_pas,  [v16f16], 0, VStoreHalfExpand>;
+
+OclBuiltinImpl vstoreaf_half_gas_promote      = OclBuiltinImpl<vstoreaf_half_gas,     vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_las_promote      = OclBuiltinImpl<vstoreaf_half_las,     vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_pas_promote      = OclBuiltinImpl<vstoreaf_half_pas,     vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rte_gas_promote  = OclBuiltinImpl<vstoreaf_half_rte_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rte_las_promote  = OclBuiltinImpl<vstoreaf_half_rte_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rte_pas_promote  = OclBuiltinImpl<vstoreaf_half_rte_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtz_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtz_las_promote  = OclBuiltinImpl<vstoreaf_half_rtz_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtz_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtp_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtp_las_promote  = OclBuiltinImpl<vstoreaf_half_rtp_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtp_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtn_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtn_las_promote  = OclBuiltinImpl<vstoreaf_half_rtn_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rtn_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+
+OclBuiltinImpl vstoread_half_gas_promote      = OclBuiltinImpl<vstoread_half_gas,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_las_promote      = OclBuiltinImpl<vstoread_half_las,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_pas_promote      = OclBuiltinImpl<vstoread_half_pas,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rte_gas_promote  = OclBuiltinImpl<vstoread_half_rte_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rte_las_promote  = OclBuiltinImpl<vstoread_half_rte_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rte_pas_promote  = OclBuiltinImpl<vstoread_half_rte_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtz_gas_promote  = OclBuiltinImpl<vstoread_half_rtz_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtz_las_promote  = OclBuiltinImpl<vstoread_half_rtz_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtz_pas_promote  = OclBuiltinImpl<vstoread_half_rtz_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtp_gas_promote  = OclBuiltinImpl<vstoread_half_rtp_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtp_las_promote  = OclBuiltinImpl<vstoread_half_rtp_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtp_pas_promote  = OclBuiltinImpl<vstoread_half_rtp_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtn_gas_promote  = OclBuiltinImpl<vstoread_half_rtn_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtn_las_promote  = OclBuiltinImpl<vstoread_half_rtn_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rtn_pas_promote  = OclBuiltinImpl<vstoread_half_rtn_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+
+OclBuiltinImpl vstoread_half_gas_expand       = OclBuiltinImpl<vstoread_half_gas,     [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_las_expand       = OclBuiltinImpl<vstoread_half_las,     [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_pas_expand       = OclBuiltinImpl<vstoread_half_pas,     [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rte_gas_expand   = OclBuiltinImpl<vstoread_half_rte_gas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rte_las_expand   = OclBuiltinImpl<vstoread_half_rte_las, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rte_pas_expand   = OclBuiltinImpl<vstoread_half_rte_pas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtz_gas_expand   = OclBuiltinImpl<vstoread_half_rtz_gas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtz_las_expand   = OclBuiltinImpl<vstoread_half_rtz_las, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtz_pas_expand   = OclBuiltinImpl<vstoread_half_rtz_pas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtp_gas_expand   = OclBuiltinImpl<vstoread_half_rtp_gas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtp_las_expand   = OclBuiltinImpl<vstoread_half_rtp_las, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtp_pas_expand   = OclBuiltinImpl<vstoread_half_rtp_pas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtn_gas_expand   = OclBuiltinImpl<vstoread_half_rtn_gas, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtn_las_expand   = OclBuiltinImpl<vstoread_half_rtn_las, [v16f16], 0, VStoreHalfExpand>;
+OclBuiltinImpl vstoread_half_rtn_pas_expand   = OclBuiltinImpl<vstoread_half_rtn_pas, [v16f16], 0, VStoreHalfExpand>;
