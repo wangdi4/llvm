@@ -285,11 +285,11 @@ class KNF : Generic {
     return $ReturnVarName;
   }];
 
-include "KNF/math.td"
-include "KNF/integer.td"
-include "KNF/common.td"
-include "KNF/geometry.td"
-include "KNF/relational.td"
-include "KNF/vloadstore.td"
-include "KNF/misc.td"
+include "MIC/math.td"
+include "MIC/integer.td"
+include "MIC/common.td"
+include "MIC/geometry.td"
+include "MIC/relational.td"
+include "MIC/vloadstore.td"
+include "MIC/misc.td"
 }
