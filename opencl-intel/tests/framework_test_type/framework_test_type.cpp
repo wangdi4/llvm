@@ -344,6 +344,10 @@ TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
 {
 	EXPECT_TRUE(fission_read_buffer_between_device_test());
 }
+TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
+{
+	EXPECT_TRUE(fission_backwards_compatability_test());
+}
 TEST(FrameworkTestType, Test_clapiTest)
 {
 	EXPECT_TRUE(api_test());
@@ -366,6 +370,7 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
 {
     EXPECT_TRUE(EventDependenciesTest());
 }
+
 // To run individual tests, use the --gtest_filter=<pattern> command-line 
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest

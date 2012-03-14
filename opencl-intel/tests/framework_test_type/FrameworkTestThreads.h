@@ -52,8 +52,8 @@ public:
 	void WaitAll();
 
 protected:
-	bool                 m_init;
-	SynchronizedThread** m_threads;
-        bool*                m_threadStarted;
-	size_t               m_numThreads;
+    bool                 m_init;
+    SynchronizedThread** m_threads;
+    bool*                m_threadStarted;
+    size_t               m_numThreads;
 };

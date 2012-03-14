@@ -1004,37 +1004,47 @@ cl_err_code PlatformModule::clCreateSubDevicesEXT(cl_device_id device, const cl_
 
 	//Count property list length
 	unsigned int uiPropLength = 0;
+    unsigned int uiPropSkipFirst = 1, uiPropSkipLast = 0;
 	cl_device_partition_property_ext mode = properties[uiPropLength];
 	switch (mode)
 	{
 	case CL_DEVICE_PARTITION_EQUALLY_EXT:
 		//Expected: this token, the requested size, end
 		uiPropLength += 2;
+        uiPropSkipFirst = uiPropSkipLast = 1;
 		break;
 
 	case CL_DEVICE_PARTITION_BY_COUNTS_EXT:
 		//Expected: list of counts, CL_PARTITION_BY_COUNTS_LIST_END_EXT, end
+        uiPropSkipFirst = uiPropSkipLast = 1;
 		++uiPropLength;
 		while (CL_PARTITION_BY_COUNTS_LIST_END_EXT != properties[uiPropLength])
 		{
 			++uiPropLength;
+            ++uiPropSkipLast;
 		}
+        --uiPropSkipLast;
 		++uiPropLength;
 		break;
 
 	case CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT:
 		//Expected: the desired domain, end
+        uiPropSkipFirst = 1;
+        uiPropSkipLast  = 0;
 		uiPropLength += 2;
 		break;
 
 	case CL_DEVICE_PARTITION_BY_NAMES_INTEL:
 		//Expected: list of core IDs, CL_PARTITION_BY_NAMES_LIST_END_INTEL, end
+        uiPropSkipFirst = uiPropSkipLast = 1;
 		++uiPropLength;
 		while (CL_PARTITION_BY_NAMES_LIST_END_INTEL != properties[uiPropLength])
 		{
 			++uiPropLength;
+            ++uiPropSkipLast;
 		}
 		++uiPropLength;
+        --uiPropSkipLast;
 		break;
 	}
 	if (CL_PROPERTIES_LIST_END_EXT != properties[uiPropLength])
@@ -1050,7 +1060,15 @@ cl_err_code PlatformModule::clCreateSubDevicesEXT(cl_device_id device, const cl_
 
 	for (unsigned int ui = 0; ui < uiPropLength; ++ui)
 	{
-		newProp[ui] = translatePartitionPropertyExt(properties[ui]);
+        //Skip over arguments like the IDs of threads for PARTITION_BY_NAMES etc
+        if ((ui >= uiPropSkipFirst) && (ui <= uiPropSkipLast))
+        {
+            newProp[ui] = (cl_device_partition_property)properties[ui];
+        }
+        else
+        {
+		    newProp[ui] = translatePartitionPropertyExt(properties[ui]);
+        }
 	}
 	ret = clCreateSubDevices(device, newProp, num_entries, out_devices, num_devices);
 	delete[] newProp;
