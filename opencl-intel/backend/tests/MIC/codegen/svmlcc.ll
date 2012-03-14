@@ -1,0 +1,23 @@
+; XFAIL: win32
+;
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:       -march=y86-64 -mcpu=knf \
+; RUN:     | FileCheck %s -check-prefix=KNF
+;
+; RUNc: llc < %s -mtriple=x86_64-pc-linux \
+; RUNc:       -march=y86-64 -mcpu=knc \
+; RUNc:     | FileCheck %s -check-prefix=KNC
+;
+
+; arg1 pass in v0, arg2 passed on the stack
+declare x86_svmlcc float @__ocl_svml_b1_fractf1(float, float*)
+
+define void @relaxed_test(float* %arg1, float* %arg2) {
+; KNF: vloadd    (%rdi){1to16}, %v0
+; KNF: subq      $16, %rsp
+; KNF: movq      %rsi, (%rsp)
+entry:
+  %ld = load float* %arg1
+  %call.i.i = call x86_svmlcc float @__ocl_svml_b1_fractf1(float %ld, float* %arg2) nounwind
+  ret void
+}
