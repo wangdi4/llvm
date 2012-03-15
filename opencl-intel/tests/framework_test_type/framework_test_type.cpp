@@ -51,6 +51,11 @@ TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
     EXPECT_TRUE(clBuildProgramWithSourceTest());
 }
 
+TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
+{
+    EXPECT_TRUE(clBuildProgramTwiceTest());
+}
+
 TEST(FrameworkTestType, Test_clLinkProgramTest)
 {
     EXPECT_TRUE(clLinkProgramTest());

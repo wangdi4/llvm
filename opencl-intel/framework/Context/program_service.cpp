@@ -400,6 +400,10 @@ bool PostBuildTask::Execute()
             m_pProg->SetStateInternal(devID, DEVICE_PROGRAM_BUILD_DONE);
             break;
 
+        case DEVICE_PROGRAM_BUILD_DONE:
+            // PostBuildTask was only called for cleanup
+            break;
+
         default:
             bBuildFailed = true;
             break;
@@ -598,11 +602,14 @@ cl_err_code ProgramService::CompileProgram(Program *program,
             cl_device_id deviceID = device_list[i];
             if (!program->Acquire(deviceID))
             {
-                //Release all accesses already acquired
-				for (cl_uint j = i - 1; j >= 0; --j)
-				{
-                    program->Unacquire(device_list[j]);
-				}
+                if (0 < i)
+                {
+                    //Release all accesses already acquired
+				    for (cl_uint j = i - 1; j >= 0; --j)
+				    {
+                        program->Unacquire(device_list[j]);
+				    }
+                }
 
                 delete[] szBuildOptions;
                 delete[] pDevices;
@@ -737,8 +744,6 @@ cl_err_code ProgramService::CompileProgram(Program *program,
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    pPostBuildTask->AddFloatingDependence();
-
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL != ppCompileTasks[i])
@@ -749,8 +754,6 @@ cl_err_code ProgramService::CompileProgram(Program *program,
 
     // Add pendency so that the event won't be released before we query its return code
     pPostBuildTask->AddPendency(NULL);
-
-    pPostBuildTask->RemoveFloatingDependence();
 
     // Add pendency in case of asynchronous build
     program->AddPendency(NULL);
@@ -1042,8 +1045,6 @@ cl_err_code ProgramService::LinkProgram(Program *program,
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    pPostBuildTask->AddFloatingDependence();
-
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL != ppLinkTasks[i])
@@ -1054,8 +1055,6 @@ cl_err_code ProgramService::LinkProgram(Program *program,
 
     // Add pendency so that the event won't be released before we query its return code
     pPostBuildTask->AddPendency(NULL);
-
-    pPostBuildTask->RemoveFloatingDependence();
 
     // Add pendency in case of asynchronous build
     program->AddPendency(NULL);
@@ -1185,11 +1184,14 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
             cl_device_id deviceID = device_list[i];
             if (!program->Acquire(deviceID))
             {
-                //Release all accesses already acquired
-				for (cl_uint j = i - 1; j >= 0; --j)
-				{
-                    program->Unacquire(device_list[j]);
-				}
+                if (0 < i)
+                {
+                    //Release all accesses already acquired
+                    for (cl_uint j = i - 1; j >= 0; --j)
+				    {
+                        program->Unacquire(device_list[j]);
+				    }
+                }
 
                 delete[] szBuildOptions;
 				delete[] pDevices;
@@ -1332,8 +1334,6 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    pPostBuildTask->AddFloatingDependence();
-
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL != ppLinkTasks[i])
@@ -1344,8 +1344,6 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
 
     // Add pendency so that the event won't be released before we query its return code
     pPostBuildTask->AddPendency(NULL);
-
-    pPostBuildTask->RemoveFloatingDependence();
 
     // Add pendency in case of asynchronous build
     program->AddPendency(NULL);
