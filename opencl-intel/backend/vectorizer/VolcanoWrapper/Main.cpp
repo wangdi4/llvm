@@ -102,13 +102,13 @@ bool Vectorizer::runOnModule(Module &M)
     m_isModuleVectorized = true;
 
     // check for some common module errors, before actually diving in
-    NamedMDNode *pOpenCLMetadata = M.getNamedMetadata("opencl.kernels");
-    if (!pOpenCLMetadata)
+    NamedMDNode *KernelsMD = M.getNamedMetadata("opencl.kernels");
+    if (!KernelsMD)
     {
         V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
         return false;
     }
-    m_numOfKernels = pOpenCLMetadata->getNumOperands();
+    m_numOfKernels = KernelsMD->getNumOperands();
     if (m_numOfKernels == 0)
     {
         V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
@@ -119,8 +119,6 @@ bool Vectorizer::runOnModule(Module &M)
       V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
       return false;
     }
-
-    NamedMDNode *KernelsMD = M.getNamedMetadata("opencl.kernels");
 
     for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) {
       MDNode *FuncInfo = KernelsMD->getOperand(i);

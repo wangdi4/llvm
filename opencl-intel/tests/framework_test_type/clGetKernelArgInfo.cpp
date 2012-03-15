@@ -160,7 +160,7 @@ bool clGetKernelArgInfoTest()
     iRet |= clGetKernelArgInfo (clKernel2, 0, CL_KERNEL_ARG_TYPE_NAME, 
         sizeof(szTypeName), szTypeName, NULL);
     
-    if (0 != strcmp(szTypeName, "int4 *"))
+    if (0 != strcmp(szTypeName, "int4*"))
     {
         iRet = -1;
     }

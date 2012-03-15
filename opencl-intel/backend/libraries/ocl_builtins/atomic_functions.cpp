@@ -199,7 +199,17 @@ int  __attribute__((overloadable)) atom_inc(__global int *p)
 	return atomicInc_global((int*)p);
 }
 
+int  __attribute__((overloadable)) atom_inc(volatile __global int *p)
+{
+	return atomicInc_global((int*)p);
+}
+
 int  __attribute__((overloadable)) atom_dec(__global int *p)
+{
+	return atomicDec_global((int*)p);
+}
+
+int  __attribute__((overloadable)) atom_dec(volatile __global int *p)
 {
 	return atomicDec_global((int*)p);
 }
@@ -209,7 +219,17 @@ int  __attribute__((overloadable)) atom_add(__global int *p, int val)
 	return atomicAdd_global((int*)p, val);
 }
 
+int  __attribute__((overloadable)) atom_add(volatile __global int *p, int val)
+{
+	return atomicAdd_global((int*)p, val);
+}
+
 int  __attribute__((overloadable)) atom_sub(__global int *p, int val)
+{
+	return atomicSub_global((int*)p, val);
+}
+
+int  __attribute__((overloadable)) atom_sub(volatile __global int *p, int val)
 {
 	return atomicSub_global((int*)p, val);
 }
@@ -219,12 +239,33 @@ int  __attribute__((overloadable)) atom_xchg(__global int *p, int val)
 	return ( InterlockedExchange_global((intrin_type*)p, val) );
 }
 
+int  __attribute__((overloadable)) atom_xchg(volatile __global int *p, int val)
+{
+	return ( InterlockedExchange_global((intrin_type*)p, val) );
+}
+
 int  __attribute__((overloadable)) atom_cmpxchg(__global int *p, int cmp, int val)
 {
 	return ( _InterlockedCompareExchange_global((intrin_type *)p, cmp, val) );
 }
 
+int  __attribute__((overloadable)) atom_cmpxchg(volatile __global int *p, int cmp, int val)
+{
+	return ( _InterlockedCompareExchange_global((intrin_type *)p, cmp, val) );
+}
+
 int  __attribute__((overloadable)) atom_max(__global int *p, int val)
+{
+	while (true)
+	{
+		int oldValue = *p;
+		if (oldValue >= val) return oldValue;
+		int retVal = _InterlockedCompareExchange_global((intrin_type *)p, oldValue, val);
+		if (retVal == oldValue) return oldValue;
+	}
+}
+
+int  __attribute__((overloadable)) atom_max(volatile __global int *p, int val)
 {
 	while (true)
 	{
@@ -246,7 +287,23 @@ int  __attribute__((overloadable)) atom_min(__global int *p, int val)
 	}
 }
 
+int  __attribute__((overloadable)) atom_min(volatile __global int *p, int val)
+{
+	while (true)
+	{
+		int oldValue = *p;
+		if (oldValue <= val) return oldValue;
+		int retVal = _InterlockedCompareExchange_global((intrin_type *)p, oldValue, val);
+		if (retVal == oldValue) return oldValue;
+	}
+}
+
 int  __attribute__((overloadable)) atom_and(__global int *p, int val)
+{
+	return ( _InterlockedAnd_global((intrin_type*)p, val) );
+}
+
+int  __attribute__((overloadable)) atom_and(volatile __global int *p, int val)
 {
 	return ( _InterlockedAnd_global((intrin_type*)p, val) );
 }
@@ -256,7 +313,17 @@ int  __attribute__((overloadable)) atom_or(__global int *p, int val)
 	return ( _InterlockedOr_global((intrin_type*)p, val) );
 }
 
+int  __attribute__((overloadable)) atom_or(volatile __global int *p, int val)
+{
+	return ( _InterlockedOr_global((intrin_type*)p, val) );
+}
+
 int  __attribute__((overloadable)) atom_xor(__global int *p, int val)
+{
+	return ( _InterlockedXor_global((intrin_type*)p, val) );
+}
+
+int  __attribute__((overloadable)) atom_xor(volatile __global int *p, int val)
 {
 	return ( _InterlockedXor_global((intrin_type*)p, val) );
 }
@@ -268,7 +335,18 @@ unsigned int  __attribute__((overloadable)) atom_add(__global unsigned int *p, u
 	return atomicAdd_global((int*)p, val);
 }
 
+unsigned int  __attribute__((overloadable)) atom_add(volatile __global unsigned int *p, unsigned int val)
+{
+	return atomicAdd_global((int*)p, val);
+}
+
 unsigned int  __attribute__((overloadable)) atom_sub(__global unsigned int *p, unsigned int val)
+
+{
+	return atomicSub_global((int*)p, val);
+}
+
+unsigned int  __attribute__((overloadable)) atom_sub(volatile __global unsigned int *p, unsigned int val)
 
 {
 	return atomicSub_global((int*)p, val);
@@ -279,7 +357,17 @@ unsigned int  __attribute__((overloadable)) atom_xchg(__global unsigned int *p, 
 	return ( InterlockedExchange_global((intrin_type*)p, val) );
 }
 
+unsigned int  __attribute__((overloadable)) atom_xchg(volatile __global unsigned int *p, unsigned int val)
+{
+	return ( InterlockedExchange_global((intrin_type*)p, val) );
+}
+
 unsigned int  __attribute__((overloadable)) atom_inc(__global unsigned int *p)
+{
+	return atomicInc_global((int*)p);
+}
+
+unsigned int  __attribute__((overloadable)) atom_inc(volatile __global unsigned int *p)
 {
 	return atomicInc_global((int*)p);
 }
@@ -289,7 +377,17 @@ unsigned int  __attribute__((overloadable)) atom_dec(__global unsigned int *p)
 	return atomicDec_global((int*)p);
 }
 
+unsigned int  __attribute__((overloadable)) atom_dec(volatile __global unsigned int *p)
+{
+	return atomicDec_global((int*)p);
+}
+
 unsigned int  __attribute__((overloadable)) atom_cmpxchg(__global unsigned int *p, unsigned int cmp,unsigned int val)
+{
+	return ( _InterlockedCompareExchange_global((int *)p, cmp, val) );
+}
+
+unsigned int  __attribute__((overloadable)) atom_cmpxchg(volatile __global unsigned int *p, unsigned int cmp,unsigned int val)
 {
 	return ( _InterlockedCompareExchange_global((int *)p, cmp, val) );
 }
@@ -304,7 +402,30 @@ unsigned int  __attribute__((overloadable)) atom_max(__global unsigned int *p, u
 		if (retVal == oldValue) return oldValue;
 	}
 }
+
+unsigned int  __attribute__((overloadable)) atom_max(volatile __global unsigned int *p, unsigned int val)
+{
+	while (true)
+	{
+		unsigned int oldValue = *p;
+		if (oldValue >= val) return oldValue;
+		unsigned int retVal = _InterlockedCompareExchange_global((intrin_type *)p, oldValue, val);
+		if (retVal == oldValue) return oldValue;
+	}
+}
+
 unsigned int  __attribute__((overloadable)) atom_min(__global unsigned int *p, unsigned int val)
+{
+	while (true)
+	{
+		unsigned int oldValue = *p;
+		if (oldValue <= val) return oldValue;
+		unsigned int retVal = _InterlockedCompareExchange_global((intrin_type *)p, oldValue, val);
+		if (retVal == oldValue) return oldValue;
+	}
+}
+
+unsigned int  __attribute__((overloadable)) atom_min(volatile __global unsigned int *p, unsigned int val)
 {
 	while (true)
 	{
@@ -320,12 +441,27 @@ unsigned int  __attribute__((overloadable)) atom_and(__global unsigned int *p, u
 	return ( _InterlockedAnd_global((intrin_type*)p, val) );
 }
 
+unsigned int  __attribute__((overloadable)) atom_and(volatile __global unsigned int *p, unsigned int val)
+{
+	return ( _InterlockedAnd_global((intrin_type*)p, val) );
+}
+
 unsigned int  __attribute__((overloadable)) atom_or(__global unsigned int *p, unsigned int val)
 {
 	return ( _InterlockedOr_global((intrin_type*)p, val) );
 }
 
+unsigned int  __attribute__((overloadable)) atom_or(volatile __global unsigned int *p, unsigned int val)
+{
+	return ( _InterlockedOr_global((intrin_type*)p, val) );
+}
+
 unsigned int  __attribute__((overloadable)) atom_xor(__global unsigned int *p, unsigned int val)
+{
+	return ( _InterlockedXor_global((intrin_type*)p, val) );
+}
+
+unsigned int  __attribute__((overloadable)) atom_xor(volatile __global unsigned int *p, unsigned int val)
 {
 	return ( _InterlockedXor_global((intrin_type*)p, val) );
 }
@@ -336,7 +472,17 @@ int  __attribute__((overloadable)) atom_add(__local int *p, int val)
 	return atomicAdd_local((int*)p, val);
 }
 
+int  __attribute__((overloadable)) atom_add(volatile __local int *p, int val)
+{
+	return atomicAdd_local((int*)p, val);
+}
+
 int  __attribute__((overloadable)) atom_sub(__local int *p, int val)
+{
+	return atomicSub_local((int*)p, val);
+}
+
+int  __attribute__((overloadable)) atom_sub(volatile __local int *p, int val)
 {
 	return atomicSub_local((int*)p, val);
 }
@@ -346,7 +492,19 @@ int  __attribute__((overloadable)) atom_xchg(__local int *p, int val)
 	return InterlockedExchange_local((intrin_type*)p, val);
 }
 
+int  __attribute__((overloadable)) atom_xchg(volatile __local int *p, int val)
+{
+	return InterlockedExchange_local((intrin_type*)p, val);
+}
+
 int  __attribute__((overloadable)) atom_min(__local int *p, int val)
+{
+    int oldValue = *p;
+    *p = signed_min(val, oldValue);
+    return oldValue;
+}
+
+int  __attribute__((overloadable)) atom_min(volatile __local int *p, int val)
 {
     int oldValue = *p;
     *p = signed_min(val, oldValue);
@@ -360,7 +518,19 @@ int  __attribute__((overloadable)) atom_max(__local int *p, int val)
     return oldValue;
 }
 
+int  __attribute__((overloadable)) atom_max(volatile __local int *p, int val)
+{
+    int oldValue = *p;
+    *p = signed_max(val, oldValue);
+    return oldValue;
+}
+
 int  __attribute__((overloadable)) atom_inc(__local int *p)
+{
+	return atomicInc_local((int*)p);
+}
+
+int  __attribute__((overloadable)) atom_inc(volatile __local int *p)
 {
 	return atomicInc_local((int*)p);
 }
@@ -370,7 +540,17 @@ int  __attribute__((overloadable)) atom_dec(__local int *p)
 	return atomicDec_local((int*)p);
 }
 
+int  __attribute__((overloadable)) atom_dec(volatile __local int *p)
+{
+	return atomicDec_local((int*)p);
+}
+
 int  __attribute__((overloadable)) atom_cmpxchg(__local int *p, int cmp, int val)
+{
+	return _InterlockedCompareExchange_local((intrin_type*)p, cmp, val);
+}
+
+int  __attribute__((overloadable)) atom_cmpxchg(volatile __local int *p, int cmp, int val)
 {
 	return _InterlockedCompareExchange_local((intrin_type*)p, cmp, val);
 }
@@ -380,12 +560,27 @@ int  __attribute__((overloadable)) atom_and(__local int *p, int val)
 	return _InterlockedAnd_local((intrin_type*)p, val);
 }
 
+int  __attribute__((overloadable)) atom_and(volatile __local int *p, int val)
+{
+	return _InterlockedAnd_local((intrin_type*)p, val);
+}
+
 int  __attribute__((overloadable)) atom_or(__local int *p, int val)
 {
 	return _InterlockedOr_local((intrin_type*)p, val);
 }
 
+int  __attribute__((overloadable)) atom_or(volatile __local int *p, int val)
+{
+	return _InterlockedOr_local((intrin_type*)p, val);
+}
+
 int  __attribute__((overloadable)) atom_xor(__local int *p, int val)
+{
+	return _InterlockedXor_local((intrin_type*)p, val);
+}
+
+int  __attribute__((overloadable)) atom_xor(volatile __local int *p, int val)
 {
 	return _InterlockedXor_local((intrin_type*)p, val);
 }
@@ -396,7 +591,17 @@ unsigned int  __attribute__((overloadable)) atom_add(__local unsigned int *p, un
 	return atomicAdd_local((int*)p, val);
 }
 
+unsigned int  __attribute__((overloadable)) atom_add(volatile __local unsigned int *p, unsigned int val)
+{
+	return atomicAdd_local((int*)p, val);
+}
+
 unsigned int  __attribute__((overloadable)) atom_sub(__local unsigned int *p, unsigned int val)
+{
+	return atomicSub_local((int*)p, val);
+}
+
+unsigned int  __attribute__((overloadable)) atom_sub(volatile __local unsigned int *p, unsigned int val)
 {
 	return atomicSub_local((int*)p, val);
 }
@@ -406,7 +611,19 @@ unsigned  __attribute__((overloadable)) atom_xchg(__local unsigned int *p, unsig
 	return InterlockedExchange_local((intrin_type*)p, val);
 }
 
+unsigned  __attribute__((overloadable)) atom_xchg(volatile __local unsigned int *p, unsigned int val)
+{
+	return InterlockedExchange_local((intrin_type*)p, val);
+}
+
 unsigned int  __attribute__((overloadable)) atom_min(__local unsigned int *p, unsigned int val)
+{
+    unsigned int oldValue = *p;
+    *p = unsigned_min(val, oldValue);
+    return oldValue;
+}
+
+unsigned int  __attribute__((overloadable)) atom_min(volatile __local unsigned int *p, unsigned int val)
 {
     unsigned int oldValue = *p;
     *p = unsigned_min(val, oldValue);
@@ -420,7 +637,19 @@ unsigned int  __attribute__((overloadable)) atom_max(__local unsigned int *p, un
     return oldValue;
 }
 
+unsigned int  __attribute__((overloadable)) atom_max(volatile __local unsigned int *p, unsigned int val)
+{
+    unsigned int oldValue = *p;
+    *p = unsigned_max(val, oldValue);
+    return oldValue;
+}
+
 unsigned int  __attribute__((overloadable)) atom_inc(__local unsigned int *p)
+{
+	return atomicInc_local((int*)p);
+}
+
+unsigned int  __attribute__((overloadable)) atom_inc(volatile __local unsigned int *p)
 {
 	return atomicInc_local((int*)p);
 }
@@ -430,7 +659,17 @@ unsigned int  __attribute__((overloadable)) atom_dec(__local unsigned int *p)
 	return atomicDec_local((int*)p);
 }
 
+unsigned int  __attribute__((overloadable)) atom_dec(volatile __local unsigned int *p)
+{
+	return atomicDec_local((int*)p);
+}
+
 unsigned int  __attribute__((overloadable)) atom_cmpxchg(__local unsigned int *p, unsigned int cmp, unsigned int val)
+{
+	return _InterlockedCompareExchange_local((intrin_type*)p, cmp, val);
+}
+
+unsigned int  __attribute__((overloadable)) atom_cmpxchg(volatile __local unsigned int *p, unsigned int cmp, unsigned int val)
 {
 	return _InterlockedCompareExchange_local((intrin_type*)p, cmp, val);
 }
@@ -440,12 +679,27 @@ unsigned int  __attribute__((overloadable)) atom_and(__local unsigned int *p, un
 	return _InterlockedAnd_local((intrin_type*)p, val);
 }
 
+unsigned int  __attribute__((overloadable)) atom_and(volatile __local unsigned int *p, unsigned int val)
+{
+	return _InterlockedAnd_local((intrin_type*)p, val);
+}
+
 unsigned int  __attribute__((overloadable)) atom_or(__local unsigned int *p, unsigned val)
 {
 	return _InterlockedOr_local((intrin_type*)p, val);
 }
 
+unsigned int  __attribute__((overloadable)) atom_or(volatile __local unsigned int *p, unsigned val)
+{
+	return _InterlockedOr_local((intrin_type*)p, val);
+}
+
 unsigned int  __attribute__((overloadable)) atom_xor(__local unsigned int *p, unsigned val)
+{
+	return _InterlockedXor_local((intrin_type*)p, val);
+}
+
+unsigned int  __attribute__((overloadable)) atom_xor(volatile __local unsigned int *p, unsigned val)
 {
 	return _InterlockedXor_local((intrin_type*)p, val);
 }
