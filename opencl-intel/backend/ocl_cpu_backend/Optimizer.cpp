@@ -129,8 +129,10 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     PM->add(createInstructionSimplifierPass());
     PM->add(createIndVarSimplifyPass());        // Canonicalize indvars
     PM->add(createLoopDeletionPass());          // Delete dead loops
-    if (UnrollLoops)
+    if (UnrollLoops) {
       PM->add(createLoopUnrollPass());          // Unroll small loops
+      PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
+    }
     PM->add(createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(createInstructionSimplifierPass());
     if (OptimizationLevel > 1)
