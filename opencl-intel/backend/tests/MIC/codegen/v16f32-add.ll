@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -46,8 +45,7 @@ entry:
 
 define <16 x float> @add4(<16 x float> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: vaddps ([[R1]]), {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vaddps {{[a-z]+}}{{\(%[a-z]+\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 ;
 ; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
 ; KNC: vaddps ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
@@ -58,9 +56,8 @@ entry:
 
 define <16 x float> @add5(<16 x float> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: movq ([[R1]]), [[R2:%[a-z]+]]
-; KNF: vaddps ([[R2]]), {{%v[0-9]+}}, {{%v[0-9]+}}
+
+; KNF: vaddps {{\(%[a-z]+\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 ;
 ; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
 ; KNC: movq ([[R1]]), [[R2:%[a-z]+]]

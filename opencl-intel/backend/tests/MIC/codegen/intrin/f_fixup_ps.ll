@@ -13,7 +13,7 @@ define <16 x float> @f_fixup_ps(<16 x float> %arg0, <16 x float> %arg1, i32 %arg
 ; KNF: f_fixup_ps:
 ; KNF: vfixupps
 entry:
-  %ret = call <16 x float> @llvm.x86.mic.fixup.ps(<16 x float> %arg0, <16 x float> %arg1, i32 %arg2)
+  %ret = call <16 x float> @llvm.x86.mic.fixup.ps(<16 x float> %arg0, <16 x float> %arg1, i32 1001)
 
  ret <16 x float> %ret
 }

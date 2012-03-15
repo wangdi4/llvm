@@ -9,7 +9,7 @@ target datalayout = "e-p:64:64"
 
 declare <16 x float> @llvm.x86.mic.madd233.ps(<16 x float>, <16 x float>)
 declare i32 @llvm.x86.mic.mask16.to.int(<16 x i1>)
-declare <16 x float> @llvm.x86.mic.fixup.ps(<16 x float>, i32)
+declare <16 x float> @llvm.x86.mic.fixup.ps(<16 x float>,<16 x float>, i32)
 declare <16 x float> @llvm.x86.mic.rcpres.ps(<16 x float>)
 declare <16 x float> @llvm.x86.mic.rsqrtlut.ps(<16 x float>)
 
@@ -28,6 +28,6 @@ define internal <16 x float> @knf_rsqrt(<16 x float> %x) nounwind alwaysinline {
   %t = call <16 x float> @llvm.x86.mic.rsqrtlut.ps(<16 x float> %x)
   %ymul = fmul <16 x float> %t, %pb
   %y = fadd <16 x float> %t, %ymul
-  %yfixed = call <16 x float> @llvm.x86.mic.fixup.ps(<16 x float> %y, i32 2112)
+  %yfixed = call <16 x float> @llvm.x86.mic.fixup.ps(<16 x float> %y,<16 x float> %y, i32 2112)
   ret <16 x float> %yfixed
 }

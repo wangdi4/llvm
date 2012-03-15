@@ -53,7 +53,7 @@ entry:
   %ptr = bitcast <8 x double>* %p to i8*
   call void @llvm.x86.mic.mask.store.pd(i8* %ptr, <8 x i1> %mask, <8 x double> %a)
   ret void
-
+}
 define void @xnork(<8 x double>* %p, <8 x double> %a, <8 x double> %b,
                    <8 x double> %c) nounwind ssp {
 entry:
