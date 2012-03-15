@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -84,6 +84,7 @@ public:
 // CRT handles definition
 struct CrtPlatform
 {
+    CrtPlatform();
     cl_platform_id          m_platformIdDEV;
     char*                   m_supportedExtensionsStr;
     char*                   m_icdSuffix;
@@ -93,7 +94,7 @@ struct CrtPlatform
 
 struct CrtDeviceInfo
 {
-    // platform id of the device
+    // platform matching this device
     CrtPlatform*                    m_crtPlatform;
 
     // device Id changed; some functions replaced with CRT functions
@@ -140,11 +141,11 @@ struct CrtProgram: public CrtObject
 {
     CrtProgram(CrtContext* ctx);
     virtual ~CrtProgram();
-    CTX_PGM_MAP              m_ContextToProgram;
+    CTX_PGM_MAP                 m_ContextToProgram;
     // Tracks which contexts a build request has been submitted to for this program.
-    // We need this since the spec demands the clCreateKernel only for devices 
+    // We need this since the spec demands the clCreateKernel only for devices
     // the build context has been submitted to.
-    std::vector<cl_context>  m_buildContexts;
+    std::vector<cl_context>     m_buildContexts;
     std::vector<cl_device_id>   m_assocDevices;
     CrtContext*                 m_contextCRT;
     cl_program                  m_program_handle;
@@ -205,7 +206,7 @@ inline cl_int ValidateMapFlags( cl_map_flags map_flags )
     cl_int validFlags = ( CL_MAP_READ | CL_MAP_WRITE );
     if( map_flags & ~validFlags )
     {
-        return CL_INVALID_VALUE;        
+        return CL_INVALID_VALUE;
     }
     return CL_SUCCESS;
 }
@@ -260,14 +261,14 @@ public:
         return ( ( ptr == ( cl_mem )INVALID_IMG_FORMAT ) ? CL_FALSE : CL_TRUE );
     }
 
-    void    SetMemHandle(cl_mem memHandle) 
-    { 
-        m_memHandle = memHandle; 
+    void SetMemHandle( cl_mem memHandle )
+    {
+        m_memHandle = memHandle;
     }
 
-    cl_mem  GetMemHandle() const 
-    { 
-        return m_memHandle; 
+    cl_mem  GetMemHandle() const
+    {
+        return m_memHandle;
     }
     // Map between underlying contexts and memory objects
     CTX_MEM_MAP         m_ContextToMemObj;
@@ -343,26 +344,18 @@ class CrtImage: public CrtMemObject
 {
 public:
     // Image Descriptor; augumenting all image params
-    // I liked the idea of image descriptor so i adopted that 
+    // I liked the idea of image descriptor so i adopted that
     // for internal implementation too;
     // Since this isn't gonna be available for OCL 1.1 headers;
     // i duplicated this structure definition internally.
     struct CrtImageDesc {
-        cl_mem_object_type      image_type;
-        size_t                  image_width;
-        size_t                  image_height;
-        size_t                  image_depth;
-        size_t                  image_array_size;
-        size_t                  image_row_pitch;
-        size_t                  image_slice_pitch;
-        cl_uint                 num_mip_levels;
-        cl_uint                 num_samples;
-        cl_mem                  buffer;
+        cl_image_desc           desc;
+        CrtBuffer*              crtBuffer;
     };
 
-    CrtImage(        
+    CrtImage(
         const cl_image_format * image_format,
-        const CrtImageDesc *    image_desc,
+        const cl_image_desc *   image_desc,
         cl_mem_flags            flags,
         void*                   host_ptr,
         CrtContext*             ctx);
@@ -383,10 +376,10 @@ public:
     // Parameters provided by the user on image create
     size_t                      m_hostPtrRowPitch;
     size_t                      m_hostPtrSlicePitch;
-    
+
     // For Image2D this will be =2
     // For Image3D this will be =3
-    cl_uint                     m_dimCount;           
+    cl_uint                     m_dimCount;
 };
 
 /// ------------------------------------------------------------------------------
@@ -423,10 +416,10 @@ public:
         const void *            buffer_create_info,
         CrtMemObject**          memObj);
 
-    cl_int CreateImage(        
+    cl_int CreateImage(
         cl_mem_flags                    flags,
         const cl_image_format *         image_format,
-        const CrtImage::CrtImageDesc *  image_desc,
+        const cl_image_desc *           image_desc,
         void *                          host_ptr,
         CrtMemObject**                  memObj);
 
@@ -568,7 +561,7 @@ struct CrtBuildCallBackData
 
 void CL_CALLBACK buildCompleteFn( cl_program program, void *userData );
 
-void CL_CALLBACK CrtEventCallBack(cl_event e, cl_int status, void* user_data);
+void CL_CALLBACK CrtEventCallBack( cl_event e, cl_int status, void* user_data );
 
 
 /// ------------------------------------------------------------------------------
@@ -612,8 +605,8 @@ public:
     cl_int  EnqueueNopCommand(
         CrtMemObject*   memObj,
         CrtQueue*       queue,
-        cl_uint			NumEventsInWaitList,
-        const cl_event*	inEventWaitList,
+        cl_uint         NumEventsInWaitList,
+        const cl_event* inEventWaitList,
         cl_event*      outEvent);
 
     void Release(cl_int errCode);
@@ -623,7 +616,7 @@ private:
     CrtEventCallBackData*       m_callBackData;
     cl_event*                   m_outEventArray;
     bool                        m_eventRetained;
-    cl_event                    m_userEvent;    
+    cl_event                    m_userEvent;
 };
 
 // This class is used to protect access to shared STL Map resource
