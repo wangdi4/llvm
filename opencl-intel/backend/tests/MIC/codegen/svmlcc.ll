@@ -14,8 +14,8 @@ declare x86_svmlcc float @__ocl_svml_b1_fractf1(float, float*)
 
 define void @relaxed_test(float* %arg1, float* %arg2) {
 ; KNF: vloadd    (%rdi){1to16}, %v0
-; KNF: subq      $16, %rsp
 ; KNF: movq      %rsi, (%rsp)
+; KNF: addq      $24, %rsp
 entry:
   %ld = load float* %arg1
   %call.i.i = call x86_svmlcc float @__ocl_svml_b1_fractf1(float %ld, float* %arg2) nounwind

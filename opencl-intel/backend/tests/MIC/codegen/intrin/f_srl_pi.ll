@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,7 +10,7 @@ declare <16 x i32> @llvm.x86.mic.srl.pi(<16 x i32>, <16 x i32>)
 
 define <16 x i32> @f_srl_pi(<16 x i32> %arg0, <16 x i32> %arg1) {
 ; KNF: f_srl_pi:
-; KNF: vsrlpi
+; KNF: vsrlpi %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.srl.pi(<16 x i32> %arg0, <16 x i32> %arg1)
 

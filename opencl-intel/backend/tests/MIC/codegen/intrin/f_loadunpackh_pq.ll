@@ -9,11 +9,11 @@ target datalayout = "e-p:64:64"
 
 declare <8 x i64> @llvm.x86.mic.loadunpackh.pq(<8 x i64>, i8 *, i32, i32)
 
-define <8 x i64> @f_loadunpackh_pq(<8 x i64> %arg0, i8 * %arg1, i32 %arg2, i32 %arg3) {
+define <8 x i64> @f_loadunpackh_pq(<8 x i64> %arg0, i8 * %arg1) {
 ; KNF: f_loadunpackh_pq:
-; KNF: vloadunpackhpq
+; KNF: 
 entry:
-  %ret = call <8 x i64> @llvm.x86.mic.loadunpackh.pq(<8 x i64> %arg0, i8 * %arg1, i32 %arg2, i32 %arg3)
+  %ret = call <8 x i64> @llvm.x86.mic.loadunpackh.pq(<8 x i64> %arg0, i8 * %arg1, i32 0, i32 0)
 
  ret <8 x i64> %ret
 }

@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,7 +10,7 @@ declare i16 @llvm.x86.mic.kswapb(i16, i16)
 
 define i16 @f_kswapb(i16 %arg0, i16 %arg1) {
 ; KNF: f_kswapb:
-; KNF: kswapb
+; KNF: vkswapb
 entry:
   %ret = call i16 @llvm.x86.mic.kswapb(i16 %arg0, i16 %arg1)
 

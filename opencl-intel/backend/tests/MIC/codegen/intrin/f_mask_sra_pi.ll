@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,7 +10,7 @@ declare <16 x i32> @llvm.x86.mic.mask.sra.pi(<16 x i32>, i16, <16 x i32>, <16 x 
 
 define <16 x i32> @f_mask_sra_pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, <16 x i32> %arg3) {
 ; KNF: f_mask_sra_pi:
-; KNF: vsrapi
+; KNF: vsrapi %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}{%k{{[0-9]*}}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.mask.sra.pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, <16 x i32> %arg3)
 
