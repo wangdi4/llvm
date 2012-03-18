@@ -14,12 +14,12 @@
 #     $4 - PDB file (dummy parameter:just for compat with ICC-linker-WIN32)
 #     $5 - list of object files
 
-source @ICC_MIC_ENV_SCRIPT_NATIVE@ intel64
+. @ICC_MIC_ENV_SCRIPT_NATIVE@ intel64
 
-if [ "$1" == "Debug" ]
+if [ "$1" = "Debug" ]
 then
 	icpc -mmic @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ -o $2 $5
-elif [ "$1" == "Release" ]
+elif [ "$1" = "Release" ]
 then
 	icpc -mmic @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ -o $2 $5
 else

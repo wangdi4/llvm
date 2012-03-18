@@ -15,12 +15,12 @@
 #     $5 - additional compilation option(s)
 #
 
-source @ICC_MIC_ENV_SCRIPT_NATIVE@ intel64
+. @ICC_MIC_ENV_SCRIPT_NATIVE@ intel64
 
-if [ "$1" == "Debug" ]
+if [ "$1" = "Debug" ]
 then
 	icpc -mmic @ICC_COMPILER_PARAMS@ @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ -D$4 $5 -o $3 $2
-elif [ "$1" == "Release" ]
+elif [ "$1" = "Release" ]
 then
 	icpc -mmic @ICC_COMPILER_PARAMS@ @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ -D$4 $5 -o $3 $2
 else

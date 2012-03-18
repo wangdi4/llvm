@@ -15,12 +15,12 @@
 #     $5 - list of object files
 
 
-source @ICC_CPU_ENV_SCRIPT_NATIVE@ @ICC_PLATFORM@
+. @ICC_CPU_ENV_SCRIPT_NATIVE@ @ICC_PLATFORM@
 
-if [ "$1" == "Debug" ]
+if [ "$1" = "Debug" ]
 then
 	@ICC_CPU_LD_NATIVE@ @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ -o $2 $5
-elif [ "$1" == "Release" ]
+elif [ "$1" = "Release" ]
 then
 	@ICC_CPU_LD_NATIVE@ @ICC_LINKER_PARAMS@ @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ -o $2 $5
 else

@@ -15,11 +15,11 @@
 #     $5 - additional compilation option(s)
 #
 
-source @ICC_ENV_SCRIPT_NATIVE@ @ICC_PLATFORM@
-if [ "$1" == "Debug" ]
+. @ICC_ENV_SCRIPT_NATIVE@ @ICC_PLATFORM@
+if [ "$1" = "Debug" ]
 then
 	@ICC_CL_NATIVE@ @ICC_COMPILER_PARAMS@ @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ -D$4 $5 -o $3 $2
-elif [ "$1" == "Release" ]
+elif [ "$1" = "Release" ]
 then
 	@ICC_CL_NATIVE@ @ICC_COMPILER_PARAMS@ @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ -D$4 $5 -o $3 $2
 else
