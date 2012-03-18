@@ -1,1 +1,2 @@
+; XFAIL: *
 ; RUN: python ../../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/CapturedWLs/Performance/SHOC1.1.1/s2/Reduction.cfg

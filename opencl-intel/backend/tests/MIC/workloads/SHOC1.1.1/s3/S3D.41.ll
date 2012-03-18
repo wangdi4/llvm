@@ -1,1 +1,2 @@
+; XFAIL: *
 ; RUN: python ../../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/CapturedWLs/Performance/SHOC1.1.1/s3/S3D.41.cfg
