@@ -1358,8 +1358,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
 			//if OUT paramVal is NULL it should be ignored
 			if(NULL != paramVal)
 			{
-                // TODO: should this be the constant used?
-				*(size_t*)paramVal = MIN(CPU_IMAGE3D_MAX_DIM_SIZE, CPU_IMAGE2D_MAX_DIM_SIZE);
+                // Use GEN constant
+				*(size_t*)paramVal = CPU_MAX_ARRAY_SIZE;
 			}
 			return CL_DEV_SUCCESS;
         case CL_DEVICE_IMAGE_MAX_BUFFER_SIZE:

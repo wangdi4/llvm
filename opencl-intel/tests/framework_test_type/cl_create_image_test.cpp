@@ -434,21 +434,21 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
     localImgDesc.image_array_size = szImgMaxArrSize + 1;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+    CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
     localImgDesc.image_array_size = clImageDesc.image_array_size;
     localImgDesc.image_width = 0;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
     localImgDesc.image_width = szImg2dMaxWidth + 1;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+    CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
     localImgDesc.image_width = clImageDesc.image_width;
     localImgDesc.image_height = 0;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
     localImgDesc.image_height = szImg2dMaxHeight + 1;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-    CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+    CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
 
     // calling clGetSupportedImageFormats for object type CL_MEM_OBJECT_BUFFER
     cl_uint uiNumImageFormats;

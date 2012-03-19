@@ -34,13 +34,13 @@ template<>
 bool Compare<const char*>(const char* x, const char* y);
 
 template<typename T>
-void Print(std::wostream& os, const T& x)
+void Print(std::ostream& os, const T& x)
 {
     os << x;
 }
 
 template<>
-void Print<cl_int>(std::wostream& os, const cl_int& x);
+void Print<cl_int>(std::ostream& os, const cl_int& x);
 
 /**
  * Check whether a result is as expected and print a message only in case of failure. In this case an exception is also thrown.
@@ -51,18 +51,24 @@ void Print<cl_int>(std::wostream& os, const cl_int& x);
  * @throw std::exception if expected does not equal result
  */
 template<typename T>
-void CheckException(const wchar_t* name, const T& expected, const T& result)
+void __CheckException__(const char* name, const T& expected, const T& result)
 {
     if (!Compare(expected, result))
     {
-        std::wcout << L"FAIL: " << name << std::endl;
-        std::wcout << L"\t\texpected = ";
-        Print(std::wcout, expected);
-        std::wcout << L", result = ";
-        Print(std::wcout, result);
-        std::wcout << std::endl;
+        std::cout << "FAIL: " << name << std::endl;
+        std::cout << "\t\texpected = ";
+        Print(std::cout, expected);
+        std::cout << ", result = ";
+        Print(std::cout, result);
+        std::cout << std::endl;
         throw std::exception();
     }
+}
+
+#define CheckException(name, expected, result) { \
+	char buf[1024]; \
+	SPRINTF_S(buf, 1024, "%ls (%s:%d)", name, __FILE__, __LINE__); \
+	__CheckException__(buf, expected, result); \
 }
 
 // A simple tokenizer - extracts a vector of tokens from a 

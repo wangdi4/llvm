@@ -734,7 +734,7 @@ bool Compare<const char*>(const char* x, const char* y)
 }
 
 template<>
-void Print<cl_int>(std::wostream& os, const cl_int& x)
+void Print<cl_int>(std::ostream& os, const cl_int& x)
 {
     os << ClErrTxt(x);
 }

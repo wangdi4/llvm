@@ -1379,6 +1379,26 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 		return CL_INVALID_HANDLE;
 	}
 
+	// Do some context specific checks
+	if ( CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type)
+	{
+		clErr = CheckContextSpecificParameters(pContext, pClImageDesc->image_type, pClImageDesc->image_width, pClImageDesc->image_array_size, 0);
+	} else if ( CL_MEM_OBJECT_IMAGE2D_ARRAY == pClImageDesc->image_type)
+	{
+		clErr = CheckContextSpecificParameters(pContext, pClImageDesc->image_type, pClImageDesc->image_width, pClImageDesc->image_height, pClImageDesc->image_array_size);
+	} else {
+		assert(0 && "Inside CreateImageArray with non array type.");
+	}
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+        if (NULL != pErrcodeRet)
+        {
+		    *pErrcodeRet = clErr;
+        }
+		return CL_INVALID_HANDLE;
+	}
+
     clErr = pContext->CreateImageArray(clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr);
     if (CL_FAILED(clErr) || NULL == pImageArr)
     {
@@ -2207,6 +2227,93 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 	return CL_SUCCESS;
 }
 
+cl_err_code ContextModule::CheckContextSpecificParameters(Context *pContext, const cl_mem_object_type image_type,
+		const size_t image_width, const size_t image_height, const size_t image_depth)
+{
+	cl_uint numDevices = 0;
+	size_t maxW = (size_t)-1;
+	size_t maxH = (size_t)-1;
+	size_t maxD = (size_t)-1;
+	size_t maxArraySize		= (size_t)-1;
+	size_t max1dFromBuffer = (size_t)-1;
+	cl_int paramWidthName  = CL_DEVICE_IMAGE3D_MAX_WIDTH;
+	cl_int paramHeightName = CL_DEVICE_IMAGE3D_MAX_HEIGHT;
+	cl_int paramDepthName  = CL_DEVICE_IMAGE3D_MAX_DEPTH;
+
+	// Check (the minimum of) maximum sizes and return CL_INVALID_IMAGE_SIZE if exceeding it.
+	if (CL_MEM_OBJECT_IMAGE2D == image_type || CL_MEM_OBJECT_IMAGE1D == image_type)
+	{
+		paramWidthName  = CL_DEVICE_IMAGE2D_MAX_WIDTH; // also 1D not from created from buffer
+		paramHeightName = CL_DEVICE_IMAGE2D_MAX_HEIGHT;
+	}
+
+	FissionableDevice **devices = pContext->GetDevices(&numDevices);
+
+	for (cl_uint i=0 ; i < numDevices ; ++i)
+	{
+		size_t sz;
+		Device *dev = devices[i]->GetRootDevice();
+
+		dev->GetInfo(paramWidthName, sizeof(size_t), &sz, NULL);
+		maxW = maxW > sz ? sz : maxW;
+
+		dev->GetInfo(paramHeightName, sizeof(size_t), &sz, NULL);
+		maxH = maxH > sz ? sz : maxH;
+
+		dev->GetInfo(paramDepthName, sizeof(size_t), &sz, NULL);
+		maxD = maxD > sz ? sz : maxD;
+
+		if (CL_MEM_OBJECT_IMAGE1D_BUFFER == image_type)
+		{
+			dev->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz, NULL);
+			max1dFromBuffer = max1dFromBuffer > sz ? sz : max1dFromBuffer;
+		}
+
+		if (CL_MEM_OBJECT_IMAGE1D_ARRAY == image_type || CL_MEM_OBJECT_IMAGE2D_ARRAY == image_type)
+		{
+			dev->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &sz, NULL);
+			maxArraySize = maxArraySize > sz ? sz : maxArraySize;
+		}
+	}
+
+	// Now start checking:
+	switch (image_type)
+	{
+		case CL_MEM_OBJECT_IMAGE3D:
+			if (image_depth > maxD) return CL_INVALID_IMAGE_SIZE;
+
+		case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+		case CL_MEM_OBJECT_IMAGE2D:
+			if (image_height > maxH) return CL_INVALID_IMAGE_SIZE;
+
+		case CL_MEM_OBJECT_IMAGE1D:
+			// for 1D NOT created from a buffer, use CL_DEVICE_IMAGE2D_MAX_WIDTH
+			if (image_width > maxW) return CL_INVALID_IMAGE_SIZE;
+			break;
+		default:
+			// all other cases covered outside the switch.
+			break;
+	}
+
+	if (CL_MEM_OBJECT_IMAGE1D_ARRAY == image_type )
+	{
+		if (image_height > maxArraySize) return CL_INVALID_IMAGE_SIZE;
+	}
+
+	if (CL_MEM_OBJECT_IMAGE2D_ARRAY == image_type)
+	{
+		if (image_depth > maxArraySize) return CL_INVALID_IMAGE_SIZE;
+	}
+
+	if ( CL_MEM_OBJECT_IMAGE1D_BUFFER == image_type)
+	{
+		// for 1D created from a buffer, use CL_DEVICE_IMAGE_MAX_BUFFER_SIZE
+		if (image_width > max1dFromBuffer) return CL_INVALID_IMAGE_SIZE;
+	}
+
+	return CL_SUCCESS;
+}
+
 #if defined (DX9_MEDIA_SHARING)
 cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags clMemFlags,
                                              D3D9ResourceInfo* const pResourceInfo,
@@ -2523,6 +2630,19 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
     cl_err_code clErr = CL_SUCCESS;
     GenericMemObject* pBuffer;
 
+    Context* pContext = NULL;
+	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)context, (OCLObject<_cl_context_int>**)&pContext);
+
+	if (CL_FAILED(clErr) || NULL == pContext)
+	{
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
     clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)buffer, (OCLObject<_cl_mem_int>**)&pBuffer);
     if (CL_FAILED(clErr) || NULL == pBuffer)
     {
@@ -2549,6 +2669,18 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
         }
         return CL_INVALID_HANDLE;
     }
+
+    clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)CL_MEM_OBJECT_IMAGE1D_BUFFER, szImageWidth, 0, 0);
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErr;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
     if (szImageWidth * clGetPixelBytesCount(clImageFormat) > pBuffer->GetSize())
     {
         LOG_ERROR(TEXT("The image_width (%d) * size of element in bytes (%d) must be <= size of buffer object data store (%d)"),

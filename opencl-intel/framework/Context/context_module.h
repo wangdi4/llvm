@@ -225,6 +225,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                          size_t szArraySize,
                                          void * pHostPtr);
 
+		/**
+		 * Check context specific limitations (device capabilities).
+		 * @param pContext
+		 * @param image_type
+		 * @param image_width
+		 * @param image_height or array size of 1D_ARRAY
+		 * @param image_depth or array size of 2D_ARRAY
+		 * @return CL_SUCCESS if all parameters OK.
+		 */
+		cl_err_code CheckContextSpecificParameters(Context *pContext,
+										const cl_mem_object_type image_type,
+										const size_t image_width,
+										const size_t image_height,
+										const size_t image_depth);
+
+
 		// get pointers to device objects according to the device ids
 		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
         cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
@@ -297,6 +313,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
             }
             return CL_INVALID_HANDLE;
         }
+
+    	clErr = CheckContextSpecificParameters(pContext, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth);
+    	if (CL_FAILED(clErr))
+    	{
+    		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+            if (NULL != pErrcodeRet)
+            {
+    		    *pErrcodeRet = clErr;
+            }
+    		return CL_INVALID_HANDLE;
+    	}
 
         // Create image from context
         const size_t szDims[] = {szImageWidth, szImageHeight, szImageDepth}, szPitches[] = {szImageRowPitch, szImageSlicePitch};

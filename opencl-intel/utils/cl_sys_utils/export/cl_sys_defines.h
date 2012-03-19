@@ -138,7 +138,7 @@ typedef unsigned long long               affinityMask_t;
 #define STRCPY_S                        Intel::OpenCL::Utils::safeStrCpy
 #define STRCAT_S                        Intel::OpenCL::Utils::safeStrCat
 #define STRTOK_S                        Intel::OpenCL::Utils::safe_strtok
-#define SPRINTF_S                       Intel::OpenCL::Utils::safeStrPrintf
+#define SPRINTF_S                       snprintf
 #define WCSCAT_S                        Intel::OpenCL::Utils::safeWStrCat
 #define SWPRINTF_S                      Intel::OpenCL::Utils::safeWStrPrintf
 #define WCSCPY_S                        Intel::OpenCL::Utils::safeWStrCpy
