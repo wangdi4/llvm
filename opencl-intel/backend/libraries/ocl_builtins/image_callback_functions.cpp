@@ -188,31 +188,8 @@ ALIGN16 const int x38800000[] = {0x38800000, 0x38800000, 0x38800000, 0x38800000}
 ALIGN16 const int ones[] = {1, 1, 1, 1};
 ALIGN16 const char _4x32to4x16[] = {0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1};
 
-__m128i shuffle_epi8(__m128i x, __m128i mask)
-{
-    ALIGN16 _1i8 tempX[16];
-    ALIGN16 _1i8 tampMask[16];
-    ALIGN16 _1i8 result[16];
-
-    _mm_store_si128((__m128i *)tempX, x);
-    _mm_store_si128((__m128i *)tampMask, mask);
-    for(int i=0; i<16; ++i)
-    {
-        _1i8 index = tampMask[i] & 15;
-        result[i] = (tampMask[i] < 0) ? 0 : tempX[index];
-    }
-    return _mm_load_si128((const __m128i *)result);
-}
-
-#define SHUFFLE_EPI8(x, mask)\
-    shuffle_epi8(x, mask)
-
-
 float4 float2half_rte(float4 param)
 {
-    int rm = _MM_GET_ROUNDING_MODE();
-    _MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
-
     //cl_uint sign = (u.u >> 16) & 0x8000;
     _8i16 temp = (_8i16)_mm_srli_epi32((__m128i)param, 0x10);
     _8i16 signs = (_8i16)_mm_and_si128((__m128i)temp,(__m128i) *((_4i32 *)x8000));
@@ -245,7 +222,7 @@ float4 float2half_rte(float4 param)
     dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
 
     // underflow
-    //if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
+    //	if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
     // return sign
     eq1 = _mm_cmple_ps(absParam, *((float4 *)x33000000));
     eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) signs);
@@ -255,7 +232,7 @@ float4 float2half_rte(float4 param)
 
 
     // very small
-    //if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
+    //	if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
     // return sign | 1;
     eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33c00000));
     eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) *((_4i32 *)ones)));
@@ -265,7 +242,7 @@ float4 float2half_rte(float4 param)
 
     // half denormal         
     //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-    //    x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
+    //	x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
     //  return sign | x;
     eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
     float4 eq2 = _mm_mul_ps(absParam, *((float4 *)x01000000));  //x
@@ -280,8 +257,6 @@ float4 float2half_rte(float4 param)
     // u.f = x - u.f;
     // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
     // return (u.u >> (24-11)) | sign;
-    //int rm = _MM_GET_ROUNDING_MODE();
-    //_MM_SET_ROUNDING_MODE(0x6000);
 
     eq1 = _mm_mul_ps(param, *((float4 *)x46000000));  
     eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7f800000)); //u
@@ -293,9 +268,7 @@ float4 float2half_rte(float4 param)
     eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
     eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
 
-    eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-
-    _MM_SET_ROUNDING_MODE(rm);
+    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)_4x32to4x16)));
 
     return eq1;
 }

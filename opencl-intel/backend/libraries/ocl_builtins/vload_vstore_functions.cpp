@@ -95,26 +95,6 @@ ALIGN16 int Fvec4Float16ExpMin[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
 ALIGN16 int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23)};
 ALIGN16 int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
 
-
-#ifdef __SSSE3__
-	#define SHUFFLE_EPI8(x, mask, res)\
-		res = (float4)_mm_shuffle_epi8((__m128i)x, *((__m128i*)mask));
-#else
-	#define SHUFFLE_EPI8(x, mask, res)									\
-		ALIGN16 _1i8 tempX[16];											\
-		ALIGN16 _1i8 tampMask[16];										\
-		ALIGN16 _1i8 result[16];										\
-																		\
-		_mm_store_si128((__m128i *)tempX, x);							\
-		_mm_store_si128((__m128i *)tampMask, *((__m128i*)mask));		\
-		for(int i=0; i<16; ++i)											\
-		{																\
-			_1i8 index = tampMask[i] & 15;								\
-			result[i] = (tampMask[i] < 0) ? 0 : tempX[index];			\
-		}																\
-		res = (float4)_mm_load_si128((const __m128i *)result);			
-#endif
-
 float HalfToFloat( half param )
 {
 	unsigned short expHalf16 = as_short(param) & 0x7C00;
@@ -207,26 +187,910 @@ float4 Half4ToFloat4(_8i16 xmm0)
 	return xmm5;
 }
 
-float4 _intel_ocl_float2half_rte(float4 param);
-float4 _intel_ocl_float2half_rtz(float4 param);
-float4 _intel_ocl_float2half_rtn(float4 param);
-float4 _intel_ocl_float2half_rtp(float4 param);
+ALIGN16 int x7bff[] = {0x7bff, 0x7bff, 0x7bff, 0x7bff};
+ALIGN16 int x8000[] = {0x8000, 0x8000, 0x8000, 0x8000};
+ALIGN16 int x7fff[] = {0x7fff, 0x7fff, 0x7fff, 0x7fff};
+ALIGN16 int x0200[] = {0x0200, 0x0200, 0x0200, 0x0200};
+ALIGN16 int x7c00[] = {0x7c00, 0x7c00, 0x7c00, 0x7c00};
+ALIGN16 int xfbff[] = {0xfbff, 0xfbff, 0xfbff, 0xfbff};
+ALIGN16 int xfc00[] = {0xfc00, 0xfc00, 0xfc00, 0xfc00};
+ALIGN16 int x8001[] = {0x8001, 0x8001, 0x8001, 0x8001};
+
+ALIGN16 int x7fffffff[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+ALIGN16 int x7f800000[] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
+ALIGN16 int x47800000[] = {0x47800000, 0x47800000, 0x47800000, 0x47800000};
+ALIGN16 int x33800000[] = {0x33800000, 0x33800000, 0x33800000, 0x33800000};
+ALIGN16 int x38800000[] = {0x38800000, 0x38800000, 0x38800000, 0x38800000};
+ALIGN16 int x4b800000[] = {0x4b800000, 0x4b800000, 0x4b800000, 0x4b800000};
+ALIGN16 int xffffe000[] = {0xffffe000, 0xffffe000, 0xffffe000, 0xffffe000};
+ALIGN16 int x38000000[] = {0x38000000, 0x38000000, 0x38000000, 0x38000000};
+ALIGN16 int x477ff000[] = {0x477ff000, 0x477ff000, 0x477ff000, 0x477ff000};
+ALIGN16 int xc7800000[] = {0xc7800000, 0xc7800000, 0xc7800000, 0xc7800000};
+ALIGN16 int xff800000[] = {0xff800000, 0xff800000, 0xff800000, 0xff800000};
+ALIGN16 int xc77fe000[] = {0xc77fe000, 0xc77fe000, 0xc77fe000, 0xc77fe000};
+ALIGN16 int x00002000[] = {0x00002000, 0x00002000, 0x00002000, 0x00002000};
+ALIGN16 int x33000000[] = {0x33000000, 0x33000000, 0x33000000, 0x33000000};
+ALIGN16 int x33c00000[] = {0x33c00000, 0x33c00000, 0x33c00000, 0x33c00000};
+ALIGN16 int x01000000[] = {0x01000000, 0x01000000, 0x01000000, 0x01000000};
+ALIGN16 int x46000000[] = {0x46000000, 0x46000000, 0x46000000, 0x46000000};
+ALIGN16 int x07800000[] = {0x07800000, 0x07800000, 0x07800000, 0x07800000};
+
+ALIGN16 long x7fffffffffffffff[] = {0x7fffffffffffffff, 0x7fffffffffffffff};
+ALIGN16 long x7ff0000000000000[] = {0x7ff0000000000000, 0x7ff0000000000000};
+ALIGN16 long x40f0000000000000[] = {0x40f0000000000000, 0x40f0000000000000};
+ALIGN16 long x3e70000000000000[] = {0x3e70000000000000, 0x3e70000000000000};
+ALIGN16 long x3f10000000000000[] = {0x3f10000000000000, 0x3f10000000000000};
+ALIGN16 long x4170000000000000[] = {0x4170000000000000, 0x4170000000000000};
+ALIGN16 long xFFFFFC0000000000[] = {0xFFFFFC0000000000, 0xFFFFFC0000000000};
+ALIGN16 long x3F00000000000000[] = {0x3F00000000000000, 0x3F00000000000000};
+ALIGN16 long x40effe0000000000[] = {0x40effe0000000000, 0x40effe0000000000};
+ALIGN16 long x40effc0000000000[] = {0x40effc0000000000, 0x40effc0000000000};
+ALIGN16 long x00f0000000000000[] = {0x00f0000000000000, 0x00f0000000000000};
+ALIGN16 long x4290000000000000[] = {0x4290000000000000, 0x4290000000000000};
+ALIGN16 long x0000000001000000[] = {0x0000000001000000, 0x0000000001000000};
+ALIGN16 long x3e78000000000000[] = {0x3e78000000000000, 0x3e78000000000000};
+ALIGN16 long x3e60000000000000[] = {0x3e60000000000000, 0x3e60000000000000};
+ALIGN16 long x0000040000000000[] = {0x0000040000000000, 0x0000040000000000};
+ALIGN16 long xc0effc0000000000[] = {0xc0effc0000000000, 0xc0effc0000000000};
+ALIGN16 long xfff0000000000000[] = {0xfff0000000000000, 0xfff0000000000000};
+ALIGN16 long xc0f0000000000000[] = {0xc0f0000000000000, 0xc0f0000000000000};
+
+ALIGN16 int conversion_ones[] = {1, 1, 1, 1};
+ALIGN16 long dones[] = {1, 1};
+ALIGN16 char g_vls_4x32to4x16[] = {0,1, 4,5,  8,9, 12,13, 0, 0, 0, 0, 0,0,0,0};
+ALIGN16 char g_vls_2x64to2x16[] = {0,1, 8,9,0,0, 0, 0, 0, 0, 0, 0,0,0,0,0};
+
+float4 _ocl_float2half_rte(float4 param);
+float4 _ocl_float2half_rtz(float4 param);
+float4 _ocl_float2half_rtn(float4 param);
+float4 _ocl_float2half_rtp(float4 param);
 
 /// !!! This function is copy-pasted to images module.
 /// In case of any changes they should also be applied to image_callback_functions.cpp
-float4 _intel_ocl_float2half(float4 param)
+float4 _ocl_float2half_rte(float4 param)
 {
-	return _intel_ocl_float2half_rte(param);
+    //cl_uint sign = (u.u >> 16) & 0x8000;
+    _8i16 temp = (_8i16)_mm_srli_epi32((__m128i)param, 0x10);
+    _8i16 signs = (_8i16)_mm_and_si128((__m128i)temp,(__m128i) *((_4i32 *)x8000));
+    float4 absParam = (float4)_mm_and_si128((__m128i)param,(__m128i) *((_4i32 *)x7fffffff));
+
+    //Nan
+    //if( x != x ) 
+    _8i16 eq0 = (_8i16)_mm_cmpneq_ps(absParam, absParam);
+    _8i16 eq = (_8i16)_mm_and_si128((__m128i)absParam,(__m128i) eq0);
+    //u.u >>= (24-11);
+    eq = (_8i16) _mm_srli_epi32((__m128i)eq, 0x0d);
+    //u.u &= 0x7fff;
+    eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) *((_4i32 *)x7fff));
+    //u.u |= 0x0200;   -- silence the NaN
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) *((_4i32 *)x0200));
+    //return u.u | sign;
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) signs);
+    eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) eq0);
+    _8i16 dflt = eq0;
+
+    // overflow
+    //if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
+    //return 0x7c00 | sign;
+
+    float4 eq1 = _mm_cmpge_ps(absParam, *((float4 *)x477ff000));
+    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7c00));
+    eq0 = (_8i16) _mm_or_si128((__m128i)signs,(__m128i) eq0);
+    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
+
+    // underflow
+    //	if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
+    // return sign
+    eq1 = _mm_cmple_ps(absParam, *((float4 *)x33000000));
+    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) signs);
+    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
+
+
+    // very small
+    //	if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
+    // return sign | 1;
+    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33c00000));
+    eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) *((_4i32 *)conversion_ones)));
+    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
+
+    // half denormal         
+    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    //	x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
+    //  return sign | x;
+    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
+    float4 eq2 = _mm_mul_ps(absParam, *((float4 *)x01000000));  //x
+    eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) (_8i16)eq2));
+    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
+
+    // u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
+    // u.u &= 0x7f800000;
+    // x += u.f;
+    // u.f = x - u.f;
+    // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
+    // return (u.u >> (24-11)) | sign;
+
+    eq1 = _mm_mul_ps(param, *((float4 *)x46000000));  
+    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7f800000)); //u
+    eq1 = _mm_add_ps( (float4)eq0 ,absParam); //x
+    eq1 = _mm_sub_ps(eq1, (float4)eq0); //u
+    eq1 = _mm_mul_ps(eq1, *((float4 *)x07800000));  
+    eq0 = (_8i16) _mm_srli_epi32((__m128i)eq1, 0x0d);
+    eq0 = (_8i16) _mm_or_si128((__m128i)eq0,(__m128i) signs);
+    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
+    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+
+    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_4x32to4x16)));
+
+    return eq1;
 }
 
-float4 _intel_ocl_double2ToHalf2_rte(double2 param);
-float4 _intel_ocl_double2ToHalf2_rtz(double2 param);
-float4 _intel_ocl_double2ToHalf2_rtn(double2 param);
-float4 _intel_ocl_double2ToHalf2_rtp(double2 param);
-
-float4 _intel_ocl_double2ToHalf2(double2 param)
+float4 _ocl_float2half_rtz(float4 param)
 {
-	return _intel_ocl_double2ToHalf2_rte(param);
+
+    //cl_uint sign = (u.u >> 16) & 0x8000;
+    __m128 temp = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(param), 0x10));
+    __m128 signs = _mm_and_ps(temp, *(__m128*)x8000);
+    param = (float4)_mm_and_si128(_mm_castps_si128(param), *((__m128i*)x7fffffff));
+
+    //Nan
+    //if( x != x ) 
+    __m128 eq0 = _mm_cmpneq_ps(param, param);
+    __m128 eq = _mm_and_ps(param, eq0);
+    //u.u >>= (24-11);
+    eq = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq), 0x0d));
+    //u.u &= 0x7fff;
+    eq = _mm_and_ps(eq, *((__m128*)x7fff));
+    //u.u |= 0x0200;   -- silence the NaN
+    eq = _mm_or_ps(eq, *((__m128*)x0200));
+    //return u.u | sign;
+    eq = _mm_or_ps(eq, signs);
+    eq = _mm_and_ps(eq, (__m128)eq0);
+    __m128 dflt = eq0;
+
+    // overflow
+    //if( x >= MAKE_HEX_FLOAT(0x1.0p16f, 0x1L, 16) )
+
+    __m128 eq1 = _mm_cmpge_ps(param, *((__m128*)x47800000));
+
+    //if( x == INFINITY )
+    //return 0x7c00 | sign;
+    eq0 = _mm_castsi128_ps(_mm_cmpeq_epi32(_mm_castps_si128(param), *((__m128i*)x7f800000)));
+    eq0 = _mm_and_ps(eq0, eq1);
+    __m128 eq2 = _mm_and_ps(eq0, *((__m128*)x7c00));
+    eq2 = _mm_or_ps(eq2, signs);
+    eq2 = _mm_and_ps(eq0, eq2);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+
+    //else return 0x7bff | sign;
+    eq0 = _mm_xor_ps(eq1, eq0);
+    eq2 = _mm_and_ps(eq0, *((__m128*)x7bff));
+    eq2 = _mm_or_ps(eq2, signs);
+    eq2 = _mm_and_ps(eq2, eq0);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+
+    // underflow
+    //	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
+    //  return sign;    -- The halfway case can return 0x0001 or 0. 0 is even.
+    eq1 = _mm_cmplt_ps(param, *((__m128*)x33800000));
+    eq0 = _mm_and_ps(eq1, signs);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq = _mm_or_ps(eq, eq0);
+    dflt = _mm_or_ps(eq1, dflt);
+
+
+    // half denormal
+    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    //	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
+    //  return (short)( (int)x | sign);
+    eq1 = _mm_cmplt_ps(param, *((__m128*)x38800000));
+    eq2 = eq1;
+    eq1 = _mm_and_ps(eq1, param);
+    eq1 = _mm_mul_ps(eq1, *((__m128*)x4b800000));
+    eq0 = _mm_castsi128_ps(_mm_cvttps_epi32(eq1));
+    eq0 = _mm_or_ps(eq0, signs);
+    eq0 = _mm_and_ps(eq2, eq0);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq  = _mm_or_ps(eq, eq0); 
+    dflt = _mm_or_ps(eq2, dflt);
+
+
+    //u.u &= 0xFFFFE000U;
+    eq0 = _mm_and_ps(param, *((__m128*)xffffe000));
+    //u.u -= 0x38000000U;
+    eq0 = _mm_castsi128_ps(_mm_sub_epi32(_mm_castps_si128(eq0), *((__m128i*)x38000000)));
+    eq0 = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq0), 13));
+    eq0 = _mm_or_ps(eq0, signs);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq  = _mm_or_ps(eq, eq0);
+
+    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_4x32to4x16)));
+    return eq1;
+}
+
+float4 _ocl_float2half_rtp(float4 param)
+{
+    float4 zeros = _mm_setzero_ps();
+
+    //cl_uint sign = (u.u >> 16) & 0x8000;
+    __m128 temp = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(param), 0x10));
+    __m128 signs = _mm_and_ps(temp, *((__m128*)x8000));
+    float4 absParam = _mm_and_ps(param, *((__m128*)x7fffffff));
+
+    //Nan
+    //if( x != x ) 
+    __m128 eq0 = _mm_cmpneq_ps(absParam, absParam);
+    __m128 eq = _mm_and_ps(absParam, eq0);
+    //u.u >>= (24-11);
+    eq = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq), 0x0d));
+    //u.u &= 0x7fff;
+    eq = _mm_and_ps(eq, *((__m128*)x7fff));
+    //u.u |= 0x0200;   -- silence the NaN
+    eq = _mm_or_ps(eq, *((__m128 *)x0200));
+    //return u.u | sign;
+    eq = _mm_or_ps(eq, signs);
+    eq = _mm_and_ps(eq, eq0);
+    __m128 dflt = eq0;
+
+    // overflow
+    //if( f > MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
+    //return 0x7c00;
+
+    float4 eq1 = _mm_cmpgt_ps(param, *((float4 *)x477ff000));
+    eq0 = _mm_and_ps(eq1, *((__m128*)x7c00));
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq = _mm_or_ps(eq, eq0);
+    dflt = _mm_or_ps(eq1, dflt);
+
+    //	if( f <= MAKE_HEX_FLOAT(-0x1.0p16f, -0x1L, 16) )
+    eq1 = _mm_cmple_ps(param, *((float4 *)xc7800000));
+
+    //if( f == -INFINITY )
+    //return 0xfc00;
+    eq0 = _mm_castsi128_ps(_mm_cmpeq_epi32(_mm_castps_si128(param), *((__m128i*)xff800000)));
+    eq0 = _mm_and_ps(eq0, eq1);
+    float4 eq2 = _mm_and_ps(eq0, *((float4*)xfc00));
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    //else return 0xfbff;
+    eq0 = _mm_xor_ps(eq1, eq0);
+    eq2 = _mm_and_ps(eq0, *(float4*)xfbff);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    // underflow
+    //	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
+    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33800000));
+
+    // if (f > 0) return 1;
+    eq0 = _mm_cmpgt_ps(param, zeros);
+    eq0 = _mm_and_ps(eq0, eq1);
+    eq2 = _mm_and_ps(eq0, *((float4*)conversion_ones));
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+    // else return sign
+    eq0 = _mm_xor_ps(eq1, eq0);
+    eq2 = _mm_and_ps(eq0, signs);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    // half denormal         
+    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    //	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
+    //  int r = (int)x;
+    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
+    eq2 = eq1;
+    eq1 = _mm_and_ps(eq1, absParam);
+    eq1 = _mm_mul_ps(eq1, *((float4 *)x4b800000));  //x
+    eq0 = _mm_castsi128_ps(_mm_cvttps_epi32(eq1)); //r
+    // r += (float)r != x && f > 0.0f;
+    float4 eq3 = _mm_cvtepi32_ps(_mm_castps_si128(eq0)); //(float)r
+    eq1 = _mm_cmpneq_ps(eq1, eq3); // (float)r != x
+    eq3 = _mm_cmpgt_ps(param, zeros); //f > 0.0f
+    eq1 = _mm_and_ps(eq1, eq3); //(float)r != x && f > 0.0f
+    __m128 eq4 = _mm_and_ps(eq1, *((float4*)conversion_ones));
+    eq0 = _mm_castsi128_ps(_mm_add_epi32(_mm_castps_si128(eq0), _mm_castps_si128(eq4)));
+    // return (short)(r | sign)
+    eq0 = _mm_or_ps(eq0, signs); 
+    eq0 = _mm_and_ps(eq2, eq0);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq  = _mm_or_ps(eq, eq0); 
+    dflt = _mm_or_ps(eq2, dflt);
+
+    //u.u &= 0xFFFFE000U;
+    eq0 = _mm_and_ps(param, *((float4*)xffffe000));
+    //if (f > u.f)
+    //u.u += 0x00002000U;
+    eq1 = _mm_cmpgt_ps(param, (float4)eq0);
+    eq2 = _mm_castsi128_ps(
+        _mm_add_epi32(_mm_castps_si128(eq0), _mm_castps_si128(_mm_and_ps(eq1, *((float4*)x00002000)))));
+    //u.u -= 0x38000000U;
+    //return ((u.u >> 13) | sign);
+    eq2 = _mm_castsi128_ps(_mm_sub_epi32(_mm_castps_si128(eq2), *((__m128i*)x38000000)));
+    eq2 = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq2), 13));
+    eq2 = _mm_or_ps(eq2, signs);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq  = _mm_or_ps(eq, eq2); 
+
+    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_4x32to4x16)));
+
+    return eq1;
+}
+
+float4 _ocl_float2half_rtn(float4 param)
+{
+    float4 zeros = _mm_setzero_ps();
+
+    //cl_uint sign = (u.u >> 16) & 0x8000;
+    float4 temp = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(param), 0x10));
+    float4 signs = _mm_and_ps(temp, *(float4*)x8000);
+    float4 absParam = _mm_and_ps(param, *(float4*)x7fffffff);
+
+    //Nan
+    //if( x != x ) 
+    float4 eq0 = _mm_cmpneq_ps(absParam, absParam);
+    float4 eq = _mm_and_ps(absParam, eq0);
+    //u.u >>= (24-11);
+    eq = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq), 0x0d));
+    //u.u &= 0x7fff;
+    eq = _mm_and_ps(eq, *(float4*)x7fff);
+    //u.u |= 0x0200;   -- silence the NaN
+    eq = _mm_or_ps(eq, *(float4*)x0200);
+    //return u.u | sign;
+    eq = _mm_or_ps(eq, signs);
+    eq = _mm_and_ps(eq, eq0);
+    float4 dflt = eq0;
+
+
+    // overflow
+    //if( f >= MAKE_HEX_FLOAT(0x1.0p16f, 0x1L, 16) )
+    float4 eq1 = _mm_cmpge_ps(param, *(float4 *)x47800000);
+
+    //if( f == INFINITY )
+    //return 0x7c00;
+    eq0 = _mm_castsi128_ps(_mm_cmpeq_epi32(_mm_castps_si128(param), *(__m128i*)x7f800000));
+    eq0 = _mm_and_ps(eq0, eq1);
+    float4 eq2 = _mm_and_ps(eq0, *(float4*)x7c00);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    //else return 0x7bff;
+    eq0 = _mm_xor_ps(eq1, eq0);
+    eq2 = _mm_and_ps(eq0, *(float4*)x7bff);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    //if( f < MAKE_HEX_FLOAT(-0x1.ffcp15f, -0x1ffcL, 3) )
+    //return 0xfc00;
+    eq1 = _mm_cmplt_ps(param, *(float4 *)xc77fe000);
+    eq0 = _mm_and_ps(eq1, *(float4*)xfc00);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq = _mm_or_ps(eq, eq0);
+    dflt = _mm_or_ps(eq1, dflt);
+
+    // underflow
+    //	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
+    eq1 = _mm_cmple_ps(absParam, *((float4 *)x33800000));
+
+    // if (f < 0) return 0x8001;
+    eq0 = _mm_cmplt_ps(param, zeros);
+    eq0 = _mm_and_ps(eq0, eq1);
+    eq2 = _mm_and_ps(eq0, *(float4*)x8001);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+    // else return sign
+    eq0 = _mm_xor_ps(eq1, eq0);
+    eq2 = _mm_and_ps(eq0, signs);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq = _mm_or_ps(eq, eq2);
+    dflt = _mm_or_ps(eq0, dflt);
+
+    // half denormal         
+    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+    //	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
+    //  int r = (int)x;
+    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
+    eq2 = eq1;
+    eq1 = _mm_and_ps(eq1, absParam);
+    eq1 = _mm_mul_ps(eq1, *((float4 *)x4b800000));  //x
+    eq0 = _mm_castsi128_ps(_mm_cvttps_epi32(eq1)); //r
+
+    // r += (float)r != x && f < 0.0f;
+    float4 eq3 = _mm_cvtepi32_ps(_mm_castps_si128(eq0)); //(float)r
+    eq1 = _mm_cmpneq_ps(eq1, eq3); // (float)r != x
+    eq3 = _mm_cmplt_ps(param, zeros); //f < 0.0f
+    eq1 = _mm_and_ps(eq1, eq3); //(float)r != x && f < 0.0f
+    float4 eq4 = _mm_and_ps(eq1, *(float4*)conversion_ones);
+    eq0 = _mm_castsi128_ps(_mm_add_epi32(_mm_castps_si128(eq0), _mm_castps_si128(eq4)));
+    // return (short)(r | sign)
+    eq0 = _mm_or_ps(eq0, signs); 
+    eq0 = _mm_and_ps(eq2, eq0);
+    eq0 = _mm_andnot_ps(dflt, eq0);
+    eq  = _mm_or_ps(eq, eq0); 
+    dflt = _mm_or_ps(eq2, dflt);
+
+    //u.u &= 0xFFFFE000U;
+    eq0 = _mm_and_ps(param, *(float4*)xffffe000);
+    //if (u.f > f)
+    //u.u += 0x00002000U;
+    eq1 = _mm_cmpgt_ps(eq0, param);
+    eq2 = _mm_castsi128_ps(
+        _mm_add_epi32(
+        _mm_castps_si128(eq0), _mm_castps_si128(_mm_and_ps(eq1, *(float4*)x00002000))));
+    //u.u -= 0x38000000U;
+    //return ((u.u >> 13) | sign);
+    eq2 = _mm_castsi128_ps(_mm_sub_epi32(_mm_castps_si128(eq2), *(__m128i*)x38000000));
+    eq2 = _mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(eq2), 13));
+    eq2 = _mm_or_ps(eq2, signs);
+    eq2 = _mm_andnot_ps(dflt, eq2);
+    eq  = _mm_or_ps(eq, eq2); 
+
+    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_4x32to4x16)));
+
+    return eq1;
+}
+
+
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be applied to image_callback_functions.cpp
+float4 _ocl_float2half(float4 param)
+{
+    return _ocl_float2half_rte(param);
+}
+
+float4 _ocl_double2ToHalf2_rte(double2 param);
+float4 _ocl_double2ToHalf2_rtz(double2 param);
+float4 _ocl_double2ToHalf2_rtn(double2 param);
+float4 _ocl_double2ToHalf2_rtp(double2 param);
+
+float4 _ocl_double2ToHalf2_rte(double2 param)
+{
+    //cl_ulong sign = (u.u >> 48) & 0x8000;
+    //double x = fabs(f);
+    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
+    double2 signs = _mm_and_pd(temp, *(double2 *)x8000);
+    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
+
+    //Nan
+    //if( x != x ) 
+    //	u.u >>= (53-11);
+    //	u.u &= 0x7fff;
+    //	u.u |= 0x0200;   -- silence the NaN
+    //	return u.u | sign;
+
+    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
+    double2 eq = _mm_and_pd(absParam, eq0);
+    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
+    eq = _mm_and_pd(eq, *(double2*)x7fff);
+    eq = _mm_or_pd(eq, *(double2*)x0200);
+    eq = _mm_or_pd(eq, signs);
+    eq = _mm_and_pd(eq, eq0);
+    double2 dflt = eq0;
+
+    //// overflow
+    ////if( x >= MAKE_HEX_DOUBLE(0x1.ffep15, 0x1ffeL, 3) )
+    ////         0x40effe0000000000
+    ////return 0x7c00 | sign;
+
+    double2 eq1 = _mm_cmpge_pd(absParam, *(double2*)x40effe0000000000);
+    eq0 = _mm_and_pd(eq1, *(double2*)x7c00);
+    eq0 = _mm_or_pd(signs, eq0);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    //// underflow
+    ////	if( x <= MAKE_HEX_DOUBLE(0x1.0p-25, 0x1L, -25) )
+    ////			 0x3e60000000000000
+    //// return sign
+    eq1 = _mm_cmple_pd(absParam, *(double2*)x3e60000000000000);
+    eq0 = _mm_and_pd(eq1, signs);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+
+    //// very small
+    ////	if( x < MAKE_HEX_DOUBLE(0x1.8p-24, 0x18L, -28) )
+    ////			0x3e78000000000000
+    //// return sign | 1;
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3e78000000000000);
+    eq0 = _mm_and_pd(eq1, _mm_or_pd(signs, *(double2*)dones));
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd( eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    //// half denormal         
+    ////  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
+    ////			0x3f10000000000000
+    ////	u.f = x * MAKE_HEX_DOUBLE(0x1.0p-1050, 0x1L, -1050);
+    ////			  0x0000000001000000
+    ////  return sign | x;
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
+    double2 eq2 = _mm_mul_pd(absParam, *(double2*)x0000000001000000);  //x
+    eq0 = _mm_and_pd(eq1, _mm_or_pd(signs, eq2));
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    //// u.f *= MAKE_HEX_DOUBLE(0x1.0p42, 0x1L, 42);
+    ////		  0x4290000000000000
+    //// u.u &= 0x7ff0000000000000UL;
+    //// x += u.f;
+    //// u.f = x - u.f;
+    //// u.f *= MAKE_HEX_DOUBLE(0x1.0p-1008, 0x1L, -1008);
+    ////		  0x00f0000000000000
+    //// return (u.u >> (53-11)) | sign;
+    //
+    double2 res = _mm_mul_pd(param, *(double2 *)x4290000000000000);  
+    double2 tmp = _mm_and_pd(res, *(double2*)x7ff0000000000000); //u
+    res = _mm_add_pd( tmp ,absParam); //x
+    res = _mm_sub_pd( res, tmp); //u
+    res = _mm_mul_pd(res, *(double2*)x00f0000000000000);
+    res = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(res), 42));
+    res = _mm_or_pd(res, signs);
+    res = _mm_andnot_pd(dflt, res);
+    eq = _mm_or_pd(eq, res);
+
+    return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i*)g_vls_2x64to2x16));
+}
+
+float4 _ocl_double2ToHalf2_rtz(double2 param)
+{
+    //cl_ulong sign = (u.u >> 48) & 0x8000;
+    //double x = fabs(f);
+    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
+    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
+    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
+
+    //Nan
+    //if( x != x ) 
+    //	u.u >>= (53-11);
+    //	u.u &= 0x7fff;
+    //	u.u |= 0x0200;   -- silence the NaN
+    //	return u.u | sign;
+    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
+    double2 eq = _mm_and_pd(absParam, eq0);
+    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
+    eq = _mm_and_pd(eq, *(double2*)x7fff);
+    eq = _mm_or_pd(eq, *(double2*)x0200);
+    eq = _mm_or_pd(eq, signs);
+    eq = _mm_and_pd(eq, eq0);
+    double2 dflt = eq0;
+
+    //if( x == INFINITY )
+    //return 0x7c00 | sign;
+    eq0 = _mm_cmpeq_pd(absParam, *(double2*)x7ff0000000000000);
+    double2 eq1 = _mm_and_pd(eq0, *(double2*)x7c00);
+    eq1 = _mm_or_pd(eq1, signs);
+    eq1 = _mm_and_pd(eq0, eq1);
+    eq1 = _mm_andnot_pd(dflt, eq1);
+    eq = _mm_or_pd(eq, eq1);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    // overflow
+    //if( x >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
+    //    return 0x7bff | sign;
+    eq0 = _mm_cmpge_pd(absParam, *(double2*)x40f0000000000000);
+    eq1 = _mm_and_pd(eq0, *(double2*)x7bff);
+    eq1 = _mm_or_pd(eq1, signs);
+    eq1 = _mm_and_pd(eq0, eq1);
+    eq1 = _mm_andnot_pd(dflt, eq1);
+    eq = _mm_or_pd(eq, eq1);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    // underflow
+    //if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
+    //    return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3e70000000000000);
+    eq0 = _mm_and_pd(eq1, signs);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    // half denormal
+    //if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
+    //    x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
+    //    return (cl_ushort)((int) x | sign);
+    eq0 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
+    eq1 = _mm_and_pd(eq0, absParam);
+    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);
+    eq1 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1));
+    eq1 = _mm_castsi128_pd(_mm_unpacklo_epi32(_mm_castpd_si128(eq1), _mm_setzero_si128()));
+    eq1 = _mm_or_pd(eq1, signs);
+    eq1 = _mm_and_pd(eq1, eq0);
+    eq1 = _mm_andnot_pd(dflt, eq1);
+    eq  = _mm_or_pd(eq, eq1); 
+    dflt = _mm_or_pd(eq0, dflt);
+
+    //u.u &= 0xFFFFFC0000000000UL;
+    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
+    //u.u -= 0x3F00000000000000UL;
+    eq0 = _mm_castsi128_pd(
+        _mm_sub_epi64(_mm_castpd_si128(eq0), *(__m128i*)x3F00000000000000));
+    //return (u.u >> (53-11)) | sign;
+    eq0 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq0), 42));
+    eq0 = _mm_or_pd(eq0, signs);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq  = _mm_or_pd(eq, eq0);
+
+    return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i *)g_vls_2x64to2x16));
+}
+
+float4 _ocl_double2ToHalf2_rtp(double2 param)
+{
+    double2 zeros = _mm_setzero_pd();
+
+    //cl_ulong sign = (u.u >> 48) & 0x8000;
+    //double x = fabs(f);
+    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
+    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
+    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
+
+    //Nan
+    //if( x != x ) 
+    //	u.u >>= (53-11);
+    //	u.u &= 0x7fff;
+    //	u.u |= 0x0200;   -- silence the NaN
+    //	return u.u | sign;
+
+    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
+    double2 eq = _mm_and_pd(absParam, eq0);
+    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
+    eq = _mm_and_pd(eq, *(double2*)x7fff);
+    eq = _mm_or_pd(eq, *(double2*)x0200);
+    eq = _mm_or_pd(eq, signs);
+    eq = _mm_and_pd(eq, eq0);
+    double2 dflt = eq0;
+
+    // overflow
+    //if( f > MAKE_HEX_DOUBLE(0x1.ffcp15, 0x1ffcL, 3) )
+    //		  0x40effc0000000000
+    //	return 0x7c00;
+    double2 eq1 = _mm_cmpgt_pd(param, *(double2*)x40effc0000000000);
+    eq0 = _mm_and_pd(eq1, *(double2*)x7c00);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    //if( f <= MAKE_HEX_DOUBLE(-0x1.0p16, -0x1L, 16) )
+    //		   0xc0f0000000000000
+    eq1 = _mm_cmple_pd(param, *(double2*)xc0f0000000000000);
+
+    //if( f == -INFINITY )
+    //return 0xfc00;
+    eq0 = _mm_cmpeq_pd(param, *(double2*)xfff0000000000000);
+    eq0 = _mm_and_pd(eq0, eq1);
+    double2 eq2 = _mm_and_pd(eq0, *(double2*)xfc00);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    //else return 0xfbff;
+    eq0 = _mm_xor_pd(eq1, eq0);
+    eq2 = _mm_and_pd(eq0, *(double2*)xfbff);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+
+    // underflow
+    //	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
+    //			0x3e70000000000000
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3e70000000000000);
+
+    // if (f > 0) return 1;
+    eq0 = _mm_cmpgt_pd(param, zeros);
+    eq0 = _mm_and_pd(eq0, eq1);
+    eq2 = _mm_and_pd(eq0, *(double2*)dones);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+    // else return sign
+    eq0 = _mm_xor_pd(eq1, eq0);
+    eq2 = _mm_and_pd(eq0, signs);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    // half denormal         
+    //  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
+    //			0x3f10000000000000
+    //		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
+    //			 0x4170000000000000
+    //		int r = (int)x;
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
+    eq2 = eq1;
+    eq1 = _mm_and_pd(eq1, absParam);
+    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);  //x
+    eq0 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1)); //r
+
+    // if( sign )
+    //     r += (double) r != x;
+    double2 eq3 = _mm_cvtepi32_pd(_mm_castpd_si128(eq0)); //(double)r
+    eq1 = _mm_cmpneq_pd(eq1, eq3); // (double)r != x
+    eq3 = _mm_cmpgt_pd(param, zeros); //f > 0.0f
+    eq1 = _mm_and_pd(eq1, eq3); //(double)r != x && f < 0.0f
+    double2 eq4 = _mm_and_pd(eq1, *(double2*)dones);
+    eq0 = _mm_castsi128_pd(
+        _mm_unpacklo_epi32(_mm_castpd_si128(eq0), _mm_setzero_si128()));
+    eq0 = _mm_castsi128_pd(_mm_add_epi64(_mm_castpd_si128(eq0), _mm_castpd_si128(eq4)));
+
+    // return (short)(r | sign)
+    eq0 = _mm_or_pd(eq0, signs); 
+    eq0 = _mm_and_pd(eq2, eq0);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq  = _mm_or_pd(eq, eq0); 
+    dflt = _mm_or_pd(eq2, dflt);
+
+    //u.u &= 0xFFFFFC0000000000UL;
+    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
+    //if (u.f < f)
+    //u.u += 0x0000040000000000UL;
+    eq1 = _mm_cmpgt_pd(param, eq0);
+    eq2 = _mm_castsi128_pd(
+        _mm_add_epi64(_mm_castpd_si128(eq0), 
+        _mm_castpd_si128(_mm_and_pd(eq1, *(double2*)x0000040000000000))));
+    //u.u -= 0x3F00000000000000UL;
+    //return ((u.u >> 42) | sign);
+    eq2 = _mm_castsi128_pd(_mm_sub_epi64(_mm_castpd_si128(eq2), *(__m128i*)x3F00000000000000));
+    eq2 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq2), 42));
+    eq2 = _mm_or_pd(eq2, signs);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq  = _mm_or_pd(eq, eq2); 
+
+    return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i *)g_vls_2x64to2x16));
+}
+
+float4 _ocl_double2ToHalf2_rtn(double2 param)
+{
+    double2 zeros = _mm_setzero_pd();
+
+    //cl_ulong sign = (u.u >> 48) & 0x8000;
+    //double x = fabs(f);
+    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
+    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
+    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
+
+    //Nan
+    //if( x != x ) 
+    //	u.u >>= (53-11);
+    //	u.u &= 0x7fff;
+    //	u.u |= 0x0200;   -- silence the NaN
+    //	return u.u | sign;
+
+    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
+    double2 eq = _mm_and_pd(absParam, eq0);
+    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
+    eq = _mm_and_pd(eq, *(double2*)x7fff);
+    eq = _mm_or_pd(eq, *(double2*)x0200);
+    eq = _mm_or_pd(eq, signs);
+    eq = _mm_and_pd(eq, eq0);
+    double2 dflt = eq0;
+
+
+    // overflow
+    //if( f >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
+    //         0x40f0000000000000
+    double2 eq1 = _mm_cmpge_pd(param, *(double2*)x40f0000000000000);
+
+    //if( f == INFINITY )
+    //return 0x7c00;
+    eq0 = _mm_cmpeq_pd(param, *(double2*)x7ff0000000000000);
+    eq0 = _mm_and_pd(eq0, eq1);
+    double2 eq2 = _mm_and_pd(eq0, *(double2*)x7c00);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    //else return 0x7bff;
+    eq0 = _mm_xor_pd(eq1, eq0);
+    eq2 = _mm_and_pd(eq0, *(double2*)x7bff);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    //if( f < MAKE_HEX_DOUBLE(-0x1.ffcp15, -0x1ffcL, 3) )
+    //        0xc0effc0000000000
+    //return 0xfc00;
+    eq1 = _mm_cmplt_pd(param, *(double2*)xc0effc0000000000);
+    eq0 = _mm_and_pd(eq1, *(double2*)xfc00);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq = _mm_or_pd(eq, eq0);
+    dflt = _mm_or_pd(eq1, dflt);
+
+    // underflow
+    //	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
+    //			0x3e70000000000000
+    eq1 = _mm_cmple_pd(absParam, *(double2*)x3e70000000000000);
+
+    // if (f < 0) return 0x8001;
+    eq0 = _mm_cmplt_pd(param, zeros);
+    eq0 = _mm_and_pd(eq0, eq1);
+    eq2 = _mm_and_pd(eq0, *(double2*)x8001);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+    // else return sign
+    eq0 = _mm_xor_pd(eq1, eq0);
+    eq2 = _mm_and_pd(eq0, signs);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq = _mm_or_pd(eq, eq2);
+    dflt = _mm_or_pd(eq0, dflt);
+
+    // half denormal         
+    //  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
+    //			0x3f10000000000000
+    //		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
+    //			 0x4170000000000000
+    //		int r = (int)x;
+    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
+    eq2 = eq1;
+    eq1 = _mm_and_pd(eq1, absParam);
+    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);  //x
+    eq0 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1)); //r
+
+    // if( sign )
+    //     r += (double) r != x;
+    double2 eq3 = _mm_cvtepi32_pd(_mm_castpd_si128(eq0)); //(double)r
+    eq1 = _mm_cmpneq_pd( eq1, eq3); // (double)r != x
+    eq3 = _mm_cmplt_pd(param, zeros); //f < 0.0f
+    eq1 = _mm_and_pd(eq1, eq3); //(double)r != x && f < 0.0f
+    double2 eq4 = _mm_and_pd(eq1, *(double2*)dones);
+    eq0 = _mm_castsi128_pd(_mm_unpacklo_epi32(_mm_castpd_si128(eq0), _mm_setzero_si128()));
+    eq0 = _mm_castsi128_pd(_mm_add_epi64(_mm_castpd_si128(eq0), _mm_castpd_si128(eq4)));
+
+    // return (short)(r | sign)
+    eq0 = _mm_or_pd(eq0, signs); 
+    eq0 = _mm_and_pd(eq2, eq0);
+    eq0 = _mm_andnot_pd(dflt, eq0);
+    eq  = _mm_or_pd(eq, eq0); 
+    dflt = _mm_or_pd(eq2, dflt);
+
+    //u.u &= 0xFFFFFC0000000000UL;
+    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
+    //if (u.f > f)
+    //u.u += 0x0000040000000000UL;
+    eq1 = _mm_cmpgt_pd(eq0, param);
+    eq2 = _mm_castsi128_pd(
+        _mm_add_epi64(_mm_castpd_si128(eq0), 
+        _mm_castpd_si128(_mm_and_pd(eq1, *(double2*)x0000040000000000))));
+    //u.u -= 0x3F00000000000000UL;
+    //return ((u.u >> 42) | sign);
+    eq2 = _mm_castsi128_pd(_mm_sub_epi64(_mm_castpd_si128(eq2), *(__m128i *)x3F00000000000000));
+    eq2 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq2), 42));
+    eq2 = _mm_or_pd(eq2, signs);
+    eq2 = _mm_andnot_pd(dflt, eq2);
+    eq  = _mm_or_pd(eq, eq2); 
+
+    return _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_2x64to2x16)));
+}
+
+
+float4 _ocl_double2ToHalf2(double2 param)
+{
+	return _ocl_double2ToHalf2_rte(param);
 }
 
 #define DEF_VLOADVSTORE_PROTOV_X_X_Y(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, VEC)\
@@ -370,7 +1234,7 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	{\
 		float4 f4;\
 		f4.s0 = data;\
-		f4 = _intel_ocl_float2half##RMODE(f4);\
+		f4 = _ocl_float2half##RMODE(f4);\
 		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half2##RMODE(float2 data, size_t offset, ADR half *ptr)\
@@ -378,14 +1242,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		float4 f4;\
 		f4.lo = data;\
 		ptr = ptr + (offset*2);\
-		f4 = _intel_ocl_float2half##RMODE(f4);\
+		f4 = _ocl_float2half##RMODE(f4);\
 		*((float*)ptr) = f4.s0;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half3##RMODE(float3 data, size_t offset, ADR half *ptr)\
 	{\
 		float4 f4;\
 		f4.s012 = data;\
-		f4 = _intel_ocl_float2half##RMODE(f4);\
+		f4 = _ocl_float2half##RMODE(f4);\
 		if(Alligned)\
 		{\
 			ptr = ptr + (offset*4);\
@@ -403,14 +1267,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
-		data = _intel_ocl_float2half##RMODE(data);\
+		data = _ocl_float2half##RMODE(data);\
 		*((float2 *)ptr) = data.lo;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half8##RMODE(float8 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*8);\
-		data.lo = _intel_ocl_float2half##RMODE(data.lo);\
-		data.hi = _intel_ocl_float2half##RMODE(data.hi);\
+		data.lo = _ocl_float2half##RMODE(data.lo);\
+		data.hi = _ocl_float2half##RMODE(data.hi);\
 		data.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo, (__m128i)data.hi);\
 		if(Alligned)\
 			_mm_store_ps((float*)ptr, data.lo);\
@@ -420,16 +1284,16 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	void __attribute__((overloadable))  vstore##A##_half16##RMODE(float16 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*16);\
-		data.lo.lo = _intel_ocl_float2half##RMODE(data.lo.lo);\
-		data.lo.hi = _intel_ocl_float2half##RMODE(data.lo.hi);\
+		data.lo.lo = _ocl_float2half##RMODE(data.lo.lo);\
+		data.lo.hi = _ocl_float2half##RMODE(data.lo.hi);\
 		data.lo.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo.lo, (__m128i)data.lo.hi);\
 		if(Alligned)\
 		_mm_store_ps((float*)ptr, data.lo.lo);\
 		else\
 		_mm_storeu_ps((float*)ptr, data.lo.lo);\
 		ptr = ptr + 8;\
-		data.hi.lo = _intel_ocl_float2half##RMODE(data.hi.lo);\
-		data.hi.hi = _intel_ocl_float2half##RMODE(data.hi.hi);\
+		data.hi.lo = _ocl_float2half##RMODE(data.hi.lo);\
+		data.hi.hi = _ocl_float2half##RMODE(data.hi.hi);\
 		data.hi.lo = (float4)_mm_unpacklo_epi64((__m128i)data.hi.lo, (__m128i)data.hi.hi);\
 		if(Alligned)\
 		_mm_store_ps((float*)ptr, data.hi.lo);\
@@ -440,20 +1304,20 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	{\
 		double2 d2 = (double2)(0.0);\
 		d2.x = data;\
-		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(d2);\
+		float4 f4 = _ocl_double2ToHalf2##RMODE(d2);\
 		((short *)ptr)[offset] = (short)_mm_extract_epi16( (__m128i)f4, 0);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half2##RMODE(double2 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*2);\
-		float4 f4 = _intel_ocl_double2ToHalf2##RMODE(data);\
+		float4 f4 = _ocl_double2ToHalf2##RMODE(data);\
 		*((float*)ptr) = f4.s0;\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half3##RMODE(double3 data, size_t offset, ADR half *ptr)\
 	{\
 		float4 t1, t2, f4;\
-		t1 = _intel_ocl_double2ToHalf2##RMODE(data.xy);\
-		t2 = _intel_ocl_double2ToHalf2##RMODE(data.zz);\
+		t1 = _ocl_double2ToHalf2##RMODE(data.xy);\
+		t2 = _ocl_double2ToHalf2##RMODE(data.zz);\
 		f4.x = t1.x;\
 		f4.y = t2.x;\
 		if(Alligned)\
@@ -472,8 +1336,8 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 	{\
 		ptr = ptr + (offset*4);\
 		float4 t1, t2, f4;\
-		t1 = _intel_ocl_double2ToHalf2##RMODE(data.xy);\
-		t2 = _intel_ocl_double2ToHalf2##RMODE(data.zw);\
+		t1 = _ocl_double2ToHalf2##RMODE(data.xy);\
+		t2 = _ocl_double2ToHalf2##RMODE(data.zw);\
 		f4.x = t1.x;\
 		f4.y = t2.x;\
 		_mm_storel_epi64((__m128i*)ptr, (__m128i)f4);\
@@ -483,10 +1347,10 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		ptr = ptr + (offset*8);\
 		float8 f8;\
 		float4 t1, t2, t3, t4;\
-		t1 = _intel_ocl_double2ToHalf2##RMODE(data.s01);\
-		t2 = _intel_ocl_double2ToHalf2##RMODE(data.s23);\
-		t3 = _intel_ocl_double2ToHalf2##RMODE(data.s45);\
-		t4 = _intel_ocl_double2ToHalf2##RMODE(data.s67);\
+		t1 = _ocl_double2ToHalf2##RMODE(data.s01);\
+		t2 = _ocl_double2ToHalf2##RMODE(data.s23);\
+		t3 = _ocl_double2ToHalf2##RMODE(data.s45);\
+		t4 = _ocl_double2ToHalf2##RMODE(data.s67);\
 		f8.x = t1.x;\
 		f8.y = t2.x;\
 		f8.z = t3.x;\
@@ -501,14 +1365,14 @@ float4 _intel_ocl_double2ToHalf2(double2 param)
 		ptr = ptr + (offset*16);\
 		float16 f16;\
 		float4 t1, t2, t3, t4, t5, t6, t7, t8;\
-		t1 = _intel_ocl_double2ToHalf2##RMODE(data.s01);\
-		t2 = _intel_ocl_double2ToHalf2##RMODE(data.s23);\
-		t3 = _intel_ocl_double2ToHalf2##RMODE(data.s45);\
-		t4 = _intel_ocl_double2ToHalf2##RMODE(data.s67);\
-		t5 = _intel_ocl_double2ToHalf2##RMODE(data.s89);\
-		t6 = _intel_ocl_double2ToHalf2##RMODE(data.sAB);\
-		t7 = _intel_ocl_double2ToHalf2##RMODE(data.sCD);\
-		t8 = _intel_ocl_double2ToHalf2##RMODE(data.sEF);\
+		t1 = _ocl_double2ToHalf2##RMODE(data.s01);\
+		t2 = _ocl_double2ToHalf2##RMODE(data.s23);\
+		t3 = _ocl_double2ToHalf2##RMODE(data.s45);\
+		t4 = _ocl_double2ToHalf2##RMODE(data.s67);\
+		t5 = _ocl_double2ToHalf2##RMODE(data.s89);\
+		t6 = _ocl_double2ToHalf2##RMODE(data.sAB);\
+		t7 = _ocl_double2ToHalf2##RMODE(data.sCD);\
+		t8 = _ocl_double2ToHalf2##RMODE(data.sEF);\
 		f16.s0 = t1.x;\
 		f16.s1 = t2.x;\
 		f16.s2 = t3.x;\

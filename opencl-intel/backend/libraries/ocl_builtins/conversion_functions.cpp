@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+
 #if defined(__AVX__)
  /*
   * AVX requires svml g9 for 32-bit dll
@@ -13,56 +14,37 @@ extern "C" {
   */
   #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
   #define CTYPE e9
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##e9##_##oclfunc
   #else
   #define CTYPE g9
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##g9##_##oclfunc
   #endif
 #elif defined (__SSE4_2__)
   #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
   #define CTYPE h8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##h8##_##oclfunc
   #else
   #define CTYPE n8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##n8##_##oclfunc
   #endif
 #elif defined(__SSE4_1__)
   #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
   #define CTYPE y8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##y8##_##oclfunc
   #else
   #define CTYPE p8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##p8##_##oclfunc
   #endif
 #elif defined(__SSSE3__)
   #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)  
   #define CTYPE u8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##u8##_##oclfunc
   #else
   #define CTYPE v8
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##v8##_##oclfunc
   #endif
 #elif defined(__SSE3__)
   #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
   #define CTYPE e7
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##e7##_##oclfunc
   #else
   #define CTYPE t7
-  #define OCL_SVML_FUNCTION(oclfunc) __ocl_svml_##t7##_##oclfunc
   #endif
 #else
   #error SSE artchitecture was not defined
 #endif // __SSE4_2__
 
-#ifdef _WIN32
-#ifdef CL_BUILTIN_FUNCTIONS_EXPORTS
-#define CONVERSIONS_FUNC_DECL __declspec(dllexport)
-#else
-#define CONVERSIONS_FUNC_DECL __declspec(dllimport)
-#endif
-#else
-#define CONVERSIONS_FUNC_DECL 
-#endif
 
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 #if defined(_MSC_VER)
@@ -108,1269 +90,16 @@ extern "C" {
 #include "ll_intrinsics.h"
 
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-
-	#ifdef __SSSE3__
-		#define SHUFFLE_EPI8(x, mask)\
-			_mm_shuffle_epi8(x, mask)
-	#else
-		__m128i shuffle_epi8(__m128i x, __m128i mask)
-		{
-			ALIGN16 _1i8 tempX[16];											
-			ALIGN16 _1i8 tampMask[16];										
-			ALIGN16 _1i8 result[16];										
-																			
-			_mm_store_si128((__m128i *)tempX, x);							
-			_mm_store_si128((__m128i *)tampMask, mask);					
-			for(int i=0; i<16; ++i)											
-			{																
-				_1i8 index = tampMask[i] & 15;								
-				result[i] = (tampMask[i] < 0) ? 0 : tempX[index];			
-			}																
-			return _mm_load_si128((const __m128i *)result);					
-		}																	
-																			
-		#define SHUFFLE_EPI8(x, mask)\
-			shuffle_epi8(x, mask)											
-	#endif
-
-	ALIGN16 int x7bff[] = {0x7bff, 0x7bff, 0x7bff, 0x7bff};
-	ALIGN16 int x8000[] = {0x8000, 0x8000, 0x8000, 0x8000};
-	ALIGN16 int x7fff[] = {0x7fff, 0x7fff, 0x7fff, 0x7fff};
-	ALIGN16 int x0200[] = {0x0200, 0x0200, 0x0200, 0x0200};
-	ALIGN16 int x7c00[] = {0x7c00, 0x7c00, 0x7c00, 0x7c00};
-	ALIGN16 int xfbff[] = {0xfbff, 0xfbff, 0xfbff, 0xfbff};
-	ALIGN16 int xfc00[] = {0xfc00, 0xfc00, 0xfc00, 0xfc00};
-	ALIGN16 int x8001[] = {0x8001, 0x8001, 0x8001, 0x8001};
-			
-	ALIGN16 int x7fffffff[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
-	ALIGN16 int x7f800000[] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
-	ALIGN16 int x47800000[] = {0x47800000, 0x47800000, 0x47800000, 0x47800000};
-	ALIGN16 int x33800000[] = {0x33800000, 0x33800000, 0x33800000, 0x33800000};
-	ALIGN16 int x38800000[] = {0x38800000, 0x38800000, 0x38800000, 0x38800000};
-	ALIGN16 int x4b800000[] = {0x4b800000, 0x4b800000, 0x4b800000, 0x4b800000};
-	ALIGN16 int xffffe000[] = {0xffffe000, 0xffffe000, 0xffffe000, 0xffffe000};
-	ALIGN16 int x38000000[] = {0x38000000, 0x38000000, 0x38000000, 0x38000000};
-	ALIGN16 int x477ff000[] = {0x477ff000, 0x477ff000, 0x477ff000, 0x477ff000};
-	ALIGN16 int xc7800000[] = {0xc7800000, 0xc7800000, 0xc7800000, 0xc7800000};
-	ALIGN16 int xff800000[] = {0xff800000, 0xff800000, 0xff800000, 0xff800000};
-	ALIGN16 int xc77fe000[] = {0xc77fe000, 0xc77fe000, 0xc77fe000, 0xc77fe000};
-	ALIGN16 int x00002000[] = {0x00002000, 0x00002000, 0x00002000, 0x00002000};
-	ALIGN16 int x33000000[] = {0x33000000, 0x33000000, 0x33000000, 0x33000000};
-	ALIGN16 int x33c00000[] = {0x33c00000, 0x33c00000, 0x33c00000, 0x33c00000};
-	ALIGN16 int x01000000[] = {0x01000000, 0x01000000, 0x01000000, 0x01000000};
-	ALIGN16 int x46000000[] = {0x46000000, 0x46000000, 0x46000000, 0x46000000};
-	ALIGN16 int x07800000[] = {0x07800000, 0x07800000, 0x07800000, 0x07800000};
-	
-	ALIGN16 __int64 x7fffffffffffffff[] = {0x7fffffffffffffff, 0x7fffffffffffffff};
-	ALIGN16 __int64 x7ff0000000000000[] = {0x7ff0000000000000, 0x7ff0000000000000};
-	ALIGN16 __int64 x40f0000000000000[] = {0x40f0000000000000, 0x40f0000000000000};
-	ALIGN16 __int64 x3e70000000000000[] = {0x3e70000000000000, 0x3e70000000000000};
-	ALIGN16 __int64 x3f10000000000000[] = {0x3f10000000000000, 0x3f10000000000000};
-	ALIGN16 __int64 x4170000000000000[] = {0x4170000000000000, 0x4170000000000000};
-	ALIGN16 __int64 xFFFFFC0000000000[] = {0xFFFFFC0000000000, 0xFFFFFC0000000000};
-	ALIGN16 __int64 x3F00000000000000[] = {0x3F00000000000000, 0x3F00000000000000};
-	ALIGN16 __int64 x40effe0000000000[] = {0x40effe0000000000, 0x40effe0000000000};
-	ALIGN16 __int64 x40effc0000000000[] = {0x40effc0000000000, 0x40effc0000000000};
-	ALIGN16 __int64 x00f0000000000000[] = {0x00f0000000000000, 0x00f0000000000000};
-	ALIGN16 __int64 x4290000000000000[] = {0x4290000000000000, 0x4290000000000000};
-	ALIGN16 __int64 x0000000001000000[] = {0x0000000001000000, 0x0000000001000000};
-	ALIGN16 __int64 x3e78000000000000[] = {0x3e78000000000000, 0x3e78000000000000};
-	ALIGN16 __int64 x3e60000000000000[] = {0x3e60000000000000, 0x3e60000000000000};
-	ALIGN16 __int64 x0000040000000000[] = {0x0000040000000000, 0x0000040000000000};
-	ALIGN16 __int64 xc0effc0000000000[] = {0xc0effc0000000000, 0xc0effc0000000000};
-	ALIGN16 __int64 xfff0000000000000[] = {0xfff0000000000000, 0xfff0000000000000};
-	ALIGN16 __int64 xc0f0000000000000[] = {0xc0f0000000000000, 0xc0f0000000000000};
-		
-	ALIGN16 int ones[] = {1, 1, 1, 1};
-	ALIGN16 __int64 dones[] = {1, 1};
-	ALIGN16 char _4x32to4x16[] = {0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1};
-	ALIGN16 char _2x64to2x16[] = {0, 1, 8, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-
-
-//Klocwork warning Buffer overflow - this is known workaround to existing issue in Intel Compiler for win32”
-#if defined(WIN32) && !defined(_DEBUG) && !defined(_M_X64)
-#define ROUND_MODE(x) (*(&x - 4))
 #else
-#define ROUND_MODE(x) x
-#endif
-
-CONVERSIONS_FUNC_DECL __m128 double2ToFloat4Round(double2 x, int rMode) 
-{
-
-  int rm = _mm_getcsr();
-  _mm_setcsr((rm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-  __m128 res = _mm_cvtpd_ps(x);
-  _mm_setcsr(rm);
-  return res;
-} 
-
-#if defined(__AVX__)
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-CONVERSIONS_FUNC_DECL __m128 double4ToFloat4Round(__m256d x, int rMode) 
-#else
-CONVERSIONS_FUNC_DECL __m128 double4ToFloat4Round(double4 x, int rMode) 
-#endif
-{
-  int rm = _mm_getcsr();
-  _mm_setcsr((rm& ~_MM_ROUND_MASK) | rMode);
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-  __m128 res = _mm256_cvtpd_ps(x);
-#else
-  __m128 res = _mm256_cvtpd_ps(__builtin_astype(x,__m256d));
-#endif
-  _mm_setcsr(rm);
-  return res;
-} 
-#endif // defined(__AVX__)
-
-#if defined(__AVX__)
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-CONVERSIONS_FUNC_DECL __m256i float8ToInt8Round(__m256 param, int rMode)
-#else
-CONVERSIONS_FUNC_DECL __m256i float8ToInt8Round(float8 param, int rMode)
-#endif
-{
-	int rm = _mm_getcsr();
-	_mm_setcsr((rm& ~_MM_ROUND_MASK) | rMode);
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-	__m256i res = _mm256_cvtps_epi32(param);
-#else
-	__m256i res = _mm256_cvtps_epi32((__m256)param);
-#endif
-	_mm_setcsr(rm);
-	return res;
-}
-#endif // defined(__AVX__)
-
-CONVERSIONS_FUNC_DECL __m128i float4ToInt4Round(float4 param, int rMode)
-{
-	int rm = _mm_getcsr();
-	_mm_setcsr((rm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-	__m128i res = _mm_cvtps_epi32(param);
-	_mm_setcsr(rm);
-	return res;
-}
-
-CONVERSIONS_FUNC_DECL int floatToIntRound(float4 param, int rMode)
-{
-
-	int rm = _mm_getcsr();
-	_mm_setcsr((rm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-	int res = _mm_cvtss_si32(param);
-	_mm_setcsr(rm);
-	return res;
-}
-
-	CONVERSIONS_FUNC_DECL __m128i double2ToInt4(double2 param, int rMode)
-	{
-		int rm = _mm_getcsr();
-		_mm_setcsr((rm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-		__m128i res = _mm_cvtpd_epi32(param);
-		_mm_setcsr(rm);
-		return res;
-	} 
-
-	CONVERSIONS_FUNC_DECL float ulongToFloat(_1u64 param, int rm)
-	{
-		unsigned int oldRound, tmp;
-		if (param == 0) return 0.0f;
-#if defined(_MSC_VER)
-		_controlfp_s(&oldRound, _PC_64, _MCW_PC);
-		_controlfp_s(&oldRound, rm, _MCW_RC);
-		float res = (float)param;
-		_controlfp_s(&tmp,oldRound, _MCW_RC);
-#else
-		float res = (float)param;
-#endif
-		return res;
-	}
-
-CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
-{
-	unsigned int oldRound, tmp;
-	if(x == 0) return 0.0f;
-  oldRound = _mm_getcsr();
-  tmp = oldRound | rm;
-  _mm_setcsr(tmp);
-  float res = ((float)x);
-  _mm_setcsr(oldRound);
-	return res;
-}
-
-	CONVERSIONS_FUNC_DECL float4 intToFloatRound(_4i32 param, int rMode)
-	{
-
-		int crm = _mm_getcsr();
-		_mm_setcsr((crm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-		float4 res = _mm_cvtepi32_ps(param);
-		_mm_setcsr(crm);
-		return res;
-	}
-#if defined(__AVX__)
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-    CONVERSIONS_FUNC_DECL __m256 intToFloat8Round(__m256i param, int rMode)
-#else
-    CONVERSIONS_FUNC_DECL __m256 intToFloat8Round(int8 param, int rMode)
-#endif
-	{
-        int crm = _mm_getcsr();
-        // ROUND_MODE is not needed here since Intel Compiler correctly obtains argument from stack
-        _mm_setcsr((crm& ~_MM_ROUND_MASK) | rMode);
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        __m256 res = _mm256_cvtepi32_ps(param);
-#else
-        __m256 res = _mm256_cvtepi32_ps((__m256i)param);
-#endif
-        _mm_setcsr(crm);
-        return res;
-	}
-#endif // defined(__AVX__)
-
-    CONVERSIONS_FUNC_DECL  _1u32 floatToUintRound(float param, int rMode)
-    {
-        int crm = _mm_getcsr();
-        _mm_setcsr((crm& ~_MM_ROUND_MASK) | (rMode));
-        _1u32 res;
-    
-        if (param > 2147483647.0f){
-            res = (_1u32)param;
-        }
-        else
-        {
-            __m128 p = _mm_load_ss(&param);
-            res =  _mm_cvtss_si32(p);
-        }
-        _mm_setcsr(crm);
-        return res;
-    }
-
-
-    // internal any() function. copy of OpenCL built in
-    int _any4(__m128 x)
-    {
-	    int mask = _mm_movemask_epi8((__m128i)x);
-	    return (mask & 0x8888) != 0;
-    }
-	
-    CONVERSIONS_FUNC_DECL _4u32 float4ToUint4Round(float4 param, int rMode)
-	{
-        _4u32 res;
-        const ALIGN16 float mth_INT_MAX_32f[4] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f };
-
-        int crm = _mm_getcsr();
-        _mm_setcsr((crm& ~_MM_ROUND_MASK) | ROUND_MODE(rMode));
-
-        __m128 mask_gt= _mm_cmpgt_ps(param,  *(__m128*)mth_INT_MAX_32f);
-         
-        if(_any4(mask_gt))
-        {
-            ALIGN16 float t[4];
-            ALIGN16 int d[4];
-            _mm_store_ps(t, param);
-            d[0] = (_1u32)t[0];
-            d[1] = (_1u32)t[1];
-            d[2] = (_1u32)t[2];
-            d[3] = (_1u32)t[3];
-            res = _mm_load_si128((const __m128i*)d);
-        }
-        else
-        {
-            res =  _mm_cvtps_epi32(param);
-        }
-
-        _mm_setcsr(crm);
-        return res;
-    }
-
-    
-#if defined(__AVX__)
-    // internal any() function. copy of OpenCL built in
-    int _any8(__m256 x)
-    {
-        int mask = _mm256_movemask_ps((__m256)x);
-        return (mask & 0xFF) != 0;
-    }
-
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-    CONVERSIONS_FUNC_DECL __m256i float8ToUint8Round(__m256 param, int rMode)
-#else
-    CONVERSIONS_FUNC_DECL __m256i float8ToUint8Round(float8 param, int rMode)
-#endif
-    {
-        int crm = _mm_getcsr();
-        // ROUND_MODE is not needed here since Intel Compiler correctly obtains argument from stack
-        _mm_setcsr((crm& ~_MM_ROUND_MASK) | rMode);
-
-        __m256i res;
-        const ALIGN32 float mth_INT_MAX_32f[8] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f, 
-                                                   2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f};
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-        __m256 mask_gt= _mm256_cmp_ps(param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
-#else
-        __m256 mask_gt= _mm256_cmp_ps((__m256)param,  *(__m256*)mth_INT_MAX_32f, _CMP_GT_OS );
-#endif
-         
-        if(_any8(mask_gt))
-        {
-            ALIGN32 float t[8];
-            ALIGN32 int d[8];
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-            _mm256_store_ps(t, param);
-#else
-            _mm256_store_ps(t, (__m256)param);
-#endif
-            d[0] = (_1u32)t[0];
-            d[1] = (_1u32)t[1];
-            d[2] = (_1u32)t[2];
-            d[3] = (_1u32)t[3];
-            d[4] = (_1u32)t[4];
-            d[5] = (_1u32)t[5];
-            d[6] = (_1u32)t[6];
-            d[7] = (_1u32)t[7];
-            res = _mm256_load_si256((const __m256i*)d);
-        }
-        else
-        {
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-            res =   _mm256_cvtps_epi32(param);
-#else
-            res =   _mm256_cvtps_epi32((__m256)param);
-#endif
-        }
-
-        _mm_setcsr(crm);
-        return res;
-    }
-#endif // defined(__AVX__)
-
-    CONVERSIONS_FUNC_DECL float longToFloat(_1i64 param, int rm)
-	{
-		unsigned int oldRound, tmp;
-		if (param == 0) return 0.0f;
-#if defined(_MSC_VER)
-		_controlfp_s(&oldRound, _PC_64, _MCW_PC);
-		_controlfp_s(&oldRound, rm, _MCW_RC);
-		float res = (float)param;
-		_controlfp_s(&tmp, oldRound, _MCW_RC);
-#else
-		float res = (float)param;
-#endif
-		return res;
-	}
-
-	/// !!! This function is copy-pasted to images module.
-	/// In case of any changes they should also be applied to image_callback_functions.cpp
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rte(float4 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
-
-		//cl_uint sign = (u.u >> 16) & 0x8000;
-		_8i16 temp = (_8i16)_mm_srli_epi32((__m128i)param, 0x10);
-		_8i16 signs = (_8i16)_mm_and_si128((__m128i)temp,(__m128i) *((_4i32 *)x8000));
-		float4 absParam = (float4)_mm_and_si128((__m128i)param,(__m128i) *((_4i32 *)x7fffffff));
-
-		//Nan
-		//if( x != x ) 
-		_8i16 eq0 = (_8i16)_mm_cmpneq_ps(absParam, absParam);
-		_8i16 eq = (_8i16)_mm_and_si128((__m128i)absParam,(__m128i) eq0);
-		//u.u >>= (24-11);
-		eq = (_8i16) _mm_srli_epi32((__m128i)eq, 0x0d);
-		//u.u &= 0x7fff;
-		eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) *((_4i32 *)x7fff));
-		//u.u |= 0x0200;   -- silence the NaN
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) *((_4i32 *)x0200));
-		//return u.u | sign;
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) signs);
-		eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) eq0);
-		_8i16 dflt = eq0;
-
-		// overflow
-		//if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
-		//return 0x7c00 | sign;
-
-		float4 eq1 = _mm_cmpge_ps(absParam, *((float4 *)x477ff000));
-		eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7c00));
-		eq0 = (_8i16) _mm_or_si128((__m128i)signs,(__m128i) eq0);
-		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-		dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-		// underflow
-		//	if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
-		// return sign
-		eq1 = _mm_cmple_ps(absParam, *((float4 *)x33000000));
-		eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) signs);
-		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-		dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-
-		// very small
-		//	if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
-		// return sign | 1;
-		eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33c00000));
-		eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) *((_4i32 *)ones)));
-		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-		dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-		// half denormal         
-		//  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-		//	x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
-		//  return sign | x;
-		eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
-		float4 eq2 = _mm_mul_ps(absParam, *((float4 *)x01000000));  //x
-		eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) (_8i16)eq2));
-		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-		dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-		// u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
-		// u.u &= 0x7f800000;
-		// x += u.f;
-		// u.f = x - u.f;
-		// u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
-		// return (u.u >> (24-11)) | sign;
-		//int rm = _MM_GET_ROUNDING_MODE();
-		//_MM_SET_ROUNDING_MODE(0x6000);
-		
-		eq1 = _mm_mul_ps(param, *((float4 *)x46000000));  
-		eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7f800000)); //u
-		eq1 = _mm_add_ps( (float4)eq0 ,absParam); //x
-		eq1 = _mm_sub_ps(eq1, (float4)eq0); //u
-		eq1 = _mm_mul_ps(eq1, *((float4 *)x07800000));  
-		eq0 = (_8i16) _mm_srli_epi32((__m128i)eq1, 0x0d);
-		eq0 = (_8i16) _mm_or_si128((__m128i)eq0,(__m128i) signs);
-		eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-		eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-		
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return eq1;
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtz(float4 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		//cl_uint sign = (u.u >> 16) & 0x8000;
-		_8i16 temp = _mm_srli_epi32((_8i16)param, 0x10);
-		_8i16 signs = _mm_and_si128(temp, *(_4i32*)x8000);
-		param = (float4)_mm_and_si128((_4i32)param, *((_4i32*)x7fffffff));
-
-		//Nan
-		//if( x != x ) 
-		_8i16 eq0 = (_8i16)_mm_cmpneq_ps(param, param);
-		_8i16 eq = _mm_and_si128((_8i16)param, eq0);
-		//u.u >>= (24-11);
-		eq = _mm_srli_epi32(eq, 0x0d);
-		//u.u &= 0x7fff;
-		eq = _mm_and_si128(eq, *((_4i32*)x7fff));
-		//u.u |= 0x0200;   -- silence the NaN
-		eq = _mm_or_si128(eq, *((_4i32*)x0200));
-		//return u.u | sign;
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		_8i16 dflt = eq0;
-
-		// overflow
-		//if( x >= MAKE_HEX_FLOAT(0x1.0p16f, 0x1L, 16) )
-
-		float4 eq1 = _mm_cmpge_ps(param, *((float4*)x47800000));
-
-		//if( x == INFINITY )
-		//return 0x7c00 | sign;
-		eq0 = _mm_cmpeq_epi32((_8i16)param, *((_4i32*)x7f800000));
-		eq0 = _mm_and_si128(eq0, (_8i16)eq1);
-		_8i16 eq2 = _mm_and_si128(eq0, *((_4i32*)x7c00));
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_and_si128(eq0, eq2);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-
-		//else return 0x7bff | sign;
-		eq0 = _mm_xor_si128((_8i16)eq1, eq0);
-		eq2 = _mm_and_si128(eq0, *((_4i32*)x7bff));
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_and_si128(eq2, eq0);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-
-		// underflow
-		//	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
-		//  return sign;    -- The halfway case can return 0x0001 or 0. 0 is even.
-		eq1 = _mm_cmplt_ps(param, *((float4*)x33800000));
-		eq0 = _mm_and_si128((_8i16)eq1, signs);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128((_8i16)eq1, dflt);
-
-
-		// half denormal
-		//  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-		//	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
-		//  return (short)( (int)x | sign);
-		eq1 = _mm_cmplt_ps(param, *((float4*)x38800000));
-		eq2 = (_8i16)eq1;
-		eq1 = _mm_and_ps(eq1, param);
-		eq1 = _mm_mul_ps(eq1, *((float4*)x4b800000));
-		eq0 = _mm_cvtps_epi32(eq1);
-		eq0 = _mm_or_si128(eq0, signs);
-		eq0 = _mm_and_si128(eq2, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0); 
-		dflt = _mm_or_si128(eq2, dflt);
-
-
-		//u.u &= 0xFFFFE000U;
-		eq0 = _mm_and_si128((_8i16)param, *((_4i32*)xffffe000));
-		//u.u -= 0x38000000U;
-		eq0 = _mm_sub_epi32(eq0, *((_4i32*)x38000000));
-		eq0 = _mm_srli_epi32(eq0, 13);
-		eq0 = _mm_or_si128(eq0, signs);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0);
-
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return eq1;
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtp(float4 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		float4 zeros = _mm_setzero_ps();
-
-		//cl_uint sign = (u.u >> 16) & 0x8000;
-		_8i16 temp = _mm_srli_epi32((_8i16)param, 0x10);
-		_8i16 signs = _mm_and_si128(temp, *((_4i32 *)x8000));
-		float4 absParam = (float4)_mm_and_si128((_8i16)param, *((_4i32 *)x7fffffff));
-
-		//Nan
-		//if( x != x ) 
-		_8i16 eq0 = (_8i16)_mm_cmpneq_ps(absParam, absParam);
-		_8i16 eq = _mm_and_si128((_4i32 )absParam, eq0);
-		//u.u >>= (24-11);
-		eq = _mm_srli_epi32(eq, 0x0d);
-		//u.u &= 0x7fff;
-		eq = _mm_and_si128(eq, *((_4i32 *)x7fff));
-		//u.u |= 0x0200;   -- silence the NaN
-		eq = _mm_or_si128(eq, *((_4i32 *)x0200));
-		//return u.u | sign;
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		_8i16 dflt = eq0;
-
-		// overflow
-		//if( f > MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
-		//return 0x7c00;
-
-		float4 eq1 = _mm_cmpgt_ps(param, *((float4 *)x477ff000));
-		eq0 = _mm_and_si128((_8i16)eq1, *((_4i32 *)x7c00));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128((_8i16)eq1, dflt);
-
-		//	if( f <= MAKE_HEX_FLOAT(-0x1.0p16f, -0x1L, 16) )
-		eq1 = _mm_cmple_ps(param, *((float4 *)xc7800000));
-
-		//if( f == -INFINITY )
-		//return 0xfc00;
-		eq0 = _mm_cmpeq_epi32((_8i16)param, *((_4i32 *)xff800000));
-		eq0 = _mm_and_si128(eq0, (_8i16)eq1);
-		_8i16 eq2 = _mm_and_si128(eq0, *((_4i32 *)xfc00));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//else return 0xfbff;
-		eq0 = _mm_xor_si128((_8i16)eq1, eq0);
-		eq2 = _mm_and_si128(eq0, *((_4i32 *)xfbff));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// underflow
-		//	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
-		eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33800000));
-
-		// if (f > 0) return 1;
-		eq0 = (_8i16)_mm_cmpgt_ps(param, zeros);
-		eq0 = _mm_and_si128(eq0, (_8i16)eq1);
-		eq2 = _mm_and_si128(eq0, *((_4i32 *)ones));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-		// else return sign
-		eq0 = _mm_xor_si128((_8i16)eq1, eq0);
-		eq2 = _mm_and_si128(eq0, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// half denormal         
-		//  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-		//	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
-		//  int r = (int)x;
-		eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
-		eq2 = (_8i16)eq1;
-		eq1 = _mm_and_ps(eq1, absParam);
-		eq1 = _mm_mul_ps(eq1, *((float4 *)x4b800000));  //x
-		eq0 = _mm_cvtps_epi32(eq1); //r
-		// r += (float)r != x && f > 0.0f;
-		float4 eq3 = _mm_cvtepi32_ps(eq0); //(float)r
-		eq1 = _mm_cmpneq_ps(eq1, eq3); // (float)r != x
-		eq3 = _mm_cmpgt_ps(param, zeros); //f > 0.0f
-		eq1 = _mm_and_ps(eq1, eq3); //(float)r != x && f > 0.0f
-		_8i16 eq4 = _mm_and_si128((_8i16)eq1, *((_4i32 *)ones));
-		eq0 = _mm_add_epi32(eq0, eq4);
-		// return (short)(r | sign)
-		eq0 = _mm_or_si128(eq0, signs); 
-		eq0 = _mm_and_si128(eq2, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0); 
-		dflt = _mm_or_si128(eq2, dflt);
-
-		//u.u &= 0xFFFFE000U;
-		eq0 = _mm_and_si128((_8i16)param, *((_4i32 *)xffffe000));
-		//if (f > u.f)
-		//u.u += 0x00002000U;
-		eq1 = _mm_cmpgt_ps(param, (float4)eq0);
-		eq2 = _mm_add_epi32(eq0, _mm_and_si128((_8i16)eq1, *((_4i32 *)x00002000)));
-		//u.u -= 0x38000000U;
-		//return ((u.u >> 13) | sign);
-		eq2 = _mm_sub_epi32(eq2, *((_4i32 *)x38000000));
-		eq2 = _mm_srli_epi32(eq2, 13);
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq  = _mm_or_si128(eq, eq2); 
-
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return eq1;
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_float2half_rtn(float4 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		float4 zeros = _mm_setzero_ps();
-
-		//cl_uint sign = (u.u >> 16) & 0x8000;
-		_8i16 temp = _mm_srli_epi32((_8i16)param, 0x10);
-		_8i16 signs = _mm_and_si128(temp, *((__m128i*)x8000));
-		float4 absParam = (float4)_mm_and_si128((_8i16)param, *((_4i32 *)x7fffffff));
-
-		//Nan
-		//if( x != x ) 
-		_8i16 eq0 = (_8i16)_mm_cmpneq_ps(absParam, absParam);
-		_8i16 eq = _mm_and_si128((_8i16)absParam, eq0);
-		//u.u >>= (24-11);
-		eq = _mm_srli_epi32(eq, 0x0d);
-		//u.u &= 0x7fff;
-		eq = _mm_and_si128(eq, *((_4i32 *)x7fff));
-		//u.u |= 0x0200;   -- silence the NaN
-		eq = _mm_or_si128(eq, *((_4i32 *)x0200));
-		//return u.u | sign;
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		_8i16 dflt = eq0;
-
-
-		// overflow
-		//if( f >= MAKE_HEX_FLOAT(0x1.0p16f, 0x1L, 16) )
-		float4 eq1 = _mm_cmpge_ps(param, *((float4 *)x47800000));
-
-		//if( f == INFINITY )
-		//return 0x7c00;
-		eq0 = _mm_cmpeq_epi32((_8i16)param, *((_4i32 *)x7f800000));
-		eq0 = _mm_and_si128(eq0, (_8i16)eq1);
-		_8i16 eq2 = _mm_and_si128(eq0, *((_4i32 *)x7c00));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//else return 0x7bff;
-		eq0 = _mm_xor_si128((_8i16)eq1, eq0);
-		eq2 = _mm_and_si128(eq0, *((_4i32 *)x7bff));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//if( f < MAKE_HEX_FLOAT(-0x1.ffcp15f, -0x1ffcL, 3) )
-		//return 0xfc00;
-		eq1 = _mm_cmplt_ps(param, *((float4 *)xc77fe000));
-		eq0 = _mm_and_si128((_8i16)eq1, *((_4i32 *)xfc00));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128((_8i16)eq1, dflt);
-
-		// underflow
-		//	if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
-		eq1 = _mm_cmple_ps(absParam, *((float4 *)x33800000));
-
-		// if (f < 0) return 0x8001;
-		eq0 = (_8i16)_mm_cmplt_ps(param, zeros);
-		eq0 = _mm_and_si128(eq0, (_8i16)eq1);
-		eq2 = _mm_and_si128(eq0, *((_4i32 *)x8001));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-		// else return sign
-		eq0 = _mm_xor_si128((_8i16)eq1, eq0);
-		eq2 = _mm_and_si128(eq0, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// half denormal         
-		//  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-		//	x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
-		//  int r = (int)x;
-		eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
-		eq2 = (_8i16)eq1;
-		eq1 = _mm_and_ps(eq1, absParam);
-		eq1 = _mm_mul_ps(eq1, *((float4 *)x4b800000));  //x
-		eq0 = _mm_cvtps_epi32(eq1); //r
-
-		// r += (float)r != x && f < 0.0f;
-		float4 eq3 = _mm_cvtepi32_ps(eq0); //(float)r
-		eq1 = _mm_cmpneq_ps(eq1, eq3); // (float)r != x
-		eq3 = _mm_cmplt_ps(param, zeros); //f < 0.0f
-		eq1 = _mm_and_ps(eq1, eq3); //(float)r != x && f < 0.0f
-		_8i16 eq4 = _mm_and_si128((_8i16)eq1, *((_4i32 *)ones));
-		eq0 = _mm_add_epi32(eq0, eq4);
-		// return (short)(r | sign)
-		eq0 = _mm_or_si128(eq0, signs); 
-		eq0 = _mm_and_si128(eq2, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0); 
-		dflt = _mm_or_si128(eq2, dflt);
-
-		//u.u &= 0xFFFFE000U;
-		eq0 = _mm_and_si128((_8i16)param, *((_4i32 *)xffffe000));
-		//if (u.f > f)
-		//u.u += 0x00002000U;
-		eq1 = _mm_cmpgt_ps((float4)eq0, param);
-		eq2 = _mm_add_epi32(eq0, _mm_and_si128((_8i16)eq1, *((_4i32 *)x00002000)));
-		//u.u -= 0x38000000U;
-		//return ((u.u >> 13) | sign);
-		eq2 = _mm_sub_epi32(eq2, *((_4i32 *)x38000000));
-		eq2 = _mm_srli_epi32(eq2, 13);
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq  = _mm_or_si128(eq, eq2); 
-
-		eq1 = _mm_castsi128_ps(SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-
-		_MM_SET_ROUNDING_MODE(rm);
-		return eq1;
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rte(double2 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
-
-		//cl_ulong sign = (u.u >> 48) & 0x8000;
-		//double x = fabs(f);
-		__m128i temp = _mm_srli_epi64(_mm_castpd_si128(param), 48);
-		__m128i signs = _mm_and_si128(temp, *((__m128i *)x8000));
-		__m128d absParam = _mm_and_pd(param, *((__m128d *)x7fffffffffffffff));
-
-		//Nan
-		//if( x != x ) 
-		//	u.u >>= (53-11);
-		//	u.u &= 0x7fff;
-		//	u.u |= 0x0200;   -- silence the NaN
-		//	return u.u | sign;
-
-		__m128i eq0 = _mm_castpd_si128( _mm_cmpneq_pd(absParam, absParam) );
-		__m128i eq = _mm_and_si128(_mm_castpd_si128( absParam ), eq0);
-		eq = _mm_srli_epi64(eq, 42);
-		eq = _mm_and_si128(eq, *((__m128i *)x7fff));
-		eq = _mm_or_si128(eq, *((__m128i *)x0200));
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		__m128i dflt = eq0;
-
-		//// overflow
-		////if( x >= MAKE_HEX_DOUBLE(0x1.ffep15, 0x1ffeL, 3) )
-		////         0x40effe0000000000
-		////return 0x7c00 | sign;
-
-		__m128i eq1 = _mm_castpd_si128( _mm_cmpge_pd(absParam, *((__m128d *)x40effe0000000000)) );
-		eq0 = _mm_and_si128(eq1, *((__m128i *)x7c00));
-		eq0 = _mm_or_si128(signs, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		//// underflow
-		////	if( x <= MAKE_HEX_DOUBLE(0x1.0p-25, 0x1L, -25) )
-		////			 0x3e60000000000000
-		//// return sign
-		eq1 = _mm_castpd_si128( _mm_cmple_pd(absParam, *((__m128d *)x3e60000000000000)) );
-		eq0 = _mm_and_si128(eq1, signs);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-
-		//// very small
-		////	if( x < MAKE_HEX_DOUBLE(0x1.8p-24, 0x18L, -28) )
-		////			0x3e78000000000000
-		//// return sign | 1;
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d *)x3e78000000000000)) );
-		eq0 = _mm_and_si128(eq1, _mm_or_si128(signs, *((__m128i *)dones)));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128( eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		//// half denormal         
-		////  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-		////			0x3f10000000000000
-		////	u.f = x * MAKE_HEX_DOUBLE(0x1.0p-1050, 0x1L, -1050);
-		////			  0x0000000001000000
-		////  return sign | x;
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d *)x3f10000000000000)) );
-		__m128i eq2 = _mm_castpd_si128( _mm_mul_pd(absParam, *((__m128d *)x0000000001000000)) );  //x
-		eq0 = _mm_and_si128(eq1, _mm_or_si128(signs, eq2));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		//// u.f *= MAKE_HEX_DOUBLE(0x1.0p42, 0x1L, 42);
-		////		  0x4290000000000000
-		//// u.u &= 0x7ff0000000000000UL;
-		//// x += u.f;
-		//// u.f = x - u.f;
-		//// u.f *= MAKE_HEX_DOUBLE(0x1.0p-1008, 0x1L, -1008);
-		////		  0x00f0000000000000
-		//// return (u.u >> (53-11)) | sign;
-		//
-		__m128d res = _mm_mul_pd(param, *((__m128d *)x4290000000000000));  
-		__m128d tmp = _mm_and_pd(res, *((__m128d *)x7ff0000000000000)); //u
-		res = _mm_add_pd( tmp ,absParam); //x
-		res = _mm_sub_pd( res, tmp); //u
-		res = _mm_mul_pd(res, *((__m128d *)x00f0000000000000));  
-		res = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(res), 42));
-		res = _mm_or_pd(res, _mm_castsi128_pd(signs));
-		res = _mm_andnot_pd(_mm_castsi128_pd(dflt), res);
-		eq = _mm_or_si128(eq, _mm_castpd_si128(res));
-
-		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return _mm_castsi128_ps(eq1);
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtz(double2 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		//cl_ulong sign = (u.u >> 48) & 0x8000;
-		//double x = fabs(f);
-		__m128i temp = _mm_srli_epi64(_mm_castpd_si128(param), 48);
-		__m128i signs = _mm_and_si128(temp, *((__m128i *)x8000));
-		__m128d absParam = _mm_and_pd(param, *((__m128d *)x7fffffffffffffff));
-
-		//Nan
-		//if( x != x ) 
-		//	u.u >>= (53-11);
-		//	u.u &= 0x7fff;
-		//	u.u |= 0x0200;   -- silence the NaN
-		//	return u.u | sign;
-		__m128i eq0 = _mm_castpd_si128( _mm_cmpneq_pd(absParam, absParam) );
-		__m128i eq = _mm_and_si128(_mm_castpd_si128( absParam ), eq0);
-		eq = _mm_srli_epi64(eq, 42);
-		eq = _mm_and_si128(eq, *((__m128i *)x7fff));
-		eq = _mm_or_si128(eq, *((__m128i *)x0200));
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		__m128i dflt = eq0;
-
-		//if( x == INFINITY )
-		//return 0x7c00 | sign;
-		eq0 = _mm_castpd_si128( _mm_cmpeq_pd(absParam, *((__m128d*)x7ff0000000000000)) );
-		__m128i eq1 = _mm_and_si128(eq0, *((__m128i*)x7c00));
-		eq1 = _mm_or_si128(eq1, signs);
-		eq1 = _mm_and_si128(eq0, eq1);
-		eq1 = _mm_andnot_si128(dflt, eq1);
-		eq = _mm_or_si128(eq, eq1);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// overflow
-		//if( x >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
-		//    return 0x7bff | sign;
-		eq0 = _mm_castpd_si128( _mm_cmpge_pd(absParam, *((__m128d*)x40f0000000000000)) );
-		eq1 = _mm_and_si128(eq0, *((__m128i*)x7bff));
-		eq1 = _mm_or_si128(eq1, signs);
-		eq1 = _mm_and_si128(eq0, eq1);
-		eq1 = _mm_andnot_si128(dflt, eq1);
-		eq = _mm_or_si128(eq, eq1);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// underflow
-		//if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-		//    return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d*)x3e70000000000000)) );
-		eq0 = _mm_and_si128(eq1, signs);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		// half denormal
-		//if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-		//    x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
-		//    return (cl_ushort)((int) x | sign);
-		eq0 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d*)x3f10000000000000)) );
-		eq1 = _mm_and_si128(eq0, _mm_castpd_si128( absParam ));
-		eq1 = _mm_castpd_si128( _mm_mul_pd(_mm_castsi128_pd( eq1 ), *((__m128d*)x4170000000000000)) );
-		eq1 = _mm_cvtpd_epi32(_mm_castsi128_pd( eq1 ));
-		eq1 = _mm_unpacklo_epi32(eq1, _mm_setzero_si128());
-		eq1 = _mm_or_si128(eq1, signs);
-		eq1 = _mm_and_si128(eq1, eq0);
-		eq1 = _mm_andnot_si128(dflt, eq1);
-		eq  = _mm_or_si128(eq, eq1); 
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//u.u &= 0xFFFFFC0000000000UL;
-		eq0 = _mm_and_si128(_mm_castpd_si128( param ), *((__m128i*)xFFFFFC0000000000));
-		//u.u -= 0x3F00000000000000UL;
-		eq0 = _mm_sub_epi64(eq0, *((__m128i*)x3F00000000000000));
-		//return (u.u >> (53-11)) | sign;
-		eq0 = _mm_srli_epi64(eq0, 42);
-		eq0 = _mm_or_si128(eq0, signs);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0);
-	    
-		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return _mm_castsi128_ps(eq1);
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtp(double2 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		__m128d zeros = _mm_setzero_pd();
-
-		//cl_ulong sign = (u.u >> 48) & 0x8000;
-		//double x = fabs(f);
-		__m128i temp = _mm_srli_epi64(_mm_castpd_si128(param), 48);
-		__m128i signs = _mm_and_si128(temp, *((__m128i *)x8000));
-		__m128d absParam = _mm_and_pd(param, *((__m128d *)x7fffffffffffffff));
-
-		//Nan
-		//if( x != x ) 
-		//	u.u >>= (53-11);
-		//	u.u &= 0x7fff;
-		//	u.u |= 0x0200;   -- silence the NaN
-		//	return u.u | sign;
-
-		__m128i eq0 = _mm_castpd_si128( _mm_cmpneq_pd(absParam, absParam) );
-		__m128i eq = _mm_and_si128(_mm_castpd_si128( absParam ), eq0);
-		eq = _mm_srli_epi64(eq, 42);
-		eq = _mm_and_si128(eq, *((__m128i *)x7fff));
-		eq = _mm_or_si128(eq, *((__m128i *)x0200));
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		__m128i dflt = eq0;
-
-		// overflow
-		//if( f > MAKE_HEX_DOUBLE(0x1.ffcp15, 0x1ffcL, 3) )
-		//		  0x40effc0000000000
-		//	return 0x7c00;
-		__m128i eq1 = _mm_castpd_si128( _mm_cmpgt_pd(param, *((__m128d *)x40effc0000000000)) );
-		eq0 = _mm_and_si128(eq1, *((__m128i *)x7c00));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		//if( f <= MAKE_HEX_DOUBLE(-0x1.0p16, -0x1L, 16) )
-		//		   0xc0f0000000000000
-		eq1 = _mm_castpd_si128( _mm_cmple_pd(param, *((__m128d *)xc0f0000000000000)) );
-
-		//if( f == -INFINITY )
-		//return 0xfc00;
-		eq0 = _mm_castpd_si128( _mm_cmpeq_pd(param, *((__m128d *)xfff0000000000000)) );
-		eq0 = _mm_and_si128(eq0, eq1);
-		__m128i eq2 = _mm_and_si128(eq0, *((__m128i *)xfc00));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//else return 0xfbff;
-		eq0 = _mm_xor_si128(eq1, eq0);
-		eq2 = _mm_and_si128(eq0, *((__m128i *)xfbff));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-
-		// underflow
-		//	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-		//			0x3e70000000000000
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d *)x3e70000000000000)) );
-
-		// if (f > 0) return 1;
-		eq0 = _mm_castpd_si128( _mm_cmpgt_pd(param, zeros) );
-		eq0 = _mm_and_si128(eq0, eq1);
-		eq2 = _mm_and_si128(eq0, *((__m128i *)dones));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-		// else return sign
-		eq0 = _mm_xor_si128(eq1, eq0);
-		eq2 = _mm_and_si128(eq0, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// half denormal         
-		//  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-		//			0x3f10000000000000
-		//		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
-		//			 0x4170000000000000
-		//		int r = (int)x;
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d *)x3f10000000000000)) );
-		eq2 = eq1;
-		eq1 = _mm_and_si128(eq1, _mm_castpd_si128(absParam));
-		eq1 = _mm_castpd_si128( _mm_mul_pd(_mm_castsi128_pd(eq1), *((__m128d *)x4170000000000000)) );  //x
-		eq0 = _mm_cvtpd_epi32( _mm_castsi128_pd(eq1) ); //r
-
-		// if( sign )
-		//     r += (double) r != x;
-		__m128d eq3 = _mm_cvtepi32_pd(eq0); //(double)r
-		eq1 = _mm_castpd_si128( _mm_cmpneq_pd( _mm_castsi128_pd( eq1 ), eq3) ); // (double)r != x
-		eq3 = _mm_cmpgt_pd(param, zeros); //f > 0.0f
-		eq1 = _mm_and_si128(eq1, _mm_castpd_si128(eq3)); //(double)r != x && f < 0.0f
-		__m128i eq4 = _mm_and_si128(eq1, *((__m128i *)dones));
-		eq0 = _mm_unpacklo_epi32(eq0, _mm_setzero_si128());
-		eq0 = _mm_add_epi64(eq0, eq4);
-
-		// return (short)(r | sign)
-		eq0 = _mm_or_si128(eq0, signs); 
-		eq0 = _mm_and_si128(eq2, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0); 
-		dflt = _mm_or_si128(eq2, dflt);
-
-		//u.u &= 0xFFFFFC0000000000UL;
-		eq0 = _mm_and_si128(_mm_castpd_si128(param), *((__m128i *)xFFFFFC0000000000));
-		//if (u.f < f)
-		//u.u += 0x0000040000000000UL;
-		eq1 = _mm_castpd_si128( _mm_cmpgt_pd(param, _mm_castsi128_pd( eq0 )) );
-		eq2 = _mm_add_epi64(eq0, _mm_and_si128(eq1, *((__m128i *)x0000040000000000)));
-		//u.u -= 0x3F00000000000000UL;
-		//return ((u.u >> 42) | sign);
-		eq2 = _mm_sub_epi64(eq2, *((__m128i *)x3F00000000000000));
-		eq2 = _mm_srli_epi64(eq2, 42);
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq  = _mm_or_si128(eq, eq2); 
-
-		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return _mm_castsi128_ps(eq1);
-	}
-
-	CONVERSIONS_FUNC_DECL float4 _intel_ocl_double2ToHalf2_rtn(double2 param)
-	{
-		int rm = _MM_GET_ROUNDING_MODE();
-		_MM_SET_ROUNDING_MODE(_MM_ROUND_TOWARD_ZERO);
-
-		__m128d zeros = _mm_setzero_pd();
-
-		//cl_ulong sign = (u.u >> 48) & 0x8000;
-		//double x = fabs(f);
-		__m128i temp = _mm_srli_epi64(_mm_castpd_si128(param), 48);
-		__m128i signs = _mm_and_si128(temp, *((__m128i *)x8000));
-		__m128d absParam = _mm_and_pd(param, *((__m128d *)x7fffffffffffffff));
-
-		//Nan
-		//if( x != x ) 
-		//	u.u >>= (53-11);
-		//	u.u &= 0x7fff;
-		//	u.u |= 0x0200;   -- silence the NaN
-		//	return u.u | sign;
-
-		__m128i eq0 = _mm_castpd_si128( _mm_cmpneq_pd(absParam, absParam) );
-		__m128i eq = _mm_and_si128(_mm_castpd_si128( absParam ), eq0);
-		eq = _mm_srli_epi64(eq, 42);
-		eq = _mm_and_si128(eq, *((__m128i *)x7fff));
-		eq = _mm_or_si128(eq, *((__m128i *)x0200));
-		eq = _mm_or_si128(eq, signs);
-		eq = _mm_and_si128(eq, eq0);
-		__m128i dflt = eq0;
-
-		
-		// overflow
-		//if( f >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
-		//         0x40f0000000000000
-		__m128i eq1 = _mm_castpd_si128( _mm_cmpge_pd(param, *((__m128d *)x40f0000000000000)) );
-
-		//if( f == INFINITY )
-		//return 0x7c00;
-		eq0 = _mm_castpd_si128( _mm_cmpeq_pd(param, *((__m128d *)x7ff0000000000000)) );
-		eq0 = _mm_and_si128(eq0, eq1);
-		__m128i eq2 = _mm_and_si128(eq0, *((__m128i *)x7c00));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//else return 0x7bff;
-		eq0 = _mm_xor_si128(eq1, eq0);
-		eq2 = _mm_and_si128(eq0, *((__m128i *)x7bff));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		//if( f < MAKE_HEX_DOUBLE(-0x1.ffcp15, -0x1ffcL, 3) )
-		//        0xc0effc0000000000
-		//return 0xfc00;
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(param, *((__m128d *)xc0effc0000000000)) );
-		eq0 = _mm_and_si128(eq1, *((__m128i *)xfc00));
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq = _mm_or_si128(eq, eq0);
-		dflt = _mm_or_si128(eq1, dflt);
-
-		// underflow
-		//	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-		//			0x3e70000000000000
-		eq1 = _mm_castpd_si128( _mm_cmple_pd(absParam, *((__m128d *)x3e70000000000000)) );
-
-		// if (f < 0) return 0x8001;
-		eq0 = _mm_castpd_si128( _mm_cmplt_pd(param, zeros) );
-		eq0 = _mm_and_si128(eq0, eq1);
-		eq2 = _mm_and_si128(eq0, *((__m128i *)x8001));
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-		// else return sign
-		eq0 = _mm_xor_si128(eq1, eq0);
-		eq2 = _mm_and_si128(eq0, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq = _mm_or_si128(eq, eq2);
-		dflt = _mm_or_si128(eq0, dflt);
-
-		// half denormal         
-		//  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-		//			0x3f10000000000000
-		//		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
-		//			 0x4170000000000000
-		//		int r = (int)x;
-		eq1 = _mm_castpd_si128( _mm_cmplt_pd(absParam, *((__m128d *)x3f10000000000000)) );
-		eq2 = eq1;
-		eq1 = _mm_and_si128(eq1, _mm_castpd_si128(absParam));
-		eq1 = _mm_castpd_si128( _mm_mul_pd(_mm_castsi128_pd(eq1), *((__m128d *)x4170000000000000)) );  //x
-		eq0 = _mm_cvtpd_epi32( _mm_castsi128_pd(eq1) ); //r
-		
-		// if( sign )
-		//     r += (double) r != x;
-		__m128d eq3 = _mm_cvtepi32_pd(eq0); //(double)r
-		eq1 = _mm_castpd_si128( _mm_cmpneq_pd( _mm_castsi128_pd( eq1 ), eq3) ); // (double)r != x
-		eq3 = _mm_cmplt_pd(param, zeros); //f < 0.0f
-		eq1 = _mm_and_si128(eq1, _mm_castpd_si128(eq3)); //(double)r != x && f < 0.0f
-		__m128i eq4 = _mm_and_si128(eq1, *((__m128i *)dones));
-		eq0 = _mm_unpacklo_epi32(eq0, _mm_setzero_si128());
-		eq0 = _mm_add_epi64(eq0, eq4);
-
-		// return (short)(r | sign)
-		eq0 = _mm_or_si128(eq0, signs); 
-		eq0 = _mm_and_si128(eq2, eq0);
-		eq0 = _mm_andnot_si128(dflt, eq0);
-		eq  = _mm_or_si128(eq, eq0); 
-		dflt = _mm_or_si128(eq2, dflt);
-
-		//u.u &= 0xFFFFFC0000000000UL;
-		eq0 = _mm_and_si128(_mm_castpd_si128(param), *((__m128i *)xFFFFFC0000000000));
-		//if (u.f > f)
-		//u.u += 0x0000040000000000UL;
-		eq1 = _mm_castpd_si128( _mm_cmpgt_pd(_mm_castsi128_pd( eq0 ), param) );
-		eq2 = _mm_add_epi64(eq0, _mm_and_si128(eq1, *((__m128i *)x0000040000000000)));
-		//u.u -= 0x3F00000000000000UL;
-		//return ((u.u >> 42) | sign);
-		eq2 = _mm_sub_epi64(eq2, *((__m128i *)x3F00000000000000));
-		eq2 = _mm_srli_epi64(eq2, 42);
-		eq2 = _mm_or_si128(eq2, signs);
-		eq2 = _mm_andnot_si128(dflt, eq2);
-		eq  = _mm_or_si128(eq, eq2); 
-
-		eq1 = SHUFFLE_EPI8((__m128i)eq, *((__m128i *)_2x64to2x16));
-
-		_MM_SET_ROUNDING_MODE(rm);
-
-		return _mm_castsi128_ps(eq1);
-	}
-/*
-#pragma linkage _lnk_l2f_ = ( result (xmm0) parameters(memory ,memory) )
-#pragma linkage _lnk_f2i_ = ( result (eax) parameters(xmm0 ,memory) )
-#pragma linkage _lnk_f2i4_ = ( result (xmm0) parameters(xmm0 ,memory) )
-
-
-#pragma use_linkage _lnk_l2f_ ( longToFloat )
-#pragma use_linkage _lnk_l2f_ ( ulongToFloat )
-#pragma use_linkage _lnk_f2i_ ( floatToIntRound )
-#pragma use_linkage _lnk_f2i4_ ( float4ToInt4Round )
-#pragma use_linkage _lnk_f2i4_ ( double2ToInt4 )
-#pragma use_linkage _lnk_f2i4_ ( intToFloatRound )
-*/
-
-
-
-
-#else
-
-	// Declare external functions
-    float4 double2ToFloat4Round(double2 param, int rm);
-    float ulongToFloat(_1u64 param, int rm);
-	float longToFloat(_1i64 param, int rm);
-	__m128i float4ToInt4Round(float4 param, int rMode);
-	__m128i double2ToInt4(double2 param, int rMode);
-	int floatToIntRound(float4 param, int rMode);
-	float uintToFloatRound(_1u32 param, int rMode);
-	float4 intToFloatRound(_4i32, int rMode);
-    _1u32 floatToUintRound(float param, int rMode);
-    _4u32 float4ToUint4Round(float4 param, int rMode);
-
-#if defined(__AVX__)
-    __m256 intToFloat8Round(int8 param, int rMode);
-    __m256i float8ToInt8Round(float8 param, int rMode);
-    __m128 double4ToFloat4Round(double4 param, int rm);
-    __m256i float8ToUint8Round(float8 param, int rMode);
-#endif
-
 #define _LONG_TO_INT   0x88
 #define _ULLONG_MAX    0xFFFFFFFFFFFFFFFF       /* maximum unsigned long long int value */
 #define _LLONG_MAX     0x7FFFFFFFFFFFFFFF       /* maximum signed long long int value */
 #define _LLONG_MIN     0x8000000000000000       /* minimum signed long long int value */
 #define _INT_MAX		  2147483647
+#define _INT_MAX_AS_FLOAT		  2147483647.0f
 #define _INT_MIN		  -2147483648
 #define _UINT_MAX	  4294967295
+#define _UINT_MAX_AS_FLOAT	  4294967295.0f
 #define _CHAR_MAX      127
 #define _CHAR_MIN      -128
 #define _UCHAR_MAX     255
@@ -1422,51 +151,20 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	ALIGN16 int minIntVal32[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 	ALIGN16 int maxIntVal32[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
-    float __attribute__((const)) OCL_SVML_FUNCTION(cvtu64tofprtnf1)(_1u64);
-    float ulongToFloat(_1u64 param, int rm)
-	{
-        return OCL_SVML_FUNCTION(cvtu64tofprtnf1)(param);
-    }
-
-    float3 __attribute__((const)) OCL_SVML_FUNCTION(cvtu64tofprtnf3)(_3u64);
-    float3 ulong3ToFloat3(_3u64 param, int rm)
-	{
-        return OCL_SVML_FUNCTION(cvtu64tofprtnf3)(param);
-    }
-
-    float4 __attribute__((const)) OCL_SVML_FUNCTION(cvtu64tofprtnf4)(_4u64);
-    float4 ulong4ToFloat4(_4u64 param, int rm)
-	{
-        return OCL_SVML_FUNCTION(cvtu64tofprtnf4)(param);
-    }
-
-    float8 __attribute__((const)) OCL_SVML_FUNCTION(cvtu64tofprtnf8)(_8u64);
-    float8 ulong8ToFloat8(_8u64 param, int rm)
-	{
-        return OCL_SVML_FUNCTION(cvtu64tofprtnf8)(param);
-    }
-
-    float16 __attribute__((const)) OCL_SVML_FUNCTION(cvtu64tofprtnf16)(_16u64);
-    float16 ulong16ToFloat16(_16u64 param, int rm)
-	{
-        return OCL_SVML_FUNCTION(cvtu64tofprtnf16)(param);
-    }
-
 #if defined(__AVX__)
-	__m256i float8ToInt8(float8 param, int dummy)
+	__m256i float8ToInt8(float8 param)
 	{
-		__m256i res =  _mm256_cvttps_epi32 (param);
-		return res;
+		return _mm256_cvttps_epi32 (param);
 	} 
 #endif // defined(__AVX__)
         
-    __m128i float4ToInt4(float4 param, int dummy)
+    __m128i float4ToInt4(float4 param)
 	{
 		__m128i res = _mm_cvttps_epi32(param);
 		return res;
 	} 
 
-	int floatToInt(float4 param, int dummy)
+	int floatToInt(float4 param)
 	{
 		int res = _mm_cvttss_si32(param);
 		return res;
@@ -1481,7 +179,19 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		return (float)param;
 	}
 
-	void setRound(int newMode)
+    __m128i double2ToInt4(double2 x)
+    {
+        return _mm_cvttpd_epi32(x);
+    }
+
+#if defined(__AVX__)
+	__m128i double4ToInt4(double4 param)
+	{
+		return _mm256_cvttpd_epi32 (param);
+	} 
+#endif // defined(__AVX__)
+
+    void setRound(int newMode)
 	{
 		_mm_setcsr(newMode);
 	}
@@ -1490,34 +200,20 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{
 		return _mm_getcsr();
 	}
-
-	_4i32 floatToIntSat(float4 param, int dummy)
+	_4i32 floatToIntSat(float4 param)
 	{
 		__m128i t1 = (__m128i)_mm_cmpge_ps(param, *((__m128 *)maxInt32) );
 		__m128i t2 = (__m128i)_mm_cmpge_ps(*((__m128 *)minInt32), param );
 		__m128i t = _mm_or_si128(t1, t2);
 		t1 = _mm_and_si128(t1, *((__m128i *)maxIntVal32));
 		t2 = _mm_and_si128(t2, *((__m128i *)minIntVal32));
-		t = _mm_andnot_si128(t, float4ToInt4(param, dummy) );
+		t = _mm_andnot_si128(t, float4ToInt4(param) );
 		_4i32 res = as_int4(_mm_or_si128(t1, t2));
 		res = as_int4(_mm_or_si128(__builtin_astype(res,__m128i), t));
 		return res;
 	}
 
-	_4i32 floatToIntSatRound(float4 param, int rMode)
-	{
-		__m128i t1 = (__m128i)_mm_cmpge_ps(param, *((__m128 *)maxInt32) );
-		__m128i t2 = (__m128i)_mm_cmpge_ps(*((__m128 *)minInt32), param );
-		__m128i t = _mm_or_si128(t1, t2);
-		t1 = _mm_and_si128(t1, *((__m128i *)maxIntVal32));
-		t2 = _mm_and_si128(t2, *((__m128i *)minIntVal32));
-		t = _mm_andnot_si128(t, float4ToInt4Round(param, rMode) );
-		_4i32 res = as_int4(_mm_or_si128(t1, t2));
-		res = as_int4(_mm_or_si128(__builtin_astype(res,__m128i), t));
-		return res;
-	}
-
-	int doubleToIntSat(double param, int rMode)
+	int doubleToIntSat(double param)
 	{
 		//__m128i t1 = (__m128i)_mm_cmpge_pd(param, *((__m128 *)maxInt64) );
 		//__m128i t2 = (__m128i)_mm_cmpge_pd(*((__m128 *)minInt64), param );
@@ -1534,11 +230,11 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 		if(param <= -2147483648.0) return -2147483648.0;
 		double2 t;
 		t.lo = param;
-		_4i32 res = as_int4(double2ToInt4(t, rMode));
+		_4i32 res = as_int4(double2ToInt4(t));
 		return res.s0;
 	}
 
-	_1u32 floatToUint(float param, int dummy)
+	_1u32 floatToUint(float param)
     {
         if (param > 2147483647.0f)
             return (_1u32)param;
@@ -1555,7 +251,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	    return (mask & 0x8888) != 0;
     }
 	
-    _4u32 float4ToUint4(float4 param, int dummy)
+    _4u32 float4ToUint4(float4 param)
 	{
         _4u32 res;
         const ALIGN16 float mth_INT_MAX_32f[4] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f};
@@ -1582,7 +278,7 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
         return (mask & 0xFF) != 0;
     }
 
-    _8u32 float8ToUint8(float8 param, int dummy)
+    _8u32 float8ToUint8(float8 param)
     {
         _8u32 res;
         const ALIGN32 float mth_INT_MAX_32f[8] = { 2147483647.0f, 2147483647.0f, 2147483647.0f, 2147483647.0f, 
@@ -1609,37 +305,30 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #endif // defined(__AVX__)
 
     _1u32 floatToUintSat(float param)
-	{
-		float4 p;
-		if(param >= 4294967295.0f) return _UINT_MAX;
+    {
+        if(param >= _UINT_MAX_AS_FLOAT) return _UINT_MAX;
 
-		if(param <= 0.0f) return 0;
-		if(param > 2147483647.0f)
-		{
-			param -= 2147483647.0f;
-			p.s0 = param;
-			_1u32 res = _mm_cvtss_si32(p);
-			res += ((float)_INT_MAX);
-			return res;
-		}
-		p.s0 = param;
-		_1u32 res = _mm_cvtss_si32(p);
-		return res;
-	}
+        if(param <= 0.0f) return 0;
+        if(param >  _INT_MAX_AS_FLOAT)
+        {
+            return convert_int(param - _INT_MAX_AS_FLOAT) + _INT_MAX;
+        }
+        return convert_int(param);
+    }
 
-	float4 intToFloat(_4i32 param, int dummy)
+	float4 intToFloat(_4i32 param)
 	{
 		return as_float4(_mm_cvtepi32_ps(__builtin_astype(param,__m128i)));
 	}
 
 #if defined(__AVX__)
-    float8 intToFloat8(_8i32 param, int dummy)
+    float8 intToFloat8(_8i32 param)
 	{
         return (float8)_mm256_cvtepi32_ps((__m256i)param);
 	}
 #endif
 
-    float uintToFloat(_1u32 x, int dummy)
+    float uintToFloat(_1u32 x)
 	{
 		if(x == 0) return 0.0;
 		float res =  ((float)x);
@@ -1757,34 +446,32 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #define DEF_INT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, FLAG)\
 	_1##TO##8 __attribute__((overloadable)) convert_##TONAME##char##RMODE(float x)\
 	{\
-	float4 param;\
-	param.s01 = x;\
-	return floatToInt##FLAG(param, RMODEVAL);\
+	return convert_##TONAME##int##RMODE(x);\
 	}\
 	_2##TO##8 __attribute__((overloadable)) convert_##TONAME##char2##RMODE(float2 x)\
 	{\
 	float4 param;\
 	param.lo = x;\
-	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(param, RMODEVAL), _16##TO##8);\
+	_16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(param), _16##TO##8);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	return res.s01;\
 	}\
 	TONAME##char3 __attribute__((overloadable)) convert_##TONAME##char3##RMODE(float3 x)\
 	{\
-	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(as_float4(x), RMODEVAL),_16##TO##8);\
+	_16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(as_float4(x)),_16##TO##8);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	return as_##TONAME##char3(res.s0123);\
 	}\
 	_4##TO##8 __attribute__((overloadable)) convert_##TONAME##char4##RMODE(float4 x)\
 	{\
-	_16##TO##8 res = __builtin_astype(float4ToInt4##FLAG(x, RMODEVAL),_16##TO##8);\
+	_16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(x),_16##TO##8);\
 	return __builtin_astype( trunc_v4i32_v4i8(__builtin_astype(res, _4i32)), _4##TO##8); \
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(float8 x)\
 	{\
 	_16##TO##8 res;\
-	_16##TO##8 t1 =  __builtin_astype(float4ToInt4##FLAG(x.lo, RMODEVAL), _16##TO##8);\
-	_16##TO##8 t2 =  __builtin_astype(float4ToInt4##FLAG(x.hi, RMODEVAL), _16##TO##8);\
+	_16##TO##8 t1 =  __builtin_astype(convert_##TONAME##int4##RMODE(x.lo), _16##TO##8);\
+	_16##TO##8 t2 =  __builtin_astype(convert_##TONAME##int4##RMODE(x.hi), _16##TO##8);\
 	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)), _16##TO##8);\
@@ -1801,14 +488,13 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #define DEF_INT_PROTO8_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##8  __attribute__((overloadable)) convert_##TONAME##char##RMODE(double x)\
 	{\
-	double2 param;\
-	param.lo = x;\
-	_4i32 res = __builtin_astype(double2ToInt4(param, RMODEVAL),_4i32);\
-	return res.s0;\
+	return convert_##TONAME##int##RMODE(x);\
 	}\
 	_2##TO##8 __attribute__((overloadable)) convert_##TONAME##char2##RMODE(double2 x)\
 	{\
-	_16##TO##8 res = __builtin_astype(double2ToInt4(x, RMODEVAL),_16##TO##8);\
+    double4 t;\
+    t.lo = x;\
+	_16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(t),_16##TO##8);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
 	return res.s01;\
 	}\
@@ -1816,37 +502,22 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	{\
 	double4 y;\
 	y.s012 = x;\
-	_16##TO##8 t1 = __builtin_astype(double2ToInt4(y.lo, RMODEVAL),_16##TO##8);\
-	_16##TO##8 t2 = __builtin_astype(double2ToInt4(y.hi, RMODEVAL),_16##TO##8);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	_16##TO##8 res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
+    _16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(y),_16##TO##8);\
+    res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
 	return res.s012;\
 	}\
 	_4##TO##8  __attribute__((overloadable)) convert_##TONAME##char4##RMODE(double4 x)\
 	{\
-	_16##TO##8 t1 = __builtin_astype(double2ToInt4(x.lo, RMODEVAL),_16##TO##8);\
-	_16##TO##8 t2 = __builtin_astype(double2ToInt4(x.hi, RMODEVAL),_16##TO##8);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	_16##TO##8 res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
+    _16##TO##8 res = __builtin_astype(convert_##TONAME##int4##RMODE(x),_16##TO##8);\
+    res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
 	return res.s0123;\
 	}\
 	_8##TO##8  __attribute__((overloadable)) convert_##TONAME##char8##RMODE(double8 x)\
 	{\
-	_16##TO##8 res;\
-	_16##TO##8 t1 =  __builtin_astype(double2ToInt4(x.lo.lo, RMODEVAL),_16##TO##8);\
-	_16##TO##8 t2 =  __builtin_astype(double2ToInt4(x.lo.hi, RMODEVAL),_16##TO##8);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	res = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
-	t1 =  __builtin_astype(double2ToInt4(x.hi.lo, RMODEVAL),_16##TO##8);\
-	t2 =  __builtin_astype(double2ToInt4(x.hi.hi, RMODEVAL),_16##TO##8);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)),_16##TO##8);\
-	t1 = __builtin_astype(_mm_unpacklo_epi16(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_16##TO##8);\
-	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)),_16##TO##8);\
-	return res.lo;\
+	_8##TO##8 res;\
+	res.lo = convert_##TONAME##char4##RMODE(x.lo);\
+	res.hi = convert_##TONAME##char4##RMODE(x.hi);\
+	return res;\
 	}\
 	_16##TO##8  __attribute__((overloadable)) convert_##TONAME##char16##RMODE(double16 x)\
 	{\
@@ -1947,40 +618,36 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #define DEF_INT_PROTO16_F(TO, TONAME, RMODE, RMODEVAL, FLAG)\
 	_1##TO##16 __attribute__((overloadable)) convert_##TONAME##short##RMODE(float x)\
 	{\
-	_1##TO##16 res;\
-	float4 param;\
-	param.s0 = x;\
-	res = floatToInt##FLAG(param , RMODEVAL);\
-	return res;\
+    return convert_##TONAME##int##RMODE(x);\
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(float2 x)\
 	{\
 	_8##TO##16 res;\
 	float4 param;\
 	param.lo = x;\
-	res = __builtin_astype(float4ToInt4##FLAG(param, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(convert_##TONAME##int4##RMODE(param),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.s01;\
 	}\
 	TONAME##short3 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(float3 x)\
 	{\
 	_8##TO##16 res;\
-	res = __builtin_astype(float4ToInt4##FLAG(as_float4(x), RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(convert_##TONAME##int4##RMODE(as_float4(x)),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return as_##TONAME##short3(res.lo);\
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(float4 x)\
 	{\
 	_8##TO##16 res;\
-	res = __builtin_astype(float4ToInt4##FLAG(x, RMODEVAL),_8##TO##16);\
+	res = __builtin_astype(convert_##TONAME##int4##RMODE(x),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.lo;\
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(float8 x)\
 	{\
 	_8##TO##16 res;\
-	_8##TO##16 t1 = __builtin_astype(float4ToInt4##FLAG(x.lo, RMODEVAL),_8##TO##16);\
-	_8##TO##16 t2 = __builtin_astype(float4ToInt4##FLAG(x.hi, RMODEVAL),_8##TO##16);\
+	_8##TO##16 t1 = __builtin_astype(convert_##TONAME##int4##RMODE(x.lo),_8##TO##16);\
+	_8##TO##16 t2 = __builtin_astype(convert_##TONAME##int4##RMODE(x.hi),_8##TO##16);\
 	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
@@ -1997,51 +664,35 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 #define DEF_INT_PROTO16_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##16 __attribute__((overloadable)) convert_##TONAME##short##RMODE(double x)\
 	{\
-	double2 param;\
-	param.s0 = x;\
-	_4i32 res = __builtin_astype(double2ToInt4(param, RMODEVAL),_4i32);\
-	return res.s0;\
+	return convert_##TONAME##int##RMODE(x);\
 	}\
 	_2##TO##16 __attribute__((overloadable)) convert_##TONAME##short2##RMODE(double2 x)\
 	{\
-	_8##TO##16 res;\
-	res = __builtin_astype(double2ToInt4(x, RMODEVAL),_8##TO##16);\
+    double4 y;\
+    y.lo = x;\
+	_8##TO##16 res = __builtin_astype(convert_##TONAME##int4##RMODE(y),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
 	return res.s01;\
 	}\
 	_3##TO##16 __attribute__((overloadable)) convert_##TONAME##short3##RMODE(double3 x)\
 	{\
-	_8##TO##16 res, t1, t2;\
-	double4 y = as_double4(x);\
-	t1 = __builtin_astype(double2ToInt4(y.lo, RMODEVAL),_8##TO##16);\
-	t2 = __builtin_astype(double2ToInt4(y.hi, RMODEVAL),_8##TO##16);\
-	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+    double4 y;\
+    y.s012 = x;\
+	_8##TO##16 res = __builtin_astype(convert_##TONAME##int4##RMODE(y),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	return as_##TONAME##short3(res.lo);\
+	return res.s012;\
 	}\
 	_4##TO##16 __attribute__((overloadable)) convert_##TONAME##short4##RMODE(double4 x)\
 	{\
-	_8##TO##16 res, t1, t2;\
-	t1 = __builtin_astype(double2ToInt4(x.lo, RMODEVAL),_8##TO##16);\
-	t2 = __builtin_astype(double2ToInt4(x.hi, RMODEVAL),_8##TO##16);\
-	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
+	_8##TO##16 res = __builtin_astype(convert_##TONAME##int4##RMODE(x),_8##TO##16);\
 	res = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(res,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	return res.lo;\
+	return res.s0123;\
 	}\
 	_8##TO##16 __attribute__((overloadable)) convert_##TONAME##short8##RMODE(double8 x)\
 	{\
 	_8##TO##16 res;\
-	_8##TO##16 t1 = __builtin_astype(double2ToInt4(x.lo.lo, RMODEVAL),_8##TO##16);\
-	_8##TO##16 t2 = __builtin_astype(double2ToInt4(x.lo.hi, RMODEVAL),_8##TO##16);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
-	t1 = __builtin_astype(double2ToInt4(x.hi.lo, RMODEVAL),_8##TO##16);\
-	t2 = __builtin_astype(double2ToInt4(x.hi.hi, RMODEVAL),_8##TO##16);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x16)),_8##TO##16);\
-	t1 = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)),_8##TO##16);\
-	res = __builtin_astype(_mm_unpacklo_epi64(__builtin_astype(res,__m128i), __builtin_astype(t1,__m128i)),_8##TO##16);\
+	res.lo = convert_##TONAME##short4##RMODE(x.lo);\
+	res.hi = convert_##TONAME##short4##RMODE(x.hi);\
 	return res;\
 	}\
 	_16##TO##16 __attribute__((overloadable)) convert_##TONAME##short16##RMODE(double16 x)\
@@ -2051,7 +702,6 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	res.hi = convert_##TONAME##short8##RMODE(x.hi);\
 	return res;\
 	}\
-
 
 	// 32 bits
 #define DEF_INT_PROTO32_8( _CC, TI, TO, TINAME, TONAME, RMODE)\
@@ -2140,13 +790,13 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	return __builtin_astype( trunc_v16i64_v16i32(__builtin_astype(x, _16i64)), _16##TO##32); \
 	}\
 
-#define DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE, RMODEVAL, FLAG)       \
+#define DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE)                       \
 	_1i32 __attribute__ ((overloadable)) convert_int##RMODE(float x)\
 	{\
 	_1i32 res;\
 	float4 param;\
 	param.s0 = x;\
-	res = floatToInt##FLAG(param, RMODEVAL);\
+	res = floatToInt(param);\
 	return res;\
 	}\
 	_2i32 __attribute__ ((overloadable)) convert_int2##RMODE(float2 x)\
@@ -2154,95 +804,126 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	_4i32 res;\
 	float4 param;\
 	param.lo = x;\
-	res = as_int4(float4ToInt4##FLAG(param, RMODEVAL));\
+	res = as_int4(float4ToInt4(param));\
 	return res.lo;\
 	}\
 	int3 __attribute__ ((overloadable)) convert_int3##RMODE(float3 x)\
 	{\
 	int4 res;\
-	res = as_int4(float4ToInt4##FLAG(as_float4(x), RMODEVAL));\
+	res = as_int4(float4ToInt4(as_float4(x)));\
 	return as_int3(res);\
 	}\
 	_4i32 __attribute__ ((overloadable)) convert_int4##RMODE(float4 x)\
 	{\
 	_4i32 res;\
-	res = as_int4(float4ToInt4##FLAG(x, RMODEVAL));\
+	res = as_int4(float4ToInt4(x));\
 	return res;\
 	}\
 
 
-#define DEF_INT_PROTOI32_F_F816_AS_F4(RMODE, RMODEVAL, FLAG)            \
+#define DEF_INT_PROTOI32_F_F816_AS_F4(RMODE)                            \
 	_8i32 __attribute__ ((overloadable)) convert_int8##RMODE(float8 x)\
 	{\
 	_8i32 res;\
-	res.lo = as_int4(float4ToInt4##FLAG(x.lo, RMODEVAL));\
-	res.hi = as_int4(float4ToInt4##FLAG(x.hi, RMODEVAL));\
+	res.lo = as_int4(float4ToInt4(x.lo));\
+	res.hi = as_int4(float4ToInt4(x.hi));\
 	return res;\
 	}\
 	_16i32 __attribute__ ((overloadable)) convert_int16##RMODE(float16 x)\
 	{\
 	_16i32 res;\
-	res.lo.lo = as_int4(float4ToInt4##FLAG(x.lo.lo, RMODEVAL));\
-    res.lo.hi = as_int4(float4ToInt4##FLAG(x.lo.hi, RMODEVAL));\
-	res.hi.lo = as_int4(float4ToInt4##FLAG(x.hi.lo, RMODEVAL));\
-    res.hi.hi = as_int4(float4ToInt4##FLAG(x.hi.hi, RMODEVAL));\
+	res.lo.lo = as_int4(float4ToInt4(x.lo.lo));\
+    res.lo.hi = as_int4(float4ToInt4(x.lo.hi));\
+	res.hi.lo = as_int4(float4ToInt4(x.hi.lo));\
+    res.hi.hi = as_int4(float4ToInt4(x.hi.hi));\
 	return res;\
 	}
 
-#define DEF_INT_PROTOI32_F_F816_AS_F8(RMODE, RMODEVAL, FLAG)            \
+#define DEF_INT_PROTOI32_F_F816_AS_F8(RMODE)            \
 	_8i32 __attribute__ ((overloadable)) convert_int8##RMODE(float8 x)\
 	{\
 	_8i32 res;\
-	res = as_int8(float8ToInt8##FLAG(x, RMODEVAL));\
+	res = as_int8(float8ToInt8(x));\
 	return res;\
 	}\
 	_16i32 __attribute__ ((overloadable)) convert_int16##RMODE(float16 x)\
 	{\
 	_16i32 res;\
-	res.lo = as_int8(float8ToInt8##FLAG(x.lo, RMODEVAL));\
-	res.hi = as_int8(float8ToInt8##FLAG(x.hi, RMODEVAL));\
+	res.lo = as_int8(float8ToInt8(x.lo));\
+	res.hi = as_int8(float8ToInt8(x.hi));\
 	return res;\
 	}
 
 #if defined(__AVX__)
-#define DEF_INT_PROTOI32_F(RMODE, RMODEVAL, FLAG)                       \
-    DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE, RMODEVAL, FLAG)               \
-    DEF_INT_PROTOI32_F_F816_AS_F8(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOI32_FNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)       \
+    DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE)                               \
+    DEF_INT_PROTOI32_F_F816_AS_F8(RMODE)
 #else // defined(__AVX__)
-#define DEF_INT_PROTOI32_F(RMODE, RMODEVAL, FLAG)                       \
-    DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE, RMODEVAL, FLAG)               \
-    DEF_INT_PROTOI32_F_F816_AS_F4(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOI32_FNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)       \
+    DEF_INT_PROTOI32_F_F1234_AS_F4(RMODE)                               \
+    DEF_INT_PROTOI32_F_F816_AS_F4(RMODE)
 #endif // defined(__AVX__)
 
-#define DEF_INT_PROTOU32_F_F1234(RMODE, RMODEVAL, FLAG)\
+// Oleg:
+// convert_int(float)
+// This is issue with ABI for SVML.
+// So as a hack we call float4 version of conversions for float
+// TODO: switch to DEF_INT_PROTOI32_FUSESVML_X when CSSD100012898:
+// "ABI for passing float2 arguments to SVML conversions function is invalid" is fixed
+#define DEF_INT_PROTOI32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _2i32 __attribute__ ((overloadable)) convert_int2##RMODE(float2  x)\
+	{\
+    float4 y;\
+    y.lo = x;\
+    y.hi = x;\
+    return convert_int4##RMODE(y).lo;\
+	}
+
+#define DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##i32 __attribute__ ((overloadable)) convert_int##WIDTHOCL##RMODE(float##WIDTHOCL  x)\
+	{\
+    _##WIDTHSVML##i32 res = __ocl_svml_##CPUTYPE##_cvtfptoi32##RSVML##nosatf##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOI32_FUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_INT_PROTOI32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, 2, 2)\
+    DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3)\
+    DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4)\
+    DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8)\
+    DEF_INT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16)
+
+
+#define DEF_INT_PROTOU32_F_F1234(RMODE)\
 	_1u32 __attribute__ ((overloadable)) convert_uint##RMODE(float x)\
 	{\
-    _1u32 res = as_uint(floatToUint##FLAG(x, RMODEVAL));\
+    _1u32 res = as_uint(floatToUint(x));\
 	return res;\
 	}\
 	_2u32 __attribute__ ((overloadable)) convert_uint2##RMODE(float2 x)\
 	{\
 	_4u32 res;\
-	res.s0 = as_uint(floatToUint##FLAG(x.lo, RMODEVAL));\
-	res.s1 = as_uint(floatToUint##FLAG(x.hi, RMODEVAL));\
+	res.s0 = as_uint(floatToUint(x.lo));\
+	res.s1 = as_uint(floatToUint(x.hi));\
 	return res.lo;\
 	}\
 	uint3 __attribute__ ((overloadable)) convert_uint3##RMODE(float3 x)\
 	{\
 	_4u32 res;\
-	res.s0 = as_uint(floatToUint##FLAG(x.s0, RMODEVAL));\
-	res.s1 = as_uint(floatToUint##FLAG(x.s1, RMODEVAL));\
-	res.s2 = as_uint(floatToUint##FLAG(x.s2, RMODEVAL));\
+	res.s0 = as_uint(floatToUint(x.s0));\
+	res.s1 = as_uint(floatToUint(x.s1));\
+	res.s2 = as_uint(floatToUint(x.s2));\
 	return as_uint3(res);\
 	}\
 	_4u32 __attribute__ ((overloadable)) convert_uint4##RMODE(float4 x)\
 	{\
 	_4u32 res;\
-	res = float4ToUint4##FLAG(x, RMODEVAL);\
+	res = float4ToUint4(x);\
 	return res;\
 	}\
 
-#define DEF_INT_PROTOU32_F_F816_AS_F4(RMODE, RMODEVAL, FLAG)\
+#define DEF_INT_PROTOU32_F_F816_AS_F4(RMODE)\
     _8u32 __attribute__ ((overloadable)) convert_uint8##RMODE(float8 x)\
 	{\
 	_8u32 res;\
@@ -2260,11 +941,11 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	return res;\
 	}
 
-#define DEF_INT_PROTOU32_F_F816_AS_F8(RMODE, RMODEVAL, FLAG)\
+#define DEF_INT_PROTOU32_F_F816_AS_F8(RMODE)\
     _8u32 __attribute__ ((overloadable)) convert_uint8##RMODE(float8 x)\
 	{\
 	_8u32 res;\
-	res = (uint8)float8ToUint8##FLAG(x, RMODEVAL);\
+	res = (uint8)float8ToUint8(x);\
 	return res;\
 	}\
 	_16u32 __attribute__ ((overloadable)) convert_uint16##RMODE(float16 x)\
@@ -2276,46 +957,91 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	}
 
 #if defined(__AVX__)
-#define DEF_INT_PROTOU32_F(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOU32_F_F1234(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOU32_F_F816_AS_F8(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOU32_FNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOU32_F_F1234(RMODE)\
+    DEF_INT_PROTOU32_F_F816_AS_F8(RMODE)
 #else // defined(__AVX__)
-#define DEF_INT_PROTOU32_F(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOU32_F_F1234(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOU32_F_F816_AS_F4(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOU32_FNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOU32_F_F1234(RMODE)\
+    DEF_INT_PROTOU32_F_F816_AS_F4(RMODE)
 #endif // defined(__AVX__)
 
-#define DEF_INT_PROTOI32_D(RMODE, RMODEVAL)\
-	_1i32 __attribute__((overloadable)) convert_int##RMODE(double x)\
+// Oleg:
+// convert_int(float)
+// This is issue with ABI for SVML.
+// So as a hack we call float4 version of conversions for float2
+// TODO: switch to DEF_INT_PROTOU32_FUSESVML_X when CSSD100012898:
+// "ABI for passing float2 arguments to SVML conversions function is invalid" is fixed
+#define DEF_INT_PROTOU32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _2u32 __attribute__ ((overloadable)) convert_uint2##RMODE(float2  x)\
+	{\
+    float4 y;\
+    y.lo = x;\
+    y.hi = x;\
+    return convert_uint4##RMODE(y).lo;\
+	}
+#define DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##u32 __attribute__ ((overloadable)) convert_uint##WIDTHOCL##RMODE(float##WIDTHOCL  x)\
+	{\
+    _##WIDTHSVML##u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##nosatf##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOU32_FUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_INT_PROTOU32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, 2, 2)\
+    DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3)\
+    DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4)\
+    DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8)\
+    DEF_INT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16)
+
+
+#define DEF_INT_PROTOI32_D_D12_AS_D2(RMODE)                       \
+	_1i32 __attribute__ ((overloadable)) convert_int##RMODE(double x)\
 	{\
 	_4i32 res;\
 	double2 param;\
 	param.lo = x;\
-	res = as_int4(double2ToInt4(param, RMODEVAL));\
+	res = as_int4(double2ToInt4(param));\
 	return res.s0;\
 	}\
-	_2i32 __attribute__((overloadable)) convert_int2##RMODE(double2 x)\
+	_2i32 __attribute__ ((overloadable)) convert_int2##RMODE(double2 x)\
 	{\
-	_4i32 res;\
-	res = as_int4(double2ToInt4(x, RMODEVAL));\
-	return res.lo;\
-	}\
+	return as_int4(double2ToInt4(x)).s01;\
+	}
+
+#define DEF_INT_PROTOI32_D_D34_AS_D2(RMODE)                            \
 	int3 __attribute__((overloadable)) convert_int3##RMODE(double3 x)\
 	{\
 	_4i32 t1, t2, res;\
-	t1 = as_int4(double2ToInt4(x.lo, RMODEVAL));\
-	t2 = as_int4(double2ToInt4(x.hi, RMODEVAL));\
+	t1 = as_int4(double2ToInt4(x.lo));\
+	t2 = as_int4(double2ToInt4(x.hi));\
 	res = as_int4(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
 	return as_int3(res);\
 	}\
 	_4i32 __attribute__((overloadable)) convert_int4##RMODE(double4 x)\
 	{\
 	_4i32 t1, t2, res;\
-	t1 = as_int4(double2ToInt4(x.lo, RMODEVAL));\
-	t2 = as_int4(double2ToInt4(x.hi, RMODEVAL));\
+	t1 = as_int4(double2ToInt4(x.lo));\
+	t2 = as_int4(double2ToInt4(x.hi));\
 	res = as_int4(_mm_unpacklo_epi64(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)));\
 	return res;\
+	}
+
+#define DEF_INT_PROTOI32_D_D34_AS_D4(RMODE)                            \
+	int3 __attribute__((overloadable)) convert_int3##RMODE(double3 x)\
+	{\
+    double4 tmp = as_double4(x);\
+	_4i32 t = as_int4(double4ToInt4(tmp));\
+	return as_int3(t);\
 	}\
+	_4i32 __attribute__((overloadable)) convert_int4##RMODE(double4 x)\
+	{\
+	return as_int4(double4ToInt4(x));\
+	}
+
+
+#define DEF_INT_PROTOI32_D_D816_AS_D4(RMODE)                            \
 	_8i32 __attribute__((overloadable)) convert_int8##RMODE(double8 x)\
 	{\
 	_8i32 res;\
@@ -2331,6 +1057,78 @@ CONVERSIONS_FUNC_DECL float uintToFloatRound(_1u32 x, int rm)
 	return res;\
 	}
 
+#if defined(__AVX__)
+#define DEF_INT_PROTOI32_DNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)       \
+    DEF_INT_PROTOI32_D_D12_AS_D2(RMODE)                               \
+    DEF_INT_PROTOI32_D_D34_AS_D4(RMODE)                               \
+    DEF_INT_PROTOI32_D_D816_AS_D4(RMODE)                              
+#else // defined(__AVX__)
+#define DEF_INT_PROTOI32_DNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)       \
+    DEF_INT_PROTOI32_D_D12_AS_D2(RMODE)                               \
+    DEF_INT_PROTOI32_D_D34_AS_D2(RMODE)                              \
+    DEF_INT_PROTOI32_D_D816_AS_D4(RMODE)                              
+#endif // defined(__AVX__)
+
+
+// Oleg:
+// convert_int(double)
+// This is issue with ABI for SVML.
+// So as a hack we call double and double2 version of conversions
+// TODO: switch double2,3,4,8,16 to SVML call when CSSD100012907:
+// "ABI for passing double3 arguments to SVML conversions function is invalid" is fixed
+
+#define DEF_INT_PROTOF_DUSESVML_234816_AS_D1(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	int2 __attribute__ ((overloadable)) convert_int2##RMODE(double2 x)\
+    {\
+	int2 res;\
+	res.lo = convert_int##RMODE(x.lo);\
+	res.hi = convert_int##RMODE(x.hi);\
+	return res;\
+	}\
+    int3 __attribute__ ((overloadable)) convert_int3##RMODE(double3 x)\
+	{\
+    int3 res;\
+    double2 y1,y2;\
+    y1 = x.s01;\
+    y2.lo = x.s2;\
+    int2 r1 = convert_int2##RMODE(y1);\
+    int2 r2 = convert_int2##RMODE(y2);\
+    res.s01 = r1;\
+    res.s2 = r2.lo;\
+    return res;\
+	}\
+	int4 __attribute__ ((overloadable)) convert_int4##RMODE(double4 x)\
+    {\
+	int4 res;\
+	res.lo = convert_int2##RMODE(x.lo);\
+	res.hi = convert_int2##RMODE(x.hi);\
+	return res;\
+	}\
+	int8 __attribute__ ((overloadable)) convert_int8##RMODE(double8 x)\
+    {\
+	int8 res;\
+	res.lo = convert_int4##RMODE(x.lo);\
+	res.hi = convert_int4##RMODE(x.hi);\
+	return res;\
+	}\
+	int16 __attribute__ ((overloadable)) convert_int16##RMODE(double16 x)\
+    {\
+	int16 res;\
+	res.lo = convert_int8##RMODE(x.lo);\
+	res.hi = convert_int8##RMODE(x.hi);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOI32_DUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##i32 __attribute__ ((overloadable)) convert_int##WIDTHOCL##RMODE(double##WIDTHOCL  x)\
+	{\
+    _##WIDTHSVML##i32 res = __ocl_svml_##CPUTYPE##_cvtfptoi32##RSVML##nosat##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOI32_DUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOI32_DUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_INT_PROTOF_DUSESVML_234816_AS_D1(RMODE, RMODEVAL, RSVML, CPUTYPE)
 
 /*
 Boaz Ouriel Note:
@@ -2704,113 +1502,147 @@ we need to report this to Nikita and get a fix for this.
 	return res;\
 	}\
 
-#define DEF_INT_PROTOF_I32_F816_AS_F4(RMODE, RMODEVAL, FLAG)\
-	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8i32 x)\
+#define DEF_INT_PROTOF_I32_F816_AS_F4(RMODE, FLAGSAT)\
+	float8 __attribute__ ((overloadable)) convert_float8##FLAGSAT##RMODE(_8i32 x)\
 	{\
 	float8 res;\
-	res.lo = intToFloat##FLAG(x.lo, RMODEVAL);\
-	res.hi = intToFloat##FLAG(x.hi, RMODEVAL);\
+	res.lo = intToFloat(x.lo);\
+	res.hi = intToFloat(x.hi);\
 	return res;\
 	}\
-	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16i32 x)\
+	float16 __attribute__ ((overloadable)) convert_float16##FLAGSAT##RMODE(_16i32 x)\
 	{\
 	float16 res;\
-	res.lo.lo = intToFloat##FLAG(x.lo.lo, RMODEVAL);\
-	res.lo.hi = intToFloat##FLAG(x.lo.hi, RMODEVAL);\
-	res.hi.lo = intToFloat##FLAG(x.hi.lo, RMODEVAL);\
-	res.hi.hi = intToFloat##FLAG(x.hi.hi, RMODEVAL);\
+	res.lo.lo = intToFloat(x.lo.lo);\
+	res.lo.hi = intToFloat(x.lo.hi);\
+	res.hi.lo = intToFloat(x.hi.lo);\
+	res.hi.hi = intToFloat(x.hi.hi);\
 	return res;\
 	}
 
-#define DEF_INT_PROTOF_I32_F816_AS_F8(RMODE, RMODEVAL, FLAG)\
-	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8i32 x)\
+#define DEF_INT_PROTOF_I32_F816_AS_F8(RMODE, FLAGSAT)\
+	float8 __attribute__ ((overloadable)) convert_float8##FLAGSAT##RMODE(_8i32 x)\
 	{\
 	float8 res;\
-	res = (float8) intToFloat8##FLAG(x, RMODEVAL);\
+	res = (float8) intToFloat8(x);\
 	return res;\
 	}\
-	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16i32 x)\
+	float16 __attribute__ ((overloadable)) convert_float16##FLAGSAT##RMODE(_16i32 x)\
 	{\
 	float16 res;\
-	res.lo = intToFloat8##FLAG(x.lo, RMODEVAL);\
-	res.hi = intToFloat8##FLAG(x.hi, RMODEVAL);\
+	res.lo = intToFloat8(x.lo);\
+	res.hi = intToFloat8(x.hi);\
 	return res;\
 	}
 
-#define DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, RMODEVAL, FLAG)\
-	float __attribute__ ((overloadable)) convert_float##RMODE(_1i32 x)\
+#define DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, FLAGSAT)\
+	float __attribute__ ((overloadable)) convert_float##FLAGSAT##RMODE(_1i32 x)\
 	{\
 	_4i32 param;\
 	param.s0 = x;\
-	float4 res =  intToFloat##FLAG(param, RMODEVAL);\
+	float4 res =  intToFloat(param);\
 	return res.s0;\
 	}\
-	float2 __attribute__ ((overloadable)) convert_float2##RMODE(_2i32 x)\
+	float2 __attribute__ ((overloadable)) convert_float2##FLAGSAT##RMODE(_2i32 x)\
 	{\
 	_4i32 param;\
 	param.lo = x;\
-	float4 res = intToFloat##FLAG(param, RMODEVAL);\
+	float4 res = intToFloat(param);\
 	return res.lo;\
 	}\
-	float3 __attribute__ ((overloadable)) convert_float3##RMODE(int3 x)\
+	float3 __attribute__ ((overloadable)) convert_float3##FLAGSAT##RMODE(int3 x)\
 	{\
 	float4 res;\
 	_4i32 param;\
 	param.s012 = x;\
-	res = intToFloat##FLAG(param, RMODEVAL);\
+	res = intToFloat(param);\
 	return res.s012;\
 	}\
-	float4 __attribute__ ((overloadable)) convert_float4##RMODE(_4i32 x)\
+	float4 __attribute__ ((overloadable)) convert_float4##FLAGSAT##RMODE(_4i32 x)\
 	{\
-	return intToFloat##FLAG(x, RMODEVAL);\
+	return intToFloat(x);\
 	}
 
 #if defined(__AVX__)
-#define DEF_INT_PROTOF_I32(RMODE, RMODEVAL, FLAG)           \
-    DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, RMODEVAL, FLAG)   \
-    DEF_INT_PROTOF_I32_F816_AS_F8(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOF_I32NOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)           \
+    DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, FLAGSAT)   \
+    DEF_INT_PROTOF_I32_F816_AS_F8(RMODE, FLAGSAT)
 #else // #if defined(__AVX__)
-#define DEF_INT_PROTOF_I32(RMODE, RMODEVAL, FLAG)           \
-    DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, RMODEVAL, FLAG)   \
-    DEF_INT_PROTOF_I32_F816_AS_F4(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOF_I32NOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)           \
+    DEF_INT_PROTOF_I32_F1234_AS_F4(RMODE, FLAGSAT)   \
+    DEF_INT_PROTOF_I32_F816_AS_F4(RMODE, FLAGSAT)
 #endif // #if defined(__AVX__)
 
-#define DEF_INT_PROTOF_U32(RMODE, RMODEVAL, FLAG)\
-	float __attribute__ ((overloadable)) convert_float##RMODE(_1u32 x)\
+// Oleg:
+// convert_float(int)
+// This is issue with ABI for SVML.
+// So as a hack we call int4 version of conversions for float
+// TODO: switch to DEF_INT_PROTOI32_FUSESVML_X when CSSD100012898:
+// "ABI for passing float2 arguments to SVML conversions function is invalid" is fixed
+#define DEF_INT_PROTOF_I32USESVML_12_AS_F4(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)\
+    float __attribute__ ((overloadable)) convert_float##FLAGSAT##RMODE(int x)\
 	{\
-	float res = uintToFloat##FLAG(x, RMODEVAL);\
+    int4 y = x;\
+	return convert_float4##FLAGSAT##RMODE(y).s0;\
+	}\
+    float2 __attribute__ ((overloadable)) convert_float2##FLAGSAT##RMODE(int2 x)\
+	{\
+    int4 y;\
+    y.lo = x;\
+    y.hi = 0;\
+	return convert_float4##FLAGSAT##RMODE(y).lo;\
+	}
+
+#define DEF_INT_PROTOF_I32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML, FLAGSAT)\
+    float##WIDTHOCL __attribute__ ((overloadable)) convert_float##WIDTHOCL##FLAGSAT##RMODE(int##WIDTHOCL  x)\
+	{\
+    float##WIDTHOCL res = __ocl_svml_##CPUTYPE##_cvti32tofp##RSVML##f##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOF_I32USESVML(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)\
+    DEF_INT_PROTOF_I32USESVML_12_AS_F4(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)\
+    DEF_INT_PROTOF_I32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3, FLAGSAT)\
+    DEF_INT_PROTOF_I32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4, FLAGSAT)\
+    DEF_INT_PROTOF_I32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8, FLAGSAT)\
+    DEF_INT_PROTOF_I32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16, FLAGSAT)
+
+#define DEF_INT_PROTOF_U32NOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)\
+    float __attribute__ ((overloadable)) convert_float##FLAGSAT##RMODE(_1u32 x)\
+	{\
+	float res = uintToFloat(x);\
 	return res;\
 	}\
-	float2 __attribute__ ((overloadable)) convert_float2##RMODE(_2u32 x)\
+	float2 __attribute__ ((overloadable)) convert_float2##FLAGSAT##RMODE(_2u32 x)\
 	{\
 	float2 res;\
-	res.lo = uintToFloat##FLAG(x.lo, RMODEVAL);\
-	res.hi = uintToFloat##FLAG(x.hi, RMODEVAL);\
+	res.lo = uintToFloat(x.lo);\
+	res.hi = uintToFloat(x.hi);\
 	return res;\
 	}\
-	float3 __attribute__ ((overloadable)) convert_float3##RMODE(uint3 x)\
+	float3 __attribute__ ((overloadable)) convert_float3##FLAGSAT##RMODE(uint3 x)\
 	{\
 	float3 res;\
-	res.s0 = uintToFloat##FLAG(x.s0, RMODEVAL);\
-	res.s1 = uintToFloat##FLAG(x.s1, RMODEVAL);\
-	res.s2 = uintToFloat##FLAG(x.s2, RMODEVAL);\
+	res.s0 = uintToFloat(x.s0);\
+	res.s1 = uintToFloat(x.s1);\
+	res.s2 = uintToFloat(x.s2);\
 	return res;\
 	}\
-	float4 __attribute__ ((overloadable)) convert_float4##RMODE(_4u32 x)\
+	float4 __attribute__ ((overloadable)) convert_float4##FLAGSAT##RMODE(_4u32 x)\
 	{\
 	float4 res;\
 	res.lo = convert_float2##RMODE(x.lo);\
 	res.hi = convert_float2##RMODE(x.hi);\
 	return res;\
 	}\
-	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8u32 x)\
+	float8 __attribute__ ((overloadable)) convert_float8##FLAGSAT##RMODE(_8u32 x)\
 	{\
 	float8 res;\
 	res.lo = convert_float4##RMODE(x.lo);\
 	res.hi = convert_float4##RMODE(x.hi);\
 	return res;\
 	}\
-	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16u32 x)\
+	float16 __attribute__ ((overloadable)) convert_float16##FLAGSAT##RMODE(_16u32 x)\
 	{\
 	float16 res;\
 	res.lo.lo = convert_float4##RMODE(x.lo.lo);\
@@ -2818,13 +1650,53 @@ we need to report this to Nikita and get a fix for this.
 	res.hi.lo = convert_float4##RMODE(x.hi.lo);\
 	res.hi.hi = convert_float4##RMODE(x.hi.hi);\
 	return res;\
-	}\
+	}
 
+#define DEF_INT_PROTOF_U32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML, FLAGSAT)\
+    float##WIDTHOCL __attribute__ ((overloadable)) convert_float##WIDTHOCL##FLAGSAT##RMODE(_##WIDTHSVML##u32 x)\
+	{\
+    float##WIDTHOCL res = __ocl_svml_##CPUTYPE##_cvtu32tofp##RSVML##f##WIDTHSVML(x);\
+	return res;\
+	}
+
+// Oleg:
+// convert_float(uint)
+// This is issue with ABI for SVML.
+// So as a hack we call uint4 version of conversions for uint and uint2
+// TODO: switch to DEF_INT_PROTOF_U32USESVML_X when CSSD100012897:
+// "ABI for passing Uint and uint2 arguments to SVML conversions function is invalid" is fixed
+#define DEF_INT_PROTOF_U32USESVML_1(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML, FLAGSAT)\
+    float __attribute__ ((overloadable)) convert_float##FLAGSAT##RMODE(_1u32 x)\
+	{\
+    uint4 y = x;\
+	return convert_float4##FLAGSAT##RMODE(y).s0;\
+	}
+
+#define DEF_INT_PROTOF_U32USESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML, FLAGSAT)\
+    float2 __attribute__ ((overloadable)) convert_float2##FLAGSAT##RMODE(_2u32 x)\
+	{\
+    uint4 y;\
+    y.lo = x;\
+    y.hi = x;\
+	return convert_float4##FLAGSAT##RMODE(y).lo;\
+	}
+
+#define DEF_INT_PROTOF_U32USESVML(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_1(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, 2, 2, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8, FLAGSAT)\
+    DEF_INT_PROTOF_U32USESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16, FLAGSAT)
+
+
+// Oleg:
+// TODO: switch convert_float to SVML direct call with long1 when CSSD100012898 is fixed
 #define DEF_INT_PROTOF_64(TI, TINAME, RMODE, RSVML, CPUTYPE)\
 	float __attribute__((overloadable)) convert_float##RMODE(_1##TI##64 x)\
 	{\
-	float res = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##f1(x);\
-	return res;\
+	_2##TI##64 y = x;\
+	return convert_float2##RMODE(y).lo;\
 	}\
 	float2 __attribute__((overloadable)) convert_float2##RMODE(_2##TI##64 x)\
 	{\
@@ -2855,7 +1727,7 @@ we need to report this to Nikita and get a fix for this.
     res.lo = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##f8(x.lo);\
     res.hi = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##f8(x.hi);\
 	return res;\
-	}\
+	}
 
 #define DEF_INT_PROTOF_F(TI, TO, TINAME, TONAME, RMODE)\
 	DEF_INT_PROTO1_X_Y(float, float, float, float, RMODE)\
@@ -2927,29 +1799,29 @@ we need to report this to Nikita and get a fix for this.
 	return res;\
 	}\
 
-#define DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL, FLAG)\
+#define DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL)\
 	float __attribute__((overloadable)) convert_float##RMODE(double x)\
 	{\
 	double2 param;\
     param.lo = x;\
-    float4 res = double2ToFloat4##FLAG( param, RMODEVAL);\
+    float4 res = double2ToFloat4( param, RMODEVAL);\
 	return res.s0;\
 	}\
 	float2 __attribute__((overloadable)) convert_float2##RMODE(double2 x)\
 	{\
 	float4 res;\
-	res = double2ToFloat4##FLAG( x, RMODEVAL);\
+	res = double2ToFloat4( x, RMODEVAL);\
 	return res.lo;\
 	}
 	
-#define DEF_INT_PROTOF_D_D34816_AS_D2(RMODE, RMODEVAL, FLAG)\
+#define DEF_INT_PROTOF_D_D34816_AS_D2(RMODE, RMODEVAL)\
     float3 __attribute__((overloadable)) convert_float3##RMODE(double3 x)\
 	{\
 	float4 res, t;\
 	double4 y = as_double4(x);\
-    t = double2ToFloat4##FLAG( y.lo, RMODEVAL);\
+    t = double2ToFloat4( y.lo, RMODEVAL);\
     res.lo = t.lo;\
-    t = double2ToFloat4##FLAG( y.hi, RMODEVAL);\
+    t = double2ToFloat4( y.hi, RMODEVAL);\
     res.hi = t.lo;\
     return as_float3(res);\
 	}\
@@ -2977,18 +1849,18 @@ we need to report this to Nikita and get a fix for this.
 	return res;\
 	}
 
-#define DEF_INT_PROTOF_D_D34816_AS_D4(RMODE, RMODEVAL, FLAG)\
+#define DEF_INT_PROTOF_D_D34816_AS_D4(RMODE, RMODEVAL)\
     float3 __attribute__((overloadable)) convert_float3##RMODE(double3 x)\
 	{\
 	float4 res, t;\
 	double4 y = as_double4(x);\
-    res = double4ToFloat4##FLAG( y, RMODEVAL);\
+    res = double4ToFloat4( y, RMODEVAL);\
     return as_float3(res);\
 	}\
     float4 __attribute__((overloadable)) convert_float4##RMODE(double4 x)\
 	{\
 	float4 res;\
-    res = double4ToFloat4##FLAG( x, RMODEVAL);\
+    res = double4ToFloat4( x, RMODEVAL);\
     return res;\
 	}\
 	float8 __attribute__((overloadable)) convert_float8##RMODE(double8 x)\
@@ -3009,14 +1881,66 @@ we need to report this to Nikita and get a fix for this.
 	}
 
 #if defined(__AVX__)
-#define DEF_INT_PROTOF_D(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOF_D_D34816_AS_D4(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOF_DNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL)\
+    DEF_INT_PROTOF_D_D34816_AS_D4(RMODE, RMODEVAL)
 #else // defined(__AVX__)
-#define DEF_INT_PROTOF_D(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL, FLAG)\
-    DEF_INT_PROTOF_D_D34816_AS_D2(RMODE, RMODEVAL, FLAG)
+#define DEF_INT_PROTOF_DNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_INT_PROTOF_D_D12_AS_D2(RMODE, RMODEVAL)\
+    DEF_INT_PROTOF_D_D34816_AS_D2(RMODE, RMODEVAL)
 #endif // defined(__AVX__)
+
+// Oleg:
+// convert_float(double)
+// This is issue with ABI for SVML.
+// So as a hack we call double and double2 version of conversions
+// TODO: switch double3,4,8,16 to SVML call when CSSD100012907:
+// "ABI for passing double3 arguments to SVML conversions function is invalid" is fixed
+
+#define DEF_INT_PROTOF_DUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	float __attribute__ ((overloadable)) convert_float##RMODE(double x)\
+	{\
+    float res = __ocl_svml_##CPUTYPE##_cvtfp64tofp32##RSVML##1(x);\
+	return res;\
+	}\
+	float2 __attribute__ ((overloadable)) convert_float2##RMODE(double2 x)\
+	{\
+    float2 res = __ocl_svml_##CPUTYPE##_cvtfp64tofp32##RSVML##2(x);\
+	return res;\
+	}\
+	float3 __attribute__ ((overloadable)) convert_float3##RMODE(double3 x)\
+	{\
+    float3 res;\
+    double2 y1,y2;\
+    y1 = x.s01;\
+    y2.lo = x.s2;\
+    float2 r1 = convert_float2##RMODE(y1);\
+    float2 r2 = convert_float2##RMODE(y2);\
+    res.s01 = r1;\
+    res.s2 = r2.lo;\
+    return res;\
+	}\
+	float4 __attribute__ ((overloadable)) convert_float4##RMODE(double4 x)\
+    {\
+	float4 res;\
+	res.lo = convert_float2##RMODE(x.lo);\
+	res.hi = convert_float2##RMODE(x.hi);\
+	return res;\
+	}\
+	float8 __attribute__ ((overloadable)) convert_float8##RMODE(double8 x)\
+    {\
+	float8 res;\
+	res.lo = convert_float4##RMODE(x.lo);\
+	res.hi = convert_float4##RMODE(x.hi);\
+	return res;\
+	}\
+	float16 __attribute__ ((overloadable)) convert_float16##RMODE(double16 x)\
+    {\
+	float16 res;\
+	res.lo = convert_float8##RMODE(x.lo);\
+	res.hi = convert_float8##RMODE(x.hi);\
+	return res;\
+	}
 
 		//double
 #define DEF_INT_PROTOD_8(TI, TINAME, RMODE)\
@@ -3219,11 +2143,13 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}
 	
 
+// Oleg:
+// TODO: switch convert_double to SVML direct call with long1 when CSSD100012898 is fixed
 #define DEF_INT_PROTOD_64(TI, TINAME, RMODE, RSVML, CPUTYPE)\
 	double __attribute__((overloadable)) convert_double##RMODE(_1##TI##64 x)\
 	{\
-	double res = __ocl_svml_##CPUTYPE##_cvt##TI##64tofp##RSVML##1(x);\
-	return res;\
+	_2##TI##64 y = x;\
+	return convert_double2##RMODE(y).s0;\
 	}\
 	double2 __attribute__((overloadable)) convert_double2##RMODE(_2##TI##64 x)\
 	{\
@@ -3451,47 +2377,36 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 #define DEF_SAT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
 	_1##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char_sat##RMODE(float x)\
 	{\
-	_1##TO##8 res;\
 	if(x > MAX) return MAX;\
 	if(x < MIN) return MIN;\
-	float4 param;\
-	param.s0 = x;\
-	return floatToInt##FLAG(param, RMODEVAL);\
+	return convert_##TONAME##char##RMODE(x);\
 	}\
 	_2##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char2_sat##RMODE(float2 x)\
 	{\
-	_16##TO##8 res;\
-	_4i32 t;\
-	float4 param;\
-	param.lo = x;\
-	t = floatToIntSat##FLAG(param, RMODEVAL);\
-	res.s0123 =  convert_##TONAME##char4_sat(t);\
-	return res.s01;\
+	float4 y;\
+    y.lo = x;\
+	return convert_##TONAME##char4_sat##RMODE(y).lo;\
 	}\
 	TONAME##char3 __attribute__ ((overloadable)) convert_##TONAME##char3_sat##RMODE(float3 x)\
 	{\
-	_4##TO##8 res;\
-	_4i32 t;\
-	t = floatToIntSat##FLAG(as_float4(x), RMODEVAL);\
-	res =  convert_##TONAME##char4_sat(t);\
-	return as_##TONAME##char3(res);\
+	float4 y;\
+    y.s012= x;\
+	return convert_##TONAME##char4_sat##RMODE(y).s012;\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(float4 x)\
 	{\
 	_4##TO##8 res;\
-	_4i32 t;\
-	t = floatToIntSat##FLAG(x, RMODEVAL);\
+	_4##TO##32 t;\
+	t = convert_##TONAME##int4_sat##RMODE(x);\
 	res =  convert_##TONAME##char4_sat(t);\
 	return res;\
 	}\
 	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(float8 x)\
 	{\
-	_16##TO##8 res;\
-	_4i32 t1 = floatToIntSat##FLAG(x.lo, RMODEVAL);\
-	_4i32 t2 = floatToIntSat##FLAG(x.hi, RMODEVAL);\
-	res.s0123 =  convert_##TONAME##char4_sat(t1);\
-	res.s4567 =  convert_##TONAME##char4_sat(t2);\
-	return res.lo;\
+	_8##TO##8 res;\
+	res.lo = convert_##TONAME##char4_sat##RMODE(x.lo);\
+    res.hi = convert_##TONAME##char4_sat##RMODE(x.hi);\
+	return res;\
 	}\
 	_16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(float16 x)\
 	{\
@@ -3499,12 +2414,12 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	res.lo = convert_##TONAME##char8_sat##RMODE(x.lo);\
 	res.hi = convert_##TONAME##char8_sat##RMODE(x.hi);\
 	return res;\
-	}\
+	}
 
 #define DEF_SAT_PROTO8_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##8 __attribute__((overloadable)) convert_##TONAME##char_sat##RMODE(double x)\
 	{\
-	int t = doubleToIntSat(x, RMODEVAL);\
+    _1##TO##32 t = convert_##TONAME##int_sat##RMODE(x);\
 	return convert_##TONAME##char_sat(t);\
 	}\
 	_2##TO##8 __attribute__((overloadable)) convert_##TONAME##char2_sat##RMODE(double2 x)\
@@ -3694,7 +2609,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TO##16 res;\
 	float4 param;\
 	param.s0 = x;\
-	_4i32 t = floatToIntSat##FLAG(param, RMODEVAL);\
+    _4##TO##32 t = convert_##TONAME##int4_sat##RMODE(param);\
 	res.lo = convert_##TONAME##short4_sat##RMODE(t);\
 	return res.s0;\
 	}\
@@ -3703,29 +2618,29 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_8##TO##16 res;\
 	float4 param;\
 	param.lo = x;\
-	_4i32 t = floatToIntSat##FLAG(param, RMODEVAL);\
+    _4##TO##32 t = convert_##TONAME##int4_sat##RMODE(param);\
 	res.lo = convert_##TONAME##short4_sat##RMODE(t);\
 	return res.s01;\
 	}\
 	TONAME##short3 __attribute__ ((overloadable)) convert_##TONAME##short3_sat##RMODE(float3 x)\
 	{\
 	_8##TO##16 res;\
-	_4i32 t = floatToIntSat##FLAG(as_float4(x), RMODEVAL);\
+    _4##TO##32 t = convert_##TONAME##int4_sat##RMODE(as_float4(x));\
 	res.lo = convert_##TONAME##short4_sat##RMODE(t);\
 	return as_##TONAME##short3(res.lo);\
 	}\
 	_4##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short4_sat##RMODE(float4 x)\
 	{\
 	_8##TO##16 res;\
-	_4i32 t = floatToIntSat##FLAG(x, RMODEVAL);\
+    _4##TO##32 t = convert_##TONAME##int4_sat##RMODE(x);\
 	res.lo = convert_##TONAME##short4_sat##RMODE(t);\
 	return res.lo;\
 	}\
 	_8##TO##16 __attribute__ ((overloadable)) convert_##TONAME##short8_sat##RMODE(float8 x)\
 	{\
 	_8##TO##16 res;\
-	_4i32 t1 = floatToIntSat##FLAG(x.lo, RMODEVAL);\
-	_4i32 t2 = floatToIntSat##FLAG(x.hi, RMODEVAL);\
+    _4##TO##32 t1 = convert_##TONAME##int4_sat##RMODE(x.lo);\
+	_4##TO##32 t2 = convert_##TONAME##int4_sat##RMODE(x.hi);\
 	res.lo = convert_##TONAME##short4_sat##RMODE(t1);\
 	res.hi = convert_##TONAME##short4_sat##RMODE(t2);\
 	return res;\
@@ -3736,14 +2651,14 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	res.lo = convert_##TONAME##short8_sat##RMODE(x.lo);\
 	res.hi = convert_##TONAME##short8_sat##RMODE(x.hi);\
 	return res;\
-	}\
+	}
 
 
 #define DEF_SAT_PROTO16_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##16 __attribute__((overloadable)) convert_##TONAME##short_sat##RMODE(double x)\
 	{\
 	_1##TO##16 res;\
-	int t = doubleToIntSat(x, RMODEVAL);\
+	_1##TO##32 t = convert_##TONAME##int_sat##RMODE(x);\
 	res = convert_##TONAME##short_sat##RMODE(t);\
 	return res;\
 	}\
@@ -3781,10 +2696,9 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	res.lo = convert_##TONAME##short8_sat##RMODE(x.lo);\
 	res.hi = convert_##TONAME##short8_sat##RMODE(x.hi);\
 	return res;\
-	}\
+	}
 
-
-#define DEF_SAT_PROTOI32_F(RMODE, RMODEVAL, MAX, MIN, FLAG)\
+#define DEF_SAT_PROTOI32_FNOSVML(RMODE, RMODEVAL, MAX, MIN, RSVML, CPUTYPE)\
 	_1i32 __attribute__ ((overloadable)) convert_int_sat##RMODE(float x)\
 	{\
 	_1i32 res;\
@@ -3792,7 +2706,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	if(x <= MIN) return MIN;\
 	float4 p;\
 	p.s0 = x;\
-	res = floatToInt##FLAG(p, RMODEVAL);\
+	res = floatToInt(p);\
 	return res;\
 	}\
 	_2i32 __attribute__ ((overloadable)) convert_int2_sat##RMODE(float2 x)\
@@ -3800,57 +2714,146 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	_4i32 res;\
 	float4 param;\
 	param.lo = x;\
-	res = floatToIntSat##FLAG(param, RMODEVAL);\
+	res = floatToIntSat(param);\
 	return res.lo;\
 	}\
 	int3 __attribute__ ((overloadable)) convert_int3_sat##RMODE(float3 x)\
 	{\
 	_4i32 res;\
-	res = floatToIntSat##FLAG(as_float4(x), RMODEVAL);\
+	res = floatToIntSat(as_float4(x));\
 	return as_int3(res);\
 	}\
 	_4i32 __attribute__ ((overloadable)) convert_int4_sat##RMODE(float4 x)\
 	{\
 	_4i32 res;\
-	res = floatToIntSat##FLAG(x, RMODEVAL);\
+	res = floatToIntSat(x);\
 	return res;\
 	}\
 	_8i32 __attribute__ ((overloadable)) convert_int8_sat##RMODE(float8 x)\
 	{\
 	_8i32 res;\
-	res.lo = floatToIntSat##FLAG(x.lo, RMODEVAL);\
-	res.hi = floatToIntSat##FLAG(x.hi, RMODEVAL);\
+	res.lo = floatToIntSat(x.lo);\
+	res.hi = floatToIntSat(x.hi);\
 	return res;\
 	}\
 	_16i32 __attribute__ ((overloadable)) convert_int16_sat##RMODE(float16 x)\
 	{\
 	_16i32 res;\
-	res.lo.lo = floatToIntSat##FLAG(x.lo.lo, RMODEVAL);\
-	res.lo.hi = floatToIntSat##FLAG(x.lo.hi, RMODEVAL);\
-	res.hi.lo = floatToIntSat##FLAG(x.hi.lo, RMODEVAL);\
-	res.hi.hi = floatToIntSat##FLAG(x.hi.hi, RMODEVAL);\
+	res.lo.lo = floatToIntSat(x.lo.lo);\
+	res.lo.hi = floatToIntSat(x.lo.hi);\
+	res.hi.lo = floatToIntSat(x.hi.lo);\
+	res.hi.hi = floatToIntSat(x.hi.hi);\
 	return res;\
 	}
 
-
-
-#define DEF_SAT_PROTOI32_D(RMODE, RMODEVAL)\
-	_1i32 __attribute__((overloadable)) convert_int_sat##RMODE(double x)\
+// Oleg:
+// convert_int(float)
+// This is issue with ABI for SVML.
+// So as a hack we call float4 version of conversions for float
+// TODO: switch to DEF_INT_PROTOI32_FUSESVML_X when CSSD100012898:
+// "ABI for passing float2 arguments to SVML conversions function is invalid" is fixed
+#define DEF_SAT_PROTOI32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _2i32 __attribute__ ((overloadable)) convert_int2_sat##RMODE(float2  x)\
 	{\
-		return doubleToIntSat(x, RMODEVAL);\
-	}\
-	_2i32 __attribute__((overloadable)) convert_int2_sat##RMODE(double2 x)\
+    float4 y;\
+    y.lo = x;\
+    y.hi = x;\
+    return convert_int4_sat##RMODE(y).lo;\
+	}
+
+#define DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##i32 __attribute__ ((overloadable)) convert_int##WIDTHOCL##_sat##RMODE(float##WIDTHOCL  x)\
 	{\
-	_2i32 res;\
-	res.lo = doubleToIntSat(x.lo, RMODEVAL);\
-	res.hi = doubleToIntSat(x.hi, RMODEVAL);\
+    _##WIDTHSVML##i32 res = __ocl_svml_##CPUTYPE##_cvtfptoi32##RSVML##satf##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTOI32_FUSESVML(RMODE, RMODEVAL, _INT_MAX, _INT_MIN, RSVML, CPUTYPE)\
+    DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_SAT_PROTOI32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, 2, 2)\
+    DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3)\
+    DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4)\
+    DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8)\
+    DEF_SAT_PROTOI32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16)
+
+// oleg:
+// convert_sat_int(double)
+// This is issue with ABI for SVML.
+// So as a hack we call double and double2 version of conversions
+// TODO: switch double2,3,4,8,16 to SVML call when CSSD100012907:
+// "ABI for passing double3 arguments to SVML conversions function is invalid" is fixed
+#define DEF_SAT_PROTOI32_DUSESVML_234816_AS_D1(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	int2 __attribute__ ((overloadable)) convert_int2_sat##RMODE(double2 x)\
+    {\
+	int2 res;\
+	res.lo = convert_int_sat##RMODE(x.lo);\
+	res.hi = convert_int_sat##RMODE(x.hi);\
 	return res;\
 	}\
+    int3 __attribute__ ((overloadable)) convert_int3_sat##RMODE(double3 x)\
+	{\
+    int3 res;\
+    double2 y1,y2;\
+    y1 = x.s01;\
+    y2.lo = x.s2;\
+    int2 r1 = convert_int2_sat##RMODE(y1);\
+    int2 r2 = convert_int2_sat##RMODE(y2);\
+    res.s01 = r1;\
+    res.s2 = r2.lo;\
+    return res;\
+	}\
+	int4 __attribute__ ((overloadable)) convert_int4_sat##RMODE(double4 x)\
+    {\
+	int4 res;\
+	res.lo = convert_int2_sat##RMODE(x.lo);\
+	res.hi = convert_int2_sat##RMODE(x.hi);\
+	return res;\
+	}\
+	int8 __attribute__ ((overloadable)) convert_int8_sat##RMODE(double8 x)\
+    {\
+	int8 res;\
+	res.lo = convert_int4_sat##RMODE(x.lo);\
+	res.hi = convert_int4_sat##RMODE(x.hi);\
+	return res;\
+	}\
+	int16 __attribute__ ((overloadable)) convert_int16_sat##RMODE(double16 x)\
+    {\
+	int16 res;\
+	res.lo = convert_int8_sat##RMODE(x.lo);\
+	res.hi = convert_int8_sat##RMODE(x.hi);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTOI32_DUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##i32 __attribute__ ((overloadable)) convert_int##WIDTHOCL##_sat##RMODE(double##WIDTHOCL  x)\
+	{\
+    _##WIDTHSVML##i32 res = __ocl_svml_##CPUTYPE##_cvtfptoi32##RSVML##sat##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTOI32_DUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_SAT_PROTOI32_DUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_SAT_PROTOI32_DUSESVML_234816_AS_D1(RMODE, RMODEVAL, RSVML, CPUTYPE)
+
+#define DEF_SAT_PROTOI32_D_D12_AS_D2(RMODE)                       \
+	_1i32 __attribute__ ((overloadable)) convert_int_sat##RMODE(double x)\
+	{\
+		return doubleToIntSat(x);\
+    }\
+	_2i32 __attribute__ ((overloadable)) convert_int2_sat##RMODE(double2 x)\
+	{\
+	_2i32 res;\
+	res.lo = doubleToIntSat(x.lo);\
+	res.hi = doubleToIntSat(x.hi);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTOI32_D_D34_AS_D2(RMODE)                            \
 	int3 __attribute__((overloadable)) convert_int3_sat##RMODE(double3 x)\
 	{\
 	int3 res;\
 	res.s01 = convert_int2_sat##RMODE(x.s01);\
-	res.s2 = doubleToIntSat(x.s2, RMODEVAL);\
+	res.s2 = convert_int_sat##RMODE(x.s2);\
 	return res;\
 	}\
 	_4i32 __attribute__((overloadable)) convert_int4_sat##RMODE(double4 x)\
@@ -3859,21 +2862,29 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	res.lo = convert_int2_sat##RMODE(x.lo);\
 	res.hi = convert_int2_sat##RMODE(x.hi);\
 	return res;\
-	}\
+	}
+
+#define DEF_SAT_PROTOI32_D_D816_AS_D4(RMODE)                            \
 	_8i32 __attribute__((overloadable)) convert_int8_sat##RMODE(double8 x)\
 	{\
 	_8i32 res;\
-	res.lo = convert_int4_sat##RMODE(x.lo);\
-	res.hi = convert_int4_sat##RMODE(x.hi);\
+	res.lo =  convert_int4_sat##RMODE(x.lo);\
+	res.hi =  convert_int4_sat##RMODE(x.hi);\
 	return res;\
 	}\
 	_16i32 __attribute__((overloadable)) convert_int16_sat##RMODE(double16 x)\
 	{\
 	_16i32 res;\
-	res.lo = convert_int8_sat##RMODE(x.lo);\
-	res.hi = convert_int8_sat##RMODE(x.hi);\
+	res.lo =  convert_int8_sat##RMODE(x.lo);\
+	res.hi =  convert_int8_sat##RMODE(x.hi);\
 	return res;\
 	}
+
+#define DEF_SAT_PROTOI32_DNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)       \
+    DEF_SAT_PROTOI32_D_D12_AS_D2(RMODE)                               \
+    DEF_SAT_PROTOI32_D_D34_AS_D2(RMODE)                              \
+    DEF_SAT_PROTOI32_D_D816_AS_D4(RMODE)                              
+
 
 #define DEF_SAT_PROTO32_I64(TO, TONAME, RMODE, MAX, MIN)\
 	_1##TO##32 __attribute__ ((overloadable)) convert_##TONAME##int_sat##RMODE(_1i64 x)\
@@ -4344,50 +3355,39 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	return res;\
 	}\
 
-#define DEF_SAT_PROTOU32_F(RMODE, RMODEVAL)\
+#define DEF_SAT_PROTOU32_F_F1234(RMODE)\
 	_1u32 __attribute__ ((overloadable)) convert_uint_sat##RMODE(float x)\
 	{\
-	_1u32 res;\
-	int rm = getRound();\
-	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res = floatToUintSat(x);\
-	setRound(rm);\
+    _1u32 res = as_uint(floatToUintSat(x));\
 	return res;\
 	}\
 	_2u32 __attribute__ ((overloadable)) convert_uint2_sat##RMODE(float2 x)\
 	{\
-	int rm = getRound();\
-	_2u32 res;\
-	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.lo = floatToUintSat(x.lo);\
-	res.hi = floatToUintSat(x.hi);\
-	setRound(rm);\
-	return res;\
+	_4u32 res;\
+	res.s0 = as_uint(floatToUintSat(x.lo));\
+	res.s1 = as_uint(floatToUintSat(x.hi));\
+	return res.lo;\
 	}\
 	uint3 __attribute__ ((overloadable)) convert_uint3_sat##RMODE(float3 x)\
 	{\
-	int rm = getRound();\
-	uint3 res;\
-	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.s0 = floatToUintSat(x.s0);\
-	res.s1 = floatToUintSat(x.s1);\
-	res.s2 = floatToUintSat(x.s2);\
-	setRound(rm);\
-	return res;\
-	}\
-	_4u32 __attribute__ ((overloadable)) convert_uint4_sat##RMODE(float4 x)\
-	{\
-	int rm = getRound();\
 	_4u32 res;\
-	setRound((rm& ~_MM_ROUND_MASK) | RMODEVAL);\
-	res.s0 = floatToUintSat(x.s0);\
-	res.s1 = floatToUintSat(x.s1);\
-	res.s2 = floatToUintSat(x.s2);\
-	res.s3 = floatToUintSat(x.s3);\
-	setRound(rm);\
-	return res;\
+	res.s0 = as_uint(floatToUintSat(x.s0));\
+	res.s1 = as_uint(floatToUintSat(x.s1));\
+	res.s2 = as_uint(floatToUintSat(x.s2));\
+	return as_uint3(res);\
 	}\
-	_8u32 __attribute__ ((overloadable)) convert_uint8_sat##RMODE(float8 x)\
+    _4u32 __attribute__ ((overloadable)) convert_uint4_sat##RMODE(float4 x)\
+    {\
+    _4u32 res;\
+    res.s0 = as_uint(floatToUintSat(x.s0));\
+    res.s1 = as_uint(floatToUintSat(x.s1));\
+    res.s2 = as_uint(floatToUintSat(x.s2));\
+    res.s3 = as_uint(floatToUintSat(x.s3));\
+    return res;\
+    }
+
+#define DEF_SAT_PROTOU32_F_F816_AS_F4(RMODE)\
+    _8u32 __attribute__ ((overloadable)) convert_uint8_sat##RMODE(float8 x)\
 	{\
 	_8u32 res;\
 	res.lo = convert_uint4_sat##RMODE(x.lo);\
@@ -4404,39 +3404,92 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	return res;\
 	}
 
+#define DEF_SAT_PROTOU32_FNOSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_SAT_PROTOU32_F_F1234(RMODE)\
+    DEF_SAT_PROTOU32_F_F816_AS_F4(RMODE)
+
+// Oleg:
+// convert_int(float)
+// This is issue with legal types in SSE and AVX
+// Elena's comment
+// We call v4 functions because v2i32 is not legal type for LLVM in SSE and AVX modes.
+// Since the type is illegal it should be extended to a "nearest" legal. LLVM extends it to v2i64 and SVML expects v4i32 form. 
+// In this case we just call v4 functions to avoid incompatibility.
+#define DEF_SAT_PROTOU32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _2u32 __attribute__ ((overloadable)) convert_uint2_sat##RMODE(float2  x)\
+	{\
+    float4 y;\
+    y.lo = x;\
+    y.hi = x;\
+    return convert_uint4_sat##RMODE(y).lo;\
+	}
+
+#define DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, WIDTHOCL, WIDTHSVML)\
+    _##WIDTHSVML##u32 __attribute__ ((overloadable)) convert_uint##WIDTHOCL##_sat##RMODE(float##WIDTHOCL  x)\
+	{\
+    _##WIDTHSVML##u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##satf##WIDTHSVML(x);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTOU32_FUSESVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+    DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, , 1)\
+    DEF_SAT_PROTOU32_FUSESVML_2(RMODE, RMODEVAL, RSVML, CPUTYPE, 2, 2)\
+    DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 3, 3)\
+    DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 4, 4)\
+    DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 8, 8)\
+    DEF_SAT_PROTOU32_FUSESVML_X(RMODE, RMODEVAL, RSVML, CPUTYPE, 16, 16)
+
+// oleg:
+// convert_sat_uint(double)
+// This is issue with ABI for SVML.
+// So as a hack we call double and double2 version of conversions
+// TODO: switch double2,3,4,8,16 to SVML call when CSSD100012907:
+// "ABI for passing double3 arguments to SVML conversions function is invalid" is fixed
+
 #define DEF_SAT_PROTOU32_D(RMODE, RSVML, CPUTYPE)\
 	_1u32 __attribute__((overloadable)) convert_uint_sat##RMODE(double x)\
 	{\
 	_1u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat1(x);\
 	return res;\
 	}\
-	_2u32 __attribute__((overloadable)) convert_uint2_sat##RMODE(double2 x)\
-	{\
-    double4 param = (double4)(0.0);\
-    param.lo=x;\
-    _4u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat4(param);\
-	return res.lo;\
-	}\
-	uint3 __attribute__((overloadable)) convert_uint3_sat##RMODE(double3 x)\
-	{\
-	_4u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat4(as_double4(x));\
-	return as_uint3(res);\
-	}\
-	_4u32 __attribute__((overloadable)) convert_uint4_sat##RMODE(double4 x)\
-	{\
-	_4u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat4(x);\
+	_2u32 __attribute__ ((overloadable)) convert_uint2_sat##RMODE(double2 x)\
+    {\
+	uint2 res;\
+	res.lo = convert_uint_sat##RMODE(x.lo);\
+	res.hi = convert_uint_sat##RMODE(x.hi);\
 	return res;\
 	}\
-	_8u32 __attribute__((overloadable)) convert_uint8_sat##RMODE(double8 x)\
+    _3u32 __attribute__ ((overloadable)) convert_uint3_sat##RMODE(double3 x)\
 	{\
-	_8u32 res = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat8(x);\
+    uint3 res;\
+    double2 y1,y2;\
+    y1 = x.s01;\
+    y2.lo = x.s2;\
+    uint2 r1 = convert_uint2_sat##RMODE(y1);\
+    uint2 r2 = convert_uint2_sat##RMODE(y2);\
+    res.s01 = r1;\
+    res.s2 = r2.lo;\
+    return res;\
+	}\
+	_4u32 __attribute__ ((overloadable)) convert_uint4_sat##RMODE(double4 x)\
+    {\
+	uint4 res;\
+	res.lo = convert_uint2_sat##RMODE(x.lo);\
+	res.hi = convert_uint2_sat##RMODE(x.hi);\
 	return res;\
 	}\
-	_16u32 __attribute__((overloadable)) convert_uint16_sat##RMODE(double16 x)\
-	{\
-	_16u32 res;\
-    res.lo = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat8(x.lo);\
-    res.hi = __ocl_svml_##CPUTYPE##_cvtfptou32##RSVML##sat8(x.hi);\
+	_8u32 __attribute__ ((overloadable)) convert_uint8_sat##RMODE(double8 x)\
+    {\
+	uint8 res;\
+	res.lo = convert_uint4_sat##RMODE(x.lo);\
+	res.hi = convert_uint4_sat##RMODE(x.hi);\
+	return res;\
+	}\
+	_16u32 __attribute__ ((overloadable)) convert_uint16_sat##RMODE(double16 x)\
+    {\
+	uint16 res;\
+	res.lo = convert_uint8_sat##RMODE(x.lo);\
+	res.hi = convert_uint8_sat##RMODE(x.hi);\
 	return res;\
 	}
 
@@ -5078,7 +4131,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_OUT_SHORT_RTX(_rtp, 0x4000, Round)
 
 	//out int in all with RMODE
-#define DEF_OUT_INT_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAG)\
+#define DEF_OUT_INT_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSVML)\
 	DEF_INT_PROTO32_8(z, u, u, u, u, RMODE)\
 	DEF_INT_PROTO32_8(z, u, i, u, , RMODE)\
 	DEF_INT_PROTO32_8(s, i, u, , u, RMODE)\
@@ -5095,17 +4148,17 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_INT_PROTO32_64(u, i, u, , RMODE)\
 	DEF_INT_PROTO32_64(i, u, , u, RMODE)\
 	DEF_INT_PROTO32_64(i, i, , , RMODE)\
-	DEF_INT_PROTOI32_F(RMODE, RMODEVAL, FLAG)\
-	DEF_INT_PROTOU32_F(RMODE, RMODEVAL, FLAG)\
-	DEF_INT_PROTOI32_D(RMODE, RMODEVAL) \
+    DEF_INT_PROTOI32_F##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	DEF_INT_PROTOU32_F##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	DEF_INT_PROTOI32_D##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
 	DEF_INT_PROTOU32_D(RMODE, RSVML, CPUTYPE)
 
 #define DEF_OUT_INT()\
-	DEF_OUT_INT_RTX(, 0x6000, rtz, CTYPE,)\
-	DEF_OUT_INT_RTX(_rtz, 0x6000, rtz, CTYPE,)\
-	DEF_OUT_INT_RTX(_rte, 0x0, rtn, CTYPE, Round)\
-	DEF_OUT_INT_RTX(_rtn, 0x2000, down, CTYPE, Round)\
-	DEF_OUT_INT_RTX(_rtp, 0x4000, up, CTYPE, Round)
+	DEF_OUT_INT_RTX(, 0x6000, rtz, CTYPE, NOSVML)\
+	DEF_OUT_INT_RTX(_rtz, 0x6000, rtz, CTYPE, NOSVML)\
+	DEF_OUT_INT_RTX(_rte, 0x0, rtn, CTYPE, USESVML)\
+	DEF_OUT_INT_RTX(_rtn, 0x2000, down, CTYPE, USESVML)\
+	DEF_OUT_INT_RTX(_rtp, 0x4000, up, CTYPE, USESVML)
 
 	//out long in all with RMODE
 #define DEF_OUT_LONG_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -5138,26 +4191,24 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_OUT_LONG_RTX(_rtp, 0x4000, up, CTYPE)
 
 	//out float in all with RMODE
-#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
+#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE, FLAGSVML)\
 	DEF_INT_PROTOF_8(i, , RMODE)\
 	DEF_INT_PROTOF_8(u, u, RMODE)\
 	DEF_INT_PROTOF_16(i, , RMODE)\
 	DEF_INT_PROTOF_16(u, u, RMODE)\
-	DEF_INT_PROTOF_I32(RMODE, RMODEVAL, FLAG)\
-	DEF_INT_PROTOF_U32(RMODE, RMODEVAL, FLAG)\
+	DEF_INT_PROTOF_I32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE,)\
+	DEF_INT_PROTOF_U32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE,)\
 	DEF_INT_PROTOF_F(, , , , RMODE)\
-	DEF_INT_PROTOF_D(RMODE, RMODEVAL, FLAG)\
+    DEF_INT_PROTOF_D##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
 	DEF_INT_PROTOF_64(i, , RMODE, RSVML, CPUTYPE)\
 	DEF_INT_PROTOF_64(u, u, RMODE, RSVML, CPUTYPE)
 
-//#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
-
 #define DEF_OUT_FLOAT()\
-	DEF_OUT_FLOAT_RTX(,0x0, rtn, 0x0000, ,CTYPE)\
-	DEF_OUT_FLOAT_RTX(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE)\
-	DEF_OUT_FLOAT_RTX(_rte, 0x0, rtn, 0x0000, , CTYPE)\
-	DEF_OUT_FLOAT_RTX(_rtn, 0x2000, down, 0x0100, Round, CTYPE)\
-	DEF_OUT_FLOAT_RTX(_rtp, 0x4000, up, 0x0200, Round, CTYPE)
+	DEF_OUT_FLOAT_RTX(,0x0, rtn, 0x0000, ,CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_RTX(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_RTX(_rte, 0x0, rtn, 0x0000, , CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_RTX(_rtn, 0x2000, down, 0x0100, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_RTX(_rtp, 0x4000, up, 0x0200, Round, CTYPE, USESVML)
 
 	//out double in all with RMODE
 #define DEF_OUT_DOUBLE_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -5243,7 +4294,7 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_OUT_SHORT_SAT(_rtp, 0x4000, Round)
 
 	//out int in all with RMODE
-#define DEF_OUT_INT_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAG)\
+#define DEF_OUT_INT_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE, FLAGSVML)\
 	DEF_SAT_PROTOU32(RMODE)\
 	DEF_SAT_PROTOI32(RMODE)\
 	DEF_INT_PROTO32_8( z, u, u, u, u, _sat##RMODE)\
@@ -5258,21 +4309,19 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	DEF_SAT_PROTO32_I64(i, , RMODE, _INT_MAX, _INT_MIN)\
 	DEF_SAT_PROTO32_U64(u, u, RMODE, _UINT_MAX)\
 	DEF_SAT_PROTO32_U64(i, , RMODE, _INT_MAX)\
-	DEF_SAT_PROTOI32_F(RMODE, RMODEVAL, _INT_MAX, _INT_MIN, FLAG)\
-	DEF_SAT_PROTOU32_F(RMODE, RMODEVAL)\
-	DEF_SAT_PROTOI32_D(RMODE, RMODEVAL)\
+	DEF_SAT_PROTOI32_F##FLAGSVML(RMODE, RMODEVAL, _INT_MAX, _INT_MIN, RSVML, CPUTYPE)\
+	DEF_SAT_PROTOU32_F##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
+	DEF_SAT_PROTOI32_D##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE)\
 	DEF_INT_PROTO32_32(u, u, u, u, _sat##RMODE)\
 	DEF_INT_PROTO32_32(i, i, , , _sat##RMODE) \
 	DEF_SAT_PROTOU32_D(RMODE, RSVML, CPUTYPE)
 
-
-
 #define DEF_SAT_INT()\
-	DEF_OUT_INT_SAT( , 0x6000, rtz, CTYPE,)\
-	DEF_OUT_INT_SAT(_rtz, 0x6000, rtz, CTYPE,)\
-	DEF_OUT_INT_SAT(_rte, 0x0, rtn, CTYPE, Round)\
-	DEF_OUT_INT_SAT(_rtn, 0x2000, down, CTYPE, Round)\
-	DEF_OUT_INT_SAT(_rtp, 0x4000, up, CTYPE, Round)
+	DEF_OUT_INT_SAT(    , 0x6000, rtz,  CTYPE, NOSVML)\
+	DEF_OUT_INT_SAT(_rtz, 0x6000, rtz,  CTYPE, NOSVML)\
+	DEF_OUT_INT_SAT(_rte, 0x0,    rtn,  CTYPE, USESVML)\
+	DEF_OUT_INT_SAT(_rtn, 0x2000, down, CTYPE, USESVML)\
+	DEF_OUT_INT_SAT(_rtp, 0x4000, up,   CTYPE, USESVML)
 
 	//out long in all with RMODE
 #define DEF_OUT_LONG_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -5307,13 +4356,13 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 //#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
 
 	//out float in all with RMODE, SAT
-#define DEF_OUT_FLOAT_SAT(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
+#define DEF_OUT_FLOAT_SAT(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE, FLAGSVML)\
 	DEF_INT_PROTOF_8(i, , _sat##RMODE)\
 	DEF_INT_PROTOF_8(u, u, _sat##RMODE)\
 	DEF_INT_PROTOF_16(i, , _sat##RMODE)\
 	DEF_INT_PROTOF_16(u, u, _sat##RMODE)\
-	DEF_INT_PROTOF_I32(_sat##RMODE, RMODEVAL, FLAG)\
-	DEF_INT_PROTOF_U32(_sat##RMODE, RMODEVAL, FLAG)\
+    DEF_INT_PROTOF_I32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, _sat)\
+	DEF_INT_PROTOF_U32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, _sat)\
 	DEF_INT_PROTOF_64(i, ,_sat##RMODE, RSVML, CPUTYPE)\
 	DEF_INT_PROTOF_64(u, u, _sat##RMODE, RSVML, CPUTYPE)\
 	DEF_INT_PROTOF_F(, , , , _sat##RMODE)\
@@ -5321,11 +4370,11 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 
 
 #define DEF_SAT_FLOAT()\
-	DEF_OUT_FLOAT_SAT(, 0x0, rtn, 0x0000, , CTYPE)\
-	DEF_OUT_FLOAT_SAT(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE)\
-	DEF_OUT_FLOAT_SAT(_rte, 0x0, rte, 0x0, , CTYPE)\
-	DEF_OUT_FLOAT_SAT(_rtn, 0x2000, down, 0x0100, Round, CTYPE)\
-	DEF_OUT_FLOAT_SAT(_rtp, 0x4000, up, 0x0200, Round, CTYPE)
+	DEF_OUT_FLOAT_SAT(, 0x0, rtn, 0x0000, , CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_SAT(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_SAT(_rte, 0x0, rte, 0x0, , CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_SAT(_rtn, 0x2000, down, 0x0100, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_SAT(_rtp, 0x4000, up, 0x0200, Round, CTYPE, USESVML)
 
 //out double in all with RMODE, SAT
 #define DEF_OUT_DOUBLE_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -5366,11 +4415,7 @@ DEF_SAT_INT()
 DEF_SAT_LONG()
 DEF_SAT_FLOAT()
 DEF_SAT_DOUBLE()
-
-
 #endif
-
-
 #ifdef __cplusplus
 }
 #endif
