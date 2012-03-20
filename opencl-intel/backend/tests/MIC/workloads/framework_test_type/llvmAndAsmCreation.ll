@@ -1,1 +1,1 @@
-; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/Workloads/framework_test_type/llvmAndAsmCreation.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/llvmAndAsmCreation.cfg

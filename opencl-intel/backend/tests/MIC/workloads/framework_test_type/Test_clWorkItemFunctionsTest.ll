@@ -1,2 +1,2 @@
 ; XFAIL: *
-; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/Workloads/framework_test_type/Test_clWorkItemFunctionsTest.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/Test_clWorkItemFunctionsTest.cfg
