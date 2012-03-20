@@ -21,10 +21,10 @@
 #define MIC_STRING                      "GenuineIntel Many Interated Cores Acceleration Card"
 #define VENDOR_STRING                   "Intel(R) Corporation"
 #define VENDOR_ID                       0x8086
-#define MIC_DRIVER_VERSION_STRING       "1.1"
+#define MIC_DRIVER_VERSION_STRING       "1.2"
 #define MIC_DEVICE_PROFILE_STRING       "FULL_PROFILE"
-#define MIC_DEVICE_VERSION_STRING       "OpenCL 1.1 "
-#define MIC_DEVICE_OPENCL_C_VERSION     "OpenCL C 1.1 " BUILDVERSIONSTR
+#define MIC_DEVICE_VERSION_STRING       "OpenCL 1.2 "
+#define MIC_DEVICE_OPENCL_C_VERSION     "OpenCL C 1.2 " BUILDVERSIONSTR
 
 // initialization functions
 namespace Intel { namespace OpenCL { namespace MICDevice {

@@ -39,17 +39,14 @@ static const size_t MIC_MAX_WORK_ITEM_SIZES[MIC_MAX_WORK_ITEM_DIMENSIONS] =
         MIC_MAX_WORK_GROUP_SIZE
     };
 
-static const cl_device_partition_property_ext MIC_SUPPORTED_FISSION_MODES[] =
+static const cl_device_partition_property MIC_SUPPORTED_FISSION_MODES[] =
     {
-        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT,
-        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
-        CL_DEVICE_PARTITION_EQUALLY_EXT
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+        CL_DEVICE_PARTITION_BY_COUNTS,
+        CL_DEVICE_PARTITION_EQUALLY,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_partition_property_ext MIC_SUPPORTED_AFFINITY_DOMAINS[] =
-    {
-        CL_AFFINITY_DOMAIN_NUMA_EXT
-    };
 
 static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
 {
@@ -59,6 +56,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_TYPE,                         cl_device_type,                 CL_DEVICE_TYPE_ACCELERATOR      ),
     SCAL_VALUE( CL_DEVICE_VENDOR_ID,                    cl_uint,                        VENDOR_ID                       ),
     FUNC_VALUE( CL_DEVICE_MAX_COMPUTE_UNITS,                                            get_variable_info               ),
+	FUNC_VALUE( CL_DEVICE_PARTITION_MAX_SUB_DEVICES,                                    get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,     cl_uint,                        MIC_MAX_WORK_ITEM_DIMENSIONS    ),
     SCAL_VALUE( CL_DEVICE_MAX_WORK_GROUP_SIZE,          size_t,                         MIC_MAX_WORK_GROUP_SIZE         ),
     ARRY_VALUE( CL_DEVICE_MAX_WORK_ITEM_SIZES,          size_t,                         MIC_MAX_WORK_ITEM_SIZES         ),
@@ -84,8 +82,8 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_IMAGE3D_MAX_WIDTH,            size_t,                         MIC_IMAGE3D_MAX_DIM_SIZE        ),
     SCAL_VALUE( CL_DEVICE_IMAGE3D_MAX_HEIGHT,           size_t,                         MIC_IMAGE3D_MAX_DIM_SIZE        ),
     SCAL_VALUE( CL_DEVICE_IMAGE3D_MAX_DEPTH,            size_t,                         MIC_IMAGE3D_MAX_DIM_SIZE        ),
-//    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,        size_t,                         65536   /*min*/                ),
-//    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_ARRAY_SIZE,         size_t,                         2048    /*min*/                ),
+    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,        size_t,                         65536   /*min*/                 ),
+    SCAL_VALUE( CL_DEVICE_IMAGE_MAX_ARRAY_SIZE,         size_t,                         2048    /*min*/                 ),
     SCAL_VALUE( CL_DEVICE_IMAGE_SUPPORT,                cl_bool,                        MIC_IMAGES_SUPPORT              ),
     SCAL_VALUE( CL_DEVICE_MAX_PARAMETER_SIZE,           size_t,                         MIC_MAX_PARAMETER_SIZE          ),
     SCAL_VALUE( CL_DEVICE_MAX_SAMPLERS,                 cl_uint,                        MIC_MAX_SAMPLERS                ),
@@ -104,11 +102,11 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     FUNC_VALUE( CL_DEVICE_PROFILING_TIMER_RESOLUTION,                                   get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_ENDIAN_LITTLE,                cl_bool,                        CL_TRUE                         ),
     SCAL_VALUE( CL_DEVICE_AVAILABLE,                    cl_bool,                        CL_TRUE                         ),
-    SCAL_VALUE( CL_DEVICE_COMPILER_AVAILABLE,           cl_bool,                        CL_TRUE                         ),
-//    SCAL_VALUE( CL_DEVICE_LINKER_AVAILABLE,             cl_bool,                        CL_FALSE                        ),
+//    SCAL_VALUE( CL_DEVICE_COMPILER_AVAILABLE,           cl_bool,                        CL_TRUE                        ),  returned by framework - platform_module
+//    SCAL_VALUE( CL_DEVICE_LINKER_AVAILABLE,             cl_bool,                        CL_TRUE                        ), returned by framework - platform_module
     SCAL_VALUE( CL_DEVICE_EXECUTION_CAPABILITIES,       cl_device_exec_capabilities,    CL_EXEC_KERNEL                  ),
     SCAL_VALUE( CL_DEVICE_QUEUE_PROPERTIES,             cl_command_queue_properties,    CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE ),
-//    STRG_VALUE( CL_DEVICE_BUILT_IN_KERNELS,                                             ""                              ),
+    STRG_VALUE( CL_DEVICE_BUILT_IN_KERNELS,                                             ""                              ),
     STRG_VALUE( CL_DEVICE_NAME,                                                         MIC_STRING                      ),
     STRG_VALUE( CL_DEVICE_VENDOR,                                                       VENDOR_STRING                   ),
     STRG_VALUE( CL_DRIVER_VERSION,                                                      MIC_DRIVER_VERSION_STRING       ),
@@ -116,7 +114,6 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     STRG_VALUE( CL_DEVICE_VERSION,                                                      MIC_DEVICE_VERSION_STRING       ),
     STRG_VALUE( CL_DEVICE_EXTENSIONS,                                                   OCL_SUPPORTED_EXTENSIONS        ),
 //    SCAL_VALUE( CL_DEVICE_PLATFORM,																					), returned by framework - platform_module
-//    SCAL_VALUE( CL_DEVICE_HALF_FP_CONFIG
     SCAL_VALUE( CL_DEVICE_HOST_UNIFIED_MEMORY,          cl_bool,                        CL_FALSE                        ),
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),
 
@@ -130,10 +127,10 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        0                               ),
 #endif
 
-    STRG_VALUE( CL_DEVICE_PARTITION_TYPES_EXT,                                          MIC_SUPPORTED_FISSION_MODES     ),	// Undefined in HLD
-    STRG_VALUE( CL_DEVICE_AFFINITY_DOMAINS_EXT,                                         MIC_SUPPORTED_AFFINITY_DOMAINS[0]),	// Undefined in HLD
+    STRG_VALUE( CL_DEVICE_PARTITION_PROPERTIES,                                         MIC_SUPPORTED_FISSION_MODES     ),	// Undefined in HLD
+    SCAL_VALUE( CL_DEVICE_PARTITION_AFFINITY_DOMAIN,    cl_device_partition_property,   CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE),	// Undefined in HLD
 
-//    SCAL_VALUE( CL_DEVICE_PRINTF_BUFFER_SIZE,           size_t,                         MIC_PRINTF_BUFFER_SIZE          ),
+    SCAL_VALUE( CL_DEVICE_PRINTF_BUFFER_SIZE,           size_t,                         MIC_PRINTF_BUFFER_SIZE          ),
 
 //    SCAL_VALUE( CL_DEVICE_PREFERRED_INTEROP_USER_SYNC,  cl_bool,                        CL_TRUE                         ), // framework should answer
 //    SCAL_VALUE( CL_DEVICE_PARENT_DEVICE,                cl_device_id,                   0                               ), // framework should answer

@@ -67,10 +67,12 @@ class TaskHandler
 public:
 
 	friend class NDRangeTask;
+	friend class FillMemObjTask;
 
 	enum TASK_TYPES
 	{
-		NDRANGE_TASK_TYPE = 0
+		NDRANGE_TASK_TYPE = 0,
+		FILL_MEM_OBJ_TYPE
 	};
 
 	/* Factory for TaskHandler object (In order or Out of order).
@@ -201,6 +203,17 @@ public:
 	virtual CommandTracer* getCommandTracerPtr() = 0;
 };
 
+class TBBTaskInterface
+{
+public:
+
+	virtual ~TBBTaskInterface() {};
+
+	/* Return an instance of tbb:task in order to enqueue it to TBB::task::queue. */
+	virtual tbb::task* getTaskExecutorObj() = 0;
+};
+
+
 
 /* NDRangeTask inherit from TaskInterface, and implements most of its' functionality.
    It is an abstract class, It does not implement the execution methods which thier implementation is depend on specific threading model. */
@@ -263,9 +276,9 @@ private:
 
 
 
-/* TBBNDRangeTask inherit from NDRangeTask
+/* TBBNDRangeTask inherit from NDRangeTask and from TBBTaskInterface
    It impelement the missing functionality of NDRangeTask that is depenedent on specific threading model. (Using TBB in this case). */
-class TBBNDRangeTask : public NDRangeTask
+class TBBNDRangeTask : public NDRangeTask, public TBBTaskInterface
 {
 public:
 
@@ -307,8 +320,8 @@ public:
 	virtual void run();
 
 	/* Return the instance of TBBNDRangeExecutor in order to enqueue it to TBB::task::queue. */
-	TBBNDRangeExecutor* getTaskExecutor() {   assert(m_pTaskExecutor);
-		                                      return m_pTaskExecutor; }
+	virtual tbb::task* getTaskExecutorObj() {   assert(m_pTaskExecutor);
+												return m_pTaskExecutor; };
 
 private:
 
@@ -334,7 +347,6 @@ public:
 TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(BlockingNDRangeTask, BlockingTaskHandler, TBBNDRangeTask);
 // Define the class NonBlockingNDRangeTask.
 TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(NonBlockingNDRangeTask, TBBNonBlockingTaskHandler, TBBNDRangeTask);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

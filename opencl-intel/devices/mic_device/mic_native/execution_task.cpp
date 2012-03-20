@@ -3,6 +3,7 @@
 #include "native_common_macros.h"
 #include "wg_context.h"
 #include "mic_tracer.h"
+#include "native_buffer_commands.h"
 
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
@@ -143,15 +144,14 @@ void release_commands_queue(uint32_t         in_BufferCount,
 }
 
 
-// Execute NDRange task.
-COINATIVELIBEXPORT
-void execute_NDRange(uint32_t         in_BufferCount,
-					 void**           in_ppBufferPointers,
-					 uint64_t*        in_pBufferLengths,
-					 void*            in_pMiscData,
-					 uint16_t         in_MiscDataLength,
-					 void*            in_pReturnValue,
-					 uint16_t         in_ReturnValueLength)
+void execute_command(uint32_t					in_BufferCount,
+					 void**						in_ppBufferPointers,
+					 uint64_t*					in_pBufferLengths,
+					 void*						in_pMiscData,
+					 uint16_t					in_MiscDataLength,
+					 void*						in_pReturnValue,
+					 uint16_t					in_ReturnValueLength,
+					 TaskHandler::TASK_TYPES	taskType)
 {
 	dispatcher_data* tDispatcherData = NULL;
 	misc_data* tMiscData = NULL;
@@ -167,7 +167,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	}
 	else
 	{
-		assert(in_MiscDataLength >= sizeof(dispatcher_data));
+		assert(in_MiscDataLength >= sizeof(ndrange_dispatcher_data));
 		tDispatcherData = (dispatcher_data*)in_pMiscData;
 	}
 	// If the misc_data is NOT in in_pReturnValue
@@ -188,7 +188,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	tMiscData->init();	
 
 	// DO NOT delete this object, It will delete itself after kernel execution
-	TaskHandler* taskHandler = TaskHandler::TaskFactory(TaskHandler::NDRANGE_TASK_TYPE, tDispatcherData, tMiscData);
+	TaskHandler* taskHandler = TaskHandler::TaskFactory(taskType, tDispatcherData, tMiscData);
 	if (NULL == taskHandler)
 	{
 		NATIVE_PRINTF("TaskHandler::TaskFactory() Failed\n");
@@ -203,6 +203,19 @@ void execute_NDRange(uint32_t         in_BufferCount,
 	}
 	// Send the task for execution.
 	taskHandler->RunTask();
+}
+
+// Execute NDRange task.
+COINATIVELIBEXPORT
+void execute_NDRange(uint32_t         in_BufferCount,
+					 void**           in_ppBufferPointers,
+					 uint64_t*        in_pBufferLengths,
+					 void*            in_pMiscData,
+					 uint16_t         in_MiscDataLength,
+					 void*            in_pReturnValue,
+					 uint16_t         in_ReturnValueLength)
+{
+	execute_command(in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength, in_pReturnValue, in_ReturnValueLength, TaskHandler::NDRANGE_TASK_TYPE);
 }
 
 
@@ -231,6 +244,11 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 			pTaskContainer = new BlockingNDRangeTask;
 			break;
 			}
+		case FILL_MEM_OBJ_TYPE:
+			{
+			pTaskContainer = new BlockingFillMemObjTask;
+			break;
+			}
 		default:
 			{
 				assert(0);
@@ -245,6 +263,11 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 		case NDRANGE_TASK_TYPE:
 			{
 			pTaskContainer = new NonBlockingNDRangeTask;
+			break;
+			}
+		case FILL_MEM_OBJ_TYPE:
+			{
+			pTaskContainer = new NonBlockingFillMemObjTask;
 			break;
 			}
 		default:
@@ -413,7 +436,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 void TBBNonBlockingTaskHandler::RunTask()
 {
 	// Enqueue the task to tbb task queue, will execute it asynchronous,
-	tbb::task::enqueue(*(((TBBNDRangeTask*)m_task)->getTaskExecutor()));
+	tbb::task::enqueue(*(((TBBTaskInterface*)m_task)->getTaskExecutorObj()));
 }
 
 
@@ -555,7 +578,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 		m_pCommandTracer->add_delta_buffers_size_sent_to_device(bufSize);
 	}
 
-	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
+	ndrange_dispatcher_data* pDispatcherData = (ndrange_dispatcher_data*)(pTaskHandler->m_dispatcherData);
 	assert(pDispatcherData);
 	ProgramService& tProgramService = ProgramService::getInstance();
 #ifndef NDRANGE_UNIT_TEST
@@ -642,7 +665,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
 
 	const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
-	cl_mic_work_description_type* pWorkDesc = &(pTaskHandler->m_dispatcherData->workDesc);
+	cl_mic_work_description_type* pWorkDesc = &(pDispatcherData->workDesc);
 	m_dim = pWorkDesc->workDimension;
 	assert((m_dim >= 1) && (m_dim <= MAX_WORK_DIM));
 	// Calculate the region of each dimention in the task.
@@ -691,7 +714,7 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 		m_pBinary->Release();
 	}
 
-	dispatcher_data* pDispatcherData = pTaskHandler->m_dispatcherData;
+	ndrange_dispatcher_data* pDispatcherData = (ndrange_dispatcher_data*)(pTaskHandler->m_dispatcherData);
 	assert(pDispatcherData);
 	COIEVENT completionBarrier;
 	bool findBarrier = false;
@@ -1021,6 +1044,7 @@ bool ThreadPool::initializeAffinityThreads()
 	it = coreToThreadsMap.begin();
 	if (coreToThreadsMap.end() != it)
 	{
+		unsigned int numOfCores = ((gMicExecEnvOptions.num_of_cores > 0) && (gMicExecEnvOptions.num_of_cores < coreToThreadsMap.size())) ? gMicExecEnvOptions.num_of_cores : coreToThreadsMap.size();
 		unsigned int numOfThreadsPerCore = it->second.size();
 		unsigned int firstCoreID = it->first;
 		map< unsigned int, vector<unsigned int> >::reverse_iterator rit;
@@ -1028,7 +1052,8 @@ bool ThreadPool::initializeAffinityThreads()
 		unsigned int lastCoreID = rit->first;
 		for (unsigned int i = 0; i < numOfThreadsPerCore; i++)
 		{
-			for (it = coreToThreadsMap.begin(); it != coreToThreadsMap.end(); it++)
+			unsigned int currRegisterCores = 0;
+			for (it = coreToThreadsMap.begin(); ((it != coreToThreadsMap.end()) && (currRegisterCores < numOfCores)); it++)
 			{
 				if (((gMicExecEnvOptions.ignore_core_0) && (firstCoreID == it->first)) ||
 					((gMicExecEnvOptions.ignore_last_core) && (lastCoreID == it->first)))
@@ -1041,6 +1066,7 @@ bool ThreadPool::initializeAffinityThreads()
 					return false;
 				}
 				m_orderHwThreadsIds.push_back(it->second[i]);
+				currRegisterCores ++;
 			}
 		}
 	}

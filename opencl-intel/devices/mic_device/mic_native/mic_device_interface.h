@@ -27,6 +27,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstring>
+#include <assert.h>
 #include <common/COITypes_common.h>
 #include "cl_device_api.h"
 #include "cl_types.h"
@@ -169,25 +171,82 @@ struct cl_mic_work_description_type
 
 struct dispatcher_data
 {
-	// Dispatcher function arguments
-	kernel_directive kernelDirective;
+public:
 	// Command identifier provided by the Framework (Unique for each NDRange execution)
 	cl_dev_cmd_id commandIdentifier;
 	// Flag that inform if it is inOrder execution
 	bool isInOrderQueue;
-	// The buffer index of misc data
-	unsigned int miscDataBuffIndex;
-	cl_mic_work_description_type workDesc;
 	// Pre-execution directives count
 	unsigned int preExeDirectivesCount;
 	// Post-execution directives count
 	unsigned int postExeDirectivesCount;
-	// OpenCL kernel arguments size in bytes
-	uint64_t kernelArgSize;
 	// offset of pre execution directives array
 	uint64_t preExeDirectivesArrOffset;
 	// offset of post execution directives array
 	uint64_t postExeDirectivesArrOffset;
+
+	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / other req. offsets
+	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
+	virtual void calcAndSetOffsets() = 0;
+
+	/* Return the size of the "header meta data" (this struct) plus the size of "preExeDirectivesArr" + "postExeDirectivesArr" + other specific struct size */
+	virtual size_t getDispatcherDataSize() = 0;
+
+	/* Copy the appropriate dispatcher data + the tail data which can include 'preExeDirectivesArr' / 'postExeDirectivesArr' + other specific struct data */
+	virtual bool copyDispatcherDataWithTail(char* dst, size_t size, const directive_pack* preExeDirectivesTail, const directive_pack* postExeDirectivesTail, const char* lastTail) = 0;
+
+protected:
+
+	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
+	   Call it from child struct.
+	   dispatcherDataSize - the size of the child struct (which include my size) */
+	void calcAndSetDirectivesArrOffsets(size_t dispatcherDataSize)
+	{
+		preExeDirectivesArrOffset = dispatcherDataSize;
+		postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
+	}
+
+	/* Copy the appropriate dispatcher data + the tail data which can include 'preExeDirectivesArr' / 'postExeDirectivesArr' + other specific struct data */
+	void copyDispatcherDataDirectivesTail(char* dst, const directive_pack* preExeDirectivesTail, const directive_pack* postExeDirectivesTail, const char* lastTail, size_t lastTailSize)
+	{
+		char* tailPtr = dst + preExeDirectivesArrOffset;
+		size_t coppiedSize = 0;
+		size_t sizeToCopy = 0;
+		// Copy the pre exe directives
+		if (preExeDirectivesCount > 0)
+		{
+			assert(preExeDirectivesTail);
+			sizeToCopy = sizeof(directive_pack) * preExeDirectivesCount;
+			memcpy(tailPtr + coppiedSize, preExeDirectivesTail, sizeToCopy);
+			coppiedSize += sizeToCopy;
+		}
+		// Copy the post exe directives
+		if (postExeDirectivesCount > 0)
+		{
+			assert(postExeDirectivesTail);
+			sizeToCopy = sizeof(directive_pack) * postExeDirectivesCount;
+			memcpy(tailPtr + coppiedSize, postExeDirectivesTail, sizeToCopy);
+			coppiedSize += sizeToCopy;
+		}
+		// Copy child specific tail data
+		if (lastTailSize > 0)
+		{
+			assert(lastTail);
+			memcpy(tailPtr + coppiedSize, lastTail, lastTailSize);
+		}
+	}
+};
+
+struct ndrange_dispatcher_data : public dispatcher_data
+{
+	// Dispatcher function arguments
+	kernel_directive kernelDirective;
+
+	cl_mic_work_description_type workDesc;
+
+	// OpenCL kernel arguments size in bytes
+	uint64_t kernelArgSize;
+
 	// offset of kernel arguments blob
 	uint64_t kernelArgBlobOffset;
 
@@ -195,8 +254,7 @@ struct dispatcher_data
 	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
 	void calcAndSetOffsets()
 	{
-		preExeDirectivesArrOffset = sizeof(dispatcher_data);
-		postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
+		calcAndSetDirectivesArrOffsets(sizeof(ndrange_dispatcher_data));
 		kernelArgBlobOffset = postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
 	}
 
@@ -205,7 +263,73 @@ struct dispatcher_data
 	{
 		return kernelArgBlobOffset + kernelArgSize;
 	}
+
+	bool copyDispatcherDataWithTail(char* dst, size_t size, const directive_pack* preExeDirectivesTail, const directive_pack* postExeDirectivesTail, const char* lastTail)
+	{
+		assert(dst);
+		assert(size == getDispatcherDataSize());
+		if ((NULL == dst) || (size != getDispatcherDataSize())
+			|| ((preExeDirectivesCount > 0) && (NULL == preExeDirectivesTail))
+			|| ((postExeDirectivesCount > 0) && (NULL == postExeDirectivesTail))
+			|| ((kernelArgSize > 0) && (NULL == lastTail)))
+		{
+			return false;
+		}
+		// Copy dispatcher explicit data
+		memcpy(dst, this, sizeof(ndrange_dispatcher_data));
+		// Copy dispatcher implicit data
+		copyDispatcherDataDirectivesTail(dst, preExeDirectivesTail,postExeDirectivesTail, lastTail, kernelArgSize);
+		return true;
+	}
 };
+
+struct fill_mem_obj_dispatcher_data : public dispatcher_data
+{
+	// Num dimensions
+	uint32_t	dim_count;
+	// The initial offset
+	uint64_t	from_offset;
+	// Pitch vector of the memory object
+	uint64_t	vFromPitch[MAX_WORK_DIM-1];
+	// The region to copy in each dimension
+	uint64_t	vRegion[MAX_WORK_DIM];
+	// The pattern to copy
+	char        pattern[MAX_PATTERN_SIZE];
+	// The pattern size in bytes.
+	uint64_t	pattern_size;
+
+	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
+	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
+	void calcAndSetOffsets()
+	{
+		calcAndSetDirectivesArrOffsets(sizeof(fill_mem_obj_dispatcher_data));
+	}
+
+	/* Return the size of the "header meta data" (this struct) plus the size of "preExeDirectivesArr" + "postExeDirectivesArr" */
+	size_t getDispatcherDataSize()
+	{
+		return postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
+	}
+
+	bool copyDispatcherDataWithTail(char* dst, size_t size, const directive_pack* preExeDirectivesTail, const directive_pack* postExeDirectivesTail, const char* lastTail)
+	{
+		assert(dst);
+		assert(size == getDispatcherDataSize());
+		if ((NULL == dst) || (size != getDispatcherDataSize())
+			|| ((preExeDirectivesCount > 0) && (NULL == preExeDirectivesTail))
+			|| ((postExeDirectivesCount > 0) && (NULL == postExeDirectivesTail)))
+		{
+			return false;
+		}
+		// Copy dispatcher explicit data
+		memcpy(dst, this, sizeof(fill_mem_obj_dispatcher_data));
+		// Copy dispatcher implicit data
+		copyDispatcherDataDirectivesTail(dst, preExeDirectivesTail,postExeDirectivesTail, lastTail, 0);
+		return true;
+	}
+};
+
+
 
 struct misc_data
 {
@@ -227,6 +351,7 @@ struct mic_exec_env_options {
 	bool stop_at_load;
     bool use_affinity;
     uint32_t num_of_worker_threads;
+	uint32_t num_of_cores;
     bool ignore_core_0;
     bool ignore_last_core;
     uint32_t use_TBB_grain_size;

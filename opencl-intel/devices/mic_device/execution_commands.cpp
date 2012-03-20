@@ -95,8 +95,9 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		// Get kernel arguments
 		const cl_kernel_argument* pArgs = pKernel->GetKernelParams();
 
-		// Define the directives and function arguments to dispatch to the device side. (Will be store at the first COIBUFFER)
-		dispatcher_data dispatcherData;
+		// Define the directives and function arguments to dispatch to the device side. 
+		// (Will be store at the first COIBUFFER or at misc data if its size is less than COI_PIPELINE_MAX_IN_MISC_DATA_LEN)
+		ndrange_dispatcher_data dispatcherData;
 
 #ifndef NDRANGE_UNIT_TEST
 		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.

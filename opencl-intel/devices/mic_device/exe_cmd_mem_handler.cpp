@@ -38,28 +38,19 @@ cl_dev_err_code DispatcherDataHandler::init(dispatcher_data& dispatcherData, con
 	//    * dispatcherData
 	//    * preExeDirectives
 	//    * postExeDirectives
-	//    * pKernelParams (kernel args blob)
+	//    * other dispatcher specific dispatcher data such as pKernelParams (kernel args blob) in case of ndrange_dispatcher_data
 	// Going to collect all the data together
 	m_data.pDataBuffer = new char[m_size];
 	if (NULL == m_data.pDataBuffer)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-	memcpy(m_data.pDataBuffer, &dispatcherData, sizeof(dispatcher_data));
-	if (dispatcherData.preExeDirectivesCount > 0)
+	// Copy the dispatcher data with the tails to m_data.pDataBuffer
+	if (false == dispatcherData.copyDispatcherDataWithTail(m_data.pDataBuffer, m_size, preExeDirectives, postExeDirectives, pKernelParams))
 	{
-		assert(preExeDirectives);
-		memcpy(m_data.pDataBuffer + dispatcherData.preExeDirectivesArrOffset, preExeDirectives, sizeof(directive_pack) * dispatcherData.preExeDirectivesCount);
-	}
-	if (dispatcherData.postExeDirectivesCount > 0)
-	{
-		assert(postExeDirectives);
-		memcpy(m_data.pDataBuffer + dispatcherData.postExeDirectivesArrOffset, postExeDirectives, sizeof(directive_pack) * dispatcherData.postExeDirectivesCount);
-	}
-	if (dispatcherData.kernelArgSize > 0)
-	{
-		assert(pKernelParams);
-		memcpy(m_data.pDataBuffer + dispatcherData.kernelArgBlobOffset, pKernelParams, dispatcherData.kernelArgSize);
+		delete [] m_data.pDataBuffer;
+		m_data.pDataBuffer = NULL;
+		return CL_DEV_ERROR_FAIL;
 	}
 
 	m_pDispatcherData = m_dispatcherDataOptionsArr[m_size <= COI_PIPELINE_MAX_IN_MISC_DATA_LEN];

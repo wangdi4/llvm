@@ -33,7 +33,8 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 	"init_device",							// INIT THE NATIVE PROCESS (Call it only once, after process creation)
 	"release_device",						// CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
 	"init_commands_queue",					// INIT COMMANDS QUEUE ON DEVICE
-	"release_commands_queue"				// RELEASE COMMANDS QUEUE ON DEVICE
+	"release_commands_queue",				// RELEASE COMMANDS QUEUE ON DEVICE
+	"fill_mem_object"						// FILL MEM OBJECT
 #ifdef ENABLE_MIC_TRACER
 	,"get_trace_size",
 	"get_trace"
@@ -338,6 +339,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
         mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
         mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
+		mic_device_options.num_of_cores				= pDevServiceComm->m_config->Device_NumCores();
         mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
         mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
         mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();

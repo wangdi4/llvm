@@ -21,7 +21,9 @@ CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_
 	/* CL_DEV_CMD_UNMAP */ &UnmapMemObject::Create,
 	/* CL_DEV_CMD_EXEC_KERNEL */ &NDRange::Create,
 	/* CL_DEV_CMD_EXEC_TASK */ NULL,
-	/* CL_DEV_CMD_EXEC_NATIVE */ NULL
+	/* CL_DEV_CMD_EXEC_NATIVE */ NULL,
+	/* CL_DEV_CMD_FILL_BUFFER */ &FillMemObject::Create,
+	/* CL_DEV_CMD_FILL_IMAGE */ &FillMemObject::Create
 };
 
 
