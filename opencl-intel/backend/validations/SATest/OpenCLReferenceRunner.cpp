@@ -836,6 +836,9 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     std::vector<uint64_t> globalWGSizes(MAX_WORK_DIM, 1);
     ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkSize(), globalWGSizes, workDim);
 
+    // init global workgroup sizes for usage in execution loop
+    std::vector<uint64_t> loopGlobalWGSizes(globalWGSizes);
+
     // init local workgroup sizes with ones
     std::vector<uint64_t> localWGSizes(MAX_WORK_DIM, 1);
     // convert size_t to uint64_t
@@ -861,11 +864,10 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // reference runs only single work group
     if(runConfig->GetValue<bool>(RC_COMMON_RUN_SINGLE_WG, false))
     {
-        globalWGSizes[0] = localWGSizes[0];
-        globalWGSizes[1] = localWGSizes[1];
-        globalWGSizes[2] = localWGSizes[2];
+        loopGlobalWGSizes[0] = localWGSizes[0];
+        loopGlobalWGSizes[1] = localWGSizes[1];
+        loopGlobalWGSizes[2] = localWGSizes[2];
     }
-
     // work item storage
     Validation::WorkItemStorage wiStorage(workDim, globalWGSizes, localWGSizes, GlobalWorkOffset);
     // set wiStorage as interface for OCLBuiltins workitem functions
@@ -930,11 +932,11 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 
     // global work item execution loop
     // global offset is not added (included) to loop variables
-    for(uint64_t tid_z=0;tid_z<globalWGSizes[2];tid_z+=localWGSizes[2])
+    for(uint64_t tid_z=0;tid_z<loopGlobalWGSizes[2];tid_z+=localWGSizes[2])
     {
-        for(uint64_t tid_y=0;tid_y<globalWGSizes[1];tid_y+=localWGSizes[1])
+        for(uint64_t tid_y=0;tid_y<loopGlobalWGSizes[1];tid_y+=localWGSizes[1])
         {
-            for(uint64_t tid_x=0;tid_x<globalWGSizes[0];tid_x+=localWGSizes[0])
+            for(uint64_t tid_x=0;tid_x<loopGlobalWGSizes[0];tid_x+=localWGSizes[0])
             {
                 // Run static constructors.
                 FOR3_LOCALWG {
