@@ -470,8 +470,9 @@ extern "C" {
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(float8 x)\
 	{\
 	_16##TO##8 res;\
-	_16##TO##8 t1 =  __builtin_astype(convert_##TONAME##int4##RMODE(x.lo), _16##TO##8);\
-	_16##TO##8 t2 =  __builtin_astype(convert_##TONAME##int4##RMODE(x.hi), _16##TO##8);\
+    _8##TO##32 y = convert_##TONAME##int8##RMODE(x);\
+	_16##TO##8 t1 =  __builtin_astype(y.lo, _16##TO##8);\
+	_16##TO##8 t2 =  __builtin_astype(y.hi, _16##TO##8);\
 	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
 	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)), _16##TO##8);\
@@ -2374,12 +2375,12 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	return res;\
 	}
 
-#define DEF_SAT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+#define DEF_SAT_PROTO8_F_F1234_AS_F4_F16_AS_F8(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
 	_1##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char_sat##RMODE(float x)\
 	{\
-	if(x > MAX) return MAX;\
-	if(x < MIN) return MIN;\
-	return convert_##TONAME##char##RMODE(x);\
+    float4 y;\
+    y.s0 = x;\
+	return convert_##TONAME##char4_sat##RMODE(y).s0;\
 	}\
 	_2##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char2_sat##RMODE(float2 x)\
 	{\
@@ -2395,26 +2396,48 @@ DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	}\
 	_4##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char4_sat##RMODE(float4 x)\
 	{\
-	_4##TO##8 res;\
-	_4##TO##32 t;\
-	t = convert_##TONAME##int4_sat##RMODE(x);\
-	res =  convert_##TONAME##char4_sat(t);\
-	return res;\
+    float4 MIN4 = MIN;\
+    float4 MAX4 = MAX;\
+    float4 maxx =  _mm_max_ps(x,MIN4);\
+    float4 y = _mm_min_ps(maxx, MAX4);\
+    return __builtin_astype(convert_char4##RMODE(y), _4##TO##8);\
 	}\
-	_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(float8 x)\
-	{\
-	_8##TO##8 res;\
-	res.lo = convert_##TONAME##char4_sat##RMODE(x.lo);\
-    res.hi = convert_##TONAME##char4_sat##RMODE(x.hi);\
-	return res;\
-	}\
-	_16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(float16 x)\
+    _16##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char16_sat##RMODE(float16 x)\
 	{\
 	_16##TO##8 res;\
 	res.lo = convert_##TONAME##char8_sat##RMODE(x.lo);\
 	res.hi = convert_##TONAME##char8_sat##RMODE(x.hi);\
 	return res;\
 	}
+
+#define DEF_SAT_PROTO8_F_F8_AS_F4(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(float8 x)\
+	{\
+	_8##TO##8 res;\
+	res.lo = convert_##TONAME##char4_sat##RMODE(x.lo);\
+    res.hi = convert_##TONAME##char4_sat##RMODE(x.hi);\
+	return res;\
+	}
+
+#define DEF_SAT_PROTO8_F_F8_AS_F8(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+_8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(float8 x)\
+    {\
+    float8 MIN8 = MIN;\
+    float8 MAX8 = MAX;\
+    float8 maxx =  _mm256_max_ps(x,MIN8);\
+    float8 y = _mm256_min_ps(maxx, MAX8);\
+    return __builtin_astype(convert_char8##RMODE(y), _8##TO##8);\
+    }
+
+#if defined(__AVX__)
+#define DEF_SAT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+    DEF_SAT_PROTO8_F_F1234_AS_F4_F16_AS_F8(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+    DEF_SAT_PROTO8_F_F8_AS_F8(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)
+#else
+#define DEF_SAT_PROTO8_F(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+    DEF_SAT_PROTO8_F_F1234_AS_F4_F16_AS_F8(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)\
+    DEF_SAT_PROTO8_F_F8_AS_F4(TO, TONAME, RMODE, RMODEVAL, MAX, MIN, FLAG)
+#endif
 
 #define DEF_SAT_PROTO8_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##8 __attribute__((overloadable)) convert_##TONAME##char_sat##RMODE(double x)\
