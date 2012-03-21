@@ -835,6 +835,62 @@ float4  __attribute__((overloadable)) fast_normalize(float4 p)
 	return p;
 }
 
+int __attribute__((overloadable)) movemask ( int4 mask )
+{
+#ifdef __SSE4_1__ 
+	return _mm_movemask_ps((__m128)mask);
+#else
+	return mask.s0 | (mask.s1 << 1) | (mask.s2 << 2) | (mask.s3 << 3);
+#endif
+}
+
+int __attribute__((overloadable)) movemask ( long4 mask )
+{
+#ifdef __AVX__
+	return _mm256_movemask_pd((__m256d)mask);
+#else
+#ifdef __SSE4_1__ 
+	int res = _mm_movemask_ps((__m128)mask.hi);
+	res = res << 2;
+	res |= _mm_movemask_ps((__m128)mask.hi);
+#else 
+	return mask.s0 | (mask.s1 << 1) | (mask.s2 << 2) | (mask.s3 << 3);
+#endif // __SSE4_1__
+#endif // __AVX__
+}
+
+int __attribute__((overloadable)) movemask ( int8 mask )
+{
+	int res = movemask(mask.hi);
+	res = res << 4;
+	res |= movemask(mask.lo);
+	return res;
+}
+
+int __attribute__((overloadable)) movemask ( long8 mask )
+{
+	int res = movemask(mask.hi);
+	res = res << 4;
+	res |= movemask(mask.lo);
+	return res;
+}
+
+int __attribute__((overloadable)) movemask ( int16 mask )
+{
+	int res = movemask(mask.hi);
+	res = res << 8;
+	res |= movemask(mask.lo);
+	return res;
+}
+
+int __attribute__((overloadable)) movemask ( long16 mask )
+{
+	int res = movemask(mask.hi);
+	res = res << 8;
+	res |= movemask(mask.lo);
+	return res;
+}
+
 #ifdef __cplusplus
 }
 #endif

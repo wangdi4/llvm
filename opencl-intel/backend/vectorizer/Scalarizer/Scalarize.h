@@ -20,7 +20,6 @@
 #include "llvm/Constants.h"
 
 #include "RuntimeServices.h"
-#include "SpecialCaseFuncs.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
@@ -214,8 +213,24 @@ private:
   /// @param rootVals structure to fill with "real" input values
   /// @return True if found function to scalarize (and filled rootVals)
   bool scanFunctionCall(CallInst *CI, funcRootsVect &rootVals);
-  /*! \} */
 
+  /// @brief creates fake call that mimics extract element that is used 
+  ///        when a vectorizable built-in return a vector.
+  /// @param vec - the returned vector value.
+  /// @param indConst - the constant index to mimic extract for.
+  /// @param loc - location of the new call.
+  /// @returns fake extract call.
+  Value *createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc);
+
+  /// @brief creates fake call that mimics insert element that is used 
+  ///        when a vectorizable built-in contains a vector argument.
+  /// @param vec - the base vector to insert element into.
+  /// @param indConst - the constant index to mimic extract for.
+  /// @param val - value to insert.
+  /// @param loc - location of the new call.
+  /// @returns fake insert call.
+  Value *createFakeInsertElt(Value *vec, Constant *indConst, Value *val, 
+                             Instruction *loc);
 
 
 };

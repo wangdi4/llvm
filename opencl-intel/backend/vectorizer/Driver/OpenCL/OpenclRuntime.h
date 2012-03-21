@@ -112,7 +112,7 @@ public:
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(std::string &func_name) const;
 
-  /// @brief retruns number of Jit dimensions.
+
   virtual unsigned getNumJitDimensions() const;
 
   /// @brief retrun name of builtin to retrieve base global id for this work group.
@@ -122,7 +122,13 @@ public:
   virtual bool isAtomicBuiltin(std::string &func_name) const;
 
 protected:
-  
+  /// @brief returns true iff whenever the there is vector argument to 
+  ///        a vectorizeable scalar built-in it should be spread for 
+  ///        the packertized version 
+  ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  virtual bool alwaysSpreadVectorParams() const {return true;};
+
+
   OpenclRuntime(); // Do not implement
 
   /// @brief initiate the scalar selects set from array of names

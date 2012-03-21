@@ -12,6 +12,8 @@ const std::string Mangler::mask_prefix_store    = "masked_store_align";
 const std::string Mangler::name_allOne          = "allOne";
 const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
+const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
+const std::string Mangler::fake_prefix_insert   = "fake.insert.element";
 
 template <class T>
 inline std::string toString (const T& elem) {
@@ -41,6 +43,19 @@ std::string Mangler::getStoreName(unsigned align) {
   return mask_prefix_store + alignStr + "_" + suffix;  
 }
 
+std::string Mangler::getFakeExtractName() {
+  static unsigned int serial = 0;
+  std::string suffix = toString(serial++);
+  return fake_prefix_extract+suffix;
+}
+
+std::string Mangler::getFakeInsertName() {
+  static unsigned int serial = 0;
+  std::string suffix = toString(serial++);
+  return fake_prefix_insert+suffix;
+}
+
+
 std::string Mangler::demangle(const std::string& name) {
   V_ASSERT(name.find(mask_prefix_func) != name.npos && "not a mangled function");
   // Format:
@@ -63,6 +78,14 @@ bool Mangler::isMangledStore(const std::string& name) {
 
 bool Mangler::isMangledCall(const std::string& name) {
   return name.find(mask_prefix_func) != std::string::npos;
+}
+
+bool Mangler::isFakeExtract(const std::string& name) {
+  return name.find(fake_prefix_extract) != std::string::npos;
+}
+
+bool Mangler::isFakeInsert(const std::string& name) {
+  return name.find(fake_prefix_insert) != std::string::npos;
 }
 
 bool Mangler::isFakeBuiltin(const std::string& name) {

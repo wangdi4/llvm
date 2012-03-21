@@ -92,6 +92,11 @@ public:
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(std::string &func_name) const = 0;
 
+  /// @brief returns true iff whenever the there is vector argument to 
+  ///        a vectorizeable scalar built-in it should be spread for 
+  ///        the packertized version 
+  ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  virtual bool alwaysSpreadVectorParams() const = 0;
 
 private:
   static RuntimeServices *m_singleton;

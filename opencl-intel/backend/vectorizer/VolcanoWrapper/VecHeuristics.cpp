@@ -2,6 +2,7 @@
 #include "llvm/PassManager.h"
 #include "VecHeuristics.h"
 #include "WIAnalysis.h"
+#include "Mangler.h"
 
 
 namespace intel {
@@ -185,6 +186,12 @@ bool VectorizationHeuristics::isVectorHeavy(Function &F) {
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
     // for each instruction
     for (BasicBlock::iterator ii = it->begin(), fi = it->end(); ii != fi; ++ii) {
+      // disregard fake insert \ extract since they are mapped to no - operation.
+      if(CallInst *CI = dyn_cast<CallInst>(ii)) {
+        std::string name = CI->getCalledFunction()->getNameStr();
+        if (Mangler::isFakeExtract(name) ||  Mangler::isFakeInsert(name))
+            continue;
+      }
       Type* Tp = ii->getType();
       if (Tp->isIntegerTy() || Tp->isFloatingPointTy()) Scalars++;
       if (Tp->isVectorTy()) Vectors++;

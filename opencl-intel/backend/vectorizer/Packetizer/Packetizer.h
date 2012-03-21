@@ -13,7 +13,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "SpecialCaseFuncs.h"
 #include "RuntimeServices.h"
 #include "WIAnalysis.h"
 #include "Logger.h"
@@ -240,29 +239,49 @@ private:
   /// @brief Find the insertElement roots of packetized vector type.
   //  Fill an array of the newly packetized values.
   //  We use the obtainVectorizedValue to convert each of the values.
-  /// @param inst Initial insertElement to search.
+  /// @param val Initial insertElement to search.
   /// @param roots Small vector used for returning the roots
-  /// @param items Number of items to search (N)
+  /// @param nElts Number of items to search (N)
   /// @param place Location obtainVectorizedValue uses to place new vects
   /// @return True if was able to find N roots.
-  bool obtainInsertElement(Value* inst, 
-     SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH>& roots, unsigned items,
-     Instruction* place);
+  bool obtainInsertElement(Value* val, SmallVectorImpl<Value *> &roots,
+                           unsigned nElts, Instruction* place);
 
-  /// @brief handles case of when scalar param is vector and packetized param is SOA
+  /// @brief handles case when scalar param is vector, packetized param is SOA
   /// @param CI call instruction to be packetized
   /// @param scalarParam parameter of scalar function
-  /// @param soaType type of the SOA packetized parameter
   /// @returns the parameter for packetized function
-  Value *HandleParamSOA(CallInst* CI, 
-        Value *scalarParam, ArrayType* soaType);
+  Value *HandleParamSOA(CallInst* CI, Value *scalarParam);
 
-  /// @brief handles case when scalar return value is vector and packetized return value is SOA
+  /// @brief obtain the scalar elements of the vector param and add their 
+  ///        vectors to the arguments list.
+  /// @param CI - scalar call.
+  /// @scalarParam - current scalar param (of vector type)
+  /// @LibFuncTy - type of packetized builtin.
+  /// @param args - vector of arguments to packetized built-in.
+  /// @returns true if successfully added vector arguments to args.
+  bool SpreadVectorParam(CallInst* CI, Value *scalarParam,
+                         FunctionType *LibFuncTy, std::vector<Value *> &args);
+
+  /// @brief handles case when scalar return value is vector and packetized
+  ///        return value is SOA
   /// @param CI call instruction to be packetized
   /// @param soaRet return value (instruction Value) of packetized function
   /// @returns the parameter for packetized function
-  void HandleReturnValueSOA (CallInst* CI, Value *soaRet);
+  bool HandleReturnValueSOA (CallInst* CI, CallInst *soaRet);
 
+  /// @brief handles case when scalar built-in returns a vector and the 
+  ///        packetized built-in has return values by pointers.
+  /// @param CI - scalar call.
+  /// @param newCall - packetized call.
+  /// @returns true iff successfully handled return values.
+  bool HandleReturnByPointers (CallInst* CI, CallInst *newCall);
+
+  /// @brief maps the obtained returned values of the packetized built-in
+  ///        to their corresponding scalar in packetizer data structures.
+  /// @param CI - scalar call.
+  /// @returnedVals - returned values.
+  void MapVectorMultiReturn (CallInst* CI, SmallVectorImpl<Instruction *>& returnedVals);
 
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;

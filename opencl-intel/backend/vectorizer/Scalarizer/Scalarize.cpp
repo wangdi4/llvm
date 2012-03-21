@@ -6,6 +6,7 @@
  *********************************************************************************************/
 #include "Scalarize.h"
 #include "llvm/Constants.h"
+#include "Mangler.h"
 
 namespace intel {
 
@@ -811,8 +812,10 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst) {
   Instruction* nextInst = ++BasicBlock::iterator(clone);
   for (unsigned i = 0; i < numElements; i++)
   {
-    Value* constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-    newExtractInsts[i] = ExtractElementInst::Create(clone, constIndex, "scalar_vector_ret", nextInst);
+    // Creating fake extract call that mimics extract element instruction.
+    // The packetizrt will match each of these to the appropriate vector returns.
+    Constant* constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
+    newExtractInsts[i] = createFakeExtractElt(clone, constIndex, nextInst);
   }
 
   // Update scalar elements in SCM
@@ -821,6 +824,42 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst) {
 
   // Erase "original" instruction
   m_removedInsts.insert(callerInst);
+}
+
+Value *ScalarizeFunction::createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc) {
+  SmallVector<Value *, 2> args;
+  args.push_back(vec);
+  args.push_back(indConst);
+  std::vector<Type *> types;
+  types.push_back(vec->getType());
+  types.push_back(indConst->getType());
+  VectorType *vTy = dyn_cast<VectorType>(vec->getType());
+  V_ASSERT(vTy && "vec must be a vector");
+  Type *elTy = vTy->getElementType();
+  FunctionType *fTy = FunctionType::get(elTy, ArrayRef<Type *>(types), false);
+  Constant *funcConst = m_currFunc->getParent()->getOrInsertFunction(Mangler::getFakeExtractName(), fTy);
+  Function *F = dyn_cast<Function>(funcConst);
+  V_ASSERT(funcConst && "adding function failed");
+  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "", loc);
+  return CI;
+}
+
+Value *ScalarizeFunction::createFakeInsertElt(Value *vec, Constant *indConst, Value *val, Instruction *loc) {
+  SmallVector<Value *, 3> args;
+  args.push_back(vec);
+  args.push_back(val);
+  args.push_back(indConst);
+  std::vector<Type *> types;
+  types.push_back(vec->getType());
+  types.push_back(val->getType());
+  types.push_back(indConst->getType());
+  V_ASSERT(dyn_cast<VectorType>(vec->getType()) && "vec must be a vector");
+  FunctionType *fTy = FunctionType::get(vec->getType(), ArrayRef<Type *>(types), false);
+  Constant *funcConst = m_currFunc->getParent()->getOrInsertFunction(Mangler::getFakeInsertName(), fTy);
+  Function *F = dyn_cast<Function>(funcConst);
+  V_ASSERT(funcConst && "adding function failed");
+  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "", loc);
+  return CI;
 }
 
 
@@ -1004,10 +1043,9 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   // For each of the scalar values, use insert-elements to create vector
   for (unsigned i = 0; i < width; i++) {
     // Get index
-    Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
+    Constant *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
     // Place element in vector
-    assembledVector = InsertElementInst::Create(
-      assembledVector, inputs[i], constIndex, "scalar_arg_vector", loc);
+    assembledVector = createFakeInsertElt(assembledVector, constIndex, inputs[i], loc);
   }
   return assembledVector;
 }

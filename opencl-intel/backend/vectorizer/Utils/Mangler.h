@@ -66,6 +66,21 @@ public:
   /// @return true if has fake builtin prefix
   static bool isFakeBuiltin(const std::string& name);
 
+  /// @brief Get mangled name for load instruction
+  /// @return new name
+  static std::string getFakeExtractName();
+  /// @brief Get mangled name for store instruction
+  /// @return name
+  static std::string getFakeInsertName();
+  /// @brief Is this a mangled load instruction
+  /// @param name Name of function
+  /// @return True if load
+  static bool isFakeExtract(const std::string& name);
+  /// @brief Is this a mangled store instruction
+  /// @param name Name of function
+  /// @return True if store
+  static bool isFakeInsert(const std::string& name);
+
 private:
   /// @brief mangling delimiter
   static const std::string mask_delim;
@@ -75,8 +90,14 @@ private:
   static const std::string mask_prefix_load;
   /// @brief mangling of store operations
   static const std::string mask_prefix_store;
-  /// @brief mangling of store operations
+  /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
+  /// @brief mangling fake extract calls used for vectorization of 
+  ///        scalar built-ins that return a vector
+  static const std::string fake_prefix_extract;
+  /// @brief mangling fake isnert calls used for vectorization of 
+  ///        scalar built-ins that have vector arguments.
+  static const std::string fake_prefix_insert;
 
 public:
   /// @brief mangled name of 'allone function'

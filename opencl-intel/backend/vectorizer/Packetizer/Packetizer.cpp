@@ -632,6 +632,15 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   V_ASSERT(CI && "instruction type dynamic cast failed");
   Function *origFunc = CI->getCalledFunction();
   std::string origFuncName = origFunc->getName();
+  
+  // Avoid packetizing fake insert\extract that are used to 
+  // obtain the scalar elements of vector arguments\return of scalar built-ins.
+  if (Mangler::isFakeExtract(origFuncName) || 
+      Mangler::isFakeInsert(origFuncName)) {
+    m_removedInsts.insert(CI);
+    return;
+  }
+  
   Function *scalarFunc = origFunc;
   std::string scalarFuncName = origFuncName;
   const char * vectorFuncName;
@@ -744,11 +753,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
 
 bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
          bool isMangled, bool isMaskedFunctionCall, std::vector<Value *>& newArgs) {
-  
   // For masked calls we widen the mask as first operand (or creating mask of all 1 
   // incase no call is not masked)
-  unsigned numArguments = LibFunc->getFunctionType()->getNumParams();
-  unsigned LibFuncStart = 0;
   if (isMaskedFunctionCall) {
     Value *maskV;
     if (isMangled) {
@@ -759,41 +765,69 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       maskV = ConstantVector::get(std::vector<Constant *>(m_packetWidth, mask));
     }
     newArgs.push_back(maskV);
-    numArguments--;
-    LibFuncStart = 1;
   }
   
   unsigned scalarStart = isMangled ? 1 : 0;
-  for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex) {
+  unsigned numArguments = CI->getNumArgOperands();
+  FunctionType *LibFuncTy = LibFunc->getFunctionType();
+  for (unsigned argIndex = scalarStart; argIndex < numArguments; ++argIndex) {
     Value *operand;
-    Type *neededType = LibFunc->getFunctionType()->getParamType(argIndex+LibFuncStart);
+    Type *neededType = LibFuncTy->getParamType(newArgs.size());
     V_ASSERT(neededType && "argument error");
     // Operands are expected to be packetized, unless the scalar and vector functions
     // receive arguments of the exact same type
-    Value *curScalarArg = CI->getArgOperand(argIndex+scalarStart);
+    Value *curScalarArg = CI->getArgOperand(argIndex);
     Type *curScalarArgType = curScalarArg->getType();
-    if (neededType == curScalarArgType) {
+
+    // Incase current argument is a vector and runtime says we always 
+    // spread vector operands.than try to do it.
+    if (m_rtServices->alwaysSpreadVectorParams() && curScalarArgType->isVectorTy()) {
+      // here we assume that any scalar vector operand must be spread
+      if (!SpreadVectorParam(CI, curScalarArg, LibFuncTy, newArgs)){
+        V_ASSERT (0 && "unsupported parameter type");
+        return false;  
+      }
+    } else if (neededType == curScalarArgType) {
       // If a non-packetized argument is needed, simply use the first argument of 
       // the received multi-scalar argument
       Value *multiScalarVals[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiScalarVals, curScalarArg, CI);
       operand = multiScalarVals[0];
-    }  else if (VectorType *aosType = dyn_cast<VectorType>(curScalarArgType)) {
-      // we assume thar if a scalar built-in has vector argument that differs from it's packetized argument
-      // than it should be transfered in SOA form using array of vectors
-      ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(), m_packetWidth),
-          aosType->getNumElements());
-      if (soaType != neededType) {
-        // failed to handle param - duplicate original call instruciton
+      newArgs.push_back(operand);
+    } else if (curScalarArgType->isVectorTy()) {
+      // If vectors are not spread then vector arguments should be packetized
+      // in SOA form using array of vectors.
+      operand = HandleParamSOA(CI, curScalarArg);
+      if (!operand || operand->getType() != neededType) {
         V_ASSERT (0 && "unsupported parameter type");
         return false;
       }
-      operand = HandleParamSOA(CI, curScalarArg, soaType);
+      newArgs.push_back(operand);
     } else {
+      // For scalars obtain their corresponding vector.
       obtainVectorizedValue(&operand, curScalarArg, CI);
       operand = VectorizerUtils::getCastedArgIfNeeded(operand, neededType, CI);
+      newArgs.push_back(operand);
     }
-    newArgs.push_back(operand);
+  }
+
+  // In case the scalar built-in returns a vector and the vector built-in
+  // returns void, than the return values are expected to be returned by
+  // pointer arguments. here we create alloca in the entry block and add them
+  // to the argument list. when handling return we will create load from these
+  // pointers.
+  if (LibFunc->getReturnType()->isVoidTy() && CI->getType()->isVectorTy()) {
+    VectorType *vTy = cast<VectorType>(CI->getType());
+    unsigned numElements = vTy->getNumElements();
+    Instruction *loc = m_currFunc->getEntryBlock().begin();
+    for (unsigned i=0; i<numElements; ++i) {
+      PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(newArgs.size()));
+      V_ASSERT(ptrTy && "bad signature");
+      if (!ptrTy) return false;
+      Type *elTy = ptrTy->getElementType();
+      AllocaInst *AI = new AllocaInst(elTy, "", loc);
+      newArgs.push_back(AI);
+    }
   }
   return true;
 }
@@ -814,15 +848,18 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
       createVCMEntryWithMultiScalarValues(CI, multiScalarBroadcast);
     }
   } else if (scalarRetType->isVectorTy()) {
-    VectorType *aosType = cast<VectorType>(scalarRetType);
-    ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(), m_packetWidth) , aosType->getNumElements());
-    if (soaType != vectorRetType) {
-      // failed to handle return - remove call and duplicate original call instruciton
-      V_ASSERT (0 && "unsupported parameter type");
-      newCall->eraseFromParent();
-      return false;
+    // In case the scalar builtin returns a vector the following 2 options
+    // are suported: return by pointers (a), return by array of vectors(b).
+    // a.  <2 x float> foo(...) --> void foo4(..., <4 xfloat>*, <4 x float>*)
+    // b.  <2 x float> foo(...) --> [2 x <4 x float>]] foo4(...)
+    // array of vectors , or it is the return is by pointers as last arguments.
+    if (newCall->getType()->isVoidTy()) {
+      // return by pointers.
+      return HandleReturnByPointers(CI, newCall); 
+    } else {
+      // return using array of vectors.
+      return HandleReturnValueSOA(CI, newCall);
     }
-    HandleReturnValueSOA(CI, newCall);
   } else {
     Instruction *newFuncCall = VectorizerUtils::getCastedRetIfNeeded(newCall, VectorType::get(CI->getType(), m_packetWidth));
     createVCMEntryWithVectorValue(CI, newFuncCall);
@@ -831,71 +868,166 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
 }
 
 
-bool PacketizeFunction::obtainInsertElement(Value* inst, 
-     SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH>& roots, unsigned items,
-     Instruction* place) {
-  V_ASSERT(inst && "bad value");
+bool PacketizeFunction::obtainInsertElement(Value* val, 
+     SmallVectorImpl<Value *> &roots, unsigned nElts, Instruction* place) {
+  V_ASSERT(val && "bad value");
+  // initialize the roots with NULL values.
+  roots.assign(nElts, NULL);
   // For each of the items we are trying to fetch
-  for (unsigned i=0; i < items; ++i) {
-    // Make sure our chain is made of InsertElements
-    InsertElementInst* IE = dyn_cast<InsertElementInst>(inst);
-    if (! IE) return false;
-    Value* index = IE->getOperand(2);
-    // and that the place in the struct is constant
+  for (unsigned i=0; i < nElts; ++i) {
+    // Make sure our chain is made of fake insert elements.
+    CallInst* fakeIEI = dyn_cast<CallInst>(val);
+    if (!fakeIEI) return false;
+    std::string insertName = fakeIEI->getCalledFunction()->getNameStr();
+    V_ASSERT(Mangler::isFakeInsert(insertName) && "expected fake.insert");
+    if (!Mangler::isFakeInsert(insertName)) return false;
+    unsigned start = Mangler::isMangledCall(insertName) ? 1 : 0;
+    Value* index = fakeIEI->getArgOperand(2 + start);
+    // Obtain the constant indext
     ConstantInt* CI = dyn_cast<ConstantInt>(index);
-    if (! CI) return false;
+    V_ASSERT(CI && "index should be constant");
     uint64_t idx = CI->getZExtValue();
     // Fetch or create vectorized value
-    Value* vec;
-    obtainVectorizedValue(&vec, IE->getOperand(1), place);
-    roots[idx] = vec;
+    obtainVectorizedValue(&roots[idx], fakeIEI->getArgOperand(1 + start), place);
     // move to the next Insert-Element in chain
-    inst = IE->getOperand(0);
+    val = fakeIEI->getArgOperand(0 + start);
   }
   // success!
   return true;
 }
 
-void PacketizeFunction::HandleReturnValueSOA(CallInst* CI, Value *soaRet){
-  ArrayType *soaRetType = dyn_cast<ArrayType>(soaRet->getType());
-  V_ASSERT(soaRetType && "soa type is array of vetors");
-  unsigned numElements = soaRetType->getNumElements();
+bool PacketizeFunction::HandleReturnValueSOA(CallInst* CI, CallInst *soaRet){
+  // first validate that the new call return is proper array of vectors.
+  V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
+  VectorType *aosType = cast<VectorType>(CI->getType());
+  ArrayType *soaType = ArrayType::get(VectorType::get(
+      aosType->getElementType(), m_packetWidth) , aosType->getNumElements());
+  if (soaType != soaRet->getType()) {
+    // failed to handle return - remove call and duplicate original instruciton
+    V_ASSERT (0 && "unsupported parameter type");
+    soaRet->eraseFromParent();
+    return false;
+  }
+
+  // Break the array of vectors to it's vector elements.
+  unsigned numElements = soaType->getNumElements();
   SmallVector<Instruction*, MAX_INPUT_VECTOR_WIDTH> scalars;
   for (unsigned i=0; i<numElements; i++) {
     Instruction* ext = ExtractValueInst::Create(soaRet, i, "", CI);
     scalars.push_back(ext);
   }
-  // Replace each extractElement (which the scalarizer generated), with a vectorized value
+
+  // Map the elements to fake extracts generated by the scalarizer to
+  // the vector elemetns.
+  MapVectorMultiReturn(CI, scalars);
+  return true;
+}
+
+void PacketizeFunction::MapVectorMultiReturn (CallInst* CI,
+                 SmallVectorImpl<Instruction *>& returnedVals) {
+  // Replace fake extracts (generated by the scalarizer), with a vectorized value
   for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
-    ExtractElementInst* ee = dyn_cast<ExtractElementInst>(*ui);
-    V_ASSERT(ee && "user must be an ExtractElement (scalarizer should take care of it");
+    CallInst* fakeEI = dyn_cast<CallInst>(*ui);
+    V_ASSERT(fakeEI && "user must be an fake ExtractElement (scalarizer should take care of it");
+    std::string extractName = fakeEI->getCalledFunction()->getNameStr();
+    V_ASSERT(Mangler::isFakeExtract(extractName) &&
+        "user must be an fake ExtractElement (scalarizer should take care of it");
+
     // Extract index (expected to be a constant)
-    Value *scalarIndexVal = ee->getOperand(1);
+    unsigned start = Mangler::isMangledCall(extractName) ? 1 : 0;
+    Value *scalarIndexVal = fakeEI->getArgOperand(1 + start);
     V_ASSERT(isa<ConstantInt>(scalarIndexVal));
     uint64_t scalarIndex = cast<ConstantInt>(scalarIndexVal)->getZExtValue();
-    V_ASSERT(scalarIndex < numElements && "Extracting out of bound error");
+    V_ASSERT(scalarIndex < returnedVals.size() && "Extracting out of bound error");
+
     // Place value conversion in VCM entry
-    createVCMEntryWithVectorValue(ee, scalars[scalarIndex]);
-    m_removedInsts.insert(ee);
+    createVCMEntryWithVectorValue(fakeEI, returnedVals[scalarIndex]);
+    m_removedInsts.insert(fakeEI);
   }
 }
 
-Value *PacketizeFunction::HandleParamSOA(CallInst* CI, 
-        Value *scalarParam, ArrayType* soaType){
-  // Try to find the source element for the stored-value.
-  // If was not able to find the InsertElement chain, need to duplicate the store
-  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands(MAX_INPUT_VECTOR_WIDTH);
+bool PacketizeFunction::HandleReturnByPointers(CallInst* CI, CallInst *newCall) {
+  V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
+  VectorType *vTy = cast<VectorType>(CI->getType());
+  unsigned numArgs = newCall->getNumArgOperands();
+  unsigned numPtrs = vTy->getNumElements();
+  V_ASSERT(numArgs > numPtrs && "bad signature");
+
+  // Will contian the loads from the pointers to the returned values
+  // generated in the obtain arguments phase.
+  SmallVector<Instruction*, MAX_INPUT_VECTOR_WIDTH> loads;
+
+  // create loads from the pointers to the returned values
+  // which are the last arguments.to the new call.
+  unsigned firstPtr = numArgs - numPtrs;
+  for (unsigned i=0; i<numPtrs; i++) {
+    Value *ptr = newCall->getArgOperand(i + firstPtr);
+    V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
+    if (!ptr) return false;
+    Instruction* LI = new LoadInst(ptr, "", CI);
+    V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
+    V_ASSERT(cast<VectorType>(LI->getType()) ==  
+     VectorType::get(vTy->getElementType(), m_packetWidth) && "bad signature");
+    loads.push_back(LI);
+  }
+
+  // Map the elements to fake extracts generated by the scalarizer to
+  // the vector elemetns.
+  MapVectorMultiReturn(CI, loads);
+  return true;
+}
+
+Value *PacketizeFunction::HandleParamSOA(CallInst* CI, Value *scalarParam){
+  /// Here we handle vector argument to a scalar built-in by creating an 
+  /// array of vectors from the corresponding vectors of it's elements.
+  /// Scalar elements are obtained by fake insert calls added by the scalarizer.
+  /// foo(<2 float> %a) --> foo4([2 x <4 x float>]%a)
+  V_ASSERT(scalarParam->getType()->isVectorTy() && "expected vector type");
+  VectorType *aosType = cast<VectorType>(scalarParam->getType());
+  ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(),
+                                      m_packetWidth),aosType->getNumElements());
+  
+  // Try to find the source elements for the vector argument.
+  // In case of failure, need to duplicate the call.
+  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
   if (! obtainInsertElement(scalarParam, multiOperands, soaType->getNumElements(), CI)) {
     V_ASSERT(false && "Store operations must be preceded by insertvalue insts");
-    return 0;
+    return NULL;
   }
-  // Create new array store type from sub values
+
+  // Create array of vectors with the previously obtained vectors.
   Value *soaArr = UndefValue::get(soaType);
   unsigned numElements = soaType->getNumElements();
   for (unsigned i=0; i < numElements ; i++) {
-    soaArr = InsertValueInst::Create(soaArr, multiOperands[i], i, "store.val", CI);
+    soaArr = InsertValueInst::Create(soaArr, multiOperands[i], i, "", CI);
   }
   return soaArr;
+}
+
+bool PacketizeFunction::SpreadVectorParam(CallInst* CI, Value *scalarParam,
+                         FunctionType *LibFuncTy, std::vector<Value *> &args) {
+  /// Here we handle vector argument to a scalar built-in by adding the
+  /// corresponding vectors of the it's elements to the argumnet list. the 
+  /// scalar elements are obtained by fake insert calls added by the scalarizer.
+  /// foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  V_ASSERT(scalarParam->getType()->isVectorTy() && "expexted vector type");
+  VectorType *vTy = cast<VectorType>(scalarParam->getType());
+  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
+  unsigned numElements = vTy->getNumElements();
+  if (! obtainInsertElement(scalarParam, multiOperands, numElements, CI)) {
+    V_ASSERT(false && "could not get all vectorized values");
+    return false;
+  }
+
+  for (unsigned i=0; i < numElements ; i++) {
+    Type *neededType = LibFuncTy->getParamType(args.size());
+    Value *arg = VectorizerUtils::getCastedArgIfNeeded(multiOperands[i],
+                                                       neededType, CI);
+    V_ASSERT(arg && "could not cast");
+    if (!arg) return false;
+    args.push_back(arg);
+  }
+  return true;
 }
 
 bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
