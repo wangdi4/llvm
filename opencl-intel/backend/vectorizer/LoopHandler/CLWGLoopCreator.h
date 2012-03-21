@@ -230,6 +230,11 @@ private:
   void replaceTIDsWithPHI(IVec &TIDs, Value *initVal, Value *incBy,
                 BasicBlock *head, BasicBlock *preHead, BasicBlock *latch);
 
+  /// @brief calculate the number of dimensions for which we need to create
+  ///         work group loops.
+  /// @returns number of dimensions.
+  unsigned computeNumDim();
+
   ///@brief size_t type.
   Type *m_indTy;
 

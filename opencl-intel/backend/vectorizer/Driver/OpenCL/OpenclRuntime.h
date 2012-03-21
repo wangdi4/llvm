@@ -118,6 +118,9 @@ public:
   /// @brief retrun name of builtin to retrieve base global id for this work group.
   virtual const char *getBaseGIDName() const;
 
+  /// @brief returns true iff this name of atomic built-in.
+  virtual bool isAtomicBuiltin(std::string &func_name) const;
+
 protected:
   
   OpenclRuntime(); // Do not implement

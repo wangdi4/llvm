@@ -14,6 +14,8 @@
 #include "CLWGBoundDecoder.h"
 #include <set>
 
+static unsigned MAX_OCL_NUM_DIM = 3;
+
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 
 char intel::CLWGLoopCreator::ID = 0;
@@ -76,6 +78,41 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   return changed;
 }
 
+unsigned CLWGLoopCreator::computeNumDim() {
+  unsigned maxNumDim = m_rtServices->getNumJitDimensions();
+
+  // In case no atomics are called by  the kernel than it is guranteed that
+  // even if the user calls NDrange with more the dimension than the ones 
+  // used by the kernel, it is legal to loop only over the used ones.
+  std::set<Function *> atomicFuncs;
+  for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
+    std::string name = fit->getNameStr();
+    if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
+  }
+  if (atomicFuncs.size()) {
+    std::set<Function *> atomicUsers;
+    LoopUtils::fillFuncUsersSet(atomicFuncs, atomicUsers);
+    // Kernel call atomic built-in return maximun number of dimensions.
+    if (atomicUsers.count(m_F)) return maxNumDim;
+  }
+
+  // Calculates the max used dimension. Note that kernelAnalysis ensures us
+  // that the kernel does not call a function that uses get_global_id or
+  // get_local_id , so we can just scan the calls inside the kernel.
+  unsigned maxUsedNumDim = 0;
+  assert (m_gidCallsSc.size() == MAX_OCL_NUM_DIM && 
+          m_lidCallsSc.size() == MAX_OCL_NUM_DIM &&
+          "tid containers uninitialized");
+  for (unsigned dim=0; dim< MAX_OCL_NUM_DIM; ++dim) {
+    // if either get_local_id or get_global_id is used for this 
+    // dimension update maxUsedNumDim.
+    if (m_gidCallsSc[dim].size() || m_lidCallsSc[dim].size()) {
+      maxUsedNumDim = dim + 1;
+    }
+  }
+  return std::min<unsigned>(maxUsedNumDim, maxNumDim);
+}
+
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
                                     unsigned packetWidth) {
   // Update member fields with the current kernel.
@@ -84,13 +121,15 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   m_vectorFunc = vectorFunc;
   m_packetWidth = packetWidth;
   m_context = &F.getContext();
-  m_numDim = m_rtServices->getNumJitDimensions();
-  m_baseGids.assign(m_numDim, NULL);
+  m_baseGids.assign(MAX_OCL_NUM_DIM, NULL);
   generateConstants();
 
-  // Collect get**id and return instructions in the scalar kernel.
+  // Collect get**id and return instructions from the kernels.
   m_scalarRet = getFunctionData(m_F, m_gidCallsSc, m_lidCallsSc);
     
+  // Get the number of the for which we need to create work group loops.
+  m_numDim = computeNumDim();
+
   // Mark scalar kernel entry and create new entry block for boundaries
   // calculation.
   m_scalarEntry = &m_F->getEntryBlock();
@@ -103,8 +142,11 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // Obtain loops boundaries from early exit call.
   getLoopsBoundaries();
 
-  // Create WG loops
-  loopRegion WGLoopRegion = m_vectorFunc ? 
+  // Create WG loops.
+  // If no work group loop are created (no calls to get***id) avoid
+  // inlining the vector jit into the scalar since only one work item
+  // need to be executed.
+  loopRegion WGLoopRegion = m_vectorFunc && m_numDim ? 
       createVectorAndRemainderLoops() : 
       AddWGLoops(m_scalarEntry, false, m_scalarRet, m_gidCallsSc, m_lidCallsSc,
                   m_initGIDs, m_loopSizes);
@@ -232,7 +274,7 @@ void CLWGLoopCreator::generateConstants() {
 void CLWGLoopCreator::collectTIDCallInst(const char *name, IVecVec &tidCalls,
                                          Function *F) {
   IVec emptyVec;
-  tidCalls.assign(3, emptyVec);
+  tidCalls.assign(MAX_OCL_NUM_DIM, emptyVec);
   SmallVector<CallInst *, 4> allDimTIDCalls;
   LoopUtils::getAllCallInFunc(name, F, allDimTIDCalls);
   
@@ -241,7 +283,7 @@ void CLWGLoopCreator::collectTIDCallInst(const char *name, IVecVec &tidCalls,
     ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
     assert(C && "tid arg must be constant");
     unsigned dim = C->getValue().getZExtValue();
-    assert(dim <3 && "tid not in range");
+    assert(dim < MAX_OCL_NUM_DIM && "tid not in range");
     tidCalls[dim].push_back(CI);
   }
 }

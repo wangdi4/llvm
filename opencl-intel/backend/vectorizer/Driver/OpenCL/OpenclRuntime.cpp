@@ -183,6 +183,12 @@ unsigned OpenclRuntime::isInlineDot(std::string &funcName) const{
   return 0;
 }
 
+bool OpenclRuntime::isAtomicBuiltin(std::string &func_name) const {
+  Function *bltn = findInRuntimeModule(func_name);
+  if (!bltn) return false;
+  return (func_name.find("atom") != std::string::npos);
+}
+
 
 } // Namespace
 
