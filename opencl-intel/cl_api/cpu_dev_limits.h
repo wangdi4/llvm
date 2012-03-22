@@ -50,7 +50,12 @@
 #define CPU_IMAGE3D_MAX_DIM_SIZE		GEN_IMAGE3D_MAX_DIM_SIZE
 // Maximum dimension size (in pixels) for 2D image. Taken from GEN. See comment above.
 #define GEN_IMAGE2D_MAX_DIM_SIZE		16384
-#define CPU_IMAGE2D_MAX_DIM_SIZE		GEN_IMAGE2D_MAX_DIM_SIZE
+#if defined(_M_X64) || defined(__x86_64__)
+	#define CPU_IMAGE2D_MAX_DIM_SIZE		GEN_IMAGE2D_MAX_DIM_SIZE
+#else
+	// for 32 bit we need to stay well bellow 1GB - known runtime limitation.
+	#define CPU_IMAGE2D_MAX_DIM_SIZE		8192
+#endif // defined(_M_X64) || defined(__x86_64__)
 // Maximum image array size. Taken from GEN. See comment above.
 #define GEN_MAX_ARRAY_SIZE              2048
 #define CPU_MAX_ARRAY_SIZE              GEN_MAX_ARRAY_SIZE
