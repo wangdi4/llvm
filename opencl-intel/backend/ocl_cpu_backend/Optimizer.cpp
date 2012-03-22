@@ -32,8 +32,10 @@ File Name:  Optimizer.cpp
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Assembly/PrintModulePass.h"
 #include "PrintIRPass.h"
 
 extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
@@ -130,7 +132,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     PM->add(createIndVarSimplifyPass());        // Canonicalize indvars
     PM->add(createLoopDeletionPass());          // Delete dead loops
     if (UnrollLoops) {
-      PM->add(createLoopUnrollPass());          // Unroll small loops
+      PM->add(createLoopUnrollPass(1024, 0, 0));          // Unroll small loops
       PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
     }
     PM->add(createInstructionCombiningPass());  // Clean up after the unroller
