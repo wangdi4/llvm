@@ -157,11 +157,16 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // Connect the new entry block with the WG loops.
   BranchInst::Create(WGLoopRegion.m_preHeader, m_newEntry);
 
-  // Create Return on WG loops exit.
-  ReturnInst::Create(*m_context, WGLoopRegion.m_exit);
+  // Create return block and connect it to WG loops exit.
+  // We must create separate block for the return since the it might be
+  // that there are no WG loops (m_numDim=0) and WGLoopRegion.m_exit 
+  // is not empty.
+  BasicBlock *newRet = BasicBlock::Create(*m_context, "", m_F);
+  BranchInst::Create(newRet, WGLoopRegion.m_exit);
+  ReturnInst::Create(*m_context, newRet);
 
-  // create conditional jump over the WG loops incase of uniform early exit.
-  handleUniformEE(WGLoopRegion.m_exit);
+  // Create conditional jump over the WG loops incase of uniform early exit.
+  handleUniformEE(newRet);
   return true;
 }
 
