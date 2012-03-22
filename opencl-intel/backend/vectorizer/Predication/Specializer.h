@@ -108,6 +108,14 @@ private:
   void findValuesToPhi(
     Region* reg,
     std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi);
+  /// @brief Propagates masks of bypassed region to the 'footer' basic block
+  /// @param mask_target mask of a skipped basic block
+  /// @param header      header basic block of the bypass
+  /// @param exitBlock   exit block of the region
+  /// @param footer      footer basic block of the bypass
+  /// @param isOneMask   'true' if mask of the bypass is to be all-one
+   void propagateMask( Value *mask_target, BasicBlock *header, BasicBlock *exitBlock, 
+                      BasicBlock *footer, bool isOneMask);
 
 private:
   /// Predicator pass
@@ -124,6 +132,8 @@ private:
   RegionInfo* m_RI;
   /// Zero
   Value* m_zero;
+  /// One
+  Value* m_one;
   /// Region preheader
   std::map<Region*, BasicBlock*> m_heads;
   /// specialization regions

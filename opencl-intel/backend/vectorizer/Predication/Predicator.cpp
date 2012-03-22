@@ -1210,8 +1210,17 @@ Value* Predicator::getInMask(BasicBlock* block) {
   return NULL;
 }
 
-} // namespace intel
+Value* Predicator::getLoopMask(BasicBlock* block) {
+  if (m_loopMask.find(block) != m_loopMask.end()) return m_loopMask[block];
+  return NULL;
+}
 
+Value* Predicator::getExitMask(BasicBlock* block) {
+  if (m_exitMask.find(block) != m_exitMask.end()) return m_exitMask[block];
+  return NULL;
+}
+
+} // namespace intel
 
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe

@@ -266,6 +266,12 @@ public:
   /// @param A src Block
   /// @param B dst Block
   Value* getInMask(BasicBlock* block);
+  /// @brief requests a loop mask for edge in graph
+  /// @param block src Block
+  Value* getLoopMask(BasicBlock* block);
+  /// @brief requests the exit mask for edge in graph
+  /// @param block src Block
+  Value* getExitMask(BasicBlock* block);
   /*! \} */
 
 private:

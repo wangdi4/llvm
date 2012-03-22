@@ -32,7 +32,8 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          RegionInfo *RI):
   m_pred(pred), m_func(func),
   m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI),
-  m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))) {  }
+  m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
+  m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
 
 bool FunctionSpecializer::shouldSpecialize(Region *reg) {
 
@@ -353,21 +354,32 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   for(BBVector::iterator bit = skipped.begin(), 
       be = skipped.end(); bit != be; ++bit) { 
 
-    // If this is a 'masked block' (not a new block)
+    // If this is a 'masked block' (not a new block) - enforce all-zero mask for bypass
     Value* mask_target = m_pred->getInMask(*bit);
-
     if (mask_target) {
-      Value* non_bypass_mask =
-        new LoadInst(mask_target, mask_target->getName() + "_non_bypass",
-      exitBlock->getTerminator());
+      propagateMask( mask_target, src, exitBlock, footer, false);
+    }
 
-      PHINode* new_phi =
-        PHINode::Create(non_bypass_mask->getType(), 2,
-        mask_target->getName() + "_maskspec", footer->begin());
+    // If this block has out masks - enforce all-zero mask for bypass
+    llvm::succ_iterator succIt = succ_begin(*bit);
+    llvm::succ_iterator succE  = succ_end(*bit);
+    for (; succIt!=succE; ++succIt) {
+      Value* out_mask_target = m_pred->getEdgeMask(*bit, *succIt);
+      if (out_mask_target) {
+        propagateMask( out_mask_target, src, exitBlock, footer, false);
+      }
+    }
 
-      new_phi->addIncoming(non_bypass_mask, exitBlock);
-      new_phi->addIncoming(m_zero, src);
-      new StoreInst(new_phi, mask_target, footer->getFirstNonPHI());
+    // If this block has exit masks - enforce all-one mask for bypass
+    Value* exit_mask_target = m_pred->getExitMask(*bit);
+    if (exit_mask_target) {
+      propagateMask( exit_mask_target, src, exitBlock, footer, true);
+    }
+
+    // If this block has loop masks - enforce all-one mask for bypass
+    Value* loop_mask_target = m_pred->getLoopMask(*bit);
+    if (loop_mask_target) {
+      propagateMask( loop_mask_target, src, exitBlock, footer, true);
     }
   }
 
@@ -378,7 +390,23 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
 
 }
-  
+
+void FunctionSpecializer::propagateMask( Value *mask_target, BasicBlock *header,
+                                         BasicBlock *exitBlock, BasicBlock *footer,
+                                         bool isOneMask) {
+  Value* non_bypass_mask =
+    new LoadInst(mask_target, mask_target->getName() + "_non_bypass",
+                 exitBlock->getTerminator());
+
+  PHINode* new_phi =
+    PHINode::Create(non_bypass_mask->getType(), 2,
+                    mask_target->getName() + "_maskspec", footer->begin());
+
+  new_phi->addIncoming(non_bypass_mask, exitBlock);
+  new_phi->addIncoming(isOneMask? m_one : m_zero, header);
+  new StoreInst(new_phi, mask_target, footer->getFirstNonPHI());
+}
+
 void FunctionSpecializer::findSkippedBlocks(Region* reg, BBVector& skipped) {
   
   V_ASSERT(reg && "bad region");
