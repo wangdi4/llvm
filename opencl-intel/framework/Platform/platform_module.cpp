@@ -103,39 +103,48 @@ PlatformModule::~PlatformModule()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
 {
-	m_uiRootDevicesCount = (unsigned int)devices.size();
+    unsigned int supported_devices_count = (unsigned int)devices.size();
 
-	m_ppRootDevices = new Device*[m_uiRootDevicesCount];
+    if (0 == supported_devices_count)
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+	m_ppRootDevices = new Device*[supported_devices_count];
 	if (NULL == m_ppRootDevices)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-//    m_mapFECompilers.GetObjects(uiNumFECompilers, ppFECompilers, NULL);
-
-	for(unsigned int ui=0; ui<m_uiRootDevicesCount; ++ui)
+    cl_err_code clErrRet = CL_SUCCESS;
+    m_uiRootDevicesCount = 0; 
+	for(unsigned int ui=0; ui<supported_devices_count; ++ui)
 	{
 		// create new device object
 		Device * pDevice = new Device();
 		if (!pDevice)
 		{
-			return CL_OUT_OF_HOST_MEMORY;
+            m_mapDevices.ReleaseAllObjects(false);
+            m_uiRootDevicesCount = 0;
+            clErrRet = CL_OUT_OF_HOST_MEMORY;
+            break;
 		}
 
 		string strDevice = OS_DLL_POST(devices[ui]);
 
-		cl_err_code clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
+		clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
 		if (CL_FAILED(clErrRet))
 		{
 			// We should use RemovePendency because Release() in not effect ref count
 			pDevice->RemovePendency(this);
-			LOG_ERROR(TEXT("InitDevice() failed with %d"), clErrRet);
-			return clErrRet;
+			LOG_ERROR(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
+			continue;
 		}
 
 		// assign device in the objects map
 		m_mapDevices.AddObject(pDevice);
-		m_ppRootDevices[ui] = pDevice;
+		m_ppRootDevices[m_uiRootDevicesCount] = pDevice;
+        ++m_uiRootDevicesCount;
 
 		// The Root device was created with floating pendency. For root level devices we need
 		// to remove the floating pendency. Thefore NULL
@@ -146,6 +155,14 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 			m_pDefaultDevice = pDevice;
 		}
 	}
+
+    if (0 == m_uiRootDevicesCount)
+    {
+        delete [] m_ppRootDevices;
+        m_ppRootDevices = NULL;
+        m_pDefaultDevice = NULL;
+        return clErrRet;
+    }
 
 	return CL_SUCCESS;
 }
@@ -206,7 +223,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 
 	// get device agents dll names from configuration file
 	string strDefaultDevice = pConfig->GetDefaultDevice();
-	vector<string> strDevices = pConfig->GetDevices(strDefaultDevice);
+	vector<string> strDevices = pConfig->GetDevices();
 	if (strDevices.size() == 0)
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;

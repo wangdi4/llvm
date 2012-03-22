@@ -276,7 +276,7 @@ uint32_t MICSysInfo::getEngineCount()
         // If there isn't at least one engine, there is something wrong
         if( tNumEngines < 1)
         {
-            PRINT_DEBUG("MIC: ERROR: Need at least 1 engine\n");
+            //PRINT_DEBUG("MIC: ERROR: Need at least 1 engine\n");
             tNumEngines = 0;
         }
 
@@ -543,7 +543,7 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
     }
     if (deviceId >= m_numEngines)
     {
-        PRINT_DEBUG("device ID (%d) is greater than numEngines (%d)\n", deviceId, m_numEngines);
+        //PRINT_DEBUG("device ID (%d) is greater than numEngines (%d)\n", deviceId, m_numEngines);
         return false;
     }
     // If already got sys info from device

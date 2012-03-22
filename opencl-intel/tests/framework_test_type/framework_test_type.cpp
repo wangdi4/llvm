@@ -376,6 +376,13 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
     EXPECT_TRUE(EventDependenciesTest());
 }
 
+#ifdef INCLUDE_MIC_DEVICE
+TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
+{
+    EXPECT_TRUE(cl_CPU_MIC_IntegerExecuteTest());
+}
+#endif
+
 // To run individual tests, use the --gtest_filter=<pattern> command-line 
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest

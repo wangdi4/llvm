@@ -113,6 +113,7 @@ bool MultithreadedBuildTest();
 bool EventDependenciesTest();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
+bool cl_CPU_MIC_IntegerExecuteTest();
 //#define CUDA_DEVICE
 
 

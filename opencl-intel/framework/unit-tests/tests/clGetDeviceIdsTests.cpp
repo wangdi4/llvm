@@ -15,10 +15,7 @@ void clGetDeviceIdsTest::setUp()
 {
 	ConfigFile *pCfgFile = new ConfigFile();
 	pCfgFile->Add<string>(CL_CONFIG_LOG_FILE, "C:\\cl.log");
-	pCfgFile->Add<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device.dll");
 	pCfgFile->Add<string>(CL_CONFIG_DEVICES, "cpu_device.dll");
-	pCfgFile->Add<string>(CL_CONFIG_FE_COMPILERS, "clang_compiler.dll");
-	pCfgFile->Add<string>(CL_CONFIG_DEFAULT_FE_COMPILER, "clang_compiler.dll");
 	pCfgFile->Add<bool>(CL_CONFIG_USE_LOGGER, true);
 	ConfigFile::WriteFile("C:\\cl.cfg", *pCfgFile);
 

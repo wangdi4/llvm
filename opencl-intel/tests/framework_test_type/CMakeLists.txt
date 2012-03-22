@@ -3,6 +3,10 @@ if (NOT WIN32)
 remove_definitions( -Werror )
 endif (NOT WIN32)
 
+if (INCLUDE_MIC_DEVICE)
+  add_definitions( -DINCLUDE_MIC_DEVICE )
+endif (INCLUDE_MIC_DEVICE)
+
 #include helping functions of cmake.
 include (../../cmake_utils/CMakeFuncs.txt)
 

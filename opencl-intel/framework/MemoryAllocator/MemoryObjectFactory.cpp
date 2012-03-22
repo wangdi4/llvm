@@ -75,7 +75,13 @@ cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevice
 	std::map<FactoryKey, fn_MemoryObjectCreator*>::iterator it = m_memObjMap.find(key);
 	if ( it == m_memObjMap.end() )
 	{
-		return CL_ERR_FAILURE;
+        // try generic device
+        key.iSupportedDevices = CL_DEVICE_TYPE_ALL;
+        it = m_memObjMap.find(key);
+        if ( it == m_memObjMap.end() )        
+        {
+		    return CL_ERR_FAILURE;
+        }
 	}
 	MemoryObject* pMemObj = it->second(pContext, (ocl_entry_points*)pContext->GetHandle(), clObjType );
 	if (NULL == pMemObj)

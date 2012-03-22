@@ -176,13 +176,16 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_poin
 	}
 
 	m_stMaxLocalMemorySize = 0;
-	m_pFnClDevGetDeviceInfo(CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
+	cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
 
-	m_pFnClDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+    if (CL_DEV_SUCCEEDED( dev_err ))
+    {
+	    dev_err = m_pFnClDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+    }
 
 	// Here we still don't have DeviceAgent instance intialized.
 	// We should wait for CreateContext or Device Fission to create Device Agent instance, potentially saves memory footprint on Atom machines
-	return CL_SUCCESS;
+	return CL_DEV_SUCCEEDED( dev_err ) ? CL_SUCCESS : CL_ERR_DEVICE_INIT_FAIL;
 }
 
 cl_err_code Device::CreateInstance()

@@ -10,6 +10,13 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+// First device is a default device 
+static const char* DEFAULT_DEVICES_LIST = "cpu_device" 
+#ifdef INCLUDE_MIC_DEVICE
+                                          ";mic_device"
+#endif
+                                          ;
+
 OCLConfig::OCLConfig()
 {
 	m_pConfigFile = NULL;
@@ -34,14 +41,14 @@ void OCLConfig::Release()
 
 string OCLConfig::GetDefaultDevice() const
 {
-	string default_device = m_pConfigFile->Read<string>(CL_CONFIG_DEFAULT_DEVICE, "cpu_device");
-	return default_device;
+    vector<string> vectDevices = GetDevices();
+    return (vectDevices.size() > 0) ? vectDevices[0] : "";
 }
 
-vector<string> OCLConfig::GetDevices(string const& default_device) const
+vector<string> OCLConfig::GetDevices() const
 {
 	vector<string> vectDevices;
-	string s = m_pConfigFile->Read<string>(CL_CONFIG_DEVICES, default_device);
+	string s = m_pConfigFile->Read<string>(CL_CONFIG_DEVICES, DEFAULT_DEVICES_LIST);
 	ConfigFile::tokenize(s, vectDevices);
 	return vectDevices;
 }
