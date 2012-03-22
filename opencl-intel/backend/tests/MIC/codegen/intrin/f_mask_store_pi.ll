@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,9 +10,9 @@ declare void @llvm.x86.mic.mask.store.pi(i8 *, i16, <16 x i32>, i32, i32, i32)
 
 define void @f_mask_store_pi(i8 * %arg0, i16 %arg1, <16 x i32> %arg2, i32 %arg3, i32 %arg4, i32 %arg5) {
 ; KNF: f_mask_store_pi:
-; KNF: vstorepi
+; KNF: vstored   %{{v[0-9]+}}, (%{{[a-z]+}})
 entry:
-  call void @llvm.x86.mic.mask.store.pi(i8 * %arg0, i16 %arg1, <16 x i32> %arg2, i32 %arg3, i32 %arg4, i32 %arg5)
+  call void @llvm.x86.mic.mask.store.pi(i8 * %arg0, i16 %arg1, <16 x i32> %arg2, i32 0, i32 0, i32 0)
 
  ret void 
 }
