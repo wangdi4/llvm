@@ -435,8 +435,14 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 
 void TBBNonBlockingTaskHandler::RunTask()
 {
+	TBBTaskInterface* pTbbTaskInter = dynamic_cast<TBBTaskInterface*>(m_task);
+	assert(pTbbTaskInter);
+	if (NULL == pTbbTaskInter)
+	{
+		return m_task->finish(this);
+	}
 	// Enqueue the task to tbb task queue, will execute it asynchronous,
-	tbb::task::enqueue(*(((TBBTaskInterface*)m_task)->getTaskExecutorObj()));
+	tbb::task::enqueue(*(pTbbTaskInter->getTaskExecutorObj()));
 }
 
 
@@ -855,7 +861,7 @@ void NDRangeTask::destructTlsEntry(void* pEntry)
 
 
 
-TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask(), m_pTaskExecutor(NULL)
+TBBNDRangeTask::TBBNDRangeTask() : NDRangeTask(), TBBTaskInterface(), m_pTaskExecutor(NULL)
 {
 }
 

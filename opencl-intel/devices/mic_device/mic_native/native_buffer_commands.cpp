@@ -80,7 +80,7 @@ void FillMemObjTask::finish(TaskHandler* pTaskHandler)
 }
 
 
-TBBFillMemObjTask::TBBFillMemObjTask() : FillMemObjTask(), m_pTaskExecutor(NULL)
+TBBFillMemObjTask::TBBFillMemObjTask() : FillMemObjTask(), TBBTaskInterface(), m_pTaskExecutor(NULL)
 {
 }
 
