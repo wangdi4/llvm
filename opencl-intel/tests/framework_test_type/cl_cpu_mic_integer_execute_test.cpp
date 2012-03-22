@@ -69,7 +69,7 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -77,18 +77,18 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	}
 
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clCpuDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs(CL_DEVICE_TYPE_CPU)", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_CPU)", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 1, &clMicDeviceId, NULL);
     if (CL_DEVICE_NOT_FOUND == iRet)
     {
         // CL_DEVICE_TYPE_ACCELERATOR not found - skipping the test
-        bResult &= Check(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_DEVICE_NOT_FOUND, iRet);    
+        bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_DEVICE_NOT_FOUND, iRet);    
         return bResult;
     }
     
-    bResult &= Check(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
     // For CPU-only uncomment
@@ -104,7 +104,7 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     cl_device_id all_devices[] = { clCpuDeviceId, clMicDeviceId };
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     cl_context context = clCreateContext( prop, sizeof( all_devices ) / sizeof( all_devices[0] ), all_devices, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContext", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck(L"clCreateContext", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
     srand( 0 );
@@ -112,11 +112,11 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     // fill with random bits no matter what
     for( unsigned ui = 0; ui < BUFFER_SIZE; ui++ )
     {
-        pBuff[ui] = (cl_long)(rand() - RAND_MAX/2) ;
+        pBuff[ui] = (cl_long)(ui + 0x1000);
     }
     
     clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pBuff), pBuff, &iRet);
-    bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
     if (!bResult)
     {
         goto release_queues;
@@ -129,12 +129,12 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     }
     
     kernel = clCreateKernel(program, "int_test", &iRet);
-    bResult &= Check(L"clCreateKernel - int_test", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateKernel - int_test", CL_SUCCESS, iRet);
     if (!bResult) goto release_program;
 
     // Set Kernel Arguments
     iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
-    bResult &= Check(L"clSetKernelArg - clBuff", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clSetKernelArg - clBuff", CL_SUCCESS, iRet);
     if (!bResult) goto release_kernel;
     
     global_work_size[0] = stBuffSize;
@@ -144,11 +144,11 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     devices[2] = clCpuDeviceId;
 
     clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, 0 /*no properties*/, &iRet);
-    bResult &= Check(L"clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
     if (!bResult) goto release_queues;
 
     clMicQueue = clCreateCommandQueue (context, clMicDeviceId, 0 /*no properties*/, &iRet);
-    bResult &= Check(L"clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
     if (!bResult) goto release_queues;
 
     dev_queue[0] = clCpuQueue;
@@ -164,11 +164,11 @@ bool cl_CPU_MIC_IntegerExecuteTest()
         
 		// Execute kernel
 		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-		bResult &= Check(TITLE(L"clEnqueueNDRangeKernel for "), CL_SUCCESS, iRet);    
+		bResult &= SilentCheck(TITLE(L"clEnqueueNDRangeKernel for "), CL_SUCCESS, iRet);    
         if (!bResult) break;
         
 		iRet = clFinish(queue);
-		bResult &= Check(TITLE(L"clFinish for "), CL_SUCCESS, iRet);    
+		bResult &= SilentCheck(TITLE(L"clFinish for "), CL_SUCCESS, iRet);    
         if (!bResult) break;
     }
 
@@ -178,7 +178,7 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	// Verification phase
 	//
 	iRet = clEnqueueReadBuffer( clCpuQueue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-	bResult &= Check(L"clEnqueueReadBuffer - Dst for Cpu", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clEnqueueReadBuffer - Dst for Cpu", CL_SUCCESS, iRet);
 	if (!bResult) goto main_error_exit;
 
 	for( unsigned y=0; y < stBuffSize; ++y )
