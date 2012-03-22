@@ -852,7 +852,7 @@ int __attribute__((overloadable)) movemask ( long4 mask )
 #ifdef __SSE4_1__ 
 	int res = _mm_movemask_ps((__m128)mask.hi);
 	res = res << 2;
-	res |= _mm_movemask_ps((__m128)mask.hi);
+	return res |= _mm_movemask_ps((__m128)mask.lo);
 #else 
 	return mask.s0 | (mask.s1 << 1) | (mask.s2 << 2) | (mask.s3 << 3);
 #endif // __SSE4_1__
