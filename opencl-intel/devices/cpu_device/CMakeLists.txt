@@ -56,7 +56,11 @@ endif (WIN32)
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if(WIN32)
-	set_target_properties( ${TARGET_NAME}  PROPERTIES LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT" )
+	set_target_properties( ${TARGET_NAME} PROPERTIES
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll /DELAYLOAD:task_executor.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_debug.dll /DELAYLOAD:task_executor.dll"
+	)
+	list(APPEND LINK_LIBS delayimp.lib )
 endif(WIN32)
 
 add_dependencies( ${TARGET_NAME} clang )

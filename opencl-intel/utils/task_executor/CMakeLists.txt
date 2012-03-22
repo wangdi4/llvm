@@ -54,6 +54,14 @@ install(TARGETS ${TARGET_NAME}
 		ARCHIVE DESTINATION lib
 		LIBRARY DESTINATION bin)
 
+if (WIN32)
+	set_target_properties(${TARGET_NAME} PROPERTIES
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
+	)
+	list(APPEND LINK_LIBS delayimp.lib )
+endif(WIN32)
+
 target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 

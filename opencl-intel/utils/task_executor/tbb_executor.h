@@ -30,6 +30,7 @@
 #include <tbb/tbb.h>
 
 #include "cl_synch_objects.h"
+#include "cl_dynamic_lib.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -118,7 +119,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		ocl_gpa_data* GetGPAData() const;
 
 		tbb::task_group_context*	GetTBBGroupContext() {return m_pGrpContext;}
+
 	protected:
+		// Load TBB library explicitly
+		bool LoadTBBLibrary();
+
 		Intel::OpenCL::Utils::OclMutex		m_muActivate;
 
 		tbb::task_group_context*			m_pGrpContext;
@@ -133,8 +138,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		// This is a deliberate memory leak and is never freed
 		tbb::task_scheduler_init*			m_pGPAscheduler;
 #endif
-	private:
-		ThreadIDAssigner* m_threadPoolChangeObserver;
+		ThreadIDAssigner*					m_threadPoolChangeObserver;
+		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
 	};
 
     class MyObserver;

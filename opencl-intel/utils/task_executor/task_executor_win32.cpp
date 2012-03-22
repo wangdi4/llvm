@@ -33,6 +33,9 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
+#pragma comment (lib, "cl_logger.lib")
+#pragma comment (lib, "cl_sys_utils.lib")
+
 #include <Windows.h>
 #include <stdio.h>
 
@@ -198,5 +201,6 @@ void RegisterReleaseSchedulerForMasterThread()
 {
 	// DO nothing on Windows. Function is called during DllMain(DLL_THREAD_DETACH)
 }
+
 }}}
 #endif

@@ -45,9 +45,6 @@
 //#include "tal\tal.h"
 #endif
 
-#pragma comment (lib, "cl_logger.lib")
-#pragma comment (lib, "cl_sys_utils.lib")
-
 #if defined(USE_GPA)
 // This code was removed for the initial porting of TAL
 // to GPA 4.0 and might be used in later stages
@@ -1123,6 +1120,13 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 
 	m_pGPAData = pGPAData;
 	
+	// Explicitly load TBB library
+	if ( !LoadTBBLibrary() )
+	{
+		LOG_ERROR(TEXT("%s"), "Failed to load TBB library");
+		return 0;
+	}
+
 	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
 	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
 	if (uiNumThreads > 0)
@@ -1308,6 +1312,33 @@ void TBBTaskExecutor::ReleasePerThreadData()
 ocl_gpa_data* TBBTaskExecutor::GetGPAData() const
 {
 	return m_pGPAData;
+}
+
+bool TBBTaskExecutor::LoadTBBLibrary()
+{
+	bool bLoadRes = true;
+
+#ifdef WIN32
+	// The loading on tbb.dll was delayed,
+	// Need to load manually before defualt dll is loaded
+	char tbbPath[MAX_PATH];
+
+	Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
+
+#ifdef _DEBUG
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
+#else
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
+#endif
+
+	bLoadRes = m_dllTBBLib.Load(tbbPath);
+	if ( !bLoadRes )
+	{
+		LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath);
+	}
+#endif
+
+	return bLoadRes;
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor
