@@ -1,1 +1,1 @@
-; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/Test_MT_release.10.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/RH64/Test_MT_release.10.cfg

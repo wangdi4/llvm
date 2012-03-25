@@ -1,3 +1,3 @@
 ; XFAIL: *
 ; Notice: This Test is failing because of bug in the reference 
-; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/Test_clExecutionTest.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/RH64/Test_clExecutionTest.cfg

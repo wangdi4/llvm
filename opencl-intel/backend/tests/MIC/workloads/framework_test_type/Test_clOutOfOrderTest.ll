@@ -1,1 +1,1 @@
-; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/Test_clOutOfOrderTest.cfg
+; RUN: python ../../bin/SATest.py -tsize=0 -neat -config=/Volcano/Tests/Workloads/framework_test_type/RH64/Test_clOutOfOrderTest.cfg
