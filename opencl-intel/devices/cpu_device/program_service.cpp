@@ -886,10 +886,9 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
     }
 
     unsigned int uiNumEntries;
+    const cl_image_format* supportedImageFormats = m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries);
 
-    m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries);
-
-      if(NULL != formats)
+	if(NULL != formats)
     {
         uiNumEntries = min(uiNumEntries, numEntries);
         memcpy(formats, supportedImageFormats, uiNumEntries * sizeof(cl_image_format));

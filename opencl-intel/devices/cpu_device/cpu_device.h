@@ -41,8 +41,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 extern const char* CPU_STRING;
 extern const char* VENDOR_STRING;
-extern const cl_image_format supportedImageFormats[];
-extern const unsigned int NUM_OF_SUPPORTED_IMAGE_FORMATS;
 extern const char* BUILT_IN_KERNELS;
 
 
@@ -66,7 +64,7 @@ private:
 	cl_dev_cmd_list			m_defaultCommandList;
     OpenCLBackendWrapper    m_backendWrapper;
 
-    static size_t GetMaxSupportedPixelSize();
+    size_t GetMaxSupportedPixelSize();
 
 protected:
 	~CPUDevice();
@@ -81,6 +79,9 @@ protected:
 	
 	//Affinity observer interface
 	void            NotifyAffinity(unsigned int tid, unsigned int core);
+
+	// Generate a mapping ensuring the thread running on the ith compute unit will run WG #i if static partitioning is enabled
+	void            GenerateAffinityPermutation(cl_uint* pComputeUnits, unsigned long count, size_t* pAffinityPermutation);
 
 	// A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
 	unsigned int*    m_pComputeUnitMap;

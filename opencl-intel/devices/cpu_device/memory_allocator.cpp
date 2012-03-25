@@ -69,57 +69,6 @@ MemoryAllocator::~MemoryAllocator()
 }
 
 /****************************************************************************************************************
- GetSupportedImageFormats
-	Description
-		This function returns the list of image formats supported by an OCL implementation when the information about
-		an image memory object is specified and device supports image objects.
-	Input
-		flags					A bit-field that is used to specify allocation and usage information such as the memory arena
-								that should be used to allocate the image object and how it will be used.
-		imageType				Describes the image type as described in (cl_dev_mem_object_type).Only image formats are supported.
-		numEntries				Specifies the number of entries that can be returned in the memory location given by formats.
-								If value is 0 and formats is NULL, the num_entries_ret returns actual number of supported formats.
-	Output
-		formats					A pointer to array of structures that describes format properties of the image to be allocated.
-								Refer to OCL spec section 5.2.4.1 for a detailed description of the image format descriptor.
-		numEntriesRet			The actual number of supported image formats for a specific context and values specified by flags.
-								If the value is NULL, it is ignored.
-		Description
-								Return the minimum number of image formats that should be supported according to Spec
-	 Returns
-		CL_DEV_SUCCESS			The function is executed successfully.
-		CL_DEV_INVALID_VALUE	If values specified in parameters is not valid or if num_entries is 0 and formats is not NULL.
-********************************************************************************************************************/
-cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-				cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
-{
-	//image_type describes the image type and must be either CL_MEM_OBJECT_IMAGE2D or
-	//CL_MEM_OBJECT_IMAGE3D
-	if(CL_MEM_OBJECT_BUFFER == imageType)
-	{
-		return CL_DEV_INVALID_VALUE;
-	}
-
-	if(0 == numEntries && NULL != formats)
-	{
-		return CL_DEV_INVALID_VALUE;
-	}
-
-	unsigned int uiNumEntries = NUM_OF_SUPPORTED_IMAGE_FORMATS;
-
-	if(NULL != formats)
-	{
-		uiNumEntries = min(uiNumEntries, numEntries);
-		memcpy(formats, supportedImageFormats, uiNumEntries * sizeof(supportedImageFormats[0]));
-	}
-	if(NULL != numEntriesRet)
-	{
-		*numEntriesRet = uiNumEntries;
-	}
-
-	return CL_DEV_SUCCESS;
-}
-/****************************************************************************************************************
  GetAllocProperties
 	Description
 		This function return allocator properties per memory object

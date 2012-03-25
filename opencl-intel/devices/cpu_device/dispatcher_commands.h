@@ -184,6 +184,11 @@ protected:
     size_t                      m_MemBuffCount;
     size_t*                     m_pMemBuffSizes;
 
+    // Information about the hardware and a potential override for work group to thread mapping
+    unsigned int                m_numThreads;
+    size_t*                     m_pAffinityPermutation;
+    bool                        m_bAllowAffinityPermutation;
+    
 	// Unique ID of the NDRange command
 	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
 	long										m_lNDRangeId;

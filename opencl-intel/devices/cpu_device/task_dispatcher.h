@@ -68,6 +68,10 @@ public:
 
 	virtual bool            isDestributedAllocationRequried();
 	virtual bool			isThreadAffinityRequried();
+
+	virtual void            setAffinityPermutation(size_t* pAffinityPermutation) { m_pAffinityPermutation = pAffinityPermutation; }
+	virtual size_t*         getAffinityPermutation() const                       { return m_pAffinityPermutation; }
+	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
 	
 protected:
 	cl_int						m_iDevId;
@@ -87,6 +91,7 @@ protected:
 	WGContext*						GetWGContext(unsigned int id);
 
 	IAffinityChangeObserver*        m_pObserver;
+	size_t*                         m_pAffinityPermutation;
 	// Internal implementation of functions
 	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 

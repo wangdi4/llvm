@@ -168,7 +168,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver)
+		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver), m_pAffinityPermutation(NULL)
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL != logDesc )
@@ -210,6 +210,10 @@ TaskDispatcher::~TaskDispatcher()
 	if (0 != m_iLogHandle)
 	{
 		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+	}
+	if (NULL != m_pAffinityPermutation)
+	{
+		delete[] m_pAffinityPermutation;
 	}
 }
 
@@ -638,7 +642,7 @@ cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN lis
 cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
 {
 	m_commandListsForFlushing.PushBack((void*)0x1);
-        m_NonEmptyQueue.Signal();
+    m_NonEmptyQueue.Signal();
 	m_evWaitForCompletion.Wait();
 	return CL_DEV_SUCCESS;
 }

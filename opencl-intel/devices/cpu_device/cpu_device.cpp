@@ -54,158 +54,7 @@ char clCPUDEVICE_CFG_PATH[MAX_PATH];
 #endif
 #define MAX_MEM_ALLOC_SIZE ( MAX(128*1024*1024, MEMORY_LIMIT/4) )
 #define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
-
-#define __MINUMUM_SUPPORT__
-//#define __TEST__
-const cl_image_format Intel::OpenCL::CPUDevice::supportedImageFormats[] = {
-#ifndef __TEST__
-
-    // Minimum supported image formats
-    // CL_RGBA
-    {CL_RGBA, CL_UNORM_INT8},
-    {CL_RGBA, CL_UNORM_INT16},
-    {CL_RGBA, CL_SIGNED_INT8},
-    {CL_RGBA, CL_SIGNED_INT16},
-    {CL_RGBA, CL_SIGNED_INT32},
-    {CL_RGBA, CL_UNSIGNED_INT8},
-    {CL_RGBA, CL_UNSIGNED_INT16},
-    {CL_RGBA, CL_UNSIGNED_INT32},
-    {CL_RGBA, CL_HALF_FLOAT},
-    {CL_RGBA, CL_FLOAT},
-
-    // CL_BGRA
-    {CL_BGRA,   CL_UNORM_INT8},
-
-    // Additional formats required by users
-    // CL_INTENCITY
-    {CL_INTENSITY,  CL_FLOAT},
-
-    // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_FLOAT},
-
-    // --------- New image formats for gen ------------
-
-    // CL_R
-    {CL_R,      CL_FLOAT},
-    {CL_R,      CL_UNORM_INT8},
-    {CL_R,      CL_UNORM_INT16},
-    {CL_R,      CL_SIGNED_INT8},
-    {CL_R,      CL_SIGNED_INT16},
-    {CL_R,      CL_SIGNED_INT32},
-    {CL_R,      CL_UNSIGNED_INT8},
-    {CL_R,      CL_UNSIGNED_INT16},
-    {CL_R,      CL_UNSIGNED_INT32},
-    {CL_R,      CL_HALF_FLOAT},
-
-    // CL_INTENSITY
-    {CL_INTENSITY,  CL_UNORM_INT8},
-    {CL_INTENSITY,  CL_UNORM_INT16},
-    {CL_INTENSITY,  CL_HALF_FLOAT},
-
-    // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_UNORM_INT8},
-    {CL_LUMINANCE,  CL_UNORM_INT16},
-    {CL_LUMINANCE,  CL_HALF_FLOAT},
-
-    // CL_A
-    {CL_A,      CL_UNORM_INT8},
-    {CL_A,      CL_UNORM_INT16},
-    {CL_A,      CL_HALF_FLOAT},
-    {CL_A,      CL_FLOAT},
-
-    // CL_RG
-    {CL_RG,     CL_UNORM_INT8},
-    {CL_RG,     CL_UNORM_INT16},
-    {CL_RG,     CL_SIGNED_INT16},
-    {CL_RG,     CL_SIGNED_INT32},
-    {CL_RG,     CL_SIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT16},
-    {CL_RG,     CL_UNSIGNED_INT32},
-    {CL_RG,     CL_HALF_FLOAT},
-    {CL_RG,     CL_FLOAT}
-
-#ifndef __MINUMUM_SUPPORT__
-    // CL_R
-    {CL_R,      CL_SNORM_INT8},
-    {CL_R,      CL_SNORM_INT16},
-    //  
-
-    // CL_A
-    {CL_A,      CL_UNSIGNED_INT8},
-    {CL_A,      CL_SNORM_INT8},
-    {CL_A,      CL_SIGNED_INT8},
-    {CL_A,      CL_UNSIGNED_INT16},
-    {CL_A,      CL_SNORM_INT16},
-    {CL_A,      CL_SIGNED_INT16},
-    {CL_A,      CL_UNSIGNED_INT32},
-    {CL_A,      CL_SIGNED_INT32},
-
-    // CL_INTENSITY
-    {CL_INTENSITY,  CL_SNORM_INT8},
-    {CL_INTENSITY,  CL_SNORM_INT16},
-
-    // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_SNORM_INT8},
-    {CL_LUMINANCE,  CL_SNORM_INT16},
-
-    // CL_RG
-    {CL_RG,     CL_SNORM_INT8},
-    {CL_RG,     CL_SNORM_INT16},
-
-    // CL_RA
-    {CL_RA,     CL_UNORM_INT8},
-    {CL_RA,     CL_UNSIGNED_INT8},
-    {CL_RA,     CL_SNORM_INT8},
-    {CL_RA,     CL_SIGNED_INT8},
-    {CL_RA,     CL_UNORM_INT16},
-    {CL_RA,     CL_UNSIGNED_INT16},
-    {CL_RA,     CL_SNORM_INT16},
-    {CL_RA,     CL_SIGNED_INT16},
-    {CL_RA,     CL_UNSIGNED_INT32},
-    {CL_RA,     CL_SIGNED_INT32},
-    //  {CL_RA,     CL_HALF_FLOAT},
-    {CL_RA,     CL_FLOAT},
-
-    // CL_RGB
-    {CL_RGB,    CL_UNORM_SHORT_555},
-    {CL_RGB,    CL_UNORM_SHORT_565},
-    {CL_RGB,    CL_UNORM_INT_101010},
-
-    // CL_RGBA
-    {CL_RGBA, CL_SNORM_INT8},
-    {CL_RGBA, CL_SNORM_INT16},
-
-    // CL_BGRA
-    {CL_BGRA,   CL_SNORM_INT8},
-    {CL_BGRA,   CL_SIGNED_INT8},
-    {CL_BGRA,   CL_UNSIGNED_INT8},
-
-    // CL_ARGB
-    {CL_ARGB,   CL_UNORM_INT8},
-    {CL_ARGB,   CL_SNORM_INT8},
-    {CL_ARGB,   CL_SIGNED_INT8},
-    {CL_ARGB,   CL_UNSIGNED_INT8},
-#endif
-
-#else
-    //  {CL_RG,     CL_UNORM_INT8},
-    {CL_RGB,  CL_UNORM_SHORT_555},
-    /*  // CL_INTENSITY
-    {CL_INTENSITY,  CL_UNORM_INT8},
-    {CL_INTENSITY,  CL_UNORM_INT16},
-    {CL_INTENSITY,  CL_SNORM_INT8},
-    {CL_INTENSITY,  CL_SNORM_INT16},
-    {CL_INTENSITY,  CL_HALF_FLOAT},
-    {CL_INTENSITY,  CL_FLOAT},
-    */
-#endif
-};
-
 #define CPU_DEVICE_NAME_SIZE    48
-
-const unsigned int Intel::OpenCL::CPUDevice::NUM_OF_SUPPORTED_IMAGE_FORMATS =
-sizeof(Intel::OpenCL::CPUDevice::supportedImageFormats)/sizeof(cl_image_format);
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -446,6 +295,9 @@ void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
 void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
 {
 	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+
+	assert(core <m_numCores && "Access outside core map size");
+
 	unsigned int other_tid    = m_pCoreToThread[core];
 	int          my_prev_core = m_pComputeUnitScoreboard[tid].core;
 	bool         other_valid  = (other_tid != tid) && (-1 != m_pComputeUnitScoreboard[other_tid].core);
@@ -459,16 +311,42 @@ void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
 	m_pComputeUnitScoreboard[tid].core   = core;
 	m_pCoreToThread[core]                = tid;
 
-        //Set the caller's affinity as requested
-        clSetThreadAffinityToCore(core, m_pComputeUnitScoreboard[tid].os_tid);
+    //Set the caller's affinity as requested
+    clSetThreadAffinityToCore(core, m_pComputeUnitScoreboard[tid].os_tid);
 
 	if (other_valid)
 	{
 		//Need to relocate the other thread to my previous core
 		m_pComputeUnitScoreboard[other_tid].core = my_prev_core;
-		m_pCoreToThread[my_prev_core]            = other_tid;
-		clSetThreadAffinityToCore(my_prev_core, m_pComputeUnitScoreboard[other_tid].os_tid);
+		if ( -1 != my_prev_core )
+		{
+			m_pCoreToThread[my_prev_core]            = other_tid;
+			clSetThreadAffinityToCore(my_prev_core, m_pComputeUnitScoreboard[other_tid].os_tid);
+		}
+		else
+		{
+			// If current thread was not affinitize reset others thread affinity mask
+			// TODO: Need to save the original mask of the thread and restore it in this case
+			clResetThreadAffinityMask(m_pComputeUnitScoreboard[other_tid].os_tid);
+		}
 	}
+}
+
+void CPUDevice::GenerateAffinityPermutation(cl_uint *pComputeUnits, unsigned long count, size_t *pAffinityPermutation)
+{
+	if ((NULL == pComputeUnits) || (NULL == pAffinityPermutation))
+	{
+		return;
+	}
+	//Prevent changes while populating the map
+	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+
+	for (unsigned long i = 0; i < count; ++i)
+	{
+		assert(pComputeUnits[i] < m_numCores && "Access outside core map size");
+		pAffinityPermutation[m_pCoreToThread[pComputeUnits[i]]] = i;
+	}
+	pAffinityPermutation[0] = 0;
 }
 
 CPUDevice::~CPUDevice()
@@ -508,7 +386,10 @@ size_t CPUDevice::GetMaxSupportedPixelSize()
 { 
     size_t i = 0, szMaxPixelSize = 0;
 
-    for (; i < sizeof(supportedImageFormats) / sizeof(supportedImageFormats[0]); i++)
+    unsigned int uiNumEntries;
+    const cl_image_format* supportedImageFormats = m_pProgramService->GetImageService()->GetSupportedImageFormats(&uiNumEntries);
+
+    for (; i < uiNumEntries; i++)
     {
         const size_t szPixelSize = clGetPixelBytesCount(&supportedImageFormats[i]);
         if (szPixelSize > szMaxPixelSize)
@@ -1233,7 +1114,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
             {
-                *pinternalRetunedValueSize = strlen("OpenCL C 1.1 ") + 1;
+                *pinternalRetunedValueSize = strlen("OpenCL C 1.2 ") + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
@@ -1247,7 +1128,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             }
         case( CL_DEVICE_VERSION):
         {
-            *pinternalRetunedValueSize = strlen("OpenCL 1.1 ") + strlen(BUILDVERSIONSTR) + 1;
+            *pinternalRetunedValueSize = strlen("OpenCL 1.2 ") + strlen(BUILDVERSIONSTR) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1262,7 +1143,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DRIVER_VERSION ):
         {
-            *pinternalRetunedValueSize = strlen("1.1") + 1;
+            *pinternalRetunedValueSize = strlen("1.2") + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1270,7 +1151,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, "1.1");
+                STRCPY_S((char*)paramVal, valSize, "1.2");
             }
             return CL_DEV_SUCCESS;
         }
@@ -1371,7 +1252,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             if (NULL != paramVal)
             {
                 // we want to support the maximum buffer when the pixel size is maximal
-                const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / GetMaxSupportedPixelSize();
+				const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
                 if (iImgMaxBufSize < (size_t)-1)
                 {
                     *(size_t*)paramVal = (size_t)iImgMaxBufSize;
@@ -1764,21 +1645,37 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				return CL_DEV_ERROR_FAIL;
 			}
 
+			size_t* pAffinityPermutation = new size_t[m_numCores];
+			if (NULL == pAffinityPermutation)
+			{
+				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
+				delete pList;
+				pSubdeviceData->task_dispatcher_init_complete = true;
+				return CL_DEV_ERROR_FAIL;
+			}
+
 			TaskDispatcher* pNewTaskDispatcher = new SubdeviceTaskDispatcher(pSubdeviceData->num_compute_units, pSubdeviceData->legal_core_ids, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
 			if (NULL == pNewTaskDispatcher)
 			{
+				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
+				delete[] pAffinityPermutation;
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
+
+			pNewTaskDispatcher->setAffinityPermutation(pAffinityPermutation);
+			//From here on, no need to delete pAffinityPermutation on failure as the new dispatcher owns the pointer
 			cl_dev_err_code ret = pNewTaskDispatcher->init();
 			if (CL_DEV_FAILED(ret))
 			{
+				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
 				delete pNewTaskDispatcher;
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
+			GenerateAffinityPermutation(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units, pAffinityPermutation);
 			pSubdeviceData->task_dispatcher = pNewTaskDispatcher;
 			pList->task_dispatcher          = pNewTaskDispatcher;
 			pSubdeviceData->task_dispatcher_init_complete = true;

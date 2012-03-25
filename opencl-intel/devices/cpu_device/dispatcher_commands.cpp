@@ -711,11 +711,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITas
 
 NDRange::NDRange(TaskDispatcher* pTD) :
 DispatcherCommand(pTD), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
-#if defined(USE_GPA)
-//canceled
-//m_talKernelNameHandle(NULL),
-#endif
-m_pMemBuffSizes(NULL)
+m_pMemBuffSizes(NULL), m_numThreads(0), m_pAffinityPermutation(NULL), m_bAllowAffinityPermutation(false)
 {
 #ifdef _DEBUG
 	memset(m_pLockedParams, 0x88, sizeof(m_pLockedParams));
@@ -723,7 +719,7 @@ m_pMemBuffSizes(NULL)
 	m_lAttaching.exchange(0);
 	m_lExecuting.exchange(0);
 #endif
-//	QueryPerformanceFrequency(&freq);
+	m_numThreads = pTD->getNumberOfThreads();
 }
 
 long NDRange::Release()
@@ -988,6 +984,10 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 		region[i] = 1;
 	}
 	dimCount = cmdParams->work_dim;
+  
+	//Todo: might want to revisit these restrictions in the future
+	m_pAffinityPermutation = m_pTaskDispatcher->getAffinityPermutation();
+	m_bAllowAffinityPermutation = ((NULL != m_pAffinityPermutation) && (1 == dimCount) && (region[0] == m_numThreads));
 
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
@@ -1168,6 +1168,14 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
+#ifndef _WIN32	//Don't support this feature on Windows at the moment   
+				//Optionally override the iteration to be executed if an affinity permutation is defined
+	if (m_bAllowAffinityPermutation)
+	{
+		groupId[0] = m_pAffinityPermutation[uiWorkerId];
+		assert((0 == y) && (0 == z));
+	}
+#endif
 	pExec->Execute(groupId, NULL, NULL);
 
 #ifdef _DEBUG
