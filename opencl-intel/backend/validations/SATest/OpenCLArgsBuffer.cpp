@@ -68,7 +68,6 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
                                        void* pData,
                                        const ICLDevBackendImageService* pImageService)
 {
-    assert(pImageService);
     // workaround for implementing OpenCL 1.2
     mem_desc.dim_count = image_desc.GetDimensionCount();
     switch(image_desc.GetImageType())

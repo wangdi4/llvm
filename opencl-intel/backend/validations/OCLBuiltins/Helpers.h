@@ -190,7 +190,7 @@ namespace OCLBuiltins {
         R.AggregateVal.resize(n);                                                           \
         llvm::GenericValue arg0 = Args[0];                                                  \
         llvm::GenericValue arg1 = Args[1];                                                  \
-        llvm::GenericValue arg2 = Args[1];                                                  \
+        llvm::GenericValue arg2 = Args[2];                                                  \
         for (uint32_t i = 0; i < n; ++i)                                                    \
         {                                                                                   \
             getRef<T,n>(R,i) = RefALU::name<T>(getVal<T,n>(arg0, i), getVal<T,n>(arg1, i), getVal<T,n>(arg2, i)); \

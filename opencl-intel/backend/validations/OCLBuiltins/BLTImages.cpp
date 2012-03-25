@@ -341,6 +341,8 @@ llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT,
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
+
+    const int32_t dimCnt = memobj->dim_count;
     
     cl_image_format im_fmt;
     Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
@@ -348,8 +350,8 @@ llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT,
     // coordinates
     const GenericValue& CoordGV = Args[1];
     const int32_t u = getVal<uint32_t, 4>(CoordGV, 0);
-    const int32_t v = getVal<uint32_t, 4>(CoordGV, 1);
-    const int32_t w = getVal<uint32_t, 4>(CoordGV, 2);
+    const int32_t v = (dimCnt > 1) ? getVal<uint32_t, 4>(CoordGV, 1) : 0;
+    const int32_t w = (dimCnt > 2) ? getVal<uint32_t, 4>(CoordGV, 2) : 0;
 
     // datatype of pixel 
     const GenericValue& PixelGV = Args[2];

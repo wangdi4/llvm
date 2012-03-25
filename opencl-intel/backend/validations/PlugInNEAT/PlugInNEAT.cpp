@@ -1275,6 +1275,38 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
 
   Dest.NEATVec = NEATALU::shufflevector(Src1.NEATVec, Src2.NEATVec, mask_vec);
 
+  // mask vector is an integer vector got from interpreter
+  // The shuffle mask operand is required to be a constant vector 
+  // with either constant integer or undef values
+  Constant *CPV = dyn_cast<Constant>(I.getOperand(2));
+  assert(CPV != NULL);
+  assert(CPV->getType()->getTypeID() == Type::VectorTyID);
+  if(ConstantVector *CV = dyn_cast<ConstantVector>(CPV)) {
+      VectorType* VTy = dyn_cast<VectorType>(CPV->getType());
+      assert(VTy->getElementType()->isIntegerTy());
+      unsigned elemNum = VTy->getNumElements();
+      std::vector<unsigned> undef_vec(elemNum,0);
+   
+      bool isAnyUndef = false;
+      for (unsigned i = 0; i < elemNum; ++i){
+          if (isa<UndefValue>(CV->getOperand(i))) {
+              isAnyUndef = true;
+              undef_vec[i] = 1; // mark undef values
+          }
+      }
+   
+      if(isAnyUndef) {
+          if( elemNum != (unsigned)(Dest.NEATVec.GetSize()) ) {
+              throw Exception::NEATTrackFailure("NEATPlugin::shufflevector. Wrong mask vector size");
+          }
+          for (unsigned i = 0; i < (unsigned)(Dest.NEATVec.GetSize()); ++i) {
+              if(undef_vec[i]) {
+                  Dest.NEATVec[i] = NEATValue(NEATValue::ANY);
+              }
+          }
+      }
+  }
+
   SetValue(&I, Dest, SF);
 }
 
