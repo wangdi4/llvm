@@ -1,2 +1,2 @@
-; XFAIL: win32
-; RUN: python ../../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/CapturedWLs/Performance/SHOC1.1.1/s1/DeviceMemory.13.cfg -neat
+; XFAIL: *
+; RUN: python ../../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/CapturedWLs/Performance/SHOC1.1.1/s1/DeviceMemory.13.cfg
