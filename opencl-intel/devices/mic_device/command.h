@@ -37,6 +37,14 @@ class Command : public NotificationPort::CallBack
 
 public:
 
+	struct command_event_struct
+	{
+		command_event_struct() : isRegister(false) {};
+
+		COIEVENT cmdEvent;
+		bool isRegister;
+	};
+
 	/* Send the command for execution on the device (In case of NDRange command) or execute it on the host. */
     virtual cl_dev_err_code execute() = 0;
 
@@ -69,8 +77,8 @@ protected:
 	   In case of error which indicate by 'm_lastError' or 'otherErr' will notify the framework for completion and delete this object. */
 	cl_dev_err_code executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr = false);
 
-	// COIEVENT that will signal when the Command will finish.
-    COIEVENT m_completionBarrier;
+	// Contains COIEVENT that will signal when the Command will finish.
+    command_event_struct m_completionBarrier;
 
 	// cl_dev_cmd_desc data structure.
 	cl_dev_cmd_desc* m_pCmd;
@@ -136,11 +144,11 @@ public:
 	/* In case of InOrder CommandList just return completionBarrier. (Because the COIPipelineRunFunction will register it).
 	   In case of OutOfOrder CommandList it will COIBarrierRegisterUserBarrier on completionBarrier and return NULL. 
 	   (Because We don't want to register the barrier when the COIPipelineRunFunction returns) */
-	virtual COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) = 0;
+	virtual COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) = 0;
 
 	/* In case of InOrder CommandList do nothing.
 	   In case of OutOfOrder CommandList unregister the COIEVENT. */
-	virtual void unregisterCompletionBarrier(COIEVENT& completionBarrier) = 0;
+	virtual void unregisterCompletionBarrier(Command::command_event_struct& completionBarrier) = 0;
 
 private:
 
@@ -160,10 +168,9 @@ public:
 
 	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution);
 
-	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) { return completionBarrier; };
+	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) { return &(completionBarrier.cmdEvent); };
 
-	void unregisterCompletionBarrier(COIEVENT& completionBarrier) { return; };
-
+	void unregisterCompletionBarrier(Command::command_event_struct& completionBarrier) { return; };
 };
 
 
@@ -172,7 +179,7 @@ class OutOfOrderCommandSynchHandler : public CommandSynchHandler
 
 public:
 
-	OutOfOrderCommandSynchHandler() : CommandSynchHandler(), m_isRegistered(false) {};
+	OutOfOrderCommandSynchHandler() : CommandSynchHandler() {};
 
 	bool isInOrderType() { return false; };
 
@@ -180,31 +187,26 @@ public:
 
 	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution) { return; };
 
-	COIEVENT* registerCompletionBarrier(COIEVENT* completionBarrier) 
+	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) 
 	{ 
 		// If not register yet
-		if (false == m_isRegistered)
+		if (false == completionBarrier.isRegister)
 		{
-			COIEventRegisterUserEvent(completionBarrier);
-			m_isRegistered = true;
+			COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
+			completionBarrier.isRegister = true;
 		}
 		return NULL;
 	};
 
-	void unregisterCompletionBarrier(COIEVENT& completionBarrier) 
+	void unregisterCompletionBarrier(Command::command_event_struct& completionBarrier) 
 	{ 
 		// If already registered
-		if (m_isRegistered)
+		if (completionBarrier.isRegister)
 		{
-			COIEventUnregisterUserEvent(completionBarrier);
-			m_isRegistered = false;
+			COIEventUnregisterUserEvent(completionBarrier.cmdEvent);
+			completionBarrier.isRegister = false;
 		}
 	};
-
-private:
-
-	bool m_isRegistered;
-
 };
 
 }}}

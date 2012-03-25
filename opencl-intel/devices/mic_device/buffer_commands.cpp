@@ -439,11 +439,11 @@ cl_dev_err_code ReadWriteMemObject::execute()
 		unsigned long long size = copier.get_total_memory_processed_size();
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
-        m_completionBarrier = copier.get_last_event();
+        m_completionBarrier.cmdEvent = copier.get_last_event();
 
         if (0 == pMicMemObj->GetWriteMapsCount())
         {
-            m_completionBarrier = ForceTransferToDevice( pMicMemObj, m_completionBarrier );
+            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObj, m_completionBarrier.cmdEvent );
         }
         
         m_lastError = CL_DEV_SUCCESS;
@@ -621,11 +621,11 @@ cl_dev_err_code CopyMemObject::execute()
 		unsigned long long size = copier.get_total_memory_processed_size();
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
-        m_completionBarrier = copier.get_last_event();
+        m_completionBarrier.cmdEvent = copier.get_last_event();
         
         if (0 == pMicMemObjDst->GetWriteMapsCount())
         {
-            m_completionBarrier = ForceTransferToDevice( pMicMemObjDst, m_completionBarrier );
+            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObjDst, m_completionBarrier.cmdEvent );
         }
 
         m_lastError = CL_DEV_SUCCESS;
@@ -784,7 +784,7 @@ cl_dev_err_code MapMemObject::execute()
 		unsigned long long size = copier.get_total_memory_processed_size();
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
-        m_completionBarrier = copier.get_last_event();
+        m_completionBarrier.cmdEvent = copier.get_last_event();
         pMicMemObj->IncWriteMapsCount();
         m_lastError = CL_DEV_SUCCESS;
 	}
@@ -913,11 +913,11 @@ cl_dev_err_code UnmapMemObject::execute()
 		unsigned long long size = unmapper.get_total_memory_processed_size();
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
-        m_completionBarrier = unmapper.get_last_event();
+        m_completionBarrier.cmdEvent = unmapper.get_last_event();
         
         if (0 == pMicMemObj->DecWriteMapsCount())
         {
-            m_completionBarrier = ForceTransferToDevice( pMicMemObj, m_completionBarrier );
+            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObj, m_completionBarrier.cmdEvent );
         }
         
         m_lastError = CL_DEV_SUCCESS;
@@ -1013,13 +1013,13 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 
 		fillMemObjDispatcherData.postExeDirectivesCount = 0;
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier);
+		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == fillMemObjDispatcherData.isInOrderQueue)
 		{
 			// Set the post exe directive
 			postExeDirective.id = BARRIER;
-			postExeDirective.barrierDirective.end_barrier = m_completionBarrier;
+			postExeDirective.barrierDirective.end_barrier = m_completionBarrier.cmdEvent;
 			fillMemObjDispatcherData.postExeDirectivesCount = 1;
 		}
 
@@ -1092,15 +1092,15 @@ cl_dev_err_code FillMemObject::execute()
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
-		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier when finish.
-		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier))' can return NULL, in case of Out of order CommandList */
+		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
+		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
 		COIRESULT result = COIPipelineRunFunction(pipe,
 												  func,
 												  coiBuffsArr.size(), &(coiBuffsArr[0]), &(accessFlagsArr[0]),
 												  numDependecies, barrier,
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier));
+												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
 		if (result != COI_SUCCESS)
 		{
             assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );

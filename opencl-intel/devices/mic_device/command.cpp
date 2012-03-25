@@ -46,10 +46,10 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 
 	if ((CL_DEV_SUCCESS == err) && (!otherErr))
     {
-    	// Set m_completionBarrier to be the last barrier in case of InOrder CommandList.
-    	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier, lastCmdWasExecution);
-    	// Register m_completionBarrier to NotificationPort
-    	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier, this, NULL);
+    	// Set m_completionBarrier.cmdEvent to be the last barrier in case of InOrder CommandList.
+    	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier.cmdEvent, lastCmdWasExecution);
+    	// Register m_completionBarrier.cmdEvent to NotificationPort
+    	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier.cmdEvent, this, NULL);
     }
     else
     {

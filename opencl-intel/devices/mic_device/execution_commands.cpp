@@ -263,12 +263,12 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		}
 
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier);
+		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
 		{
 			postExeDirectives[currPostDirectiveIndex].id = BARRIER;
-			postExeDirectives[currPostDirectiveIndex].barrierDirective.end_barrier = m_completionBarrier;
+			postExeDirectives[currPostDirectiveIndex].barrierDirective.end_barrier = m_completionBarrier.cmdEvent;
 
 			currPostDirectiveIndex ++;
 		}
@@ -346,15 +346,15 @@ cl_dev_err_code NDRange::execute()
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
-		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier when finish.
-		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier))' can return NULL, in case of Out of order CommandList */
+		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
+		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
 		COIRESULT result = COIPipelineRunFunction(pipe,
 												  func,
 												  coiBuffsArr.size(), &(coiBuffsArr[0]), &(accessFlagsArr[0]),
 												  numDependecies, barrier,
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier));
+												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
 		if (result != COI_SUCCESS)
 		{
             assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
