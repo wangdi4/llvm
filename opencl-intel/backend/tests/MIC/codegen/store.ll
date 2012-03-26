@@ -160,40 +160,16 @@ entry:
 
 define void @store_16i32_na2(<16 x i32> * %a, <16 x i32>%v) nounwind readnone ssp {
 entry:
-; CHECK: testq     $3, %rdi
-; CHECK: je        
-; CHECK: vstored   %v0, -64(%rsp)
-; CHECK: movq      -64(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, (%rdi)
-; CHECK: movq      -56(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 8(%rdi)
-; CHECK: movq      -48(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 16(%rdi)
-; CHECK: movq      -40(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 24(%rdi)
-; CHECK: movq      -32(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 32(%rdi)
-; CHECK: movq      -24(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 40(%rdi)
-; CHECK: movq      -16(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 48(%rdi)
-; CHECK: movq      -8(%rsp), %r{{[0-9]+}}
-; CHECK: movq      %r{{[0-9]+}}, 56(%rdi)
-; CHECK: jmp      
-; CHECK: vpackstoreld %v0, (%rdi)
-; CHECK: testq     $63, %rdi
-; CHECK: je       
-; CHECK: vpackstorehd %v0, 64(%rdi)
+; CHECK: vpackstoreld
+; CHECK: vpackstorehd
   store <16 x i32> %v, <16 x i32> *%a, align 2
   ret void
 }
 
 define void @store_8i64_na4(<8 x i64> * %a, <8 x i64> %v) nounwind readnone ssp {
 entry:
-; CHECK: vpackstoreld %v0, (%rdi)
-; CHECK: testq     $63, %rdi
-; CHECK: je        ..L21
-; CHECK: vpackstorehd %v0, 64(%rdi)
+; CHECK: vpackstoreld
+; CHECK: vpackstorehd
   store <8 x i64> %v, <8 x i64> *%a, align 4
   ret void
 }

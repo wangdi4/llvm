@@ -41,3 +41,18 @@ FirstBB:
   store <4 x i8> %v1, <4 x i8>* %p, align 8
   ret void
 }
+
+define void @func16_1(<16 x i1> %mask, <16 x i8> *%p) nounwind alwaysinline {
+FirstBB:
+;KNF:  vloadd    (%rdi){uint8}, [[R0:%v[0-9]+]]
+;KNF:  vaddpi    [[R0]], [[R0]], [[R1:%v[0-9]+]]
+;KNF:  vxorpi    [[R0]], [[R1]], [[R2:%v[0-9]+]]
+;KNF-not:  vstored   [[R2]]{uint8}, (%rdi)
+;KNF:  ret
+  %v = load <16 x i8> *%p
+  %t1 = add <16 x i8> %v, %v
+  %v1 = xor <16 x i8> %t1, %v
+  store <16 x i8> %v1, <16 x i8>* %p, align 1
+  ret void
+}
+

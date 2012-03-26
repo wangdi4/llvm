@@ -157,30 +157,8 @@ entry:
 
 define <16 x i32> @load_16i32_na2(<16 x i32> * %a) nounwind readnone ssp {
 entry:
-; CHECK: testq     $3, %rdi
-; CHECK: je 
-; CHECK: movq      (%rdi), %r10
-; CHECK: movq      %r10, -64(%rsp)
-; CHECK: movq      8(%rdi), %r10
-; CHECK: movq      %r10, -56(%rsp)
-; CHECK: movq      16(%rdi), %r10
-; CHECK: movq      %r10, -48(%rsp)
-; CHECK: movq      24(%rdi), %r10
-; CHECK: movq      %r10, -40(%rsp)
-; CHECK: movq      32(%rdi), %r10
-; CHECK: movq      %r10, -32(%rsp)
-; CHECK: movq      40(%rdi), %r10
-; CHECK: movq      %r10, -24(%rsp)
-; CHECK: movq      48(%rdi), %r10
-; CHECK: movq      %r10, -16(%rsp)
-; CHECK: movq      56(%rdi), %r10
-; CHECK: movq      %r10, -8(%rsp)
-; CHECK: vloadd    -64(%rsp), %v0
-; CHECK: jmp
-; CHECK: vloadunpackld (%rdi), %v0
-; CHECK: testq     $63, %rdi
-; CHECK: je 
-; CHECK: vloadunpackhd 64(%rdi), %v0
+; CHECK: vloadunpackld
+; CHECK: vloadunpackhd
   %0 = load <16 x i32> *%a, align 2
   ret <16 x i32> %0
 }
@@ -229,5 +207,13 @@ entry:
 ; CHECK:  vkmov     %eax, %k1
   %0 = load <8 x i1> *%a, align 2
   ret <8 x i1> %0
+}
+
+define <16 x i8> @load_16i8(<16 x i8> * %a) nounwind readnone ssp {
+entry:
+; CHECK: vloadunpackld
+; CHECK: vloadunpackhd
+  %0 = load <16 x i8> *%a, align 1
+  ret <16 x i8> %0
 }
 
