@@ -1,6 +1,7 @@
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux -march=y86-64 -mcpu=knf | FileCheck %s
+; RUN: llc < %s -mtriple=x86_64-pc-linux -march=y86-64 -mcpu=knc | FileCheck %s
 
 define i1 @testbt( i64 %shift, i64 %mask){
 ; CHECK: movl %edi, %ecx

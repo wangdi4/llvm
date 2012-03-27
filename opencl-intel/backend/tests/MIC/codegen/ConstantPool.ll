@@ -4,9 +4,9 @@
 ; RUN:       -march=y86-64 -mcpu=knf \
 ; RUN:     | FileCheck %s -check-prefix=KNF
 ;
-; RUNc: llc < %s -mtriple=x86_64-pc-linux \
-; RUNc:       -march=y86-64 -mcpu=knc \
-; RUNc:     | FileCheck %s -check-prefix=KNC
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:       -march=y86-64 -mcpu=knc \
+; RUN:     | FileCheck %s -check-prefix=KNC
 ;
 
 target datalayout = "e-p:64:64"
@@ -35,6 +35,6 @@ define <1 x float> @test4(<16 x float> %a, <16 x float> %b) nounwind readnone ss
 entry:
 ; KNF: vloadd _const_2(%rip){1to16}, %v0
 ;
-; KNC: vloadd _const_2(%rip){1to16}, %zmm0
+; KNC: vbroadcastss _const_2(%rip), %zmm0
   ret <1 x float> <float 42.0>
 }
