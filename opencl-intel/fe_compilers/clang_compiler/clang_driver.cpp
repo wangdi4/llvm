@@ -295,26 +295,37 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
         else if (*opt_i == "-Werror") {
             list.push_back(*opt_i);
         }
-        else if (   *opt_i == "-cl-mad-enable" ||
-                    *opt_i == "-cl-strict-aliasing" || 
-                    *opt_i == "-cl-no-signed-zeros" || 
-                    *opt_i == "-cl-unsafe-math-optimizations" || 
-                    *opt_i == "-cl-single-precision-constant" || 
-                    opt_i->find("-dump-opt-llvm=") == 0) {
-            // nop
-        }
-        else if (*opt_i == "-cl-opt-disable") {
-            Opt_Disable = true;
+        else if (*opt_i == "-cl-single-precision-constant") {
+            list.push_back("-cl-single-precision-constant");
         }
         else if (*opt_i == "-cl-denorms-are-zero") {
+            list.push_back("-cl-denorms-are-zero");
             Denorms_Are_Zeros = true;
         }
+        else if (*opt_i == "-cl-fp32-correctly-rounded-divide-sqrt") {
+            list.push_back("-cl-fp32-correctly-rounded-divide-sqrt");
+        }
+        else if (*opt_i == "-cl-opt-disable") {
+            list.push_back("-cl-opt-disable");
+            Opt_Disable = true;
+        }
+        else if (*opt_i == "-cl-mad-enable") {
+            list.push_back("-cl-mad-enable");
+        }
+        else if (*opt_i == "-cl-no-signed-zeros") {
+            list.push_back("-cl-no-signed-zeros");
+        }
+        else if (*opt_i == "-cl-unsafe-math-optimizations") {
+            list.push_back("-cl-unsafe-math-optimizations");
+        }
         else if (*opt_i == "-cl-finite-math-only") {
-            list.push_back("-D");
+            list.push_back("-cl-finite-math-only");
+			list.push_back("-D");
             list.push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
-            list.push_back("-D");
+            list.push_back("-cl-fast-relaxed-math");
+			list.push_back("-D");
             list.push_back("__FAST_RELAXED_MATH__=1");
             Fast_Relaxed_Math = true;
         }
@@ -325,14 +336,14 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
           cl_std_set = true;
           list.push_back("-cl-std=CL1.1");
           list.push_back("-D");
-	        list.push_back("__OPENCL_C_VERSION__=110");
+	      list.push_back("__OPENCL_C_VERSION__=110");
         }
         else if (*opt_i == "-cl-std=CL1.2") {
           cl_std_set = true;
           list.push_back("-cl-std=CL1.2");
           list.push_back("-D");
 	        list.push_back("__OPENCL_C_VERSION__=120");
-        }
+        }       
         else {
             ignored.push_back(*opt_i);
         }
