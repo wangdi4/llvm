@@ -52,7 +52,7 @@ namespace Conformance
     }FloatPixel;
 
     extern int32_t has_alpha(cl_image_format *format);
-    extern size_t get_pixel_size( cl_image_format *format );
+    size_t get_pixel_size( cl_image_format *format );
 
     // get number of channels
     size_t get_format_channel_count( const cl_image_format *format );

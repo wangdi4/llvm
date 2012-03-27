@@ -251,7 +251,7 @@ namespace Conformance
     }
 
     // Format helpers
-    inline size_t get_pixel_size( cl_image_format *format )
+    size_t get_pixel_size( cl_image_format *format )
     {
         switch( format->image_channel_data_type )
         {

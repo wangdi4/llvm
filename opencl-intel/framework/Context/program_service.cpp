@@ -672,7 +672,7 @@ cl_err_code ProgramService::CompileProgram(Program *program,
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         cl_device_id deviceID = pDevices[i];
-        FissionableDevice* pDevice;
+        FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
         const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
@@ -984,7 +984,7 @@ cl_err_code ProgramService::LinkProgram(Program *program,
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         cl_device_id deviceID = pDevices[i];
-        FissionableDevice* pDevice;
+        FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
         const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
@@ -1238,7 +1238,7 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         cl_device_id deviceID = pDevices[i];
-        FissionableDevice* pDevice;
+        FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
         const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
