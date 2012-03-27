@@ -84,8 +84,6 @@ extern "C" {
 #include "conversions_svml.inc"
 #endif
 
-#include "conversions_workaround.h"
-
 // Load the declarations of our LL intrinsic library.
 #include "ll_intrinsics.h"
 
@@ -2106,11 +2104,13 @@ we need to report this to Nikita and get a fix for this.
 // The scalar version calls a 'custom' implementation as a workaround.
 // See comment before implementation of convert_double
 #define DEF_INT_PROTOD_U32(RMODE, RSVML, CPUTYPE) \
-DEF_INT_PROTOD_U32_WRAPPER_DECL(RMODE,RSVML,CPUTYPE)\
 	double __attribute__((overloadable)) convert_double##RMODE(_1u32 x)\
 	{\
-    double res = CONVERT_DOUBLE_WRAPPER_FUNCNAME(RSVML,CPUTYPE,u)(x);\
-	return res;\
+    _4u32 X;\
+    X.s0 = x;\
+    double4 res;\
+    res = __ocl_svml_##CPUTYPE##_cvtu32tofp##RSVML##4(X);\
+    return res.s0;\
 	}\
 	double2 __attribute__((overloadable)) convert_double2##RMODE(_2u32 x)\
 	{\

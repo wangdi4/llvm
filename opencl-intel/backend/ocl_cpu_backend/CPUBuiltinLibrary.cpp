@@ -50,18 +50,6 @@ void CPUBuiltinLibrary::Load()
         pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(Intel::CPU_COREI7);
     }
 
-
-    // Load precompiled Built-in functions
-#if defined (_WIN32)
-    sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s.dll", szModuleName, pCPUPrefix);
-#else
-    snprintf( szRTLibName, MAX_PATH, "%slibclbltfn%s.so", szModuleName, pCPUPrefix);
-#endif
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(szRTLibName,&strErr)) 
-    {
-        throw Exceptions::DeviceBackendExceptionBase(std::string("Loading builtin library failed - ") + strErr);
-    }
-
     // Load SVML functions
 #if defined (_WIN32)
     sprintf_s(szRTLibName, MAX_PATH, "%s__ocl_svml_%s.dll", szModuleName, pCPUPrefix);
