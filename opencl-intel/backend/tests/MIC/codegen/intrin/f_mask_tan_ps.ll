@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,7 +10,7 @@ declare <16 x float> @llvm.x86.mic.mask.tan.ps(<16 x float>, i16, <16 x float>)
 
 define <16 x float> @f_mask_tan_ps(<16 x float> %arg0, i16 %arg1, <16 x float> %arg2) {
 ; KNF: f_mask_tan_ps:
-; KNF: vtanps
+; KNF: call __svml_tanf16_mask
 entry:
   %ret = call <16 x float> @llvm.x86.mic.mask.tan.ps(<16 x float> %arg0, i16 %arg1, <16 x float> %arg2)
 

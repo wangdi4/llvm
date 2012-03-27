@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -11,7 +10,7 @@ declare <16 x float> @llvm.x86.mic.exp10.ps(<16 x float>)
 
 define <16 x float> @f_exp10_ps(<16 x float> %arg0) {
 ; KNF: f_exp10_ps:
-; KNF: vexp10ps
+; KNF: call __svml_exp10f16
 entry:
   %ret = call <16 x float> @llvm.x86.mic.exp10.ps(<16 x float> %arg0)
 
