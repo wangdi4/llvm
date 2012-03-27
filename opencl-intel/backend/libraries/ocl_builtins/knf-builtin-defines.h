@@ -57,6 +57,16 @@ const double const_pi_180 = 0.017453292519943295769236907684883;
   k = 0x7; \
   data = _mm512_mask_add_pd (data, k, zeros, _mm512_swizzle_pd (data, _MM_SWIZ_REG_DACB))
 
+#if 1
+#define mic_cvtl_pd2ps(old_data, new_data) \
+  __m512 new_data = _mm512_undefined_ps(); \
+  new_data = _mm512_cvtl_pd2ps(new_data, old_data, RC_RUN_DOWN);
+#else
+#define mic_cvtl_pd2ps(old_data, new_data) \
+  __m512 new_data = _mm512_cvt_roundpd_pslo(old_data, RC_RUN_DOWN); 
+#endif
+ 
+
 // Convert a 16-bit bit-mask into a 16 x 32-bit mask
 int16 __attribute__((overloadable)) mask2pi(__mmask16 flags){
   __m512i true_cond = (__m512i)((int16)(0xFFFFFFFF));
@@ -762,6 +772,125 @@ ulong8 __attribute__((__always_inline__, overloadable))
 _adc(ulong8 x, uchar cin, ulong8 y, uchar *cout)
 {
     return as_ulong8(_adc(as_long8(x), cin, as_long8(y), cout));
+}
+
+// soa length help utilities
+// length2
+float8  __attribute__((__always_inline__, overloadable))
+length2_up_convert(float8 x, float8 y)
+{
+  float16 x_reg;
+  float16 y_reg;
+  x_reg.lo = x;
+  y_reg.lo = y;
+
+  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
+  double8 sum = x_dp * x_dp + y_dp *y_dp;
+  sum = sqrt(sum);
+  mic_cvtl_pd2ps(sum, res);
+  return as_float16(res).lo;
+}
+
+float16  __attribute__((__always_inline__, overloadable))
+length2_up_convert(float16 x, float16 y)
+{
+  float16 res;
+  res.lo = length2_up_convert(x.lo, y.lo);
+  res.hi = length2_up_convert(x.hi, y.hi);
+  return res;
+}
+
+float4  __attribute__((__always_inline__, overloadable))
+length2_up_convert(float4 x, float4 y)
+{
+  float8 x_reg; x_reg.lo = x;
+  float8 y_reg; y_reg.lo = y;
+  float8 res = length2_up_convert(x_reg, y_reg);
+  return res.lo;
+}
+
+// length3
+float8  __attribute__((__always_inline__, overloadable))
+length3_up_convert(float8 x, float8 y, float8 z)
+{
+  float16 x_reg;
+  float16 y_reg;
+  float16 z_reg;
+  x_reg.lo = x;
+  y_reg.lo = y;
+  z_reg.lo = z;
+
+  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
+  double8 z_dp = as_double8(_mm512_cvtl_ps2pd( z_reg));
+  double8 sum = x_dp * x_dp + y_dp *y_dp + z_dp *z_dp;
+  sum = sqrt(sum);
+  mic_cvtl_pd2ps(sum, res);
+  return as_float16(res).lo;
+}
+
+float4  __attribute__((__always_inline__, overloadable))
+length3_up_convert(float4 x, float4 y, float4 z)
+{
+  float8 x_reg; x_reg.lo = x;
+  float8 y_reg; y_reg.lo = y;
+  float8 z_reg; z_reg.lo = z;
+  float8 res = length3_up_convert(x_reg, y_reg, z_reg);
+  return res.lo;
+}
+
+float16  __attribute__((__always_inline__, overloadable))
+length3_up_convert(float16 x, float16 y, float16 z)
+{
+  float16 res;
+  res.lo = length3_up_convert(x.lo, y.lo, z.lo);
+  res.hi = length3_up_convert(x.hi, y.hi, z.hi);
+  return res;
+}
+
+// length4 conversion
+float8  __attribute__((__always_inline__, overloadable))
+length4_up_convert(float8 x, float8 y, float8 z, float8 w)
+{
+  float16 x_reg;
+  float16 y_reg;
+  float16 z_reg;
+  float16 w_reg;
+ 
+  x_reg.lo = x;
+  y_reg.lo = y;
+  z_reg.lo = z;
+  w_reg.lo = w;
+
+  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
+  double8 z_dp = as_double8(_mm512_cvtl_ps2pd( z_reg));
+  double8 w_dp = as_double8(_mm512_cvtl_ps2pd( w_reg));
+  double8 sum = x_dp * x_dp + y_dp *y_dp + z_dp * z_dp + w_dp *w_dp;
+  sum = sqrt(sum);
+  mic_cvtl_pd2ps(sum, res);
+  return as_float16(res).lo;
+}
+
+float16  __attribute__((__always_inline__, overloadable))
+length4_up_convert(float16 x, float16 y, float16 z, float16 w)
+{
+  float16 res;
+  res.lo = length4_up_convert(x.lo, y.lo, z.lo, w.lo);
+  res.hi = length4_up_convert(x.hi, y.hi, z.hi, w.hi);
+  return res;
+}
+
+float4  __attribute__((__always_inline__, overloadable))
+length4_up_convert(float4 x, float4 y, float4 z, float4 w)
+{
+  float8 x_reg; x_reg.lo = x;
+  float8 y_reg; y_reg.lo = y;
+  float8 z_reg; z_reg.lo = z;
+  float8 w_reg; w_reg.lo = w;
+  float8 res = length4_up_convert(x_reg, y_reg, z_reg, w_reg);
+  return res.lo;
 }
 
 #ifdef __cplusplus

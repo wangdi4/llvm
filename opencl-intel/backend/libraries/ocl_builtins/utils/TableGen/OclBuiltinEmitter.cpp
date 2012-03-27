@@ -890,6 +890,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "NoASType" == pat.substr(5)) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCNoASType(i, OT->getName());
+    } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
+      unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
+      val = OB->getArgumentCName(i, OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCName(i, OT->getName());

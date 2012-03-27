@@ -63,8 +63,7 @@ OclBuiltinImpl length_f32_v3_v4 = OclBuiltinImpl<length, [v3f32, v4f32], 0, [{
     data = _mm512_mul_pd(data, data);
     add_reduce1_pd(data);
     add_reduce2_pd(data);
-    __m512 sum = _mm512_undefined_ps();
-    sum = _mm512_cvtl_pd2ps(sum, data, RC_RUN_DOWN);
+    mic_cvtl_pd2ps(data, sum)
     return sqrt(as_float16(sum).s0);
   }]>;
 OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
@@ -327,3 +326,530 @@ OclBuiltinImpl fast_normalize_f32_vector = OclBuiltinImpl<fast_normalize, [v2f32
     return ((float16)temp)$Pattern;
   }]>;
 
+// Extend SOA Geometry built-in functions
+// 
+code ZeroPromote2 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName = ($NativeArg0Type)0; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName = ($NativeArg1Type)0; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
+    return $ReturnVarName$Pattern;
+  }];
+  
+code ZeroPromote3 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName = ($NativeArg0Type)0; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName = ($NativeArg1Type)0; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName = ($NativeArg2Type)0; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
+    return $ReturnVarName$Pattern;
+  }];
+  
+code NonMaskPromote4 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName);
+    return $ReturnVarName$Pattern;
+  }];
+  
+code ZeroPromote4 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName = ($NativeArg0Type)0; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName = ($NativeArg1Type)0; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName = ($NativeArg2Type)0; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName = ($NativeArg3Type)0; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc($Mask, n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName);
+    return $ReturnVarName$Pattern;
+  }];
+
+code Expand4 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+  
+code NonMaskPromote6 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeArg4Type n$Arg4VarName; n$Arg4VarName$Pattern = $Arg4VarName;
+    $NativeArg5Type n$Arg5VarName; n$Arg5VarName$Pattern = $Arg5VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, n$Arg4VarName, n$Arg5VarName);
+    return $ReturnVarName$Pattern;
+  }];
+  
+code ZeroPromote6 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName = ($NativeArg0Type)0; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName = ($NativeArg1Type)0; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName = ($NativeArg2Type)0; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName = ($NativeArg3Type)0; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeArg4Type n$Arg2VarName; n$Arg4VarName = ($NativeArg4Type)0; n$Arg4VarName$Pattern = $Arg4VarName;
+    $NativeArg5Type n$Arg3VarName; n$Arg5VarName = ($NativeArg5Type)0; n$Arg5VarName$Pattern = $Arg5VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, n$Arg4VarName, n$Arg5VarName);
+    return $ReturnVarName$Pattern;
+  }];
+
+code Expand6 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern, $Arg4VarName$ExpandLoPattern, $Arg5VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern, $Arg4VarName$ExpandHiPattern, $Arg5VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+  
+code NonMaskPromote8 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeArg4Type n$Arg4VarName; n$Arg4VarName$Pattern = $Arg4VarName;
+    $NativeArg5Type n$Arg5VarName; n$Arg5VarName$Pattern = $Arg5VarName;
+    $NativeArg6Type n$Arg6VarName; n$Arg6VarName$Pattern = $Arg6VarName;
+    $NativeArg7Type n$Arg7VarName; n$Arg7VarName$Pattern = $Arg7VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, n$Arg4VarName, n$Arg5VarName, n$Arg6VarName, n$Arg7VarName);
+    return $ReturnVarName$Pattern;
+  }];
+  
+code ZeroPromote8 = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName = ($NativeArg0Type)0; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName = ($NativeArg1Type)0; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName = ($NativeArg2Type)0; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName = ($NativeArg3Type)0; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeArg4Type n$Arg4VarName; n$Arg4VarName = ($NativeArg4Type)0; n$Arg4VarName$Pattern = $Arg4VarName;
+    $NativeArg5Type n$Arg5VarName; n$Arg5VarName = ($NativeArg5Type)0; n$Arg5VarName$Pattern = $Arg5VarName;
+    $NativeArg6Type n$Arg6VarName; n$Arg6VarName = ($NativeArg6Type)0; n$Arg6VarName$Pattern = $Arg6VarName;
+    $NativeArg7Type n$Arg7VarName; n$Arg7VarName = ($NativeArg7Type)0; n$Arg7VarName$Pattern = $Arg7VarName;
+    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, n$Arg4VarName, n$Arg5VarName, n$Arg6VarName, n$Arg7VarName);
+    return $ReturnVarName$Pattern;
+  }];
+
+code Expand8 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern, $Arg4VarName$ExpandLoPattern, $Arg5VarName$ExpandLoPattern, $Arg6VarName$ExpandLoPattern, $Arg7VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern, $Arg4VarName$ExpandHiPattern, $Arg5VarName$ExpandHiPattern, $Arg6VarName$ExpandHiPattern, $Arg7VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+
+list<OclType> fp_native_types  = [v16f32, v8f64];
+list<OclType> fp_promote_types = [v4f32, v8f32, v4f64];
+list<OclType> fp_expand_types  = [v16f64];
+list<OclType> fp_soa_types     = [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64];
+list<OclType> sp_soa_types     = [v4f32, v8f32, v16f32];
+list<OclType> dp_soa_types     = [v4f64, v8f64, v16f64];
+list<OclType> dp_native_types  = [v8f64];
+list<OclType> dp_promote_types = [v4f64];
+list<OclType> dp_expand_types  = [v16f64];
+list<OclType> sp_native_types  = [v16f32];
+list<OclType> sp_promote_types = [v4f32, v8f32];
+
+// soa_dot
+OclBuiltinImpl soa_dot1_native = OclBuiltinImpl<soa_dot1, fp_native_types, 0, [{
+    return ($Arg0VarName * $Arg1VarName);
+  }]>;
+OclBuiltinImpl soa_dot1_promote = OclBuiltinImpl<soa_dot1, fp_promote_types, 0, NonMaskPromote2>;
+OclBuiltinImpl soa_dot1_expand  = OclBuiltinImpl<soa_dot1, fp_expand_types, 0, Expand2>;
+
+OclBuiltinImpl soa_dot2_native = OclBuiltinImpl<soa_dot2, fp_native_types, 0, [{
+    return ($Arg0VarName * $Arg2VarName)+ ($Arg1VarName * $Arg3VarName);
+  }]>; 
+OclBuiltinImpl soa_dot2_promote = OclBuiltinImpl<soa_dot2, fp_promote_types, 0, NonMaskPromote4>;
+OclBuiltinImpl soa_dot2_expand  = OclBuiltinImpl<soa_dot2, fp_expand_types, 0, Expand4>;
+
+OclBuiltinImpl soa_dot3_native = OclBuiltinImpl<soa_dot3, fp_native_types, 0, [{
+    return ($Arg0VarName * $Arg3VarName) + ($Arg1VarName * $Arg4VarName) + ($Arg2VarName * $Arg5VarName);
+  }]>;
+OclBuiltinImpl soa_dot3_promote = OclBuiltinImpl<soa_dot3, fp_promote_types, 0, NonMaskPromote6>;
+OclBuiltinImpl soa_dot3_expand  = OclBuiltinImpl<soa_dot3, fp_expand_types, 0, Expand6>;
+  
+OclBuiltinImpl soa_dot4_native = OclBuiltinImpl<soa_dot4, fp_native_types, 0, [{
+    return ($Arg0VarName * $Arg4VarName) + ($Arg1VarName * $Arg5VarName) + ($Arg2VarName * $Arg6VarName) + ($Arg3VarName * $Arg7VarName);
+  }]>;
+OclBuiltinImpl soa_dot4_promote = OclBuiltinImpl<soa_dot4, fp_promote_types, 0, NonMaskPromote8>;
+OclBuiltinImpl soa_dot4_expand  = OclBuiltinImpl<soa_dot4, fp_expand_types, 0, Expand8>;
+
+// soa_cross
+OclBuiltinImpl soa_cross3_native = OclBuiltinImpl<soa_cross3, fp_native_types, 0, [{
+    *$Arg6VarName = ($Arg1VarName * $Arg5VarName) - ($Arg2VarName * $Arg4VarName);
+    *$Arg7VarName = ($Arg2VarName * $Arg3VarName) - ($Arg0VarName * $Arg5VarName);
+    *$Arg8VarName = ($Arg0VarName * $Arg4VarName) - ($Arg1VarName * $Arg3VarName);
+  }]>;
+OclBuiltinImpl soa_cross3_promote = OclBuiltinImpl<soa_cross3, fp_promote_types, 0, [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    $NativeArg4Type n$Arg4VarName; n$Arg4VarName$Pattern = $Arg4VarName;
+    $NativeArg5Type n$Arg5VarName; n$Arg5VarName$Pattern = $Arg5VarName;
+    $NativeArg6Type n$Arg6VarName;
+    $NativeArg7Type n$Arg7VarName;
+    $NativeArg8Type n$Arg8VarName;
+    soa_cross3(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, n$Arg4VarName, n$Arg5VarName, &n$Arg6VarName, &n$Arg7VarName, &n$Arg8VarName);
+    *$Arg6VarName = n$Arg6VarName$Pattern;
+    *$Arg7VarName = n$Arg7VarName$Pattern;
+    *$Arg8VarName = n$Arg8VarName$Pattern;
+  }]>;    
+OclBuiltinImpl soa_cross3_expand = OclBuiltinImpl<soa_cross3, fp_expand_types, 0, [{ 
+    double8 temp_x, temp_y, temp_z;
+    soa_cross3($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern, $Arg4VarName$ExpandLoPattern, $Arg5VarName$ExpandLoPattern, &temp_x, &temp_y, &temp_z);   
+    (*$Arg6VarName)$ExpandLoPattern = temp_x;
+    (*$Arg7VarName)$ExpandLoPattern = temp_y;
+    (*$Arg8VarName)$ExpandLoPattern = temp_z;
+    soa_cross3($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern, $Arg4VarName$ExpandHiPattern, $Arg5VarName$ExpandHiPattern, &temp_x, &temp_y, &temp_z);
+    (*$Arg6VarName)$ExpandHiPattern = temp_x;
+    (*$Arg7VarName)$ExpandHiPattern = temp_y;
+    (*$Arg8VarName)$ExpandHiPattern = temp_z;
+  }]>;
+   
+OclBuiltinImpl fp_soa_cross4 = OclBuiltinImpl<soa_cross4, fp_soa_types, 0, [{
+    soa_cross3($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg8VarName, $Arg9VarName, $Arg10VarName);
+    *$Arg11VarName  = ($Arg0Type)0.0;
+  }]>;
+
+// soa_length
+code soa_length2_cond_sp = [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName;
+    if (any(isinf(sum)) || any(isless(sum, ($Arg0Type)(2*FLT_MIN/FLT_EPSILON) ))){
+      return length2_up_convert($Arg0VarName, $Arg1VarName);
+    }
+    return sqrt(sum);
+  }];
+code soa_length2_always_sp = [{
+    return length2_up_convert($Arg0VarName, $Arg1VarName);
+  }];
+
+code soa_length3_cond_sp = [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName;
+    if (any(isinf(sum)) || any(isless(sum, ($Arg0Type)(2*FLT_MIN/FLT_EPSILON) ))){
+      return length3_up_convert($Arg0VarName, $Arg1VarName, $Arg2VarName);
+    }
+    return sqrt(sum);
+  }];
+code soa_length3_always_sp = [{
+    return length3_up_convert($Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+  
+code soa_length4_cond_sp = [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName + $Arg3VarName * $Arg3VarName;
+    if (any(isinf(sum)) || any(isless(sum, ($Arg0Type)(2*FLT_MIN/FLT_EPSILON) ))){
+      return length4_up_convert($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    }
+    return sqrt(sum);
+  }];
+code soa_length4_always_sp = [{
+    return length4_up_convert($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+  }];
+  
+// soa_length1
+OclBuiltinImpl sp_soa_length1 = OclBuiltinImpl<soa_length1, fp_soa_types, 0, [{
+    return fabs($Arg0VarName);
+  }]>;
+  
+// soa_length2
+OclBuiltinImpl sp_soa_length2_native = OclBuiltinImpl<soa_length2, sp_native_types, 0, soa_length2_always_sp>;
+OclBuiltinImpl sp_soa_length2_promote = OclBuiltinImpl<soa_length2, sp_promote_types, 0, NonMaskPromote2>;
+
+OclBuiltinImpl dp_soa_length2_native = OclBuiltinImpl<soa_length2, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type denorm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-600;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+    $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
+    $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
+  
+    norm    = select(norm, norm_of, isnan(sum));
+    denorm  = select(denorm, denorm_of, isnan(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+  
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    return sqrt( new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName)* denorm;  
+  }]>; 
+OclBuiltinImpl dp_soa_length2_promote = OclBuiltinImpl<soa_length2, dp_promote_types, 0, NonMaskPromote2>;
+OclBuiltinImpl dp_soa_length2_expand = OclBuiltinImpl<soa_length2, dp_expand_types, 0, Expand2>;
+// soa_length3
+OclBuiltinImpl sp_soa_length3_native = OclBuiltinImpl<soa_length3, sp_native_types, 0, soa_length3_always_sp>;
+OclBuiltinImpl sp_soa_length3_promote = OclBuiltinImpl<soa_length3, sp_promote_types, 0, NonMaskPromote3>;
+
+OclBuiltinImpl dp_soa_length3_native = OclBuiltinImpl<soa_length3, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type denorm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-600;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+    $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
+    $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
+  
+    norm    = select(norm, norm_of, isnan(sum));
+    denorm  = select(denorm, denorm_of, isnan(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+  
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    $Arg2Type new_$Arg2VarName = $Arg2VarName * norm;
+    return sqrt( new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName)* denorm;  
+  }]>; 
+OclBuiltinImpl dp_soa_length3_promote = OclBuiltinImpl<soa_length3, dp_promote_types, 0, NonMaskPromote3>;
+OclBuiltinImpl dp_soa_length3_expand = OclBuiltinImpl<soa_length3, dp_expand_types, 0, Expand3>;
+// soa_length4
+OclBuiltinImpl sp_soa_length4_native = OclBuiltinImpl<soa_length4, sp_native_types, 0, soa_length4_always_sp>;
+OclBuiltinImpl sp_soa_length4_promote = OclBuiltinImpl<soa_length4, sp_promote_types, 0, NonMaskPromote4>;
+
+OclBuiltinImpl dp_soa_length4_native = OclBuiltinImpl<soa_length4, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName + $Arg3VarName * $Arg3VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type denorm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-600;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+    $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
+    $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
+  
+    norm    = select(norm, norm_of, isnan(sum));
+    denorm  = select(denorm, denorm_of, isnan(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+  
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    $Arg2Type new_$Arg2VarName = $Arg2VarName * norm;
+    $Arg3Type new_$Arg3VarName = $Arg3VarName * norm;
+    return sqrt( new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName + new_$Arg3VarName * new_$Arg3VarName)* denorm;  
+  }]>; 
+OclBuiltinImpl dp_soa_length4_promote = OclBuiltinImpl<soa_length4, dp_promote_types, 0, NonMaskPromote4>;
+OclBuiltinImpl dp_soa_length4_expand = OclBuiltinImpl<soa_length4, dp_expand_types, 0, Expand4>;
+
+// soa_fast_length
+// soa_fast_length1
+OclBuiltinImpl sp_soa_fast_length1 = OclBuiltinImpl<soa_fast_length1, [v4f32, v8f32, v16f32], 0, [{
+    return fabs($Arg0VarName);
+  }]>;
+// soa_fast_length2
+OclBuiltinImpl sp_soa_fast_length2_native = OclBuiltinImpl<soa_fast_length2, sp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName;
+    return half_sqrt(sum);
+  }]>;
+OclBuiltinImpl sp_soa_fast_length2_promote = OclBuiltinImpl<soa_fast_length2, sp_promote_types, 0, NonMaskPromote2>;
+// soa_fast_length3
+OclBuiltinImpl sp_soa_fast_length3_native = OclBuiltinImpl<soa_fast_length3, sp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName;
+    return half_sqrt(sum);
+  }]>;
+OclBuiltinImpl sp_soa_fast_length3_promote = OclBuiltinImpl<soa_fast_length3, sp_promote_types, 0, NonMaskPromote3>;
+// soa_fast_length4
+OclBuiltinImpl sp_soa_fast_length4_native = OclBuiltinImpl<soa_fast_length4, sp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName + $Arg3VarName * $Arg3VarName;
+    return half_sqrt(sum);
+  }]>;
+OclBuiltinImpl soa_fast_length4_promote = OclBuiltinImpl<soa_fast_length4, sp_promote_types, 0, NonMaskPromote4>;
+
+// soa_distance
+OclBuiltinImpl fp_soa_distance1 = OclBuiltinImpl<soa_distance1, fp_soa_types, 0, [{
+    return soa_length1( $Arg0VarName - $Arg1VarName);
+  }]>;
+OclBuiltinImpl fp_soa_distance2 = OclBuiltinImpl<soa_distance2, fp_soa_types, 0, [{
+    return soa_length2( $Arg0VarName - $Arg2VarName, $Arg1VarName - $Arg3VarName);
+  }]>;
+OclBuiltinImpl fp_soa_distance3 = OclBuiltinImpl<soa_distance3, fp_soa_types, 0, [{
+    return soa_length3( $Arg0VarName - $Arg3VarName, $Arg1VarName - $Arg4VarName, $Arg2VarName - $Arg5VarName);
+  }]>;
+OclBuiltinImpl fp_soa_distance4 = OclBuiltinImpl<soa_distance4, fp_soa_types, 0, [{
+    return soa_length4( $Arg0VarName - $Arg4VarName, $Arg1VarName - $Arg5VarName, $Arg2VarName - $Arg6VarName, $Arg3VarName - $Arg7VarName);
+  }]>;
+  
+// soa_fast_distance
+OclBuiltinImpl sp_soa_fast_distance1 = OclBuiltinImpl<soa_fast_distance1, sp_soa_types, 0, [{
+    return soa_fast_length1( $Arg0VarName - $Arg1VarName);
+  }]>;
+OclBuiltinImpl sp_soa_fast_distance2 = OclBuiltinImpl<soa_fast_distance2, sp_soa_types, 0, [{
+    return soa_fast_length2( $Arg0VarName - $Arg2VarName, $Arg1VarName - $Arg3VarName);
+  }]>;
+OclBuiltinImpl sp_soa_fast_distance3 = OclBuiltinImpl<soa_fast_distance3, sp_soa_types, 0, [{
+    return soa_fast_length3( $Arg0VarName - $Arg3VarName, $Arg1VarName - $Arg4VarName, $Arg2VarName - $Arg5VarName);
+  }]>;
+OclBuiltinImpl sp_soa_fast_distance4 = OclBuiltinImpl<soa_fast_distance4, sp_soa_types, 0, [{
+    return soa_fast_length4( $Arg0VarName - $Arg4VarName, $Arg1VarName - $Arg5VarName, $Arg2VarName - $Arg6VarName, $Arg3VarName - $Arg7VarName);
+  }]>;
+
+// soa_normalize
+// soa_normalize1
+OclBuiltinImpl fp_soa_normalize1_native = OclBuiltinImpl<soa_normalize1, fp_native_types, 0, [{
+    $NativeReturnType res = select(($NativeArg0Type)-1.0, ($NativeArg0Type)1.f, isgreater($Arg0VarName, ($NativeArg0Type)0.0) );
+    res = select(res, $Arg0VarName, isnan($Arg0VarName));
+    res = select(res, $Arg0VarName, isequal($Arg0VarName, ($NativeArg0Type)0.0) );
+    return res;
+  }]>;
+OclBuiltinImpl fp_soa_normalize1_promote = OclBuiltinImpl<soa_normalize1, fp_promote_types, 0, NonMaskPromote1>;
+OclBuiltinImpl fp_soa_normalize1_expand = OclBuiltinImpl<soa_normalize1, fp_expand_types, 0, Expand1>;
+// soa_normalize2
+OclBuiltinImpl fp_soa_normalize2_native = OclBuiltinImpl<soa_normalize2, fp_native_types, 0, [{
+    $Arg0Type temp_x = $Arg0VarName;
+    $Arg1Type temp_y = $Arg1VarName;
+    $NativeArg0Type length = soa_length2($Arg0VarName, $Arg1VarName);
+    *$Arg2VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg3VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
+  }]>;
+OclBuiltinImpl fp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, fp_promote_types, 0, [{
+    $NativeArg2Type temp_x;
+    $NativeArg3Type temp_y;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    soa_normalize2(n$Arg0VarName, n$Arg1VarName, &temp_x, &temp_y);
+    *$Arg2VarName = temp_x$Pattern;
+    *$Arg3VarName = temp_y$Pattern;
+  }]>;
+OclBuiltinImpl fp_soa_normalize2_expand = OclBuiltinImpl<soa_normalize2, fp_expand_types, 0, [{
+    double8 temp_x;
+    double8 temp_y;
+    soa_normalize2($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, &temp_x, &temp_y);
+    (*$Arg2VarName)$ExpandLoPattern = temp_x;
+    (*$Arg3VarName)$ExpandLoPattern = temp_y;
+    soa_normalize2($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, &temp_x, &temp_y);
+    (*$Arg2VarName)$ExpandHiPattern = temp_x;
+    (*$Arg3VarName)$ExpandHiPattern = temp_y;
+  }]>;
+// soa_normalize3
+OclBuiltinImpl fp_soa_normalize3_native = OclBuiltinImpl<soa_normalize3, fp_native_types, 0, [{
+    $Arg0Type temp_x = $Arg0VarName;
+    $Arg1Type temp_y = $Arg1VarName;
+    $Arg2Type temp_z = $Arg2VarName;
+    $NativeArg0Type length = soa_length3($Arg0VarName, $Arg1VarName, $Arg2VarName);
+    *$Arg3VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg4VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg5VarName = select(temp_z/length, temp_z, isequal(length, ($NativeArg0Type)0.0));
+  }]>;
+OclBuiltinImpl fp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, fp_promote_types, 0, [{
+    $NativeArg3Type temp_x;
+    $NativeArg4Type temp_y;
+    $NativeArg5Type temp_z;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    soa_normalize3(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, &temp_x, &temp_y, &temp_z);
+    *$Arg3VarName = temp_x$Pattern;
+    *$Arg4VarName = temp_y$Pattern;
+    *$Arg5VarName = temp_z$Pattern;
+  }]>;
+OclBuiltinImpl fp_soa_normalize3_expand = OclBuiltinImpl<soa_normalize3, fp_expand_types, 0, [{
+    double8 temp_x;
+    double8 temp_y;
+    double8 temp_z;
+    soa_normalize3($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, &temp_x, &temp_y, &temp_z);
+    (*$Arg3VarName)$ExpandLoPattern = temp_x;
+    (*$Arg4VarName)$ExpandLoPattern = temp_y;
+    (*$Arg5VarName)$ExpandLoPattern = temp_z;
+    soa_normalize3($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, &temp_x, &temp_y, &temp_z);
+    (*$Arg3VarName)$ExpandHiPattern = temp_x;
+    (*$Arg4VarName)$ExpandHiPattern = temp_y;
+    (*$Arg5VarName)$ExpandHiPattern = temp_z;
+  }]>; 
+// soa_normalize4
+OclBuiltinImpl fp_soa_normalize4_native = OclBuiltinImpl<soa_normalize4, fp_native_types, 0, [{
+    $Arg0Type temp_x = $Arg0VarName;
+    $Arg1Type temp_y = $Arg1VarName;
+    $Arg2Type temp_z = $Arg2VarName;
+    $Arg3Type temp_w = $Arg3VarName;
+    $NativeArg0Type length = soa_length4($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    *$Arg4VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg5VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg6VarName = select(temp_z/length, temp_z, isequal(length, ($NativeArg0Type)0.0));
+    *$Arg7VarName = select(temp_z/length, temp_w, isequal(length, ($NativeArg0Type)0.0));
+  }]>;
+OclBuiltinImpl fp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, fp_promote_types, 0, [{
+    $NativeArg4Type temp_x;
+    $NativeArg5Type temp_y;
+    $NativeArg6Type temp_z;
+    $NativeArg7Type temp_w;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    soa_normalize4(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, &temp_x, &temp_y, &temp_z, &temp_w);
+    *$Arg4VarName = temp_x$Pattern;
+    *$Arg5VarName = temp_y$Pattern;
+    *$Arg6VarName = temp_z$Pattern;
+    *$Arg7VarName = temp_w$Pattern;
+  }]>;
+OclBuiltinImpl fp_soa_normalize4_expand = OclBuiltinImpl<soa_normalize4, fp_expand_types, 0, [{
+    double8 temp_x;
+    double8 temp_y;
+    double8 temp_z;
+    double8 temp_w;
+    soa_normalize4($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern, &temp_x, &temp_y, &temp_z, &temp_w);
+    (*$Arg4VarName)$ExpandLoPattern = temp_x;
+    (*$Arg5VarName)$ExpandLoPattern = temp_y;
+    (*$Arg6VarName)$ExpandLoPattern = temp_z;
+    (*$Arg7VarName)$ExpandLoPattern = temp_w;
+    soa_normalize4($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern, &temp_x, &temp_y, &temp_z, &temp_w);
+    (*$Arg4VarName)$ExpandHiPattern = temp_x;
+    (*$Arg5VarName)$ExpandHiPattern = temp_y;
+    (*$Arg6VarName)$ExpandHiPattern = temp_z;
+    (*$Arg7VarName)$ExpandHiPattern = temp_w;
+  }]>; 
+  
+// soa_fast_normalize (sp only)
+// soa_fast_normalize1
+OclBuiltinImpl sp_soa_fast_normalize1_native = OclBuiltinImpl<soa_fast_normalize1, sp_native_types, 0, [{
+    return select(($NativeReturnType)-1.0, ($NativeReturnType)1.0, isgreater($Arg0VarName, ($NativeReturnType)0.0));
+  }]>;
+OclBuiltinImpl sp_soa_fast_normalize1_promote = OclBuiltinImpl<soa_fast_normalize1, sp_promote_types, 0, NonMaskPromote1>;
+// soa_fast_normalize2
+OclBuiltinImpl sp_soa_fast_normalize2_native = OclBuiltinImpl<soa_fast_normalize2, sp_native_types, 0, [{
+    $Arg0Type rnorm = half_rsqrt( $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName );
+    *$Arg2VarName = $Arg0VarName * rnorm;
+    *$Arg3VarName = $Arg1VarName * rnorm;
+  }]>;
+OclBuiltinImpl sp_soa_fast_normalize2_promote = OclBuiltinImpl<soa_fast_normalize2, sp_promote_types, 0, [{
+    $NativeArg2Type temp_x;
+    $NativeArg3Type temp_y;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    soa_fast_normalize2(n$Arg0VarName, n$Arg1VarName, &temp_x, &temp_y);
+    *$Arg2VarName = temp_x$Pattern;
+    *$Arg3VarName = temp_y$Pattern;
+  }]>;
+// soa_fast_normalize3
+OclBuiltinImpl sp_soa_fast_normalize3_native = OclBuiltinImpl<soa_fast_normalize3, sp_native_types, 0, [{
+    $Arg0Type rnorm = half_rsqrt( $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName );
+    *$Arg3VarName = $Arg0VarName * rnorm;
+    *$Arg4VarName = $Arg1VarName * rnorm;
+    *$Arg5VarName = $Arg2VarName * rnorm;
+  }]>;
+OclBuiltinImpl sp_soa_fast_normalize3_promote = OclBuiltinImpl<soa_fast_normalize3, sp_promote_types, 0, [{
+    $NativeArg3Type temp_x;
+    $NativeArg4Type temp_y;
+    $NativeArg5Type temp_z;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    soa_fast_normalize3(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, &temp_x, &temp_y, &temp_z);
+    *$Arg3VarName = temp_x$Pattern;
+    *$Arg4VarName = temp_y$Pattern;  
+    *$Arg5VarName = temp_z$Pattern;  
+  }]>;
+// soa_fast_normalize4
+OclBuiltinImpl sp_soa_fast_normalize4_native = OclBuiltinImpl<soa_fast_normalize4, sp_native_types, 0, [{
+    $Arg0Type rnorm = half_rsqrt( $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName + $Arg3VarName * $Arg3VarName );
+    *$Arg4VarName = $Arg0VarName * rnorm;
+    *$Arg5VarName = $Arg1VarName * rnorm;
+    *$Arg6VarName = $Arg2VarName * rnorm;
+    *$Arg7VarName = $Arg3VarName * rnorm;
+  }]>;
+OclBuiltinImpl sp_soa_fast_normalize4_promote = OclBuiltinImpl<soa_fast_normalize4, sp_promote_types, 0, [{
+    $NativeArg4Type temp_x;
+    $NativeArg5Type temp_y;
+    $NativeArg6Type temp_z;
+    $NativeArg7Type temp_w;
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $NativeArg3Type n$Arg3VarName; n$Arg3VarName$Pattern = $Arg3VarName;
+    soa_fast_normalize4(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName, n$Arg3VarName, &temp_x, &temp_y, &temp_z, &temp_w);
+    *$Arg4VarName = temp_x$Pattern;
+    *$Arg5VarName = temp_y$Pattern;
+    *$Arg6VarName = temp_z$Pattern;
+    *$Arg7VarName = temp_w$Pattern;
+  }]>;
+
+  

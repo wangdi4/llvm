@@ -370,3 +370,49 @@ def shuffle2_4  : OclBuiltin<"shuffle2",  (outs gentype4:$ret), (ins gentype:$x,
 def shuffle2_8  : OclBuiltin<"shuffle2",  (outs gentype8:$ret), (ins gentype:$x, gentype:$y, ugentype8:$mask), [], []>;
 def shuffle2_16 : OclBuiltin<"shuffle2",  (outs gentype16:$ret), (ins gentype:$x, gentype:$y, ugentype16:$mask), [], []>;
 }
+
+// Extended OpenCL built-in for SOA Geometry functions
+let Types = [v16f32, v8f64, v4f32, v8f32, v4f64, v16f64],
+    Attrs = [OVERLOADABLE], 
+    NeedForwardDecl = 1 in {
+def soa_dot1           : OclBuiltin<"soa_dot1",   (outs gentype:$ret), (ins gentype:$p0, gentype:$p1), [], []>;
+def soa_dot2           : OclBuiltin<"soa_dot2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p1_x, gentype:$p1_y), [], []>;
+def soa_dot3           : OclBuiltin<"soa_dot3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z), [], []>;
+def soa_dot4           : OclBuiltin<"soa_dot4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w), [], []>;
+
+def soa_length1        : OclBuiltin<"soa_length1",   (outs gentype:$ret), (ins gentype:$p0), [], []>;
+def soa_length2        : OclBuiltin<"soa_length2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y), [], []>;
+def soa_length3        : OclBuiltin<"soa_length3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z), [], []>;
+def soa_length4        : OclBuiltin<"soa_length4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w), [], []>;
+
+def soa_distance1     : OclBuiltin<"soa_distance1",   (outs gentype:$ret), (ins gentype:$p0, gentype:$p1), [], []>;
+def soa_distance2     : OclBuiltin<"soa_distance2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p1_x, gentype:$p1_y), [], []>;
+def soa_distance3     : OclBuiltin<"soa_distance3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z), [], []>;
+def soa_distance4     : OclBuiltin<"soa_distance4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w), [], []>;
+
+def soa_cross3           : OclBuiltin<"soa_cross3", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], []>;
+def soa_cross4           : OclBuiltin<"soa_cross4", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], []>;
+
+def soa_normalize1       : OclBuiltin<"soa_normalize1",   (outs gentype:$ret), (ins gentype:$p0), [], []>;
+def soa_normalize2       : OclBuiltin<"soa_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], []>;
+def soa_normalize3       : OclBuiltin<"soa_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], []>;
+def soa_normalize4       : OclBuiltin<"soa_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], []>;
+}
+let Types = [v16f32, v4f32, v8f32],
+    Attrs = [OVERLOADABLE], 
+    NeedForwardDecl = 1 in {
+def soa_fast_length1   : OclBuiltin<"soa_fast_length1",   (outs gentype:$ret), (ins gentype:$p0), [], []>;
+def soa_fast_length2   : OclBuiltin<"soa_fast_length2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y), [], []>;
+def soa_fast_length3   : OclBuiltin<"soa_fast_length3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z), [], []>;
+def soa_fast_length4   : OclBuiltin<"soa_fast_length4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w), [], []>;
+
+def soa_fast_distance1 : OclBuiltin<"soa_fast_distance1",   (outs gentype:$ret), (ins gentype:$p0, gentype:$p1), [], []>;
+def soa_fast_distance2 : OclBuiltin<"soa_fast_distance2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p1_x, gentype:$p1_y), [], []>;
+def soa_fast_distance3 : OclBuiltin<"soa_fast_distance3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z), [], []>;
+def soa_fast_distance4 : OclBuiltin<"soa_fast_distance4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w), [], []>;
+
+def soa_fast_normalize1       : OclBuiltin<"soa_fast_normalize1",   (outs gentype:$ret), (ins gentype:$p0), [], []>;
+def soa_fast_normalize2       : OclBuiltin<"soa_fast_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], []>;
+def soa_fast_normalize3       : OclBuiltin<"soa_fast_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], []>;
+def soa_fast_normalize4       : OclBuiltin<"soa_fast_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], []>;
+}
