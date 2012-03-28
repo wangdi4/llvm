@@ -676,8 +676,6 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   SmallPtrSet<Value*, 2> nonScalarizedVectors;
 
   unsigned numArguments = scalarFunction->getFunctionType()->getNumParams();
-  V_ASSERT (CI->getCalledFunction()->getFunctionType()->getNumParams() == numArguments 
-    && "scalar func arguments number mismatches vector func");
   V_ASSERT (CI->getNumArgOperands() == numArguments + argStart && "CALL arguments number error");
   // Iterate over function operands (using the operand index of the CALL instruction)
   for (unsigned argIndex = argStart; argIndex < numArguments + argStart; ++argIndex)
@@ -693,7 +691,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     if (isScalarized)
     {
       // Get scalarized values from SCM
-      obtainScalarizedValues(operand, &dummy, m_scalarizableRootsMap[CI][argIndex+1], CI);
+      obtainScalarizedValues(operand, &dummy, m_scalarizableRootsMap[CI][argIndex+1-argStart], CI);
       // Scatter the scalar values, to argument vectors of scalar function calls
       for (unsigned dup = 0; dup < vectorWidth; ++dup) {
         newArgs[dup].push_back(operand[dup]);
