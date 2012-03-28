@@ -5,10 +5,26 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
+#include <string>
+#include <assert.h>
 
 
 // The following tests replace the old "main" function of framework_test_type.
 //
+
+//BC open functions:
+void cpuBCOpen(FILE*& pIRFile){
+  FOPEN(pIRFile, "test.bc", "rb");
+}
+
+void micBCOpen(FILE*& pIRFile){
+  FOPEN(pIRFile, "mic_test.bc", "rb");
+}
+
+// CL_DEVICE_TYPE_CPU is the default device.
+cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
+
+std::map<cl_device_type, openBcFunc> gBcfuncMap;
 
 TEST(FrameworkTestType, Test_clGetDeviceIDsTest)
 {
@@ -42,7 +58,12 @@ TEST(FrameworkTestType, Test_clCreateContextTest)
 
 TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 {
-    EXPECT_TRUE(clBuildProgramWithBinaryTest());
+    std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
+	if (gBcfuncMap.end() == iter)
+	{
+		FAIL();
+	}
+    EXPECT_TRUE(clBuildProgramWithBinaryTest(iter->second));
 }
 
 
@@ -63,7 +84,12 @@ TEST(FrameworkTestType, Test_clLinkProgramTest)
 
 TEST(FrameworkTestType, Test_clCreateKernelTest)
 {
-    EXPECT_TRUE(clCreateKernelTest());
+	std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
+	if (gBcfuncMap.end() == iter)
+	{
+		FAIL();
+	}
+    EXPECT_TRUE(clCreateKernelTest(iter->second));
 }
 
 TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
@@ -376,6 +402,65 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
     EXPECT_TRUE(EventDependenciesTest());
 }
 
+template <typename T>
+class CommandLineOption{
+  std::string m_name;
+
+  T convertToT(const std::string&)const;
+public:
+  CommandLineOption(const char* cmdName);
+  T getValue(const std::string&)const;
+  bool isMatch(const std::string&)const;
+};
+
+template <typename T>
+bool CommandLineOption<T>::isMatch(const std::string& s)const{
+  size_t size = m_name.size();
+  bool b = s.substr(0, size) == m_name;
+  if (!b){
+    printf("substr=%s\n", s.substr(0, size).c_str());
+    printf("m_name=%s\n", m_name.c_str());
+    printf("%s:%d\n", __FILE__, __LINE__);
+    return false;
+  }
+  b = s.at(size) == '=';
+  if (!b){
+    printf("%s:%d\n", __FILE__, __LINE__);
+    return false;
+  }
+  return true;
+}
+
+template <typename T>
+CommandLineOption<T>::CommandLineOption(const char* cmdName):
+  m_name(cmdName){
+}
+
+template <>
+std::string CommandLineOption<std::string>::convertToT(const std::string& s)const{
+  return s;
+}
+
+template<>
+int CommandLineOption<int>::convertToT(const std::string& s)const{
+  return atoi(s.c_str());
+}
+
+template<>
+bool CommandLineOption<bool>::convertToT(const std::string& s)const{
+  return s == "true" ? true : false;
+}
+
+template <typename T>
+T CommandLineOption<T>::getValue(const std::string& cmdString)const{
+  assert(isMatch(cmdString));
+  size_t valueSeparator = cmdString.find('=');
+  assert(std::string::npos != valueSeparator);
+  return convertToT(cmdString.substr(valueSeparator+1, cmdString.size()));
+}
+
+CommandLineOption<std::string> deviceOption("--device_type");
+
 #ifdef INCLUDE_MIC_DEVICE
 TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
 {
@@ -394,7 +479,32 @@ TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
 //
 int main(int argc, char** argv)
 {
+	std::map<std::string, cl_device_type> clDeviceTypeMap;
+    gBcfuncMap[CL_DEVICE_TYPE_CPU] = cpuBCOpen;
+    gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = micBCOpen;
+	gBcfuncMap[CL_DEVICE_TYPE_GPU] = cpuBCOpen;
+	gBcfuncMap[CL_DEVICE_TYPE_DEFAULT] = cpuBCOpen;
+	gBcfuncMap[CL_DEVICE_TYPE_ALL] = cpuBCOpen;
+	clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
+	clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
+	clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
+	clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
+	clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
     ::testing::InitGoogleTest(&argc, argv);
+    if (argc > 1) {//are there still arguments left?
+      for (int i=1 ; i<argc ; i++)
+        if (deviceOption.isMatch(argv[i]))
+		{
+		  std::string deviceTypeStr = deviceOption.getValue(argv[i]);
+		  std::map<std::string, cl_device_type>::iterator iter = clDeviceTypeMap.find(deviceTypeStr);
+		  if (iter == clDeviceTypeMap.end())
+		  {
+              printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
+              return 1;
+		  }
+		  gDeviceType = iter->second;
+		}
+    }
     int rc = RUN_ALL_TESTS();
 
     if (rc == 0) {

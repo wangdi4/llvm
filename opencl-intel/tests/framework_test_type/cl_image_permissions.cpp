@@ -20,6 +20,8 @@ using namespace Intel::OpenCL::Utils;
 #define IMG_D 128
 #define BUFFER_CL_ALLOC_IMG (IMG_W * IMG_H * IMG_D * 1)
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clEnqueueRWBuffer
 **************************************************************************************************/
@@ -69,7 +71,7 @@ bool clImagePermissions()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	cl_context context = PROV_OBJ( clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet) );
+	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
@@ -77,7 +79,7 @@ bool clImagePermissions()
 	}
 	printf("context = %p\n", context);
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ls\n",ClErrTxt(iRet));

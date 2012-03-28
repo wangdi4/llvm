@@ -29,6 +29,7 @@
 #define WORK_SIZE 1	
 #define MAX_SOURCE_SIZE 2048
 
+extern cl_device_type gDeviceType;
 
 bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog, int *out){
 	cl_int err;
@@ -185,7 +186,7 @@ bool fission_logic_test(){
 	cl_device_id m_device_id;
 	cl_platform_id m_platform = 0;
 	clGetPlatformIDs(1, &m_platform, NULL);
-	clGetDeviceIDs(m_platform, CL_DEVICE_TYPE_CPU, 1, &m_device_id, NULL);
+	clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device_id, NULL);
 
     status = clGetDeviceInfo(m_device_id, CL_DEVICE_EXTENSIONS, 512, deviceExtensions, NULL);
 	if(!SilentCheck(L"clGetDeviceInfo 2 failed.(CL_DEVICE_EXTENSIONS)", CL_SUCCESS, status)) return false;
@@ -257,7 +258,7 @@ bool fission_logic_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 

@@ -11,6 +11,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clBuildProgram
 * -------------------
@@ -42,7 +44,7 @@ static void pfn_notify(cl_program program, void *user_data)
 	g_bFinished = true;
 }
 
-bool clBuildProgramWithBinaryTest()
+bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 {
 	bool bResult = true;
 
@@ -69,7 +71,7 @@ bool clBuildProgramWithBinaryTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
@@ -81,7 +83,7 @@ bool clBuildProgramWithBinaryTest()
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
@@ -107,7 +109,7 @@ bool clBuildProgramWithBinaryTest()
 	// create binary container
 	unsigned int uiContSize = sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
 	FILE* pIRfile = NULL;
-	FOPEN(pIRfile, "test.bc", "rb");
+    pFunc(pIRfile);
 	fpos_t fileSize;
 	SET_FPOS_T(fileSize, 0);
 	if ( NULL == pIRfile )

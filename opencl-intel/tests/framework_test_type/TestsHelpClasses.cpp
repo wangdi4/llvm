@@ -1,5 +1,7 @@
 #include "TestsHelpClasses.h"
 
+extern cl_device_type gDeviceType;
+
 cl_device_id baseOcl::device;
 cl_platform_id baseOcl::platform;
 cl_context baseOcl::context;
@@ -49,7 +51,7 @@ void baseOcl::initPlatform()
 void baseOcl::initDevices()
 {
 	// init Devices (only one CPU...)
-	cl_int err=clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	cl_int err=clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	ASSERT_EQ(CL_SUCCESS,err) << ERR_FUNCTION("clGetDeviceIDs");
 }
 

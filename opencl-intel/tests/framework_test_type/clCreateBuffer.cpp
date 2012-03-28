@@ -15,12 +15,14 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clCreateBufferTest
 * -------------------
-* Get device ids (CL_DEVICE_TYPE_CPU)
+* Get device ids (gDeviceType)
 * Create context
-* Create context from type (CL_DEVICE_TYPE_CPU)
+* Create context from type (gDeviceType)
 * Retain context
 * Release context
 * Get context info (CL_CONTEXT_REFERENCE_COUNT)
@@ -48,7 +50,7 @@ bool clCreateBufferTest()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	cl_context context = PROV_OBJ( clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet) );
+	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
@@ -113,7 +115,7 @@ bool clCreateSubBufferTest()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	cl_context context = PROV_OBJ( clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet) );
+	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));

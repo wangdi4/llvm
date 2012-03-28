@@ -24,6 +24,8 @@
 
 #define MAX_SOURCE_SIZE 2048
 
+extern cl_device_type gDeviceType;
+
 static volatile unsigned int uiBuildDone = 0;
 
 static void CL_CALLBACK notifyBuildDone(cl_program program, void *user_data)
@@ -60,7 +62,7 @@ bool fission_buildMultipleSubDevices_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	cl_uint numComputeUnits;

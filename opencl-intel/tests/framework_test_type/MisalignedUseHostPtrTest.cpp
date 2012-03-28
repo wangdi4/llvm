@@ -4,6 +4,8 @@
 #define NUM_VECS   1000
 #define NUM_LOOPS  100000
 
+extern cl_device_type gDeviceType;
+
 bool MisalignedUseHostPtrTest()
 {
 	printf("MisalignedUseHostPtr Test\n");
@@ -39,7 +41,7 @@ bool MisalignedUseHostPtrTest()
 	void* ptr;
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -49,7 +51,7 @@ bool MisalignedUseHostPtrTest()
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 

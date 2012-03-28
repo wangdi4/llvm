@@ -9,6 +9,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clBuildProgram
 * -------------------
@@ -54,7 +56,7 @@ bool clBuildProgramTest()
 	cl_context context;
 
 	// get device(s)
-	cl_int iRet = clGetDeviceIDs(CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	cl_int iRet = clGetDeviceIDs(gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
@@ -66,7 +68,7 @@ bool clBuildProgramTest()
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));

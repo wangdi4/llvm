@@ -17,6 +17,8 @@ using namespace Intel::OpenCL::Utils;
 
 #define BUFFER_CL_ALLOC_SIZE (4*128)
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clEnqueueRWBuffer
 **************************************************************************************************/
@@ -84,7 +86,7 @@ bool clEnqueueRWBuffer()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	cl_context context = PROV_OBJ( clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet) );
+	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
@@ -92,7 +94,7 @@ bool clEnqueueRWBuffer()
 	}
 	printf("context = %p\n", context);
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ls\n",ClErrTxt(iRet));

@@ -27,6 +27,9 @@
 	#define RETURN_TYPE_ENTRY_POINT void *
 	#define FPRINTF fprintf
 #endif
+
+typedef void (*openBcFunc)(FILE*&);
+
 bool CheckHandle(wchar_t * name, cl_platform_id expected, cl_platform_id result);
 bool CheckHandle(wchar_t * name, cl_device_id expected, cl_device_id result);
 bool CheckHandle(wchar_t * name, cl_context expected, cl_context result);
@@ -44,10 +47,10 @@ bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
 bool clGetDeviceIDsTest();
 bool clBuildProgramWithSourceTest();
-bool clBuildProgramWithBinaryTest();
+bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildProgramTwiceTest();
 bool clLinkProgramTest();
-bool clCreateKernelTest();
+bool clCreateKernelTest(openBcFunc pFunc);
 bool clExecutionTest();
 bool clCreateBufferTest();
 bool clCreateSubBufferTest();

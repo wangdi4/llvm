@@ -27,6 +27,8 @@ using namespace Intel::OpenCL::Utils;
 
 #define IMAGE1D
 
+extern cl_device_type gDeviceType;
+
 class OCLEnvTest : public ::testing::Test
 {
 protected:
@@ -71,7 +73,7 @@ protected:
 		m_prop[1] = (cl_context_properties)m_platform;
 		m_prop[2] = 0;
 
-		m_context = PROV_OBJ( clCreateContextFromType(m_prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet) );
+		m_context = PROV_OBJ( clCreateContextFromType(m_prop, gDeviceType, NULL, NULL, &iRet) );
 		if (CL_SUCCESS != iRet)
 		{
 			printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
@@ -79,7 +81,7 @@ protected:
 		}
 		//printf("context = %p\n", m_context);
 
-		iRet = clGetDeviceIDs(m_platform, CL_DEVICE_TYPE_CPU, 1, &m_clDefaultDeviceId, NULL);
+		iRet = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_clDefaultDeviceId, NULL);
 		if (CL_SUCCESS != iRet)
 		{
 			printf("clGetDeviceIDs = %ls\n",ClErrTxt(iRet));
@@ -153,6 +155,9 @@ TEST_F(EnqueueFillTest, Buffer)
 	{
 		if (pBuf[pos] != 0) ++countFillErrors;
 	}
+	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+
 	EXPECT_EQ(0, countFillErrors) << "fill with 0 "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// Fill the pattern with 1's
@@ -171,6 +176,9 @@ TEST_F(EnqueueFillTest, Buffer)
 			if (pBuf[pos] != 0) ++countFillErrors;
 		}
 	}
+	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+
 	EXPECT_EQ(0, countFillErrors) << "partial fill with 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// Fill the pattern with 2's
@@ -196,6 +204,9 @@ TEST_F(EnqueueFillTest, Buffer)
 			if (pBuf[pos] != 0) ++countFillErrors;
 		}
 	}
+	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+
 	EXPECT_EQ(0, countFillErrors) << "partial fill with 2's and 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// Fill the pattern with LENGTH_EIGHT_PATTERN
@@ -224,6 +235,9 @@ TEST_F(EnqueueFillTest, Buffer)
 			if (pBuf[pos] != 0) ++countFillErrors;
 		}
 	}
+	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+
 	EXPECT_EQ(0, countFillErrors) << "pattern fill with "LENGTH_EIGHT_PATTERN" "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 }
 

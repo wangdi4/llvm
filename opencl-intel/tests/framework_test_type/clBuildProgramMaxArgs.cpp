@@ -11,6 +11,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clBuildProgram
 * -------------------
@@ -52,7 +54,7 @@ bool clBuildProgramMaxArgsTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
@@ -64,7 +66,7 @@ bool clBuildProgramMaxArgsTest()
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;

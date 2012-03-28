@@ -18,6 +18,8 @@ using namespace Intel::OpenCL::Utils;
 //#define TASK_TEST
 //#define NATIVE_KERNEL_TEST
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * cl_execution_test - implement dot_product example
 * -------------------
@@ -158,7 +160,7 @@ bool clExecutionTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -170,7 +172,7 @@ bool clExecutionTest()
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{

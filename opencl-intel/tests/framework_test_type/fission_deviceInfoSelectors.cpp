@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 
+extern cl_device_type gDeviceType;
+
 bool fission_deviceInfoSelectors_test(){
 	printf("---------------------------------------\n");
 	printf("fission device info selectors test\n");
@@ -37,7 +39,7 @@ bool fission_deviceInfoSelectors_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 

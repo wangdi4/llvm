@@ -25,6 +25,8 @@
 #define TEST_SIZE 100
 #define TEST_COUNT 100000
 
+extern cl_device_type gDeviceType;
+
 bool EventDependenciesTest()
 {
     printf("---------------------------------------\n");
@@ -44,7 +46,7 @@ bool EventDependenciesTest()
     if (!bResult)    return bResult;
 
     // init device
-    err     = clGetDeviceIDs(platform,CL_DEVICE_TYPE_CPU,1,&device,NULL);
+    err     = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
     bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 

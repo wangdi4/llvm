@@ -42,6 +42,8 @@ using namespace Intel::OpenCL::Utils;
 #define LOCAL_SIZE 4
 #define KERNEL_NUM 7
 
+extern cl_device_type gDeviceType;
+
 size_t expected_output(char* kernel_name, int work_item)
 {
 	if(strcmp(kernel_name, "get_global_id_test") == 0) 
@@ -141,14 +143,14 @@ bool clWorkItemFunctionsTest()
 
     // Initiate test infrastructure:
     // Create context, Queue
-	cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);
+	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
     bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
 		return bResult;
 	}
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
     bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult)
 	{

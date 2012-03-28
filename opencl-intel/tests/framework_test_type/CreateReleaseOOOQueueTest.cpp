@@ -20,6 +20,8 @@
 //|
 //| No crash due to running out of memory
 
+extern cl_device_type gDeviceType;
+
 bool CreateReleaseOOOQueueTest()
 {
 	printf("CreateReleaseOOOQueueTest\n");
@@ -47,7 +49,7 @@ bool CreateReleaseOOOQueueTest()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
@@ -57,7 +59,7 @@ bool CreateReleaseOOOQueueTest()
 
 
 	pDevices = new cl_device_id[uiNumDevices];
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)

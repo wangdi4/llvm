@@ -9,13 +9,15 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 const char* kernelSource1 = "__kernel void reuse_mem(__global uchar* buf1, __global uchar* buf2) { buf1[get_global_id(0)] = buf2[get_global_id(0)]; }";
 const char* kernelSource2 = "__kernel void memset(__global uchar* buf1, uchar val) { buf1[get_global_id(0)] = val; }";
 //const char* kernelSource2 = "__kernel void memset(__global uchar* buf1, uchar val) { buf1[0] = val;}";
 
 bool reuse_mem_test()
 {
-	cl_device_type    deviceType = CL_DEVICE_TYPE_CPU;
+	cl_device_type    deviceType = gDeviceType;
 	cl_device_id      deviceId;
 	cl_device_id*     devices = NULL;
 	cl_uint           numDevices = 0;
@@ -98,7 +100,7 @@ bool memset_test()
 {
 #define MEMSET_SIZE 1
 
-	cl_device_type    deviceType = CL_DEVICE_TYPE_CPU;
+	cl_device_type    deviceType = gDeviceType;
 	cl_device_id      deviceId;
 	cl_device_id*     devices = NULL;
 	cl_uint           numDevices = 0;

@@ -11,6 +11,8 @@ using namespace Intel::OpenCL::Utils;
 
 #define BUFFER_SIZE 128
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
  * clIntegerExecuteTest
  * -------------------
@@ -52,11 +54,11 @@ bool clIntegerExecuteTest()
     // Initiate test infrastructure:
     // Create context, Queue
     //
-	cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);
+	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
     bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
     bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 

@@ -102,22 +102,32 @@ bool clBuildProgramWithSourceTest()
 	{
 		size_t szSize = 0;
 		// get the binary
-		iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &szSize, NULL);
+		iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, pBinarySizes, NULL);
 		bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
 		if (bResult)
 		{
-			char * pBinaries = new char[szSize];
-			iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, szSize, &pBinaries, NULL);
+			size_t sumBinariesSize = 0;
+			char ** pBinaries = new char*[uiNumDevices];
+			for (unsigned int i = 0; i < uiNumDevices; i++)
+			{
+				pBinaries[i] = new char[pBinarySizes[i]];
+				sumBinariesSize += pBinarySizes[i];
+			}
+			iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
 			bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
 #if __STORE_BINARY__
 			if (bResult)
 			{
 				FILE * fout;
 				fout = fopen("C:\\dot.bin", "wb");
-				fwrite(pBinaries, 1, szSize, fout);
+				fwrite(pBinaries, 1, sumBinariesSize, fout);
 				fclose(fout);
 			}
 #endif
+			for (unsigned int i = 0; i < uiNumDevices; i++)
+			{
+				delete [](pBinaries[i]);
+			}
 			delete []pBinaries;
 		}
 

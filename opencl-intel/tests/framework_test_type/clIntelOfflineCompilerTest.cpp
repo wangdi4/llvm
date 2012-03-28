@@ -45,6 +45,8 @@
 #define ERROR_RESET 1
 #define ERR_MESSAGE(message) "while executing: " << (message) ;
 
+extern cl_device_type gDeviceType;
+
 class iocOcl
 {
 public:
@@ -72,7 +74,7 @@ public:
 		ASSERT_EQ(CL_SUCCESS,err) << ERR_MESSAGE("clGetPlatformIDs");
 
 		// init Devices (only one CPU...)
-		err=clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+		err=clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 		ASSERT_EQ(CL_SUCCESS,err) << ERR_MESSAGE("clGetDeviceIDs");
 
 		//init context

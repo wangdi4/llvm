@@ -10,6 +10,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clCreateQueue
 * -------------------
@@ -43,7 +45,7 @@ bool clCreateQueueTest()
 	cl_context context;
 
 	// get device(s)
-	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	cl_int iRet = clGetDeviceIDs(NULL, gDeviceType, 0, NULL, &uiNumDevices);
 	// bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -55,7 +57,7 @@ bool clCreateQueueTest()
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(NULL, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{

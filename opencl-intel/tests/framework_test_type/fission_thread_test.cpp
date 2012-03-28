@@ -45,6 +45,9 @@ void threadFunc(void *ppParam)
 	*pParam = ((cl_uint)syscall(SYS_gettid));
 }
 #endif
+
+extern cl_device_type gDeviceType;
+
 bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue){
 	cl_int err;
 	bool res;
@@ -103,7 +106,7 @@ bool fission_thread_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 

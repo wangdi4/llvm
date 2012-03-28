@@ -7,12 +7,14 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * clCreateContextTest
 * -------------------
-* Get device ids (CL_DEVICE_TYPE_CPU)
+* Get device ids (gDeviceType)
 * Create context
-* Create context from type (CL_DEVICE_TYPE_CPU)
+* Create context from type (gDeviceType)
 * Retain context
 * Release context
 * Get context info (CL_CONTEXT_REFERENCE_COUNT)
@@ -42,20 +44,20 @@ bool clCreateContextTest()
         badProps2[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0},
         badProps3[] = { 1, 0, 0};   // unsupported property name
 
-	cl_context context_default = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= Check(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	cl_context context_default = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= Check(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
     // bad properties
-    clCreateContextFromType(badProps1, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
+    clCreateContextFromType(badProps1, gDeviceType, NULL, NULL, &iRet);
     bResult &= Check(L"Create Context from type (bad platform)", CL_INVALID_PLATFORM, iRet);
 
-    clCreateContextFromType(badProps2, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
+    clCreateContextFromType(badProps2, gDeviceType, NULL, NULL, &iRet);
     bResult &= Check(L"Create Context from type (duplicate property name)", CL_INVALID_PROPERTY, iRet);
 
-    clCreateContextFromType(badProps3, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
+    clCreateContextFromType(badProps3, gDeviceType, NULL, NULL, &iRet);
     bResult &= Check(L"Create Context from type (unsupported property name", CL_INVALID_PROPERTY, iRet);
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
 		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
@@ -63,7 +65,7 @@ bool clCreateContextTest()
 	}
 
 	pDevices = new cl_device_id[uiNumDevices];
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
@@ -80,7 +82,7 @@ bool clCreateContextTest()
 	}
 	printf("context = %p\n", context);
 
-	cl_context context2 = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);
+	cl_context context2 = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;

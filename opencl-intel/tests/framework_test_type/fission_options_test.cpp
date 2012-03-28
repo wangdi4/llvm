@@ -29,6 +29,7 @@
 #define WORK_SIZE 1	
 #define MAX_SOURCE_SIZE 2048
 
+extern cl_device_type gDeviceType;
 
 struct dummy {
 	unsigned int ui;
@@ -128,7 +129,7 @@ bool fission_options_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	cl_uint numComputeUnits;

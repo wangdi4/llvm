@@ -2,6 +2,7 @@
 #include "FrameworkTest.h"
 #include "cl_sys_defines.h"
 
+extern cl_device_type gDeviceType;
 
 typedef struct 
 {
@@ -50,7 +51,7 @@ bool clFinishTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -60,7 +61,7 @@ bool clFinishTest()
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{

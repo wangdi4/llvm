@@ -5,6 +5,8 @@
 #include "FrameworkTest.h"
 #include "FrameworkTestThreads.h"
 
+extern cl_device_type gDeviceType;
+
 /* Threads for MT context retain/release test */
 class RetainReleaseTestThread : public SynchronizedThread
 {
@@ -195,16 +197,16 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 		return;
 	}
 
-	context  = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
 		return;
 	}
 
-	iRet     = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -301,8 +303,8 @@ bool MultithreadedContextRefCount()
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	context = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= Check(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= Check(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	cl_uint uiCntxRefCnt = 0;
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
@@ -410,11 +412,11 @@ bool MultithreadedReleaseObjects()
 		//Creation phase
 		for (size_t object = 0; object < numObjects; ++object)
 		{
-			contexts[object] = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-			bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+			contexts[object] = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+			bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-			iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-			bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+			iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+			bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 			queues[object] = clCreateCommandQueue(contexts[object], deviceId, 0, &iRet);
 			bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
@@ -487,11 +489,11 @@ bool MultithreadedHelloWorld()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	//Creation phase
-	context  = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
 	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
@@ -682,11 +684,11 @@ bool MultithreadedOrderViolation()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	//Creation phase
-	context  = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
 	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
@@ -835,11 +837,11 @@ bool MultithreadedBuildTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	//Creation phase
-	context  = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 
 	SynchronizedThread* threads[numThreads];

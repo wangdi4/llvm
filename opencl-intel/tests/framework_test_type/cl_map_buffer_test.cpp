@@ -16,6 +16,8 @@ using namespace Intel::OpenCL::Utils;
 #define BUFFERS_LENGTH 20000
 #define NUM_LOOPS   4
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * cl_map_buffer_test - Implement dot product example with map/unmap API.
 * -------------------
@@ -58,14 +60,14 @@ bool clMapBufferTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 

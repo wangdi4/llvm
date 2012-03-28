@@ -6,6 +6,8 @@
 #include "FrameworkTest.h"
 using namespace Intel::OpenCL::Framework;
 
+extern cl_device_type gDeviceType;
+
 bool clGetDeviceInfoTest()
 {
 	printf("---------------------------------------\n");
@@ -32,7 +34,7 @@ bool clGetDeviceInfoTest()
 	///////////////CPU device///////////////
 
 	// clGetDeviceIDs
-	iRes = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 100, devices, NULL);
+	iRes = clGetDeviceIDs(platform, gDeviceType, 100, devices, NULL);
 	bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRes);
 
 	// invalid device
@@ -98,7 +100,11 @@ bool clGetDeviceInfoTest()
 	QueryPerformanceFrequency(&freq);
 	szNativeCodeResolution = (size_t)(1e9/freq.QuadPart);
 #endif
-	bResult &= CheckSize(L"CL_DEVICE_PROFILING_TIMER_RESOLUTION", szNativeCodeResolution, szResolution);
+	// The above implementation does not suitable to MIC.
+	if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
+	{
+		bResult &= CheckSize(L"CL_DEVICE_PROFILING_TIMER_RESOLUTION", szNativeCodeResolution, szResolution);
+	}
 
 	// max work item dimentions
 	// all OK

@@ -36,6 +36,7 @@
 	#define FLUSHALL() fflush(NULL)
 #endif
 
+extern cl_device_type gDeviceType;
 
 bool restore_stdout(FILE* outfile ,int old_stdout){
 	if (outfile==NULL){
@@ -802,11 +803,11 @@ bool MultithreadedPrintf()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	//Creation phase
-	context  = clCreateContextFromType(prop, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (CL_DEVICE_TYPE_DEFAULT)", CL_SUCCESS, iRet);
+	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
 	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
@@ -874,7 +875,7 @@ bool printf_test(){
 		}
 
 		// init Devices (only one CPU...)
-		err=clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+		err=clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 		bResult=SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_END;

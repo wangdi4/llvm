@@ -15,6 +15,8 @@ using namespace Intel::OpenCL::Utils;
 #define BUFFERS_LENGTH 10000
 #define REPEATS 5
 
+extern cl_device_type gDeviceType;
+
 /**************************************************************************************************
 * cl_execution_test - Out of order test
 * -------------------
@@ -43,7 +45,7 @@ bool clOutOfOrderTest()
 	cl_context context;
 
 	// get device(s)
-	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	cl_int iRet = clGetDeviceIDs(NULL, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -52,7 +54,7 @@ bool clOutOfOrderTest()
 
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
-	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(NULL, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -206,7 +208,7 @@ bool clOODotProductTest( int iNumLoops )
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -215,7 +217,7 @@ bool clOODotProductTest( int iNumLoops )
 
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
@@ -389,12 +391,12 @@ bool clQuickExecutionTest()
 	cl_context context;
 
 	// get device(s)
-	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	cl_int iRet = clGetDeviceIDs(NULL, gDeviceType, 0, NULL, &uiNumDevices);
 
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 
-	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(NULL, gDeviceType, uiNumDevices, pDevices, NULL);
 
 	// create context
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);

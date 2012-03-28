@@ -4,6 +4,7 @@
 
 #define BUFFERS_LENGTH 20000
 
+extern cl_device_type gDeviceType;
 
 /**************************************************************************************************
  * Native Kernel test 
@@ -67,7 +68,7 @@ bool clStructTest()
 	}
 
 	// get device
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{

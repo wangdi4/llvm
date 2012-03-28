@@ -7,6 +7,8 @@
 #include "FrameworkTest.h"
 using namespace Intel::OpenCL::Framework;
 
+extern cl_device_type gDeviceType;
+
 bool clGetDeviceIDsTest()
 {
 	printf("---------------------------------------\n");
@@ -56,7 +58,14 @@ bool clGetDeviceIDsTest()
 	// CL_DEVICE_TYPE_ACCELERATOR
 	devices[0] = 0;
 	iRes = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 100, devices, NULL);
-	bResult &= Check(L"CL_DEVICE_TYPE_ACCELERATOR", CL_DEVICE_NOT_FOUND, iRes);
+	if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
+	{
+		bResult &= Check(L"CL_DEVICE_TYPE_ACCELERATOR", CL_DEVICE_NOT_FOUND, iRes);
+	}
+	else
+	{
+		bResult &= Check(L"CL_DEVICE_TYPE_ACCELERATOR", CL_SUCCESS, iRes);
+	}
 	
 	// CL_DEVICE_TYPE_DEFAULT
 	devices[0] = 0;
@@ -86,7 +95,14 @@ bool clGetDeviceIDsTest()
 	// CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR
 	devices[0] = 0;
 	iRes = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, 100, devices, NULL);
-	bResult &= Check(L"CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR", CL_DEVICE_NOT_FOUND, iRes);
+	if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
+	{
+		bResult &= Check(L"CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR", CL_DEVICE_NOT_FOUND, iRes);
+	}
+	else
+	{
+		bResult &= Check(L"CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR", CL_SUCCESS, iRes);
+	}
 	
 	// CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_DEFAULT
 	devices[0] = 0;

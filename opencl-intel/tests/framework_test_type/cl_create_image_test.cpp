@@ -31,6 +31,8 @@
 #define IMAGE_ARRAY_SIZE    10
 #define PITCH_RATIO         1.4
 
+extern cl_device_type gDeviceType;
+
 static void FillData(char* pData, size_t szSize)
 {
     for (size_t i = 0; i < szSize; i++)
@@ -641,12 +643,12 @@ bool clCreateImageTest()
     {
         iRet = clGetPlatformIDs(1, &platform, NULL);
         CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
-        iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+        iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
         size_t szSize;
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
-        context = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);    
+        context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);    
         CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);    
         queue = clCreateCommandQueue(context, device, 0, &iRet);
         CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);

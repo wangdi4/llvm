@@ -22,6 +22,8 @@
 #define WORK_SIZE 1	
 #define MAX_SOURCE_SIZE 2048
 
+extern cl_device_type gDeviceType;
+
 bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog,char *out){
 	cl_int err;
 	cl_kernel kernel;
@@ -202,7 +204,7 @@ bool api_test(){
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...) should succeed
-	err = clGetDeviceIDs(platform,CL_DEVICE_TYPE_DEFAULT,1,&device,NULL);
+	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
@@ -243,7 +245,7 @@ bool api_test(){
 	inv_prop2[0] = -1; // invalid property name 
 	inv_prop2[1] = (cl_context_properties)platform; 
 	inv_prop2[2] = 0; 
-	context = clCreateContextFromType(inv_prop2, CL_DEVICE_TYPE_DEFAULT, NULL, NULL, &err);
+	context = clCreateContextFromType(inv_prop2, gDeviceType, NULL, NULL, &err);
 	bResult = SilentCheck(L"clCreateContextFromType, CSSD100012446",CL_INVALID_PROPERTY,err);
 	if (!bResult)	return bResult;
 
