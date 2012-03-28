@@ -1,6 +1,10 @@
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
 add_subdirectory( debugger_test_type )
+if ( INCLUDE_MIC_DEVICE )
+    add_subdirectory( mic_device_test_type )
+endif( INCLUDE_MIC_DEVICE )
+
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
 if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
