@@ -114,8 +114,11 @@ private:
   /// @param exitBlock   exit block of the region
   /// @param footer      footer basic block of the bypass
   /// @param isOneMask   'true' if mask of the bypass is to be all-one
-   void propagateMask( Value *mask_target, BasicBlock *header, BasicBlock *exitBlock, 
+  void propagateMask( Value *mask_target, BasicBlock *header, BasicBlock *exitBlock, 
                       BasicBlock *footer, bool isOneMask);
+  /// @brief Helper which returns 'true' if region has a successor or 'false' otherwise
+  /// @param reg Region in question
+  bool RegionHasSuccessor( Region * reg);
 
 private:
   /// Predicator pass

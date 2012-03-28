@@ -91,6 +91,13 @@ bool FunctionSpecializer::CanSpecialize() {
   return true;
 }
 
+bool FunctionSpecializer::RegionHasSuccessor( Region * reg) {
+	BasicBlock *exit = reg->getExit();
+	if (!exit) return false;
+    if (succ_begin(exit) == succ_end(exit)) return false;
+	return true;
+}
+
 void FunctionSpecializer::CollectDominanceInfo() {
 
   // If we did not enable specialization, do not collect any jump edges
@@ -104,9 +111,10 @@ void FunctionSpecializer::CollectDominanceInfo() {
     V_ASSERT(reg && "getRegionFor failed!");
     // Look for every region only once - upon its entry BB
     if (reg->getEntry() != bb) continue;
-    // Accounting for the case of nested regions, starting from this BB: select the outmost one
+    // Accounting for the case of nested regions, starting from this BB: 
+	// select the outmost one which has a successor
     Region *cur_reg = reg;
-    while (cur_reg && cur_reg->getEntry() == bb) {
+    while (cur_reg && cur_reg->getEntry() == bb && RegionHasSuccessor(cur_reg)) {
       reg = cur_reg;
       cur_reg = cur_reg->getParent();
     }
@@ -126,7 +134,7 @@ void FunctionSpecializer::CollectDominanceInfo() {
     llvm::pred_iterator predE  = pred_end(entry);
     BasicBlock* head = NULL;     
     for (; predIt!=predE; ++predIt) {
-      if (reg->contains(*predIt)) continue;
+      if (reg->contains(*predIt) || *predIt == reg->getExit()) continue;
       if (head) { 
         // Region's entry has two incoming edges - discard it for specialization
         head = NULL;
