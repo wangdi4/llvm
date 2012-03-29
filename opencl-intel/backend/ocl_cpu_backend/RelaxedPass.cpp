@@ -43,6 +43,8 @@ using namespace std;
 
 #define INSERT_MAP_TO_NATIVE(map,func,type,length,native_length) \
     map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
+
+// native built-ins, one argument, float version
 #define RELAXED_P1_vX(map, func, length, native_length)											\
     INSERT_MAP_TO_NATIVE(map,func,"f",length,native_length)               \
     INSERT_MAP_TO_NATIVE(map,func,"Dv2_f",length,native_length)    \
@@ -51,6 +53,16 @@ using namespace std;
     INSERT_MAP_TO_NATIVE(map,func,"Dv8_f",length,native_length)    \
     INSERT_MAP_TO_NATIVE(map,func,"Dv16_f",length,native_length)
 
+// native built-ins, one argument, double version
+#define RELAXED_P1_vX_D(map, func, length, native_length)											\
+    INSERT_MAP_TO_NATIVE(map,func,"d",length,native_length)               \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv2_d",length,native_length)    \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv3_d",length,native_length)    \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv4_d",length,native_length)    \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv8_d",length,native_length)    \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv16_d",length,native_length)
+
+// native built-ins, two argument, float version
 #define RELAXED_P2_vX_vY(map, func, length, native_length)													\
     INSERT_MAP_TO_NATIVE(map,func,"ff",length,native_length)              \
     INSERT_MAP_TO_NATIVE(map,func,"Dv2_fS_",length,native_length)  \
@@ -59,6 +71,16 @@ using namespace std;
     INSERT_MAP_TO_NATIVE(map,func,"Dv8_fS_",length,native_length)  \
     INSERT_MAP_TO_NATIVE(map,func,"Dv16_fS_",length,native_length)
 
+// native built-ins, two argument, double version
+#define RELAXED_P2_vX_vY_D(map, func, length, native_length)													\
+    INSERT_MAP_TO_NATIVE(map,func,"dd",length,native_length)              \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv2_dS_",length,native_length)  \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv3_dS_",length,native_length)  \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv4_dS_",length,native_length)  \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv8_dS_",length,native_length)  \
+    INSERT_MAP_TO_NATIVE(map,func,"Dv16_dS_",length,native_length)
+
+// native built-ins, two argument(vector, scalar), double version
 #define RELAXED_P2_vX_sY(map, func, length, native_length)												\
     INSERT_MAP_TO_NATIVE(map,func,"ff",length,native_length)              \
     INSERT_MAP_TO_NATIVE(map,func,"Dv2_ff",length,native_length)   \
@@ -82,6 +104,7 @@ class RelaxedPass : public ModulePass
 public:
 	RelaxedPass() : ModulePass(ID)
 	{  
+    // float version of native built-ins
 		RELAXED_P1_vX(m_relaxedFunctions, tan, 3, 10);
 		RELAXED_P1_vX(m_relaxedFunctions, sin, 3, 10);
 		RELAXED_P1_vX(m_relaxedFunctions, log, 3, 10);
@@ -91,12 +114,28 @@ public:
 		RELAXED_P1_vX(m_relaxedFunctions, exp2, 4, 11);
 		RELAXED_P1_vX(m_relaxedFunctions, log2, 4, 11);
 		RELAXED_P1_vX(m_relaxedFunctions, sqrt, 4, 11);
-		RELAXED_P1_vX(m_relaxedFunctions, recip, 5, 12);
+	// RELAXED_P1_vX(m_relaxedFunctions, recip, 5, 12);// there is no recip BI in the spec, there for we can't replace it with native_recip
 		RELAXED_P1_vX(m_relaxedFunctions, rsqrt, 5, 12);
 		RELAXED_P1_vX(m_relaxedFunctions, log10, 5, 12);
 		RELAXED_P1_vX(m_relaxedFunctions, exp10, 5, 12);
 		RELAXED_P1_vX(m_relaxedFunctions, ilogb, 5, 12);
 		//RELAXED_P1_ALL(m_relaxedFunctions, divide, 6, 13);
+
+    // double version of native built-ins
+    RELAXED_P1_vX_D(m_relaxedFunctions, tan, 3, 10);
+		RELAXED_P1_vX_D(m_relaxedFunctions, sin, 3, 10);
+    RELAXED_P1_vX_D(m_relaxedFunctions, log, 3, 10);
+		RELAXED_P1_vX_D(m_relaxedFunctions, exp, 3, 10);
+		RELAXED_P1_vX_D(m_relaxedFunctions, cos, 3, 10);
+		RELAXED_P1_vX_D(m_relaxedFunctions, exp2, 4, 11);
+		RELAXED_P1_vX_D(m_relaxedFunctions, log2, 4, 11);
+		RELAXED_P1_vX_D(m_relaxedFunctions, sqrt, 4, 11);
+		RELAXED_P1_vX_D(m_relaxedFunctions, rsqrt, 5, 12);
+		RELAXED_P1_vX_D(m_relaxedFunctions, log10, 5, 12);
+		RELAXED_P1_vX_D(m_relaxedFunctions, exp10, 5, 12);
+		
+    RELAXED_P2_vX_vY_D(m_relaxedFunctions, powr, 4, 11);
+    RELAXED_P2_vX_vY_D(m_relaxedFunctions, hypot, 5, 12);
 
 		RELAXED_P2_vX_vY(m_relaxedFunctions, fdim, 4, 11);
 		RELAXED_P2_vX_vY(m_relaxedFunctions, fmod, 4, 11);
@@ -109,6 +148,69 @@ public:
 		RELAXED_P2_vX_sY(m_relaxedFunctions, fmin, 4, 11);
 
 		RELAXED_P2_vX_pY(m_relaxedFunctions, fract, 5, 12);
+
+    // non-spec native-BI
+    RELAXED_P1_vX(m_relaxedFunctions, acos, 4, 11);
+    RELAXED_P1_vX_D(m_relaxedFunctions, acos, 4, 11);
+    
+    RELAXED_P1_vX(m_relaxedFunctions, acosh, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, acosh, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, acospi, 6, 13);
+    RELAXED_P1_vX_D(m_relaxedFunctions, acospi, 6, 13);
+
+    RELAXED_P1_vX(m_relaxedFunctions, asin, 4, 11);
+    RELAXED_P1_vX_D(m_relaxedFunctions, asin, 4, 11);
+
+    RELAXED_P1_vX(m_relaxedFunctions, asinh, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, asinh, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, asinpi, 6, 13);
+    RELAXED_P1_vX_D(m_relaxedFunctions, asinpi, 6, 13);
+
+    RELAXED_P1_vX(m_relaxedFunctions, atan, 4, 11);
+    RELAXED_P1_vX_D(m_relaxedFunctions, atan, 4, 11);
+
+    RELAXED_P1_vX(m_relaxedFunctions, atanh, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, atanh, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, atanpi, 6, 13);
+    RELAXED_P1_vX_D(m_relaxedFunctions, atanpi, 6, 13);
+
+    RELAXED_P2_vX_vY(m_relaxedFunctions, atan2, 5, 12);
+    RELAXED_P2_vX_vY_D(m_relaxedFunctions, atan2, 5, 12);
+
+    RELAXED_P2_vX_vY(m_relaxedFunctions, atan2pi, 7, 14);
+    RELAXED_P2_vX_vY_D(m_relaxedFunctions, atan2pi, 7, 14);
+
+    RELAXED_P1_vX(m_relaxedFunctions, cbrt, 4, 11);
+    RELAXED_P1_vX_D(m_relaxedFunctions, cbrt, 4, 11);
+
+    RELAXED_P1_vX(m_relaxedFunctions, cospi, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, cospi, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, erfc, 4, 11);
+    RELAXED_P1_vX_D(m_relaxedFunctions, erfc, 4, 11);
+
+    RELAXED_P1_vX(m_relaxedFunctions, erf, 3, 10);
+    RELAXED_P1_vX_D(m_relaxedFunctions, erf, 3, 10);
+
+    RELAXED_P1_vX(m_relaxedFunctions, expm1, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, expm1, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, log1p, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, log1p, 5, 12);
+
+    RELAXED_P2_vX_vY(m_relaxedFunctions, pow, 3, 10);
+    RELAXED_P2_vX_vY_D(m_relaxedFunctions, pow, 3, 10);
+
+    RELAXED_P1_vX(m_relaxedFunctions, sinpi, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, sinpi, 5, 12);
+
+    RELAXED_P1_vX(m_relaxedFunctions, tanpi, 5, 12);
+    RELAXED_P1_vX_D(m_relaxedFunctions, tanpi, 5, 12);
+
+
 	}
 
 	// doPassInitialization - For this pass, it removes global symbol table

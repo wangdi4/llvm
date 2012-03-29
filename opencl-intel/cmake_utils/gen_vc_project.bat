@@ -122,6 +122,8 @@ if %use_x64% == ON set BUILD_CONFIG=win64
 set conformance_list=^
     clconf_harness ^
     bruteforce ^
+    native_bruteforce ^
+    relaxed_bruteforce ^
     computeinfo ^
     contractions ^
     test_allocations ^

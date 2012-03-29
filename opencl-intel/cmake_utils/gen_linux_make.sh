@@ -180,7 +180,7 @@ echo
 echo Starting to work at: `pwd -P`
 echo
 
-conformance_list="test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep"
+conformance_list="test_api test_atomics test_basic test_buffers test_commonfns test_compiler computeinfo contractions test_conversions test_events test_geometrics test_gl test_half test_headers test_cl_h test_cl_platform_h test_cl_gl_h test_opencl_h test_cl_copy_images test_cl_get_info test_cl_read_write_images test_kernel_image_methods test_image_streams test_integer_ops bruteforce native_bruteforce relaxed_bruteforce test_multiples test_profiling test_relationals test_select test_thread_dimensions test_vecalign test_vecstep"
 
 cmake -G "$generator" \
     ${eclipse_extra_args} \

@@ -962,9 +962,14 @@ extern "C" {
 		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(x,y);								\
 	}																				
 
-// TODO: need to be fixed to calling native_svml_float8 instend of float4
-// 25/10/11 was problem with the accuracy of native_svml_float8.
-
+#if defined(__AVX__)
+#define OCL_SVML_NATIVE_P2_F8_F8_F8(func,svmlfunc)											\
+  __attribute__((svmlcc)) float8 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f8)(float8, float8);		\
+	__attribute__((overloadable)) float8 func(float8 x, float8 y)								\
+	{																				\
+		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f8)(x, y);							\
+	}														
+#else
 #define OCL_SVML_NATIVE_P2_F8_F8_F8(func,svmlfunc)											\
   __attribute__((svmlcc)) float4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
 	__attribute__((overloadable)) float8 func(float8 x, float8 y)								\
@@ -974,13 +979,27 @@ extern "C" {
 		res.hi = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(x.hi, y.hi);							\
 		return res;																	\
 	}														
+#endif
 
+
+#define OCL_SVML_NATIVE_P2_F16_F16_F16(func,svmlfunc)											\
+	__attribute__((overloadable)) float16 func(float16 x, float16 y)							\
+	{																				\
+    float16 res;                          \
+    res.lo = func(x.lo, y.lo);								\
+    res.hi = func(x.hi, y.hi);								\
+		return res;                           \
+	}																				
+
+/*
 #define OCL_SVML_NATIVE_P2_F16_F16_F16(func,svmlfunc)											\
 	__attribute__((svmlcc)) float16 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f16)(float16, float16 y);	\
 	__attribute__((overloadable)) float16 func(float16 x, float16 y)							\
 	{																				\
 		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f16)(x, y);								\
 	}																				
+*/
+
 
 #define OCL_SVML_NATIVE_P2_D1_D1_D1(func,svmlfunc)											\
 	__attribute__((svmlcc)) double OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##1)(double, double);								\
@@ -1015,21 +1034,31 @@ extern "C" {
 	{																				\
 		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x,y);								\
 	}					
-
+#if defined (__AVX__)
 #define OCL_SVML_NATIVE_P2_D8_D8_D8(func,svmlfunc)											\
 	__attribute__((svmlcc)) double8 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(double8, double8);								\
 	__attribute__((overloadable)) double8 func(double8 x, double8 y)							\
 	{																				\
 		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(x, y);								\
 	}																				
+#else 
+#define OCL_SVML_NATIVE_P2_D8_D8_D8(func,svmlfunc)											\
+	__attribute__((svmlcc)) double4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(double4, double4);								\
+	__attribute__((overloadable)) double8 func(double8 x, double8 y)							\
+	{																				\
+	  double8 res;																\
+    res.lo = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x.lo, y.lo);							\
+    res.hi = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x.hi, y.hi);							\
+    return res;																	\
+	}																				
+#endif
 
 #define OCL_SVML_NATIVE_P2_D16_D16_D16(func,svmlfunc)											\
-    __attribute__((svmlcc)) double8 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(double8, double8);							\
     __attribute__((overloadable)) double16 func(double16 x, double16 y)							\
     {																				\
     double16 res;																\
-    res.lo = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(x.lo, y.lo);							\
-    res.hi = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(x.hi, y.hi);							\
+    res.lo = func(x.lo, y.lo);							\
+    res.hi = func(x.hi, y.hi);							\
     return res;																	\
     }					
 
@@ -3725,9 +3754,6 @@ OCL_INTR_P2_vFvFvF_vDvDvD_ALL_AS_F4(copysign)
 OCL_INTR_P2_vFvFvF_vDvDvD_ALL_AS_F4(fdim)
 #endif //defined(__AVX__)
 
-
-
-
 #if defined(__AVX__)
 OCL_INTR_P2_vFvFF_ALL_AS_F8(fmin)
 OCL_INTR_P2_vFvFF_ALL_AS_F8(fmax)
@@ -3852,6 +3878,31 @@ OCL_SVML_NATIVE_P1_vFvF_ALL(native_log,log)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_log2,log2)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_log10,log10)
 OCL_SVML_NATIVE_P2_vFvFvF_ALL(native_powr,powr)
+
+/* non-spec native BI, will use when user turn -cl-fast-relaxed-math */
+
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_acos,acos)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_acosh,acosh)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_acospi,acospi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_asin,asin)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_asinh,asinh)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_asinpi,asinpi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_atan,atan)
+OCL_SVML_NATIVE_P2_vFvFvF_ALL(native_atan2,atan2)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_atanh,atanh)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_atanpi,atanpi)
+OCL_SVML_NATIVE_P2_vFvFvF_ALL(native_atan2pi,atan2pi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_cbrt,cbrt)
+OCL_SVML_NATIVE_P2_vFvFvF_ALL(native_pow, pow)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_cospi,cospi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_erfc,erfc)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_erf,erf)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_log1p,log1p)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_sinpi,sinpi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_tanpi,tanpi)
+OCL_SVML_NATIVE_P1_vFvF_ALL(native_expm1,expm1)
+
+/* non-spec - end */
 
 #if defined(__AVX__)
 OCL_INTR_P2_vFvFvF_INTR_vDvDvD_ALL_AS_F8D4(native_divide)
