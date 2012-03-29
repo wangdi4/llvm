@@ -224,6 +224,7 @@ cl_err_code Device::CreateInstance()
 
 cl_err_code Device::CloseDeviceInstance()
 {
+	OclAutoMutex CS(&m_deviceInitializationMutex);
     LOG_DEBUG(TEXT("%S"), TEXT("CloseDeviceInstance enter"));
 	if (0 == --m_pDeviceRefCount)
 	{
