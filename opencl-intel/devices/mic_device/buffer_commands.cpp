@@ -312,8 +312,8 @@ bool ReadWriteMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, c
 	else
 	{
 		result = COIBufferWrite (m_buffer,				    // Buffer to write to.
-							     chunk.from_offset,			// Location in the buffer to start writing from.
-							     m_ptr+chunk.to_offset,		// A pointer to local memory that should be read from.
+							     chunk.to_offset,			// Location in the buffer to start writing from.
+							     m_ptr+chunk.from_offset,		// A pointer to local memory that should be read from.
 							     chunk.size,				// The number of bytes to write from host into coiBuffer.
 							     COI_COPY_UNSPECIFIED,		// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
 							     num_dependencies,			// The number of dependencies specified.
