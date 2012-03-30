@@ -22,8 +22,97 @@ class VectorSVMLSuffixString<string base, int len> {
                   !if(!eq(len, 16), "16",
                   "__invalid__"))))));
   string TypeName = !subst("double",  "",
+                    !subst("long",    "",
+                    !subst("ulong",   "",
                     !subst("float",   "f",
-                      base));
+                    !subst("int",     "f",
+                    !subst("uint",    "f",
+                    !subst("short",   "f",
+                    !subst("ushort",  "f",
+                    !subst("char",    "f",
+                    !subst("uchar",   "f",
+                      base))))))))));
+  string Value = !strconcat(TypeName, Length);
+}
+
+// FIXME: SVMLDSuffix/SVMLFSuffix are added as hack without refactoring rewrite
+// pattern seriously.
+// Here are some initial thoughts on rewrite patterns:
+// + rewrite pattern should be enclosed by '${' and '}' to enable it being
+//   embedded even for the following case:
+//
+//    foo${PAT}bar.
+//
+//   the current design cannot handle this as it assume the delimiter is
+//   non-alphanum. It also enable the put almost anything in the enclosed text.
+//
+// + rewrite patterns have two categories, i.e. with parameters or not, e.g.
+//   'Ret' refers to the return variable and has no extra parameters, 'Arg'
+//   refers to the Nth input argument and has one extra parameter to specify
+//   the order of input arguments. One comprehensive example would be:
+//
+//    ${igentype(Arg(1))}
+//
+//   will be rewritten into the type of the 1st argument (counting from 0)
+//   after type generator igentype.
+//
+//   All type generators specified in the *.td file could be used the rewrite
+//   pattern with one extra parameter of the input type. In addition,
+//   'nngentype' is used to get the next native type of the given input type.
+//
+// With such refactoring, lots of existing rewrite patterns will be replaced as
+// the combination of these basic ones. E.g.,
+//
+// $ReturnType == ${type(Ret)}
+// $ReturnName == ${name(Ret)}
+// $Arg0VecType == ${vgentype(type(Arg(0)),len(Arg(0)))}
+// $SVMLSuffix == ${svmlsuffix(type(Ret))} or ${svmlsuffix(type(Arg(0)))}
+//
+// It will be accurate to specify the type of either argument type or return
+// type for some rewrite patterns, such as SVMLSuffix, where we have to play
+// workaround in existing code.
+//
+class VectorSVMLDSuffixString<string base, int len> {
+  string Length = !if(!eq(len,  1),  "1",
+                  !if(!eq(len,  2),  "2",
+                  !if(!eq(len,  3),  "3",
+                  !if(!eq(len,  4),  "4",
+                  !if(!eq(len,  8),  "8",
+                  !if(!eq(len, 16), "16",
+                  "__invalid__"))))));
+  string TypeName = !subst("double",  "",
+                    !subst("long",    "",
+                    !subst("ulong",   "",
+                    !subst("float",   "",
+                    !subst("int",     "",
+                    !subst("uint",    "",
+                    !subst("short",   "",
+                    !subst("ushort",  "",
+                    !subst("char",    "",
+                    !subst("uchar",   "",
+                      base))))))))));
+  string Value = !strconcat(TypeName, Length);
+}
+
+class VectorSVMLFSuffixString<string base, int len> {
+  string Length = !if(!eq(len,  1),  "1",
+                  !if(!eq(len,  2),  "2",
+                  !if(!eq(len,  3),  "3",
+                  !if(!eq(len,  4),  "4",
+                  !if(!eq(len,  8),  "8",
+                  !if(!eq(len, 16), "16",
+                  "__invalid__"))))));
+  string TypeName = !subst("double",  "f",
+                    !subst("long",    "f",
+                    !subst("ulong",   "f",
+                    !subst("float",   "f",
+                    !subst("int",     "f",
+                    !subst("uint",    "f",
+                    !subst("short",   "f",
+                    !subst("ushort",  "f",
+                    !subst("char",    "f",
+                    !subst("uchar",   "f",
+                      base))))))))));
   string Value = !strconcat(TypeName, Length);
 }
 
@@ -34,6 +123,8 @@ class OclType<string name, string base, int length, int width, bit ptr> {
   int BitWidth = width;
   string Suffix = VectorSuffixString<VecLength>.Value;
   string SVMLSuffix = VectorSVMLSuffixString<BaseCTypeName, VecLength>.Value;
+  string SVMLDSuffix = VectorSVMLDSuffixString<BaseCTypeName, VecLength>.Value;
+  string SVMLFSuffix = VectorSVMLFSuffixString<BaseCTypeName, VecLength>.Value;
   string CTypeName = !strconcat(BaseCTypeName, Suffix);
   bit IsPtr = ptr;
 }
@@ -382,6 +473,32 @@ def u64gentype : OclGenType<"u64gentype"> {
   list<string> T6 = !foreach(n,  T5, !subst("i64", "u64", n));
   list<string> T7 = !foreach(n,  T6, !subst("f32", "u64", n));
   list<string> T8 = !foreach(n,  T7, !subst("f64", "u64", n));
+  list<string> Tout = T8;
+}
+// f32gentype: 'vNtM' -> 'vNf32'
+def f32gentype : OclGenType<"u32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "f32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "f32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "f32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "f32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "f32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u32", "f32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("i64", "f32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("u64", "f32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "f32", n));
+  list<string> Tout = T8;
+}
+// f64gentype: 'vNtM' -> 'vNf64'
+def f64gentype : OclGenType<"i64gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "f64", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "f64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "f64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "f64", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "f64", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u32", "f64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("i64", "f64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("u64", "f64", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f32", "f64", n));
   list<string> Tout = T8;
 }
 // rf2igentype: 'vNf32' -> 'vNi32', 'vNf64' -> 'vNi64', 'v1f32' -> 'v1i32', 'v1f64' -> 'v1i32'

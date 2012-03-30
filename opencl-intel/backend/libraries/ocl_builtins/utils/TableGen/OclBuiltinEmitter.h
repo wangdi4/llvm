@@ -72,6 +72,10 @@ public:
 
   const std::string& getSVMLSuffix() const { return m_SVMLSuffix; }
 
+  const std::string& getSVMLDSuffix() const { return m_SVMLDSuffix; }
+
+  const std::string& getSVMLFSuffix() const { return m_SVMLFSuffix; }
+
   int getVecLength() const { return m_VecLength; }
 
   bool isPointer() const { return m_IsPtr; }
@@ -90,6 +94,8 @@ protected:
   int m_BitWidth;
   std::string m_Suffix;
   std::string m_SVMLSuffix;
+  std::string m_SVMLDSuffix;
+  std::string m_SVMLFSuffix;
   bool m_IsPtr;
   bool m_Native;
 };
@@ -122,7 +128,13 @@ public:
   explicit OclBuiltin(const OclBuiltinDB&, const Record*);
   virtual ~OclBuiltin();
 
+  std::string getReturnSym(const std::string&, const std::string&) const;
+
+  std::string getArgumentSym(unsigned, const std::string&, const std::string&) const;
+
   std::string getReturnCType(const std::string&) const;
+
+  std::string getReturnBaseCType(const std::string&) const;
 
   std::string getReturnCName(const std::string&) const;
 
@@ -131,6 +143,8 @@ public:
   std::string getArgumentCVecType(unsigned, const std::string&, int) const;
 
   std::string getArgumentCNoASType(unsigned, const std::string&) const;
+
+  std::string getArgumentCGenType(unsigned, const std::string&, const std::string&) const;
 
   std::string getArgumentCName(unsigned, const std::string&) const;
 

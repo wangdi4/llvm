@@ -3,13 +3,14 @@
 include "opencl-builtin.td"
 include "opencl-v1.2.td"
 
+include "ll_intrinsics.td"
 include "SVML.td"
 
 class Generic : TargetImpl {
 
   code Prolog = [{
   #include <intrin.h>
-  #include <generic-builtin-defines.h>
+  #include "generic-builtin-defines.h"
   }];
   code Epilog = [{}];
 
@@ -98,4 +99,6 @@ class Generic : TargetImpl {
 include "GENERIC/math.td"
 include "GENERIC/integer.td"
 include "GENERIC/common.td"
+include "GENERIC/conversion.td"
+include "GENERIC/conversion_sat.td"
 }

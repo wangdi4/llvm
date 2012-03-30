@@ -86,6 +86,8 @@ OclType::OclType(const OclBuiltinDB& DB, const Record* R)
 , m_BitWidth(R->getValueAsInt("BitWidth"))
 , m_Suffix(R->getValueAsString("Suffix"))
 , m_SVMLSuffix(R->getValueAsString("SVMLSuffix"))
+, m_SVMLDSuffix(R->getValueAsString("SVMLDSuffix"))
+, m_SVMLFSuffix(R->getValueAsString("SVMLFSuffix"))
 , m_IsPtr(R->getValueAsBit("IsPtr"))
 , m_Native(false)
 {
@@ -335,6 +337,31 @@ OclBuiltin::~OclBuiltin()
 }
 
 std::string
+OclBuiltin::getReturnSym(const std::string& Generator, const std::string& TyName) const
+{
+  std::string ret;
+
+  if (m_Outputs.size() == 0)
+    return "void";
+
+  assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
+
+  const OclType* g = m_DB.getOclType(Generator);
+  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
+  return g->getGenType(GT);
+}
+
+std::string
+OclBuiltin::getArgumentSym(unsigned i, const std::string& Generator, const std::string& TyName) const
+{
+  assert(i < m_Inputs.size() && "Argument index is out of bound.");
+
+  const OclType* g = m_DB.getOclType(Generator);
+  const std::string& GT =  m_Inputs[i].first->getGenType(TyName);
+  return g->getGenType(GT);
+}
+
+std::string
 OclBuiltin::getReturnCType(const std::string& TyName) const
 {
   std::string ret;
@@ -349,6 +376,23 @@ OclBuiltin::getReturnCType(const std::string& TyName) const
   assert(T && "Invalid type found.");
 
   return T->getCType(this);
+}
+
+std::string
+OclBuiltin::getReturnBaseCType(const std::string& TyName) const
+{
+  std::string ret;
+
+  if (m_Outputs.size() == 0)
+    return "void";
+
+  assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
+
+  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
+  const OclType* T = m_DB.getOclType(GT);
+  assert(T && "Invalid type found.");
+
+  return T->getBaseCType();
 }
 
 std::string
@@ -397,6 +441,20 @@ OclBuiltin::getArgumentCNoASType(unsigned i, const std::string& TyName) const
 }
 
 std::string
+OclBuiltin::getArgumentCGenType(unsigned i, const std::string& Generator, const std::string& TyName) const
+{
+  assert(i < m_Inputs.size() && "Argument index is out of bound.");
+
+  const OclType* g = m_DB.getOclType(Generator);
+  const std::string& GT = m_Inputs[i].first->getGenType(TyName);
+  const std::string& GT2 = g->getGenType(GT);
+  const OclType* T = m_DB.getOclType(GT2);
+  assert(T && "Invalid type found.");
+
+  return T->getCType(this, true);
+}
+
+std::string
 OclBuiltin::getArgumentCName(unsigned i, const std::string&) const
 {
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
@@ -408,7 +466,7 @@ std::string
 OclBuiltin::getCFunc(const std::string& TyName) const
 {
   const OclType* Ty = m_DB.getOclType(TyName);
-  return m_DB.rewritePattern(0, Ty, m_CFunc);
+  return m_DB.rewritePattern(this, Ty, m_CFunc);
 }
 
 std::string
@@ -867,6 +925,10 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       val = OT->getSuffix();
     } else if ("$SVMLSuffix" == pat) {
       val = OT->getSVMLSuffix();
+    } else if ("$SVMLDSuffix" == pat) {
+      val = OT->getSVMLDSuffix();
+    } else if ("$SVMLFSuffix" == pat) {
+      val = OT->getSVMLFSuffix();
     } else if ("$Pattern" == pat) {
       val = OT->getCPattern();
     } else if ("$Mask" == pat) {
@@ -877,8 +939,15 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       val = OT->getCBitWidth();
     } else if ("$Func" == pat) {
       val = OB->getCFunc(OT->getName());
+    } else if ("$ReturnSym" == pat.substr(0, 10) && pat.find("gentype") != std::string::npos) {
+      val = OB->getReturnSym(pat.substr(10), OT->getName());
+    } else if ("$Arg" == pat.substr(0, 4) && pat.find("Sym") != std::string::npos && pat.find("gentype") != std::string::npos) {
+      unsigned i = pat[4] - '0';
+      val = OB->getArgumentSym(i, pat.substr(8), OT->getName());
     } else if ("$ReturnType" == pat) {
       val = OB->getReturnCType(OT->getName());
+    } else if ("$ReturnBaseType" == pat) {
+      val = OB->getReturnBaseCType(OT->getName());
     } else if ("$ReturnVarName" == pat) {
       val = OB->getReturnCName(OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
@@ -893,6 +962,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
       unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
       val = OB->getArgumentCName(i, OT->getName());
+    } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
+      unsigned i = pat[4] - '0';
+      val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCName(i, OT->getName());

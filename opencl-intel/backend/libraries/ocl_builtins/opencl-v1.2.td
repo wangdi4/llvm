@@ -371,6 +371,126 @@ def shuffle2_8  : OclBuiltin<"shuffle2",  (outs gentype8:$ret), (ins gentype:$x,
 def shuffle2_16 : OclBuiltin<"shuffle2",  (outs gentype16:$ret), (ins gentype:$x, gentype:$y, ugentype16:$mask), [], []>;
 }
 
+// OpenCL 1.2 rev 15, Section 6.2.3 Explicit Conversions
+//
+// destType convert_destType<_sat><_roundingMode>(sourceType)
+//
+let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+              v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
+             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
+             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
+             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64,
+             v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+// conversion to integer has satured mode.
+def convert_u8          : OclBuiltin<"convert_$ReturnType",         (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8          : OclBuiltin<"convert_$ReturnType",         (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16         : OclBuiltin<"convert_$ReturnType",         (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16         : OclBuiltin<"convert_$ReturnType",         (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32         : OclBuiltin<"convert_$ReturnType",         (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32         : OclBuiltin<"convert_$ReturnType",         (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64         : OclBuiltin<"convert_$ReturnType",         (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64         : OclBuiltin<"convert_$ReturnType",         (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_sat      : OclBuiltin<"convert_$ReturnType_sat",     (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_sat      : OclBuiltin<"convert_$ReturnType_sat",     (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+// conversions from floating to integer also honor rounding mode as well as saturated mode.
+let ExceptionTypes = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                      v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+                      v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+                      v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
+                      v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
+                      v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
+                      v1u64, v2u64, v3u64, v4u64, v8u64, v16u64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def convert_u8_rte      : OclBuiltin<"convert_$ReturnType_rte",     (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_rtz      : OclBuiltin<"convert_$ReturnType_rtz",     (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_rtp      : OclBuiltin<"convert_$ReturnType_rtp",     (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_rtn      : OclBuiltin<"convert_$ReturnType_rtn",     (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_sat_rte  : OclBuiltin<"convert_$ReturnType_sat_rte", (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_sat_rtz  : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_sat_rtp  : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u8_sat_rtn  : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_rte      : OclBuiltin<"convert_$ReturnType_rte",     (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_rtz      : OclBuiltin<"convert_$ReturnType_rtz",     (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_rtp      : OclBuiltin<"convert_$ReturnType_rtp",     (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_rtn      : OclBuiltin<"convert_$ReturnType_rtn",     (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_sat_rte  : OclBuiltin<"convert_$ReturnType_sat_rte", (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_sat_rtz  : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_sat_rtp  : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i8_sat_rtn  : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs  i8gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u16_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs u16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i16_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs i16gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u32_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i32_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_u64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_i64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+}
+// conversion to floating may not has saturated mode.
+def convert_f32         : OclBuiltin<"convert_$ReturnType",         (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f32_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f32_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f32_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f32_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f64         : OclBuiltin<"convert_$ReturnType",         (outs f64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f64_rte     : OclBuiltin<"convert_$ReturnType_rte",     (outs f64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f64_rtz     : OclBuiltin<"convert_$ReturnType_rtz",     (outs f64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f64_rtp     : OclBuiltin<"convert_$ReturnType_rtp",     (outs f64gentype:$ret), (ins gentype:$x), [], []>;
+def convert_f64_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs f64gentype:$ret), (ins gentype:$x), [], []>;
+}
+
 // Extended OpenCL built-in for SOA Geometry functions
 let Types = [v16f32, v8f64, v4f32, v8f32, v4f64, v16f64],
     Attrs = [OVERLOADABLE], 
