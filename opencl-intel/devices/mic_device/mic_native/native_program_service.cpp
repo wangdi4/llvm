@@ -433,7 +433,7 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
         TlsContainer tls;
         tls.set_program_memory_manager( prog_entry->exec_memory_manager );
 
-        prog_entry->pProgram->Release();
+        GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
     }
 
     if (prog_entry->exec_memory_manager)

@@ -22,6 +22,7 @@ File Name:  CompileService.h
 #include "ProgramBuilder.h"
 #include "IAbstractBackendFactory.h"
 #include "IAbstractBackendFactory.h"
+#include "llvm/Support/Mutex.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -44,9 +45,14 @@ public:
      *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory 
      *  CL_DEV_ERROR_FAIL in any other error
      */
-    virtual cl_dev_err_code CreateProgram(
-        const cl_prog_container_header* pByteCodeContainer, 
-        ICLDevBackendProgram_** ppProgram) const;
+    cl_dev_err_code CreateProgram( const cl_prog_container_header* pByteCodeContainer,
+                                   ICLDevBackendProgram_** ppProgram) const;
+
+    /**
+     * Releases Program instance
+     */
+    void ReleaseProgram( ICLDevBackendProgram_* pProgram) const;
+
 
     /**
      * Builds the program
@@ -64,9 +70,8 @@ public:
      *  CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory 
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
-    virtual cl_dev_err_code BuildProgram(
-        ICLDevBackendProgram_* pProgram, 
-        const ICLDevBackendOptions* pOptions ) const;
+    cl_dev_err_code BuildProgram( ICLDevBackendProgram_* pProgram, 
+                                  const ICLDevBackendOptions* pOptions ) const;
 
     /**
      * Dumps the content of the given code container 
@@ -81,14 +86,13 @@ public:
      *  CL_DEV_INVALID_BUILD_OPTIONS  - if the build options specified by pOptions are invalid
      *  CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory 
      */
-    virtual cl_dev_err_code DumpCodeContainer(
-        const ICLDevBackendCodeContainer* pCodeContainer,
-        const ICLDevBackendOptions* pOptions ) const;
+    cl_dev_err_code DumpCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                       const ICLDevBackendOptions* pOptions ) const;
 
     /**
      * Releases the Compilation Service
      */
-    virtual void Release();
+    void Release();
 
      /**
      * Prints the JIT code in assembly x86
@@ -97,15 +101,17 @@ public:
      * @param dumpJIT The filename for dumping the JIT code
      * @param baseDirectory The base directory
      */
-    virtual void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-            const std::string dumpJIT,
-            const std::string baseDirectory) const;
+    void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                               const std::string dumpJIT,
+                               const std::string baseDirectory) const;
 
 protected:
     virtual const ProgramBuilder* GetProgramBuilder() const = 0;
 
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_backendFactory;
+    // temporary solution for MT build problem on OCL SDK	
+    mutable llvm::sys::Mutex       m_buildLock;
 };
 
 }}}

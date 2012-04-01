@@ -37,6 +37,11 @@ public:
         ICLDevBackendProgram_** ppProgram) const = 0;
 
     /**
+     * Releases Program instance
+     */
+    virtual void ReleaseProgram(ICLDevBackendProgram_* pProgram) const = 0;
+
+    /**
      * Builds the program
      *
      * @param pProgram pointer to the program which will be passed to the builder
@@ -72,6 +77,9 @@ public:
     virtual cl_dev_err_code DumpCodeContainer(
         const ICLDevBackendCodeContainer* pCodeContainer,
         const ICLDevBackendOptions* pOptions ) const = 0;
+
+
+
 
     /**
      * Releases the Compilation Service

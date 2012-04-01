@@ -24,7 +24,6 @@ File Name:  ProgramBuilder.h
 #include "cl_dev_backend_api.h"
 #include "CompilationUtils.h"
 #include "IAbstractBackendFactory.h"
-#include "llvm/Support/Mutex.h"
 #include "Optimizer.h"
 
 namespace llvm {
@@ -93,8 +92,6 @@ protected:
 
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory; 
-    // temporary solution for MT build problem on OCL SDK	
-    mutable llvm::sys::Mutex       m_buildLock;
 };
 
 }}}

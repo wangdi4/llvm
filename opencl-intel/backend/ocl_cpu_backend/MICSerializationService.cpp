@@ -247,6 +247,11 @@ cl_dev_err_code MICSerializationService::DeSerializeProgram(
     }
 }
 
+void MICSerializationService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
+{
+    delete pProgram;
+}
+
 cl_dev_err_code MICSerializationService::GetTargetDescriptionBlobSize(
     const TargetDescription* pTargetDescription, 
     size_t* pSize) const

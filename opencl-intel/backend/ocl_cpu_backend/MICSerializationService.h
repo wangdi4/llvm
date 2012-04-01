@@ -86,6 +86,8 @@ public:
         ICLDevBackendProgram_** ppProgram, 
         const void* pBlob,
         size_t blobSize) const;
+    
+    virtual void ReleaseProgram(ICLDevBackendProgram_* pProgram) const;
 
     // Target Description Functions
     virtual cl_dev_err_code GetTargetDescriptionBlobSize(

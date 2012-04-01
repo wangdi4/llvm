@@ -54,6 +54,7 @@ namespace Validation
 
 extern void GenINT3();
 
+
 class OpenCLExecutionContext
 {
 public:
@@ -308,7 +309,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
 
     ICLDevBackendExecutionServicePtr spExecutionService(NULL);
     ICLDevBackendCompileServicePtr   spCompileService(NULL);
-    ICLDevBackendImageServicePtr        spImageService(NULL);
+    ICLDevBackendImageServicePtr     spImageService(NULL);
 
     DEBUG(llvm::dbgs() << "Get execution service started.\n");
     cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(options.get(), spExecutionService.getOutPtr());
@@ -344,27 +345,27 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     //
     // Program need to be released before the compilation service - thus inner scope is necessary
     //
-    ICLDevBackendProgramPtr spProgram(NULL);
+    ProgramHolder programHolder( spCompileService.get() );
 
     for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_BUILD_ITERATIONS_COUNT, 1); ++i)
     {
-        spProgram.reset( CreateProgram(pOCLProgram, spCompileService.get()) );
+        programHolder.setProgram( CreateProgram(pOCLProgram, spCompileService.get()) );
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
-        BuildProgram(spProgram.get(), spCompileService.get(), runResult, pOCLRunConfig);
+        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig);
     }
 
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() )
     {
         //currently dumping to the file is temporary unsupported
-        const ICLDevBackendCodeContainer* pCodeContainer = spProgram->GetProgramCodeContainer();
+        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramCodeContainer();
         ProgramDumpConfig dumpOptions(pOCLRunConfig);
         spCompileService->DumpCodeContainer( pCodeContainer, &dumpOptions);
     }
 
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty())
     {
-        spCompileService->DumpJITCodeContainer(spProgram->GetProgramCodeContainer(),
+        spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
             pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
             pOCLProgramConfig->GetBaseDirectory());
     }
@@ -384,7 +385,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-            ExecuteKernel(input, runResult, spProgram.get(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
+            ExecuteKernel(input, runResult, programHolder.getProgram(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
         }
     }
     }

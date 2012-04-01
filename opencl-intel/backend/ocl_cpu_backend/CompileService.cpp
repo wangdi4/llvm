@@ -24,9 +24,26 @@ File Name:  CompileService.cpp
 #include "plugin_manager.h"
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/PathV1.h"
 #include "llvm/Support/PathV2.h"
-#include "BitCodeContainer.h"
+#include "llvm/Support/MutexGuard.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/MemoryObject.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCDisassembler.h"
+#include "llvm/MC/MCInstPrinter.h"
+#include "llvm/PassManager.h"
+
+#include <sstream>
+
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -60,11 +77,23 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
     }
 }
 
+void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
+{
+    llvm::MutexGuard lock(m_buildLock);
+#ifdef OCL_DEV_BACKEND_PLUGINS  
+    PluginManager::Instance().OnReleaseProgram(pProgram);
+#endif  
+    delete pProgram;
+}
+
+
+
 cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
                                               const ICLDevBackendOptions* pOptions ) const
 {
     try
     {
+        llvm::MutexGuard lock(m_buildLock);
         //TODO: build the CompilerBuildOptions from the supplied pOptions
         return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), NULL);
     }

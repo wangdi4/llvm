@@ -121,11 +121,6 @@ public:
         const ICLDevBackendKernel_** pKernel) const = 0;
 
     /**
-     * Releases program instance
-     */
-    virtual void Release() = 0;
-
-    /**
      * Gets the program JIT code Properties;
      *
      * @returns JIT code properties interface, NULL in case of failure

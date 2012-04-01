@@ -93,6 +93,11 @@ public:
         size_t blobSize) const = 0;
 
     /**
+     * Release the deserialized program 
+     */
+    virtual void ReleaseProgram(ICLDevBackendProgram_* pProgram) const = 0;
+
+    /**
      * Releases the Serialization Service
      */
     virtual void Release() = 0;

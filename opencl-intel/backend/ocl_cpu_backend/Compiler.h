@@ -93,8 +93,8 @@ public:
     {}
 
     bool GetDisableOpt()    const { return m_disableOpt; }
-    bool GetProfilingFlag() const { return m_profiling; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
+    bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetlibraryModule() const { return m_libraryModule; }
 

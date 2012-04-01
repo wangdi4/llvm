@@ -907,7 +907,8 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
 void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
 {
     // Finally release the object
-    pEntry->pProgram->Release();
+    assert(m_pBackendCompiler);
+    m_pBackendCompiler->ReleaseProgram(pEntry->pProgram);
     pEntry->mapKernels.clear();
     delete pEntry;
 }

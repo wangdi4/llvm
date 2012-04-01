@@ -40,8 +40,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/MutexGuard.h"
-
 #include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -93,8 +91,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
 
     try
     {
-        llvm::MutexGuard lock(m_buildLock);
-
         const Compiler* pCompiler = GetCompiler();
 
 

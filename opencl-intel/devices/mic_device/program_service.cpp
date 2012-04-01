@@ -1218,7 +1218,7 @@ void ProgramService::releaseKernelOnDevice( cl_dev_kernel kernel )
 void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
 {
     // Finally release the object
-    pEntry->pProgram->Release();
+    GetSerializationService()->ReleaseProgram(pEntry->pProgram);
 
     TKernelName2Entry::iterator it     = pEntry->mapName2Kernels.begin();
     TKernelName2Entry::iterator it_end = pEntry->mapName2Kernels.end();

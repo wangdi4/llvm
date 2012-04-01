@@ -95,15 +95,14 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
     //
 
     /////////////// Build program ////////////////
-
-    ICLDevBackendProgramPtr spProgram(NULL);
+    ProgramHolder programHolder( spCompileService.get() );
 
     for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_BUILD_ITERATIONS_COUNT, 1); ++i)
     {
-        spProgram.reset( CreateProgram(pOCLProgram, spCompileService.get()) );
+        programHolder.setProgram( CreateProgram(pOCLProgram, spCompileService.get()) );
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
-        BuildProgram(spProgram.get(), spCompileService.get(), runResult, pOCLRunConfig);
+        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig);
     }
 
     /////////////// Dump optimized LLVM IR if required ////////////////
@@ -112,7 +111,7 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
         !pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false))
     {
         //currently dumping to the file is temporary unsupported
-        const ICLDevBackendCodeContainer* pCodeContainer = spProgram->GetProgramCodeContainer();
+        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramCodeContainer();
         spCompileService->DumpCodeContainer( pCodeContainer, &options);
     }
 
@@ -137,9 +136,9 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
         throw Exception::TestRunnerException("Create serialization service failed");
     }
 
-    SerializeProgram(spSerializationService.get(), spProgram.get());
+    SerializeProgram(spSerializationService.get(), programHolder.getProgram());
 
-    RunKernels(pOCLRunConfig, pOCLProgramConfig, runResult, spProgram.get());
+    RunKernels(pOCLRunConfig, pOCLProgramConfig, runResult, programHolder.getProgram());
 
     }
 }

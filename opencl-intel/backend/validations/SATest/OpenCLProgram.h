@@ -27,10 +27,10 @@ File Name:  OpenCLProgram.h
 
 namespace Validation
 {
-  /// @brief This class contains OpenCL test program information
-  class OpenCLProgram : public IProgram
-  {
-  public:
+/// @brief This class contains OpenCL test program information
+class OpenCLProgram : public IProgram
+{
+public:
 
     /// @brief Constructor
     /// @param [IN] Configuration file of the OpenCL test file
@@ -49,13 +49,15 @@ namespace Validation
     /// @return Size of program container of this OpenCL program
     unsigned int GetProgramContainerSize() const;
 
-    /// @brief Returns back-end program interface from the latest build
-    ICLDevBackendProgram_* GetIProgram() const { return m_pProgram; }
+private:
+    /// @brief create OpenCL program from BC type
+    /// @param [IN] programFile Name of OpenCL test program file
+    void BCOpenCLProgram(const std::string& programFile);
 
-    /// @brief Sets the program interface from the latest build
-    void SetIProgram( ICLDevBackendProgram_* pProgram) { m_pProgram = pProgram; }
+    /// @brief sets the pContainer's arguments
+    void setContainer();
 
-  private:
+private:
 
     /// @brief OpenCL program byte code container
     cl_prog_container_header* pContainer;
@@ -63,16 +65,51 @@ namespace Validation
     /// @brief Size of OpenCL program container
     unsigned int containerSize;
 
-    /// Compiled program pointer
-    ICLDevBackendProgram_* m_pProgram;
+};
 
-    /// @brief create OpenCL program from BC type
-    /// @param [IN] programFile Name of OpenCL test program file
-    void BCOpenCLProgram(const std::string& programFile);
+class ProgramHolder
+{
+public:
+    ProgramHolder(const ICLDevBackendCompilationService* pService):
+        m_pService(pService),
+        m_pProgram(NULL)
+    {
+        assert(m_pService);
+    }
 
-    /// @brief sets the pContainer's arguments
-    void setContainer();
-  };
+    ProgramHolder(const ICLDevBackendCompilationService* pService, ICLDevBackendProgram_* pProgram ):
+        m_pService(pService),
+        m_pProgram(pProgram)
+    {
+        assert(m_pService);
+    }
+
+    ~ProgramHolder()
+    {
+        m_pService->ReleaseProgram(m_pProgram);
+    }
+
+    ICLDevBackendProgram_* getProgram() const
+    {   
+        return m_pProgram;
+    }
+
+    void setProgram(ICLDevBackendProgram_* pProgram)
+    {   
+        assert( NULL == m_pProgram && "Resetting the program is not supported");
+        m_pProgram = pProgram;
+    }
+
+
+private:
+    const ICLDevBackendCompilationService* m_pService;
+    ICLDevBackendProgram_ * m_pProgram;
+};
+
+
 }
+
+
+
 
 #endif // OPENCL_PROGRAM_H

@@ -151,13 +151,4 @@ bool Program::GetDAZ() const
 }
 
 
-void Program::Release()
-{
-#ifdef OCL_DEV_BACKEND_PLUGINS  
-    PluginManager::Instance().OnReleaseProgram(this);
-#endif  
-    delete this;
-}
-
-
 }}}

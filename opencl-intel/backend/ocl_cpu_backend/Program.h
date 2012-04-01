@@ -113,12 +113,6 @@ public:
         const ICLDevBackendKernel_** ppKernel) const;
 
     /**
-     * Releases program instance
-     */
-    virtual void Release();
-
-
-    /**
      * Sets the Bit Code Container (program will take ownership of the container)
      */
     void SetBitCodeContainer(BitCodeContainer* bitCodeContainer);
