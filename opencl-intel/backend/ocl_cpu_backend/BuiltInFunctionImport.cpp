@@ -32,6 +32,7 @@ File Name:  BuiltInFunctionImport.cpp
 #include <map>
 #include <set>
 #include <string>
+#include <iostream>
 
 using namespace llvm;
 using namespace std;
@@ -406,20 +407,31 @@ void BIImport::BuildRTModuleFunc2Funcs()
       }
       else       // Indirect call; check and allow only a specific pattern:
       {
-        assert (isa<ConstantArray>(*use_it) && "Pointers to functions allowed only in ConstantArrays.");
-
-        for (Value::use_iterator I = use_it->use_begin(), E = use_it->use_end(); I != E; ++I)
-        {
-          assert (isa<GlobalVariable>(*I) && "Only GlobalVariables can use ConstantArray of functions.");
-
-          // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
-          for (Value::use_iterator I1 = I->use_begin(), E1 = I->use_end(); I1 != E1; ++I1)
-          {
-            assert (isa<Instruction>(*I1) && "Only Instruction can use a GlobalVariable using a function array.");
-            Function* pFunc = cast<Instruction>(*I1)->getParent()->getParent();
-            m_mapFunc2Fnc[pFunc].push_back(pVal);
-          }
-        }
+	if (isa<ConstantExpr>(*use_it)) 
+	{
+	  // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
+	  for (Value::use_iterator I = use_it->use_begin(), E1 = use_it->use_end(); I != E1; ++I)
+	  {
+	    assert (isa<Instruction>(*I) && "Only Instruction can use a GlobalVariable using a function array.");
+	    Function* pFunc = cast<Instruction>(*I)->getParent()->getParent();
+	    m_mapFunc2Fnc[pFunc].push_back(pVal);
+	  }
+	}
+	else 
+	{
+	  assert (isa<ConstantArray>(*use_it) && "Pointers to functions allowed only in ConstantArrays or ConstantExpressions.");
+	  for (Value::use_iterator I = use_it->use_begin(), E = use_it->use_end(); I != E; ++I)
+	  {
+	    assert (isa<GlobalVariable>(*I) && "Only GlobalVariables can use ConstantArray of functions.");
+	    // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
+	    for (Value::use_iterator I1 = I->use_begin(), E1 = I->use_end(); I1 != E1; ++I1)
+	    {
+	      assert (isa<Instruction>(*I1) && "Only Instruction can use a GlobalVariable using a function array.");
+	      Function* pFunc = cast<Instruction>(*I1)->getParent()->getParent();
+	      m_mapFunc2Fnc[pFunc].push_back(pVal);
+	    }
+	  }
+	}
       }
     }
   }
