@@ -89,6 +89,16 @@ void clSleep(int milliseconds);
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid = 0);
 
 /**************************************************************************************************
+* Function: 	clGetThreadAffinityMask
+* Description:	retrieves the given thread affinity mask 
+* Arguments:	mask [ affinityMask_t* ] - a pointer to the mask to be set
+* Return value:	void
+* Author:		Evgeny Fiksman
+* Date:			March 2012
+**************************************************************************************************/
+void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid = 0);
+
+/**************************************************************************************************
 * Function: 	clTranslateAffinityMask
 * Description:	fills the given array of unsigned ints with the values corresponding to set bits in the mask
 * Arguments:	mask [ affinityMask_t* ] - a pointer to the mask to use

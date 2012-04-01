@@ -81,6 +81,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		static void SetScheduler(tbb::task_scheduler_init* init);
 		static bool IsWorkerScheduler();
 		static void StopObservation();
+		static void StartObservation();
 
 		virtual void on_scheduler_entry( bool is_worker );
 		virtual void on_scheduler_exit( bool is_worker );
@@ -115,6 +116,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void Close(bool bCancel);
 
 		void ReleasePerThreadData();
+
+		bool AllocateResources();
+		void ReleaseResources();
 
 		ocl_gpa_data* GetGPAData() const;
 

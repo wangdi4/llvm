@@ -25,9 +25,14 @@ link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUB
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
-target_link_libraries( ${TARGET} intelocl googletest pthread)
+	target_link_libraries( ${TARGET} intelocl googletest pthread)
 else (NOT WIN32)
-target_link_libraries( ${TARGET} intelocl googletest)
+	target_link_libraries( ${TARGET} intelocl googletest delayimp)
+	set_target_properties(${TARGET} PROPERTIES
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
+	)
+
 endif (NOT WIN32)
 
 

@@ -80,6 +80,15 @@ AtomicCounter	glTaskSchedCounter;
     #error "Windows XP is not supported"
   #endif
 __declspec(thread) ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {false, INVALID_WORKER_ID, NULL, NULL};
+#ifdef _DEBUG
+	typedef struct tagTHREADNAME_INFO
+	{
+		DWORD dwType; // must be 0x1000
+		LPCSTR szName; // pointer to name (in user addr space)
+		DWORD dwThreadID; // thread ID (-1=caller thread)
+		DWORD dwFlags; // reserved for future use, must be zero
+	} THREADNAME_INFO;
+#endif
 #else
 __thread ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {false, INVALID_WORKER_ID, NULL, NULL};
 #endif
@@ -167,9 +176,9 @@ tbb::task_scheduler_init* ThreadIDAssigner::GetScheduler()
 	return t_ThreadIDInfo.pScheduler;
 }
 
-void ThreadIDAssigner::SetScheduler(tbb::task_scheduler_init* init)
+void ThreadIDAssigner::SetScheduler(tbb::task_scheduler_init* pSched)
 {						
-	t_ThreadIDInfo.pScheduler = init;		
+	t_ThreadIDInfo.pScheduler = pSched;
 }
 
 bool ThreadIDAssigner::IsWorkerScheduler()
@@ -180,6 +189,11 @@ bool ThreadIDAssigner::IsWorkerScheduler()
 void ThreadIDAssigner::StopObservation()
 {
 	_this->observe(false);
+}
+
+void ThreadIDAssigner::StartObservation()
+{
+	_this->observe();
 }
 
 void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
@@ -198,9 +212,31 @@ void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
 	}
 	SetWorkerID(uiWorkerId);
 	t_ThreadIDInfo.bIsAvailable = true;
+
 #ifdef _EXTENDED_LOG
 	LOG_INFO("------->%s %d was joined as %d\n", is_worker ? "worker" : "master",
 		GetThreadId(GetCurrentThread()), uiWorkerId);
+#endif
+
+#if defined(WIN32) && defined (_DEBUG)
+	if ( !is_worker )
+	{
+		return;
+	}
+	char szThreadName[100];
+	THREADNAME_INFO info;
+	info.dwType = 0x1000;
+	info.szName = szThreadName;
+	info.dwThreadID = -1;
+	info.dwFlags = 0;
+	sprintf_s(szThreadName, 100, "Worker id=%d", uiWorkerId);
+	__try
+	{
+		RaiseException( 0x406D1388, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info );
+	}
+	__except(EXCEPTION_CONTINUE_EXECUTION)
+	{
+	}
 #endif
 }
 
@@ -217,6 +253,26 @@ void ThreadIDAssigner::on_scheduler_exit( bool is_worker )
 		SetScheduler(WORKER_SCHEDULER_ID);
 	}
 	t_ThreadIDInfo.bIsAvailable = false;
+
+#if defined(WIN32) && defined (_DEBUG)
+	if ( !is_worker )
+	{
+		return;
+	}
+	THREADNAME_INFO info;
+	info.dwType = 0x1000;
+	info.szName = "TBB-worker";
+	info.dwThreadID = -1;
+	info.dwFlags = 0;
+	__try
+	{
+		RaiseException( 0x406D1388, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info );
+	}
+	__except(EXCEPTION_CONTINUE_EXECUTION)
+	{
+	}
+#endif
+
 }
 
 ThreadIDAllocator* ThreadIDAssigner::SetThreadIdAllocator(ThreadIDAllocator* pNewIdAllocator)
@@ -230,8 +286,9 @@ void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitSche
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( (NULL == pScheduler) && !((IMPLICIT_SCHEDULER_ID == pScheduler) || (ThreadIDAssigner::IsWorkerScheduler())) )
 	{
+		long prevVal = glTaskSchedCounter++;
 		pScheduler = IMPLICIT_SCHEDULER_ID;
-		if ( bTBBExplicitScheduler )
+		if ( (0==prevVal)  || bTBBExplicitScheduler )
 		{
 			if ( -1 == iNumeOfThreads)
 			{
@@ -241,12 +298,24 @@ void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitSche
 			assert(NULL!=pScheduler && "Failed to create TBB explicit scheduler");
 			if (NULL == pScheduler )
 			{
+				glTaskSchedCounter--;
 				return;
+			}
+			if ( 0==prevVal )
+			{
+				bool rc = static_cast<TBBTaskExecutor*>(GetTaskExecutor())->AllocateResources();
+				if ( !rc )
+				{
+					delete pScheduler;
+					glTaskSchedCounter--;
+					return;
+				}
+				ThreadIDAssigner::StartObservation();
 			}
 		}
 
 		ThreadIDAssigner::SetScheduler(pScheduler);
-		glTaskSchedCounter++;
+		
 		RegisterReleaseSchedulerForMasterThread();
 	}
 }
@@ -254,46 +323,54 @@ void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitSche
 void ReleaseSchedulerForMasterThread()
 {
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
-	if ((NULL != pScheduler) && (WORKER_SCHEDULER_ID != pScheduler))
-	{				
-		if (IMPLICIT_SCHEDULER_ID != pScheduler)
-		{
-			//pScheduler->terminate();
-			delete pScheduler;
-		}
-		glTaskSchedCounter--;
-		ThreadIDAssigner::SetScheduler(NULL);
+	if ( (WORKER_SCHEDULER_ID == pScheduler) || (NULL == pScheduler) )
+	{
+		return;
+	}
 
-		if ( (0 == glTaskSchedCounter) && (IMPLICIT_SCHEDULER_ID != pScheduler))
-		{
-			ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
-			assert(NULL != prev && "The old ThreadID allocator is NULL");
+	glTaskSchedCounter--;
+	ThreadIDAssigner::SetScheduler(NULL);
 
-			unsigned int uiTimeOutCount = 0;
-			long refCount = prev->GetRefCount();
-			
-			// What for 100ms for shutdown
-			while ( 1 < refCount && (uiTimeOutCount < 100))
-			{
-				clSleep(1);
-				refCount = prev->GetRefCount();
-				uiTimeOutCount++;
-			}
+	if ( IMPLICIT_SCHEDULER_ID == pScheduler )
+	{
+		return;
+	}
 
-			assert((1==refCount) && "RefCount of 1 is expected");
-			if ( 1 == refCount )
-			{
-				// We must stop observing only when all worker threads are shut down,
-				// Otherwise resource leaks and memory corruption inside TBB
-				ThreadIDAssigner::StopObservation();
-			}
+	if ( 0 != glTaskSchedCounter )
+	{
+		// Need to delete explicit scheduler and exit
+		delete pScheduler;
+		return;
+	}
 
-			if ( NULL != prev )
-			{
-				prev->ReleaseId(INVALID_WORKER_ID);
-			}
-		}
+	static_cast<TBBTaskExecutor*>(GetTaskExecutor())->ReleaseResources();
+	
+	ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
+	assert(NULL != prev && "The old ThreadID allocator is NULL");
 
+	unsigned int uiTimeOutCount = 0;
+	long refCount = prev->GetRefCount();
+
+	delete pScheduler;
+
+	// Wait for 100ms for workes shutdown
+	while ( 1 < refCount && (uiTimeOutCount < 100))
+	{
+		clSleep(1);
+		refCount = prev->GetRefCount();
+		uiTimeOutCount++;
+	}
+
+	assert((1==refCount) && "RefCount of 1 is expected");
+	if ( 1 == refCount )
+	{
+		// We release resources only when all worker threads were shut down,
+		// Otherwise resource leaks and memory corruption inside TBB
+		ThreadIDAssigner::StopObservation();
+	}
+	if ( NULL != prev )
+	{
+		prev->ReleaseId(INVALID_WORKER_ID);
 	}
 }
 
@@ -1182,22 +1259,22 @@ bool TBBTaskExecutor::Activate()
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( NULL == pScheduler )
 	{
-		LOG_ERROR(TEXT("%s"), "Failed to allocate tbb::task_scheduler_init");
+		LOG_ERROR(TEXT("%s"), "Failed to initilize task scheduler");
 		return false;
 	}
 #if defined(USE_GPA)   
     }
 #endif
 
+	++m_lActivateCount;
+	return true;
+}
+
+bool TBBTaskExecutor::AllocateResources()
+{
 	m_pGrpContext = new tbb::task_group_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait);
 	if ( NULL == m_pGrpContext )
 	{
-		tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
-		if ( NULL != pScheduler )
-		{
-			delete pScheduler;
-			ThreadIDAssigner::SetScheduler(NULL);
-		}
 		LOG_ERROR(TEXT("%s"), "Failed to allocate m_pGrpContext");
 		return false;
 	}
@@ -1206,22 +1283,41 @@ bool TBBTaskExecutor::Activate()
 	if ( NULL == m_pExecutorList )
 	{
 		delete m_pGrpContext;
-		tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
-		if ( NULL != pScheduler )
-		{
-			delete pScheduler;
-			ThreadIDAssigner::SetScheduler(NULL);
-		}
+		m_pGrpContext = NULL;
 		LOG_ERROR(TEXT("%s"), "Failed to allocate m_pExecutorList");
 		return false;
 	}
 
-	m_threadPoolChangeObserver->SetThreadIdAllocator(new ThreadIDAllocator(gWorker_threads));
+	ThreadIDAllocator* pNewAllocator = new ThreadIDAllocator(gWorker_threads);
+	if ( NULL == pNewAllocator )
+	{
+		m_pExecutorList->Release();
+		m_pExecutorList = NULL;
+		delete m_pGrpContext;
+		m_pGrpContext = NULL;
+		return false;
+	}
+	m_threadPoolChangeObserver->SetThreadIdAllocator(pNewAllocator);
 
-	m_threadPoolChangeObserver->observe();
-
-	++m_lActivateCount;
 	return true;
+}
+
+void TBBTaskExecutor::ReleaseResources()
+{
+	assert(NULL!=m_pExecutorList);
+	if ( NULL != m_pExecutorList )
+	{
+		m_pExecutorList->Release();
+		m_pExecutorList = NULL;
+	}
+
+	assert(NULL!=m_pGrpContext);
+	if ( NULL != m_pGrpContext )
+	{
+		m_pGrpContext->cancel_group_execution();
+		delete m_pGrpContext;
+		m_pGrpContext = NULL;
+	}
 }
 
 void TBBTaskExecutor::Deactivate()
@@ -1238,18 +1334,9 @@ void TBBTaskExecutor::Deactivate()
 
 	LOG_INFO(TEXT("%s"),"Shutting down...");
 
-	assert(NULL != m_pExecutorList);
-	m_pExecutorList->Release();
-	m_pExecutorList = NULL;
-
 	if ( !ThreadIDAssigner::IsWorkerScheduler() )
 	{
-		assert(m_pGrpContext);
-		m_pGrpContext->cancel_group_execution();
-		delete m_pGrpContext;
-
 		ReleaseSchedulerForMasterThread();
-
 	}
 	else
 	{

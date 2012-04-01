@@ -553,11 +553,6 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}
 
-    if (NULL != pszParamValueSizeRet)
-    {
-        *pszParamValueSizeRet = szParamSize;
-    }
-
     if (NULL != pParamValue)
     {
         if (szParamValueSize < szParamSize)
@@ -567,6 +562,11 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
         }
 
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
+    }
+
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = szParamSize;
     }
 
 	return CL_SUCCESS;

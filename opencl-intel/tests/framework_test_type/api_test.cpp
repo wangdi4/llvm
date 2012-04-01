@@ -231,13 +231,19 @@ bool api_test(){
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_PARAMETER_SIZE, 1, &ulRetValCheck, &actual_size);
 	bResult = SilentCheck(L"clGetDeviceInfo, CSSD100011955",CL_INVALID_VALUE,err);
 	bResult &= SilentCheckSize(L"clGetDeviceInfo, CSSD100011955 ulRetValCheck=-1",ulRetValCheck, -1);
-	bResult &= SilentCheckSize(L"clGetDeviceInfo, CSSD100011955 actual_size=0",actual_size, 0);
+	bResult &= SilentCheckSize(L"clGetDeviceInfo(CL_DEVICE_MAX_PARAMETER_SIZE), CSSD100011955 actual_size=0", 0, actual_size);
+	if (!bResult)	return bResult;
+
+	err = clGetDeviceInfo(device, CL_DEVICE_PLATFORM, 1, &ulRetValCheck, &actual_size);
+	bResult = SilentCheck(L"clGetDeviceInfo, CSSD100011955",CL_INVALID_VALUE,err);
+	bResult &= SilentCheckSize(L"clGetDeviceInfo, CSSD100011955 ulRetValCheck=-1",ulRetValCheck, -1);
+	bResult &= SilentCheckSize(L"clGetDeviceInfo(CL_DEVICE_PLATFORM), CSSD100011955 actual_size=0", 0, actual_size);
 	if (!bResult)	return bResult;
 
 	err = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 1, &ulRetValCheck, &actual_size);
 	bResult = SilentCheck(L"clGetPlatformInfo, CSSD100011955",CL_INVALID_VALUE,err);
 	bResult &= SilentCheckSize(L"clGetPlatformInfo, CSSD100011955 ulRetValCheck=-1",ulRetValCheck, -1);
-	bResult &= SilentCheckSize(L"clGetPlatformInfo, CSSD100011955 actual_size=0",actual_size, 0);
+	bResult &= SilentCheckSize(L"clGetPlatformInfo, CSSD100011955 actual_size=0", 0, actual_size);
 	if (!bResult)	return bResult;
 
 	// CSSD100012446

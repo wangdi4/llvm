@@ -60,6 +60,12 @@ void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 	}
 }
 
+void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
+{
+    // Currently not supported on Windows
+	*mask = -1;
+}
+
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
 	DWORD_PTR mask = 1 << core;
@@ -147,12 +153,17 @@ void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 	sched_setaffinity(tid, sizeof(cpu_set_t), mask);
 }
 
+void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
+{
+    sched_getaffinity(tid, sizeof(cpu_set_t), mask);
+}
+
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
 	cpu_set_t mask;
 	CPU_ZERO(&mask);
 	CPU_SET(core ,&mask);
-sched_setaffinity(tid, sizeof(cpu_set_t), &mask);
+	sched_setaffinity(tid, sizeof(cpu_set_t), &mask);
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {

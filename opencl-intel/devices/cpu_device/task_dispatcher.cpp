@@ -680,7 +680,7 @@ SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
 
 int SubdeviceTaskDispatcherThread::Run()
 {
-	if ( m_dispatcher->isThreadAffinityRequried() && NULL != m_dispatcher->m_legalCoreIDs )
+	if ( NULL != m_dispatcher->m_legalCoreIDs )
 	{
 		clSetThreadAffinityToCore(m_dispatcher->m_legalCoreIDs[0]);
 	}
