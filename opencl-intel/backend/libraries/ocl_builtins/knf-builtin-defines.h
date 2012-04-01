@@ -57,15 +57,11 @@ const double const_pi_180 = 0.017453292519943295769236907684883;
   k = 0x7; \
   data = _mm512_mask_add_pd (data, k, zeros, _mm512_swizzle_pd (data, _MM_SWIZ_REG_DACB))
 
-#if 1
-#define mic_cvtl_pd2ps(old_data, new_data) \
-  __m512 new_data = _mm512_undefined_ps(); \
-  new_data = _mm512_cvtl_pd2ps(new_data, old_data, RC_RUN_DOWN);
-#else
 #define mic_cvtl_pd2ps(old_data, new_data) \
   __m512 new_data = _mm512_cvt_roundpd_pslo(old_data, RC_RUN_DOWN); 
-#endif
- 
+
+#define _mm512_cvtl_ps2pd _mm512_cvt_pslopd
+
 
 // Convert a 16-bit bit-mask into a 16 x 32-bit mask
 int16 __attribute__((overloadable)) mask2pi(__mmask16 flags){

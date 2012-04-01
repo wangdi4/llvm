@@ -1674,28 +1674,17 @@ _mm512_mask_cvtinsps_u10(__m512 v1, __mmask16 k1, __m512 v2, const _MM_UNORM10_F
  *    the high eight bits of the write mask are ignored.
  */
 
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_pd2ps(__m512 v1_old, __m512d v2, const int rounding)
-{
-  return __builtin_ia32_cvtlpd2ps512(v1_old, v2, rounding);
-}
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_pd2ps(__m512 v1_old, __m512d v2, const int rounding)
+_mm512_cvt_roundpd_pslo(__m512d v1, const int rounding)
 {
-  return __builtin_ia32_cvthpd2ps512(v1_old, v2, rounding);
+  return __builtin_ia32_cvt_roundpd_pslo512(v1, rounding);
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_cvtl_pd2ps(__m512 v1_old, __mmaskt k1, __m512d v2, const int rounding)
 {
   return __builtin_ia32_mask_cvtlpd2ps512(v1_old, k1, v2, rounding);
-}
-
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_pd2ps(__m512 v1_old, __mmaskt k1, __m512d v2, const int rounding)
-{
-  return __builtin_ia32_mask_cvthpd2ps512(v1_old, k1, v2, rounding);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
@@ -1753,32 +1742,17 @@ _mm512_mask_cvth_pd2pu(__m512i v1_old, __mmaskt k1, __m512d v2, const int roundi
  * the "cvth" intrinsics convert the upper 8 elements.
  */
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_ps2pd(__m512 v2)
+_mm512_cvt_pslopd(__m512 v2)
 {
-  return __builtin_ia32_cvtlps2pd512(v2);
+  return __builtin_ia32_cvtpslopd512(v2);
 }
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_ps2pd(__m512 v2)
-{
-  return __builtin_ia32_cvthps2pd512(v2);
-}
-
+ 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_cvtl_ps2pd(__m512d v1_old, __mmaskt k1, __m512 v2)
 {
   return __builtin_ia32_mask_cvtlps2pd512(v1_old, k1, v2);
 }
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_ps2pd(__m512d v1_old, __mmaskt k1, __m512 v2)
-{
-  return __builtin_ia32_mask_cvthps2pd512(v1_old, k1, v2);
-}
 
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_ps2pi(__m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
-{
-  return (__v8di)__builtin_ia32_cvtps2pi512(v2, rounding, expadj);
-}
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_cvt_ps2pi(__m512i v1_old, __mmask16 k1, __m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
