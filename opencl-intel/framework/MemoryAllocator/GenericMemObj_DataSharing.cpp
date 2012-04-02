@@ -266,7 +266,7 @@ GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_bring_data_to_sh
         return NULL;
     }
 
-    size_t copy_from        = MAX_DEVICE_SHARING_GROUP_ID;
+    unsigned int copy_from = MAX_DEVICE_SHARING_GROUP_ID;
 
     for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
@@ -460,7 +460,7 @@ OclEvent* GenericMemObject::LockOnDevice( IN const FissionableDevice* dev, IN Me
     DataCopyEvent* returned_event = NULL;
 
     acquire_data_sharing_lock();
-    returned_event = data_sharing_fsm_process_acquire( desc->m_sharing_group_id, usage ); 
+    returned_event = data_sharing_fsm_process_acquire( (unsigned int)desc->m_sharing_group_id, usage ); 
     return release_data_sharing_lock(returned_event);
 }
 
@@ -484,7 +484,7 @@ void GenericMemObject::UnLockOnDevice( IN const FissionableDevice* dev )
     }
 
     DataSharingAutoLock data_sharing_lock( *this );
-    data_sharing_fsm_process_release( desc->m_sharing_group_id ); 
+    data_sharing_fsm_process_release( (unsigned int)desc->m_sharing_group_id ); 
     m_BS->SetDataValid();
 }
 
