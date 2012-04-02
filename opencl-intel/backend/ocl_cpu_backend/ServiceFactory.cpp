@@ -108,7 +108,6 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
             std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
             mode = Utils::SelectOperationMode(cpuArch.c_str());
         }
-
         if(MIC_MODE == mode)
         {
             MICCompilerConfiguration config(BackendConfiguration::GetInstance()->GetMICCompilerConfig());
@@ -223,18 +222,19 @@ cl_dev_err_code ServiceFactory::GetImageService(
     try
     {
         OPERATION_MODE mode = CPU_MODE;
+        CompilerConfiguration config(BackendConfiguration::GetInstance()->GetCPUCompilerConfig());
+        config.ApplyRuntimeOptions(pBackendOptions);
+        mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
         if(NULL != pBackendOptions)
         {
             std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
             mode = Utils::SelectOperationMode(cpuArch.c_str());
         }
 
-        CompilerConfiguration config(BackendConfiguration::GetInstance()->GetCPUCompilerConfig());
-        config.ApplyRuntimeOptions(pBackendOptions);
         /// WORKAROUND!! Wee need to skip built-in module load for
         /// Image compiler instance
         config.SkipBuiltins();
-
+       
         *ppBackendImageService = new ImageCallbackService(config, mode == CPU_MODE);
         return CL_DEV_SUCCESS;
     }
