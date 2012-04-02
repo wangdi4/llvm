@@ -88,6 +88,12 @@ public:
 	cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
 					const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
 
+    cl_dev_err_code clDevMemObjUpdateBackingStore( 
+	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState );
+	cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
+                                void* operation_handle, cl_dev_bs_update_state* pUpdateState );
+	cl_dev_err_code clDevMemObjInvalidateData( );
+
 protected:
 	CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
 		    m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),

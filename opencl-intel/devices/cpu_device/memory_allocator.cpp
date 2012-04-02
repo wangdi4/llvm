@@ -301,6 +301,27 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 	return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore( 
+                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
+{
+    assert( NULL != pUpdateState );
+    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
+                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
+{
+    assert( NULL != pUpdateState );
+    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjInvalidateData( )
+{
+    return CL_DEV_SUCCESS;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -48,21 +48,29 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  cl_err_code GraphicsApiMemoryObject::UpdateLocation(FissionableDevice* pDevice)
+     * @fn  OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
      */
 
-    cl_err_code GraphicsApiMemoryObject::UpdateLocation(FissionableDevice* pDevice)
+    OclEvent* GraphicsApiMemoryObject::LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
     {
-        return CL_SUCCESS;
+        if (NULL == m_pChildObject)
+        {
+            return NULL;
+        }
+        return m_pChildObject->LockOnDevice(dev, usage);
     }
 
     /**
-     * @fn  bool GraphicsApiMemoryObject::IsSharedWith(FissionableDevice* pDevice)
+     * @fn  void UnLockOnDevice( IN const FissionableDevice* dev )
      */
 
-    bool GraphicsApiMemoryObject::IsSharedWith(FissionableDevice* pDevice)
+    void GraphicsApiMemoryObject::UnLockOnDevice( IN const FissionableDevice* dev )
     {
-        return true;
+        if (NULL == m_pChildObject)
+        {
+            return;
+        }
+        return m_pChildObject->UnLockOnDevice(dev);
     }
 
     /**
@@ -76,6 +84,19 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             m_pChildObject->GetLayout(dimensions, rowPitch, slicePitch);
         }
+    }
+
+    /**
+     * @fn  cl_err_code GetDimensionSizes( size_t* pszRegion ) const
+     */
+
+    cl_err_code GraphicsApiMemoryObject::GetDimensionSizes( size_t* pszRegion ) const
+    {
+        if (NULL == m_pChildObject)
+        {
+            return CL_INVALID_VALUE;
+        }
+        return m_pChildObject->GetDimensionSizes(pszRegion);
     }
 
     /**
@@ -159,18 +180,6 @@ namespace Intel { namespace OpenCL { namespace Framework
     cl_err_code GraphicsApiMemoryObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
     {
         return m_pChildObject->SynchDataFromHost( pMapInfo, pHostMapDataPtr );
-    }
-
-    /**
-     * @fn FissionableDevice* GraphicsApiMemoryObject::GetLocation() const
-     */
-    FissionableDevice* GraphicsApiMemoryObject::GetLocation() const
-    {
-        if (NULL == m_pChildObject)
-        {
-            return NULL;
-        }
-        return m_pChildObject->GetLocation();
     }
 
     /**

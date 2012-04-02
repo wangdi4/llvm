@@ -216,12 +216,12 @@ cl_err_code GenericMemObject::Initialize(
         m_device_descriptors.push_back( DeviceDescriptor(dev, sharingGroupId,
                                               device_properties.alignment) );
         DeviceDescriptor& last_added = m_device_descriptors.back();
-
+        
         m_sharing_groups[ sharingGroupId ].m_device_list.push_back( &last_added );
+        m_device_2_descriptor_map[ dev ] = &last_added;
 
         // add device agent to the list
         m_device_agents.push_back( dev->GetDeviceAgent() );
-
     }
 
     if (m_device_descriptors.empty())
@@ -258,6 +258,8 @@ cl_err_code GenericMemObject::Initialize(
         return CL_OUT_OF_HOST_MEMORY;
     }
 
+    m_data_valid_state.m_contains_valid_data = m_BS->IsDataValid();
+    
     // now allocate on devices. Only one single allocation per sharing group is required.
     for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
@@ -275,12 +277,11 @@ cl_err_code GenericMemObject::Initialize(
             remove_device_objects();
         	return CL_OUT_OF_RESOURCES;
         }
-    }
 
-    // TODO: DK: this is WRONG!!! need to support multiple owners
-    // override GetLocation to get any acceptable and add check_copy_required to
-    // check if copy to the given device is required
-    m_pLocation = pDevices[0]->GetRootDevice();
+        group.m_data_copy_state = m_data_valid_state.m_contains_valid_data ? 
+                                        DATA_COPY_STATE_VALID : DATA_COPY_STATE_INVALID;
+
+    }
 
 	// Now we should set backing store
 	// Get access to internal pointer
@@ -340,6 +341,8 @@ cl_err_code GenericMemObject::InitializeSubObject(
             continue;
         }
 
+        SharingGroup& grp = m_sharing_groups[group_idx];
+
         TDeviceDescPtrList::const_iterator it     = p_grp.m_device_list.begin();
         TDeviceDescPtrList::const_iterator it_end = p_grp.m_device_list.end();
 
@@ -356,14 +359,14 @@ cl_err_code GenericMemObject::InitializeSubObject(
                 }
             }
 
-            m_device_descriptors.push_back( DeviceDescriptor( p_dev_desc->m_pDevice,
-                                                   group_idx,
-                                                   p_dev_desc->m_alignment) );
+            m_device_descriptors.push_back( DeviceDescriptor( *p_dev_desc ) );
             DeviceDescriptor& last_added = m_device_descriptors.back();
 
-            m_sharing_groups[group_idx].m_device_list.push_back( &last_added );
+            grp.m_device_list.push_back( &last_added );            
 
+            m_device_2_descriptor_map[ last_added.m_pDevice ] = &last_added;
             m_device_agents.push_back( p_dev_desc->m_pDevice->GetDeviceAgent() );
+            
         }
 
         cl_err_code dev_err = allocate_object_for_sharing_group( group_idx );
@@ -372,7 +375,18 @@ cl_err_code GenericMemObject::InitializeSubObject(
         {
             remove_device_objects();
         	return CL_OUT_OF_RESOURCES;
+        }       
+
+        if (DATA_COPY_STATE_VALID == p_grp.m_data_copy_state)
+        {
+            grp.m_data_copy_state = DATA_COPY_STATE_VALID;
+            m_data_valid_state.m_contains_valid_data = true;
         }
+        else
+        {
+            grp.m_data_copy_state = DATA_COPY_STATE_INVALID;
+        }
+
     }
 
     if (m_device_descriptors.empty())
@@ -380,11 +394,6 @@ cl_err_code GenericMemObject::InitializeSubObject(
         // all devices were filtered out
         return CL_MISALIGNED_SUB_BUFFER_OFFSET;
     }
-
-    // TODO: DK: this is WRONG!!! need to support multiple owners
-    // override GetLocation to get any acceptable and add check_copy_required to
-    // check if copy to the given device is required
-	m_pLocation = parent.m_pLocation;
 
 	// Now we should set backing store
 	// Get access to internal pointer
@@ -397,40 +406,10 @@ cl_err_code GenericMemObject::InitializeSubObject(
 }
 
 
-
 const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( FissionableDevice* dev ) const
 {
-    TDeviceDescList::const_iterator it     = m_device_descriptors.begin();
-    TDeviceDescList::const_iterator it_end = m_device_descriptors.end();
-
-    for(;it != it_end; ++it)
-    {
-        const DeviceDescriptor& desc = *it;
-        if (desc.m_pDevice->GetRootDevice() == dev->GetRootDevice() )
-        {
-            return &desc;
-        }
-    }
-
-    return NULL;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// MemoryObject::SetDataLocation
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code GenericMemObject::UpdateLocation(FissionableDevice* pDevice)
-{
-    // TODO: DK: Add parametetr to specify W/R access
-	LOG_DEBUG(TEXT("Enter SetDataLocation (clDevice=%x)"), pDevice);
-
-    m_pLocation = pDevice->GetRootDevice();
-	return CL_SUCCESS;
-}
-
-bool GenericMemObject::IsSharedWith(FissionableDevice* pDevice)
-{
-    // TODO: DK: Need 2 devices or another meaning
-	return (pDevice == m_pLocation);
+    TDevice2DescPtrMap::const_iterator found = m_device_2_descriptor_map.find( dev );
+    return (found != m_device_2_descriptor_map.end()) ? found->second : NULL;
 }
 
 cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int group_id )
@@ -753,6 +732,13 @@ cl_err_code GenericMemObject::CheckBounds( const size_t* pszOrigin, const size_t
         }
     }
 	return CL_SUCCESS;
+}
+
+cl_err_code GenericMemObject::GetDimensionSizes( size_t* pszRegion ) const
+{
+    assert( pszRegion );
+    memcpy( pszRegion, m_BS->GetDimentions(), sizeof( size_t ) * m_BS->GetDimCount() );
+    return CL_SUCCESS;
 }
 
 cl_err_code GenericMemObject::CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion,

@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Utils;
 MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints): OCLObject<_cl_mem_int>("MemoryObject"),
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
 	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
-	m_mapCount(0), m_pLocation(NULL), m_stMemObjSize(0)
+	m_mapCount(0), m_stMemObjSize(0)
 {
 	assert ( NULL != m_pContext );
 
@@ -278,6 +278,12 @@ cl_err_code MemoryObject::CreateMappedRegion(
 		it++;
 	}
 
+    bool full_overwrite = false;
+    if (CL_MAP_WRITE_INVALIDATE_REGION & clMapFlags)
+    {
+        full_overwrite = IsWholeObjectCovered(m_uiNumDim, pOrigin, pRegion);
+    }
+
 	//If map already exists, increase the ref counter and return the previous pointer
 	if (NULL != pPrevMapping)
 	{
@@ -287,6 +293,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
 		// it is possible that saved map flags and new one are different - merge
 		pclDevCmdParamMap->cmd_param_map.flags |= clMapFlags;
+        pclDevCmdParamMap->full_object_ovewrite = pclDevCmdParamMap->full_object_ovewrite || full_overwrite;
 
 		*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
         *pHostMapDataPtr = pPrevMapping;
@@ -306,6 +313,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.origin, sizeof(size_t[MAX_WORK_DIM]), pOrigin, sizeof(size_t)*m_uiNumDim);
 	MEMCPY_S(pclDevCmdParamMap->cmd_param_map.region, sizeof(size_t[MAX_WORK_DIM]), pRegion, sizeof(size_t)*m_uiNumDim);
     pclDevCmdParamMap->cmd_param_map.flags = clMapFlags;
+    pclDevCmdParamMap->full_object_ovewrite = full_overwrite;
 
 	cl_err_code err = MemObjCreateDevMappedRegion(pDevice, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
 	if (CL_FAILED(err))
@@ -325,11 +333,15 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	return CL_SUCCESS;
 }
 
-cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo,
+cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, 
+                                              cl_dev_cmd_param_map* OUT *pMapInfo,
+                                              const FissionableDevice* OUT *pMappedOnDevice,
+                                              bool                     OUT *pbWasFullyOverwritten,
                                               bool invalidateRegion)
 {
 	LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"), pDevice, mappedPtr);
 	assert(NULL!=pMapInfo);
+	assert(NULL!=pMappedOnDevice);
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
     // try to find a region that hasn't yet been invalidated
@@ -338,10 +350,18 @@ cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevic
     {
         if (it->second->isValid)
         {
-            *pMapInfo = &(it->second->cmd_param_map);
+            MapParamPerPtr* info = it->second;
+            
+            *pMapInfo = &(info->cmd_param_map);
+            *pMappedOnDevice = info->pDevice;
+
+            if (pbWasFullyOverwritten)
+            {
+                *pbWasFullyOverwritten = info->full_object_ovewrite;
+            }
             if (invalidateRegion)
             {
-                it->second->isValid = false;
+                info->isValid = false;
             }
             break;
         }
@@ -437,3 +457,33 @@ int MemoryObject::ValidateMapFlags( const cl_mem_flags mapFlags)
 
 	return CL_SUCCESS;
 }
+
+// Check that whole object is covered. 
+bool MemoryObject::IsWholeObjectCovered( cl_uint dims, const size_t* pszOrigin, const size_t* pszRegion )
+{
+    size_t sizes[ MAX_WORK_DIM ];
+    
+    assert( pszOrigin && pszRegion );
+
+    if (GetNumDimensions() != dims)
+    {
+        return false;
+    }
+    
+    if (CL_SUCCESS != GetDimensionSizes( sizes ))
+    {
+        assert( false && "GetDimensionSizes(sizes) returned non-success" );
+        return false;
+    }
+
+    for (cl_uint i = 0; i < dims; ++i)
+    {
+        if ((pszOrigin[i] > 0) || (pszRegion[i] < sizes[i]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+

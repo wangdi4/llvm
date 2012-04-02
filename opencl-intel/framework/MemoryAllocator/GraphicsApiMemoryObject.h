@@ -77,15 +77,14 @@ namespace Intel { namespace OpenCL { namespace Framework
         cl_err_code SetAcquireCmdEvent(OclEvent* pEvent); // Set Event of Acquire command that belongs to the object.
 
         // inherited methods:
+        virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
+        virtual void UnLockOnDevice( IN const FissionableDevice* dev );
 
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
 
-        virtual cl_err_code UpdateLocation(FissionableDevice* pDevice);
-
-        virtual bool IsSharedWith(FissionableDevice* pDevice);
-
         virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
 
+		virtual cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
         virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
             size_t szRowPitch, size_t szSlicePitch) const;
 
@@ -104,8 +103,6 @@ namespace Intel { namespace OpenCL { namespace Framework
 		virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
         virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
-
-        virtual FissionableDevice* GetLocation() const;
 
     protected:
 

@@ -176,6 +176,8 @@ public:
 		return &m_micDeviceAgent;
 	}
 
+    void BackingStoreUpdateFinished(void* handle, cl_dev_err_code* dev_error) {};
+    
 private:
 
 	IOCLDevBackingStore*		m_backingStore;

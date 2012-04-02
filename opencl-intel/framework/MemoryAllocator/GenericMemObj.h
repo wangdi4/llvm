@@ -82,11 +82,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code UpdateHostPtr(cl_mem_flags	clMemFlags, void* pHostPtr) {return CL_INVALID_OPERATION;}
 
-		// set the device id where the data is know available.
-		// calling to this methods should be done just before the write command is sent to the device agent.
-		cl_err_code UpdateLocation(FissionableDevice* pDevice);
+        // returns NULL id data is ready and locked on given device, 
+        // non-NULL if data is in the process of copying. Returned event may be added to dependency list
+        // by the caller
+        OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
 
-		bool	IsSharedWith(FissionableDevice* pDevice);
+        // release data locking on device. 
+        void UnLockOnDevice( IN const FissionableDevice* dev );
 
 		cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
 		cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
@@ -114,6 +116,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
         cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
+		cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 		void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
 		cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
 		cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
@@ -138,6 +141,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		const IOCLDeviceAgent* const *GetDeviceAgentList() const;
         virtual ~GenericMemObject();
         cl_mem_object_type GetMemObjectType() const { return GetType(); }
+        // Device Agent should notify when long update to/from backing store operations finished.
+        //      Pass HANDLE value that was provided to Device Agent when update API was called
+        void BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code *dev_error );
 
     protected:
 		
@@ -168,49 +174,107 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t							m_sharing_group_id;
             size_t							m_alignment;
 
-            // TODO: DK: temporary unused - required for multi-device support
-            bool                            m_has_data;
-            bool                            m_is_owner;
-            OclSpinMutex                    m_lock;
-
             DeviceDescriptor( FissionableDevice* dev, size_t group, size_t alignment ) :
-                    m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment),
-                    m_has_data(false), m_is_owner(false){};
+                    m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment) {};
 
             DeviceDescriptor( const DeviceDescriptor& o ) :
-                   m_pDevice(o.m_pDevice), m_sharing_group_id(o.m_sharing_group_id), m_alignment(o.m_alignment),
-                   m_has_data(o.m_has_data), m_is_owner(o.m_is_owner) {};
+                   m_pDevice(o.m_pDevice), m_sharing_group_id(o.m_sharing_group_id), m_alignment(o.m_alignment) {};
 
         };
 
-        typedef std::list<DeviceDescriptor>         TDeviceDescList;
-        typedef std::list<DeviceDescriptor*>        TDeviceDescPtrList;
-        typedef std::vector<const IOCLDeviceAgent*> TDevAgentsVector;
+        typedef std::list<DeviceDescriptor>                     TDeviceDescList;
+        typedef std::list<DeviceDescriptor*>                    TDeviceDescPtrList;
+        typedef std::map<FissionableDevice*,DeviceDescriptor*>  TDevice2DescPtrMap;
+        typedef std::vector<const IOCLDeviceAgent*>             TDevAgentsVector;
+
+        // data copy state
+        enum DataCopyState
+        {
+            DATA_COPY_STATE_INVALID = 0,
+            DATA_COPY_STATE_TO_BS,      // waiting for copy from sharing group to Backing Store
+            DATA_COPY_STATE_FROM_BS,    // waiting for copy from Backing Store to sharing group
+            DATA_COPY_STATE_VALID       // data valid on sharing group
+        };
+
+        class DataCopyEvent;
 
         struct SharingGroup
         {
             TDeviceDescPtrList              m_device_list;
-
-            // TODO: DK: temporary unused - required for multi-device support
-            AtomicCounter                   m_num_of_data_containers;
-            AtomicCounter                   m_num_of_data_owners;
-
             IOCLDevMemoryObject*            m_dev_mem_obj;
-
-            SharingGroup() : m_dev_mem_obj(NULL) {};
+            
+            DataCopyEvent*                  m_data_copy_in_process_event; // for sharing group data use
+            DataCopyState                   m_data_copy_state;            // 
+            // copy-related
+            unsigned int                    m_data_copy_from_group;       // if copy is in progress from other sharing group
+            unsigned int                    m_data_copy_used_by_others_count;  // user use me for copy
+            bool                            m_data_copy_invalidate_asap;  // invalidation is required after copy ends
+            
+            SharingGroup() : m_dev_mem_obj(NULL), 
+                             m_data_copy_in_process_event(NULL), 
+                             m_data_copy_state(DATA_COPY_STATE_INVALID),
+                             m_data_copy_from_group(MAX_DEVICE_SHARING_GROUP_ID),
+                             m_data_copy_used_by_others_count(0),
+                             m_data_copy_invalidate_asap(false) {};
         };
 
         // Assumption: All devices are added at class initialization time so data may be modified at runtime only
         //             because of lazy sharing groups initialization.
-        //             m_global_lock may be taken only during sharing group lazy initialization.
+        //             m_global_lock may be taken only 
+        //                   - during sharing group lazy initialization
+        //                   - sharing finite state machine management
         SharingGroup                        m_sharing_groups[MAX_DEVICE_SHARING_GROUP_ID];
 
         // parallel structures
         TDevAgentsVector                    m_device_agents;
         TDeviceDescList                     m_device_descriptors;
+        TDevice2DescPtrMap                  m_device_2_descriptor_map;
 
         GenericMemObjectBackingStore*       m_BS;
         unsigned int                        m_active_groups_count; // groups with allocated device objects
+
+        // FSM for data sharing:
+        enum DataSharingFSM_State
+        {
+            UNIQUE_INACTIVE_USER = 0,      // either no valid data or owner is unique and not executing
+            UNIQUE_ACTIVE_USER,            // single owner that is currently executing
+            MULTIPLE_ACTIVE_USERS,         // multiple currently running owners - data may be not in synch on devices
+            MULTIPLE_INACTIVE_USERS,       // no running owners, but data may be not in synch on different devices
+            
+            DATA_SHARING_FSM_STATES_COUNT   // must be the last - number of different states
+        };
+
+        struct DataValidState
+        {
+            DataSharingFSM_State            m_data_sharing_state;  // current data sharing state
+            unsigned int                    m_usage_count;         // has active kernel 
+            bool                            m_contains_valid_data; 
+            
+            DataValidState() :  m_data_sharing_state(UNIQUE_INACTIVE_USER), 
+                                m_usage_count(0) , m_contains_valid_data(false) {};
+            DataValidState(const DataValidState& o) : 
+                m_data_sharing_state(UNIQUE_INACTIVE_USER),
+                m_usage_count(0),                      // there is not active kernels can use this sub-buffer 
+                                                       // during creation
+                m_contains_valid_data(o.m_contains_valid_data) {};
+
+        };
+
+        // FSM machine code, return non-NULL if operation is in-process
+        DataCopyEvent* data_sharing_fsm_process_acquire( unsigned int group_id, MemObjUsage access );
+        void           data_sharing_fsm_process_release( unsigned int group_id );
+        // read path
+        DataCopyEvent* data_sharing_bring_data_to_sharing_group( unsigned int group_id );
+        DataCopyEvent* drive_copy_between_groups( DataCopyState staring_state, 
+                                                  unsigned int from_grp_id, 
+                                                  unsigned int to_group_id );
+        void           ensure_single_data_copy( unsigned int group_id );
+        // FSM utilities
+        void           acquire_data_sharing_lock();
+        OclEvent*      release_data_sharing_lock( DataCopyEvent* returned_event );
+        class          DataSharingAutoLock;
+
+        DataValidState                      m_data_valid_state;    // overall state - sum of all devices
         OclSpinMutex                        m_global_lock;         // lock for control structures changes
 
         cl_err_code allocate_object_for_sharing_group( unsigned int group_id );

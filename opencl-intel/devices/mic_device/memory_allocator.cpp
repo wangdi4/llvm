@@ -433,6 +433,30 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
     return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore( 
+                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
+{
+    // TODO: DK: Change implementation!!!!!!
+    assert( NULL != pUpdateState );
+    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
+                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
+{
+    // TODO: DK: Change implementation!!!!!!
+    assert( NULL != pUpdateState );
+    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
+{
+    // TODO: DK: Change implementation!!!!!!
+    return CL_DEV_SUCCESS;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

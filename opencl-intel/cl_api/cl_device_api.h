@@ -348,6 +348,14 @@ enum cl_dev_bs_flags
 	CL_DEV_BS_GET_ALWAYS					//! Returns Backing Store in any case,
 											//! if not available runtime shall allocate one
 };
+
+// Backing Store update operations mode
+enum cl_dev_bs_update_state
+{
+    CL_DEV_BS_UPDATE_COMPLETED = 0,         //! Update operation completed 
+    CL_DEV_BS_UPDATE_LAUNCHED               //! Update operation launched asyncronously
+};
+
 // ------------------------------------------------------------------------------
 // Device API data structure definition
 // ------------------------------------------------------------------------------
@@ -752,6 +760,15 @@ public:
 	//!	Returns the list Device Agent sharing the runtime memory object
 	virtual const IOCLDeviceAgent* const *GetDeviceAgentList() const = 0;
     virtual cl_mem_object_type GetMemObjectType() const = 0;
+
+    //! Report that asynchronous Update operation has finished
+    /*!
+        \param[in]  handle      An operation handle that was provided during the call to 
+                                IOCLDevMemoryObject::Update* API
+
+        \param[in]  dev_error   Error code (CL_DEV_SUCCESS, etc for errors)
+    */
+    virtual void BackingStoreUpdateFinished( void* handle, cl_dev_err_code *dev_error ) = 0;
 };
 
 /*!
@@ -808,6 +825,55 @@ public:
 	*/
 	virtual cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
 		const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject ) = 0;
+
+    //! Muilti-device data sharing - update Backing Store data by copying data from device
+    //! Device->BackingStore
+    //! Note: this operation is called from inside IOCLDevRTMemObjectService per-memory-object lock
+    /*
+        \param[in]   operation_handle       Opaque handle to be provided back to 
+                                            IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
+                                            if asynchronous operation mode was used
+                                            
+        \param[out]  pUpdateState           Pointer to operation mode, chosen by IOCLDevMemoryObject:
+                                            CL_DEV_BS_UPDATE_COMPLETED - update completed synchronously
+                                            CL_DEV_BS_UPDATE_LAUNCHED  - update was launched asynchronously
+                                                                         and result will be reported using
+                                                                         IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
+
+        \retval      CL_DEV_SUCCESS		    The function is executed successfully.
+        \retval      CL_DEV_*               Error occured
+    */                                        
+	virtual cl_dev_err_code clDevMemObjUpdateBackingStore( 
+	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState ) = 0;
+    
+    //! Muilti-device data sharing - update device data by copying data from Backing Store
+    //! BackingStore->Device
+    //! Note: this operation is called from inside IOCLDevRTMemObjectService per-memory-object lock
+    /*
+        \param[in]   operation_handle       Opaque handle to be provided back to 
+                                            IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
+                                            if asynchronous operation mode was used
+                                            
+        \param[out]  pUpdateState           Pointer to operation mode, chosen by IOCLDevMemoryObject:
+                                            CL_DEV_BS_UPDATE_COMPLETED - update completed synchronously
+                                            CL_DEV_BS_UPDATE_LAUNCHED  - update was launched asynchronously
+                                                                         and result will be reported using
+                                                                         IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
+
+        \retval      CL_DEV_SUCCESS		    The function is executed successfully.
+        \retval      CL_DEV_*               Error occured
+    */                                        
+	virtual cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
+                                void* operation_handle, cl_dev_bs_update_state* pUpdateState ) = 0;
+
+    //! Muilti-device data sharing - invalidate device data - device data is no longer valid.
+    //! Note: this operation must be fast!
+    //! Note: this operation is called from inside IOCLDevRTMemObjectService per-memory-object lock
+    /*
+        \retval      CL_DEV_SUCCESS		    The function is executed successfully.
+        \retval      CL_DEV_*               Error occured
+    */                                        
+	virtual cl_dev_err_code clDevMemObjInvalidateData( ) = 0;
 
 	//!		This function deletes previously created memory object.
 	/*

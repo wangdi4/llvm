@@ -212,6 +212,12 @@ public:
     cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*  pMapParams );
     cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
 
+    cl_dev_err_code clDevMemObjUpdateBackingStore( 
+	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState );
+	cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
+                                void* operation_handle, cl_dev_bs_update_state* pUpdateState );
+	cl_dev_err_code clDevMemObjInvalidateData( );
+
     cl_dev_err_code clDevMemObjRelease();
     cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
 	const cl_mem_obj_descriptor& clDevMemObjGetDescriptorRaw() const { return m_objDescr; };

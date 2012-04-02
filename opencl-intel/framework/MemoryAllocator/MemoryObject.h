@@ -54,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_dev_cmd_param_map	cmd_param_map;
 		const FissionableDevice*							pDevice;
 		size_t												refCount;
+        bool                                                full_object_ovewrite;
         bool isValid;
 	};
 
@@ -124,19 +125,35 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_mem_flags		clMemFlags,
 			void* pHostPtr) = 0;
 
-		// returns the device is where the memory is currently available
-		// returns NULL when the data is not available on any of the devices, or the memory object wasn't
-		// allocated for any of the devices.
-		// calling to this method doesn't promise that once it finished the data is available on the
-		// same device
-		virtual FissionableDevice* GetLocation() const	{return m_pLocation;}
+        // 
+        // Ownership and data validity management
+        //
+        // Memory object may be valid on multiple devices at the same time
+        // Memory object should be locked on a device before usage and released 
+        // Memory object current position quering does not guarantee that this position will be still valid 
+        // after query returns - need to lock before usage also.
+        //
+        enum MemObjUsage 
+        {
+            READ_ONLY = 0,      // data will only be read on this device 
+            READ_WRITE,         // data may be both read and write
+            WRITE_ENTIRE,       // data will be written only, old data is not required
 
-		// set the device id where the data is know available.
-		// calling to this methods should be done just before the write command is sent to the device agent.
-		virtual cl_err_code UpdateLocation(FissionableDevice* pDevice) = 0;
+            MEMOBJ_USAGES_COUNT // must be the last 
+        };
 
-		// Returns true if current location of the memory buffer can share with the requested device
-		virtual bool	IsSharedWith(FissionableDevice* pDevice) = 0;
+        // returns NULL id data is ready and locked on given device, 
+        // non-NULL if data is in the process of copying. Returned event may be added to dependency list
+        // by the caller
+        virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) = 0;
+
+        // release data locking on device. 
+        virtual void UnLockOnDevice( IN const FissionableDevice* dev ) = 0;
+
+        //
+        // end of ownership and data validity management
+        //
+     
 
 		// get the type of the memory object
 		cl_mem_object_type GetType() const { return m_clMemObjectType; }
@@ -195,6 +212,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Returns the number of dimensions for the memory object
 		cl_uint GetNumDimensions() const {return m_uiNumDim;}
+		virtual cl_err_code GetDimensionSizes( size_t* pszRegion ) const = 0;
 
         // Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
         virtual size_t GetRowPitchSize() const = 0;
@@ -215,6 +233,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// If it is out of bounds the function returns CL_INVALID_VALUE. else returns CL_SUCCESS
 		// The length of the pszOrigin and pszOregion arrays is 1,2,3 for buffer, 2D image, 3D image respectively.
 		virtual cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const = 0;
+
+        // Check that whole object is covered. 
+        bool IsWholeObjectCovered( cl_uint dims, const size_t* pszOrigin, const size_t* pszRegion );
 
 		// get pointer to the data of the memory object.
 		// it is on the caller responsibility to save the data.
@@ -245,8 +266,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			void*                 OUT *pHostMapDataPtr
 			);
 
-		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, cl_dev_cmd_param_map* OUT *pMapInfo,
-            bool invalidateRegion = false);
+		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, 
+                                                cl_dev_cmd_param_map*    OUT *pMapInfo, 
+                                                const FissionableDevice* OUT *pMappedOnDevice,
+                                                bool                     OUT *pbWasFullyOverwritten,
+                                                bool invalidateRegion = false);
 
 		// Release the region pointed by mappedPtr from clDeviceId.
 		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
@@ -320,7 +344,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			std::stack<MemDtorNotifyData*>			m_pfnNotifiers;		    // Holds a list of pointers to callbacks upon dtor execution
 			Intel::OpenCL::Utils::OclSpinMutex		m_muNotifiers;			// Mutex for accessing m_pfnNotifiers
 			Intel::OpenCL::Utils::AtomicCounter		m_mapCount;	            // A counter for the number of times an object has been mapped
-			FissionableDevice*						m_pLocation;			// A pointer to device where the latest updated data is located
 			std::multimap<void*, MapParamPerPtr*>	m_mapMappedRegions;		// A map for storage of Mapped Regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes

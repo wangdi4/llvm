@@ -39,6 +39,7 @@
 #include <list>
 #include "ocl_object_base.h"
 #include "task_executor.h"
+#include "MemoryObject.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
     
@@ -156,6 +157,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //  2. additional event will be added to dependency list
         //  3. On resolution the provided memory location will be update with device descriptor value
         cl_err_code GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemoryObject* *ppDevMemObj);
+
+        // AcquireMemoryObjects() brings required memory objects to the target device and lock them there
+        // Must be called from Execute() and accompanied by call to RelinquishMemoryObjects during CommandDone().
+        // If memory objects are not ready, adds new events to dependency and returns CL_NOT_READY
+        // Subsequent calls to AcquireMemoryObjects() will do nothing and always return CL_SUCCESS
+        struct MemoryObjectArg 
+        {
+            MemoryObject* pMemObj;
+            MemoryObject::MemObjUsage access_rights;
+
+            MemoryObjectArg( MemoryObject* a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
+        };
+
+        typedef list<MemoryObjectArg>   MemoryObjectArgList;
+
+        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs ) { return AcquireMemoryObjectsInt( &mem_objs, NULL ); };
+        cl_err_code AcquireMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights )
+        { 
+            MemoryObjectArg arg( pMemObj, access_rights ); 
+            return AcquireMemoryObjectsInt( NULL, &arg ); 
+        };
+        
+        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs ) { RelinquishMemoryObjectsInt( &mem_objs, NULL ); };
+        void        RelinquishMemoryObjects( MemoryObject* pMemObj ) { RelinquishMemoryObjectsInt( NULL, pMemObj );  };
         
         QueueEvent                  m_Event;                    // An associated event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
@@ -169,36 +194,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_gpa_command*            m_pGpaCommand;
         
         DECLARE_LOGGER_CLIENT;
+    private:
+
+        // return true if ready
+        bool AcquireSingleMemoryObject( MemoryObjectArg& arg );
+        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle );
+        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle );
+                
+        bool                        m_memory_objects_acquired;
+       
     };
     
     class MemoryCommand : public Command
     {
     public:
         MemoryCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
-        #ifdef USE_PREPARE_ON_DEVICE
-        cl_err_code     PrepareOnDevice(
-            MemoryObject* pSrcMemObj,
-            const size_t* pSrcOrigin,
-            const size_t* pRegion,
-            QueueEvent**  pEvent);
-        #endif
-    protected:
-        cl_err_code CopyFromHost(
-            void* pSrcData,
-            MemoryObject* pSrcMemObj,
-            const size_t* pSrcOrigin,
-            const size_t* pDstOrigin,
-            const size_t* pRegion,
-            const size_t  szSrcRowPitch,
-            const size_t  szSrcSlicePitch,
-            const size_t  szDstRowPitch,
-            const size_t  szDstSlicePitch,
-            QueueEvent**  pEvent);
-        
-        cl_err_code CopyToHost(
-            MemoryObject*   pSrcMemObj,
-            QueueEvent**        pEvent);
-        
+    protected:        
         cl_dev_cmd_param_rw m_rwParams;
         
     };
@@ -248,29 +259,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      * 
      ******************************************************************/
-    class CopyToHostCommand : public ReadMemObjCommand
-    {
-    public:
-        CopyToHostCommand(
-            IOclCommandQueueBase* cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
-            const size_t*   pszOrigin,
-            const size_t*   pszRegion,
-            size_t          szMemObjRowPitch,
-            size_t          szMemObjSlicePitch,
-            void*           pDst,
-            const size_t*   pszDstOrigin    = NULL,
-            const size_t    szDstRowPitch   = 0,
-            const size_t    szDstSlicePitch = 0) :
-            ReadMemObjCommand(cmdQueue, pOclEntryPoints, pMemObj, pszOrigin, pszRegion, szMemObjRowPitch, szMemObjSlicePitch,
-                              pDst, pszDstOrigin, szDstRowPitch, szDstSlicePitch) {}
-                              
-                              // When this command is done need to updated location of the memory object
-                              // This is the only difference from the original command
-                              cl_err_code             CommandDone();
-    };
-    
     class ReadBufferRectCommand : public ReadMemObjCommand
     {
     public:
@@ -381,6 +369,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_bool         m_bBlocking;
+        cl_bool         m_bDiscardPreviousData;
         size_t          m_szMemObjRowPitch;
         size_t          m_szMemObjSlicePitch;
         const void*     m_cpSrc;
@@ -468,6 +457,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
         cl_err_code     m_internalErr; /* error logger for CTOR */
+        bool            m_bDiscardPreviousData;
     };
     
     /******************************************************************
@@ -650,6 +640,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t  m_szSrcSlicePitch;
         size_t  m_szDstRowPitch;
         size_t  m_szDstSlicePitch;
+
+        MemoryObjectArgList m_objs;
         
         // Private functions
         cl_err_code CopyOnDevice    (FissionableDevice* pDevice);
@@ -830,6 +822,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// postfix-related. Created in init, pointer zeroed at enqueue.
 		ocl_entry_points *      m_pOclEntryPoints;
 		PrePostFixRuntimeCommand* m_pPostfixCommand;
+        bool                    m_bDiscardPreviousData;
     };
     
     /******************************************************************
@@ -920,6 +913,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// prefix-related. Created in init, pointer zeroed at enqueue.
 		PrePostFixRuntimeCommand* m_pPrefixCommand;
 		ocl_entry_points *      m_pOclEntryPoints;
+        bool                    m_bDiscardPreviousData;
     };
     
     /******************************************************************
@@ -952,7 +946,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*   m_cpszLocalWorkSize;
         
         // Intermediate data
-        std::list<OCLObject<_cl_mem_int>*>  m_MemOclObjects;
+        MemoryObjectArgList                 m_MemOclObjects;
         std::list<OCLObject<_cl_mem_int>*>  m_NonMemOclObjects;
         #if defined (USE_GPA)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* stringHandle) const;
@@ -1013,10 +1007,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         pUserFnc_t           m_pUserFnc;
         void*                m_pArgs;
-        size_t                 m_szCbArgs;
-        cl_uint             m_uNumMemObjects;
-        MemoryObject**        m_ppMemObjList;
-        const void**        m_ppArgsMemLoc;
+        size_t               m_szCbArgs;
+        cl_uint              m_uNumMemObjects;
+        MemoryObject**       m_ppMemObjList;
+        const void**         m_ppArgsMemLoc;
+        MemoryObjectArgList  m_MemOclObjects;
     };
     
     /******************************************************************
