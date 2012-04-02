@@ -73,6 +73,7 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    Serializer::SerialPrimitive<bool>(&m_bJitCreateWIids, ost);
 }
 
 void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -102,6 +103,7 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
     m_totalImplSize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
+    Serializer::DeserialPrimitive<bool>(&m_bJitCreateWIids, ist);
 }
 
 }}} // namespace

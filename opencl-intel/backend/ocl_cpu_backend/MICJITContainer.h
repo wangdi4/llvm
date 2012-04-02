@@ -15,6 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  MICJITContainer.h
 
 \*****************************************************************************/
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
 #pragma once
 
 #include "cl_dev_backend_api.h"

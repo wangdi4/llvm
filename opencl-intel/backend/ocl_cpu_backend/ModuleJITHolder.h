@@ -15,6 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  ModuleJITHolder.h
 
 \*****************************************************************************/
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
 #ifndef __MODULE_JIT_HOLDER
 #define __MODULE_JIT_HOLDER
 
