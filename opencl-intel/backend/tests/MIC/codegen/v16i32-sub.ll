@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
@@ -46,8 +45,7 @@ entry:
 
 define <16 x i32> @sub4(<16 x i32> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: vsubpi ([[R1]]), {{%v[0-9]+}}, {{%v[0-9]+}}
+; KNF: vsubpi {{[^(]+\(%rip\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 ;
 ; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
 ; KNC: vpsubd ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
@@ -58,9 +56,9 @@ entry:
 
 define <16 x i32> @sub5(<16 x i32> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: movq ([[R1]]), [[R2:%[a-z]+]]
-; KNF: vsubpi ([[R2]]), {{%v[0-9]+}}, {{%v[0-9]+}}
+
+; KNF: movq   pgb(%rip),  %rax
+; KNF: vsubpi (%rax), {{%v[0-9]+}}, {{%v[0-9]+}}
 ;
 ; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
 ; KNC: movq ([[R1]]), [[R2:%[a-z]+]]
