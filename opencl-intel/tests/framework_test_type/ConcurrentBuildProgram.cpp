@@ -101,6 +101,7 @@ bool ConcurrentBuildProgramTest()
 	clProg = clCreateProgramWithSource(context, 1, (const char**)&oclProgram, NULL, &iRet);
 	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
 
+	gBuildDone = false;
 	iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
 	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
 
