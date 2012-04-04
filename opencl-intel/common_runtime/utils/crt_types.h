@@ -99,9 +99,10 @@ inline long test_and_set(long* Addend, long comparand, long exchange)
 // Extensions support
 enum CrtExtension
 {
-    CRT_CL_D3D10_EXT    = 1<<0,
+    CRT_CL_GL_EXT       = 1<<0,
     CRT_CL_D3D9_EXT     = 1<<1,
-    CRT_CL_GL_EXT       = 1<<2
+    CRT_CL_D3D10_EXT    = 1<<2,
+    CRT_CL_D3D11_EXT    = 1<<3
 };
 
 cl_int GetCrtExtension(const char* str_extensions);

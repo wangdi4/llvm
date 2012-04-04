@@ -54,6 +54,7 @@ namespace CRT_ICD_DISPATCH
 
     struct SOCLCRTDispatchTable
     {
+        KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
         INTELpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
         INTELpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
         INTELpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;

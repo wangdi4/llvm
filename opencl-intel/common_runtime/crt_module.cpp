@@ -153,7 +153,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clGetExtensionFunctionAddressForPlatform , clGetExtensionFunctionAddressForPlatform )
     // clCreateFromGLTexture
     
-    // clGetDeviceIDsFromD3D11KHR
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D11KHR , clGetDeviceIDsFromD3D11KHR )
     // clCreateFromD3D11BufferKHR
     // clCreateFromD3D11Texture2DKHR
     // clCreateFromD3D11Texture3DKHR
@@ -485,11 +485,12 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_int errCode = CL_SUCCESS;
 
     cl_bool cl_context_platform_set   = CL_FALSE;
-    cl_bool cl_gl_context_khr_set     = CL_FALSE;
-    cl_bool cl_wgl_hdc_khr_set        = CL_FALSE;
-    cl_bool cl_d3d10_device_khr_set   = CL_FALSE;
-    cl_bool cl_d3d9_device_intel_set  = CL_FALSE;
-    cl_bool cl_dxva9_device_intel_set = CL_FALSE;
+    cl_bool cl_ctx_interop_user_sync_set    = CL_FALSE;
+    cl_bool cl_gl_context_khr_set           = CL_FALSE;
+    cl_bool cl_wgl_hdc_khr_set              = CL_FALSE;
+    cl_bool cl_d3d10_device_khr_set         = CL_FALSE;
+    cl_bool cl_d3d9_device_intel_set        = CL_FALSE;
+    cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
 
     if( properties != NULL )
     {
@@ -507,6 +508,14 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 {
                     errCode = CL_INVALID_PLATFORM;
                 }
+                break;
+            case CL_CONTEXT_INTEROP_USER_SYNC:
+                if( ( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 ) ||
+                    ( cl_ctx_interop_user_sync_set == CL_TRUE ) )
+                {
+                    return CL_INVALID_PROPERTY;
+                }                
+                cl_ctx_interop_user_sync_set = CL_TRUE;               
                 break;
             case CL_GL_CONTEXT_KHR:
                 if( cl_gl_context_khr_set == CL_TRUE )

@@ -198,6 +198,7 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 //
 struct COCLCRTDispatchTable
 {
+    KHRpfn_clGetKernelArgInfo                     clGetKernelArgInfo;
 #ifdef DX9_MEDIA_SHARING
     KHRpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
     KHRpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;

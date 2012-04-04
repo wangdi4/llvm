@@ -1951,6 +1951,12 @@ cl_int SyncManager::PrepareToExecute(
 {
     CrtEvent*   nullEvent = NULL;
     cl_int errCode = CL_SUCCESS;
+    
+    if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
+	( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
 
     for( cl_uint i=0; i < NumEventsInWaitList; i++ )
     {
@@ -2187,13 +2193,17 @@ cl_int GetCrtExtension(const char* str_extensions)
         {
             ext_keys |= CRT_CL_GL_EXT;
         }
+        else if( !sub.compare( "cl_intel_dx9_media_sharing" ) )
+        {
+            ext_keys |= CRT_CL_D3D9_EXT;
+        }
         else if( !sub.compare( "cl_khr_d3d10_sharing" ) )
         {
             ext_keys |= CRT_CL_D3D10_EXT;
         }
-        else if( !sub.compare( "cl_intel_dx9_media_sharing" ) )
+        else if( !sub.compare( "cl_khr_d3d11_sharing" ) )
         {
-            ext_keys |= CRT_CL_D3D9_EXT;
+            ext_keys |= CRT_CL_D3D11_EXT;
         }
     } while( iss );
     return ext_keys;
