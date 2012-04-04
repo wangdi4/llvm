@@ -154,18 +154,15 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 	size_t real_allocated_size;
 	void   *ptr;
 
-	//BUGBUG: Workaround for short2 shift compiler error - need to allocate at least 16 bytes after the buffer to avoid page faults!!!!
-	allocSize += 128;
-
 	if (force_dedicated_pages || ((allocSize >= MEM_LARGE_ALLOC_TRIGGER) && (alignment <= PAGE_4K_SIZE)))
 	{
 		used_large_alloc = true;
-
+  
 		// align to page boundary
 		real_allocated_size = (IS_ALIGNED_ON( allocSize, PAGE_4K_SIZE )) ? 
 										allocSize : ALIGN_UP( allocSize, PAGE_4K_SIZE );
 
-		ptr = LargeAlloc( real_allocated_size );
+    ptr = LargeAlloc( real_allocated_size);
 	}
 	else
 	{
