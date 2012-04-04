@@ -270,7 +270,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 	assert(pMapParams->dim_count == m_objDecr.dim_count);
 	pMapParams->ptr = MemoryAllocator::CalculateOffsetPointer(pMapPtr, m_objDecr.dim_count, pMapParams->origin, pitch, m_objDecr.uiElementSize);
-	MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), pitch, sizeof(size_t)*(m_objDecr.dim_count-1));
+	MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), pitch, sizeof(size_t)*(MAX_WORK_DIM-1));
 	return CL_DEV_SUCCESS;
 }
 

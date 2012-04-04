@@ -122,7 +122,7 @@ MICDevice::TMicsSet MICDevice::FilterMicDevices( size_t count, const IOCLDeviceA
 
 MICDevice::MICDevice(cl_uint uiDevId, cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
     : m_pMICDeviceConfig(NULL), m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),m_uiOclDevId(uiDevId),
-    m_pLogDescriptor(logDesc), m_iLogHandle (0), m_pDeviceServiceComm(NULL)
+    m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(NULL), m_pDeviceServiceComm(NULL)
 {
 }
 
@@ -301,7 +301,8 @@ cl_dev_err_code MICDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
  clDevCreateCommandList
     Call commandListFactory to create command list
 ********************************************************************************************************************/
-cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
+cl_dev_err_code MICDevice::CreateCommandList( bool external_list, 
+                                              cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateCommandList Function enter"));
     CommandList* tCommandList;
@@ -310,10 +311,18 @@ cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     {
         return ret;
     }
-    m_commandListsSet.insert(tCommandList);
+    if (external_list)
+    {
+        m_commandListsSet.insert(tCommandList);
+    }
     *list = (void*)tCommandList;
     return ret;
 }
+cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
+{
+    return CreateCommandList( true, props, subdevice_id, list );
+}
+
 /****************************************************************************************************************
  clDevFlushCommandList
     flush command list
@@ -382,9 +391,26 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     }
     else
     {
-        // TODO: Execute command without Command List? Immediately? NOT Implemented yet
-        assert( false && "MIC: Execute command without Command List? Immediately? NOT Implemented yet" );
-        return CL_DEV_NOT_SUPPORTED;
+        // default list was requested for out-of-bound actions
+        cl_dev_err_code err;
+        
+        if (NULL == m_defaultCommandList)
+        {
+            
+            err = CreateCommandList( false, CL_DEV_LIST_ENABLE_OOO, 0, (cl_dev_cmd_list*)&m_defaultCommandList );
+            if (CL_DEV_FAILED(err))
+            {
+                return err;
+            }
+        }
+        
+        err = m_defaultCommandList->commandListExecute(cmds,count);
+        if (CL_DEV_FAILED(err))
+        {
+            return err;
+        }
+
+        return m_defaultCommandList->flushCommandList();
     }
 }
 
@@ -591,21 +617,27 @@ void MICDevice::clDevCloseDeviceInt(void)
 	if (NULL != m_pNotificationPort)
 	{
 		m_pNotificationPort->release();
+        m_pNotificationPort = NULL;
 	}
 
-	/* TODO remove the comment from the next command when m_defaultCommandList will initialize in Init() method
-    clDevReleaseCommandList(m_defaultCommandList); */
+    if (NULL != m_defaultCommandList)
+    {
+        clDevReleaseCommandList((cl_dev_cmd_list*)m_defaultCommandList); 
+        m_defaultCommandList = NULL;
+    }
 
     if ( 0 != m_iLogHandle)
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+        m_iLogHandle = 0;
     }
-    /* TODO Comment out the this comment when "ReleaseBackendServices()" will implemented - Comment it because it crash the test due to assertion
+
     if ( NULL != m_pProgramService )
     {
         delete m_pProgramService;
         m_pProgramService = NULL;
-    } */
+    } 
+    
     if ( NULL != m_pMemoryAllocator )
     {
         m_pMemoryAllocator->Release();

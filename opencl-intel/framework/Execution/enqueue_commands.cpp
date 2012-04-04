@@ -314,10 +314,10 @@ cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemory
 
 // return true if ready
 inline
-bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg )
+bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, FissionableDevice* pDev  )
 {
     assert( NULL != arg.pMemObj );
-    OclEvent* mem_event = arg.pMemObj->LockOnDevice( m_pDevice, arg.access_rights );
+    OclEvent* mem_event = arg.pMemObj->LockOnDevice( pDev, arg.access_rights );
 
     if (NULL != mem_event)
     {
@@ -327,7 +327,7 @@ bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg )
     return (NULL == mem_event);
 }
 
-cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle )
+cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev )
 {
     if ( m_memory_objects_acquired )
     {
@@ -335,6 +335,12 @@ cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, Memory
     }
 
     m_memory_objects_acquired = true;
+
+    if (NULL == pDev)
+    {
+        pDev = m_pDevice;
+    }
+    
     bool ready = true;
 
     if (NULL != pList)
@@ -345,13 +351,13 @@ cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, Memory
         for (; it != it_end; ++it )
         {
             MemoryObjectArg& arg = *it;
-            ready = ready & AcquireSingleMemoryObject( arg );
+            ready = ready & AcquireSingleMemoryObject( arg, pDev );
         }
     }
     else
     {
         assert( NULL != pSingle);
-        ready = AcquireSingleMemoryObject( *pSingle );
+        ready = AcquireSingleMemoryObject( *pSingle, pDev );
     }
 
     if (false == ready)
@@ -362,7 +368,7 @@ cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, Memory
     return (ready) ? CL_SUCCESS : CL_NOT_READY;
 }
 
-void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle )
+void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle, FissionableDevice* pDev )
 {
     if ( !m_memory_objects_acquired )
     {
@@ -370,6 +376,11 @@ void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObje
     }
 
     m_memory_objects_acquired = false;
+
+    if (NULL == pDev)
+    {
+        pDev = m_pDevice;
+    }
 
     if (NULL != pList)
     {      
@@ -379,13 +390,13 @@ void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObje
         for (; it != it_end; ++it )
         {
             MemoryObjectArg& arg = *it;            
-            arg.pMemObj->UnLockOnDevice( m_pDevice ); 
+            arg.pMemObj->UnLockOnDevice( pDev ); 
         }
     }
     else
     {
         assert( NULL != pSingle );
-        pSingle->UnLockOnDevice( m_pDevice );
+        pSingle->UnLockOnDevice( pDev );
     }
 }
 
@@ -777,9 +788,11 @@ MapMemObjCommand::MapMemObjCommand(
     m_pszImageRowPitch(pszImageRowPitch),
     m_pszImageSlicePitch(pszImageSlicePitch),
     m_pHostDataPtr(NULL),
+    m_pActualMappingDevice(NULL),
 	m_pOclEntryPoints(pOclEntryPoints),
 	m_pPostfixCommand(NULL),
-    m_bDiscardPreviousData(false)
+    m_bDiscardPreviousData(false),
+    m_bResourcesAllocated(false)
 {
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
     {
@@ -802,6 +815,17 @@ MapMemObjCommand::MapMemObjCommand(
  ******************************************************************/
 MapMemObjCommand::~MapMemObjCommand()
 {
+    if (m_bResourcesAllocated)
+    {
+        // Init was done, but execute was not called
+        if (NULL != m_pPostfixCommand)
+		{
+            delete m_pPostfixCommand;
+        }
+        
+        m_pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
+        m_pMemObj->RemovePendency(this);        
+    }
 }
 
 /******************************************************************
@@ -821,15 +845,19 @@ cl_err_code MapMemObjCommand::Init()
 		return res;
 	}
 
+    const FissionableDevice* actual_dev = NULL;
+    
     // Get pointer to the device
 	cl_err_code err = m_pMemObj->CreateMappedRegion(m_pDevice, m_clMapFlags, m_szOrigin, m_szRegion, m_pszImageRowPitch, m_pszImageSlicePitch,
-	                                                &m_pMappedRegion, &m_pHostDataPtr);
+	                                                &m_pMappedRegion, &m_pHostDataPtr, &actual_dev ); 
     if ( CL_FAILED(err) )
     {
 		assert(0);
         // Case of error
         return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
+
+    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev);
 	
 	// check whether postfix command should be run to update user mirror area
 	if ((0 == (CL_MAP_WRITE_INVALIDATE_REGION & m_pMappedRegion->flags))	&&		// region was not mapped for overriding by host
@@ -868,6 +896,7 @@ cl_err_code MapMemObjCommand::Init()
 	// Initialize GPA data
 	GPA_InitCommand();
 
+    m_bResourcesAllocated = true;
     return CL_SUCCESS;
 }
 
@@ -877,7 +906,8 @@ cl_err_code MapMemObjCommand::Init()
 cl_err_code MapMemObjCommand::Execute()
 {
     if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObj, 
-                                 m_bDiscardPreviousData ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE))
+                                 m_bDiscardPreviousData ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE,
+                                 m_pActualMappingDevice))
     {
         return CL_NOT_READY;
     }
@@ -898,10 +928,12 @@ cl_err_code MapMemObjCommand::Execute()
 	// Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submitted in the device
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_iId);
-
 	m_Event.AddPendency(this);
 	m_pMemObj->AddPendency(this);
-	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	cl_dev_err_code errDev = m_pActualMappingDevice->GetDeviceAgent()->clDevCommandListExecute(
+                                        // use hidden queue if map to another device 
+                                        (m_pActualMappingDevice == m_pDevice) ? m_clDevCmdListId : NULL,
+                                        &m_pDevCmd, 1);
 	m_pMemObj->RemovePendency(this);
 	m_Event.RemovePendency(this);
 	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
@@ -920,8 +952,10 @@ cl_err_code MapMemObjCommand::CommandDone()
 		m_pPostfixCommand = NULL;
 	}
 
-    RelinquishMemoryObjects( m_pMemObj );
+    RelinquishMemoryObjects( m_pMemObj, m_pActualMappingDevice );
     // Don't remove buffer pendency, the buffer should be alive at least until unmap is done.
+
+    m_bResourcesAllocated = false;
     return CL_SUCCESS;
 }
 
@@ -1045,9 +1079,11 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl
 	Command(cmdQueue, pOclEntryPoints),
     m_pMemObject(pMemObject),
     m_pMappedPtr(pMappedPtr),
+    m_pActualMappingDevice(NULL),
 	m_pPrefixCommand(NULL),
 	m_pOclEntryPoints(pOclEntryPoints),
-	m_bDiscardPreviousData(false)
+	m_bDiscardPreviousData(false),
+	m_bResourcesAllocated(false)
 {
 }
 
@@ -1056,6 +1092,16 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl
  ******************************************************************/
 UnmapMemObjectCommand::~UnmapMemObjectCommand()
 {
+    if (m_bResourcesAllocated)
+    {
+        // Init was done, but execute was not called
+        if (NULL != m_pPrefixCommand)
+		{
+            delete m_pPrefixCommand;
+        }
+        
+        m_pMemObject->UndoMappedRegionInvalidation(m_pMappedRegion);
+    }
 }
 
 /******************************************************************
@@ -1063,16 +1109,19 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
  ******************************************************************/
 cl_err_code UnmapMemObjectCommand::Init()
 {
+    const FissionableDevice* actual_dev;
+    
     /* First check the the region has been mapped - just get the 1st mapped region, the user should
         handle code with multiple map/unmap commands */
-    const FissionableDevice* pMappedOnDevice = NULL;
     cl_err_code err = m_pMemObject->GetMappedRegionInfo(m_pDevice, m_pMappedPtr, 
-                                                        &m_pMappedRegion, &pMappedOnDevice, &m_bDiscardPreviousData, true);
+                                                        &m_pMappedRegion, &actual_dev, &m_bDiscardPreviousData, true);
 
     if (CL_FAILED(err))
     {
         return err;
     }
+   
+    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev);
 
 	// check whether postfix command should be run to update user mirror area
 	if ((0 != ((CL_MAP_WRITE|CL_MAP_WRITE_INVALIDATE_REGION) & m_pMappedRegion->flags)) && // region was mapped for writing on host 
@@ -1096,17 +1145,17 @@ cl_err_code UnmapMemObjectCommand::Init()
 
 		if (NULL == m_pPrefixCommand)
 		{
+            m_pMemObject->UndoMappedRegionInvalidation(m_pMappedRegion);
+            
 			assert(0);
 			return err;
 		}
 	}
 
-    // TODO: DK: handle the case when map and unmap is done on different devices!
-    assert( (m_pDevice == pMappedOnDevice) && "Unmapping on different device" );
-
 	// Initialize GPA data
 	GPA_InitCommand();
 
+    m_bResourcesAllocated = true;
 	return err;
 }
 
@@ -1116,7 +1165,8 @@ cl_err_code UnmapMemObjectCommand::Init()
 cl_err_code UnmapMemObjectCommand::Execute()
 {
     if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObject, 
-                                 m_bDiscardPreviousData ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE))
+                                 m_bDiscardPreviousData ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE,
+                                 m_pActualMappingDevice))
     {
         return CL_NOT_READY;
     }
@@ -1141,8 +1191,10 @@ cl_err_code UnmapMemObjectCommand::Execute()
     // native kernels that may access mapped object data
     // In order to do this we override Command::NotifyCmdStatusChanged(CL_RUNNING)
     // which is called by device immediately before execution start.
-
-	cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	cl_dev_err_code devErr = m_pActualMappingDevice->GetDeviceAgent()->clDevCommandListExecute(
+                                    	// use hidden queue if map to another device 
+                                        (m_pActualMappingDevice == m_pDevice) ? m_clDevCmdListId : NULL,
+                                        &m_pDevCmd, 1);
 	
 	return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
@@ -1217,11 +1269,13 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 	}
 
     // Here we do the actual operation off releasing the mapped region.
-    errVal = m_pMemObject->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr);
+    errVal = m_pMemObject->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr, true);
+    m_pMappedRegion = NULL;
 
-    RelinquishMemoryObjects(m_pMemObject);
+    RelinquishMemoryObjects(m_pMemObject, m_pActualMappingDevice);
     m_pMemObject->RemovePendency(NULL); // NULL because this command wasn't the one that added the dependency in the first place - it was the map command
 
+    m_bResourcesAllocated = false;
     return errVal;
 }
 

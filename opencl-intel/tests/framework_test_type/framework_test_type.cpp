@@ -466,6 +466,11 @@ TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
 {
     EXPECT_TRUE(cl_CPU_MIC_IntegerExecuteTest());
 }
+
+TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap)
+{
+    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest());
+}
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line 

@@ -172,15 +172,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         typedef list<MemoryObjectArg>   MemoryObjectArgList;
 
-        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs ) { return AcquireMemoryObjectsInt( &mem_objs, NULL ); };
-        cl_err_code AcquireMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights )
+        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs, FissionableDevice* pDev = NULL ) 
         { 
-            MemoryObjectArg arg( pMemObj, access_rights ); 
-            return AcquireMemoryObjectsInt( NULL, &arg ); 
+            return AcquireMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs ) { RelinquishMemoryObjectsInt( &mem_objs, NULL ); };
-        void        RelinquishMemoryObjects( MemoryObject* pMemObj ) { RelinquishMemoryObjectsInt( NULL, pMemObj );  };
+        cl_err_code AcquireMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights, FissionableDevice* pDev = NULL  )
+        { 
+            MemoryObjectArg arg( pMemObj, access_rights ); 
+            return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
+        };
+        
+        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs, FissionableDevice* pDev = NULL ) 
+        { 
+            RelinquishMemoryObjectsInt( &mem_objs, NULL, pDev ); 
+        };
+        
+        void        RelinquishMemoryObjects( MemoryObject* pMemObj, FissionableDevice* pDev = NULL ) 
+        { 
+            RelinquishMemoryObjectsInt( NULL, pMemObj, pDev );  
+        };
         
         QueueEvent                  m_Event;                    // An associated event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
@@ -197,9 +208,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
 
         // return true if ready
-        bool AcquireSingleMemoryObject( MemoryObjectArg& arg );
-        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle );
-        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle );
+        bool AcquireSingleMemoryObject( MemoryObjectArg& arg, FissionableDevice* pDev );
+        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev );
+        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle, FissionableDevice* pDev );
                 
         bool                        m_memory_objects_acquired;
        
@@ -818,11 +829,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t*                 m_pszImageSlicePitch;
         cl_dev_cmd_param_map*   m_pMappedRegion;
         void*                   m_pHostDataPtr;
+        FissionableDevice*      m_pActualMappingDevice;
 
 		// postfix-related. Created in init, pointer zeroed at enqueue.
 		ocl_entry_points *      m_pOclEntryPoints;
 		PrePostFixRuntimeCommand* m_pPostfixCommand;
         bool                    m_bDiscardPreviousData;
+        bool                    m_bResourcesAllocated;
     };
     
     /******************************************************************
@@ -908,12 +921,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	private:
         MemoryObject*           m_pMemObject;
         void*                   m_pMappedPtr;
-        cl_dev_cmd_param_map*   m_pMappedRegion;
+        cl_dev_cmd_param_map*   m_pMappedRegion;       
+        FissionableDevice*      m_pActualMappingDevice;
 
 		// prefix-related. Created in init, pointer zeroed at enqueue.
 		PrePostFixRuntimeCommand* m_pPrefixCommand;
 		ocl_entry_points *      m_pOclEntryPoints;
         bool                    m_bDiscardPreviousData;
+        bool                    m_bResourcesAllocated;
     };
     
     /******************************************************************

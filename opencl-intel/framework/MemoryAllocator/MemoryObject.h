@@ -52,10 +52,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	struct MapParamPerPtr
 	{
 		cl_dev_cmd_param_map	cmd_param_map;
-		const FissionableDevice*							pDevice;
-		size_t												refCount;
-        bool                                                full_object_ovewrite;
-        bool isValid;
+		size_t                  refCount;
+        size_t                  invalidateRefCount;
+        bool                    full_object_ovewrite;
+        MapParamPerPtr() : refCount(0), invalidateRefCount(0) , full_object_ovewrite(false) {};
 	};
 
 	typedef std::pair<mem_dtor_fn,void*> MemDtorNotifyData;
@@ -255,15 +255,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// The function returns a pointer to the mapped region.
 		// If the object is 2D/3D image and pszImageRowPitch and/or pszImageSlicePitch are not NULL, those
 		// argument will include the relevant values from the device.
+		//
+		// Note: This function DOES NOT performs the mapping itself - it just notifies device about future
+		//       mapping and creates a mapping handle!
 		virtual cl_err_code CreateMappedRegion(
-			const FissionableDevice*    IN pDevice,
-			cl_map_flags    IN clMapFlags,
-			const size_t*   IN pOrigin,
-			const size_t*   IN pRegion,
-			size_t*         OUT pImageRowPitch,
-			size_t*         OUT pImageSlicePitch,
-			cl_dev_cmd_param_map* OUT *pMapInfo,
-			void*                 OUT *pHostMapDataPtr
+			const FissionableDevice*    IN  pDevice,              // preferred device
+			cl_map_flags                IN  clMapFlags,
+			const size_t*               IN  pOrigin,
+			const size_t*               IN  pRegion,
+			size_t*                     OUT pImageRowPitch,
+			size_t*                     OUT pImageSlicePitch,
+			cl_dev_cmd_param_map*       OUT *pMapInfo,
+			void*                       OUT *pHostMapDataPtr,
+			const FissionableDevice*    OUT *pActualMappingDevice
 			);
 
 		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, 
@@ -273,7 +277,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 bool invalidateRegion = false);
 
 		// Release the region pointed by mappedPtr from clDeviceId.
-		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
+		virtual cl_err_code ReleaseMappedRegion(cl_dev_cmd_param_map* IN pMapInfo, 
+		                                        void* IN pHostMapDataPtr, 
+		                                        bool invalidatedBefore = false );
+
+		virtual cl_err_code UndoMappedRegionInvalidation(cl_dev_cmd_param_map* IN pMapInfo );
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
@@ -328,6 +336,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
 				cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr) = 0;
 
+            typedef std::multimap<void*, MapParamPerPtr*>   Addr2MapRegionMultiMap;
+
 			Context*								m_pContext;	            // context to which the memory object belongs
 
 			cl_mem_object_type						m_clMemObjectType;
@@ -344,7 +354,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			std::stack<MemDtorNotifyData*>			m_pfnNotifiers;		    // Holds a list of pointers to callbacks upon dtor execution
 			Intel::OpenCL::Utils::OclSpinMutex		m_muNotifiers;			// Mutex for accessing m_pfnNotifiers
 			Intel::OpenCL::Utils::AtomicCounter		m_mapCount;	            // A counter for the number of times an object has been mapped
-			std::multimap<void*, MapParamPerPtr*>	m_mapMappedRegions;		// A map for storage of Mapped Regions
+			Addr2MapRegionMultiMap          	    m_mapMappedRegions;		// A map for storage of Mapped Regions
+            const FissionableDevice*                m_pMappedDevice;        // A device that manages mapped regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes
 	};

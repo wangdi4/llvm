@@ -392,7 +392,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
     assert(pMapParams->dim_count == m_objDescr.dim_count);
     pMapParams->ptr = (cl_uchar*)m_objDescr.pData + m_pBackingStore->GetRawDataOffset( pMapParams->origin );
-    MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_objDescr.pitch, sizeof(size_t)*(m_objDescr.dim_count-1));
+    MEMCPY_S(pMapParams->pitch, sizeof(size_t)*(MAX_WORK_DIM-1), m_objDescr.pitch, sizeof(size_t)*(MAX_WORK_DIM-1));
 
     // set map handle
     pMapParams->map_handle = coi_params;

@@ -62,7 +62,7 @@ private:
     IOCLDevLogDescriptor*           m_pLogDescriptor;
     cl_int                          m_iLogHandle;
     OclDynamicLib                   m_dlRunTime;
-    cl_dev_cmd_list                 m_defaultCommandList;
+    CommandList*                    m_defaultCommandList;
     DeviceServiceCommunication*     m_pDeviceServiceComm;
     NotificationPort*               m_pNotificationPort;
 
@@ -76,6 +76,10 @@ private:
     static void RegisterMicDevice( MICDevice* dev );
     // Return true if dev exist in m_mic_instancies
 	static bool UnregisterMicDevice( MICDevice* dev );
+
+    cl_dev_err_code CreateCommandList( bool external_list, 
+                                       cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, 
+                                       cl_dev_cmd_list* OUT list);
 
 	void  clDevCloseDeviceInt();
 
