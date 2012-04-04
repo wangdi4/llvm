@@ -1590,10 +1590,8 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
             break;
         default:
             // legacy path:
-            if (height != 0)
-                outY = adFn( floorf( y ), height );
-            if( depth != 0 )
-                outZ = adFn( floorf( z ), depth );
+            outY = height == 0 ? 0 : adFn( floorf( y ), height );
+            outZ = depth == 0 ? 0 : adFn( floorf( z ), depth );
     }
     
 
