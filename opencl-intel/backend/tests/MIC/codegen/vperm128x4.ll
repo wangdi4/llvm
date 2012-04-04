@@ -4,9 +4,9 @@
 ; RUN:       -march=y86-64 -mcpu=knf \
 ; RUN:     | FileCheck %s -check-prefix=KNF
 
-; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
+; RUNc: llc < %s -mtriple=x86_64-pc-linux \
+; RUNc:       -march=y86-64 -mcpu=knc \
+; RUNc:     | FileCheck %s -check-prefix=KNC
 
 define <16 x i32> @A(<16 x i32> %a) nounwind ssp {
 entry:

@@ -18,7 +18,7 @@ define <16 x i32> @test1(<16 x i32> %a, <16 x i32> %b) nounwind readnone ssp {
 entry:
 ; KNF: vloadq _const_0(%rip), %v0
 ;
-; KNC: vloadq _const_0(%rip), %zmm0
+; KNC: vmovap{{[ds]}} _const_0(%rip), %zmm0
   ret <16 x i32> <i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42>
 }
 
@@ -26,7 +26,7 @@ define <16 x float> @test2(<16 x float> %a, <16 x float> %b) nounwind readnone s
 entry:
 ; KNF: vloadq _const_1(%rip), %v0
 ;
-; KNC: vloadq _const_1(%rip), %zmm0
+; KNC: vmovap{{[ds]}} _const_1(%rip), %zmm0
   ret <16 x float> <float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0>
 
 }
