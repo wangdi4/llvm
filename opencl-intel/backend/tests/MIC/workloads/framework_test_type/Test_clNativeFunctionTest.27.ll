@@ -1,2 +1,0 @@
-; XFAIL: *
-; RUN: python ../../bin/SATest.py -tsize=0 -config=/Volcano/Tests/Workloads/framework_test_type/RH64/Test_clNativeFunctionTest.27.cfg
