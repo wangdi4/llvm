@@ -148,7 +148,9 @@ endif()
 
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
-#                -std=c++0x
+#               -std=c++0x
+				# next entry - support converting Linux trap signals into C++ exceptions
+				-fnon-call-exceptions
                 -fstack-security-check
                 -use-msasm
                 -mCG_lrb_rex_workaround=F
@@ -200,6 +202,9 @@ set( MIC_LINK_FLAGS      )
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
+				# next entry - support converting Linux trap signals into C++ exceptions
+				-fnon-call-exceptions
+
                 # library search path at link
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
                 -L ${BACKEND_LIB_DIR}

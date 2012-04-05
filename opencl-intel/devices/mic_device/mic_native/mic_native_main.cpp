@@ -18,6 +18,7 @@
 #include "memory_manager.h"
 #include "thread_local_storage.h"
 #include "execution_task.h"
+#include "hw_exceptions_handler.h"
 
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
@@ -35,6 +36,7 @@ int main(int , char**)
     NATIVE_PRINTF("main called on the  sink\n");
 
     // init device
+    HWExceptionsWrapper::Init();
     TlsAccessor::tls_initialize();
     MemoryManager::createMemoryManager();
 
@@ -58,6 +60,7 @@ int main(int , char**)
     // shutdown
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
+    HWExceptionsWrapper::Final();
 
     NATIVE_PRINTF("main shut down on the  sink\n");
 

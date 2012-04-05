@@ -31,6 +31,7 @@
 #include "cl_sys_defines.h"
 #include "native_synch_objects.h"
 #include "mic_tracer.h"
+#include "hw_exceptions_handler.h"
 
 #include "cl_dev_backend_api.h"
 
@@ -197,7 +198,7 @@ public:
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) = 0;
 
 	// The function is called with different 'inx' parameters for each iteration number
-	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
+	virtual void executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() = 0;
@@ -229,7 +230,7 @@ public:
 
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
 
-	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
+	virtual void executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
 
 	/* Static function which create and init the NDRange TLS object. */
 	static bool constructTlsEntry(void** outEntry);

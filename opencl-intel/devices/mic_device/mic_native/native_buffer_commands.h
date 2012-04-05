@@ -56,7 +56,7 @@ public:
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) { return CL_DEV_SUCCESS; };
 
 	/* Do nothing. */
-	virtual void executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) {};
+	virtual void executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) {};
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() {return m_pCommandTracer; };

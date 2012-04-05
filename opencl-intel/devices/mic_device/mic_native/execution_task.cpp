@@ -495,8 +495,10 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				assert(0);
 				return;
 			}
+
+            HWExceptionsJitWrapper hw_wrapper;            
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
-					task->executeIteration(k, 0, 0, uiWorkerId);
+					task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId);
 			task->detachFromThread(uiWorkerId);
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
@@ -521,9 +523,11 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				assert(0);
 				return;
 			}
+            
+            HWExceptionsJitWrapper hw_wrapper;            
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-					task->executeIteration(k, j, 0, uiWorkerId);
+					task->executeIteration(hw_wrapper, k, j, 0, uiWorkerId);
 			task->detachFromThread(uiWorkerId);
 		}
 	};
@@ -545,10 +549,12 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				assert(0);
 				return;
 			}
+            
+            HWExceptionsJitWrapper hw_wrapper;            
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-						task->executeIteration(k, j, i, uiWorkerId);
+						task->executeIteration(hw_wrapper, k, j, i, uiWorkerId);
 			task->detachFromThread(uiWorkerId);
 		}
 	};
@@ -825,7 +831,7 @@ cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
 	return ret;
 }
 
-void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+void NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId)
 {
 	// Get the WGContext object of this thread
 	WGContext* pCtx = (WGContext*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
@@ -836,7 +842,7 @@ void NDRangeTask::executeIteration(size_t x, size_t y, size_t z, unsigned int ui
 
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
-	pExec->Execute(groupId, NULL, NULL);
+	hw_wrapper.Execute(pExec, groupId, NULL, NULL);
 }
 
 bool NDRangeTask::constructTlsEntry(void** outEntry)
