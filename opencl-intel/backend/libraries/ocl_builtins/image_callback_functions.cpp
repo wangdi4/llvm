@@ -2190,8 +2190,14 @@ void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, 
 #else
     int4 offset=(int4)(0,0,0,0);
 #endif
-    int4 ocoord=coord*offset;
-    void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
+    // Here address offset is computed. For 64-bit platforms
+    // pointer offsets could be larger than MAX_INT for large images
+    // So in case of using integers here will be type overrun
+    // That's why size_t need to be used
+    size_t ocoordX = (size_t)coord.x * (size_t)offset.x;
+    size_t ocoordY = (size_t)coord.y * (size_t)offset.y;
+    size_t ocoordZ = (size_t)coord.z * (size_t)offset.z;
+    void* pixel = pData + ocoordX + ocoordY + ocoordZ;
     return pixel;
 }
 
