@@ -62,8 +62,8 @@ void ComparisonResults::ReportDetail()
             std::cout << mismatches[i].ToString() << std::endl;
         }
         std::cout << "------" << std::endl;
+        std::cout << GetStatistics()->ToString() << std::endl;
     }
-    std::cout << GetStatistics()->ToString() << std::endl;
 }
 
 void ComparisonResults::Clear()
