@@ -31,6 +31,7 @@ File Name:  DynamicLibraryLoader.cpp
     #define MAX_PATH PATH_MAX
 #endif
 
+void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& functionsTable);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -2084,6 +2085,8 @@ void DynamicLibraryLoader::GetLibraryFunctions(
 
         functionsTable[functionName] = (unsigned long long int)pFuncAddress;
     }
+    // Need to register all the BI function implemented in the Backend
+    RegisterMICBIFunctions(functionsTable);
 }
 
 }}} // namespace

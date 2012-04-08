@@ -24,7 +24,7 @@ File Name:  BuiltinModuleManager.cpp
 #include "MICBuiltinLibrary.h"
 #include "CPUBuiltinLibrary.h"
 
-void RegisterBIFunctions(void);
+void RegisterCPUBIFunctions(void);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -45,7 +45,8 @@ void BuiltinModuleManager::Init()
 {
     assert(!s_pInstance);
     s_pInstance = new BuiltinModuleManager();
-    RegisterBIFunctions();
+    // TODO: need to move this function from the Manager Initialization
+    RegisterCPUBIFunctions();
 }
 
 void BuiltinModuleManager::Terminate()

@@ -305,7 +305,9 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
 set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUDeviceBackendFactory.cpp
     MICDeviceBackendFactory.cpp
-    builtin_functions.cpp
+    shared_builtin_functions.cpp
+    cpu_builtin_functions.cpp
+    mic_builtin_functions.cpp
     TargetDescription.cpp
     dllmain.cpp
     InstToFuncCall.cpp
