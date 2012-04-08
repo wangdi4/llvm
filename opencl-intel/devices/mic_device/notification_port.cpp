@@ -13,30 +13,64 @@ using namespace Intel::OpenCL::MICDevice;
 
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
 
-set<pthread_t> NotificationPort::m_NotificationThreadsSet;
-OclMutex      NotificationPort::m_notificationThreadsMutex;
+set<pthread_t>* NotificationPort::m_NotificationThreadsSet   = NULL;
+OclMutex*       NotificationPort::m_notificationThreadsMutex = NULL;
+
+//
+// Helper class
+//
+class NotificationPort::StaticInitializer
+{
+public:
+    StaticInitializer() 
+    {
+        m_NotificationThreadsSet   = new set<pthread_t>;
+        m_notificationThreadsMutex = new OclMutex;
+    };
+
+    void Release()
+    {
+        if (NULL != m_notificationThreadsMutex)
+        {
+            delete m_notificationThreadsMutex;
+            m_notificationThreadsMutex = NULL;
+            
+            delete m_NotificationThreadsSet;
+            m_NotificationThreadsSet = NULL;
+        }
+    };
+};
+
+// init all static classes
+NotificationPort::StaticInitializer NotificationPort::init_statics;
 
 void NotificationPort::registerNotificationPortThread(pthread_t threadHandler)
 {
 	// Add the new thread to the live threads set.
-	OclAutoMutex lock(&m_notificationThreadsMutex);
-	m_NotificationThreadsSet.insert(threadHandler);
+	OclAutoMutex lock(m_notificationThreadsMutex);
+	m_NotificationThreadsSet->insert(threadHandler);
 }
 
 void NotificationPort::unregisterNotificationPortThread(pthread_t threadHandler)
 {
 	// Remove the thread from the live threads set.
-	OclAutoMutex lock(&m_notificationThreadsMutex);
-	m_NotificationThreadsSet.erase(threadHandler);
+	OclAutoMutex lock(m_notificationThreadsMutex);
+	m_NotificationThreadsSet->erase(threadHandler);
 }
 
 void NotificationPort::waitForAllNotificationPortThreads()
 {
 	vector<pthread_t> liveThreadsSnapshot;
+
+    if (NULL == m_notificationThreadsMutex)
+    {
+        return;
+    }
+    
 	{
 		// Get snapshot of the current threads alive.
-		OclAutoMutex lock(&m_notificationThreadsMutex);
-		liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet.begin(), m_NotificationThreadsSet.end());
+		OclAutoMutex lock(m_notificationThreadsMutex);
+		liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet->begin(), m_NotificationThreadsSet->end());
 	}
 	while (liveThreadsSnapshot.size() > 0)
 	{
@@ -53,10 +87,13 @@ void NotificationPort::waitForAllNotificationPortThreads()
 		
 		{
 			// Get snapshot of the current threads alive.
-			OclAutoMutex lock(&m_notificationThreadsMutex);
-			liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet.begin(), m_NotificationThreadsSet.end());
+			OclAutoMutex lock(m_notificationThreadsMutex);
+			liveThreadsSnapshot.insert(liveThreadsSnapshot.begin(), m_NotificationThreadsSet->begin(), m_NotificationThreadsSet->end());
 		}
 	}
+
+    init_statics.Release();
+    
 }
 
 NotificationPort::NotificationPort(void) : m_poc(0), m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED)

@@ -190,10 +190,12 @@ private:
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, MICDeviceConfig *config, unsigned long long maxAllocSize );
     virtual ~MemoryAllocator();
 
-    static OclMutex          m_instance_guard;
+    static OclMutex*         m_instance_guard;
     static MemoryAllocator*  m_the_instance;
     static cl_uint           m_instance_referencies; // release when reaches 0
 
+    class StaticInitializer;
+    static StaticInitializer init_statics;
 };
 
 class MICDevMemoryObject : public IOCLDevMemoryObject

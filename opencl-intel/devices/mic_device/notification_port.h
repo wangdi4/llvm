@@ -115,8 +115,8 @@ private:
 	volatile WORKER_STATE m_workerState;
 
 	// Set of currently notification port threads.
-	static set<pthread_t> m_NotificationThreadsSet;
-	static OclMutex      m_notificationThreadsMutex;
+	static set<pthread_t>* m_NotificationThreadsSet;
+	static OclMutex*       m_notificationThreadsMutex;
 
 	static void* ThreadEntryPoint( void* threadObject );
 
@@ -144,6 +144,8 @@ private:
 
 	void resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize);
 
+    class StaticInitializer;
+    static StaticInitializer init_statics;
 };
 
 }}}

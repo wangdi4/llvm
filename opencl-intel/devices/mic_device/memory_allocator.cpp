@@ -48,9 +48,24 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-OclMutex         MemoryAllocator::m_instance_guard;
+OclMutex*        MemoryAllocator::m_instance_guard = NULL;
 MemoryAllocator* MemoryAllocator::m_the_instance = NULL;
 cl_uint          MemoryAllocator::m_instance_referencies = 0;
+
+//
+// Helper class to allocate required static members
+//
+class MemoryAllocator::StaticInitializer
+{
+public:
+    StaticInitializer()
+    {
+        m_instance_guard = new OclMutex;
+    };
+};
+
+// init all static classes
+MemoryAllocator::StaticInitializer MemoryAllocator::init_statics;
 
 MemoryAllocator* MemoryAllocator::getMemoryAllocator(
                                 cl_int devId,
@@ -60,7 +75,7 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
 {
     MemoryAllocator* instance = NULL;
 
-    OclAutoMutex lock( &m_instance_guard );
+    OclAutoMutex lock( m_instance_guard );
 
     if (NULL == m_the_instance)
     {
@@ -78,7 +93,7 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
 
 void MemoryAllocator::Release( void )
 {
-    OclAutoMutex lock( &m_instance_guard );
+    OclAutoMutex lock( m_instance_guard );
 
     assert( m_instance_referencies > 0 && "MIC MemoryAllocator singleton - error in refcounter" );
 

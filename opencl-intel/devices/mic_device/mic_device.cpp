@@ -198,6 +198,11 @@ void MICDevice::loadingInit()
 
 void MICDevice::unloadRelease()
 {
+    if (NULL == m_mic_instancies_mutex)
+    {
+        return;
+    }
+    
 	TMicsSet micSet = GetActiveMicDevices(true);
 	TMicsSet::iterator it;
 	TMicsSet::iterator itEnd = micSet.end();
@@ -216,6 +221,13 @@ void MICDevice::unloadRelease()
 		(*it)->clDevCloseDeviceInt();
 	}
 	assert(GetActiveMicDevices().size() == 0);
+
+    delete m_mic_instancies;
+    m_mic_instancies = NULL;
+
+    delete m_mic_instancies_mutex;
+    m_mic_instancies_mutex = NULL;
+    
 }
 
 
