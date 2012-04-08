@@ -1,3 +1,4 @@
+; XFAIL: *
 ; XFAIL: win32
 ; RUN: opt < %p/knf-%b -runtimelib %p/../../../vectorizer/Full/runtime.bc \
 ; RUN:       -std-compile-opts -inline-threshold=4096 -inline -lowerswitch \
