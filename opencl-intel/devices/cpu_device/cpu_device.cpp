@@ -54,7 +54,6 @@ char clCPUDEVICE_CFG_PATH[MAX_PATH];
 #endif
 #define MAX_MEM_ALLOC_SIZE ( MAX(128*1024*1024, MEMORY_LIMIT/4) )
 #define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
-#define CPU_DEVICE_NAME_SIZE    48
 
 using namespace Intel::OpenCL::CPUDevice;
 
@@ -1071,15 +1070,16 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DEVICE_NAME):
         {
-            *pinternalRetunedValueSize = CPU_DEVICE_NAME_SIZE; // Already counts for \0
+            const char* name = CPUDetect::GetInstance()->GetCPUBrandString();
+            *pinternalRetunedValueSize = (NULL == name) ? 0 : (strlen(name) + 1);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if((NULL != paramVal) && (NULL != name))
             {
-                STRCPY_S((char*)paramVal, valSize, CPUDetect::GetInstance()->GetCPUBrandString());
+                STRCPY_S((char*)paramVal, valSize, name);
             }
 
             return CL_DEV_SUCCESS;

@@ -162,8 +162,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 		used_large_alloc = true;
 
 		// align to page boundary
-		real_allocated_size = (IS_ALIGNED_ON( allocSize, PAGE_4K_SIZE )) ? 
-										allocSize : ALIGN_UP( allocSize, PAGE_4K_SIZE );
+		real_allocated_size = ALIGN_UP( allocSize, PAGE_4K_SIZE );
 
 		ptr = LargeAlloc( real_allocated_size );
 	}

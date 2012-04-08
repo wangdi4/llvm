@@ -221,8 +221,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 		used_large_alloc = true;
 
 		// align to page boundary
-		real_allocated_size = (IS_ALIGNED_ON( allocSize, PAGE_4K_SIZE )) ? 
-										allocSize : ALIGN_UP( allocSize, PAGE_4K_SIZE );
+		real_allocated_size = ALIGN_UP( allocSize, PAGE_4K_SIZE );
 
 		ptr = LargeAlloc( real_allocated_size );
 		user_ptr = ptr;
@@ -235,8 +234,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 		real_allocated_size = allocSize + alignment -1;
 
 		ptr = __safeHeapAlloc__(heapInfo->heapHandle, real_allocated_size);
-		user_ptr = (IS_ALIGNED_ON( (size_t)ptr, alignment )) ? 
-										ptr : (void*)ALIGN_UP( (size_t)ptr, alignment );
+		user_ptr = (void*)ALIGN_UP( (size_t)ptr, alignment );
 
 		assert( (((size_t)user_ptr - (size_t)ptr) + allocSize) <= real_allocated_size );
 	}
