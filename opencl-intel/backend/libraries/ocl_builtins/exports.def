@@ -1,8 +1,0 @@
-EXPORTS
-	__isfinitef
-	__isinff
-	__isnanf
-	__isnormalf
-	__isunorderedf
-	__signbitf
-	

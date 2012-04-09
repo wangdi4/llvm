@@ -27,8 +27,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "cl_atomic_declaration.h"
+#define VATOMICS_FUNC_DECL
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>

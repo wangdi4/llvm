@@ -49,14 +49,6 @@ extern "C" {
 #define REPEAT_TRUE_LINEAR 0x1b
 #define MIRRORED_TRUE_LINEAR 0x1c
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#include "cl_types.h"
-#if defined(_MSC_VER)
-#define IMG_FUNC_EXPORT __declspec(dllexport)
-#else
-#define IMG_FUNC_EXPORT
-#endif
-#else
 #include "cl_types2.h"
 
 #define IMG_FUNC_EXPORT
@@ -120,22 +112,6 @@ typedef struct _image_aux_data
 
 } image_aux_data;
 
-
-#endif
-
-// Other functions are built into DLL
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-
-// Workaround of LLVM bug: vector-2 is passed unpacked, hence clang generates double type instead
-#if defined(_M_X64) || defined(__LP64__)
-typedef double intVecOf2;
-typedef double floatVecOf2;
-#else
-typedef _2i32  intVecOf2;
-typedef float2 floatVecOf2;
-#endif
-
-#endif // _MSC_DEV
 
 #ifdef __cplusplus
 }

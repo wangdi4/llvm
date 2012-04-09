@@ -23,28 +23,13 @@
 extern "C" {
 #endif
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#if defined(_MSC_VER)
-#include "stdafx.h"
-#endif
-#include <emmintrin.h>
-#if !defined(_mm_floor_ps) && defined(__SSE4_1__)
-#include <smmintrin.h>
-#endif
-#include <limits.h>
-#include <math.h>
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#else
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
-#endif
 
 #include "cl_image_declaration.h"
 
 #define NORMALIZED_SAMPLER 0x08
 
-#if !defined(_MSC_VER) && !defined(__INTEL_COMPILER)
 
 #define ALIGN16 __attribute__ ((aligned(16)))
 
@@ -1004,8 +989,6 @@ void __attribute__((overloadable)) write_imageui (image1d_array_t image, int2 co
     Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
     cbk(pixel, color);
 }
-
-#endif
 
 #ifdef __cplusplus
 }

@@ -23,19 +23,10 @@
 extern "C" {
 #endif
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#if defined(_MSC_VER)
-#include "stdafx.h"
-#endif
-#include <emmintrin.h>
-#if !defined(_mm_floor_ps) && defined(__SSE4_1__)
-#include <smmintrin.h>
-#endif
-#else
+
 // Enable double support. It is needed for declarations from intrin.h
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
-#endif
 
 #include "cl_image_declaration.h"
 
