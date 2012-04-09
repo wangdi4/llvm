@@ -81,7 +81,10 @@ private:
                                        cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, 
                                        cl_dev_cmd_list* OUT list);
 
-	void  clDevCloseDeviceInt();
+	void  clDevCloseDeviceInt( bool preserve_object = false );
+
+    // return true if DLL was unloaded
+    static bool  isDeviceLibraryUnloaded() { return (NULL == m_mic_instancies_mutex); };
 
 protected:
     ~MICDevice();

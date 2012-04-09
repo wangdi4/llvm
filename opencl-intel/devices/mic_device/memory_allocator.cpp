@@ -32,6 +32,7 @@
 #include "mic_device.h"
 #include "cl_sys_defines.h"
 #include "device_service_communication.h"
+#include "mic_common_macros.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -340,12 +341,29 @@ cl_dev_err_code MICDevMemoryObject::Init()
         coi_processes[i] = (*mic_it)->GetDeviceService().getDeviceProcessHandle();
     }
 
-    COIRESULT coi_err = COIBufferCreateFromMemory(
+    //
+    // COI can use 2 different resource pools - 2MB pages and 4K pages. It may be that one of pools is already 
+    // exhausted, while another - not.
+    // try both in an order of required precedence 
+    uint32_t flags[2] = {0, 0}; 
+    flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = COI_OPTIMIZE_HUGE_PAGE_SIZE;
+
+    COIRESULT coi_err;
+    
+    for (unsigned int i = 0; i < ARRAY_ELEMENTS(flags); ++i)
+    {
+        coi_err = COIBufferCreateFromMemory(
                                 m_raw_size, COI_BUFFER_NORMAL, 
-								m_Allocator.Use_2M_Pages(m_raw_size) ? COI_OPTIMIZE_HUGE_PAGE_SIZE : 0,
+								flags[i],
                                 m_objDescr.pData,
                                 active_procs_count, coi_processes,
                                 &m_coi_buffer);
+
+        if (COI_RESOURCE_EXHAUSTED != coi_err)
+        {
+            break;
+        }
+    }
 
     if (COI_SUCCESS != coi_err)
     {
