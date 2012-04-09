@@ -83,9 +83,6 @@ private:
 
 	void  clDevCloseDeviceInt( bool preserve_object = false );
 
-    // return true if DLL was unloaded
-    static bool  isDeviceLibraryUnloaded() { return (NULL == m_mic_instancies_mutex); };
-
 protected:
     ~MICDevice();
 
@@ -158,6 +155,8 @@ public:
 	// Add Tracer support
 	static HostTracer* m_tracer;
 
+    // return true if DLL was unloaded
+    static bool  isDeviceLibraryUnloaded() { return (NULL == m_mic_instancies_mutex); };
 };
 
 }}}

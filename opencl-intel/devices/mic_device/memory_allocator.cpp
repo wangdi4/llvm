@@ -380,7 +380,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseObject enter"));
 
-    if (0 != m_coi_buffer)
+    if ((0 != m_coi_buffer) && (!MICDevice::isDeviceLibraryUnloaded()))
     {
         coi_err = COIBufferDestroy( m_coi_buffer );
         assert( COI_SUCCESS == coi_err && "Cannot destroy COI Buffer" );
@@ -411,6 +411,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams)
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("CreateMappedRegion enter"));
 
 	// Assume that calling this method only once.
@@ -435,6 +440,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_SUCCESS;
+    }
+
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
     assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
 
@@ -448,6 +458,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
 cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
                                            const size_t *size, IOCLDevMemoryObject** ppSubBuffer )
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+
     MICDevMemorySubObject* pSubObject = new MICDevMemorySubObject(m_Allocator, *this);
     if ( NULL == pSubObject )
     {
@@ -469,6 +484,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore( 
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+
     // TODO: DK: Change implementation!!!!!!
     assert( NULL != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
@@ -478,6 +498,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
 cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+
     // TODO: DK: Change implementation!!!!!!
     assert( NULL != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
@@ -486,6 +511,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
 {
+    if (MICDevice::isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+
     // TODO: DK: Change implementation!!!!!!
     return CL_DEV_SUCCESS;
 }
