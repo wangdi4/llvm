@@ -98,13 +98,13 @@ typedef struct _image_aux_data
 	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
 
-	int dimSub1[MAX_WORK_DIM+1] ALIGN16;	// Image size for each dimension subtracted by one
-											// Used to optimize coordinates computation not to subtract by one for each read
-	int dim[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension
-	int offset[MAX_WORK_DIM+1] ALIGN16;		// the offset to extract pixels
-	float dimf[MAX_WORK_DIM+1] ALIGN16;		// Float image size for each dimension.
-											// Used in coordinates computation to avoid
-											// int->float type conversion for each read call
+	int dimSub1[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension subtracted by one
+												// Used to optimize coordinates computation not to subtract by one for each read
+	int dim[MAX_WORK_DIM+1] ALIGN16;			// Image size for each dimension
+	unsigned int offset[MAX_WORK_DIM+1] ALIGN16;// the offset to extract pixels
+	float dimf[MAX_WORK_DIM+1] ALIGN16;			// Float image size for each dimension.
+												// Used in coordinates computation to avoid
+												// int->float type conversion for each read call
 	int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
 	int dimmask;		// Mask for dimensions in images
 						// Contains ones at dim_count first bytes. Other bytes are zeros.

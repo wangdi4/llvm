@@ -274,31 +274,31 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_t image, int2 coord)
 {
-    int4 offset = *(int4*)(((image_aux_data*)image)->offset);
+    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
     // Use size_t for poitner computations to avoid type overrun
-    void* pixel = (void*)((image_aux_data*)image)->pData+(size_t)coord.x * (size_t)offset.x + (size_t)coord.y * (size_t)offset.y;
+    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
     return pixel;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_array_t image, int4 coord)
 {
-    int4 offset = *(int4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+coord.x * offset.x + coord.y * offset.y 
-               + coord.z*((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->dim[1]*((image_aux_data*)image)->offset[0];
+    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
+    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y 
+               + (uint)coord.z*((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->dim[1]*((image_aux_data*)image)->offset[0];
     return pixel;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_t image, int coord)
 {
-    int4 offset = *(int4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+coord * offset.x;
+    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
+    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord * offset.x;
     return pixel;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_array_t image, int2 coord)
 {
-    int4 offset = *(int4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+coord.x * offset.x + coord.y * offset.y;
+    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
+    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
     return pixel;
 }
 

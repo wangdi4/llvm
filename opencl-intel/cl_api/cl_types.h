@@ -152,13 +152,13 @@ typedef ALIGN16 struct _image_aux_data
 	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
 
-	ALIGN16 int dimSub1[MAX_WORK_DIM+1];	// Image size for each dimension subtracted by one
-											// Used to optimize coordinates computation not to subtract by one for each read
-	ALIGN16 int dim[MAX_WORK_DIM+1];		// Image size for each dimension
-	ALIGN16 int offset[MAX_WORK_DIM+1];		// the offset to extract pixels
-	ALIGN16 float dimf[MAX_WORK_DIM+1];		// Float image size for each dimension.
-											// Used in coordinates computation to avoid
-											// int->float type conversion for each read call
+	ALIGN16 int dimSub1[MAX_WORK_DIM+1];		// Image size for each dimension subtracted by one
+												// Used to optimize coordinates computation not to subtract by one for each read
+	ALIGN16 int dim[MAX_WORK_DIM+1];			// Image size for each dimension
+	ALIGN16 unsigned int offset[MAX_WORK_DIM+1];// the offset to extract pixels
+	ALIGN16 float dimf[MAX_WORK_DIM+1];			// Float image size for each dimension.
+												// Used in coordinates computation to avoid
+												// int->float type conversion for each read call
     int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
 	int dimmask;		// Mask for dimensions in images
 						// Contains ones at dim_count first bytes. Other bytes are zeros.
