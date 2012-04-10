@@ -225,10 +225,10 @@ def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (in
 def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def islessgreater   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
+def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
+def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
+def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
 def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
