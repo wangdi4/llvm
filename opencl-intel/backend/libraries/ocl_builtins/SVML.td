@@ -1,6 +1,7 @@
 // vim:ts=2:sw=2:et:
 
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def svml_acos       : OclBuiltin<"__ocl_svml_$Target_acos$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -72,7 +73,8 @@ def svml_tgamma     : OclBuiltin<"__ocl_svml_$Target_tgamma$SVMLSuffix",     (ou
 def svml_trunc      : OclBuiltin<"__ocl_svml_$Target_trunc$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 }
 
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def svml_cos_native     : OclBuiltin<"__ocl_svml_$Target_cos$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;

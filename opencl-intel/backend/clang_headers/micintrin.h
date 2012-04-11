@@ -1754,6 +1754,11 @@ _mm512_mask_cvtl_ps2pd(__m512d v1_old, __mmaskt k1, __m512 v2)
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_cvt_ps2pi(__m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
+{
+  return (__v8di)__builtin_ia32_cvtps2pi512(v2, rounding, expadj);
+}
+__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_cvt_ps2pi(__m512i v1_old, __mmask16 k1, __m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
   return (__v8di)__builtin_ia32_mask_cvtps2pi512((__v16si)v1_old, k1, v2, rounding, expadj);
@@ -2115,6 +2120,18 @@ __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_getexp_ps(__m512 v1_old, __mmask16 k1, __m512 v2)
 {
   return __builtin_ia32_mask_getexpps512(v1_old, k1, v2);
+}
+
+__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
+_mm512_getexp_pd(__m512d v2)
+{
+  return __builtin_ia32_getexppd512(v2);
+}
+
+__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_getexp_pd(__m512d v1_old, __mmask8 k1, __m512d v2)
+{
+  return __builtin_ia32_mask_getexppd512(v1_old, k1, v2);
 }
 
 /*

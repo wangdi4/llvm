@@ -37,23 +37,15 @@ def mask_mad  : OclBuiltin<"mask_mad",  (outs gentype:$ret), (ins masktype:$mask
 }
 
 // native math builtins
-let Types = [v16f32],
+let Types = [v16f32, v8f64],
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def mask_native_cos     : OclBuiltin<"mask_native_cos",     (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_divide  : OclBuiltin<"mask_native_divide",  (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
-def mask_native_exp     : OclBuiltin<"mask_native_exp",     (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_exp2    : OclBuiltin<"mask_native_exp2",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_exp10   : OclBuiltin<"mask_native_exp10",   (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_log     : OclBuiltin<"mask_native_log",     (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_log2    : OclBuiltin<"mask_native_log2",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_log10   : OclBuiltin<"mask_native_log10",   (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_powr    : OclBuiltin<"mask_native_powr",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
-def mask_native_recip   : OclBuiltin<"mask_native_recip",   (outs gentype:$ret), (ins masktype:$maks, gentype:$x), [], []>;
-def mask_native_rsqrt   : OclBuiltin<"mask_native_rsqrt",   (outs gentype:$ret), (ins masktype:$maks, gentype:$x), [], []>;
-def mask_native_sin     : OclBuiltin<"mask_native_sin",     (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-def mask_native_sqrt    : OclBuiltin<"mask_native_sqrt",    (outs gentype:$ret), (ins masktype:$maks, gentype:$x), [], []>;
-def mask_native_tan     : OclBuiltin<"mask_native_tan",     (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
+def mask_native_fdim    : OclBuiltin<"mask_native_fdim",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
+def mask_native_fmax    : OclBuiltin<"mask_native_fmax",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
+def mask_native_fmin    : OclBuiltin<"mask_native_fmin",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
+def mask_native_fmod    : OclBuiltin<"mask_native_fmod",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
+def mask_native_ilogb   : OclBuiltin<"mask_native_ilogb",   (outs i32gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
+def mask_native_logb    : OclBuiltin<"mask_native_logb",    (outs gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
 }
 
 // integer builtins

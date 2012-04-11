@@ -90,7 +90,8 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 
 
 // OpenCL 1.2 rev 15, Table 6.9
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 // half
 def half_cos      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -122,6 +123,48 @@ def native_rsqrt  : OclBuiltin<"native_rsqrt",  (outs gentype:$ret), (ins gentyp
 def native_sin    : OclBuiltin<"native_sin",    (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_sqrt   : OclBuiltin<"native_sqrt",   (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_tan    : OclBuiltin<"native_tan",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
+// extened native
+def native_acos          : OclBuiltin<"native_acos",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_acosh         : OclBuiltin<"native_acosh",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_acospi        : OclBuiltin<"native_acospi",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_asin          : OclBuiltin<"native_asin",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_asinh         : OclBuiltin<"native_asinh",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_asinpi        : OclBuiltin<"native_asinpi",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_atan          : OclBuiltin<"native_atan",      (outs gentype:$ret), (ins gentype:$y_over_x), [], []>;
+def native_atan2         : OclBuiltin<"native_atan2",     (outs gentype:$ret), (ins gentype:$y, gentype:$x), [], []>;
+def native_atanh         : OclBuiltin<"native_atanh",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_atanpi        : OclBuiltin<"native_atanpi",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_atan2pi       : OclBuiltin<"native_atan2pi",   (outs gentype:$ret), (ins gentype:$y, gentype:$x), [], []>;
+def native_cbrt          : OclBuiltin<"native_cbrt",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_cosh          : OclBuiltin<"native_cosh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_cospi         : OclBuiltin<"native_cospi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_erfc          : OclBuiltin<"native_erfc",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_erf           : OclBuiltin<"native_erf",       (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_expm1         : OclBuiltin<"native_expm1",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_fdim          : OclBuiltin<"native_fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_fmax          : OclBuiltin<"native_fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_fmin          : OclBuiltin<"native_fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_fmod          : OclBuiltin<"native_fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_fract_pas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE; // MIC
+def native_fract_las     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL; // MIC
+def native_fract_gas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL; // MIC
+def native_hypot         : OclBuiltin<"native_hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_ilogb         : OclBuiltin<"native_ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def native_log1p         : OclBuiltin<"native_log1p",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_logb          : OclBuiltin<"native_logb",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_pow           : OclBuiltin<"native_pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_pown          : OclBuiltin<"native_pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], []>;
+def native_rcbrt         : OclBuiltin<"native_rcbrt",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_rootn         : OclBuiltin<"native_rootn",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], []>;
+def native_sincos_pas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_sincos_las    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def native_sincos_gas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def native_sinh          : OclBuiltin<"native_sinh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_sinpi         : OclBuiltin<"native_sinpi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_tanh          : OclBuiltin<"native_tanh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+}
 }
 
 // OpenCL 1.2 rev 15, Table 6.10
