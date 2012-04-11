@@ -33,7 +33,7 @@ OclBuiltinImpl shuffle_2_main_promte = OclBuiltinImpl<shuffle_2,
     __m512i masked_index = (__m512i)((int16)($VecLength -1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeReturnType result;
     result = trunc_to(gather((int16)ext_index, x_reg), &result);
     return result.s01;
@@ -43,7 +43,7 @@ OclBuiltinImpl shuffle_2_main = OclBuiltinImpl<shuffle_2, [v16i8, v16u8, v16i16,
     __m512i masked_index = (__m512i)((int16)($VecLength -1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeReturnType result;
     result = trunc_to(gather((int16)ext_index, $Arg0VarName), &result);
     return result.s01;
@@ -74,7 +74,7 @@ OclBuiltinImpl shuffle_4_main_promote = OclBuiltinImpl<shuffle_4, [v2i8, v4i8, v
     __m512i masked_index = (__m512i)((int16)($VecLength -1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeArg0Type result;
     result = trunc_to(gather((int16)ext_index, x_reg), &result);
     return result.s0123;
@@ -84,7 +84,7 @@ OclBuiltinImpl shuffle_4_main = OclBuiltinImpl<shuffle_4, [v16i8, v16u8, v16i16,
     __m512i masked_index = (__m512i)((int16)($VecLength -1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeReturnType result;
     result = trunc_to(gather((int16)ext_index, $Arg0VarName), &result);
     return result.s0123;
@@ -115,7 +115,7 @@ OclBuiltinImpl shuffle_8_main_promote = OclBuiltinImpl<shuffle_8, [v2i8, v4i8, v
     __m512i masked_index = (__m512i)((int16)($VecLength-1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeReturnType result;
     result = trunc_to(gather((int16)ext_index, x_reg), &result);
     return result.s01234567;
@@ -125,7 +125,7 @@ OclBuiltinImpl shuffle_8_main = OclBuiltinImpl<shuffle_8, [v16i8, v16u8, v16i16,
     __m512i masked_index = (__m512i)((int16)($VecLength-1));
     uint16 new_index = ext_from(native_mask);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $NativeReturnType result;
     result = trunc_to(gather((int16)ext_index, $Arg0VarName), &result);
     return result.s01234567;
@@ -151,7 +151,7 @@ OclBuiltinImpl shuffle_16_main_promote = OclBuiltinImpl<shuffle_16, [v2i8, v4i8,
     __m512i masked_index = (__m512i)((int16)($VecLength-1));
     uint16 new_index = ext_from($Arg1VarName);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $ReturnType result;
     result = trunc_to(gather((int16)ext_index, x_reg), &result);
     return result;
@@ -160,7 +160,7 @@ OclBuiltinImpl shuffle_16_main = OclBuiltinImpl<shuffle_16, [v16i8, v16u8, v16i1
     __m512i masked_index = (__m512i)((int16)($VecLength-1));
     uint16 new_index = ext_from($Arg1VarName);
     __m512i ext_index = (__m512i)new_index;
-    ext_index = _mm512_and_pi(ext_index, masked_index);
+    ext_index = _mm512_and_epi32(ext_index, masked_index);
     $ReturnType result;
     result = trunc_to(gather((int16)ext_index, $Arg0VarName), &result);
     return result;

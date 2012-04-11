@@ -7,7 +7,7 @@ OclBuiltinImpl abs_v16_todo = OclBuiltinImpl<abs, [v16i8, v16i16], 0, [{
     return ($ReturnType)0;
   }]>;
 OclBuiltinImpl abs_v16_i32 = OclBuiltinImpl<abs, [v16i32], 0, [{
-    ushort m16 = _mm512_cmplt_pi((__m512i)$Arg0VarName, (__m512i)(int16)0); // $Arg0VarName < 0
+    ushort m16 = _mm512_cmplt_epi32((__m512i)$Arg0VarName, (__m512i)(int16)0); // $Arg0VarName < 0
     __m512i r = _mm512_mask_mov_epi32((__m512i)$Arg0VarName, m16, (__m512i)-$Arg0VarName); // $Arg0VarName < 0 ? -$Arg0VarName : $Arg0VarName
     return as_$ReturnType(r);
   }]>;
@@ -28,8 +28,8 @@ OclBuiltinImpl add_sat_v16_todo = OclBuiltinImpl<add_sat, [v16i8, v16u8, v16i16,
 OclBuiltinImpl add_sat_v16_i32 = OclBuiltinImpl<add_sat, [v16i32], 0, [{
     ushort s16;
     __m512i r = _mm512_addsets_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName, &s16);
-    ushort p16 = _mm512_cmplt_pi((__m512i)(int16)0, (__m512i)($Arg0VarName | $Arg1VarName)) & s16; // both $Arg0VarName and $Arg1VarName > 0 but sign bit is set
-    ushort n16 = _mm512_cmplt_pi((__m512i)($Arg0VarName & $Arg1VarName), (__m512i)(int16)0) & (~s16); // both $Arg0VarName and $Arg1VarName < 0 but sign bit is not set
+    ushort p16 = _mm512_cmplt_epi32((__m512i)(int16)0, (__m512i)($Arg0VarName | $Arg1VarName)) & s16; // both $Arg0VarName and $Arg1VarName > 0 but sign bit is set
+    ushort n16 = _mm512_cmplt_epi32((__m512i)($Arg0VarName & $Arg1VarName), (__m512i)(int16)0) & (~s16); // both $Arg0VarName and $Arg1VarName < 0 but sign bit is not set
     r = _mm512_mask_mov_epi32(_mm512_mask_mov_epi32(r, p16, (__m512i)(int16)INT_MAX), n16, (__m512i)(int16)INT_MIN);
     return as_$ReturnType(r);
   }]>;
@@ -43,12 +43,12 @@ OclBuiltinImpl add_sat_v8_i64 = OclBuiltinImpl<add_sat, [v8i64], 0, [{
     long8 r = $Arg0VarName + $Arg1VarName;
     uchar p8 = _cmpgt_zero($Arg0VarName | $Arg1VarName) & _cmplt_zero(r);
     uchar n8 = _cmplt_zero($Arg0VarName & $Arg1VarName) & _cmpgt_zero(r);
-    return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64(r, p8, (long8)LONG_MAX), n8, (long8)LONG_MIN);
+    return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64(r, p8, (__m512i)(long8)LONG_MAX), n8, (__m512i)(long8)LONG_MIN);
   }]>;
 OclBuiltinImpl add_sat_v8_u64 = OclBuiltinImpl<add_sat, [v8u64], 0, [{
     uchar c8;
     ulong8 t = _addsetc($Arg0VarName, $Arg1VarName, &c8);
-    __m512i r = _mm512_mask_mov_epi64(t, c8, (ulong8)ULONG_MAX);
+    __m512i r = _mm512_mask_mov_epi64((__m512i)t, c8, (__m512i)(ulong8)ULONG_MAX);
     return as_$ReturnType(r);
   }]>;
 OclBuiltinImpl add_sat_promote = OclBuiltinImpl<add_sat, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8/*,  v16i8*/,
@@ -74,7 +74,7 @@ OclBuiltinImpl clz_v16_u32 = OclBuiltinImpl<clz, [v16u32], 0, [{
   }]>;
 OclBuiltinImpl clz_v8_u64 = OclBuiltinImpl<clz, [v8u64], 0, [{
     __m512i lz = (__m512i)clz(as_uint16($Arg0VarName));
-    ushort m16 = _mm512_mask_cmplt_pi(0xAA, lz, (__m512i)(uint16)32);
+    ushort m16 = _mm512_mask_cmplt_epi32(0xAA, lz, (__m512i)(uint16)32);
     __m512i r = _mm512_mask_add_epi32((__m512i)(uint16)0, 0x55, lz, _mm512_swizzle_epi32(lz, _MM_SWIZ_REG_CDAB));
     r = _mm512_mask_mov_epi32(r, m16 >> 1, _mm512_swizzle_epi32(lz, _MM_SWIZ_REG_CDAB));
     return as_$ReturnType(r);
@@ -96,10 +96,10 @@ OclBuiltinImpl mad_sat_v16_i32 = OclBuiltinImpl<mad_sat, [v16i32], 0, [{
     ushort c16;
     __m512i s = _mm512_addsetc_epi32((__m512i)$Arg2VarName, pl, &c16);
     ph = _mm512_adc_epi32(ph, c16, (__m512i)(int16)0, &c16);
-    ushort p16 = _mm512_cmplt_pi((__m512i)(int16)0, ph) |
-                 (_mm512_cmpeq_pi(ph, (__m512i)(int16)0) & _mm512_cmplt_pi(s, (__m512i)(int16)0));
-    ushort n16 = _mm512_cmplt_pi(ph, (__m512i)(int16)0) |
-                 (_mm512_cmpeq_pi(ph, (__m512i)(int16)-1) & _mm512_cmplt_pi((__m512i)(int16)0, s));
+    ushort p16 = _mm512_cmplt_epi32((__m512i)(int16)0, ph) |
+                 (_mm512_cmpeq_epi32(ph, (__m512i)(int16)0) & _mm512_cmplt_epi32(s, (__m512i)(int16)0));
+    ushort n16 = _mm512_cmplt_epi32(ph, (__m512i)(int16)0) |
+                 (_mm512_cmpeq_epi32(ph, (__m512i)(int16)-1) & _mm512_cmplt_epi32((__m512i)(int16)0, s));
     __m512i r = _mm512_mask_mov_epi32(_mm512_mask_mov_epi32(s, p16, (__m512i)(int16)INT_MAX), n16, (__m512i)(int16)INT_MIN);
     return as_$ReturnType(r);
   }]>;
@@ -123,7 +123,7 @@ OclBuiltinImpl mad_sat_v16_i64 = OclBuiltinImpl<mad_sat, [v8i64], 0, [{
                (_mm512_cmpeq_epi64(ph, (long8)0) & _mm512_cmplt_epi64(s, (long8)0));
     uchar n8 = _mm512_cmplt_epi64(ph, (long8)0) |
                (_mm512_cmpeq_epi64(ph, (long8)-1) & _mm512_cmplt_epi64((long8)0, s));
-    return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64(s, p8, (long8)LONG_MAX), n8, (long8)LONG_MIN);
+    return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64((__m512i)s, p8, (__m512i)(long8)LONG_MAX), n8, (__m512i)(long8)LONG_MIN);
   }]>;
 OclBuiltinImpl mad_sat_v16_u64 = OclBuiltinImpl<mad_sat, [v8u64], 0, [{
     ulong8 pl = as_ulong8(_mm512_mullo_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
@@ -132,7 +132,7 @@ OclBuiltinImpl mad_sat_v16_u64 = OclBuiltinImpl<mad_sat, [v8u64], 0, [{
     ulong8 s = _addsetc($Arg2VarName, pl, &c8);
     ph = _adc(ph, c8, (ulong8)0, &c8);
     c8 = _mm512_cmplt_epu64((__m512i)(ulong8)0, (__m512i)ph);
-    return as_$ReturnType(_mm512_mask_mov_epi64(s, c8, (ulong8)ULONG_MAX));
+    return as_$ReturnType(_mm512_mask_mov_epi64((__m512i)s, c8, (__m512i)(ulong8)ULONG_MAX));
   }]>;
 OclBuiltinImpl mad_sat_promote = OclBuiltinImpl<mad_sat, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8/*,  v16i8*/,
                                                                v1u8,  v2u8,  v3u8,  v4u8,  v8u8/*,  v16u8*/,
@@ -293,8 +293,8 @@ OclBuiltinImpl rotate_v16_todo = OclBuiltinImpl<rotate, [v16u8, v16u16], 0, [{
     return ($ReturnType)0;
   }]>;
 OclBuiltinImpl rotate_v16_u32 = OclBuiltinImpl<rotate, [v16u32], 0, [{
-    return as_$ReturnType(_mm512_sll_pi((__m512i)$Arg0VarName, (__m512i)$Arg1VarName)) |
-           as_$ReturnType(_mm512_srl_pi((__m512i)$Arg0VarName, (__m512i)((uint16)32 - $Arg1VarName)));
+    return as_$ReturnType(_mm512_sll_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName)) |
+           as_$ReturnType(_mm512_srl_epi32((__m512i)$Arg0VarName, (__m512i)((uint16)32 - $Arg1VarName)));
   }]>;
 OclBuiltinImpl rotate_v8_u64 = OclBuiltinImpl<rotate, [v8u64], 0, [{
     return as_$ReturnType(_mm512_sll_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName)) |
@@ -317,7 +317,7 @@ OclBuiltinImpl sub_sat_v16_i32 = OclBuiltinImpl<sub_sat, [v16i32], 0, [{
 OclBuiltinImpl sub_sat_v16_u32 = OclBuiltinImpl<sub_sat, [v16u32], 0, [{
     ushort b16;
     __m512i r = _mm512_subsetb_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName, &b16);
-    return as_$ReturnType(_mm512_mask_mov_epi32(r, b16, (uint16)0));
+    return as_$ReturnType(_mm512_mask_mov_epi32(r, b16, (__m512i)(uint16)0));
   }]>;
 OclBuiltinImpl sub_sat_v8_i64 = OclBuiltinImpl<sub_sat, [v8i64], 0, [{
     return add_sat($Arg0VarName, -$Arg1VarName);
@@ -327,7 +327,7 @@ OclBuiltinImpl sub_sat_v8_u64 = OclBuiltinImpl<sub_sat, [v8u64], 0, [{
     __m512i r = _mm512_mask_subsetb_epi32((__m512i)$Arg0VarName, 0x55, b16, (__m512i)$Arg1VarName, &b16);
     r = _mm512_mask_sbb_epi32(r, 0xAA, b16 << 1, (__m512i)$Arg1VarName, &b16);
     uchar b8 = _mask16z8(b16);
-    return as_$ReturnType(_mm512_mask_mov_epi64(r, b8, (ulong8)0));
+    return as_$ReturnType(_mm512_mask_mov_epi64(r, b8, (__m512i)(ulong8)0));
   }]>;
 OclBuiltinImpl sub_sat_promote = OclBuiltinImpl<sub_sat, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8/*,  v16i8*/,
                                                            v1u8,  v2u8,  v3u8,  v4u8,  v8u8/*,  v16u8*/,
@@ -379,7 +379,7 @@ OclBuiltinImpl mask_popcount_v16_u32 = OclBuiltinImpl<mask_popcount, [v16u32], 0
     // The following 'switch' will be removed during incluing this function
     // with constant mask. As a result, the final builtin on narrow vector
     // won't have branches.
-    _mm512_mask_stored(&t[0], $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNC_NONE, _MM_SUBSET32_16, _MM_HINT_NONE);
+    _mm512_mask_extstore_epi32(&t[0], $Arg0VarName, (__m512i)$Arg1VarName, _MM_DOWNCONV_EPI32_NONE, _MM_HINT_NONE);
     switch ($Arg0VarName) {
         case 0xFFFF:
             t[15] = _mm_countbits_32(t[15]);
@@ -406,7 +406,7 @@ OclBuiltinImpl mask_popcount_v16_u32 = OclBuiltinImpl<mask_popcount, [v16u32], 0
         default:
             break;
     }
-    return as_$ReturnType(_mm512_loadd(&t[0], _MM_FULLUPC_NONE, _MM_BROADCAST32_NONE, _MM_HINT_NONE));
+    return as_$ReturnType(_mm512_extload_epi32(&t[0], _MM_UPCONV_EPI32_NONE, _MM_BROADCAST32_NONE, _MM_HINT_NONE));
   }]>;
 OclBuiltinImpl mask_popcount_v8_u64 = OclBuiltinImpl<mask_popcount, [v8u64], 0, [{
     ulong t[8] __attribute__((aligned(64)));
@@ -414,7 +414,7 @@ OclBuiltinImpl mask_popcount_v8_u64 = OclBuiltinImpl<mask_popcount, [v8u64], 0, 
     // The following 'switch' will be removed during incluing this function
     // with constant mask. As a result, the final builtin on narrow vector
     // won't have branches.
-    _mm512_mask_storeq(&t[0], $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNC64_NONE, _MM_SUBSET64_8, _MM_HINT_NONE);
+    _mm512_mask_extstore_epi64(&t[0], $Arg0VarName, (__m512i)$Arg1VarName, _MM_DOWNCONV_EPI64_NONE, _MM_HINT_NONE);
     switch ($Arg0VarName) {
         case 0xFF:
             t[7] = _mm_countbits_64(t[7]);
@@ -432,7 +432,7 @@ OclBuiltinImpl mask_popcount_v8_u64 = OclBuiltinImpl<mask_popcount, [v8u64], 0, 
         default:
             break;
     }
-    return as_$ReturnType(_mm512_loadq(&t[0], _MM_FULLUPC64_NONE, _MM_BROADCAST64_NONE, _MM_HINT_NONE));
+    return as_$ReturnType(_mm512_extload_epi64(&t[0], _MM_UPCONV_EPI64_NONE, _MM_BROADCAST64_NONE, _MM_HINT_NONE));
   }]>;
 OclBuiltinImpl popcount_promote = OclBuiltinImpl<popcount, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
@@ -442,7 +442,7 @@ OclBuiltinImpl popcount_expand = OclBuiltinImpl<popcount, [v16u64], 0, Expand1>;
 
 // mad24
 OclBuiltinImpl mad24_v16_ui32 = OclBuiltinImpl<mad24, [v16i32, v16u32], 0, [{
-    __m512i r = _mm512_madd231_pi((__m512i)$Arg2VarName, (__m512i)$Arg0VarName, (__m512i)$Arg1VarName);
+    __m512i r = _mm512_madd231_epi32((__m512i)$Arg2VarName, (__m512i)$Arg0VarName, (__m512i)$Arg1VarName);
     return as_$ReturnType(r);
   }]>;
 OclBuiltinImpl mad24_promote = OclBuiltinImpl<mad24, [v1i32, v2i32, v3i32, v4i32, v8i32/*, v16i32*/,

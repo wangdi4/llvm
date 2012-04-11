@@ -77,11 +77,11 @@ OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     double8 norm    = (double8)(1.0);
     double8 denorm  = (double8)(1.0);
     // Get the norm and denorm
-    __m512i abs_data = _mm512_and_pq((__m512i)data, (__m512i)sign_mask);
+    __m512i abs_data = _mm512_and_epi64((__m512i)data, (__m512i)sign_mask);
     // The "any" function is implemented through _mm512_kortestz, so there should result no (or almost no)
     // branch prediction penality
-    __mmask16 match     = _mm512_cmplt_pi(abs_data, (__m512i)exp_lower);
-    __mmask16 zero_exp  = _mm512_cmple_pi(abs_data, (__m512i)exp_zero);
+    __mmask16 match     = _mm512_cmplt_epi32(abs_data, (__m512i)exp_lower);
+    __mmask16 zero_exp  = _mm512_cmple_epi32(abs_data, (__m512i)exp_zero);
     // Any of the data is smaller than the underflow threshold, pluse none of the data will result overflow after multiplied
     // with norm; !_mm512_kortestz is a "any" operation and _mm512_kortestc is a "all" operation
     if (!_mm512_kortestz(match, match) && _mm512_kortestc(zero_exp, zero_exp)){
@@ -90,7 +90,7 @@ OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     }
 
     // According to OpenCL manual, overflow needs to be addressed first, then underflow
-    match = _mm512_cmpnle_pi(abs_data, (__m512i)exp_upper);
+    match = _mm512_cmpnle_epi32(abs_data, (__m512i)exp_upper);
     if (!_mm512_kortestz(match, match)){
       norm    = (double8)exp_lower;
       denorm  = (double8)exp_upper;
@@ -123,14 +123,14 @@ OclBuiltinImpl normalize_f32_vector = OclBuiltinImpl<normalize, [v2f32, v3f32, v
     float16 all_nan = (float16)as_float(0xFF800000); // float NAN
 
     // one_vector=( x_reg >0)?1.0:-1.0
-    __m512i sign_mask = _mm512_and_pi((__m512i)x_reg, (__m512i)((int16)const_vector_msb));
-    __m512i one_vector = _mm512_or_pi((__m512i)one, sign_mask); // 1 *sign_bit(x)
+    __m512i sign_mask = _mm512_and_epi32((__m512i)x_reg, (__m512i)((int16)const_vector_msb));
+    __m512i one_vector = _mm512_or_epi32((__m512i)one, sign_mask); // 1 *sign_bit(x)
 
     // data = isinf(x_reg)?one:data
     __m512i data = (__m512i)x_reg;
-    data = _mm512_andn_pi(data, (__m512i)ifinf);
-    one_vector = _mm512_and_pi(one_vector, (__m512i)ifinf);
-    data = _mm512_or_pi(data, one_vector);
+    data = _mm512_andnot_epi32(data, (__m512i)ifinf);
+    one_vector = _mm512_and_epi32(one_vector, (__m512i)ifinf);
+    data = _mm512_or_epi32(data, one_vector);
 
     // returun 16NAN if any of the element is NAN
     if (any(ifnan))
@@ -167,14 +167,14 @@ OclBuiltinImpl normalize_f64_vector = OclBuiltinImpl<normalize, [v2f64, v3f64, v
     double8 all_nan = (double8)as_double(0xFFF0000000000000L); // DP NAN
 
     // one_vector=( x_reg >0)?1.0:-1.0
-    __m512i sign_mask = _mm512_and_pq((__m512i)x_reg, const_vector_long_msb);
-    __m512i one_vector = _mm512_or_pq((__m512i)one, sign_mask); // 1 *sign_bit(x)
+    __m512i sign_mask = _mm512_and_epi64((__m512i)x_reg, const_vector_long_msb);
+    __m512i one_vector = _mm512_or_epi64((__m512i)one, sign_mask); // 1 *sign_bit(x)
 
     // data = isinf(x_reg)?one:data
     __m512i data = (__m512i)(x_reg);
-    data = _mm512_andn_pq(data, (__m512i)ifinf);
-    one_vector = _mm512_and_pq(one_vector, (__m512i)ifinf);
-    data = _mm512_or_pq(data, one_vector);
+    data = _mm512_andnot_epi64(data, (__m512i)ifinf);
+    one_vector = _mm512_and_epi64(one_vector, (__m512i)ifinf);
+    data = _mm512_or_epi64(data, one_vector);
 
     // returun 16NAN if any of the element is NAN
     if (any(ifnan))
@@ -310,7 +310,7 @@ OclBuiltinImpl fast_normalize_f32_vector = OclBuiltinImpl<fast_normalize, [v2f32
     __m512 zeros = _mm512_setzero();
     __mmask16 small_val = _mm512_cmpeq_ps(ref, zeros);
     temp = (__m512)x_reg;
-    temp = (__m512)_mm512_mask_and_pi((__m512i)temp, small_val, (__m512i)zeros, (__m512i)zeros);
+    temp = (__m512)_mm512_mask_and_epi32((__m512i)temp, small_val, (__m512i)zeros, (__m512i)zeros);
     temp = _mm512_mul_ps(temp, temp);
     add_reduce1_ps(temp);
     add_reduce2_ps(temp);

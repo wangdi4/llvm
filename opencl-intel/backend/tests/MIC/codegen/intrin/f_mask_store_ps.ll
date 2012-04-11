@@ -6,15 +6,13 @@
 
 target datalayout = "e-p:64:64"
 
-declare void @llvm.x86.mic.mask.store.ps(i8 *, i16, <16 x float>, i32, i32, i32)
+declare void @llvm.x86.mic.mask.store.ps(i8 *, i16, <16 x float>, i32, i32)
 
 define void @f_mask_store_ps(i8 * %arg0, i16 %arg1, <16 x float> %arg2) {
 ; KNF: f_mask_store_ps:
-; KNF: andl $1, %{{[a-z]*}}
-; KNF: vkmov %{{[a-z]*}}, %k{{[0-9]*}}
 ; KNF vstored   %{{v[0-9]+}}{sint16}, (%{{[a-z]*}}){nt}{%k{{[0-9]*}}}
 entry:
-  call void @llvm.x86.mic.mask.store.ps(i8 * %arg0, i16 %arg1, <16 x float> %arg2, i32 5, i32 1, i32 1)
+  call void @llvm.x86.mic.mask.store.ps(i8 * %arg0, i16 %arg1, <16 x float> %arg2, i32 5, i32 1)
 
  ret void 
 }
